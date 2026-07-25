@@ -1,0 +1,56 @@
+{
+  "parent": "item/generated",
+  "textures": {
+    "layer0": "jojo_ripples:item/meteoric_scrap"
+  },
+  "overrides": [
+    {
+      "predicate": {
+        "custom_model_data": 14
+      },
+      "model": "jojo_ripples:item/item_icon_awaken"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 15
+      },
+      "model": "jojo_ripples:item/item_icon_wind_mode"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 16
+      },
+      "model": "jojo_ripples:item/item_icon_heat_mode"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 17
+      },
+      "model": "jojo_ripples:item/item_icon_light_mode"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 18
+      },
+      "model": "jojo_ripples:item/item_icon_pillarman_punch"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 19
+      },
+      "model": "jojo_ripples:item/item_icon_vampirism_punch"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 20
+      },
+      "model": "jojo_ripples:item/item_icon_hamon_punch"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 21
+      },
+      "model": "jojo_ripples:item/item_icon_pillarman_explode"
+    }
+  ]
+}

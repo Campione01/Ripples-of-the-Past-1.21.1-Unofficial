@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "combat",
+  "pattern": [
+    " s ",
+    "i i"
+  ],
+  "key": {
+    "i": {
+      "tag": "c:ingots/iron"
+    },
+    "s": {
+      "tag": "c:strings"
+    }
+  },
+  "result": {
+    "id": "jojo_ripples:clackers"
+  }
+}

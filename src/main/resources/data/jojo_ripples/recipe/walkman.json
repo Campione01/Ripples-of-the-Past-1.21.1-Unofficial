@@ -1,0 +1,29 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "n n",
+    "sis",
+    "rjr"
+  ],
+  "key": {
+    "j": {
+      "item": "minecraft:jukebox"
+    },
+    "s": {
+      "tag": "c:strings"
+    },
+    "n": {
+      "tag": "c:nuggets/iron"
+    },
+    "i": {
+      "tag": "c:ingots/iron"
+    },
+    "r": {
+      "tag": "c:dusts/redstone"
+    }
+  },
+  "result": {
+    "id": "jojo_ripples:walkman"
+  }
+}

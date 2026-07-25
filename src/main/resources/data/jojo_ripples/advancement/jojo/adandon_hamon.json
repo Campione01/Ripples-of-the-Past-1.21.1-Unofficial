@@ -1,0 +1,28 @@
+{
+  "parent": "jojo_ripples:jojo/get_hamon",
+  "display": {
+    "icon": {
+      "item": "jojo_ripples:meteoric_scrap"
+    },
+    "title": {
+      "translate": "advancements.jojo.abandon_hamon.title"
+    },
+    "description": {
+      "translate": "advancements.jojo.abandon_hamon.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "abandon_hamon": {
+      "trigger": "jojo_ripples:abandon_hamon"
+    }
+  },
+  "requirements": [
+    [
+      "abandon_hamon"
+    ]
+  ]
+}

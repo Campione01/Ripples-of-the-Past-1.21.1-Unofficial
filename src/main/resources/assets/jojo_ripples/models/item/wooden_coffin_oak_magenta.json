@@ -1,0 +1,6 @@
+{
+  "parent": "jojo_ripples:item/coffin",
+  "textures": {
+    "1": "minecraft:block/magenta_wool"
+  }
+}

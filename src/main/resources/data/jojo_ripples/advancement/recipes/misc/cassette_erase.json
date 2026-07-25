@@ -1,0 +1,32 @@
+{
+  "parent": "minecraft:recipes/root",
+  "rewards": {
+    "recipes": [
+      "jojo_ripples:cassette_erase"
+    ]
+  },
+  "criteria": {
+    "has_recorded_cassette": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "jojo_ripples:cassette_recorded"
+          }
+        ]
+      }
+    },
+    "has_the_recipe": {
+      "trigger": "minecraft:recipe_unlocked",
+      "conditions": {
+        "recipe": "jojo_ripples:cassette_erase"
+      }
+    }
+  },
+  "requirements": [
+    [
+      "has_recorded_cassette",
+      "has_the_recipe"
+    ]
+  ]
+}

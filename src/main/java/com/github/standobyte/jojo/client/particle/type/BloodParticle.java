@@ -1,0 +1,129 @@
+package com.github.standobyte.jojo.client.particle.type;
+
+import java.util.List;
+import java.util.Optional;
+
+import org.apache.commons.lang3.tuple.Pair;
+
+import com.github.standobyte.jojo.init.ModEntityTypes;
+
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.particle.Particle;
+import net.minecraft.client.particle.ParticleProvider;
+import net.minecraft.client.particle.ParticleRenderType;
+import net.minecraft.client.particle.SpriteSet;
+import net.minecraft.client.particle.TextureSheetParticle;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.SimpleParticleType;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
+
+public class BloodParticle extends TextureSheetParticle {
+	private int waterDownTicks = 0;
+	private Optional<Pair<Entity, Vec3>> entityOffset = Optional.empty();
+
+	protected BloodParticle(ClientLevel level, double x, double y, double z, double xSpeed, double ySpeed, double zSpeed) {
+		super(level, x, y, z);
+		this.xd = xSpeed + (Math.random() * 2.0D - 1.0D) * 0.1;
+		this.yd = ySpeed + (Math.random() * 2.0D - 1.0D) * 0.1;
+		this.zd = zSpeed + (Math.random() * 2.0D - 1.0D) * 0.1;
+	}
+
+	@Override
+	public ParticleRenderType getRenderType() {
+		return ParticleRenderType.PARTICLE_SHEET_TRANSLUCENT;
+	}
+
+	@Override
+	public void tick() {
+		xo = x;
+		yo = y;
+		zo = z;
+		float ageRatio = (float) (age + waterDownTicks) / (float) lifetime;
+		setAlpha(Math.min((1 - ageRatio) * 4, 1));
+		if ((age++ + waterDownTicks) >= lifetime) {
+			remove();
+			return;
+		}
+
+		if (!entityOffset.isPresent()) {
+			List<Entity> entities = checkEntity();
+			if (!entities.isEmpty()) {
+				Entity entity = entities.get(0);
+				entityOffset = Optional.of(Pair.of(entity, entity.position().subtract(x, y, z)));
+			}
+		}
+
+		if (entityOffset.isPresent()) {
+			Entity entity = entityOffset.get().getLeft();
+			if (!entity.isAlive()) {
+				entityOffset = Optional.empty();
+			}
+			else {
+				Vec3 pos = entity.position().subtract(entityOffset.get().getRight());
+				setPos(pos.x, pos.y, pos.z);
+			}
+		}
+		else {
+			if (age >= 5 && !(xd == 0 && yd == 0 && zd == 0)) {
+				yd -= 0.04D * (double) gravity;
+			}
+			double xdPrev = xd;
+			double ydPrev = yd;
+			double zdPrev = zd;
+			move(xd, yd, zd);
+			double smallVal = 1.0E-5;
+			if (Math.abs(xdPrev) >= smallVal && Math.abs(xd) < smallVal || 
+					Math.abs(ydPrev) >= smallVal && Math.abs(yd) < smallVal || 
+					Math.abs(zdPrev) >= smallVal && Math.abs(zd) < smallVal) {
+				xd = 0;
+				yd = 0;
+				zd = 0;
+			}
+		}
+
+		BlockPos pos = BlockPos.containing(getBoundingBox().getCenter());
+		if (!level.getFluidState(pos).isEmpty()) {
+			waterDownTicks = lifetime;
+		}
+		else if (level.isRainingAt(pos)) {
+			waterDownTicks += lifetime / 10;
+		}
+	}
+
+	protected List<Entity> checkEntity() {
+		return level.getEntities((Entity) null, this.getBoundingBox().move(xd, yd, zd).move(xd, yd, zd).move(xd, yd, zd).move(xd, yd, zd), 
+				entity -> entity.getType() != ModEntityTypes.CD_BLOOD_CUTTER.get());
+	}
+
+	private void stopParticle() {
+		xd = 0;
+		yd = 0;
+		zd = 0;
+	}
+
+	public static class Factory implements ParticleProvider<SimpleParticleType> {
+		private final SpriteSet spriteSet;
+		private static SpriteSet spriteStatic;
+
+		public Factory(SpriteSet sprite) {
+			this.spriteSet = sprite;
+			spriteStatic = sprite;
+		}
+
+		@Override
+		public Particle createParticle(SimpleParticleType type, ClientLevel level, double x, double y, double z, double xSpeed, double ySpeed, double zSpeed) {
+			BloodParticle particle = new BloodParticle(level, x, y, z, xSpeed, ySpeed, zSpeed);
+			particle.pickSprite(spriteSet);
+			particle.setLifetime(60);
+			particle.scale(0.5F);
+			particle.gravity = 1;
+			return particle;
+		}
+
+		public static SpriteSet getSprite() {
+			return spriteStatic;
+		}
+	}
+
+}

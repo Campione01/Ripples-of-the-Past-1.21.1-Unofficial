@@ -1,0 +1,38 @@
+{
+  "parent": "minecraft:recipes/root",
+  "rewards": {
+    "recipes": [
+      "jojo_ripples:mr_president_key"
+    ]
+  },
+  "criteria": {
+    "gave_mr_president": {
+      "trigger": "jojo_ripples:stand_arrow_hit",
+      "conditions": {
+        "target": {
+          "type": "jojo_ripples:coco_jumbo_turtle"
+        },
+        "arrow_hit": {
+          "gave_stand": true,
+          "shot_self": false,
+          "target_stand": {
+            "classification": "stand",
+            "type": "jojo_ripples:mr_president"
+          }
+        }
+      }
+    },
+    "has_the_recipe": {
+      "trigger": "minecraft:recipe_unlocked",
+      "conditions": {
+        "recipe": "jojo_ripples:mr_president_key"
+      }
+    }
+  },
+  "requirements": [
+    [
+      "gave_mr_president",
+      "has_the_recipe"
+    ]
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "name": "jojo_ripples:hamon_temple",
+  "fallback": "minecraft:empty",
+  "elements": [
+    {
+      "weight": 1,
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "projection": "rigid",
+        "location": "jojo_ripples:hamon_temple/building",
+        "processors": "minecraft:empty"
+      }
+    }
+  ]
+}

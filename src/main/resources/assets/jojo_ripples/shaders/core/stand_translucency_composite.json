@@ -1,0 +1,10 @@
+{
+  "vertex": "blit_screen",
+  "fragment": "jojo_ripples:stand_translucency_composite",
+  "samplers": [
+    { "name": "StandColorSampler" },
+    { "name": "StandDepthSampler" },
+    { "name": "SceneDepthSampler" }
+  ],
+  "uniforms": []
+}

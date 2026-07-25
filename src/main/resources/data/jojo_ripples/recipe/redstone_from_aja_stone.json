@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "jojo_ripples:aja_stone"
+    }
+  ],
+  "result": {
+    "id": "minecraft:redstone",
+    "count": 2
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "parent": "jojo_ripples:jojo/root",
+  "display": {
+    "icon": {
+      "item": "jojo_ripples:stand_arrow_meteorite"
+    },
+    "title": {
+      "translate": "advancements.jojo.get_stand.title"
+    },
+    "description": {
+      "translate": "advancements.jojo.get_stand.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "get_stand": {
+      "trigger": "jojo_ripples:get_power",
+      "conditions": {
+        "jojopower": {
+          "classification": "stand"
+        }
+      }
+    }
+  },
+  "requirements": [
+    [
+      "get_stand"
+    ]
+  ]
+}

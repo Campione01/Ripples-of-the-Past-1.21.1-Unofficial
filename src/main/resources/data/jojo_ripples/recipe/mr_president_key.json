@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    " nr",
+    " nn",
+    "n  "
+  ],
+  "key": {
+    "n": {
+      "tag": "c:nuggets/gold"
+    },
+    "r": {
+      "tag": "c:storage_blocks/redstone"
+    }
+  },
+  "result": {
+    "id": "jojo_ripples:mr_president_key"
+  }
+}

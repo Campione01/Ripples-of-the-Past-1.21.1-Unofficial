@@ -1,0 +1,10 @@
+{
+  "loader": "neoforge:fluid_container",
+  "fluid": "jojo_ripples:boiling_blood",
+  "apply_fluid_luminosity": true,
+  "textures": {
+    "base": "minecraft:item/bucket",
+    "fluid": "minecraft:item/bucket",
+    "particle": "jojo_ripples:block/boiling_blood_still"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "parent": "jojo_ripples:jojo/root",
+  "display": {
+    "icon": {
+      "item": "jojo_ripples:meteoric_scrap"
+    },
+    "title": {
+      "translate": "advancements.jojo.get_vampirism.title"
+    },
+    "description": {
+      "translate": "advancements.jojo.get_vampirism.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "get_vampirism": {
+      "trigger": "jojo_ripples:get_power",
+      "conditions": {
+        "jojopower": {
+          "classification": "non_stand",
+          "type": "jojo_ripples:vampirism"
+        }
+      }
+    }
+  },
+  "requirements": [["get_vampirism"]]
+}

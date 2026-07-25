@@ -1,0 +1,36 @@
+{
+  "stand_summon": {
+    "replace": true,
+    "sounds": [ 
+      "jojo_ripples:stand/hierophant_green/hierophant_green_summon", 
+      "jojo_ripples:stand/hierophant_green/hierophant_green_summon_2"
+    ]
+  },
+  "stand_unsummon": {
+    "replace": true,
+    "sounds": [ "jojo_ripples:stand_unsummon" ]
+  },
+  "hierophant_green_summon": {
+    "replace": true,
+    "sounds": [ 
+      "jojo_ripples:stand/hierophant_green/hierophant_green_summon", 
+      "jojo_ripples:stand/hierophant_green/hierophant_green_summon_2"
+    ]
+  },
+  "hierophant_green_unsummon": {
+    "replace": true,
+    "sounds": [ "jojo_ripples:stand_unsummon" ]
+  },
+  "hierophant_green_tentacles": {
+    "replace": true,
+    "sounds": [ "jojo_ripples:stand/hierophant_green/hierophant_green_tentacles" ]
+  },
+  "hierophant_green_emerald_splash": {
+    "replace": true,
+    "sounds": [
+      "jojo_ripples:stand/hierophant_green/hierophant_green_emerald_splash",
+      "jojo_ripples:stand/hierophant_green/hierophant_green_emerald_splash_2",
+      "jojo_ripples:stand/hierophant_green/hierophant_green_emerald_splash_3"
+    ]
+  }
+}

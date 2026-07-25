@@ -1,0 +1,8 @@
+{
+	"message_id": "this_is_not_supposed_to_be_printed",
+	"scaling": "never",
+	"exhaustion": 0,
+	
+	"effects": "hurt",
+	"death_message_type": "default"
+}

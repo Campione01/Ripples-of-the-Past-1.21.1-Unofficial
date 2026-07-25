@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "combat",
+  "ingredients": [
+    {
+      "tag": "minecraft:wool"
+    },
+    {
+      "tag": "c:strings"
+    },
+    {
+      "item": "jojo_ripples:oil"
+    }
+  ],
+  "result": {
+    "id": "jojo_ripples:molotov"
+  }
+}

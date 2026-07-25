@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "equipment",
+  "ingredients": [
+    {
+      "item": "jojo_ripples:gloves"
+    },
+    {
+      "item": "jojo_ripples:soap"
+    }
+  ],
+  "result": {
+    "id": "jojo_ripples:bubble_gloves",
+    "count": 1,
+    "components": {
+      "jojo_ripples:bubble_gloves_ammo": 500
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "structures": [
+    {
+      "structure": "jojo_ripples:pillarman_temple",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "spacing": 64,
+    "separation": 20,
+    "salt": 64023956
+  }
+}

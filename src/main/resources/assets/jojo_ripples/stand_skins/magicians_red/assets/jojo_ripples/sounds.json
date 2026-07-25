@@ -1,0 +1,57 @@
+{
+  "stand_summon": {
+    "replace": true,
+    "sounds": [
+      "jojo_ripples:stand/magicians_red/magicians_red_summon",
+      "jojo_ripples:stand/magicians_red/magicians_red_summon_2"
+    ]
+  },
+  "stand_unsummon": {
+    "replace": true,
+    "sounds": [ "jojo_ripples:stand_unsummon" ]
+  },
+  "stand_punch_light": {
+    "replace": true,
+    "sounds": [
+      {
+        "name": "jojo_ripples:magicians_red_punch_light",
+        "type": "event"
+      }
+    ]
+  },
+  "stand_punch_heavy": {
+    "replace": true,
+    "sounds": [
+      {
+        "name": "jojo_ripples:magicians_red_punch_heavy",
+        "type": "event"
+      }
+    ]
+  },
+  "magicians_red_summon": {
+    "replace": true,
+    "sounds": [
+      "jojo_ripples:stand/magicians_red/magicians_red_summon",
+      "jojo_ripples:stand/magicians_red/magicians_red_summon_2"
+    ]
+  },
+  "magicians_red_unsummon": {
+    "replace": true,
+    "sounds": [ "jojo_ripples:stand_unsummon" ]
+  },
+  "magicians_red_punch_light": {
+    "replace": true,
+    "sounds": [
+      "jojo_ripples:stand_punch_light",
+      "jojo_ripples:stand_punch_light_2",
+      "jojo_ripples:stand_punch_light_3",
+      "jojo_ripples:stand_punch_light_4"
+    ]
+  },
+  "magicians_red_punch_heavy": {
+    "replace": true,
+    "sounds": [
+      "jojo_ripples:stand_punch_heavy"
+    ]
+  }
+}

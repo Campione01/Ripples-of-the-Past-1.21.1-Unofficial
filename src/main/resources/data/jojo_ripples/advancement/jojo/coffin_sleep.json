@@ -1,0 +1,29 @@
+{
+  "parent": "jojo_ripples:jojo/get_vampirism",
+  "display": {
+    "icon": {
+      "item": "jojo_ripples:wooden_coffin_oak_red"
+    },
+    "title": {
+      "translate": "advancements.jojo.coffin_sleep.title"
+    },
+    "description": {
+      "translate": "advancements.jojo.coffin_sleep.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "coffin_sleep": {
+      "trigger": "jojo_ripples:coffin_sleep",
+      "conditions": {}
+    }
+  },
+  "requirements": [
+    [
+      "coffin_sleep"
+    ]
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    [
+      {
+        "item": "minecraft:porkchop"
+      },
+      {
+        "item": "minecraft:beef"
+      },
+      {
+        "item": "minecraft:chicken"
+      },
+      {
+        "item": "minecraft:mutton"
+      },
+      {
+        "item": "minecraft:rabbit"
+      }
+    ],
+    {
+      "item": "minecraft:bone"
+    },
+    {
+      "item": "minecraft:leather"
+    },
+    {
+      "item": "minecraft:potion",
+      "components": {
+        "minecraft:potion_contents": {
+          "potion": "minecraft:water"
+        }
+      }
+    }
+  ],
+  "result": {
+    "id": "jojo_ripples:soap",
+    "count": 1
+  }
+}

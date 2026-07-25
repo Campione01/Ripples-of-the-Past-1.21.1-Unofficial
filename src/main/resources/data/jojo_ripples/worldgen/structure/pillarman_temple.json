@@ -1,0 +1,7 @@
+{
+  "type": "jojo_ripples:pillarman_temple",
+  "biomes": "#jojo_ripples:has_structure/pillarman_temple",
+  "step": "surface_structures",
+  "terrain_adaptation": "beard_thin",
+  "spawn_overrides": {}
+}

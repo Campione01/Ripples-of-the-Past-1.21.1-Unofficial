@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "sis",
+    " b "
+  ],
+  "key": {
+    "s": {
+      "item": "minecraft:string"
+    },
+    "i": {
+      "tag": "c:ingots/iron"
+    },
+    "b": {
+      "item": "minecraft:iron_bars"
+    }
+  },
+  "result": {
+    "id": "jojo_ripples:breath_control_mask",
+    "count": 1,
+    "components": {
+      "minecraft:enchantments": {
+        "levels": {
+          "minecraft:binding_curse": 1
+        }
+      }
+    }
+  }
+}

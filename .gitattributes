@@ -1,0 +1,26 @@
+# Keep the public snapshot deterministic across Windows and Linux.
+* text=auto
+
+*.java text eol=lf
+*.gradle text eol=lf
+*.properties text eol=lf
+*.json text eol=lf
+*.toml text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.fsh text eol=lf
+*.vsh text eol=lf
+*.mcmeta text eol=lf
+*.bbmodel text eol=lf
+gradlew text eol=lf
+*.bat text eol=crlf
+
+*.jar binary
+*.png binary
+*.ogg binary
+*.nbt binary
+
+src/generated/**/.cache/cache text eol=lf
+src/generated/**/*.json text eol=lf

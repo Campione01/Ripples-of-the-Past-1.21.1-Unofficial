@@ -1,0 +1,33 @@
+{
+  "parent": "jojo_ripples:jojo/root",
+  "display": {
+    "icon": {
+      "id": "jojo_ripples:meteoric_scrap",
+      "components": {
+        "minecraft:custom_model_data": 14
+      }
+    },
+    "title": {
+      "translate": "advancements.jojo.get_pillarman.title"
+    },
+    "description": {
+      "translate": "advancements.jojo.get_pillarman.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "criteria": {
+    "get_pillarman": {
+      "trigger": "jojo_ripples:get_power",
+      "conditions": {
+        "jojopower": {
+          "classification": "non_stand",
+          "type": "jojo_ripples:pillarman"
+        }
+      }
+    }
+  },
+  "requirements": [["get_pillarman"]]
+}

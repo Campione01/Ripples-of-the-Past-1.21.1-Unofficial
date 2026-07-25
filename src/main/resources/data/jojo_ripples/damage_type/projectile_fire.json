@@ -1,0 +1,8 @@
+{
+	"message_id": "inFire",
+	"scaling": "never",
+	"exhaustion": 0.1,
+	
+	"effects": "burning",
+	"death_message_type": "default"
+}

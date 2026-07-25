@@ -1,0 +1,24 @@
+{
+  "parent": "jojo_ripples:jojo/pillarman_evolve",
+  "display": {
+    "icon": {
+      "item": "jojo_ripples:aja_stone_mask"
+    },
+    "title": {
+      "translate": "advancements.jojo.pillarman_evolve_aja.title"
+    },
+    "description": {
+      "translate": "advancements.jojo.pillarman_evolve_aja.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "pillarman_evolve_aja": {
+      "trigger": "jojo_ripples:pillarman_evolve_aja"
+    }
+  },
+  "requirements": [["pillarman_evolve_aja"]]
+}

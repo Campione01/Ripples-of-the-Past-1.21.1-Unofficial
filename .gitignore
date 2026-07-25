@@ -1,0 +1,49 @@
+# eclipse
+bin
+*.launch
+.settings
+.metadata
+.classpath
+.project
+
+# idea
+out
+*.ipr
+*.iws
+*.iml
+.idea
+
+# local Codex and editor state
+/.agents/
+/.codex/
+/.codex-plans/
+/.codex-tmp/
+/.vscode/
+
+# gradle
+build
+.gradle
+
+# datagen
+src/generated/resources/.cache
+
+# local development and generated state
+eclipse
+run
+runs
+run-data
+repo
+/1.21.1/
+/assets/
+/docs/
+/logs/
+/scripts/
+/tools/
+**/__pycache__/
+*.py[cod]
+*.class
+*.log
+
+# Assets with no verified redistribution grant are intentionally not published.
+/src/main/resources/assets/jojo_ripples/sounds/
+/src/main/resources/User content templates/

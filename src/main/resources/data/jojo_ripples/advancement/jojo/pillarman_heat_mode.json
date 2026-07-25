@@ -1,0 +1,27 @@
+{
+  "parent": "jojo_ripples:jojo/pillarman_evolve_aja",
+  "display": {
+    "icon": {
+      "id": "jojo_ripples:meteoric_scrap",
+      "components": {
+        "minecraft:custom_model_data": 16
+      }
+    },
+    "title": {
+      "translate": "advancements.jojo.pillarman_heat_mode.title"
+    },
+    "description": {
+      "translate": "advancements.jojo.pillarman_heat_mode.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "pillarman_heat_mode": {
+      "trigger": "jojo_ripples:pillarman_heat_mode"
+    }
+  },
+  "requirements": [["pillarman_heat_mode"]]
+}

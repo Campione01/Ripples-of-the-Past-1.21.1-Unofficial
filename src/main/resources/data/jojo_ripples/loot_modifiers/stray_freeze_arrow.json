@@ -1,0 +1,12 @@
+{
+  "type": "jojo_ripples:stray_freeze_arrow",
+  "conditions": [
+    {
+      "condition": "minecraft:entity_properties",
+      "predicate": {
+        "type": "minecraft:stray"
+      },
+      "entity": "this"
+    }
+  ]
+}

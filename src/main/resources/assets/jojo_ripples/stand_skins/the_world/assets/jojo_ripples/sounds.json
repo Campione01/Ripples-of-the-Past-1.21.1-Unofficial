@@ -1,0 +1,102 @@
+{
+  "stand_summon": {
+    "replace": true,
+    "sounds": [
+      "jojo_ripples:stand/the_world/the_world_summon",
+      "jojo_ripples:stand/the_world/the_world_summon_2"
+    ]
+  },
+  "stand_unsummon": {
+    "replace": true,
+    "sounds": [
+      "jojo_ripples:stand_unsummon"
+    ]
+  },
+  "stand_punch_light": {
+    "replace": true,
+    "sounds": [
+      "jojo_ripples:stand/the_world/the_world_punch_light"
+    ]
+  },
+  "stand_punch_barrage": {
+    "replace": true,
+    "sounds": [
+      "jojo_ripples:stand/the_world/the_world_punch_light"
+    ]
+  },
+  "stand_punch_heavy": {
+    "replace": true,
+    "sounds": [
+      "jojo_ripples:stand/the_world/the_world_punch_heavy"
+    ]
+  },
+  "stand_punch_cry": {
+    "replace": true,
+    "subtitle": "jojo_ripples.subtitle.muda",
+    "sounds": [
+      "jojo_ripples:stand_user/dio_muda",
+      "jojo_ripples:stand_user/dio_muda_2",
+      "jojo_ripples:stand_user/dio_muda_3",
+      "jojo_ripples:stand_user/dio_muda_4"
+    ]
+  },
+  "stand_barrage_cry": {
+    "replace": true,
+    "subtitle": "jojo_ripples.subtitle.muda_rush",
+    "sounds": [
+      "jojo_ripples:stand/the_world/the_world_muda_muda_muda",
+      "jojo_ripples:stand/the_world/the_world_muda_muda_muda_2"
+    ]
+  },
+  "time_stop": {
+    "replace": true,
+    "sounds": [
+      "jojo_ripples:stand/the_world/the_world_time_stop"
+    ]
+  },
+  "time_resume": {
+    "replace": true,
+    "sounds": [
+      "jojo_ripples:stand/the_world/the_world_time_resume"
+    ]
+  },
+  "time_stop_blink": {
+    "replace": true,
+    "sounds": [
+      "jojo_ripples:stand/the_world/the_world_time_stop_blink"
+    ]
+  },
+  "the_world_summon": {
+    "replace": true,
+    "sounds": [
+      "jojo_ripples:stand/the_world/the_world_summon",
+      "jojo_ripples:stand/the_world/the_world_summon_2"
+    ]
+  },
+  "the_world_unsummon": {
+    "replace": true,
+    "sounds": [
+      "jojo_ripples:stand_unsummon"
+    ]
+  },
+  "the_world_punch_light": {
+    "replace": true,
+    "sounds": [
+      "jojo_ripples:stand/the_world/the_world_punch_light"
+    ]
+  },
+  "the_world_punch_heavy": {
+    "replace": true,
+    "sounds": [
+      "jojo_ripples:stand/the_world/the_world_punch_heavy"
+    ]
+  },
+  "the_world_muda_muda_muda": {
+    "replace": true,
+    "subtitle": "jojo_ripples.subtitle.muda_rush",
+    "sounds": [
+      "jojo_ripples:stand/the_world/the_world_muda_muda_muda",
+      "jojo_ripples:stand/the_world/the_world_muda_muda_muda_2"
+    ]
+  }
+}

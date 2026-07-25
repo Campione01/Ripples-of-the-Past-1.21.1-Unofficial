@@ -1,0 +1,33 @@
+{
+  "parent": "jojo_ripples:jojo/mr_president",
+  "display": {
+    "icon": {
+      "item": "minecraft:bricks"
+    },
+    "title": {
+      "translate": "advancements.jojo.mr_president_walls.title"
+    },
+    "description": {
+      "translate": "advancements.jojo.mr_president_walls.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "rewards": {
+    "experience": 50
+  },
+  "criteria": {
+    "place_walls": {
+      "trigger": "jojo_ripples:mr_president_walls",
+      "conditions": {
+      }
+    }
+  },
+  "requirements": [
+    [
+      "place_walls"
+    ]
+  ]
+}

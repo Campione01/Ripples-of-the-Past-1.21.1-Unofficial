@@ -1,0 +1,33 @@
+{
+  "parent": "jojo_ripples:jojo/stone_mask",
+  "display": {
+    "icon": {
+      "item": "jojo_ripples:sledgehammer"
+    },
+    "title": {
+      "translate": "advancements.jojo.destroy_stone_mask.title"
+    },
+    "description": {
+      "translate": "advancements.jojo.destroy_stone_mask.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "destroy_stone_mask": {
+      "trigger": "jojo_ripples:destroy_stone_mask",
+      "conditions": {
+        "item_used": {
+          "items": "jojo_ripples:sledgehammer"
+        }
+      }
+    }
+  },
+  "requirements": [
+    [
+      "destroy_stone_mask"
+    ]
+  ]
+}

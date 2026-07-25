@@ -1,0 +1,24 @@
+{
+  "parent": "jojo_ripples:jojo/get_stand",
+  "display": {
+    "icon": {
+      "item": "jojo_ripples:meteoric_scrap"
+    },
+    "title": {
+      "translate": "advancements.jojo.soul.title"
+    },
+    "description": {
+      "translate": "advancements.jojo.soul.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "soul": {
+      "trigger": "jojo_ripples:soul_ascension"
+    }
+  },
+  "requirements": [["soul"]]
+}

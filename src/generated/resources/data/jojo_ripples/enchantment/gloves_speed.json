@@ -1,0 +1,21 @@
+{
+  "anvil_cost": 4,
+  "description": {
+    "translate": "enchantment.jojo_ripples.gloves_speed"
+  },
+  "max_cost": {
+    "base": 33,
+    "per_level_above_first": 14
+  },
+  "max_level": 4,
+  "min_cost": {
+    "base": 8,
+    "per_level_above_first": 14
+  },
+  "primary_items": "#jojo_ripples:enchantable/gloves",
+  "slots": [
+    "hand"
+  ],
+  "supported_items": "#jojo_ripples:enchantable/gloves",
+  "weight": 2
+}

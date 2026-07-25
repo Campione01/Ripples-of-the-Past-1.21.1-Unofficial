@@ -1,0 +1,29 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " ii",
+    "rdg",
+    "iib"
+  ],
+  "key": {
+    "i": {
+      "tag": "c:ingots/iron"
+    },
+    "b": {
+      "tag": "minecraft:buttons"
+    },
+    "g": {
+      "tag": "c:glass_panes/colorless"
+    },
+    "d": {
+      "tag": "c:dusts/glowstone"
+    },
+    "r": {
+      "tag": "c:dusts/redstone"
+    }
+  },
+  "result": {
+    "id": "jojo_ripples:polaroid"
+  },
+  "category": "misc"
+}

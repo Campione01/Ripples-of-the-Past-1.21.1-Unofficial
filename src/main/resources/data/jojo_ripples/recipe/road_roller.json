@@ -1,0 +1,34 @@
+{
+  "type": "jojo_ripples:crafting_shaped_stand",
+  "category": "combat",
+  "pattern": [
+    "idl",
+    "btb",
+    "bib"
+  ],
+  "key": {
+    "b": {
+      "item": "minecraft:iron_block"
+    },
+    "i": {
+      "tag": "c:ingots/iron"
+    },
+    "t": {
+      "item": "minecraft:tnt"
+    },
+    "d": {
+      "tag": "c:dyes/yellow"
+    },
+    "l": {
+      "item": "minecraft:lever"
+    }
+  },
+  "stand": [
+    {
+      "name": "jojo:the_world"
+    }
+  ],
+  "result": {
+    "id": "jojo_ripples:road_roller"
+  }
+}

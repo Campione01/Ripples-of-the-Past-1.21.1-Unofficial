@@ -1,0 +1,132 @@
+package com.github.standobyte.jojo.client.util.functions;
+
+import com.github.standobyte.jojo.client.ClientTickHandler;
+import com.github.standobyte.jojo.client.ui.utils.BlitFloat;
+import com.mojang.blaze3d.vertex.PoseStack;
+
+import org.joml.Matrix4f;
+import org.joml.Vector2f;
+import org.joml.Vector3f;
+
+import net.minecraft.client.Camera;
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.resources.PlayerSkin;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.TickRateManager;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.PlayerModelPart;
+import net.minecraft.world.phys.Vec3;
+
+public class ClientUtil {
+	public static final int MAX_LIGHT = 0xF000F0;
+	public static final float PLAYER_RENDER_SCALE = 0.9375F;
+	public static final float DEFAULT_STAND_WIDTH = 0.6F;
+	public static final float DEFAULT_STAND_HEIGHT = 1.8F;
+
+	public static void setCameraEntityPreventShaderSwitch(Entity entity) {
+		Minecraft mc = Minecraft.getInstance();
+		mc.setCameraEntity(entity);
+		// TODO prevent shader switch
+//		if (mc.gameRenderer.currentEffect() == null) {
+//			ShaderEffectApplier.getInstance().updateCurrentShader();
+//		}
+	}
+
+	public static float partialTick() {
+		return partialTick(Minecraft.getInstance().getTimer(), false);
+	}
+
+	public static float partialTick(DeltaTracker deltaTracker, boolean worksInPauseToo) {
+		if (worksInPauseToo) {
+			return switch (deltaTracker) {
+				case DeltaTracker.Timer timer -> timer.deltaTickResidual;
+				case DeltaTracker.DefaultValue defaultVal -> defaultVal.getGameTimeDeltaPartialTick(false);
+				default -> 0;
+			};
+		}
+		ClientLevel level = Minecraft.getInstance().level;
+		TickRateManager tickRateManager = level != null ? level.tickRateManager() : null;
+		boolean runsNormally = tickRateManager == null || tickRateManager.runsNormally();
+		return deltaTracker.getGameTimeDeltaPartialTick(runsNormally);
+	}
+	
+	public static float partialTick(DeltaTracker deltaTracker, Entity entity) {
+		TickRateManager tickRateManager = Minecraft.getInstance().level.tickRateManager();
+		return deltaTracker.getGameTimeDeltaPartialTick(!tickRateManager.isEntityFrozen(entity));
+	}
+	
+	public static float getTime(boolean worksInPauseToo) {
+		return ClientTickHandler.tickCount + partialTick(Minecraft.getInstance().getTimer(), worksInPauseToo);
+	}
+
+	public static int getScreenMouseX() {
+		Minecraft mc = Minecraft.getInstance();
+		return (int)(
+				mc.mouseHandler.xpos()
+				* (double)mc.getWindow().getGuiScaledWidth()
+				/ (double)mc.getWindow().getScreenWidth());
+	}
+
+	public static int getScreenMouseY() {
+		Minecraft mc = Minecraft.getInstance();
+		return (int)(
+				mc.mouseHandler.ypos()
+				* (double)mc.getWindow().getGuiScaledHeight()
+				/ (double)mc.getWindow().getScreenHeight());
+	}
+
+	public static PosOnScreen posOnScreen(Vec3 posInWorld, Camera camera, Matrix4f modelViewMatrix, Matrix4f projectionMatrix) {
+		Vec3 cameraPos = camera.getPosition();
+		Vec3 vecToEntity = posInWorld.subtract(cameraPos);
+		Vector3f clip = new Matrix4f(projectionMatrix).mul(modelViewMatrix)
+				.transformProject(new Vector3f((float) vecToEntity.x, (float) vecToEntity.y, (float) vecToEntity.z));
+		Vector2f posOnScreen = new Vector2f(clip.x() * 0.5F + 0.5F, clip.y() * 0.5F + 0.5F);
+		boolean isOnScreen = Math.abs(clip.x()) < 1.0F && Math.abs(clip.y()) < 1.0F && clip.z() < 1.0F;
+		return new PosOnScreen(posOnScreen, isOnScreen);
+	}
+
+	public record PosOnScreen(Vector2f pos, boolean isOnScreen) {
+		public static final PosOnScreen SCREEN_CENTER = new PosOnScreen(new Vector2f(0.5F, 0.5F), true);
+	}
+
+	// it just works
+	public static float getHighlightAlpha(float ticks, float cycleTicks, float maxAlphaTicks, float minAlpha, float maxAlpha) {
+		ticks %= cycleTicks;
+		float coeff = maxAlpha / maxAlphaTicks;
+		float alpha = ticks <= cycleTicks / 2 ? coeff * ticks : coeff * (cycleTicks - ticks);
+		return Math.min(alpha, maxAlpha - minAlpha) + minAlpha;
+	}
+
+	public static void renderEntityFace(PoseStack poseStack, int x, int y, LivingEntity entity) {
+		if (entity instanceof AbstractClientPlayer player) {
+			renderPlayerFace(poseStack, x, y, player);
+		}
+	}
+
+	public static final float OUTER_LAYER_SCALE = 9f/8f;
+	public static void renderPlayerFace(PoseStack poseStack, int x, int y, AbstractClientPlayer player) {
+		Minecraft mc = Minecraft.getInstance();
+		PlayerSkin playerSkin = player.getSkin();
+		ResourceLocation playerFace = playerSkin.texture();
+		BlitFloat.blit(poseStack, mc, playerFace, 
+				x, y, 16, 16, 0, 
+				8, 8, 8, 8, 64, 64, 
+				BlitFloat.NO_TINT);
+		if (player.isModelPartShown(PlayerModelPart.HAT)) {
+			poseStack.pushPose();
+			poseStack.translate(x + 8, y + 8, 0);
+			poseStack.scale(OUTER_LAYER_SCALE, OUTER_LAYER_SCALE, 0);
+			poseStack.translate(-x - 8, -y - 8, 0);
+			BlitFloat.blit(poseStack, mc, playerFace, 
+					x, y, 16, 16, 0, 
+					40, 8, 8, 8, 64, 64, 
+					BlitFloat.NO_TINT);
+			poseStack.popPose();
+		}
+	}
+
+}

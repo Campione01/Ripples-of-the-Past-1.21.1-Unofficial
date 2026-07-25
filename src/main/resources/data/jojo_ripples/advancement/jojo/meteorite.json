@@ -1,0 +1,31 @@
+{
+  "parent": "jojo_ripples:jojo/root",
+  "display": {
+    "icon": {
+      "item": "jojo_ripples:meteoric_scrap"
+    },
+    "title": {
+      "translate": "advancements.jojo.meteorite.title"
+    },
+    "description": {
+      "translate": "advancements.jojo.meteorite.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "obtain_meteoric_scrap": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "jojo_ripples:meteoric_scrap"
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [["obtain_meteoric_scrap"]]
+}

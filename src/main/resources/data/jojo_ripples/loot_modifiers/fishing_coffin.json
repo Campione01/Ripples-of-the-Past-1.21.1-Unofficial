@@ -1,0 +1,15 @@
+{
+  "type": "jojo_ripples:additional_single_item",
+  "conditions": [
+    {
+      "condition": "neoforge:loot_table_id",
+      "loot_table_id": "minecraft:gameplay/fishing/junk"
+    },
+    {
+      "condition": "minecraft:random_chance",
+      "chance": 0.05
+    }
+  ],
+  "item": "jojo_ripples:wooden_coffin_oak_red",
+  "replace": true
+}

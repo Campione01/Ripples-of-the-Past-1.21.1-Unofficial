@@ -1,0 +1,19 @@
+{
+  "replace": false,
+  "values": [
+    "jojo_ripples:hamon",
+    "jojo_ripples:stand_health_link",
+    "jojo_ripples:entity_flew_into",
+    "jojo_ripples:road_roller",
+    "jojo_ripples:eye_of_ender_shards",
+    "jojo_ripples:bleeding",
+    "jojo_ripples:stone_mask",
+    "jojo_ripples:blood_drain",
+    "jojo_ripples:blood_gift",
+    "jojo_ripples:ultraviolet",
+    "jojo_ripples:vampire_freeze",
+    "jojo_ripples:suffocation",
+    "jojo_ripples:stand_arrow",
+    "jojo_ripples:stand_arrow_virus"
+  ]
+}

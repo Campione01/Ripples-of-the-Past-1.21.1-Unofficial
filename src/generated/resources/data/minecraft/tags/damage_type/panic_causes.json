@@ -1,0 +1,17 @@
+{
+  "values": [
+    "jojo_ripples:stand_attack",
+    "jojo_ripples:stand_projectile",
+    "jojo_ripples:stand_projectile_fire",
+    "jojo_ripples:stand_explosion_fire",
+    "jojo_ripples:projectile",
+    "jojo_ripples:projectile_fire",
+    "jojo_ripples:entity_flew_into",
+    "jojo_ripples:road_roller",
+    "jojo_ripples:pillar_man_absorption",
+    "jojo_ripples:suffocation",
+    "jojo_ripples:stand_arrow",
+    "jojo_ripples:stand_arrow_virus",
+    "jojo_ripples:pillar_man_self_detonation"
+  ]
+}

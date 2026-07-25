@@ -1,0 +1,7 @@
+{
+  "jojo_ripples.skill.time_stop": "『白金之星.世界』",
+  "jojo_ripples.skill.time_stop.desc": "『白金之星』短暂停止时间的流动，使只有你能在冻结的时间中自由行动。",
+  "jojo_ripples.ability.time_stop": "『白金之星.世界』(上限%s秒)",
+  "jojo_ripples.ability.time_resume": "时间开始『流动』",
+  "jojo_ripples.ability.time_stop_blink": "『时停瞬移』"
+}

@@ -1,0 +1,8 @@
+{
+  "parent": "item/generated",
+  "textures": {
+    "layer0": "jojo_ripples:item/stand_disc",
+	"layer1": "jojo_ripples:item/stand_disc_light_tint",
+	"layer2": "jojo_ripples:item/stand_disc_full_tint"
+  }
+}

@@ -1,0 +1,7 @@
+{
+	"message_id": "pillarManAbsorption",
+	"scaling": "always",
+	"exhaustion": 0.1,
+	"effects": "hurt",
+	"death_message_type": "default"
+}

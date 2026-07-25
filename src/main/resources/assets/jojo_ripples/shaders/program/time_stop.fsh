@@ -1,0 +1,135 @@
+#version 150
+#define PI 3.1415926538
+
+uniform sampler2D DiffuseSampler;
+
+uniform vec2 InSize;
+
+uniform float TSEffectLength;
+uniform float TSTicks;
+uniform float TSLength;
+uniform vec2 CenterScreenCoord;
+uniform float FadeInLength;
+
+uniform vec3 Gray;
+uniform vec3 RedMatrix;
+uniform vec3 GreenMatrix;
+uniform vec3 BlueMatrix;
+uniform vec3 Offset;
+uniform vec3 ColorScale;
+uniform float Saturation;
+
+in vec2 texCoord;
+out vec4 fragColor;
+
+vec3 hue(float h) {
+    float r = abs(h * 6.0 - 3.0) - 1.0;
+    float g = 2.0 - abs(h * 6.0 - 2.0);
+    float b = 2.0 - abs(h * 6.0 - 4.0);
+    return clamp(vec3(r, g, b), 0.0, 1.0);
+}
+
+vec3 HSVtoRGB(vec3 hsv) {
+    return ((hue(hsv.x) - 1.0) * hsv.y + 1.0) * hsv.z;
+}
+
+vec3 RGBtoHSV(vec3 rgb) {
+    vec3 hsv = vec3(0.0);
+    hsv.z = max(rgb.r, max(rgb.g, rgb.b));
+    float minValue = min(rgb.r, min(rgb.g, rgb.b));
+    float c = hsv.z - minValue;
+
+    if (c != 0.0) {
+        hsv.y = c / hsv.z;
+        vec3 delta = (hsv.z - rgb) / c;
+        delta.rgb -= delta.brg;
+        delta.rg += vec2(2.0, 4.0);
+        if (rgb.r >= hsv.z) {
+            hsv.x = delta.b;
+        }
+        else if (rgb.g >= hsv.z) {
+            hsv.x = delta.r;
+        }
+        else {
+            hsv.x = delta.g;
+        }
+        hsv.x = fract(hsv.x / 6.0);
+    }
+    return hsv;
+}
+
+vec3 desaturate(vec3 rgb) {
+    float saturation = Saturation;
+    float fadeIn = 1.0;
+
+    float timeLeft = TSLength - TSTicks;
+    if (FadeInLength > 0.0 && TSLength - TSTicks < FadeInLength) {
+        fadeIn = max(timeLeft, 0.0) / FadeInLength;
+        saturation = 1.0 - fadeIn * (1.0 - saturation);
+    }
+
+    float redValue = dot(rgb, mix(vec3(1.0, 0.0, 0.0), RedMatrix, fadeIn));
+    float greenValue = dot(rgb, mix(vec3(0.0, 1.0, 0.0), GreenMatrix, fadeIn));
+    float blueValue = dot(rgb, mix(vec3(0.0, 0.0, 1.0), BlueMatrix, fadeIn));
+    vec3 outColor = vec3(redValue, greenValue, blueValue);
+
+    outColor = (outColor * ColorScale) + Offset * fadeIn;
+
+    float luma = dot(outColor, Gray);
+    vec3 chroma = outColor - luma;
+    outColor = (chroma * saturation) + luma;
+
+    return outColor;
+}
+
+void main() {
+    vec3 rgb = texture(DiffuseSampler, texCoord).rgb;
+    if (TSEffectLength > 0.0) {
+        float tsEffectTiming = TSTicks / TSEffectLength;
+        if (TSLength < 0.0 || tsEffectTiming <= 0.0) {
+            fragColor = vec4(rgb, 1.0);
+        }
+        else if (TSLength >= 100.0 && tsEffectTiming < 1.0) {
+            float effectRadiusWorld;
+            if (tsEffectTiming < 0.8) {
+                effectRadiusWorld = tsEffectTiming * 1.25;
+            }
+            else {
+                effectRadiusWorld = (1.0 - tsEffectTiming) * 5.0;
+            }
+
+            float sizeMax = max(InSize.x, InSize.y) * 2.0;
+            vec2 sizeCorr = InSize / sizeMax;
+            vec2 texCoordCorr = texCoord * sizeCorr;
+            vec2 centerCoord = CenterScreenCoord * sizeCorr;
+
+            float distFromCenter = distance(texCoordCorr, centerCoord);
+            if (distFromCenter < effectRadiusWorld) {
+                float distortionAmount = 1.0;
+                float f = 1.0 - distortionAmount * distFromCenter / effectRadiusWorld;
+                vec2 newCoord = CenterScreenCoord + (texCoordCorr - centerCoord) * f / sizeCorr;
+                vec3 rgbNew = texture(DiffuseSampler, newCoord).rgb;
+
+                vec3 hsv = RGBtoHSV(rgbNew);
+                hsv.x = fract(hsv.x + tsEffectTiming * 0.5 + 0.25);
+                hsv.z = 0.4 + 0.4 * (1.0 - hsv.z);
+
+                fragColor = vec4(HSVtoRGB(hsv), 1.0);
+            }
+            else {
+                if (tsEffectTiming < 0.8) {
+                    fragColor = vec4(rgb, 1.0);
+                }
+                else {
+                    fragColor = vec4(desaturate(rgb), 1.0);
+                }
+            }
+        }
+        else {
+            fragColor = vec4(desaturate(rgb), 1.0);
+        }
+    }
+    else {
+        fragColor = vec4(desaturate(rgb), 1.0);
+    }
+}

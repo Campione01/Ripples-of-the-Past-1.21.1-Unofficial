@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "jojo_ripples:aja_stone"
+    },
+    {
+      "item": "jojo_ripples:stone_mask"
+    }
+  ],
+  "result": {
+    "id": "jojo_ripples:aja_stone_mask",
+    "count": 1
+  }
+}

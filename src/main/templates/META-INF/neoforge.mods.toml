@@ -1,0 +1,60 @@
+modLoader="javafml"
+loaderVersion="${loader_version_range}"
+license="GPL-3.0-only"
+issueTrackerURL="https://github.com/Campione01/Ripples-of-the-Past-1.21.1-Unofficial/issues"
+
+[[mods]]
+modId="${mod_id}"
+version="${mod_version}"
+displayName="Ripples of the Past - Unofficial 1.21.1"
+# updateJSONURL="https://......."
+displayURL="https://github.com/Campione01/Ripples-of-the-Past-1.21.1-Unofficial"
+# logoFile="logo.png"
+authors="StandoByte and contributors; unofficial version maintained by Campione01"
+credits='''
+
+    Original project: StandoByte - game design and programming
+    Yujin - Hamon and Pillar Man work, animations, structures, and sprites
+    August_dr - 3D models and player animations
+    WhiteMind - Star Platinum and The World models
+    KWiNTA - 2D sprites
+    iIIiBlackiIIi - player animations
+    Motvik - JoJo character clothes models
+    Code contributions: HK47bot, Weever
+    Unofficial 1.21.1 modifications: Campione01
+    Full attribution and third-party notices: NOTICE.md and THIRD_PARTY_NOTICES.md
+'''
+description='''
+    An independent, unofficial modified 1.21.1 port of Ripples of the Past.
+    This repository is not endorsed by the upstream authors or JoJo rights holders.
+'''
+
+[[mixins]]
+config="${mod_id}.mixins.json"
+
+[[accessTransformers]]
+file="META-INF/accesstransformer.cfg"
+
+# The coremods config file path is not configurable and is always loaded from META-INF/coremods.json
+
+[[dependencies.${mod_id}]]
+    modId="neoforge"
+    type="required"
+    # reason="..."
+    versionRange="${neo_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+# Here's another dependency
+[[dependencies.${mod_id}]]
+    modId="minecraft"
+    type="required"
+    versionRange="${minecraft_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+# Features are specific properties of the game environment, that you may want to declare you require. This example declares
+# that your mod requires GL version 3.2 or higher. Other features will be added. They are side aware so declaring this won't
+# stop your mod loading on the server for example.
+#[features.${mod_id}]
+#openGLVersion="[3.2,)"

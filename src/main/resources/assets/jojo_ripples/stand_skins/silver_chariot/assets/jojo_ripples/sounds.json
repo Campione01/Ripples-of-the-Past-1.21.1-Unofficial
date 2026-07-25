@@ -1,0 +1,40 @@
+{
+  "stand_summon": {
+    "replace": true,
+    "sounds": [ "jojo_ripples:stand/silver_chariot/silver_chariot_summon" ]
+  },
+  "stand_unsummon": {
+    "replace": true,
+    "sounds": [
+      "jojo_ripples:stand/silver_chariot/silver_chariot_unsummon",
+      "jojo_ripples:stand/silver_chariot/silver_chariot_unsummon_2"
+    ]
+  },
+  "silver_chariot_summon": {
+    "replace": true,
+    "sounds": [ "jojo_ripples:stand/silver_chariot/silver_chariot_summon" ]
+  },
+  "silver_chariot_unsummon": {
+    "replace": true,
+    "sounds": [
+      "jojo_ripples:stand/silver_chariot/silver_chariot_unsummon",
+      "jojo_ripples:stand/silver_chariot/silver_chariot_unsummon_2"
+    ]
+  },
+  "silver_chariot_sweep_light": {
+    "replace": true,
+    "sounds": [
+      {
+        "name": "entity.player.attack.sweep",
+        "type": "event"
+      }
+    ]
+  },
+  "silver_chariot_barrage_swipe": {
+    "replace": true,
+    "sounds": [
+      "jojo_ripples:stand/silver_chariot/silver_chariot_barrage_swipe",
+      "jojo_ripples:stand/silver_chariot/silver_chariot_barrage_swipe_2"
+    ]
+  }
+}
