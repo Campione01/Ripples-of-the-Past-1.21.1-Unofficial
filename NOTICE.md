@@ -55,11 +55,10 @@ history at publication time, the initial commit represents the complete
 reviewed source snapshot rather than a commit-by-commit attribution boundary.
 Known modification areas are summarized in [CHANGES.md](CHANGES.md).
 
-## No endorsement
+## Repository status
 
 This repository is not an official release, fork, or support channel of
-StandoByte. It is not affiliated with Hirohiko Araki, Lucky Land
-Communications, Shueisha, Bandai Namco, Mojang Studios, or Microsoft.
+StandoByte.
 
 Third-party code notices are in
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Resource provenance and

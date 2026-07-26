@@ -44,6 +44,5 @@ repo
 *.class
 *.log
 
-# Assets with no verified redistribution grant are intentionally not published.
-/src/main/resources/assets/jojo_ripples/sounds/
+# Optional user-content development templates are not part of the published source.
 /src/main/resources/User content templates/

@@ -1,6 +1,6 @@
 # Ripples of the Past - Unofficial 1.21.1 Modified Port
 
-> 本仓库是由 Campione01 独立维护的非官方修改版源码仓库，不是 StandoByte 的官方发行版，也不代表任何《JoJo 的奇妙冒险》权利方。
+> 本仓库是由 Campione01 独立维护的非官方修改版源码仓库，不是 StandoByte 的官方发行版。
 
 This is an independent, unofficial source repository for a modified NeoForge
 1.21.1 port of **Ripples of the Past**. It contains substantial code and assets
@@ -22,16 +22,14 @@ repository.
 
 ## Publication scope
 
-This repository publishes source and reviewed project resources only. It does
-not publish a release JAR or an automated binary artifact.
+This repository publishes source and project resources, including the inherited
+sound and voice assets used by the mod. It does not publish a release JAR or an
+automated binary artifact.
 
-The following local resources are deliberately excluded because no sufficiently
-clear redistribution grant was found during the publication audit:
+The following local resources are deliberately excluded from the source
+snapshot:
 
-- voice lines and sound effects under
-  `src/main/resources/assets/jojo_ripples/sounds/`;
-- the `User content templates/clothes_example.jar` sample, whose embedded
-  metadata declares `All Rights Reserved`;
+- the optional `User content templates/` development examples;
 - local run data, logs, IDE state, Codex work records, generated build output,
   and internal validation tooling.
 
@@ -73,10 +71,4 @@ remain in force.
 - Resource provenance and exclusions: [ASSET_SOURCES.md](ASSET_SOURCES.md)
 - Modifications in this independent repository: [CHANGES.md](CHANGES.md)
 
-No rights are claimed in *JoJo's Bizarre Adventure*, its characters, names,
-trademarks, game recordings, or other third-party intellectual property.
-Minecraft is a trademark of Microsoft Corporation. This project is not
-affiliated with Mojang Studios or Microsoft.
-
-This repository is provided as a source-code project. Its notices document the
-known provenance and are not legal advice.
+This repository is provided as an independently maintained source-code project.

@@ -26,7 +26,6 @@ credits='''
 '''
 description='''
     An independent, unofficial modified 1.21.1 port of Ripples of the Past.
-    This repository is not endorsed by the upstream authors or JoJo rights holders.
 '''
 
 [[mixins]]

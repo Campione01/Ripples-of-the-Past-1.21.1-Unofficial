@@ -29,7 +29,9 @@ Publication preparation performed on 2026-07-26:
 - removed a machine-specific JDK path from project properties;
 - changed repository-facing display and artifact identifiers to say
   "Unofficial";
-- excluded audio with unverified redistribution rights and an embedded
-  `All Rights Reserved` sample JAR from the Git snapshot;
+- included the inherited runtime audio resources and preserved their historical
+  source credits;
+- excluded the optional user-content development templates from the Git
+  snapshot;
 - independently rewrote the previously Patchouli-derived translucent block
   preview path to avoid carrying incompatible CC BY-NC-SA implementation code.
