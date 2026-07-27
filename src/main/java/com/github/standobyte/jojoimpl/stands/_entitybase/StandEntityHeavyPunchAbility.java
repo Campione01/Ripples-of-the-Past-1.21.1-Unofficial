@@ -112,7 +112,8 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 		if (standPower != null) {
 			StandEntity standEntity = standPower.getSummonedStandEntity();
 			if (standEntity != null && LivingComponentGrab.getEntityGrabbedBy(standEntity) != null) {
-				return abilities.getContextVariation("grab_heavy_punch");
+				return abilities.getContextVariationOrDisable(
+						name(), "grab_heavy_punch");
 			}
 		}
 		return super.replaceWithSubAbility(context, abilities);
@@ -123,6 +124,10 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 		ConditionCheck check = super.checkStandEntityConditions(standPower, standEntity);
 		if (!check.isPositive()) {
 			return check;
+		}
+		if (usageGroup != AbilityUsageGroup.GRAB
+				&& LivingComponentGrab.getEntityGrabbedBy(standEntity) != null) {
+			return ConditionCheck.NEGATIVE;
 		}
 		return ConditionCheck.noMessage(standEntity.canAttackMelee());
 	}

@@ -1,5 +1,7 @@
 package com.github.standobyte.jojo.mechanics.standdisc;
 
+import java.util.Objects;
+
 import com.github.standobyte.jojo.powersystem.standpower.StandInstance;
 import com.mojang.serialization.Codec;
 
@@ -10,24 +12,29 @@ public class StandWrittenOnDisc {
 	protected final StandInstance.NetworkData standInstance;
 
 	public StandWrittenOnDisc(StandInstance stand) {
-		this.standInstance = StandInstance.NetworkData.wrap(stand);
+		this.standInstance = StandInstance.NetworkData.wrap(
+				Objects.requireNonNull(stand, "stand").copy());
 	}
 
 	public StandWrittenOnDisc(StandInstance.NetworkData standSynced) {
-		this.standInstance = standSynced;
+		this.standInstance = Objects.requireNonNull(standSynced, "standSynced").copy();
 	}
 	
 	
 	public StandInstance getInstance() {
-		return standInstance.get();
+		return copyStandInstance();
 	}
 	
 	public StandInstance copyStandInstance() {
-		return getInstance().copy();
+		return storedInstance().copy();
 	}
 	
 	public boolean isValid() {
-		return standInstance != null && getInstance() != null;
+		return standInstance != null;
+	}
+
+	private StandInstance storedInstance() {
+		return standInstance.get();
 	}
 	
 
@@ -43,9 +50,10 @@ public class StandWrittenOnDisc {
 	}
 	
 	public static final Codec<StandWrittenOnDisc> CODEC = StandInstance.CODEC.xmap(
-			StandWrittenOnDisc::new, discData -> discData.getInstance());
+			StandWrittenOnDisc::new, StandWrittenOnDisc::copyStandInstance);
 	
 	public static final StreamCodec<FriendlyByteBuf, StandWrittenOnDisc> STREAM_CODEC = StandInstance.NetworkData.NETWORK_CODEC.map(
-			StandWrittenOnDisc::new, discData -> discData.standInstance);
+			StandWrittenOnDisc::new,
+			discData -> discData.standInstance.copy());
 
 }

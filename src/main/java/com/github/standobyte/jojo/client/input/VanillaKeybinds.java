@@ -18,6 +18,7 @@ import com.github.standobyte.jojo.core.JojoMod;
 import com.github.standobyte.jojo.init.power.ModPlayerPowers;
 import com.github.standobyte.jojo.network.c2s.ClNoParamsPacket;
 import com.github.standobyte.jojo.network.c2s.ClNoParamsPacket.PacketType;
+import com.github.standobyte.jojo.powersystem.MovesetBuilder;
 import com.github.standobyte.jojo.powersystem.PowerClass;
 import com.github.standobyte.jojo.powersystem.playerpower.PlayerPower;
 import com.github.standobyte.jojo.powersystem.standpower.StandPower;
@@ -45,6 +46,7 @@ public class VanillaKeybinds {
 	public KeyMapping standArmsOnlyHUD;
 	public KeyMapping playerPowerHUD;
 	public KeyMapping hamonBreath;
+	public KeyMapping grabChargedHeavy;
 	public KeyMapping useAbility;
 	public KeyMapping switchSpecial;
 	public KeyMapping disableHUDControls;
@@ -65,6 +67,10 @@ public class VanillaKeybinds {
 				.inInitOrder().withDescTooltip());
 		event.register(binds.hamonBreath = new Jokerge(
 				JojoMod.MOD_ID + ".key.hamon_breath", KeyConflictContext.IN_GAME, InputConstants.Type.MOUSE, InputConstants.MOUSE_BUTTON_MIDDLE, MAIN_CATEGORY)
+				.inInitOrder().withDescTooltip());
+		event.register(binds.grabChargedHeavy = new Jokerge(
+				MovesetBuilder.GRAB_CHARGED_HEAVY_KEY_MAPPING_NAME, KeyConflictContext.IN_GAME, KeyModifier.SHIFT,
+				InputConstants.Type.MOUSE, InputConstants.MOUSE_BUTTON_RIGHT, MAIN_CATEGORY)
 				.inInitOrder().withDescTooltip());
 		event.register(binds.useAbility = new Jokerge(
 				JojoMod.MOD_ID + ".key.use_special_ability", KeyConflictContext.IN_GAME, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_X, MAIN_CATEGORY)

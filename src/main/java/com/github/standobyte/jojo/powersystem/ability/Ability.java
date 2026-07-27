@@ -17,6 +17,7 @@ import com.github.standobyte.jojo.client.standskin.StandSkinsLoader;
 import com.github.standobyte.jojo.client.ui.hud_power.WindupIndicator;
 import com.github.standobyte.jojo.client.ui.utils.BlitFloat;
 import com.github.standobyte.jojo.config.client.PlayerClientBroadcastedSettings;
+import com.github.standobyte.jojo.core.JojoMod;
 import com.github.standobyte.jojo.init.ModStatusEffects;
 import com.github.standobyte.jojo.init.ModDataAttachmentTypes;
 import com.github.standobyte.jojo.mechanics.resolve.ResolveModeEffect;
@@ -43,6 +44,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
@@ -70,24 +72,46 @@ public class Ability {
 		this.abilityType = abilityType;
 		this.abilityId = abilityId;
 		this.spriteName = StringUtil.splitIntAtTheEnd(abilityId.nameInMoveset()).getFirst();
-		this.name = abilityName(abilityId, "");
+		this.name = Component.translatable(abilityTranslationKey(abilityType, abilityId, ""));
 		String abilityName = abilityId.nameInMoveset();
 		this.isSubAbility = !abilityName.isEmpty() && Character.isDigit(abilityName.charAt(abilityName.length() - 1));
 		initVariationAssets();
 	}
 	
 	protected static Component abilityName(AbilityId abilityId, String postfix) {
-		return Component.translatable("jojo_ripples.ability." + abilityId.nameInMoveset() + postfix);
+		return Component.translatable(abilityTranslationKey(null, abilityId, postfix));
 	}
 
 	protected Component abilityName(Power<?> context, String postfix, Object... args) {
+		String translationKey = getTranslationKey(postfix);
 		if (context instanceof StandPower standPower && StandSkinsLoader.getInstance() != null) {
 			StandSkin skin = StandSkinsLoader.getInstance().getSkin(standPower);
 			if (skin != null) {
-				return skin.translatable("jojo_ripples.ability." + name() + postfix, args);
+				return skin.translatable(translationKey, args);
 			}
 		}
-		return Component.translatable("jojo_ripples.ability." + name() + postfix, args);
+		return Component.translatable(translationKey, args);
+	}
+
+	private static String abilityTranslationKey(
+			@Nullable AbilityType<?> abilityType, AbilityId abilityId, String postfix) {
+		return resourceNamespace(abilityType, abilityId) + ".ability."
+				+ abilityId.nameInMoveset() + postfix;
+	}
+
+	private static String resourceNamespace(
+			@Nullable AbilityType<?> abilityType, AbilityId abilityId) {
+		if (abilityId.powerTypeId() != null) {
+			return abilityId.powerTypeId().getNamespace();
+		}
+		if (abilityType != null && abilityType.registryKey != null) {
+			return abilityType.registryKey.getNamespace();
+		}
+		String abilityName = abilityId.nameInMoveset();
+		int namespaceSeparator = abilityName.indexOf(':');
+		return namespaceSeparator > 0
+				? abilityName.substring(0, namespaceSeparator)
+				: JojoMod.MOD_ID;
 	}
 	
 	public AbilityId getAbilityId() {
@@ -377,11 +401,28 @@ public class Ability {
 		return abilityName(context, "");
 	}
 
+	public String getResourceNamespace() {
+		return resourceNamespace(abilityType, abilityId);
+	}
+
+	public String getTranslationKey() {
+		return getTranslationKey("");
+	}
+
+	public String getTranslationKey(String postfix) {
+		return getResourceNamespace() + ".ability." + name() + postfix;
+	}
+
 	@ApiStatus.OverrideOnly
 	public void appendWarnings(List<Component> warnings, @Nullable Power<?> context, Player clientPlayerUser) {}
 	
 	public String getSpriteName(Power<?> context) {
 		return spriteName;
+	}
+
+	public ResourceLocation getSpriteId(Power<?> context) {
+		return ResourceLocation.fromNamespaceAndPath(
+				getResourceNamespace(), getSpriteName(context));
 	}
 	
 	public void renderAbilityIcon(Power<?> context, GuiGraphics guiGraphics, TextureAtlasSprite sprite, float x, float y, int color) {

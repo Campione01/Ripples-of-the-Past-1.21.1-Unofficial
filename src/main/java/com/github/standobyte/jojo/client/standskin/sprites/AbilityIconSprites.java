@@ -97,7 +97,7 @@ public class AbilityIconSprites implements AutoCloseable {
 			Map.entry("turquoise_blue_overdrive", List.of("hamon_turquoise_blue_overdrive")),
 			Map.entry("wall_climbing", List.of("hamon_wall_climbing")),
 			Map.entry("zoom_punch", List.of("hamon_zoom_punch")));
-	
+
 	protected final TextureAtlas textureAtlas;
 	protected final Set<MetadataSectionSerializer<?>> metadataSections;
 
@@ -117,17 +117,23 @@ public class AbilityIconSprites implements AutoCloseable {
 
 
 	public TextureAtlasSprite getAbilityIcon(Ability ability, Power<?> context, @Nullable StandSkin curStandSkin) {
-		return getAbilityIcon(ability.getSpriteName(context), curStandSkin);
+		return getAbilityIcon(ability.getSpriteId(context), curStandSkin);
 	}
 
 	public TextureAtlasSprite getAbilityIcon(String abilitySpriteName, @Nullable StandSkin curStandSkin) {
-		TextureAtlasSprite exactSprite = getAbilityIconExact(abilitySpriteName, curStandSkin);
+		return getAbilityIcon(JojoMod.resLoc(abilitySpriteName), curStandSkin);
+	}
+
+	public TextureAtlasSprite getAbilityIcon(ResourceLocation abilitySpriteId, @Nullable StandSkin curStandSkin) {
+		TextureAtlasSprite exactSprite = getAbilityIconExact(abilitySpriteId, curStandSkin);
 		if (exactSprite != textureAtlas.missingSprite) {
 			return exactSprite;
 		}
 		
-		for (String alias : SPRITE_NAME_ALIASES.getOrDefault(abilitySpriteName, List.of())) {
-			TextureAtlasSprite aliasSprite = getAbilityIconExact(alias, curStandSkin);
+		for (String alias : SPRITE_NAME_ALIASES.getOrDefault(abilitySpriteId.getPath(), List.of())) {
+			ResourceLocation aliasId = ResourceLocation.fromNamespaceAndPath(
+					abilitySpriteId.getNamespace(), alias);
+			TextureAtlasSprite aliasSprite = getAbilityIconExact(aliasId, curStandSkin);
 			if (aliasSprite != textureAtlas.missingSprite) {
 				return aliasSprite;
 			}
@@ -136,21 +142,21 @@ public class AbilityIconSprites implements AutoCloseable {
 		return textureAtlas.missingSprite;
 	}
 
-	private TextureAtlasSprite getAbilityIconExact(String abilitySpriteName, @Nullable StandSkin curStandSkin) {
+	private TextureAtlasSprite getAbilityIconExact(ResourceLocation abilitySpriteId, @Nullable StandSkin curStandSkin) {
 		Map<ResourceLocation, TextureAtlasSprite> texturesByName = textureAtlas.texturesByName;
 		ResourceLocation spritePath;
 
 		if (curStandSkin != null) {
-			spritePath = skinSpritePath(curStandSkin.skinId, abilitySpriteName);
+			spritePath = skinSpritePath(curStandSkin.skinId, abilitySpriteId.getPath());
 			if (texturesByName.containsKey(spritePath)) return texturesByName.get(spritePath);
 			
 			if (!curStandSkin.isDefault) {
-				spritePath = skinSpritePath(curStandSkin.standTypeId, abilitySpriteName);
+				spritePath = skinSpritePath(curStandSkin.standTypeId, abilitySpriteId.getPath());
 				if (texturesByName.containsKey(spritePath)) return texturesByName.get(spritePath);
 			}
 		}
 
-		spritePath = defaultSpritePath(abilitySpriteName);
+		spritePath = defaultSpritePath(abilitySpriteId);
 		if (texturesByName.containsKey(spritePath)) return texturesByName.get(spritePath);
 		
 		return textureAtlas.missingSprite;
@@ -166,12 +172,21 @@ public class AbilityIconSprites implements AutoCloseable {
 						skinId.getPath() + "/" + abilityName);
 			});
 
-	protected static ResourceLocation defaultSpritePath(String abilityName) { 
+	protected static ResourceLocation defaultSpritePath(ResourceLocation abilityId) {
+		return memoizeAbilityIds.apply(abilityId);
+	}
+
+	protected static ResourceLocation defaultSpritePath(String abilityName) {
 		return memoize2.apply(abilityName);
 	}
+
 	protected static final Function<String, ResourceLocation> memoize2 = Util.memoize(
-			(String abilityName) -> {
-				return JojoMod.resLoc(DIR_NAME + "/" + abilityName);
+			(String abilityName) -> JojoMod.resLoc(DIR_NAME + "/" + abilityName));
+
+	protected static final Function<ResourceLocation, ResourceLocation> memoizeAbilityIds = Util.memoize(
+			(ResourceLocation abilityId) -> {
+				return ResourceLocation.fromNamespaceAndPath(
+						abilityId.getNamespace(), DIR_NAME + "/" + abilityId.getPath());
 			});
 
 

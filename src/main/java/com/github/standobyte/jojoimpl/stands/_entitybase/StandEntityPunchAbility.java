@@ -95,6 +95,10 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		if (!check.isPositive()) {
 			return check;
 		}
+		if (usageGroup != AbilityUsageGroup.GRAB
+				&& LivingComponentGrab.getEntityGrabbedBy(standEntity) != null) {
+			return ConditionCheck.NEGATIVE;
+		}
 		return ConditionCheck.noMessage(standEntity.canAttackMelee());
 	}
 	
@@ -104,7 +108,8 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		if (standPower != null) {
 			StandEntity standEntity = standPower.getSummonedStandEntity();
 			if (standEntity != null && LivingComponentGrab.getEntityGrabbedBy(standEntity) != null) {
-				return abilities.getContextVariation("grab_punch");
+				return abilities.getContextVariationOrDisable(
+						name(), "grab_punch");
 			}
 		}
 

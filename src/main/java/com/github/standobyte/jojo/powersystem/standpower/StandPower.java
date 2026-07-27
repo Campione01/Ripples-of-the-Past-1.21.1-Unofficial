@@ -5,10 +5,13 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
 import javax.annotation.Nullable;
+
+import org.jetbrains.annotations.ApiStatus;
 
 import com.github.standobyte.jojo.JojoModConfig;
 import com.github.standobyte.jojo.JojoModLivingVariables;
@@ -151,14 +154,21 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 		setStandInstance(stand != null ? Optional.of(new StandInstance(stand)) : Optional.empty());
 	}
 	
+	@ApiStatus.Internal
 	public void setStandInstance(Optional<StandInstance> standInstance) {
+		Optional<StandInstance> newStandInstance = copyStandInstance(standInstance);
+		if (!standInstanceChanged(this.standInstance, newStandInstance)) {
+			return;
+		}
+
 		StandType oldStand = getPowerType();
-		boolean standChanged = standInstance.map(newStand -> oldStand != newStand.getStandType()).orElseGet(() -> oldStand != null);
-		if (oldStand != null && standChanged) {
+		boolean standChanged = newStandInstance.map(newStand -> oldStand != newStand.getStandType())
+				.orElseGet(() -> oldStand != null);
+		if (oldStand != null) {
 			oldStand.forceUnsummon(user, this);
 		}
 		
-		this.standInstance = standInstance;
+		this.standInstance = newStandInstance;
 		StandType newStand = getPowerType();
 		
 		LivingEntity user = getUser();
@@ -168,7 +178,7 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 		
 		if (user != null && !user.level().isClientSide()) {
 			userStandEffects.onStandChanged(user);
-			PacketDistributor.sendToPlayersTrackingEntityAndSelf(user, new TrPowerStandInstancePacket(user.getId(), standInstance));
+			PacketDistributor.sendToPlayersTrackingEntityAndSelf(user, new TrPowerStandInstancePacket(user.getId(), this.standInstance));
 			if (newStand != null && user instanceof ServerPlayer player) {
 				ModCriteriaTriggers.triggerGetPower(player, this);
 			}
@@ -182,6 +192,26 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 				&& JojoModConfig.getCommonConfigInstance(false).skipStandProgression.get()) {
 			skipProgression();
 		}
+	}
+
+	static boolean standInstanceChanged(Optional<StandInstance> current, Optional<StandInstance> replacement) {
+		Objects.requireNonNull(current, "current");
+		Objects.requireNonNull(replacement, "replacement");
+		if (!current.equals(replacement)) {
+			return true;
+		}
+		if (current.isEmpty()) {
+			return false;
+		}
+
+		StandInstance currentStand = current.orElseThrow();
+		StandInstance replacementStand = replacement.orElseThrow();
+		return currentStand.standExists() != replacementStand.standExists()
+				|| currentStand.getStandType() != replacementStand.getStandType();
+	}
+
+	static Optional<StandInstance> copyStandInstance(Optional<StandInstance> standInstance) {
+		return Objects.requireNonNull(standInstance, "standInstance").map(StandInstance::copy);
 	}
 
 	@Override
@@ -750,7 +780,7 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 			clearClonedStandData(newEntityData);
 			return;
 		}
-		newEntityData.standInstance = this.standInstance;
+		newEntityData.standInstance = copyStandInstance(this.standInstance);
 		newEntityData.staminaLerp = this.staminaLerp;
 		newEntityData.leapCooldown = this.leapCooldown;
 		newEntityData.abilityCooldowns.clear();

@@ -17,6 +17,7 @@ import com.github.standobyte.jojo.powersystem.standpower.entity.StandEntity;
 import com.github.standobyte.jojo.powersystem.standpower.entity.StandEntityAbility;
 import com.github.standobyte.jojo.powersystem.standpower.entity.StandEntityAbility.AutoSummonMode;
 import com.github.standobyte.jojo.powersystem.standpower.entity.StandOffsetFromUser;
+import com.github.standobyte.jojo.subsystems.entity_grab.LivingComponentGrab;
 
 import net.minecraft.world.phys.Vec3;
 
@@ -40,10 +41,22 @@ public class StandEntityBlockAbility extends StandEntityAbility {
 	public ConditionCheck checkSpecificConditions(Power<?> context) {
 		StandPower standPower = PowerClass.STAND.cast(context);
 		StandEntity stand = standPower != null ? standPower.getSummonedStandEntity() : null;
+		if (stand != null && LivingComponentGrab.getEntityGrabbedBy(stand) != null) {
+			return ConditionCheck.NEGATIVE;
+		}
 		if (stand != null && !(stand.canStartBlocking() || stand.isStandBlocking())) {
 			return ConditionCheck.NEGATIVE;
 		}
 		return super.checkSpecificConditions(context);
+	}
+
+	@Override
+	protected ConditionCheck checkStandEntityConditions(
+			StandPower standPower, StandEntity standEntity) {
+		if (LivingComponentGrab.getEntityGrabbedBy(standEntity) != null) {
+			return ConditionCheck.NEGATIVE;
+		}
+		return super.checkStandEntityConditions(standPower, standEntity);
 	}
 
 	@Override

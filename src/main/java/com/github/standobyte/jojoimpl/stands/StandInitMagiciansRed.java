@@ -65,7 +65,7 @@ public class StandInitMagiciansRed {
 					.bind("guard", InputMethod.HOLD, InputKey.RMB)
 					.bind("punch", InputMethod.CLICK, InputKey.LMB)
 					.bind("heavy_punch", InputMethod.CLICK, InputKey.RMB)
-					.bind("heavy_charged", InputMethod.HOLD, InputKey.RMB.withModifier(InputKey.Modifier.CONTROL))
+					.bind("heavy_charged", InputMethod.HOLD, MovesetBuilder.DEFAULT_CHARGED_HEAVY_INPUT)
 					.makeHotbar(0, USE_SPECIAL, SWITCH_SPECIAL)
 					.addToHotbar("flame_burst", 0, InputMethod.HOLD)
 					.addToHotbar("fireball", 0, InputMethod.CLICK)
@@ -80,7 +80,7 @@ public class StandInitMagiciansRed {
 					.bind("guard", InputMethod.HOLD, InputKey.RMB)
 					.bind("punch", InputMethod.CLICK, InputKey.LMB)
 					.bind("heavy_punch", InputMethod.CLICK, InputKey.RMB)
-					.bind("heavy_charged", InputMethod.HOLD, InputKey.RMB.withModifier(InputKey.Modifier.CONTROL))
+					.bind("heavy_charged", InputMethod.HOLD, MovesetBuilder.DEFAULT_CHARGED_HEAVY_INPUT)
 				.finalizeControlScheme()
 
 

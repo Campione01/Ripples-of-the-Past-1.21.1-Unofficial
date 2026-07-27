@@ -26,7 +26,11 @@ import net.minecraft.resources.ResourceLocation;
 
 @ApiStatus.NonExtendable
 public class MovesetBuilder {
-	public static final InputBindTemplate DEFAULT_GRAB_INPUT = InputKey.RMB.withModifier(InputKey.Modifier.SHIFT);
+	public static final String GRAB_CHARGED_HEAVY_KEY_MAPPING_NAME = "jojo_ripples.key.grab_charged_heavy";
+	private static final InputUseVanillaMapping GRAB_CHARGED_HEAVY_INPUT =
+			new InputUseVanillaMapping(GRAB_CHARGED_HEAVY_KEY_MAPPING_NAME);
+	public static final InputBindTemplate DEFAULT_GRAB_INPUT = GRAB_CHARGED_HEAVY_INPUT;
+	public static final InputBindTemplate DEFAULT_CHARGED_HEAVY_INPUT = GRAB_CHARGED_HEAVY_INPUT;
 	public static final InputBindTemplate DEFAULT_GRAB_THROW_INPUT = InputKey.RMB;
 	public static final InputBindTemplate DEFAULT_GRAB_RELEASE_INPUT = InputKey.Q;
 

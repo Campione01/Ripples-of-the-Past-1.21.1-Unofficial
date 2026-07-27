@@ -82,7 +82,7 @@ public class StandInitGoldExperience {
 					.bind("punch", InputMethod.CLICK, InputKey.LMB)
 					.bind("barrage", InputMethod.HOLD, InputKey.LMB)
 					.bind("heavy_punch", InputMethod.CLICK, InputKey.RMB)
-					.bind("heavy_charged", InputMethod.HOLD, InputKey.RMB.withModifier(InputKey.Modifier.CONTROL))
+					.bind("heavy_charged", InputMethod.HOLD, MovesetBuilder.DEFAULT_CHARGED_HEAVY_INPUT)
 					.makeHotbar(0, USE_SPECIAL, SWITCH_SPECIAL)
 					.addToHotbar("choose_lifeform", 0, InputMethod.CLICK)
 					.addToHotbar("create_lifeform", 0, InputMethod.CLICK)
@@ -101,7 +101,7 @@ public class StandInitGoldExperience {
 					.bind("punch", InputMethod.CLICK, InputKey.LMB)
 					.bind("barrage", InputMethod.HOLD, InputKey.LMB)
 					.bind("heavy_punch", InputMethod.CLICK, InputKey.RMB)
-					.bind("heavy_charged", InputMethod.HOLD, InputKey.RMB.withModifier(InputKey.Modifier.CONTROL))
+					.bind("heavy_charged", InputMethod.HOLD, MovesetBuilder.DEFAULT_CHARGED_HEAVY_INPUT)
 				.finalizeControlScheme()
 
 

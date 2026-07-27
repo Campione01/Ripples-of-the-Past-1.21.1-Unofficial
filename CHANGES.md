@@ -1,5 +1,23 @@
 # Independent Modification Record
 
+## Addon API and shared Stand combat input - 2026-07-27
+
+This update prepares the core for independently built 1.21.1 addons and aligns
+their common combat controls with the current game design:
+
+- added a versioned addon feature-negotiation API and server-authoritative
+  Stand insert, extract, and replace operations;
+- made addon ability translations and icons follow the owning power namespace
+  while preserving the built-in `jojo_ripples` resource paths;
+- added defensive Stand-instance ownership and Stand-disc serialization copies;
+- disabled incompatible base attacks and guarding while a Stand is holding a
+  target, including locked grab follow-up variations;
+- unified grab and charged heavy behind one rebindable input, defaulting to
+  Shift + right mouse: short press grabs where eligible and long press charges
+  a heavy attack where available;
+- added smoke tests for the public API, Stand transitions, disc persistence,
+  contextual grab behavior, and shared input topology.
+
 ## Initial public source snapshot - 2026-07-26
 
 This commit establishes the independently maintained public source history.

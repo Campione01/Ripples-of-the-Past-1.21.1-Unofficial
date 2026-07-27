@@ -87,7 +87,7 @@ public class StandInstance {
 	}
 	
 	public EnumSet<StandPart> getAllParts() {
-		return parts;
+		return parts.clone();
 	}
 	
 	private EnumSet<StandPart> getMissingParts() {
@@ -233,6 +233,27 @@ public class StandInstance {
 				this.standInstance.parts.removeAll(this.missingParts);
 			}
 			return this.standInstance;
+		}
+
+		@ApiStatus.Internal
+		public NetworkData copy() {
+			if (standInstance != null) {
+				return wrap(standInstance.copy());
+			}
+			return new NetworkData(standTypeId, skin, missingParts);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(standTypeId, skin, missingParts);
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			return obj == this || obj instanceof NetworkData other
+					&& standTypeId.equals(other.standTypeId)
+					&& skin.equals(other.skin)
+					&& missingParts.equals(other.missingParts);
 		}
 		
 		private static EnumSet<StandPart> copyParts(EnumSet<StandPart> parts) {

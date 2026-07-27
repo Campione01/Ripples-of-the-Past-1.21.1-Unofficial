@@ -105,6 +105,16 @@ public class AvailableAbilities {
 		return container != null ? container.ability : null;
 	}
 
+	@Nullable
+	public Ability getContextVariationOrDisable(
+			String baseAbilityName, String variationName) {
+		Ability variation = getContextVariation(variationName);
+		if (variation == null) {
+			setConditionCheck(baseAbilityName, ConditionCheck.NEGATIVE);
+		}
+		return variation;
+	}
+
 	
 	private final Map<AbilityId, AbilityConditionCheck> __cache = new HashMap<>();
 	

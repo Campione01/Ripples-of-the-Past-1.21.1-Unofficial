@@ -1,10 +1,10 @@
 package com.github.standobyte.jojo.mechanics.standdisc;
 
 import java.util.List;
-import java.util.Optional;
 
 import javax.annotation.Nullable;
 
+import com.github.standobyte.jojo.api.stand.StandPowerTransitions;
 import com.github.standobyte.jojo.client.standskin.StandSkin;
 import com.github.standobyte.jojo.client.standskin.StandSkinsLoader;
 import com.github.standobyte.jojo.init.ModItemDataComponents;
@@ -92,13 +92,16 @@ public class StandDiscItem extends Item {
 			PowerClass.STAND.attachPower(player);
 			StandPower stand = PowerClass.STAND.get(player);
 			if (stand != null) {
-				Optional<StandInstance> prevStand = stand.getStandInstance()
-						.filter(StandInstance::standExists)
-						.map(StandInstance::copy);
-				stand.setStandInstance(Optional.of(discStand.copyStandInstance()));
+				StandInstance replacement = discStand.copyStandInstance();
+				StandPowerTransitions.Result transition = stand.getStandInstance()
+						.map(current -> StandPowerTransitions.replace(stand, current.getStandId(), replacement))
+						.orElseGet(() -> StandPowerTransitions.insert(stand, replacement));
+				if (!transition.applied()) {
+					return InteractionResultHolder.fail(discItem);
+				}
 				if (!player.getAbilities().instabuild) {
 					discItem.shrink(1);
-					prevStand.ifPresent(prev -> {
+					transition.previous().filter(StandInstance::standExists).ifPresent(prev -> {
 						ItemEntity discItemEntity = player.drop(withStand(prev), false);
 						if (discItemEntity != null) {
 							discItemEntity.setPickUpDelay(5);
@@ -121,8 +124,7 @@ public class StandDiscItem extends Item {
 		StandWrittenOnDisc discStand = discItem.get(ModItemDataComponents.DISC_STAND.get());
 		if (discStand == null || !discStand.isValid()) return null;
 
-		StandInstance standInstance = discStand.getInstance();
-		return standInstance;
+		return discStand.copyStandInstance();
 	}
 
 	public static ItemStack withStand(StandInstance standInstance) {

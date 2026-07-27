@@ -87,6 +87,10 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 		if (!check.isPositive()) {
 			return check;
 		}
+		if (usageGroup != AbilityUsageGroup.GRAB
+				&& LivingComponentGrab.getEntityGrabbedBy(standEntity) != null) {
+			return ConditionCheck.NEGATIVE;
+		}
 		return ConditionCheck.noMessage(standEntity.canAttackMelee());
 	}
 	
@@ -106,7 +110,8 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 		if (standPower != null) {
 			StandEntity standEntity = standPower.getSummonedStandEntity();
 			if (standEntity != null && LivingComponentGrab.getEntityGrabbedBy(standEntity) != null) {
-				return abilities.getContextVariation("grab_barrage");
+				return abilities.getContextVariationOrDisable(
+						name(), "grab_barrage");
 			}
 		}
 		return super.replaceWithSubAbility(context, abilities);
