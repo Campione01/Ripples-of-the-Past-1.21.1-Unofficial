@@ -17,6 +17,9 @@ their common combat controls with the current game design:
   a heavy attack where available;
 - added smoke tests for the public API, Stand transitions, disc persistence,
   contextual grab behavior, and shared input topology.
+- added the data-driven `jojo_ripples:crazy_d_cannot_restore` block tag so
+  addons can exclude their temporary blocks from Crazy Diamond restoration
+  without patching the restoration pipeline.
 
 ## Initial public source snapshot - 2026-07-26
 

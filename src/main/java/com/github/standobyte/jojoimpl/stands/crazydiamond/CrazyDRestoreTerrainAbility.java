@@ -27,6 +27,7 @@ import com.github.standobyte.jojo.client.sound.ClientsideSoundsHelper;
 import com.github.standobyte.jojo.client.sound.sounds.EntityLingeringSoundInstance;
 import com.github.standobyte.jojo.client.sound.sounds.EntityStoppableSoundInstance;
 import com.github.standobyte.jojo.entityattachment.ComponentUtil;
+import com.github.standobyte.jojo.init.ModBlockTags;
 import com.github.standobyte.jojo.init.ModDataAttachmentTypes;
 import com.github.standobyte.jojo.init.ModParticles;
 import com.github.standobyte.jojo.init.ModSoundEvents;
@@ -510,6 +511,9 @@ public class CrazyDRestoreTerrainAbility extends NoPoseStandEntityAbility {
 
 	// this whole junk somewhat fixes janky restoration of sand blocks, e.g. an explosion in a desert
 	protected static boolean restorationExclude(PrevBlockInfo block, BlockPos targetPos, Level level) {
+		if (block.state.is(ModBlockTags.CRAZY_D_CANNOT_RESTORE)) {
+			return true;
+		}
 		if (block.state.getBlock() instanceof FallingBlock) {
 			BlockPos blockBelow = targetPos.below();
 			if (level.isEmptyBlock(blockBelow)) {

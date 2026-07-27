@@ -10,6 +10,7 @@ import com.github.standobyte.jojo.powersystem.ability.AbilityType;
 import com.github.standobyte.jojo.powersystem.ability.condition.GrabContextVariationSmokeTest;
 import com.github.standobyte.jojo.powersystem.SharedGrabChargedHeavyInputSmokeTest;
 import com.github.standobyte.jojo.powersystem.standpower.StandPowerInstanceChangeSmokeTest;
+import com.github.standobyte.jojoimpl.stands.crazydiamond.CrazyDRestoreExtensionSmokeTest;
 
 import net.minecraft.resources.ResourceLocation;
 
@@ -62,6 +63,7 @@ public final class RotpAddonApiSmokeTest {
 		StandPowerInstanceChangeSmokeTest.run();
 		GrabContextVariationSmokeTest.run();
 		SharedGrabChargedHeavyInputSmokeTest.run();
+		CrazyDRestoreExtensionSmokeTest.run();
 		AbilityIconSpritesCompatibilitySmokeTest.run();
 		StandSkillTextSmokeTest.run();
 	}
