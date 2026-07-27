@@ -6,6 +6,7 @@ import org.jetbrains.annotations.ApiStatus;
 
 import com.github.standobyte.jojo.JojoModLivingVariables;
 import com.github.standobyte.jojo.adventure.npc.PowerUserMobEntity;
+import com.github.standobyte.jojo.api.gravity.DirectionalGravityData;
 import com.github.standobyte.jojo.core.JojoMod;
 import com.github.standobyte.jojo.entityattachment.DataEventListeners;
 import com.github.standobyte.jojo.entityattachment.PlayerVoiceLineData;
@@ -62,6 +63,10 @@ public final class ModDataAttachmentTypes {
 	@ApiStatus.Internal
 	public static final Supplier<AttachmentType<DataEventListeners>> DATA_EVENT_HELPER = ATTACHMENT_TYPES.register("event_listener", 
 			() -> AttachmentType.builder(DataEventListeners::new).build());
+
+	@ApiStatus.Internal
+	public static final Supplier<AttachmentType<DirectionalGravityData>> DIRECTIONAL_GRAVITY = ATTACHMENT_TYPES.register("directional_gravity",
+			() -> AttachmentType.builder(obj -> obj instanceof LivingEntity ? new DirectionalGravityData() : null).build());
 	
 	public static final Supplier<AttachmentType<JojoModLivingVariables>> LIVING_VARS = ATTACHMENT_TYPES.register("living_vars", 
 			() -> AttachmentType.serializable(obj -> obj instanceof LivingEntity entity ? new JojoModLivingVariables(entity) : null).build());

@@ -1,6 +1,8 @@
 package com.github.standobyte.jojo.api;
 
 import com.github.standobyte.jojo.api.stand.StandPowerTransitionsSmokeTest;
+import com.github.standobyte.jojo.api.gravity.DirectionalGravityTransformsSmokeTest;
+import com.github.standobyte.jojo.api.gravity.DirectionalGravityDataSmokeTest;
 import com.github.standobyte.jojo.api.client.render.AddonPostEffectRegistrationSmokeTest;
 import com.github.standobyte.jojo.client.standskin.sprites.AbilityIconSpritesCompatibilitySmokeTest;
 import com.github.standobyte.jojo.client.ui.text.StandSkillTextSmokeTest;
@@ -34,6 +36,9 @@ public final class RotpAddonApiSmokeTest {
 		check(RotpAddonApi.supportsFeature(
 				RotpAddonApi.FEATURE_ADDON_POST_EFFECT_LIFECYCLE_V1),
 				"addon post-effect lifecycle feature missing");
+		check(RotpAddonApi.supportsFeature(
+				RotpAddonApi.FEATURE_DIRECTIONAL_GRAVITY_V1),
+				"directional gravity feature missing");
 
 		AbilityType<Ability> addonType = new AbilityType<>(
 				id("rotp_test", "freeze"), Ability::new);
@@ -76,6 +81,8 @@ public final class RotpAddonApiSmokeTest {
 		AbilityIconSpritesCompatibilitySmokeTest.run();
 		StandSkillTextSmokeTest.run();
 		RollbackTransactionFoundationSmokeTest.run();
+		DirectionalGravityTransformsSmokeTest.run();
+		DirectionalGravityDataSmokeTest.run();
 	}
 
 	private static ResourceLocation id(String namespace, String path) {
