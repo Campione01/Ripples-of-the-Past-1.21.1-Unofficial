@@ -387,6 +387,11 @@ public class StandType extends PowerType {
 	public ResourceLocation getId() {
 		return standTypeId;
 	}
+
+	@Override
+	protected ResourceLocation getMovesetExtensionTargetId() {
+		return standTypeId;
+	}
 	
 	@Nullable
 	public static StandType fromId(ResourceLocation id) {

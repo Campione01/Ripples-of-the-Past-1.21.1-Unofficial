@@ -1,6 +1,7 @@
 package com.github.standobyte.jojo.api;
 
 import com.github.standobyte.jojo.api.stand.StandPowerTransitionsSmokeTest;
+import com.github.standobyte.jojo.api.stand.StandMovesetExtensionsSmokeTest;
 import com.github.standobyte.jojo.api.gravity.DirectionalGravityTransformsSmokeTest;
 import com.github.standobyte.jojo.api.gravity.DirectionalGravityDataSmokeTest;
 import com.github.standobyte.jojo.api.client.render.AddonPostEffectRegistrationSmokeTest;
@@ -39,6 +40,9 @@ public final class RotpAddonApiSmokeTest {
 		check(RotpAddonApi.supportsFeature(
 				RotpAddonApi.FEATURE_DIRECTIONAL_GRAVITY_V1),
 				"directional gravity feature missing");
+		check(RotpAddonApi.supportsFeature(
+				RotpAddonApi.FEATURE_STAND_MOVESET_EXTENSIONS_V1),
+				"Stand moveset extensions feature missing");
 
 		AbilityType<Ability> addonType = new AbilityType<>(
 				id("rotp_test", "freeze"), Ability::new);
@@ -72,6 +76,7 @@ public final class RotpAddonApiSmokeTest {
 				"built-in sprite ID must remain unchanged");
 
 		StandPowerTransitionsSmokeTest.run();
+		StandMovesetExtensionsSmokeTest.run();
 		AddonPostEffectRegistrationSmokeTest.run();
 		StandWrittenOnDiscSmokeTest.run();
 		StandPowerInstanceChangeSmokeTest.run();

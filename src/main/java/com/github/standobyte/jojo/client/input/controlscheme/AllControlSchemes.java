@@ -5,7 +5,6 @@ import java.util.Map;
 
 import com.github.standobyte.jojo.core.JojoMod;
 import com.github.standobyte.jojo.core.JojoRegistries;
-import com.github.standobyte.jojo.powersystem.MovesetBuilder;
 import com.github.standobyte.jojo.powersystem.PowerType;
 import com.github.standobyte.jojo.powersystem.ability.controls.ControlSchemeTemplate;
 
@@ -38,25 +37,9 @@ public class AllControlSchemes {
 	
 	private static void add(PowerType powerType) {
 		ResourceLocation id = powerType.getId();
-		MovesetBuilder moveset = powerType.getDefaultMoveset();
-		ControlSchemeTemplate defaultCtrlScheme = mergeControlSchemes(moveset);
+		ControlSchemeTemplate defaultCtrlScheme =
+				powerType.makeDefaultControlSchemeTemplate();
 		controls.put(id, ClientControlScheme.create(defaultCtrlScheme, powerType));
-	}
-	
-	private static ControlSchemeTemplate mergeControlSchemes(MovesetBuilder moveset) {
-		var schemeIter = moveset.controlSchemes.values().iterator();
-		ControlSchemeTemplate merged = schemeIter.hasNext() ? schemeIter.next().deepCopy() : new ControlSchemeTemplate();
-		while (schemeIter.hasNext()) {
-			ControlSchemeTemplate copy = schemeIter.next().deepCopy();
-			for (var groupEntry : copy.groups.entrySet()) {
-				ControlSchemeTemplate.GroupTemplate sourceGroup = groupEntry.getValue();
-				ControlSchemeTemplate.GroupTemplate targetGroup = merged.groups.computeIfAbsent(groupEntry.getKey(),
-						name -> new ControlSchemeTemplate.GroupTemplate(name, sourceGroup.toggleHudKey));
-				sourceGroup.separateBinds.forEach(targetGroup.separateBinds::putIfAbsent);
-				targetGroup.hotbars.addAll(sourceGroup.hotbars);
-			}
-		}
-		return merged;
 	}
 	
 }

@@ -20,6 +20,8 @@ public final class RotpAddonApi {
 			"addon_post_effect_lifecycle_v1";
 	public static final String FEATURE_DIRECTIONAL_GRAVITY_V1 =
 			"directional_gravity_v1";
+	public static final String FEATURE_STAND_MOVESET_EXTENSIONS_V1 =
+			"stand_moveset_extensions_v1";
 
 	public static final Set<String> FEATURES = Set.of(
 			FEATURE_ABILITY_RESOURCE_NAMESPACE_V1,
@@ -27,7 +29,8 @@ public final class RotpAddonApi {
 			FEATURE_STAND_POWER_TRANSITIONS_V1,
 			FEATURE_TIME_STOP_LIFECYCLE_V1,
 			FEATURE_ADDON_POST_EFFECT_LIFECYCLE_V1,
-			FEATURE_DIRECTIONAL_GRAVITY_V1);
+			FEATURE_DIRECTIONAL_GRAVITY_V1,
+			FEATURE_STAND_MOVESET_EXTENSIONS_V1);
 
 	private RotpAddonApi() {}
 

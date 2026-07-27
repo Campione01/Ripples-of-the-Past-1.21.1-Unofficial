@@ -142,6 +142,21 @@ public class ControlSchemeTemplate {
 		return this;
 	}
 
+	@ApiStatus.Internal
+	public void appendToExistingHotbar(
+			String ability, int hotbarId, InputMethod inputMethod) {
+		AbilitiesHotbar hotbar = hotbarsById.get(hotbarId);
+		if (hotbar == null) {
+			throw new IllegalStateException(
+					"hotbar does not exist: " + hotbarId);
+		}
+		Map<InputKey.Modifier, Map<InputMethod, String>> slot = new HashMap<>();
+		slot.put(null, Util.make(
+				new EnumMap<>(InputMethod.class),
+				map -> map.put(inputMethod, ability)));
+		hotbar.slots.add(slot);
+	}
+
 	public ControlSchemeTemplate addHotbarSlotVariation(String ability, String baseAbility, @Nullable InputKey.Modifier modifier, InputMethod inputMethod) {
 		for (AbilitiesHotbar hotbar : hotbarsById.values()) {
 			for (Map<InputKey.Modifier, Map<InputMethod, String>> slot : hotbar.slots) {

@@ -1,12 +1,15 @@
 package com.github.standobyte.jojo.powersystem;
 
 import java.util.Map;
+import java.util.Objects;
 
 import javax.annotation.Nonnull;
 
 import org.jetbrains.annotations.ApiStatus;
 
 import com.github.standobyte.jojo.config.JsonConfigurable;
+import com.github.standobyte.jojo.api.stand.StandMovesetExtensions;
+import com.github.standobyte.jojo.powersystem.ability.controls.ControlSchemeTemplate;
 import com.github.standobyte.jojo.powersystem.unlockableskill.UnlockableSkill;
 import com.github.standobyte.jojo.util.objects_java.DefaultedValue;
 import com.google.gson.JsonElement;
@@ -18,6 +21,8 @@ import net.minecraft.resources.ResourceLocation;
 public abstract class PowerType implements JsonConfigurable {
 	protected final DefaultedValue<MovesetBuilder> movesetConfigured;
 	protected Moveset baseMoveset;
+	private ResourceLocation baseMovesetExtensionTarget;
+	private long baseMovesetExtensionRevision;
 	
 	public PowerType(MovesetBuilder defaultMoveset) {
 		this.movesetConfigured = new DefaultedValue<>(defaultMoveset);
@@ -41,7 +46,8 @@ public abstract class PowerType implements JsonConfigurable {
 	public JsonObject makeConfigTemplate() {
 		JsonObject json = new JsonObject();
 		
-		Moveset defaultMoveset = getDefaultMoveset().build(getPowerClass(), getId());
+		Moveset defaultMoveset = makeExtendedMovesetBuilder(
+				movesetConfigured.defaultValue).build(getPowerClass(), getId());
 		JsonElement movesetJson = Moveset.toJson(defaultMoveset);
 		json.add("moveset", movesetJson);
 		
@@ -55,7 +61,8 @@ public abstract class PowerType implements JsonConfigurable {
 		
 		JsonObject movesetEditsJson = config.getAsJsonObject("moveset");
 		if (movesetEditsJson != null) {
-			MovesetBuilder configured = getDefaultMoveset().deepCopy();
+			MovesetBuilder configured = makeExtendedMovesetBuilder(
+					movesetConfigured.defaultValue);
 			Moveset.applyJsonConfig(configured, movesetEditsJson);
 			movesetConfigured.value = configured;
 		}
@@ -68,6 +75,7 @@ public abstract class PowerType implements JsonConfigurable {
 	@Override
 	public void restoreDefaults() {
 		movesetConfigured.reset();
+		initBaseMoveset();
 	}
 	
 	
@@ -77,21 +85,77 @@ public abstract class PowerType implements JsonConfigurable {
 	}
 	
 	protected void initBaseMoveset() {
-		this.baseMoveset = this.movesetConfigured.value.build(getPowerClass(), getId());
+		ResourceLocation extensionTarget = getMovesetExtensionTargetId();
+		this.baseMoveset = makeExtendedMovesetBuilder(
+				this.movesetConfigured.value).build(getPowerClass(), getId());
+		this.baseMovesetExtensionTarget = extensionTarget;
+		this.baseMovesetExtensionRevision =
+				StandMovesetExtensions.targetRevision(extensionTarget);
 	}
-	
+
 	public Moveset getBaseMoveset() {
+		ResourceLocation extensionTarget = getMovesetExtensionTargetId();
+		if (!Objects.equals(
+					baseMovesetExtensionTarget, extensionTarget)
+				|| baseMovesetExtensionRevision
+						!= StandMovesetExtensions.targetRevision(
+								extensionTarget)) {
+			initBaseMoveset();
+		}
 		return baseMoveset;
 	}
 	
 	public Moveset makeMoveset(Power<?> userPower) {
-		Moveset moveset = this.movesetConfigured.value.build(getPowerClass(), getId());
+		Moveset moveset = makeExtendedMovesetBuilder(
+				this.movesetConfigured.value).build(getPowerClass(), getId());
 		return moveset;
+	}
+
+	@ApiStatus.Internal
+	public ControlSchemeTemplate makeDefaultControlSchemeTemplate() {
+		MovesetBuilder moveset = makeExtendedMovesetBuilder(
+				movesetConfigured.defaultValue);
+		var schemeIter = moveset.controlSchemes.values().iterator();
+		ControlSchemeTemplate merged = schemeIter.hasNext()
+				? schemeIter.next().deepCopy()
+				: new ControlSchemeTemplate();
+		while (schemeIter.hasNext()) {
+			ControlSchemeTemplate copy = schemeIter.next().deepCopy();
+			for (var groupEntry : copy.groups.entrySet()) {
+				ControlSchemeTemplate.GroupTemplate sourceGroup =
+						groupEntry.getValue();
+				ControlSchemeTemplate.GroupTemplate targetGroup =
+						merged.groups.computeIfAbsent(
+								groupEntry.getKey(),
+								name -> new ControlSchemeTemplate.GroupTemplate(
+										name, sourceGroup.toggleHudKey));
+				sourceGroup.separateBinds.forEach(
+						targetGroup.separateBinds::putIfAbsent);
+				targetGroup.hotbars.addAll(sourceGroup.hotbars);
+			}
+		}
+		return merged;
+	}
+
+	protected ResourceLocation getMovesetExtensionTargetId() {
+		return null;
+	}
+
+	private MovesetBuilder makeExtendedMovesetBuilder(
+			MovesetBuilder source) {
+		MovesetBuilder copy = source.deepCopy();
+		ResourceLocation extensionTarget = getMovesetExtensionTargetId();
+		if (extensionTarget != null) {
+			StandMovesetExtensions.applyRegisteredExtensions(
+					extensionTarget, copy);
+		}
+		return copy;
 	}
 	
 	
 	public Map<String, ? extends UnlockableSkill> getUnlockableSkills() {
-		return this.movesetConfigured.value.unlockableSkills;
+		return makeExtendedMovesetBuilder(
+				this.movesetConfigured.value).unlockableSkills;
 	}
 	
 }

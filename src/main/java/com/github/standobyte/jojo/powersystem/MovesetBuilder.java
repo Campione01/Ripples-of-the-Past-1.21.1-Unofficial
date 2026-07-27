@@ -1,7 +1,9 @@
 package com.github.standobyte.jojo.powersystem;
 
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -39,6 +41,7 @@ public class MovesetBuilder {
 	
 	@ApiStatus.Internal public Map<String, ControlSchemeTemplate> controlSchemes = new LinkedHashMap<>();
 	@ApiStatus.Internal public ControlSchemeTemplate curControlScheme = new ControlSchemeTemplate();
+	private final Set<ResourceLocation> appliedStandMovesetExtensions = new LinkedHashSet<>();
 //	protected final Set<String> disable = new HashSet<>();
 	
 	
@@ -50,7 +53,38 @@ public class MovesetBuilder {
 		copy.unlockableSkills.putAll(this.unlockableSkills);
 		this.controlSchemes.forEach((name, scheme) -> copy.controlSchemes.put(name, scheme.deepCopy()));
 		copy.curControlScheme = this.curControlScheme.deepCopy();
+		copy.appliedStandMovesetExtensions.addAll(this.appliedStandMovesetExtensions);
 		return copy;
+	}
+
+	@ApiStatus.Internal
+	public boolean hasStandMovesetExtension(ResourceLocation extensionId) {
+		return appliedStandMovesetExtensions.contains(extensionId);
+	}
+
+	@ApiStatus.Internal
+	public void markStandMovesetExtension(ResourceLocation extensionId) {
+		appliedStandMovesetExtensions.add(extensionId);
+	}
+
+	@ApiStatus.Internal
+	public void appendStandMovesetExtensionHotbar(
+			String controlSchemeName, int hotbarId,
+			String abilityName, InputMethod inputMethod) {
+		if (!abilities.containsKey(abilityName)) {
+			throw new IllegalStateException(
+					"hotbar entry references missing ability: "
+							+ abilityName);
+		}
+		ControlSchemeTemplate controlScheme =
+				controlSchemes.get(controlSchemeName);
+		if (controlScheme == null) {
+			throw new IllegalStateException(
+					"control scheme does not exist: "
+							+ controlSchemeName);
+		}
+		controlScheme.appendToExistingHotbar(
+				abilityName, hotbarId, inputMethod);
 	}
 	
 	public Moveset build(PowerClass<?> powerClass, ResourceLocation powerTypeId) {
