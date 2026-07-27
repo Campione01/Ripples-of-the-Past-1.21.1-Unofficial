@@ -23,6 +23,7 @@ import com.github.standobyte.jojo.powersystem.playerpower.PlayerPower;
 import com.github.standobyte.jojo.powersystem.standpower.StandPower;
 import com.github.standobyte.jojo.powersystem.standpower.effect.StandEffectsTarget;
 import com.github.standobyte.jojo.subsystems.ServerBlockDestroyTracker;
+import com.github.standobyte.jojo.subsystems.rollback.RollbackTransactionManager;
 import com.github.standobyte.jojo.subsystems.entity_externalcontainer.PlayerExternalContainers;
 import com.github.standobyte.jojo.subsystems.entity_grab.LivingComponentGrab;
 import com.github.standobyte.jojo.subsystems.movement_input_sync.PlayerMovementInputData;
@@ -154,6 +155,9 @@ public final class ModDataAttachmentTypes {
 
 	public static final Supplier<AttachmentType<ChargedHamonEggTracker>> CHARGED_HAMON_EGGS = ATTACHMENT_TYPES.register("charged_hamon_eggs",
 			() -> AttachmentType.builder(obj -> obj instanceof ServerLevel ? new ChargedHamonEggTracker() : null).build());
+
+	public static final Supplier<AttachmentType<RollbackTransactionManager>> ROLLBACK_TRANSACTIONS = ATTACHMENT_TYPES.register("rollback_transactions",
+			() -> AttachmentType.builder(obj -> obj instanceof ServerLevel level ? new RollbackTransactionManager(level) : null).build());
 	
 	
 	// Chunk

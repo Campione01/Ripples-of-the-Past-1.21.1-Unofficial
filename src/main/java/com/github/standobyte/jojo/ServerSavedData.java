@@ -23,6 +23,7 @@ public class ServerSavedData extends SavedData {
     private int cassetteId = 0;
     private long polaroidPhotoId = 0;
     private UUID serverUUID = UUID.randomUUID();
+    private final UUID runtimeEpoch = UUID.randomUUID();
 
 	@Override
 	public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
@@ -77,6 +78,14 @@ public class ServerSavedData extends SavedData {
     public UUID getServerUUID() {
     	setDirty();
     	return serverUUID;
+    }
+
+    /**
+     * Process-local nonce. It is intentionally omitted from saved data so
+     * transient handles cannot survive a server restart.
+     */
+    public UUID getRuntimeEpoch() {
+        return runtimeEpoch;
     }
     
 	
