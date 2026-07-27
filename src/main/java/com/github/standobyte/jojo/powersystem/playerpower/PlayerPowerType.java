@@ -6,6 +6,7 @@ import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import com.github.standobyte.jojo.api.playerpower.PlayerPowerMovesetExtensions;
 import com.github.standobyte.jojo.core.JojoRegistries;
 import com.github.standobyte.jojo.powersystem.MovesetBuilder;
 import com.github.standobyte.jojo.powersystem.Power;
@@ -33,6 +34,26 @@ public abstract class PlayerPowerType<D extends PlayerPowerData> extends PowerTy
 	@Override
 	public ResourceLocation getId() {
 		return registryKey;
+	}
+
+	@Override
+	protected ResourceLocation getMovesetExtensionTargetId() {
+		return registryKey;
+	}
+
+	@Override
+	protected long getMovesetExtensionRevision(
+			ResourceLocation extensionTarget) {
+		return PlayerPowerMovesetExtensions.targetRevision(
+				extensionTarget);
+	}
+
+	@Override
+	protected void applyMovesetExtensions(
+			ResourceLocation extensionTarget,
+			MovesetBuilder moveset) {
+		PlayerPowerMovesetExtensions.applyRegisteredExtensions(
+				extensionTarget, moveset);
 	}
 
     @Nullable

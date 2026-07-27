@@ -31,6 +31,7 @@ public abstract class Power<P extends Power<P>> implements SynchronizablePlayerD
 	@Nonnull protected final LivingEntity user;
 	protected final Optional<ServerPlayer> serverPlayerUser;
 	protected Moveset moveset;
+	private long movesetExtensionRevision = Long.MIN_VALUE;
 	protected Map<ResourceLocation, Either<PowerData, CompoundTag>> powerData = new HashMap<>();
 	
 	public Power(LivingEntity user) {
@@ -110,13 +111,21 @@ public abstract class Power<P extends Power<P>> implements SynchronizablePlayerD
 	
 	@Nonnull
 	public Moveset getMoveset() {
-		if (moveset == null) {
-			moveset = initMoveset(getPowerType());
+		PowerType powerType = getPowerType();
+		long currentRevision = powerType != null
+				? powerType.getCurrentMovesetExtensionRevision()
+				: 0L;
+		if (moveset == null
+				|| movesetExtensionRevision != currentRevision) {
+			moveset = initMoveset(powerType);
 		}
 		return moveset;
 	}
 	
 	protected Moveset initMoveset(@Nullable PowerType powerType) {
+		movesetExtensionRevision = powerType != null
+				? powerType.getCurrentMovesetExtensionRevision()
+				: 0L;
 		return powerType != null ? powerType.makeMoveset(this) : Moveset.empty();
 	}
 	
@@ -170,7 +179,7 @@ public abstract class Power<P extends Power<P>> implements SynchronizablePlayerD
 
 	
 	public void afterConfigApply() {
-		initMoveset(getPowerType());
+		moveset = initMoveset(getPowerType());
 	}
 
 	@Override
@@ -197,6 +206,8 @@ public abstract class Power<P extends Power<P>> implements SynchronizablePlayerD
 	
 	protected void onPlayerCloneData(P newEntityData, boolean wasDeath) {
 		newEntityData.moveset = this.moveset;
+		Power<?> newPower = newEntityData;
+		newPower.movesetExtensionRevision = this.movesetExtensionRevision;
 		newEntityData.powerData = this.powerData;
 	}
 	

@@ -157,6 +157,83 @@ public class ControlSchemeTemplate {
 		hotbar.slots.add(slot);
 	}
 
+	@ApiStatus.Internal
+	public void insertAfterExistingHotbarSlot(
+			String ability,
+			int hotbarId,
+			String anchorAbility,
+			InputMethod inputMethod) {
+		AbilitiesHotbar hotbar = requireHotbar(hotbarId);
+		int anchorIndex = findUniqueHotbarSlot(
+				hotbar, anchorAbility);
+		Map<InputKey.Modifier, Map<InputMethod, String>> slot =
+				new HashMap<>();
+		slot.put(null, Util.make(
+				new EnumMap<>(InputMethod.class),
+				map -> map.put(inputMethod, ability)));
+		hotbar.slots.add(anchorIndex + 1, slot);
+	}
+
+	@ApiStatus.Internal
+	public void addExistingHotbarSlotVariation(
+			String ability,
+			int hotbarId,
+			String baseAbility,
+			InputKey.Modifier modifier,
+			InputMethod inputMethod) {
+		AbilitiesHotbar hotbar = requireHotbar(hotbarId);
+		int slotIndex = findUniqueHotbarSlot(
+				hotbar, baseAbility);
+		Map<InputKey.Modifier, Map<InputMethod, String>> slot =
+				hotbar.slots.get(slotIndex);
+		Map<InputMethod, String> variations =
+				slot.computeIfAbsent(
+						modifier,
+						__ -> new EnumMap<>(InputMethod.class));
+		String existing = variations.putIfAbsent(
+				inputMethod, ability);
+		if (existing != null && !existing.equals(ability)) {
+			throw new IllegalStateException(
+					"hotbar variation already exists for "
+							+ modifier + " " + inputMethod
+							+ ": " + existing);
+		}
+	}
+
+	private AbilitiesHotbar requireHotbar(int hotbarId) {
+		AbilitiesHotbar hotbar = hotbarsById.get(hotbarId);
+		if (hotbar == null) {
+			throw new IllegalStateException(
+					"hotbar does not exist: " + hotbarId);
+		}
+		return hotbar;
+	}
+
+	private static int findUniqueHotbarSlot(
+			AbilitiesHotbar hotbar, String ability) {
+		int match = -1;
+		for (int i = 0; i < hotbar.slots.size(); i++) {
+			boolean contains = hotbar.slots.get(i).values()
+					.stream()
+					.flatMap(inputMethods ->
+							inputMethods.values().stream())
+					.anyMatch(ability::equals);
+			if (contains) {
+				if (match >= 0) {
+					throw new IllegalStateException(
+							"hotbar ability is ambiguous: "
+									+ ability);
+				}
+				match = i;
+			}
+		}
+		if (match < 0) {
+			throw new IllegalStateException(
+					"hotbar ability does not exist: " + ability);
+		}
+		return match;
+	}
+
 	public ControlSchemeTemplate addHotbarSlotVariation(String ability, String baseAbility, @Nullable InputKey.Modifier modifier, InputMethod inputMethod) {
 		for (AbilitiesHotbar hotbar : hotbarsById.values()) {
 			for (Map<InputKey.Modifier, Map<InputMethod, String>> slot : hotbar.slots) {

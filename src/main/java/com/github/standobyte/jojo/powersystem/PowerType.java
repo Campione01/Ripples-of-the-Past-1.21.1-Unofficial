@@ -90,7 +90,7 @@ public abstract class PowerType implements JsonConfigurable {
 				this.movesetConfigured.value).build(getPowerClass(), getId());
 		this.baseMovesetExtensionTarget = extensionTarget;
 		this.baseMovesetExtensionRevision =
-				StandMovesetExtensions.targetRevision(extensionTarget);
+				getMovesetExtensionRevision(extensionTarget);
 	}
 
 	public Moveset getBaseMoveset() {
@@ -98,7 +98,7 @@ public abstract class PowerType implements JsonConfigurable {
 		if (!Objects.equals(
 					baseMovesetExtensionTarget, extensionTarget)
 				|| baseMovesetExtensionRevision
-						!= StandMovesetExtensions.targetRevision(
+						!= getMovesetExtensionRevision(
 								extensionTarget)) {
 			initBaseMoveset();
 		}
@@ -141,13 +141,31 @@ public abstract class PowerType implements JsonConfigurable {
 		return null;
 	}
 
+	protected long getMovesetExtensionRevision(
+			ResourceLocation extensionTarget) {
+		return StandMovesetExtensions.targetRevision(
+				extensionTarget);
+	}
+
+	protected void applyMovesetExtensions(
+			ResourceLocation extensionTarget,
+			MovesetBuilder moveset) {
+		StandMovesetExtensions.applyRegisteredExtensions(
+				extensionTarget, moveset);
+	}
+
+	@ApiStatus.Internal
+	public long getCurrentMovesetExtensionRevision() {
+		return getMovesetExtensionRevision(
+				getMovesetExtensionTargetId());
+	}
+
 	private MovesetBuilder makeExtendedMovesetBuilder(
 			MovesetBuilder source) {
 		MovesetBuilder copy = source.deepCopy();
 		ResourceLocation extensionTarget = getMovesetExtensionTargetId();
 		if (extensionTarget != null) {
-			StandMovesetExtensions.applyRegisteredExtensions(
-					extensionTarget, copy);
+			applyMovesetExtensions(extensionTarget, copy);
 		}
 		return copy;
 	}

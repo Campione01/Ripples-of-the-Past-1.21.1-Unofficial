@@ -42,6 +42,9 @@ public class MovesetBuilder {
 	@ApiStatus.Internal public Map<String, ControlSchemeTemplate> controlSchemes = new LinkedHashMap<>();
 	@ApiStatus.Internal public ControlSchemeTemplate curControlScheme = new ControlSchemeTemplate();
 	private final Set<ResourceLocation> appliedStandMovesetExtensions = new LinkedHashSet<>();
+	private final Set<ResourceLocation> appliedPlayerPowerMovesetExtensions = new LinkedHashSet<>();
+	private final Map<PlayerPowerHotbarAnchor, String>
+			playerPowerHotbarInsertionTails = new LinkedHashMap<>();
 //	protected final Set<String> disable = new HashSet<>();
 	
 	
@@ -54,6 +57,10 @@ public class MovesetBuilder {
 		this.controlSchemes.forEach((name, scheme) -> copy.controlSchemes.put(name, scheme.deepCopy()));
 		copy.curControlScheme = this.curControlScheme.deepCopy();
 		copy.appliedStandMovesetExtensions.addAll(this.appliedStandMovesetExtensions);
+		copy.appliedPlayerPowerMovesetExtensions.addAll(
+				this.appliedPlayerPowerMovesetExtensions);
+		copy.playerPowerHotbarInsertionTails.putAll(
+				this.playerPowerHotbarInsertionTails);
 		return copy;
 	}
 
@@ -65,6 +72,19 @@ public class MovesetBuilder {
 	@ApiStatus.Internal
 	public void markStandMovesetExtension(ResourceLocation extensionId) {
 		appliedStandMovesetExtensions.add(extensionId);
+	}
+
+	@ApiStatus.Internal
+	public boolean hasPlayerPowerMovesetExtension(
+			ResourceLocation extensionId) {
+		return appliedPlayerPowerMovesetExtensions.contains(
+				extensionId);
+	}
+
+	@ApiStatus.Internal
+	public void markPlayerPowerMovesetExtension(
+			ResourceLocation extensionId) {
+		appliedPlayerPowerMovesetExtensions.add(extensionId);
 	}
 
 	@ApiStatus.Internal
@@ -86,6 +106,81 @@ public class MovesetBuilder {
 		controlScheme.appendToExistingHotbar(
 				abilityName, hotbarId, inputMethod);
 	}
+
+	@ApiStatus.Internal
+	public void insertPlayerPowerMovesetExtensionHotbar(
+			String controlSchemeName,
+			int hotbarId,
+			String anchorAbilityName,
+			String abilityName,
+			InputMethod inputMethod) {
+		requirePlayerPowerExtensionAbility(abilityName);
+		requirePlayerPowerExtensionAbility(anchorAbilityName);
+		ControlSchemeTemplate controlScheme =
+				requirePlayerPowerExtensionControlScheme(
+						controlSchemeName);
+		PlayerPowerHotbarAnchor anchor =
+				new PlayerPowerHotbarAnchor(
+						controlSchemeName,
+						hotbarId,
+						anchorAbilityName);
+		String insertionTail =
+				playerPowerHotbarInsertionTails.getOrDefault(
+						anchor, anchorAbilityName);
+		controlScheme.insertAfterExistingHotbarSlot(
+				abilityName,
+				hotbarId,
+				insertionTail,
+				inputMethod);
+		playerPowerHotbarInsertionTails.put(
+				anchor, abilityName);
+	}
+
+	@ApiStatus.Internal
+	public void addPlayerPowerMovesetExtensionHotbarVariation(
+			String controlSchemeName,
+			int hotbarId,
+			String baseAbilityName,
+			String abilityName,
+			InputKey.Modifier modifier,
+			InputMethod inputMethod) {
+		requirePlayerPowerExtensionAbility(abilityName);
+		requirePlayerPowerExtensionAbility(baseAbilityName);
+		requirePlayerPowerExtensionControlScheme(controlSchemeName)
+				.addExistingHotbarSlotVariation(
+						abilityName,
+						hotbarId,
+						baseAbilityName,
+						modifier,
+						inputMethod);
+	}
+
+	private void requirePlayerPowerExtensionAbility(
+			String abilityName) {
+		if (!abilities.containsKey(abilityName)) {
+			throw new IllegalStateException(
+					"hotbar entry references missing ability: "
+							+ abilityName);
+		}
+	}
+
+	private ControlSchemeTemplate
+			requirePlayerPowerExtensionControlScheme(
+					String controlSchemeName) {
+		ControlSchemeTemplate controlScheme =
+				controlSchemes.get(controlSchemeName);
+		if (controlScheme == null) {
+			throw new IllegalStateException(
+					"control scheme does not exist: "
+							+ controlSchemeName);
+		}
+		return controlScheme;
+	}
+
+	private record PlayerPowerHotbarAnchor(
+			String controlSchemeName,
+			int hotbarId,
+			String anchorAbilityName) {}
 	
 	public Moveset build(PowerClass<?> powerClass, ResourceLocation powerTypeId) {
 		if (this.controlSchemes.isEmpty()) {
