@@ -5,19 +5,26 @@ import java.util.Comparator;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
 import javax.annotation.Nullable;
 
+import org.jetbrains.annotations.ApiStatus;
+
 import com.github.standobyte.jojo.JojoModConfig;
+import com.github.standobyte.jojo.api.timestop.TimeStopLifecycleEvent;
+import com.github.standobyte.jojo.api.timestop.TimeStopLifecycleEvent.RemovalReason;
 import com.github.standobyte.jojo.config.client.PlayerClientBroadcastedSettings;
 import com.github.standobyte.jojo.core.JojoMod;
 import com.github.standobyte.jojo.customobjects.entity_projectile.KnifeEntity;
 import com.github.standobyte.jojo.customobjects.entity_projectile.OwnerBoundProjectileEntity;
+import com.github.standobyte.jojo.event.ModEventHooks;
 import com.github.standobyte.jojo.init.ModDataAttachmentTypes;
 import com.github.standobyte.jojo.init.ModSoundEvents;
 import com.github.standobyte.jojo.init.ModStatusEffects;
@@ -114,6 +121,25 @@ public class TimeStopState {
     }
 
     public void putInstance(Instance instance) {
+        tryPutInstance(instance);
+    }
+
+    public boolean tryPutInstance(Instance instance) {
+        TimeStopLifecycleEvent.PreStart event =
+                ModEventHooks.onTimeStopPreStart(level, instance);
+        return commitPreStart(event);
+    }
+
+    @ApiStatus.Internal
+    public boolean commitPreStart(TimeStopLifecycleEvent.PreStart event) {
+        if (event == null || event.isCanceled() || event.getLevel() != level) {
+            return false;
+        }
+        commitInstance(event.getInstance());
+        return true;
+    }
+
+    private void commitInstance(Instance instance) {
         boolean firstInstance = instances.isEmpty();
         if (!firstInstance) {
             removeSoundsIfCrosses(instance);
@@ -121,9 +147,19 @@ public class TimeStopState {
         if (firstInstance) {
             freezeTimeStopGamerulesIfNeeded();
         }
-        instances.put(instance.id(), instance);
+        Instance replaced = instances.put(instance.id(), instance);
+        if (replaced != null) {
+            reconcileFrozenEntities();
+        }
         reconcileEntitiesForInstance(instance);
-        syncAddedInstanceToAll(instance);
+        if (replaced != null) {
+            ModEventHooks.onTimeStopRemoved(
+                    level, replaced, RemovalReason.REPLACED);
+        }
+        if (instances.get(instance.id()) == instance) {
+            syncAddedInstanceToAll(instance);
+            ModEventHooks.onTimeStopAdded(level, instance);
+        }
     }
 
     private void removeSoundsIfCrosses(Instance newInstance) {
@@ -346,6 +382,11 @@ public class TimeStopState {
     }
 
     public void removeInstance(int id) {
+        removeInstance(id, RemovalReason.EXPLICIT);
+    }
+
+    public void removeInstance(int id, RemovalReason reason) {
+        Objects.requireNonNull(reason);
         Instance removed = instances.remove(id);
         if (removed != null) {
             applyTimeStopCooldown(removed);
@@ -354,19 +395,28 @@ public class TimeStopState {
             restoreTimeStopGamerulesIfNoActiveInstances();
             syncRemovedInstanceToAll(id);
             updateAllPlayerAwareness();
+            ModEventHooks.onTimeStopRemoved(level, removed, reason);
         }
     }
 
     public void reset() {
-        List<Integer> removedIds = new ArrayList<>(instances.keySet());
+        List<Instance> removedInstances = new ArrayList<>(instances.values());
         instances.clear();
+        applyTimeStopCooldowns(removedInstances);
+        for (Instance removed : removedInstances) {
+            removeTimeStopEffectIfNoActiveInstance(removed);
+        }
         reconcileFrozenEntities();
         restoreTimeStopGamerulesIfNoActiveInstances();
-        for (int id : removedIds) {
-            syncRemovedInstanceToAll(id);
+        for (Instance removed : removedInstances) {
+            syncRemovedInstanceToAll(removed.id());
         }
         updateAllPlayerAwareness();
         pruneFrozenVisionPlayers();
+        for (Instance removed : removedInstances) {
+            ModEventHooks.onTimeStopRemoved(
+                    level, removed, RemovalReason.RESET);
+        }
     }
 
     public boolean requestManualResume(int id) {
@@ -382,6 +432,7 @@ public class TimeStopState {
     }
 
     public void tickLifecycle() {
+        List<PendingRemoval> pendingRemovals = new ArrayList<>();
         var iter = instances.entrySet().iterator();
         while (iter.hasNext()) {
             var entry = iter.next();
@@ -401,18 +452,37 @@ public class TimeStopState {
                     playResumeVoiceLine(instance);
                 }
                 Instance expired = instance;
-                int id = entry.getKey();
                 iter.remove();
-                applyTimeStopCooldown(expired);
-                removeTimeStopEffectIfNoActiveInstance(expired);
-                reconcileFrozenEntities();
-                restoreTimeStopGamerulesIfNoActiveInstances();
-                syncRemovedInstanceToAll(id);
-                updateAllPlayerAwareness();
+                RemovalReason reason = shouldEnd
+                        ? RemovalReason.INTERRUPTED
+                        : expired.ticksManuallySet()
+                                ? RemovalReason.MANUAL_RESUME
+                                : RemovalReason.EXPIRED;
+                pendingRemovals.add(
+                        new PendingRemoval(expired, reason));
             }
+        }
+        if (!pendingRemovals.isEmpty()) {
+            applyTimeStopCooldowns(pendingRemovals.stream()
+                    .map(PendingRemoval::instance)
+                    .toList());
+            for (PendingRemoval removal : pendingRemovals) {
+                removeTimeStopEffectIfNoActiveInstance(
+                        removal.instance());
+            }
+            reconcileFrozenEntities();
+            restoreTimeStopGamerulesIfNoActiveInstances();
+            for (PendingRemoval removal : pendingRemovals) {
+                syncRemovedInstanceToAll(removal.instance().id());
+            }
+            updateAllPlayerAwareness();
         }
         if (!instances.isEmpty() && !playersVisionFrozen.isEmpty()) {
             manualEntitiesDataSync();
+        }
+        for (PendingRemoval removal : pendingRemovals) {
+            ModEventHooks.onTimeStopRemoved(
+                    level, removal.instance(), removal.reason());
         }
     }
 
@@ -638,16 +708,45 @@ public class TimeStopState {
         }
     }
 
-	private void applyTimeStopCooldown(Instance removed) {
-        LivingEntity user = getLivingEntityById(removed.userId());
-		StandPower power = user != null ? PowerClass.STAND.get(user) : null;
-		if (power != null && power.hasPower()) {
-			int effectiveTicksPassed = Math.max(removed.ticksPassed(), 0);
-			refundUnusedTimeStopStartCost(power, removed, effectiveTicksPassed);
-			TimeStopCooldowns.setTimeStopCooldownsOnTimeStopEnd(power, effectiveTicksPassed);
-			TimeStopLearning.onTimeStopEnded(power, effectiveTicksPassed);
-		}
-	}
+    private void applyTimeStopCooldown(Instance removed) {
+        applyTimeStopCooldowns(List.of(removed));
+    }
+
+    private void applyTimeStopCooldowns(List<Instance> removedInstances) {
+        List<TimeStopSettlement> settlements =
+                new ArrayList<>(removedInstances.size());
+        Map<StandPower, Integer> cooldownTicks =
+                new IdentityHashMap<>();
+        for (Instance removed : removedInstances) {
+            LivingEntity user = getLivingEntityById(removed.userId());
+            StandPower power =
+                    user != null ? PowerClass.STAND.get(user) : null;
+            if (power != null && power.hasPower()) {
+                int effectiveTicksPassed =
+                        Math.max(removed.ticksPassed(), 0);
+                settlements.add(new TimeStopSettlement(
+                        power, removed, effectiveTicksPassed));
+                cooldownTicks.merge(
+                        power, effectiveTicksPassed, Math::max);
+            }
+        }
+        for (TimeStopSettlement settlement : settlements) {
+            refundUnusedTimeStopStartCost(
+                    settlement.power(),
+                    settlement.instance(),
+                    settlement.effectiveTicksPassed());
+        }
+        for (TimeStopSettlement settlement : settlements) {
+            TimeStopLearning.onTimeStopEnded(
+                    settlement.power(),
+                    settlement.effectiveTicksPassed());
+        }
+        for (Map.Entry<StandPower, Integer> cooldown
+                : cooldownTicks.entrySet()) {
+            TimeStopCooldowns.setTimeStopCooldownsOnTimeStopEnd(
+                    cooldown.getKey(), cooldown.getValue());
+        }
+    }
 
 	private void refundUnusedTimeStopStartCost(StandPower power, Instance removed, int effectiveTicksPassed) {
 		if (power.isStaminaInfinite()) {
@@ -981,6 +1080,14 @@ public class TimeStopState {
 
     private record FrozenEntityState(Vec3 position, Vec3 deltaMovement, float fallDistance, @Nullable Boolean wasNoAi) {}
 
+    private record PendingRemoval(
+            Instance instance, RemovalReason reason) {}
+
+    private record TimeStopSettlement(
+            StandPower power,
+            Instance instance,
+            int effectiveTicksPassed) {}
+
     public static record Instance(int id, int ticksLeft, int totalTicks, ChunkPos centerPos, int chunkRange, int userId, String visualRoute, Optional<ResourceLocation> standTypeId, Optional<ResourceLocation> selectedSkin, int resumeSoundUserId, int resumeVoiceLineUserId, boolean ticksManuallySet, boolean forceResumeVoiceLine, float staminaCostTick, int ticksPassed) {
         public static final int TIME_RESUME_SOUND_TICKS = 10;
         public static final int TIME_RESUME_VOICELINE_TICKS = 30;
@@ -1034,6 +1141,22 @@ public class TimeStopState {
 
         public Instance withTicksLeft(int ticksLeft, boolean ticksManuallySet, boolean forceResumeVoiceLine) {
             return new Instance(id, ticksLeft, totalTicks, centerPos, chunkRange, userId, visualRoute, standTypeId, selectedSkin, resumeSoundUserId, resumeVoiceLineUserId, this.ticksManuallySet || ticksManuallySet, this.forceResumeVoiceLine || forceResumeVoiceLine, staminaCostTick, Math.max(ticksPassed, 0));
+        }
+
+        public Instance withTiming(int ticksLeft, int totalTicks) {
+            return new Instance(id, ticksLeft, totalTicks, centerPos, chunkRange, userId, visualRoute, standTypeId, selectedSkin, resumeSoundUserId, resumeVoiceLineUserId, ticksManuallySet, forceResumeVoiceLine, staminaCostTick, ticksPassed);
+        }
+
+        public Instance withArea(ChunkPos centerPos, int chunkRange) {
+            return new Instance(id, ticksLeft, totalTicks, centerPos, chunkRange, userId, visualRoute, standTypeId, selectedSkin, resumeSoundUserId, resumeVoiceLineUserId, ticksManuallySet, forceResumeVoiceLine, staminaCostTick, ticksPassed);
+        }
+
+        public Instance withVisualRoute(String visualRoute) {
+            return new Instance(id, ticksLeft, totalTicks, centerPos, chunkRange, userId, visualRoute, standTypeId, selectedSkin, resumeSoundUserId, resumeVoiceLineUserId, ticksManuallySet, forceResumeVoiceLine, staminaCostTick, ticksPassed);
+        }
+
+        public Instance withStaminaCostTick(float staminaCostTick) {
+            return new Instance(id, ticksLeft, totalTicks, centerPos, chunkRange, userId, visualRoute, standTypeId, selectedSkin, resumeSoundUserId, resumeVoiceLineUserId, ticksManuallySet, forceResumeVoiceLine, staminaCostTick, ticksPassed);
         }
 
         public Instance withResumeSoundUserId(int resumeSoundUserId) {

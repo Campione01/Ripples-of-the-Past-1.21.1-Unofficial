@@ -20,6 +20,12 @@ their common combat controls with the current game design:
 - added the data-driven `jojo_ripples:crazy_d_cannot_restore` block tag so
   addons can exclude their temporary blocks from Crazy Diamond restoration
   without patching the restoration pipeline.
+- added server-side time-stop `PreStart`, `Added`, and `Removed` lifecycle
+  events, including cancellable duration/range/visual mutation before costs or
+  world state are committed and explicit removal reasons for addon cleanup.
+- added a client-only managed addon PostChain API with lazy loading, current
+  main-target rebinding, resource/resize/world-exit cleanup, render-state
+  restoration, and read-only Iris/Super Resolution compatibility reporting.
 
 ## Initial public source snapshot - 2026-07-26
 

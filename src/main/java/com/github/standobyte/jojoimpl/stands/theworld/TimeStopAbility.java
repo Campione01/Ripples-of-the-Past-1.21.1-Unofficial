@@ -3,9 +3,11 @@ package com.github.standobyte.jojoimpl.stands.theworld;
 import java.util.Locale;
 import java.util.Optional;
 
+import com.github.standobyte.jojo.api.timestop.TimeStopLifecycleEvent;
 import com.github.standobyte.jojo.client.ui.hud_power.WindupIndicator;
 import com.github.standobyte.jojo.config.client.PlayerClientBroadcastedSettings;
 import com.github.standobyte.jojo.core.JojoMod;
+import com.github.standobyte.jojo.event.ModEventHooks;
 import com.github.standobyte.jojo.JojoModConfig;
 import com.github.standobyte.jojo.init.ModDataAttachmentTypes;
 import com.github.standobyte.jojo.init.ModSoundEvents;
@@ -377,23 +379,8 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 			return false;
 		}
 		ChunkPos centerPos = new ChunkPos(user.blockPosition());
-		boolean invadingStoppedTime = state.isTimeStopped(centerPos);
 		int timeStopTicks = Mth.clamp(requestedTimeStopTicks, TimeStopLearning.MIN_TIME_STOP_TICKS,
 				TimeStopLearning.getTimeStopTicks(power));
-		int resumeSoundUserId = instanceId;
-		int resumeVoiceLineUserId = instanceId;
-		if (invadingStoppedTime) {
-			Optional<TimeStopState.Instance> currentMaxInstance = state.getLongestInstanceIn(centerPos);
-			if (currentMaxInstance.map(TimeStopState.Instance::ticksLeft).orElse(0) > timeStopTicks) {
-				resumeSoundUserId = currentMaxInstance.get().resumeSoundUserId();
-				resumeVoiceLineUserId = -1;
-			}
-		}
-		float timeStopStaminaCost = effectiveTimeStopStaminaCost(power, TimeStopLearning.getTimeStopStaminaCost(power, timeStopTicks));
-		if (!power.consumeStamina(timeStopStaminaCost, false)) {
-			ConditionCheck.sendActionFailedMessage(this, ConditionCheck.createNegative("no_stamina"), user);
-			return false;
-		}
 		String visualRoute = power.getPowerType() == ModStands.STAR_PLATINUM.get()
 				? "star_platinum_time_stop"
 				: "the_world_time_stop";
@@ -405,16 +392,62 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 				JojoModConfig.getCommonConfigInstance(level.isClientSide()).timeStopChunkRange.get(),
 				user.getId(),
 				visualRoute,
-				resumeSoundUserId,
-				resumeVoiceLineUserId,
+				instanceId,
+				instanceId,
 				TimeStopLearning.getTimeStopStaminaCostTick(power))
 				.withStandSkin(power)
 				.withStartupDelay(TIME_STOP_OPENING_SETTLE_TICKS);
-		user.addEffect(new MobEffectInstance(ModStatusEffects.TIME_STOP, timeStopTicks + TIME_STOP_OPENING_SETTLE_TICKS, 0, false, false, true));
-		state.putInstance(instance);
+		TimeStopLifecycleEvent.PreStart startEvent =
+				ModEventHooks.onTimeStopPreStart(serverLevel, instance);
+		if (startEvent.isCanceled()) {
+			return false;
+		}
+		instance = startEvent.getInstance();
+		centerPos = instance.centerPos();
+		boolean invadingStoppedTime = state.isTimeStopped(centerPos);
+		if (invadingStoppedTime) {
+			Optional<TimeStopState.Instance> currentMaxInstance =
+					state.getLongestInstanceIn(centerPos);
+			if (currentMaxInstance.map(TimeStopState.Instance::ticksLeft)
+					.orElse(0) > instance.ticksLeft()) {
+				instance = instance.withResumeSoundAndVoiceLineUserIds(
+						currentMaxInstance.get().resumeSoundUserId(), -1);
+				startEvent.setInstance(instance);
+			}
+		}
+		float timeStopStaminaCost = effectiveTimeStopStaminaCost(
+				power,
+				TimeStopLearning.getTimeStopStaminaCost(
+						power, instance.totalTicks()));
+		if (!power.consumeStamina(timeStopStaminaCost, false)) {
+			ConditionCheck.sendActionFailedMessage(
+					this, ConditionCheck.createNegative("no_stamina"), user);
+			return false;
+		}
+		int startupDelay = Math.max(-instance.ticksPassed(), 0);
+		int statusDuration = (int) Math.min(
+				(long) instance.ticksLeft() + startupDelay,
+				Integer.MAX_VALUE);
+		user.addEffect(new MobEffectInstance(
+				ModStatusEffects.TIME_STOP,
+				statusDuration,
+				0,
+				false,
+				false,
+				true));
+		if (!state.commitPreStart(startEvent)) {
+			user.removeEffect(ModStatusEffects.TIME_STOP);
+			if (!power.isStaminaInfinite()) {
+				power.setStamina(power.getStamina() + timeStopStaminaCost);
+			}
+			return false;
+		}
+		if (state.getInstance(instance.id()).orElse(null) != instance) {
+			return false;
+		}
 		TimeStopLearning.markUsedTimeStopToday(power);
 		if (!invadingStoppedTime) {
-			if (timeStopTicks >= TIME_STOP_SOUND_MIN_TICKS) {
+			if (instance.totalTicks() >= TIME_STOP_SOUND_MIN_TICKS) {
 				TimeStopState.Instance soundInstance = instance;
 				StandUtil.broadcastSoundWithCondition(serverLevel, user.position(), getTimeStopSound(power),
 						false, power, SoundSource.AMBIENT, 5.0F, 1.0F,

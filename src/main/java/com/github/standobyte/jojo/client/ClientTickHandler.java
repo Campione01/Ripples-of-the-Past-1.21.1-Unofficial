@@ -5,6 +5,7 @@ import com.github.standobyte.jojo.client.polaroid.PhotosCache;
 import com.github.standobyte.jojo.client.polaroid.PolaroidHelper;
 import com.github.standobyte.jojo.client.sound.StandOstSound;
 import com.github.standobyte.jojo.client.shader.ModShaders;
+import com.github.standobyte.jojo.api.client.render.AddonPostEffect;
 import com.github.standobyte.jojo.client.ui.hud_power.PowerHud;
 import com.github.standobyte.jojo.client.ui.utils.FadeOut;
 import com.github.standobyte.jojo.core.JojoMod;
@@ -83,6 +84,7 @@ public class ClientTickHandler {
 	@SubscribeEvent
 	public static void onClientTickPost(ClientTickEvent.Post event) {
 		Minecraft mc = Minecraft.getInstance();
+		AddonPostEffect.onClientTick();
 		boolean screenFreezePresentation = TimeStopClientAwareness.isVisionRestricted();
 		ClientsideAim.updateTarget(mc, 1);
 		ClientsideAim.updateTargetWithServer(mc);
