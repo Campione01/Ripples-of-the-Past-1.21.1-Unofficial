@@ -18,6 +18,12 @@ public final class RotpAddonApi {
 			"time_stop_lifecycle_v1";
 	public static final String FEATURE_ADDON_POST_EFFECT_LIFECYCLE_V1 =
 			"addon_post_effect_lifecycle_v1";
+	public static final String FEATURE_SCOPED_PLAYER_MODEL_VISIBILITY_V1 =
+			"scoped_player_model_visibility_v1";
+	public static final String FEATURE_SCOPED_PLAYER_MODEL_POSE_V1 =
+			"scoped_player_model_pose_v1";
+	public static final String FEATURE_FIRST_PERSON_POST_ARM_LAYERS_V1 =
+			"first_person_post_arm_layers_v1";
 	public static final String FEATURE_DIRECTIONAL_GRAVITY_V1 =
 			"directional_gravity_v1";
 	public static final String FEATURE_STAND_MOVESET_EXTENSIONS_V1 =
@@ -31,6 +37,9 @@ public final class RotpAddonApi {
 			FEATURE_STAND_POWER_TRANSITIONS_V1,
 			FEATURE_TIME_STOP_LIFECYCLE_V1,
 			FEATURE_ADDON_POST_EFFECT_LIFECYCLE_V1,
+			FEATURE_SCOPED_PLAYER_MODEL_VISIBILITY_V1,
+			FEATURE_SCOPED_PLAYER_MODEL_POSE_V1,
+			FEATURE_FIRST_PERSON_POST_ARM_LAYERS_V1,
 			FEATURE_DIRECTIONAL_GRAVITY_V1,
 			FEATURE_STAND_MOVESET_EXTENSIONS_V1,
 			FEATURE_PLAYER_POWER_MOVESET_EXTENSIONS_V1);

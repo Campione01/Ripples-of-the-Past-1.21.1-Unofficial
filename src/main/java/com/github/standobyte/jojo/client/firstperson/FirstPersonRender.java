@@ -2,6 +2,7 @@ package com.github.standobyte.jojo.client.firstperson;
 
 import org.joml.Matrix4f;
 
+import com.github.standobyte.jojo.api.client.render.FirstPersonPostArmLayers;
 import com.github.standobyte.jojo.client.entityanim.IHumanoidAnimModel;
 import com.github.standobyte.jojo.client.entityrender.stand.HumanoidPart;
 import com.github.standobyte.jojo.client.entityrender.stand.StandEntityRenderState;
@@ -487,6 +488,16 @@ public class FirstPersonRender {
 			MultiBufferSource buffer, int light, HumanoidArm handSide, float partialTick) {
 		for (FirstPersonModelLayer layer : ((FirstPersonLayersAccess) renderer).jojo_ripples$firstPersonHandLayers()) {
 			layer.renderHandFirstPerson(handSide, poseStack, buffer, light, entity, renderer, partialTick);
+		}
+		if (renderer.getModel() instanceof HumanoidModel<?> humanoidModel) {
+			FirstPersonPostArmLayers.render(
+					entity,
+					humanoidModel,
+					handSide,
+					poseStack,
+					buffer,
+					light,
+					partialTick);
 		}
 	}
 

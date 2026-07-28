@@ -6,6 +6,9 @@ import com.github.standobyte.jojo.api.playerpower.PlayerPowerMovesetExtensionsSm
 import com.github.standobyte.jojo.api.gravity.DirectionalGravityTransformsSmokeTest;
 import com.github.standobyte.jojo.api.gravity.DirectionalGravityDataSmokeTest;
 import com.github.standobyte.jojo.api.client.render.AddonPostEffectRegistrationSmokeTest;
+import com.github.standobyte.jojo.api.client.render.FirstPersonPostArmLayersSmokeTest;
+import com.github.standobyte.jojo.api.client.render.ScopedPlayerModelVisibilitySmokeTest;
+import com.github.standobyte.jojo.api.client.render.ScopedPlayerModelPoseSmokeTest;
 import com.github.standobyte.jojo.client.standskin.sprites.AbilityIconSpritesCompatibilitySmokeTest;
 import com.github.standobyte.jojo.client.ui.text.StandSkillTextSmokeTest;
 import com.github.standobyte.jojo.mechanics.standdisc.StandWrittenOnDiscSmokeTest;
@@ -38,6 +41,16 @@ public final class RotpAddonApiSmokeTest {
 		check(RotpAddonApi.supportsFeature(
 				RotpAddonApi.FEATURE_ADDON_POST_EFFECT_LIFECYCLE_V1),
 				"addon post-effect lifecycle feature missing");
+		check(RotpAddonApi.supportsFeature(
+				RotpAddonApi
+						.FEATURE_SCOPED_PLAYER_MODEL_VISIBILITY_V1),
+				"scoped player-model visibility feature missing");
+		check(RotpAddonApi.supportsFeature(
+				RotpAddonApi.FEATURE_SCOPED_PLAYER_MODEL_POSE_V1),
+				"scoped player-model pose feature missing");
+		check(RotpAddonApi.supportsFeature(
+				RotpAddonApi.FEATURE_FIRST_PERSON_POST_ARM_LAYERS_V1),
+				"first-person post-arm layers feature missing");
 		check(RotpAddonApi.supportsFeature(
 				RotpAddonApi.FEATURE_DIRECTIONAL_GRAVITY_V1),
 				"directional gravity feature missing");
@@ -84,6 +97,9 @@ public final class RotpAddonApiSmokeTest {
 		StandMovesetExtensionsSmokeTest.run();
 		PlayerPowerMovesetExtensionsSmokeTest.run();
 		AddonPostEffectRegistrationSmokeTest.run();
+		FirstPersonPostArmLayersSmokeTest.run();
+		ScopedPlayerModelVisibilitySmokeTest.run();
+		ScopedPlayerModelPoseSmokeTest.run();
 		StandWrittenOnDiscSmokeTest.run();
 		StandPowerInstanceChangeSmokeTest.run();
 		GrabContextVariationSmokeTest.run();

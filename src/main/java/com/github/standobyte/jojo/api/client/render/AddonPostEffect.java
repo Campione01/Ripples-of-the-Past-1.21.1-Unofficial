@@ -40,10 +40,11 @@ import org.lwjgl.opengl.GL13;
  * replacement, or client shutdown. It never acquires or mutates Iris or Super
  * Resolution framebuffers.</p>
  *
- * <p>When Super Resolution is installed, every reachable chain location
- * returned by {@link #registeredPostChains()} must still be listed in that
- * installation's {@code inject_post_chain_blacklist}. Registration records
- * the requirement; it does not rewrite another mod's configuration.</p>
+ * <p>This API owns final-main-target chains at
+ * {@link RenderLevelStageEvent.Stage#AFTER_LEVEL}. A Super Resolution
+ * installation that injects main-target chains must list the declared routes
+ * in its {@code inject_post_chain_blacklist}; ROTP does not modify or depend
+ * on that mod's source or API.</p>
  */
 @OnlyIn(Dist.CLIENT)
 public final class AddonPostEffect implements AutoCloseable {
@@ -118,6 +119,11 @@ public final class AddonPostEffect implements AutoCloseable {
 			ResourceLocation initialPostChainLocation,
 			RenderLevelStageEvent.Stage stage,
 			UniformUpdater uniformUpdater) {
+		if (stage != RenderLevelStageEvent.Stage.AFTER_LEVEL) {
+			throw new IllegalArgumentException(
+					"AddonPostEffect only supports final-main-target "
+							+ "chains at AFTER_LEVEL");
+		}
 		if (REGISTERED.containsKey(id)) {
 			throw new IllegalStateException(
 					"An addon post effect is already registered as " + id);
