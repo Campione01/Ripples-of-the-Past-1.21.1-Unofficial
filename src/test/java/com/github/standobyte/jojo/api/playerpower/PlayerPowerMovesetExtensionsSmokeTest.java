@@ -13,6 +13,7 @@ import com.github.standobyte.jojo.powersystem.ability.AbilityType;
 import com.github.standobyte.jojo.powersystem.ability.controls.ControlSchemeTemplate;
 import com.github.standobyte.jojo.powersystem.ability.controls.InputKey;
 import com.github.standobyte.jojo.powersystem.ability.controls.InputMethod;
+import com.github.standobyte.jojo.powersystem.ability.controls.InputUseVanillaMapping;
 import com.github.standobyte.jojo.powersystem.playerpower.PlayerPower;
 import com.github.standobyte.jojo.powersystem.playerpower.PlayerPowerData;
 import com.github.standobyte.jojo.powersystem.playerpower.PlayerPowerType;
@@ -45,6 +46,7 @@ public final class PlayerPowerMovesetExtensionsSmokeTest {
 		verifyRepeatedApplicationAndOrdering();
 		verifyPlayerPowerTypeLifecycle();
 		verifyHotbarSlotVariation();
+		verifyDirectGroupBinding();
 		verifyLateRegistrationRefreshesCaches();
 		verifyNoCrossPowerLeakage();
 		verifyMissingReferencesAndConflictsFailFast();
@@ -183,6 +185,76 @@ public final class PlayerPowerMovesetExtensionsSmokeTest {
 								.get(InputKey.Modifier.SHIFT)
 								.get(InputMethod.HOLD)),
 				"shift-hold variation was not attached");
+	}
+
+	private static void verifyDirectGroupBinding() {
+		ResourceLocation target =
+				id("rotp_test", "group_binding_target");
+		ResourceLocation extensionId =
+				id("rotp_test", "group_binding_extension");
+		AbilityType<Ability> petrifyType =
+				abilityType("petrify");
+		PlayerPowerMovesetExtensions.register(
+				PlayerPowerMovesetExtensions.builder(
+								target, extensionId, 100)
+						.addAbility(
+								"petrify",
+								petrifyType.registryKey,
+								() -> petrifyType)
+						.bindInExistingGroup(
+								"default",
+								"combat",
+								"petrify",
+								InputMethod.HOLD,
+								InputKey.RMB.withModifier(
+										InputKey.Modifier.SHIFT))
+						.build());
+
+		TestPlayerPowerType powerType =
+				new TestPlayerPowerType(
+						target, groupedBaseMoveset());
+		ControlSchemeTemplate controls =
+				powerType.makeDefaultControlSchemeTemplate();
+		var bind = controls.groups.get("combat")
+				.separateBinds.get("petrify");
+		check(bind != null
+						&& bind.getFirst() == InputMethod.HOLD,
+				"direct group bind input method drifted");
+		check(bind.getSecond() instanceof InputKey key
+						&& key.device == InputKey.InputType.MOUSE
+						&& key.keyCode == InputKey.RMB.keyCode
+						&& key.modifier == InputKey.Modifier.SHIFT,
+				"direct group bind input drifted");
+		check(controls.defaultGroup.hotbars.isEmpty(),
+				"direct group bind created an obsolete hotbar");
+
+		ResourceLocation mappingTarget =
+				id("rotp_test", "mapping_group_binding_target");
+		AbilityType<Ability> mappingType =
+				abilityType("mapping_bind");
+		for (int i = 0; i < 2; i++) {
+			PlayerPowerMovesetExtensions.register(
+					PlayerPowerMovesetExtensions.builder(
+									mappingTarget,
+									id("rotp_test",
+											"mapping_group_binding"),
+									100)
+							.addAbility(
+									"mapping_bind",
+									mappingType.registryKey,
+									() -> mappingType)
+							.bindInExistingGroup(
+									"default",
+									"combat",
+									"mapping_bind",
+									InputMethod.CLICK,
+									new InputUseVanillaMapping(
+											"key.use"))
+							.build());
+		}
+		check(PlayerPowerMovesetExtensions.targetRevision(
+						mappingTarget) == 1L,
+				"equivalent key-mapping binds must be idempotent");
 	}
 
 	private static void verifyLateRegistrationRefreshesCaches() {
@@ -375,6 +447,33 @@ public final class PlayerPowerMovesetExtensionsSmokeTest {
 						baseMovesetWithShiftVariation())
 						.makeMoveset(null),
 				"hotbar variation already exists");
+
+		AbilityType<Ability> missingGroupType =
+				abilityType("missing_group");
+		ResourceLocation missingGroupTarget =
+				id("rotp_test", "missing_group_target");
+		PlayerPowerMovesetExtensions.register(
+				PlayerPowerMovesetExtensions.builder(
+								missingGroupTarget,
+								id("rotp_test",
+										"missing_group_extension"),
+								0)
+						.addAbility(
+								"missing_group",
+								missingGroupType.registryKey,
+								() -> missingGroupType)
+						.bindInExistingGroup(
+								"default",
+								"absent",
+								"missing_group",
+								InputMethod.HOLD,
+								InputKey.RMB)
+						.build());
+		expectFailure(
+				() -> new TestPlayerPowerType(
+						missingGroupTarget, groupedBaseMoveset())
+						.makeMoveset(null),
+				"moveset group does not exist: absent");
 	}
 
 	private static PlayerPowerMovesetExtensions.Extension
@@ -437,6 +536,23 @@ public final class PlayerPowerMovesetExtensionsSmokeTest {
 							InputMethod.HOLD)
 					.addToHotbar(
 							"tail", 0, InputMethod.HOLD)
+				.finalizeControlScheme();
+	}
+
+	private static MovesetBuilder groupedBaseMoveset() {
+		return new MovesetBuilder()
+				.addAbility("anchor", ANCHOR_TYPE)
+				.addAbility("tail", TAIL_TYPE)
+				.makeControlScheme("default")
+					.makeMovesetGroup("combat", InputKey.G)
+						.bind(
+								"anchor",
+								InputMethod.CLICK,
+								InputKey.LMB)
+						.bind(
+								"tail",
+								InputMethod.HOLD,
+								InputKey.RMB)
 				.finalizeControlScheme();
 	}
 

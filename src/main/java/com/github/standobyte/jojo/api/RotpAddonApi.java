@@ -30,6 +30,9 @@ public final class RotpAddonApi {
 			"stand_moveset_extensions_v1";
 	public static final String FEATURE_PLAYER_POWER_MOVESET_EXTENSIONS_V1 =
 			"player_power_moveset_extensions_v1";
+	public static final String
+			FEATURE_PLAYER_POWER_MOVESET_GROUP_BINDINGS_V1 =
+					"player_power_moveset_group_bindings_v1";
 
 	public static final Set<String> FEATURES = Set.of(
 			FEATURE_ABILITY_RESOURCE_NAMESPACE_V1,
@@ -42,7 +45,8 @@ public final class RotpAddonApi {
 			FEATURE_FIRST_PERSON_POST_ARM_LAYERS_V1,
 			FEATURE_DIRECTIONAL_GRAVITY_V1,
 			FEATURE_STAND_MOVESET_EXTENSIONS_V1,
-			FEATURE_PLAYER_POWER_MOVESET_EXTENSIONS_V1);
+			FEATURE_PLAYER_POWER_MOVESET_EXTENSIONS_V1,
+			FEATURE_PLAYER_POWER_MOVESET_GROUP_BINDINGS_V1);
 
 	private RotpAddonApi() {}
 

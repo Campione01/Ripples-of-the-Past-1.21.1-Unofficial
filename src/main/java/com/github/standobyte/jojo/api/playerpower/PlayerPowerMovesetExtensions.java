@@ -12,8 +12,10 @@ import org.jetbrains.annotations.ApiStatus;
 
 import com.github.standobyte.jojo.powersystem.MovesetBuilder;
 import com.github.standobyte.jojo.powersystem.ability.AbilityType;
+import com.github.standobyte.jojo.powersystem.ability.controls.InputBindTemplate;
 import com.github.standobyte.jojo.powersystem.ability.controls.InputKey;
 import com.github.standobyte.jojo.powersystem.ability.controls.InputMethod;
+import com.github.standobyte.jojo.powersystem.ability.controls.InputUseVanillaMapping;
 
 import net.minecraft.resources.ResourceLocation;
 
@@ -186,6 +188,30 @@ public final class PlayerPowerMovesetExtensions {
 			return this;
 		}
 
+		/**
+		 * Adds a direct input binding to an existing moveset group.
+		 * The operation never creates a control scheme, group, or hotbar.
+		 */
+		public Builder bindInExistingGroup(
+				String controlSchemeName,
+				String movesetGroupName,
+				String abilityName,
+				InputMethod inputMethod,
+				InputBindTemplate input) {
+			requireInputMethod(inputMethod);
+			operations.add(new BindInExistingGroup(
+					requireName(
+							controlSchemeName,
+							"controlSchemeName"),
+					requireName(
+							movesetGroupName,
+							"movesetGroupName"),
+					requireName(abilityName, "abilityName"),
+					inputMethod,
+					Objects.requireNonNull(input, "input")));
+			return this;
+		}
+
 		public Extension build() {
 			if (operations.isEmpty()) {
 				throw new IllegalStateException(
@@ -354,6 +380,79 @@ public final class PlayerPowerMovesetExtensions {
 					modifier,
 					inputMethod);
 		}
+	}
+
+	private static final class BindInExistingGroup
+			implements Operation {
+		private final String controlSchemeName;
+		private final String movesetGroupName;
+		private final String abilityName;
+		private final InputMethod inputMethod;
+		private final InputBindTemplate input;
+		private final String inputIdentity;
+
+		private BindInExistingGroup(
+				String controlSchemeName,
+				String movesetGroupName,
+				String abilityName,
+				InputMethod inputMethod,
+				InputBindTemplate input) {
+			this.controlSchemeName = controlSchemeName;
+			this.movesetGroupName = movesetGroupName;
+			this.abilityName = abilityName;
+			this.inputMethod = inputMethod;
+			this.input = input;
+			this.inputIdentity = inputIdentity(input);
+		}
+
+		@Override
+		public void apply(MovesetBuilder moveset) {
+			moveset.bindPlayerPowerMovesetExtensionGroup(
+					controlSchemeName,
+					movesetGroupName,
+					abilityName,
+					inputMethod,
+					input);
+		}
+
+		@Override
+		public boolean equals(Object object) {
+			if (this == object) {
+				return true;
+			}
+			if (!(object instanceof BindInExistingGroup other)) {
+				return false;
+			}
+			return controlSchemeName.equals(other.controlSchemeName)
+					&& movesetGroupName.equals(other.movesetGroupName)
+					&& abilityName.equals(other.abilityName)
+					&& inputMethod == other.inputMethod
+					&& inputIdentity.equals(other.inputIdentity);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(
+					controlSchemeName,
+					movesetGroupName,
+					abilityName,
+					inputMethod,
+					inputIdentity);
+		}
+	}
+
+	private static String inputIdentity(InputBindTemplate input) {
+		if (input instanceof InputKey key) {
+			return "key:" + key.device + ":" + key.keyCode + ":"
+					+ key.modifier;
+		}
+		if (input instanceof InputUseVanillaMapping mapping) {
+			return "mapping:" + requireName(
+					mapping.keyMappingName, "keyMappingName");
+		}
+		throw new IllegalArgumentException(
+				"Unsupported input binding template: "
+						+ input.getClass().getName());
 	}
 
 	private static String requireName(

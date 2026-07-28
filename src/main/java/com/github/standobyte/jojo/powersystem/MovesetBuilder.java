@@ -155,6 +155,22 @@ public class MovesetBuilder {
 						inputMethod);
 	}
 
+	@ApiStatus.Internal
+	public void bindPlayerPowerMovesetExtensionGroup(
+			String controlSchemeName,
+			String movesetGroupName,
+			String abilityName,
+			InputMethod inputMethod,
+			InputBindTemplate input) {
+		requirePlayerPowerExtensionAbility(abilityName);
+		requirePlayerPowerExtensionControlScheme(controlSchemeName)
+				.bindToExistingGroup(
+						movesetGroupName,
+						abilityName,
+						inputMethod,
+						input);
+	}
+
 	private void requirePlayerPowerExtensionAbility(
 			String abilityName) {
 		if (!abilities.containsKey(abilityName)) {

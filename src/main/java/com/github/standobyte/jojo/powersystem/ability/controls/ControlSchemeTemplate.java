@@ -200,6 +200,27 @@ public class ControlSchemeTemplate {
 		}
 	}
 
+	@ApiStatus.Internal
+	public void bindToExistingGroup(
+			String groupName,
+			String ability,
+			InputMethod inputMethod,
+			InputBindTemplate input) {
+		GroupTemplate group = groups.get(groupName);
+		if (group == null) {
+			throw new IllegalStateException(
+					"moveset group does not exist: " + groupName);
+		}
+		Pair<InputMethod, InputBindTemplate> existing =
+				group.separateBinds.putIfAbsent(
+						ability, Pair.of(inputMethod, input));
+		if (existing != null) {
+			throw new IllegalStateException(
+					"ability binding already exists in moveset group "
+							+ groupName + ": " + ability);
+		}
+	}
+
 	private AbilitiesHotbar requireHotbar(int hotbarId) {
 		AbilitiesHotbar hotbar = hotbarsById.get(hotbarId);
 		if (hotbar == null) {

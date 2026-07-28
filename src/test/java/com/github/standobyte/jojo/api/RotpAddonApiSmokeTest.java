@@ -61,6 +61,10 @@ public final class RotpAddonApiSmokeTest {
 				RotpAddonApi
 						.FEATURE_PLAYER_POWER_MOVESET_EXTENSIONS_V1),
 				"PlayerPower moveset extensions feature missing");
+		check(RotpAddonApi.supportsFeature(
+				RotpAddonApi
+						.FEATURE_PLAYER_POWER_MOVESET_GROUP_BINDINGS_V1),
+				"PlayerPower moveset group bindings feature missing");
 
 		AbilityType<Ability> addonType = new AbilityType<>(
 				id("rotp_test", "freeze"), Ability::new);
