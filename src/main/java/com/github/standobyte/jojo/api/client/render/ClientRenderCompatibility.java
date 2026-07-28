@@ -17,25 +17,7 @@ import net.neoforged.fml.ModList;
 public final class ClientRenderCompatibility {
 	private static final String IRIS_API =
 			"net.irisshaders.iris.api.v0.IrisApi";
-	private static final Method IRIS_GET_INSTANCE;
-	private static final Method IRIS_IS_SHADER_PACK_IN_USE;
-
-	static {
-		Method getInstance = null;
-		Method isShaderPackInUse = null;
-		try {
-			Class<?> irisApi = Class.forName(
-					IRIS_API,
-					false,
-					ClientRenderCompatibility.class.getClassLoader());
-			getInstance = irisApi.getMethod("getInstance");
-			isShaderPackInUse =
-					irisApi.getMethod("isShaderPackInUse");
-		}
-		catch (ReflectiveOperationException | LinkageError ignored) {}
-		IRIS_GET_INSTANCE = getInstance;
-		IRIS_IS_SHADER_PACK_IN_USE = isShaderPackInUse;
-	}
+	private static volatile IrisApiMethods irisApiMethods;
 
 	public static Snapshot snapshot() {
 		ModList mods = ModList.get();
@@ -47,19 +29,51 @@ public final class ClientRenderCompatibility {
 	}
 
 	private static boolean isIrisShaderPackInUse() {
-		if (IRIS_GET_INSTANCE == null
-				|| IRIS_IS_SHADER_PACK_IN_USE == null) {
+		IrisApiMethods methods = irisApiMethods();
+		if (methods == null) {
 			return false;
 		}
 		try {
-			Object irisApi = IRIS_GET_INSTANCE.invoke(null);
+			Object irisApi = methods.getInstance().invoke(null);
 			return irisApi != null && Boolean.TRUE.equals(
-					IRIS_IS_SHADER_PACK_IN_USE.invoke(irisApi));
+					methods.isShaderPackInUse().invoke(irisApi));
 		}
 		catch (ReflectiveOperationException | LinkageError ignored) {
 			return false;
 		}
 	}
+
+	private static IrisApiMethods irisApiMethods() {
+		IrisApiMethods methods = irisApiMethods;
+		if (methods != null) {
+			return methods;
+		}
+		synchronized (ClientRenderCompatibility.class) {
+			methods = irisApiMethods;
+			if (methods != null) {
+				return methods;
+			}
+			try {
+				Class<?> irisApi = Class.forName(
+						IRIS_API,
+						false,
+						ClientRenderCompatibility.class.getClassLoader());
+				methods = new IrisApiMethods(
+						irisApi.getMethod("getInstance"),
+						irisApi.getMethod("isShaderPackInUse"));
+				irisApiMethods = methods;
+				return methods;
+			}
+			catch (ReflectiveOperationException | LinkageError ignored) {
+				// Do not cache failure: Iris may not be visible until mod loading completes.
+				return null;
+			}
+		}
+	}
+
+	private record IrisApiMethods(
+			Method getInstance,
+			Method isShaderPackInUse) {}
 
 	public record Snapshot(
 			boolean irisLoaded,
