@@ -1,6 +1,7 @@
 package com.github.standobyte.jojo.client.shader;
 
 import java.util.Optional;
+import java.util.function.Predicate;
 
 import javax.annotation.Nullable;
 
@@ -136,6 +137,11 @@ public class TimeStopShaderManager {
 
     private ResourceLocation selectFallbackShaderPath(TimeStopState.Instance instance, boolean animationConfig) {
         String route = !visualRoute.isBlank() ? visualRoute : instance.visualRoute();
+        ResourceLocation addonRoute = findNamespacedShaderRoute(
+                route, ResourcePathChecker::resourceExists);
+        if (addonRoute != null) {
+            return addonRoute;
+        }
         if ("star_platinum_time_stop".equals(route)) {
             return animationConfig ? TIME_STOP_SP : TIME_STOP_SP_OLD;
         }
@@ -157,6 +163,22 @@ public class TimeStopShaderManager {
             return animationConfig ? TIME_STOP_SP : TIME_STOP_SP_OLD;
         }
         return animationConfig ? TIME_STOP_TW : TIME_STOP_TW_OLD;
+    }
+
+    @Nullable
+    static ResourceLocation findNamespacedShaderRoute(
+            String route,
+            Predicate<ResourceLocation> resourceExists) {
+        if (route == null || route.indexOf(':') < 0) {
+            return null;
+        }
+        ResourceLocation routeId = ResourceLocation.tryParse(route);
+        if (routeId == null) {
+            return null;
+        }
+        ResourceLocation postChain = routeId.withPath(
+                path -> "shaders/post/" + path + ".json");
+        return resourceExists.test(postChain) ? routeId : null;
     }
 
     @Nullable

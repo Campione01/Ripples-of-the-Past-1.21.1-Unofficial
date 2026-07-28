@@ -10,6 +10,7 @@ import com.github.standobyte.jojo.api.client.render.FirstPersonPostArmLayersSmok
 import com.github.standobyte.jojo.api.client.render.ScopedPlayerModelVisibilitySmokeTest;
 import com.github.standobyte.jojo.api.client.render.ScopedPlayerModelPoseSmokeTest;
 import com.github.standobyte.jojo.client.standskin.sprites.AbilityIconSpritesCompatibilitySmokeTest;
+import com.github.standobyte.jojo.client.shader.TimeStopShaderRouteSmokeTest;
 import com.github.standobyte.jojo.client.ui.text.StandSkillTextSmokeTest;
 import com.github.standobyte.jojo.mechanics.standdisc.StandWrittenOnDiscSmokeTest;
 import com.github.standobyte.jojo.powersystem.ability.Ability;
@@ -114,6 +115,7 @@ public final class RotpAddonApiSmokeTest {
 		RollbackTransactionFoundationSmokeTest.run();
 		DirectionalGravityTransformsSmokeTest.run();
 		DirectionalGravityDataSmokeTest.run();
+		TimeStopShaderRouteSmokeTest.run();
 	}
 
 	private static ResourceLocation id(String namespace, String path) {
