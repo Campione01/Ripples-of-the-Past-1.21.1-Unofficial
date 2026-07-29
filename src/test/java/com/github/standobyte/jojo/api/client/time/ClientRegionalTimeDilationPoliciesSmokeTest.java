@@ -277,6 +277,12 @@ public final class ClientRegionalTimeDilationPoliciesSmokeTest {
 		check(!particles.contains("ParticleEngine.class.get")
 				&& !particles.contains("java.lang.reflect"),
 				"particle hook reintroduced reflective engine access");
+		String normalizedParticles = particles.replace("\r\n", "\n");
+		check(normalizedParticles.contains(
+						"@Unique\n"
+								+ "\tprivate static void "
+								+ "jojo_ripples$stabilizeSkippedTick("),
+				"particle mixin helper must remain @Unique and private");
 
 		String sounds = read(root.resolve(
 				"src/main/java/com/github/standobyte/jojo/client/"

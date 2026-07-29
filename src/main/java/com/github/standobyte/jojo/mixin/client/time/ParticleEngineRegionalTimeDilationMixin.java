@@ -59,7 +59,7 @@ public abstract class ParticleEngineRegionalTimeDilationMixin {
 	}
 
 	@Unique
-	static void jojo_ripples$stabilizeSkippedTick(
+	private static void jojo_ripples$stabilizeSkippedTick(
 			ParticleRegionalTimeDilationInterpolationAccessor particle) {
 		particle.jojo_ripples$setPreviousX(
 				particle.jojo_ripples$getCurrentX());

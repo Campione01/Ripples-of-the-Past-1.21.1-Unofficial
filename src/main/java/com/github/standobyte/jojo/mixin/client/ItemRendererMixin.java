@@ -10,6 +10,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import com.github.standobyte.jojo.api.client.render.ItemMaterialTintPolicies;
 import com.github.standobyte.jojo.client.render.item.InventoryItemHighlight;
 import com.github.standobyte.jojoimpl.powers.hamon.client.particle.custom.FirstPersonHamonAura;
+import com.llamalad7.mixinextras.sugar.Local;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
@@ -88,14 +89,9 @@ public class ItemRendererMixin {
 			index = 5)
 	private VertexConsumer jojo_ripples$itemMaterialTint(
 			VertexConsumer original,
-			ItemStack itemStack,
-			ItemDisplayContext displayContext,
-			boolean leftHand,
-			PoseStack poseStack,
-			MultiBufferSource bufferSource,
-			int combinedLight,
-			int combinedOverlay,
-			BakedModel model) {
+			@Local(argsOnly = true) ItemStack itemStack,
+			@Local(argsOnly = true)
+			ItemDisplayContext displayContext) {
 		return ItemMaterialTintPolicies.wrap(
 				original, itemStack, displayContext);
 	}

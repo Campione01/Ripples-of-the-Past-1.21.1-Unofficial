@@ -13,6 +13,7 @@ import com.github.standobyte.jojo.client.entityanim.IHumanoidAnimModel;
 import com.github.standobyte.v1_21_4_stuff.renderstate.EntityRenderState;
 import com.github.standobyte.v1_21_4_stuff.renderstate.HumanoidRenderState;
 import com.github.standobyte.v1_21_4_stuff.renderstate.RenderStateCrutches;
+import com.llamalad7.mixinextras.sugar.Local;
 import com.mojang.blaze3d.vertex.PoseStack;
 
 import net.minecraft.client.model.EntityModel;
@@ -61,12 +62,9 @@ public class LivingEntityRendererMixin {
 			index = 4)
 	private int jojo_ripples$baseModelTint(
 			int originalColor,
-			LivingEntity entity,
-			float entityYaw,
-			float partialTick,
-			PoseStack poseStack,
-			MultiBufferSource bufferSource,
-			int light) {
+			@Local(argsOnly = true) LivingEntity entity,
+			@Local(argsOnly = true, ordinal = 1)
+			float partialTick) {
 		return LivingEntityBaseModelTints.apply(
 				entity, model, partialTick, originalColor);
 	}

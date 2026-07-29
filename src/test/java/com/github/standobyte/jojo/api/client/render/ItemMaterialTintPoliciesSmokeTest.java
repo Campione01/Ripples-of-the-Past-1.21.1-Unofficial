@@ -1,5 +1,8 @@
 package com.github.standobyte.jojo.api.client.render;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -38,6 +41,34 @@ public final class ItemMaterialTintPoliciesSmokeTest {
 		expectIllegalState(() -> ItemMaterialTintPolicies.register(
 				tint, query -> null));
 		ItemMaterialTintPolicies.resetForTests();
+		verifyMixinContract();
+	}
+
+	private static void verifyMixinContract() {
+		String source = source(
+				"src/main/java/com/github/standobyte/jojo/mixin/"
+						+ "client/ItemRendererMixin.java");
+		check(source.contains(
+				"@Local(argsOnly = true) ItemStack itemStack"),
+				"item tint must capture ItemStack through MixinExtras");
+		check(source.contains(
+				"@Local(argsOnly = true)\n"
+						+ "\t\t\tItemDisplayContext displayContext"),
+				"item tint must capture display context through MixinExtras");
+		check(!source.contains(
+				"VertexConsumer original,\n"
+						+ "\t\t\tItemStack itemStack,"),
+				"item tint @ModifyArg must use single-argument mode");
+	}
+
+	private static String source(String path) {
+		try {
+			return Files.readString(Path.of(path));
+		}
+		catch (IOException exception) {
+			throw new AssertionError("Could not read " + path,
+					exception);
+		}
 	}
 
 	private static ResourceLocation id(String path) {

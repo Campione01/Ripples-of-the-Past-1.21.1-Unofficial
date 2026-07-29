@@ -321,6 +321,17 @@ public final class DirectionalGravityV2SmokeTest {
 		require(server,
 				"localResidual > -0.5 && localResidual < 0.5");
 		require(serverPlayer, "method = \"doCheckFallDamage\"");
+		require(serverPlayer,
+				"@Inject(method = \"doCheckFallDamage\", "
+						+ "at = @At(\"HEAD\"))");
+		require(serverPlayer,
+				"jojo_ripples$directionalGravityServerFallY");
+		require(serverPlayer,
+				"jojo_ripples$directionalGravityServerFall(\n"
+						+ "\t\t\tdouble vanillaY)");
+		check(!serverPlayer.contains(
+				"double vanillaY, double movementX"),
+				"server fall @ModifyArg must use single-argument mode");
 		require(runtime, "if (depth == 0)");
 		require(runtime, "setLocalFrameDepth(depth + 1)");
 		require(camera, "method = \"setup\"");

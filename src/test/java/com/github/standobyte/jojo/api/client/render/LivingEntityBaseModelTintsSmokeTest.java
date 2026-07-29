@@ -1,5 +1,8 @@
 package com.github.standobyte.jojo.api.client.render;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -36,6 +39,35 @@ public final class LivingEntityBaseModelTintsSmokeTest {
 		expectIllegalState(() -> LivingEntityBaseModelTints.register(
 				tint, query -> OptionalInt.empty()));
 		LivingEntityBaseModelTints.resetForTests();
+		verifyMixinContract();
+	}
+
+	private static void verifyMixinContract() {
+		String source = source(
+				"src/main/java/com/github/standobyte/jojo/mixin/"
+						+ "client/v1_21_1_modelanim/"
+						+ "LivingEntityRendererMixin.java");
+		check(source.contains(
+				"@Local(argsOnly = true) LivingEntity entity"),
+				"living tint must capture entity through MixinExtras");
+		check(source.contains(
+				"@Local(argsOnly = true, ordinal = 1)\n"
+						+ "\t\t\tfloat partialTick"),
+				"living tint must capture partial tick through MixinExtras");
+		check(!source.contains(
+				"int originalColor,\n"
+						+ "\t\t\tLivingEntity entity,"),
+				"living tint @ModifyArg must use single-argument mode");
+	}
+
+	private static String source(String path) {
+		try {
+			return Files.readString(Path.of(path));
+		}
+		catch (IOException exception) {
+			throw new AssertionError("Could not read " + path,
+					exception);
+		}
 	}
 
 	private static ResourceLocation id(String path) {

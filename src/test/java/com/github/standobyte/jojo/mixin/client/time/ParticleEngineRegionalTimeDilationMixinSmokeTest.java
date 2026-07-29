@@ -1,10 +1,24 @@
 package com.github.standobyte.jojo.mixin.client.time;
 
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+
 public final class ParticleEngineRegionalTimeDilationMixinSmokeTest {
 	private ParticleEngineRegionalTimeDilationMixinSmokeTest() {}
 
 	public static void run() {
+		verifyMixinMethodsArePrivate();
 		verifyMovingAndRotatingParticleHoldsAcrossSkippedFrames();
+	}
+
+	private static void verifyMixinMethodsArePrivate() {
+		for (Method method :
+				ParticleEngineRegionalTimeDilationMixin.class
+						.getDeclaredMethods()) {
+			check(Modifier.isPrivate(method.getModifiers()),
+					"ParticleEngine mixin method must be private: "
+							+ method.getName());
+		}
 	}
 
 	private static void verifyMovingAndRotatingParticleHoldsAcrossSkippedFrames() {
@@ -22,8 +36,7 @@ public final class ParticleEngineRegionalTimeDilationMixinSmokeTest {
 		for (double partialTick : new double[] {
 				0.05D, 0.75D, 0.2D, 0.9D
 		}) {
-			ParticleEngineRegionalTimeDilationMixin
-					.jojo_ripples$stabilizeSkippedTick(particle);
+			stabilizeSkippedTick(particle);
 			check(lerp(partialTick, particle.xo, particle.x) == currentX
 							&& lerp(partialTick, particle.yo, particle.y)
 									== currentY
@@ -64,6 +77,24 @@ public final class ParticleEngineRegionalTimeDilationMixinSmokeTest {
 								particle.oRoll,
 								particle.roll) == 0.75D,
 				"scheduled logical tick did not resume normal interpolation");
+	}
+
+	private static void stabilizeSkippedTick(
+			ParticleRegionalTimeDilationInterpolationAccessor particle) {
+		try {
+			Method method =
+					ParticleEngineRegionalTimeDilationMixin.class
+							.getDeclaredMethod(
+									"jojo_ripples$stabilizeSkippedTick",
+									ParticleRegionalTimeDilationInterpolationAccessor.class);
+			method.setAccessible(true);
+			method.invoke(null, particle);
+		}
+		catch (ReflectiveOperationException failure) {
+			throw new AssertionError(
+					"could not invoke skipped-tick stabilization helper",
+					failure);
+		}
 	}
 
 	private static double lerp(
