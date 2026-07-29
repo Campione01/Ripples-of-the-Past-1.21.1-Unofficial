@@ -13,6 +13,7 @@ import com.github.standobyte.jojo.core.JojoMod;
 import com.github.standobyte.jojo.entityattachment.SynchronizablePlayerData;
 import com.github.standobyte.jojo.entityattachment.TickingEntityData;
 import com.github.standobyte.jojo.powersystem.ability.Ability;
+import com.github.standobyte.jojo.powersystem.ability.input.AbilityInput;
 import com.github.standobyte.jojo.powersystem.ability.condition.AvailableAbilities;
 import com.github.standobyte.jojo.util.functions.NBTUtil;
 import com.mojang.datafixers.util.Either;
@@ -31,6 +32,8 @@ public abstract class Power<P extends Power<P>> implements SynchronizablePlayerD
 	@Nonnull protected final LivingEntity user;
 	protected final Optional<ServerPlayer> serverPlayerUser;
 	protected Moveset moveset;
+	@Nullable
+	private PowerType movesetSourceType;
 	private long movesetExtensionRevision = Long.MIN_VALUE;
 	protected Map<ResourceLocation, Either<PowerData, CompoundTag>> powerData = new HashMap<>();
 	
@@ -88,6 +91,32 @@ public abstract class Power<P extends Power<P>> implements SynchronizablePlayerD
 		PowerType powerType = getPowerType();
 		return powerType != null ? getPowerTypeData(powerType) : null;
 	}
+
+	/**
+	 * Resolves the data that owns an ability in the active moveset.
+	 */
+	@Nullable
+	public PowerData getDataForAbility(@Nullable Ability ability) {
+		ResourceLocation ownerTypeId = ability != null
+				? ability.getAbilityId().powerTypeId()
+				: null;
+		return ownerTypeId != null
+				? getDataForPowerType(ownerTypeId)
+				: getCurTypeData();
+	}
+
+	/**
+	 * Resolves data by its registered power-type identity.
+	 */
+	@Nullable
+	public PowerData getDataForPowerType(
+			@Nullable ResourceLocation powerTypeId) {
+		PowerType currentType = getPowerType();
+		return currentType != null
+				&& currentType.getId().equals(powerTypeId)
+						? getPowerTypeData(currentType)
+						: null;
+	}
 	
 	public PowerData getPowerTypeData(PowerType powerType) {
 		ResourceLocation id = powerType.getId();
@@ -111,22 +140,33 @@ public abstract class Power<P extends Power<P>> implements SynchronizablePlayerD
 	
 	@Nonnull
 	public Moveset getMoveset() {
-		PowerType powerType = getPowerType();
+		PowerType powerType = getMovesetPowerType(getPowerType());
 		long currentRevision = powerType != null
 				? powerType.getCurrentMovesetExtensionRevision()
 				: 0L;
 		if (moveset == null
+				|| movesetSourceType != powerType
 				|| movesetExtensionRevision != currentRevision) {
-			moveset = initMoveset(powerType);
+			moveset = initMoveset(getPowerType());
 		}
 		return moveset;
 	}
+
+	@Nullable
+	protected PowerType getMovesetPowerType(
+			@Nullable PowerType currentPowerType) {
+		return currentPowerType;
+	}
 	
 	protected Moveset initMoveset(@Nullable PowerType powerType) {
-		movesetExtensionRevision = powerType != null
-				? powerType.getCurrentMovesetExtensionRevision()
+		PowerType sourceType = getMovesetPowerType(powerType);
+		movesetSourceType = sourceType;
+		movesetExtensionRevision = sourceType != null
+				? sourceType.getCurrentMovesetExtensionRevision()
 				: 0L;
-		return powerType != null ? powerType.makeMoveset(this) : Moveset.empty();
+		return sourceType != null
+				? sourceType.makeMoveset(this)
+				: Moveset.empty();
 	}
 	
 	@Nullable
@@ -164,6 +204,23 @@ public abstract class Power<P extends Power<P>> implements SynchronizablePlayerD
 	
 	public LivingEntity getUser() {
 		return user;
+	}
+
+	/**
+	 * Queries authoritative server input state without exposing held actions.
+	 */
+	public final boolean hasHeldInput() {
+		return AbilityInput.hasHeldInput(user, getPowerClass());
+	}
+
+	/**
+	 * Releases all authoritative held inputs for this power class.
+	 *
+	 * @return whether at least one held input was interrupted
+	 */
+	public final boolean interruptHeldInputs() {
+		return AbilityInput.interruptHeldInputs(
+				user, getPowerClass());
 	}
 
 	public boolean isAbilityUnlocked(String abilityName) {
@@ -207,8 +264,15 @@ public abstract class Power<P extends Power<P>> implements SynchronizablePlayerD
 	protected void onPlayerCloneData(P newEntityData, boolean wasDeath) {
 		newEntityData.moveset = this.moveset;
 		Power<?> newPower = newEntityData;
+		newPower.movesetSourceType = this.movesetSourceType;
 		newPower.movesetExtensionRevision = this.movesetExtensionRevision;
-		newEntityData.powerData = this.powerData;
+		newEntityData.powerData =
+				copyPowerDataForClone(newEntityData, wasDeath);
+	}
+
+	protected Map<ResourceLocation, Either<PowerData, CompoundTag>>
+	copyPowerDataForClone(P newEntityData, boolean wasDeath) {
+		return this.powerData;
 	}
 	
 	@Override

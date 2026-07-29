@@ -3,9 +3,7 @@ package com.github.standobyte.jojo.block;
 import javax.annotation.Nullable;
 
 import com.github.standobyte.jojo.init.ModBlockEntities;
-import com.github.standobyte.jojo.init.ModBlocks;
 import com.github.standobyte.jojo.init.ModCriteriaTriggers;
-import com.github.standobyte.jojo.init.ModItems;
 import com.mojang.serialization.MapCodec;
 
 import net.minecraft.core.BlockPos;
@@ -100,10 +98,7 @@ public class StoneMaskBlock extends FaceAttachedHorizontalDirectionalBlock imple
 		if (blockEntity instanceof StoneMaskBlockEntity stoneMask) {
 			return stoneMask.getStack();
 		}
-		if (state.is(ModBlocks.AJA_STONE_MASK.get())) {
-			return new ItemStack(ModItems.AJA_STONE_MASK.get());
-		}
-		return new ItemStack(ModItems.STONE_MASK.get());
+		return new ItemStack(state.getBlock().asItem());
 	}
 
 	@Override

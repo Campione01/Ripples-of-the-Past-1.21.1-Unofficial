@@ -2,6 +2,7 @@ package com.github.standobyte.jojo.init;
 
 import java.util.function.Supplier;
 
+import com.github.standobyte.jojo.api.stonemask.StoneMaskExtensions;
 import com.github.standobyte.jojo.core.JojoMod;
 import com.github.standobyte.jojo.block.SlumberingPillarmanBlockEntity;
 import com.github.standobyte.jojo.block.StoneMaskBlockEntity;
@@ -26,7 +27,12 @@ public class ModBlockEntities {
 	});
 
 	public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<StoneMaskBlockEntity>> STONE_MASK = BLOCK_ENTITY_TYPES.register("stone_mask", key -> {
-		return BlockEntityType.Builder.of(StoneMaskBlockEntity::new, ModBlocks.STONE_MASK.get(), ModBlocks.AJA_STONE_MASK.get()).build(null);
+		return BlockEntityType.Builder.of(
+				StoneMaskBlockEntity::new,
+				StoneMaskExtensions.resolveBlocks(
+						ModBlocks.STONE_MASK.get(),
+						ModBlocks.AJA_STONE_MASK.get()))
+				.build(null);
 	});
 
 	public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<SlumberingPillarmanBlockEntity>> SLUMBERING_PILLARMAN = BLOCK_ENTITY_TYPES.register("slumbering_pillarman", key -> {

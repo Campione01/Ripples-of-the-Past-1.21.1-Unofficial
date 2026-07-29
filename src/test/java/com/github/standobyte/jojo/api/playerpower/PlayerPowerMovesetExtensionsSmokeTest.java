@@ -36,6 +36,8 @@ public final class PlayerPowerMovesetExtensionsSmokeTest {
 			abilityType("alpha");
 	private static final AbilityType<Ability> ZETA_TYPE =
 			abilityType("zeta");
+	private static final AbilityType<Ability> REPLACEMENT_TYPE =
+			abilityType("replacement");
 
 	private PlayerPowerMovesetExtensionsSmokeTest() {}
 
@@ -50,6 +52,9 @@ public final class PlayerPowerMovesetExtensionsSmokeTest {
 		verifyLateRegistrationRefreshesCaches();
 		verifyNoCrossPowerLeakage();
 		verifyMissingReferencesAndConflictsFailFast();
+		verifyAbilityReplacement();
+		verifyInvalidAbilityReplacementsFailFast();
+		verifyFailedExtensionIsAtomic();
 	}
 
 	private static void registerOrderedExtensions() {
@@ -474,6 +479,136 @@ public final class PlayerPowerMovesetExtensionsSmokeTest {
 						missingGroupTarget, groupedBaseMoveset())
 						.makeMoveset(null),
 				"moveset group does not exist: absent");
+	}
+
+	private static void verifyAbilityReplacement() {
+		ResourceLocation target =
+				id("rotp_test", "player_power_replacement_target");
+		PlayerPowerMovesetExtensions.register(
+				PlayerPowerMovesetExtensions.builder(
+								target,
+								id("rotp_test",
+										"player_power_replacement_extension"),
+								0)
+						.replaceAbility(
+								"anchor",
+								ANCHOR_TYPE.registryKey,
+								REPLACEMENT_TYPE.registryKey,
+								() -> REPLACEMENT_TYPE)
+						.build());
+
+		MovesetBuilder builder = baseMoveset();
+		PlayerPowerMovesetExtensions.applyRegisteredExtensions(
+				target, builder);
+		check(new ArrayList<>(builder.abilities.keySet())
+						.equals(List.of("anchor", "tail")),
+				"replacement must preserve the ability key and order");
+		check(builder.abilities.get("anchor").abilityTypeId()
+						.equals(REPLACEMENT_TYPE.registryKey),
+				"replacement did not install the requested ability type");
+		assertHotbarAbilities(
+				builder.controlSchemes.get("default"),
+				List.of("anchor", "tail"));
+	}
+
+	private static void verifyInvalidAbilityReplacementsFailFast() {
+		ResourceLocation missingTarget =
+				id("rotp_test", "player_power_replacement_missing");
+		PlayerPowerMovesetExtensions.register(
+				PlayerPowerMovesetExtensions.builder(
+								missingTarget,
+								id("rotp_test",
+										"player_power_replacement_missing_extension"),
+								0)
+						.replaceAbility(
+								"absent",
+								ANCHOR_TYPE.registryKey,
+								REPLACEMENT_TYPE.registryKey,
+								() -> REPLACEMENT_TYPE)
+						.build());
+		expectFailure(
+				() -> PlayerPowerMovesetExtensions
+						.applyRegisteredExtensions(
+								missingTarget, baseMoveset()),
+				"ability does not exist: absent");
+
+		ResourceLocation wrongCurrentTarget =
+				id("rotp_test", "player_power_replacement_wrong_current");
+		PlayerPowerMovesetExtensions.register(
+				PlayerPowerMovesetExtensions.builder(
+								wrongCurrentTarget,
+								id("rotp_test",
+										"player_power_replacement_wrong_current_extension"),
+								0)
+						.replaceAbility(
+								"anchor",
+								TAIL_TYPE.registryKey,
+								REPLACEMENT_TYPE.registryKey,
+								() -> REPLACEMENT_TYPE)
+						.build());
+		expectFailure(
+				() -> PlayerPowerMovesetExtensions
+						.applyRegisteredExtensions(
+								wrongCurrentTarget, baseMoveset()),
+				"current ability type ID mismatch for anchor");
+
+		ResourceLocation wrongReplacementTarget =
+				id("rotp_test", "player_power_replacement_wrong_result");
+		PlayerPowerMovesetExtensions.register(
+				PlayerPowerMovesetExtensions.builder(
+								wrongReplacementTarget,
+								id("rotp_test",
+										"player_power_replacement_wrong_result_extension"),
+								0)
+						.replaceAbility(
+								"anchor",
+								ANCHOR_TYPE.registryKey,
+								REPLACEMENT_TYPE.registryKey,
+								() -> ZETA_TYPE)
+						.build());
+		expectFailure(
+				() -> PlayerPowerMovesetExtensions
+						.applyRegisteredExtensions(
+								wrongReplacementTarget, baseMoveset()),
+				"replacement ability type ID mismatch");
+	}
+
+	private static void verifyFailedExtensionIsAtomic() {
+		ResourceLocation target =
+				id("rotp_test", "player_power_replacement_atomic");
+		PlayerPowerMovesetExtensions.register(
+				PlayerPowerMovesetExtensions.builder(
+								target,
+								id("rotp_test",
+										"player_power_replacement_atomic_extension"),
+								0)
+						.replaceAbility(
+								"anchor",
+								ANCHOR_TYPE.registryKey,
+								REPLACEMENT_TYPE.registryKey,
+								() -> REPLACEMENT_TYPE)
+						.insertAfterInHotbar(
+								"missing_scheme",
+								0,
+								"anchor",
+								"tail",
+								InputMethod.HOLD)
+						.build());
+
+		MovesetBuilder builder = baseMoveset();
+		expectFailure(
+				() -> PlayerPowerMovesetExtensions
+						.applyRegisteredExtensions(target, builder),
+				"control scheme does not exist: missing_scheme");
+		check(builder.abilities.get("anchor").abilityTypeId()
+						.equals(ANCHOR_TYPE.registryKey),
+				"failed extension must roll back an earlier replacement");
+		check(new ArrayList<>(builder.abilities.keySet())
+						.equals(List.of("anchor", "tail")),
+				"failed extension changed the ability key order");
+		assertHotbarAbilities(
+				builder.controlSchemes.get("default"),
+				List.of("anchor", "tail"));
 	}
 
 	private static PlayerPowerMovesetExtensions.Extension

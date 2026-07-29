@@ -8,6 +8,8 @@ import javax.annotation.Nullable;
 
 import org.lwjgl.glfw.GLFW;
 
+import com.github.standobyte.jojo.api.client.render.AbilitySelectionSurface;
+import com.github.standobyte.jojo.api.client.render.AbilitySelectionVisualPolicies;
 import com.github.standobyte.jojo.client.ClientPowerCache;
 import com.github.standobyte.jojo.client.input.InputHandler;
 import com.github.standobyte.jojo.client.input.controlscheme.ClientControlScheme;
@@ -151,6 +153,15 @@ public class AbilitySelectionWheel extends Screen implements ScreenLetsUseWASD {
 			}
 			boolean highlight = i == hoveredSlotIndex;
 			float alpha = highlight ? 0.5f : 0.25f;
+			int sectorTint = ARGB.white(alpha);
+			if (highlight && ability != null) {
+				sectorTint = AbilitySelectionVisualPolicies.selectionTint(
+						ability.ability,
+						abilityCtx,
+						ability.conditionCheck,
+						AbilitySelectionSurface.SELECTION_WHEEL_HOVERED,
+						sectorTint);
+			}
 			if (highlight) {
 				pose.pushPose();
 				pose.translate(this.width / 2, this.height / 2, 0);
@@ -159,7 +170,7 @@ public class AbilitySelectionWheel extends Screen implements ScreenLetsUseWASD {
 			}
 			BlitFloat.blitRadial(pose, Minecraft.getInstance(), texture, 
 					x, y, width, height, 0, 
-					angle0, fill, ARGB.white(alpha));
+					angle0, fill, sectorTint);
 			angle0 += angleStep;
 			if (highlight) {
 				pose.popPose();

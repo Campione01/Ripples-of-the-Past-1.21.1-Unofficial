@@ -5,11 +5,14 @@ import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.Set;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import com.github.standobyte.jojo.api.client.render.AbilitySelectionSurface;
+import com.github.standobyte.jojo.api.client.render.AbilitySelectionVisualPolicies;
 import com.github.standobyte.jojo.client.ClientPowerCache;
 import com.github.standobyte.jojo.client.input.AbilityInputState;
 import com.github.standobyte.jojo.client.input.HeldKeyTimer;
@@ -526,7 +529,26 @@ public class PowerHudControlsElement extends HudElement {
 							yield heldKeyTimer != null && heldKeyTimer.isDefinitelyHold();
 						}
 					};
-					if (isClicked) {
+					AbilityConditionCheck condition = ability.ability;
+					Power<?> power = ClientPowerCache.getPower(
+							condition.ability.abilityId.powerClass());
+					OptionalInt selectionTint =
+							AbilitySelectionVisualPolicies
+									.selectionTintOverride(
+											condition.ability,
+											power,
+											condition.conditionCheck,
+											AbilitySelectionSurface
+													.DIRECT_BIND_ACTIVE,
+											alpha);
+					if (selectionTint.isPresent()) {
+						HOTBAR_SELECTION.render(
+								guiGraphics.pose(),
+								x - 15,
+								y - 15,
+								selectionTint.getAsInt());
+					}
+					else if (isClicked) {
 						HOTBAR_SELECTION.render(guiGraphics.pose(), x - 15, y - 15, alpha);
 					}
 					
@@ -562,7 +584,27 @@ public class PowerHudControlsElement extends HudElement {
 						renderAbility(guiGraphics, x, y, slot.sprite, mc, partialTick, alpha);
 					}
 					if (slot == hotbar.selected) {
-						HOTBAR_SELECTION.render(guiGraphics.pose(), x - 15, y - 15, alpha);
+						int selectionTint = alpha;
+						if (slot.sprite != null) {
+							AbilityConditionCheck ability =
+									slot.sprite.ability;
+							Power<?> power = ClientPowerCache.getPower(
+									ability.ability.abilityId.powerClass());
+							selectionTint =
+									AbilitySelectionVisualPolicies
+											.selectionTint(
+													ability.ability,
+													power,
+													ability.conditionCheck,
+													AbilitySelectionSurface
+															.HOTBAR_SELECTED,
+													alpha);
+						}
+						HOTBAR_SELECTION.render(
+								guiGraphics.pose(),
+								x - 15,
+								y - 15,
+								selectionTint);
 						
 						if (controlsEnabled && hotbar.highlight) {
 							float time = modInput.getHotbarsSelectionTime();
@@ -629,7 +671,8 @@ public class PowerHudControlsElement extends HudElement {
 			ratio = standPower.getAbilityCooldownRatio(ability.name(), partialTick);
 		}
 		else if (power instanceof PlayerPower playerPower
-				&& playerPower.getCurTypeData() instanceof PlayerPowerData playerPowerData) {
+				&& playerPower.getDataForAbility(ability)
+						instanceof PlayerPowerData playerPowerData) {
 			ratio = playerPowerData.getAbilityCooldownRatio(ability.name(), partialTick);
 		}
 		else {

@@ -1830,5 +1830,10 @@
   "jojo.config.vampiresAggroMobs": "Vampires aggro mobs",
   "jojo.config.vampiresAggroMobs.tooltip": "Whether or not hostile mobs are agressive towards vampire players.",
   "jojo.config.vampirismCuringDuration": "Vampirism curing duration",
-  "jojo.config.vampirismCuringDuration.tooltip": "Duration of the vampirism curing process in ticks."
+  "jojo.config.vampirismCuringDuration.tooltip": "Duration of the vampirism curing process in ticks.",
+  "item.jojo_ripples.stand_remover_one_time": "Remove Stand (one-time)",
+  "item.jojo_ripples.stand_eject_one_time": "Eject Stand (one-time)",
+  "item.jojo_ripples.stand_full_clear_one_time": "Full Stand Clear (one-time)",
+  "item.jojo_ripples.stand_full_clear.hint": "Also clears all the Stand abilities learned, and the Arrow xp cost penalty",
+  "item.jojo_ripples.creative_only_tooltip": "Creative-only item"
 }

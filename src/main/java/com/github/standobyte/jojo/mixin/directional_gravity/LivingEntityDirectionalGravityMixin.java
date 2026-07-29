@@ -1,139 +1,86 @@
 package com.github.standobyte.jojo.mixin.directional_gravity;
 
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.Redirect;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import com.github.standobyte.jojo.api.gravity.DirectionalGravityApi;
 import com.github.standobyte.jojo.api.gravity.DirectionalGravityTransforms;
-import com.github.standobyte.jojo.subsystems.timestop.TimeStopState;
+import com.github.standobyte.jojo.subsystems.directional_gravity.DirectionalGravityRuntime;
+import com.github.standobyte.jojo.subsystems.directional_gravity.DirectionalGravityRuntime.LocalFrame;
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 
-import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Pose;
-import net.minecraft.world.entity.animal.FlyingAnimal;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.fluids.FluidType;
 
 @Mixin(LivingEntity.class)
 public abstract class LivingEntityDirectionalGravityMixin {
-	@Unique
-	private Vec3 jojo_ripples$jumpStartMovement;
-	@Unique
-	private Direction jojo_ripples$jumpDirection = Direction.DOWN;
-
-	@Inject(method = "travel", at = @At("HEAD"), cancellable = true)
-	private void jojo_ripples$directionalGravityTravel(
-			Vec3 travelVector, CallbackInfo ci) {
+	@WrapMethod(method = "travel")
+	private void jojo_ripples$directionalGravityTravelFrame(
+			Vec3 travelVector, Operation<Void> original) {
 		LivingEntity living = (LivingEntity) (Object) this;
-		Direction direction =
-				DirectionalGravityApi.getEffectiveDirection(living);
-		if (direction == Direction.DOWN) {
-			return;
+		try (LocalFrame ignored =
+				DirectionalGravityRuntime.enterLocalFrame(living)) {
+			original.call(travelVector);
 		}
-
-		if (living.isControlledByLocalInstance()) {
-			double gravity = living.getGravity();
-			boolean falling =
-					DirectionalGravityTransforms.isMovingWithGravity(
-							direction, living.getDeltaMovement());
-			if (falling && living.hasEffect(MobEffects.SLOW_FALLING)) {
-				gravity = Math.min(gravity, 0.01);
-			}
-			if (living instanceof Player player) {
-				gravity = TimeStopState.travelGravityForTimeStopFloat(
-						player, gravity);
-			}
-
-			BlockPos floor =
-					living.getBlockPosBelowThatAffectsMyMovement();
-			float blockFriction = living.level().getBlockState(floor)
-					.getFriction(living.level(), floor, living);
-			float transverseFriction =
-					living.onGround()
-							? blockFriction * 0.91F
-							: 0.91F;
-			Vec3 movement =
-					living.handleRelativeFrictionAndCalculateMovement(
-							travelVector, blockFriction);
-			double gravityFriction =
-					living instanceof FlyingAnimal
-							? transverseFriction
-							: 0.98F;
-			if (living.shouldDiscardFriction()) {
-				transverseFriction = 1.0F;
-				gravityFriction = 1.0;
-			}
-			living.setDeltaMovement(
-					DirectionalGravityTransforms
-							.applyGravityAndFriction(
-									direction,
-									movement,
-									gravity,
-									transverseFriction,
-									gravityFriction));
-		}
-
-		living.calculateEntityAnimation(
-				living instanceof FlyingAnimal);
-		ci.cancel();
 	}
 
-	@Redirect(method = "handleRelativeFrictionAndCalculateMovement",
+	@WrapOperation(method = "travel",
 			at = @At(value = "INVOKE",
-					target = "Lnet/minecraft/world/entity/LivingEntity;"
-							+ "moveRelative"
-							+ "(FLnet/minecraft/world/phys/Vec3;)V"))
-	private void jojo_ripples$directionalGravityMovementInput(
-			LivingEntity living, float speed, Vec3 input) {
+					target = "Lnet/minecraft/world/entity/"
+							+ "LivingEntity;isFree(DDD)Z"))
+	private boolean jojo_ripples$directionalFluidExitProbe(
+			LivingEntity living, double x, double y, double z,
+			Operation<Boolean> original) {
 		Direction direction =
-				DirectionalGravityApi.getEffectiveDirection(living);
+				DirectionalGravityRuntime.localFrameDirection(living);
 		if (direction == Direction.DOWN) {
-			living.moveRelative(speed, input);
-			return;
+			return original.call(living, x, y, z);
 		}
-
-		Vec3 before = living.getDeltaMovement();
-		living.moveRelative(speed, input);
-		Vec3 vanillaAcceleration =
-				living.getDeltaMovement().subtract(before);
-		living.setDeltaMovement(before.add(
-				DirectionalGravityTransforms.toWorld(
-						direction, vanillaAcceleration)));
+		Vec3 localMovement = living.getDeltaMovement();
+		Vec3 lastMove =
+				DirectionalGravityRuntime.lastLocalMovement(living);
+		Vec3 localProbe = new Vec3(
+				localMovement.x,
+				localMovement.y + 0.6 - lastMove.y,
+				localMovement.z);
+		Vec3 worldProbe = DirectionalGravityTransforms.toWorld(
+				direction, localProbe);
+		return original.call(living,
+				worldProbe.x, worldProbe.y, worldProbe.z);
 	}
 
-	@Inject(method = "jumpFromGround", at = @At("HEAD"))
-	private void jojo_ripples$captureDirectionalGravityJump(
-			CallbackInfo ci) {
+	@WrapMethod(method = "jumpFromGround")
+	private void jojo_ripples$directionalGravityJump(
+			Operation<Void> original) {
 		LivingEntity living = (LivingEntity) (Object) this;
-		jojo_ripples$jumpDirection =
-				DirectionalGravityApi.getEffectiveDirection(living);
-		jojo_ripples$jumpStartMovement =
-				jojo_ripples$jumpDirection != Direction.DOWN
-						? living.getDeltaMovement() : null;
+		try (LocalFrame ignored =
+				DirectionalGravityRuntime.enterLocalFrame(living)) {
+			original.call();
+		}
 	}
 
-	@Inject(method = "jumpFromGround", at = @At("RETURN"))
-	private void jojo_ripples$applyDirectionalGravityJump(
-			CallbackInfo ci) {
-		if (jojo_ripples$jumpStartMovement == null) {
-			return;
+	@WrapOperation(method = "aiStep",
+			at = @At(value = "INVOKE",
+					target = "Lnet/minecraft/world/entity/"
+							+ "LivingEntity;jumpInFluid"
+							+ "(Lnet/neoforged/neoforge/fluids/"
+							+ "FluidType;)V"))
+	private void jojo_ripples$directionalGravityFluidJump(
+			LivingEntity living, FluidType fluid,
+			Operation<Void> original) {
+		try (LocalFrame ignored =
+				DirectionalGravityRuntime.enterLocalFrame(living)) {
+			original.call(living, fluid);
 		}
-		LivingEntity living = (LivingEntity) (Object) this;
-		Vec3 vanillaJump = living.getDeltaMovement()
-				.subtract(jojo_ripples$jumpStartMovement);
-		living.setDeltaMovement(jojo_ripples$jumpStartMovement.add(
-				DirectionalGravityTransforms.toWorld(
-						jojo_ripples$jumpDirection, vanillaJump)));
-		jojo_ripples$jumpStartMovement = null;
-		jojo_ripples$jumpDirection = Direction.DOWN;
 	}
 
 	@Inject(method = "getLocalBoundsForPose", at = @At("RETURN"),

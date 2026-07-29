@@ -9,6 +9,7 @@ import java.util.function.Consumer;
 import org.jetbrains.annotations.ApiStatus;
 
 import com.github.standobyte.jojo.api.client.render.AddonPostEffect;
+import com.github.standobyte.jojo.api.client.render.EntityMaskPostEffect;
 import com.github.standobyte.jojo.client.ModClientResources;
 import com.github.standobyte.jojo.client.shader.core.RotpShader;
 import com.github.standobyte.jojo.core.JojoMod;
@@ -85,6 +86,7 @@ public class ModShaders implements ResourceManagerReloadListener, AutoCloseable 
 
 	@Override
 	public void close() {
+		EntityMaskPostEffect.closeLoadedTargets();
 		AddonPostEffect.closeLoadedChains();
 		for (RotpShader shader : _allShaders) {
 			shader.close();
@@ -94,6 +96,7 @@ public class ModShaders implements ResourceManagerReloadListener, AutoCloseable 
 
 	@Override
     public void onResourceManagerReload(ResourceManager resourceManager) {
+		EntityMaskPostEffect.onResourceManagerReload(resourceManager);
 		AddonPostEffect.onResourceManagerReload(resourceManager);
 		resolveShaderManager.listManager().reload(resourceManager);
 		resolveShaderManager.onResourceReload();
@@ -112,6 +115,7 @@ public class ModShaders implements ResourceManagerReloadListener, AutoCloseable 
 	}
 
 	public void resize(int width, int height) {
+		EntityMaskPostEffect.resize(width, height);
 		AddonPostEffect.resize(width, height);
 		for (RotpShader shader : _allShaders) {
 			shader.resize(width, height);
@@ -122,6 +126,7 @@ public class ModShaders implements ResourceManagerReloadListener, AutoCloseable 
 		for (RotpShader shader : _allShaders) {
 			shader.frameRenderCallback(event);
 		}
+		EntityMaskPostEffect.onFrame(event);
 		AddonPostEffect.onFrame(event);
 	}
 

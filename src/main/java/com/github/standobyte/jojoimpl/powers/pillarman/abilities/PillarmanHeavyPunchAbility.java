@@ -47,7 +47,8 @@ public class PillarmanHeavyPunchAbility extends PillarmanActionAbility {
 			return check;
 		}
 		LivingEntity user = context.getUser();
-		return user != null && UtilFunctions.itemHandFree(user.getMainHandItem())
+		return user != null && UtilFunctions.isHandFree(
+				user, InteractionHand.MAIN_HAND)
 				? ConditionCheck.POSITIVE
 				: ConditionCheck.createNegative("hand");
 	}

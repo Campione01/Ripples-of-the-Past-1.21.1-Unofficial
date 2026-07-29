@@ -27,6 +27,7 @@ public class StandInitTheWorld {
 				.range(5, 10)
 				.durability(16.0, 20.0)
 				.precision(12)
+				.randomWeight(1)
 				.build(),
 
 				new MovesetBuilder()

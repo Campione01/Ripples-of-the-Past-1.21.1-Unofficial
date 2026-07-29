@@ -77,8 +77,11 @@ public class PillarmanLightFlashDecoyAbility extends PillarmanActionAbility {
 				}
 				user.addEffect(new MobEffectInstance(ModStatusEffects.FULL_INVISIBILITY, 100, 0, false, false, false));
 				decoyAbility.setPillarmanFixedCooldown(context, 120);
-				if (context != null && context.getCurTypeData() != null) {
-					context.getCurTypeData().syncOnUpdate(user);
+				if (context != null
+						&& context.getDataForAbility(
+								decoyAbility) != null) {
+					context.getDataForAbility(decoyAbility)
+							.syncOnUpdate(user);
 				}
 			}
 			level.playSound(null, user, ModSoundEvents.AJA_STONE_BEAM.get(), user.getSoundSource(), 2.0F, 1.0F);

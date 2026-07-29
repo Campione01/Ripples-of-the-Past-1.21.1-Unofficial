@@ -2,8 +2,6 @@ package com.github.standobyte.jojo.client.render.armor;
 
 import com.github.standobyte.jojo.client.ModEntityTypeRenderers;
 import com.github.standobyte.jojo.client.render.armor.model.StoneMaskArmorModel;
-import com.github.standobyte.jojo.core.JojoMod;
-import com.github.standobyte.jojo.init.ModItems;
 import com.github.standobyte.jojo.item.StoneMaskItem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -53,10 +51,7 @@ public class StoneMaskArmorLayer<T extends LivingEntity, M extends HumanoidModel
 	}
 
 	private static ResourceLocation texture(ItemStack stack) {
-		String base = stack.is(ModItems.AJA_STONE_MASK.get()) ? "aja_stone_mask" : "stone_mask";
-		if (StoneMaskItem.getActivatedTicks(stack) > 0) {
-			base += "_activated";
-		}
-		return JojoMod.resLoc("textures/armor/" + base + ".png");
+		return ((StoneMaskItem) stack.getItem())
+				.getArmorTexture(stack);
 	}
 }

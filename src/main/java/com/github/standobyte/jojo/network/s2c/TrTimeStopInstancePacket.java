@@ -15,7 +15,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.ChunkPos;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-public record TrTimeStopInstancePacket(int id, int ticksLeft, int totalTicks, int chunkX, int chunkZ, int chunkRange, int userId, String visualRoute, Optional<ResourceLocation> standTypeId, Optional<ResourceLocation> selectedSkin, int resumeSoundUserId, int resumeVoiceLineUserId, boolean ticksManuallySet, boolean forceResumeVoiceLine, float staminaCostTick, int ticksPassed, boolean remove, boolean openingVisual) implements CustomPacketPayload {
+public record TrTimeStopInstancePacket(int id, int ticksLeft, int totalTicks, int chunkX, int chunkZ, int chunkRange, int userId, String visualRoute, Optional<ResourceLocation> standTypeId, Optional<ResourceLocation> selectedSkin, int resumeSoundUserId, int resumeVoiceLineUserId, boolean ticksManuallySet, boolean forceResumeVoiceLine, float staminaCostTick, int ticksPassed, boolean refundUnusedStartCost, boolean remove, boolean openingVisual) implements CustomPacketPayload {
 	private static CustomPacketPayload.Type<TrTimeStopInstancePacket> type;
 
 	public static class Handler implements PacketsRegister.PacketCodecHandler<TrTimeStopInstancePacket> {
@@ -64,7 +64,8 @@ public record TrTimeStopInstancePacket(int id, int ticksLeft, int totalTicks, in
 					payload.ticksManuallySet,
 					payload.forceResumeVoiceLine,
 					payload.staminaCostTick,
-					payload.ticksPassed);
+					payload.ticksPassed,
+					payload.refundUnusedStartCost);
 			TimeStopState.putClientInstance(instance);
 			ClientTimeStopHandler.updateTimeStopTicksLeft();
 			if (payload.openingVisual) {
@@ -77,7 +78,7 @@ public record TrTimeStopInstancePacket(int id, int ticksLeft, int totalTicks, in
 	}
 
 	public TrTimeStopInstancePacket(RegistryFriendlyByteBuf buf) {
-		this(buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt(), buf.readUtf(), NetworkUtil.readOptional(buf, ResourceLocation.STREAM_CODEC), NetworkUtil.readOptional(buf, ResourceLocation.STREAM_CODEC), buf.readInt(), buf.readInt(), buf.readBoolean(), buf.readBoolean(), buf.readFloat(), buf.readInt(), buf.readBoolean(), buf.readBoolean());
+		this(buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt(), buf.readUtf(), NetworkUtil.readOptional(buf, ResourceLocation.STREAM_CODEC), NetworkUtil.readOptional(buf, ResourceLocation.STREAM_CODEC), buf.readInt(), buf.readInt(), buf.readBoolean(), buf.readBoolean(), buf.readFloat(), buf.readInt(), buf.readBoolean(), buf.readBoolean(), buf.readBoolean());
 	}
 
 	public void write(RegistryFriendlyByteBuf buf) {
@@ -97,6 +98,7 @@ public record TrTimeStopInstancePacket(int id, int ticksLeft, int totalTicks, in
 		buf.writeBoolean(forceResumeVoiceLine);
 		buf.writeFloat(staminaCostTick);
 		buf.writeInt(ticksPassed);
+		buf.writeBoolean(refundUnusedStartCost);
 		buf.writeBoolean(remove);
 		buf.writeBoolean(openingVisual);
 	}

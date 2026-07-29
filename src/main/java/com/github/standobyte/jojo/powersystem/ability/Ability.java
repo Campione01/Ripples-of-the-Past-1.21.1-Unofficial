@@ -270,7 +270,8 @@ public class Ability {
 	}
 
 	public ConditionCheck getUnlockConditionCheck(Power<?> context) {
-		PowerData skillsData = context != null ? context.getCurTypeData() : null;
+		PowerData skillsData =
+				context != null ? context.getDataForAbility(this) : null;
 		if (skillsData == null || skillsData._lockedAbilities.contains(name())) {
 			return ConditionCheck.createNegative("not_unlocked");
 		}

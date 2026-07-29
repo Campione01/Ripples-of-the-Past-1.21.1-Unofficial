@@ -82,7 +82,8 @@ public class RockPaperScissorsKidEntity extends PathfinderMob {
 			}
 			if (game != null) {
 				PacketDistributor.sendToPlayer(serverPlayer, RPSGameStatePacket.enteredGame(getId(),
-						game.playerPreviousPicks(), game.opponentPreviousPicks(), game.round()));
+						game.playerPreviousPicks(), game.opponentPreviousPicks(),
+						game.round(), game.sessionEpoch()));
 			}
 			data.setDirty();
 		}

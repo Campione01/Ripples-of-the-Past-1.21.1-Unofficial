@@ -49,8 +49,14 @@ public class JojoDefinitions {
 	public static boolean isPlayerJojoVampiric(Player player) {
 		PlayerPower power = PlayerPower.get(player);
 		if (power != null) {
-			PlayerPowerType<?> powerType = power.getPowerType();
-			return powerType == ModPlayerPowers.VAMPIRISM.get() || powerType == ModPlayerPowers.PILLAR_MAN.get() || powerType == ModPlayerPowers.ZOMBIE.get();
+			return power.getCurTypeData(
+					ModPlayerPowers.VAMPIRISM).isPresent()
+					|| power.getCurTypeData(
+							ModPlayerPowers.PILLAR_MAN)
+							.isPresent()
+					|| power.getCurTypeData(
+							ModPlayerPowers.ZOMBIE)
+							.isPresent();
 		}
 		return false;
 	}

@@ -72,6 +72,24 @@ public abstract class PlayerPowerType<D extends PlayerPowerData> extends PowerTy
 		return name.get();
 	}
 
+	/**
+	 * Allows this existing type to be replaced through
+	 * {@link PlayerPower#trySetPowerType(PlayerPowerType)}.
+	 */
+	public boolean isReplaceableWith(PlayerPowerType<?> newType) {
+		return false;
+	}
+
+	/**
+	 * Scales Resolve awarded to an attacking Stand for damaging this power's
+	 * user. Zero suppresses the award.
+	 */
+	public float getTargetResolveMultiplier(
+			PlayerPower power,
+			StandPower attackingStand) {
+		return 1.0F;
+	}
+
 	public boolean keepOnDeath(PlayerPower power) {
 		return false;
 	}

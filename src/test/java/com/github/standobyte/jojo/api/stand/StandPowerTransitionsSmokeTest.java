@@ -1,10 +1,14 @@
 package com.github.standobyte.jojo.api.stand;
 
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import com.github.standobyte.jojo.api.stand.StandPowerTransitions.Operation;
+import com.github.standobyte.jojo.api.stand.StandPowerTransitions.MutationOperation;
 import com.github.standobyte.jojo.api.stand.StandPowerTransitions.PowerAccess;
 import com.github.standobyte.jojo.api.stand.StandPowerTransitions.Result;
 import com.github.standobyte.jojo.api.stand.StandPowerTransitions.Status;
+import com.github.standobyte.jojo.api.stand.StandPowerTransitions.TransitionContext;
 import com.github.standobyte.jojo.powersystem.standpower.StandInstance;
 import com.github.standobyte.jojo.powersystem.standpower.StandInstance.StandPart;
 import com.github.standobyte.jojo.powersystem.standpower.TestStandInstances;
@@ -151,6 +155,249 @@ public final class StandPowerTransitionsSmokeTest {
 		check(extracted.current().isEmpty(), "extract must report an empty current Stand");
 		check(emptyPower.current.isEmpty(), "extract must clear stored state");
 		check(emptyPower.writes == 3, "extract must perform exactly one write");
+
+		runMutationTransitions(alphaId, betaId);
+		runDestructiveTransitions(alphaId);
+	}
+
+	private static void runMutationTransitions(
+			ResourceLocation alphaId,
+			ResourceLocation betaId) {
+		TransitionContext context = new TransitionContext(
+				id("jojo_ripples", "stand_disc"), null);
+		StandInstance alpha = TestStandInstances.valid(alphaId);
+		StandInstance beta = TestStandInstances.valid(betaId);
+
+		StandPowerTransitions.resetVetoesForTests();
+		FakePower offThread =
+				new FakePower(false, Optional.empty());
+		offThread.serverThread = false;
+		assertFailure(
+				StandPowerTransitions.insert(
+						offThread, beta, context),
+				Status.NOT_SERVER_THREAD,
+				offThread,
+				0,
+				Optional.empty());
+
+		FakePower invalidContext =
+				new FakePower(false, Optional.empty());
+		assertFailure(
+				StandPowerTransitions.insert(
+						invalidContext, beta, null),
+				Status.INVALID_CONTEXT,
+				invalidContext,
+				0,
+				Optional.empty());
+
+		AtomicInteger vetoCalls = new AtomicInteger();
+		ResourceLocation vetoOwner =
+				id("rotp_test", "d4c_mutation_veto");
+		StandPowerTransitions.registerMutationVeto(
+				vetoOwner,
+				query -> {
+					vetoCalls.incrementAndGet();
+					check(query.operation()
+									== MutationOperation.REPLACE,
+							"mutation veto operation changed");
+					check(query.context().equals(context),
+							"mutation veto context changed");
+					StandInstance mutableCurrent =
+							query.current().orElseThrow();
+					mutableCurrent.removePart(StandPart.ARMS);
+					StandInstance mutableReplacement =
+							query.replacement();
+					mutableReplacement.removePart(StandPart.LEGS);
+					return true;
+				});
+		check(StandPowerTransitions
+						.registeredMutationVetoOwners()
+						.equals(java.util.List.of(vetoOwner)),
+				"mutation veto owner order changed");
+		expectIllegalState(() ->
+				StandPowerTransitions.registerMutationVeto(
+						vetoOwner, query -> false));
+
+		FakePower vetoed =
+				new FakePower(false, Optional.of(alpha.copy()));
+		assertFailure(
+				StandPowerTransitions.replace(
+						vetoed,
+						alphaId,
+						beta,
+						context),
+				Status.VETOED,
+				vetoed,
+				0,
+				Optional.of(alpha));
+		check(vetoCalls.get() == 1,
+				"mutation veto callback count changed");
+		check(vetoed.current.orElseThrow()
+						.hasPart(StandPart.ARMS),
+				"mutating the current veto snapshot changed state");
+		check(beta.hasPart(StandPart.LEGS),
+				"mutating the replacement veto snapshot changed input");
+
+		StandPowerTransitions.resetVetoesForTests();
+		StandPowerTransitions.registerMutationVeto(
+				id("rotp_test", "mutation_failure"),
+				query -> {
+					throw new IllegalStateException(
+							"mutation preflight failure");
+				});
+		FakePower failedPreflight =
+				new FakePower(false, Optional.empty());
+		assertFailure(
+				StandPowerTransitions.insert(
+						failedPreflight, beta, context),
+				Status.PREFLIGHT_FAILED,
+				failedPreflight,
+				0,
+				Optional.empty());
+
+		StandPowerTransitions.resetVetoesForTests();
+		FakePower inserted =
+				new FakePower(false, Optional.empty());
+		Result insertResult = StandPowerTransitions.insert(
+				inserted, beta, context);
+		check(insertResult.applied(),
+				"contextual insert must apply");
+		check(inserted.writes == 1
+						&& inserted.current.orElseThrow()
+								.equals(beta),
+				"contextual insert must perform one commit");
+
+		FakePower replaced =
+				new FakePower(false, Optional.of(alpha.copy()));
+		Result replaceResult = StandPowerTransitions.replace(
+				replaced, alphaId, beta, context);
+		check(replaceResult.applied(),
+				"contextual replace must apply");
+		check(replaced.writes == 1
+						&& replaced.current.orElseThrow()
+								.equals(beta),
+				"contextual replace must perform one commit");
+		StandPowerTransitions.resetVetoesForTests();
+	}
+
+	private static void runDestructiveTransitions(ResourceLocation alphaId) {
+		ResourceLocation source =
+				id("jojo_ripples", "stand_remover_one_time");
+		TransitionContext context = new TransitionContext(source, null);
+		StandInstance alpha = TestStandInstances.valid(alphaId);
+
+		StandPowerTransitions.resetVetoesForTests();
+		FakePower offThread = new FakePower(false, Optional.of(alpha.copy()));
+		offThread.serverThread = false;
+		assertFailure(
+				StandPowerTransitions.clear(offThread, context),
+				Status.NOT_SERVER_THREAD,
+				offThread,
+				0,
+				Optional.of(alpha));
+
+		FakePower invalidContext =
+				new FakePower(false, Optional.of(alpha.copy()));
+		assertFailure(
+				StandPowerTransitions.clear(invalidContext, null),
+				Status.INVALID_CONTEXT,
+				invalidContext,
+				0,
+				Optional.of(alpha));
+		assertFailure(
+				StandPowerTransitions.extract(
+						invalidContext, null, context),
+				Status.INVALID_SOURCE,
+				invalidContext,
+				0,
+				Optional.of(alpha));
+
+		AtomicInteger vetoCalls = new AtomicInteger();
+		ResourceLocation vetoOwner = id("rotp_test", "d4c_veto");
+		StandPowerTransitions.registerVeto(vetoOwner, query -> {
+			vetoCalls.incrementAndGet();
+			check(query.operation() == Operation.CLEAR,
+					"veto query operation changed");
+			check(query.context().equals(context),
+					"veto query context changed");
+			StandInstance mutableSnapshot = query.current();
+			mutableSnapshot.removePart(StandPart.ARMS);
+			return true;
+		});
+		check(StandPowerTransitions.registeredVetoOwners()
+				.equals(java.util.List.of(vetoOwner)),
+				"veto owner order changed");
+		expectIllegalState(() -> StandPowerTransitions.registerVeto(
+				vetoOwner, query -> false));
+
+		FakePower vetoed = new FakePower(false, Optional.of(alpha.copy()));
+		assertFailure(
+				StandPowerTransitions.clear(vetoed, context),
+				Status.VETOED,
+				vetoed,
+				0,
+				Optional.of(alpha));
+		check(vetoCalls.get() == 1, "veto callback count changed");
+		check(vetoed.current.orElseThrow().hasPart(StandPart.ARMS),
+				"mutating a veto snapshot changed stored state");
+
+		StandPowerTransitions.resetVetoesForTests();
+		StandPowerTransitions.registerVeto(
+				id("rotp_test", "whitesnake_failure"),
+				query -> {
+					throw new IllegalStateException("preflight failure");
+				});
+		FakePower failedPreflight =
+				new FakePower(false, Optional.of(alpha.copy()));
+		assertFailure(
+				StandPowerTransitions.fullReset(failedPreflight, context),
+				Status.PREFLIGHT_FAILED,
+				failedPreflight,
+				0,
+				Optional.of(alpha));
+
+		StandPowerTransitions.resetVetoesForTests();
+		FakePower cleared = new FakePower(false, Optional.of(alpha.copy()));
+		Result clearResult = StandPowerTransitions.clear(cleared, context);
+		check(clearResult.applied(), "contextual clear must apply");
+		check(clearResult.previous().orElseThrow().equals(alpha),
+				"contextual clear lost the exact previous Stand");
+		check(clearResult.current().isEmpty(),
+				"contextual clear must report no current Stand");
+		check(cleared.current.isEmpty() && cleared.writes == 1,
+				"contextual clear must perform one commit");
+		check(!cleared.fullResetApplied,
+				"contextual clear must preserve persistent progression");
+
+		FakePower mismatch = new FakePower(false, Optional.of(alpha.copy()));
+		assertFailure(
+				StandPowerTransitions.extract(
+						mismatch,
+						id("jojo_ripples", "wrong_stand"),
+						context),
+				Status.SOURCE_MISMATCH,
+				mismatch,
+				0,
+				Optional.of(alpha));
+
+		FakePower fullReset =
+				new FakePower(false, Optional.of(alpha.copy()));
+		Result fullResetResult =
+				StandPowerTransitions.fullReset(fullReset, context);
+		check(fullResetResult.applied(),
+				"contextual full reset must apply");
+		check(fullReset.current.isEmpty() && fullReset.writes == 1,
+				"contextual full reset must perform one commit");
+		check(fullReset.fullResetApplied,
+				"contextual full reset must request progression erasure");
+
+		StandInstance resultCopy =
+				fullResetResult.previous().orElseThrow();
+		resultCopy.removePart(StandPart.ARMS);
+		check(fullResetResult.previous().orElseThrow()
+				.hasPart(StandPart.ARMS),
+				"contextual Result snapshots must be defensive");
+		StandPowerTransitions.resetVetoesForTests();
 	}
 
 	private static void assertFailure(
@@ -178,10 +425,22 @@ public final class StandPowerTransitionsSmokeTest {
 		}
 	}
 
+	private static void expectIllegalState(Runnable action) {
+		try {
+			action.run();
+			throw new AssertionError("expected IllegalStateException");
+		}
+		catch (IllegalStateException expected) {
+			// Expected.
+		}
+	}
+
 	private static final class FakePower implements PowerAccess {
 		private final boolean clientSide;
+		private boolean serverThread = true;
 		private Optional<StandInstance> current;
 		private int writes;
+		private boolean fullResetApplied;
 
 		private FakePower(boolean clientSide, Optional<StandInstance> current) {
 			this.clientSide = clientSide;
@@ -194,6 +453,11 @@ public final class StandPowerTransitionsSmokeTest {
 		}
 
 		@Override
+		public boolean isServerThread() {
+			return serverThread;
+		}
+
+		@Override
 		public Optional<StandInstance> getStandInstance() {
 			return current;
 		}
@@ -201,6 +465,13 @@ public final class StandPowerTransitionsSmokeTest {
 		@Override
 		public void setStandInstance(Optional<StandInstance> standInstance) {
 			current = standInstance;
+			writes++;
+		}
+
+		@Override
+		public void applyDestructiveTransition(boolean fullReset) {
+			current = Optional.empty();
+			fullResetApplied = fullReset;
 			writes++;
 		}
 	}

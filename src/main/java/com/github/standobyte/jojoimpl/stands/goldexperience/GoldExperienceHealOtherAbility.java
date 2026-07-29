@@ -2,6 +2,8 @@ package com.github.standobyte.jojoimpl.stands.goldexperience;
 
 import com.github.standobyte.jojo.powersystem.standpower.StandInstance.StandPart;
 
+import com.github.standobyte.jojo.api.healing.GoldExperienceExternalHealingTarget;
+import com.github.standobyte.jojo.api.healing.GoldExperienceExternalHealingTargets;
 import com.github.standobyte.jojo.powersystem.ability.Ability;
 import com.github.standobyte.jojo.powersystem.Power;
 import com.github.standobyte.jojo.powersystem.ability.AbilityId;
@@ -38,11 +40,16 @@ public class GoldExperienceHealOtherAbility extends NoPoseStandEntityAbility {
     public Component getName(Power<?> context) {
         LivingEntity user = context.getUser();
         if (user != null) {
-            LivingEntity target = findLookTarget(user, user.level());
-            if (target != null && target != user) {
+            ResolvedHealingTarget resolved =
+                    findLookTarget(user, user.level());
+            if (resolved != null && resolved.rawTarget() != user) {
+                LivingEntity target = resolved.healingTarget();
                 String postfix = target.isDeadOrDying() ? ".dying" : GoldExperienceHealAbility.getHealPostfix(target);
                 String translationPostfix = postfix.isEmpty() ? ".target" : postfix;
-                return abilityName(context, translationPostfix, target.getDisplayName());
+                return abilityName(
+                        context,
+                        translationPostfix,
+                        resolved.rawTarget().getDisplayName());
             }
         }
         return super.getName(context);
@@ -59,8 +66,9 @@ public class GoldExperienceHealOtherAbility extends NoPoseStandEntityAbility {
                 if (hasBlockingSyncedEntityTarget(user, user.level())) {
                     return super.replaceWithSubAbility(context, abilities);
                 }
-                LivingEntity target = findLookTarget(user, user.level());
-                if (target == null || target == user) {
+                ResolvedHealingTarget target =
+                        findLookTarget(user, user.level());
+                if (target == null || target.rawTarget() == user) {
                     Ability healingItem = abilities.getContextVariation(HEALING_ITEM_ABILITY);
                     if (healingItem != null) {
                         return healingItem;
@@ -81,12 +89,24 @@ public class GoldExperienceHealOtherAbility extends NoPoseStandEntityAbility {
             if (hasBlockingSyncedEntityTarget(user, user.level())) {
                 return ConditionCheck.NEGATIVE;
             }
-            LivingEntity target = findLookTarget(user, user.level());
-            if (target != null && target != user) {
-                boolean stuckProjectiles = GoldExperienceHealAbility.hasStuckProjectiles(target);
+            ResolvedHealingTarget resolved =
+                    findLookTarget(user, user.level());
+            if (resolved != null && resolved.rawTarget() != user) {
+                LivingEntity target = resolved.healingTarget();
+                boolean stuckProjectiles =
+                        GoldExperienceHealAbility
+                                .hasStuckProjectiles(target);
                 ConditionCheck targetCheck = stuckProjectiles
-                        ? GoldExperienceHealAbility.checkCanHealTargetBeforeMaterial(target, user)
-                        : GoldExperienceHealAbility.checkCanHealTarget(target, user);
+                        ? GoldExperienceHealAbility
+                                .checkCanHealTargetBeforeMaterial(
+                                        target,
+                                        user,
+                                        resolved.classificationOwner())
+                        : GoldExperienceHealAbility
+                                .checkCanHealTarget(
+                                        target,
+                                        user,
+                                        resolved.classificationOwner());
                 if (!targetCheck.isPositive()) {
                     return targetCheck;
                 }
@@ -123,15 +143,28 @@ public class GoldExperienceHealOtherAbility extends NoPoseStandEntityAbility {
                 return;
             }
 
-            LivingEntity target = GoldExperienceHealOtherAbility.findLookTarget(user, level);
-            if (target == null || target == user) {
+            ResolvedHealingTarget resolved =
+                    GoldExperienceHealOtherAbility
+                            .findLookTarget(user, level);
+            if (resolved == null || resolved.rawTarget() == user) {
                 return;
             }
 
-            boolean stuckProjectiles = GoldExperienceHealAbility.hasStuckProjectiles(target);
+            LivingEntity target = resolved.healingTarget();
+            boolean stuckProjectiles =
+                    GoldExperienceHealAbility
+                            .hasStuckProjectiles(target);
             ConditionCheck targetCheck = stuckProjectiles
-                    ? GoldExperienceHealAbility.checkCanHealTargetBeforeMaterial(target, user)
-                    : GoldExperienceHealAbility.checkCanHealTarget(target, user);
+                    ? GoldExperienceHealAbility
+                            .checkCanHealTargetBeforeMaterial(
+                                    target,
+                                    user,
+                                    resolved.classificationOwner())
+                    : GoldExperienceHealAbility
+                            .checkCanHealTarget(
+                                    target,
+                                    user,
+                                    resolved.classificationOwner());
             if (!targetCheck.isPositive()) {
                 ConditionCheck.sendActionFailedMessage(null, targetCheck, user);
                 return;
@@ -161,12 +194,13 @@ public class GoldExperienceHealOtherAbility extends NoPoseStandEntityAbility {
 
     }
 
-    static LivingEntity findLookTarget(LivingEntity user, Level level) {
+    private static ResolvedHealingTarget findLookTarget(
+            LivingEntity user, Level level) {
         ActionTarget syncedTarget = getSyncedLookTarget(user, level);
         if (!syncedTarget.isEmpty(level)
                 && HitResultUtil.isTargetWithinRange(syncedTarget, user, level, TARGET_REACH, TARGET_REACH)) {
             Entity syncedEntity = syncedTarget.getMainEntity();
-            return syncedEntity instanceof LivingEntity living && living != user ? living : null;
+            return resolveHealingTarget(syncedEntity, user);
         }
         ActionTarget target = HitResultUtil.clip(
                 user.getEyePosition(),
@@ -174,11 +208,31 @@ public class GoldExperienceHealOtherAbility extends NoPoseStandEntityAbility {
                 TARGET_REACH,
                 TARGET_REACH,
                 level,
-                entity -> entity instanceof LivingEntity && entity != user,
+                entity -> resolveHealingTarget(entity, user) != null,
                 user,
                 0.0D);
         Entity entity = target.getEntity();
-        return entity instanceof LivingEntity living && living != user ? living : null;
+        return resolveHealingTarget(entity, user);
+    }
+
+    private static ResolvedHealingTarget resolveHealingTarget(
+            Entity rawTarget, LivingEntity healer) {
+        if (rawTarget == null || rawTarget == healer) {
+            return null;
+        }
+        if (rawTarget instanceof LivingEntity living) {
+            return new ResolvedHealingTarget(
+                    rawTarget, living, living);
+        }
+        GoldExperienceExternalHealingTarget external =
+                GoldExperienceExternalHealingTargets.resolve(
+                        rawTarget, healer);
+        return external != null
+                ? new ResolvedHealingTarget(
+                        external.rawTarget(),
+                        external.classificationOwner(),
+                        external.healingTarget())
+                : null;
     }
 
     private static ActionTarget getSyncedLookTarget(LivingEntity user, Level level) {
@@ -204,6 +258,13 @@ public class GoldExperienceHealOtherAbility extends NoPoseStandEntityAbility {
             return false;
         }
         Entity syncedEntity = syncedTarget.getMainEntity();
-        return syncedEntity != user && !(syncedEntity instanceof LivingEntity);
+        return syncedEntity != user
+                && resolveHealingTarget(syncedEntity, user) == null;
+    }
+
+    private record ResolvedHealingTarget(
+            Entity rawTarget,
+            LivingEntity classificationOwner,
+            LivingEntity healingTarget) {
     }
 }

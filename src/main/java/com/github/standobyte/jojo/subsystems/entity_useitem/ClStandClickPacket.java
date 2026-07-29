@@ -6,6 +6,7 @@ import com.github.standobyte.jojo.powersystem.entityaction.EntityActionInputStat
 import com.github.standobyte.jojo.powersystem.entityaction.HeldInput;
 import com.github.standobyte.jojo.powersystem.entityaction.LivingComponentAction;
 import com.github.standobyte.jojo.powersystem.entityaction.EntityActionInputState.HeldInputEntry;
+import com.github.standobyte.jojo.powersystem.PowerClass;
 import com.github.standobyte.jojo.powersystem.entityaction.netcode.SyncType;
 import com.github.standobyte.jojo.powersystem.standpower.StandUtil;
 import com.github.standobyte.jojo.powersystem.standpower.entity.StandEntity;
@@ -74,7 +75,10 @@ public record ClStandClickPacket(HitResultSync target, short internalKeyId, Inte
 						EntityActionInputState inputHandler = player.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get());
 						if (inputHandler != null) {
 							short internalKeyId = packet.internalKeyId;
-							HeldInputEntry heldInput = new HeldInputEntry(internalKeyId, action);
+							HeldInputEntry heldInput = new HeldInputEntry(
+									internalKeyId,
+									PowerClass.STAND,
+									action);
 							inputHandler.heldKeys.put(internalKeyId, heldInput);
 						}
 					}

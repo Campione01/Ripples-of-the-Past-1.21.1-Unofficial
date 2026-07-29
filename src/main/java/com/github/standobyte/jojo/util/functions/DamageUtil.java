@@ -5,6 +5,7 @@ import java.util.function.Predicate;
 
 import javax.annotation.Nullable;
 
+import com.github.standobyte.jojo.api.stand.StandDamageAuthorizers;
 import com.github.standobyte.jojo.init.ModDamageTypes;
 import com.github.standobyte.jojo.init.power.ModPlayerPowers;
 import com.github.standobyte.jojo.mechanics.JojoDefinitions;
@@ -145,7 +146,8 @@ public class DamageUtil {
 	}
 
 	public static boolean canHurtStands(DamageSource dmgSource) {
-		return dmgSource.is(ModDamageTypes.CAN_HURT_STANDS);
+		return dmgSource.is(ModDamageTypes.CAN_HURT_STANDS)
+				|| StandDamageAuthorizers.canHurtStand(dmgSource);
 	}
 
 	public static boolean isImmuneToCold(Entity target) {

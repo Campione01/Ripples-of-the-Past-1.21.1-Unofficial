@@ -2,6 +2,7 @@ package com.github.standobyte.jojoimpl.powers.hamon.abilities;
 
 import com.github.standobyte.jojo.client.sound.HamonSparksLoopSound;
 import com.github.standobyte.jojo.init.ModStatusEffects;
+import com.github.standobyte.jojo.init.power.ModPlayerPowers;
 import com.github.standobyte.jojo.mechanics.JojoDefinitions;
 import com.github.standobyte.jojo.powersystem.Power;
 import com.github.standobyte.jojo.powersystem.PowerData;
@@ -71,7 +72,10 @@ public class HamonShockAbility extends EntityActionAbility {
 	}
 
 	private static HamonData getHamonData(Power<?> context) {
-		PowerData data = context != null ? context.getCurTypeData() : null;
+		PowerData data = context != null
+				? context.getDataForPowerType(
+						ModPlayerPowers.HAMON.get().getId())
+				: null;
 		return data instanceof HamonData hamon ? hamon : null;
 	}
 

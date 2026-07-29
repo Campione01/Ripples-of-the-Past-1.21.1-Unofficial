@@ -266,7 +266,7 @@ public class HamonActionRuntimeAbility extends EntityActionAbility {
 		if (context == null) {
 			return null;
 		}
-		PowerData data = context.getCurTypeData();
+		PowerData data = context.getDataForAbility(this);
 		return data instanceof HamonData hamon ? hamon : null;
 	}
 

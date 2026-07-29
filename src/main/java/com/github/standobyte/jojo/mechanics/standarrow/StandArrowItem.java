@@ -11,6 +11,7 @@ import java.util.stream.Stream;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.github.standobyte.jojo.api.stand.StandVirusMobGivers;
 import com.github.standobyte.jojo.client.ClientProxy;
 import com.github.standobyte.jojo.client.standskin.StandSkin;
 import com.github.standobyte.jojo.client.standskin.StandSkinsLoader;
@@ -197,13 +198,40 @@ public class StandArrowItem extends Item implements ProjectileItem {
 
     	StandType standToGive = pickStandToGive(livingEntity);
     	if (standToGive == null) {
-    		return false;
+            return StandVirusMobGivers.find(livingEntity)
+                    .map(match -> applyStandVirusFromArrow(
+                            livingEntity,
+                            arrowItem,
+                            arrowShooter,
+                            null,
+                            600,
+                            0,
+                            match.owner()))
+                    .orElse(false);
     	}
     	return applyStandVirusFromArrow(livingEntity, arrowItem, arrowShooter, standToGive, 600, 0);
     }
 
     private static boolean applyStandVirusFromArrow(LivingEntity entity, ItemStack arrowItem, Optional<Entity> arrowShooter,
     		@Nullable StandType standToGive, int duration, int amplifier) {
+        return applyStandVirusFromArrow(
+                entity,
+                arrowItem,
+                arrowShooter,
+                standToGive,
+                duration,
+                amplifier,
+                null);
+    }
+
+    private static boolean applyStandVirusFromArrow(
+            LivingEntity entity,
+            ItemStack arrowItem,
+            Optional<Entity> arrowShooter,
+            @Nullable StandType standToGive,
+            int duration,
+            int amplifier,
+            @Nullable ResourceLocation mobGiverOwner) {
     	if (duration <= 0) {
     		boolean gaveStand = giveStand(entity.level(), entity, standToGive);
     		triggerArrowHitCriteria(arrowShooter, entity, gaveStand);
@@ -215,7 +243,12 @@ public class StandArrowItem extends Item implements ProjectileItem {
     	if (added) {
     		StandVirusActualEffect effect = StandVirusEffect.getActualVirusEffect(entity, true);
     		if (effect != null) {
-    			effect.withArrowContext(standToGive, arrowItem, arrowShooter.orElse(null));
+                effect.withArrowContext(
+                        standToGive,
+                        arrowItem,
+                        arrowShooter.orElse(null),
+                        mobGiverOwner,
+                        amplifier);
     		}
     	}
     	return added;

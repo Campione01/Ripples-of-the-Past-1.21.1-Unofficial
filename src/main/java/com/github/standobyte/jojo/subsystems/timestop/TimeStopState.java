@@ -18,7 +18,13 @@ import javax.annotation.Nullable;
 import org.jetbrains.annotations.ApiStatus;
 
 import com.github.standobyte.jojo.JojoModConfig;
+import com.github.standobyte.jojo.api.timestop.TimeStopAudioContext;
+import com.github.standobyte.jojo.api.timestop.TimeStopAudioCue;
+import com.github.standobyte.jojo.api.timestop.TimeStopAudioDecision;
+import com.github.standobyte.jojo.api.timestop.TimeStopBehaviorPolicies;
+import com.github.standobyte.jojo.api.timestop.TimeStopEntityMovementAuthorizers;
 import com.github.standobyte.jojo.api.timestop.TimeStopLifecycleEvent;
+import com.github.standobyte.jojo.api.timestop.TimeStopAwarenessProviders;
 import com.github.standobyte.jojo.api.timestop.TimeStopLifecycleEvent.RemovalReason;
 import com.github.standobyte.jojo.config.client.PlayerClientBroadcastedSettings;
 import com.github.standobyte.jojo.core.JojoMod;
@@ -259,6 +265,10 @@ public class TimeStopState {
 
     private static boolean canEntityMoveInStoppedTimeClient(Entity entity) {
         if (!isTimeStoppedClientEntity(entity)) {
+            return true;
+        }
+        if (TimeStopEntityMovementAuthorizers
+                .canMoveInStoppedTime(entity)) {
             return true;
         }
         if (entity instanceof KnifeEntity knife) {
@@ -749,6 +759,9 @@ public class TimeStopState {
     }
 
 	private void refundUnusedTimeStopStartCost(StandPower power, Instance removed, int effectiveTicksPassed) {
+		if (!removed.refundUnusedStartCost()) {
+			return;
+		}
 		if (power.isStaminaInfinite()) {
 			return;
 		}
@@ -817,7 +830,24 @@ public class TimeStopState {
         }
         LivingEntity resumeVoiceLineUser = getLivingEntityById(instance.resumeVoiceLineUserId());
         StandPower power = resumeVoiceLineUser != null ? PowerClass.STAND.get(resumeVoiceLineUser) : null;
-        Holder<SoundEvent> voiceLine = power != null ? getResumeVoiceLine(instance, power) : null;
+        TimeStopAudioDecision decision = resumeVoiceLineUser != null
+                ? TimeStopBehaviorPolicies.resolveAudio(
+                        instance.standTypeId().orElse(null),
+                        new TimeStopAudioContext(
+                                TimeStopAudioCue.RESUME_VOICE,
+                                resumeVoiceLineUser,
+                                power,
+                                null,
+                                instance,
+                                false))
+                : TimeStopAudioDecision.silent();
+        Holder<SoundEvent> voiceLine = switch (decision.kind()) {
+            case PASS -> power != null
+                    ? getResumeVoiceLine(instance, power)
+                    : null;
+            case SOUND -> decision.sound();
+            case SILENT -> null;
+        };
         if (resumeVoiceLineUser != null && power != null && voiceLine != null) {
             JojoModUtil.sayVoiceLine(resumeVoiceLineUser, voiceLine);
         }
@@ -844,10 +874,36 @@ public class TimeStopState {
             LivingEntity resumeSoundUser = getLivingEntityById(instance.resumeSoundUserId());
             StandPower power = resumeSoundUser != null ? PowerClass.STAND.get(resumeSoundUser) : null;
             if (user != null && power != null) {
-                StandUtil.broadcastSoundWithCondition(level, user.position(), getTimeResumeSound(power),
-                        false, power, SoundSource.AMBIENT, 5.0F, 1.0F,
-                        player -> instance.covers(new ChunkPos(player.blockPosition()))
-                                && canPlayerSeeInStoppedTime(player));
+                TimeStopAudioDecision decision =
+                        TimeStopBehaviorPolicies.resolveAudio(
+                                instance.standTypeId().orElse(null),
+                                new TimeStopAudioContext(
+                                        TimeStopAudioCue.RESUME_SOUND,
+                                        resumeSoundUser,
+                                        power,
+                                        null,
+                                        instance,
+                                        false));
+                Holder<SoundEvent> resumeSound = switch (decision.kind()) {
+                    case PASS -> getTimeResumeSound(power);
+                    case SOUND -> decision.sound();
+                    case SILENT -> null;
+                };
+                if (resumeSound != null) {
+                    StandUtil.broadcastSoundWithCondition(
+                            level,
+                            user.position(),
+                            resumeSound,
+                            false,
+                            power,
+                            SoundSource.AMBIENT,
+                            5.0F,
+                            1.0F,
+                            player -> instance.covers(
+                                            new ChunkPos(
+                                                    player.blockPosition()))
+                                    && canPlayerSeeInStoppedTime(player));
+                }
             }
         }
     }
@@ -899,6 +955,7 @@ public class TimeStopState {
                 instance.forceResumeVoiceLine(),
                 instance.staminaCostTick(),
                 instance.ticksPassed(),
+                instance.refundUnusedStartCost(),
                 false,
                 openingVisual);
     }
@@ -912,7 +969,7 @@ public class TimeStopState {
     }
 
     private static TrTimeStopInstancePacket removedTimeStopInstancePacket(int id) {
-        return new TrTimeStopInstancePacket(id, 0, 0, 0, 0, 0, -1, "", Optional.empty(), Optional.empty(), -1, -1, false, false, 0, 0, true, false);
+        return new TrTimeStopInstancePacket(id, 0, 0, 0, 0, 0, -1, "", Optional.empty(), Optional.empty(), -1, -1, false, false, 0, 0, true, true, false);
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
@@ -963,7 +1020,8 @@ public class TimeStopState {
                     instance.ticksManuallySet(),
                     instance.forceResumeVoiceLine(),
                     instance.staminaCostTick(),
-                    previous.ticksPassed());
+                    previous.ticksPassed(),
+                    instance.refundUnusedStartCost());
         }
         CLIENT_INSTANCES.put(instance.id(), instance);
     }
@@ -1019,13 +1077,16 @@ public class TimeStopState {
     }
 
     private static boolean canPlayerSeeInStoppedTime(ServerPlayer player, boolean canMove) {
-        return canMove || hasTimeStopAbility(player);
+        return canMove
+                || hasTimeStopAbility(player)
+                || TimeStopAwarenessProviders.resolve(player).canSee();
     }
 
     private static boolean canPlayerMoveInStoppedTime(ServerPlayer player) {
         return player.hasEffect(ModStatusEffects.TIME_STOP)
                 || gameModeIgnoresTimeStop(player)
-                || player.server.isSingleplayerOwner(player.getGameProfile());
+                || player.server.isSingleplayerOwner(player.getGameProfile())
+                || TimeStopAwarenessProviders.resolve(player).canMove();
     }
 
     private static boolean gameModeIgnoresTimeStop(ServerPlayer player) {
@@ -1036,6 +1097,10 @@ public class TimeStopState {
 
     private boolean canEntityMoveInStoppedTime(Entity entity) {
         if (!isTimeStopped(entity)) {
+            return true;
+        }
+        if (TimeStopEntityMovementAuthorizers
+                .canMoveInStoppedTime(entity)) {
             return true;
         }
         if (entity instanceof KnifeEntity knife) {
@@ -1088,7 +1153,7 @@ public class TimeStopState {
             Instance instance,
             int effectiveTicksPassed) {}
 
-    public static record Instance(int id, int ticksLeft, int totalTicks, ChunkPos centerPos, int chunkRange, int userId, String visualRoute, Optional<ResourceLocation> standTypeId, Optional<ResourceLocation> selectedSkin, int resumeSoundUserId, int resumeVoiceLineUserId, boolean ticksManuallySet, boolean forceResumeVoiceLine, float staminaCostTick, int ticksPassed) {
+    public static record Instance(int id, int ticksLeft, int totalTicks, ChunkPos centerPos, int chunkRange, int userId, String visualRoute, Optional<ResourceLocation> standTypeId, Optional<ResourceLocation> selectedSkin, int resumeSoundUserId, int resumeVoiceLineUserId, boolean ticksManuallySet, boolean forceResumeVoiceLine, float staminaCostTick, int ticksPassed, boolean refundUnusedStartCost) {
         public static final int TIME_RESUME_SOUND_TICKS = 10;
         public static final int TIME_RESUME_VOICELINE_TICKS = 30;
         public static final int TIME_RESUME_FIRST_CLICK_TICKS = TIME_RESUME_SOUND_TICKS + 1;
@@ -1096,6 +1161,10 @@ public class TimeStopState {
         public Instance {
             standTypeId = standTypeId != null ? standTypeId : Optional.empty();
             selectedSkin = selectedSkin != null ? selectedSkin : Optional.empty();
+        }
+
+        public Instance(int id, int ticksLeft, int totalTicks, ChunkPos centerPos, int chunkRange, int userId, String visualRoute, Optional<ResourceLocation> standTypeId, Optional<ResourceLocation> selectedSkin, int resumeSoundUserId, int resumeVoiceLineUserId, boolean ticksManuallySet, boolean forceResumeVoiceLine, float staminaCostTick, int ticksPassed) {
+            this(id, ticksLeft, totalTicks, centerPos, chunkRange, userId, visualRoute, standTypeId, selectedSkin, resumeSoundUserId, resumeVoiceLineUserId, ticksManuallySet, forceResumeVoiceLine, staminaCostTick, ticksPassed, true);
         }
 
         public Instance(int id, int ticksLeft, int totalTicks, ChunkPos centerPos, int chunkRange, int userId, String visualRoute) {
@@ -1140,39 +1209,43 @@ public class TimeStopState {
         }
 
         public Instance withTicksLeft(int ticksLeft, boolean ticksManuallySet, boolean forceResumeVoiceLine) {
-            return new Instance(id, ticksLeft, totalTicks, centerPos, chunkRange, userId, visualRoute, standTypeId, selectedSkin, resumeSoundUserId, resumeVoiceLineUserId, this.ticksManuallySet || ticksManuallySet, this.forceResumeVoiceLine || forceResumeVoiceLine, staminaCostTick, Math.max(ticksPassed, 0));
+            return new Instance(id, ticksLeft, totalTicks, centerPos, chunkRange, userId, visualRoute, standTypeId, selectedSkin, resumeSoundUserId, resumeVoiceLineUserId, this.ticksManuallySet || ticksManuallySet, this.forceResumeVoiceLine || forceResumeVoiceLine, staminaCostTick, Math.max(ticksPassed, 0), refundUnusedStartCost);
         }
 
         public Instance withTiming(int ticksLeft, int totalTicks) {
-            return new Instance(id, ticksLeft, totalTicks, centerPos, chunkRange, userId, visualRoute, standTypeId, selectedSkin, resumeSoundUserId, resumeVoiceLineUserId, ticksManuallySet, forceResumeVoiceLine, staminaCostTick, ticksPassed);
+            return new Instance(id, ticksLeft, totalTicks, centerPos, chunkRange, userId, visualRoute, standTypeId, selectedSkin, resumeSoundUserId, resumeVoiceLineUserId, ticksManuallySet, forceResumeVoiceLine, staminaCostTick, ticksPassed, refundUnusedStartCost);
         }
 
         public Instance withArea(ChunkPos centerPos, int chunkRange) {
-            return new Instance(id, ticksLeft, totalTicks, centerPos, chunkRange, userId, visualRoute, standTypeId, selectedSkin, resumeSoundUserId, resumeVoiceLineUserId, ticksManuallySet, forceResumeVoiceLine, staminaCostTick, ticksPassed);
+            return new Instance(id, ticksLeft, totalTicks, centerPos, chunkRange, userId, visualRoute, standTypeId, selectedSkin, resumeSoundUserId, resumeVoiceLineUserId, ticksManuallySet, forceResumeVoiceLine, staminaCostTick, ticksPassed, refundUnusedStartCost);
         }
 
         public Instance withVisualRoute(String visualRoute) {
-            return new Instance(id, ticksLeft, totalTicks, centerPos, chunkRange, userId, visualRoute, standTypeId, selectedSkin, resumeSoundUserId, resumeVoiceLineUserId, ticksManuallySet, forceResumeVoiceLine, staminaCostTick, ticksPassed);
+            return new Instance(id, ticksLeft, totalTicks, centerPos, chunkRange, userId, visualRoute, standTypeId, selectedSkin, resumeSoundUserId, resumeVoiceLineUserId, ticksManuallySet, forceResumeVoiceLine, staminaCostTick, ticksPassed, refundUnusedStartCost);
         }
 
         public Instance withStaminaCostTick(float staminaCostTick) {
-            return new Instance(id, ticksLeft, totalTicks, centerPos, chunkRange, userId, visualRoute, standTypeId, selectedSkin, resumeSoundUserId, resumeVoiceLineUserId, ticksManuallySet, forceResumeVoiceLine, staminaCostTick, ticksPassed);
+            return new Instance(id, ticksLeft, totalTicks, centerPos, chunkRange, userId, visualRoute, standTypeId, selectedSkin, resumeSoundUserId, resumeVoiceLineUserId, ticksManuallySet, forceResumeVoiceLine, staminaCostTick, ticksPassed, refundUnusedStartCost);
         }
 
         public Instance withResumeSoundUserId(int resumeSoundUserId) {
-            return new Instance(id, ticksLeft, totalTicks, centerPos, chunkRange, userId, visualRoute, standTypeId, selectedSkin, resumeSoundUserId, resumeVoiceLineUserId, ticksManuallySet, forceResumeVoiceLine, staminaCostTick, ticksPassed);
+            return new Instance(id, ticksLeft, totalTicks, centerPos, chunkRange, userId, visualRoute, standTypeId, selectedSkin, resumeSoundUserId, resumeVoiceLineUserId, ticksManuallySet, forceResumeVoiceLine, staminaCostTick, ticksPassed, refundUnusedStartCost);
         }
 
         public Instance withResumeSoundAndVoiceLineUserIds(int resumeSoundUserId, int resumeVoiceLineUserId) {
-            return new Instance(id, ticksLeft, totalTicks, centerPos, chunkRange, userId, visualRoute, standTypeId, selectedSkin, resumeSoundUserId, resumeVoiceLineUserId, ticksManuallySet, forceResumeVoiceLine, staminaCostTick, ticksPassed);
+            return new Instance(id, ticksLeft, totalTicks, centerPos, chunkRange, userId, visualRoute, standTypeId, selectedSkin, resumeSoundUserId, resumeVoiceLineUserId, ticksManuallySet, forceResumeVoiceLine, staminaCostTick, ticksPassed, refundUnusedStartCost);
         }
 
         public Instance withForceResumeVoiceLine(boolean forceResumeVoiceLine) {
-            return new Instance(id, ticksLeft, totalTicks, centerPos, chunkRange, userId, visualRoute, standTypeId, selectedSkin, resumeSoundUserId, resumeVoiceLineUserId, ticksManuallySet, forceResumeVoiceLine, staminaCostTick, ticksPassed);
+            return new Instance(id, ticksLeft, totalTicks, centerPos, chunkRange, userId, visualRoute, standTypeId, selectedSkin, resumeSoundUserId, resumeVoiceLineUserId, ticksManuallySet, forceResumeVoiceLine, staminaCostTick, ticksPassed, refundUnusedStartCost);
+        }
+
+        public Instance withRefundUnusedStartCost(boolean refundUnusedStartCost) {
+            return new Instance(id, ticksLeft, totalTicks, centerPos, chunkRange, userId, visualRoute, standTypeId, selectedSkin, resumeSoundUserId, resumeVoiceLineUserId, ticksManuallySet, forceResumeVoiceLine, staminaCostTick, ticksPassed, refundUnusedStartCost);
         }
 
         public Instance withStartupDelay(int startupDelayTicks) {
-            return new Instance(id, ticksLeft, totalTicks, centerPos, chunkRange, userId, visualRoute, standTypeId, selectedSkin, resumeSoundUserId, resumeVoiceLineUserId, ticksManuallySet, forceResumeVoiceLine, staminaCostTick, -Math.max(startupDelayTicks, 0));
+            return new Instance(id, ticksLeft, totalTicks, centerPos, chunkRange, userId, visualRoute, standTypeId, selectedSkin, resumeSoundUserId, resumeVoiceLineUserId, ticksManuallySet, forceResumeVoiceLine, staminaCostTick, -Math.max(startupDelayTicks, 0), refundUnusedStartCost);
         }
 
         public Instance withStandSkin(@Nullable StandPower power) {
@@ -1182,14 +1255,14 @@ public class TimeStopState {
             return new Instance(id, ticksLeft, totalTicks, centerPos, chunkRange, userId, visualRoute,
                     power.getStandInstance().map(stand -> stand.getStandId()),
                     power.getSelectedSkin(),
-                    resumeSoundUserId, resumeVoiceLineUserId, ticksManuallySet, forceResumeVoiceLine, staminaCostTick, ticksPassed);
+                    resumeSoundUserId, resumeVoiceLineUserId, ticksManuallySet, forceResumeVoiceLine, staminaCostTick, ticksPassed, refundUnusedStartCost);
         }
 
         public Instance tickDown() {
             if (ticksPassed < 0) {
-                return new Instance(id, ticksLeft, totalTicks, centerPos, chunkRange, userId, visualRoute, standTypeId, selectedSkin, resumeSoundUserId, resumeVoiceLineUserId, ticksManuallySet, forceResumeVoiceLine, staminaCostTick, ticksPassed + 1);
+                return new Instance(id, ticksLeft, totalTicks, centerPos, chunkRange, userId, visualRoute, standTypeId, selectedSkin, resumeSoundUserId, resumeVoiceLineUserId, ticksManuallySet, forceResumeVoiceLine, staminaCostTick, ticksPassed + 1, refundUnusedStartCost);
             }
-            return new Instance(id, ticksLeft - 1, totalTicks, centerPos, chunkRange, userId, visualRoute, standTypeId, selectedSkin, resumeSoundUserId, resumeVoiceLineUserId, ticksManuallySet, forceResumeVoiceLine, staminaCostTick, ticksPassed + 1);
+            return new Instance(id, ticksLeft - 1, totalTicks, centerPos, chunkRange, userId, visualRoute, standTypeId, selectedSkin, resumeSoundUserId, resumeVoiceLineUserId, ticksManuallySet, forceResumeVoiceLine, staminaCostTick, ticksPassed + 1, refundUnusedStartCost);
         }
     }
 }

@@ -72,9 +72,6 @@ public class AnimationLoader extends SimplePreparableReloadListener<Map<Resource
 			Map<ResourceLocation, List<Resource>> resources = resourceManager.listResourceStacks(TOP_DIR, path -> path.getPath().endsWith(EXTENSION));
 			for (var resourceEntry : resources.entrySet()) {
 				ResourceLocation resourcePathFull = resourceEntry.getKey();
-				if (!JojoMod.MOD_ID.equals(resourcePathFull.getNamespace())) {
-					continue;
-				}
 				ResourceLocation animPath = resourcePathFull.withPath(
 						StringUtil.trimEnding(resourceEntry.getKey().getPath(), EXTENSION).substring(TOP_DIR.length() + 1));
 				AnimationSet.Builder anim = loadAnimations(resourceEntry.getValue(), resourcePathFull);

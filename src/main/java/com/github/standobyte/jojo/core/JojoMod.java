@@ -32,6 +32,7 @@ import com.github.standobyte.jojo.init.ModStatusEffects;
 import com.github.standobyte.jojo.init.power.ModPlayerPowers;
 import com.github.standobyte.jojo.init.power.ModStandAbilities;
 import com.github.standobyte.jojo.init.power.ModStands;
+import com.github.standobyte.jojo.mechanics.TempleMapTradeHandler;
 import com.github.standobyte.jojoimpl.powers.hamon.ModHamonSkills;
 import com.mojang.logging.LogUtils;
 
@@ -99,6 +100,8 @@ public class JojoMod {
 	private void commonSetup(FMLCommonSetupEvent event) {
 		event.enqueueWork(() -> {
 			ModGamerules.load();
+			TempleMapTradeHandler
+					.registerContextualTrades();
 		});
 	}
 	

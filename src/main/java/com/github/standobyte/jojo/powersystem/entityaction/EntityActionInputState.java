@@ -5,6 +5,7 @@ import javax.annotation.Nullable;
 import org.jetbrains.annotations.ApiStatus;
 
 import com.github.standobyte.jojo.entityattachment.TickingEntityData;
+import com.github.standobyte.jojo.powersystem.PowerClass;
 import com.github.standobyte.jojo.powersystem.ability.input.ActionInputBuffer;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
@@ -32,10 +33,15 @@ public class EntityActionInputState implements TickingEntityData {
 
 	public static class HeldInputEntry {
 		public final short keyId;
+		public final PowerClass<?> powerClass;
 		@Nullable public HeldInput action;
 
-		public HeldInputEntry(short keyId, HeldInput action) {
+		public HeldInputEntry(
+				short keyId,
+				PowerClass<?> powerClass,
+				HeldInput action) {
 			this.keyId = keyId;
+			this.powerClass = powerClass;
 			this.action = action;
 		}
 	}

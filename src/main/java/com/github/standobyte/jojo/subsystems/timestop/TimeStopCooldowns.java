@@ -1,5 +1,7 @@
 package com.github.standobyte.jojo.subsystems.timestop;
 
+import com.github.standobyte.jojo.api.timestop.TimeStopBehaviorPolicies;
+import com.github.standobyte.jojo.api.timestop.TimeStopProgressionPolicy;
 import com.github.standobyte.jojo.init.ModStatusEffects;
 import com.github.standobyte.jojo.powersystem.standpower.StandPower;
 
@@ -44,7 +46,12 @@ public final class TimeStopCooldowns {
 		if (power.isUserCreative()) {
 			return 0;
 		}
-		float cooldown = TIME_STOP_COOLDOWN_PER_TICK * Math.max(ticks, 0);
+		TimeStopProgressionPolicy policy =
+				TimeStopBehaviorPolicies.progression(power);
+		float cooldownPerTick = policy != null
+				? policy.cooldownPerTick()
+				: TIME_STOP_COOLDOWN_PER_TICK;
+		float cooldown = cooldownPerTick * Math.max(ticks, 0);
 		LivingEntity user = power.getUser();
 		if (user != null && user.hasEffect(ModStatusEffects.RESOLVE)) {
 			cooldown /= 3F;

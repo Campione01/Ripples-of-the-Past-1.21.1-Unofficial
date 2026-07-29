@@ -26,37 +26,47 @@ public class RPSGameStatePacket implements CustomPacketPayload {
     @Nullable private final Pick pick;
     private final boolean opponentPick;
     private final int round;
+    private final long sessionEpoch;
 
-    public static RPSGameStatePacket enteredGame(int opponentId, List<Pick> playerPicks, List<Pick> opponentPicks, int round) {
-        return new RPSGameStatePacket(PacketType.ENTER, playerPicks, opponentPicks, opponentId, false, null, false, round);
+    public static RPSGameStatePacket enteredGame(int opponentId, List<Pick> playerPicks,
+            List<Pick> opponentPicks, int round, long sessionEpoch) {
+        return new RPSGameStatePacket(PacketType.ENTER, playerPicks, opponentPicks,
+                opponentId, false, null, false, round, sessionEpoch);
     }
 
     public static RPSGameStatePacket stateUpdated(List<Pick> playerPicks, List<Pick> opponentPicks, int round) {
-        return new RPSGameStatePacket(PacketType.UPDATE, playerPicks, opponentPicks, -1, false, null, false, round);
+        return new RPSGameStatePacket(PacketType.UPDATE, playerPicks, opponentPicks,
+                -1, false, null, false, round, 0L);
     }
 
     public static RPSGameStatePacket leftGame() {
-        return new RPSGameStatePacket(PacketType.LEAVE, List.of(), List.of(), -1, false, null, false, 0);
+        return new RPSGameStatePacket(PacketType.LEAVE, List.of(), List.of(),
+                -1, false, null, false, 0, 0L);
     }
 
     public static RPSGameStatePacket gameOver(boolean playerWon) {
-        return new RPSGameStatePacket(PacketType.GAME_OVER, List.of(), List.of(), -1, playerWon, null, false, 0);
+        return new RPSGameStatePacket(PacketType.GAME_OVER, List.of(), List.of(),
+                -1, playerWon, null, false, 0, 0L);
     }
 
     public static RPSGameStatePacket setOpponentPick(@Nullable Pick pick, int opponentId) {
-        return new RPSGameStatePacket(PacketType.SET_PICK, List.of(), List.of(), opponentId, false, pick, true, 0);
+        return new RPSGameStatePacket(PacketType.SET_PICK, List.of(), List.of(),
+                opponentId, false, pick, true, 0, 0L);
     }
 
     public static RPSGameStatePacket setOwnPick(@Nullable Pick pick) {
-        return new RPSGameStatePacket(PacketType.SET_PICK, List.of(), List.of(), -1, false, pick, false, 0);
+        return new RPSGameStatePacket(PacketType.SET_PICK, List.of(), List.of(),
+                -1, false, pick, false, 0, 0L);
     }
 
     public static RPSGameStatePacket mindRead(int opponentId) {
-        return new RPSGameStatePacket(PacketType.MIND_READ, List.of(), List.of(), opponentId, false, null, false, 0);
+        return new RPSGameStatePacket(PacketType.MIND_READ, List.of(), List.of(),
+                opponentId, false, null, false, 0, 0L);
     }
 
     private RPSGameStatePacket(PacketType packetType, List<Pick> playerPicks, List<Pick> opponentPicks,
-            int opponentId, boolean playerWon, @Nullable Pick pick, boolean opponentPick, int round) {
+            int opponentId, boolean playerWon, @Nullable Pick pick,
+            boolean opponentPick, int round, long sessionEpoch) {
         this.packetType = packetType;
         this.playerPicks = List.copyOf(playerPicks);
         this.opponentPicks = List.copyOf(opponentPicks);
@@ -65,6 +75,7 @@ public class RPSGameStatePacket implements CustomPacketPayload {
         this.pick = pick;
         this.opponentPick = opponentPick;
         this.round = round;
+        this.sessionEpoch = sessionEpoch;
     }
 
     public static class Handler implements PacketsRegister.PacketCodecHandler<RPSGameStatePacket> {
@@ -88,7 +99,9 @@ public class RPSGameStatePacket implements CustomPacketPayload {
         @Override
         public void handle(RPSGameStatePacket payload, IPayloadContext context) {
             switch (payload.packetType) {
-                case ENTER -> RockPaperScissorsScreen.open(payload.opponentId, payload.playerPicks, payload.opponentPicks, payload.round);
+                case ENTER -> RockPaperScissorsScreen.open(payload.opponentId,
+                        payload.playerPicks, payload.opponentPicks,
+                        payload.round, payload.sessionEpoch);
                 case UPDATE -> RockPaperScissorsScreen.updateState(payload.playerPicks, payload.opponentPicks, payload.round);
                 case LEAVE -> RockPaperScissorsScreen.closeFromServer();
                 case GAME_OVER -> RockPaperScissorsScreen.gameOver(payload.playerWon);
@@ -106,6 +119,7 @@ public class RPSGameStatePacket implements CustomPacketPayload {
                 this.opponentPicks = readPickList(buf);
                 this.opponentId = buf.readInt();
                 this.round = buf.readVarInt();
+                this.sessionEpoch = buf.readLong();
                 this.playerWon = false;
                 this.pick = null;
                 this.opponentPick = false;
@@ -118,6 +132,7 @@ public class RPSGameStatePacket implements CustomPacketPayload {
                 this.playerWon = false;
                 this.pick = null;
                 this.opponentPick = false;
+                this.sessionEpoch = 0L;
             }
             case LEAVE -> {
                 this.playerPicks = List.of();
@@ -127,6 +142,7 @@ public class RPSGameStatePacket implements CustomPacketPayload {
                 this.pick = null;
                 this.opponentPick = false;
                 this.round = 0;
+                this.sessionEpoch = 0L;
             }
             case GAME_OVER -> {
                 this.playerPicks = List.of();
@@ -136,6 +152,7 @@ public class RPSGameStatePacket implements CustomPacketPayload {
                 this.pick = null;
                 this.opponentPick = false;
                 this.round = 0;
+                this.sessionEpoch = 0L;
             }
             case SET_PICK -> {
                 this.playerPicks = List.of();
@@ -145,6 +162,7 @@ public class RPSGameStatePacket implements CustomPacketPayload {
                 this.opponentId = this.opponentPick ? buf.readInt() : -1;
                 this.playerWon = false;
                 this.round = 0;
+                this.sessionEpoch = 0L;
             }
             case MIND_READ -> {
                 this.playerPicks = List.of();
@@ -154,6 +172,7 @@ public class RPSGameStatePacket implements CustomPacketPayload {
                 this.pick = null;
                 this.opponentPick = false;
                 this.round = 0;
+                this.sessionEpoch = 0L;
             }
             default -> throw new IllegalStateException("Unexpected RPS packet type " + packetType);
         }
@@ -167,6 +186,7 @@ public class RPSGameStatePacket implements CustomPacketPayload {
                 writePickList(buf, opponentPicks);
                 buf.writeInt(opponentId);
                 buf.writeVarInt(round);
+                buf.writeLong(sessionEpoch);
             }
             case UPDATE -> {
                 writePickList(buf, playerPicks);

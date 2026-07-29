@@ -4,6 +4,10 @@ import javax.annotation.Nullable;
 
 import com.github.standobyte.jojo.PacketsRegister;
 import com.github.standobyte.jojo.ServerSavedData;
+import com.github.standobyte.jojo.api.rps.RpsCheatKind;
+import com.github.standobyte.jojo.api.rps.RpsCheatRegistration;
+import com.github.standobyte.jojo.api.rps.RpsCheatRegistrations;
+import com.github.standobyte.jojo.core.JojoMod;
 import com.github.standobyte.jojo.init.ModCriteriaTriggers;
 import com.github.standobyte.jojo.init.ModSoundEvents;
 import com.github.standobyte.jojo.init.power.ModPlayerPowers;
@@ -11,6 +15,7 @@ import com.github.standobyte.jojo.network.s2c.RPSGameStatePacket;
 import com.github.standobyte.jojo.network.s2c.RPSOpponentPickThoughtsPacket;
 import com.github.standobyte.jojo.powersystem.PowerClass;
 import com.github.standobyte.jojo.powersystem.playerpower.PlayerPower;
+import com.github.standobyte.jojo.powersystem.standpower.StandPower;
 import com.github.standobyte.jojoimpl.npc.rps.RockPaperScissorsGame;
 import com.github.standobyte.jojoimpl.npc.rps.RockPaperScissorsGame.Pick;
 import com.github.standobyte.jojoimpl.npc.rps.RockPaperScissorsGame.Result;
@@ -22,6 +27,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.LivingEntity;
@@ -36,23 +42,30 @@ public class ClRPSGameInputPacket implements CustomPacketPayload {
     private final PacketType packetType;
     @Nullable private final Pick pick;
     @Nullable private final PowerClass<?> cheatPower;
+    private final long cheatSessionEpoch;
 
     public static ClRPSGameInputPacket pick(Pick pick) {
-        return new ClRPSGameInputPacket(PacketType.PICK, pick, null);
+        return new ClRPSGameInputPacket(
+                PacketType.PICK, pick, null, 0L);
     }
 
-    public static ClRPSGameInputPacket cheat(PowerClass<?> cheatPower) {
-        return new ClRPSGameInputPacket(PacketType.CHEAT, null, cheatPower);
+    public static ClRPSGameInputPacket cheat(
+            PowerClass<?> cheatPower, long sessionEpoch) {
+        return new ClRPSGameInputPacket(
+                PacketType.CHEAT, null, cheatPower, sessionEpoch);
     }
 
     public static ClRPSGameInputPacket quitGame() {
-        return new ClRPSGameInputPacket(PacketType.QUIT, null, null);
+        return new ClRPSGameInputPacket(
+                PacketType.QUIT, null, null, 0L);
     }
 
-    private ClRPSGameInputPacket(PacketType packetType, @Nullable Pick pick, @Nullable PowerClass<?> cheatPower) {
+    private ClRPSGameInputPacket(PacketType packetType, @Nullable Pick pick,
+            @Nullable PowerClass<?> cheatPower, long cheatSessionEpoch) {
         this.packetType = packetType;
         this.pick = pick;
         this.cheatPower = cheatPower;
+        this.cheatSessionEpoch = cheatSessionEpoch;
     }
 
     public static class Handler implements PacketsRegister.PacketCodecHandler<ClRPSGameInputPacket> {
@@ -81,19 +94,54 @@ public class ClRPSGameInputPacket implements CustomPacketPayload {
             }
             ServerSavedData data = ServerSavedData.get(serverPlayer.getServer());
             RockPaperScissorsGame game = data.rpsPvpGames.get(serverPlayer.getUUID());
-            if (game == null) {
+            if (game == null
+                    || !serverPlayer.getUUID().equals(game.player())) {
                 return;
             }
             switch (payload.packetType) {
                 case PICK -> handlePick(serverPlayer, data, game, payload.pick);
-                case CHEAT -> handleCheat(serverPlayer, data, game, payload.cheatPower);
+                case CHEAT -> handleCheat(serverPlayer, data, game,
+                        payload.cheatPower,
+                        payload.cheatSessionEpoch);
                 case QUIT -> handleQuit(serverPlayer, data, game);
             }
         }
     }
 
     private static void handleCheat(ServerPlayer player, ServerSavedData data, RockPaperScissorsGame game,
-            @Nullable PowerClass<?> cheatPower) {
+            @Nullable PowerClass<?> cheatPower, long sessionEpoch) {
+        if (cheatPower == PowerClass.STAND) {
+            StandPower standPower = StandPower.get(player);
+            RpsCheatRegistration registration =
+                    RpsCheatRegistrations.find(standPower).orElse(null);
+            if (registration == null
+                    || registration.spec().kind()
+                            != RpsCheatKind.MIND_READ) {
+                return;
+            }
+            SoundEvent firstUseSound;
+            try {
+                firstUseSound =
+                        registration.spec().firstUseSound().get();
+            }
+            catch (RuntimeException error) {
+                JojoMod.getLogger().error(
+                        "RPS cheat sound supplier {} failed.",
+                        registration.owner(),
+                        error);
+                return;
+            }
+            if (firstUseSound == null) {
+                JojoMod.getLogger().error(
+                        "RPS cheat sound supplier {} returned null.",
+                        registration.owner());
+                return;
+            }
+            handleMindReadCheat(
+                    player, data, game, sessionEpoch, firstUseSound);
+            return;
+        }
+
         if (cheatPower != PowerClass.PLAYER_POWER) {
             return;
         }
@@ -102,71 +150,131 @@ public class ClRPSGameInputPacket implements CustomPacketPayload {
             return;
         }
         if (playerPower.getPowerType() == ModPlayerPowers.HAMON.get()) {
-            handleHamonCheat(player, data, game);
+            handleMindReadCheat(player, data, game, sessionEpoch,
+                    ModSoundEvents.HAMON_CONCENTRATION.get());
         }
         else if (playerPower.getPowerType() == ModPlayerPowers.VAMPIRISM.get()) {
-            handleVampirismCheat(player, data, game);
+            handleVampirismCheat(
+                    player, data, game, sessionEpoch);
         }
     }
 
-    private static void handleHamonCheat(ServerPlayer player, ServerSavedData data, RockPaperScissorsGame game) {
+    private static void handleMindReadCheat(
+            ServerPlayer player,
+            ServerSavedData data,
+            RockPaperScissorsGame game,
+            long sessionEpoch,
+            SoundEvent firstUseSound) {
         LivingEntity opponent = getOpponentEntity(player, game);
         if (opponent == null) {
             handleQuit(player, data, game);
             return;
         }
 
+        ServerPlayer opponentPlayer = null;
+        RockPaperScissorsGame opponentGame = null;
+        if (!game.opponentIsNpc()) {
+            if (!(opponent instanceof ServerPlayer serverOpponent)) {
+                return;
+            }
+            opponentPlayer = serverOpponent;
+            opponentGame =
+                    data.rpsPvpGames.get(opponentPlayer.getUUID());
+            if (!isReciprocalGame(
+                    player, game, opponentPlayer, opponentGame)) {
+                return;
+            }
+        }
+        if (!game.tryUseCheat(sessionEpoch)) {
+            return;
+        }
+        boolean firstUse = game.markCheatedBefore();
+
         Pick knownOpponentPick = game.opponentPick();
         if (knownOpponentPick == null && game.opponentIsNpc()) {
             knownOpponentPick = game.opponentThoughtsPick();
-            if (knownOpponentPick == null) {
-                knownOpponentPick = Pick.random(player.getRandom());
-                game.setOpponentThoughts(knownOpponentPick);
-            }
         }
         if (knownOpponentPick != null) {
             PacketDistributor.sendToPlayer(player, RPSGameStatePacket.setOpponentPick(knownOpponentPick, opponent.getId()));
             PacketDistributor.sendToPlayer(player, new RPSOpponentPickThoughtsPacket(true, knownOpponentPick));
         }
 
-        if (!game.opponentIsNpc() && opponent instanceof ServerPlayer opponentPlayer) {
-            RockPaperScissorsGame opponentGame = data.rpsPvpGames.get(opponentPlayer.getUUID());
-            if (opponentGame != null) {
-                opponentGame.setOpponentCanReadThoughts(true);
-                PacketDistributor.sendToPlayer(opponentPlayer, RPSGameStatePacket.mindRead(player.getId()));
-            }
+        if (opponentPlayer != null && opponentGame != null) {
+            opponentGame.setOpponentCanReadThoughts(true);
+            PacketDistributor.sendToPlayer(
+                    opponentPlayer,
+                    RPSGameStatePacket.mindRead(player.getId()));
         }
 
-        player.serverLevel().playSound(null, player, ModSoundEvents.HAMON_CONCENTRATION.get(), player.getSoundSource(), 1.0F, 1.0F);
+        if (firstUse) {
+            player.serverLevel().playSound(
+                    null, player, firstUseSound,
+                    player.getSoundSource(), 1.0F, 1.0F);
+        }
         data.setDirty();
     }
 
-    private static void handleVampirismCheat(ServerPlayer player, ServerSavedData data, RockPaperScissorsGame game) {
+    private static void handleVampirismCheat(
+            ServerPlayer player,
+            ServerSavedData data,
+            RockPaperScissorsGame game,
+            long sessionEpoch) {
         LivingEntity opponent = getOpponentEntity(player, game);
         if (opponent == null) {
             handleQuit(player, data, game);
             return;
         }
 
-        game.submitOpponent(Pick.ROCK);
-        PacketDistributor.sendToPlayer(player, RPSGameStatePacket.setOpponentPick(Pick.ROCK, opponent.getId()));
-
         ServerPlayer opponentPlayer = null;
         RockPaperScissorsGame opponentGame = null;
         if (!game.opponentIsNpc() && opponent instanceof ServerPlayer serverOpponent) {
             opponentPlayer = serverOpponent;
             opponentGame = data.rpsPvpGames.get(opponentPlayer.getUUID());
-            if (opponentGame != null) {
-                opponentGame.submitPlayer(Pick.ROCK);
-                PacketDistributor.sendToPlayer(opponentPlayer, RPSGameStatePacket.setOwnPick(Pick.ROCK));
+            if (!isReciprocalGame(
+                    player, game, opponentPlayer, opponentGame)) {
+                return;
             }
         }
 
-        player.serverLevel().playSound(null, player, ModSoundEvents.VAMPIRE_EVIL_ATMOSPHERE.get(), player.getSoundSource(), 1.0F, 1.0F);
+        if (!game.tryUseCheat(sessionEpoch)) {
+            return;
+        }
+        boolean firstUse = game.markCheatedBefore();
+
+        game.submitOpponent(Pick.ROCK);
+        PacketDistributor.sendToPlayer(player,
+                RPSGameStatePacket.setOpponentPick(
+                        Pick.ROCK, opponent.getId()));
+        if (opponentPlayer != null && opponentGame != null) {
+            opponentGame.submitPlayer(Pick.ROCK);
+            PacketDistributor.sendToPlayer(
+                    opponentPlayer,
+                    RPSGameStatePacket.setOwnPick(Pick.ROCK));
+        }
+
+        if (firstUse) {
+            player.serverLevel().playSound(
+                    null, player,
+                    ModSoundEvents.VAMPIRE_EVIL_ATMOSPHERE.get(),
+                    player.getSoundSource(), 1.0F, 1.0F);
+        }
         if (game.isResolved()) {
             resolveRound(data, player, game, opponent, opponentPlayer, opponentGame);
         }
         data.setDirty();
+    }
+
+    private static boolean isReciprocalGame(
+            ServerPlayer player,
+            RockPaperScissorsGame game,
+            ServerPlayer opponent,
+            @Nullable RockPaperScissorsGame opponentGame) {
+        return opponentGame != null
+                && player.getUUID().equals(game.player())
+                && opponent.getUUID().equals(game.opponent())
+                && opponent.getUUID().equals(opponentGame.player())
+                && player.getUUID().equals(opponentGame.opponent())
+                && !opponentGame.opponentIsNpc();
     }
 
     private static void handlePick(ServerPlayer player, ServerSavedData data, RockPaperScissorsGame game, @Nullable Pick pick) {
@@ -331,6 +439,8 @@ public class ClRPSGameInputPacket implements CustomPacketPayload {
         this.packetType = buf.readEnum(PacketType.class);
         this.pick = packetType == PacketType.PICK ? NeoForgeStreamCodecs.enumCodec(Pick.class).decode(buf) : null;
         this.cheatPower = packetType == PacketType.CHEAT ? readPowerClass(buf) : null;
+        this.cheatSessionEpoch =
+                packetType == PacketType.CHEAT ? buf.readLong() : 0L;
     }
 
     public void write(RegistryFriendlyByteBuf buf) {
@@ -340,6 +450,7 @@ public class ClRPSGameInputPacket implements CustomPacketPayload {
         }
         else if (packetType == PacketType.CHEAT) {
             buf.writeVarInt(cheatPower != null ? cheatPower.ordinal() : -1);
+            buf.writeLong(cheatSessionEpoch);
         }
     }
 

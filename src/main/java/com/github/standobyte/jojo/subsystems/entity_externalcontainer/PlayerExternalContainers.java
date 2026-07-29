@@ -6,6 +6,8 @@ import java.util.function.Consumer;
 
 import javax.annotation.Nullable;
 
+import com.github.standobyte.jojo.api.control.PlayerOperation;
+import com.github.standobyte.jojo.api.control.PlayerOperationPolicies;
 import com.github.standobyte.jojo.entityattachment.TickingEntityData;
 import com.github.standobyte.jojo.init.ModDataAttachmentTypes;
 import com.github.standobyte.jojo.subsystems.entity_externalcontainer.packet.ExternalContainerClosePacket;
@@ -55,6 +57,12 @@ public class PlayerExternalContainers implements TickingEntityData {
 			return OptionalInt.empty();
 		}
 		else {
+			if (player instanceof ServerPlayer serverPlayer
+					&& PlayerOperationPolicies.intercept(
+							serverPlayer,
+							PlayerOperation.MENU_OPEN_EXTERNAL)) {
+				return OptionalInt.empty();
+			}
 			int containerId = nextContainerCounter();
 			AbstractContainerMenu containerMenu = menu.createMenu(containerId, player.getInventory(), player);
 			if (containerMenu == null) {

@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
 
+import com.github.standobyte.jojo.api.client.render.EntityMaskPostEffect;
+import com.github.standobyte.jojo.api.client.render.StandMaterialTintPolicies;
 import com.github.standobyte.jojo.client.entityanim.AnimationSet;
 import com.github.standobyte.jojo.client.entityanim.barrage.BarrageSwings;
 import com.github.standobyte.jojo.client.entityanim.PreFrameEntityAnimCalc;
@@ -373,7 +375,9 @@ public class StandEntityRenderer<
 	public void render(T entity, float entityYaw, float partialTicks, PoseStack poseStack, MultiBufferSource bufferSource, int light) {
 		S renderState = this.createRenderState(entity, partialTicks);
 		boolean displayFire = renderState.displayFireAnimation;
-		entity.setNoFireAnimFrame();
+		if (!EntityMaskPostEffect.isCapturePass()) {
+			entity.setNoFireAnimFrame();
+		}
 		render(entity, renderState, entityYaw, partialTicks, poseStack, bufferSource, light, displayFire);
 	}
 
@@ -391,6 +395,8 @@ public class StandEntityRenderer<
 			MultiBufferSource bufferSource, int light, boolean displayFire) {
 		RenderStateCrutches.Snapshot crutchSnapshot = preRender(renderState);
 		try {
+			bufferSource = StandMaterialTintPolicies.wrap(
+					bufferSource, entity, partialTicks);
 			this.model = modelFrom(renderState);
 			logRuntimeModelState(entity, renderState);
 

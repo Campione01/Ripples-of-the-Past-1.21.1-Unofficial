@@ -186,6 +186,22 @@ public abstract class ClientEntityController {
 		return false;
 	}
 
+	/**
+	 * Selects the entity used as the origin of vanilla pick calculations while
+	 * this controller owns the active camera entity.
+	 */
+	public Entity getPickSource(Entity cameraEntity) {
+		return cameraEntity;
+	}
+
+	/**
+	 * Lets the local player retain vanilla controlled-camera behavior while
+	 * this controller owns the active camera entity.
+	 */
+	public boolean controlsLocalPlayerCamera() {
+		return false;
+	}
+
 	public void renderExtraHud(GuiGraphics guiGraphics, DeltaTracker deltaTracker) {}
 
 }

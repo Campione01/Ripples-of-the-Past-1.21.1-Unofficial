@@ -93,9 +93,18 @@ public class StandDiscItem extends Item {
 			StandPower stand = PowerClass.STAND.get(player);
 			if (stand != null) {
 				StandInstance replacement = discStand.copyStandInstance();
+				StandPowerTransitions.TransitionContext context =
+						new StandPowerTransitions.TransitionContext(
+								ModItems.STAND_DISC.getId(),
+								player);
 				StandPowerTransitions.Result transition = stand.getStandInstance()
-						.map(current -> StandPowerTransitions.replace(stand, current.getStandId(), replacement))
-						.orElseGet(() -> StandPowerTransitions.insert(stand, replacement));
+						.map(current -> StandPowerTransitions.replace(
+								stand,
+								current.getStandId(),
+								replacement,
+								context))
+						.orElseGet(() -> StandPowerTransitions.insert(
+								stand, replacement, context));
 				if (!transition.applied()) {
 					return InteractionResultHolder.fail(discItem);
 				}

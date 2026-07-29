@@ -27,6 +27,7 @@ import com.github.standobyte.jojo.item.RoadRollerItem;
 import com.github.standobyte.jojo.item.SatiporojaScarfItem;
 import com.github.standobyte.jojo.item.SoapItem;
 import com.github.standobyte.jojo.item.SledgehammerItem;
+import com.github.standobyte.jojo.item.StandRemoverItem;
 import com.github.standobyte.jojo.item.StoneMaskItem;
 import com.github.standobyte.jojo.item.SuperAjaStoneItem;
 import com.github.standobyte.jojo.item.TommyGunItem;
@@ -74,6 +75,24 @@ public final class ModItems {
 	public static final DeferredItem<Item> CHARACTER_TEST = ITEMS.registerItem("character_test", CharacterTestItem::new, new Item.Properties());
 
 	public static final DeferredItem<Item> STAND_DISC = ITEMS.registerItem("stand_disc", StandDiscItem::new, new Item.Properties().stacksTo(1));
+	public static final DeferredItem<StandRemoverItem>
+			STAND_REMOVER_ONE_TIME = ITEMS.registerItem(
+					"stand_remover_one_time",
+					props -> new StandRemoverItem(
+							props, StandRemoverItem.Mode.REMOVE, true),
+					new Item.Properties().stacksTo(64));
+	public static final DeferredItem<StandRemoverItem>
+			STAND_EJECT_ONE_TIME = ITEMS.registerItem(
+					"stand_eject_one_time",
+					props -> new StandRemoverItem(
+							props, StandRemoverItem.Mode.EJECT, true),
+					new Item.Properties().stacksTo(64));
+	public static final DeferredItem<StandRemoverItem>
+			STAND_FULL_CLEAR_ONE_TIME = ITEMS.registerItem(
+					"stand_full_clear_one_time",
+					props -> new StandRemoverItem(
+							props, StandRemoverItem.Mode.FULL_CLEAR, true),
+					new Item.Properties().stacksTo(64));
 
 	public static final DeferredItem<BlockItem> SEWING_MACHINE = ITEMS.registerSimpleBlockItem("sewing_machine", 
 			ModBlocks.SEWING_MACHINE, new Item.Properties());
@@ -166,6 +185,9 @@ public final class ModItems {
 				output.accept(STAND_ARROW_BEETLE.get());
 				output.accept(STAND_ARROW_METEORITE.get());
 				output.accept(STAND_ARROW_SHARD.get());
+				output.accept(STAND_REMOVER_ONE_TIME.get());
+				output.accept(STAND_EJECT_ONE_TIME.get());
+				output.accept(STAND_FULL_CLEAR_ONE_TIME.get());
 				output.accept(METEORIC_IRON.get());
 				output.accept(METEORITE_CORE.get());
 				output.accept(METEORIC_SCRAP.get());

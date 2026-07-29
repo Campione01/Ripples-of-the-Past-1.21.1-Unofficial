@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.github.standobyte.jojo.ServerSavedData;
 import com.github.standobyte.jojo.network.s2c.RPSGameStatePacket;
+import com.github.standobyte.jojoimpl.npc.rps.RockPaperScissorsGame;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 
@@ -69,7 +70,17 @@ public class RockPaperScissorsCommand {
     private static void startGame(ServerSavedData data, ServerPlayer player, ServerPlayer target) {
         data.rpsPvpGames.put(player, target.getUUID(), false);
         data.rpsPvpGames.put(target, player.getUUID(), false);
-        PacketDistributor.sendToPlayer(player, RPSGameStatePacket.enteredGame(target.getId(), List.of(), List.of(), 1));
-        PacketDistributor.sendToPlayer(target, RPSGameStatePacket.enteredGame(player.getId(), List.of(), List.of(), 1));
+        RockPaperScissorsGame playerGame =
+                data.rpsPvpGames.get(player.getUUID());
+        RockPaperScissorsGame targetGame =
+                data.rpsPvpGames.get(target.getUUID());
+        PacketDistributor.sendToPlayer(player,
+                RPSGameStatePacket.enteredGame(
+                        target.getId(), List.of(), List.of(), 1,
+                        playerGame.sessionEpoch()));
+        PacketDistributor.sendToPlayer(target,
+                RPSGameStatePacket.enteredGame(
+                        player.getId(), List.of(), List.of(), 1,
+                        targetGame.sessionEpoch()));
     }
 }

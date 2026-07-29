@@ -12,7 +12,6 @@ import com.github.standobyte.jojo.powersystem.standpower.entity.StandEntity;
 import com.github.standobyte.jojo.util.objects_java.DefaultedValue;
 import com.github.standobyte.jojo.util.objects_java.Lerp;
 import com.github.standobyte.jojo.util.objects_java.OptionalFloat;
-import com.github.standobyte.jojoimpl.powers.pillarman.PillarmanData;
 
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerPlayer;
@@ -515,9 +514,12 @@ public class ResolveCounter {
 //					return 1F;
 //				}).orElse(1F);
 //			}
-			dmgAmount *= PlayerPower.getPowerData(attackTarget, ModPlayerPowers.PILLAR_MAN)
-					.map(PillarmanData::getEvolutionStage)
-					.orElse(1);
+			PlayerPower targetPower =
+					PlayerPower.get(attackTarget);
+			if (targetPower != null) {
+				dmgAmount *= targetPower
+						.getTargetResolveMultiplier(attackerStand);
+			}
 			if (ResolveModeEffect.getResolveEffectLvl(attackTarget) >= 0) {
 				dmgAmount *= Math.max(1 / (attackerStand.resolveCounter.getResolveRatio(attackerStand) + 0.2F), 1);
 			}

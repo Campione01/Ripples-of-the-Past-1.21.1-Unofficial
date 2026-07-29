@@ -2,12 +2,17 @@ package com.github.standobyte.jojo.subsystems.rollback;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.github.standobyte.jojo.api.RotpAddonApi;
+import com.github.standobyte.jojo.api.rollback.AtomicRollbackJournal;
+import com.github.standobyte.jojo.api.rollback.AtomicRollbackJournal.Outcome;
+import com.github.standobyte.jojo.api.rollback.AtomicRollbackJournal.Status;
 import com.github.standobyte.jojo.api.rollback.RollbackAdapterDescriptor;
 import com.github.standobyte.jojo.api.rollback.RollbackAdapterRegistry;
 import com.github.standobyte.jojo.api.rollback.RollbackCapability;
@@ -33,6 +38,12 @@ public final class RollbackTransactionFoundationSmokeTest {
 
 	private RollbackTransactionFoundationSmokeTest() {}
 
+	public static void main(String[] args) {
+		run();
+		System.out.println(
+				"Rollback transaction foundation focused smoke passed.");
+	}
+
 	public static void run() {
 		supportMatrixRemainsUnavailable();
 		policyBoundsAreHard();
@@ -41,6 +52,7 @@ public final class RollbackTransactionFoundationSmokeTest {
 		lifecycleAndUsageLimitsInvalidate();
 		transactionCountsAreBounded();
 		adapterRegistryIsDeterministicAndConstrained();
+		atomicJournalCompensatesAttemptedEntries();
 		handleAndManagerDoNotRetainWorldOwnersStatically();
 	}
 
@@ -341,6 +353,141 @@ public final class RollbackTransactionFoundationSmokeTest {
 		check(registry.isFrozen(), "adapter registry did not freeze");
 		expectIllegalState(() -> registry.register(
 				descriptor("late", 0, RollbackCapability.ADDON_STATE, true)));
+	}
+
+	private static void atomicJournalCompensatesAttemptedEntries() {
+		List<String> trace = new ArrayList<>();
+		Outcome applied = AtomicRollbackJournal.apply(List.of(
+				AtomicRollbackJournal.entry(
+						"first",
+						() -> trace.add("apply:first"),
+						() -> trace.add("inverse:first")),
+				AtomicRollbackJournal.entry(
+						"second",
+						() -> trace.add("apply:second"),
+						() -> trace.add("inverse:second"))));
+		check(applied.status() == Status.APPLIED
+				&& applied.attemptedEntries() == 2
+				&& applied.failure() == null,
+				"a successful journal did not report APPLIED");
+		check(trace.equals(List.of("apply:first", "apply:second")),
+				"a successful journal unexpectedly ran an inverse");
+
+		trace.clear();
+		RuntimeException applyFailure =
+				new IllegalStateException("apply failed");
+		Outcome restored = AtomicRollbackJournal.apply(List.of(
+				AtomicRollbackJournal.entry(
+						"first",
+						() -> trace.add("apply:first"),
+						() -> trace.add("inverse:first")),
+				AtomicRollbackJournal.entry(
+						"second",
+						() -> {
+							trace.add("apply:second");
+							throw applyFailure;
+						},
+						() -> trace.add("inverse:second"))));
+		check(restored.status() == Status.ROLLED_BACK
+				&& restored.fullyRestored()
+				&& restored.failure() == applyFailure,
+				"a compensated journal did not retain its apply failure");
+		check(trace.equals(List.of(
+				"apply:first",
+				"apply:second",
+				"inverse:second",
+				"inverse:first")),
+				"attempted entries were not compensated in reverse order");
+
+		trace.clear();
+		RuntimeException inverseFailure =
+				new IllegalStateException("inverse failed");
+		Outcome incomplete = AtomicRollbackJournal.apply(List.of(
+				AtomicRollbackJournal.entry(
+						"first",
+						() -> trace.add("apply:first"),
+						() -> trace.add("inverse:first")),
+				AtomicRollbackJournal.entry(
+						"second",
+						() -> {
+							trace.add("apply:second");
+							throw applyFailure;
+						},
+						() -> {
+							trace.add("inverse:second");
+							throw inverseFailure;
+						})));
+		check(incomplete.status() == Status.INVERSE_FAILED
+				&& incomplete.inverseFailures().size() == 1
+				&& incomplete.inverseFailures().get(0)
+						.entryId().equals("second")
+				&& incomplete.inverseFailures().get(0)
+						.failure() == inverseFailure,
+				"an inverse failure was not reported explicitly");
+		check(trace.equals(List.of(
+				"apply:first",
+				"apply:second",
+				"inverse:second",
+				"inverse:first")),
+				"one inverse failure stopped later compensation");
+
+		trace.clear();
+		RuntimeException sharedFailure =
+				new IllegalStateException("shared failure");
+		Outcome selfSuppressed = AtomicRollbackJournal.apply(List.of(
+				AtomicRollbackJournal.entry(
+						"first",
+						() -> trace.add("apply:first"),
+						() -> trace.add("inverse:first")),
+				AtomicRollbackJournal.entry(
+						"second",
+						() -> {
+							trace.add("apply:second");
+							throw sharedFailure;
+						},
+						() -> {
+							trace.add("inverse:second");
+							throw sharedFailure;
+						})));
+		check(selfSuppressed.status() == Status.INVERSE_FAILED
+				&& selfSuppressed.failure() == sharedFailure
+				&& selfSuppressed.inverseFailures().size() == 1
+				&& selfSuppressed.inverseFailures().get(0)
+						.failure() == sharedFailure,
+				"a self-suppressed inverse failure was not reported");
+		check(trace.equals(List.of(
+				"apply:first",
+				"apply:second",
+				"inverse:second",
+				"inverse:first")),
+				"a self-suppressed inverse stopped later compensation");
+
+		AtomicBoolean mutated = new AtomicBoolean();
+		expectIllegalArgument(() -> AtomicRollbackJournal.apply(List.of(
+				AtomicRollbackJournal.entry(
+						"duplicate",
+						() -> mutated.set(true),
+						() -> {}),
+				AtomicRollbackJournal.entry(
+						"duplicate",
+						() -> mutated.set(true),
+						() -> {}))));
+		check(!mutated.get(),
+				"journal structure was not validated before mutation");
+
+		List<AtomicRollbackJournal.Entry> oversized =
+				new ArrayList<>();
+		for (int index = 0;
+				index <= AtomicRollbackJournal.MAX_ENTRIES;
+				index++) {
+			oversized.add(AtomicRollbackJournal.entry(
+					"entry_" + index,
+					() -> mutated.set(true),
+					() -> {}));
+		}
+		expectIllegalArgument(() -> AtomicRollbackJournal.apply(oversized));
+		check(!mutated.get(),
+				"journal size was not validated before mutation");
 	}
 
 	private static void handleAndManagerDoNotRetainWorldOwnersStatically() {

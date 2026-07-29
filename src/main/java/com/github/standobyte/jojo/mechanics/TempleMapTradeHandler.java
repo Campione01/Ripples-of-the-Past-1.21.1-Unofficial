@@ -3,6 +3,9 @@ package com.github.standobyte.jojo.mechanics;
 import java.util.List;
 import java.util.Optional;
 
+import com.github.standobyte.jojo.api.trade.ContextualVillagerTradeContext;
+import com.github.standobyte.jojo.api.trade.ContextualVillagerTradeProvider;
+import com.github.standobyte.jojo.api.trade.ContextualVillagerTrades;
 import com.github.standobyte.jojo.core.JojoMod;
 import com.github.standobyte.jojo.init.ModCriteriaTriggers;
 import com.github.standobyte.jojo.init.ModMapDecorationTypes;
@@ -14,7 +17,6 @@ import com.github.standobyte.jojo.powersystem.standpower.StandPower;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -36,10 +38,8 @@ import net.minecraft.world.item.trading.MerchantOffer;
 import net.minecraft.world.level.levelgen.structure.Structure;
 import net.minecraft.world.level.saveddata.maps.MapDecorationType;
 import net.minecraft.world.level.saveddata.maps.MapItemSavedData;
-import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.village.VillagerTradesEvent;
 
 @EventBusSubscriber(modid = JojoMod.MOD_ID)
@@ -47,16 +47,60 @@ public final class TempleMapTradeHandler {
     private static final String JOJO_STRUCTURE_TAG = "JojoStructure";
     private static final String HAMON_TEMPLE = "hamon_temple";
     private static final String PILLARMAN_TEMPLE = "pillarman_temple";
-    private static final String PILLARMAN_MAP_TRADE_DATA = JojoMod.MOD_ID + ":PillarmanTempleMapTrade";
-    private static final String GAVE_UNIQUE_TRADE = "GaveUniqueTrade";
-    private static final String TRIED_PLAYERS = "TriedPlayers";
+    private static final ResourceLocation PILLARMAN_MAP_PROVIDER =
+            JojoMod.resLoc("pillarman_temple_map");
 
     public static final TagKey<Structure> HAMON_TEMPLE_MAPS = TagKey.create(net.minecraft.core.registries.Registries.STRUCTURE, JojoMod.resLoc("on_hamon_temple_maps"));
     public static final TagKey<Structure> PILLARMAN_TEMPLE_MAPS = TagKey.create(net.minecraft.core.registries.Registries.STRUCTURE, JojoMod.resLoc("on_pillarman_temple_maps"));
     private static final TempleMapTrade PILLARMAN_MAP_TRADE = new TempleMapTrade(32, PILLARMAN_TEMPLE_MAPS,
             "filled_map.jojo_ripples:pillarman_temple", ModMapDecorationTypes.PILLARMAN_TEMPLE, PILLARMAN_TEMPLE, 1, 30);
+    private static final ContextualVillagerTradeProvider
+            PILLARMAN_MAP_PROVIDER_IMPL =
+            new ContextualVillagerTradeProvider() {
+                @Override
+                public boolean isEligible(
+                        ContextualVillagerTradeContext context) {
+                    VillagerData villagerData =
+                            context.villager().getVillagerData();
+                    return villagerData.getProfession()
+                            == VillagerProfession.CARTOGRAPHER
+                            && villagerData.getLevel() >= 4;
+                }
+
+                @Override
+                public MerchantOffer createOffer(
+                        ContextualVillagerTradeContext context) {
+                    if (context.player().getRandom().nextDouble()
+                            >= getPillarmanMapChance(
+                                    context.player(),
+                                    context.villager()
+                                            .getVillagerData()
+                                            .getType())) {
+                        return null;
+                    }
+                    return PILLARMAN_MAP_TRADE.getOffer(
+                            context.villager(),
+                            context.villager().getRandom());
+                }
+
+                @Override
+                public void onFirstPurchase(
+                        ContextualVillagerTradeContext context,
+                        MerchantOffer offer) {
+                    onPillarmanMapTaken(
+                            context.player());
+                }
+            };
 
     private TempleMapTradeHandler() {}
+
+    public static void registerContextualTrades() {
+        ContextualVillagerTrades.register(
+                PILLARMAN_MAP_PROVIDER,
+                ContextualVillagerTrades
+                        .EXPERT_STRUCTURE_MAP_GROUP,
+                PILLARMAN_MAP_PROVIDER_IMPL);
+    }
 
     @SubscribeEvent
     public static void addTempleMapTrades(VillagerTradesEvent event) {
@@ -67,45 +111,12 @@ public final class TempleMapTradeHandler {
         level4.add(new TempleMapTrade(24, HAMON_TEMPLE_MAPS, "filled_map.jojo_ripples:hamon_temple", net.minecraft.world.level.saveddata.maps.MapDecorationTypes.TAIGA_VILLAGE, HAMON_TEMPLE, 12, 23));
     }
 
-    @SubscribeEvent(priority = EventPriority.LOWEST)
-    public static void selectPillarmanMapTrade(PlayerInteractEvent.EntityInteract event) {
-        if (!(event.getEntity() instanceof ServerPlayer player) || !(event.getTarget() instanceof Villager villager)) {
-            return;
-        }
-
-        VillagerData villagerData = villager.getVillagerData();
-        if (villagerData.getProfession() != VillagerProfession.CARTOGRAPHER || villagerData.getLevel() < 4) {
-            return;
-        }
-
-        CompoundTag persistentData = villager.getPersistentData();
-        CompoundTag tradeData = persistentData.getCompound(PILLARMAN_MAP_TRADE_DATA);
-        CompoundTag triedPlayers = tradeData.getCompound(TRIED_PLAYERS);
-        String playerId = player.getStringUUID();
-        if (tradeData.getBoolean(GAVE_UNIQUE_TRADE) || triedPlayers.getBoolean(playerId)) {
-            return;
-        }
-
-        triedPlayers.putBoolean(playerId, true);
-        tradeData.put(TRIED_PLAYERS, triedPlayers);
-        persistentData.put(PILLARMAN_MAP_TRADE_DATA, tradeData);
-
-        double mapChance = getPillarmanMapChance(player, villagerData.getType());
-        if (player.getRandom().nextDouble() >= mapChance) {
-            return;
-        }
-
-        MerchantOffer offer = PILLARMAN_MAP_TRADE.getOffer(villager, villager.getRandom());
-        if (offer != null) {
-            villager.getOffers().add(offer);
-            tradeData.putBoolean(GAVE_UNIQUE_TRADE, true);
-            persistentData.put(PILLARMAN_MAP_TRADE_DATA, tradeData);
-        }
-    }
-
     private static double getPillarmanMapChance(ServerPlayer player, VillagerType villagerType) {
         PlayerPower playerPower = PlayerPower.get(player);
-        if (playerPower != null && playerPower.getPowerType() == ModPlayerPowers.VAMPIRISM.get()) {
+        if (playerPower != null
+                && playerPower.getCurTypeData(
+                        ModPlayerPowers.VAMPIRISM)
+                        .isPresent()) {
             return 0;
         }
 
@@ -127,7 +138,10 @@ public final class TempleMapTradeHandler {
         if (standPower != null && standPower.hasPower()) {
             mapChance *= 0.05;
         }
-        else if (playerPower != null && playerPower.getPowerType() == ModPlayerPowers.HAMON.get()) {
+        else if (playerPower != null
+                && playerPower.getCurTypeData(
+                        ModPlayerPowers.HAMON)
+                        .isPresent()) {
             mapChance *= 0.4;
         }
         return mapChance;
@@ -145,14 +159,34 @@ public final class TempleMapTradeHandler {
     }
 
     public static void onTradeTaken(ServerPlayer player, ItemStack result) {
+        if (ContextualVillagerTrades
+                .isContextualResult(result)) {
+            return;
+        }
         if (isTempleMap(result, HAMON_TEMPLE)) {
             ModCriteriaTriggers.triggerTempleMap(player, HAMON_TEMPLE);
             player.level().playSound(null, player.getX(), player.getY(), player.getZ(), ModSoundEvents.MAP_BOUGHT_HAMON_TEMPLE.get(), SoundSource.PLAYERS, 1.0F, 1.0F);
         }
         else if (isTempleMap(result, PILLARMAN_TEMPLE)) {
-            ModCriteriaTriggers.triggerTempleMap(player, PILLARMAN_TEMPLE);
-            player.level().playSound(null, player.getX(), player.getY(), player.getZ(), ModSoundEvents.MAP_BOUGHT_PILLAR_MAN_TEMPLE.get(), SoundSource.PLAYERS, 1.0F, 1.0F);
+            onPillarmanMapTaken(player);
         }
+    }
+
+    private static void onPillarmanMapTaken(
+            ServerPlayer player) {
+        ModCriteriaTriggers.triggerTempleMap(
+                player, PILLARMAN_TEMPLE);
+        player.level().playSound(
+                null,
+                player.getX(),
+                player.getY(),
+                player.getZ(),
+                ModSoundEvents
+                        .MAP_BOUGHT_PILLAR_MAN_TEMPLE
+                        .get(),
+                SoundSource.PLAYERS,
+                1.0F,
+                1.0F);
     }
 
     private record TempleMapTrade(int emeraldCost, TagKey<Structure> destination, String displayName, Holder<MapDecorationType> destinationType, String structureName, int maxUses, int villagerXp)

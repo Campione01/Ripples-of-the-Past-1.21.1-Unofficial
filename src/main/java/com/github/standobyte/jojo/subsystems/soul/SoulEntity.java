@@ -4,6 +4,8 @@ import java.util.UUID;
 
 import javax.annotation.Nullable;
 
+import com.github.standobyte.jojo.api.soul.SoulResolveEligibilityProviders;
+import com.github.standobyte.jojo.api.soul.SoulResolveQuery;
 import com.github.standobyte.jojo.init.ModEntityTypes;
 import com.github.standobyte.jojo.powersystem.standpower.StandPower;
 import com.github.standobyte.jojo.powersystem.standpower.StandUtil;
@@ -181,8 +183,19 @@ public class SoulEntity extends Entity implements IEntityWithComplexSpawn {
 	}
 
 	private boolean giveResolve(LivingEntity target, StandPower targetStandPower) {
-		return target != noResolveEntity && targetStandPower.usesResolve()
-				&& (resolveCanLvlUp || targetStandPower.getResolveLevel() >= targetStandPower.getMaxResolveLevel());
+		boolean defaultEligibility = target != noResolveEntity
+				&& targetStandPower.usesResolve()
+				&& (resolveCanLvlUp
+						|| targetStandPower.getResolveLevel()
+								>= targetStandPower.getMaxResolveLevel());
+		return SoulResolveEligibilityProviders.isEligible(
+				new SoulResolveQuery(
+						this,
+						originEntity,
+						target,
+						targetStandPower,
+						resolveCanLvlUp,
+						defaultEligibility));
 	}
 
 	private boolean isInResolveUpPhase() {

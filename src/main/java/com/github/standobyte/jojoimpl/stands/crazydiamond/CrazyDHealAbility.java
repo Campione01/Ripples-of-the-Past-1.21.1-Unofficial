@@ -4,6 +4,11 @@ import com.github.standobyte.jojo.powersystem.standpower.StandInstance.StandPart
 
 import org.spongepowered.include.com.google.common.base.Objects;
 
+import com.github.standobyte.jojo.api.healing.CrazyDiamondRestoreExtensions;
+import com.github.standobyte.jojo.api.healing.ExternalRestoreContext;
+import com.github.standobyte.jojo.api.healing.ExternalRestoreResult;
+import com.github.standobyte.jojo.api.healing.LivingRestoreContext;
+import com.github.standobyte.jojo.api.healing.RestoreAugmentation;
 import com.github.standobyte.jojo.client.entityanim.PreFrameEntityAnimCalc.LivingAnimState;
 import com.github.standobyte.jojo.client.ClientGlobals;
 import com.github.standobyte.jojo.client.ClientProxy;
@@ -102,7 +107,7 @@ public class CrazyDHealAbility extends StandEntityAbility {
 		if (targetEntity.is(user)) {
 			return ConditionCheck.createNegative("cd_heal_self");
 		}
-		if (!(targetEntity instanceof LivingEntity || targetEntity instanceof ModEntityWithHealth || targetEntity instanceof Boat)) {
+		if (!canHealEntityTarget(targetEntity)) {
 			return ConditionCheck.createNegative("heal_target");
 		}
 		return StandAbilityStamina.check(context, HEAL_STAMINA_COST_TICK);
@@ -154,7 +159,11 @@ public class CrazyDHealAbility extends StandEntityAbility {
 
 	private static boolean canHealEntityTarget(Entity target) {
 		return canPickEntityForAiming(target)
-				&& (target instanceof LivingEntity || target instanceof ModEntityWithHealth || target instanceof Boat);
+				&& (target instanceof LivingEntity
+						|| target instanceof ModEntityWithHealth
+						|| target instanceof Boat
+						|| CrazyDiamondRestoreExtensions
+								.canTarget(target));
 	}
 
 	private static boolean isValidHealEntityTarget(LivingEntity user, ActionTarget target, Level level) {
@@ -410,8 +419,55 @@ public class CrazyDHealAbility extends StandEntityAbility {
 						return result;
 					}
 
+					if (!level.isClientSide() && user != null) {
+						ExternalRestoreResult external =
+								CrazyDiamondRestoreExtensions
+										.restoreExternal(
+												new ExternalRestoreContext(
+														targetEntity,
+														user,
+														crazyDiamond));
+						if (external.handled()) {
+							result.synched.isHealing =
+									external.healingActive();
+							result.synched.barrageVisuals =
+									external.barrageVisuals();
+							result.hpForExp =
+									external.hpForExperience();
+							return result;
+						}
+					}
+
 					if (targetEntity instanceof LivingEntity targetLiving) {
-						return healLivingEntity(level, targetLiving, crazyDiamond, result);
+						HealResult livingResult = healLivingEntity(
+								level,
+								targetLiving,
+								crazyDiamond,
+								result);
+						if (!level.isClientSide() && user != null) {
+							RestoreAugmentation augmentation =
+									CrazyDiamondRestoreExtensions
+											.afterLivingRestoreAttempt(
+													new LivingRestoreContext(
+															targetLiving,
+															user,
+															crazyDiamond,
+															livingResult
+																	.synched
+																	.isHealing,
+															livingResult
+																	.synched
+																	.barrageVisuals,
+															livingResult
+																	.hpForExp));
+							livingResult.synched.isHealing |=
+									augmentation.healingActive();
+							livingResult.synched.barrageVisuals |=
+									augmentation.barrageVisuals();
+							livingResult.hpForExp +=
+									augmentation.hpForExperience();
+						}
+						return livingResult;
 					}
 
 					else if (targetEntity instanceof ModEntityWithHealth toHeal) {

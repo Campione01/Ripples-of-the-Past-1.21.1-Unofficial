@@ -56,6 +56,7 @@ public class MovesetBuilder {
 		copy.unlockableSkills.putAll(this.unlockableSkills);
 		this.controlSchemes.forEach((name, scheme) -> copy.controlSchemes.put(name, scheme.deepCopy()));
 		copy.curControlScheme = this.curControlScheme.deepCopy();
+		copy.lastAbility = this.lastAbility;
 		copy.appliedStandMovesetExtensions.addAll(this.appliedStandMovesetExtensions);
 		copy.appliedPlayerPowerMovesetExtensions.addAll(
 				this.appliedPlayerPowerMovesetExtensions);
@@ -75,6 +76,30 @@ public class MovesetBuilder {
 	}
 
 	@ApiStatus.Internal
+	public void commitStandMovesetExtension(
+			MovesetBuilder staged,
+			ResourceLocation extensionId) {
+		abilities.clear();
+		abilities.putAll(staged.abilities);
+		unlockableSkills.clear();
+		unlockableSkills.putAll(staged.unlockableSkills);
+		controlSchemes.clear();
+		controlSchemes.putAll(staged.controlSchemes);
+		curControlScheme = staged.curControlScheme;
+		lastAbility = staged.lastAbility;
+		appliedStandMovesetExtensions.clear();
+		appliedStandMovesetExtensions.addAll(
+				staged.appliedStandMovesetExtensions);
+		appliedStandMovesetExtensions.add(extensionId);
+		appliedPlayerPowerMovesetExtensions.clear();
+		appliedPlayerPowerMovesetExtensions.addAll(
+				staged.appliedPlayerPowerMovesetExtensions);
+		playerPowerHotbarInsertionTails.clear();
+		playerPowerHotbarInsertionTails.putAll(
+				staged.playerPowerHotbarInsertionTails);
+	}
+
+	@ApiStatus.Internal
 	public boolean hasPlayerPowerMovesetExtension(
 			ResourceLocation extensionId) {
 		return appliedPlayerPowerMovesetExtensions.contains(
@@ -85,6 +110,30 @@ public class MovesetBuilder {
 	public void markPlayerPowerMovesetExtension(
 			ResourceLocation extensionId) {
 		appliedPlayerPowerMovesetExtensions.add(extensionId);
+	}
+
+	@ApiStatus.Internal
+	public void commitPlayerPowerMovesetExtension(
+			MovesetBuilder staged,
+			ResourceLocation extensionId) {
+		abilities.clear();
+		abilities.putAll(staged.abilities);
+		unlockableSkills.clear();
+		unlockableSkills.putAll(staged.unlockableSkills);
+		controlSchemes.clear();
+		controlSchemes.putAll(staged.controlSchemes);
+		curControlScheme = staged.curControlScheme;
+		lastAbility = staged.lastAbility;
+		appliedStandMovesetExtensions.clear();
+		appliedStandMovesetExtensions.addAll(
+				staged.appliedStandMovesetExtensions);
+		appliedPlayerPowerMovesetExtensions.clear();
+		appliedPlayerPowerMovesetExtensions.addAll(
+				staged.appliedPlayerPowerMovesetExtensions);
+		appliedPlayerPowerMovesetExtensions.add(extensionId);
+		playerPowerHotbarInsertionTails.clear();
+		playerPowerHotbarInsertionTails.putAll(
+				staged.playerPowerHotbarInsertionTails);
 	}
 
 	@ApiStatus.Internal

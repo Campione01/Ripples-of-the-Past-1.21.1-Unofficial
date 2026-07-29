@@ -10,6 +10,8 @@ import com.github.standobyte.jojo.powersystem.ability.Ability;
 import com.github.standobyte.jojo.powersystem.ability.AbilityId;
 import com.github.standobyte.jojo.powersystem.ability.AbilityType;
 
+import net.minecraft.resources.ResourceLocation;
+
 @ApiStatus.Internal
 public class ConfigAbilityFactory<A extends Ability> {
 	private final AbilityType<A> abilityType;
@@ -22,6 +24,11 @@ public class ConfigAbilityFactory<A extends Ability> {
 	
 	public ConfigAbilityFactory<A> copy() {
 		return new ConfigAbilityFactory<>(abilityType, onInit);
+	}
+
+	@ApiStatus.Internal
+	public ResourceLocation abilityTypeId() {
+		return abilityType.registryKey;
 	}
 	
 	public void addInitBehavior(Consumer<A> onInit) {

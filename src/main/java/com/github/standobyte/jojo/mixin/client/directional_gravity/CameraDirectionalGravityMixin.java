@@ -107,7 +107,7 @@ public abstract class CameraDirectionalGravityMixin {
 				Mth.lerp((double) partialTick, entity.xo, entity.getX()),
 				Mth.lerp((double) partialTick, entity.yo, entity.getY()),
 				Mth.lerp((double) partialTick, entity.zo, entity.getZ()));
-		double smoothedEyeHeight = position.y - base.y;
+		double smoothedEyeHeight = position.distanceTo(base);
 		setPosition(DirectionalGravityTransforms.eyePosition(
 				direction, base, smoothedEyeHeight));
 	}

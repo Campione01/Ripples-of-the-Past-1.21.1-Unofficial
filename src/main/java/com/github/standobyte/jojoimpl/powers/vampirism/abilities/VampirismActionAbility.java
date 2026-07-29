@@ -47,7 +47,13 @@ public class VampirismActionAbility extends EntityActionAbility {
 		if (!isUnlockedForVampireState(context)) {
 			return ConditionCheck.NEGATIVE;
 		}
-		if (data.getCuringStage(context.getUser()) > maxCuringStage) {
+		boolean delegatedVampirism =
+				context instanceof PlayerPower playerPower
+						&& playerPower.isDelegating(
+								ModPlayerPowers.VAMPIRISM.get());
+		if (!delegatedVampirism
+				&& data.getCuringStage(context.getUser())
+						> maxCuringStage) {
 			return ConditionCheck.NEGATIVE;
 		}
 		if (data.isAbilityOnCooldown(name())) {
@@ -76,7 +82,12 @@ public class VampirismActionAbility extends EntityActionAbility {
 	}
 
 	protected static VampirismData getVampirismData(Power<?> context) {
-		return context != null && context.getCurTypeData() instanceof VampirismData data ? data : null;
+		return context != null
+				&& context.getDataForPowerType(
+						ModPlayerPowers.VAMPIRISM.get().getId())
+						instanceof VampirismData data
+								? data
+								: null;
 	}
 
 	protected static VampirismData getVampirismData(LivingEntity user, EntityActionInstance action) {

@@ -12,6 +12,7 @@ import org.jetbrains.annotations.ApiStatus;
 
 import com.github.standobyte.jojo.powersystem.MovesetBuilder;
 import com.github.standobyte.jojo.powersystem.ability.AbilityType;
+import com.github.standobyte.jojo.powersystem.ability.config.ConfigAbilityFactory;
 import com.github.standobyte.jojo.powersystem.ability.controls.InputBindTemplate;
 import com.github.standobyte.jojo.powersystem.ability.controls.InputKey;
 import com.github.standobyte.jojo.powersystem.ability.controls.InputMethod;
@@ -20,7 +21,7 @@ import com.github.standobyte.jojo.powersystem.ability.controls.InputUseVanillaMa
 import net.minecraft.resources.ResourceLocation;
 
 /**
- * Ordered, declarative additions to an existing PlayerPower moveset.
+ * Ordered, declarative extensions to an existing PlayerPower moveset.
  * <p>
  * The facade exposes only validated operations and never gives addons direct
  * access to a core moveset or control scheme.
@@ -87,11 +88,12 @@ public final class PlayerPowerMovesetExtensions {
 				continue;
 			}
 			try {
+				MovesetBuilder staged = moveset.deepCopy();
 				for (Operation operation : extension.operations) {
-					operation.apply(moveset);
+					operation.apply(staged);
 				}
-				moveset.markPlayerPowerMovesetExtension(
-						extension.extensionId());
+				moveset.commitPlayerPowerMovesetExtension(
+						staged, extension.extensionId());
 			}
 			catch (RuntimeException error) {
 				throw new IllegalStateException(
@@ -141,6 +143,28 @@ public final class PlayerPowerMovesetExtensions {
 							abilityTypeId, "abilityTypeId"),
 					Objects.requireNonNull(
 							abilityType, "abilityType")));
+			return this;
+		}
+
+		/**
+		 * Replaces an existing ability factory without changing its moveset name.
+		 * Controls and configured references keep pointing at the canonical slot.
+		 */
+		public Builder replaceAbility(String abilityName,
+				ResourceLocation expectedCurrentAbilityTypeId,
+				ResourceLocation replacementAbilityTypeId,
+				Supplier<? extends AbilityType<?>> replacementAbilityType) {
+			operations.add(new ReplaceAbility(
+					requireName(abilityName, "abilityName"),
+					Objects.requireNonNull(
+							expectedCurrentAbilityTypeId,
+							"expectedCurrentAbilityTypeId"),
+					Objects.requireNonNull(
+							replacementAbilityTypeId,
+							"replacementAbilityTypeId"),
+					Objects.requireNonNull(
+							replacementAbilityType,
+							"replacementAbilityType")));
 			return this;
 		}
 
@@ -341,6 +365,90 @@ public final class PlayerPowerMovesetExtensions {
 		@Override
 		public int hashCode() {
 			return Objects.hash(abilityName, abilityTypeId);
+		}
+	}
+
+	private static final class ReplaceAbility implements Operation {
+		private final String abilityName;
+		private final ResourceLocation expectedCurrentAbilityTypeId;
+		private final ResourceLocation replacementAbilityTypeId;
+		private final Supplier<? extends AbilityType<?>> replacementAbilityType;
+
+		private ReplaceAbility(
+				String abilityName,
+				ResourceLocation expectedCurrentAbilityTypeId,
+				ResourceLocation replacementAbilityTypeId,
+				Supplier<? extends AbilityType<?>> replacementAbilityType) {
+			this.abilityName = abilityName;
+			this.expectedCurrentAbilityTypeId =
+					expectedCurrentAbilityTypeId;
+			this.replacementAbilityTypeId = replacementAbilityTypeId;
+			this.replacementAbilityType = replacementAbilityType;
+		}
+
+		@Override
+		public void apply(MovesetBuilder moveset) {
+			ConfigAbilityFactory<?> current =
+					moveset.abilities.get(abilityName);
+			if (current == null) {
+				throw new IllegalStateException(
+						"ability does not exist: " + abilityName);
+			}
+			if (!expectedCurrentAbilityTypeId.equals(
+					current.abilityTypeId())) {
+				throw new IllegalStateException(
+						"current ability type ID mismatch for "
+								+ abilityName + ": expected "
+								+ expectedCurrentAbilityTypeId
+								+ ", got " + current.abilityTypeId());
+			}
+
+			AbilityType<?> replacement = Objects.requireNonNull(
+					replacementAbilityType.get(),
+					"replacement ability type supplier returned null for "
+							+ replacementAbilityTypeId);
+			if (!replacementAbilityTypeId.equals(
+					replacement.registryKey)) {
+				throw new IllegalStateException(
+						"replacement ability type ID mismatch: expected "
+								+ replacementAbilityTypeId + ", got "
+								+ replacement.registryKey);
+			}
+			replaceAbility(moveset, abilityName, replacement);
+		}
+
+		@SuppressWarnings({ "rawtypes", "unchecked" })
+		private static void replaceAbility(
+				MovesetBuilder moveset,
+				String abilityName,
+				AbilityType<?> replacement) {
+			moveset.abilities.put(
+					abilityName,
+					new ConfigAbilityFactory(
+							(AbilityType) replacement, null));
+		}
+
+		@Override
+		public boolean equals(Object object) {
+			if (this == object) {
+				return true;
+			}
+			if (!(object instanceof ReplaceAbility other)) {
+				return false;
+			}
+			return abilityName.equals(other.abilityName)
+					&& expectedCurrentAbilityTypeId.equals(
+							other.expectedCurrentAbilityTypeId)
+					&& replacementAbilityTypeId.equals(
+							other.replacementAbilityTypeId);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(
+					abilityName,
+					expectedCurrentAbilityTypeId,
+					replacementAbilityTypeId);
 		}
 	}
 

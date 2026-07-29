@@ -13,7 +13,6 @@ import com.github.standobyte.jojo.block.StoneMaskBlockEntity;
 import com.github.standobyte.jojo.core.JojoMod;
 import com.github.standobyte.jojo.customobjects.StatusEffectApplicable;
 import com.github.standobyte.jojo.customobjects.StatusEffectModified;
-import com.github.standobyte.jojo.init.ModBlocks;
 import com.github.standobyte.jojo.init.ModCriteriaTriggers;
 import com.github.standobyte.jojo.init.ModDamageTypes;
 import com.github.standobyte.jojo.init.ModItems;
@@ -21,6 +20,7 @@ import com.github.standobyte.jojo.init.ModSoundEvents;
 import com.github.standobyte.jojo.init.ModStatusEffects;
 import com.github.standobyte.jojo.init.power.ModPlayerPowers;
 import com.github.standobyte.jojo.item.StoneMaskItem;
+import com.github.standobyte.jojo.item.StoneMaskItem.MaskActivationResult;
 import com.github.standobyte.jojo.network.s2c.BloodParticlesPacket;
 import com.github.standobyte.jojo.powersystem.playerpower.PlayerPower;
 import com.github.standobyte.jojo.util.functions.AttributeUtil;
@@ -169,7 +169,8 @@ public class BleedingEffect extends StatusEffectModified implements StatusEffect
 		BlockPos.betweenClosedStream(
 				BlockPos.containing(splashPos.subtract(radius, radius, radius)),
 				BlockPos.containing(splashPos.add(radius, radius, radius)))
-		.filter(pos -> level.getBlockState(pos).getBlock() == ModBlocks.STONE_MASK.get())
+		.filter(pos -> level.getBlockState(pos).getBlock()
+				instanceof StoneMaskBlock)
 		.forEach(pos -> {
 			BlockState blockState = level.getBlockState(pos);
 			level.playSound(null, pos, ModSoundEvents.STONE_MASK_ACTIVATION.get(), SoundSource.BLOCKS, 1.0F, 1.0F);
@@ -230,6 +231,24 @@ public class BleedingEffect extends StatusEffectModified implements StatusEffect
 			}
 			return false;
 		}
+		StoneMaskItem maskItem = (StoneMaskItem) headStack.getItem();
+		try {
+			MaskActivationResult addonResult =
+					maskItem.tryBloodActivation(entity, headStack);
+			if (addonResult == MaskActivationResult.ACTIVATED) {
+				return true;
+			}
+			if (addonResult == MaskActivationResult.REJECTED) {
+				return false;
+			}
+		}
+		catch (RuntimeException error) {
+			JojoMod.getLogger().error(
+					"Stone Mask activation hook failed for {}",
+					headStack.getItem(),
+					error);
+			return false;
+		}
 		if (entity instanceof Player player) {
 			PlayerPower playerPower = PlayerPower.get(player);
 			if (playerPower == null) {
@@ -261,7 +280,7 @@ public class BleedingEffect extends StatusEffectModified implements StatusEffect
 					default:
 						break;
 					}
-					applyMaskEffect(entity, headStack);
+					applyActivationEffects(entity, headStack);
 					return true;
 				}
 				return false;
@@ -270,7 +289,7 @@ public class BleedingEffect extends StatusEffectModified implements StatusEffect
 				PillarmanData pillarman = pillarmanOptional.get();
 				if (pillarman.getEvolutionStage() < 2) {
 					pillarman.setEvolutionStage(2, player);
-					applyMaskEffect(entity, headStack);
+					applyActivationEffects(entity, headStack);
 					return true;
 				}
 				return false;
@@ -281,13 +300,15 @@ public class BleedingEffect extends StatusEffectModified implements StatusEffect
 				vampirism.setBloodLevel(VampirismState.get(player).blood().max());
 				vampirism.setVampireFullPower(true, player);
 			});
-			applyMaskEffect(entity, headStack);
+			applyActivationEffects(entity, headStack);
 			return true;
 		}
 		return false;
 	}
 
-	private static void applyMaskEffect(LivingEntity entity, ItemStack headStack) {
+	public static void applyActivationEffects(
+			LivingEntity entity,
+			ItemStack headStack) {
 		entity.level().playSound(null, entity, ModSoundEvents.STONE_MASK_ACTIVATION_ENTITY.get(), entity.getSoundSource(), 1.0F, 1.0F);
 		StoneMaskItem.setActivatedArmorTexture(headStack);
 		headStack.hurtAndBreak(1, entity, EquipmentSlot.HEAD);

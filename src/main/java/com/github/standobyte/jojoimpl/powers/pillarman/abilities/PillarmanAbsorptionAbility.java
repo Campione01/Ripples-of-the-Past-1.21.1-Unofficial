@@ -22,6 +22,7 @@ import com.github.standobyte.jojoimpl.powers.pillarman.PillarmanPowerType;
 
 import net.minecraft.core.Holder;
 import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.effect.MobEffect;
@@ -50,7 +51,8 @@ public class PillarmanAbsorptionAbility extends PillarmanActionAbility {
 		if (user == null) {
 			return ConditionCheck.NEGATIVE;
 		}
-		if (!UtilFunctions.itemHandFree(user.getMainHandItem())) {
+		if (!UtilFunctions.isHandFree(
+				user, InteractionHand.MAIN_HAND)) {
 			return ConditionCheck.createNegative("hand");
 		}
 		Level level = user.level();

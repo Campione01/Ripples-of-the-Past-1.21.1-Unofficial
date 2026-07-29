@@ -54,8 +54,11 @@ public class PillarmanSmallSandstormAbility extends PillarmanActionAbility {
 			level.playSound(null, user.getX(), user.getY(), user.getZ(),
 					ModSoundEvents.MAGICIANS_RED_FIRE_BLAST.get(), SoundSource.AMBIENT, 0.2F, 1.0F);
 			sandstormAbility.setPillarmanFixedCooldown(context, 10);
-			if (context != null && context.getCurTypeData() != null) {
-				context.getCurTypeData().syncOnUpdate(user);
+			if (context != null
+					&& context.getDataForAbility(
+							sandstormAbility) != null) {
+				context.getDataForAbility(sandstormAbility)
+						.syncOnUpdate(user);
 			}
 		}
 	}

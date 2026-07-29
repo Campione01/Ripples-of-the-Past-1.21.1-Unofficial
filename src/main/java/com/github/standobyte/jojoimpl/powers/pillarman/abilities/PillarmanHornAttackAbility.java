@@ -45,8 +45,11 @@ public class PillarmanHornAttackAbility extends PillarmanActionAbility {
 			pillarmanHorn.setLifeSpan(40);
 			level.addFreshEntity(pillarmanHorn);
 			hornAbility.setPillarmanFixedCooldown(context, 60);
-			if (context != null && context.getCurTypeData() != null) {
-				context.getCurTypeData().syncOnUpdate(user);
+			if (context != null
+					&& context.getDataForAbility(
+							hornAbility) != null) {
+				context.getDataForAbility(hornAbility)
+						.syncOnUpdate(user);
 			}
 		}
 	}

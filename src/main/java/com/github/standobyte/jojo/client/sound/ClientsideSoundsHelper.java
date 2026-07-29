@@ -3,9 +3,13 @@ package com.github.standobyte.jojo.client.sound;
 import java.util.Optional;
 
 import com.github.standobyte.jojo.JojoModLivingVariables;
+import com.github.standobyte.jojo.api.client.time.ClientRegionalTimeDilationPolicies;
+import com.github.standobyte.jojo.api.client.time.ClientRegionalTimeDilationQuery;
+import com.github.standobyte.jojo.api.client.time.ClientRegionalTimeDilationSurface;
 import com.github.standobyte.jojo.client.standskin.sound.SoundInstanceWithStandSkin;
 import com.github.standobyte.jojo.client.sound.sounds.EntityStoppableSoundInstance;
 import com.github.standobyte.jojo.core.JojoMod;
+import com.github.standobyte.jojo.mixin.client.time.AbstractSoundInstanceRegionalTimeDilationAccessor;
 import com.github.standobyte.jojo.powersystem.entityaction.ActionPhase;
 import com.github.standobyte.jojo.powersystem.entityaction.EntityActionInstance;
 import com.github.standobyte.jojo.powersystem.standpower.StandPower;
@@ -19,6 +23,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -103,6 +108,29 @@ public class ClientsideSoundsHelper {
 		}
 
 		attenuateDyingBodySound(event);
+		applyRegionalTimeDilation(event);
+	}
+
+	private static void applyRegionalTimeDilation(
+			PlaySoundEvent event) {
+		SoundInstance sound = event.getSound();
+		if (!(sound instanceof
+				AbstractSoundInstanceRegionalTimeDilationAccessor access)) {
+			return;
+		}
+		Minecraft minecraft = Minecraft.getInstance();
+		Vec3 position = sound.isRelative() && minecraft.player != null
+				? minecraft.player.position()
+				: new Vec3(sound.getX(), sound.getY(), sound.getZ());
+		float factor = ClientRegionalTimeDilationPolicies.resolve(
+				new ClientRegionalTimeDilationQuery(
+						ClientRegionalTimeDilationSurface.SOUND,
+						position,
+						minecraft.player));
+		if (factor < 1.0F) {
+			access.jojo_ripples$setRegionalTimeDilationPitch(
+					sound.getPitch() * factor);
+		}
 	}
 
 	private static void attenuateDyingBodySound(PlaySoundEvent event) {

@@ -2,6 +2,7 @@ package com.github.standobyte.jojo.client.firstperson;
 
 import org.joml.Matrix4f;
 
+import com.github.standobyte.jojo.api.client.render.FirstPersonStandRenderPolicies;
 import com.github.standobyte.jojo.api.client.render.FirstPersonPostArmLayers;
 import com.github.standobyte.jojo.client.entityanim.IHumanoidAnimModel;
 import com.github.standobyte.jojo.client.entityrender.stand.HumanoidPart;
@@ -22,6 +23,8 @@ import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.renderer.ItemInHandRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
 import net.minecraft.client.renderer.RenderType;
@@ -46,6 +49,7 @@ import net.minecraft.world.item.UseAnim;
 import net.minecraft.world.level.saveddata.maps.MapId;
 import net.minecraft.world.level.saveddata.maps.MapItemSavedData;
 import net.neoforged.neoforge.client.ClientHooks;
+import net.neoforged.neoforge.client.event.RenderHandEvent;
 import net.neoforged.neoforge.client.extensions.common.IClientItemExtensions;
 
 @SuppressWarnings({ "unchecked", "rawtypes" }) // Silence, Java generics.
@@ -53,12 +57,84 @@ public class FirstPersonRender {
 	static FirstPersonRender instance;
 
 	public static void init() { instance = new FirstPersonRender(); }
+	public static void init(ItemInHandRenderer itemInHandRenderer) {
+		instance = new FirstPersonRender(itemInHandRenderer);
+	}
 	public static FirstPersonRender getInstance() { return instance; }
 
 	protected final Minecraft mc;
+	private final FirstPersonItemRendererAccess itemInHandRendererAccess;
 
 	protected FirstPersonRender() {
+		this(null);
+	}
+
+	protected FirstPersonRender(ItemInHandRenderer itemInHandRenderer) {
 		this.mc = Minecraft.getInstance();
+		this.itemInHandRendererAccess =
+				itemInHandRenderer instanceof FirstPersonItemRendererAccess access
+						? access
+						: null;
+	}
+
+	public static boolean renderExtraPlayerArm(
+			RenderHandEvent sourceEvent,
+			LocalPlayer player,
+			InteractionHand hand) {
+		FirstPersonRender current = instance;
+		if (current == null
+				|| current.itemInHandRendererAccess == null
+				|| sourceEvent == null
+				|| player == null
+				|| player != current.mc.player) {
+			return false;
+		}
+
+		float partialTick = sourceEvent.getPartialTick();
+		float swingProgress =
+				player.swingingArm == hand
+						? player.getAttackAnim(partialTick)
+						: 0.0F;
+		float equipProgress =
+				current.itemInHandRendererAccess
+						.jojo_ripples$getEquipProgress(
+								hand, partialTick);
+		HumanoidArm handSide =
+				hand == InteractionHand.MAIN_HAND
+						? player.getMainArm()
+						: player.getMainArm().getOpposite();
+
+		PoseStack poseStack = sourceEvent.getPoseStack();
+		poseStack.pushPose();
+		try {
+			renderEntityArm(
+					getLivingRenderer(player),
+					player,
+					poseStack,
+					sourceEvent.getMultiBufferSource(),
+					sourceEvent.getPackedLight(),
+					partialTick,
+					equipProgress,
+					swingProgress,
+					handSide);
+		}
+		finally {
+			poseStack.popPose();
+		}
+		return true;
+	}
+
+	public static boolean vanillaRendersBothMapArms(
+			RenderHandEvent sourceEvent) {
+		FirstPersonRender current = instance;
+		return current != null
+				&& current.itemInHandRendererAccess != null
+				&& sourceEvent != null
+				&& sourceEvent.getHand()
+						== InteractionHand.MAIN_HAND
+				&& current.itemInHandRendererAccess
+						.jojo_ripples$vanillaRendersBothMapArms(
+								sourceEvent.getItemStack());
 	}
 
 
@@ -84,6 +160,10 @@ public class FirstPersonRender {
 		switch (renderer) {
 			case StandEntityRenderer standRenderer -> {
 				StandEntity entity = (StandEntity) povEntity;
+				if (FirstPersonStandRenderPolicies.shouldSuppress(
+						mc.player, entity, partialTick)) {
+					return true;
+				}
 				StandEntityRenderState renderState = standRenderer.createRenderState(entity, partialTick);
 				renderState.visibleParts = HumanoidPart.reduce(renderState.visibleParts, HumanoidPart.ARMS_ONLY);
 				renderState.resetObstruction();

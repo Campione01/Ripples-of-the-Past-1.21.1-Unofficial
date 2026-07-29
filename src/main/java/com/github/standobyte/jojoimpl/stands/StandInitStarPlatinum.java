@@ -28,6 +28,7 @@ public class StandInitStarPlatinum {
 				.range(2, 10)
 				.durability(16.0, 20.0)
 				.precision(20)
+				.randomWeight(1)
 				.build(),
 
 				new MovesetBuilder()

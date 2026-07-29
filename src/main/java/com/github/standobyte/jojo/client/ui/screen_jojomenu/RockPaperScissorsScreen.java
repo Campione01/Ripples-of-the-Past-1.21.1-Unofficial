@@ -9,12 +9,14 @@ import javax.annotation.Nullable;
 
 import org.lwjgl.glfw.GLFW;
 
+import com.github.standobyte.jojo.api.rps.RpsCheatRegistrations;
 import com.github.standobyte.jojo.client.ClientProxy;
 import com.github.standobyte.jojo.init.power.ModPlayerPowers;
 import com.github.standobyte.jojo.network.c2s.ClRPSGameInputPacket;
 import com.github.standobyte.jojo.network.c2s.ClRPSPickThoughtsPacket;
 import com.github.standobyte.jojo.powersystem.PowerClass;
 import com.github.standobyte.jojo.powersystem.playerpower.PlayerPower;
+import com.github.standobyte.jojo.powersystem.standpower.StandPower;
 import com.github.standobyte.jojoimpl.npc.rps.RockPaperScissorsGame.Pick;
 
 import net.minecraft.client.Minecraft;
@@ -36,13 +38,15 @@ public class RockPaperScissorsScreen extends Screen {
         super(Component.translatable("jojo.rps.title"));
     }
 
-    public static void open(int opponentId, List<Pick> playerPicks, List<Pick> opponentPicks, int round) {
-        STATE.enter(opponentId, playerPicks, opponentPicks, round);
+    public static void open(int opponentId, List<Pick> playerPicks,
+            List<Pick> opponentPicks, int round, long sessionEpoch) {
+        STATE.enter(opponentId, playerPicks, opponentPicks, round,
+                sessionEpoch);
         ClientProxy.openScreen(new RockPaperScissorsScreen());
     }
 
     public static void open() {
-        open(-1, List.of(), List.of(), 1);
+        open(-1, List.of(), List.of(), 1, 0L);
     }
 
     public static void updateState(List<Pick> playerPicks, List<Pick> opponentPicks, int round) {
@@ -129,7 +133,8 @@ public class RockPaperScissorsScreen extends Screen {
         PowerClass<?> cheatPower = currentCheatPower();
         if (STATE.active && cheatPower != null && !STATE.cheatedThisRound) {
             STATE.cheatedThisRound = true;
-            PacketDistributor.sendToServer(ClRPSGameInputPacket.cheat(cheatPower));
+            PacketDistributor.sendToServer(ClRPSGameInputPacket.cheat(
+                    cheatPower, STATE.sessionEpoch));
         }
     }
 
@@ -195,7 +200,9 @@ public class RockPaperScissorsScreen extends Screen {
         Pick hoveredPick = hoveredPick(mouseX, mouseY);
         if (hoveredPick != STATE.lastSentThoughtsPick) {
             STATE.lastSentThoughtsPick = hoveredPick;
-            PacketDistributor.sendToServer(new ClRPSPickThoughtsPacket(hoveredPick));
+            PacketDistributor.sendToServer(
+                    new ClRPSPickThoughtsPacket(
+                            STATE.sessionEpoch, hoveredPick));
         }
     }
 
@@ -213,6 +220,10 @@ public class RockPaperScissorsScreen extends Screen {
     private PowerClass<?> currentCheatPower() {
         if (minecraft == null || minecraft.player == null) {
             return null;
+        }
+        StandPower standPower = StandPower.get(minecraft.player);
+        if (RpsCheatRegistrations.find(standPower).isPresent()) {
+            return PowerClass.STAND;
         }
         PlayerPower playerPower = PlayerPower.get(minecraft.player);
         if (playerPower == null || !playerPower.hasPower()) {
@@ -284,6 +295,7 @@ public class RockPaperScissorsScreen extends Screen {
     private static class ClientGameState {
         private boolean active = false;
         private int opponentId = -1;
+        private long sessionEpoch;
         private int round = 1;
         private List<Pick> playerPicks = List.of();
         private List<Pick> opponentPicks = List.of();
@@ -296,9 +308,11 @@ public class RockPaperScissorsScreen extends Screen {
         private boolean cheatedThisRound = false;
         @Nullable private Pick lastSentThoughtsPick;
 
-        private void enter(int opponentId, List<Pick> playerPicks, List<Pick> opponentPicks, int round) {
+        private void enter(int opponentId, List<Pick> playerPicks,
+                List<Pick> opponentPicks, int round, long sessionEpoch) {
             this.active = true;
             this.opponentId = opponentId;
+            this.sessionEpoch = sessionEpoch;
             update(playerPicks, opponentPicks, round);
             this.playerWon = null;
         }
@@ -320,6 +334,7 @@ public class RockPaperScissorsScreen extends Screen {
         private void reset() {
             this.active = false;
             this.opponentId = -1;
+            this.sessionEpoch = 0L;
             this.round = 1;
             this.playerPicks = List.of();
             this.opponentPicks = List.of();

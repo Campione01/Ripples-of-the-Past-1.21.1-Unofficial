@@ -62,8 +62,11 @@ public class PillarmanErraticBlazeKingAbility extends PillarmanActionAbility {
 				syncPhaseChanges();
 				return;
 			}
-			if (context != null && context.getCurTypeData() != null) {
-				context.getCurTypeData().syncOnUpdate(user);
+			if (context != null
+					&& context.getDataForAbility(
+							erraticAbility) != null) {
+				context.getDataForAbility(erraticAbility)
+						.syncOnUpdate(user);
 			}
 		}
 

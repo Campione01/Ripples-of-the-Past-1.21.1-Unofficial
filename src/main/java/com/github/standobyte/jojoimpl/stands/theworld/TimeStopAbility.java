@@ -3,7 +3,12 @@ package com.github.standobyte.jojoimpl.stands.theworld;
 import java.util.Locale;
 import java.util.Optional;
 
+import com.github.standobyte.jojo.api.timestop.TimeStopAudioContext;
+import com.github.standobyte.jojo.api.timestop.TimeStopAudioCue;
+import com.github.standobyte.jojo.api.timestop.TimeStopAudioDecision;
+import com.github.standobyte.jojo.api.timestop.TimeStopBehaviorPolicies;
 import com.github.standobyte.jojo.api.timestop.TimeStopLifecycleEvent;
+import com.github.standobyte.jojo.api.timestop.TimeStopStartupCostDecision;
 import com.github.standobyte.jojo.client.ui.hud_power.WindupIndicator;
 import com.github.standobyte.jojo.config.client.PlayerClientBroadcastedSettings;
 import com.github.standobyte.jojo.core.JojoMod;
@@ -318,9 +323,17 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 	}
 
 	private boolean hasEnoughTimeStopStamina(StandPower power) {
-		return power.isUserCreative()
-				|| power.getStamina() >= effectiveTimeStopStaminaCost(power,
-						TimeStopLearning.getTimeStopStaminaCost(power, TimeStopLearning.MIN_TIME_STOP_TICKS));
+		float defaultCost = TimeStopLearning.getTimeStopStaminaCost(
+				power, TimeStopLearning.MIN_TIME_STOP_TICKS);
+		TimeStopStartupCostDecision decision =
+				TimeStopBehaviorPolicies.resolveStartupCost(
+						power, abilityId, null, defaultCost);
+		return !decision.isDenied()
+				&& (power.isUserCreative()
+						|| power.getStamina()
+								>= effectiveTimeStopStaminaCost(
+										power,
+										decision.resolve(defaultCost)));
 	}
 
 	private static float effectiveTimeStopStaminaCost(StandPower power, float amount) {
@@ -328,7 +341,22 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 	}
 
 	private void playTimeStopVoiceLine(ServerLevel serverLevel, LivingEntity user, StandPower power, boolean standAlreadySummoned) {
-		Holder<SoundEvent> voiceLine = getTimeStopVoiceLine(user, power, standAlreadySummoned);
+		TimeStopAudioDecision decision =
+				TimeStopBehaviorPolicies.resolveAudio(
+						power.getPowerType().getId(),
+						new TimeStopAudioContext(
+								TimeStopAudioCue.START_VOICE,
+								user,
+								power,
+								abilityId,
+								null,
+								standAlreadySummoned));
+		Holder<SoundEvent> voiceLine = switch (decision.kind()) {
+			case PASS -> getTimeStopVoiceLine(
+					user, power, standAlreadySummoned);
+			case SOUND -> decision.sound();
+			case SILENT -> null;
+		};
 		if (voiceLine != null) {
 			JojoModUtil.sayVoiceLine(user, voiceLine);
 		}
@@ -415,10 +443,20 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 				startEvent.setInstance(instance);
 			}
 		}
-		float timeStopStaminaCost = effectiveTimeStopStaminaCost(
-				power,
+		float defaultStaminaCost =
 				TimeStopLearning.getTimeStopStaminaCost(
-						power, instance.totalTicks()));
+						power, instance.totalTicks());
+		TimeStopStartupCostDecision startupCost =
+				TimeStopBehaviorPolicies.resolveStartupCost(
+						power,
+						abilityId,
+						instance,
+						defaultStaminaCost);
+		if (startupCost.isDenied()) {
+			return false;
+		}
+		float timeStopStaminaCost = effectiveTimeStopStaminaCost(
+				power, startupCost.resolve(defaultStaminaCost));
 		if (!power.consumeStamina(timeStopStaminaCost, false)) {
 			ConditionCheck.sendActionFailedMessage(
 					this, ConditionCheck.createNegative("no_stamina"), user);
@@ -448,11 +486,39 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 		TimeStopLearning.markUsedTimeStopToday(power);
 		if (!invadingStoppedTime) {
 			if (instance.totalTicks() >= TIME_STOP_SOUND_MIN_TICKS) {
+				TimeStopAudioDecision soundDecision =
+						TimeStopBehaviorPolicies.resolveAudio(
+								instance.standTypeId().orElse(null),
+								new TimeStopAudioContext(
+										TimeStopAudioCue.START_SOUND,
+										user,
+										power,
+										abilityId,
+										instance,
+										standAlreadySummoned));
+				Holder<SoundEvent> startSound =
+						switch (soundDecision.kind()) {
+							case PASS -> getTimeStopSound(power);
+							case SOUND -> soundDecision.sound();
+							case SILENT -> null;
+						};
 				TimeStopState.Instance soundInstance = instance;
-				StandUtil.broadcastSoundWithCondition(serverLevel, user.position(), getTimeStopSound(power),
-						false, power, SoundSource.AMBIENT, 5.0F, 1.0F,
-						player -> soundInstance.covers(new ChunkPos(player.blockPosition()))
-								&& TimeStopState.canPlayerSeeInStoppedTime(player));
+				if (startSound != null) {
+					StandUtil.broadcastSoundWithCondition(
+							serverLevel,
+							user.position(),
+							startSound,
+							false,
+							power,
+							SoundSource.AMBIENT,
+							5.0F,
+							1.0F,
+							player -> soundInstance.covers(
+											new ChunkPos(
+													player.blockPosition()))
+									&& TimeStopState
+											.canPlayerSeeInStoppedTime(player));
+				}
 			}
 		}
 		return true;

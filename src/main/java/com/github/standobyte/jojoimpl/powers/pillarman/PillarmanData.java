@@ -14,7 +14,9 @@ import com.github.standobyte.jojo.init.ModStatusEffects;
 import com.github.standobyte.jojo.powersystem.Power;
 import com.github.standobyte.jojo.powersystem.PowerData;
 import com.github.standobyte.jojo.powersystem.PowerType;
+import com.github.standobyte.jojo.powersystem.playerpower.PlayerPower;
 import com.github.standobyte.jojo.powersystem.playerpower.PlayerPowerData;
+import com.github.standobyte.jojo.powersystem.playerpower.PlayerPowerType;
 import com.github.standobyte.jojoimpl.powers.vampirism.VampirismUtil;
 
 import net.minecraft.core.Holder;
@@ -185,6 +187,31 @@ public class PillarmanData extends PlayerPowerData {
 	public void onPowerCleared(Power<?> userPower, @Nullable PowerType newType) {
 		removePillarmanBuffs(userPower.getUser());
 		super.onPowerCleared(userPower, newType);
+	}
+
+	@Override
+	public void onTemporaryPowerSuspended(
+			PlayerPower power,
+			PlayerPowerType<?> temporaryType) {
+		removePillarmanBuffs(power.getUser());
+	}
+
+	@Override
+	public void onTemporaryPowerRestored(
+			PlayerPower power,
+			PlayerPowerType<?> temporaryType) {
+		updatePillarmanBuffs(power.getUser());
+	}
+
+	@Override
+	public void onTemporaryPowerEnded(
+			PlayerPower temporaryPower,
+			PlayerPower restoredPower,
+			PlayerPowerType<?> restoredType) {
+		removePillarmanBuffs(temporaryPower.getUser());
+		if (restoredPower.getUser() != temporaryPower.getUser()) {
+			removePillarmanBuffs(restoredPower.getUser());
+		}
 	}
 
 	@Override
@@ -436,6 +463,12 @@ public class PillarmanData extends PlayerPowerData {
 				iterator.remove();
 			}
 		}
+	}
+
+	@Override
+	public void tickWhileTemporarilySuspended(
+			PlayerPower power) {
+		tickAbilityCooldowns();
 	}
 
 	private void tickEatenTntFuse(LivingEntity user) {

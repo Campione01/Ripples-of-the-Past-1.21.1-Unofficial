@@ -105,8 +105,11 @@ public class PillarmanSelfDetonationAbility extends PillarmanActionAbility {
 				user.hurt(level.damageSources().explosion(user, user), 40.0F);
 				user.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 200, 0));
 			}
-			if (context != null && context.getCurTypeData() != null) {
-				context.getCurTypeData().syncOnUpdate(user);
+			if (context != null
+					&& context.getDataForAbility(
+							detonationAbility) != null) {
+				context.getDataForAbility(detonationAbility)
+						.syncOnUpdate(user);
 			}
 		}
 	}

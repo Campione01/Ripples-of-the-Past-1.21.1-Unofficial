@@ -8,16 +8,20 @@ import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.player.Player;
 
 /**
- * Runtime binding surface for {@code directional_gravity_v1}.
+ * Runtime binding surface for directional gravity v1 and v2.
  *
  * <p>The core stores only loaded-entity bindings. A source remains responsible
  * for authoritative state, persistence, and server-to-client synchronization.
  * Higher priorities win among active sources whose direction is not
  * {@link Direction#DOWN}; equal-priority sources are ordered by source ID.
- * Version 1 supports living entities only.</p>
+ * Bindings support living entities only. Version 2 retains the selected frame
+ * across all vanilla living movement modes. A source that throws a
+ * {@link RuntimeException} during runtime resolution is quarantined for that
+ * entity and treated as inactive. The first failure is logged; a matching
+ * {@link #directionChanged(LivingEntity, ResourceLocation,
+ * DirectionalGravitySource)} call or a rebind explicitly retries it.</p>
  */
 public final class DirectionalGravityApi {
 	public static final int DEFAULT_PRIORITY = 0;
@@ -37,9 +41,10 @@ public final class DirectionalGravityApi {
 
 		DirectionalGravityData data = entity.getData(
 				ModDataAttachmentTypes.DIRECTIONAL_GRAVITY.get());
-		data.bind(sourceId, priority, source);
+		Direction resolvedDirection = data.bindAndResolve(
+				entity, sourceId, priority, source);
 		if (data.updateAppliedDirection(
-				effectiveDirection(entity, data.resolve(entity)))) {
+				effectiveDirection(entity, resolvedDirection))) {
 			entity.refreshDimensions();
 		}
 	}
@@ -62,6 +67,8 @@ public final class DirectionalGravityApi {
 
 	/**
 	 * Refreshes collision dimensions after a bound source changes its state.
+	 * This also explicitly retries a matching source that was quarantined
+	 * after a runtime failure.
 	 */
 	public static void directionChanged(LivingEntity entity,
 			ResourceLocation sourceId, DirectionalGravitySource source) {
@@ -69,7 +76,7 @@ public final class DirectionalGravityApi {
 			return;
 		}
 		DirectionalGravityData data = existingData(entity);
-		if (data != null && data.contains(sourceId, source)
+		if (data != null && data.reactivate(sourceId, source)
 				&& data.updateAppliedDirection(effectiveDirection(
 						entity, data.resolve(entity)))) {
 			entity.refreshDimensions();
@@ -85,10 +92,7 @@ public final class DirectionalGravityApi {
 	}
 
 	/**
-	 * Returns the direction used by core hooks. Vanilla behavior is retained
-	 * for non-living entities, vehicles, fluids, elytra flight, levitation,
-	 * no-gravity entities, and player ability flight because those movement
-	 * models are not part of v1.
+	 * Returns the direction used by core hooks.
 	 */
 	public static Direction getEffectiveDirection(Entity entity) {
 		if (entity == null) {
@@ -99,8 +103,7 @@ public final class DirectionalGravityApi {
 	}
 
 	/**
-	 * Reconciles temporary compatibility modes before an entity tick. This
-	 * keeps cached collision geometry and all movement hooks in one frame.
+	 * Reconciles a mutable provider before an entity tick.
 	 */
 	public static void reconcileEffectiveDirection(Entity entity) {
 		DirectionalGravityData data = existingData(entity);
@@ -112,20 +115,8 @@ public final class DirectionalGravityApi {
 
 	private static Direction effectiveDirection(Entity entity,
 			Direction direction) {
-		if (!(entity instanceof LivingEntity living)
-				|| direction == Direction.DOWN || entity.isPassenger()
-				|| entity.isNoGravity()
-				|| living.hasEffect(
-						net.minecraft.world.effect.MobEffects.LEVITATION)) {
-			return Direction.DOWN;
-		}
-		if (living.isSwimming() || living.isInWaterOrBubble()
-				|| living.isInLava() || living.isInFluidType()
-				|| living.isFallFlying()) {
-			return Direction.DOWN;
-		}
-		if (entity instanceof Player player
-				&& player.getAbilities().flying) {
+		if (!(entity instanceof LivingEntity)
+				|| direction == null) {
 			return Direction.DOWN;
 		}
 		return direction;

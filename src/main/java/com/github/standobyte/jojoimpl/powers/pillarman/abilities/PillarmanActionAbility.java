@@ -169,7 +169,7 @@ abstract class PillarmanActionAbility extends EntityActionAbility {
 		if (context == null) {
 			return null;
 		}
-		PowerData data = context.getCurTypeData();
+		PowerData data = context.getDataForAbility(this);
 		return data instanceof PillarmanData pillarman ? pillarman : null;
 	}
 
@@ -250,7 +250,11 @@ abstract class PillarmanActionAbility extends EntityActionAbility {
 				return;
 			}
 			heldTick(pillarmanAbility, user, context, ticksHeld);
-			if (!level().isClientSide() && context != null && context.getCurTypeData() instanceof PillarmanData data
+			if (!level().isClientSide()
+					&& pillarmanAbility != null
+					&& pillarmanAbility
+							.getPillarmanData(context)
+							instanceof PillarmanData data
 					&& ticksHeld % 5 == 0) {
 				data.syncOnUpdate(context.getUser());
 			}

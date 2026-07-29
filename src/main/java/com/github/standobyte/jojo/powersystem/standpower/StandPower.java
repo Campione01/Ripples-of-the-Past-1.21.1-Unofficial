@@ -15,6 +15,9 @@ import org.jetbrains.annotations.ApiStatus;
 
 import com.github.standobyte.jojo.JojoModConfig;
 import com.github.standobyte.jojo.JojoModLivingVariables;
+import com.github.standobyte.jojo.api.leap.LeapAccessPolicies;
+import com.github.standobyte.jojo.api.leap.LeapSource;
+import com.github.standobyte.jojo.api.stand.StandLeapUnlockProviders;
 import com.github.standobyte.jojo.config.client.PlayerClientBroadcastedSettings;
 import com.github.standobyte.jojo.entityattachment.PostNbtReadEntityData;
 import com.github.standobyte.jojo.init.ModCriteriaTriggers;
@@ -26,12 +29,14 @@ import com.github.standobyte.jojo.mechanics.resolve.ResolveCounter;
 import com.github.standobyte.jojo.mechanics.resolve.ResolveModeEffect;
 import com.github.standobyte.jojo.mechanics.standarrow.StandArrowItem;
 import com.github.standobyte.jojo.network.s2c.SoulSpawnPacket;
+import com.github.standobyte.jojo.network.s2c.StandFullClearPacket;
 import com.github.standobyte.jojo.network.s2c.StandEntitySoundPacket;
 import com.github.standobyte.jojo.network.s2c.TrPowerStandInstancePacket;
 import com.github.standobyte.jojo.network.s2c.TrStandSkinPacket;
 import com.github.standobyte.jojo.powersystem.Power;
 import com.github.standobyte.jojo.powersystem.PowerClass;
 import com.github.standobyte.jojo.powersystem.ability.Ability;
+import com.github.standobyte.jojo.powersystem.ability.condition.AvailableAbilities;
 import com.github.standobyte.jojo.powersystem.ability.ProgressionSkipHandler;
 import com.github.standobyte.jojo.powersystem.ability.TrainableAbility;
 import com.github.standobyte.jojo.powersystem.playerpower.PlayerPower;
@@ -226,6 +231,47 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 	
 	public Optional<StandInstance> getStandInstance() {
 		return standInstance;
+	}
+
+	/**
+	 * Commits a preflighted destructive Stand transition.
+	 */
+	@ApiStatus.Internal
+	public void applyDestructiveTransition(boolean fullReset) {
+		setStandInstance(Optional.empty());
+		staminaAddNextTick = 0;
+		resetAbilityCooldowns();
+		setLeapCooldown(0);
+		resolveCounter.resetResolveValue(this);
+		willSoulSpawn = false;
+		healingDamageFromArrow = false;
+
+		if (user instanceof ServerPlayer player) {
+			PacketDistributor.sendToPlayer(
+					player, SoulSpawnPacket.spawnFlag(false));
+		}
+		if (fullReset) {
+			clearFullStandProgressionState();
+			if (user instanceof ServerPlayer player) {
+				PacketDistributor.sendToPlayer(
+						player, new StandFullClearPacket());
+			}
+		}
+	}
+
+	@ApiStatus.Internal
+	public void clientApplyFullStandClear() {
+		if (user.level().isClientSide()) {
+			clearFullStandProgressionState();
+		}
+	}
+
+	private void clearFullStandProgressionState() {
+		powerData.clear();
+		moveset = initMoveset(getPowerType());
+		_curAvailableMoves = new AvailableAbilities();
+		cachedMovesThisTick = false;
+		userStandAwakeningState = new StandAwakening();
 	}
 
 	@Override
@@ -533,11 +579,17 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 		if (!hasPower() || leapCooldown != 0 || !isLeapUnlocked() || leapStrength() <= 0) {
 			return false;
 		}
-		if (!(getPowerType() instanceof EntityStandType standType) || !standType.canLeap()) {
+		if (!(getPowerType() instanceof EntityStandType standType)
+				|| !(standType.canLeap()
+						|| StandLeapUnlockProviders.unlocks(
+								user, this, standType))) {
 			return false;
 		}
 		StandEntity standEntity = getSummonedStandEntity();
-		return standEntity != null && standEntity.getCurStandAction() == null;
+		return standEntity != null
+				&& standEntity.getCurStandAction() == null
+				&& LeapAccessPolicies.allowsExecution(
+						user, LeapSource.STAND);
 	}
 
 	public int getLeapCooldownPeriod() {

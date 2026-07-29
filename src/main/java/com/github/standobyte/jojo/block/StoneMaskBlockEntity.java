@@ -15,11 +15,16 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
 public class StoneMaskBlockEntity extends BlockEntity {
-	private ItemStack maskStack = new ItemStack(ModItems.STONE_MASK.get());
+	private ItemStack maskStack;
 	private int activationTicks;
 
 	public StoneMaskBlockEntity(BlockPos pos, BlockState state) {
 		super(ModBlockEntities.STONE_MASK.get(), pos, state);
+		ItemStack stateStack =
+				new ItemStack(state.getBlock().asItem());
+		maskStack = !stateStack.isEmpty()
+				? stateStack
+				: new ItemStack(ModItems.STONE_MASK.get());
 	}
 
 	@Override

@@ -8,7 +8,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Pure coordinate transforms used by {@code directional_gravity_v1}.
+ * Pure coordinate transforms used by directional gravity v1 and v2.
  */
 public final class DirectionalGravityTransforms {
 	private DirectionalGravityTransforms() {}

@@ -1,7 +1,10 @@
 package com.github.standobyte.jojo.mixin.crafting;
 
 import com.github.standobyte.jojo.crafting.StandUserCraftingContext;
+import com.github.standobyte.jojo.api.control.PlayerOperation;
+import com.github.standobyte.jojo.api.control.PlayerOperationPolicies;
 
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -10,6 +13,7 @@ import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.inventory.ResultContainer;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -23,10 +27,22 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class CraftingMenuMixin {
 	@Shadow @Final private Player player;
 
-	@Inject(method = "slotChangedCraftingGrid", at = @At("HEAD"))
+	@Inject(
+			method = "slotChangedCraftingGrid",
+			at = @At("HEAD"),
+			cancellable = true)
 	private static void rotp$standRecipeStart(AbstractContainerMenu menu, Level level, Player player,
 			CraftingContainer craftSlots, ResultContainer resultSlots, RecipeHolder<CraftingRecipe> currentRecipe,
 			CallbackInfo ci) {
+		if (player instanceof ServerPlayer serverPlayer
+				&& PlayerOperationPolicies.intercept(
+						serverPlayer,
+						PlayerOperation.CRAFT_RESULT_RECOMPUTE)) {
+			resultSlots.setItem(0, ItemStack.EMPTY);
+			menu.broadcastChanges();
+			ci.cancel();
+			return;
+		}
 		StandUserCraftingContext.push(player);
 	}
 

@@ -16,6 +16,8 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeMap;
 
 public class StandStats implements JsonConfigurable {
+	public static final double DEFAULT_RANDOM_WEIGHT = 2.0D;
+
 	private final DefaultedValue.Double powerBase;
 	private final DefaultedValue.Double powerMax;
 	private final DefaultedValue.Double speedBase;
@@ -26,13 +28,26 @@ public class StandStats implements JsonConfigurable {
 	private final DefaultedValue.Double durabilityMax;
 	private final DefaultedValue.Double precisionBase;
 	private final DefaultedValue.Double precisionMax;
+	private final DefaultedValue.Double randomWeight;
 	
 	public StandStats(double power, double speed, double rangeEffective, double rangeMax, double durability, double precision) {
-		this(power, power, speed, speed, rangeEffective, rangeMax, durability, durability, precision, precision);
+		this(power, power, speed, speed, rangeEffective, rangeMax,
+				durability, durability, precision, precision,
+				DEFAULT_RANDOM_WEIGHT);
 	}
 
 	public StandStats(double powerBase, double powerMax, double speedBase, double speedMax, double rangeEffective, double rangeMax,
 			double durabilityBase, double durabilityMax, double precisionBase, double precisionMax) {
+		this(powerBase, powerMax, speedBase, speedMax, rangeEffective,
+				rangeMax, durabilityBase, durabilityMax, precisionBase,
+				precisionMax, DEFAULT_RANDOM_WEIGHT);
+	}
+
+	public StandStats(double powerBase, double powerMax, double speedBase,
+			double speedMax, double rangeEffective, double rangeMax,
+			double durabilityBase, double durabilityMax,
+			double precisionBase, double precisionMax,
+			double randomWeight) {
 		this.powerBase = new DefaultedValue.Double(powerBase);
 		this.powerMax = new DefaultedValue.Double(Math.max(powerBase, powerMax));
 		this.speedBase = new DefaultedValue.Double(speedBase);
@@ -44,6 +59,7 @@ public class StandStats implements JsonConfigurable {
 		this.durabilityMax = new DefaultedValue.Double(Math.max(durabilityBase, durabilityMax));
 		this.precisionBase = new DefaultedValue.Double(precisionBase);
 		this.precisionMax = new DefaultedValue.Double(Math.max(precisionBase, precisionMax));
+		this.randomWeight = new DefaultedValue.Double(randomWeight);
 	}
 
 	public double getValue(StatWithValue field) {
@@ -62,6 +78,7 @@ public class StandStats implements JsonConfigurable {
 			case DURABILITY_MAX -> durabilityMax;
 			case PRECISION -> precisionBase;
 			case PRECISION_MAX -> precisionMax;
+			case RANDOM_WEIGHT -> randomWeight;
 			default -> throw new IllegalArgumentException("Unexpected value: " + field);
 		};
 	}
@@ -72,6 +89,7 @@ public class StandStats implements JsonConfigurable {
 	public double rangeMax() { return rangeMax.value; }
 	public double durability() { return getBaseDurability(); }
 	public double precision() { return getBasePrecision(); }
+	public double randomWeight() { return randomWeight.value; }
 	public double power(float devProgress) { return getBasePower() + getDevPower(devProgress); }
 	public double speed(float devProgress) { return getBaseAttackSpeed() + getDevAttackSpeed(devProgress); }
 	public double durability(float devProgress) { return getBaseDurability() + getDevDurability(devProgress); }
@@ -80,6 +98,7 @@ public class StandStats implements JsonConfigurable {
 	public double getBaseAttackSpeed() { return speedBase.value; }
 	public double getBaseDurability() { return durabilityBase.value; }
 	public double getBasePrecision() { return precisionBase.value; }
+	public double getRandomWeight() { return randomWeight.value; }
 	public double getDevPower(float devProgress) { return devProgress * (powerMax.value - powerBase.value); }
 	public double getDevAttackSpeed(float devProgress) { return devProgress * (speedMax.value - speedBase.value); }
 	public double getDevDurability(float devProgress) { return devProgress * (durabilityMax.value - durabilityBase.value); }
@@ -96,6 +115,7 @@ public class StandStats implements JsonConfigurable {
 		private double durabilityMax;
 		private double precisionBase;
 		private double precisionMax;
+		private double randomWeight = DEFAULT_RANDOM_WEIGHT;
 		
 		public Builder power(double power) {
 			return power(power, power);
@@ -142,6 +162,11 @@ public class StandStats implements JsonConfigurable {
 			this.precisionMax = Math.max(this.precisionBase, precisionMax);
 			return this;
 		}
+
+		public Builder randomWeight(double randomWeight) {
+			this.randomWeight = randomWeight;
+			return this;
+		}
 		
 		public Builder fieldValue(StatWithValue field, double value) {
 			switch (field) {
@@ -155,13 +180,16 @@ public class StandStats implements JsonConfigurable {
 				case DURABILITY_MAX -> durabilityMax = Math.max(durabilityBase, value);
 				case PRECISION -> precisionBase = Math.max(value, 0);
 				case PRECISION_MAX -> precisionMax = Math.max(precisionBase, value);
+				case RANDOM_WEIGHT -> randomWeight = value;
 				default -> throw new IllegalArgumentException("Unexpected value: " + field);
 			};
 			return this;
 		}
 		
 		public StandStats build() {
-			return new StandStats(powerBase, powerMax, speedBase, speedMax, rangeEffective, rangeMax, durabilityBase, durabilityMax, precisionBase, precisionMax);
+			return new StandStats(powerBase, powerMax, speedBase, speedMax,
+					rangeEffective, rangeMax, durabilityBase, durabilityMax,
+					precisionBase, precisionMax, randomWeight);
 		}
 	}
 	
@@ -175,7 +203,8 @@ public class StandStats implements JsonConfigurable {
 		DURABILITY("durability"),
 		DURABILITY_MAX("durabilityMax"),
 		PRECISION("precision"),
-		PRECISION_MAX("precisionMax");
+		PRECISION_MAX("precisionMax"),
+		RANDOM_WEIGHT("randomWeight");
 		
 		private final String nameInJson;
 		
@@ -200,7 +229,8 @@ public class StandStats implements JsonConfigurable {
 				.speed(speedBase.defaultValue, speedMax.defaultValue)
 				.range(rangeEffective.defaultValue, rangeMax.defaultValue)
 				.durability(durabilityBase.defaultValue, durabilityMax.defaultValue)
-				.precision(precisionBase.defaultValue, precisionMax.defaultValue);
+				.precision(precisionBase.defaultValue, precisionMax.defaultValue)
+				.randomWeight(randomWeight.defaultValue);
 	}
 	
 	public static StandStats fromJson(JsonObject json) {

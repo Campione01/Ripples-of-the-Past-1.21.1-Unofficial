@@ -5,6 +5,8 @@ import java.util.function.Consumer;
 
 import javax.annotation.Nullable;
 
+import com.github.standobyte.jojo.api.control.PlayerOperation;
+import com.github.standobyte.jojo.api.control.PlayerOperationPolicies;
 import com.github.standobyte.jojo.mixin.entity_like_player.npc.LivingEntityAccessor;
 import com.github.standobyte.jojo.subsystems.entity_opencontainer.OpenContainerAsNonPlayer;
 import com.mojang.authlib.GameProfile;
@@ -146,6 +148,13 @@ public class ServerPlayerLivingWrapper extends FakePlayer implements EntityAsPla
     protected int nextContainerCounter() { this.containerCounter = this.containerCounter % 100 + 1; return this.containerCounter; }
 	@Override
 	public OptionalInt openMenu(@Nullable MenuProvider menuProvider, @Nullable Consumer<RegistryFriendlyByteBuf> extraDataWriter) {
+		if (menuProvider != null
+				&& playerStandUser != null
+				&& PlayerOperationPolicies.intercept(
+						playerStandUser,
+						PlayerOperation.MENU_OPEN_AS_NON_PLAYER)) {
+			return OptionalInt.empty();
+		}
 		OptionalInt containerId = OpenContainerAsNonPlayer.openMenu(this, actualEntity, playerStandUser, menuProvider, extraDataWriter, nextContainerCounter());
 		if (containerId.isPresent()) return containerId;
 		

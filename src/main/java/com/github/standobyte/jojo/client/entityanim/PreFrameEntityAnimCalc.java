@@ -2,6 +2,8 @@ package com.github.standobyte.jojo.client.entityanim;
 
 import javax.annotation.Nullable;
 
+import com.github.standobyte.jojo.api.client.animation.AddonPlayerAnimations;
+import com.github.standobyte.jojo.api.client.animation.AddonPlayerAnimations.PlayerAnimationState;
 import com.github.standobyte.jojo.client.entityanim.RotpAnimDefinition.AnimWithId;
 import com.github.standobyte.jojo.client.entityanim.barrage.BarrageSwings;
 import com.github.standobyte.jojo.client.entityanim.molang.AnimMolangQuery.AnimMolangVariables;
@@ -95,9 +97,21 @@ public class PreFrameEntityAnimCalc {
 				? PlayerPower.getPowerData(living, PillarmanPowerType.PILLAR_MAN)
 						.filter(PillarmanData::isStoneFormEnabled).orElse(null)
 				: null;
+		@Nullable PlayerAnimationState addonPlayerAnimation =
+				action == null
+				&& stand == null
+				&& persistentHamonPose == null
+				&& persistentStoneForm == null
+				&& living instanceof Player player
+						? AddonPlayerAnimations.resolve(player, partialTick)
+						: null;
 		
 		LivingAnimState animVariables = LivingAnimState.reusedInstance;
-		if (action != null || stand != null || persistentHamonPose != null || persistentStoneForm != null) {
+		if (action != null
+				|| stand != null
+				|| persistentHamonPose != null
+				|| persistentStoneForm != null
+				|| addonPlayerAnimation != null) {
 			if (persistentHamonPose != null) {
 				animVariables.reset();
 				animVariables.animSet = ModPlayerPowers.HAMON.get().getId();
@@ -121,6 +135,16 @@ public class PreFrameEntityAnimCalc {
 					animVariables.animId = ActionAnimIdentifier.getOrCreate("pillarman_stone_form",
 							persistentStoneForm.getStoneFormPose(), false);
 					animVariables.time = persistentStoneForm.getStoneFormAnimTicks() + partialTick;
+				}
+				else if (addonPlayerAnimation != null) {
+					animVariables.animSet =
+							addonPlayerAnimation.animationSet();
+					animVariables.animId =
+							ActionAnimIdentifier.getOrCreate(
+									addonPlayerAnimation.animation(),
+									false);
+					animVariables.time =
+							addonPlayerAnimation.timeInTicks();
 				}
 			}
 

@@ -110,8 +110,11 @@ public class PillarmanLightFlashAbility extends PillarmanActionAbility {
 					}
 				}
 				flashAbility.setPillarmanFixedCooldown(context, 80);
-				if (context != null && context.getCurTypeData() != null) {
-					context.getCurTypeData().syncOnUpdate(user);
+				if (context != null
+						&& context.getDataForAbility(
+								flashAbility) != null) {
+					context.getDataForAbility(flashAbility)
+							.syncOnUpdate(user);
 				}
 			}
 			level.playSound(null, user, ModSoundEvents.AJA_STONE_BEAM.get(), user.getSoundSource(),

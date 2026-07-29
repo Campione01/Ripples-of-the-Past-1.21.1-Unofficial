@@ -44,8 +44,11 @@ public class PillarmanRegenerationAbility extends PillarmanActionAbility {
 				return;
 			}
 			regenAbility.setPillarmanFixedCooldown(context, 20);
-			if (context != null && context.getCurTypeData() != null) {
-				context.getCurTypeData().syncOnUpdate(user);
+			if (context != null
+					&& context.getDataForAbility(
+							regenAbility) != null) {
+				context.getDataForAbility(regenAbility)
+						.syncOnUpdate(user);
 			}
 			int duration = 60;
 			int level = 4;

@@ -86,8 +86,11 @@ public class PillarmanGiantCarthwheelPrisonAbility extends PillarmanActionAbilit
 			}
 			user.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 600, 0, false, false, false));
 			prisonAbility.setPillarmanFixedCooldown(context, 100);
-			if (context != null && context.getCurTypeData() != null) {
-				context.getCurTypeData().syncOnUpdate(user);
+			if (context != null
+					&& context.getDataForAbility(
+							prisonAbility) != null) {
+				context.getDataForAbility(prisonAbility)
+						.syncOnUpdate(user);
 			}
 		}
 	}

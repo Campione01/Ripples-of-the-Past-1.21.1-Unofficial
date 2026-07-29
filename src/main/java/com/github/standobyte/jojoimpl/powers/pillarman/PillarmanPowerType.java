@@ -207,6 +207,13 @@ public class PillarmanPowerType extends PlayerPowerType<PillarmanData> {
 		return getEvolutionStage(power);
 	}
 
+	@Override
+	public float getTargetResolveMultiplier(
+			PlayerPower power,
+			StandPower attackingStand) {
+		return getEvolutionStage(power);
+	}
+
 	private float getEvolutionStage(PlayerPower power) {
 		return power.getCurTypeData(PILLAR_MAN)
 				.map(PillarmanData::getEvolutionStage)

@@ -70,8 +70,9 @@ public class JojoPowerCommand {
 			if (entity instanceof LivingEntity living) {
 				PowerClass.PLAYER_POWER.attachPower(living);
 				PlayerPower power = PowerClass.PLAYER_POWER.get(living);
-				if (power != null && !power.hasPower()) {
-					power.setPowerType(powerType);
+				if (power != null
+						&& !power.hasPower()
+						&& power.trySetPowerType(powerType)) {
 					i++;
 				}
 			}

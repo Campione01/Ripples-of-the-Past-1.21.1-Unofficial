@@ -3,9 +3,11 @@ package com.github.standobyte.jojo.powersystem.standpower;
 import javax.annotation.Nullable;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
+import com.github.standobyte.jojo.api.stand.StandArrowPoolOverrides;
 import com.github.standobyte.jojo.init.power.ModStands;
 import com.github.standobyte.jojo.init.ModEntityAttributes;
 import com.github.standobyte.jojo.init.ModStatusEffects;
@@ -48,7 +50,10 @@ import net.neoforged.neoforge.network.PacketDistributor;
 public class StandUtil {
 	
 	public static Stream<StandType> standsForPlayerArrow() {
-		return StandType.getAllEnabledStands().filter(ModStands.PLAYER_CAN_GET_FROM_ARROW::contains);
+		return StandType.getAllEnabledStands()
+				.filter(ModStands.PLAYER_CAN_GET_FROM_ARROW::contains)
+				.filter(stand -> !StandArrowPoolOverrides
+						.isExcluded(stand.getId()));
 	}
 	
 	public static Either<StandType, Component> randomStandOrError(Player player, RandomSource random) {
@@ -59,7 +64,58 @@ public class StandUtil {
 		if (stands.isEmpty()) {
 			return Either.right(Component.translatable("jojo.arrow.no_stands"));
 		}
-		return Either.left(stands.get(random.nextInt(stands.size())));
+		Optional<StandType> selected = randomWeightedStand(stands, random);
+		return selected.<Either<StandType, Component>>map(Either::left)
+				.orElseGet(() -> Either.right(
+						Component.translatable("jojo.arrow.no_stand_weights")));
+	}
+
+	static Optional<StandType> randomWeightedStand(
+			List<StandType> stands,
+			RandomSource random) {
+		double[] weights = new double[stands.size()];
+		for (int i = 0; i < stands.size(); i++) {
+			weights[i] = safeRandomWeight(stands.get(i));
+		}
+		int selectedIndex = randomWeightedIndex(weights, random);
+		return selectedIndex >= 0
+				? Optional.of(stands.get(selectedIndex))
+				: Optional.empty();
+	}
+
+	static int randomWeightedIndex(
+			double[] weights,
+			RandomSource random) {
+		double weightSum = 0.0D;
+		for (double weight : weights) {
+			weightSum += safeRandomWeight(weight);
+		}
+		if (!(weightSum > 0.0D) || !Double.isFinite(weightSum)) {
+			return -1;
+		}
+
+		double randomWeight = random.nextDouble() * weightSum;
+		int lastWeightedIndex = -1;
+		for (int i = 0; i < weights.length; i++) {
+			double weight = safeRandomWeight(weights[i]);
+			if (weight <= 0.0D) {
+				continue;
+			}
+			lastWeightedIndex = i;
+			randomWeight -= weight;
+			if (randomWeight < 0.0D) {
+				return i;
+			}
+		}
+		return lastWeightedIndex;
+	}
+
+	private static double safeRandomWeight(StandType stand) {
+		return safeRandomWeight(stand.getStandStats().getRandomWeight());
+	}
+
+	private static double safeRandomWeight(double weight) {
+		return Double.isFinite(weight) && weight > 0.0D ? weight : 0.0D;
 	}
 
     public static LivingEntity getStandUser(LivingEntity entityMaybeStand) {

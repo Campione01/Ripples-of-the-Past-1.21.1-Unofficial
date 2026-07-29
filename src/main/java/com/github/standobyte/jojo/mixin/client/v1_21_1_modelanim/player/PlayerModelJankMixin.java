@@ -7,6 +7,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.github.standobyte.jojo.client.entityanim.playerbend.PlayerModelBends;
+import com.github.standobyte.jojo.api.client.render.PlayerArmPoseProviders;
 import com.github.standobyte.v1_21_4_stuff.OldPlayerModelJank;
 import com.mojang.blaze3d.vertex.PoseStack;
 
@@ -15,6 +16,8 @@ import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.world.entity.HumanoidArm;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 
 @Mixin(PlayerModel.class)
 public abstract class PlayerModelJankMixin extends HumanoidModelMixin {
@@ -39,6 +42,22 @@ public abstract class PlayerModelJankMixin extends HumanoidModelMixin {
 	public void jojo_ripples$becauseTheyDidntCallSuper_translateToBentHandAfter(HumanoidArm side, PoseStack poseStack, CallbackInfo ci) {
 		if (this.jojo_ripples$playerAnim) {
 			 PlayerModelBends.translateToAnimHand2((HumanoidModel<?>) (Object) this, this, side, poseStack);
+		}
+	}
+
+	@Inject(method = "setupAnim", at = @At("TAIL"))
+	private void jojo_ripples$applyAddonPlayerArmPose(
+			LivingEntity entity,
+			float limbSwing,
+			float limbSwingAmount,
+			float ageInTicks,
+			float netHeadYaw,
+			float headPitch,
+			CallbackInfo ci) {
+		if (entity instanceof Player player) {
+			PlayerArmPoseProviders.applyPostSetup(
+					player,
+					(PlayerModel<?>) (Object) this);
 		}
 	}
 

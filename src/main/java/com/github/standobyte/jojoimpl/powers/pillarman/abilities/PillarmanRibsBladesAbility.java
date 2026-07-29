@@ -51,8 +51,11 @@ public class PillarmanRibsBladesAbility extends PillarmanActionAbility {
 			addRibProjectile(level, user, rotOffsets.x, rotOffsets.y, 0.22D, -0.85D);
 			addRibProjectile(level, user, rotOffsets.x, rotOffsets.y, 0.18D, -0.95D);
 			ribsAbility.setPillarmanFixedCooldown(context, 80);
-			if (context != null && context.getCurTypeData() != null) {
-				context.getCurTypeData().syncOnUpdate(user);
+			if (context != null
+					&& context.getDataForAbility(
+							ribsAbility) != null) {
+				context.getDataForAbility(ribsAbility)
+						.syncOnUpdate(user);
 			}
 		}
 

@@ -130,6 +130,11 @@ public class HamonProtectionAbility extends Ability {
 	}
 
 	private static HamonData getHamonData(Power<?> context) {
-		return context != null && context.getCurTypeData() instanceof HamonData hamon ? hamon : null;
+		return context != null
+				&& context.getDataForPowerType(
+						ModPlayerPowers.HAMON.get().getId())
+						instanceof HamonData hamon
+								? hamon
+								: null;
 	}
 }

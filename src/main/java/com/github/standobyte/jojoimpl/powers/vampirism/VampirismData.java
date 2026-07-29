@@ -14,6 +14,7 @@ import com.github.standobyte.jojo.powersystem.PowerData;
 import com.github.standobyte.jojo.powersystem.PowerType;
 import com.github.standobyte.jojo.powersystem.playerpower.PlayerPower;
 import com.github.standobyte.jojo.powersystem.playerpower.PlayerPowerData;
+import com.github.standobyte.jojo.powersystem.playerpower.PlayerPowerType;
 import com.github.standobyte.jojoimpl.powers.hamon.HamonData;
 
 import net.minecraft.core.Holder;
@@ -77,6 +78,31 @@ public class VampirismData extends PlayerPowerData {
 	public void onPowerCleared(Power<?> userPower, @Nullable PowerType newType) {
 		removeVampirePassiveEffects(userPower.getUser());
 		super.onPowerCleared(userPower, newType);
+	}
+
+	@Override
+	public void onTemporaryPowerSuspended(
+			PlayerPower power,
+			PlayerPowerType<?> temporaryType) {
+		removeVampirePassiveEffects(power.getUser());
+	}
+
+	@Override
+	public void onTemporaryPowerRestored(
+			PlayerPower power,
+			PlayerPowerType<?> temporaryType) {
+		updateVampirePassiveEffects(power.getUser());
+	}
+
+	@Override
+	public void onTemporaryPowerEnded(
+			PlayerPower temporaryPower,
+			PlayerPower restoredPower,
+			PlayerPowerType<?> restoredType) {
+		removeVampirePassiveEffects(temporaryPower.getUser());
+		if (restoredPower.getUser() != temporaryPower.getUser()) {
+			removeVampirePassiveEffects(restoredPower.getUser());
+		}
 	}
 
 	@Override
@@ -513,6 +539,12 @@ public class VampirismData extends PlayerPowerData {
 				iterator.remove();
 			}
 		}
+	}
+
+	@Override
+	public void tickWhileTemporarilySuspended(
+			PlayerPower power) {
+		tickAbilityCooldowns();
 	}
 
 	private void setCuringTicksUnchecked(int curingTicks) {

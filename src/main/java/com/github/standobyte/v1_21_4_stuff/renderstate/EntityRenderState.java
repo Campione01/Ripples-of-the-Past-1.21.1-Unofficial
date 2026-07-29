@@ -2,6 +2,7 @@ package com.github.standobyte.v1_21_4_stuff.renderstate;
 
 import javax.annotation.Nullable;
 
+import com.github.standobyte.jojo.api.client.render.EntityMaskPostEffect;
 import com.github.standobyte.jojo.client.entityanim.playerbend.IPlayerBendModel;
 import com.github.standobyte.jojo.client.entityrender.HiddenModelPartsUtil;
 import com.github.standobyte.v1_21_4_stuff.missingmethods.Model_1_21_2plus;
@@ -94,7 +95,10 @@ public class EntityRenderState {
     		reusedState.leashState = null;
 //    	}
 
-    	reusedState.displayFireAnimation = entity.displayFireAnimation();
+		reusedState.displayFireAnimation =
+				EntityMaskPostEffect.isCapturePass()
+						? false
+						: entity.displayFireAnimation();
 
     	reusedState.partialTick = partialTick;
     }

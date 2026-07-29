@@ -42,6 +42,7 @@ import com.github.standobyte.jojo.network.s2c.RPSOpponentPickThoughtsPacket;
 import com.github.standobyte.jojo.network.s2c.ResetSyncedCommonConfigPacket;
 import com.github.standobyte.jojo.network.s2c.SoulSpawnPacket;
 import com.github.standobyte.jojo.network.s2c.StandEntitySoundPacket;
+import com.github.standobyte.jojo.network.s2c.StandFullClearPacket;
 import com.github.standobyte.jojo.network.s2c.StandSkinSoundPacket;
 import com.github.standobyte.jojo.network.s2c.TrAbilityUsePacket;
 import com.github.standobyte.jojo.network.s2c.TrAimTargetPacket;
@@ -127,7 +128,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 public class PacketsRegister {
 
 	public static void register(RegisterPayloadHandlersEvent event) {
-		PayloadRegistrar registrar = event.registrar("1");
+		PayloadRegistrar registrar = event.registrar("2");
 		registerPacket(registrar, PayloadRegistrar::playToServer, new ClAbilityInputPacket.Handler(JojoMod.resLoc("clkey")));
 		registerPacket(registrar, PayloadRegistrar::playToServer, new ClNoParamsPacket.Handler(JojoMod.resLoc("clsignal")));
 		registerPacket(registrar, PayloadRegistrar::playToServer, new ClGELifeformButtonPacket.Handler(JojoMod.resLoc("cl_ge_lifeform")));
@@ -176,6 +177,7 @@ public class PacketsRegister {
         registerPacket(registrar, PayloadRegistrar::playToClient, new TrEntityActionWithOBBSyncPacket.Handler(JojoMod.resLoc("obbsync")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new StandExpPacket.Handler(JojoMod.resLoc("standxp")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new TrPowerStandInstancePacket.Handler(JojoMod.resLoc("standinst")));
+		registerPacket(registrar, PayloadRegistrar::playToClient, new StandFullClearPacket.Handler(JojoMod.resLoc("standfullclear")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new TrPowerTypePacket.Handler(JojoMod.resLoc("plpowertype")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new TrPowerDataPacket.Handler(JojoMod.resLoc("powerdata")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new TrPlayerPowerLeapCooldownPacket.Handler(JojoMod.resLoc("playerleapcd")));

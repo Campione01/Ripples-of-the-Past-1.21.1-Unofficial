@@ -2,7 +2,9 @@ package com.github.standobyte.jojo.item;
 
 import com.github.standobyte.jojo.block.StoneMaskBlock;
 
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
@@ -26,6 +28,12 @@ public class StoneMaskItem extends ArmorItem {
 	public static final String NBT_ACTIVATION_KEY = "Activated";
 	private final StoneMaskBlock block;
 
+	public enum MaskActivationResult {
+		PASS,
+		ACTIVATED,
+		REJECTED
+	}
+
 	public StoneMaskItem(Properties properties, StoneMaskBlock block) {
 		super(ArmorMaterials.LEATHER, ArmorItem.Type.HELMET, properties);
 		this.block = block;
@@ -38,6 +46,31 @@ public class StoneMaskItem extends ArmorItem {
 
 	public static int getActivatedTicks(ItemStack stack) {
 		return stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag().getByte(NBT_ACTIVATION_KEY);
+	}
+
+	/**
+	 * Handles addon-specific blood activation before the core mask rules.
+	 * Implementations returning {@link MaskActivationResult#ACTIVATED} own
+	 * their gameplay mutation and should call
+	 * {@code BleedingEffect.applyActivationEffects} when the normal mask
+	 * sound, activation texture, and durability cost are required.
+	 */
+	public MaskActivationResult tryBloodActivation(
+			LivingEntity wearer,
+			ItemStack stack) {
+		return MaskActivationResult.PASS;
+	}
+
+	public ResourceLocation getArmorTexture(ItemStack stack) {
+		ResourceLocation itemId =
+				BuiltInRegistries.ITEM.getKey(this);
+		String suffix = getActivatedTicks(stack) > 0
+				? "_activated"
+				: "";
+		return ResourceLocation.fromNamespaceAndPath(
+				itemId.getNamespace(),
+				"textures/armor/" + itemId.getPath()
+						+ suffix + ".png");
 	}
 
 	@Override

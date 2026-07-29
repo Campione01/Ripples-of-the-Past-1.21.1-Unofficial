@@ -2,6 +2,7 @@ package com.github.standobyte.jojoimpl.powers.zombie.abilities;
 
 import java.util.function.Function;
 
+import com.github.standobyte.jojo.init.power.ModPlayerPowers;
 import com.github.standobyte.jojo.powersystem.Power;
 import com.github.standobyte.jojo.powersystem.ability.AbilityId;
 import com.github.standobyte.jojo.powersystem.ability.AbilityType;
@@ -49,7 +50,12 @@ public class ZombieActionAbility extends EntityActionAbility {
 	}
 
 	protected static ZombieData getZombieData(Power<?> context) {
-		return context != null && context.getCurTypeData() instanceof ZombieData zombie ? zombie : null;
+		return context != null
+				&& context.getDataForPowerType(
+						ModPlayerPowers.ZOMBIE.get().getId())
+						instanceof ZombieData zombie
+								? zombie
+								: null;
 	}
 
 	protected static ZombieData getZombieData(LivingEntity user, EntityActionInstance action) {

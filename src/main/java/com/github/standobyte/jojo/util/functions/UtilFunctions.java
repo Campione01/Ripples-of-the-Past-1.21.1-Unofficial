@@ -2,6 +2,8 @@ package com.github.standobyte.jojo.util.functions;
 
 import javax.annotation.Nullable;
 
+import com.github.standobyte.jojo.api.item.ItemHandFreePredicates;
+import com.github.standobyte.jojo.api.item.LivingHandUseBlockers;
 import com.github.standobyte.jojo.client.ClientProxy;
 import com.github.standobyte.jojo.item.GlovesItem;
 
@@ -46,7 +48,28 @@ public class UtilFunctions {
 	}
 
 	public static boolean itemHandFree(ItemStack stack) {
-		return stack.isEmpty() || stack.getItem() instanceof GlovesItem gloves && gloves.openFingers();
+		return stack.isEmpty()
+				|| stack.getItem() instanceof GlovesItem gloves
+						&& gloves.openFingers()
+				|| ItemHandFreePredicates.matches(stack);
+	}
+
+	public static boolean isHandFree(
+			LivingEntity entity,
+			InteractionHand hand) {
+		return itemHandFree(entity.getItemInHand(hand))
+				&& !LivingHandUseBlockers.isBlocked(entity, hand);
+	}
+
+	public static boolean areHandsFree(
+			LivingEntity entity,
+			InteractionHand... hands) {
+		for (InteractionHand hand : hands) {
+			if (!isHandFree(entity, hand)) {
+				return false;
+			}
+		}
+		return true;
 	}
 	
 	public static EquipmentSlot getHandSlot(InteractionHand hand) {

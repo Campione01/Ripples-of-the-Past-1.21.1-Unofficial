@@ -18,8 +18,18 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-public record TrPowerTypePacket(int entityId, @Nullable PlayerPowerType<?> powerType) implements CustomPacketPayload {
+public record TrPowerTypePacket(
+		int entityId,
+		@Nullable PlayerPowerType<?> powerType,
+		@Nullable PlayerPowerType<?> retainedType)
+		implements CustomPacketPayload {
 	private static CustomPacketPayload.Type<TrPowerTypePacket> type;
+
+	public TrPowerTypePacket(
+			int entityId,
+			@Nullable PlayerPowerType<?> powerType) {
+		this(entityId, powerType, null);
+	}
 	
 	public static class Handler implements PacketsRegister.PacketCodecHandler<TrPowerTypePacket> {
 		
@@ -41,13 +51,17 @@ public record TrPowerTypePacket(int entityId, @Nullable PlayerPowerType<?> power
 		public static final StreamCodec<RegistryFriendlyByteBuf, TrPowerTypePacket> STREAM_CODEC = StreamCodec.composite(
 				ByteBufCodecs.INT, TrPowerTypePacket::entityId,
 				NetworkUtil.nullableCodec(NetworkUtil.registryCodec(JojoRegistries.PLAYER_POWER_TYPES_REG_KEY)), TrPowerTypePacket::powerType,
+				NetworkUtil.nullableCodec(NetworkUtil.registryCodec(JojoRegistries.PLAYER_POWER_TYPES_REG_KEY)), TrPowerTypePacket::retainedType,
 				TrPowerTypePacket::new);
 
 		@Override
 		public void handle(TrPowerTypePacket payload, IPayloadContext context) {
 			Entity entity = ClientProxy.getEntityById(payload.entityId);
 			if (entity instanceof LivingEntity living) {
-				PlayerPower.getOptional(living).ifPresent(power -> power.setPowerType(payload.powerType()));
+				PlayerPower.getOptional(living).ifPresent(power ->
+						power.applyTrackedPowerType(
+								payload.powerType(),
+								payload.retainedType()));
 			}
 		}
 		

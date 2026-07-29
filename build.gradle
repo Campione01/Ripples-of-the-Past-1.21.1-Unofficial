@@ -175,6 +175,11 @@ tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
 }
 
+tasks.withType(org.gradle.api.tasks.bundling.AbstractArchiveTask).configureEach {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
+
 tasks.register('clientSettingsSmokeTest', JavaExec) {
     group = 'verification'
     description = 'Runs focused client settings load smoke tests.'
@@ -191,9 +196,56 @@ tasks.register('addonApiSmokeTest', JavaExec) {
     mainClass = 'com.github.standobyte.jojo.api.RotpAddonApiSmokeTest'
 }
 
+tasks.register('entityMaskPostEffectSmokeTest', JavaExec) {
+    group = 'verification'
+    description = 'Runs focused private entity-mask capture smoke tests.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
+    mainClass =
+            'com.github.standobyte.jojo.api.client.render.EntityMaskPostEffectSmokeTest'
+}
+
+tasks.register('clientRegionalTimeDilationSmokeTest', JavaExec) {
+    group = 'verification'
+    description = 'Runs focused regional client time-dilation smoke tests.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
+    mainClass =
+            'com.github.standobyte.jojo.api.client.time.ClientRegionalTimeDilationPoliciesSmokeTest'
+}
+
+tasks.register('timeStopBehaviorPolicySmokeTest', JavaExec) {
+    group = 'verification'
+    description = 'Runs the owner-keyed time-stop behavior policy smoke test.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
+    mainClass =
+            'com.github.standobyte.jojo.api.timestop.TimeStopBehaviorPoliciesSmokeTest'
+}
+
+tasks.register('entitySoftLandingProvidersSmokeTest', JavaExec) {
+    group = 'verification'
+    description = 'Runs the owner-keyed all-entity soft-landing provider smoke test.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
+    mainClass =
+            'com.github.standobyte.jojo.api.block.EntitySoftLandingProvidersSmokeTest'
+}
+
+tasks.register('directionalGravityV2SmokeTest', JavaExec) {
+    group = 'verification'
+    description = 'Runs the focused directional-gravity v2 smoke test.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
+    mainClass =
+            'com.github.standobyte.jojo.api.gravity.DirectionalGravityV2SmokeTest'
+}
+
 tasks.named('check').configure {
     dependsOn tasks.named('clientSettingsSmokeTest')
     dependsOn tasks.named('addonApiSmokeTest')
+    dependsOn tasks.named('timeStopBehaviorPolicySmokeTest')
+    dependsOn tasks.named('entitySoftLandingProvidersSmokeTest')
 }
 
 // IDEA no longer automatically downloads sources/javadoc jars for dependencies, so we need to explicitly enable the behavior.

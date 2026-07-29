@@ -8,6 +8,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.github.standobyte.jojo.client.firstperson.FirstPersonRender;
+import com.github.standobyte.jojo.client.firstperson.FirstPersonItemRendererAccess;
 import com.github.standobyte.jojo.client.polaroid.PolaroidHelper;
 import com.github.standobyte.jojo.init.ModItems;
 import com.github.standobyte.jojoimpl.powers.hamon.HamonZoomPunchState;
@@ -19,17 +20,47 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.ItemInHandRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
+import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.MapItem;
 
 @Mixin(ItemInHandRenderer.class)
-public class ItemInHandRendererMixin {
+public class ItemInHandRendererMixin
+		implements FirstPersonItemRendererAccess {
 	@Shadow @Final private Minecraft minecraft;
+	@Shadow private float mainHandHeight;
+	@Shadow private float oMainHandHeight;
+	@Shadow private float offHandHeight;
+	@Shadow private float oOffHandHeight;
+	@Shadow private ItemStack offHandItem;
 
 	@Inject(method = "<init>", at = @At("TAIL"))
 	public void jojo_ripples$on1stPersonRendererInit(CallbackInfo ci) {
-		FirstPersonRender.init();
+		FirstPersonRender.init((ItemInHandRenderer) (Object) this);
+	}
+
+	@Override
+	public float jojo_ripples$getEquipProgress(
+			InteractionHand hand,
+			float partialTick) {
+		return hand == InteractionHand.MAIN_HAND
+				? 1.0F - Mth.lerp(
+						partialTick,
+						oMainHandHeight,
+						mainHandHeight)
+				: 1.0F - Mth.lerp(
+						partialTick,
+						oOffHandHeight,
+						offHandHeight);
+	}
+
+	@Override
+	public boolean jojo_ripples$vanillaRendersBothMapArms(
+			ItemStack mainHandItem) {
+		return mainHandItem.getItem() instanceof MapItem
+				&& offHandItem.isEmpty();
 	}
 
 	@Inject(method = "tick", at = @At("TAIL"))

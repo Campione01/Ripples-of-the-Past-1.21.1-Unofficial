@@ -33,6 +33,8 @@ public final class StandMovesetExtensionsSmokeTest {
 			abilityType("alpha");
 	private static final AbilityType<Ability> ZETA_TYPE =
 			abilityType("zeta");
+	private static final AbilityType<Ability> REPLACEMENT_TYPE =
+			abilityType("replacement");
 
 	private StandMovesetExtensionsSmokeTest() {}
 
@@ -45,6 +47,9 @@ public final class StandMovesetExtensionsSmokeTest {
 		verifyLateRegistrationRefreshesBaseMoveset();
 		verifyMissingTargetIsInert();
 		verifyMissingReferencesFailFast();
+		verifyAbilityReplacement();
+		verifyInvalidAbilityReplacementsFailFast();
+		verifyFailedExtensionIsAtomic();
 	}
 
 	private static void registerOrderedExtensions() {
@@ -204,6 +209,126 @@ public final class StandMovesetExtensionsSmokeTest {
 						missingAbilityTarget, baseMoveset())
 						.makeMoveset(null),
 				"hotbar entry references missing ability: absent");
+	}
+
+	private static void verifyAbilityReplacement() {
+		ResourceLocation target =
+				id("rotp_test", "replacement_target");
+		StandMovesetExtensions.register(
+				StandMovesetExtensions.builder(
+						target,
+						id("rotp_test", "replacement_extension"),
+						0)
+				.replaceAbility(
+						"base",
+						BASE_TYPE.registryKey,
+						REPLACEMENT_TYPE.registryKey,
+						() -> REPLACEMENT_TYPE)
+				.build());
+
+		MovesetBuilder builder = baseMoveset();
+		StandMovesetExtensions.applyRegisteredExtensions(target, builder);
+		check(new ArrayList<>(builder.abilities.keySet())
+				.equals(List.of("base")),
+				"replacement must preserve the ability key and order");
+		check(builder.abilities.get("base").abilityTypeId()
+				.equals(REPLACEMENT_TYPE.registryKey),
+				"replacement did not install the requested ability type");
+		assertHotbar(
+				builder.controlSchemes.get("hotbar"),
+				List.of("base"));
+	}
+
+	private static void verifyInvalidAbilityReplacementsFailFast() {
+		ResourceLocation missingTarget =
+				id("rotp_test", "replacement_missing_target");
+		StandMovesetExtensions.register(
+				StandMovesetExtensions.builder(
+						missingTarget,
+						id("rotp_test", "replacement_missing_extension"),
+						0)
+				.replaceAbility(
+						"absent",
+						BASE_TYPE.registryKey,
+						REPLACEMENT_TYPE.registryKey,
+						() -> REPLACEMENT_TYPE)
+				.build());
+		expectFailure(
+				() -> StandMovesetExtensions.applyRegisteredExtensions(
+						missingTarget, baseMoveset()),
+				"ability does not exist: absent");
+
+		ResourceLocation wrongCurrentTarget =
+				id("rotp_test", "replacement_wrong_current_target");
+		StandMovesetExtensions.register(
+				StandMovesetExtensions.builder(
+						wrongCurrentTarget,
+						id("rotp_test", "replacement_wrong_current_extension"),
+						0)
+				.replaceAbility(
+						"base",
+						LOW_TYPE.registryKey,
+						REPLACEMENT_TYPE.registryKey,
+						() -> REPLACEMENT_TYPE)
+				.build());
+		expectFailure(
+				() -> StandMovesetExtensions.applyRegisteredExtensions(
+						wrongCurrentTarget, baseMoveset()),
+				"current ability type ID mismatch for base");
+
+		ResourceLocation wrongReplacementTarget =
+				id("rotp_test", "replacement_wrong_result_target");
+		StandMovesetExtensions.register(
+				StandMovesetExtensions.builder(
+						wrongReplacementTarget,
+						id("rotp_test", "replacement_wrong_result_extension"),
+						0)
+				.replaceAbility(
+						"base",
+						BASE_TYPE.registryKey,
+						REPLACEMENT_TYPE.registryKey,
+						() -> ZETA_TYPE)
+				.build());
+		expectFailure(
+				() -> StandMovesetExtensions.applyRegisteredExtensions(
+						wrongReplacementTarget, baseMoveset()),
+				"replacement ability type ID mismatch");
+	}
+
+	private static void verifyFailedExtensionIsAtomic() {
+		ResourceLocation target =
+				id("rotp_test", "replacement_atomic_target");
+		StandMovesetExtensions.register(
+				StandMovesetExtensions.builder(
+						target,
+						id("rotp_test", "replacement_atomic_extension"),
+						0)
+				.replaceAbility(
+						"base",
+						BASE_TYPE.registryKey,
+						REPLACEMENT_TYPE.registryKey,
+						() -> REPLACEMENT_TYPE)
+				.appendToHotbar(
+						"missing_scheme",
+						0,
+						"base",
+						InputMethod.CLICK)
+				.build());
+
+		MovesetBuilder builder = baseMoveset();
+		expectFailure(
+				() -> StandMovesetExtensions.applyRegisteredExtensions(
+						target, builder),
+				"control scheme does not exist: missing_scheme");
+		check(builder.abilities.get("base").abilityTypeId()
+				.equals(BASE_TYPE.registryKey),
+				"failed extension must roll back an earlier replacement");
+		check(new ArrayList<>(builder.abilities.keySet())
+				.equals(List.of("base")),
+				"failed extension changed the ability key order");
+		assertHotbar(
+				builder.controlSchemes.get("hotbar"),
+				List.of("base"));
 	}
 
 	private static StandMovesetExtensions.Extension extension(

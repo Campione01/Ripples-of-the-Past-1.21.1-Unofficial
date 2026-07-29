@@ -1,5 +1,7 @@
 package com.github.standobyte.jojo.subsystems.timestop;
 
+import com.github.standobyte.jojo.api.timestop.TimeStopBehaviorPolicies;
+import com.github.standobyte.jojo.api.timestop.TimeStopProgressionPolicy;
 import com.github.standobyte.jojo.config.client.PlayerClientBroadcastedSettings;
 import com.github.standobyte.jojo.init.power.ModPlayerPowers;
 import com.github.standobyte.jojo.init.power.ModStands;
@@ -68,17 +70,28 @@ public final class TimeStopLearning {
 
 	private static int getNormalMaxTimeStopTicks(StandPower power) {
 		LivingEntity user = power != null ? power.getUser() : null;
+		TimeStopProgressionPolicy policy =
+				TimeStopBehaviorPolicies.progression(power);
+		int humanMaxTicks = policy != null
+				? policy.humanMaxTicks()
+				: HUMAN_MAX_TIME_STOP_TICKS;
+		int enhancedMaxTicks = policy != null
+				? policy.enhancedMaxTicks()
+				: VAMPIRE_MAX_TIME_STOP_TICKS;
 		if (isHighSaturationZombie(user)) {
-			return ZOMBIE_MAX_TIME_STOP_TICKS;
+			return policy != null
+					? enhancedMaxTicks
+					: ZOMBIE_MAX_TIME_STOP_TICKS;
 		}
-		int pillarmanTicks = getPillarmanTimeStopTicks(user);
+		int pillarmanTicks =
+				getPillarmanTimeStopTicks(user, enhancedMaxTicks);
 		if (pillarmanTicks > 0) {
 			return pillarmanTicks;
 		}
 		if (isHighBloodVampire(user)) {
-			return VAMPIRE_MAX_TIME_STOP_TICKS;
+			return enhancedMaxTicks;
 		}
-		return HUMAN_MAX_TIME_STOP_TICKS;
+		return humanMaxTicks;
 	}
 
 	public static float getTimeStopStaminaCostTick(StandPower power) {
@@ -133,6 +146,11 @@ public final class TimeStopLearning {
 	}
 
 	public static float learningPerTick(StandPower standPower) {
+		TimeStopProgressionPolicy policy =
+				TimeStopBehaviorPolicies.progression(standPower);
+		if (policy != null) {
+			return policy.learningPerTick();
+		}
 		if (standPower != null && standPower.getPowerType() == ModStands.STAR_PLATINUM.get()) {
 			return STAR_PLATINUM_LEARNING_PER_TICK;
 		}
@@ -175,8 +193,13 @@ public final class TimeStopLearning {
 	}
 
 	public static void applyDailyDecay(StandTypePersistentData data, StandPower standPower) {
-		if (TIME_STOP_DECAY_PER_DAY > 0.0F) {
-			data.addAbilityLearningProgressPoints(TIME_STOP, -TIME_STOP_DECAY_PER_DAY,
+		TimeStopProgressionPolicy policy =
+				TimeStopBehaviorPolicies.progression(standPower);
+		float decayPerDay = policy != null
+				? policy.decayPerDay()
+				: TIME_STOP_DECAY_PER_DAY;
+		if (decayPerDay > 0.0F) {
+			data.addAbilityLearningProgressPoints(TIME_STOP, -decayPerDay,
 					getMaxTrainingPoints(standPower), standPower);
 		}
 	}
@@ -187,11 +210,15 @@ public final class TimeStopLearning {
 				.orElse(false);
 	}
 
-	private static int getPillarmanTimeStopTicks(LivingEntity user) {
+	private static int getPillarmanTimeStopTicks(
+			LivingEntity user, int enhancedBaseTicks) {
 		return user != null ? PlayerPower.getPowerData(user, PillarmanPowerType.PILLAR_MAN)
 				.map(PillarmanData::getEvolutionStage)
-				.map(stage -> VAMPIRE_MAX_TIME_STOP_TICKS
-						+ Math.max(stage - 1, 0) * PILLARMAN_STAGE_TIME_STOP_BONUS_TICKS)
+				.map(stage -> (int) Math.min(
+						(long) enhancedBaseTicks
+								+ (long) Math.max(stage - 1, 0)
+										* PILLARMAN_STAGE_TIME_STOP_BONUS_TICKS,
+						CREATIVE_TIME_STOP_TICKS))
 				.orElse(0) : 0;
 	}
 

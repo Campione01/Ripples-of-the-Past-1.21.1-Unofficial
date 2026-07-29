@@ -114,7 +114,9 @@ public final class ModDataAttachmentTypes {
 			() -> AttachmentType.serializable(obj -> obj instanceof LivingEntity ? new SilverChariotState() : null).build());
 
 	public static final Supplier<AttachmentType<VampirismState>> VAMPIRISM_STATE = ATTACHMENT_TYPES.register("vampirism_state",
-			() -> AttachmentType.serializable(obj -> obj instanceof LivingEntity ? new VampirismState() : null).build());
+			() -> AttachmentType.serializable(obj -> obj instanceof LivingEntity ? new VampirismState() : null)
+					.copyOnDeath()
+					.build());
 
 	public static final Supplier<AttachmentType<EntityHamonChargeState>> HAMON_CHARGE = ATTACHMENT_TYPES.register("hamon_charge",
 			() -> AttachmentType.serializable(obj -> obj instanceof Entity entity ? new EntityHamonChargeState(entity) : null).build());

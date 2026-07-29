@@ -71,6 +71,9 @@ public class RockPaperScissorsGame {
     private Pick opponentPick;
     private Pick opponentThoughtsPick;
     private boolean opponentCanReadThoughts;
+    private final long sessionEpoch;
+    private int cheatUsedRound;
+    private boolean cheatedBefore;
     private int round = 1;
     private int playerWins = 0;
     private int opponentWins = 0;
@@ -78,10 +81,20 @@ public class RockPaperScissorsGame {
     private final List<Pick> opponentPreviousPicks = new ArrayList<>();
 
     public RockPaperScissorsGame(ServerPlayer player, UUID opponent, boolean opponentIsNpc) {
-        this(player.getUUID(), opponent, opponentIsNpc, null, null, null, 1, 0, 0);
+        this(player.getUUID(), opponent, opponentIsNpc, null, null, null,
+                1, 0, 0, newSessionEpoch(), 0, false);
     }
 
     public RockPaperScissorsGame(UUID player, UUID opponent, boolean opponentIsNpc, Pick playerPick, Pick opponentPick, Pick opponentThoughtsPick, int round, int playerWins, int opponentWins) {
+        this(player, opponent, opponentIsNpc, playerPick, opponentPick,
+                opponentThoughtsPick, round, playerWins, opponentWins,
+                newSessionEpoch(), 0, false);
+    }
+
+    private RockPaperScissorsGame(UUID player, UUID opponent, boolean opponentIsNpc,
+            Pick playerPick, Pick opponentPick, Pick opponentThoughtsPick,
+            int round, int playerWins, int opponentWins, long sessionEpoch,
+            int cheatUsedRound, boolean cheatedBefore) {
         this.player = player;
         this.opponent = opponent;
         this.opponentIsNpc = opponentIsNpc;
@@ -91,6 +104,18 @@ public class RockPaperScissorsGame {
         this.round = round;
         this.playerWins = playerWins;
         this.opponentWins = opponentWins;
+        this.sessionEpoch = sessionEpoch != 0L
+                ? sessionEpoch
+                : newSessionEpoch();
+        this.cheatUsedRound = cheatUsedRound;
+        this.cheatedBefore = cheatedBefore;
+    }
+
+    private static long newSessionEpoch() {
+        UUID random = UUID.randomUUID();
+        long epoch = random.getMostSignificantBits()
+                ^ random.getLeastSignificantBits();
+        return epoch != 0L ? epoch : 1L;
     }
 
     public UUID player() {
@@ -107,6 +132,33 @@ public class RockPaperScissorsGame {
 
     public int round() {
         return round;
+    }
+
+    public long sessionEpoch() {
+        return sessionEpoch;
+    }
+
+    public boolean tryUseCheat(long requestedSessionEpoch) {
+        if (requestedSessionEpoch != sessionEpoch
+                || isMatchOver()
+                || cheatUsedRound == round) {
+            return false;
+        }
+        cheatUsedRound = round;
+        return true;
+    }
+
+    /**
+     * @return true only for the first accepted cheat in this match
+     */
+    public boolean markCheatedBefore() {
+        boolean firstUse = !cheatedBefore;
+        cheatedBefore = true;
+        return firstUse;
+    }
+
+    public boolean hasCheatedBefore() {
+        return cheatedBefore;
     }
 
     public int playerWins() {
@@ -316,6 +368,9 @@ public class RockPaperScissorsGame {
         tag.putInt("Round", round);
         tag.putInt("PlayerWins", playerWins);
         tag.putInt("OpponentWins", opponentWins);
+        tag.putLong("SessionEpoch", sessionEpoch);
+        tag.putInt("CheatUsedRound", cheatUsedRound);
+        tag.putBoolean("CheatedBefore", cheatedBefore);
         return tag;
     }
 
@@ -356,7 +411,14 @@ public class RockPaperScissorsGame {
                 opponentThoughtsPick,
                 tag.getInt("Round"),
                 tag.contains("PlayerWins") ? tag.getInt("PlayerWins") : 0,
-                tag.contains("OpponentWins") ? tag.getInt("OpponentWins") : 0);
+                tag.contains("OpponentWins") ? tag.getInt("OpponentWins") : 0,
+                tag.contains("SessionEpoch")
+                        ? tag.getLong("SessionEpoch")
+                        : newSessionEpoch(),
+                tag.contains("CheatUsedRound")
+                        ? tag.getInt("CheatUsedRound")
+                        : 0,
+                tag.getBoolean("CheatedBefore"));
         game.playerPreviousPicks.addAll(readPickList(tag, "PlayerPreviousPicks"));
         game.opponentPreviousPicks.addAll(readPickList(tag, "OpponentPreviousPicks"));
         return game;

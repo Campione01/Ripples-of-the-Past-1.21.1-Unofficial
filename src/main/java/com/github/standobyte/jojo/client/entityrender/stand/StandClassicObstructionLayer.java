@@ -1,5 +1,6 @@
 package com.github.standobyte.jojo.client.entityrender.stand;
 
+import com.github.standobyte.jojo.api.client.render.EntityMaskPostEffect;
 import com.github.standobyte.jojo.client.entityrender.stand.StandEntityRenderState.ObstructionRenderMode;
 import com.github.standobyte.jojo.powersystem.standpower.entity.StandEntity;
 import com.github.standobyte.v1_21_4_stuff.renderstate.RenderStateCrutches;
@@ -36,21 +37,11 @@ public class StandClassicObstructionLayer<
 
 		S renderState = (S) currentState;
 		M model = getParentModel();
-		OutlineBufferSource outlineBuffer = Minecraft.getInstance().renderBuffers().outlineBufferSource();
-		boolean gameplayOutlineBuffer = bufferSource == outlineBuffer;
-		Minecraft.getInstance().levelRenderer.requestOutlineEffect();
-		try {
-			setOutlineColor(outlineBuffer, renderState.classicOutlineColor);
-			model.setVisibleParts(renderState, renderState.classicOutlineParts);
-			if (renderState.classicOutlineParts.length > 0) {
-				VertexConsumer outlineConsumer = outlineBuffer.getBuffer(entityRenderer.classicOutlineRenderType(entity));
-				model.renderClassicLayerToBuffer(poseStack, outlineConsumer, packedLight,
-						entityRenderer.getPackedOverlay(entity, partialTick), -1);
-			}
-			entityRenderer.renderClassicOutlineLayers(poseStack, outlineBuffer, packedLight, entity, renderState);
+		if (EntityMaskPostEffect.isCapturePass()) {
+			renderClassicOutline(poseStack, bufferSource, packedLight, entity, partialTick, renderState, model);
 		}
-		finally {
-			restoreOutlineColor(outlineBuffer, entity, gameplayOutlineBuffer);
+		else {
+			renderGameplayOutline(poseStack, packedLight, entity, partialTick, renderState, model, bufferSource);
 		}
 
 		renderState.obstructionRenderMode = ObstructionRenderMode.CLASSIC_ARMS_ONLY;
@@ -60,6 +51,31 @@ public class StandClassicObstructionLayer<
 			model.renderClassicSolidToBuffer(poseStack, vertexConsumer, packedLight,
 					entityRenderer.getPackedOverlay(entity, partialTick), entityRenderer.classicSolidColor(entity));
 		}
+	}
+
+	private void renderGameplayOutline(PoseStack poseStack, int packedLight, T entity, float partialTick,
+			S renderState, M model, MultiBufferSource bufferSource) {
+		OutlineBufferSource outlineBuffer = Minecraft.getInstance().renderBuffers().outlineBufferSource();
+		boolean gameplayOutlineBuffer = bufferSource == outlineBuffer;
+		Minecraft.getInstance().levelRenderer.requestOutlineEffect();
+		try {
+			setOutlineColor(outlineBuffer, renderState.classicOutlineColor);
+			renderClassicOutline(poseStack, outlineBuffer, packedLight, entity, partialTick, renderState, model);
+		}
+		finally {
+			restoreOutlineColor(outlineBuffer, entity, gameplayOutlineBuffer);
+		}
+	}
+
+	private void renderClassicOutline(PoseStack poseStack, MultiBufferSource bufferSource, int packedLight,
+			T entity, float partialTick, S renderState, M model) {
+		model.setVisibleParts(renderState, renderState.classicOutlineParts);
+		if (renderState.classicOutlineParts.length > 0) {
+			VertexConsumer outlineConsumer = bufferSource.getBuffer(entityRenderer.classicOutlineRenderType(entity));
+			model.renderClassicLayerToBuffer(poseStack, outlineConsumer, packedLight,
+					entityRenderer.getPackedOverlay(entity, partialTick), -1);
+		}
+		entityRenderer.renderClassicOutlineLayers(poseStack, bufferSource, packedLight, entity, renderState);
 	}
 
 	private static void setOutlineColor(OutlineBufferSource outlineBuffer, int rgbColor) {

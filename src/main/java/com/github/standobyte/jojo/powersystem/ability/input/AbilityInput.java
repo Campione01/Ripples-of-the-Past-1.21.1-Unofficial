@@ -1,14 +1,21 @@
 package com.github.standobyte.jojo.powersystem.ability.input;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.IntConsumer;
 
 import javax.annotation.Nullable;
 
+import org.jetbrains.annotations.ApiStatus;
+
+import com.github.standobyte.jojo.core.JojoMod;
 import com.github.standobyte.jojo.event.ModEventHooks;
 import com.github.standobyte.jojo.event.RipplesAbilityKeyPressEvent;
 import com.github.standobyte.jojo.init.ModDataAttachmentTypes;
 import com.github.standobyte.jojo.network.s2c.TrAbilityUsePacket;
 import com.github.standobyte.jojo.powersystem.Power;
+import com.github.standobyte.jojo.powersystem.PowerClass;
 import com.github.standobyte.jojo.powersystem.ability.Ability;
 import com.github.standobyte.jojo.powersystem.ability.AbilityId;
 import com.github.standobyte.jojo.powersystem.ability.condition.AvailableAbilities;
@@ -20,6 +27,7 @@ import com.github.standobyte.jojo.powersystem.entityaction.EntityActionInputStat
 import com.github.standobyte.jojo.powersystem.entityaction.HeldInput;
 import com.github.standobyte.jojo.powersystem.entityaction.EntityActionInputState.HeldInputEntry;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
@@ -111,7 +119,10 @@ public class AbilityInput {
 		if (action != null) {
 			EntityActionInputState inputHandler = user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get());
 			if (inputHandler != null) {
-				HeldInputEntry heldInput = new HeldInputEntry(keyId, action);
+				HeldInputEntry heldInput = new HeldInputEntry(
+						keyId,
+						ability.abilityId.powerClass(),
+						action);
 				inputHandler.heldKeys.put(keyId, heldInput);
 				return heldInput;
 			}
@@ -138,6 +149,94 @@ public class AbilityInput {
 				}
 			}
 		}
+	}
+
+	@ApiStatus.Internal
+	public static boolean hasHeldInput(
+			LivingEntity user,
+			PowerClass<?> powerClass) {
+		if (user == null
+				|| powerClass == null
+				|| user.level().isClientSide()) {
+			return false;
+		}
+		return user.getExistingData(
+				ModDataAttachmentTypes.ENTITY_ABILITY_INPUT)
+				.map(input -> hasHeldInput(
+						input.heldKeys, powerClass))
+				.orElse(false);
+	}
+
+	@ApiStatus.Internal
+	public static boolean interruptHeldInputs(
+			LivingEntity user,
+			PowerClass<?> powerClass) {
+		if (user == null
+				|| powerClass == null
+				|| user.level().isClientSide()) {
+			return false;
+		}
+		EntityActionInputState input = user.getExistingData(
+				ModDataAttachmentTypes.ENTITY_ABILITY_INPUT)
+				.orElse(null);
+		if (input == null) {
+			return false;
+		}
+		return interruptHeldInputs(
+				input.heldKeys,
+				powerClass,
+				user,
+				keyId -> PacketDistributor
+						.sendToPlayersTrackingEntityAndSelf(
+								user,
+								TrAbilityUsePacket.releaseHold(
+										user.getId(),
+										(short) keyId)));
+	}
+
+	static boolean hasHeldInput(
+			Int2ObjectMap<HeldInputEntry> heldInputs,
+			PowerClass<?> powerClass) {
+		for (HeldInputEntry entry : heldInputs.values()) {
+			if (entry.powerClass == powerClass) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	static boolean interruptHeldInputs(
+			Int2ObjectMap<HeldInputEntry> heldInputs,
+			PowerClass<?> powerClass,
+			@Nullable LivingEntity user,
+			IntConsumer releaseSync) {
+		List<HeldInputEntry> interrupted = new ArrayList<>();
+		for (HeldInputEntry entry : heldInputs.values()) {
+			if (entry.powerClass == powerClass) {
+				interrupted.add(entry);
+			}
+		}
+		for (HeldInputEntry entry : interrupted) {
+			if (heldInputs.get(entry.keyId) != entry) {
+				continue;
+			}
+			heldInputs.remove(entry.keyId);
+			try {
+				if (entry.action != null) {
+					entry.action.onKeyRelease(user);
+				}
+			}
+			catch (RuntimeException error) {
+				JojoMod.getLogger().error(
+						"Held {} input {} release failed for {}.",
+						powerClass,
+						entry.keyId,
+						user,
+						error);
+			}
+			releaseSync.accept(entry.keyId);
+		}
+		return !interrupted.isEmpty();
 	}
 
 	@Nullable

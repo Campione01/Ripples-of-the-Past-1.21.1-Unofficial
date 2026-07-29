@@ -9,6 +9,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import com.github.standobyte.jojo.api.client.render.HumanoidModelPostSetup;
 import com.github.standobyte.jojo.client.entityanim.IHumanoidAnimModel;
 import com.github.standobyte.jojo.client.entityanim.playerbend.IPlayerBendModel;
 import com.github.standobyte.jojo.client.entityanim.playerbend.IPlayerLimbBend;
@@ -171,6 +172,8 @@ public abstract class HumanoidModelMixin/* extends ModelMixinSuperclass*/ extend
 				break;
 			}
 		}
+		HumanoidModelPostSetup.apply(
+				entity, (HumanoidModel<?>) (Object) this);
 	}
 
 	@Override

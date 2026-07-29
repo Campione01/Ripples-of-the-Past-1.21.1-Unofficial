@@ -804,6 +804,12 @@ public class HamonData extends PlayerPowerData {
 		}
 	}
 
+	@Override
+	public void tickWhileTemporarilySuspended(
+			com.github.standobyte.jojo.powersystem.playerpower.PlayerPower power) {
+		tickAbilityCooldowns();
+	}
+
 	public float getHamonDamageMultiplier() {
 		return hamonDamageFactor;
 	}

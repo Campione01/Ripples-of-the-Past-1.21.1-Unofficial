@@ -3,12 +3,15 @@ package com.github.standobyte.jojo.mixin.client;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import com.github.standobyte.jojo.api.client.render.ItemMaterialTintPolicies;
 import com.github.standobyte.jojo.client.render.item.InventoryItemHighlight;
 import com.github.standobyte.jojoimpl.powers.hamon.client.particle.custom.FirstPersonHamonAura;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -66,5 +69,34 @@ public class ItemRendererMixin {
 		FirstPersonHamonAura.itemMatrixTransform(poseStack, handSide, itemStack);
 		FirstPersonHamonAura.getInstance().renderParticles(poseStack, bufferSource, handSide);
 		poseStack.popPose();
+	}
+
+	@ModifyArg(
+			method = "render(Lnet/minecraft/world/item/ItemStack;"
+					+ "Lnet/minecraft/world/item/ItemDisplayContext;"
+					+ "ZLcom/mojang/blaze3d/vertex/PoseStack;"
+					+ "Lnet/minecraft/client/renderer/MultiBufferSource;"
+					+ "IILnet/minecraft/client/resources/model/BakedModel;)V",
+			at = @At(
+					value = "INVOKE",
+					target = "Lnet/minecraft/client/renderer/entity/"
+							+ "ItemRenderer;renderModelLists("
+							+ "Lnet/minecraft/client/resources/model/BakedModel;"
+							+ "Lnet/minecraft/world/item/ItemStack;"
+							+ "IILcom/mojang/blaze3d/vertex/PoseStack;"
+							+ "Lcom/mojang/blaze3d/vertex/VertexConsumer;)V"),
+			index = 5)
+	private VertexConsumer jojo_ripples$itemMaterialTint(
+			VertexConsumer original,
+			ItemStack itemStack,
+			ItemDisplayContext displayContext,
+			boolean leftHand,
+			PoseStack poseStack,
+			MultiBufferSource bufferSource,
+			int combinedLight,
+			int combinedOverlay,
+			BakedModel model) {
+		return ItemMaterialTintPolicies.wrap(
+				original, itemStack, displayContext);
 	}
 }

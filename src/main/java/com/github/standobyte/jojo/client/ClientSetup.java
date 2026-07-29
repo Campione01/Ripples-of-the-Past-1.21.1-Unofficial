@@ -33,6 +33,7 @@ public class ClientSetup {
 
 	@SubscribeEvent(priority = EventPriority.HIGHEST)
 	public static void onClientSetup0(FMLClientSetupEvent event) {
+		AbilitySelectionVisualCorePolicies.register();
 		JojoMenuTabs.initDefaults();
 	}
 

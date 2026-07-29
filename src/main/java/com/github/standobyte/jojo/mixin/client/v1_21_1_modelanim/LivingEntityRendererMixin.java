@@ -5,8 +5,10 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.At.Shift;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import com.github.standobyte.jojo.api.client.render.LivingEntityBaseModelTints;
 import com.github.standobyte.jojo.client.entityanim.IHumanoidAnimModel;
 import com.github.standobyte.v1_21_4_stuff.renderstate.EntityRenderState;
 import com.github.standobyte.v1_21_4_stuff.renderstate.HumanoidRenderState;
@@ -45,6 +47,28 @@ public class LivingEntityRendererMixin {
 		if (model instanceof IHumanoidAnimModel humanoidModel && RenderStateCrutches.currentEntityRenderState instanceof HumanoidRenderState humanoidRS) {
 			humanoidModel.jojo_ripples$setupHumanoidAnim(humanoidRS);
 		}
+	}
+
+	@ModifyArg(
+			method = "render",
+			at = @At(
+					value = "INVOKE",
+					target = "Lnet/minecraft/client/model/EntityModel;"
+							+ "renderToBuffer("
+							+ "Lcom/mojang/blaze3d/vertex/PoseStack;"
+							+ "Lcom/mojang/blaze3d/vertex/VertexConsumer;"
+							+ "III)V"),
+			index = 4)
+	private int jojo_ripples$baseModelTint(
+			int originalColor,
+			LivingEntity entity,
+			float entityYaw,
+			float partialTick,
+			PoseStack poseStack,
+			MultiBufferSource bufferSource,
+			int light) {
+		return LivingEntityBaseModelTints.apply(
+				entity, model, partialTick, originalColor);
 	}
 
 }

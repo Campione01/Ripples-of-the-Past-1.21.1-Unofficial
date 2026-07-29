@@ -17,7 +17,9 @@ import net.minecraft.world.entity.player.Player;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-public record ClRPSPickThoughtsPacket(@Nullable Pick pickThoughts) implements CustomPacketPayload {
+public record ClRPSPickThoughtsPacket(
+        long sessionEpoch,
+        @Nullable Pick pickThoughts) implements CustomPacketPayload {
     private static CustomPacketPayload.Type<ClRPSPickThoughtsPacket> type;
 
     public static class Handler implements PacketsRegister.PacketCodecHandler<ClRPSPickThoughtsPacket> {
@@ -46,7 +48,11 @@ public record ClRPSPickThoughtsPacket(@Nullable Pick pickThoughts) implements Cu
             }
             ServerSavedData data = ServerSavedData.get(serverPlayer.getServer());
             RockPaperScissorsGame game = data.rpsPvpGames.get(serverPlayer.getUUID());
-            if (game == null || game.opponentIsNpc() || !game.opponentCanReadThoughts()) {
+            if (game == null
+                    || !serverPlayer.getUUID().equals(game.player())
+                    || game.sessionEpoch() != payload.sessionEpoch()
+                    || game.opponentIsNpc()
+                    || !game.opponentCanReadThoughts()) {
                 return;
             }
             ServerPlayer opponentPlayer = serverPlayer.getServer().getPlayerList().getPlayer(game.opponent());
@@ -54,7 +60,12 @@ public record ClRPSPickThoughtsPacket(@Nullable Pick pickThoughts) implements Cu
                 return;
             }
             RockPaperScissorsGame opponentGame = data.rpsPvpGames.get(opponentPlayer.getUUID());
-            if (opponentGame == null) {
+            if (opponentGame == null
+                    || !opponentPlayer.getUUID()
+                            .equals(opponentGame.player())
+                    || !serverPlayer.getUUID()
+                            .equals(opponentGame.opponent())
+                    || opponentGame.opponentIsNpc()) {
                 return;
             }
             opponentGame.setOpponentThoughts(payload.pickThoughts());
@@ -65,10 +76,11 @@ public record ClRPSPickThoughtsPacket(@Nullable Pick pickThoughts) implements Cu
     }
 
     public ClRPSPickThoughtsPacket(RegistryFriendlyByteBuf buf) {
-        this(readNullablePick(buf));
+        this(buf.readLong(), readNullablePick(buf));
     }
 
     public void write(RegistryFriendlyByteBuf buf) {
+        buf.writeLong(sessionEpoch);
         writeNullablePick(buf, pickThoughts);
     }
 

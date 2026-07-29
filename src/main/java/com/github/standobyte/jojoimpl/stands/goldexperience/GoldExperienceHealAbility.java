@@ -159,7 +159,15 @@ public class GoldExperienceHealAbility extends NoPoseStandEntityAbility {
 	}
 
 	static ConditionCheck checkCanHealTarget(LivingEntity target, LivingEntity user) {
-		ConditionCheck check = checkCanHealTargetBeforeMaterial(target, user);
+		return checkCanHealTarget(target, user, target);
+	}
+
+	static ConditionCheck checkCanHealTarget(
+			LivingEntity target,
+			LivingEntity user,
+			LivingEntity classificationOwner) {
+		ConditionCheck check = checkCanHealTargetBeforeMaterial(
+				target, user, classificationOwner);
 		if (!check.isPositive()) {
 			return check;
 		}
@@ -173,10 +181,19 @@ public class GoldExperienceHealAbility extends NoPoseStandEntityAbility {
 	}
 
 	static ConditionCheck checkCanHealTargetBeforeMaterial(LivingEntity target, LivingEntity user) {
+		return checkCanHealTargetBeforeMaterial(
+				target, user, target);
+	}
+
+	static ConditionCheck checkCanHealTargetBeforeMaterial(
+			LivingEntity target,
+			LivingEntity user,
+			LivingEntity classificationOwner) {
 		if (target == null) {
 			return ConditionCheck.NEGATIVE;
 		}
-		if (!isLivingHealingTarget(target)) {
+		if (classificationOwner == null
+				|| !isLivingHealingTarget(classificationOwner)) {
 			return ConditionCheck.createNegative("ge_heal_non_living");
 		}
 		if (StandUtil.getStandUser(target) != target) {
