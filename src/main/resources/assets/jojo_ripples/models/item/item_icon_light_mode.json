@@ -1,6 +1,6 @@
 {
   "parent": "item/generated",
   "textures": {
-    "layer0": "jojo_ripples:ability/pillarman_blade_dash_attack"
+    "layer0": "jojo_ripples:item/item_icon_light_mode"
   }
 }

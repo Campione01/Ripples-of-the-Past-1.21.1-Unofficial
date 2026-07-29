@@ -1,6 +1,6 @@
 {
   "parent": "item/generated",
   "textures": {
-    "layer0": "jojo_ripples:ability/hamon_overdrive_beat"
+    "layer0": "jojo_ripples:item/item_icon_hamon_punch"
   }
 }

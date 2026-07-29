@@ -1,6 +1,6 @@
 {
   "parent": "item/generated",
   "textures": {
-    "layer0": "jojo_ripples:ability/vampirism_claw_lacerate"
+    "layer0": "jojo_ripples:item/item_icon_vampirism_punch"
   }
 }

@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -67,7 +68,7 @@ public class GenericModelFormat {
 
 	private static interface BlockbenchObj {}
 
-	private static record GroupParsed(
+	static record GroupParsed(
 			String name,
 			Vector3f origin,
 			@Nullable Vector3f rotation,
@@ -77,6 +78,10 @@ public class GenericModelFormat {
 			boolean visibility,
 			int autoUv,
 			List<BlockbenchObj> children) implements BlockbenchObj {
+
+		GroupParsed {
+			children = children != null ? new ArrayList<>(children) : new ArrayList<>();
+		}
 
 		boolean isExported() {
 			return export() == null || export().booleanValue();
@@ -193,45 +198,80 @@ public class GenericModelFormat {
 	}
 	
 	static void recursiveVisitChildren(GroupParsed parentModelPart, Map<UUID, BlockbenchElement> elementsMap, RotatedCubeCounter rotatedCubeCounter) {
+		Set<GroupParsed> activeGroups = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+		recursiveVisitChildren(parentModelPart, elementsMap, rotatedCubeCounter, activeGroups, groupPath(parentModelPart));
+	}
+
+	private static void recursiveVisitChildren(GroupParsed parentModelPart, Map<UUID, BlockbenchElement> elementsMap,
+			RotatedCubeCounter rotatedCubeCounter, Set<GroupParsed> activeGroups, String path) {
+		if (!activeGroups.add(parentModelPart)) {
+			throw new JsonParseException("Cyclic generic model outliner group at " + path);
+		}
+
 		Collection<BlockbenchObj> replacingObjects = new ArrayList<>();
 		List<BlockbenchObj> children = parentModelPart.children;
-		Iterator<BlockbenchObj> objIterator = children.iterator();
-		while (objIterator.hasNext()) {
-			BlockbenchObj child = objIterator.next();
-			switch (child) {
-				case ElementUUID elementId -> {
-					objIterator.remove();
-					BlockbenchElement element = elementsMap.get(elementId.uuid);
-					if (element == null) continue;
-					
-					Vector3f rotation = element.rotation();
-					if (ParseModEntityModel.Utils.isCubeRotated(rotation)) {
-						BlockbenchElement elementNoRotation = element.withZeroRotation();
-						BlockbenchObj newChildModelPart = new GroupParsed(
-								rotatedCubeCounter.incMakeNewPartName(parentModelPart.name),
-								element.origin() != null ? element.origin() : new Vector3f(),
-								rotation,
-								null /* unused */,
-								element.export(),
-								false,
-								true,
-								0,
-								Util.make(new ArrayList<>(), list -> list.add(new ElementWrapper(elementNoRotation))));
-						replacingObjects.add(newChildModelPart);
-					}
-					else {
-						replacingObjects.add(new ElementWrapper(element));
-					}
+		try {
+			Iterator<BlockbenchObj> objIterator = children.iterator();
+			int childIndex = 0;
+			while (objIterator.hasNext()) {
+				BlockbenchObj child = objIterator.next();
+				if (child == null) {
+					throw new JsonParseException("Null generic model outliner child at " + path + "[" + childIndex + "]");
 				}
-				case GroupParsed childModelPart -> {
-					if (childModelPart.isExported()) {
-						recursiveVisitChildren(childModelPart, elementsMap, rotatedCubeCounter);
+
+				switch (child) {
+					case ElementUUID elementId -> {
+						objIterator.remove();
+						BlockbenchElement element = elementsMap.get(elementId.uuid);
+						if (element == null) {
+							childIndex++;
+							continue;
+						}
+
+						Vector3f rotation = element.rotation();
+						if (ParseModEntityModel.Utils.isCubeRotated(rotation)) {
+							BlockbenchElement elementNoRotation = element.withZeroRotation();
+							BlockbenchObj newChildModelPart = new GroupParsed(
+									rotatedCubeCounter.incMakeNewPartName(parentModelPart.name),
+									element.origin() != null ? element.origin() : new Vector3f(),
+									rotation,
+									null /* unused */,
+									element.export(),
+									false,
+									true,
+									0,
+									Util.make(new ArrayList<>(), list -> list.add(new ElementWrapper(elementNoRotation))));
+							replacingObjects.add(newChildModelPart);
+						}
+						else {
+							replacingObjects.add(new ElementWrapper(element));
+						}
 					}
+					case GroupParsed childModelPart -> {
+						if (childModelPart.isExported()) {
+							recursiveVisitChildren(childModelPart, elementsMap, rotatedCubeCounter,
+									activeGroups, path + "/" + groupPath(childModelPart));
+						}
+						else {
+							objIterator.remove();
+						}
+					}
+					default -> {}
 				}
-				default -> {}
+				childIndex++;
 			}
+			children.addAll(replacingObjects);
 		}
-		children.addAll(replacingObjects);
+		finally {
+			activeGroups.remove(parentModelPart);
+		}
+	}
+
+	private static String groupPath(GroupParsed group) {
+		if (group.name != null && !group.name.isBlank()) {
+			return group.name;
+		}
+		return group.uuid != null ? "<" + group.uuid + ">" : "<unnamed>";
 	}
 	
 	

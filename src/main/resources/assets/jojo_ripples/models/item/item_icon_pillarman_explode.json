@@ -1,6 +1,6 @@
 {
   "parent": "item/generated",
   "textures": {
-    "layer0": "jojo_ripples:ability/pillarman_self_detonation"
+    "layer0": "jojo_ripples:item/item_icon_pillarman_explode"
   }
 }

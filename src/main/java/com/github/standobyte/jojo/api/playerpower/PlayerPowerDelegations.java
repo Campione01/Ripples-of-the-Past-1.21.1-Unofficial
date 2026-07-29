@@ -1,5 +1,7 @@
 package com.github.standobyte.jojo.api.playerpower;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +29,10 @@ public final class PlayerPowerDelegations {
 
 	private PlayerPowerDelegations() {}
 
+	/**
+	 * Replaying the same owner, temporary type, and stateless provider is a
+	 * no-op. Conflicting owner or temporary-type bindings are rejected.
+	 */
 	public static synchronized void register(
 			ResourceLocation owner,
 			ResourceLocation temporaryType,
@@ -34,9 +40,15 @@ public final class PlayerPowerDelegations {
 		Objects.requireNonNull(owner, "owner");
 		Objects.requireNonNull(temporaryType, "temporaryType");
 		Objects.requireNonNull(provider, "provider");
-		if (BY_OWNER.containsKey(owner)) {
+		Binding ownerBinding = BY_OWNER.get(owner);
+		if (ownerBinding != null) {
+			if (ownerBinding.temporaryType().equals(temporaryType)
+					&& sameCallbackShape(
+							ownerBinding.provider(), provider)) {
+				return;
+			}
 			throw new IllegalStateException(
-					"Duplicate PlayerPower delegation owner: " + owner);
+					"Conflicting PlayerPower delegation owner: " + owner);
 		}
 		Binding existing = BY_TEMPORARY_TYPE.get(temporaryType);
 		if (existing != null) {
@@ -99,6 +111,29 @@ public final class PlayerPowerDelegations {
 	static synchronized void clearForTests() {
 		BY_OWNER.clear();
 		BY_TEMPORARY_TYPE.clear();
+	}
+
+	private static boolean sameCallbackShape(
+			Object registered, Object candidate) {
+		if (registered == candidate) {
+			return true;
+		}
+		Class<?> callbackClass = registered.getClass();
+		if (callbackClass != candidate.getClass()
+				|| (!callbackClass.isHidden()
+						&& !callbackClass.isSynthetic())) {
+			return false;
+		}
+		for (Class<?> type = callbackClass;
+				type != null;
+				type = type.getSuperclass()) {
+			for (Field field : type.getDeclaredFields()) {
+				if (!Modifier.isStatic(field.getModifiers())) {
+					return false;
+				}
+			}
+		}
+		return true;
 	}
 
 	private record Binding(

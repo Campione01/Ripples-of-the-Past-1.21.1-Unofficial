@@ -1,5 +1,7 @@
 package com.github.standobyte.jojo.api.stand;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -120,32 +122,44 @@ public final class StandPowerTransitions {
 
 	/**
 	 * Registers a deterministic, owner-keyed destructive-transition veto.
-	 * Callbacks are preflight-only and must not mutate game state.
+	 * Replaying the same owner and stateless callback is a no-op. Callbacks
+	 * are preflight-only and must not mutate game state.
 	 */
 	public static synchronized void registerVeto(
 			ResourceLocation owner,
 			TransitionVeto veto) {
 		Objects.requireNonNull(owner, "owner");
 		Objects.requireNonNull(veto, "veto");
-		if (VETOES.putIfAbsent(owner, veto) != null) {
+		TransitionVeto existing = VETOES.get(owner);
+		if (existing != null) {
+			if (sameCallbackShape(existing, veto)) {
+				return;
+			}
 			throw new IllegalStateException(
-					"Duplicate Stand power transition veto: " + owner);
+					"Conflicting Stand power transition veto: " + owner);
 		}
+		VETOES.put(owner, veto);
 	}
 
 	/**
 	 * Registers a deterministic, owner-keyed insert/replace veto. Callbacks are
-	 * preflight-only and must not mutate game state.
+	 * preflight-only and must not mutate game state. Replaying the same owner
+	 * and stateless callback is a no-op.
 	 */
 	public static synchronized void registerMutationVeto(
 			ResourceLocation owner,
 			MutationVeto veto) {
 		Objects.requireNonNull(owner, "owner");
 		Objects.requireNonNull(veto, "veto");
-		if (MUTATION_VETOES.putIfAbsent(owner, veto) != null) {
+		MutationVeto existing = MUTATION_VETOES.get(owner);
+		if (existing != null) {
+			if (sameCallbackShape(existing, veto)) {
+				return;
+			}
 			throw new IllegalStateException(
-					"Duplicate Stand power mutation veto: " + owner);
+					"Conflicting Stand power mutation veto: " + owner);
 		}
+		MUTATION_VETOES.put(owner, veto);
 	}
 
 	static Result insert(PowerAccess power, StandInstance replacement) {
@@ -387,6 +401,29 @@ public final class StandPowerTransitions {
 			}
 		}
 		return null;
+	}
+
+	private static boolean sameCallbackShape(
+			Object registered, Object candidate) {
+		if (registered == candidate) {
+			return true;
+		}
+		Class<?> callbackClass = registered.getClass();
+		if (callbackClass != candidate.getClass()
+				|| (!callbackClass.isHidden()
+						&& !callbackClass.isSynthetic())) {
+			return false;
+		}
+		for (Class<?> type = callbackClass;
+				type != null;
+				type = type.getSuperclass()) {
+			for (Field field : type.getDeclaredFields()) {
+				if (!Modifier.isStatic(field.getModifiers())) {
+					return false;
+				}
+			}
+		}
+		return true;
 	}
 
 	public record TransitionContext(

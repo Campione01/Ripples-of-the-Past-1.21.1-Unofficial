@@ -1,6 +1,6 @@
 {
   "parent": "item/generated",
   "textures": {
-    "layer0": "jojo_ripples:ability/pillarman_heavy_punch"
+    "layer0": "jojo_ripples:item/item_icon_pillarman_punch"
   }
 }

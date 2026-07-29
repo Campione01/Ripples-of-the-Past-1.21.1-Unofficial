@@ -16,6 +16,15 @@ import com.github.standobyte.jojo.powersystem.standpower.TestStandInstances;
 import net.minecraft.resources.ResourceLocation;
 
 public final class StandPowerTransitionsSmokeTest {
+	private static final StandPowerTransitions.TransitionVeto
+			ALLOW_TRANSITION = query -> true;
+	private static final StandPowerTransitions.TransitionVeto
+			DENY_TRANSITION = query -> false;
+	private static final StandPowerTransitions.MutationVeto
+			ALLOW_MUTATION = query -> true;
+	private static final StandPowerTransitions.MutationVeto
+			DENY_MUTATION = query -> false;
+
 	private static final ResourceLocation ALPHA_SKIN =
 			id("jojo_ripples", "test_alpha_skin");
 	private static final ResourceLocation CHANGED_SKIN =
@@ -24,6 +33,7 @@ public final class StandPowerTransitionsSmokeTest {
 	private StandPowerTransitionsSmokeTest() {}
 
 	public static void run() {
+		verifyRegistrationReplay();
 		ResourceLocation alphaId = id("jojo_ripples", "test_transition_alpha");
 		ResourceLocation betaId = id("jojo_ripples", "test_transition_beta");
 		ResourceLocation disabledId = id("jojo_ripples", "test_transition_disabled");
@@ -158,6 +168,54 @@ public final class StandPowerTransitionsSmokeTest {
 
 		runMutationTransitions(alphaId, betaId);
 		runDestructiveTransitions(alphaId);
+	}
+
+	private static void verifyRegistrationReplay() {
+		StandPowerTransitions.resetVetoesForTests();
+		ResourceLocation transitionOwner =
+				id("rotp_test", "transition_replay");
+		StandPowerTransitions.registerVeto(
+				transitionOwner, ALLOW_TRANSITION);
+		StandPowerTransitions.registerVeto(
+				transitionOwner, ALLOW_TRANSITION);
+		check(StandPowerTransitions.registeredVetoOwners()
+						.equals(java.util.List.of(transitionOwner)),
+				"identical transition veto replay added another owner");
+		expectIllegalState(() ->
+				StandPowerTransitions.registerVeto(
+						transitionOwner, DENY_TRANSITION));
+
+		ResourceLocation mutationOwner =
+				id("rotp_test", "mutation_replay");
+		StandPowerTransitions.registerMutationVeto(
+				mutationOwner, ALLOW_MUTATION);
+		StandPowerTransitions.registerMutationVeto(
+				mutationOwner, ALLOW_MUTATION);
+		check(StandPowerTransitions
+						.registeredMutationVetoOwners()
+						.equals(java.util.List.of(mutationOwner)),
+				"identical mutation veto replay added another owner");
+		expectIllegalState(() ->
+				StandPowerTransitions.registerMutationVeto(
+						mutationOwner, DENY_MUTATION));
+
+		ResourceLocation capturedOwner =
+				id("rotp_test", "captured_replay");
+		StandPowerTransitions.TransitionVeto captured =
+				transitionVeto(true);
+		StandPowerTransitions.registerVeto(
+				capturedOwner, captured);
+		StandPowerTransitions.registerVeto(
+				capturedOwner, captured);
+		expectIllegalState(() ->
+				StandPowerTransitions.registerVeto(
+						capturedOwner, transitionVeto(true)));
+		StandPowerTransitions.resetVetoesForTests();
+	}
+
+	private static StandPowerTransitions.TransitionVeto
+			transitionVeto(boolean decision) {
+		return query -> decision;
 	}
 
 	private static void runMutationTransitions(

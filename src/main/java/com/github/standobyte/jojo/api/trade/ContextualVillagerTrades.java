@@ -1,5 +1,7 @@
 package com.github.standobyte.jojo.api.trade;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -44,6 +46,10 @@ public final class ContextualVillagerTrades {
 
 	private ContextualVillagerTrades() {}
 
+	/**
+	 * Replaying the same owner, group, and stateless provider is a no-op.
+	 * Reusing an owner with a different group or callback is rejected.
+	 */
 	public static synchronized void register(
 			ResourceLocation owner,
 			ResourceLocation group,
@@ -51,9 +57,15 @@ public final class ContextualVillagerTrades {
 		Objects.requireNonNull(owner, "owner");
 		Objects.requireNonNull(group, "group");
 		Objects.requireNonNull(provider, "provider");
-		if (BY_OWNER.containsKey(owner)) {
+		Binding existing = BY_OWNER.get(owner);
+		if (existing != null) {
+			if (existing.group().equals(group)
+					&& sameCallbackShape(
+							existing.provider(), provider)) {
+				return;
+			}
 			throw new IllegalStateException(
-					"Duplicate contextual villager trade owner: "
+					"Conflicting contextual villager trade owner: "
 							+ owner);
 		}
 		Binding binding = new Binding(owner, group, provider);
@@ -232,6 +244,29 @@ public final class ContextualVillagerTrades {
 		BY_GROUP.forEach((group, bindings) ->
 				copy.put(group, List.copyOf(bindings)));
 		return copy;
+	}
+
+	private static boolean sameCallbackShape(
+			Object registered, Object candidate) {
+		if (registered == candidate) {
+			return true;
+		}
+		Class<?> callbackClass = registered.getClass();
+		if (callbackClass != candidate.getClass()
+				|| (!callbackClass.isHidden()
+						&& !callbackClass.isSynthetic())) {
+			return false;
+		}
+		for (Class<?> type = callbackClass;
+				type != null;
+				type = type.getSuperclass()) {
+			for (Field field : type.getDeclaredFields()) {
+				if (!Modifier.isStatic(field.getModifiers())) {
+					return false;
+				}
+			}
+		}
+		return true;
 	}
 
 	private static List<Binding> eligibleBindings(

@@ -56,9 +56,11 @@ import com.github.standobyte.jojo.api.client.render.FirstPersonPostArmLayersSmok
 import com.github.standobyte.jojo.api.client.render.ScopedPlayerModelVisibilitySmokeTest;
 import com.github.standobyte.jojo.api.client.render.ScopedPlayerModelPoseSmokeTest;
 import com.github.standobyte.jojo.api.client.animation.AddonPlayerAnimationsSmokeTest;
-import com.github.standobyte.jojo.client.standskin.sprites.AbilityIconSpritesCompatibilitySmokeTest;
+import com.github.standobyte.jojo.client.entityrender.parsemodel.generic.GenericModelFormatSmokeTest;
 import com.github.standobyte.jojo.client.shader.TimeStopShaderRouteSmokeTest;
+import com.github.standobyte.jojo.client.standskin.sprites.AbilityIconSpritesCompatibilitySmokeTest;
 import com.github.standobyte.jojo.client.ui.text.StandSkillTextSmokeTest;
+import com.github.standobyte.jojo.item.CoreItemResourceSmokeTest;
 import com.github.standobyte.jojo.item.StandRemoverItemContractSmokeTest;
 import com.github.standobyte.jojo.mechanics.standdisc.StandWrittenOnDiscSmokeTest;
 import com.github.standobyte.jojo.mechanics.standarrow.StandVirusMobGiverLifecyclePolicySmokeTest;
@@ -367,6 +369,7 @@ public final class RotpAddonApiSmokeTest {
 		ScopedHumanoidArmorVisibilitySmokeTest.run();
 		HumanoidModelPostSetupSmokeTest.run();
 		StandWrittenOnDiscSmokeTest.run();
+		CoreItemResourceSmokeTest.run();
 		StandRemoverItemContractSmokeTest.run();
 		StandPowerInstanceChangeSmokeTest.run();
 		StandRandomWeightSmokeTest.run();
@@ -374,6 +377,7 @@ public final class RotpAddonApiSmokeTest {
 		GrabContextVariationSmokeTest.run();
 		SharedGrabChargedHeavyInputSmokeTest.run();
 		CrazyDRestoreExtensionSmokeTest.run();
+		GenericModelFormatSmokeTest.run();
 		AbilityIconSpritesCompatibilitySmokeTest.run();
 		StandSkillTextSmokeTest.run();
 		RollbackTransactionFoundationSmokeTest.run();

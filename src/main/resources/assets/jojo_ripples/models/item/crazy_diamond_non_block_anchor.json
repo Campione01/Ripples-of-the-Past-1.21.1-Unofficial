@@ -1,6 +1,6 @@
 {
   "parent": "item/generated",
   "textures": {
-    "layer0": "jojo_ripples:ability/block_anchor"
+    "layer0": "jojo_ripples:item/block_anchor"
   }
 }
