@@ -150,8 +150,10 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 	}
 	
 	protected void tickAction() {
-		action._tickAction();
-		if (action.isOver()) {
+		EntityActionInstance tickingAction = action;
+		tickingAction._tickAction();
+		// Action callbacks may stop or replace the current action reentrantly.
+		if (action == tickingAction && tickingAction.isOver()) {
 			setAction(null, null, SyncType.NO_SYNC);
 		}
 	}

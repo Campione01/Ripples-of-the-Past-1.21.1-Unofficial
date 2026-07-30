@@ -12,6 +12,15 @@
   competing vanilla leather helmet and extra renderer-layer paths;
 - preserved the normal, activated, Aja, and activated Aja textures through the
   NeoForge per-stack armor texture hook;
+- registered and verified the dedicated face-only armor model for both core
+  stone masks, and suppressed armor trim and glint passes that do not belong
+  to stone-mask rendering;
+- made generated Stand hand attachment points use the already-resolved arm
+  bend descendants, so addon models do not have to place bend bones directly
+  below their arm bones;
+- made entity-action ticking safe when an action callback clears or replaces
+  itself during the same tick, preserving the replacement instead of
+  dereferencing or clearing stale state;
 - bounded variable-length network payloads and nested state codecs without
   changing normal payload layouts, including Stand, Hamon, vampirism, Pillar
   Man, Golden Experience, block-restoration, and configuration data;

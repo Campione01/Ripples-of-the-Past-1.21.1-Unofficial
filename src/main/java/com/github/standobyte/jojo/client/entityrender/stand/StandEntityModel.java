@@ -99,23 +99,16 @@ public class StandEntityModel<T extends StandEntity, S extends StandEntityRender
 	}
 	
 	protected void addMissingItemHoldPoints() {
-		if (left_arm != null) {
-			ModelPart armBend = left_arm.getChild("left_arm_bend");
-			if (armBend != null && !armBend.hasChild("left_item")) {
-				ModelPart itemPoint = new ModelPart(new ArrayList<>(), new HashMap<>());
-				itemPoint.setInitialPose(PartPose.offset(0, 3.75f, -2.0f));
-				itemPoint.resetPose();
-				armBend.children.put("left_item", itemPoint);
-			}
-		}
-		if (right_arm != null) {
-			ModelPart armBend = right_arm.getChild("right_arm_bend");
-			if (armBend != null && !armBend.hasChild("right_item")) {
-				ModelPart itemPoint = new ModelPart(new ArrayList<>(), new HashMap<>());
-				itemPoint.setInitialPose(PartPose.offset(0, 3.75f, -2.0f));
-				itemPoint.resetPose();
-				armBend.children.put("right_item", itemPoint);
-			}
+		addMissingItemHoldPoint(left_arm_bend, "left_item");
+		addMissingItemHoldPoint(right_arm_bend, "right_item");
+	}
+
+	private static void addMissingItemHoldPoint(@Nullable ModelPart armBend, String pointName) {
+		if (armBend != null && !armBend.hasChild(pointName)) {
+			ModelPart itemPoint = new ModelPart(new ArrayList<>(), new HashMap<>());
+			itemPoint.setInitialPose(PartPose.offset(0, 3.75f, -2.0f));
+			itemPoint.resetPose();
+			armBend.children.put(pointName, itemPoint);
 		}
 	}
 

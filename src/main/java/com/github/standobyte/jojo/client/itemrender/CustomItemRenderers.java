@@ -36,15 +36,18 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.item.Item;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.ModelEvent;
 import net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent;
 import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
 import net.neoforged.neoforge.client.event.RenderPlayerEvent;
+import net.neoforged.neoforge.client.extensions.common.IClientItemExtensions;
 import net.neoforged.neoforge.client.extensions.common.RegisterClientExtensionsEvent;
 
 @EventBusSubscriber(modid = JojoMod.MOD_ID, value = Dist.CLIENT)
@@ -68,11 +71,44 @@ public class CustomItemRenderers {
 		event.registerItem(new ItemRendererProvider(() -> tommyGunRenderer), ModItems.TOMMY_GUN);
 		event.registerItem(new ItemRendererProvider(() -> polaroidRenderer), ModItems.POLAROID);
 		event.registerItem(new ItemRendererProvider(() -> sewingMachineRenderer), ModItems.SEWING_MACHINE);
-		event.registerItem(new StoneMaskArmorClientExtensions(), ModItems.STONE_MASK, ModItems.AJA_STONE_MASK);
+		registerStoneMaskArmorExtensions(
+				event,
+				ModItems.STONE_MASK.get(),
+				ModItems.AJA_STONE_MASK.get());
 		event.registerItem(new BladeHatArmorClientExtensions(), ModItems.BLADE_HAT);
 		event.registerItem(new BreathControlMaskArmorClientExtensions(), ModItems.BREATH_CONTROL_MASK);
 		event.registerItem(new GlovesClientExtensions(), ModItems.GLOVES, ModItems.BUBBLE_GLOVES);
 		event.registerItem(new SatiporojaScarfArmorClientExtensions(), ModItems.SATIPOROJA_SCARF);
+	}
+
+	static void registerStoneMaskArmorExtensions(
+			RegisterClientExtensionsEvent event,
+			Item stoneMask,
+			Item ajaStoneMask) {
+		event.registerItem(
+				new StoneMaskArmorClientExtensions(),
+				stoneMask,
+				ajaStoneMask);
+	}
+
+	@SubscribeEvent
+	public static void verifyStoneMaskArmorExtensions(
+			FMLClientSetupEvent event) {
+		event.enqueueWork(() -> {
+			requireStoneMaskArmorExtension(
+					"stone_mask", ModItems.STONE_MASK.get());
+			requireStoneMaskArmorExtension(
+					"aja_stone_mask", ModItems.AJA_STONE_MASK.get());
+		});
+	}
+
+	private static void requireStoneMaskArmorExtension(
+			String itemId, Item item) {
+		if (!(IClientItemExtensions.of(item)
+				instanceof StoneMaskArmorClientExtensions)) {
+			throw new IllegalStateException(
+					"Missing dedicated armor model for " + itemId);
+		}
 	}
 
 	@SubscribeEvent(priority = EventPriority.HIGH)

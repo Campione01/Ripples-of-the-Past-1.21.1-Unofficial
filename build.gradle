@@ -249,12 +249,32 @@ tasks.register('networkPayloadSafetySmokeTest', JavaExec) {
     mainClass = 'com.github.standobyte.jojo.network.NetworkPayloadSafetySmokeTest'
 }
 
+tasks.register('addonRuntimeCompatibilityGuardsSmokeTest', JavaExec) {
+    group = 'verification'
+    description = 'Guards addon model hierarchy and reentrant entity-action compatibility.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
+    mainClass =
+            'com.github.standobyte.jojo.compat.AddonRuntimeCompatibilityGuardsSmokeTest'
+}
+
+tasks.register('stoneMaskArmorRenderContractSmokeTest', JavaExec) {
+    group = 'verification'
+    description = 'Verifies live stone-mask client extension and armor-model ownership.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
+    mainClass =
+            'com.github.standobyte.jojo.client.render.armor.StoneMaskArmorRenderContractSmokeTest'
+}
+
 tasks.named('check').configure {
     dependsOn tasks.named('clientSettingsSmokeTest')
     dependsOn tasks.named('addonApiSmokeTest')
     dependsOn tasks.named('timeStopBehaviorPolicySmokeTest')
     dependsOn tasks.named('entitySoftLandingProvidersSmokeTest')
     dependsOn tasks.named('networkPayloadSafetySmokeTest')
+    dependsOn tasks.named('addonRuntimeCompatibilityGuardsSmokeTest')
+    dependsOn tasks.named('stoneMaskArmorRenderContractSmokeTest')
 }
 
 // IDEA no longer automatically downloads sources/javadoc jars for dependencies, so we need to explicitly enable the behavior.
