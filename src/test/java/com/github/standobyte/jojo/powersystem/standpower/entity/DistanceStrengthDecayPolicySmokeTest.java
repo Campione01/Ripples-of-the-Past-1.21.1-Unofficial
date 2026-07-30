@@ -38,6 +38,12 @@ public final class DistanceStrengthDecayPolicySmokeTest {
 		check(hierophant.contains(".range(50, 100)")
 				&& hierophant.contains(".distanceStrengthDecay(false)"),
 				"Hierophant Green must retain its range cap without close-range strength decay");
+
+		String silverChariot = read(root.resolve(
+				"src/main/java/com/github/standobyte/jojoimpl/stands/StandInitSilverChariot.java"));
+		check(silverChariot.contains(".range(2, 10)")
+				&& !silverChariot.contains(".distanceStrengthDecay(false)"),
+				"Silver Chariot must retain its movement cap with a real close-range strength falloff interval");
 	}
 
 	private static String read(Path path) {

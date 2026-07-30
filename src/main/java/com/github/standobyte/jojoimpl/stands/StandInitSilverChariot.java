@@ -24,7 +24,7 @@ public class StandInitSilverChariot {
 				new StandStats.Builder()
 				.power(8.0, 9.0)
 				.speed(14.0, 17.5)
-				.range(10, 10)
+				.range(2, 10)
 				.durability(11.0, 12.0)
 				.precision(11.5, 16.0)
 				.build(),
