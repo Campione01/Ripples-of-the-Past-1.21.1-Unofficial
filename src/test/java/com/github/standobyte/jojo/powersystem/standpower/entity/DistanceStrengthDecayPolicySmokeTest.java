@@ -44,6 +44,18 @@ public final class DistanceStrengthDecayPolicySmokeTest {
 		check(silverChariot.contains(".range(2, 10)")
 				&& !silverChariot.contains(".distanceStrengthDecay(false)"),
 				"Silver Chariot must retain its movement cap with a real close-range strength falloff interval");
+
+		assertCanonTwoMeterStand(root, "StandInitStarPlatinum.java", "Star Platinum");
+		assertCanonTwoMeterStand(root, "StandInitGoldExperience.java", "Gold Experience");
+		assertCanonTwoMeterStand(root, "StandInitCrazyDiamond.java", "Crazy Diamond");
+	}
+
+	private static void assertCanonTwoMeterStand(Path root, String sourceName, String standName) {
+		String source = read(root.resolve(
+				"src/main/java/com/github/standobyte/jojoimpl/stands/" + sourceName));
+		check(source.contains(".range(1, 2)")
+				&& !source.contains(".distanceStrengthDecay(false)"),
+				standName + " must use its canon two-meter hard cap with a real strength falloff interval");
 	}
 
 	private static String read(Path path) {

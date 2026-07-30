@@ -24,7 +24,7 @@ public class StandInitGoldExperience {
 				new StandStats.Builder()
 				.power(9.0, 10.0)
 				.speed(14.0, 15.0)
-				.range(2, 4)
+				.range(1, 2)
 				.durability(7)
 				.precision(10)
 				.build(),

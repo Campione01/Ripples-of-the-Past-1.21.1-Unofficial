@@ -25,7 +25,7 @@ public class StandInitStarPlatinum {
 				new StandStats.Builder()
 				.power(16.0, 18.5)
 				.speed(16.0, 19.0)
-				.range(2, 10)
+				.range(1, 2)
 				.durability(16.0, 20.0)
 				.precision(20)
 				.randomWeight(1)
