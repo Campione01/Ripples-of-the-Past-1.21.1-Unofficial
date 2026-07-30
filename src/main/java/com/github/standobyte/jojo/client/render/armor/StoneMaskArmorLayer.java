@@ -17,6 +17,7 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
 /**
@@ -40,7 +41,7 @@ public class StoneMaskArmorLayer<T extends LivingEntity, M extends HumanoidModel
 			float limbSwing, float limbSwingAmount, float partialTick, float ageInTicks,
 			float netHeadYaw, float headPitch) {
 		ItemStack stack = livingEntity.getItemBySlot(EquipmentSlot.HEAD);
-		if (!(stack.getItem() instanceof StoneMaskItem)) {
+		if (!shouldRenderLegacyPass(stack.getItem())) {
 			return;
 		}
 
@@ -50,6 +51,12 @@ public class StoneMaskArmorLayer<T extends LivingEntity, M extends HumanoidModel
 		VertexConsumer vertexBuilder = bufferSource.getBuffer(RenderType.entityCutoutNoCull(texture(stack)));
 		maskModel.renderToBuffer(poseStack, vertexBuilder, packedLight,
 				LivingEntityRenderer.getOverlayCoords(livingEntity, 0.0F), 0xFFFFFFFF);
+	}
+
+	static boolean shouldRenderLegacyPass(Item item) {
+		return item instanceof StoneMaskItem
+				&& !StoneMaskArmorClientExtensions
+						.ownsArmorPass(item);
 	}
 
 	private StoneMaskArmorModel<T> model() {

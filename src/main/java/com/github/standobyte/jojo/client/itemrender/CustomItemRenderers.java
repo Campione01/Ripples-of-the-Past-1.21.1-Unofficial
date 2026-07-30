@@ -47,7 +47,6 @@ import net.neoforged.neoforge.client.event.ModelEvent;
 import net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent;
 import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
 import net.neoforged.neoforge.client.event.RenderPlayerEvent;
-import net.neoforged.neoforge.client.extensions.common.IClientItemExtensions;
 import net.neoforged.neoforge.client.extensions.common.RegisterClientExtensionsEvent;
 
 @EventBusSubscriber(modid = JojoMod.MOD_ID, value = Dist.CLIENT)
@@ -85,8 +84,8 @@ public class CustomItemRenderers {
 			RegisterClientExtensionsEvent event,
 			Item stoneMask,
 			Item ajaStoneMask) {
-		event.registerItem(
-				new StoneMaskArmorClientExtensions(),
+		StoneMaskArmorClientExtensions.register(
+				event,
 				stoneMask,
 				ajaStoneMask);
 	}
@@ -104,8 +103,8 @@ public class CustomItemRenderers {
 
 	private static void requireStoneMaskArmorExtension(
 			String itemId, Item item) {
-		if (!(IClientItemExtensions.of(item)
-				instanceof StoneMaskArmorClientExtensions)) {
+		if (!StoneMaskArmorClientExtensions
+				.ownsArmorPass(item)) {
 			throw new IllegalStateException(
 					"Missing dedicated armor model for " + itemId);
 		}

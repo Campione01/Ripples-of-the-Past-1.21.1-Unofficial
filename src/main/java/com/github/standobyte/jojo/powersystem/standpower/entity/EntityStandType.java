@@ -37,6 +37,7 @@ public class EntityStandType extends StandType {
 	public EntityDimensions standDimensions = ModEntityTypes.HUMANOID_STAND.get().getDimensions();
 	protected boolean manualControlEnabled = true;
 	protected boolean standLeapEnabled = true;
+	protected final DefaultedValue.Bool distanceStrengthDecayEnabled = new DefaultedValue.Bool(true);
 	
 	public EntityStandType(StandStats stats, MovesetBuilder moveset, 
 			ResourceLocation id) {
@@ -54,6 +55,13 @@ public class EntityStandType extends StandType {
 	public <T extends EntityStandType> T standDimensions(float width, float height) {
 		return init(stand -> stand.standDimensions = EntityDimensions.scalable(width, height));
 	}
+
+	public <T extends EntityStandType> T distanceStrengthDecay(boolean enabled) {
+		return init(stand -> {
+			stand.distanceStrengthDecayEnabled.defaultValue = enabled;
+			stand.distanceStrengthDecayEnabled.value = enabled;
+		});
+	}
 	
 	@Override
 	public JsonObject makeConfigTemplate() {
@@ -61,6 +69,7 @@ public class EntityStandType extends StandType {
 		json.addProperty("entityType", EntityType.getKey(this.entityType.defaultValue).toString());
 		json.addProperty("manualControlEnabled", this.manualControlEnabled);
 		json.addProperty("standLeapEnabled", this.standLeapEnabled);
+		json.addProperty("distanceStrengthDecayEnabled", this.distanceStrengthDecayEnabled.value);
 		return json;
 	}
 	
@@ -81,6 +90,9 @@ public class EntityStandType extends StandType {
 		Optional.ofNullable(config.get("standLeapEnabled"))
 				.map(JsonElement::getAsBoolean)
 				.ifPresent(value -> this.standLeapEnabled = value);
+		Optional.ofNullable(config.get("distanceStrengthDecayEnabled"))
+				.map(JsonElement::getAsBoolean)
+				.ifPresent(value -> this.distanceStrengthDecayEnabled.value = value);
 	}
 
 	@Override
@@ -89,6 +101,7 @@ public class EntityStandType extends StandType {
 		entityType.reset();
 		manualControlEnabled = true;
 		standLeapEnabled = true;
+		distanceStrengthDecayEnabled.reset();
 	}
 	
 	@Override
@@ -203,6 +216,10 @@ public class EntityStandType extends StandType {
 
 	public boolean canLeap() {
 		return standLeapEnabled;
+	}
+
+	public boolean usesDistanceStrengthDecay() {
+		return distanceStrengthDecayEnabled.value;
 	}
 	
 	public EntityType<?> getEntityType() {

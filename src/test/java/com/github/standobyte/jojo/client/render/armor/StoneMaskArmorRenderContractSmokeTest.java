@@ -10,12 +10,15 @@ import java.util.List;
 
 import com.github.standobyte.jojo.client.itemrender.CustomItemRenderers;
 import com.github.standobyte.jojo.client.render.armor.model.StoneMaskArmorModel;
+import com.github.standobyte.jojo.item.StoneMaskItem;
 
+import net.minecraft.client.model.Model;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.geom.builders.CubeDeformation;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ArmorItem;
 import net.minecraft.world.item.Item;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.event.IModBusEvent;
@@ -81,7 +84,7 @@ public final class StoneMaskArmorRenderContractSmokeTest {
 						&& itemRenderers.contains(
 								"ModItems.AJA_STONE_MASK.get()")
 						&& itemRenderers.contains(
-								"IClientItemExtensions.of(item)")
+								"ownsArmorPass(item)")
 						&& itemRenderers.contains(
 								"Missing dedicated armor model"),
 				"ordinary and Aja masks need a live extension check");
@@ -115,6 +118,9 @@ public final class StoneMaskArmorRenderContractSmokeTest {
 				"legacy mask layer must remain binary-compatible");
 		check(legacyLayer.contains(".getArmorTexture(stack)"),
 				"legacy layer must retain activated texture behavior");
+		check(legacyLayer.contains("shouldRenderLegacyPass")
+						&& legacyLayer.contains("ownsArmorPass"),
+				"legacy layer must yield to the registered armor pass");
 
 		String armorMixin = read(main.resolve(
 				"com/github/standobyte/jojo/mixin/client/render/"
@@ -159,9 +165,16 @@ public final class StoneMaskArmorRenderContractSmokeTest {
 									RegisterClientExtensionsEvent.class),
 					"client extension listener must auto-route to the mod bus");
 
-			Item ordinaryMask = allocateItemIdentity();
-			Item ajaMask = allocateItemIdentity();
-			Item unregisteredHelmet = allocateItemIdentity();
+			Item ordinaryMask =
+					allocateItemIdentity(StoneMaskItem.class);
+			Item ajaMask =
+					allocateItemIdentity(StoneMaskItem.class);
+			Item ultimateNoStoneMask =
+					allocateItemIdentity(StoneMaskItem.class);
+			Item ultimateWithStoneMask =
+					allocateItemIdentity(StoneMaskItem.class);
+			Item unregisteredHelmet =
+					allocateItemIdentity(ArmorItem.class);
 			Method register = CustomItemRenderers.class
 					.getDeclaredMethod(
 							"registerStoneMaskArmorExtensions",
@@ -171,20 +184,18 @@ public final class StoneMaskArmorRenderContractSmokeTest {
 			register.setAccessible(true);
 			register.invoke(
 					null, event, ordinaryMask, ajaMask);
+			StoneMaskArmorClientExtensions.register(
+					event,
+					ultimateNoStoneMask,
+					ultimateWithStoneMask);
 
-			IClientItemExtensions ordinaryExtension =
-					IClientItemExtensions.of(ordinaryMask);
-			IClientItemExtensions ajaExtension =
-					IClientItemExtensions.of(ajaMask);
 			check(event.isItemRegistered(ordinaryMask)
-							&& event.isItemRegistered(ajaMask),
-					"both mask items must be registered");
-			check(ordinaryExtension
-							instanceof StoneMaskArmorClientExtensions
-							&& ajaExtension
-									instanceof StoneMaskArmorClientExtensions
-							&& ordinaryExtension == ajaExtension,
-					"both mask items must resolve the shared extension");
+							&& event.isItemRegistered(ajaMask)
+							&& event.isItemRegistered(
+									ultimateNoStoneMask)
+							&& event.isItemRegistered(
+									ultimateWithStoneMask),
+					"all four mask items must be registered");
 
 			StoneMaskArmorModel<LivingEntity> maskModel =
 					new StoneMaskArmorModel<>(
@@ -194,7 +205,6 @@ public final class StoneMaskArmorRenderContractSmokeTest {
 			Field model = StoneMaskArmorClientExtensions.class
 					.getDeclaredField("model");
 			model.setAccessible(true);
-			model.set(ordinaryExtension, maskModel);
 			HumanoidModel<LivingEntity> original =
 					new HumanoidModel<>(
 							LayerDefinition.create(
@@ -204,18 +214,36 @@ public final class StoneMaskArmorRenderContractSmokeTest {
 											64,
 											64)
 									.bakeRoot());
-			check(ordinaryExtension.getHumanoidArmorModel(
-							null,
-							null,
-							EquipmentSlot.HEAD,
-							original) == maskModel,
-					"ordinary mask must resolve the face-only model");
-			check(ajaExtension.getHumanoidArmorModel(
-							null,
-							null,
-							EquipmentSlot.HEAD,
-							original) == maskModel,
-					"Aja mask must resolve the face-only model");
+			Item[] masks = {
+					ordinaryMask,
+					ajaMask,
+					ultimateNoStoneMask,
+					ultimateWithStoneMask
+			};
+			String[] maskNames = {
+					"ordinary mask",
+					"Aja mask",
+					"Ultimate mask without stone",
+					"Ultimate mask with stone"
+			};
+			for (int index = 0; index < masks.length; index++) {
+				IClientItemExtensions extension =
+						IClientItemExtensions.of(masks[index]);
+				check(extension
+								instanceof StoneMaskArmorClientExtensions,
+						maskNames[index]
+								+ " must resolve the mask extension");
+				model.set(extension, maskModel);
+				checkSingleMaskSubmission(
+						maskNames[index],
+						masks[index],
+						extension,
+						original,
+						maskModel);
+			}
+
+			IClientItemExtensions ordinaryExtension =
+					IClientItemExtensions.of(ordinaryMask);
 			check(ordinaryExtension.getHumanoidArmorModel(
 							null,
 							null,
@@ -225,13 +253,24 @@ public final class StoneMaskArmorRenderContractSmokeTest {
 
 			IClientItemExtensions fallback =
 					IClientItemExtensions.of(unregisteredHelmet);
+			Model normalHelmetModel =
+					fallback.getGenericArmorModel(
+							null,
+							null,
+							EquipmentSlot.HEAD,
+							original);
+			int normalDefaultSubmissions =
+					normalHelmetModel == original ? 1 : 0;
+			int normalCustomSubmissions =
+					normalHelmetModel == maskModel ? 1 : 0;
+			if (StoneMaskArmorLayer.shouldRenderLegacyPass(
+					unregisteredHelmet)) {
+				normalCustomSubmissions++;
+			}
 			check(fallback == IClientItemExtensions.DEFAULT
-							&& fallback.getHumanoidArmorModel(
-									null,
-									null,
-									EquipmentSlot.HEAD,
-									original) == original,
-					"unregistered armor must retain default humanoid geometry");
+							&& normalDefaultSubmissions == 1
+							&& normalCustomSubmissions == 0,
+					"normal helmets must submit only default geometry");
 		}
 		catch (ReflectiveOperationException exception) {
 			throw new AssertionError(
@@ -240,7 +279,32 @@ public final class StoneMaskArmorRenderContractSmokeTest {
 		}
 	}
 
-	private static Item allocateItemIdentity()
+	private static void checkSingleMaskSubmission(
+			String maskName,
+			Item mask,
+			IClientItemExtensions extension,
+			HumanoidModel<LivingEntity> original,
+			StoneMaskArmorModel<LivingEntity> maskModel) {
+		Model selectedModel = extension.getGenericArmorModel(
+				null,
+				null,
+				EquipmentSlot.HEAD,
+				original);
+		int defaultSubmissions =
+				selectedModel == original ? 1 : 0;
+		int customSubmissions =
+				selectedModel == maskModel ? 1 : 0;
+		if (StoneMaskArmorLayer.shouldRenderLegacyPass(mask)) {
+			customSubmissions++;
+		}
+		check(defaultSubmissions == 0
+						&& customSubmissions == 1,
+				maskName
+						+ " must submit one custom model and no default model");
+	}
+
+	private static <T extends Item> T allocateItemIdentity(
+			Class<T> itemType)
 			throws ReflectiveOperationException {
 		Class<?> unsafeClass = Class.forName("sun.misc.Unsafe");
 		Field singleton = unsafeClass
@@ -249,8 +313,8 @@ public final class StoneMaskArmorRenderContractSmokeTest {
 		Object unsafe = singleton.get(null);
 		Method allocateInstance = unsafeClass
 				.getMethod("allocateInstance", Class.class);
-		return (Item) allocateInstance.invoke(
-				unsafe, Item.class);
+		return itemType.cast(allocateInstance.invoke(
+				unsafe, itemType));
 	}
 
 	private static void checkPng(Path path) {

@@ -190,6 +190,7 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 	public StandOffsetFromUser offsetFromUser;
     public double rangeEfficiency = 1;
     public double staminaCondition = 1;
+	private boolean distanceStrengthDecayEnabled = true;
     public Lerp.FloatValue modelAlpha = new Lerp.FloatValue(1);
 	public int summonLockTicks;
 	public int gradualSummonWeaknessTicks;
@@ -239,6 +240,7 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		initStandStatsValues(standType.getStandStats());
 		if (standType instanceof EntityStandType entityStandType) {
 			standDimensions = entityStandType.standDimensions;
+			distanceStrengthDecayEnabled = entityStandType.usesDistanceStrengthDecay();
 			this.refreshDimensions();
 		}
 		initSilverChariotArmorAttributes();
@@ -1304,7 +1306,8 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 	public void updateStrengthMultipliers() {
 		LivingEntity user = getUser();
 
-		rangeEfficiency = user != null ? StandStatFormulas.rangeStrengthFactor(getEffectiveRange(), getMaxRange(), 
+		rangeEfficiency = user != null ? StandStatFormulas.rangeStrengthFactor(distanceStrengthDecayEnabled,
+				getEffectiveRange(), getMaxRange(),
 				MathUtil.getAABBDistance(this.getBoundingBox(), user.getBoundingBox())) : 1;
 
 		if (user != null && userPower != null) {

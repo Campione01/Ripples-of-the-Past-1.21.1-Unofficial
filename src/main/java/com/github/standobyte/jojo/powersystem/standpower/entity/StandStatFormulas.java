@@ -195,6 +195,13 @@ public class StandStatFormulas {
 		float f = (float) ((rangeMax - rangeEffective) / (2 * rangeEffective - rangeMax - distance));
 		return Math.max(f * f, 0.25f);
 	}
+
+	public static float rangeStrengthFactor(boolean distanceStrengthDecayEnabled,
+			double rangeEffective, double rangeMax, double distance) {
+		return distanceStrengthDecayEnabled
+				? rangeStrengthFactor(rangeEffective, rangeMax, distance)
+				: 1F;
+	}
 	
 	// * 8.5618
 	public static float projectileVelocityScaling(double strength, float velocity) {

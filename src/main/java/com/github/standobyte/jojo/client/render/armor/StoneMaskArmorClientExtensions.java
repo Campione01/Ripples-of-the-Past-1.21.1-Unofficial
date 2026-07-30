@@ -7,11 +7,26 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.client.extensions.common.IClientItemExtensions;
+import net.neoforged.neoforge.client.extensions.common.RegisterClientExtensionsEvent;
 
 public class StoneMaskArmorClientExtensions implements IClientItemExtensions {
 	private StoneMaskArmorModel<LivingEntity> model;
+
+	public static void register(
+			RegisterClientExtensionsEvent event,
+			Item... stoneMasks) {
+		event.registerItem(
+				new StoneMaskArmorClientExtensions(),
+				stoneMasks);
+	}
+
+	public static boolean ownsArmorPass(Item item) {
+		return IClientItemExtensions.of(item)
+				instanceof StoneMaskArmorClientExtensions;
+	}
 
 	@Override
 	public HumanoidModel<?> getHumanoidArmorModel(

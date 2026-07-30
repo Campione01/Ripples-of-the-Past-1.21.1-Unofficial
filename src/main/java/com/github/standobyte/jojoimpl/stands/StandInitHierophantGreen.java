@@ -84,6 +84,7 @@ public class StandInitHierophantGreen {
 				.addHumanoidStandSkills()
 
 				, ModEntityTypes.HIEROPHANT_GREEN_STAND.get(), id)
+			.distanceStrengthDecay(false)
 			.summonShout(() -> ModSoundEvents.KAKYOIN_HIEROPHANT_GREEN)
 			.summonSound(() -> ModSoundEvents.HIEROPHANT_GREEN_SUMMON)
 			.unsummonSound(() -> ModSoundEvents.HIEROPHANT_GREEN_UNSUMMON)
