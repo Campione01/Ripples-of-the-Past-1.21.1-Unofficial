@@ -7,9 +7,11 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 public class ClDebugCommandPacket implements CustomPacketPayload {
+	private static final int MAX_COMMAND_LENGTH = 32;
 	private final String command;
 	private final int mouseButton;
 	
@@ -35,13 +37,13 @@ public class ClDebugCommandPacket implements CustomPacketPayload {
 
 		@Override
 		public void encode(ClDebugCommandPacket packet, RegistryFriendlyByteBuf buf) {
-			buf.writeUtf(packet.command);
+			buf.writeUtf(packet.command, MAX_COMMAND_LENGTH);
 			buf.writeVarInt(packet.mouseButton);
 		}
 
 		@Override
 		public ClDebugCommandPacket decode(RegistryFriendlyByteBuf buf) {
-			String command = buf.readUtf();
+			String command = buf.readUtf(MAX_COMMAND_LENGTH);
 			int mouseButton = buf.readVarInt();
 			return new ClDebugCommandPacket(command, mouseButton);
 		}
@@ -49,7 +51,19 @@ public class ClDebugCommandPacket implements CustomPacketPayload {
 		@Override
 		public void handle(ClDebugCommandPacket payload, IPayloadContext context) {
 			Player player = context.player();
-			DebugItem.handleServer(payload.command, player, payload.mouseButton);
+			if (holdsDebugItem(player.getMainHandItem(), player.getOffhandItem())) {
+				DebugItem.handleServer(payload.command, player, payload.mouseButton);
+			}
+		}
+
+		static boolean holdsDebugItem(ItemStack mainHand, ItemStack offHand) {
+			return holdsDebugItemTypes(
+					mainHand.getItem().getClass(), offHand.getItem().getClass());
+		}
+
+		static boolean holdsDebugItemTypes(Class<?> mainHandType, Class<?> offHandType) {
+			return DebugItem.class.isAssignableFrom(mainHandType)
+					|| DebugItem.class.isAssignableFrom(offHandType);
 		}
 		
 	}

@@ -9,6 +9,7 @@ import com.github.standobyte.jojo.JojoModConfig;
 import com.github.standobyte.jojo.init.ModSoundEvents;
 import com.github.standobyte.jojo.init.ModStatusEffects;
 import com.github.standobyte.jojo.init.power.ModPlayerPowers;
+import com.github.standobyte.jojo.network.NetworkPayloadValidation;
 import com.github.standobyte.jojo.powersystem.Power;
 import com.github.standobyte.jojo.powersystem.PowerData;
 import com.github.standobyte.jojo.powersystem.PowerType;
@@ -37,6 +38,9 @@ import net.minecraft.world.level.block.Blocks;
 
 public class VampirismData extends PlayerPowerData {
 	public static final float BASE_MAX_BLOOD = BloodEconomy.DEFAULT_MAX_BLOOD;
+	private static final int MAX_CHARACTER_NAME_LENGTH = 128;
+	private static final int MAX_ABILITY_NAME_LENGTH = 256;
+	private static final int MAX_ABILITY_COOLDOWNS = 1024;
 	private static final double[] CURING_NAUSEA_CHANCE =
 			new double[] { 0.0D, 0.0D, 1.0D / 2400.0D, 1.0D / 1200.0D, 1.0D / 600.0D };
 	private static final int LAST_BLOOD_LEVEL_UNKNOWN = -999;
@@ -492,11 +496,14 @@ public class VampirismData extends PlayerPowerData {
 		buf.writeInt(curingTicks);
 		buf.writeBoolean(vampireHamonUser);
 		buf.writeInt(hamonStrengthLevel);
-		buf.writeUtf(prevHamonCharacter);
+		buf.writeUtf(prevHamonCharacter, MAX_CHARACTER_NAME_LENGTH);
+		NetworkPayloadValidation.requireOutboundCollectionSize(
+				abilityCooldowns.size(), MAX_ABILITY_COOLDOWNS,
+				"Vampirism ability cooldown");
 		buf.writeVarInt(abilityCooldowns.size());
 		for (Map.Entry<String, Integer> cooldown : abilityCooldowns.entrySet()) {
 			String abilityName = cooldown.getKey();
-			buf.writeUtf(abilityName);
+			buf.writeUtf(abilityName, MAX_ABILITY_NAME_LENGTH);
 			buf.writeVarInt(cooldown.getValue());
 			buf.writeVarInt(abilityCooldownTotals.getOrDefault(abilityName, cooldown.getValue()));
 		}
@@ -511,12 +518,14 @@ public class VampirismData extends PlayerPowerData {
 		setCuringTicksUnchecked(buf.readInt());
 		vampireHamonUser = buf.readBoolean();
 		hamonStrengthLevel = buf.readInt();
-		prevHamonCharacter = buf.readUtf();
+		prevHamonCharacter = buf.readUtf(MAX_CHARACTER_NAME_LENGTH);
 		abilityCooldowns.clear();
 		abilityCooldownTotals.clear();
-		int cooldownCount = buf.readVarInt();
+		int cooldownCount = NetworkPayloadValidation.requireCollectionSize(
+				buf.readVarInt(), MAX_ABILITY_COOLDOWNS,
+				"Vampirism ability cooldown");
 		for (int i = 0; i < cooldownCount; i++) {
-			String abilityName = buf.readUtf();
+			String abilityName = buf.readUtf(MAX_ABILITY_NAME_LENGTH);
 			int cooldown = buf.readVarInt();
 			int totalCooldown = buf.readVarInt();
 			if (cooldown > 0) {

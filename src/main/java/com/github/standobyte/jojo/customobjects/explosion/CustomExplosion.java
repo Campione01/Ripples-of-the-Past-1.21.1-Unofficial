@@ -12,6 +12,7 @@ import org.apache.commons.lang3.tuple.Pair;
 
 import com.github.standobyte.jojo.client.ClientProxy;
 import com.github.standobyte.jojo.init.ModCustomExplosions;
+import com.github.standobyte.jojo.network.NetworkPayloadValidation;
 import com.github.standobyte.jojo.util.functions_network.NetworkUtil;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -61,6 +62,7 @@ import net.neoforged.neoforge.event.EventHooks;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 public abstract class CustomExplosion extends Explosion {
+	private static final int MAX_NETWORK_BLOCKS = 32_768;
 	protected Vec3 whyTheFuckDidTheyDeleteThis;
 
 	public CustomExplosion(Level level, @Nullable Entity source, @Nullable DamageSource damageSource, 
@@ -111,6 +113,8 @@ public abstract class CustomExplosion extends Explosion {
 		buf.writeEnum(blockInteraction);
 
 		List<BlockPos> toBlow = this.getToBlow();
+		NetworkPayloadValidation.requireOutboundCollectionSize(
+				toBlow.size(), MAX_NETWORK_BLOCKS, "explosion block");
 		buf.writeInt(toBlow.size());
 		int xInt = Mth.floor(x);
 		int yInt = Mth.floor(y);
@@ -133,7 +137,9 @@ public abstract class CustomExplosion extends Explosion {
 		float power = buf.readFloat();
 		BlockInteraction blockInteraction = buf.readEnum(BlockInteraction.class);
 
-		int blockCount = buf.readInt();
+		int blockCount = NetworkPayloadValidation.requireCollectionSize(
+				buf.readInt(), MAX_NETWORK_BLOCKS, buf.readableBytes() / 3,
+				"explosion block");
 		List<BlockPos> toBlow = Lists.newArrayListWithCapacity(blockCount);
 		int xInt = Mth.floor(x);
 		int yInt = Mth.floor(y);

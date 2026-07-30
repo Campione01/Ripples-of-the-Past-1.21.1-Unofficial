@@ -11,6 +11,7 @@ import net.minecraft.world.entity.player.Player;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 public record ClGELifeformButtonPacket(String selectedLifeformId) implements CustomPacketPayload {
+    private static final int MAX_LIFEFORM_ID_LENGTH = 256;
     private static CustomPacketPayload.Type<ClGELifeformButtonPacket> type;
 
     public static class Handler implements PacketsRegister.PacketCodecHandler<ClGELifeformButtonPacket> {
@@ -40,11 +41,11 @@ public record ClGELifeformButtonPacket(String selectedLifeformId) implements Cus
     }
 
     public ClGELifeformButtonPacket(RegistryFriendlyByteBuf buf) {
-        this(buf.readUtf());
+        this(buf.readUtf(MAX_LIFEFORM_ID_LENGTH));
     }
 
     public void write(RegistryFriendlyByteBuf buf) {
-        buf.writeUtf(selectedLifeformId);
+        buf.writeUtf(selectedLifeformId, MAX_LIFEFORM_ID_LENGTH);
     }
 
     @Override

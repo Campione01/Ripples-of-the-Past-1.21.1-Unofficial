@@ -77,6 +77,7 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.Tags;
 
 public class GoldExperienceCreateLifeformAbility extends GoldExperienceUtilityAbility {
+    private static final int MAX_LIFEFORM_ID_LENGTH = 256;
     private static final float STAMINA_COST_TICK = 0.2F;
     public static final int MAX_CREATED_LIFEFORMS = 16;
     private static final double SOURCE_ENTITY_TARGET_RANGE = 8.0D;
@@ -147,7 +148,7 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceUtilityAb
         String selectedLifeformId = GoldExperienceLifeformState.get(user).selectedOrFirstMetId(user.level());
         serverboundBuf.writeBoolean(selectedLifeformId != null);
         if (selectedLifeformId != null) {
-            serverboundBuf.writeUtf(selectedLifeformId);
+            serverboundBuf.writeUtf(selectedLifeformId, MAX_LIFEFORM_ID_LENGTH);
         }
 
         StandPower standPower = StandPower.get(user);
@@ -248,7 +249,9 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceUtilityAb
             return LifeformInput.EMPTY;
         }
         try {
-            String selectedLifeformId = extraClientInput.readBoolean() ? extraClientInput.readUtf() : null;
+            String selectedLifeformId = extraClientInput.readBoolean()
+                    ? extraClientInput.readUtf(MAX_LIFEFORM_ID_LENGTH)
+                    : null;
             UUID markedItemTrackerId = extraClientInput.readBoolean() ? extraClientInput.readUUID() : null;
             return new LifeformInput(selectedLifeformId, markedItemTrackerId);
         }

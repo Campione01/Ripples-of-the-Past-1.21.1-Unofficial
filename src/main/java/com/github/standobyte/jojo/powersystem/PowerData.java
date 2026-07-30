@@ -26,6 +26,8 @@ import net.neoforged.neoforge.common.util.INBTSerializable;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 public abstract class PowerData implements INBTSerializable<CompoundTag> {
+	private static final int MAX_UNLOCKED_SKILLS = 1024;
+	private static final int MAX_SKILL_NAME_LENGTH = 256;
 	public final PowerType powerType;
 	protected final Set<String> _allLockedAbilities = new HashSet<>();
 	
@@ -172,14 +174,17 @@ public abstract class PowerData implements INBTSerializable<CompoundTag> {
 	
 	public void toBuf(FriendlyByteBuf buf, boolean isSentToTracking) {
 		if (!isSentToTracking) {
-			NetworkUtil.writeCollection(buf, unlockedSkills, FriendlyByteBuf::writeUtf);
+			NetworkUtil.writeCollection(buf, unlockedSkills,
+					(out, skillName) -> out.writeUtf(skillName, MAX_SKILL_NAME_LENGTH),
+					MAX_UNLOCKED_SKILLS);
 		}
 	}
 	
 	public void fromBuf(FriendlyByteBuf buf, boolean isSentToTracking) {
 		if (!isSentToTracking) {
 			_clearUnlockedSkills();
-			for (String skillName : NetworkUtil.readCollection(buf, FriendlyByteBuf::readUtf)) {
+			for (String skillName : NetworkUtil.readCollection(buf,
+					in -> in.readUtf(MAX_SKILL_NAME_LENGTH), MAX_UNLOCKED_SKILLS)) {
 				_setSkillUnlocked(skillName, true, false);
 			}
 			ensureStartingSkillsUnlocked();

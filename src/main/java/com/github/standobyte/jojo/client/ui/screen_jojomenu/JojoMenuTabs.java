@@ -80,7 +80,7 @@ public class JojoMenuTabs {
 		return !active.isEmpty() ? active.get(0) : null;
 	}
 
-	static <P extends Power<P>> P getPowerForMenu(
+	public static <P extends Power<P>> P getPowerForMenu(
 			PowerClass<P> powerClass) {
 		P cached = ClientPowerCache.getPower(powerClass);
 		int index = powerClass.ordinal();
@@ -222,12 +222,12 @@ public class JojoMenuTabs {
 			PowerHud.renderClientStandIcon(guiGraphics.pose(), x, y);
 		}
 	}
-			.withScreen(tab -> new StandInfoScreen(tab.category, tab))
+			.withScreen(JojoMenuTabs::createStandInfoScreen)
 			.withName(Component.translatable(JojoMod.MOD_ID + ".menu.stand.info"));
 	
 	public static final Tab STAND_SKILLS = new Tab(CATEGORY_STAND)
 			.withName(Component.translatable(JojoMod.MOD_ID + ".menu.stand.skills"))
-			.withScreen(tab -> new StandSkillsScreen(Component.empty(), tab.category, tab))
+			.withScreen(JojoMenuTabs::createStandSkillsScreen)
 			.withIcon(new GuiIcon(JojoMod.resLoc("textures/gui/stand_skills.png"), 16, 16));
 	
 	public static final Tab STAND_SKINS = new Tab(CATEGORY_STAND) {
@@ -259,6 +259,21 @@ public class JojoMenuTabs {
 			.withName(Component.translatable("jojo_ripples.menu.stand.display_settings"))
 			.withScreen(tab -> new StandDisplaySettingsScreen(tab.getCategory(), tab))
 			.withIcon(new GuiIcon(JojoMod.resLoc("textures/gui/visibility.png"), 16, 16));
+
+	private static StandInfoScreen createStandInfoScreen(Tab tab) {
+		StandPower standPower = getPowerForMenu(PowerClass.STAND);
+		return standPower != null && standPower.hasPower()
+				? new StandInfoScreen(tab.category, tab, standPower)
+				: null;
+	}
+
+	private static StandSkillsScreen createStandSkillsScreen(Tab tab) {
+		StandPower standPower = getPowerForMenu(PowerClass.STAND);
+		return standPower != null && standPower.hasPower()
+				? new StandSkillsScreen(
+						Component.empty(), tab.category, tab, standPower)
+				: null;
+	}
 	
 	// Hamon
 	

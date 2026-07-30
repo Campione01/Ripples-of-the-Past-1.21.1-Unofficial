@@ -2,7 +2,6 @@ package com.github.standobyte.jojo.powersystem.standpower.client_screens;
 
 import java.util.List;
 
-import com.github.standobyte.jojo.client.ClientPowerCache;
 import com.github.standobyte.jojo.client.standskin.StandSkin;
 import com.github.standobyte.jojo.client.standskin.StandSkinsLoader;
 import com.github.standobyte.jojo.client.standskin.StandSkinsScreen;
@@ -10,6 +9,7 @@ import com.github.standobyte.jojo.client.ui.StandStatsRenderer;
 import com.github.standobyte.jojo.client.ui.StandStatsRenderer.CosmeticStandStats;
 import com.github.standobyte.jojo.client.ui.StandStatsRenderer.HexagonStandStat;
 import com.github.standobyte.jojo.client.ui.screen_jojomenu.IJojoMenuScreen;
+import com.github.standobyte.jojo.client.ui.screen_jojomenu.JojoMenuTabs;
 import com.github.standobyte.jojo.client.ui.screen_jojomenu.Tab;
 import com.github.standobyte.jojo.client.ui.screen_jojomenu.TabCategory;
 import com.github.standobyte.jojo.client.ui.utils.BlitFloat;
@@ -49,9 +49,18 @@ public class StandInfoScreen extends Screen implements IJojoMenuScreen {
 	public static int rand;
 
 	public StandInfoScreen(TabCategory category, Tab tab) {
+		this(category, tab,
+				JojoMenuTabs.getPowerForMenu(PowerClass.STAND));
+	}
+
+	public StandInfoScreen(
+			TabCategory category,
+			Tab tab,
+			StandPower standData) {
 		super(Component.empty());
 		this.category = category;
 		this.tab = tab;
+		this.standData = standData;
 		this.texture = JojoMod.resLoc("textures/gui/paper_style/stand_stats.png");
 		StandInfoScreen.rand = Math.abs(OOPMoment.RANDOM.nextInt());
 	}
@@ -59,8 +68,7 @@ public class StandInfoScreen extends Screen implements IJojoMenuScreen {
 	@Override
 	public void init() {
 		super.init();
-		standData = ClientPowerCache.getPower(PowerClass.STAND);
-		if (standData.hasPower()) {
+		if (standData != null && standData.hasPower()) {
 			standSkin = StandSkinsLoader.getInstance().getSkin(standData);
 			standRender = standData.getPowerType().makeSkinUIElement(standSkin, null, 0, 0, 0, 0, 0, true);
 		}

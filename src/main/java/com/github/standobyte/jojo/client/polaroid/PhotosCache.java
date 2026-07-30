@@ -28,9 +28,17 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.ResourceLocation;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.api.distmarker.OnlyIn;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
+@OnlyIn(Dist.CLIENT)
+@EventBusSubscriber(modid = JojoMod.MOD_ID, value = Dist.CLIENT)
 public class PhotosCache {
+	static final int PHOTO_ASSIGNMENT_TIMEOUT_TICKS = 20 * 30;
 	private static final UUID UNKNOWN_SERVER = new UUID(0L, 0L);
 	private static final Map<UUID, Long2ObjectMap<PhotoHolder>> PHOTOS_CACHE = new HashMap<>();
 	private static final Map<UUID, SendPhotoToServer> TO_SEND = new HashMap<>();
@@ -76,8 +84,9 @@ public class PhotosCache {
 	public static void assignImageId(UUID serverId, long photoId, UUID usedTmpId, boolean saveToFile) {
 		rememberServer(serverId);
 		SendPhotoToServer sent = TO_SEND.get(usedTmpId);
-		if (sent != null) {
+		if (sent != null && !sent.photoTransferredToCache) {
 			PhotoHolder photo = cacheImage(serverId, photoId, sent.photo);
+			sent.photoTransferredToCache = true;
 			if (saveToFile) {
 				photo.saveToFile();
 			}
@@ -102,6 +111,12 @@ public class PhotosCache {
 	}
 
 	@Nullable
+	public static PhotoHolder getPhotoHolder(UUID serverId, long photoId) {
+		Long2ObjectMap<PhotoHolder> photos = PHOTOS_CACHE.get(serverId);
+		return photos != null ? photos.get(photoId) : null;
+	}
+
+	@Nullable
 	public static PhotoInstance getOrTryLoadPhoto(UUID serverId, long photoId) {
 		if (serverId == null || UNKNOWN_SERVER.equals(serverId)) {
 			return null;
@@ -121,6 +136,8 @@ public class PhotosCache {
 	}
 
 	public static void onLogOut(UUID serverId) {
+		TO_SEND.values().forEach(SendPhotoToServer::close);
+		TO_SEND.clear();
 		if (serverId != null) {
 			Long2ObjectMap<PhotoHolder> photos = PHOTOS_CACHE.get(serverId);
 			if (photos != null) {
@@ -135,6 +152,11 @@ public class PhotosCache {
 		}
 	}
 
+	@SubscribeEvent
+	public static void onLogout(ClientPlayerNetworkEvent.LoggingOut event) {
+		onLogOut(currentServerId);
+	}
+
 	private static NativeImage imageFromHeapBuffer(ByteBuffer input) throws IOException {
 		input.rewind();
 		byte[] data = new byte[input.remaining()];
@@ -144,11 +166,22 @@ public class PhotosCache {
 		}
 	}
 
+	static final class PendingAssignmentTimeout {
+		private int ticks;
+
+		boolean tick() {
+			return ++ticks >= PHOTO_ASSIGNMENT_TIMEOUT_TICKS;
+		}
+	}
+
 	private static class SendPhotoToServer {
 		private final UUID tmpUuid;
 		private final NativeImage photo;
 		private final NativeImage highQuality;
 		private final int giveItemToPlayer;
+		private final PendingAssignmentTimeout assignmentTimeout =
+				new PendingAssignmentTimeout();
+		private boolean photoTransferredToCache;
 		@Nullable private ClPhotoSender photoSender;
 
 		private SendPhotoToServer(UUID tmpUuid, NativeImage photo, NativeImage highQuality, int giveItemToPlayer) {
@@ -173,10 +206,13 @@ public class PhotosCache {
 				photoSender.sendNext();
 				return photoSender.finishedSending();
 			}
-			return false;
+			return photoTransferredToCache || assignmentTimeout.tick();
 		}
 
 		void close() {
+			if (!photoTransferredToCache) {
+				photo.close();
+			}
 			highQuality.close();
 		}
 	}
@@ -252,15 +288,20 @@ public class PhotosCache {
 			case REQUESTED_FROM_SERVER, RECEIVING_FROM_SERVER, FAILED -> {
 				if (data != null) {
 					status = Status.RECEIVING_FROM_SERVER;
-					ByteBuffer fullPhoto = dataReceive.receive(data);
-					if (fullPhoto != null) {
-						if (fullPhoto.capacity() > 0) {
-							fullDataReceived = fullPhoto;
-							status = Status.RECEIVED_FULL_FROM_SERVER;
+					try {
+						ByteBuffer fullPhoto = dataReceive.receive(data);
+						if (fullPhoto != null) {
+							if (fullPhoto.capacity() > 0) {
+								fullDataReceived = fullPhoto;
+								status = Status.RECEIVED_FULL_FROM_SERVER;
+							}
+							else {
+								setFailed();
+							}
 						}
-						else {
-							setFailed();
-						}
+					}
+					catch (RuntimeException e) {
+						setFailed();
 					}
 				}
 				else {

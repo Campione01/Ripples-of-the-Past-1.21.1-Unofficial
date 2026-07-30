@@ -6,11 +6,11 @@ import java.util.List;
 import com.github.standobyte.jojo.PacketsRegister;
 import com.github.standobyte.jojo.client.ClientProxy;
 import com.github.standobyte.jojo.init.power.ModPlayerPowers;
+import com.github.standobyte.jojo.network.NetworkPayloadValidation;
 import com.github.standobyte.jojo.powersystem.playerpower.PlayerPower;
 import com.github.standobyte.jojoimpl.powers.hamon.client.HamonSkillToast;
 import com.github.standobyte.jojoimpl.powers.hamon.client.HamonTrainingHudFeedback;
 
-import io.netty.handler.codec.DecoderException;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -21,15 +21,17 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 public record HamonStatFeedbackPacket(int entityId, Stat stat, int statPoints, float breathingLevel,
 		boolean showStatIncrease, List<String> newlyLearnableSkills) implements CustomPacketPayload {
-	private static final int MAX_NEWLY_LEARNABLE_SKILLS = ModHamonSkills.SKILL_DEFINITIONS.size();
-	private static final int MAX_SKILL_NAME_LENGTH = ModHamonSkills.SKILL_DEFINITIONS.stream()
-			.mapToInt(definition -> definition.name().length())
-			.max()
-			.orElse(0);
+	private static final int MAX_NEWLY_LEARNABLE_SKILLS = 128;
+	private static final int MAX_SKILL_NAME_LENGTH = 128;
 	private static CustomPacketPayload.Type<HamonStatFeedbackPacket> packetType;
 
 	public HamonStatFeedbackPacket {
 		newlyLearnableSkills = List.copyOf(newlyLearnableSkills);
+		NetworkPayloadValidation.requireOutboundCollectionSize(
+				newlyLearnableSkills.size(), MAX_NEWLY_LEARNABLE_SKILLS,
+				"Hamon learnable skill");
+		newlyLearnableSkills.forEach(skillName -> NetworkPayloadValidation.requireUtfLength(
+				skillName, MAX_SKILL_NAME_LENGTH, "Hamon learnable skill name"));
 	}
 
 	public static HamonStatFeedbackPacket stat(int entityId, HamonData.HamonStat stat, int points,
@@ -65,7 +67,7 @@ public record HamonStatFeedbackPacket(int entityId, Stat stat, int statPoints, f
 			}
 			buf.writeVarInt(packet.newlyLearnableSkills.size());
 			for (String skillName : packet.newlyLearnableSkills) {
-				buf.writeUtf(skillName);
+				buf.writeUtf(skillName, MAX_SKILL_NAME_LENGTH);
 			}
 		}
 
@@ -76,11 +78,9 @@ public record HamonStatFeedbackPacket(int entityId, Stat stat, int statPoints, f
 			boolean showStatIncrease = buf.readBoolean();
 			int statPoints = stat == Stat.BREATHING ? 0 : buf.readInt();
 			float breathingLevel = stat == Stat.BREATHING ? buf.readFloat() : 0.0F;
-			int skillCount = buf.readVarInt();
-			if (skillCount < 0 || skillCount > MAX_NEWLY_LEARNABLE_SKILLS) {
-				throw new DecoderException("Invalid Hamon learnable skill count: " + skillCount
-						+ " (max " + MAX_NEWLY_LEARNABLE_SKILLS + ")");
-			}
+			int skillCount = NetworkPayloadValidation.requireCollectionSize(
+					buf.readVarInt(), MAX_NEWLY_LEARNABLE_SKILLS,
+					"Hamon learnable skill");
 			List<String> newlyLearnableSkills = new ArrayList<>(skillCount);
 			for (int i = 0; i < skillCount; i++) {
 				newlyLearnableSkills.add(buf.readUtf(MAX_SKILL_NAME_LENGTH));

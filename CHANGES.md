@@ -4,13 +4,27 @@
 
 - made the JoJo menu key fall back to the live player power attachments when
   the client power cache has not synchronized yet;
+- made Stand information and skill pages use the same resolved live Stand
+  power as the menu tab, avoiding a second stale-cache lookup;
 - kept the controls page available as a stable menu entry even when the player
   has no active power, and added targeted diagnostics for failed menu opens;
 - moved both stone mask variants to one custom armor-model pass, removing the
   competing vanilla leather helmet and extra renderer-layer paths;
 - preserved the normal, activated, Aja, and activated Aja textures through the
   NeoForge per-stack armor texture hook;
-- added source-contract smoke tests for both fixes.
+- bounded variable-length network payloads and nested state codecs without
+  changing normal payload layouts, including Stand, Hamon, vampirism, Pillar
+  Man, Golden Experience, block-restoration, and configuration data;
+- made Polaroid image uploads one-shot, size-limited sessions bound to a
+  server-authorized uploader and recipient, with deterministic timeout,
+  logout, and server-stop cleanup;
+- rejected unsolicited photo-cache population while preserving authorized
+  multiplayer captures made on behalf of another player;
+- validated client-authoritative movement, controlled-mob commands, debug
+  commands, external-container slots, Stand skins, Walkman controls, and
+  variable-length interaction data on the server;
+- added executable contract tests for the menu, armor, payload bounds,
+  ownership checks, legacy photo transfers, and valid multiplayer inputs.
 
 ## Addon API and shared Stand combat input - 2026-07-27
 

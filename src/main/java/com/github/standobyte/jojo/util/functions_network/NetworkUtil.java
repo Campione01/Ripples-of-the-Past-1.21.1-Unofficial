@@ -10,6 +10,8 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
+
+import com.github.standobyte.jojo.network.NetworkPayloadValidation;
 import java.util.stream.Stream;
 
 import javax.annotation.Nullable;
@@ -34,6 +36,7 @@ import net.minecraft.world.entity.Entity;
 import net.neoforged.neoforge.network.connection.ConnectionType;
 
 public class NetworkUtil {
+	public static final int DEFAULT_MAX_COLLECTION_SIZE = 65_536;
 	
 	public static Stream<ServerPlayerConnection> getTrackingPlayers(Entity entity) {
 		if (entity.level().isClientSide()) {
@@ -90,15 +93,20 @@ public class NetworkUtil {
 			.map(JSONUtil::parse, JsonObject::toString);
 	
 	public static <B extends FriendlyByteBuf, T> StreamCodec<B, Collection<T>> collectionCodec(StreamCodec<? super B, T> elementCodec) {
+		return collectionCodec(elementCodec, DEFAULT_MAX_COLLECTION_SIZE);
+	}
+
+	public static <B extends FriendlyByteBuf, T> StreamCodec<B, Collection<T>> collectionCodec(
+			StreamCodec<? super B, T> elementCodec, int maxSize) {
 		return new StreamCodec<>() {
 			@Override
 			public void encode(B buffer, Collection<T> collection) {
-				writeCollection(buffer, collection, elementCodec);
+				writeCollection(buffer, collection, elementCodec, maxSize);
 			}
 
 			@Override
 			public List<T> decode(B buffer) {
-				return readCollection(buffer, elementCodec);
+				return readCollection(buffer, elementCodec, maxSize);
 			}
 		};
 	}
@@ -200,6 +208,14 @@ public class NetworkUtil {
 	}
 
 	public static <T, B extends FriendlyByteBuf> int writeCollection(B buf, Collection<T> collection, StreamEncoder<? super B, T> writer) {
+		return writeCollection(buf, collection, writer, DEFAULT_MAX_COLLECTION_SIZE);
+	}
+
+	public static <T, B extends FriendlyByteBuf> int writeCollection(
+			B buf, Collection<T> collection, StreamEncoder<? super B, T> writer,
+			int maxSize) {
+		NetworkPayloadValidation.requireOutboundCollectionSize(
+				collection.size(), maxSize, "network collection");
 		int i = 0;
 		int initialWriterIndex = buf.writerIndex();
 		buf.writeInt(0);
@@ -222,8 +238,16 @@ public class NetworkUtil {
 	}
 
 	public static <T, B extends FriendlyByteBuf, C extends Collection<T>> C readCollection(Supplier<C> createCollection, B buf, StreamDecoder<? super B, T> readElement) {
+		return readCollection(
+				createCollection, buf, readElement, DEFAULT_MAX_COLLECTION_SIZE);
+	}
+
+	public static <T, B extends FriendlyByteBuf, C extends Collection<T>> C readCollection(
+			Supplier<C> createCollection, B buf,
+			StreamDecoder<? super B, T> readElement, int maxSize) {
 		C collection = createCollection.get();
-		int size = buf.readInt();
+		int size = NetworkPayloadValidation.requireCollectionSize(
+				buf.readInt(), maxSize, "network collection");
 		if (size > 0) {
 			for (int i = 0; i < size; i++) {
 				collection.add(readElement.decode(buf));
@@ -233,7 +257,13 @@ public class NetworkUtil {
 	}
 
 	public static <T, B extends FriendlyByteBuf> List<T> readCollection(B buf, StreamDecoder<? super B, T> readElement) {
-		return readCollection(ArrayList::new, buf, readElement);
+		return readCollection(
+				ArrayList::new, buf, readElement, DEFAULT_MAX_COLLECTION_SIZE);
+	}
+
+	public static <T, B extends FriendlyByteBuf> List<T> readCollection(
+			B buf, StreamDecoder<? super B, T> readElement, int maxSize) {
+		return readCollection(ArrayList::new, buf, readElement, maxSize);
 	}
 
 }

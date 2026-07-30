@@ -13,6 +13,7 @@ import javax.annotation.Nullable;
 import com.github.standobyte.jojo.client.ui.hud_misc.BottomLeftNotifications;
 import com.github.standobyte.jojo.client.ui.text.StandSkillText;
 import com.github.standobyte.jojo.init.ModStatusEffects;
+import com.github.standobyte.jojo.network.NetworkPayloadValidation;
 import com.github.standobyte.jojo.powersystem.Power;
 import com.github.standobyte.jojo.powersystem.PowerClass;
 import com.github.standobyte.jojo.powersystem.PowerData;
@@ -38,6 +39,8 @@ import net.minecraft.world.entity.LivingEntity;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 public class StandTypePersistentData extends PowerData {
+	private static final int MAX_ABILITY_NAME_LENGTH = 256;
+	private static final int MAX_LEARNING_ENTRIES = 1024;
 	private static final String ACTION_LEARNING_NBT = "ActionLearning";
 	private static final String USED_TIME_STOP_NBT = "UsedTimeStop";
 	private static final String LAST_TIME_STOP_DAY_NBT = "LastTimeStopDay";
@@ -368,9 +371,12 @@ public class StandTypePersistentData extends PowerData {
 		buf.writeVarInt(getResolveLevel());
 		if (!isSentToTracking) {
 			buf.writeFloat(exp);
+			NetworkPayloadValidation.requireOutboundCollectionSize(
+					abilityLearningProgress.size(), MAX_LEARNING_ENTRIES,
+					"Stand ability learning");
 			buf.writeVarInt(abilityLearningProgress.size());
 			for (var entry : abilityLearningProgress.entrySet()) {
-				buf.writeUtf(entry.getKey());
+				buf.writeUtf(entry.getKey(), MAX_ABILITY_NAME_LENGTH);
 				buf.writeFloat(entry.getValue());
 			}
 			buf.writeBoolean(hasUsedTimeStopToday);
@@ -385,9 +391,12 @@ public class StandTypePersistentData extends PowerData {
 		if (!isSentToTracking) {
 			exp = buf.readFloat();
 			abilityLearningProgress.clear();
-			int learningSize = buf.readVarInt();
+			int learningSize = NetworkPayloadValidation.requireCollectionSize(
+					buf.readVarInt(), MAX_LEARNING_ENTRIES,
+					"Stand ability learning");
 			for (int i = 0; i < learningSize; i++) {
-				abilityLearningProgress.put(buf.readUtf(), buf.readFloat());
+				abilityLearningProgress.put(
+						buf.readUtf(MAX_ABILITY_NAME_LENGTH), buf.readFloat());
 			}
 			hasUsedTimeStopToday = buf.readBoolean();
 			lastTimeStopDay = buf.readLong();

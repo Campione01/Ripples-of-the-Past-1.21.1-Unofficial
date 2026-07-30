@@ -1,11 +1,8 @@
 package com.github.standobyte.jojo.network.c2s;
 
-import java.nio.ByteBuffer;
-
 import com.github.standobyte.jojo.PacketsRegister;
 import com.github.standobyte.jojo.core.JojoMod;
 import com.github.standobyte.jojo.item.polaroid.PhotosHandler;
-import com.github.standobyte.jojo.network.BatchReceiver;
 import com.github.standobyte.jojo.network.BatchSender;
 
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -53,13 +50,12 @@ public record ClPhotoSaveDataPacket(long photoId, BatchSender.Batch dataBatch) i
 				return;
 			}
 			PhotosHandler serverPhotos = PhotosHandler.get(player.server);
-			BatchReceiver receiver = serverPhotos.getOrCreateReceiver(payload.photoId);
 			try {
-				ByteBuffer fullPhoto = receiver.receive(payload.dataBatch);
-				serverPhotos.receivePhotoBatch(payload.photoId, fullPhoto, player.getUUID());
+				serverPhotos.receivePhotoBatch(payload.photoId, payload.dataBatch, player);
 			}
 			catch (RuntimeException e) {
-				JojoMod.getLogger().warn("Failed to receive Polaroid photo batch {}", payload.photoId, e);
+				JojoMod.getLogger().warn("Failed to receive Polaroid photo batch {} from {}",
+						payload.photoId, player.getGameProfile().getName(), e);
 			}
 		}
 	}

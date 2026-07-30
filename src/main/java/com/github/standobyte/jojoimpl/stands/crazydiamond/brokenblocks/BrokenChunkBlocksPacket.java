@@ -19,6 +19,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 public record BrokenChunkBlocksPacket(Collection<PrevBlockInfo> blocks, boolean reset) implements CustomPacketPayload {
+	private static final int MAX_BLOCKS_PER_CHUNK = 131_072;
 
 	private static CustomPacketPayload.Type<BrokenChunkBlocksPacket> type;
 
@@ -35,13 +36,15 @@ public record BrokenChunkBlocksPacket(Collection<PrevBlockInfo> blocks, boolean 
 
 		@Override
 		public void encode(BrokenChunkBlocksPacket packet, RegistryFriendlyByteBuf buf) {
-			NetworkUtil.writeCollection(buf, packet.blocks, PrevBlockInfo.STREAM_CODEC);
+			NetworkUtil.writeCollection(
+					buf, packet.blocks, PrevBlockInfo.STREAM_CODEC, MAX_BLOCKS_PER_CHUNK);
 			buf.writeBoolean(packet.reset);
 		}
 
 		@Override
 		public BrokenChunkBlocksPacket decode(RegistryFriendlyByteBuf buf) {
-			Collection<PrevBlockInfo> blocks = NetworkUtil.readCollection(buf, PrevBlockInfo.STREAM_CODEC);
+			Collection<PrevBlockInfo> blocks = NetworkUtil.readCollection(
+					buf, PrevBlockInfo.STREAM_CODEC, MAX_BLOCKS_PER_CHUNK);
 			boolean reset = buf.readBoolean();
 			return new BrokenChunkBlocksPacket(blocks, reset);
 		}

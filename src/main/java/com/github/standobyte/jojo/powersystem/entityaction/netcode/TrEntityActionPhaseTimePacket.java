@@ -45,7 +45,8 @@ public record TrEntityActionPhaseTimePacket(int performerId,
 				ByteBufCodecs.map(
 						size -> new Object2FloatArrayMap<>(), 
 						NeoForgeStreamCodecs.enumCodec(ActionPhase.class), 
-						ByteBufCodecs.FLOAT), TrEntityActionPhaseTimePacket::phasesLength,
+						ByteBufCodecs.FLOAT,
+						ActionPhase.values().length), TrEntityActionPhaseTimePacket::phasesLength,
 				NeoForgeStreamCodecs.enumCodec(ActionPhase.class).apply(NetworkUtil::nullableCodec), TrEntityActionPhaseTimePacket::phase,
 				ByteBufCodecs.VAR_INT, TrEntityActionPhaseTimePacket::curPhaseTick,
 				TrEntityActionPhaseTimePacket::new);

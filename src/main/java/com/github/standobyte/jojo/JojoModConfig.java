@@ -9,6 +9,7 @@ import org.apache.commons.lang3.tuple.Pair;
 
 import com.github.standobyte.jojo.core.JojoMod;
 import com.github.standobyte.jojo.mechanics.resolve.ResolveCounter;
+import com.github.standobyte.jojo.network.NetworkPayloadValidation;
 import com.github.standobyte.jojo.network.s2c.CommonConfigPacket;
 import com.github.standobyte.jojo.network.s2c.ResetSyncedCommonConfigPacket;
 
@@ -292,6 +293,7 @@ public class JojoModConfig {
 		}
 
 		public static class SyncedValues {
+			private static final int MAX_SYNCED_DOUBLE_VALUES = 64;
 			private final boolean keepStandOnDeath;
 			private final boolean keepVampirismOnDeath;
 			private final boolean dropStandDisc;
@@ -353,7 +355,9 @@ public class JojoModConfig {
 				this.breathingTrainingMultiplier = buf.readDouble();
 				this.hamonEnergyTicksDown = buf.readBoolean();
 				this.timeStopChunkRange = Math.max(0, buf.readVarInt());
-				int resolvePointsCount = buf.readVarInt();
+				int resolvePointsCount = NetworkPayloadValidation.requireCollectionSize(
+						buf.readVarInt(), MAX_SYNCED_DOUBLE_VALUES,
+						"resolve level point");
 				List<Double> resolvePoints = new ArrayList<>(resolvePointsCount);
 				for (int i = 0; i < resolvePointsCount; i++) {
 					double value = buf.readDouble();
@@ -386,6 +390,9 @@ public class JojoModConfig {
 				buf.writeDouble(breathingTrainingMultiplier);
 				buf.writeBoolean(hamonEnergyTicksDown);
 				buf.writeVarInt(timeStopChunkRange);
+				NetworkPayloadValidation.requireOutboundCollectionSize(
+						resolveLvlPoints.size(), MAX_SYNCED_DOUBLE_VALUES,
+						"resolve level point");
 				buf.writeVarInt(resolveLvlPoints.size());
 				for (double value : resolveLvlPoints) {
 					buf.writeDouble(value);
@@ -398,7 +405,9 @@ public class JojoModConfig {
 
 			private static List<Double> readDoubleList(RegistryFriendlyByteBuf buf, List<Double> defaults,
 					boolean positiveOnly) {
-				int count = Math.max(0, buf.readVarInt());
+				int count = NetworkPayloadValidation.requireCollectionSize(
+						buf.readVarInt(), MAX_SYNCED_DOUBLE_VALUES,
+						"synced multiplier");
 				List<Double> values = new ArrayList<>(count);
 				for (int i = 0; i < count; i++) {
 					double value = buf.readDouble();
@@ -410,6 +419,9 @@ public class JojoModConfig {
 			}
 
 			private static void writeDoubleList(RegistryFriendlyByteBuf buf, List<Double> values) {
+				NetworkPayloadValidation.requireOutboundCollectionSize(
+						values.size(), MAX_SYNCED_DOUBLE_VALUES,
+						"synced multiplier");
 				buf.writeVarInt(values.size());
 				for (double value : values) {
 					buf.writeDouble(value);

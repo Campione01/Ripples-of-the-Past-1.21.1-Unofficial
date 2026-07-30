@@ -27,6 +27,7 @@ import com.github.standobyte.jojo.init.ModParticles;
 import com.github.standobyte.jojo.init.ModSoundEvents;
 import com.github.standobyte.jojo.init.ModStatusEffects;
 import com.github.standobyte.jojo.mechanics.JojoDefinitions;
+import com.github.standobyte.jojo.network.NetworkPayloadValidation;
 import com.github.standobyte.jojo.powersystem.Power;
 import com.github.standobyte.jojo.powersystem.entityaction.EntityActionInstance;
 import com.github.standobyte.jojo.powersystem.entityaction.LivingComponentAction;
@@ -72,6 +73,9 @@ import net.neoforged.neoforge.common.NeoForgeMod;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 public class HamonData extends PlayerPowerData {
+	private static final int MAX_TECHNIQUE_NAME_LENGTH = 128;
+	private static final int MAX_ABILITY_NAME_LENGTH = 256;
+	private static final int MAX_ABILITY_COOLDOWNS = 1024;
 	public enum HamonStat {
 		STRENGTH,
 		CONTROL
@@ -2013,7 +2017,7 @@ public class HamonData extends PlayerPowerData {
 		buf.writeBoolean(hamonProtection);
 		buf.writeBoolean(characterTechnique != null);
 		if (characterTechnique != null) {
-			buf.writeUtf(characterTechnique);
+			buf.writeUtf(characterTechnique, MAX_TECHNIQUE_NAME_LENGTH);
 		}
 		buf.writeBoolean(isMeditating);
 		buf.writeInt(meditationTicks);
@@ -2028,10 +2032,13 @@ public class HamonData extends PlayerPowerData {
 		buf.writeFloat(trainingBonus);
 		buf.writeVarInt(canSkipTrainingDays);
 		buf.writeLong(lastTrainingDay);
+		NetworkPayloadValidation.requireOutboundCollectionSize(
+				abilityCooldowns.size(), MAX_ABILITY_COOLDOWNS,
+				"Hamon ability cooldown");
 		buf.writeVarInt(abilityCooldowns.size());
 		for (Map.Entry<String, Integer> cooldown : abilityCooldowns.entrySet()) {
 			String abilityName = cooldown.getKey();
-			buf.writeUtf(abilityName);
+			buf.writeUtf(abilityName, MAX_ABILITY_NAME_LENGTH);
 			buf.writeVarInt(cooldown.getValue());
 			buf.writeVarInt(abilityCooldownTotals.getOrDefault(abilityName, cooldown.getValue()));
 		}
@@ -2060,7 +2067,9 @@ public class HamonData extends PlayerPowerData {
 		int newControlPoints = buf.readInt();
 		float newPointsIncFrac = buf.readFloat();
 		boolean newHamonProtection = buf.readBoolean();
-		String newCharacterTechnique = buf.readBoolean() ? buf.readUtf() : null;
+		String newCharacterTechnique = buf.readBoolean()
+				? buf.readUtf(MAX_TECHNIQUE_NAME_LENGTH)
+				: null;
 		boolean newMeditating = buf.readBoolean();
 		int newMeditationTicks = buf.readInt();
 		int newBreathStabilityIncTicks = buf.readInt();
@@ -2079,9 +2088,11 @@ public class HamonData extends PlayerPowerData {
 		int newCanSkipTrainingDays = buf.readVarInt();
 		long newLastTrainingDay = buf.readLong();
 		Map<String, int[]> newCooldowns = new HashMap<>();
-		int cooldownCount = buf.readVarInt();
+		int cooldownCount = NetworkPayloadValidation.requireCollectionSize(
+				buf.readVarInt(), MAX_ABILITY_COOLDOWNS,
+				"Hamon ability cooldown");
 		for (int i = 0; i < cooldownCount; i++) {
-			String abilityName = buf.readUtf();
+			String abilityName = buf.readUtf(MAX_ABILITY_NAME_LENGTH);
 			int cooldown = buf.readVarInt();
 			int totalCooldown = buf.readVarInt();
 			newCooldowns.put(abilityName, new int[] { cooldown, totalCooldown });

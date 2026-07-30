@@ -32,6 +32,7 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 public class BrokenBlocksParticlesAndSoundsPacket implements CustomPacketPayload {
+	private static final int MAX_BROKEN_BLOCKS = 256;
 	public List<BrokenBlock> brokenBlocks;
 
 	public BrokenBlocksParticlesAndSoundsPacket() {
@@ -138,12 +139,14 @@ public class BrokenBlocksParticlesAndSoundsPacket implements CustomPacketPayload
 
 		@Override
 		public void encode(BrokenBlocksParticlesAndSoundsPacket packet, RegistryFriendlyByteBuf buf) {
-			NetworkUtil.writeCollection(buf, packet.brokenBlocks, BrokenBlock.STREAM_CODEC);
+			NetworkUtil.writeCollection(
+					buf, packet.brokenBlocks, BrokenBlock.STREAM_CODEC, MAX_BROKEN_BLOCKS);
 		}
 
 		@Override
 		public BrokenBlocksParticlesAndSoundsPacket decode(RegistryFriendlyByteBuf buf) {
-			return new BrokenBlocksParticlesAndSoundsPacket(NetworkUtil.readCollection(buf, BrokenBlock.STREAM_CODEC));
+			return new BrokenBlocksParticlesAndSoundsPacket(NetworkUtil.readCollection(
+					buf, BrokenBlock.STREAM_CODEC, MAX_BROKEN_BLOCKS));
 		}
 
 		@Override

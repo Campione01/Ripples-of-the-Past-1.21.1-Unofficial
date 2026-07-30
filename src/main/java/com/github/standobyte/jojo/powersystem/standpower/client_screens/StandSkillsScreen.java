@@ -9,12 +9,12 @@ import java.util.Set;
 
 import javax.annotation.Nullable;
 
-import com.github.standobyte.jojo.client.ClientPowerCache;
 import com.github.standobyte.jojo.client.standskin.StandSkin;
 import com.github.standobyte.jojo.client.standskin.StandSkinsLoader;
 import com.github.standobyte.jojo.client.standskin.sprites.AbilityIconSprites;
 import com.github.standobyte.jojo.client.textsymbols.IconSymbols;
 import com.github.standobyte.jojo.client.ui.screen_jojomenu.IJojoMenuScreen;
+import com.github.standobyte.jojo.client.ui.screen_jojomenu.JojoMenuTabs;
 import com.github.standobyte.jojo.client.ui.screen_jojomenu.PaperButton;
 import com.github.standobyte.jojo.client.ui.screen_jojomenu.Tab;
 import com.github.standobyte.jojo.client.ui.screen_jojomenu.TabCategory;
@@ -85,9 +85,19 @@ public class StandSkillsScreen extends Screen implements IJojoMenuScreen {
 	protected Button deselectSkillButton;
 
 	public StandSkillsScreen(Component title, TabCategory category, Tab tab) {
+		this(title, category, tab,
+				JojoMenuTabs.getPowerForMenu(PowerClass.STAND));
+	}
+
+	public StandSkillsScreen(
+			Component title,
+			TabCategory category,
+			Tab tab,
+			StandPower standPower) {
 		super(title);
 		this.category = category;
 		this.tab = tab;
+		this.standPower = standPower;
 	}
 
 	@Override
@@ -105,7 +115,6 @@ public class StandSkillsScreen extends Screen implements IJojoMenuScreen {
 		int x = getWindowX(this);
 		int y = getWindowY(this);
 		
-		standPower = ClientPowerCache.getPower(PowerClass.STAND);
 		levelingData = standPower.getCurTypeData();
 		skills = standPower.getPowerType().getUnlockableSkills().values().stream()
 				.filter(skill -> !skill.hidden)

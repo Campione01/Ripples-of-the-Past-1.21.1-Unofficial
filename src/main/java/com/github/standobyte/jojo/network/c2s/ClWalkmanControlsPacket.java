@@ -105,6 +105,9 @@ public record ClWalkmanControlsPacket(InteractionHand hand, int walkmanId, Actio
 		@Override
 		public void handle(ClWalkmanControlsPacket payload, IPayloadContext context) {
 			Player player = context.player();
+			if (!isValidControl(payload.action, payload.volume, payload.track)) {
+				return;
+			}
 			ItemStack walkman = findWalkman(player, payload).orElse(ItemStack.EMPTY);
 			if (!walkman.is(ModItems.WALKMAN.get())) {
 				return;
@@ -133,9 +136,10 @@ public record ClWalkmanControlsPacket(InteractionHand hand, int walkmanId, Actio
 				WalkmanItem.editWalkmanData(walkman, data -> {
 					ItemStack cassette = data.cassette();
 					if (!cassette.isEmpty()) {
-						CassetteRecordedItem.editCassetteData(cassette, cassetteData -> cassetteData
-								.withSide(payload.side)
-								.withSideTrack(payload.track));
+						CassetteRecordedItem.editCassetteData(cassette, cassetteData ->
+								payload.track < cassetteData.tracks().size()
+										? cassetteData.withSide(payload.side).withSideTrack(payload.track)
+										: cassetteData);
 						return data.withCassette(cassette);
 					}
 					return data;
@@ -163,6 +167,12 @@ public record ClWalkmanControlsPacket(InteractionHand hand, int walkmanId, Actio
 			return WalkmanItem.getWalkmanData(item)
 					.map(data -> data.idInitialized() && data.id() == walkmanId)
 					.orElse(false);
+		}
+
+		static boolean isValidControl(Action action, float volume, int track) {
+			return (action != Action.VOLUME
+					|| Float.isFinite(volume) && volume >= 0.0F && volume <= 1.0F)
+					&& (action != Action.POSITION || track >= 0);
 		}
 	}
 }

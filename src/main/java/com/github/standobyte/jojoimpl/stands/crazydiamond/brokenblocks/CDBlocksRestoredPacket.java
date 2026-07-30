@@ -23,6 +23,8 @@ import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 public record CDBlocksRestoredPacket(Collection<BlockPos> positions, Collection<Integer> entities) implements CustomPacketPayload {
+	private static final int MAX_RESTORED_BLOCKS = 4096;
+	private static final int MAX_RESTORED_ENTITIES = 1024;
 
 	private static CustomPacketPayload.Type<CDBlocksRestoredPacket> type;
 
@@ -39,14 +41,18 @@ public record CDBlocksRestoredPacket(Collection<BlockPos> positions, Collection<
 
 		@Override
 		public void encode(CDBlocksRestoredPacket packet, RegistryFriendlyByteBuf buf) {
-			NetworkUtil.writeCollection(buf, packet.positions, BlockPos.STREAM_CODEC);
-			NetworkUtil.writeCollection(buf, packet.entities, ByteBufCodecs.INT);
+			NetworkUtil.writeCollection(
+					buf, packet.positions, BlockPos.STREAM_CODEC, MAX_RESTORED_BLOCKS);
+			NetworkUtil.writeCollection(
+					buf, packet.entities, ByteBufCodecs.INT, MAX_RESTORED_ENTITIES);
 		}
 
 		@Override
 		public CDBlocksRestoredPacket decode(RegistryFriendlyByteBuf buf) {
-			Collection<BlockPos> positions = NetworkUtil.readCollection(buf, BlockPos.STREAM_CODEC);
-			Collection<Integer> entities = NetworkUtil.readCollection(IntArraySet::new, buf, ByteBufCodecs.INT);
+			Collection<BlockPos> positions = NetworkUtil.readCollection(
+					buf, BlockPos.STREAM_CODEC, MAX_RESTORED_BLOCKS);
+			Collection<Integer> entities = NetworkUtil.readCollection(
+					IntArraySet::new, buf, ByteBufCodecs.INT, MAX_RESTORED_ENTITIES);
 			return new CDBlocksRestoredPacket(positions, entities);
 		}
 

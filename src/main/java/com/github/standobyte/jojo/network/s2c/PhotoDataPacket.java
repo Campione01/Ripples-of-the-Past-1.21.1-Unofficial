@@ -74,7 +74,7 @@ public class PhotoDataPacket implements CustomPacketPayload {
 		@Override
 		public void handle(PhotoDataPacket payload, IPayloadContext context) {
 			PhotosCache.rememberServer(payload.serverId);
-			PhotoHolder photoHolder = PhotosCache.getOrCreatePhotoHolder(payload.serverId, payload.photoId);
+			PhotoHolder photoHolder = PhotosCache.getPhotoHolder(payload.serverId, payload.photoId);
 			if (photoHolder != null) {
 				photoHolder.readBatchFromPacket(payload.hasPhoto ? payload.dataBatch : null);
 			}

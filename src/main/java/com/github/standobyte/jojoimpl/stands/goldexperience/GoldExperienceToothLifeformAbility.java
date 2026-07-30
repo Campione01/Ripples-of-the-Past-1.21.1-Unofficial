@@ -51,6 +51,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 
 public class GoldExperienceToothLifeformAbility extends GoldExperienceUtilityAbility {
+    private static final int MAX_LIFEFORM_ID_LENGTH = 256;
     public static final String CREATE_LIFEFORM_ABILITY = GoldExperienceCreateLifeformAbility.CREATE_LIFEFORM_ABILITY_NAME;
     public static final String TOOTH_LIFEFORM_ABILITY = "tooth_lifeform";
 
@@ -104,7 +105,7 @@ public class GoldExperienceToothLifeformAbility extends GoldExperienceUtilityAbi
         String selectedLifeformId = selectedOrFirstLifeformId(user);
         serverboundBuf.writeBoolean(selectedLifeformId != null);
         if (selectedLifeformId != null) {
-            serverboundBuf.writeUtf(selectedLifeformId);
+            serverboundBuf.writeUtf(selectedLifeformId, MAX_LIFEFORM_ID_LENGTH);
         }
     }
 
@@ -161,7 +162,9 @@ public class GoldExperienceToothLifeformAbility extends GoldExperienceUtilityAbi
             return selectedOrFirstLifeformId(user);
         }
         try {
-            return extraClientInput.readBoolean() ? extraClientInput.readUtf() : null;
+            return extraClientInput.readBoolean()
+                    ? extraClientInput.readUtf(MAX_LIFEFORM_ID_LENGTH)
+                    : null;
         }
         catch (RuntimeException e) {
             JojoMod.getLogger().warn("Ignoring malformed Gold Experience tooth lifeform input from {}.",

@@ -1,5 +1,7 @@
 package com.github.standobyte.jojo.subsystems.entity_externalcontainer.packet;
 
+import java.util.function.IntPredicate;
+
 import com.github.standobyte.jojo.PacketsRegister;
 import com.github.standobyte.jojo.core.JojoMod;
 import com.github.standobyte.jojo.subsystems.entity_externalcontainer.ModdedContainerClickType;
@@ -118,17 +120,25 @@ public class ClExtendedContainerClickPacket implements CustomPacketPayload {
 					if (!containerMenu.isValidSlotIndex(payload.slotNum)) {
 						JojoMod.getLogger().debug("Player {} clicked invalid slot index: {}, available slots: {}", player.getName(), payload.slotNum, containerMenu.slots.size());
 					}
+					else if (!changedSlotsAreValid(containerMenu, payload.changedSlots)) {
+						JojoMod.getLogger().debug("Player {} sent invalid changed-slot indices for menu {}",
+								player.getName(), containerMenu);
+					}
 					else {
 						boolean syncFullState = payload.stateId != containerMenu.getStateId();
 						containerMenu.suppressRemoteUpdates();
-						PlayerExternalContainers.click(containerMenu, payload.slotNum, payload.buttonNum, payload.clickType, player);
+						try {
+							PlayerExternalContainers.click(containerMenu, payload.slotNum, payload.buttonNum, payload.clickType, player);
 
-						for (Entry<ItemStack> entry : Int2ObjectMaps.fastIterable(payload.changedSlots)) {
-							containerMenu.setRemoteSlotNoCopy(entry.getIntKey(), entry.getValue());
+							for (Entry<ItemStack> entry : Int2ObjectMaps.fastIterable(payload.changedSlots)) {
+								containerMenu.setRemoteSlotNoCopy(entry.getIntKey(), entry.getValue());
+							}
+
+							containerMenu.setRemoteCarried(payload.carriedItem);
 						}
-
-						containerMenu.setRemoteCarried(payload.carriedItem);
-						containerMenu.resumeRemoteUpdates();
+						finally {
+							containerMenu.resumeRemoteUpdates();
+						}
 						if (syncFullState) {
 							containerMenu.broadcastFullState();
 						}
@@ -139,6 +149,21 @@ public class ClExtendedContainerClickPacket implements CustomPacketPayload {
 				}
 				
 			}
+		}
+
+		static boolean changedSlotsAreValid(AbstractContainerMenu menu,
+				Int2ObjectMap<ItemStack> changedSlots) {
+			return changedSlotsAreValid(changedSlots, menu::isValidSlotIndex);
+		}
+
+		static boolean changedSlotsAreValid(
+				Int2ObjectMap<ItemStack> changedSlots, IntPredicate isValidSlot) {
+			for (int slot : changedSlots.keySet()) {
+				if (!isValidSlot.test(slot)) {
+					return false;
+				}
+			}
+			return true;
 		}
 
 	}

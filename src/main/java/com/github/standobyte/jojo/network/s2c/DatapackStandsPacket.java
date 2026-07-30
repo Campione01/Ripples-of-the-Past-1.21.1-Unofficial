@@ -16,6 +16,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 public record DatapackStandsPacket(Collection<Map.Entry<ResourceLocation, JsonObject>> standData) implements CustomPacketPayload {
+	private static final int MAX_DATAPACK_STANDS = 1024;
 	private static CustomPacketPayload.Type<DatapackStandsPacket> type;
 	
 	public static class Handler implements PacketsRegister.PacketCodecHandler<DatapackStandsPacket> {
@@ -40,7 +41,8 @@ public record DatapackStandsPacket(Collection<Map.Entry<ResourceLocation, JsonOb
 						NetworkUtil.JSON_OBJECT_CODEC, Map.Entry::getValue, 
 						Map::entry);
 		
-		public static final StreamCodec<FriendlyByteBuf, DatapackStandsPacket> STREAM_CODEC = NetworkUtil.collectionCodec(ENTRY_CODEC)
+		public static final StreamCodec<FriendlyByteBuf, DatapackStandsPacket> STREAM_CODEC =
+				NetworkUtil.collectionCodec(ENTRY_CODEC, MAX_DATAPACK_STANDS)
 				.map(DatapackStandsPacket::new, DatapackStandsPacket::standData);
 
 		@Override

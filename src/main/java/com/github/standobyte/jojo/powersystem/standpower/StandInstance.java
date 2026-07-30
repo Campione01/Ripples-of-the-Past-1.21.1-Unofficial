@@ -14,6 +14,7 @@ import org.jetbrains.annotations.ApiStatus;
 
 import com.github.standobyte.jojo.client.standskin.StandSkin;
 import com.github.standobyte.jojo.client.standskin.StandSkinsLoader;
+import com.github.standobyte.jojo.network.NetworkPayloadValidation;
 import com.github.standobyte.jojo.network.s2c.TrPowerStandInstancePacket;
 import com.github.standobyte.jojo.powersystem.standpower.type.StandType;
 import com.mojang.datafixers.util.Either;
@@ -207,7 +208,9 @@ public class StandInstance {
 				ResourceLocation standTypeId = ResourceLocation.STREAM_CODEC.decode(buffer);
 				Optional<ResourceLocation> skin = ResourceLocation.STREAM_CODEC.apply(ByteBufCodecs::optional).decode(buffer);
 				EnumSet<StandPart> missingParts = EnumSet.noneOf(StandPart.class);
-				int missingPartsCount = buffer.readVarInt();
+				int missingPartsCount = NetworkPayloadValidation.requireCollectionSize(
+						buffer.readVarInt(), StandPart.values().length,
+						"missing Stand part");
 				for (int i = 0; i < missingPartsCount; i++) {
 					missingParts.add(buffer.readEnum(StandPart.class));
 				}

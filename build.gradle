@@ -241,11 +241,20 @@ tasks.register('directionalGravityV2SmokeTest', JavaExec) {
             'com.github.standobyte.jojo.api.gravity.DirectionalGravityV2SmokeTest'
 }
 
+tasks.register('networkPayloadSafetySmokeTest', JavaExec) {
+    group = 'verification'
+    description = 'Runs core network payload bounds and ownership contract tests.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
+    mainClass = 'com.github.standobyte.jojo.network.NetworkPayloadSafetySmokeTest'
+}
+
 tasks.named('check').configure {
     dependsOn tasks.named('clientSettingsSmokeTest')
     dependsOn tasks.named('addonApiSmokeTest')
     dependsOn tasks.named('timeStopBehaviorPolicySmokeTest')
     dependsOn tasks.named('entitySoftLandingProvidersSmokeTest')
+    dependsOn tasks.named('networkPayloadSafetySmokeTest')
 }
 
 // IDEA no longer automatically downloads sources/javadoc jars for dependencies, so we need to explicitly enable the behavior.

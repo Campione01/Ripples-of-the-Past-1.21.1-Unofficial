@@ -7,6 +7,8 @@ import javax.annotation.Nullable;
 
 import com.github.standobyte.jojo.PacketsRegister;
 import com.github.standobyte.jojo.client.ui.screen_jojomenu.RockPaperScissorsScreen;
+import com.github.standobyte.jojo.network.NetworkPayloadValidation;
+import com.github.standobyte.jojoimpl.npc.rps.RockPaperScissorsGame;
 import com.github.standobyte.jojoimpl.npc.rps.RockPaperScissorsGame.Pick;
 
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -16,6 +18,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 public class RPSGameStatePacket implements CustomPacketPayload {
+    private static final int MAX_PICK_HISTORY = RockPaperScissorsGame.WINS_NEEDED * 2 - 1;
     private static CustomPacketPayload.Type<RPSGameStatePacket> type;
 
     private final PacketType packetType;
@@ -67,6 +70,8 @@ public class RPSGameStatePacket implements CustomPacketPayload {
     private RPSGameStatePacket(PacketType packetType, List<Pick> playerPicks, List<Pick> opponentPicks,
             int opponentId, boolean playerWon, @Nullable Pick pick,
             boolean opponentPick, int round, long sessionEpoch) {
+        validateOutboundPickCount(playerPicks.size());
+        validateOutboundPickCount(opponentPicks.size());
         this.packetType = packetType;
         this.playerPicks = List.copyOf(playerPicks);
         this.opponentPicks = List.copyOf(opponentPicks);
@@ -214,12 +219,22 @@ public class RPSGameStatePacket implements CustomPacketPayload {
     }
 
     private static List<Pick> readPickList(RegistryFriendlyByteBuf buf) {
-        int size = buf.readVarInt();
+        int size = validatePickCount(buf.readVarInt(), buf.readableBytes());
         List<Pick> picks = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             picks.add(buf.readEnum(Pick.class));
         }
         return picks;
+    }
+
+    static int validatePickCount(int size, int readableBytes) {
+        return NetworkPayloadValidation.requireCollectionSize(
+                size, MAX_PICK_HISTORY, readableBytes, "RPS pick");
+    }
+
+    static int validateOutboundPickCount(int size) {
+        return NetworkPayloadValidation.requireOutboundCollectionSize(
+                size, MAX_PICK_HISTORY, "RPS pick");
     }
 
     private static void writeNullablePick(RegistryFriendlyByteBuf buf, @Nullable Pick pick) {

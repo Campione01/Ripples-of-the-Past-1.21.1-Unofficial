@@ -43,8 +43,14 @@ public record ClSetStandSkinPacket(Optional<ResourceLocation> standSkin, Resourc
 			Player player = context.player();
 			StandPower standPower = StandPower.get(player);
 			if (standPower != null) {
-				standPower.setSelectedSkin(payload.standSkin);
+				standPower.getStandInstance()
+						.filter(stand -> matchesStandId(stand.getStandId(), payload.standId))
+						.ifPresent(stand -> standPower.setSelectedSkin(payload.standSkin));
 			}
+		}
+
+		static boolean matchesStandId(ResourceLocation currentStandId, ResourceLocation claimedStandId) {
+			return currentStandId.equals(claimedStandId);
 		}
 		
 	}

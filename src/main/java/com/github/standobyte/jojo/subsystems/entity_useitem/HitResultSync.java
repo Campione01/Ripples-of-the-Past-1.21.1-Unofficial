@@ -2,8 +2,10 @@ package com.github.standobyte.jojo.subsystems.entity_useitem;
 
 import javax.annotation.Nullable;
 
+import com.github.standobyte.jojo.network.NetworkPayloadValidation;
 import com.github.standobyte.jojo.util.functions_network.NetworkUtil;
 
+import io.netty.handler.codec.DecoderException;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.FriendlyByteBuf;
@@ -82,15 +84,20 @@ public class HitResultSync {
 				return switch (type) {
 					case ENTITY -> {
 						int entityId = buf.readInt();
-						Vec3 pos = buf.readVec3();
+						Vec3 pos = NetworkPayloadValidation.requireFinite(
+								buf.readVec3(), "hit result position");
 						yield new HitResultSync(entityId, pos);
 					}
 					case MISS -> {
-						BlockPos blockPos = buffer.readBlockPos();
-						Direction direction = buffer.readEnum(Direction.class);
-						float xOffset = buffer.readFloat();
-						float yOffset = buffer.readFloat();
-						float zOffset = buffer.readFloat();
+						BlockPos blockPos = buf.readBlockPos();
+						Direction direction = buf.readEnum(Direction.class);
+						float xOffset = buf.readFloat();
+						float yOffset = buf.readFloat();
+						float zOffset = buf.readFloat();
+						if (!Float.isFinite(xOffset) || !Float.isFinite(yOffset)
+								|| !Float.isFinite(zOffset)) {
+							throw new DecoderException("Non-finite hit result offset");
+						}
 						Vec3 location = new Vec3(
 								blockPos.getX() + xOffset, 
 								blockPos.getY() + yOffset, 
@@ -100,11 +107,13 @@ public class HitResultSync {
 					}
 					default -> {
 						BlockHitResult target = buf.readBlockHitResult();
+						NetworkPayloadValidation.requireFinite(
+								target.getLocation(), "hit result position");
 						yield new HitResultSync(target);
 					}
 				};
 			}).orElse(new HitResultSync(null));
 		}
 	};
-	
+
 }

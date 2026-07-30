@@ -15,6 +15,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
 
 public record AbilityId(PowerClass<?> powerClass, ResourceLocation powerTypeId, String nameInMoveset) {
+	private static final int MAX_ABILITY_NAME_LENGTH = 256;
 	
 	static <A extends Ability> A makeDefaultAbilityInstance(AbilityType<A> abilityType) {
 		return abilityType.createInstance(new AbilityId(null, null, abilityType.registryKey.toString()));
@@ -63,15 +64,15 @@ public record AbilityId(PowerClass<?> powerClass, ResourceLocation powerTypeId, 
 				case FROM_PLAYER_MOVESET -> {
 					buffer.writeInt(user.getId());
 					PowerClass.NETWORK_CODEC.encode(buffer, abilityId.powerClass());
-					buffer.writeUtf(abilityId.nameInMoveset());
+					buffer.writeUtf(abilityId.nameInMoveset(), MAX_ABILITY_NAME_LENGTH);
 				}
 				case FROM_POWER_TYPE_MOVESET -> {
 					PowerClass.NETWORK_CODEC.encode(buffer, abilityId.powerClass());
 					buffer.writeResourceLocation(abilityId.powerTypeId());
-					buffer.writeUtf(abilityId.nameInMoveset());
+					buffer.writeUtf(abilityId.nameInMoveset(), MAX_ABILITY_NAME_LENGTH);
 				}
 				case DEFAULT_ABILITY_TYPE_INSTANCE -> {
-					buffer.writeUtf(abilityId.nameInMoveset());
+					buffer.writeUtf(abilityId.nameInMoveset(), MAX_ABILITY_NAME_LENGTH);
 				}
 				default -> {}
 			}
@@ -85,19 +86,19 @@ public record AbilityId(PowerClass<?> powerClass, ResourceLocation powerTypeId, 
 				case FROM_PLAYER_MOVESET -> {
 					int userId = buffer.readInt();
 					PowerClass<?> powerClass = PowerClass.NETWORK_CODEC.decode(buffer);
-					String abilityName = buffer.readUtf();
+					String abilityName = buffer.readUtf(MAX_ABILITY_NAME_LENGTH);
 					
 					yield new AbilityInputNetwork(SyncStrategy.FROM_PLAYER_MOVESET, userId, powerClass, null, abilityName);
 				}
 				case FROM_POWER_TYPE_MOVESET -> {
 					PowerClass<?> powerClass = PowerClass.NETWORK_CODEC.decode(buffer);
 					ResourceLocation powerTypeId = buffer.readResourceLocation();
-					String abilityName = buffer.readUtf();
+					String abilityName = buffer.readUtf(MAX_ABILITY_NAME_LENGTH);
 
 					yield new AbilityInputNetwork(SyncStrategy.FROM_POWER_TYPE_MOVESET, 0, powerClass, powerTypeId, abilityName);
 				}
 				case DEFAULT_ABILITY_TYPE_INSTANCE -> {
-					String abilityName = buffer.readUtf();
+					String abilityName = buffer.readUtf(MAX_ABILITY_NAME_LENGTH);
 					
 					yield new AbilityInputNetwork(SyncStrategy.DEFAULT_ABILITY_TYPE_INSTANCE, 0, null, null, abilityName);
 				}

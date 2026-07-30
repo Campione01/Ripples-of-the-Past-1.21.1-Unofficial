@@ -11,6 +11,7 @@ import net.minecraft.world.entity.player.Player;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 public record ClGELifeformUiPacket(Action action, String lifeformId) implements CustomPacketPayload {
+    private static final int MAX_LIFEFORM_ID_LENGTH = 256;
     private static CustomPacketPayload.Type<ClGELifeformUiPacket> type;
 
     public static ClGELifeformUiPacket addFavorite(String lifeformId) {
@@ -66,12 +67,12 @@ public record ClGELifeformUiPacket(Action action, String lifeformId) implements 
     }
 
     public ClGELifeformUiPacket(RegistryFriendlyByteBuf buf) {
-        this(buf.readEnum(Action.class), buf.readUtf());
+        this(buf.readEnum(Action.class), buf.readUtf(MAX_LIFEFORM_ID_LENGTH));
     }
 
     public void write(RegistryFriendlyByteBuf buf) {
         buf.writeEnum(action);
-        buf.writeUtf(lifeformId);
+        buf.writeUtf(lifeformId, MAX_LIFEFORM_ID_LENGTH);
     }
 
     @Override

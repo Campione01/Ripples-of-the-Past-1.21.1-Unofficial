@@ -2,6 +2,7 @@ package com.github.standobyte.jojo.subsystems.entity_useitem;
 
 import com.github.standobyte.jojo.PacketsRegister;
 import com.github.standobyte.jojo.init.ModDataAttachmentTypes;
+import com.github.standobyte.jojo.network.NetworkPayloadValidation;
 import com.github.standobyte.jojo.powersystem.entityaction.EntityActionInputState;
 import com.github.standobyte.jojo.powersystem.entityaction.HeldInput;
 import com.github.standobyte.jojo.powersystem.entityaction.LivingComponentAction;
@@ -20,6 +21,7 @@ import net.minecraft.world.phys.HitResult;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 public record ClStandClickPacket(HitResultSync target, short internalKeyId, InteractionHand... hand) implements CustomPacketPayload {
+	private static final int MAX_HAND_COUNT = InteractionHand.values().length;
 	private static CustomPacketPayload.Type<ClStandClickPacket> type;
 	
 	public ClStandClickPacket(HitResult target, short internalKeyId, InteractionHand... hand) {
@@ -51,7 +53,9 @@ public record ClStandClickPacket(HitResultSync target, short internalKeyId, Inte
 		public ClStandClickPacket decode(RegistryFriendlyByteBuf buf) {
 			HitResultSync target = HitResultSync.STREAM_CODEC.decode(buf);
 			short internalKeyId = buf.readShort();
-			InteractionHand[] hand = new InteractionHand[buf.readVarInt()];
+			int handCount = NetworkPayloadValidation.requireCollectionSize(
+					buf.readVarInt(), MAX_HAND_COUNT, "interaction hand");
+			InteractionHand[] hand = new InteractionHand[handCount];
 			for (int i = 0; i < hand.length; i++) {
 				hand[i] = buf.readEnum(InteractionHand.class);
 			}

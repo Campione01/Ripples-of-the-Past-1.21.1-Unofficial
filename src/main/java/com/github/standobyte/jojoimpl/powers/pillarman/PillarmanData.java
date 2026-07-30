@@ -11,6 +11,7 @@ import com.github.standobyte.jojo.core.JojoMod;
 import com.github.standobyte.jojo.init.ModCriteriaTriggers;
 import com.github.standobyte.jojo.init.ModSoundEvents;
 import com.github.standobyte.jojo.init.ModStatusEffects;
+import com.github.standobyte.jojo.network.NetworkPayloadValidation;
 import com.github.standobyte.jojo.powersystem.Power;
 import com.github.standobyte.jojo.powersystem.PowerData;
 import com.github.standobyte.jojo.powersystem.PowerType;
@@ -41,6 +42,8 @@ import net.neoforged.neoforge.common.NeoForgeMod;
 public class PillarmanData extends PlayerPowerData {
 	public static final int MAX_STAGE_LEVEL = 4;
 	public static final float BASE_MAX_ENERGY = 1000.0F;
+	private static final int MAX_ABILITY_NAME_LENGTH = 256;
+	private static final int MAX_ABILITY_COOLDOWNS = 1024;
 	private static final AttributeModifier ATTACK_DAMAGE = new AttributeModifier(
 			JojoMod.resLoc("pillar_man_attack_damage"), 1.0, AttributeModifier.Operation.ADD_VALUE);
 	private static final AttributeModifier ATTACK_SPEED = new AttributeModifier(
@@ -135,10 +138,13 @@ public class PillarmanData extends PlayerPowerData {
 		buf.writeByte(stoneFormPose);
 		buf.writeBoolean(bladesVisible);
 		buf.writeFloat(energy);
+		NetworkPayloadValidation.requireOutboundCollectionSize(
+				abilityCooldowns.size(), MAX_ABILITY_COOLDOWNS,
+				"Pillarman ability cooldown");
 		buf.writeVarInt(abilityCooldowns.size());
 		for (Map.Entry<String, Integer> cooldown : abilityCooldowns.entrySet()) {
 			String abilityName = cooldown.getKey();
-			buf.writeUtf(abilityName);
+			buf.writeUtf(abilityName, MAX_ABILITY_NAME_LENGTH);
 			buf.writeVarInt(cooldown.getValue());
 			buf.writeVarInt(abilityCooldownTotals.getOrDefault(abilityName, cooldown.getValue()));
 		}
@@ -159,9 +165,11 @@ public class PillarmanData extends PlayerPowerData {
 		setEnergyUnchecked(buf.readFloat());
 		abilityCooldowns.clear();
 		abilityCooldownTotals.clear();
-		int cooldownCount = buf.readVarInt();
+		int cooldownCount = NetworkPayloadValidation.requireCollectionSize(
+				buf.readVarInt(), MAX_ABILITY_COOLDOWNS,
+				"Pillarman ability cooldown");
 		for (int i = 0; i < cooldownCount; i++) {
-			String abilityName = buf.readUtf();
+			String abilityName = buf.readUtf(MAX_ABILITY_NAME_LENGTH);
 			int cooldown = buf.readVarInt();
 			int totalCooldown = buf.readVarInt();
 			if (cooldown > 0) {

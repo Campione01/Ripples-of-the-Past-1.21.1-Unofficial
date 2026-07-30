@@ -9,6 +9,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 public class BatchReceiver {
 	private OptionalInt batchesCount = OptionalInt.empty();
 	private final Int2ObjectMap<ByteBuffer> batchesReceived = new Int2ObjectArrayMap<>();
+	private int receivedBytes;
 
 	public ByteBuffer receive(BatchSender.Batch receivedBatch) {
 		if (receivedBatch.batchStart != 0 || receivedBatch.batchSize != receivedBatch.dataBatch.length) {
@@ -18,25 +19,47 @@ public class BatchReceiver {
 	}
 
 	public ByteBuffer receiveBatch(byte[] batch, int batchIndex, boolean isLastBatch) {
+		if (batchIndex < 0 || batchIndex >= BatchSender.MAX_BATCH_COUNT) {
+			throw new IllegalArgumentException("Invalid batch index " + batchIndex);
+		}
+		if (batch.length > BatchSender.DEFAULT_MAX_PAYLOAD_SIZE) {
+			throw new IllegalArgumentException("Batch exceeds "
+					+ BatchSender.DEFAULT_MAX_PAYLOAD_SIZE + " bytes");
+		}
 		if (batchesReceived.containsKey(batchIndex)) {
-			throw new IllegalStateException("Already received photo batch " + batchIndex);
+			throw new IllegalStateException("Already received batch " + batchIndex);
 		}
 		if (isLastBatch) {
 			if (batchesCount.isPresent()) {
-				throw new IllegalStateException("Photo batch count was already set");
+				throw new IllegalStateException("Batch count was already set");
 			}
-			batchesCount = OptionalInt.of(batchIndex + 1);
+			int count = batchIndex + 1;
+			for (int receivedIndex : batchesReceived.keySet()) {
+				if (receivedIndex >= count) {
+					throw new IllegalStateException("Received batch past the declared last batch");
+				}
+			}
+			batchesCount = OptionalInt.of(count);
 		}
 		else if (batchesCount.isPresent() && batchIndex >= batchesCount.getAsInt()) {
-			throw new IllegalStateException("Received photo batch past the last batch");
+			throw new IllegalStateException("Received batch past the last batch");
+		}
+
+		if (batch.length > BatchSender.MAX_DATA_SIZE - receivedBytes) {
+			throw new IllegalStateException("Batch data exceeds "
+					+ BatchSender.MAX_DATA_SIZE + " bytes");
 		}
 
 		batchesReceived.put(batchIndex, ByteBuffer.wrap(batch));
+		receivedBytes += batch.length;
 		if (batchesCount.isPresent() && batchesReceived.size() == batchesCount.getAsInt()) {
-			int fullSize = batchesReceived.values().stream().mapToInt(ByteBuffer::capacity).sum();
-			ByteBuffer full = ByteBuffer.allocate(fullSize);
+			ByteBuffer full = ByteBuffer.allocate(receivedBytes);
 			for (int i = 0; i < batchesCount.getAsInt(); i++) {
-				full.put(batchesReceived.get(i));
+				ByteBuffer received = batchesReceived.get(i);
+				if (received == null) {
+					throw new IllegalStateException("Missing batch " + i);
+				}
+				full.put(received);
 			}
 			full.flip();
 			return full;

@@ -17,6 +17,7 @@ import net.minecraft.world.entity.player.Player;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 public class ClLearnSkillPacket implements CustomPacketPayload {
+	private static final int MAX_SKILL_NAME_LENGTH = 256;
 	public PowerClass<?> powerClass;
 	public ResourceLocation powerType;
 	public PacketType packetType;
@@ -74,7 +75,7 @@ public class ClLearnSkillPacket implements CustomPacketPayload {
 			buf.writeEnum(packet.packetType);
 			switch (packet.packetType) {
 				case LEARN_ALL, RESET_ALL -> {}
-				default -> buf.writeUtf(packet.skillName);
+				default -> buf.writeUtf(packet.skillName, MAX_SKILL_NAME_LENGTH);
 			}
 		}
 
@@ -88,7 +89,7 @@ public class ClLearnSkillPacket implements CustomPacketPayload {
 					yield new ClLearnSkillPacket(powerClass, powerType, packetType, null);
 				}
 				default -> {
-					String skillName = buf.readUtf();
+					String skillName = buf.readUtf(MAX_SKILL_NAME_LENGTH);
 					yield new ClLearnSkillPacket(powerClass, powerType, packetType, skillName);
 				}
 			};

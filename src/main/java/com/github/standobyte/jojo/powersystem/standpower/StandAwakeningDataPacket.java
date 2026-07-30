@@ -19,6 +19,7 @@ import net.minecraft.world.entity.player.Player;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 public class StandAwakeningDataPacket implements CustomPacketPayload {
+	private static final int MAX_STAND_CHOICES = 1024;
 	protected AwakeningStage stage;
 	protected boolean hadStandBefore;
 	protected Optional<Collection<ResourceLocation>> fatedFutureStands;
@@ -53,8 +54,10 @@ public class StandAwakeningDataPacket implements CustomPacketPayload {
 			return type;
 		}
 
-		public static final StreamCodec<FriendlyByteBuf, Optional<Collection<ResourceLocation>>> OPTIONAL_COLLECTION = 
-				NetworkUtil.collectionCodec(ResourceLocation.STREAM_CODEC).apply(ByteBufCodecs::optional);
+	public static final StreamCodec<FriendlyByteBuf, Optional<Collection<ResourceLocation>>> OPTIONAL_COLLECTION =
+				NetworkUtil.collectionCodec(
+						ResourceLocation.STREAM_CODEC, MAX_STAND_CHOICES)
+				.apply(ByteBufCodecs::optional);
 		@Override
 		public void encode(StandAwakeningDataPacket packet, RegistryFriendlyByteBuf buf) {
 			buf.writeEnum(packet.stage);

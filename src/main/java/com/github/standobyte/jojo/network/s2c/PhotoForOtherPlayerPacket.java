@@ -5,13 +5,16 @@ import org.joml.Vector3f;
 import com.github.standobyte.jojo.PacketsRegister;
 import com.github.standobyte.jojo.client.ClientProxy;
 import com.github.standobyte.jojo.client.polaroid.PolaroidHelper;
+import com.github.standobyte.jojo.item.polaroid.PhotosHandler;
 
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 public record PhotoForOtherPlayerPacket(int giveToPlayerId) implements CustomPacketPayload {
@@ -23,6 +26,22 @@ public record PhotoForOtherPlayerPacket(int giveToPlayerId) implements CustomPac
 
 	public void write(RegistryFriendlyByteBuf buf) {
 		buf.writeInt(giveToPlayerId);
+	}
+
+	public static boolean sendToCapturingPlayer(
+			ServerPlayer capturingPlayer, ServerPlayer photoRecipient) {
+		if (capturingPlayer.server != photoRecipient.server
+				|| capturingPlayer.serverLevel() != photoRecipient.serverLevel()
+				|| capturingPlayer.hasDisconnected() || photoRecipient.hasDisconnected()) {
+			return false;
+		}
+		PhotosHandler photos = PhotosHandler.get(capturingPlayer.server);
+		if (!photos.authorizePhotoUpload(capturingPlayer, photoRecipient)) {
+			return false;
+		}
+		PacketDistributor.sendToPlayer(capturingPlayer,
+				new PhotoForOtherPlayerPacket(photoRecipient.getId()));
+		return true;
 	}
 
 	@Override

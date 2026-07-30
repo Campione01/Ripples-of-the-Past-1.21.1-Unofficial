@@ -5,6 +5,7 @@ import java.util.Optional;
 import com.github.standobyte.jojo.PacketsRegister;
 import com.github.standobyte.jojo.client.ClientTimeStopHandler;
 import com.github.standobyte.jojo.client.shader.ModShaders;
+import com.github.standobyte.jojo.network.NetworkPayloadValidation;
 import com.github.standobyte.jojo.subsystems.timestop.TimeStopState;
 import com.github.standobyte.jojo.util.functions_network.NetworkUtil;
 
@@ -16,7 +17,13 @@ import net.minecraft.world.level.ChunkPos;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 public record TrTimeStopInstancePacket(int id, int ticksLeft, int totalTicks, int chunkX, int chunkZ, int chunkRange, int userId, String visualRoute, Optional<ResourceLocation> standTypeId, Optional<ResourceLocation> selectedSkin, int resumeSoundUserId, int resumeVoiceLineUserId, boolean ticksManuallySet, boolean forceResumeVoiceLine, float staminaCostTick, int ticksPassed, boolean refundUnusedStartCost, boolean remove, boolean openingVisual) implements CustomPacketPayload {
+	private static final int MAX_VISUAL_ROUTE_LENGTH = 128;
 	private static CustomPacketPayload.Type<TrTimeStopInstancePacket> type;
+
+	public TrTimeStopInstancePacket {
+		visualRoute = NetworkPayloadValidation.requireUtfLength(
+				visualRoute, MAX_VISUAL_ROUTE_LENGTH, "time-stop visual route");
+	}
 
 	public static class Handler implements PacketsRegister.PacketCodecHandler<TrTimeStopInstancePacket> {
 
@@ -78,7 +85,7 @@ public record TrTimeStopInstancePacket(int id, int ticksLeft, int totalTicks, in
 	}
 
 	public TrTimeStopInstancePacket(RegistryFriendlyByteBuf buf) {
-		this(buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt(), buf.readUtf(), NetworkUtil.readOptional(buf, ResourceLocation.STREAM_CODEC), NetworkUtil.readOptional(buf, ResourceLocation.STREAM_CODEC), buf.readInt(), buf.readInt(), buf.readBoolean(), buf.readBoolean(), buf.readFloat(), buf.readInt(), buf.readBoolean(), buf.readBoolean(), buf.readBoolean());
+		this(buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt(), buf.readUtf(MAX_VISUAL_ROUTE_LENGTH), NetworkUtil.readOptional(buf, ResourceLocation.STREAM_CODEC), NetworkUtil.readOptional(buf, ResourceLocation.STREAM_CODEC), buf.readInt(), buf.readInt(), buf.readBoolean(), buf.readBoolean(), buf.readFloat(), buf.readInt(), buf.readBoolean(), buf.readBoolean(), buf.readBoolean());
 	}
 
 	public void write(RegistryFriendlyByteBuf buf) {
@@ -89,7 +96,7 @@ public record TrTimeStopInstancePacket(int id, int ticksLeft, int totalTicks, in
 		buf.writeInt(chunkZ);
 		buf.writeInt(chunkRange);
 		buf.writeInt(userId);
-		buf.writeUtf(visualRoute);
+		buf.writeUtf(visualRoute, MAX_VISUAL_ROUTE_LENGTH);
 		NetworkUtil.writeOptional(standTypeId, buf, ResourceLocation.STREAM_CODEC);
 		NetworkUtil.writeOptional(selectedSkin, buf, ResourceLocation.STREAM_CODEC);
 		buf.writeInt(resumeSoundUserId);

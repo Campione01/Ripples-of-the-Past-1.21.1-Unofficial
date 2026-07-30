@@ -2,6 +2,7 @@ package com.github.standobyte.jojo.powersystem.standpower.packet;
 
 import com.github.standobyte.jojo.PacketsRegister;
 import com.github.standobyte.jojo.client.ClientProxy;
+import com.github.standobyte.jojo.network.NetworkPayloadValidation;
 import com.github.standobyte.jojo.powersystem.standpower.StandPower;
 
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -12,7 +13,13 @@ import net.minecraft.world.entity.LivingEntity;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 public record TrStandAbilityCooldownPacket(int entityId, boolean resetAll, String abilityName, int cooldown, int totalCooldown) implements CustomPacketPayload {
+	private static final int MAX_ABILITY_NAME_LENGTH = 256;
 	private static CustomPacketPayload.Type<TrStandAbilityCooldownPacket> type;
+
+	public TrStandAbilityCooldownPacket {
+		abilityName = NetworkPayloadValidation.requireUtfLength(
+				abilityName, MAX_ABILITY_NAME_LENGTH, "Stand ability name");
+	}
 
 	public TrStandAbilityCooldownPacket(int entityId, String abilityName, int cooldown, int totalCooldown) {
 		this(entityId, false, abilityName, cooldown, totalCooldown);
@@ -38,7 +45,7 @@ public record TrStandAbilityCooldownPacket(int entityId, boolean resetAll, Strin
 			buf.writeBoolean(packet.resetAll);
 			buf.writeInt(packet.entityId);
 			if (!packet.resetAll) {
-				buf.writeUtf(packet.abilityName);
+				buf.writeUtf(packet.abilityName, MAX_ABILITY_NAME_LENGTH);
 				buf.writeVarInt(packet.cooldown);
 				buf.writeVarInt(packet.totalCooldown);
 			}
@@ -51,7 +58,9 @@ public record TrStandAbilityCooldownPacket(int entityId, boolean resetAll, Strin
 			if (resetAll) {
 				return TrStandAbilityCooldownPacket.resetAll(entityId);
 			}
-			return new TrStandAbilityCooldownPacket(entityId, buf.readUtf(), buf.readVarInt(), buf.readVarInt());
+			return new TrStandAbilityCooldownPacket(
+					entityId, buf.readUtf(MAX_ABILITY_NAME_LENGTH),
+					buf.readVarInt(), buf.readVarInt());
 		}
 
 		@Override

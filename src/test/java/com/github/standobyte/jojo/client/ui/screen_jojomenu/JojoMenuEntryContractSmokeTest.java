@@ -51,6 +51,29 @@ public final class JojoMenuEntryContractSmokeTest {
 				"JojoMenuTabs.getPowerForMenu(powerClass)"),
 				"controls screen must tolerate a stale cache");
 
+		String standInfoScreen = read(root.resolve(
+				"src/main/java/com/github/standobyte/jojo/powersystem/"
+						+ "standpower/client_screens/StandInfoScreen.java"));
+		String standSkillsScreen = read(root.resolve(
+				"src/main/java/com/github/standobyte/jojo/powersystem/"
+						+ "standpower/client_screens/StandSkillsScreen.java"));
+		check(standInfoScreen.contains(
+				"JojoMenuTabs.getPowerForMenu(PowerClass.STAND)"),
+				"stand info screen must tolerate a stale cache");
+		check(standSkillsScreen.contains(
+				"JojoMenuTabs.getPowerForMenu(PowerClass.STAND)"),
+				"stand skills screen must tolerate a stale cache");
+		check(!standInfoScreen.contains(
+				"ClientPowerCache.getPower(PowerClass.STAND)")
+				&& !standSkillsScreen.contains(
+						"ClientPowerCache.getPower(PowerClass.STAND)"),
+				"stand menu screens must not re-enter the stale cache");
+		check(menuTabs.contains(
+				".withScreen(JojoMenuTabs::createStandInfoScreen)")
+				&& menuTabs.contains(
+						".withScreen(JojoMenuTabs::createStandSkillsScreen)"),
+				"stand tabs must validate and pass one resolved power");
+
 		String keybinds = read(root.resolve(
 				"src/main/java/com/github/standobyte/jojo/client/input/"
 						+ "VanillaKeybinds.java"));

@@ -75,6 +75,10 @@ public class ServerSavedData extends SavedData {
     	return polaroidPhotoId;
     }
 
+    public long getPolaroidPhotoId() {
+        return polaroidPhotoId;
+    }
+
     public UUID getServerUUID() {
     	setDirty();
     	return serverUUID;

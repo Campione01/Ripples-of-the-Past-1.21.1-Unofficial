@@ -4,7 +4,6 @@ import com.github.standobyte.jojo.PacketsRegister;
 import com.github.standobyte.jojo.mixin.entity_like_player.puppetcontrol.mob.accessors.EntityFallDamageInvoker;
 import com.github.standobyte.jojo.subsystems.entity_puppetcontrol.EntityComponentController;
 import com.github.standobyte.jojo.subsystems.entity_puppetcontrol.mob.MobControlUtil;
-import com.google.common.primitives.Floats;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -62,11 +61,15 @@ public record ClMobControlMovementPacket(int entityId, double x, double y, doubl
 			ServerPlayer player = (ServerPlayer) context.player();
 			if (isInvalid(packet)) {
 				player.connection.disconnect(Component.translatable("multiplayer.disconnect.invalid_vehicle_movement"));
+				return;
 			}
 			
 			Entity curControlTarget = EntityComponentController.getControlTarget(player);
 			if (curControlTarget != null && curControlTarget.getId() == packet.entityId) {
-				manualControlPacket(MobControlUtil.getMobOrMobVehicle(curControlTarget), packet);
+				Entity controlledMob = MobControlUtil.getMobOrMobVehicle(curControlTarget);
+				if (controlledMob != null) {
+					manualControlPacket(controlledMob, packet);
+				}
 			}
 		}
 
@@ -88,6 +91,10 @@ public record ClMobControlMovementPacket(int entityId, double x, double y, doubl
 				double diffX = posXcl - posX1; // d6
 				double diffY = posYcl - posY1; // d7
 				double diffZ = posZcl - posZ1; // d8
+				double movementSqr = diffX * diffX + diffY * diffY + diffZ * diffZ;
+				if (isMovementTooFast(movementSqr, entity.getDeltaMovement().lengthSqr())) {
+					return;
+				}
 
 				boolean upwardsMotion = diffY > 0.0;
 				if (entity.onGround() && !msg.onGround && upwardsMotion && living != null) {
@@ -133,9 +140,14 @@ public record ClMobControlMovementPacket(int entityId, double x, double y, doubl
 			return Mth.clamp(value, -2.0E7, 2.0E7);
 		}
 
-		private boolean isInvalid(ClMobControlMovementPacket msg) {
-			return Double.isNaN(msg.x) || Double.isNaN(msg.y) || Double.isNaN(msg.z)
-					|| !Floats.isFinite(msg.xRot) || !Floats.isFinite(msg.yRot);
+		static boolean isInvalid(ClMobControlMovementPacket msg) {
+			return !Double.isFinite(msg.x) || !Double.isFinite(msg.y) || !Double.isFinite(msg.z)
+					|| Math.abs(msg.x) > 3.0E7 || Math.abs(msg.y) > 2.0E7 || Math.abs(msg.z) > 3.0E7
+					|| !Float.isFinite(msg.xRot) || !Float.isFinite(msg.yRot);
+		}
+
+		static boolean isMovementTooFast(double movementSqr, double currentMotionSqr) {
+			return movementSqr - currentMotionSqr > 100.0D;
 		}
 
 	}

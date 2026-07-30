@@ -5,6 +5,7 @@ import java.util.Arrays;
 import com.github.standobyte.jojo.PacketsRegister;
 import com.github.standobyte.jojo.client.ClientProxy;
 import com.github.standobyte.jojo.init.power.ModPlayerPowers;
+import com.github.standobyte.jojo.network.NetworkPayloadValidation;
 import com.github.standobyte.jojo.powersystem.playerpower.PlayerPower;
 import com.github.standobyte.jojoimpl.powers.hamon.HamonData.Exercise;
 import com.github.standobyte.jojoimpl.powers.hamon.client.HamonTrainingHudFeedback;
@@ -19,7 +20,19 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 public record HamonExercisesPacket(int[] exerciseTicks, boolean sendBonus, float trainingBonus,
 		int canSkipTrainingDays, int completedExerciseFeedback, String breathingIncreaseFeedback) implements CustomPacketPayload {
+	private static final int MAX_FEEDBACK_LENGTH = 128;
 	private static CustomPacketPayload.Type<HamonExercisesPacket> packetType;
+
+	public HamonExercisesPacket {
+		if (exerciseTicks.length != Exercise.values().length) {
+			throw new IllegalArgumentException("Invalid outbound Hamon exercise count "
+					+ exerciseTicks.length + " (expected " + Exercise.values().length + ")");
+		}
+		exerciseTicks = exerciseTicks.clone();
+		breathingIncreaseFeedback = NetworkPayloadValidation.requireUtfLength(
+				breathingIncreaseFeedback, MAX_FEEDBACK_LENGTH,
+				"Hamon breathing feedback");
+	}
 
 	public static HamonExercisesPacket allData(HamonData hamon) {
 		return new HamonExercisesPacket(
@@ -65,7 +78,7 @@ public record HamonExercisesPacket(int[] exerciseTicks, boolean sendBonus, float
 			}
 			buf.writeVarInt(packet.completedExerciseFeedback);
 			if (packet.completedExerciseFeedback == 3) {
-				buf.writeUtf(packet.breathingIncreaseFeedback);
+				buf.writeUtf(packet.breathingIncreaseFeedback, MAX_FEEDBACK_LENGTH);
 			}
 		}
 
@@ -84,7 +97,9 @@ public record HamonExercisesPacket(int[] exerciseTicks, boolean sendBonus, float
 			float trainingBonus = sendBonus ? buf.readFloat() : 0.0F;
 			int canSkipTrainingDays = sendBonus ? buf.readVarInt() : 0;
 			int completedExerciseFeedback = buf.readVarInt();
-			String breathingIncreaseFeedback = completedExerciseFeedback == 3 ? buf.readUtf() : "";
+			String breathingIncreaseFeedback = completedExerciseFeedback == 3
+					? buf.readUtf(MAX_FEEDBACK_LENGTH)
+					: "";
 			return new HamonExercisesPacket(exerciseTicks, sendBonus, trainingBonus, canSkipTrainingDays,
 					completedExerciseFeedback, breathingIncreaseFeedback);
 		}

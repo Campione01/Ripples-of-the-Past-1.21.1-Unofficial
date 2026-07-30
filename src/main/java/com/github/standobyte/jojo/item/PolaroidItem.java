@@ -7,6 +7,7 @@ import javax.annotation.Nullable;
 import org.joml.Vector3f;
 
 import com.github.standobyte.jojo.client.polaroid.PolaroidHelper;
+import com.github.standobyte.jojo.item.polaroid.PhotosHandler;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -65,6 +66,9 @@ public class PolaroidItem extends Item {
 		}
 		else {
 			cameraPlayer.getCooldowns().addCooldown(this, 60);
+			if (cameraPlayer instanceof ServerPlayer serverPlayer) {
+				PhotosHandler.get(serverPlayer.server).authorizePhotoUpload(serverPlayer);
+			}
 		}
 
 		return InteractionResultHolder.consume(stack);

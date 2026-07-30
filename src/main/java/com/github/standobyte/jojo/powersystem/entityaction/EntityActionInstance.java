@@ -14,6 +14,7 @@ import com.github.standobyte.jojo.customobjects.DamageSourceModified;
 import com.github.standobyte.jojo.customobjects.entity_projectile.DamagingEntity;
 import com.github.standobyte.jojo.entityattachment.syncheddata.SynchedDataHelper;
 import com.github.standobyte.jojo.init.ModDamageTypes;
+import com.github.standobyte.jojo.network.NetworkPayloadValidation;
 import com.github.standobyte.jojo.powersystem.ability.AbilityUsageGroup;
 import com.github.standobyte.jojo.powersystem.entityaction.netcode.TrEntityActionPhaseTimePacket;
 import com.github.standobyte.jojo.powersystem.entityaction.type.EntityActionType;
@@ -770,13 +771,15 @@ public class EntityActionInstance implements HeldInput {
 				}
 				action.skippedWindupPhase = NetworkUtil.readOptional(buffer, (buf) -> {
 					Object2FloatArrayMap<ActionPhase> map = new Object2FloatArrayMap<>();
-					int size = buf.readVarInt();
+					int size = NetworkPayloadValidation.requireCollectionSize(
+							buf.readVarInt(), ActionPhase.values().length,
+							"skipped action phase");
 					for (int i = 0; i < size; i++) {
 						map.put(buf.readEnum(ActionPhase.class), buf.readFloat());
 					}
 					return map;
 				}).orElse(null);
-				action.phase = ActionPhase.values()[buffer.readVarInt()];
+				action.phase = buffer.readEnum(ActionPhase.class);
 				action.curPhaseTick = buffer.readVarInt();
 				action.phasePartialTick = buffer.readFloat();
 				action.curPhaseLength = buffer.readFloat();

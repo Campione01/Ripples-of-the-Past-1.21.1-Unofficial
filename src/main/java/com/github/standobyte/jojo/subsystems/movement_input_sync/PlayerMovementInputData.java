@@ -77,26 +77,43 @@ public class PlayerMovementInputData {
 
 	public static void sendClientInput(Player player, float left, float forward, boolean jumping, boolean shift, boolean sprint) {
 		PlayerMovementInputData input = get(player);
-		if (input != null && input.setValues(left, forward, jumping, shift, sprint)) {
+		if (isValidInput(left, forward)
+				&& input != null && input.setValues(left, forward, jumping, shift, sprint)) {
 			PacketDistributor.sendToServer(new ClPlayerMovementInputPacket(player.getId(), left, forward, jumping, shift, sprint));
 		}
 	}
 
 	public static void handleServerboundPacket(ClPlayerMovementInputPacket packet, Player sender) {
-		Entity entity = sender.level().getEntity(packet.entityId());
-		PlayerMovementInputData input = get(entity);
+		if (!acceptsServerboundInput(packet, sender.getId())) {
+			return;
+		}
+		PlayerMovementInputData input = get(sender);
 		if (input != null && input.setValues(packet.left(), packet.forward(), packet.jumping(), packet.shift(), packet.sprint())) {
 			PacketDistributor.sendToPlayersTrackingEntity(sender, new TrPlayerMovementInputPacket(
-					entity.getId(), input.left, input.forward, input.jumping, input.shiftKeyDown, input.sprint));
+					sender.getId(), input.left, input.forward, input.jumping, input.shiftKeyDown, input.sprint));
 		}
 	}
 
 	public static void handleTrackingClientboundPacket(TrPlayerMovementInputPacket packet) {
+		if (!isValidInput(packet.left(), packet.forward())) {
+			return;
+		}
 		Entity entity = ClientProxy.getEntityById(packet.entityId());
 		PlayerMovementInputData input = get(entity);
 		if (input != null) {
 			input.setValues(packet.left(), packet.forward(), packet.jumping(), packet.shift(), packet.sprint());
 		}
+	}
+
+	static boolean isValidInput(float left, float forward) {
+		return Float.isFinite(left) && Float.isFinite(forward)
+				&& Math.abs(left) <= 1.0F && Math.abs(forward) <= 1.0F;
+	}
+
+	static boolean acceptsServerboundInput(
+			ClPlayerMovementInputPacket packet, int senderEntityId) {
+		return packet.entityId() == senderEntityId
+				&& isValidInput(packet.left(), packet.forward());
 	}
 
 	public static PlayerMovementInputData get(Entity player) {
