@@ -26,12 +26,14 @@ public final class PhotoUploadContractSmokeTest {
 
 		check(sessions.authorize(owner, target, 23, 200L),
 				"observer-photo permit must be issued");
+		check(!sessions.authorize(owner, other, 24, 200L),
+				"a second pending permit must not replace the first");
 		check(sessions.consumePermit(other, 23, 200L).isEmpty(),
 				"unselected uploader must not claim an observer-photo permit");
 		PhotosHandler.PhotoPermit observerPermit =
 				sessions.consumePermit(owner, 23, 200L).orElseThrow();
 		check(observerPermit.target().equals(target),
-				"observer-photo permit must preserve its authorized recipient");
+				"rejected replacement must preserve the first authorized recipient");
 
 		check(sessions.authorize(owner, target, 23, 210L),
 				"fresh observer-photo permit must be issued");

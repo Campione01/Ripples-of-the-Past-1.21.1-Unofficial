@@ -227,7 +227,8 @@ public class PhotosHandler {
 
 		boolean authorize(
 				UUID uploader, UUID target, int targetEntityId, long expiresAt) {
-			if (activeUploadsByPlayer.containsKey(uploader)) {
+			if (permits.containsKey(uploader)
+					|| activeUploadsByPlayer.containsKey(uploader)) {
 				return false;
 			}
 			permits.put(uploader, new PhotoPermit(target, targetEntityId, expiresAt));
