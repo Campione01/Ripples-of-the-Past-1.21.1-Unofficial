@@ -29,7 +29,6 @@ import com.github.standobyte.jojo.client.entityrender.stand.StandEntityRenderer;
 import com.github.standobyte.jojo.client.layer.FrozenLayer;
 import com.github.standobyte.jojo.client.layer.GlovesLayer;
 import com.github.standobyte.jojo.client.layer.HamonBurnLayer;
-import com.github.standobyte.jojo.client.render.armor.StoneMaskArmorLayer;
 import com.github.standobyte.jojo.client.render.armor.model.BladeHatArmorModel;
 import com.github.standobyte.jojo.client.render.armor.model.BreathControlMaskModel;
 import com.github.standobyte.jojo.client.render.armor.model.SatiporojaScarfArmorModel;
@@ -293,7 +292,6 @@ public class ModEntityTypeRenderers {
 	
 	private static <T extends LivingEntity, M extends HumanoidModel<T>> void addHumanoidLayers(LivingEntityRenderer<T, M> renderer) {
 		renderer.addLayer(new FrozenLayer<>(renderer, FrozenLayer.BIPED_PATH));
-		renderer.addLayer(new StoneMaskArmorLayer<>(renderer));
 		renderer.addLayer(new HumanoidClothesLayer<>(renderer));
 		renderer.addLayer(new PillarmanStoneFormLayer<>(renderer));
 		renderer.addLayer(new ZombieLayer<>(renderer));

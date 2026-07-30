@@ -1,5 +1,17 @@
 # Independent Modification Record
 
+## Menu and stone mask rendering reliability - 2026-07-30
+
+- made the JoJo menu key fall back to the live player power attachments when
+  the client power cache has not synchronized yet;
+- kept the controls page available as a stable menu entry even when the player
+  has no active power, and added targeted diagnostics for failed menu opens;
+- moved both stone mask variants to one custom armor-model pass, removing the
+  competing vanilla leather helmet and extra renderer-layer paths;
+- preserved the normal, activated, Aja, and activated Aja textures through the
+  NeoForge per-stack armor texture hook;
+- added source-contract smoke tests for both fixes.
+
 ## Addon API and shared Stand combat input - 2026-07-27
 
 This update prepares the core for independently built 1.21.1 addons and aligns

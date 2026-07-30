@@ -12,23 +12,23 @@ public final class TimeStopShaderRouteSmokeTest {
         Set<ResourceLocation> checked = new HashSet<>();
         ResourceLocation route =
                 TimeStopShaderManager.findNamespacedShaderRoute(
-                        "rotp_tt:endermans_world",
+                        "test_addon:custom_time_stop",
                         path -> {
                             checked.add(path);
                             return path.equals(id(
-                                    "rotp_tt",
+                                    "test_addon",
                                     "shaders/post/"
-                                            + "endermans_world.json"));
+                                            + "custom_time_stop.json"));
                         });
-        check(id("rotp_tt", "endermans_world").equals(route),
+        check(id("test_addon", "custom_time_stop").equals(route),
                 "existing namespaced route was not selected");
         check(checked.equals(Set.of(id(
-                        "rotp_tt",
-                        "shaders/post/endermans_world.json"))),
+                        "test_addon",
+                        "shaders/post/custom_time_stop.json"))),
                 "namespaced route checked the wrong PostChain path");
 
         check(TimeStopShaderManager.findNamespacedShaderRoute(
-                        "rotp_tt:missing",
+                        "test_addon:missing",
                         path -> false)
                         == null,
                 "missing namespaced route did not fall back");

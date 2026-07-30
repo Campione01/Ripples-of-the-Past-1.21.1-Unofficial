@@ -5,7 +5,6 @@ import java.util.List;
 
 import javax.annotation.Nullable;
 
-import com.github.standobyte.jojo.client.ClientPowerCache;
 import com.github.standobyte.jojo.client.standskin.StandSkin;
 import com.github.standobyte.jojo.client.standskin.StandSkinsLoader;
 import com.github.standobyte.jojo.client.standskin.sprites.AbilityIconSprites;
@@ -56,7 +55,8 @@ public class ControlSchemeScreen extends Screen implements IJojoMenuScreen {
 		int powerClassI = 1;
 		int row = 0;
 		for (PowerClass<?> powerClass : PowerClass.values()) {
-			Power<?> power = ClientPowerCache.getPower(powerClass);
+			Power<?> power =
+					JojoMenuTabs.getPowerForMenu(powerClass);
 			if (power != null && power.hasPower()) {
 				powerClasses.add(new PowerClassName(powerClass, powerClassI * POWER_NAME_HEIGHT + (row - 1) * SLOT_HEIGHT));
 				var abilities = power.getMoveset().abilities.values();

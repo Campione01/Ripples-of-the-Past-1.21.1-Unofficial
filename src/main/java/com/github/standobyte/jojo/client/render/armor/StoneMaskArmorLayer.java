@@ -19,6 +19,15 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 
+/**
+ * Legacy opt-in layer retained for binary compatibility.
+ *
+ * <p>The core renderer no longer installs this layer. Stone masks are owned
+ * by the vanilla armor pass through {@link StoneMaskArmorClientExtensions},
+ * which prevents the vanilla leather model and this layer from rendering the
+ * same stack independently.</p>
+ */
+@Deprecated(forRemoval = false)
 public class StoneMaskArmorLayer<T extends LivingEntity, M extends HumanoidModel<T>> extends RenderLayer<T, M> {
 	private StoneMaskArmorModel<T> model;
 

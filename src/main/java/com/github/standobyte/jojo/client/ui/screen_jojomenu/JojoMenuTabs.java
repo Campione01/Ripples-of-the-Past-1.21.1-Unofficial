@@ -44,27 +44,81 @@ import net.neoforged.neoforge.network.PacketDistributor;
 public class JojoMenuTabs {
 	public static Map<TabCategory, Tab> curTabs = new IdentityHashMap<>();
 	public static TabCategory curCategory;
+	private static final boolean[] DIRECT_POWER_FALLBACK_LOGGED =
+			new boolean[PowerClass.values().length];
+	private static boolean controlsFallbackLogged;
 	
 	public static Tab getTabToOpenOnMenuKey() {
 		TabCategory category = curCategory;
+		List<TabCategory> active = TabCategory.getActiveCategories();
 		if (category == null || !category.isActive()) {
-			List<TabCategory> active = TabCategory.getActiveCategories();
 			if (!active.isEmpty()) {
 				category = active.get(0);
 			}
 		}
-		return category != null ? getTabToOpen(category) : null;
+		Tab tab = category != null ? getTabToOpen(category) : null;
+		if (tab != null) {
+			logControlsFallback(category, active);
+			return tab;
+		}
+
+		JojoMod.getLogger().warn(
+				"JoJo menu had no active tab for player {}; opening the "
+						+ "controls fallback.",
+				Minecraft.getInstance().player != null
+						? Minecraft.getInstance().player.getScoreboardName()
+						: "<no player>");
+		return EDIT_CONTROL_SCHEMES;
 	}
 	
 	public static Tab getTabToOpen(TabCategory category) {
 		Tab tab = curTabs.get(category);
-		if (tab == null || !tab.isActive()) {
-			List<Tab> active = category.getActiveTabs();
-			if (!active.isEmpty()) {
-				return active.get(0);
+		if (tab != null && tab.isActive()) {
+			return tab;
+		}
+		List<Tab> active = category.getActiveTabs();
+		return !active.isEmpty() ? active.get(0) : null;
+	}
+
+	static <P extends Power<P>> P getPowerForMenu(
+			PowerClass<P> powerClass) {
+		P cached = ClientPowerCache.getPower(powerClass);
+		int index = powerClass.ordinal();
+		if (cached != null) {
+			DIRECT_POWER_FALLBACK_LOGGED[index] = false;
+			return cached;
+		}
+
+		Player player = Minecraft.getInstance().player;
+		P direct = powerClass.get(player);
+		if (direct != null && direct.hasPower()
+				&& !DIRECT_POWER_FALLBACK_LOGGED[index]) {
+			DIRECT_POWER_FALLBACK_LOGGED[index] = true;
+			JojoMod.getLogger().warn(
+					"JoJo menu recovered {} directly from player {} because "
+							+ "ClientPowerCache was empty.",
+					powerClass,
+					player.getScoreboardName());
+		}
+		return direct;
+	}
+
+	private static void logControlsFallback(
+			TabCategory category, List<TabCategory> active) {
+		boolean onlyGlobalCategories = active.stream()
+				.noneMatch(activeCategory ->
+						activeCategory.powerClass != null);
+		if (category == CATEGORY_CONTROLS && onlyGlobalCategories) {
+			if (!controlsFallbackLogged) {
+				controlsFallbackLogged = true;
+				JojoMod.getLogger().info(
+						"JoJo menu opened the controls fallback because no "
+								+ "power-backed category is currently active.");
 			}
 		}
-		return tab;
+		else {
+			controlsFallbackLogged = false;
+		}
 	}
 	
 	public static boolean isSameTabOpened(Tab tab) {
@@ -141,7 +195,13 @@ public class JojoMenuTabs {
 	public static final TabCategory CATEGORY_STAND = new TabCategory(PowerClass.STAND, null) {
 		@Override
 		public Component getName() {
-			return Component.translatable("jojo_ripples.class.stand", ClientPowerCache.getPower(PowerClass.STAND).getName());
+			StandPower standPower =
+					getPowerForMenu(PowerClass.STAND);
+			return Component.translatable(
+					"jojo_ripples.class.stand",
+					standPower != null
+							? standPower.getName()
+							: CommonComponents.EMPTY);
 		}
 		
 		@Override
@@ -174,7 +234,8 @@ public class JojoMenuTabs {
 		@Override
 		public void renderIcon(GuiGraphics guiGraphics, int x, int y) {
 			icon = null;
-			StandPower standPower = ClientPowerCache.getPower(PowerClass.STAND);
+			StandPower standPower =
+					getPowerForMenu(PowerClass.STAND);
 			if (standPower != null && standPower.hasPower()) {
 				ResourceLocation standId = standPower.getPowerType().getId();
 				List<StandSkin> allSkins = StandSkinsLoader.getInstance().getStandSkinsView(standId);
@@ -317,20 +378,8 @@ public class JojoMenuTabs {
 			.withName(Component.translatable("jojo_ripples.screen.edit_hud_layout"))
 			.withIcon(new GuiIcon(JojoMod.resLoc("textures/gui/controls.png"), 16, 16));
 	
-	public static final Tab EDIT_CONTROL_SCHEMES = new Tab(CATEGORY_CONTROLS, null, null) {
-		
-		@Override
-		public boolean isActive() {
-			if (isDisabled) return false;
-			for (PowerClass<?> powerClass : PowerClass.values()) {
-				Power<?> power = ClientPowerCache.getPower(powerClass);
-				if (power != null && power.hasPower()) {
-					return true;
-				}
-			}
-			return false;
-		}
-	}		
+	public static final Tab EDIT_CONTROL_SCHEMES =
+			new Tab(CATEGORY_CONTROLS, null, null)
 			.withScreen(tab -> new ControlSchemeScreen(CommonComponents.EMPTY, tab.getCategory(), tab))
 			.withName(Component.translatable("jojo_ripples.screen.edit_hud_layout"))
 			.withIcon(new GuiIcon(JojoMod.resLoc("textures/gui/controls.png"), 16, 16));

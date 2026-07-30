@@ -129,8 +129,12 @@ public class VanillaKeybinds {
 			}
 			else if (!tryHamonTeacherInteraction(mc)) {
 				Tab tab = JojoMenuTabs.getTabToOpenOnMenuKey();
-				if (tab != null) {
-					tab.onClick(mc, mc.screen);
+				if (tab == null || !tab.onClick(mc, mc.screen)) {
+					JojoMod.getLogger().error(
+							"Failed to open the JoJo menu for player {}.",
+							mc.player != null
+									? mc.player.getScoreboardName()
+									: "<no player>");
 				}
 			}
 		}
