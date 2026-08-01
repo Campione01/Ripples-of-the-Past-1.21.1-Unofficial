@@ -47,9 +47,40 @@ public final class StandMovesetExtensionsSmokeTest {
 		verifyLateRegistrationRefreshesBaseMoveset();
 		verifyMissingTargetIsInert();
 		verifyMissingReferencesFailFast();
+		verifyAddedAbilityResourceNamespace();
 		verifyAbilityReplacement();
 		verifyInvalidAbilityReplacementsFailFast();
 		verifyFailedExtensionIsAtomic();
+	}
+
+	private static void verifyAddedAbilityResourceNamespace() {
+		ResourceLocation target =
+				id("rotp_test", "added_resource_namespace_target");
+		AbilityType<Ability> addonType =
+				abilityType("rotp_addon_test", "added_visual");
+		StandMovesetExtensions.register(
+				StandMovesetExtensions.builder(
+						target,
+						id("rotp_addon_test", "added_visual_extension"),
+						0)
+				.addAbility(
+						"added_visual",
+						addonType.registryKey,
+						() -> addonType)
+				.build());
+
+		Moveset moveset = powerType(target, baseMoveset())
+				.makeMoveset(null);
+		Ability added = moveset.abilities.get("added_visual");
+		check("rotp_addon_test".equals(
+					added.getResourceNamespace()),
+				"added ability must use its ability type resource namespace");
+		check(id("rotp_addon_test", "added_visual").equals(
+					added.getSpriteId(null)),
+				"added ability sprite must use its addon namespace");
+		check("rotp_addon_test.ability.added_visual".equals(
+					added.getTranslationKey()),
+				"added ability translation must use its addon namespace");
 	}
 
 	private static void registerOrderedExtensions() {
@@ -234,6 +265,13 @@ public final class StandMovesetExtensionsSmokeTest {
 		check(builder.abilities.get("base").abilityTypeId()
 				.equals(REPLACEMENT_TYPE.registryKey),
 				"replacement did not install the requested ability type");
+		Ability replacement = builder.build(null, target)
+				.abilities.get("base");
+		check("rotp_test".equals(replacement.getResourceNamespace()),
+				"replacement must retain the target power resource namespace");
+		check(id("rotp_test", "base").equals(
+				replacement.getSpriteId(null)),
+				"replacement sprite must retain the target power namespace");
 		assertHotbar(
 				builder.controlSchemes.get("hotbar"),
 				List.of("base"));
@@ -425,8 +463,12 @@ public final class StandMovesetExtensionsSmokeTest {
 	}
 
 	private static AbilityType<Ability> abilityType(String path) {
-		return new AbilityType<>(
-				id("rotp_test", path), Ability::new);
+		return abilityType("rotp_test", path);
+	}
+
+	private static AbilityType<Ability> abilityType(
+			String namespace, String path) {
+		return new AbilityType<>(id(namespace, path), Ability::new);
 	}
 
 	private static ResourceLocation id(String namespace, String path) {

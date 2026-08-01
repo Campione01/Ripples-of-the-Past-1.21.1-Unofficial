@@ -1,5 +1,8 @@
 package com.github.standobyte.jojo.network.s2c;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
 
@@ -37,6 +40,44 @@ public final class ClientboundPayloadContractSmokeTest {
 				() -> new TrGELifeformStatePacket(
 						1, "x".repeat(257), List.of(), List.of(), List.of()),
 				"oversized Gold Experience lifeform id must be rejected before encoding");
+
+		check(!TrSetStandEntityPacket.Handler.shouldQueuePending(
+				new TrSetStandEntityPacket(7, 0)),
+				"a Stand-link clear for an unloaded user must not become a stale pending link");
+		check(TrSetStandEntityPacket.Handler.shouldQueuePending(
+				new TrSetStandEntityPacket(7, 8)),
+				"a positive Stand link may wait for its user or Stand entity to arrive");
+
+		assertAuthoritativePowerPacketsAttachClientData();
+	}
+
+	private static void assertAuthoritativePowerPacketsAttachClientData() {
+		String standPacket = readSource(
+				"src/main/java/com/github/standobyte/jojo/network/s2c/TrPowerStandInstancePacket.java");
+		check(standPacket.contains(
+				"PowerClass.STAND.attachGet(living)"),
+				"authoritative Stand instance sync must attach client power data for non-player users");
+
+		String playerPowerPacket = readSource(
+				"src/main/java/com/github/standobyte/jojo/network/s2c/TrPowerTypePacket.java");
+		check(playerPowerPacket.contains(
+				"PowerClass.PLAYER_POWER.attachGet(living)"),
+				"authoritative player-power type sync must attach client power data for non-player users");
+
+		String powerDataPacket = readSource(
+				"src/main/java/com/github/standobyte/jojo/network/s2c/TrPowerDataPacket.java");
+		check(powerDataPacket.contains(
+				"powerClass.attachGet(living)"),
+				"authoritative per-type power data sync must attach client power data for non-player users");
+	}
+
+	private static String readSource(String path) {
+		try {
+			return Files.readString(Path.of(path));
+		}
+		catch (IOException e) {
+			throw new AssertionError("failed to read clientbound payload source contract: " + path, e);
+		}
 	}
 
 	private static void expectThrows(

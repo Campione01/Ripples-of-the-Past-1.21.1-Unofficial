@@ -7,11 +7,13 @@ import com.github.standobyte.jojo.api.client.time.ClientRegionalTimeDilationPoli
 import com.github.standobyte.jojo.api.client.render.ObserverWorldRenderPoliciesSmokeTest;
 import com.github.standobyte.jojo.api.client.render.AbilitySelectionVisualPoliciesSmokeTest;
 import com.github.standobyte.jojo.api.client.render.ClientSkyPresentationProvidersSmokeTest;
+import com.github.standobyte.jojo.api.client.render.ClientSkyRenderersSmokeTest;
 import com.github.standobyte.jojo.api.client.render.EntityMaskPostEffectSmokeTest;
 import com.github.standobyte.jojo.api.client.render.EntityPostRenderExtensionsSmokeTest;
 import com.github.standobyte.jojo.api.client.render.ItemMaterialTintPoliciesSmokeTest;
 import com.github.standobyte.jojo.api.client.render.FirstPersonStandRenderPoliciesSmokeTest;
 import com.github.standobyte.jojo.api.client.render.LivingEntityBaseModelTintsSmokeTest;
+import com.github.standobyte.jojo.api.client.render.LivingEntityMaterialTintPoliciesSmokeTest;
 import com.github.standobyte.jojo.api.client.render.LivingEntityRenderLayerExtensionsSmokeTest;
 import com.github.standobyte.jojo.api.client.render.PlayerBaseModelVisibilityPoliciesSmokeTest;
 import com.github.standobyte.jojo.api.client.render.PlayerArmPoseProvidersSmokeTest;
@@ -310,8 +312,15 @@ public final class RotpAddonApiSmokeTest {
 				"Stand material tint policies feature missing");
 		check(RotpAddonApi.supportsFeature(
 				RotpAddonApi
+						.FEATURE_LIVING_ENTITY_MATERIAL_TINT_POLICIES_V1),
+				"living entity material tint policies feature missing");
+		check(RotpAddonApi.supportsFeature(
+				RotpAddonApi
 						.FEATURE_CLIENT_SKY_PRESENTATION_PROVIDERS_V1),
 				"client sky presentation providers feature missing");
+		check(RotpAddonApi.supportsFeature(
+				RotpAddonApi.FEATURE_CLIENT_SKY_RENDERERS_V1),
+				"client sky renderers feature missing");
 
 		AbilityType<Ability> addonType = new AbilityType<>(
 				id("rotp_test", "freeze"), Ability::new);
@@ -354,7 +363,9 @@ public final class RotpAddonApiSmokeTest {
 		PlayerArmPoseProvidersSmokeTest.run();
 		FirstPersonStandRenderPoliciesSmokeTest.run();
 		StandMaterialTintPoliciesSmokeTest.run();
+		LivingEntityMaterialTintPoliciesSmokeTest.run();
 		ClientSkyPresentationProvidersSmokeTest.run();
+		ClientSkyRenderersSmokeTest.run();
 		EntityPostRenderExtensionsSmokeTest.run();
 		EntityMaskPostEffectSmokeTest.run();
 		LivingEntityRenderLayerExtensionsSmokeTest.run();

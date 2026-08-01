@@ -276,6 +276,15 @@ tasks.register('distanceStrengthDecayPolicySmokeTest', JavaExec) {
             'com.github.standobyte.jojo.powersystem.standpower.entity.DistanceStrengthDecayPolicySmokeTest'
 }
 
+tasks.register('goldExperienceLifeformOrderingSmokeTest', JavaExec) {
+    group = 'verification'
+    description = 'Verifies stable Gold Experience lifeform ordering across broad entity-type inputs.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
+    mainClass =
+            'com.github.standobyte.jojoimpl.stands.goldexperience.GoldExperienceLifeformOrderingSmokeTest'
+}
+
 tasks.named('check').configure {
     dependsOn tasks.named('clientSettingsSmokeTest')
     dependsOn tasks.named('addonApiSmokeTest')
@@ -285,6 +294,7 @@ tasks.named('check').configure {
     dependsOn tasks.named('addonRuntimeCompatibilityGuardsSmokeTest')
     dependsOn tasks.named('stoneMaskArmorRenderContractSmokeTest')
     dependsOn tasks.named('distanceStrengthDecayPolicySmokeTest')
+    dependsOn tasks.named('goldExperienceLifeformOrderingSmokeTest')
 }
 
 // IDEA no longer automatically downloads sources/javadoc jars for dependencies, so we need to explicitly enable the behavior.

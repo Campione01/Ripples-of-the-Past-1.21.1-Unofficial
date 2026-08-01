@@ -73,6 +73,7 @@ public class JojoModConfig {
 		public final ConfigValue<Double> hamonPointsMultiplier;
 		public final ConfigValue<Double> breathingTrainingMultiplier;
 		public final ConfigValue<Boolean> breathingTrainingDeterioration;
+		public final ConfigValue<Integer> breathingHamonStatGap;
 		public final ConfigValue<Boolean> hamonEnergyTicksDown;
 		public final ConfigValue<List<? extends Double>> maxBloodMultiplier;
 		public final ConfigValue<List<? extends Double>> bloodDrainMultiplier;
@@ -152,6 +153,11 @@ public class JojoModConfig {
 					builder.comment("If enabled, Hamon breathing training can decrease on days without enough exercises.")
 					.translation("jojo.config.breathingTrainingDeterioration")
 					.define("breathingTrainingDeterioration", true), true);
+			breathingHamonStatGap = ConfigValue.fromSpec(
+					builder.comment("Maximum number of levels Hamon Strength/Control may exceed breathing training.",
+							"Set to -1 to disable this limit.")
+					.translation("jojo.config.breathingStatGap")
+					.defineInRange("breathingHamonStatGap", -1, -1, 100), -1);
 			hamonEnergyTicksDown = ConfigValue.fromSpec(
 					builder.comment("Whether or not Hamon energy ticks down a few seconds after the user performs Hamon Breath.")
 					.translation("jojo.config.hamonEnergyTicksDown")
@@ -227,6 +233,7 @@ public class JojoModConfig {
 			hamonPointsMultiplier = ConfigValue.synced(1.0D);
 			breathingTrainingMultiplier = ConfigValue.synced(1.0D);
 			breathingTrainingDeterioration = ConfigValue.synced(true);
+			breathingHamonStatGap = ConfigValue.synced(-1);
 			hamonEnergyTicksDown = ConfigValue.synced(true);
 			maxBloodMultiplier = ConfigValue.synced(defaultMaxBloodMultiplier());
 			bloodDrainMultiplier = ConfigValue.synced(defaultBloodDrainMultiplier());
@@ -257,6 +264,7 @@ public class JojoModConfig {
 			hamonPointsMultiplier.set(values.hamonPointsMultiplier);
 			breathingTrainingMultiplier.set(values.breathingTrainingMultiplier);
 			breathingTrainingDeterioration.set(values.breathingTrainingDeterioration);
+			breathingHamonStatGap.set(values.breathingHamonStatGap);
 			hamonEnergyTicksDown.set(values.hamonEnergyTicksDown);
 			maxBloodMultiplier.set(List.copyOf(values.maxBloodMultiplier));
 			bloodDrainMultiplier.set(List.copyOf(values.bloodDrainMultiplier));
@@ -281,6 +289,7 @@ public class JojoModConfig {
 			hamonPointsMultiplier.clearCache();
 			breathingTrainingMultiplier.clearCache();
 			breathingTrainingDeterioration.clearCache();
+			breathingHamonStatGap.clearCache();
 			hamonEnergyTicksDown.clearCache();
 			maxBloodMultiplier.clearCache();
 			bloodDrainMultiplier.clearCache();
@@ -305,6 +314,7 @@ public class JojoModConfig {
 			private final double hamonPointsMultiplier;
 			private final double breathingTrainingMultiplier;
 			private final boolean breathingTrainingDeterioration;
+			private final int breathingHamonStatGap;
 			private final boolean hamonEnergyTicksDown;
 			private final List<Double> maxBloodMultiplier;
 			private final List<Double> bloodDrainMultiplier;
@@ -327,6 +337,7 @@ public class JojoModConfig {
 				this.hamonPointsMultiplier = config.hamonPointsMultiplier.get();
 				this.breathingTrainingMultiplier = config.breathingTrainingMultiplier.get();
 				this.breathingTrainingDeterioration = config.breathingTrainingDeterioration.get();
+				this.breathingHamonStatGap = config.breathingHamonStatGap.get();
 				this.hamonEnergyTicksDown = config.hamonEnergyTicksDown.get();
 				this.maxBloodMultiplier = config.maxBloodMultiplier.get().stream().map(Double::valueOf).toList();
 				this.bloodDrainMultiplier = config.bloodDrainMultiplier.get().stream().map(Double::valueOf).toList();
@@ -353,6 +364,7 @@ public class JojoModConfig {
 				this.standResistanceMultiplier = buf.readDouble();
 				this.hamonPointsMultiplier = buf.readDouble();
 				this.breathingTrainingMultiplier = buf.readDouble();
+				this.breathingHamonStatGap = Mth.clamp(buf.readVarInt(), -1, 100);
 				this.hamonEnergyTicksDown = buf.readBoolean();
 				this.timeStopChunkRange = Math.max(0, buf.readVarInt());
 				int resolvePointsCount = NetworkPayloadValidation.requireCollectionSize(
@@ -388,6 +400,7 @@ public class JojoModConfig {
 				buf.writeDouble(standResistanceMultiplier);
 				buf.writeDouble(hamonPointsMultiplier);
 				buf.writeDouble(breathingTrainingMultiplier);
+				buf.writeVarInt(Mth.clamp(breathingHamonStatGap, -1, 100));
 				buf.writeBoolean(hamonEnergyTicksDown);
 				buf.writeVarInt(timeStopChunkRange);
 				NetworkPayloadValidation.requireOutboundCollectionSize(

@@ -9,6 +9,7 @@ import com.github.standobyte.jojo.client.polaroid.PhotoCacheContractSmokeTest;
 import com.github.standobyte.jojo.item.polaroid.PhotoUploadContractSmokeTest;
 import com.github.standobyte.jojo.network.c2s.ServerboundPayloadContractSmokeTest;
 import com.github.standobyte.jojo.network.s2c.ClientboundPayloadContractSmokeTest;
+import com.github.standobyte.jojo.network.s2c.TrPowerDataPacketSmokeTest;
 import com.github.standobyte.jojo.subsystems.entity_externalcontainer.packet.ExtendedContainerClickContractSmokeTest;
 import com.github.standobyte.jojo.subsystems.entity_puppetcontrol.client.mob.MobControlPayloadContractSmokeTest;
 import com.github.standobyte.jojo.subsystems.movement_input_sync.MovementInputPayloadContractSmokeTest;
@@ -32,6 +33,7 @@ public final class NetworkPayloadSafetySmokeTest {
 		PhotoCacheContractSmokeTest.run();
 		ServerboundPayloadContractSmokeTest.run();
 		ClientboundPayloadContractSmokeTest.run();
+		TrPowerDataPacketSmokeTest.run();
 		MovementInputPayloadContractSmokeTest.run();
 		MobControlPayloadContractSmokeTest.run();
 		ExtendedContainerClickContractSmokeTest.run();

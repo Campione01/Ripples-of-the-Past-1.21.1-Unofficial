@@ -12,6 +12,7 @@ import com.github.standobyte.jojo.powersystem.PowerData;
 import com.github.standobyte.jojo.powersystem.PowerType;
 import com.github.standobyte.jojo.util.functions_network.NetworkUtil;
 
+import io.netty.buffer.Unpooled;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -25,14 +26,14 @@ public class TrPowerDataPacket implements CustomPacketPayload {
 	private final boolean isSentToTracking;
 	private final PowerClass<?> powerClass;
 	private final ResourceLocation powerTypeId;
-	private PowerData serverPowerTypeData;
+	@Nullable private final byte[] serverPowerTypeData;
 	private FriendlyByteBuf clientPowerTypeData;
 	
 	public TrPowerDataPacket(int entityId, PowerClass<?> powerClass, PowerData powerTypeData, boolean isSentToTracking) {
 		this.entityId = entityId;
 		this.isSentToTracking = isSentToTracking;
 		this.powerClass = Objects.requireNonNull(powerClass, "powerClass");
-		this.serverPowerTypeData = Objects.requireNonNull(powerTypeData, "powerTypeData");
+		Objects.requireNonNull(powerTypeData, "powerTypeData");
 		PowerType powerType = Objects.requireNonNull(
 				powerTypeData.getPowerType(), "powerTypeData.powerType");
 		if (powerTypeData.getPowerClass() != powerClass
@@ -43,6 +44,8 @@ public class TrPowerDataPacket implements CustomPacketPayload {
 		}
 		this.powerTypeId = Objects.requireNonNull(
 				powerType.getId(), "powerTypeData.powerType.id");
+		this.serverPowerTypeData = snapshotPowerTypeData(
+				powerTypeData, isSentToTracking);
 	}
 	
 	private TrPowerDataPacket(int entityId, PowerClass<?> powerClass,
@@ -51,6 +54,7 @@ public class TrPowerDataPacket implements CustomPacketPayload {
 		this.isSentToTracking = isSentToTracking;
 		this.powerClass = powerClass;
 		this.powerTypeId = powerTypeId;
+		this.serverPowerTypeData = null;
 	}
 	
 	
@@ -74,8 +78,14 @@ public class TrPowerDataPacket implements CustomPacketPayload {
 			ResourceLocation.STREAM_CODEC.encode(buf, packet.powerTypeId);
 			buf.writeBoolean(packet.isSentToTracking);
 			if (packet.serverPowerTypeData != null) {
-				packet.serverPowerTypeData.toBuf(buf, packet.isSentToTracking);
+				writePowerTypeDataSnapshot(
+						packet.serverPowerTypeData, buf);
 			}
+		}
+
+		static void writePowerTypeDataSnapshot(
+				byte[] snapshot, FriendlyByteBuf buf) {
+			buf.writeBytes(snapshot);
 		}
 
 		@Override
@@ -97,22 +107,20 @@ public class TrPowerDataPacket implements CustomPacketPayload {
 				if (powerClass == null) {
 					return;
 				}
-				Power<?> power = powerClass.get(living);
-				if (power != null) {
-					PowerType powerType = powerClass.getPowerType(
-							payload.powerTypeId);
-					PowerData perTypePlayerData =
-							powerType != null
-									&& isCompatiblePowerType(
-											payload.powerTypeId,
-											powerType.getId(),
-											powerType.getPowerClass()
-													== powerClass)
-									? power.getPowerTypeData(powerType)
-									: null;
-					if (perTypePlayerData != null) {
-						perTypePlayerData.fromBuf(payload.clientPowerTypeData, payload.isSentToTracking);
-					}
+				Power<?> power = powerClass.attachGet(living);
+				PowerType powerType = powerClass.getPowerType(
+						payload.powerTypeId);
+				PowerData perTypePlayerData =
+						powerType != null
+								&& isCompatiblePowerType(
+										payload.powerTypeId,
+										powerType.getId(),
+										powerType.getPowerClass()
+												== powerClass)
+								? power.getPowerTypeData(powerType)
+								: null;
+				if (perTypePlayerData != null) {
+					perTypePlayerData.fromBuf(payload.clientPowerTypeData, payload.isSentToTracking);
 				}
 			}
 		}
@@ -127,6 +135,20 @@ public class TrPowerDataPacket implements CustomPacketPayload {
 					&& expectedId.equals(resolvedId);
 		}
 		
+	}
+
+	static byte[] snapshotPowerTypeData(
+			PowerData powerTypeData, boolean isSentToTracking) {
+		FriendlyByteBuf snapshot = new FriendlyByteBuf(Unpooled.buffer());
+		try {
+			powerTypeData.toBuf(snapshot, isSentToTracking);
+			byte[] bytes = new byte[snapshot.readableBytes()];
+			snapshot.getBytes(snapshot.readerIndex(), bytes);
+			return bytes;
+		}
+		finally {
+			snapshot.release();
+		}
 	}
 	
 	@Override

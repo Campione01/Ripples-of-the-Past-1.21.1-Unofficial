@@ -16,6 +16,8 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
 
+import javax.annotation.Nullable;
+
 import com.github.standobyte.jojo.JojoModConfig;
 import com.github.standobyte.jojo.client.ClientProxy;
 import com.github.standobyte.jojo.client.particle.CustomParticlesHelper;
@@ -27,11 +29,15 @@ import com.github.standobyte.jojo.init.ModParticles;
 import com.github.standobyte.jojo.init.ModSoundEvents;
 import com.github.standobyte.jojo.init.ModStatusEffects;
 import com.github.standobyte.jojo.mechanics.JojoDefinitions;
+import com.github.standobyte.jojo.mixin.hamon.ServerPlayerGameModeAccessor;
 import com.github.standobyte.jojo.network.NetworkPayloadValidation;
 import com.github.standobyte.jojo.powersystem.Power;
+import com.github.standobyte.jojo.powersystem.PowerType;
 import com.github.standobyte.jojo.powersystem.entityaction.EntityActionInstance;
 import com.github.standobyte.jojo.powersystem.entityaction.LivingComponentAction;
+import com.github.standobyte.jojo.powersystem.playerpower.PlayerPower;
 import com.github.standobyte.jojo.powersystem.playerpower.PlayerPowerData;
+import com.github.standobyte.jojo.powersystem.playerpower.PlayerPowerType;
 import com.github.standobyte.jojo.powersystem.standpower.entity.StandEntity;
 import com.github.standobyte.jojo.subsystems.movement_input_sync.PlayerMovementInputData;
 import com.github.standobyte.jojo.util.functions.JojoModUtil;
@@ -312,6 +318,45 @@ public class HamonData extends PlayerPowerData {
 		flushStatFeedback(user);
 		postTickWaterWalking(user);
 		waterWalkingThisTick = false;
+	}
+
+	@Override
+	public void onPowerCleared(Power<?> userPower, @Nullable PowerType newType) {
+		LivingEntity user = userPower != null ? userPower.getUser() : null;
+		if (user != null) {
+			setIsMeditating(user, false);
+		}
+		removeTrainingAttributeModifiers(user);
+		super.onPowerCleared(userPower, newType);
+	}
+
+	@Override
+	public void onTemporaryPowerSuspended(
+			PlayerPower power, PlayerPowerType<?> temporaryType) {
+		LivingEntity user = power.getUser();
+		setIsMeditating(user, false);
+		removeTrainingAttributeModifiers(user);
+	}
+
+	@Override
+	public void onTemporaryPowerRestored(
+			PlayerPower power, PlayerPowerType<?> temporaryType) {
+		LivingEntity user = power.getUser();
+		giveBreathingTrainingBuffs(user);
+		updateExerciseAttributes(user);
+	}
+
+	@Override
+	public void onTemporaryPowerEnded(
+			PlayerPower temporaryPower,
+			PlayerPower restoredPower,
+			PlayerPowerType<?> restoredType) {
+		LivingEntity temporaryUser = temporaryPower.getUser();
+		setIsMeditating(temporaryUser, false);
+		removeTrainingAttributeModifiers(temporaryUser);
+		if (restoredPower.getUser() != temporaryUser) {
+			removeTrainingAttributeModifiers(restoredPower.getUser());
+		}
 	}
 
 	private void tickHamonAura(LivingEntity user) {
@@ -810,7 +855,7 @@ public class HamonData extends PlayerPowerData {
 
 	@Override
 	public void tickWhileTemporarilySuspended(
-			com.github.standobyte.jojo.powersystem.playerpower.PlayerPower power) {
+			PlayerPower power) {
 		tickAbilityCooldowns();
 	}
 
@@ -851,6 +896,10 @@ public class HamonData extends PlayerPowerData {
 			boolean allowLesserValue, boolean queueServerFeedback) {
 		int oldPoints = getStatPoints(stat);
 		int oldLevel = getStatLevel(stat);
+		if (!ignoreTraining) {
+			points = applyTrainingStatLimit(points, false, breathingLevel,
+					JojoModConfig.getCommonConfigInstance(false).breathingHamonStatGap.get());
+		}
 		if (!allowLesserValue && points <= oldPoints) {
 			return;
 		}
@@ -897,6 +946,34 @@ public class HamonData extends PlayerPowerData {
 				}
 			}
 		}
+	}
+
+	public int getStatLevelLimit(boolean clientSide) {
+		int configuredGap = JojoModConfig.getCommonConfigInstance(clientSide).breathingHamonStatGap.get();
+		return configuredGap < 0
+				? Integer.MAX_VALUE
+				: statLevelLimit(breathingLevel, configuredGap);
+	}
+
+	static int statLevelLimit(float breathingLevel, int configuredGap) {
+		if (configuredGap < 0) {
+			return MAX_STAT_LEVEL;
+		}
+		long limit = (long) Mth.floor(Mth.clamp(breathingLevel, 0.0F, MAX_BREATHING_LEVEL))
+				+ configuredGap;
+		return (int) Math.max(0L, Math.min(limit, MAX_STAT_LEVEL));
+	}
+
+	static int applyTrainingStatLimit(int requestedPoints, boolean ignoreTraining,
+			float breathingLevel, int configuredGap) {
+		if (ignoreTraining || configuredGap < 0) {
+			return requestedPoints;
+		}
+		int levelLimit = statLevelLimit(breathingLevel, configuredGap);
+		if (levelLimit < MAX_STAT_LEVEL && levelFromPoints(requestedPoints) > levelLimit) {
+			return pointsAtLevel(levelLimit + 1) - 1;
+		}
+		return requestedPoints;
 	}
 
 	public void hamonPointsFromAction(HamonStat stat, float energyCost) {
@@ -1348,6 +1425,28 @@ public class HamonData extends PlayerPowerData {
 		lastAppliedBreathingBuffLevel = level;
 	}
 
+	private void removeTrainingAttributeModifiers(LivingEntity user) {
+		if (user == null || user.level().isClientSide()) {
+			return;
+		}
+		lastAppliedBreathingBuffLevel = Integer.MIN_VALUE;
+		lastAppliedExerciseMask = Integer.MIN_VALUE;
+		removeAttributeModifier(user, Attributes.ATTACK_DAMAGE, BREATHING_TRAINING_ATTACK_DAMAGE);
+		removeAttributeModifier(user, Attributes.ATTACK_SPEED, BREATHING_TRAINING_ATTACK_SPEED);
+		removeAttributeModifier(user, Attributes.MOVEMENT_SPEED, BREATHING_TRAINING_MOVEMENT_SPEED);
+		removeAttributeModifier(user, NeoForgeMod.SWIM_SPEED, BREATHING_TRAINING_SWIMMING_SPEED);
+		removeAttributeModifier(user, Attributes.MOVEMENT_SPEED, RUNNING_COMPLETED);
+		removeAttributeModifier(user, Attributes.ATTACK_SPEED, MINING_COMPLETED);
+	}
+
+	private static void removeAttributeModifier(
+			LivingEntity user, Holder<Attribute> attribute, AttributeModifier modifier) {
+		AttributeInstance instance = user.getAttribute(attribute);
+		if (instance != null) {
+			instance.removeModifier(modifier.id());
+		}
+	}
+
 	private static void updateAttributeModifier(LivingEntity user, Holder<Attribute> attribute, AttributeModifier modifier, int multiplier) {
 		AttributeInstance instance = user.getAttribute(attribute);
 		if (instance == null) {
@@ -1378,7 +1477,9 @@ public class HamonData extends PlayerPowerData {
 		}
 		else if (user instanceof ServerPlayer serverPlayer) {
 			ServerPlayerGameMode gameMode = serverPlayer.gameMode;
-			isMining = gameMode.isDestroyingBlock;
+			isMining = gameMode.isDestroyingBlock
+					|| ((ServerPlayerGameModeAccessor) (Object) gameMode)
+							.jojo_ripples$hasDelayedDestroy();
 		}
 		else {
 			isMining = false;
@@ -1440,19 +1541,20 @@ public class HamonData extends PlayerPowerData {
 		return getTrainingBonus(null, perksAndConfigMult);
 	}
 
-	private float getTrainingBonus(Player user, boolean perksAndConfigMult) {
+	public float getTrainingBonus(Player user, boolean perksAndConfigMult) {
 		if (user != null && !isUserWearingBreathMask(user)) {
 			return 0.0F;
 		}
-		return perksAndConfigMult ? multiplyPositiveBreathingTraining(trainingBonus) : trainingBonus;
+		boolean clientSide = user != null && user.level().isClientSide();
+		return perksAndConfigMult ? multiplyPositiveBreathingTraining(trainingBonus, clientSide) : trainingBonus;
 	}
 
-	private float multiplyPositiveBreathingTraining(float training) {
+	private float multiplyPositiveBreathingTraining(float training, boolean clientSide) {
 		if (training > 0.0F) {
 			if (isSkillLearned(ModHamonSkills.NATURAL_TALENT.get())) {
 				training *= 2.0F;
 			}
-			training *= JojoModConfig.getCommonConfigInstance(false).breathingTrainingMultiplier.get().floatValue();
+			training *= JojoModConfig.getCommonConfigInstance(clientSide).breathingTrainingMultiplier.get().floatValue();
 		}
 		return training;
 	}
@@ -1503,13 +1605,14 @@ public class HamonData extends PlayerPowerData {
 	}
 
 	public boolean breathingCanGoDown(Player user) {
-		return JojoModConfig.getCommonConfigInstance(false).breathingTrainingDeterioration.get()
+		boolean clientSide = user != null && user.level().isClientSide();
+		return JojoModConfig.getCommonConfigInstance(clientSide).breathingTrainingDeterioration.get()
 				&& breathingLevel < MAX_BREATHING_LEVEL;
 	}
 
 	public float getBreathingIncrease(Player user, boolean newTrainingDay) {
 		float completedExercises = getCompleteExercisesCount() + getMaxIncompleteExercise();
-		float levelIncrease = Mth.clamp(completedExercises - 2.0F, -1.0F, 1.0F);
+		float levelIncrease = dailyExerciseLevelChange(getCompleteExercisesCount(), getMaxIncompleteExercise());
 		float bonusIncrease = levelIncrease * 0.25F;
 		boolean keepLevelThisDay = canSkipTrainingDays > 0;
 
@@ -1523,7 +1626,9 @@ public class HamonData extends PlayerPowerData {
 			bonusIncrease = 0.0F;
 		}
 		else {
-			levelIncrease = multiplyPositiveBreathingTraining(levelIncrease + getTrainingBonus(user, false));
+			boolean clientSide = user != null && user.level().isClientSide();
+			levelIncrease = multiplyPositiveBreathingTraining(
+					levelIncrease + getTrainingBonus(user, false), clientSide);
 		}
 
 		if (newTrainingDay) {
@@ -1542,6 +1647,12 @@ public class HamonData extends PlayerPowerData {
 		}
 
 		return Mth.clamp(levelIncrease, -breathingLevel, MAX_BREATHING_LEVEL - breathingLevel);
+	}
+
+	static float dailyExerciseLevelChange(int completedExercises, float maxIncompleteExercise) {
+		float exerciseUnits = Mth.clamp(completedExercises, 0, MAX_EXERCISES_NEEDED)
+				+ Mth.clamp(maxIncompleteExercise, 0.0F, 1.0F);
+		return Mth.clamp(exerciseUnits - 2.0F, -1.0F, 1.0F);
 	}
 
 	private void clearExerciseTicks(boolean clientSide) {
@@ -2175,6 +2286,16 @@ public class HamonData extends PlayerPowerData {
 					? (MAX_BREATHING_LEVEL - hamon.getBreathingLevel()) / MAX_BREATHING_LEVEL * 0.75F + 0.25F
 					: 1.0F;
 			return Mth.floor(maxTicks * multiplier);
+		}
+
+		public double getBuffPercentage() {
+			return switch (this) {
+			case MINING -> MINING_COMPLETED.amount() * 100.0D;
+			case RUNNING -> RUNNING_COMPLETED.amount() * 100.0D;
+			case SWIMMING -> (SWIMMING_COMPLETED_MAX_ENERGY_MULTIPLIER - 1.0F) * 100.0D;
+			case MEDITATION -> MEDITATION_COMPLETED_ENERGY_REGEN_TIME_REDUCTION / 20.0D;
+			default -> 0.0D;
+			};
 		}
 
 		public Component getName() {

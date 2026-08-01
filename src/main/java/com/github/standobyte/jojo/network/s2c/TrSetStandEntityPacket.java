@@ -48,11 +48,16 @@ public record TrSetStandEntityPacket(int userId, int standEntityId) implements C
 
 		@Override
 		public void handle(TrSetStandEntityPacket payload, IPayloadContext context) {
-			if (!tryApply(payload, false)) {
+			PENDING_LINKS.remove(payload.userId);
+			if (!tryApply(payload, false) && shouldQueuePending(payload)) {
 				PENDING_LINKS.put(payload.userId, new PendingStandEntityLink(payload, 0));
 				JojoMod.getLogger().warn("Stand entity link pending on client: userId={}, standEntityId={} (entity not available yet).",
 						payload.userId, payload.standEntityId);
 			}
+		}
+
+		static boolean shouldQueuePending(TrSetStandEntityPacket payload) {
+			return payload.standEntityId > 0;
 		}
 
 		public static void tickPendingLinks() {

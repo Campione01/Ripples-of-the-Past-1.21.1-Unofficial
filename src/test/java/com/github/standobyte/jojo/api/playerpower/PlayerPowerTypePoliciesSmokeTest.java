@@ -76,7 +76,7 @@ public final class PlayerPowerTypePoliciesSmokeTest {
 
 	private static String read(Path path) {
 		try {
-			return Files.readString(path);
+			return Files.readString(path).replace("\r\n", "\n");
 		}
 		catch (IOException error) {
 			throw new AssertionError("failed to read " + path, error);

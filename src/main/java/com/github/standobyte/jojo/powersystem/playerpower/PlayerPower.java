@@ -143,6 +143,12 @@ public class PlayerPower extends Power<PlayerPower> {
 	public void setPowerType(@Nullable PlayerPowerType<?> type) {
 		PlayerPowerType<?> old = getPowerType();
 		if (old != type) {
+			if (!user.level().isClientSide()) {
+				discardStalePowerDataForGrant(
+						powerData,
+						old != null ? old.getId() : null,
+						type != null ? type.getId() : null);
+			}
 			temporarilySuspendedData = null;
 			temporarilySuspendedTypeId = null;
 			this.curPowerType = Optional.ofNullable(type);
@@ -153,7 +159,16 @@ public class PlayerPower extends Power<PlayerPower> {
 				}
 			}
 		}
-		onSetPowerType(old, type);
+		try {
+			onSetPowerType(old, type);
+		}
+		finally {
+			discardReplacedPowerData(
+					powerData,
+					old != null ? old.getId() : null,
+					type != null ? type.getId() : null,
+					false);
+		}
 	}
 
 	@ApiStatus.Internal
@@ -163,10 +178,16 @@ public class PlayerPower extends Power<PlayerPower> {
 		if (!user.level().isClientSide()) {
 			return;
 		}
+		PlayerPowerType<?> old = getPowerType();
 		curPowerType = Optional.ofNullable(type);
 		temporarilySuspendedData = null;
 		temporarilySuspendedTypeId =
 				retainedType != null ? retainedType.getId() : null;
+		discardReplacedPowerData(
+				powerData,
+				old != null ? old.getId() : null,
+				type != null ? type.getId() : null,
+				retainedType != null);
 		moveset = initMoveset(type);
 	}
 
@@ -769,6 +790,28 @@ public class PlayerPower extends Power<PlayerPower> {
 		}
 		data.put(restoredTypeId, Either.left(restoredData));
 	}
+
+	static void discardReplacedPowerData(
+			Map<ResourceLocation, Either<PowerData, CompoundTag>> data,
+			@Nullable ResourceLocation previousTypeId,
+			@Nullable ResourceLocation currentTypeId,
+			boolean retainPreviousType) {
+		if (!retainPreviousType
+				&& previousTypeId != null
+				&& !previousTypeId.equals(currentTypeId)) {
+			data.remove(previousTypeId);
+		}
+	}
+
+	static void discardStalePowerDataForGrant(
+			Map<ResourceLocation, Either<PowerData, CompoundTag>> data,
+			@Nullable ResourceLocation previousTypeId,
+			@Nullable ResourceLocation grantedTypeId) {
+		if (grantedTypeId != null
+				&& !grantedTypeId.equals(previousTypeId)) {
+			data.remove(grantedTypeId);
+		}
+	}
 	
 	
 	@Override
@@ -789,12 +832,24 @@ public class PlayerPower extends Power<PlayerPower> {
 	@Override
 	public void deserializeNBT(HolderLookup.Provider provider, CompoundTag nbt) {
 		super.deserializeNBT(provider, nbt);
-		ResourceLocation powerTypeId = ResourceLocation.parse(nbt.getString("PowerType"));
-		if (LEGACY_PILLAR_MAN_ID.equals(powerTypeId)) {
-			powerTypeId = PILLAR_MAN_ID;
+		this.curPowerType = Optional.empty();
+		if (nbt.contains("PowerType", net.minecraft.nbt.Tag.TAG_STRING)) {
+			try {
+				ResourceLocation powerTypeId = ResourceLocation.parse(
+						nbt.getString("PowerType"));
+				if (LEGACY_PILLAR_MAN_ID.equals(powerTypeId)) {
+					powerTypeId = PILLAR_MAN_ID;
+				}
+				PlayerPowerType<?> powerType =
+						JojoRegistries.PLAYER_POWER_TYPES_REG.get(powerTypeId);
+				this.curPowerType = Optional.ofNullable(powerType);
+			}
+			catch (RuntimeException error) {
+				JojoMod.getLogger().warn(
+						"Ignoring invalid PlayerPower ID for {}",
+						user.getScoreboardName());
+			}
 		}
-		PlayerPowerType<?> powerType = JojoRegistries.PLAYER_POWER_TYPES_REG.get(powerTypeId);
-		this.curPowerType = Optional.ofNullable(powerType);
 		leapCooldown = nbt.getInt("LeapCd");
 		temporarilySuspendedData = null;
 		temporarilySuspendedTypeId = null;

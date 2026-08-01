@@ -5,6 +5,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Stream;
 
 import javax.annotation.Nullable;
 
@@ -110,12 +112,27 @@ public final class GoldExperienceLifeforms {
 
     public static List<EntitySubtype<?>> validLifeforms(Level level) {
         ensureExtraEntitySubtypesRegistered();
-        return EntitySubtype.values()
-                .filter(subtype -> isValidLifeform(subtype, level))
-                .sorted(Comparator.comparing((EntitySubtype<?> subtype) -> subtype.getDescription().getString())
-                        .thenComparing(subtype -> subtype.getId().toString()))
+        return sortedByStableKeys(
+                EntitySubtype.values().filter(subtype -> isValidLifeform(subtype, level)),
+                subtype -> subtype.getDescription().getString(),
+                subtype -> subtype.getId().toString());
+    }
+
+    static <T> List<T> sortedByStableKeys(Stream<T> values,
+            Function<? super T, String> priorityKey,
+            Function<? super T, String> tieBreaker) {
+        return values
+                .map(value -> new StableSortValue<>(
+                        value, priorityKey.apply(value), tieBreaker.apply(value)))
+                .sorted(Comparator.comparing(
+                        (StableSortValue<T> value) -> value.priorityKey())
+                        .thenComparing(StableSortValue::tieBreaker))
+                .map(StableSortValue::value)
                 .toList();
     }
+
+    private record StableSortValue<T>(
+            T value, String priorityKey, String tieBreaker) {}
 
     public static List<EntitySubtype<?>> knownValidLifeforms(Level level, Collection<String> knownIds) {
         return validLifeforms(level).stream()

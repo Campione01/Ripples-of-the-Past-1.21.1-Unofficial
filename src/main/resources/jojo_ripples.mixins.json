@@ -80,6 +80,7 @@
 	"directional_gravity.ServerGamePacketListenerDirectionalGravityMixin",
 	"directional_gravity.ServerPlayerDirectionalGravityMixin",
 	"hamon.BarrierBlockWallClimbMixin",
+	"hamon.ServerPlayerGameModeAccessor",
 	"hamon.EntityLiquidWalkingMixin",
 	"hamon.LivingEntityLiquidWalkingMixin",
 	"item_use.LivingEntityItemUseParticlesMixin",

@@ -1782,6 +1782,8 @@
   "jojo.config.breathingTrainingMultiplier.tooltip": "Multiplier for positive Hamon breathing training progress.",
   "jojo.config.breathingTrainingDeterioration": "Hamon breathing training deterioration",
   "jojo.config.breathingTrainingDeterioration.tooltip": "If enabled, Hamon breathing training can decrease on days without enough exercises.",
+  "jojo.config.breathingStatGap": "Breathing stat gap",
+  "jojo.config.breathingStatGap.tooltip": "The maximum difference between Hamon Strength/Control and Breathing training.",
   "jojo.config.hamonEnergyTicksDown": "Hamon energy ticks down",
   "jojo.config.hamonEnergyTicksDown.tooltip": "Whether Hamon energy drains a few seconds after Hamon Breath is performed.",
   "jojo.config.standStamina": "Stand Stamina",

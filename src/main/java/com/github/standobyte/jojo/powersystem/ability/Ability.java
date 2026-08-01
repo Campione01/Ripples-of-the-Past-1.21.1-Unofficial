@@ -55,6 +55,7 @@ public class Ability {
 	public final AbilityId abilityId;
 	protected String spriteName;
 	protected Component name;
+	@Nullable private String resourceNamespaceOverride;
 	
 	public AbilityUsageGroup usageGroup = AbilityUsageGroup.SPECIAL;
 	public boolean isSubAbility = false;
@@ -403,7 +404,19 @@ public class Ability {
 	}
 
 	public String getResourceNamespace() {
-		return resourceNamespace(abilityType, abilityId);
+		return resourceNamespaceOverride != null
+				? resourceNamespaceOverride
+				: resourceNamespace(abilityType, abilityId);
+	}
+
+	@ApiStatus.Internal
+	public final void useAbilityTypeResourceNamespace() {
+		if (abilityType.registryKey == null) {
+			throw new IllegalStateException(
+					"Cannot use an unregistered ability type as a resource namespace");
+		}
+		resourceNamespaceOverride = abilityType.registryKey.getNamespace();
+		name = Component.translatable(getTranslationKey());
 	}
 
 	public String getTranslationKey() {

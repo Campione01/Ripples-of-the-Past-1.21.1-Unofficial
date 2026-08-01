@@ -148,9 +148,13 @@ public final class RotpAddonApi {
 					"first_person_stand_render_policies_v1";
 	public static final String FEATURE_STAND_MATERIAL_TINT_POLICIES_V1 =
 			"stand_material_tint_policies_v1";
+	public static final String FEATURE_LIVING_ENTITY_MATERIAL_TINT_POLICIES_V1 =
+			"living_entity_material_tint_policies_v1";
 	public static final String
 			FEATURE_CLIENT_SKY_PRESENTATION_PROVIDERS_V1 =
 					"client_sky_presentation_providers_v1";
+	public static final String FEATURE_CLIENT_SKY_RENDERERS_V1 =
+			"client_sky_renderers_v1";
 
 	public static final Set<String> FEATURES = Set.of(
 			FEATURE_ABILITY_RESOURCE_NAMESPACE_V1,
@@ -217,7 +221,9 @@ public final class RotpAddonApi {
 			FEATURE_PLAYER_ARM_POSE_PROVIDERS_V1,
 			FEATURE_FIRST_PERSON_STAND_RENDER_POLICIES_V1,
 			FEATURE_STAND_MATERIAL_TINT_POLICIES_V1,
-			FEATURE_CLIENT_SKY_PRESENTATION_PROVIDERS_V1);
+			FEATURE_LIVING_ENTITY_MATERIAL_TINT_POLICIES_V1,
+			FEATURE_CLIENT_SKY_PRESENTATION_PROVIDERS_V1,
+			FEATURE_CLIENT_SKY_RENDERERS_V1);
 
 	private RotpAddonApi() {}
 

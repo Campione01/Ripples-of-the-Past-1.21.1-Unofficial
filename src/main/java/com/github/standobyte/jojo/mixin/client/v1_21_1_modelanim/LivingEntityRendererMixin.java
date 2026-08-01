@@ -6,9 +6,11 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.At.Shift;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.github.standobyte.jojo.api.client.render.LivingEntityBaseModelTints;
+import com.github.standobyte.jojo.api.client.render.LivingEntityMaterialTintPolicies;
 import com.github.standobyte.jojo.client.entityanim.IHumanoidAnimModel;
 import com.github.standobyte.v1_21_4_stuff.renderstate.EntityRenderState;
 import com.github.standobyte.v1_21_4_stuff.renderstate.HumanoidRenderState;
@@ -24,6 +26,20 @@ import net.minecraft.world.entity.LivingEntity;
 @Mixin(LivingEntityRenderer.class)
 public class LivingEntityRendererMixin {
     @Shadow EntityModel<?> model;
+
+	@ModifyVariable(
+			method = "render",
+			at = @At("HEAD"),
+			argsOnly = true,
+			ordinal = 0)
+	private MultiBufferSource jojo_ripples$wholeRenderMaterialTint(
+			MultiBufferSource bufferSource,
+			@Local(argsOnly = true) LivingEntity entity,
+			@Local(argsOnly = true, ordinal = 1)
+			float partialTick) {
+		return LivingEntityMaterialTintPolicies.wrap(
+				bufferSource, entity, partialTick);
+	}
 
     @Inject(method = "render", at = @At(
 	    		value = "INVOKE", 

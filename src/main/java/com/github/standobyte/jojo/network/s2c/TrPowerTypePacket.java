@@ -5,6 +5,7 @@ import javax.annotation.Nullable;
 import com.github.standobyte.jojo.PacketsRegister;
 import com.github.standobyte.jojo.client.ClientProxy;
 import com.github.standobyte.jojo.core.JojoRegistries;
+import com.github.standobyte.jojo.powersystem.PowerClass;
 import com.github.standobyte.jojo.powersystem.playerpower.PlayerPower;
 import com.github.standobyte.jojo.powersystem.playerpower.PlayerPowerType;
 import com.github.standobyte.jojo.util.functions_network.NetworkUtil;
@@ -58,10 +59,10 @@ public record TrPowerTypePacket(
 		public void handle(TrPowerTypePacket payload, IPayloadContext context) {
 			Entity entity = ClientProxy.getEntityById(payload.entityId);
 			if (entity instanceof LivingEntity living) {
-				PlayerPower.getOptional(living).ifPresent(power ->
-						power.applyTrackedPowerType(
-								payload.powerType(),
-								payload.retainedType()));
+				PlayerPower power = PowerClass.PLAYER_POWER.attachGet(living);
+				power.applyTrackedPowerType(
+						payload.powerType(),
+						payload.retainedType());
 			}
 		}
 		

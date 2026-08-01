@@ -52,9 +52,42 @@ public final class PlayerPowerMovesetExtensionsSmokeTest {
 		verifyLateRegistrationRefreshesCaches();
 		verifyNoCrossPowerLeakage();
 		verifyMissingReferencesAndConflictsFailFast();
+		verifyAddedAbilityResourceNamespace();
 		verifyAbilityReplacement();
 		verifyInvalidAbilityReplacementsFailFast();
 		verifyFailedExtensionIsAtomic();
+	}
+
+	private static void verifyAddedAbilityResourceNamespace() {
+		ResourceLocation target = id(
+				"rotp_test", "added_player_power_resource_namespace");
+		AbilityType<Ability> addonType = abilityType(
+				"rotp_addon_test", "added_player_power_visual");
+		PlayerPowerMovesetExtensions.register(
+				PlayerPowerMovesetExtensions.builder(
+						target,
+						id("rotp_addon_test",
+								"added_player_power_visual_extension"),
+						0)
+				.addAbility(
+						"added_player_power_visual",
+						addonType.registryKey,
+						() -> addonType)
+				.build());
+
+		Moveset moveset = new TestPlayerPowerType(
+				target, baseMoveset()).makeMoveset(null);
+		Ability added = moveset.abilities.get(
+				"added_player_power_visual");
+		check("rotp_addon_test".equals(
+					added.getResourceNamespace()),
+				"added PlayerPower ability must use its ability type resource namespace");
+		check(id("rotp_addon_test", "added_player_power_visual")
+				.equals(added.getSpriteId(null)),
+				"added PlayerPower ability sprite must use its addon namespace");
+		check("rotp_addon_test.ability.added_player_power_visual".equals(
+					added.getTranslationKey()),
+				"added PlayerPower translation must use its addon namespace");
 	}
 
 	private static void registerOrderedExtensions() {
@@ -506,6 +539,13 @@ public final class PlayerPowerMovesetExtensionsSmokeTest {
 		check(builder.abilities.get("anchor").abilityTypeId()
 						.equals(REPLACEMENT_TYPE.registryKey),
 				"replacement did not install the requested ability type");
+		Ability replacement = builder.build(null, target)
+				.abilities.get("anchor");
+		check("rotp_test".equals(replacement.getResourceNamespace()),
+				"PlayerPower replacement must retain the target power namespace");
+		check(id("rotp_test", "anchor").equals(
+				replacement.getSpriteId(null)),
+				"PlayerPower replacement sprite must retain the target namespace");
 		assertHotbarAbilities(
 				builder.controlSchemes.get("default"),
 				List.of("anchor", "tail"));
@@ -777,8 +817,12 @@ public final class PlayerPowerMovesetExtensionsSmokeTest {
 
 	private static AbilityType<Ability> abilityType(
 			String path) {
-		return new AbilityType<>(
-				id("rotp_test", path), Ability::new);
+		return abilityType("rotp_test", path);
+	}
+
+	private static AbilityType<Ability> abilityType(
+			String namespace, String path) {
+		return new AbilityType<>(id(namespace, path), Ability::new);
 	}
 
 	private static ResourceLocation id(

@@ -19,10 +19,144 @@ public final class PlayerPowerDataLifecycleSmokeTest {
 
 	public static void run() {
 		verifyDetachedCloneData();
+		verifyOrdinaryTransitionDataOwnership();
 		verifySuccessfulRestoreCommit();
 		verifyFailedSuspensionCompensates();
 		verifySuppressionIdentityGuard();
 		verifyTransactionalSourceBoundary();
+	}
+
+	private static void verifyOrdinaryTransitionDataOwnership() {
+		ResourceLocation previousType = id("previous");
+		ResourceLocation currentType = id("current");
+		ResourceLocation unrelatedType = id("unrelated");
+		Map<ResourceLocation, Either<PowerData, CompoundTag>> abandonedSave =
+				new HashMap<>();
+		CompoundTag staleTraining = new CompoundTag();
+		staleTraining.putFloat("BreathingLevel", 87.0F);
+		abandonedSave.put(currentType, Either.right(staleTraining));
+		abandonedSave.put(unrelatedType, Either.right(new CompoundTag()));
+		PlayerPower.discardStalePowerDataForGrant(
+				abandonedSave, null, currentType);
+		check(!abandonedSave.containsKey(currentType),
+				"null-type legacy save retained stale Hamon grant data");
+		check(abandonedSave.containsKey(unrelatedType)
+						&& abandonedSave.size() == 1,
+				"legacy Hamon migration removed another power type");
+
+		Map<ResourceLocation, Either<PowerData, CompoundTag>> data =
+				new HashMap<>();
+		data.put(previousType, Either.right(new CompoundTag()));
+		data.put(currentType, Either.right(new CompoundTag()));
+		data.put(unrelatedType, Either.right(new CompoundTag()));
+		PlayerPower.discardStalePowerDataForGrant(
+				data, previousType, currentType);
+		check(!data.containsKey(currentType),
+				"ordinary PlayerPower grant reused stale incoming data");
+		check(data.containsKey(previousType)
+						&& data.containsKey(unrelatedType)
+						&& data.size() == 2,
+				"fresh PlayerPower grant removed old or unrelated data");
+
+		data.put(currentType, Either.right(new CompoundTag()));
+
+		PlayerPower.discardReplacedPowerData(
+				data, previousType, currentType, false);
+		check(!data.containsKey(previousType),
+				"ordinary PlayerPower replacement retained old data");
+		check(data.containsKey(currentType)
+						&& data.containsKey(unrelatedType)
+						&& data.size() == 2,
+				"ordinary PlayerPower replacement removed unrelated data");
+
+		data.put(previousType, Either.right(new CompoundTag()));
+		PlayerPower.discardReplacedPowerData(
+				data, previousType, currentType, true);
+		check(data.containsKey(previousType),
+				"temporary PlayerPower transition discarded retained data");
+
+		PlayerPower.discardReplacedPowerData(
+				data, previousType, previousType, false);
+		check(data.containsKey(previousType),
+				"same-type refresh discarded active data");
+		PlayerPower.discardStalePowerDataForGrant(
+				data, previousType, previousType);
+		check(data.containsKey(previousType),
+				"active PlayerPower load discarded saved data");
+
+		String source = source(
+				"src/main/java/com/github/standobyte/jojo/"
+						+ "powersystem/playerpower/PlayerPower.java");
+		String ordinarySet = section(
+				source,
+				"public void setPowerType(",
+				"public void applyTrackedPowerType(");
+		int changedBranch = ordinarySet.indexOf("if (old != type)");
+		int serverGuard = ordinarySet.indexOf(
+				"if (!user.level().isClientSide())", changedBranch);
+		int freshGrant = ordinarySet.indexOf(
+				"discardStalePowerDataForGrant(");
+		int typeAssignment = ordinarySet.indexOf(
+				"this.curPowerType = Optional.ofNullable(type);");
+		int callback = ordinarySet.indexOf(
+				"onSetPowerType(old, type);");
+		int discard = ordinarySet.indexOf(
+				"discardReplacedPowerData(", callback);
+		check(changedBranch >= 0
+						&& serverGuard > changedBranch
+						&& freshGrant > serverGuard
+						&& typeAssignment > freshGrant
+						&& callback > typeAssignment,
+				"ordinary grant does not discard stale target data before creation");
+		check(callback >= 0 && discard > callback
+						&& ordinarySet.substring(callback, discard)
+								.contains("finally"),
+				"ordinary replacement does not discard old data after callbacks");
+
+		String trackedSet = section(
+				source,
+				"public void applyTrackedPowerType(",
+				"public boolean beginTemporaryTransition(");
+		check(trackedSet.contains("discardReplacedPowerData(")
+						&& trackedSet.contains("retainedType != null"),
+				"tracked transitions do not preserve retained temporary data");
+
+		String temporaryTransitions = section(
+				source,
+				"public boolean beginTemporaryTransition(",
+				"public Optional<CompoundTag> serializeRetainedTemporaryData(");
+		check(!temporaryTransitions.contains(
+						"discardStalePowerDataForGrant("),
+				"temporary retained restore uses destructive grant preparation");
+
+		String clone = section(
+				source,
+				"public void onPlayerCloneData(",
+				"static Map<ResourceLocation, Either<PowerData, CompoundTag>>");
+		check(!clone.contains(
+						"discardStalePowerDataForGrant("),
+				"PlayerPower clone uses destructive grant preparation");
+
+		String load = section(
+				source,
+				"public void deserializeNBT(",
+				"public static PlayerPower get(");
+		check(!load.contains(
+						"discardStalePowerDataForGrant("),
+				"PlayerPower login load uses destructive grant preparation");
+
+		String powerSource = source(
+				"src/main/java/com/github/standobyte/jojo/"
+						+ "powersystem/Power.java");
+		String dataCreation = section(
+				powerSource,
+				"public PowerData getPowerTypeData(",
+				"public Moveset getMoveset(");
+		check(dataCreation.contains("if (dataEntry == null)")
+						&& dataCreation.contains(
+								"PowerData data = powerType.newDataInstance();")
+						&& dataCreation.contains("data.onInit(this);"),
+				"missing grant data does not create a fresh default instance");
 	}
 
 	private static void verifyDetachedCloneData() {

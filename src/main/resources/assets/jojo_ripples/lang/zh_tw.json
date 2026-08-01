@@ -1784,6 +1784,8 @@
   "jojo.config.breathingTrainingMultiplier.tooltip": "正向波纹呼吸训练进度的倍率。",
   "jojo.config.breathingTrainingDeterioration": "波纹呼吸训练退化",
   "jojo.config.breathingTrainingDeterioration.tooltip": "启用后，未完成足够日常训练时波纹呼吸训练等级会下降。",
+  "jojo.config.breathingStatGap": "呼吸狀態差距",
+  "jojo.config.breathingStatGap.tooltip": "波紋強度/控制和呼吸訓練之間的最大差距",
   "jojo.config.hamonEnergyTicksDown": "Hamon energy ticks down",
   "jojo.config.hamonEnergyTicksDown.tooltip": "Whether Hamon energy drains a few seconds after Hamon Breath is performed.",
   "jojo.config.standStamina": "『替身』持久力",

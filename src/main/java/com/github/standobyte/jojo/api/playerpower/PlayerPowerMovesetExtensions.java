@@ -11,6 +11,7 @@ import java.util.function.Supplier;
 import org.jetbrains.annotations.ApiStatus;
 
 import com.github.standobyte.jojo.powersystem.MovesetBuilder;
+import com.github.standobyte.jojo.powersystem.ability.Ability;
 import com.github.standobyte.jojo.powersystem.ability.AbilityType;
 import com.github.standobyte.jojo.powersystem.ability.config.ConfigAbilityFactory;
 import com.github.standobyte.jojo.powersystem.ability.controls.InputBindTemplate;
@@ -347,7 +348,10 @@ public final class PlayerPowerMovesetExtensions {
 				String abilityName,
 				AbilityType<?> abilityType) {
 			moveset.addAbility(
-					abilityName, (AbilityType) abilityType);
+					abilityName,
+					(AbilityType) abilityType,
+					ability -> ((Ability) ability)
+							.useAbilityTypeResourceNamespace());
 		}
 
 		@Override

@@ -62,7 +62,7 @@ public final class LivingEntityBaseModelTintsSmokeTest {
 
 	private static String source(String path) {
 		try {
-			return Files.readString(Path.of(path));
+			return Files.readString(Path.of(path)).replace("\r\n", "\n");
 		}
 		catch (IOException exception) {
 			throw new AssertionError("Could not read " + path,
