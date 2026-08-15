@@ -59,6 +59,7 @@ import com.github.standobyte.jojo.api.client.render.ScopedPlayerModelVisibilityS
 import com.github.standobyte.jojo.api.client.render.ScopedPlayerModelPoseSmokeTest;
 import com.github.standobyte.jojo.api.client.animation.AddonPlayerAnimationsSmokeTest;
 import com.github.standobyte.jojo.client.entityrender.parsemodel.generic.GenericModelFormatSmokeTest;
+import com.github.standobyte.jojo.client.shader.core.EntityOutlinePostChainCompatSmokeTest;
 import com.github.standobyte.jojo.client.shader.TimeStopShaderRouteSmokeTest;
 import com.github.standobyte.jojo.client.standskin.sprites.AbilityIconSpritesCompatibilitySmokeTest;
 import com.github.standobyte.jojo.client.ui.text.StandSkillTextSmokeTest;
@@ -80,8 +81,10 @@ import com.github.standobyte.jojo.subsystems.directional_gravity.DirectionalGrav
 import com.github.standobyte.jojo.subsystems.directional_gravity.DirectionalGravityFrameSmokeTest;
 import com.github.standobyte.jojo.subsystems.entity_puppetcontrol.client.ClientEntityControllerCameraSmokeTest;
 import com.github.standobyte.jojo.subsystems.entity_puppetcontrol.client.ClientEntityControllerPickSourceSmokeTest;
+import com.github.standobyte.jojo.subsystems.timestop.TimeStopLearningContractSmokeTest;
 import com.github.standobyte.jojo.subsystems.timestop.TimeStopRefundPolicySmokeTest;
 import com.github.standobyte.jojoimpl.stands.crazydiamond.CrazyDRestoreExtensionSmokeTest;
+import com.github.standobyte.jojoimpl.stands.starplatinum.StarFingerVisualOwnershipSmokeTest;
 import com.github.standobyte.jojoimpl.npc.rps.RpsCheatStateSmokeTest;
 import com.github.standobyte.jojoimpl.powers.pillarman.abilities.PillarmanAbilityDataOwnershipSmokeTest;
 
@@ -397,6 +400,7 @@ public final class RotpAddonApiSmokeTest {
 		DirectionalGravityV2SmokeTest.run();
 		DirectionalGravityCollisionSmokeTest.run();
 		DirectionalGravityFrameSmokeTest.run();
+		EntityOutlinePostChainCompatSmokeTest.run();
 		TimeStopShaderRouteSmokeTest.run();
 		TimeStopAwarenessProvidersSmokeTest.run();
 		BlockSignalSuppressorsSmokeTest.run();
@@ -418,6 +422,7 @@ public final class RotpAddonApiSmokeTest {
 		PlayerPowerTypePoliciesSmokeTest.run();
 		PowerSkillUnlocksSmokeTest.run();
 		TimeStopRefundPolicySmokeTest.run();
+		TimeStopLearningContractSmokeTest.run();
 		TimeStopEntityMovementAuthorizersSmokeTest.run();
 		ClientRegionalTimeDilationPoliciesSmokeTest.run();
 		ObserverWorldRenderPoliciesSmokeTest.run();
@@ -435,6 +440,7 @@ public final class RotpAddonApiSmokeTest {
 		PillarmanAbilityDataOwnershipSmokeTest.run();
 		CrazyDiamondRestoreExtensionsSmokeTest.run();
 		GoldExperienceExternalHealingTargetsSmokeTest.run();
+		StarFingerVisualOwnershipSmokeTest.run();
 		LivingHandUseBlockersSmokeTest.run();
 	}
 
