@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.commons.lang3.mutable.MutableInt;
+import org.jetbrains.annotations.ApiStatus;
 import org.lwjgl.glfw.GLFW;
 
 import com.github.standobyte.jojo.client.ClientPowerCache;
@@ -42,6 +43,35 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 public class VanillaKeybinds {
 	public static final String MAIN_CATEGORY = "key.categories." + JojoMod.MOD_ID;
+	private static final IKeyConflictContext GRAB_CHARGED_HEAVY_CONFLICT_CONTEXT =
+			new IKeyConflictContext() {
+				@Override
+				public boolean isActive() {
+					InputHandler inputHandler = InputHandler.getInstance();
+					boolean preserveVanillaUse = inputHandler != null
+							&& inputHandler
+									.shouldPreserveSemanticVanillaUsePress();
+					return shouldActivateGrabChargedHeavyConflictContext(
+							KeyConflictContext.IN_GAME.isActive(),
+							preserveVanillaUse);
+				}
+
+				@Override
+				public boolean conflicts(IKeyConflictContext other) {
+					return KeyConflictContext.IN_GAME.conflicts(
+							other == this
+									? KeyConflictContext.IN_GAME
+									: other);
+				}
+			};
+
+	@ApiStatus.Internal
+	public static boolean shouldActivateGrabChargedHeavyConflictContext(
+			boolean inGameContextActive,
+			boolean preserveSemanticVanillaUsePress) {
+		return inGameContextActive && !preserveSemanticVanillaUsePress;
+	}
+
 	public KeyMapping summonStand;
 	public KeyMapping standArmsOnlyHUD;
 	public KeyMapping playerPowerHUD;
@@ -69,7 +99,8 @@ public class VanillaKeybinds {
 				JojoMod.MOD_ID + ".key.hamon_breath", KeyConflictContext.IN_GAME, InputConstants.Type.MOUSE, InputConstants.MOUSE_BUTTON_MIDDLE, MAIN_CATEGORY)
 				.inInitOrder().withDescTooltip());
 		event.register(binds.grabChargedHeavy = new Jokerge(
-				MovesetBuilder.GRAB_CHARGED_HEAVY_KEY_MAPPING_NAME, KeyConflictContext.IN_GAME, KeyModifier.SHIFT,
+				MovesetBuilder.GRAB_CHARGED_HEAVY_KEY_MAPPING_NAME,
+				GRAB_CHARGED_HEAVY_CONFLICT_CONTEXT, KeyModifier.SHIFT,
 				InputConstants.Type.MOUSE, InputConstants.MOUSE_BUTTON_RIGHT, MAIN_CATEGORY)
 				.inInitOrder().withDescTooltip());
 		event.register(binds.useAbility = new Jokerge(

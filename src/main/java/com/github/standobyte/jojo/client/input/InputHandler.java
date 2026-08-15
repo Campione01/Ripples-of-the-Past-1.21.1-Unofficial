@@ -16,6 +16,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import org.apache.commons.lang3.mutable.MutableInt;
+import org.jetbrains.annotations.ApiStatus;
 import org.lwjgl.glfw.GLFW;
 
 import com.github.standobyte.jojo.client.ClientGlobals;
@@ -35,6 +36,7 @@ import com.github.standobyte.jojo.client.util.functions.ClientUtil;
 import com.github.standobyte.jojo.config.client.ClientModSettings;
 import com.github.standobyte.jojo.event.client.PreKeyInputEvent;
 import com.github.standobyte.jojo.init.power.ModPlayerPowers;
+import com.github.standobyte.jojo.network.NetworkPayloadValidation;
 import com.github.standobyte.jojo.network.c2s.ClAbilityInputPacket;
 import com.github.standobyte.jojo.network.c2s.ClNoParamsPacket;
 import com.github.standobyte.jojo.network.c2s.ClNoParamsPacket.PacketType;
@@ -81,6 +83,7 @@ import net.minecraft.world.phys.HitResult;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.ICancellableEvent;
 import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.client.event.InputEvent.InteractionKeyMappingTriggered;
@@ -128,6 +131,42 @@ public class InputHandler {
 		vanillaKeybinds.handleTick();
 		tickReleaseEventQueue();
 		tickKeyPressIndication();
+	}
+
+	@SubscribeEvent
+	public void onLogout(ClientPlayerNetworkEvent.LoggingOut event) {
+		clearDisconnectedInputState();
+	}
+
+	private void clearDisconnectedInputState() {
+		clearDisconnectCollections(
+				_heldKeys,
+				keyReleaseEventQueue,
+				_recentlyPressed,
+				modifiersQueue,
+				hotbarsSelection,
+				toggledHotbarsSelection);
+		hamonDoubleShift.reset();
+		lastActionKey = null;
+		inputsDisabled = false;
+		curPowerClassToggle = null;
+		hotbarsSelectionTimestamp = 0.0F;
+	}
+
+	@ApiStatus.Internal
+	public static void clearDisconnectCollections(
+			Map<?, ?> heldKeys,
+			Queue<?> releaseQueue,
+			Map<?, ?> recentlyPressed,
+			List<?> modifiers,
+			Map<?, ?> hotbarSelections,
+			Set<?> toggledHotbarSelections) {
+		heldKeys.clear();
+		releaseQueue.clear();
+		recentlyPressed.clear();
+		modifiers.clear();
+		hotbarSelections.clear();
+		toggledHotbarSelections.clear();
 	}
 	
 	@SubscribeEvent(priority = EventPriority.HIGH)
@@ -248,11 +287,17 @@ public class InputHandler {
 	}
 
 	private ClientControlScheme getActiveControlSchemeForInput(ClientKey key, KeyModifier keyModifier) {
+		ClientControlScheme activeControlScheme = getActiveControlScheme();
+		if (shouldPreserveUnsummonedStandVanillaUsePress(
+				activeControlScheme,
+				key.equals(ClientKey.fromVanillaKeybind(mc.options.keyUse)),
+				keyModifier)) {
+			return null;
+		}
 		ClientControlScheme directPlayerPowerControlScheme = getDirectPlayerPowerControlScheme(key, keyModifier);
 		if (directPlayerPowerControlScheme != null) {
 			return directPlayerPowerControlScheme;
 		}
-		ClientControlScheme activeControlScheme = getActiveControlScheme();
 		if (activeControlScheme != null) {
 			return activeControlScheme;
 		}
@@ -264,6 +309,49 @@ public class InputHandler {
 			return AllControlSchemes.getForPowerType(standPower.getPowerType());
 		}
 		return null;
+	}
+
+	boolean shouldPreserveSemanticVanillaUsePress() {
+		return shouldPreserveUnsummonedStandVanillaUsePress(
+				getActiveControlScheme(), true, getCurModifier());
+	}
+
+	private boolean shouldPreserveUnsummonedStandVanillaUsePress(
+			@Nullable ClientControlScheme controlScheme,
+			boolean vanillaUseTrigger,
+			KeyModifier keyModifier) {
+		StandPower standPower = ClientPowerCache.getPower(PowerClass.STAND);
+		StandEntity playerStand = ClientGlobals.playerStandEntity;
+		boolean standPowerSummonedAndUsable = standPower != null
+				&& standPower.hasPower() && standPower.canUsePower()
+				&& standPower.isSummoned();
+		boolean liveSynchronizedStandEntity = playerStand != null
+				&& standPower != null
+				&& standPower.getSummonedStandEntity() == playerStand
+				&& playerStand.isAlive() && !playerStand.isRemoved();
+		return shouldPreserveUnsummonedStandVanillaUsePress(
+				controlScheme != null
+						&& controlScheme.powerClassCosmetic == PowerClass.STAND,
+				vanillaUseTrigger,
+				keyModifier == KeyModifier.SHIFT,
+				standPowerSummonedAndUsable,
+				liveSynchronizedStandEntity,
+				ClientGlobals.isPlayerStandFullBodyUnsummoning());
+	}
+
+	@ApiStatus.Internal
+	public static boolean shouldPreserveUnsummonedStandVanillaUsePress(
+			boolean standSchemeSelected,
+			boolean vanillaUseTrigger,
+			boolean shiftHeld,
+			boolean standPowerSummonedAndUsable,
+			boolean liveSynchronizedStandEntity,
+			boolean fullBodyUnsummoning) {
+		boolean liveReadyStand = standPowerSummonedAndUsable
+				&& liveSynchronizedStandEntity
+				&& !fullBodyUnsummoning;
+		return standSchemeSelected && vanillaUseTrigger && shiftHeld
+				&& !liveReadyStand;
 	}
 
 	@Nullable
@@ -475,13 +563,17 @@ public class InputHandler {
 		return false;
 	}
 	
-	private FriendlyByteBuf extraInputBuf = new FriendlyByteBuf(Unpooled.buffer());
+	private final FriendlyByteBuf extraInputBuf = new FriendlyByteBuf(
+			Unpooled.buffer(
+					256,
+					NetworkPayloadValidation.MAX_ABILITY_EXTRA_BYTES));
 	private void doClickInput(InputEventType type, ClientKey key, 
 			Ability baseAbility, AbilityConditionCheck abilityResolved, 
 			float clickHoldResolveTime) {
 		Player player = mc.player;
 		if (abilityResolved == null || player == null) return;
 		short keyId = key.keyId();
+		long inputGeneration = AbilityInput.nextInputGeneration(player, keyId);
 
 		ConditionCheck conditionCheck = abilityResolved.conditionCheck;
 		InputMethod inputMethod = type.inputMethod;
@@ -489,19 +581,30 @@ public class InputHandler {
 			BufferingState bufferingState = BufferingState.clickCanBuffer();
 			Ability ability = abilityResolved.ability;
 			lastActionKey = key;
-			ability.writeExtraInput(extraInputBuf, player, true);
-			AbilityInput.keyPress(keyId, ability, player, extraInputBuf, 
-					inputMethod, clickHoldResolveTime, bufferingState, baseAbility.abilityId);
-			extraInputBuf.clear();
+			try {
+				ability.writeExtraInput(extraInputBuf, player, true);
+				AbilityInput.keyPress(
+						keyId, inputGeneration, ability, player, extraInputBuf,
+						inputMethod, clickHoldResolveTime, bufferingState,
+						baseAbility.abilityId);
+			}
+			finally {
+				extraInputBuf.clear();
+			}
 		}
-		PacketDistributor.sendToServer(ClAbilityInputPacket.keyPress(keyId, player, baseAbility, abilityResolved.ability, type, clickHoldResolveTime, 
+		PacketDistributor.sendToServer(ClAbilityInputPacket.keyPress(keyId, inputGeneration, player, baseAbility, abilityResolved.ability, type, clickHoldResolveTime,
 				ClientsideAim.playerAim.getTarget(), ClientsideAim.standAim.getTarget()));
 	}
 	
 	private void doReleaseInput(short keyId) {
 		Player player = mc.player;
-		AbilityInput.keyRelease(keyId, player);
-		PacketDistributor.sendToServer(ClAbilityInputPacket.releaseHold(keyId));
+		long inputGeneration = AbilityInput.keyReleaseAndGetGeneration(
+				keyId, player);
+		if (inputGeneration > 0L) {
+			PacketDistributor.sendToServer(
+					ClAbilityInputPacket.releaseHold(
+							keyId, inputGeneration));
+		}
 	}
 	
 	

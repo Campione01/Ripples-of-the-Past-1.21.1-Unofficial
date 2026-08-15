@@ -1,6 +1,8 @@
 package com.github.standobyte.jojo.subsystems.hitboxes;
 
 import com.github.standobyte.jojo.powersystem.entityaction.netcode.TrEntityActionWithOBBSyncPacket;
+import com.github.standobyte.jojo.powersystem.entityaction.EntityActionInstance;
+import com.github.standobyte.jojo.powersystem.entityaction.LivingComponentAction;
 import com.github.standobyte.jojo.util.objects_java.Lerp;
 
 import net.minecraft.util.Mth;
@@ -144,7 +146,19 @@ public class ExtendableOBB {
         if (!level.isClientSide()){
             this.setIsMovingForward(false);
             this.setIsRetracting(true);
-            PacketDistributor.sendToPlayersTrackingEntityAndSelf(performer, new TrEntityActionWithOBBSyncPacket(performer.getId(), actionId));
+            EntityActionInstance action = LivingComponentAction
+                    .getComponent(performer).getAction();
+            if (action == null || action.id != actionId
+                    || action.networkGeneration() <= 0L) {
+                throw new IllegalStateException(
+                        "Cannot synchronize OBB for a non-current action");
+            }
+            PacketDistributor.sendToPlayersTrackingEntityAndSelf(
+                    performer,
+					new TrEntityActionWithOBBSyncPacket(
+							performer.getId(), performer.getUUID(),
+							action.networkGeneration(),
+							actionId));
         }
     }
 

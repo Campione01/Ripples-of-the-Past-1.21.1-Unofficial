@@ -53,6 +53,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
 public class EntityActionInstance implements HeldInput {
 	/** Is used in network code, to make sure server and client are on the same page when sending changes to the action's phases from server */
 	@ApiStatus.Internal public int id;
+	@ApiStatus.Internal private long networkGeneration;
 	@Nonnull public final EntityActionType ability;
 	@ApiStatus.Internal public Object2FloatMap<ActionPhase> phasesLength = new Object2FloatArrayMap<>();
 	@ApiStatus.Internal @Nullable public Object2FloatMap<ActionPhase> skippedWindupPhase = null;
@@ -85,6 +86,57 @@ public class EntityActionInstance implements HeldInput {
 	public EntityActionInstance(EntityActionType ability) {
 		this.ability = ability;
 	}
+
+	@ApiStatus.Internal
+	public long networkGeneration() {
+		return networkGeneration;
+	}
+
+	@ApiStatus.Internal
+	public void setNetworkGeneration(long generation) {
+		this.networkGeneration = generation;
+	}
+
+	@ApiStatus.Internal
+	public InputLifecycleSnapshot captureInputLifecycle() {
+		return new InputLifecycleSnapshot(
+				phase,
+				curPhaseTick,
+				curPhaseLength,
+				phasePartialTick,
+				stoppedHolding,
+				new Object2FloatArrayMap<>(phasesLength),
+				skippedWindupPhase != null
+						? new Object2FloatArrayMap<>(skippedWindupPhase)
+						: null);
+	}
+
+	@ApiStatus.Internal
+	public void restoreInputLifecycle(
+			InputLifecycleSnapshot snapshot,
+			@Nullable EntityActionInstance failedReplacement) {
+		this.phase = snapshot.phase();
+		this.curPhaseTick = snapshot.curPhaseTick();
+		this.curPhaseLength = snapshot.curPhaseLength();
+		this.phasePartialTick = snapshot.phasePartialTick();
+		this.stoppedHolding = snapshot.stoppedHolding();
+		this.phasesLength = new Object2FloatArrayMap<>(
+				snapshot.phasesLength());
+		this.skippedWindupPhase = snapshot.skippedWindupPhase() != null
+				? new Object2FloatArrayMap<>(snapshot.skippedWindupPhase())
+				: null;
+		_onActionStarted(failedReplacement);
+	}
+
+	@ApiStatus.Internal
+	public record InputLifecycleSnapshot(
+			@Nullable ActionPhase phase,
+			int curPhaseTick,
+			float curPhaseLength,
+			float phasePartialTick,
+			boolean stoppedHolding,
+			Object2FloatMap<ActionPhase> phasesLength,
+			@Nullable Object2FloatMap<ActionPhase> skippedWindupPhase) {}
 	
 	/**
 	 * After the phase lengths have been initialized properly, this sets up the action's starting phase
@@ -632,7 +684,8 @@ public class EntityActionInstance implements HeldInput {
 	public void syncPhaseChanges() {
 		if (performer != null && !performer.level().isClientSide()) {
 			PacketDistributor.sendToPlayersTrackingEntityAndSelf(performer, new TrEntityActionPhaseTimePacket(performer.getId(), 
-					id, phasesLength, phase, curPhaseTick));
+					performer.getUUID(), networkGeneration, id,
+					phasesLength, phase, curPhaseTick));
 		}
 	}
 
@@ -726,7 +779,14 @@ public class EntityActionInstance implements HeldInput {
 	}
 	
 	
-	public static void encode(RegistryFriendlyByteBuf buffer, EntityActionInstance action) {
+	/** Retained for source and binary compatibility with existing addon callers. */
+	public static void encode(
+			RegistryFriendlyByteBuf buffer,
+			EntityActionInstance action) {
+		encode((FriendlyByteBuf) buffer, action);
+	}
+
+	public static void encode(FriendlyByteBuf buffer, EntityActionInstance action) {
 		ActionPhase actionPhase = action != null ? action.phase : null;
 		boolean valid = action != null && !action.isOver();
 		buffer.writeBoolean(valid);

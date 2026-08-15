@@ -2,6 +2,8 @@ package com.github.standobyte.jojo.subsystems.entity_useitem;
 
 import javax.annotation.Nullable;
 
+import org.jetbrains.annotations.ApiStatus;
+
 import com.github.standobyte.jojo.init.ModSpecialActions;
 import com.github.standobyte.jojo.powersystem.entityaction.ActionAnimIdentifier;
 import com.github.standobyte.jojo.powersystem.entityaction.ActionPhase;
@@ -68,6 +70,8 @@ public class VanillaItemUseAsAction extends SpecialEntityActionType {
 	public static class ItemUsingInstance extends EntityActionInstance {
 		protected boolean isPlayerEntity;
 		protected ServerPlayer standUserPlayer;
+		private final ItemUseReleaseGuard releaseGuard =
+				new ItemUseReleaseGuard();
 		
 		protected ItemStack usedItem;
 		UseAnim vanillaAnim;
@@ -97,14 +101,29 @@ public class VanillaItemUseAsAction extends SpecialEntityActionType {
 				syncPhaseChanges();
 			}
 		}
+
+		@Override
+		public void onActionCleared(@Nullable EntityActionInstance newAction) {
+			releaseUsingItemOnce();
+		}
 		
 		@Override
 		public void onButtonStopHold() { // lets stands shoot bows and throw tridents when the client releases RMB
-			if (!level().isClientSide() && !isPlayerEntity) {
-				ServerSideLivingClick.releaseUsingItem(performer, standUserPlayer);
+			if (releaseUsingItemOnce()) {
 				setPhase(ActionPhase.RECOVERY, 0);
 				syncPhaseChanges();
 			}
+		}
+
+		private boolean releaseUsingItemOnce() {
+			if (level().isClientSide()
+					|| isPlayerEntity
+					|| !releaseGuard.beginRelease()) {
+				return false;
+			}
+			ServerSideLivingClick.releaseUsingItem(
+					performer, standUserPlayer);
+			return true;
 		}
 		
 		@Override
@@ -112,6 +131,19 @@ public class VanillaItemUseAsAction extends SpecialEntityActionType {
 			return true;
 		}
 		
+	}
+
+	@ApiStatus.Internal
+	static final class ItemUseReleaseGuard {
+		private boolean released;
+
+		boolean beginRelease() {
+			if (released) {
+				return false;
+			}
+			released = true;
+			return true;
+		}
 	}
 	
 }

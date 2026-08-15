@@ -500,6 +500,12 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 		return abilityCooldowns.getOrDefault(abilityName, 0);
 	}
 
+	@ApiStatus.Internal
+	public int getAbilityCooldownTotal(String abilityName) {
+		int cooldown = getAbilityCooldown(abilityName);
+		return abilityCooldownTotals.getOrDefault(abilityName, cooldown);
+	}
+
 	public boolean isAbilityOnCooldown(String abilityName) {
 		return getAbilityCooldown(abilityName) > 0;
 	}

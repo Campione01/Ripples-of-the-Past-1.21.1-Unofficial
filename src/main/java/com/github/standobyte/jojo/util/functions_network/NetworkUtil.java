@@ -68,6 +68,32 @@ public class NetworkUtil {
 		int extraInputBytes = remainingData.readableBytes();
 		return extraInputBytes > 0 ? new RegistryFriendlyByteBuf(remainingData.readBytes(extraInputBytes), registryAccess, ConnectionType.NEOFORGE) : null;
 	}
+
+	/**
+	 * Copies deferred payload data without retaining a reference-counted buffer
+	 * beyond the decoder invocation.
+	 */
+	@Nullable
+	public static byte[] extraPacketDataBytes(FriendlyByteBuf remainingData) {
+		return extraPacketDataBytes(
+				remainingData, Integer.MAX_VALUE, "deferred packet data");
+	}
+
+	@Nullable
+	public static byte[] extraPacketDataBytes(
+			FriendlyByteBuf remainingData,
+			int maxBytes,
+			String description) {
+		int extraInputBytes = remainingData.readableBytes();
+		if (extraInputBytes <= 0) {
+			return null;
+		}
+		NetworkPayloadValidation.requireByteLength(
+				extraInputBytes, maxBytes, description);
+		byte[] data = new byte[extraInputBytes];
+		remainingData.readBytes(data);
+		return data;
+	}
 	
 	// StreamCodec stuff below
 	

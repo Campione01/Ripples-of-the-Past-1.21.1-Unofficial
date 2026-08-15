@@ -1,6 +1,9 @@
 package com.github.standobyte.jojo.powersystem.ability.input;
 
+import java.util.Iterator;
+
 import com.github.standobyte.jojo.init.ModDataAttachmentTypes;
+import com.github.standobyte.jojo.network.NetworkPayloadValidation;
 import com.github.standobyte.jojo.powersystem.Power;
 import com.github.standobyte.jojo.powersystem.ability.Ability;
 import com.github.standobyte.jojo.powersystem.ability.AbilityId;
@@ -74,34 +77,57 @@ public class ActionInputBuffer {
 		}
 	}
 
-	private FriendlyByteBuf inputBuf = new FriendlyByteBuf(Unpooled.buffer());
 	public void tickInputBuffer(EntityActionInputState userInput) {
 		LivingEntity user = userInput.user;
 		if (user.level().isClientSide()) return;
 
 		if (buffered != null) {
-			AbilityId baseAbilityId = buffered.baseAbilityId;
+			BufferedInputEntry replaying = buffered;
+			AbilityId baseAbilityId = replaying.baseAbilityId;
 			Power<?> power = baseAbilityId.powerClass().get(user);
 			if (power != null && power.hasPower() && baseAbilityId.powerTypeId().equals(power.getPowerType().getId())) {
 				AvailableAbilities abilities = power.updateAvailableMoves();
 				Ability ability = abilities.inMovesetAndCanBeUsed.get(baseAbilityId.nameInMoveset());
 				if (ability != null) {
 					BufferingState bufferingState = BufferingState.buffered();
-					FriendlyByteBuf replayInput = getReplayInput(buffered, ability, user);
-					HeldInput newAction = ability.onKeyPress(user.level(), user, replayInput, 
-							buffered.inputMethod, 0, bufferingState);
-					if (replayInput == inputBuf) {
-						inputBuf.clear();
-					}
-					if (bufferingState.isActionSuccess) {
-						for (HeldInputEntry heldKeyAction : userInput.heldKeys.values()) {
-							if (heldKeyAction.action == buffered) {
-								// Update the held key callback, to be able to stop the new action when the key is released by the player
-								heldKeyAction.action = newAction;
-								break;
+					FriendlyByteBuf replayInput = null;
+					try {
+						byte[] extraInput = replaying.extraInput;
+						replayInput = new FriendlyByteBuf(extraInput != null
+								? Unpooled.wrappedBuffer(extraInput)
+								: Unpooled.buffer(
+										256,
+										NetworkPayloadValidation.MAX_ABILITY_EXTRA_BYTES));
+						if (extraInput == null) {
+							ability.writeExtraInput(replayInput, user, false);
+							NetworkPayloadValidation.requireOutboundByteLength(
+									replayInput.readableBytes(),
+									NetworkPayloadValidation.MAX_ABILITY_EXTRA_BYTES,
+									"buffered ability replay input");
+						}
+						HeldInput newAction = ability.onKeyPress(
+								user.level(), user, replayInput,
+								replaying.inputMethod, 0, bufferingState);
+						if (bufferingState.isActionSuccess) {
+							for (HeldInputEntry heldKeyAction : userInput.heldKeys.values()) {
+								if (heldKeyAction.action == replaying) {
+									heldKeyAction.action = newAction;
+									break;
+								}
+							}
+							if (buffered == replaying) {
+								buffered = null;
 							}
 						}
-						buffered = null;
+					}
+					catch (RuntimeException error) {
+						clearFailedBufferedInput(userInput, replaying);
+						throw error;
+					}
+					finally {
+						if (replayInput != null) {
+							replayInput.release();
+						}
 					}
 				}
 			}
@@ -111,13 +137,19 @@ public class ActionInputBuffer {
 		}
 	}
 
-	private FriendlyByteBuf getReplayInput(BufferedInputEntry buffered, Ability ability, LivingEntity user) {
-		byte[] extraInput = buffered.extraInput;
-		if (extraInput != null) {
-			return new FriendlyByteBuf(Unpooled.wrappedBuffer(extraInput));
+	private void clearFailedBufferedInput(
+			EntityActionInputState userInput,
+			BufferedInputEntry failed) {
+		if (buffered == failed) {
+			buffered = null;
 		}
-		ability.writeExtraInput(inputBuf, user, false);
-		return inputBuf;
+		Iterator<HeldInputEntry> iterator =
+				userInput.heldKeys.values().iterator();
+		while (iterator.hasNext()) {
+			if (iterator.next().action == failed) {
+				iterator.remove();
+			}
+		}
 	}
 
 	@Nullable
@@ -125,7 +157,11 @@ public class ActionInputBuffer {
 		if (source == null || source.readableBytes() <= 0) {
 			return null;
 		}
-		byte[] bytes = new byte[source.readableBytes()];
+		int length = NetworkPayloadValidation.requireOutboundByteLength(
+				source.readableBytes(),
+				NetworkPayloadValidation.MAX_ABILITY_EXTRA_BYTES,
+				"buffered ability input");
+		byte[] bytes = new byte[length];
 		source.getBytes(source.readerIndex(), bytes);
 		return bytes;
 	}

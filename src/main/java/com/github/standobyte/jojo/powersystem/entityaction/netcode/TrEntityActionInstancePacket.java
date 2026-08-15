@@ -1,11 +1,16 @@
 package com.github.standobyte.jojo.powersystem.entityaction.netcode;
 
+import java.util.Objects;
+import java.util.UUID;
+
 import javax.annotation.Nullable;
 
 import com.github.standobyte.jojo.PacketsRegister;
+import com.github.standobyte.jojo.network.NetworkPayloadValidation;
 import com.github.standobyte.jojo.powersystem.entityaction.EntityActionInstance;
 import com.github.standobyte.jojo.util.functions_network.NetworkUtil;
 
+import io.netty.buffer.Unpooled;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -13,13 +18,32 @@ import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 public class TrEntityActionInstancePacket implements CustomPacketPayload {
-	private int performerId;
-	@Nullable private EntityActionInstance sendAction;
-	@Nullable private FriendlyByteBuf receiveActionData;
+	private final int performerId;
+	private final UUID performerUuid;
+	private final long generation;
+	@Nullable private final EntityActionInstance sendAction;
+	@Nullable private final byte[] receiveActionData;
 	
-	public TrEntityActionInstancePacket(int performerId, @Nullable EntityActionInstance action) {
+	public TrEntityActionInstancePacket(
+			int performerId,
+			UUID performerUuid,
+			long generation,
+			@Nullable EntityActionInstance action) {
+		this(performerId, performerUuid, generation, action, null);
+	}
+
+	private TrEntityActionInstancePacket(
+			int performerId,
+			UUID performerUuid,
+			long generation,
+			@Nullable EntityActionInstance sendAction,
+			@Nullable byte[] receiveActionData) {
 		this.performerId = performerId;
-		this.sendAction = action;
+		this.performerUuid = Objects.requireNonNull(
+				performerUuid, "performerUuid");
+		this.generation = generation;
+		this.sendAction = sendAction;
+		this.receiveActionData = receiveActionData;
 	}
 	
 	
@@ -40,20 +64,48 @@ public class TrEntityActionInstancePacket implements CustomPacketPayload {
 		@Override
 		public void encode(TrEntityActionInstancePacket packet, RegistryFriendlyByteBuf buf) {
 			buf.writeInt(packet.performerId);
-			EntityActionInstance.encode(buf, packet.sendAction);
+			buf.writeUUID(packet.performerUuid);
+			buf.writeVarLong(NetworkPayloadValidation.requireOutboundGeneration(
+					packet.generation, "entity action"));
+			FriendlyByteBuf actionData = new FriendlyByteBuf(
+					Unpooled.buffer(
+							256,
+							NetworkPayloadValidation.MAX_ENTITY_ACTION_BYTES));
+			try {
+				EntityActionInstance.encode(actionData, packet.sendAction);
+				int length = NetworkPayloadValidation.requireOutboundByteLength(
+						actionData.readableBytes(),
+						NetworkPayloadValidation.MAX_ENTITY_ACTION_BYTES,
+						"entity action");
+				buf.writeBytes(actionData, actionData.readerIndex(), length);
+			}
+			finally {
+				actionData.release();
+			}
 		}
 
 		@Override
 		public TrEntityActionInstancePacket decode(RegistryFriendlyByteBuf buf) {
 			int performerId = buf.readInt();
-			TrEntityActionInstancePacket packet = new TrEntityActionInstancePacket(performerId, null);
-			packet.receiveActionData = NetworkUtil.extraPacketData(buf);
-			return packet;
+			UUID performerUuid = buf.readUUID();
+			long generation = NetworkPayloadValidation.requireGeneration(
+					buf.readVarLong(), "entity action");
+			return new TrEntityActionInstancePacket(
+					performerId, performerUuid, generation, null,
+					NetworkUtil.extraPacketDataBytes(
+							buf,
+							NetworkPayloadValidation.MAX_ENTITY_ACTION_BYTES,
+							"entity action"));
 		}
 		
 		@Override
 		public void handle(TrEntityActionInstancePacket payload, IPayloadContext context) {
-			ClientEntityActionSyncQueue.applyOrQueueAction(payload.performerId, payload.receiveActionData);
+			ClientEntityActionSyncQueue.applyOrQueueAction(
+					context.listener(),
+					payload.performerId,
+					payload.performerUuid,
+					payload.generation,
+					payload.receiveActionData);
 		}
 		
 	}

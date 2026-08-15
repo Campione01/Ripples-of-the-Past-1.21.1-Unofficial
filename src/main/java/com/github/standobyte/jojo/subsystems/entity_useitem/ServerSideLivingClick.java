@@ -1,6 +1,12 @@
 package com.github.standobyte.jojo.subsystems.entity_useitem;
 
+import java.util.ArrayList;
+import java.util.EnumSet;
+import java.util.List;
+
 import javax.annotation.Nullable;
+
+import org.jetbrains.annotations.ApiStatus;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.advancements.CriteriaTriggers;
@@ -48,8 +54,7 @@ public class ServerSideLivingClick {
 		if (actualPlayer != null) {
 			actualPlayer.resetLastActionTime();
 		}
-		if (hands.length == 0) hands = InteractionHand.values();
-		for (InteractionHand hand : hands) {
+		for (InteractionHand hand : orderedDistinctHands(hands)) {
 			ItemStack item = entity.getItemInHand(hand);
 			if (!item.isItemEnabled(level.enabledFeatures())) {
 				continue;
@@ -59,19 +64,57 @@ public class ServerSideLivingClick {
 			if (hitResult != null) {
 				result = _interactWithTarget(entity, entityWrapper, actualPlayer, item, hand, hitResult);
 			}
+			if (isTerminalTargetFailure(hitResult, result)) {
+				entityWrapper.checkInventoryChanges();
+				return false;
+			}
 
-			if ((result == null || !result.consumesAction()) && !item.isEmpty()) {
+			if (shouldUseItemWithoutTarget(result) && !item.isEmpty()) {
 				result = _useItemNoTarget(entity, entityWrapper, item, hand);
 			}
 
-			if (result.shouldSwing()) {
+			if (result != null && result.shouldSwing()) {
 //			if (success.swingSource() == InteractionResult.SwingSource.SERVER) {
 				entity.swing(hand, true);
 			}
 			entityWrapper.checkInventoryChanges();
-			return result.consumesAction();
+			if (!shouldTryNextHand(result)) {
+				return true;
+			}
 		}
 		return false;
+	}
+
+	@ApiStatus.Internal
+	static boolean shouldTryNextHand(@Nullable InteractionResult result) {
+		return result == null || !result.consumesAction();
+	}
+
+	@ApiStatus.Internal
+	static boolean shouldUseItemWithoutTarget(@Nullable InteractionResult result) {
+		return result == null || result == InteractionResult.PASS;
+	}
+
+	@ApiStatus.Internal
+	static boolean isTerminalTargetFailure(
+			@Nullable HitResult target,
+			@Nullable InteractionResult result) {
+		return target != null && result == InteractionResult.FAIL;
+	}
+
+	@ApiStatus.Internal
+	static List<InteractionHand> orderedDistinctHands(InteractionHand... hands) {
+		if (hands == null || hands.length == 0) {
+			hands = InteractionHand.values();
+		}
+		List<InteractionHand> orderedHands = new ArrayList<>(hands.length);
+		EnumSet<InteractionHand> seenHands = EnumSet.noneOf(InteractionHand.class);
+		for (InteractionHand hand : hands) {
+			if (hand != null && seenHands.add(hand)) {
+				orderedHands.add(hand);
+			}
+		}
+		return orderedHands;
 	}
 
 	public static InteractionResult _interactWithTarget(LivingEntity entity, Player entityWrapper, 
@@ -127,9 +170,10 @@ public class ServerSideLivingClick {
 									}
 								}
 							}
-
-							interactionResult = InteractionResult.PASS;
 						}
+					}
+					if (!interactionResult.consumesAction()) {
+						interactionResult = InteractionResult.PASS;
 					}
 	
 					if (actualPlayer != null && /*interactionResult instanceof InteractionResult.Success success*/interactionResult.consumesAction()) {

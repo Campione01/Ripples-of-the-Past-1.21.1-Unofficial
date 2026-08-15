@@ -30,6 +30,7 @@ import com.github.standobyte.jojoimpl.stands.goldexperience.client.GoldExperienc
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
@@ -106,10 +107,26 @@ public class ClientTickHandler {
 		if (!screenFreezePresentation) {
 			com.github.standobyte.jojo.client.ui.hud_misc.BottomLeftNotifications._tick();
 		}
-		ClientEntityActionSyncQueue.tick(mc);
+		Component entityActionDisconnect = ClientEntityActionSyncQueue.tick(mc);
+		if (entityActionDisconnect != null) {
+			disconnectEntityActionSync(mc, entityActionDisconnect);
+			return;
+		}
 		ClientCustomEffectSyncQueue.tick(mc);
 		ClientTickables._tick();
 		PhotosCache.tick();
+	}
+
+	private static void disconnectEntityActionSync(
+			Minecraft mc, Component reason) {
+		if (!mc.isSameThread()) {
+			mc.execute(() -> disconnectEntityActionSync(mc, reason));
+			return;
+		}
+		var listener = mc.getConnection();
+		if (listener != null) {
+			listener.getConnection().disconnect(reason);
+		}
 	}
 
 	private static void tickResolveShader(Minecraft mc) {

@@ -10,6 +10,8 @@ import com.github.standobyte.jojo.powersystem.ability.input.ActionInputBuffer;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2LongArrayMap;
+import it.unimi.dsi.fastutil.ints.Int2LongMap;
 import net.minecraft.world.entity.LivingEntity;
 
 @ApiStatus.Internal
@@ -30,9 +32,90 @@ public class EntityActionInputState implements TickingEntityData {
 	// TODO (entity action 2) if the player logs out and the action gets saved in NBT, after relog they won't be able to stop the action - fix that
 	@ApiStatus.Internal
 	public final Int2ObjectMap<HeldInputEntry> heldKeys = new Int2ObjectArrayMap<>();
+	private final InputGenerationTracker inputGenerations =
+			new InputGenerationTracker();
+
+	@ApiStatus.Internal
+	public long nextInputGeneration(short keyId) {
+		return inputGenerations.nextInputGeneration(keyId);
+	}
+
+	@ApiStatus.Internal
+	public boolean acceptNetworkPressGeneration(
+			short keyId, long generation) {
+		return inputGenerations.acceptNetworkPressGeneration(
+				keyId, generation);
+	}
+
+	@ApiStatus.Internal
+	public boolean adoptInputGeneration(short keyId, long generation) {
+		return inputGenerations.adoptInputGeneration(keyId, generation);
+	}
+
+	@ApiStatus.Internal
+	public void observeInputGeneration(short keyId, long generation) {
+		inputGenerations.observeInputGeneration(keyId, generation);
+	}
+
+	@ApiStatus.Internal
+	public long latestInputGeneration(short keyId) {
+		return inputGenerations.latestInputGeneration(keyId);
+	}
+
+	@ApiStatus.Internal
+	public static final class InputGenerationTracker {
+		private final Int2LongMap latestInputGenerations =
+				new Int2LongArrayMap();
+		private long inputGenerationCounter;
+
+		public long nextInputGeneration(short keyId) {
+			if (inputGenerationCounter == Long.MAX_VALUE) {
+				throw new IllegalStateException(
+						"Ability input generation exhausted");
+			}
+			long generation = ++inputGenerationCounter;
+			latestInputGenerations.put(keyId, generation);
+			return generation;
+		}
+
+		public boolean acceptNetworkPressGeneration(
+				short keyId, long generation) {
+			if (generation <= latestInputGeneration(keyId)) {
+				return false;
+			}
+			observeInputGeneration(keyId, generation);
+			return true;
+		}
+
+		public boolean adoptInputGeneration(short keyId, long generation) {
+			if (generation <= 0L
+					|| generation < latestInputGeneration(keyId)) {
+				return false;
+			}
+			observeInputGeneration(keyId, generation);
+			return true;
+		}
+
+		public void observeInputGeneration(short keyId, long generation) {
+			if (generation <= 0L) {
+				throw new IllegalArgumentException(
+						"Ability input generation must be positive");
+			}
+			if (generation > latestInputGeneration(keyId)) {
+				latestInputGenerations.put(keyId, generation);
+			}
+			inputGenerationCounter = Math.max(
+					inputGenerationCounter, generation);
+		}
+
+		public long latestInputGeneration(short keyId) {
+			return latestInputGenerations.getOrDefault(keyId, 0L);
+		}
+	}
 
 	public static class HeldInputEntry {
 		public final short keyId;
+		public final long generation;
 		public final PowerClass<?> powerClass;
 		@Nullable public HeldInput action;
 
@@ -40,7 +123,16 @@ public class EntityActionInputState implements TickingEntityData {
 				short keyId,
 				PowerClass<?> powerClass,
 				HeldInput action) {
+			this(keyId, 0L, powerClass, action);
+		}
+
+		public HeldInputEntry(
+				short keyId,
+				long generation,
+				PowerClass<?> powerClass,
+				HeldInput action) {
 			this.keyId = keyId;
+			this.generation = generation;
 			this.powerClass = powerClass;
 			this.action = action;
 		}

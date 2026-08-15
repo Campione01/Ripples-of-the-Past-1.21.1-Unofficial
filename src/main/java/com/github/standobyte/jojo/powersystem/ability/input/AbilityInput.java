@@ -3,6 +3,7 @@ package com.github.standobyte.jojo.powersystem.ability.input;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiConsumer;
 import java.util.function.IntConsumer;
 
 import javax.annotation.Nullable;
@@ -23,9 +24,15 @@ import com.github.standobyte.jojo.powersystem.ability.condition.ConditionCheck;
 import com.github.standobyte.jojo.powersystem.ability.condition.AvailableAbilities.AbilityConditionCheck;
 import com.github.standobyte.jojo.powersystem.ability.controls.InputMethod;
 import com.github.standobyte.jojo.powersystem.ability.input.ActionInputBuffer.BufferingState;
+import com.github.standobyte.jojo.powersystem.ability.input.ActionInputBuffer.BufferedInputEntry;
 import com.github.standobyte.jojo.powersystem.entityaction.EntityActionInputState;
 import com.github.standobyte.jojo.powersystem.entityaction.HeldInput;
+import com.github.standobyte.jojo.powersystem.entityaction.LivingComponentAction;
+import com.github.standobyte.jojo.powersystem.entityaction.LivingComponentAction.TransactionSnapshot;
 import com.github.standobyte.jojo.powersystem.entityaction.EntityActionInputState.HeldInputEntry;
+import com.github.standobyte.jojo.powersystem.standpower.StandPower;
+import com.github.standobyte.jojo.powersystem.standpower.StandUtil;
+import com.github.standobyte.jojo.powersystem.standpower.entity.StandEntity;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import net.minecraft.network.FriendlyByteBuf;
@@ -34,6 +41,21 @@ import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 public class AbilityInput {
+
+	@ApiStatus.Internal
+	public static long nextInputGeneration(
+			LivingEntity user, short keyId) {
+		if (user == null) {
+			throw new IllegalArgumentException("Ability input user is required");
+		}
+		EntityActionInputState inputState = user.getData(
+				ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get());
+		if (inputState == null) {
+			throw new IllegalStateException(
+					"Ability input state is unavailable");
+		}
+		return inputState.nextInputGeneration(keyId);
+	}
 	
 	public static boolean withConditionCheck(Ability ability, LivingEntity user) {
 		if (ability == null || user == null) return false;
@@ -79,74 +101,369 @@ public class AbilityInput {
 			InputMethod inputMethod, float clickHoldResolveTime, 
 			BufferingState bufferingState, AbilityId baseAbilityForBuffering) {
 		if (ability == null || user == null) return null;
+		EntityActionInputState inputState = user.getData(
+				ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get());
+		if (inputState == null) {
+			throw new IllegalStateException(
+					"Ability input state is unavailable");
+		}
+		return keyPress(
+				keyId, inputState.nextInputGeneration(keyId), ability,
+				user, extraClientInput, inputMethod, clickHoldResolveTime,
+				bufferingState, baseAbilityForBuffering);
+	}
+
+	@ApiStatus.Internal
+	@Nullable
+	public static HeldInputEntry keyPress(
+			short keyId,
+			long inputGeneration,
+			Ability ability,
+			LivingEntity user,
+			FriendlyByteBuf extraClientInput,
+			InputMethod inputMethod,
+			float clickHoldResolveTime,
+			BufferingState bufferingState,
+			AbilityId baseAbilityForBuffering) {
+		if (ability == null || user == null) return null;
+		EntityActionInputState inputState = user.getData(
+				ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get());
+		if (inputState == null) {
+			throw new IllegalStateException(
+					"Ability input state is unavailable");
+		}
+		if (!inputState.adoptInputGeneration(keyId, inputGeneration)) {
+			throw new IllegalStateException(
+					"Stale ability input generation " + inputGeneration);
+		}
 		
 		Level level = user.level();
 		byte[] extraInputForBuffer = ActionInputBuffer.copyRemainingBytes(extraClientInput);
-		
-		RipplesAbilityKeyPressEvent event = ModEventHooks.onAbilityKeyPress(user, ability, inputMethod, clickHoldResolveTime);
-		ability = event.ability;
-		HeldInput action;
-		if (event.isCanceled()) {
-			action = event.newHeldInput;
-		}
-		else {
-			action = ability.onKeyPress(level, user, extraClientInput, inputMethod, clickHoldResolveTime, bufferingState);
-			if (bufferingState.canBuffer() && bufferingState.shouldBuffer) {
-				HeldInput heldInputObj = null;
-				ActionInputBuffer actionInputBuffer = ActionInputBuffer.get(user);
-				if (actionInputBuffer != null) {
-					if (baseAbilityForBuffering == null) baseAbilityForBuffering = ability.abilityId;
-					switch (inputMethod) {
-						case CLICK -> actionInputBuffer.bufferClickInput(baseAbilityForBuffering, extraInputForBuffer);
-						case HOLD -> heldInputObj = actionInputBuffer.bufferHeldInput(baseAbilityForBuffering, extraInputForBuffer);
+		InputTransaction transaction = new InputTransaction(
+				user, keyId, inputGeneration);
+		try {
+			RipplesAbilityKeyPressEvent event = ModEventHooks.onAbilityKeyPress(
+					user, ability, inputMethod, clickHoldResolveTime);
+			ability = event.ability;
+			if (ability == null) {
+				throw new IllegalStateException(
+						"Ability key press event returned a null ability");
+			}
+			transaction.captureCooldown(ability);
+			HeldInput action;
+			if (event.isCanceled()) {
+				action = event.newHeldInput;
+			}
+			else {
+				action = ability.onKeyPress(
+						level, user, extraClientInput, inputMethod,
+						clickHoldResolveTime, bufferingState);
+				if (bufferingState.canBuffer() && bufferingState.shouldBuffer) {
+					HeldInput heldInputObj = null;
+					ActionInputBuffer actionInputBuffer = transaction.inputBuffer;
+					if (actionInputBuffer != null) {
+						if (baseAbilityForBuffering == null) {
+							baseAbilityForBuffering = ability.abilityId;
+						}
+						switch (inputMethod) {
+							case CLICK -> actionInputBuffer.bufferClickInput(
+									baseAbilityForBuffering, extraInputForBuffer);
+							case HOLD -> heldInputObj = actionInputBuffer.bufferHeldInput(
+									baseAbilityForBuffering, extraInputForBuffer);
+						}
 					}
+					action = heldInputObj;
 				}
-				action = heldInputObj;
 			}
-		}
-		if (!level.isClientSide() && bufferingState.isActionSuccess && ability.abilityId.powerClass() != null) {
-			Power<?> power = ability.abilityId.powerClass().get(user);
-			if (power != null && ability.shouldSetCooldownOnKeyPress(inputMethod)) {
-				ability.setCooldownOnUse(power);
+			transaction.captureBufferedAfter();
+
+			HeldInputEntry heldInput = null;
+			if (action != null) {
+				if (transaction.inputState == null) {
+					throw new IllegalStateException(
+							"Ability input state is unavailable");
+				}
+				heldInput = new HeldInputEntry(
+						keyId, inputGeneration,
+						ability.abilityId.powerClass(), action);
+				transaction.inputState.heldKeys.put(keyId, heldInput);
 			}
-		}
-		if (!level.isClientSide()) {
-			PacketDistributor.sendToPlayersTrackingEntity(user, 
-					TrAbilityUsePacket.keyPress(user.getId(), keyId, ability, inputMethod, clickHoldResolveTime, user));
-		}
-		
-		
-		if (action != null) {
-			EntityActionInputState inputHandler = user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get());
-			if (inputHandler != null) {
-				HeldInputEntry heldInput = new HeldInputEntry(
-						keyId,
-						ability.abilityId.powerClass(),
-						action);
-				inputHandler.heldKeys.put(keyId, heldInput);
-				return heldInput;
+
+			if (!level.isClientSide() && bufferingState.isActionSuccess
+					&& ability.abilityId.powerClass() != null) {
+				Power<?> power = ability.abilityId.powerClass().get(user);
+				if (power != null && ability.shouldSetCooldownOnKeyPress(inputMethod)) {
+					transaction.cooldownAttempted = true;
+					ability.setCooldownOnUse(power);
+				}
 			}
+			if (!level.isClientSide()) {
+				transaction.replayAttempted = true;
+				PacketDistributor.sendToPlayersTrackingEntity(
+						user,
+						TrAbilityUsePacket.keyPress(
+								user.getId(), keyId, inputGeneration,
+								ability, inputMethod,
+								clickHoldResolveTime, user));
+			}
+			return heldInput;
 		}
-		return null;
+		catch (RuntimeException error) {
+			transaction.rollback(error);
+			throw error;
+		}
 	}
 
 	public static void keyRelease(short keyId, LivingEntity user) {
-		if (user == null) return;
+		keyReleaseAndGetGeneration(keyId, user);
+	}
 
-		EntityActionInputState inputHandler = user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get());
-		if (inputHandler != null) {
-			HeldInputEntry heldAction = inputHandler.heldKeys.remove(keyId);
-			if (heldAction != null) {
-				HeldInput action = heldAction.action;
-				Level level = user.level();
+	@ApiStatus.Internal
+	public static long keyReleaseAndGetGeneration(
+			short keyId, @Nullable LivingEntity user) {
+		if (user == null) {
+			return 0L;
+		}
+		EntityActionInputState inputState = user.getData(
+				ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get());
+		HeldInputEntry held = inputState != null
+				? inputState.heldKeys.get(keyId) : null;
+		long generation = held != null && held.generation > 0L
+				? held.generation
+				: inputState != null
+						? inputState.latestInputGeneration(keyId) : 0L;
+		keyRelease(keyId, user, false, generation);
+		return generation;
+	}
 
-				if (action != null) {
-					action.onKeyRelease(user);
+	@ApiStatus.Internal
+	public static boolean keyReleaseFromNetwork(
+			short keyId, LivingEntity user) {
+		if (user == null) {
+			return false;
+		}
+		EntityActionInputState inputState = user.getData(
+				ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get());
+		HeldInputEntry held = inputState != null
+				? inputState.heldKeys.get(keyId) : null;
+		long generation = held != null ? held.generation : 0L;
+		return generation > 0L
+				&& keyReleaseFromNetwork(keyId, user, generation)
+						== ReleaseResult.RELEASED;
+	}
+
+	@ApiStatus.Internal
+	public static ReleaseResult keyReleaseFromNetwork(
+			short keyId,
+			LivingEntity user,
+			long inputGeneration) {
+		if (inputGeneration <= 0L) {
+			throw new IllegalArgumentException(
+					"Ability input generation must be positive");
+		}
+		return keyRelease(keyId, user, true, inputGeneration);
+	}
+
+	private static ReleaseResult keyRelease(
+			short keyId, @Nullable LivingEntity user,
+			boolean authoritativeNetworkRelease,
+			long inputGeneration) {
+		if (user == null) {
+			return ReleaseResult.IDEMPOTENT;
+		}
+		EntityActionInputState inputHandler = user.getData(
+				ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get());
+		HeldInputEntry current = inputHandler != null
+				? inputHandler.heldKeys.get(keyId) : null;
+		long latestBefore = inputHandler != null
+				? inputHandler.latestInputGeneration(keyId) : 0L;
+		HeldInputEntry heldAction = null;
+		ReleaseResult result = classifyRelease(
+				current, latestBefore, inputGeneration);
+		if (result == ReleaseResult.RELEASED) {
+			inputHandler.heldKeys.remove(keyId);
+			heldAction = current;
+		}
+		if (inputHandler != null && inputGeneration > 0L) {
+			inputHandler.observeInputGeneration(keyId, inputGeneration);
+		}
+		Runnable releaseSync = () -> {};
+		if (!user.level().isClientSide() && inputGeneration > 0L
+				&& (authoritativeNetworkRelease || heldAction != null)) {
+			releaseSync = authoritativeNetworkRelease
+					? () -> PacketDistributor.sendToPlayersTrackingEntityAndSelf(
+							user,
+							TrAbilityUsePacket.releaseHold(
+									user.getId(), keyId, inputGeneration))
+					: () -> PacketDistributor.sendToPlayersTrackingEntity(
+							user,
+							TrAbilityUsePacket.releaseHold(
+									user.getId(), keyId, inputGeneration));
+		}
+		releaseHeldInput(heldAction, user, releaseSync);
+		return result;
+	}
+
+	static ReleaseResult classifyRelease(
+			@Nullable HeldInputEntry current,
+			long latestGeneration,
+			long requestedGeneration) {
+		if (current != null
+				&& current.generation == requestedGeneration) {
+			return ReleaseResult.RELEASED;
+		}
+		if (requestedGeneration > 0L
+				&& requestedGeneration < latestGeneration) {
+			return ReleaseResult.STALE;
+		}
+		return current != null
+				? ReleaseResult.STALE : ReleaseResult.IDEMPOTENT;
+	}
+
+	static boolean releaseHeldInput(
+			@Nullable HeldInputEntry heldAction,
+			@Nullable LivingEntity user,
+			Runnable releaseSync) {
+		RuntimeException failure = null;
+		try {
+			if (heldAction != null && heldAction.action != null) {
+				heldAction.action.onKeyRelease(user);
+			}
+		}
+		catch (RuntimeException error) {
+			failure = error;
+		}
+		try {
+			releaseSync.run();
+		}
+		catch (RuntimeException syncError) {
+			if (failure != null) {
+				failure.addSuppressed(syncError);
+			}
+			else {
+				failure = syncError;
+			}
+		}
+		if (failure != null) {
+			throw failure;
+		}
+		return heldAction != null;
+	}
+
+	private static final class InputTransaction {
+		private final LivingEntity user;
+		private final short keyId;
+		private final long inputGeneration;
+		@Nullable private final EntityActionInputState inputState;
+		@Nullable private final HeldInputEntry heldBefore;
+		@Nullable private final ActionInputBuffer inputBuffer;
+		@Nullable private final BufferedInputEntry bufferedBefore;
+		@Nullable private BufferedInputEntry bufferedAfter;
+		private final LivingComponentAction userAction;
+		private final TransactionSnapshot userActionBefore;
+		@Nullable private final LivingComponentAction standAction;
+		@Nullable private final TransactionSnapshot standActionBefore;
+		@Nullable private StandPower cooldownPower;
+		@Nullable private String cooldownAbility;
+		private int cooldownBefore;
+		private int cooldownTotalBefore;
+		private boolean cooldownAttempted;
+		private boolean replayAttempted;
+
+		private InputTransaction(
+				LivingEntity user,
+				short keyId,
+				long inputGeneration) {
+			this.user = user;
+			this.keyId = keyId;
+			this.inputGeneration = inputGeneration;
+			this.inputState = user.getData(
+					ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get());
+			this.heldBefore = inputState != null
+					? inputState.heldKeys.get(keyId) : null;
+			this.inputBuffer = inputState != null
+					? inputState.inputBuffer : null;
+			this.bufferedBefore = inputBuffer != null
+					? inputBuffer.buffered : null;
+			this.bufferedAfter = bufferedBefore;
+			this.userAction = LivingComponentAction.getComponent(user);
+			this.userActionBefore = userAction.captureTransactionSnapshot();
+			StandEntity stand = StandUtil.getSummonedStand(user);
+			this.standAction = stand != null
+					? LivingComponentAction.getComponent(stand) : null;
+			this.standActionBefore = standAction != null
+					? standAction.captureTransactionSnapshot() : null;
+		}
+
+		private void captureBufferedAfter() {
+			bufferedAfter = inputBuffer != null
+					? inputBuffer.buffered : null;
+		}
+
+		private void captureCooldown(Ability ability) {
+			if (ability.abilityId.powerClass() == PowerClass.STAND) {
+				Power<?> power = PowerClass.STAND.get(user);
+				if (power instanceof StandPower standPower) {
+					cooldownPower = standPower;
+					cooldownAbility = ability.name();
+					cooldownBefore = standPower.getAbilityCooldown(
+							cooldownAbility);
+					cooldownTotalBefore = standPower.getAbilityCooldownTotal(
+							cooldownAbility);
 				}
-				if (!level.isClientSide()) {
-					PacketDistributor.sendToPlayersTrackingEntity(user, 
-							TrAbilityUsePacket.releaseHold(user.getId(), keyId));
+			}
+		}
+
+		private void rollback(RuntimeException original) {
+			rollbackStep(original, () -> {
+				if (inputState != null) {
+					HeldInputEntry current = inputState.heldKeys.get(keyId);
+					if (current != null
+							&& current.generation == inputGeneration) {
+						if (heldBefore != null) {
+							inputState.heldKeys.put(keyId, heldBefore);
+						}
+						else {
+							inputState.heldKeys.remove(keyId);
+						}
+					}
 				}
+			});
+			rollbackStep(original, () -> {
+				if (inputBuffer != null
+						&& inputBuffer.buffered == bufferedAfter
+						&& bufferedAfter != bufferedBefore) {
+					inputBuffer.buffered = bufferedBefore;
+				}
+			});
+			if (cooldownAttempted && cooldownPower != null
+					&& cooldownAbility != null) {
+				rollbackStep(original, () -> cooldownPower.setAbilityCooldown(
+						cooldownAbility, cooldownBefore, cooldownTotalBefore));
+			}
+			rollbackStep(original, () ->
+					userAction.rollbackFailedInputAction(userActionBefore));
+			if (standAction != null && standActionBefore != null) {
+				rollbackStep(original, () -> standAction.rollbackFailedInputAction(
+						standActionBefore));
+			}
+			if (replayAttempted && !user.level().isClientSide()) {
+				rollbackStep(original, () -> PacketDistributor
+						.sendToPlayersTrackingEntityAndSelf(
+								user,
+								TrAbilityUsePacket.releaseHold(
+										user.getId(), keyId,
+										inputGeneration)));
+			}
+		}
+
+		private static void rollbackStep(
+				RuntimeException original, Runnable rollback) {
+			try {
+				rollback.run();
+			}
+			catch (RuntimeException rollbackError) {
+				original.addSuppressed(rollbackError);
 			}
 		}
 	}
@@ -186,12 +503,13 @@ public class AbilityInput {
 				input.heldKeys,
 				powerClass,
 				user,
-				keyId -> PacketDistributor
+				(keyId, generation) -> PacketDistributor
 						.sendToPlayersTrackingEntityAndSelf(
 								user,
 								TrAbilityUsePacket.releaseHold(
 										user.getId(),
-										(short) keyId)));
+										keyId,
+										generation)));
 	}
 
 	static boolean hasHeldInput(
@@ -210,6 +528,16 @@ public class AbilityInput {
 			PowerClass<?> powerClass,
 			@Nullable LivingEntity user,
 			IntConsumer releaseSync) {
+		return interruptHeldInputs(
+				heldInputs, powerClass, user,
+				(keyId, generation) -> releaseSync.accept(keyId));
+	}
+
+	private static boolean interruptHeldInputs(
+			Int2ObjectMap<HeldInputEntry> heldInputs,
+			PowerClass<?> powerClass,
+			@Nullable LivingEntity user,
+			BiConsumer<Short, Long> releaseSync) {
 		List<HeldInputEntry> interrupted = new ArrayList<>();
 		for (HeldInputEntry entry : heldInputs.values()) {
 			if (entry.powerClass == powerClass) {
@@ -234,7 +562,7 @@ public class AbilityInput {
 						user,
 						error);
 			}
-			releaseSync.accept(entry.keyId);
+			releaseSync.accept(entry.keyId, entry.generation);
 		}
 		return !interrupted.isEmpty();
 	}
@@ -246,6 +574,11 @@ public class AbilityInput {
 	}
 	private static final AtomicInteger pseudoKey = new AtomicInteger();
 	
+	public enum ReleaseResult {
+		RELEASED,
+		IDEMPOTENT,
+		STALE
+	}
 
 	public enum InputEventType {
 		PRESS_CLICK(InputMethod.CLICK),

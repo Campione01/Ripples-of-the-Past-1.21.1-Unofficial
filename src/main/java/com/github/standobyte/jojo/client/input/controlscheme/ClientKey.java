@@ -2,6 +2,7 @@ package com.github.standobyte.jojo.client.input.controlscheme;
 
 import org.lwjgl.glfw.GLFW;
 
+import com.github.standobyte.jojo.powersystem.ability.input.InputKeyId;
 import com.github.standobyte.jojo.util.objects_java.LazyNullable;
 import com.mojang.blaze3d.platform.InputConstants;
 
@@ -44,7 +45,8 @@ public class ClientKey {
 	
 	protected static short keyId(InputDevice device, InputConstants.Type type, int keyCode) {
 		return switch (device) {
-			case KEYBOARD_MOUSE -> (short) ((type.ordinal() & 3) | (keyCode << 2)); // 11 bits
+			case KEYBOARD_MOUSE -> InputKeyId.keyboardMouse(
+					type.ordinal(), keyCode); // 11 bits
 		};
 	}
 	

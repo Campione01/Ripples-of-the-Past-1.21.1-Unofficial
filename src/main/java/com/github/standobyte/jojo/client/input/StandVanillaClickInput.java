@@ -4,6 +4,7 @@ import com.github.standobyte.jojo.client.ClientGlobals;
 import com.github.standobyte.jojo.client.input.controlscheme.ClientKey;
 import com.github.standobyte.jojo.core.JojoMod;
 import com.github.standobyte.jojo.powersystem.PowerClass;
+import com.github.standobyte.jojo.powersystem.ability.input.AbilityInput;
 import com.github.standobyte.jojo.powersystem.standpower.entity.StandEntity;
 import com.github.standobyte.jojo.subsystems.entity_useitem.ClStandClickPacket;
 import com.github.standobyte.jojo.subsystems.entity_useitem.ServerSideLivingClick;
@@ -28,6 +29,11 @@ public class StandVanillaClickInput {
 		if (keyCode < 0) {
 			return;
 		}
+		InputHandler inputHandler = InputHandler.getInstance();
+		if (event.isUseItem() && inputHandler != null
+				&& inputHandler.shouldPreserveSemanticVanillaUsePress()) {
+			return;
+		}
 		
 		if (handleVanillaMappedAbilityInput(event, keyCode)) {
 			return;
@@ -36,14 +42,24 @@ public class StandVanillaClickInput {
 		StandEntity stand = ClientGlobals.playerStandEntity;
 		if (stand != null && keyCode == InputConstants.MOUSE_BUTTON_RIGHT) {
 			if (standCanRightClickItems && (stand.isManuallyControlled() || !InputHandler.inputsDisabled && ServerSideLivingClick.isEntityHoldingAnItem(stand))) {
+				Minecraft mc = Minecraft.getInstance();
+				if (mc.player == null) {
+					return;
+				}
+				ClientKey key = ClientKey.make(
+						InputConstants.Type.MOUSE, keyCode);
+				long inputGeneration = AbilityInput.nextInputGeneration(
+						mc.player, key.keyId());
 				event.setCanceled(true);
 				event.setSwingHand(false);
-				
-				ClientKey key = ClientKey.make(InputConstants.Type.MOUSE, keyCode);
-				InputHandler.getInstance().putHeldKeyTimer(key, new HeldKeyTimer(key, false, KeyModifier.NONE));
+				InputHandler.getInstance().putHeldKeyTimer(
+						key, new HeldKeyTimer(
+								key, true, KeyModifier.NONE));
 
-				HitResult target = Minecraft.getInstance().hitResult;
-				PacketDistributor.sendToServer(new ClStandClickPacket(target, key.keyId(), InteractionHand.MAIN_HAND, InteractionHand.OFF_HAND));
+				HitResult target = mc.hitResult;
+				PacketDistributor.sendToServer(new ClStandClickPacket(
+						target, inputGeneration,
+						InteractionHand.MAIN_HAND, InteractionHand.OFF_HAND));
 			}
 		}
 	}

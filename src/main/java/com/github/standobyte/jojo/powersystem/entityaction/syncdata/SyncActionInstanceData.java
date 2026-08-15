@@ -14,23 +14,40 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 public class SyncActionInstanceData {
 
-	public static void onStartedTracking(ServerPlayer tracking, LivingEntity performer, EntityActionInstance curAction) {
+	public static void onStartedTracking(
+			ServerPlayer tracking,
+			LivingEntity performer,
+			long actionGeneration,
+			EntityActionInstance curAction) {
 		if (curAction != null) {
 			SynchedDataExtended synchedData = curAction.synchedData.getDataSyncher();
 			if (synchedData != null) {
 				List<SynchedEntityData.DataValue<?>> nonDefaultData = synchedData.syncOnStartedTracking();
 				if (nonDefaultData != null) {
-					PacketDistributor.sendToPlayer(tracking, new TrActionSynchedDataPacket(performer.getId(), nonDefaultData));
+					PacketDistributor.sendToPlayer(
+							tracking,
+							new TrActionSynchedDataPacket(
+									performer.getId(), performer.getUUID(),
+									actionGeneration,
+									nonDefaultData));
 				}
 			}
 		}
 	}
 	
-	public static void tickSyncDirtyData(Entity performer, SynchedDataExtended synchedData) {
+	public static void tickSyncDirtyData(
+			Entity performer,
+			long actionGeneration,
+			SynchedDataExtended synchedData) {
 		if (synchedData != null) {
 			List<SynchedEntityData.DataValue<?>> dirtyData = synchedData.syncDirtyData();
 			if (dirtyData != null) {
-				PacketDistributor.sendToPlayersTrackingEntityAndSelf(performer, new TrActionSynchedDataPacket(performer.getId(), dirtyData));
+				PacketDistributor.sendToPlayersTrackingEntityAndSelf(
+						performer,
+						new TrActionSynchedDataPacket(
+								performer.getId(), performer.getUUID(),
+								actionGeneration,
+								dirtyData));
 			}
 		}
 	}

@@ -122,7 +122,9 @@ public final class HeavensDoorCoreBoundarySmokeTest {
 					"src/main/java/com/github/standobyte/jojo/"
 							+ "PacketsRegister.java");
 			check(packetsRegister.contains(
-							"event.registrar(\"2\")"),
+							"NETWORK_PROTOCOL_VERSION = \"4\"")
+							&& packetsRegister.contains(
+									"event.registrar(NETWORK_PROTOCOL_VERSION)"),
 					"RPS wire change did not advance core protocol");
 
 			String game = read(root,

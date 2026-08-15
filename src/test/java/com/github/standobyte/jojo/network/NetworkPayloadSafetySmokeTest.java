@@ -5,13 +5,19 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import com.github.standobyte.jojo.api.network.AbilityNetworkDiagnosticsSmokeTest;
 import com.github.standobyte.jojo.client.polaroid.PhotoCacheContractSmokeTest;
 import com.github.standobyte.jojo.item.polaroid.PhotoUploadContractSmokeTest;
+import com.github.standobyte.jojo.network.c2s.AbilityInputFailureLogLimiterSmokeTest;
 import com.github.standobyte.jojo.network.c2s.ServerboundPayloadContractSmokeTest;
 import com.github.standobyte.jojo.network.s2c.ClientboundPayloadContractSmokeTest;
 import com.github.standobyte.jojo.network.s2c.TrPowerDataPacketSmokeTest;
+import com.github.standobyte.jojo.powersystem.ability.input.AbilityInputTransactionSmokeTest;
+import com.github.standobyte.jojo.powersystem.entityaction.ActionGenerationSequenceSmokeTest;
+import com.github.standobyte.jojo.powersystem.entityaction.netcode.ClientEntityActionSyncQueueSmokeTest;
 import com.github.standobyte.jojo.subsystems.entity_externalcontainer.packet.ExtendedContainerClickContractSmokeTest;
 import com.github.standobyte.jojo.subsystems.entity_puppetcontrol.client.mob.MobControlPayloadContractSmokeTest;
+import com.github.standobyte.jojo.subsystems.entity_useitem.StandItemUseProtocolSmokeTest;
 import com.github.standobyte.jojo.subsystems.movement_input_sync.MovementInputPayloadContractSmokeTest;
 import com.github.standobyte.jojo.util.functions_network.NetworkUtil;
 import com.github.standobyte.jojoimpl.powers.hamon.HamonPayloadContractSmokeTest;
@@ -26,6 +32,7 @@ public final class NetworkPayloadSafetySmokeTest {
 	private NetworkPayloadSafetySmokeTest() {}
 
 	public static void main(String[] args) {
+		NetworkProtocolNegotiationSmokeTest.run();
 		testSharedDecodeBounds();
 		testBoundedCollectionCodec();
 		testBatchTransport();
@@ -38,6 +45,14 @@ public final class NetworkPayloadSafetySmokeTest {
 		MobControlPayloadContractSmokeTest.run();
 		ExtendedContainerClickContractSmokeTest.run();
 		HamonPayloadContractSmokeTest.run();
+		AbilityNetworkDiagnosticsSmokeTest.run();
+		AbilityInputFailureLogLimiterSmokeTest.run();
+		ClientNetworkFailureLogLimiterSmokeTest.run();
+		DeferredPacketDataSmokeTest.run();
+		AbilityInputTransactionSmokeTest.run();
+		ActionGenerationSequenceSmokeTest.run();
+		ClientEntityActionSyncQueueSmokeTest.run();
+		StandItemUseProtocolSmokeTest.run();
 	}
 
 	private static void testBoundedCollectionCodec() {
