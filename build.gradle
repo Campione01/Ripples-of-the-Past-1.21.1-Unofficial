@@ -285,6 +285,15 @@ tasks.register('goldExperienceLifeformOrderingSmokeTest', JavaExec) {
             'com.github.standobyte.jojoimpl.stands.goldexperience.GoldExperienceLifeformOrderingSmokeTest'
 }
 
+tasks.register('firstPersonExtraArmContractSmokeTest', JavaExec) {
+    group = 'verification'
+    description = 'Verifies first-person Zoom Punch vanilla arm suppression and replacement-arm ownership.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
+    mainClass =
+            'com.github.standobyte.jojo.client.firstperson.FirstPersonExtraArmContractSmokeTest'
+}
+
 tasks.named('check').configure {
     dependsOn tasks.named('clientSettingsSmokeTest')
     dependsOn tasks.named('addonApiSmokeTest')
@@ -295,6 +304,7 @@ tasks.named('check').configure {
     dependsOn tasks.named('stoneMaskArmorRenderContractSmokeTest')
     dependsOn tasks.named('distanceStrengthDecayPolicySmokeTest')
     dependsOn tasks.named('goldExperienceLifeformOrderingSmokeTest')
+    dependsOn tasks.named('firstPersonExtraArmContractSmokeTest')
 }
 
 // IDEA no longer automatically downloads sources/javadoc jars for dependencies, so we need to explicitly enable the behavior.

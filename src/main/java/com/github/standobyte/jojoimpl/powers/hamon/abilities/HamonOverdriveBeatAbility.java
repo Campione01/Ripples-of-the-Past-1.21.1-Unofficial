@@ -58,6 +58,14 @@ public class HamonOverdriveBeatAbility extends HamonActionRuntimeAbility {
 		public HamonOverdriveBeat(EntityActionType ability) { super(ability); }
 
 		@Override
+		public void onActionSet(EntityActionInstance prevAction) {
+			LivingEntity user = getPowerUser();
+			if (user != null) {
+				captureActionTargetFromAim(user);
+			}
+		}
+
+		@Override
 		public void onSetPhase(ActionPhase newPhase) {
 			userWalkSpeed = newPhase == ActionPhase.PERFORM ? 0.5F : 1.0F;
 		}
@@ -97,7 +105,7 @@ public class HamonOverdriveBeatAbility extends HamonActionRuntimeAbility {
 				return;
 			}
 			Level level = level();
-			ActionTarget target = HamonAbilityHelpers.getAimTarget(user, level);
+			ActionTarget target = getActionTargetSnapshot(level);
 			if (target.getType() != TargetType.ENTITY || !(target.getMainEntity() instanceof LivingEntity livingTarget)) {
 				return;
 			}

@@ -10,6 +10,7 @@ import java.util.Random;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
+import com.github.standobyte.jojo.client.firstperson.FirstPersonRender;
 import com.github.standobyte.jojo.client.util.functions.ClientUtil;
 import com.github.standobyte.jojo.config.client.ClientModSettings;
 import com.github.standobyte.jojo.core.JojoMod;
@@ -18,6 +19,8 @@ import com.github.standobyte.jojo.init.power.ModPlayerPowers;
 import com.github.standobyte.jojo.item.AjaStoneItem;
 import com.github.standobyte.jojo.item.GlovesItem;
 import com.github.standobyte.jojo.item.OilItem;
+import com.github.standobyte.jojo.powersystem.entityaction.EntityActionInstance;
+import com.github.standobyte.jojo.powersystem.entityaction.LivingComponentAction;
 import com.github.standobyte.jojo.powersystem.playerpower.PlayerPower;
 import com.github.standobyte.jojo.util.functions.MathUtil;
 import com.github.standobyte.jojo.util.functions.UtilFunctions;
@@ -44,10 +47,12 @@ import net.minecraft.ReportedException;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.particle.ParticleRenderType;
 import net.minecraft.client.particle.SpriteSet;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.LivingEntity;
@@ -63,13 +68,18 @@ import net.minecraft.world.item.alchemy.PotionContents;
 import net.minecraft.world.item.alchemy.Potions;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RenderArmEvent;
+import net.neoforged.neoforge.client.event.RenderHandEvent;
 
 @EventBusSubscriber(modid = JojoMod.MOD_ID, value = Dist.CLIENT)
 public class FirstPersonHamonAura {
+	private static final String SUNLIGHT_YELLOW_OVERDRIVE = "sunlight_yellow_overdrive";
+	private static boolean renderingExtraSunlightYellowArm;
+
 	private final Queue<FirstPersonPseudoParticle> particlesToAdd = Queues.newArrayDeque();
 	private final Map<ParticleRenderType, Map<HumanoidArm, Queue<FirstPersonPseudoParticle>>> particles = Maps.newIdentityHashMap();
 
@@ -102,6 +112,72 @@ public class FirstPersonHamonAura {
 		if (hand != null && event.getPlayer().getItemInHand(hand.hand()).isEmpty()) {
 			getInstance().renderParticles(event.getPoseStack(), event.getMultiBufferSource(), event.getArm());
 		}
+	}
+
+	@SubscribeEvent(priority = EventPriority.LOW)
+	public static void renderSunlightYellowOffHandAura(RenderHandEvent event) {
+		Minecraft mc = Minecraft.getInstance();
+		LocalPlayer player = mc.player;
+		if (event.isCanceled()
+				|| renderingExtraSunlightYellowArm
+				|| event.getHand() != InteractionHand.MAIN_HAND
+				|| player == null
+				|| mc.getCameraEntity() != player
+				|| player.isInvisible()
+				|| !event.getItemStack().isEmpty()
+				|| !player.getMainHandItem().isEmpty()
+				|| !player.getOffhandItem().isEmpty()
+				|| !ClientModSettings.getSettingsReadOnly().firstPersonHamonAura
+				|| FirstPersonRender.vanillaRendersBothMapArms(event)
+				|| !isSunlightYellowOverdrive(player)) {
+			return;
+		}
+
+		HumanoidArm offHandSide = player.getMainArm().getOpposite();
+		if (!getInstance().hasDrawableParticles(
+				player.getOffhandItem(), offHandSide)) {
+			return;
+		}
+
+		renderingExtraSunlightYellowArm = true;
+		try {
+			FirstPersonRender.renderExtraPlayerArm(
+					event, player, InteractionHand.OFF_HAND);
+		}
+		finally {
+			renderingExtraSunlightYellowArm = false;
+		}
+	}
+
+	private static boolean isSunlightYellowOverdrive(LivingEntity entity) {
+		EntityActionInstance action = LivingComponentAction.getCurEntityAction(entity);
+		return action != null
+				&& action.ability != null
+				&& action.ability.getAbilityId() != null
+				&& SUNLIGHT_YELLOW_OVERDRIVE.equals(
+						action.ability.getAbilityId().nameInMoveset());
+	}
+
+	private boolean hasDrawableParticles(
+			ItemStack itemStack, HumanoidArm handSide) {
+		for (Map.Entry<ParticleRenderType, Map<HumanoidArm,
+				Queue<FirstPersonPseudoParticle>>> particlesByRenderType
+				: particles.entrySet()) {
+			ParticleRenderType renderType = particlesByRenderType.getKey();
+			if (renderType == ParticleRenderType.NO_RENDER
+					|| renderType == HamonAuraParticleRenderType.HAMON_AURA
+					&& (!ClientModSettings.getSettingsReadOnly()
+							.firstPersonHamonAura
+							|| !auraRendersAtItem(itemStack, handSide))) {
+				continue;
+			}
+			Queue<FirstPersonPseudoParticle> particlesForHand =
+					particlesByRenderType.getValue().get(handSide);
+			if (particlesForHand != null && !particlesForHand.isEmpty()) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	public void add(FirstPersonPseudoParticle particle) {

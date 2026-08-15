@@ -9,11 +9,13 @@ import java.util.List;
 import java.util.Set;
 
 import com.github.standobyte.jojo.JojoModConfig;
+import com.github.standobyte.jojoimpl.powers.hamon.abilities.HamonOverdriveChargeReleaseSmokeTest;
 
 public final class HamonPayloadContractSmokeTest {
 	private HamonPayloadContractSmokeTest() {}
 
 	public static void run() {
+		HamonOverdriveChargeReleaseSmokeTest.run();
 		testTrainingDayThresholds();
 		testStatTrainingLimit();
 		testClearLifecycleContracts();

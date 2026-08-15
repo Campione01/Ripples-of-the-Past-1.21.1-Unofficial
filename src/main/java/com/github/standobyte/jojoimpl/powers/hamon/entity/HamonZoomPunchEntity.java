@@ -30,6 +30,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
@@ -210,7 +211,15 @@ public class HamonZoomPunchEntity extends OwnerBoundProjectileEntity {
 
 	@Override
 	protected void breakProjectile(TargetType targetType, HitResult hitTarget) {
-		setRetracting(true);
+		// Owner-bound punches persist through the generic projectile break hook.
+		// Retraction is decided by the damage/block outcomes below, as in 1.16.5.
+	}
+
+	@Override
+	protected void afterBlockHit(BlockHitResult blockHitResult, boolean blockDestroyed) {
+		if (!blockDestroyed) {
+			setRetracting(true);
+		}
 	}
 
 	@Override

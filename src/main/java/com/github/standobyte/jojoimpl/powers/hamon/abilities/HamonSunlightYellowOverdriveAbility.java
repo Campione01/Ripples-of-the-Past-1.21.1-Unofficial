@@ -194,10 +194,16 @@ public class HamonSunlightYellowOverdriveAbility extends HamonActionRuntimeAbili
 			LivingEntity user = getPowerUser();
 			HamonSunlightYellowOverdriveAbility ability = syoAbility();
 			if (user != null && ability != null) {
+				captureActionTargetFromAim(user);
 				ability.resetSpentEnergy(user);
 				HamonData hamon = ability.getHamonData(ability.getUserPower(user));
 				auraChargeStartEnergy = hamon != null ? hamon.getEnergy() : 0.0F;
 			}
+		}
+
+		@Override
+		protected boolean shouldHoldPhaseAtEnd() {
+			return getPhase() == ActionPhase.WINDUP;
 		}
 
 		public float getSpentEnergyForAura(HamonData hamon) {
@@ -219,6 +225,9 @@ public class HamonSunlightYellowOverdriveAbility extends HamonActionRuntimeAbili
 				return;
 			}
 			if (getPhase() == ActionPhase.WINDUP) {
+				if (ticksHeld >= ability.maxChargeTicks) {
+					return;
+				}
 				if (!level().isClientSide() && !ability.consumeChargeTick(user, ticksHeld)) {
 					forceStop();
 					syncPhaseChanges();
@@ -281,7 +290,7 @@ public class HamonSunlightYellowOverdriveAbility extends HamonActionRuntimeAbili
 			if (ability == null || userHamon == null || !ability.isRequiredHandFree(user)) {
 				return;
 			}
-			ActionTarget target = HamonAbilityHelpers.getAimTarget(user, level());
+			ActionTarget target = getActionTargetSnapshot(level());
 			if (target.getType() == TargetType.ENTITY && target.getMainEntity() instanceof LivingEntity livingTarget) {
 				doHamonAttack(user, livingTarget, ability);
 				HamonAbilityHelpers.doMeleeAttack(user, livingTarget);

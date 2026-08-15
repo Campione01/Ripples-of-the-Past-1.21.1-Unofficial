@@ -43,6 +43,46 @@ public final class FirstPersonExtraArmContractSmokeTest {
 						+ "jojo_ripples$vanillaRendersBothMapArms("),
 				"first-person renderer access contract is missing");
 
+		String hamonAura = read(root.resolve(
+				"src/main/java/com/github/standobyte/jojoimpl/powers/"
+				+ "hamon/client/particle/custom/FirstPersonHamonAura.java"));
+		String sunlightYellowExtraArm = between(
+				hamonAura,
+				"public static void renderSunlightYellowOffHandAura(",
+				"private static boolean isSunlightYellowOverdrive(");
+		check(sunlightYellowExtraArm.contains("event.isCanceled()")
+				&& sunlightYellowExtraArm.contains(
+						"event.getHand() != InteractionHand.MAIN_HAND")
+				&& sunlightYellowExtraArm.contains(
+						"mc.getCameraEntity() != player")
+				&& sunlightYellowExtraArm.contains("player.isInvisible()")
+				&& sunlightYellowExtraArm.contains(
+						"!event.getItemStack().isEmpty()")
+				&& sunlightYellowExtraArm.contains(
+						"!player.getMainHandItem().isEmpty()")
+				&& sunlightYellowExtraArm.contains(
+						"!player.getOffhandItem().isEmpty()")
+				&& sunlightYellowExtraArm.contains("firstPersonHamonAura")
+				&& sunlightYellowExtraArm.contains(
+						"FirstPersonRender.vanillaRendersBothMapArms(event)")
+				&& sunlightYellowExtraArm.contains(
+						"!isSunlightYellowOverdrive(player)")
+				&& sunlightYellowExtraArm.contains("hasDrawableParticles(")
+				&& sunlightYellowExtraArm.contains(
+						"event, player, InteractionHand.OFF_HAND")
+				&& sunlightYellowExtraArm.contains("finally {")
+				&& !sunlightYellowExtraArm.contains("event.setCanceled"),
+				"Sunlight Yellow extra-arm production gates drifted");
+		check(count(hamonAura, "renderExtraPlayerArm(") == 1
+				&& hamonAura.contains(
+						"SUNLIGHT_YELLOW_OVERDRIVE.equals(")
+				&& hamonAura.contains(
+						"action.ability.getAbilityId().nameInMoveset()")
+				&& hamonAura.contains(
+						"particlesForHand != null "
+						+ "&& !particlesForHand.isEmpty()"),
+				"Sunlight Yellow exact action or drawable-particle gate drifted");
+
 		String mixin = read(root.resolve(
 				"src/main/java/com/github/standobyte/jojo/mixin/"
 				+ "client/firstperson/ItemInHandRendererMixin.java"));
@@ -57,6 +97,20 @@ public final class FirstPersonExtraArmContractSmokeTest {
 						"FirstPersonRender.init("
 						+ "(ItemInHandRenderer) (Object) this)"),
 				"renderer-owned equip interpolation bridge drifted");
+
+		String zoomPunchCancel = between(
+				mixin,
+				"@Inject(method = \"renderArmWithItem\"",
+				"if (stack.is(ModItems.PHOTO.get()))");
+		check(zoomPunchCancel.contains("at = @At(\"HEAD\")")
+				&& zoomPunchCancel.contains("cancellable = true")
+				&& zoomPunchCancel.contains(
+						"hand == InteractionHand.MAIN_HAND")
+				&& zoomPunchCancel.contains(
+						"HamonZoomPunchState.isUsingZoomPunch(player)")
+				&& zoomPunchCancel.contains("ci.cancel();")
+				&& zoomPunchCancel.contains("return;"),
+				"Zoom Punch first-person main-arm cancellation drifted");
 	}
 
 	private static String between(
