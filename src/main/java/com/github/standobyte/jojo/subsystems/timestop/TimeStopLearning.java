@@ -20,6 +20,7 @@ import net.minecraft.world.entity.LivingEntity;
 
 public final class TimeStopLearning {
 	public static final String TIME_STOP = "time_stop";
+	public static final int MIN_RELEASE_TIME_STOP_TICKS = 1;
 	public static final int MIN_TIME_STOP_TICKS = 5;
 	public static final int HUMAN_MAX_TIME_STOP_TICKS = 100;
 	public static final int VAMPIRE_MAX_TIME_STOP_TICKS = 180;
@@ -38,19 +39,34 @@ public final class TimeStopLearning {
 	private TimeStopLearning() {}
 
 	public static int getTimeStopTicks(StandPower power) {
-		int maxTicks = getMaxTimeStopTicks(power);
 		if (isCreativeTimeStopTemplate(power)) {
 			return CREATIVE_TIME_STOP_TICKS;
 		}
+		return getSavedTimeStopTicks(power);
+	}
+
+	public static int getSavedTimeStopTicks(StandPower power) {
 		if (power == null) {
 			return MIN_TIME_STOP_TICKS;
 		}
 		StandTypePersistentData data = power.getCurTypeData();
 		float points = data != null ? data.getAbilityLearningProgressPoints(TIME_STOP) : 0.0F;
+		return getLearnedTimeStopTicks(points, getNormalMaxTimeStopTicks(power));
+	}
+
+	static int getLearnedTimeStopTicks(float points, int maxTicks) {
 		if (points < 0.0F) {
 			points = 0.0F;
 		}
+		maxTicks = Math.max(maxTicks, MIN_TIME_STOP_TICKS);
 		return Mth.clamp(Mth.floor(points) + MIN_TIME_STOP_TICKS, MIN_TIME_STOP_TICKS, maxTicks);
+	}
+
+	public static int getReleasedTimeStopTicks(int maxTicks, float chargeRatio) {
+		int clampedMax = Math.max(maxTicks, MIN_RELEASE_TIME_STOP_TICKS);
+		float clampedRatio = Mth.clamp(chargeRatio, 0.0F, 1.0F);
+		return Mth.clamp(Mth.ceil(clampedMax * clampedRatio),
+				MIN_RELEASE_TIME_STOP_TICKS, clampedMax);
 	}
 
 	public static int getMaxTrainingPoints(StandPower power) {
@@ -100,7 +116,7 @@ public final class TimeStopLearning {
 
 	public static float getTimeStopStaminaCost(StandPower power, int ticks) {
 		int maxTicks = getTimeStopTicks(power);
-		int clampedTicks = Mth.clamp(ticks, MIN_TIME_STOP_TICKS, maxTicks);
+		int clampedTicks = Mth.clamp(ticks, MIN_RELEASE_TIME_STOP_TICKS, maxTicks);
 		return BASE_STAMINA_COST * clampedTicks / maxTicks;
 	}
 
@@ -164,7 +180,8 @@ public final class TimeStopLearning {
 		if (!canLearnFromEndedTimeStop(standPower)) {
 			return;
 		}
-		addTimeStopLearning(standPower, learningPerTick(standPower) * ticksPassed);
+		addTimeStopLearning(standPower,
+				getLearningPoints(learningPerTick(standPower), ticksPassed));
 	}
 
 	private static boolean canLearnFromEndedTimeStop(StandPower standPower) {
@@ -173,7 +190,12 @@ public final class TimeStopLearning {
 	}
 
 	public static void onTsPunchTimeSkip(StandPower standPower, int ticksPassed) {
-		addTimeStopLearning(standPower, (int) (learningPerTick(standPower) * Math.max(ticksPassed, 0)));
+		addTimeStopLearning(standPower,
+				getLearningPoints(learningPerTick(standPower), ticksPassed));
+	}
+
+	static float getLearningPoints(float learningPerTick, int ticksPassed) {
+		return learningPerTick * Math.max(ticksPassed, 0);
 	}
 
 	private static void addTimeStopLearning(StandPower standPower, float points) {
