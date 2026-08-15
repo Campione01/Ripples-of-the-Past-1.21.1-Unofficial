@@ -12,6 +12,7 @@ import com.github.standobyte.jojo.powersystem.ability.controls.InputKey;
 import com.github.standobyte.jojo.powersystem.ability.controls.InputMethod;
 import com.github.standobyte.jojo.powersystem.standpower.StandStats;
 import com.github.standobyte.jojo.powersystem.standpower.StandUnlockableSkill;
+import com.github.standobyte.jojo.powersystem.standpower.entity.StandControlType;
 import com.github.standobyte.jojo.powersystem.standpower.entity.EntityStandType;
 
 import net.minecraft.resources.ResourceLocation;
@@ -119,7 +120,9 @@ public class StandInitGoldExperience {
 				.addSkill(StandUnlockableSkill.unlockableAbility("lifeshot", 150).withAbility("lifeshot_punch").prerequisiteSkill("heavy_punch"))
 				.addHumanoidStandSkills()
 
-				, id)
+				, id,
+				StandControlType.CLOSE_RANGE_DIRECT,
+				1, 2, true, true)
 			.summonShout(() -> ModSoundEvents.GIORNO_GOLD_EXPERIENCE)
 			.summonSound(() -> ModSoundEvents.GOLD_EXPERIENCE_SUMMON)
 			.unsummonSound(() -> ModSoundEvents.GOLD_EXPERIENCE_UNSUMMON)

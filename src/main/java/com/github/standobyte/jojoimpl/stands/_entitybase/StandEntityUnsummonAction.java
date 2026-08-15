@@ -135,9 +135,12 @@ public class StandEntityUnsummonAction extends SpecialEntityActionType {
 		@Override
 		public void actionPerformEnd() {
 			LivingEntity user = getPowerUser();
-			if (user != null && !user.level().isClientSide()) {
+			if (user != null && !user.level().isClientSide()
+					&& performer instanceof StandEntity standEntity) {
 				StandPower userPower = StandPower.get(getPowerUser());
 				if (userPower != null && userPower.hasPower()) {
+					standEntity.stopRetraction();
+					standEntity.setNoPhysics(false);
 					userPower.getPowerType().forceUnsummon(user, userPower);
 				}
 			}

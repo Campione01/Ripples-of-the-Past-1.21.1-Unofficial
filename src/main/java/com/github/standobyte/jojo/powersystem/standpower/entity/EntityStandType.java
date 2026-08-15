@@ -13,6 +13,7 @@ import com.github.standobyte.jojo.powersystem.standpower.StandPower;
 import com.github.standobyte.jojo.powersystem.standpower.StandStats;
 import com.github.standobyte.jojo.powersystem.standpower.datapack.StandTypeClass;
 import com.github.standobyte.jojo.powersystem.standpower.type.StandType;
+import com.github.standobyte.jojo.subsystems.entity_possessionv2.LivingComponentPossession;
 import com.github.standobyte.jojo.util.objects_java.DefaultedValue;
 import com.github.standobyte.jojoimpl.stands._entitybase.StandEntityManualControlToggle;
 import com.google.gson.JsonElement;
@@ -35,13 +36,34 @@ public class EntityStandType extends StandType {
 	
 	protected DefaultedValue<EntityType<? extends StandEntity>> entityType;
 	public EntityDimensions standDimensions = ModEntityTypes.HUMANOID_STAND.get().getDimensions();
-	protected boolean manualControlEnabled = true;
+	protected StandControlType standControlType;
+	protected StandControlType standControlTypeDefault;
+	protected boolean manualControlEnabled;
+	protected boolean manualControlEnabledDefault;
+	protected boolean manualControlConfigured;
+	protected boolean manualControlConfiguredDefault;
 	protected boolean standLeapEnabled = true;
-	protected final DefaultedValue.Bool distanceStrengthDecayEnabled = new DefaultedValue.Bool(true);
+	protected final DefaultedValue.Bool distanceStrengthDecayEnabled = new DefaultedValue.Bool(false);
+	protected boolean distanceStrengthDecayConfigured;
+	protected boolean distanceStrengthDecayConfiguredDefault;
 	
 	public EntityStandType(StandStats stats, MovesetBuilder moveset, 
 			ResourceLocation id) {
 		this(stats, moveset, ModEntityTypes.HUMANOID_STAND.get(), id);
+	}
+
+	public EntityStandType(
+			StandStats stats,
+			MovesetBuilder moveset,
+			ResourceLocation id,
+			StandControlType standControlType,
+			double effectiveRange,
+			double rangeMax,
+			boolean manualControl,
+			boolean distanceStrengthDecay) {
+		this(stats, moveset, ModEntityTypes.HUMANOID_STAND.get(), id,
+				standControlType, effectiveRange, rangeMax,
+				manualControl, distanceStrengthDecay);
 	}
 	
 	public EntityStandType(StandStats stats, MovesetBuilder moveset, 
@@ -52,21 +74,112 @@ public class EntityStandType extends StandType {
 		this.entityType = new DefaultedValue<>(standEntityType);
 	}
 
+	public EntityStandType(
+			StandStats stats,
+			MovesetBuilder moveset,
+			EntityType<? extends StandEntity> standEntityType,
+			ResourceLocation id,
+			StandControlType standControlType,
+			double effectiveRange,
+			double rangeMax,
+			boolean manualControl,
+			boolean distanceStrengthDecay) {
+		this(stats, moveset, standEntityType, id);
+		configureStandControlPolicy(
+				standControlType, effectiveRange, rangeMax,
+				manualControl, distanceStrengthDecay);
+	}
+
 	public <T extends EntityStandType> T standDimensions(float width, float height) {
 		return init(stand -> stand.standDimensions = EntityDimensions.scalable(width, height));
+	}
+
+	public <T extends EntityStandType> T standControlType(
+			StandControlType standControlType) {
+		return init(stand -> {
+			stand.standControlTypeDefault = Objects.requireNonNull(
+					standControlType, "standControlType");
+			stand.standControlType = standControlType;
+			stand.validateStandControlPolicyIfComplete();
+		});
+	}
+
+	public <T extends EntityStandType> T manualControl(boolean enabled) {
+		return init(stand -> {
+			stand.manualControlEnabledDefault = enabled;
+			stand.manualControlEnabled = enabled;
+			stand.manualControlConfiguredDefault = true;
+			stand.manualControlConfigured = true;
+			stand.validateStandControlPolicyIfComplete();
+		});
 	}
 
 	public <T extends EntityStandType> T distanceStrengthDecay(boolean enabled) {
 		return init(stand -> {
 			stand.distanceStrengthDecayEnabled.defaultValue = enabled;
 			stand.distanceStrengthDecayEnabled.value = enabled;
+			stand.distanceStrengthDecayConfiguredDefault = true;
+			stand.distanceStrengthDecayConfigured = true;
+			stand.validateStandControlPolicyIfComplete();
 		});
+	}
+
+	private void configureStandControlPolicy(
+			StandControlType standControlType,
+			double effectiveRange,
+			double rangeMax,
+			boolean manualControl,
+			boolean distanceStrengthDecay) {
+		StandControlType.validate(
+				standControlType, effectiveRange, rangeMax,
+				manualControl, distanceStrengthDecay);
+		if (Double.compare(stats.rangeEffective(), effectiveRange) != 0
+				|| Double.compare(stats.rangeMax(), rangeMax) != 0) {
+			throw new IllegalStateException(
+					"Explicit Stand control ranges must match StandStats for "
+							+ getId());
+		}
+		this.standControlTypeDefault = standControlType;
+		this.standControlType = standControlType;
+		this.manualControlEnabledDefault = manualControl;
+		this.manualControlEnabled = manualControl;
+		this.manualControlConfiguredDefault = true;
+		this.manualControlConfigured = true;
+		this.distanceStrengthDecayEnabled.defaultValue = distanceStrengthDecay;
+		this.distanceStrengthDecayEnabled.value = distanceStrengthDecay;
+		this.distanceStrengthDecayConfiguredDefault = true;
+		this.distanceStrengthDecayConfigured = true;
+	}
+
+	private void validateStandControlPolicy() {
+		if (!manualControlConfigured) {
+			throw new IllegalStateException("manualControl is required");
+		}
+		if (!distanceStrengthDecayConfigured) {
+			throw new IllegalStateException(
+					"distanceStrengthDecay is required");
+		}
+		StandControlType.validate(
+				standControlType,
+				stats.rangeEffective(), stats.rangeMax(),
+				manualControlEnabled,
+				distanceStrengthDecayEnabled.value);
+	}
+
+	final void validateStandControlPolicyIfComplete() {
+		if (standControlType != null
+				&& manualControlConfigured
+				&& distanceStrengthDecayConfigured) {
+			validateStandControlPolicy();
+		}
 	}
 	
 	@Override
 	public JsonObject makeConfigTemplate() {
+		validateStandControlPolicy();
 		JsonObject json = super.makeConfigTemplate();
 		json.addProperty("entityType", EntityType.getKey(this.entityType.defaultValue).toString());
+		json.addProperty("standControlType", this.standControlType.name());
 		json.addProperty("manualControlEnabled", this.manualControlEnabled);
 		json.addProperty("standLeapEnabled", this.standLeapEnabled);
 		json.addProperty("distanceStrengthDecayEnabled", this.distanceStrengthDecayEnabled.value);
@@ -84,24 +197,39 @@ public class EntityStandType extends StandType {
 			.ifPresent(entityType -> {
 				this.entityType.value = (EntityType<? extends StandEntity>) entityType;
 			});
+		Optional.ofNullable(config.get("standControlType"))
+				.map(JsonElement::getAsString)
+				.map(StandControlType::valueOf)
+				.ifPresent(value -> this.standControlType = value);
 		Optional.ofNullable(config.get("manualControlEnabled"))
 				.map(JsonElement::getAsBoolean)
-				.ifPresent(value -> this.manualControlEnabled = value);
+				.ifPresent(value -> {
+					this.manualControlEnabled = value;
+					this.manualControlConfigured = true;
+				});
 		Optional.ofNullable(config.get("standLeapEnabled"))
 				.map(JsonElement::getAsBoolean)
 				.ifPresent(value -> this.standLeapEnabled = value);
 		Optional.ofNullable(config.get("distanceStrengthDecayEnabled"))
 				.map(JsonElement::getAsBoolean)
-				.ifPresent(value -> this.distanceStrengthDecayEnabled.value = value);
+				.ifPresent(value -> {
+					this.distanceStrengthDecayEnabled.value = value;
+					this.distanceStrengthDecayConfigured = true;
+				});
+		validateStandControlPolicy();
 	}
 
 	@Override
 	public void restoreDefaults() {
 		super.restoreDefaults();
 		entityType.reset();
-		manualControlEnabled = true;
+		standControlType = standControlTypeDefault;
+		manualControlEnabled = manualControlEnabledDefault;
+		manualControlConfigured = manualControlConfiguredDefault;
 		standLeapEnabled = true;
 		distanceStrengthDecayEnabled.reset();
+		distanceStrengthDecayConfigured =
+				distanceStrengthDecayConfiguredDefault;
 	}
 	
 	@Override
@@ -197,6 +325,7 @@ public class EntityStandType extends StandType {
 		if (!user.level().isClientSide()) {
 			StandEntity standEntity = standPower.getSummonedStandEntity();
 			if (standEntity != null) {
+				settleStandBeforeForcedUnsummon(standEntity);
 				standPower.setSummonedStand(null);
 				standEntity.remove(Entity.RemovalReason.DISCARDED);
 			}
@@ -204,14 +333,35 @@ public class EntityStandType extends StandType {
 		}
 		else if (user.is(ClientProxy.getClientPlayer())) {
 			StandEntity standEntity = standPower.getSummonedStandEntity();
-			if (standEntity != null && standEntity.isManuallyControlled()) {
-				StandEntityManualControlToggle.off(user.level(), standEntity, false);
+			if (standEntity != null) {
+				settleStandBeforeForcedUnsummon(standEntity);
 			}
 		}
 	}
 
+	public static void settleStandBeforeForcedUnsummon(StandEntity standEntity) {
+		LivingComponentPossession.setPossessionTarget(standEntity, null, null);
+		if (standEntity.getStandFlag(StandEntity.StandFlag.MANUAL_CONTROL)) {
+			StandEntityManualControlToggle.off(
+					standEntity.level(), standEntity, false);
+		}
+		standEntity.setCanFollowUser(false);
+		standEntity.setManuallyControlled(false);
+		standEntity.setCanFollowUser(true);
+		if (!standEntity.level().isClientSide()) {
+			standEntity.stopRetraction();
+		}
+		standEntity.setNoPhysics(false);
+	}
+
 	public boolean canBeManuallyControlled() {
+		validateStandControlPolicy();
 		return manualControlEnabled;
+	}
+
+	public StandControlType getStandControlType() {
+		validateStandControlPolicy();
+		return standControlType;
 	}
 
 	public boolean canLeap() {
@@ -219,6 +369,7 @@ public class EntityStandType extends StandType {
 	}
 
 	public boolean usesDistanceStrengthDecay() {
+		validateStandControlPolicy();
 		return distanceStrengthDecayEnabled.value;
 	}
 	

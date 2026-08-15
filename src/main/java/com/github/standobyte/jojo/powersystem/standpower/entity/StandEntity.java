@@ -12,6 +12,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import com.github.standobyte.jojo.JojoModLivingVariables;
+import com.github.standobyte.jojo.api.stand.StandManualMovementObservers;
+import com.github.standobyte.jojo.api.stand.StandManualMovementObservers.LogicalSide;
+import com.github.standobyte.jojo.api.stand.StandManualMovementObservers.MovePath;
 import com.github.standobyte.jojo.client.ClientGlobals;
 import com.github.standobyte.jojo.client.ClientProxy;
 import com.github.standobyte.jojo.config.client.PlayerClientBroadcastedSettings;
@@ -696,23 +699,82 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 
 	@Override
 	public void move(MoverType type, Vec3 vec) {
+		boolean observingMovement = StandManualMovementObservers.hasObservers();
+		Vec3 prePosition = observingMovement ? position() : Vec3.ZERO;
 		super.move(type, vec);
+		Vec3 postSuperPosition = observingMovement ? position() : Vec3.ZERO;
+		boolean horizontalCollisionAfterSuper = observingMovement
+				&& horizontalCollision;
+		boolean verticalCollisionAfterSuper = observingMovement
+				&& verticalCollision;
 		
 		LivingEntity user = getUser();
 		Level level = this.level();
+		double ownerDistanceAfterSuperBeforeClamp = Double.NaN;
+		double maxMovementRange = Double.NaN;
+		boolean rangeCorrectionApplied = false;
+		double rangeCorrectionDeltaSqr = 0.0D;
 		if (user != null && user.level() == level) {
 			AABBDist bbDistance = MathUtil.getAABBDistanceDetailed(this.getBoundingBox(), user.getBoundingBox());
 			double distance = bbDistance.distance();
 			double range = getMaxRangeForMovement(user);
+			if (observingMovement) {
+				ownerDistanceAfterSuperBeforeClamp = distance;
+				maxMovementRange = range;
+			}
 			if (distance > range) {
 				Vec3 standPos = bbDistance.posBB1();
 				Vec3 userPos = bbDistance.posBB2();
 				Vec3 vecToUser = userPos.subtract(standPos).scale(1 - range / distance);
 				moveWithoutCollision(vecToUser);
+				if (observingMovement) {
+					rangeCorrectionApplied = true;
+					rangeCorrectionDeltaSqr = vecToUser.lengthSqr();
+				}
 			}
 			if (!vec.equals(Vec3.ZERO)) {
 				updateUserOffset(user);
 			}
+		}
+		if (observingMovement) {
+			Vec3 postPosition = position();
+			double actualX = postPosition.x - prePosition.x;
+			double actualY = postPosition.y - prePosition.y;
+			double actualZ = postPosition.z - prePosition.z;
+			double finalOwnerDistance = user != null
+					&& user.level() == level
+						? MathUtil.getAABBDistance(
+								getBoundingBox(), user.getBoundingBox())
+						: Double.NaN;
+			LogicalSide logicalSide = level.isClientSide()
+					? LogicalSide.CLIENT : LogicalSide.SERVER;
+			MovePath movePath = level.isClientSide()
+					? type == MoverType.SELF
+							? MovePath.CLIENT_SELF : MovePath.CLIENT_OTHER
+					: type == MoverType.PLAYER
+							? MovePath.SERVER_PLAYER : MovePath.SERVER_OTHER;
+			StandManualMovementObservers.publish(
+					logicalSide, level,
+					new StandManualMovementObservers.StandMoveResult(
+							movePath,
+							user != null ? user.getUUID() : null,
+							getUUID(),
+							prePosition.x, prePosition.y, prePosition.z,
+							prePosition.x + vec.x,
+							prePosition.y + vec.y,
+							prePosition.z + vec.z,
+							postSuperPosition.x, postSuperPosition.y,
+							postSuperPosition.z,
+							postPosition.x, postPosition.y, postPosition.z,
+							vec.lengthSqr(),
+							actualX * actualX + actualY * actualY
+									+ actualZ * actualZ,
+							horizontalCollisionAfterSuper,
+							verticalCollisionAfterSuper,
+							ownerDistanceAfterSuperBeforeClamp,
+							rangeCorrectionApplied,
+							rangeCorrectionDeltaSqr,
+							finalOwnerDistance, maxMovementRange));
 		}
 	}
 
@@ -1306,7 +1368,8 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 	public void updateStrengthMultipliers() {
 		LivingEntity user = getUser();
 
-		rangeEfficiency = user != null ? StandStatFormulas.rangeStrengthFactor(distanceStrengthDecayEnabled,
+		rangeEfficiency = user != null ? StandStatFormulas.rangeStrengthFactor(
+				distanceStrengthDecayEnabled && isManuallyControlled(),
 				getEffectiveRange(), getMaxRange(),
 				MathUtil.getAABBDistance(this.getBoundingBox(), user.getBoundingBox())) : 1;
 

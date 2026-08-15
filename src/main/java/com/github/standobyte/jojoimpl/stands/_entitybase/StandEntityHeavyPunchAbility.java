@@ -348,8 +348,8 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 		}
 
 		protected float getAdditionalHeavyPunchKnockback(StandEntity stand) {
-			float strength = (float) stand.getAttackDamage();
-			return 0.5F + strength / (8 - finisherValue * 4);
+			return StandStatFormulas.getHeavyAttackKnockback(
+					stand.getAttackDamage(), finisherValue);
 		}
 		
 		protected void hitBlock(ActionTarget target, Level level, StandEntity stand, 

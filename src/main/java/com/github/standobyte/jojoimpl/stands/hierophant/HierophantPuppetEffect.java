@@ -6,9 +6,11 @@ import com.github.standobyte.jojo.entityattachment.ComponentUtil;
 import com.github.standobyte.jojo.entityattachment.custom_effect.EntityCustomEffectType;
 import com.github.standobyte.jojo.event.RipplesAbilityKeyPressEvent;
 import com.github.standobyte.jojo.init.ModDataAttachmentTypes;
+import com.github.standobyte.jojo.init.ModSpecialActions;
 import com.github.standobyte.jojo.init.power.ModStandAbilities;
 import com.github.standobyte.jojo.powersystem.PowerClass;
 import com.github.standobyte.jojo.powersystem.ability.Ability;
+import com.github.standobyte.jojo.powersystem.entityaction.EntityActionInstance;
 import com.github.standobyte.jojo.powersystem.standpower.StandPower;
 import com.github.standobyte.jojo.powersystem.standpower.StandUtil;
 import com.github.standobyte.jojo.powersystem.standpower.effect.StandEffectInstance;
@@ -20,6 +22,9 @@ import com.github.standobyte.jojo.subsystems.entity_puppetcontrol.client.ClientE
 import com.github.standobyte.jojo.subsystems.entity_puppetcontrol.client.mob.ClientMobController;
 import com.github.standobyte.jojoimpl.stands._entitybase.StandEntityManualControlToggle;
 
+import javax.annotation.Nullable;
+
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.level.Level;
@@ -54,6 +59,12 @@ public class HierophantPuppetEffect extends StandEffectInstance {
 
 	@Override
 	protected void tick() {
+		if (!level.isClientSide()) {
+			StandEntity hierophant = getUserPower().getSummonedStandEntity();
+			if (hierophant != null && isRetractingToUnsummon(hierophant)) {
+				remove();
+			}
+		}
 	}
 
 	@Override
@@ -65,6 +76,8 @@ public class HierophantPuppetEffect extends StandEffectInstance {
 			StandEntity hierophant = getUserPower().getSummonedStandEntity();
 			if (hierophant != null) {
 				boolean wasInMobControl = hierophant.getStandFlag(StandFlag.MANUAL_CONTROL);
+				boolean wasRetracting = hierophant.isBeingRetracted()
+						|| hasUnsummonAction(hierophant);
 				setMobControl(false);
 
 				LivingComponentPossession possession = ComponentUtil.getExistingDataOrNull(
@@ -76,15 +89,36 @@ public class HierophantPuppetEffect extends StandEffectInstance {
 					}
 				}
 
+				// setMobControl(false) clears retraction while following is disabled.
 				hierophant.setCanFollowUser(true);
-				if (wasInMobControl) {
-					StandEntityManualControlToggle.on(level, hierophant);
-				}
-				else {
-					hierophant.retract();
+				if (!wasRetracting) {
+					if (wasInMobControl) {
+						StandEntityManualControlToggle.on(level, hierophant);
+					}
+					else {
+						hierophant.retract();
+					}
 				}
 			}
 		}
+	}
+
+	@Override
+	protected boolean shouldClearTarget(Entity target, @Nullable LivingEntity targetLiving) {
+		if (super.shouldClearTarget(target, targetLiving)) {
+			return true;
+		}
+		Entity.RemovalReason removalReason = target.getRemovalReason();
+		return removalReason != null && removalReason.shouldDestroy();
+	}
+
+	private static boolean isRetractingToUnsummon(StandEntity hierophant) {
+		return hierophant.isBeingRetracted() && hasUnsummonAction(hierophant);
+	}
+
+	private static boolean hasUnsummonAction(StandEntity hierophant) {
+		EntityActionInstance action = hierophant.getCurStandAction();
+		return action != null && action.ability == ModSpecialActions.STAND_UNSUMMON.get();
 	}
 
 	public void setMobControl(boolean control) {

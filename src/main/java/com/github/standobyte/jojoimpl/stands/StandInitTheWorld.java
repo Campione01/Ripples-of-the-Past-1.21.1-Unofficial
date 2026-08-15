@@ -12,6 +12,7 @@ import com.github.standobyte.jojo.powersystem.ability.controls.InputKey;
 import com.github.standobyte.jojo.powersystem.ability.controls.InputMethod;
 import com.github.standobyte.jojo.powersystem.standpower.StandStats;
 import com.github.standobyte.jojo.powersystem.standpower.StandUnlockableSkill;
+import com.github.standobyte.jojo.powersystem.standpower.entity.StandControlType;
 import com.github.standobyte.jojo.powersystem.standpower.entity.EntityStandType;
 
 import net.minecraft.resources.ResourceLocation;
@@ -114,7 +115,9 @@ public class StandInitTheWorld {
 				.addSkill(StandUnlockableSkill.unlockableAbility("time_stop", 5000))
 				.addHumanoidStandSkills()
 
-				, id)
+				, id,
+				StandControlType.CLOSE_RANGE_DIRECT,
+				5, 10, true, true)
 			.summonShout(() -> ModSoundEvents.DIO_THE_WORLD)
 			.summonSound(() -> ModSoundEvents.THE_WORLD_SUMMON)
 			.unsummonSound(() -> ModSoundEvents.THE_WORLD_UNSUMMON)

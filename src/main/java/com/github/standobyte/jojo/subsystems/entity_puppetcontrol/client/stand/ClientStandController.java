@@ -3,6 +3,8 @@ package com.github.standobyte.jojo.subsystems.entity_puppetcontrol.client.stand;
 import com.github.standobyte.jojo.client.ui.utils.BlitFloat;
 import com.github.standobyte.jojo.client.ui.utils.ElementTransparency;
 import com.github.standobyte.jojo.core.JojoMod;
+import com.github.standobyte.jojo.api.stand.StandManualMovementObservers;
+import com.github.standobyte.jojo.api.stand.StandManualMovementObservers.LogicalSide;
 import com.github.standobyte.jojo.powersystem.entityaction.EntityActionInstance;
 import com.github.standobyte.jojo.powersystem.entityaction.LivingComponentAction;
 import com.github.standobyte.jojo.powersystem.standpower.entity.StandEntity;
@@ -47,11 +49,13 @@ public class ClientStandController extends ClientEntityController {
 		manualMovementSpeed = 1;
 		prevTickInput = false;
 		NeoForge.EVENT_BUS.register(this);
+		publishControllerBinding(true);
 	}
 
 	@Override
 	public void onUnset() {
 		NeoForge.EVENT_BUS.unregister(this);
+		publishControllerBinding(false);
 	}
 
 	@SubscribeEvent(priority = EventPriority.HIGHEST)
@@ -60,8 +64,22 @@ public class ClientStandController extends ClientEntityController {
 		boolean hasInput = moveStandManually(entityAsLiving, input.leftImpulse, input.forwardImpulse, 
 //				input.keyPresses.jump(), input.keyPresses.shift());
 				input.jumping, input.shiftKeyDown);
-		PacketDistributor.sendToServer(new ClStandManualMovementPacket(
-				entity.getX(), entity.getY(), entity.getZ(), entity.getXRot(), entity.getYRot(), !hasInput));
+		ClStandManualMovementPacket packet = new ClStandManualMovementPacket(
+				entity.getX(), entity.getY(), entity.getZ(),
+				entity.getXRot(), entity.getYRot(), !hasInput);
+		if (StandManualMovementObservers.hasObservers()) {
+			StandEntity stand = (StandEntity) entityAsLiving;
+			LivingEntity user = stand.getUser();
+			StandManualMovementObservers.publish(
+					LogicalSide.CLIENT, entity.level(),
+					new StandManualMovementObservers.PacketAttempt(
+							user != null ? user.getUUID() : null,
+							entity.getUUID(),
+							packet.x(), packet.y(), packet.z(),
+							packet.xRot(), packet.yRot(),
+							packet.resetDeltaMovement()));
+		}
+		PacketDistributor.sendToServer(packet);
 	}
 
 	@SubscribeEvent(priority = EventPriority.LOWEST)
@@ -95,42 +113,101 @@ public class ClientStandController extends ClientEntityController {
 	private boolean prevTickInput = false;
 	public boolean moveStandManually(LivingEntity standEntity, float strafe, float forward, boolean jumping, boolean sneaking) {
 		StandEntity stand = (StandEntity) standEntity;
+		boolean observing = StandManualMovementObservers.hasObservers();
+		float rawStrafe = strafe;
+		float rawForward = forward;
+		boolean rawJumping = jumping;
+		boolean rawSneaking = sneaking;
+		boolean previousInput = prevTickInput;
 		boolean canStandMoveManually = stand.canMoveManually();
+		EntityActionInstance curAction = null;
+		boolean actionResolved = false;
+		float actionWalkSpeed = 1;
+		double movementSpeed = Double.NaN;
 		Vec3 motion = Vec3.ZERO;
 		boolean input = false;
+		boolean directionalInputFiltered = false;
 		if (canStandMoveManually) {
 			strafe = stand.getManualMovementLocks().strafe(strafe);
 			forward = stand.getManualMovementLocks().forward(forward);
 			jumping = stand.getManualMovementLocks().up(jumping);
 			sneaking = stand.getManualMovementLocks().down(sneaking);
+			if (observing) {
+				directionalInputFiltered =
+						Float.floatToIntBits(rawStrafe)
+								!= Float.floatToIntBits(strafe)
+						|| Float.floatToIntBits(rawForward)
+								!= Float.floatToIntBits(forward)
+						|| rawJumping != jumping
+						|| rawSneaking != sneaking;
+			}
 			input = jumping || sneaking || forward != 0 || strafe != 0;
 			if (input) {
-				double speed = standEntity.getAttributeValue(Attributes.MOVEMENT_SPEED);
-				double y = jumping ? speed : 0;
+				movementSpeed = standEntity.getAttributeValue(Attributes.MOVEMENT_SPEED);
+				double y = jumping ? movementSpeed : 0;
 				if (sneaking) {
-					y -= speed;
+					y -= movementSpeed;
 					strafe *= 0.5;
 					forward *= 0.5;
 				}
+				if (StandManualMovementObservers
+						.shouldResolveControllerAction(
+								observing, input, previousInput)) {
+					curAction = LivingComponentAction
+							.getCurEntityAction(standEntity);
+					actionResolved = true;
+					actionWalkSpeed = curAction != null
+							? curAction.userWalkSpeed : 1;
+				}
 				// Match original ROTP: settle for one tick when a new manual-move input starts.
-				if (prevTickInput) {
-					float actionWalkSpeed = 1;
-					EntityActionInstance curAction = LivingComponentAction.getCurEntityAction(standEntity);
-					if (curAction != null) {
-						actionWalkSpeed = curAction.userWalkSpeed;
-					}
+				if (previousInput) {
 					actionWalkSpeed = stand.getUserWalkSpeed(actionWalkSpeed);
-					motion = getAbsoluteMotion(new Vec3((double)strafe, y, (double)forward), speed, standEntity.getYRot())
+					motion = getAbsoluteMotion(new Vec3((double)strafe, y, (double)forward), movementSpeed, standEntity.getYRot())
 							.scale(actionWalkSpeed * manualMovementSpeed);
 				}
 			}
-			prevTickInput = input;
 		}
-		else {
-			prevTickInput = false;
+		if (StandManualMovementObservers.shouldResolveControllerAction(
+				observing, input, previousInput) && !actionResolved) {
+			curAction = LivingComponentAction.getCurEntityAction(standEntity);
+			actionResolved = true;
+			actionWalkSpeed = curAction != null ? curAction.userWalkSpeed : 1;
 		}
+		prevTickInput = canStandMoveManually && input;
 		stand.manualControlInput(motion);
+		if (observing) {
+			LivingEntity user = stand.getUser();
+			StandManualMovementObservers.publish(
+					LogicalSide.CLIENT, stand.level(),
+					new StandManualMovementObservers.ControllerDecision(
+							user != null ? user.getUUID() : null,
+							stand.getUUID(),
+							rawStrafe, rawForward,
+							rawJumping, rawSneaking,
+							strafe, forward, jumping, sneaking,
+							stand.isManuallyControlled(),
+							canStandMoveManually,
+							StandManualMovementObservers.stableActionId(curAction),
+							directionalInputFiltered,
+							previousInput, prevTickInput,
+							movementSpeed, manualMovementSpeed,
+							actionWalkSpeed,
+							motion.x, motion.y, motion.z));
+		}
 		return prevTickInput;
+	}
+
+	private void publishControllerBinding(boolean bound) {
+		if (!StandManualMovementObservers.hasObservers()) {
+			return;
+		}
+		StandEntity stand = (StandEntity) entityAsLiving;
+		LivingEntity user = stand.getUser();
+		StandManualMovementObservers.publish(
+				LogicalSide.CLIENT, stand.level(),
+				new StandManualMovementObservers.ControllerBinding(
+						user != null ? user.getUUID() : null,
+						stand.getUUID(), bound));
 	}
 
 	private static Vec3 getAbsoluteMotion(Vec3 relative, double speed, float facingYRot) {

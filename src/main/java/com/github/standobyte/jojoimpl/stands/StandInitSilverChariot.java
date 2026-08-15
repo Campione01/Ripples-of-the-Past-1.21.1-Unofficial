@@ -12,6 +12,7 @@ import com.github.standobyte.jojo.powersystem.ability.controls.InputKey;
 import com.github.standobyte.jojo.powersystem.ability.controls.InputMethod;
 import com.github.standobyte.jojo.powersystem.standpower.StandStats;
 import com.github.standobyte.jojo.powersystem.standpower.StandUnlockableSkill;
+import com.github.standobyte.jojo.powersystem.standpower.entity.StandControlType;
 import com.github.standobyte.jojo.powersystem.standpower.entity.EntityStandType;
 
 import net.minecraft.resources.ResourceLocation;
@@ -79,7 +80,9 @@ public class StandInitSilverChariot {
 				.addSkill(StandUnlockableSkill.unlockableAbility("take_off_armor", 300))
 				.addHumanoidStandSkills()
 
-				, id)
+				, id,
+				StandControlType.CLOSE_RANGE_DIRECT,
+				2, 10, true, true)
 			.summonShout(() -> ModSoundEvents.POLNAREFF_SILVER_CHARIOT)
 			.summonSound(() -> ModSoundEvents.SILVER_CHARIOT_SUMMON)
 			.unsummonSound(() -> ModSoundEvents.SILVER_CHARIOT_UNSUMMON)

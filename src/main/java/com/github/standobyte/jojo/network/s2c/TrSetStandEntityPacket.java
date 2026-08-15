@@ -8,6 +8,7 @@ import com.github.standobyte.jojo.PacketsRegister;
 import com.github.standobyte.jojo.client.ClientProxy;
 import com.github.standobyte.jojo.core.JojoMod;
 import com.github.standobyte.jojo.powersystem.standpower.StandPower;
+import com.github.standobyte.jojo.powersystem.standpower.entity.EntityStandType;
 import com.github.standobyte.jojo.powersystem.standpower.entity.StandEntity;
 
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -88,6 +89,12 @@ public record TrSetStandEntityPacket(int userId, int standEntityId) implements C
 				return false;
 			}
 			if (payload.standEntityId <= 0) {
+				StandEntity previousStand =
+						standPower.getSummonedStandEntity();
+				if (previousStand != null) {
+					EntityStandType.settleStandBeforeForcedUnsummon(
+							previousStand);
+				}
 				standPower.setSummonedStand(null);
 				JojoMod.getLogger().info("Stand entity link cleared on client: userId={}.", payload.userId);
 				return true;

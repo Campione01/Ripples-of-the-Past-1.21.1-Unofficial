@@ -13,6 +13,7 @@ import com.github.standobyte.jojo.powersystem.ability.controls.InputKey;
 import com.github.standobyte.jojo.powersystem.ability.controls.InputMethod;
 import com.github.standobyte.jojo.powersystem.standpower.StandStats;
 import com.github.standobyte.jojo.powersystem.standpower.StandUnlockableSkill;
+import com.github.standobyte.jojo.powersystem.standpower.entity.StandControlType;
 import com.github.standobyte.jojo.powersystem.standpower.entity.EntityStandType;
 
 import net.minecraft.resources.ResourceLocation;
@@ -83,8 +84,9 @@ public class StandInitHierophantGreen {
 				.addSkill(StandUnlockableSkill.unlockableAbility("barrier", 300).prerequisiteSkill("grapple"))
 				.addHumanoidStandSkills()
 
-				, ModEntityTypes.HIEROPHANT_GREEN_STAND.get(), id)
-			.distanceStrengthDecay(false)
+				, ModEntityTypes.HIEROPHANT_GREEN_STAND.get(), id,
+				StandControlType.LONG_DISTANCE_OPERATION,
+				50, 100, true, false)
 			.summonShout(() -> ModSoundEvents.KAKYOIN_HIEROPHANT_GREEN)
 			.summonSound(() -> ModSoundEvents.HIEROPHANT_GREEN_SUMMON)
 			.unsummonSound(() -> ModSoundEvents.HIEROPHANT_GREEN_UNSUMMON)

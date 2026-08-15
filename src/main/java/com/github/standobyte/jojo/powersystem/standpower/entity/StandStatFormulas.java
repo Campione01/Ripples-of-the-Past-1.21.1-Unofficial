@@ -20,6 +20,10 @@ public class StandStatFormulas {
 		float damage = Math.max((float) strength, 1F);
 		return damage;
 	}
+
+	public static float getHeavyAttackKnockback(double strength, float finisherMeter) {
+		return 0.5F + (float) strength / (8 - finisherMeter * 4);
+	}
 	
 	public static int getHeavyAttackWindup(double speed, float finisherMeter) {
 		float f = (40 - (float) speed * 1.25F);

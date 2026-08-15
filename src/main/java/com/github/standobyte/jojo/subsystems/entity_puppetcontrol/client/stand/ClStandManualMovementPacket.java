@@ -1,8 +1,13 @@
 package com.github.standobyte.jojo.subsystems.entity_puppetcontrol.client.stand;
 
 import com.github.standobyte.jojo.PacketsRegister;
+import com.github.standobyte.jojo.api.stand.StandManualMovementObservers;
+import com.github.standobyte.jojo.api.stand.StandManualMovementObservers.LogicalSide;
+import com.github.standobyte.jojo.api.stand.StandManualMovementObservers.ServerDecision;
 import com.github.standobyte.jojo.core.JojoMod;
 import com.github.standobyte.jojo.network.s2c.TrDirectEntityPosPacket;
+import com.github.standobyte.jojo.powersystem.entityaction.EntityActionInstance;
+import com.github.standobyte.jojo.powersystem.entityaction.LivingComponentAction;
 import com.github.standobyte.jojo.powersystem.standpower.StandPower;
 import com.github.standobyte.jojo.powersystem.standpower.entity.StandEntity;
 import com.google.common.primitives.Floats;
@@ -52,46 +57,84 @@ public record ClStandManualMovementPacket(double x, double y, double z, float xR
 		@Override
 		public void handle(ClStandManualMovementPacket packet, IPayloadContext context) {
 			ServerPlayer player = (ServerPlayer) context.player();
+			if (StandManualMovementObservers.hasObservers()) {
+				StandManualMovementObservers.publish(
+						LogicalSide.SERVER, player.level(),
+						new StandManualMovementObservers.PacketReceipt(
+								player.getUUID(),
+								packet.x(), packet.y(), packet.z(),
+								packet.xRot(), packet.yRot(),
+								packet.resetDeltaMovement()));
+			}
 			if (isInvalid(packet)) {
+				publishUnavailableResult(player, packet, ServerDecision.INVALID);
 				player.connection.disconnect(Component.translatable("multiplayer.disconnect.invalid_stand_movement"));
 				return;
 			}
 			StandPower power = StandPower.get(player);
-			if (power != null) {
-				StandEntity stand = power.getSummonedStandEntity();
-				if (stand != null) {
-					manualControlPacket(player, stand, packet);
-				}
+			if (power == null) {
+				publishUnavailableResult(player, packet, ServerDecision.NO_POWER);
+				return;
 			}
+			StandEntity stand = power.getSummonedStandEntity();
+			if (stand == null) {
+				publishUnavailableResult(player, packet, ServerDecision.NO_STAND);
+				return;
+			}
+			manualControlPacket(player, stand, packet);
 		}
 		
 		public void manualControlPacket(ServerPlayer player, StandEntity stand, ClStandManualMovementPacket msg) {
-			if (!stand.canMoveManually()) {
-				stand.setDeltaMovement(Vec3.ZERO);
-				PacketDistributor.sendToPlayer(player, new TrDirectEntityPosPacket(stand.getId(), stand.position()));
-				return;
-			}
-//			ServerLevel level = player.getLevel();
 			double posX1 = stand.getX(); // d0
 			double posY1 = stand.getY(); // d1
 			double posZ1 = stand.getZ(); // d2
 			double posXcl = clampHorizontal(msg.x()); // d3
 			double posYcl = clampVertical(msg.y()); // d4
 			double posZcl = clampHorizontal(msg.z()); // d5
+			boolean observing = StandManualMovementObservers.hasObservers();
+			boolean manuallyControlled = observing
+					&& stand.isManuallyControlled();
+			boolean canMoveManually = stand.canMoveManually();
+			EntityActionInstance action = observing
+					? LivingComponentAction.getCurEntityAction(stand) : null;
+			String actionId = observing
+					? StandManualMovementObservers.stableActionId(action) : "none";
+			double diffX = posXcl - posX1; // d6
+			double diffY = posYcl - posY1; // d7
+			double diffZ = posZcl - posZ1; // d8
+			double diffSq = diffX * diffX + diffY * diffY + diffZ * diffZ; // d10
+			if (!canMoveManually) {
+				stand.setDeltaMovement(Vec3.ZERO);
+				PacketDistributor.sendToPlayer(player, new TrDirectEntityPosPacket(stand.getId(), stand.position()));
+				publishResult(
+						player, stand, msg, ServerDecision.MANUAL_LOCKED,
+						manuallyControlled, false, actionId, true,
+						msg.resetDeltaMovement(), true,
+						posX1, posY1, posZ1,
+						posXcl, posYcl, posZcl,
+						diffSq, 0.0D,
+						false, true);
+				return;
+			}
+//			ServerLevel level = player.getLevel();
 			float xRot = Mth.wrapDegrees(msg.xRot());
 			float yRot = Mth.wrapDegrees(msg.yRot());
 //			double diffX = posXcl - firstGoodX;
 //			double diffY = posYcl - firstGoodY;
 //			double diffZ = posZcl - firstGoodZ;
-			double diffX = posXcl - posX1; // d6
-			double diffY = posYcl - posY1; // d7
-			double diffZ = posZcl - posZ1; // d8
 			double motionSq = stand.getDeltaMovement().lengthSqr(); // d9
-			double diffSq = diffX * diffX + diffY * diffY + diffZ * diffZ; // d10
 			if (diffSq - motionSq > 100.0D) {
 				JojoMod.getLogger().warn("{} ({}'s stand) moved too quickly! {},{},{}",
 						stand.getName().getString(), player.getName().getString(), diffX, diffY, diffZ);
 				PacketDistributor.sendToPlayer(player, new TrDirectEntityPosPacket(stand.getId(), stand.position()));
+				publishResult(
+						player, stand, msg, ServerDecision.TOO_QUICK,
+						manuallyControlled, true, actionId, true,
+						msg.resetDeltaMovement(), false,
+						posX1, posY1, posZ1,
+						posXcl, posYcl, posZcl,
+						diffSq, 0.0D,
+						false, true);
 				return;
 			}
 //			boolean flag = world.noCollision(stand, stand.getBoundingBox().deflate(0.0625D));
@@ -111,7 +154,7 @@ public record ClStandManualMovementPacket(double x, double y, double z, float xR
 //			   flag1 = true;
 //			   LOGGER.warn("{} ({}'s stand) moved wrongly! {}", stand.getName().getString(), player.getName().getString(), Math.sqrt(diffSq));
 //			}
-			stand.absMoveTo(posXcl, posYcl, posZcl, yRot, xRot);
+			stand.absMoveTo(stand.getX(), stand.getY(), stand.getZ(), yRot, xRot);
 //			boolean flag2 = world.noCollision(stand, stand.getBoundingBox().deflate(0.0625D));
 //			if (flag && (flag1 || !flag2)) {
 //			   stand.absMoveTo(d0, d1, d2);
@@ -124,6 +167,80 @@ public record ClStandManualMovementPacket(double x, double y, double z, float xR
 			if (msg.resetDeltaMovement()) {
 				stand.setDeltaMovement(Vec3.ZERO);
 			}
+			double postX = stand.getX();
+			double postY = stand.getY();
+			double postZ = stand.getZ();
+			double actualX = postX - posX1;
+			double actualY = postY - posY1;
+			double actualZ = postZ - posZ1;
+			publishResult(
+					player, stand, msg, ServerDecision.APPLIED,
+					manuallyControlled, true, actionId, false,
+					msg.resetDeltaMovement(), msg.resetDeltaMovement(),
+					posX1, posY1, posZ1,
+					posXcl, posYcl, posZcl,
+					diffSq,
+					actualX * actualX + actualY * actualY + actualZ * actualZ,
+					true, false);
+		}
+
+		private void publishUnavailableResult(
+				ServerPlayer player,
+				ClStandManualMovementPacket packet,
+				ServerDecision decision) {
+			if (!StandManualMovementObservers.hasObservers()) {
+				return;
+			}
+			StandManualMovementObservers.publish(
+					LogicalSide.SERVER, player.level(),
+					new StandManualMovementObservers.ServerPacketResult(
+							decision, player.getUUID(), null,
+							false, false, "none", true,
+							packet.resetDeltaMovement(), false,
+							Double.NaN, Double.NaN, Double.NaN,
+							packet.x(), packet.y(), packet.z(),
+							Double.NaN, Double.NaN, Double.NaN,
+							Double.NaN, Double.NaN,
+							false, false));
+		}
+
+		private void publishResult(
+				ServerPlayer player,
+				StandEntity stand,
+				ClStandManualMovementPacket packet,
+				ServerDecision decision,
+				boolean manuallyControlled,
+				boolean canMoveManually,
+				String actionId,
+				boolean requestRejected,
+				boolean deltaResetRequested,
+				boolean deltaResetApplied,
+				double preX,
+				double preY,
+				double preZ,
+				double requestedX,
+				double requestedY,
+				double requestedZ,
+				double requestedDeltaSqr,
+				double actualDeltaSqr,
+				boolean moveInvoked,
+				boolean correctionSent) {
+			if (!StandManualMovementObservers.hasObservers()) {
+				return;
+			}
+			StandManualMovementObservers.publish(
+					LogicalSide.SERVER, player.level(),
+					new StandManualMovementObservers.ServerPacketResult(
+							decision,
+							player.getUUID(), stand.getUUID(),
+							manuallyControlled, canMoveManually,
+							actionId, requestRejected,
+							deltaResetRequested, deltaResetApplied,
+							preX, preY, preZ,
+							requestedX, requestedY, requestedZ,
+							stand.getX(), stand.getY(), stand.getZ(),
+							requestedDeltaSqr, actualDeltaSqr,
+							moveInvoked, correctionSent));
 		}
 
 		private boolean isInvalid(ClStandManualMovementPacket msg) {
