@@ -144,6 +144,8 @@
     "client.model.playeranim.ModelPartMixin",
     
 	"client.controls.KeyboardHandlerMixin",
+	"client.controls.InputConstantsMixin",
+	"client.controls.MouseHandlerInvoker",
 	"client.lifeshot.ConnectionSensoryOverloadMixin",
 	
 	"entity_like_player.puppetcontrol.mob.MobAILookMixin",

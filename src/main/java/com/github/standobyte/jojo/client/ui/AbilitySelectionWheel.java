@@ -6,8 +6,6 @@ import java.util.OptionalInt;
 
 import javax.annotation.Nullable;
 
-import org.lwjgl.glfw.GLFW;
-
 import com.github.standobyte.jojo.api.client.render.AbilitySelectionSurface;
 import com.github.standobyte.jojo.api.client.render.AbilitySelectionVisualPolicies;
 import com.github.standobyte.jojo.client.ClientPowerCache;
@@ -20,6 +18,7 @@ import com.github.standobyte.jojo.client.standskin.StandSkinsLoader;
 import com.github.standobyte.jojo.client.standskin.sprites.AbilityIconSprites;
 import com.github.standobyte.jojo.client.ui.utils.BlitFloat;
 import com.github.standobyte.jojo.client.ui.utils.tooltip.TooltipParams;
+import com.github.standobyte.jojo.client.util.ClientCursorUtil;
 import com.github.standobyte.jojo.client.util.functions.ClientUtil;
 import com.github.standobyte.jojo.core.JojoMod;
 import com.github.standobyte.jojo.powersystem.Moveset;
@@ -80,7 +79,7 @@ public class AbilitySelectionWheel extends Screen implements ScreenLetsUseWASD {
 			int[] pos = posAtSector(newSelectedSlot.getAsInt(), abilities.slots.size(), 50);
 			double xpos = pos[0] / (double)window.getGuiScaledWidth() * width;
 			double ypos = pos[1] / (double)window.getGuiScaledHeight() * height;
-			GLFW.glfwSetCursorPos(windowHandle, xpos, ypos);
+			ClientCursorUtil.moveCursor(minecraft, xpos, ypos);
 		}
 		mouseIgnorePos = new int[] { ClientUtil.getScreenMouseX(), ClientUtil.getScreenMouseY() };
 	}
