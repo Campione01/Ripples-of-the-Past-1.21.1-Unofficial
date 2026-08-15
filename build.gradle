@@ -59,6 +59,7 @@ neoForge {
 
         gameTestServer_ROTP {
             type = "gameTestServer"
+            gameDirectory = project.layout.buildDirectory.dir("run-gametest-core")
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
 
