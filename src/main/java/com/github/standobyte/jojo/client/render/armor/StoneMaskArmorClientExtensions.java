@@ -44,6 +44,10 @@ public class StoneMaskArmorClientExtensions implements IClientItemExtensions {
 									ModEntityTypeRenderers
 											.STONE_MASK_ARMOR));
 		}
+		if (StoneMaskArmorRenderDiagnostics.isTracking(livingEntity)) {
+			StoneMaskArmorRenderDiagnostics.record(
+					livingEntity, itemStack, equipmentSlot, original, model);
+		}
 		return model;
 	}
 }

@@ -7,6 +7,7 @@ import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.UUID;
 
 import com.github.standobyte.jojo.client.itemrender.CustomItemRenderers;
 import com.github.standobyte.jojo.client.render.armor.model.StoneMaskArmorModel;
@@ -40,6 +41,7 @@ public final class StoneMaskArmorRenderContractSmokeTest {
 
 	public static void run() {
 		checkExecutableExtensionRegistration();
+		checkDiagnosticReceiptCoalescing();
 
 		Path root = Path.of(System.getProperty("user.dir"));
 		Path main = root.resolve("src/main/java");
@@ -145,6 +147,108 @@ public final class StoneMaskArmorRenderContractSmokeTest {
 		}
 		System.out.println(
 				"Stone-mask armor render contract: PASS");
+	}
+
+	private static void checkDiagnosticReceiptCoalescing() {
+		UUID entityUuid = UUID.randomUUID();
+		Object stoneIdentity = new Object();
+		Object dirtIdentity = new Object();
+		long baseline = StoneMaskArmorRenderDiagnostics.latestSequence();
+		StoneMaskArmorRenderDiagnostics.recordStateForTests(
+				entityUuid,
+				stoneIdentity,
+				false,
+				EquipmentSlot.HEAD,
+				HumanoidModel.class,
+				StoneMaskArmorModel.class,
+				false,
+				"minecraft:stone",
+				"none");
+		StoneMaskArmorRenderDiagnostics.Snapshot first =
+				StoneMaskArmorRenderDiagnostics.snapshot(entityUuid);
+		check(first != null && first.sequence() == baseline + 1L,
+				"the first observed render state must emit a receipt");
+		check(inactiveCustomMaskReceiptAccepted(first),
+				"the valid inactive custom-mask receipt was rejected");
+		check(!StoneMaskArmorRenderDiagnostics.matchesRenderedStack(
+					entityUuid, null),
+				"an absent callback stack was accepted");
+
+		for (int index = 0; index < 64; index++) {
+			StoneMaskArmorRenderDiagnostics.recordStateForTests(
+					entityUuid,
+					stoneIdentity,
+					false,
+					EquipmentSlot.HEAD,
+					HumanoidModel.class,
+					StoneMaskArmorModel.class,
+					false,
+					"minecraft:stone",
+					"none");
+		}
+		check(StoneMaskArmorRenderDiagnostics.snapshot(entityUuid) == first
+				&& StoneMaskArmorRenderDiagnostics.latestSequence()
+						== first.sequence()
+				&& StoneMaskArmorRenderDiagnostics.invocationCount(entityUuid)
+						== first.entityInvocationCount() + 64L,
+				"steady render frames must reuse the existing receipt");
+
+		long beforeRefresh =
+				StoneMaskArmorRenderDiagnostics.beginObservation(entityUuid);
+		StoneMaskArmorRenderDiagnostics.recordStateForTests(
+				entityUuid,
+				stoneIdentity,
+				false,
+				EquipmentSlot.HEAD,
+				HumanoidModel.class,
+				StoneMaskArmorModel.class,
+				false,
+				"minecraft:stone",
+				"none");
+		StoneMaskArmorRenderDiagnostics.Snapshot refreshed =
+				StoneMaskArmorRenderDiagnostics.snapshot(entityUuid);
+		check(refreshed != null
+				&& refreshed != first
+				&& refreshed.sequence() == beforeRefresh + 1L
+				&& refreshed.entityInvocationCount()
+						== first.entityInvocationCount() + 65L
+				&& refreshed.entityInvocationCount()
+						== StoneMaskArmorRenderDiagnostics.invocationCount(
+								entityUuid),
+				"an explicit observation must refresh the next matching receipt");
+
+		StoneMaskArmorRenderDiagnostics.recordStateForTests(
+				entityUuid,
+				dirtIdentity,
+				true,
+				EquipmentSlot.HEAD,
+				HumanoidModel.class,
+				StoneMaskArmorModel.class,
+				true,
+				"minecraft:dirt",
+				"none");
+		StoneMaskArmorRenderDiagnostics.Snapshot changed =
+				StoneMaskArmorRenderDiagnostics.snapshot(entityUuid);
+		check(changed != null
+				&& changed.sequence() == refreshed.sequence() + 1L
+				&& changed.entityInvocationCount()
+						== refreshed.entityInvocationCount() + 1L
+				&& changed.activatedTexture()
+				&& changed.originalModelReturned(),
+				"an observed item or texture transition must emit a new receipt");
+		check(!inactiveCustomMaskReceiptAccepted(changed),
+				"the activated/original-model-returned mutation was accepted");
+	}
+
+	private static boolean inactiveCustomMaskReceiptAccepted(
+			StoneMaskArmorRenderDiagnostics.Snapshot receipt) {
+		return receipt != null
+				&& !receipt.activatedTexture()
+				&& !receipt.originalModelReturned()
+				&& HumanoidModel.class.getName().equals(
+						receipt.originalModelClass())
+				&& StoneMaskArmorModel.class.getName().equals(
+						receipt.resolvedModelClass());
 	}
 
 	private static void checkExecutableExtensionRegistration() {
