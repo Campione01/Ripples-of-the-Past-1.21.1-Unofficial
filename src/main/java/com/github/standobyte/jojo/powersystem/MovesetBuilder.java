@@ -23,6 +23,7 @@ import com.github.standobyte.jojo.powersystem.ability.controls.InputMethod;
 import com.github.standobyte.jojo.powersystem.ability.controls.InputUseVanillaMapping;
 import com.github.standobyte.jojo.powersystem.standpower.StandUnlockableSkill;
 import com.github.standobyte.jojo.powersystem.unlockableskill.UnlockableSkill;
+import com.mojang.datafixers.util.Pair;
 
 import net.minecraft.resources.ResourceLocation;
 
@@ -248,10 +249,7 @@ public class MovesetBuilder {
 			String anchorAbilityName) {}
 	
 	public Moveset build(PowerClass<?> powerClass, ResourceLocation powerTypeId) {
-		if (this.controlSchemes.isEmpty()) {
-			this.controlSchemes.put("default", curControlScheme);
-		}
-		postInitControls();
+		prepareControlSchemes();
 		
 		Map<String, Ability> abilities = new LinkedHashMap<>();
 		for (var abilityEntry : this.abilities.entrySet()) {
@@ -265,6 +263,13 @@ public class MovesetBuilder {
 		Moveset moveset = new Moveset(abilities, powerClass, powerTypeId);
 		moveset.controlScheme = this.curControlScheme;
 		return moveset;
+	}
+
+	void prepareControlSchemes() {
+		if (this.controlSchemes.isEmpty()) {
+			this.controlSchemes.put("default", curControlScheme);
+		}
+		postInitControls();
 	}
 	
 	
@@ -393,13 +398,64 @@ public class MovesetBuilder {
 	
 	protected void addBindToAllCtrlSchemesIfMissing(String abilityName, InputMethod inputMethod, InputBindTemplate key) {
 		if (abilities.containsKey(abilityName)) {
+			Pair<InputMethod, InputBindTemplate> resolvedBinding = null;
+			String resolvedSchemeName = null;
+			for (var entry : controlSchemes.entrySet()) {
+				ControlSchemeTemplate ctrlScheme = entry.getValue();
+				ctrlScheme.setMovesetGroup(null);
+				Pair<InputMethod, InputBindTemplate> existing =
+						ctrlScheme._curGroup.separateBinds.get(abilityName);
+				if (existing != null) {
+					if (resolvedBinding == null) {
+						resolvedBinding = existing;
+						resolvedSchemeName = entry.getKey();
+					}
+					else if (!sameBinding(resolvedBinding, existing)) {
+						throw new IllegalStateException(
+								"Conflicting explicit bindings for automatic ability "
+										+ abilityName + " in control schemes "
+										+ resolvedSchemeName + " and " + entry.getKey());
+					}
+				}
+			}
+			if (resolvedBinding == null) {
+				resolvedBinding = Pair.of(inputMethod, key);
+			}
 			for (ControlSchemeTemplate ctrlScheme : controlSchemes.values()) {
 				ctrlScheme.setMovesetGroup(null);
 				if (!ctrlScheme._curGroup.separateBinds.containsKey(abilityName)) {
-					ctrlScheme.bind(abilityName, inputMethod, key);
+					ctrlScheme.bind(
+							abilityName,
+							resolvedBinding.getFirst(),
+							resolvedBinding.getSecond());
 				}
 			}
 		}
+	}
+
+	private static boolean sameBinding(
+			Pair<InputMethod, InputBindTemplate> first,
+			Pair<InputMethod, InputBindTemplate> second) {
+		if (first.getFirst() != second.getFirst()) {
+			return false;
+		}
+		InputBindTemplate firstInput = first.getSecond();
+		InputBindTemplate secondInput = second.getSecond();
+		if (firstInput == secondInput) {
+			return true;
+		}
+		if (firstInput instanceof InputKey firstKey
+				&& secondInput instanceof InputKey secondKey) {
+			return firstKey.device == secondKey.device
+					&& firstKey.keyCode == secondKey.keyCode
+					&& firstKey.modifier == secondKey.modifier;
+		}
+		if (firstInput instanceof InputUseVanillaMapping firstMapping
+				&& secondInput instanceof InputUseVanillaMapping secondMapping) {
+			return firstMapping.keyMappingName.equals(
+					secondMapping.keyMappingName);
+		}
+		return false;
 	}
 	
 	

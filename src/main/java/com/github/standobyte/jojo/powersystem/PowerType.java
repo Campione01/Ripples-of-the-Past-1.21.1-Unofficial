@@ -115,6 +115,7 @@ public abstract class PowerType implements JsonConfigurable {
 	public ControlSchemeTemplate makeDefaultControlSchemeTemplate() {
 		MovesetBuilder moveset = makeExtendedMovesetBuilder(
 				movesetConfigured.defaultValue);
+		moveset.prepareControlSchemes();
 		var schemeIter = moveset.controlSchemes.values().iterator();
 		ControlSchemeTemplate merged = schemeIter.hasNext()
 				? schemeIter.next().deepCopy()

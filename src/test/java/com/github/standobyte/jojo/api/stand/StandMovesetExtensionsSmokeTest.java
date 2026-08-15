@@ -17,6 +17,7 @@ import com.github.standobyte.jojo.powersystem.ability.AbilityType;
 import com.github.standobyte.jojo.powersystem.ability.controls.ControlSchemeTemplate;
 import com.github.standobyte.jojo.powersystem.ability.controls.InputKey;
 import com.github.standobyte.jojo.powersystem.ability.controls.InputMethod;
+import com.github.standobyte.jojo.powersystem.ability.controls.InputUseVanillaMapping;
 import com.google.gson.JsonObject;
 
 import net.minecraft.network.chat.Component;
@@ -35,6 +36,8 @@ public final class StandMovesetExtensionsSmokeTest {
 			abilityType("zeta");
 	private static final AbilityType<Ability> REPLACEMENT_TYPE =
 			abilityType("replacement");
+	private static final AbilityType<Ability> MANUAL_CONTROL_TYPE =
+			abilityType("manual_control");
 
 	private StandMovesetExtensionsSmokeTest() {}
 
@@ -43,6 +46,7 @@ public final class StandMovesetExtensionsSmokeTest {
 		registerOrderedExtensions();
 		verifyDuplicateAndConflictRegistration();
 		verifyRepeatedApplication();
+		verifyAutomaticControlBindingsReachClientTemplate();
 		verifyPowerTypeLifecycle();
 		verifyLateRegistrationRefreshesBaseMoveset();
 		verifyMissingTargetIsInert();
@@ -112,6 +116,126 @@ public final class StandMovesetExtensionsSmokeTest {
 		StandMovesetExtensions.applyRegisteredExtensions(TARGET, builder);
 		StandMovesetExtensions.applyRegisteredExtensions(TARGET, builder);
 		assertBuilderState(builder);
+	}
+
+	private static void verifyAutomaticControlBindingsReachClientTemplate() {
+		ResourceLocation target = id(
+				"rotp_test", "automatic_control_binding_target");
+		MovesetBuilder namedSchemes = new MovesetBuilder()
+				.addAbility("base", BASE_TYPE)
+				.addAbility("manual_control", MANUAL_CONTROL_TYPE)
+				.makeControlScheme("hotbar")
+					.bind("base", InputMethod.CLICK, InputKey.LMB)
+				.finalizeControlScheme()
+				.makeControlScheme("keybinds")
+					.bind("base", InputMethod.CLICK, InputKey.LMB)
+				.finalizeControlScheme();
+
+		TestPowerType namedPower = powerType(target, namedSchemes);
+		assertManualControlBinding(
+				namedPower.makeDefaultControlSchemeTemplate(),
+				InputMethod.CLICK, InputKey.O);
+		assertManualControlBinding(
+				namedPower.makeDefaultControlSchemeTemplate(),
+				InputMethod.CLICK, InputKey.O);
+		check(namedSchemes.controlSchemes.values().stream()
+				.noneMatch(scheme -> scheme.defaultGroup.separateBinds
+						.containsKey("manual_control")),
+				"client template preparation must not mutate the configured builder");
+
+		MovesetBuilder emptyScheme = new MovesetBuilder()
+				.addAbility("manual_control", MANUAL_CONTROL_TYPE);
+		assertManualControlBinding(
+				powerType(id("rotp_test", "empty_control_scheme_target"),
+						emptyScheme).makeDefaultControlSchemeTemplate(),
+				InputMethod.CLICK, InputKey.O);
+		check(emptyScheme.controlSchemes.isEmpty(),
+				"empty configured schemes must remain empty after template creation");
+
+		MovesetBuilder explicitBinding = new MovesetBuilder()
+				.addAbility("manual_control", MANUAL_CONTROL_TYPE)
+				.makeControlScheme("hotbar")
+				.finalizeControlScheme()
+				.makeControlScheme("keybinds")
+					.bind("manual_control", InputMethod.HOLD, InputKey.P)
+				.finalizeControlScheme();
+		assertManualControlBinding(
+				powerType(id("rotp_test", "explicit_control_binding_target"),
+						explicitBinding).makeDefaultControlSchemeTemplate(),
+				InputMethod.HOLD, InputKey.P);
+
+		MovesetBuilder directBuild = new MovesetBuilder()
+				.addAbility("manual_control", MANUAL_CONTROL_TYPE)
+				.makeControlScheme("hotbar")
+				.finalizeControlScheme()
+				.makeControlScheme("keybinds")
+					.bind("manual_control", InputMethod.HOLD, InputKey.P)
+				.finalizeControlScheme();
+		directBuild.build(null,
+				id("rotp_test", "direct_control_binding_target"));
+		directBuild.controlSchemes.values().forEach(scheme ->
+				assertManualControlBinding(
+						scheme, InputMethod.HOLD, InputKey.P));
+
+		MovesetBuilder conflictingBindings = new MovesetBuilder()
+				.addAbility("manual_control", MANUAL_CONTROL_TYPE)
+				.makeControlScheme("hotbar")
+					.bind("manual_control", InputMethod.CLICK, InputKey.O)
+				.finalizeControlScheme()
+				.makeControlScheme("keybinds")
+					.bind("manual_control", InputMethod.HOLD, InputKey.P)
+				.finalizeControlScheme();
+		expectFailure(
+				() -> powerType(
+						id("rotp_test", "conflicting_control_binding_target"),
+						conflictingBindings)
+						.makeDefaultControlSchemeTemplate(),
+				"Conflicting explicit bindings for automatic ability manual_control");
+
+		MovesetBuilder equivalentVanillaMappings = new MovesetBuilder()
+				.addAbility("items_swap_hands", BASE_TYPE)
+				.makeControlScheme("hotbar")
+					.bind(
+							"items_swap_hands", InputMethod.CLICK,
+							new InputUseVanillaMapping("key.swapOffhand"))
+				.finalizeControlScheme()
+				.makeControlScheme("keybinds")
+					.bind(
+							"items_swap_hands", InputMethod.CLICK,
+							new InputUseVanillaMapping("key.swapOffhand"))
+				.finalizeControlScheme();
+		var vanillaMapping = powerType(
+				id("rotp_test", "equivalent_vanilla_mapping_target"),
+				equivalentVanillaMappings)
+				.makeDefaultControlSchemeTemplate()
+				.defaultGroup.separateBinds.get("items_swap_hands");
+		check(vanillaMapping != null
+					&& vanillaMapping.getFirst() == InputMethod.CLICK
+					&& vanillaMapping.getSecond()
+							instanceof InputUseVanillaMapping mapping
+					&& "key.swapOffhand".equals(mapping.keyMappingName),
+				"equivalent vanilla-key mappings must not conflict");
+
+		MovesetBuilder noManualControl = new MovesetBuilder()
+				.addAbility("base", BASE_TYPE);
+		ControlSchemeTemplate noManualTemplate = powerType(
+				id("rotp_test", "no_manual_control_target"),
+				noManualControl).makeDefaultControlSchemeTemplate();
+		check(!noManualTemplate.defaultGroup.separateBinds
+				.containsKey("manual_control"),
+				"automatic binding must not appear without the manual-control ability");
+	}
+
+	private static void assertManualControlBinding(
+			ControlSchemeTemplate controls,
+			InputMethod expectedMethod,
+			InputKey expectedKey) {
+		var manualControl = controls.defaultGroup.separateBinds
+				.get("manual_control");
+		check(manualControl != null
+					&& manualControl.getFirst() == expectedMethod
+					&& manualControl.getSecond() == expectedKey,
+				"manual-control binding did not retain its expected input");
 	}
 
 	private static void verifyPowerTypeLifecycle() {
