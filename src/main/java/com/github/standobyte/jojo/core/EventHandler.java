@@ -105,6 +105,7 @@ import net.neoforged.neoforge.event.entity.item.ItemTossEvent;
 import net.neoforged.neoforge.event.entity.living.FinalizeSpawnEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
+import net.neoforged.neoforge.event.entity.living.LivingFallEvent;
 import net.neoforged.neoforge.event.entity.living.LivingHealEvent;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import net.neoforged.neoforge.event.entity.living.LivingKnockBackEvent;
@@ -124,6 +125,34 @@ public class EventHandler {
 	@SubscribeEvent
 	public static void onFinalizeSpawn(FinalizeSpawnEvent event) {
 		CocoJumboTurtleEntity.onRegularTurtleSpawn(event);
+	}
+
+	@SubscribeEvent(priority = EventPriority.HIGHEST)
+	public static void onLivingFall(LivingFallEvent event) {
+		if (event.getDistance() <= 3.0F) {
+			return;
+		}
+		LivingEntity entity = event.getEntity();
+		StandPower standPower = StandPower.get(entity);
+		PlayerPower playerPower = PlayerPower.get(entity);
+		float standLeapStrength = standPower != null && standPower.hasPower()
+				&& standPower.isLeapUnlocked() ? standPower.leapStrength() : 0.0F;
+		float playerLeapStrength = playerPower != null && playerPower.hasPower()
+				&& playerPower.isLeapUnlocked() ? playerPower.leapStrength() : 0.0F;
+		float leapStrength = Math.max(standLeapStrength, playerLeapStrength);
+		if (leapStrength > 0.0F) {
+			event.setDistance(reduceLeapFallDistance(
+					event.getDistance(), leapStrength));
+		}
+	}
+
+	static float reduceLeapFallDistance(
+			float fallDistance, float leapStrength) {
+		if (fallDistance <= 3.0F || leapStrength <= 0.0F) {
+			return fallDistance;
+		}
+		return Math.max(
+				fallDistance - (leapStrength + 5.0F) * 3.0F, 0.0F);
 	}
 
 	@SubscribeEvent(priority = EventPriority.HIGHEST)
