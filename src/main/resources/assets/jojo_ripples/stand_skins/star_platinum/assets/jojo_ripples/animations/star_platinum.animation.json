@@ -16097,6 +16097,55 @@
               ]
             }
           }
+        },
+        "hidden.finger": {
+          "rotation": {
+            "vector": [
+              0,
+              0,
+              "-query.head_x_rotation"
+            ]
+          },
+          "scale": {
+            "0.0": {
+              "vector": [
+                1,
+                0,
+                1
+              ]
+            },
+            "0.125": {
+              "vector": [
+                1,
+                1,
+                1
+              ]
+            },
+            "0.625": {
+              "vector": [
+                1,
+                "query.extendablePartLength + 1",
+                1
+              ],
+              "easing": "easeOutCubic"
+            },
+            "0.75": {
+              "vector": [
+                1,
+                "query.extendablePartLength + 1",
+                1
+              ],
+              "easing": "linear"
+            },
+            "1.25": {
+              "vector": [
+                1,
+                0,
+                1
+              ],
+              "easing": "easeOutCubic"
+            }
+          }
         }
       },
       "timeline": {

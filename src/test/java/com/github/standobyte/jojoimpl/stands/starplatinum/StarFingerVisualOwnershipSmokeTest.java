@@ -15,7 +15,8 @@ public final class StarFingerVisualOwnershipSmokeTest {
 	private static final Set<String> PRODUCTION_BONES = Set.of(
 			"body_rot", "body", "torso", "torso_bend", "head", "head_rot",
 			"left_arm", "left_arm_bend", "right_arm", "right_arm_bend",
-			"left_leg", "left_leg_bend", "right_leg", "right_leg_bend");
+			"left_leg", "left_leg_bend", "right_leg", "right_leg_bend",
+			"hidden.finger");
 	private static final Set<String> LEGACY_BONES = Set.of(
 			"body", "left_arm_xrot", "left_arm_bend", "right_arm_xrot",
 			"right_arm_bend", "left_leg_xrot", "left_leg_bend",
@@ -40,8 +41,17 @@ public final class StarFingerVisualOwnershipSmokeTest {
 
 		JsonObject production = requireObject(animations, "star_finger");
 		JsonObject productionBones = requireObject(production, "bones");
-		check(!productionBones.has("hidden.finger"),
-				"star_finger must not animate the legacy model extension");
+		JsonObject finger = requireObject(productionBones, "hidden.finger");
+		JsonObject fingerScale = requireObject(finger, "scale");
+		check(fingerScale.keySet().equals(Set.of(
+				"0.0", "0.125", "0.625", "0.75", "1.25"))
+				&& "query.extendablePartLength + 1".equals(
+						fingerScale.getAsJsonObject("0.625")
+								.getAsJsonArray("vector").get(1).getAsString())
+				&& "query.extendablePartLength + 1".equals(
+						fingerScale.getAsJsonObject("0.75")
+								.getAsJsonArray("vector").get(1).getAsString()),
+				"star_finger must extend the right-arm model finger");
 		check(PRODUCTION_BONES.equals(productionBones.keySet()),
 				"star_finger pose channels changed unexpectedly");
 		check(production.has("animation_length")
@@ -75,7 +85,7 @@ public final class StarFingerVisualOwnershipSmokeTest {
 				"Star Finger no longer uses the production animation");
 		check(ability.contains("new SPStarFingerEntity(stand, level())")
 				&& ability.contains("addProjectileWithStandStats(starFinger)"),
-				"dedicated Star Finger visual entity spawn is missing");
+				"Star Finger hit entity spawn is missing");
 
 		String renderers = read(root.resolve(
 				"src/main/java/com/github/standobyte/jojo/client/"
@@ -83,7 +93,14 @@ public final class StarFingerVisualOwnershipSmokeTest {
 		check(renderers.contains(
 				"event.registerEntityRenderer(ModEntityTypes.SP_STAR_FINGER.get(), "
 				+ "SPStarFingerRenderer::new)"),
-				"dedicated Star Finger renderer registration is missing");
+				"Star Finger first-person renderer registration is missing");
+
+		String renderer = read(root.resolve(
+				"src/main/java/com/github/standobyte/jojoimpl/stands/starplatinum/client/"
+				+ "SPStarFingerRenderer.java"));
+		check(renderer.contains("getCameraType().isFirstPerson()")
+				&& renderer.contains("ownerStand.getUser() != minecraft.getCameraEntity()"),
+				"standalone Star Finger visual must be local first-person only");
 	}
 
 	private static JsonObject readObject(Path path) {

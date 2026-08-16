@@ -65,7 +65,13 @@ public class SPStarFingerRenderer extends EntityRenderer<SPStarFingerEntity> {
 	@Override
 	public void render(SPStarFingerEntity entity, float yRotation, float partialTick, PoseStack poseStack,
 			MultiBufferSource buffer, int packedLight) {
-		if (!entity.isInvisible() || !entity.isInvisibleTo(Minecraft.getInstance().player)) {
+		Minecraft minecraft = Minecraft.getInstance();
+		StandEntity ownerStand = entity.getOwner() instanceof StandEntity stand ? stand : null;
+		if (!minecraft.options.getCameraType().isFirstPerson()
+				|| ownerStand == null || ownerStand.getUser() != minecraft.getCameraEntity()) {
+			return;
+		}
+		if (!entity.isInvisible() || !entity.isInvisibleTo(minecraft.player)) {
 			renderFinger(entity, partialTick, poseStack, buffer,
 					getOwnerPackedLight(entity, partialTick, packedLight), getAlpha(entity, partialTick));
 			super.render(entity, yRotation, partialTick, poseStack, buffer, packedLight);
