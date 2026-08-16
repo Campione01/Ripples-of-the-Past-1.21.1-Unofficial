@@ -576,8 +576,10 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 						StandPower power = PowerClass.STAND.get(user);
 						int maxTicks = TimeStopLearning.getSavedTimeStopTicks(power);
 						int chargeTicks = Math.max(curPhaseTick, 1);
-						float chargeRatio = curPhaseLength > 0 ? Mth.clamp(chargeTicks / curPhaseLength, 0.0F, 1.0F) : 1.0F;
-						int timeStopTicks = TimeStopLearning.getReleasedTimeStopTicks(maxTicks, chargeRatio);
+						float chargeRatio = TimeStopLearning.getTimeStopChargeRatio(
+								chargeTicks, curPhaseLength);
+						int timeStopTicks = TimeStopLearning.getReleasedTimeStopTicks(
+								maxTicks, chargeTicks, curPhaseLength);
 						float learningPoints = power != null && power.getCurTypeData() != null
 								? power.getCurTypeData().getAbilityLearningProgressPoints(TimeStopLearning.TIME_STOP)
 								: -1.0F;

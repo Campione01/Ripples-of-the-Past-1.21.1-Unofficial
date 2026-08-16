@@ -25,6 +25,29 @@ public final class TimeStopLearningContractSmokeTest {
 				"half charge did not round a 25-tick cap to 13 ticks");
 		check(TimeStopLearning.getReleasedTimeStopTicks(25, 1.0F) == 25,
 				"full charge did not retain a 25-tick cap");
+		checkClose(TimeStopLearning.getTimeStopChargeRatio(1, 20), 0.05F,
+				"one-tick hold lost its exact charge ratio");
+		checkClose(TimeStopLearning.getTimeStopChargeRatio(10, 20), 0.5F,
+				"half hold lost its exact charge ratio");
+		checkClose(TimeStopLearning.getTimeStopChargeRatio(10, 20.5F),
+				10.0F / 20.5F,
+				"fractional phase length was narrowed before charge calculation");
+		checkClose(TimeStopLearning.getTimeStopChargeRatio(20, 20), 1.0F,
+				"full hold lost its exact charge ratio");
+		check(TimeStopLearning.getReleasedTimeStopTicks(5, 1, 20) == 1,
+				"fresh one-tick hold did not resolve proportionally");
+		check(TimeStopLearning.getReleasedTimeStopTicks(5, 5, 20) == 2,
+				"fresh quarter hold did not resolve proportionally");
+		check(TimeStopLearning.getReleasedTimeStopTicks(5, 10, 20) == 3,
+				"fresh half hold did not resolve proportionally");
+		check(TimeStopLearning.getReleasedTimeStopTicks(5, 15, 20) == 4,
+				"fresh three-quarter hold did not resolve proportionally");
+		check(TimeStopLearning.getReleasedTimeStopTicks(5, 20, 20) == 5,
+				"fresh full hold did not retain the trained duration");
+		check(TimeStopLearning.getReleasedTimeStopTicks(25, 10, 20) == 13,
+				"trained half hold did not scale from the trained duration");
+		check(TimeStopLearning.getReleasedTimeStopTicks(25, 20, 20) == 25,
+				"trained full hold did not retain the trained duration");
 
 		checkClose(TimeStopLearning.getLearningPoints(
 				TimeStopLearning.THE_WORLD_LEARNING_PER_TICK, 5), 0.5F,

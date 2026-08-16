@@ -69,6 +69,20 @@ public final class TimeStopLearning {
 				MIN_RELEASE_TIME_STOP_TICKS, clampedMax);
 	}
 
+	public static float getTimeStopChargeRatio(int chargeTicks, float chargeLength) {
+		if (chargeLength <= 0) {
+			return 1.0F;
+		}
+		return Mth.clamp((float) Math.max(chargeTicks, 1) / (float) chargeLength,
+				0.0F, 1.0F);
+	}
+
+	public static int getReleasedTimeStopTicks(
+			int maxTicks, int chargeTicks, float chargeLength) {
+		return getReleasedTimeStopTicks(
+				maxTicks, getTimeStopChargeRatio(chargeTicks, chargeLength));
+	}
+
 	public static int getMaxTrainingPoints(StandPower power) {
 		return getNormalMaxTimeStopTicks(power) - MIN_TIME_STOP_TICKS;
 	}
