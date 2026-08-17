@@ -277,6 +277,7 @@ public class EntityStandType extends StandType {
 			standEntity.copyStandUserRotation(user);
 			standEntity.setCustomName(standPower.getName());
 			standPower.setSummonedStand(standEntity);
+			standEntity.prepareFreshSummonState(user);
 			beforeTheSummon.accept(standEntity);
 			
 			if (addToWorld) {

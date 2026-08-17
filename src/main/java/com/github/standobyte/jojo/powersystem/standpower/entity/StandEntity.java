@@ -1407,6 +1407,14 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		}
 	}
 
+	void prepareFreshSummonState(LivingEntity user) {
+		if (!level().isClientSide() && isSilverChariotStand()) {
+			SilverChariotState state = SilverChariotState.get(user);
+			state.resetEquipmentForSummon();
+			applySilverChariotStateFlagsAndAttributes(true, true);
+		}
+	}
+
 	public void refreshSilverChariotStateAfterMutation(LivingEntity user) {
 		if (!isSilverChariotStand()) {
 			return;

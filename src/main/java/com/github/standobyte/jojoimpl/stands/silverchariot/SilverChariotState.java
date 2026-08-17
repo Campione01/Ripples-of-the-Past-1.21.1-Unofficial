@@ -14,8 +14,9 @@ import net.neoforged.neoforge.common.util.INBTSerializable;
  * Slice 5b SC family follow-up — per-user Silver Chariot state.
  *
  * <p>Stores armor / rapier flags and the current {@link ArmoredStandStats}
- * snapshot, attached to the user (LivingEntity) so the values persist across
- * stand summon / unsummon cycles. Default state: rapier on, armor on.</p>
+ * snapshot, attached to the user so actions and the summoned entity share one
+ * authoritative state. A fresh summon resets the equipment to the legacy
+ * entity defaults: rapier on, armor on.</p>
  */
 public class SilverChariotState implements INBTSerializable<CompoundTag> {
 
@@ -70,6 +71,13 @@ public class SilverChariotState implements INBTSerializable<CompoundTag> {
 
 	public void setArmoredStats(@Nullable ArmoredStandStats armoredStats) {
 		this.armoredStats = armoredStats;
+	}
+
+	public void resetEquipmentForSummon() {
+		hasRapier = true;
+		hasArmor = true;
+		ticksAfterArmorRemoval = 0;
+		armoredStats = null;
 	}
 
 	@Override
