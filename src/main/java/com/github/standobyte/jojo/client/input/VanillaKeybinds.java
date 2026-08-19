@@ -138,19 +138,7 @@ public class VanillaKeybinds {
 		}
 		
 		if (playerPowerHUD.consumeClick()) {
-			if (inputHandler.curPowerClassToggle != PowerClass.PLAYER_POWER) {
-				inputHandler.curPowerClassToggle = PowerClass.PLAYER_POWER;
-				var controlScheme = inputHandler.getActiveControlScheme();
-				if (controlScheme != null) {
-					controlScheme.resetToFirstGroup();
-				}
-			}
-			else {
-				var controlScheme = inputHandler.getActiveControlScheme();
-				if (controlScheme == null || !controlScheme.selectNextGroup()) {
-					inputHandler.curPowerClassToggle = null;
-				}
-			}
+			cyclePlayerPowerHud();
 		}
 //		
 		if (summonStand.consumeClick()) {
@@ -188,6 +176,23 @@ public class VanillaKeybinds {
 		
 		while (jojoLmbRmb.consumeClick()) {
 			inputHandler.doTheThing();
+		}
+	}
+
+	public void cyclePlayerPowerHud() {
+		InputHandler inputHandler = InputHandler.getInstance();
+		if (inputHandler.curPowerClassToggle != PowerClass.PLAYER_POWER) {
+			inputHandler.curPowerClassToggle = PowerClass.PLAYER_POWER;
+			var controlScheme = inputHandler.getActiveControlScheme();
+			if (controlScheme != null) {
+				controlScheme.resetToFirstGroup();
+			}
+		}
+		else {
+			var controlScheme = inputHandler.getActiveControlScheme();
+			if (controlScheme == null || !controlScheme.selectNextGroup()) {
+				inputHandler.curPowerClassToggle = null;
+			}
 		}
 	}
 

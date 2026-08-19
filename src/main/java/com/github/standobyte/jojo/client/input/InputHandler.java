@@ -195,7 +195,16 @@ public class InputHandler {
 			keyType = InputConstants.Type.KEYSYM;
 			keyCode = event.getKey();
 		}
-		handleInputEvent(ClientKey.make(keyType, keyCode), event.getAction(), event.getModifiers(), event);
+		ClientKey key = ClientKey.make(keyType, keyCode);
+		Key vanillaKey = key.getVanillaKey();
+		if (event.getAction() == InputConstants.PRESS
+				&& vanillaKey != null
+				&& vanillaKeybinds.playerPowerHUD.isActiveAndMatches(vanillaKey)) {
+			vanillaKeybinds.cyclePlayerPowerHud();
+			event.setCanceled(true);
+			return;
+		}
+		handleInputEvent(key, event.getAction(), event.getModifiers(), event);
 	}
 	
 	@SubscribeEvent(priority = EventPriority.LOW)
