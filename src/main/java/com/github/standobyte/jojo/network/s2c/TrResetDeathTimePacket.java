@@ -47,6 +47,7 @@ public record TrResetDeathTimePacket(int entityId) implements CustomPacketPayloa
 					living.setHealth(0.0001F);
 				}
 				living.deathTime = 0;
+				ClientProxy.closeDeathScreenAfterRevive(living);
             }
 		}
 		

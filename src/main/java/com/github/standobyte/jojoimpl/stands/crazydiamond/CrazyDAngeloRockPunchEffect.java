@@ -63,6 +63,11 @@ public class CrazyDAngeloRockPunchEffect extends StandEffectInstance {
 
 	@Override
 	public boolean makesAttackNonLethal(LivingEntity target) {
+		if (!target.level().isClientSide()) {
+			LivingEntity actualTarget = StandUtil.getStandUser(target);
+			setTargetEntity(actualTarget);
+			lastTargetPos = actualTarget.blockPosition();
+		}
 		return true;
 	}
 
@@ -74,27 +79,29 @@ public class CrazyDAngeloRockPunchEffect extends StandEffectInstance {
 
 		LivingEntity target = getTargetLiving();
 		if (!triedSummonRockEntity) {
-			if (standAction == null) {
-				remove();
-				return;
-			}
-			if (standAction.getActionTicksLeft() <= 1 && standAction.punchedTarget != null) {
+			if (target == null && standAction != null && standAction.punchedTarget != null) {
 				Entity punched = standAction.punchedTarget.getEntity();
 				if (punched instanceof LivingEntity punchedLiving) {
 					target = StandUtil.getStandUser(punchedLiving);
 					setTargetEntity(target);
 					lastTargetPos = target.blockPosition();
-					KnockbackCollisionImpact kbCollision = KnockbackCollisionImpact.getHandler(target);
-					ConditionCheck result = tryStartAngeloRock(target, kbCollision);
-					if (!result.isPositive()) {
-						ConditionCheck.sendActionFailedMessage(null, result, getStandUser());
-					}
 				}
-				triedSummonRockEntity = true;
 			}
-			else if (standAction.isOver()) {
+			if (target == null && (standAction == null || standAction.isOver())) {
 				remove();
 				return;
+			}
+
+			if (target != null) {
+				KnockbackCollisionImpact kbCollision = KnockbackCollisionImpact.getHandler(target);
+				if (kbCollision != null && kbCollision.isActive()) {
+					return;
+				}
+				ConditionCheck result = tryStartAngeloRock(target, kbCollision);
+				if (!result.isPositive()) {
+					ConditionCheck.sendActionFailedMessage(null, result, getStandUser());
+				}
+				triedSummonRockEntity = true;
 			}
 		}
 
@@ -140,6 +147,14 @@ public class CrazyDAngeloRockPunchEffect extends StandEffectInstance {
 	private AngeloRockEntity getAngeloRock() {
 		Entity entity = angeloRockEntity.getEntity(level);
 		return entity instanceof AngeloRockEntity rock ? rock : null;
+	}
+
+	public boolean preventTargetDeath() {
+		if (!triedSummonRockEntity) {
+			return true;
+		}
+		AngeloRockEntity angeloRock = getAngeloRock();
+		return angeloRock != null && angeloRock.isAlive();
 	}
 
 	private ConditionCheck tryStartAngeloRock(LivingEntity target, KnockbackCollisionImpact kbCollision) {

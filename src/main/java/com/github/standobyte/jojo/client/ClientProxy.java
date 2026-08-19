@@ -9,6 +9,7 @@ import com.github.standobyte.jojo.subsystems.entity_puppetcontrol.client.stand.C
 import com.github.standobyte.jojo.subsystems.itemtracking.ItemTracking;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.DeathScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.network.chat.Component;
@@ -42,6 +43,14 @@ public final class ClientProxy {
 	public static Entity getEntityById(int entityId) {
 		Minecraft mc = Minecraft.getInstance();
 		return mc.level != null ? mc.level.getEntity(entityId) : null;
+	}
+
+	public static void closeDeathScreenAfterRevive(LivingEntity revived) {
+		Minecraft mc = Minecraft.getInstance();
+		if (revived == mc.player && (mc.screen instanceof DeathScreen
+				|| mc.screen instanceof DeathScreen.TitleConfirmScreen)) {
+			mc.setScreen(null);
+		}
 	}
 
 	public static void syncLocalEntityController(LivingEntity controller, @Nullable Entity target, @Nullable String controllerType) {

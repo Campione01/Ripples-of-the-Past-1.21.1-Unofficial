@@ -138,7 +138,19 @@ public class VanillaKeybinds {
 		}
 		
 		if (playerPowerHUD.consumeClick()) {
-			inputHandler.curPowerClassToggle = inputHandler.curPowerClassToggle != PowerClass.PLAYER_POWER ? PowerClass.PLAYER_POWER : null;
+			if (inputHandler.curPowerClassToggle != PowerClass.PLAYER_POWER) {
+				inputHandler.curPowerClassToggle = PowerClass.PLAYER_POWER;
+				var controlScheme = inputHandler.getActiveControlScheme();
+				if (controlScheme != null) {
+					controlScheme.resetToFirstGroup();
+				}
+			}
+			else {
+				var controlScheme = inputHandler.getActiveControlScheme();
+				if (controlScheme == null || !controlScheme.selectNextGroup()) {
+					inputHandler.curPowerClassToggle = null;
+				}
+			}
 		}
 //		
 		if (summonStand.consumeClick()) {

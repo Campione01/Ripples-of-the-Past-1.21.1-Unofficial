@@ -57,6 +57,7 @@ import com.github.standobyte.jojoimpl.powers.vampirism.abilities.VampirismFreeze
 import com.github.standobyte.jojoimpl.powers.vampirism.entity.HungryZombieEntity;
 import com.github.standobyte.jojoimpl.stands.boyiiman.BoyIIManStandPartTakenEffect;
 import com.github.standobyte.jojoimpl.stands.crazydiamond.AngeloRockEntity;
+import com.github.standobyte.jojoimpl.stands.crazydiamond.CrazyDAngeloRockPunchEffect;
 import com.github.standobyte.jojoimpl.stands.goldexperience.GECreatedLifeformEffect;
 import com.github.standobyte.jojoimpl.stands._entitybase.StandEntityBarrageAbility;
 import com.github.standobyte.jojoimpl.stands.theworld.TimeStopAbility;
@@ -164,7 +165,10 @@ public class EventHandler {
 		if (handleCheatDeath(event, dead)) {
 			return;
 		}
-		if (AngeloRockEntity.preventTargetDeath(dead)) {
+		boolean angeloRockPending = UserStandEffects.getEffectsTargetedBy(dead,
+				ModStandAbilities.EFFECT_CD_PUNCH_ANGELO_ROCK.get())
+				.anyMatch(CrazyDAngeloRockPunchEffect::preventTargetDeath);
+		if (angeloRockPending || AngeloRockEntity.preventTargetDeath(dead)) {
 			event.setCanceled(true);
 			dead.setHealth(0.0001F);
 			JojoModUtil.onLivingResurrect(dead);

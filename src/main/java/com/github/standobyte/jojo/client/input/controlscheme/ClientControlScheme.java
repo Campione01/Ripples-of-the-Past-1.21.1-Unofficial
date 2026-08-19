@@ -59,6 +59,7 @@ public class ClientControlScheme {
 		protected Map<ClientKey, InputsByKeyModifier> bindsMap = new TreeMap<>(Comparator.comparingInt(ClientKey::keyOrder));
 		
 		public MoveGroup(String internalName, Component name, ClientInputBind toggleHudKey) {
+			this.internalName = internalName;
 			this.name = name;
 			this.toggleHudKey = toggleHudKey;
 		}
@@ -257,6 +258,23 @@ public class ClientControlScheme {
 			this.curGroup = moveGroup;
 			InputHandler.getInstance().onUpdatedControls(moveGroup);
 		}
+	}
+
+	public void resetToFirstGroup() {
+		setCurGroup(moveGroups.values().stream().findFirst().orElse(EMPTY));
+	}
+
+	public boolean selectNextGroup() {
+		MoveGroup current = getCurGroup();
+		boolean selectNext = false;
+		for (MoveGroup group : moveGroups.values()) {
+			if (selectNext) {
+				setCurGroup(group);
+				return true;
+			}
+			selectNext = group == current;
+		}
+		return false;
 	}
 	
 	public List<AbilityControlsEntry> getBindsWithModifier(InputMethod keyInputMethod, ClientKey key, KeyModifier currentModifier) {
