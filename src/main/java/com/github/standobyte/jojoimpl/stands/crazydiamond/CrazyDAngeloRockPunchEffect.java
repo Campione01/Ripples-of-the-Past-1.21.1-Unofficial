@@ -106,7 +106,7 @@ public class CrazyDAngeloRockPunchEffect extends StandEffectInstance {
 		}
 
 		boolean hasBlocksToRestore = hasBlocksToRestore();
-		if (triedSummonRockEntity || target == null) {
+		if (triedSummonRockEntity) {
 			AngeloRockEntity angeloRock = getAngeloRock();
 			if ((angeloRock == null || angeloRock.isFullyFormed()) && !hasBlocksToRestore) {
 				remove();

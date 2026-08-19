@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -125,6 +126,13 @@ public class JojoModUtil {
 	public static int destroyBlocksInBulk(Collection<BlockPos> blocks, ServerLevel world, @Nullable LivingEntity entity, boolean dropItems) {
 		if (world.isDebug()) {
 			return -1;
+		}
+		if (blocks.size() > 1) {
+			LinkedHashSet<BlockPos> uniqueBlocks = new LinkedHashSet<>(blocks);
+			if (uniqueBlocks.size() != blocks.size()) {
+				blocks.clear();
+				blocks.addAll(uniqueBlocks);
+			}
 		}
 
 		Iterator<BlockPos> iter = blocks.iterator();

@@ -37,10 +37,10 @@ public class AngeloRockModel extends EntityModel<AngeloRockEntity> {
 	public AngeloRockModel() {
 		super(RenderType::entityCutoutNoCull);
 		ModelPart rockRoot = createRockLayer().bakeRoot();
-		this.upperHalf = rockRoot.getChild("upperHalf");
-		this.lowerHalf = rockRoot.getChild("lowerHalf");
+		this.upperHalf = mutableCopy(rockRoot.getChild("upperHalf"));
+		this.lowerHalf = mutableCopy(rockRoot.getChild("lowerHalf"));
 		ModelPart shadowRoot = createShadowLayer().bakeRoot();
-		this.shadow = shadowRoot.getChild("shadow");
+		this.shadow = mutableCopy(shadowRoot.getChild("shadow"));
 
 		allCubesByParts = new HashMap<>();
 		allCubes = new ArrayList<>(113);
@@ -50,6 +50,17 @@ public class AngeloRockModel extends EntityModel<AngeloRockEntity> {
 		Random random = new Random();
 		List<ModelPart.Cube> cubesShuffled = new ArrayList<>(allCubes);
 		Collections.shuffle(cubesShuffled, random);
+	}
+
+	private static ModelPart mutableCopy(ModelPart source) {
+		Map<String, ModelPart> children = new HashMap<>();
+		source.children.forEach((name, child) -> children.put(name, mutableCopy(child)));
+		ModelPart copy = new ModelPart(new ArrayList<>(source.cubes), children);
+		copy.copyFrom(source);
+		copy.setInitialPose(source.getInitialPose());
+		copy.visible = source.visible;
+		copy.skipDraw = source.skipDraw;
+		return copy;
 	}
 
 	private static LayerDefinition createRockLayer() {
