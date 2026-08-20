@@ -32,9 +32,6 @@ public final class HamonMovementHelper {
 		if (entity.isShiftKeyDown() && hamon.getDoubleShiftPress()) {
 			return false;
 		}
-		if (isAlreadyInWalkedLiquid(entity, fluidState)) {
-			return false;
-		}
 		if (fluidState.is(FluidTags.WATER) && entity.isOnFire()) {
 			return false;
 		}
@@ -42,6 +39,7 @@ public final class HamonMovementHelper {
 		if (!hamon.hasEnergy(tickCost, entity)) {
 			return false;
 		}
+		entity.setOnGround(true);
 
 		if (!entity.level().isClientSide()) {
 			if (fluidState.is(FluidTags.LAVA) && !entity.fireImmune() && !hasFrostWalker(entity)) {
@@ -50,11 +48,6 @@ public final class HamonMovementHelper {
 			hamon.consumeEnergy(tickCost, entity);
 		}
 		return true;
-	}
-
-	private static boolean isAlreadyInWalkedLiquid(LivingEntity entity, FluidState fluidState) {
-		return fluidState.is(FluidTags.WATER) && entity.isInWaterOrBubble()
-				|| fluidState.is(FluidTags.LAVA) && entity.isInLava();
 	}
 
 	private static boolean hasFrostWalker(LivingEntity entity) {
