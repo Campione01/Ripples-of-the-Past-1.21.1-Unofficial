@@ -71,6 +71,30 @@ public final class HamonOverdriveChargeReleaseSmokeTest {
 		check(count(actionTick, "performPunch(user);") == 1
 				&& actionTick.contains("tick == 4 && !level().isClientSide()"),
 				"the server punch must remain a one-shot PERFORM event");
+		String sunlightPunch = between(
+				sunlight,
+				"private void performPunch(LivingEntity user)",
+				"protected void doHamonAttack(");
+		int sunlightAimRefresh = sunlightPunch.indexOf(
+				"captureActionTargetFromAim(user)");
+		int sunlightTargetRead = sunlightPunch.indexOf(
+				"getActionTargetSnapshot(level())");
+		check(sunlightAimRefresh >= 0
+				&& sunlightAimRefresh < sunlightTargetRead,
+				"Sunlight Yellow Overdrive must refresh the live aim before its authoritative hit");
+
+		String beat = read("src/main/java/com/github/standobyte/jojoimpl/powers/hamon/abilities/"
+				+ "HamonOverdriveBeatAbility.java");
+		String beatPunch = between(
+				beat,
+				"private void punch(LivingEntity user)",
+				"public void onActionCleared(");
+		int beatAimRefresh = beatPunch.indexOf(
+				"captureActionTargetFromAim(user)");
+		int beatTargetRead = beatPunch.indexOf(
+				"getActionTargetSnapshot(level)");
+		check(beatAimRefresh >= 0 && beatAimRefresh < beatTargetRead,
+				"Overdrive Beat must refresh the live aim before its authoritative hit");
 
 		String consume = between(
 				sunlight,

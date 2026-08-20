@@ -290,6 +290,7 @@ public class HamonSunlightYellowOverdriveAbility extends HamonActionRuntimeAbili
 			if (ability == null || userHamon == null || !ability.isRequiredHandFree(user)) {
 				return;
 			}
+			captureActionTargetFromAim(user);
 			ActionTarget target = getActionTargetSnapshot(level());
 			if (target.getType() == TargetType.ENTITY && target.getMainEntity() instanceof LivingEntity livingTarget) {
 				doHamonAttack(user, livingTarget, ability);

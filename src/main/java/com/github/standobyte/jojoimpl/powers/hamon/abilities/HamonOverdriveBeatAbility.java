@@ -105,6 +105,7 @@ public class HamonOverdriveBeatAbility extends HamonActionRuntimeAbility {
 				return;
 			}
 			Level level = level();
+			captureActionTargetFromAim(user);
 			ActionTarget target = getActionTargetSnapshot(level);
 			if (target.getType() != TargetType.ENTITY || !(target.getMainEntity() instanceof LivingEntity livingTarget)) {
 				return;
