@@ -49,26 +49,39 @@ public class JojoMenuTabs {
 	private static boolean controlsFallbackLogged;
 	
 	public static Tab getTabToOpenOnMenuKey() {
-		TabCategory category = curCategory;
 		List<TabCategory> active = TabCategory.getActiveCategories();
-		if (category == null || !category.isActive()) {
-			if (!active.isEmpty()) {
-				category = active.get(0);
-			}
-		}
+		TabCategory category = getPowerCategoryToOpenOnMenuKey(active);
 		Tab tab = category != null ? getTabToOpen(category) : null;
 		if (tab != null) {
-			logControlsFallback(category, active);
+			controlsFallbackLogged = false;
 			return tab;
 		}
 
-		JojoMod.getLogger().warn(
-				"JoJo menu had no active tab for player {}; opening the "
-						+ "controls fallback.",
-				Minecraft.getInstance().player != null
-						? Minecraft.getInstance().player.getScoreboardName()
-						: "<no player>");
+		if (category != null) {
+			JojoMod.getLogger().warn(
+					"JoJo menu had no active tab for player {}; opening the "
+							+ "controls fallback.",
+					Minecraft.getInstance().player != null
+							? Minecraft.getInstance().player.getScoreboardName()
+							: "<no player>");
+		}
+		logControlsFallback(active);
 		return EDIT_CONTROL_SCHEMES;
+	}
+
+	private static TabCategory getPowerCategoryToOpenOnMenuKey(
+			List<TabCategory> active) {
+		if (curCategory != null && curCategory.powerClass != null
+				&& active.contains(curCategory)) {
+			return curCategory;
+		}
+		if (active.contains(CATEGORY_STAND)) {
+			return CATEGORY_STAND;
+		}
+		return active.stream()
+				.filter(category -> category.powerClass != null)
+				.findFirst()
+				.orElse(null);
 	}
 	
 	public static Tab getTabToOpen(TabCategory category) {
@@ -103,12 +116,11 @@ public class JojoMenuTabs {
 		return direct;
 	}
 
-	private static void logControlsFallback(
-			TabCategory category, List<TabCategory> active) {
+	private static void logControlsFallback(List<TabCategory> active) {
 		boolean onlyGlobalCategories = active.stream()
 				.noneMatch(activeCategory ->
 						activeCategory.powerClass != null);
-		if (category == CATEGORY_CONTROLS && onlyGlobalCategories) {
+		if (onlyGlobalCategories) {
 			if (!controlsFallbackLogged) {
 				controlsFallbackLogged = true;
 				JojoMod.getLogger().info(

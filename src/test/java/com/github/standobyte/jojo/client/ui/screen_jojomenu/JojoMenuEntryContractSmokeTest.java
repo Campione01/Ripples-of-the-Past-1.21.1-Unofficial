@@ -27,6 +27,31 @@ public final class JojoMenuEntryContractSmokeTest {
 		check(menuTabs.contains(
 				"power-backed category is currently active"),
 				"controls fallback must be logged");
+		String menuKeyContract = between(
+				menuTabs,
+				"public static Tab getTabToOpenOnMenuKey()",
+				"public static Tab getTabToOpen(TabCategory category)");
+		check(menuKeyContract.contains(
+				"getPowerCategoryToOpenOnMenuKey(active)"),
+				"menu key must select a power-backed category");
+		check(menuKeyContract.contains("return EDIT_CONTROL_SCHEMES;")
+				&& !menuKeyContract.contains("active.get(0)"),
+				"global categories must not replace the controls fallback");
+
+		String powerPriorityContract = between(
+				menuTabs,
+				"private static TabCategory getPowerCategoryToOpenOnMenuKey(",
+				"public static Tab getTabToOpen(TabCategory category)");
+		int selectedPower = powerPriorityContract.indexOf(
+				"curCategory.powerClass != null");
+		int standFallback = powerPriorityContract.indexOf(
+				"active.contains(CATEGORY_STAND)");
+		check(selectedPower >= 0 && standFallback > selectedPower,
+				"an active selected power tab must precede the Stand fallback");
+		check(powerPriorityContract.contains("return CATEGORY_STAND;")
+				&& powerPriorityContract.contains(
+						"category.powerClass != null"),
+				"Stand must precede other power-backed categories");
 
 		String controlsContract = between(
 				menuTabs,
