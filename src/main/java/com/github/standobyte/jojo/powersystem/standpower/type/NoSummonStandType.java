@@ -4,6 +4,7 @@ import com.github.standobyte.jojo.powersystem.MovesetBuilder;
 import com.github.standobyte.jojo.powersystem.standpower.StandPower;
 import com.github.standobyte.jojo.powersystem.standpower.StandStats;
 import com.github.standobyte.jojo.powersystem.standpower.datapack.StandTypeClass;
+import com.github.standobyte.jojo.powersystem.standpower.entity.StandControlType;
 
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.LivingEntity;
@@ -15,6 +16,10 @@ public class NoSummonStandType extends StandType {
 
 	public NoSummonStandType(StandStats stats, MovesetBuilder moveset, ResourceLocation id) {
 		super(stats, moveset, id);
+		nonEntityStandControlPolicy(
+				StandControlType.PHENOMENON,
+				false,
+				false);
 	}
 
 	@Override

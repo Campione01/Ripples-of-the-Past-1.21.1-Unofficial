@@ -34,6 +34,8 @@ import com.github.standobyte.jojo.powersystem.standpower.StandUnlockableSkill;
 import com.github.standobyte.jojo.powersystem.standpower.StandAwakening.AwakeningStage;
 import com.github.standobyte.jojo.powersystem.standpower.datapack.DataDrivenStandsLoader;
 import com.github.standobyte.jojo.powersystem.standpower.datapack.StandTypeClass;
+import com.github.standobyte.jojo.powersystem.standpower.entity.EntityStandType;
+import com.github.standobyte.jojo.powersystem.standpower.entity.StandControlType;
 import com.github.standobyte.jojo.powersystem.standpower.entity.StandEntity;
 import com.github.standobyte.jojo.powersystem.standpower.entity.StandStatFormulas;
 import com.github.standobyte.jojo.powersystem.standpower.type.SummonedStand.BlankSummonedStand;
@@ -71,6 +73,11 @@ public class StandType extends PowerType {
 	protected Supplier<? extends Holder<SoundEvent>> unsummonSoundSupplier = () -> ModSoundEvents.STAND_UNSUMMON;
 	protected Supplier<? extends Holder<SoundEvent>> summonShoutSupplier = () -> null;
 	protected Supplier<OstSoundList> ostSupplier = () -> null;
+	@Nullable
+	private StandControlType nonEntityStandControlType;
+	private boolean nonEntityManualControl;
+	private boolean nonEntityDistanceStrengthDecay;
+	private boolean nonEntityStandControlPolicyConfigured;
 	
 	public StandCreationSource createdIn = StandCreationSource.REGISTRY;
 	public List<Component> discExtraTooltip = new ArrayList<>();
@@ -94,6 +101,61 @@ public class StandType extends PowerType {
 		T cast = (T) this;
 		init.accept(cast);
 		return cast;
+	}
+
+	/**
+	 * Declares the control topology of a Stand that does not use a live
+	 * {@link StandEntity}. Entity-backed Stands must use
+	 * {@link EntityStandType#standControlType(StandControlType)} instead.
+	 */
+	public <T extends StandType> T nonEntityStandControlPolicy(
+			StandControlType controlType,
+			boolean manualControl,
+			boolean distanceStrengthDecay) {
+		if (this instanceof EntityStandType) {
+			throw new IllegalStateException(
+					"Entity Stands must use the entity control policy");
+		}
+		if (controlType != StandControlType.AUTOMATIC
+				&& controlType != StandControlType.COLONY
+				&& controlType != StandControlType.PHENOMENON) {
+			throw new IllegalStateException(
+					"Non-entity Stands require an automatic, colony, or phenomenon control type");
+		}
+		if (manualControl || distanceStrengthDecay) {
+			throw new IllegalStateException(
+					"Non-entity Stands cannot use generic manual control or distance decay");
+		}
+		this.nonEntityStandControlType = controlType;
+		this.nonEntityManualControl = false;
+		this.nonEntityDistanceStrengthDecay = false;
+		this.nonEntityStandControlPolicyConfigured = true;
+		@SuppressWarnings("unchecked")
+		T cast = (T) this;
+		return cast;
+	}
+
+	private void validateNonEntityStandControlPolicy() {
+		if (!nonEntityStandControlPolicyConfigured
+				|| nonEntityStandControlType == null) {
+			throw new IllegalStateException(
+					"standControlType is required for " + getId());
+		}
+	}
+
+	public StandControlType getStandControlType() {
+		validateNonEntityStandControlPolicy();
+		return nonEntityStandControlType;
+	}
+
+	public boolean canBeManuallyControlled() {
+		validateNonEntityStandControlPolicy();
+		return nonEntityManualControl;
+	}
+
+	public boolean usesDistanceStrengthDecay() {
+		validateNonEntityStandControlPolicy();
+		return nonEntityDistanceStrengthDecay;
 	}
 
 	public <T extends StandType> T summonShout(Supplier<? extends Holder<SoundEvent>> summonShoutSupplier) {
@@ -187,9 +249,17 @@ public class StandType extends PowerType {
 	
 	@Override
 	public JsonObject makeConfigTemplate() {
+		StandControlType controlType = getStandControlType();
 		JsonObject json = super.makeConfigTemplate();
 		StandTypeClass.addClassToJson(json, this.getClass());
 		json.add("stats", stats.makeConfigTemplate());
+		json.addProperty("standControlType", controlType.name());
+		json.addProperty(
+				"manualControlEnabled",
+				canBeManuallyControlled());
+		json.addProperty(
+				"distanceStrengthDecayEnabled",
+				usesDistanceStrengthDecay());
 		return json;
 	}
 	

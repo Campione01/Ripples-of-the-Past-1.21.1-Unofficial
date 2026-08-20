@@ -355,11 +355,13 @@ public class EntityStandType extends StandType {
 		standEntity.setNoPhysics(false);
 	}
 
+	@Override
 	public boolean canBeManuallyControlled() {
 		validateStandControlPolicy();
 		return manualControlEnabled;
 	}
 
+	@Override
 	public StandControlType getStandControlType() {
 		validateStandControlPolicy();
 		return standControlType;
@@ -369,6 +371,7 @@ public class EntityStandType extends StandType {
 		return standLeapEnabled;
 	}
 
+	@Override
 	public boolean usesDistanceStrengthDecay() {
 		validateStandControlPolicy();
 		return distanceStrengthDecayEnabled.value;
