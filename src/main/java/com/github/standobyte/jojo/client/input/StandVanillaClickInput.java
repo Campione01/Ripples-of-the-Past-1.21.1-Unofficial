@@ -60,6 +60,15 @@ public class StandVanillaClickInput {
 		}
 		ClientKey key = ClientKey.make(
 				InputConstants.Type.MOUSE, keyCode);
+		HeldKeyTimer existingHeldKey = inputHandler.getHeldKeyTimer(key);
+		if (existingHeldKey != null) {
+			if (existingHeldKey.cancelVanilla) {
+				event.setCanceled(true);
+				event.setSwingHand(false);
+				return true;
+			}
+			return false;
+		}
 		long inputGeneration = AbilityInput.nextInputGeneration(
 				mc.player, key.keyId());
 		event.setCanceled(true);

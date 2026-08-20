@@ -325,12 +325,20 @@ public final class StandItemUseProtocolSmokeTest {
 		int heldTimer = clientClick.indexOf("new HeldKeyTimer(");
 		int heldTimerCancelsRepeats = clientClick.indexOf(
 				"key, true, KeyModifier.NONE)", heldTimer);
+		int existingHeldKey = clientClick.indexOf(
+				"HeldKeyTimer existingHeldKey = inputHandler.getHeldKeyTimer(key);",
+				standItemInput);
+		int suppressActiveRepress = clientClick.indexOf(
+				"if (existingHeldKey.cancelVanilla)", existingHeldKey);
 		int clientGeneration = clientClick.indexOf(
 				"AbilityInput.nextInputGeneration(");
 		int clientPacket = clientClick.indexOf(
 				"new ClStandClickPacket(", clientGeneration);
 		check(heldTimer >= 0
 				&& heldTimerCancelsRepeats > heldTimer
+				&& existingHeldKey > standItemInput
+				&& suppressActiveRepress > existingHeldKey
+				&& clientGeneration > suppressActiveRepress
 				&& clientGeneration >= 0
 				&& clientPacket > clientGeneration,
 				"held Stand RMB did not suppress vanilla repeat presses");
