@@ -34,34 +34,45 @@ public class StandVanillaClickInput {
 				&& inputHandler.shouldPreserveSemanticVanillaUsePress()) {
 			return;
 		}
+		if (handleStandItemUseInput(event, keyCode, inputHandler)) {
+			return;
+		}
 		
 		if (handleVanillaMappedAbilityInput(event, keyCode)) {
 			return;
 		}
-		
-		StandEntity stand = ClientGlobals.playerStandEntity;
-		if (stand != null && keyCode == InputConstants.MOUSE_BUTTON_RIGHT) {
-			if (standCanRightClickItems && (stand.isManuallyControlled() || !InputHandler.inputsDisabled && ServerSideLivingClick.isEntityHoldingAnItem(stand))) {
-				Minecraft mc = Minecraft.getInstance();
-				if (mc.player == null) {
-					return;
-				}
-				ClientKey key = ClientKey.make(
-						InputConstants.Type.MOUSE, keyCode);
-				long inputGeneration = AbilityInput.nextInputGeneration(
-						mc.player, key.keyId());
-				event.setCanceled(true);
-				event.setSwingHand(false);
-				InputHandler.getInstance().putHeldKeyTimer(
-						key, new HeldKeyTimer(
-								key, true, KeyModifier.NONE));
+	}
 
-				HitResult target = mc.hitResult;
-				PacketDistributor.sendToServer(new ClStandClickPacket(
-						target, inputGeneration,
-						InteractionHand.MAIN_HAND, InteractionHand.OFF_HAND));
-			}
+	private static boolean handleStandItemUseInput(InteractionKeyMappingTriggered event, int keyCode,
+			InputHandler inputHandler) {
+		StandEntity stand = ClientGlobals.playerStandEntity;
+		if (inputHandler == null || stand == null
+				|| keyCode != InputConstants.MOUSE_BUTTON_RIGHT
+				|| !standCanRightClickItems
+				|| (!stand.isManuallyControlled()
+						&& (InputHandler.inputsDisabled
+								|| !ServerSideLivingClick.isEntityHoldingAnItem(stand)))) {
+			return false;
 		}
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.player == null) {
+			return false;
+		}
+		ClientKey key = ClientKey.make(
+				InputConstants.Type.MOUSE, keyCode);
+		long inputGeneration = AbilityInput.nextInputGeneration(
+				mc.player, key.keyId());
+		event.setCanceled(true);
+		event.setSwingHand(false);
+		inputHandler.putHeldKeyTimer(
+				key, new HeldKeyTimer(
+						key, true, KeyModifier.NONE));
+
+		HitResult target = mc.hitResult;
+		PacketDistributor.sendToServer(new ClStandClickPacket(
+				target, inputGeneration,
+				InteractionHand.MAIN_HAND, InteractionHand.OFF_HAND));
+		return true;
 	}
 	
 	private static boolean handleVanillaMappedAbilityInput(InteractionKeyMappingTriggered event, int keyCode) {

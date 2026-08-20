@@ -310,6 +310,18 @@ public final class StandItemUseProtocolSmokeTest {
 		String clientClick = read(root.resolve(
 				"src/main/java/com/github/standobyte/jojo/"
 				+ "client/input/StandVanillaClickInput.java"));
+		int semanticVanillaGuard = clientClick.indexOf(
+				"shouldPreserveSemanticVanillaUsePress()");
+		int standItemInput = clientClick.indexOf(
+				"handleStandItemUseInput(event, keyCode, inputHandler)",
+				semanticVanillaGuard);
+		int mappedAbilityInput = clientClick.indexOf(
+				"handleVanillaMappedAbilityInput(event, keyCode)",
+				standItemInput);
+		check(semanticVanillaGuard >= 0
+				&& standItemInput > semanticVanillaGuard
+				&& mappedAbilityInput > standItemInput,
+				"semantic vanilla use and Stand-held item use must win before mapped RMB abilities");
 		int heldTimer = clientClick.indexOf("new HeldKeyTimer(");
 		int heldTimerCancelsRepeats = clientClick.indexOf(
 				"key, true, KeyModifier.NONE)", heldTimer);
