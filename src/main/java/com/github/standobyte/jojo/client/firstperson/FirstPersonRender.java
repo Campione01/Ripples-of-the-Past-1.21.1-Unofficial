@@ -239,9 +239,7 @@ public class FirstPersonRender {
 
 				bufferSource.endBatch();
 			}
-			default -> {
-				return false;
-			}
+			default -> {}
 		}
 
 		return true;

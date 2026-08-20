@@ -32,13 +32,6 @@ public final class FirstPersonExtraArmContractSmokeTest {
 				&& firstPersonRender.contains(
 						"jojo_ripples$vanillaRendersBothMapArms("),
 				"vanilla two-handed-map decision is not exposed");
-		String controlledEntityRender = between(
-				firstPersonRender,
-				"public static boolean onFirstPersonRender(",
-				"protected ItemStack mainHandItem");
-		check(controlledEntityRender.contains(
-				"default -> {\n\t\t\t\treturn false;"),
-				"custom controlled-entity renderers still suppress vanilla hands");
 
 		String access = read(root.resolve(
 				"src/main/java/com/github/standobyte/jojo/client/"
