@@ -26,7 +26,7 @@ public class HamonOverdriveBeatAbility extends HamonActionRuntimeAbility {
 	public HamonOverdriveBeatAbility(AbilityType<?> abilityType, AbilityId abilityId) {
 		super(abilityType, abilityId, HamonOverdriveBeat::new);
 		setDefaultPhaseLength(ActionPhase.WINDUP, 0);
-		setDefaultPhaseLength(ActionPhase.PERFORM, 8);
+		setDefaultPhaseLength(ActionPhase.PERFORM, 9);
 		setDefaultPhaseLength(ActionPhase.RECOVERY, 0);
 		hamonHeldWalkSpeed(0.5F);
 	}

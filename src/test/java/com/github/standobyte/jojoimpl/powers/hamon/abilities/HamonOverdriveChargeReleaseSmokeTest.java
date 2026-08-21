@@ -95,6 +95,9 @@ public final class HamonOverdriveChargeReleaseSmokeTest {
 				"getActionTargetSnapshot(level)");
 		check(beatAimRefresh >= 0 && beatAimRefresh < beatTargetRead,
 				"Overdrive Beat must refresh the live aim before its authoritative hit");
+		check(beat.contains("setDefaultPhaseLength(ActionPhase.PERFORM, 9)")
+				&& beat.contains("else if (tick >= 8)"),
+				"Overdrive Beat must execute its donor stop tick 8 before phase advancement");
 
 		String consume = between(
 				sunlight,
