@@ -166,7 +166,7 @@ public class PowerHud {
 		}
 		
 		
-		public TriState forContainerMenu;
+		public TriState forContainerMenu = TriState.DEFAULT;
 		private int mouseX;
 		private int mouseY;
 		

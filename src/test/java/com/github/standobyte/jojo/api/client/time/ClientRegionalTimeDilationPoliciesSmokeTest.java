@@ -290,7 +290,9 @@ public final class ClientRegionalTimeDilationPoliciesSmokeTest {
 		check(count(sounds, "applyRegionalTimeDilation(event);") == 1
 				&& sounds.contains(
 						"ClientRegionalTimeDilationSurface.SOUND")
-				&& sounds.contains("sound.getPitch() * factor"),
+				&& sounds.contains(
+						"jojo_ripples$getRegionalTimeDilationBasePitch()")
+				&& !sounds.contains("sound.getPitch() * factor"),
 				"sound hook no longer owns one PlaySoundEvent pitch path");
 
 		JsonObject mixins = JsonParser.parseString(read(root.resolve(

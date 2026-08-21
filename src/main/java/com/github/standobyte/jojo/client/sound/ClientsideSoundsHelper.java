@@ -129,7 +129,8 @@ public class ClientsideSoundsHelper {
 						minecraft.player));
 		if (factor < 1.0F) {
 			access.jojo_ripples$setRegionalTimeDilationPitch(
-					sound.getPitch() * factor);
+					access.jojo_ripples$getRegionalTimeDilationBasePitch()
+							* factor);
 		}
 	}
 
