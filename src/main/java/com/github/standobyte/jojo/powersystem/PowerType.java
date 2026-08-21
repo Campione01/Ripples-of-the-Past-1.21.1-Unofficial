@@ -130,8 +130,18 @@ public abstract class PowerType implements JsonConfigurable {
 								groupEntry.getKey(),
 								name -> new ControlSchemeTemplate.GroupTemplate(
 										name, sourceGroup.toggleHudKey));
-				sourceGroup.separateBinds.forEach(
-						targetGroup.separateBinds::putIfAbsent);
+				for (var bindEntry :
+						sourceGroup.separateBinds.entrySet()) {
+					if (!targetGroup.separateBinds.containsKey(
+							bindEntry.getKey())) {
+						targetGroup.separateBinds.put(
+								bindEntry.getKey(), bindEntry.getValue());
+						sourceGroup.additionalSeparateBinds.stream()
+								.filter(bind -> bind.ability().equals(
+										bindEntry.getKey()))
+								.forEach(targetGroup.additionalSeparateBinds::add);
+					}
+				}
 				targetGroup.hotbars.addAll(sourceGroup.hotbars);
 			}
 		}

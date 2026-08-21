@@ -7,6 +7,9 @@ import java.util.List;
 
 import com.github.standobyte.jojo.client.input.InputHandler;
 import com.github.standobyte.jojo.client.input.VanillaKeybinds;
+import com.github.standobyte.jojo.powersystem.ability.controls.ControlSchemeTemplate;
+import com.github.standobyte.jojo.powersystem.ability.controls.InputKey;
+import com.github.standobyte.jojo.powersystem.ability.controls.InputMethod;
 import com.github.standobyte.jojo.powersystem.ability.controls.InputUseVanillaMapping;
 
 public final class SharedGrabChargedHeavyInputSmokeTest {
@@ -33,6 +36,7 @@ public final class SharedGrabChargedHeavyInputSmokeTest {
 		check(KEY_MAPPING_NAME.equals(
 				((InputUseVanillaMapping) MovesetBuilder.DEFAULT_GRAB_INPUT).keyMappingName),
 				"unexpected shared combat KeyMapping name");
+		verifyMultipleBindingsForOneAbility();
 
 		Path root = Path.of(System.getProperty("user.dir"));
 		verifyUnsummonedStandVanillaUseOwnership(root);
@@ -70,6 +74,45 @@ public final class SharedGrabChargedHeavyInputSmokeTest {
 		check(chinese.contains("\"jojo_ripples.skill.grab.controls\": \"短按 %s\"")
 				&& chinese.contains("\"jojo_ripples.skill.heavy_charged.controls\": \"长按 %s\""),
 				"Chinese skill controls must display the current shared binding");
+	}
+
+	private static void verifyMultipleBindingsForOneAbility() {
+		ControlSchemeTemplate template = new ControlSchemeTemplate()
+				.bind("heavy_punch", InputMethod.CLICK, InputKey.RMB)
+				.bind(
+						"heavy_punch",
+						InputMethod.CLICK,
+						MovesetBuilder.DEFAULT_GRAB_INPUT)
+				.bind(
+						"heavy_punch",
+						InputMethod.CLICK,
+						new InputUseVanillaMapping(KEY_MAPPING_NAME));
+		var primary = template.defaultGroup.separateBinds.get(
+				"heavy_punch");
+		check(primary != null
+				&& primary.getFirst() == InputMethod.CLICK
+				&& primary.getSecond() == InputKey.RMB,
+				"the original RMB binding must remain primary");
+		check(template.defaultGroup.additionalSeparateBinds.size() == 1,
+				"the shared short-press binding must be retained separately");
+		var additional =
+				template.defaultGroup.additionalSeparateBinds.get(0);
+		check("heavy_punch".equals(additional.ability())
+				&& additional.inputMethod() == InputMethod.CLICK
+				&& additional.input()
+						== MovesetBuilder.DEFAULT_GRAB_INPUT,
+				"the retained shared binding does not match heavy punch");
+
+		ControlSchemeTemplate copy = template.deepCopy();
+		check(copy.defaultGroup.separateBinds.get("heavy_punch")
+					.getSecond() == InputKey.RMB
+				&& copy.defaultGroup.additionalSeparateBinds.size() == 1
+				&& copy.defaultGroup.additionalSeparateBinds.get(0).input()
+						== MovesetBuilder.DEFAULT_GRAB_INPUT,
+				"control-scheme deep copy dropped one heavy-punch route");
+		copy.defaultGroup.additionalSeparateBinds.clear();
+		check(template.defaultGroup.additionalSeparateBinds.size() == 1,
+				"control-scheme copy mutations leaked into the source template");
 	}
 
 	private static void verifyUnsummonedStandVanillaUseOwnership(Path root) {

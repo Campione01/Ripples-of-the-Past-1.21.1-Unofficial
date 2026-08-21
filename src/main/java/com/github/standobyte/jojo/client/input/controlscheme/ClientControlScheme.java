@@ -36,6 +36,7 @@ import com.github.standobyte.jojo.powersystem.ability.controls.InputKey;
 import com.github.standobyte.jojo.powersystem.ability.controls.InputMethod;
 import com.github.standobyte.jojo.powersystem.ability.controls.InputUseVanillaMapping;
 import com.github.standobyte.jojo.powersystem.ability.controls.ControlSchemeTemplate.AbilitiesHotbar;
+import com.github.standobyte.jojo.powersystem.ability.controls.ControlSchemeTemplate.SeparateBindTemplate;
 import com.mojang.datafixers.util.Pair;
 
 import net.minecraft.network.chat.Component;
@@ -383,6 +384,17 @@ public class ClientControlScheme {
 					String abilityName = bind.getKey();
 					AbilityControlsEntry ability = new AbilityControlsEntry(powerClass, abilityName);
 					group.binds.add(new Bind(inputBind, inputMethod, ability));
+				}
+			}
+			for (SeparateBindTemplate bind :
+					groupTemplate.additionalSeparateBinds) {
+				ClientInputBind inputBind =
+						ClientInputBind.toClientInput(bind.input());
+				if (inputBind != null) {
+					AbilityControlsEntry ability = new AbilityControlsEntry(
+							powerClass, bind.ability());
+					group.binds.add(new Bind(
+							inputBind, bind.inputMethod(), ability));
 				}
 			}
 			

@@ -35,6 +35,8 @@ public class ControlSchemeTemplate {
 					? copy.defaultGroup 
 					: new GroupTemplate(group.name, group.toggleHudKey);
 			groupCopy.separateBinds.putAll(group.separateBinds);
+			groupCopy.additionalSeparateBinds.addAll(
+					group.additionalSeparateBinds);
 			for (AbilitiesHotbar hotbar : group.hotbars) {
 				AbilitiesHotbar hotbarCopy = copyHotbar(hotbar);
 				hotbarCopies.put(hotbar, hotbarCopy);
@@ -82,6 +84,8 @@ public class ControlSchemeTemplate {
 		@Nullable public final InputBindTemplate toggleHudKey;
 
 		public Map<String, Pair<InputMethod, InputBindTemplate>> separateBinds = new LinkedHashMap<>();
+		public List<SeparateBindTemplate> additionalSeparateBinds =
+				new ArrayList<>();
 		public List<AbilitiesHotbar> hotbars = new ArrayList<>();
 
 		public GroupTemplate(String name, InputBindTemplate toggleHudKey) {
@@ -90,9 +94,16 @@ public class ControlSchemeTemplate {
 		}
 
 		public boolean isEmpty() {
-			return separateBinds.isEmpty() && hotbars.isEmpty();
+			return separateBinds.isEmpty()
+					&& additionalSeparateBinds.isEmpty()
+					&& hotbars.isEmpty();
 		}
 	}
+
+	public static record SeparateBindTemplate(
+			String ability,
+			InputMethod inputMethod,
+			InputBindTemplate input) {}
 
 	public static class AbilitiesHotbar {
 		public List<Map<InputKey.Modifier, Map<InputMethod, String>>> slots = new ArrayList<>();
@@ -122,8 +133,46 @@ public class ControlSchemeTemplate {
 
 
 	public ControlSchemeTemplate bind(String ability, InputMethod inputMethod, InputBindTemplate key) {
-		_curGroup.separateBinds.put(ability, Pair.of(inputMethod, key));
+		Pair<InputMethod, InputBindTemplate> existing =
+				_curGroup.separateBinds.putIfAbsent(
+						ability, Pair.of(inputMethod, key));
+		if (existing != null
+				&& !sameBinding(existing, inputMethod, key)
+				&& _curGroup.additionalSeparateBinds.stream()
+						.noneMatch(bind -> bind.ability().equals(ability)
+								&& bind.inputMethod() == inputMethod
+								&& sameInput(bind.input(), key))) {
+			_curGroup.additionalSeparateBinds.add(
+					new SeparateBindTemplate(ability, inputMethod, key));
+		}
 		return this;
+	}
+
+	private static boolean sameBinding(
+			Pair<InputMethod, InputBindTemplate> existing,
+			InputMethod inputMethod,
+			InputBindTemplate input) {
+		return existing.getFirst() == inputMethod
+				&& sameInput(existing.getSecond(), input);
+	}
+
+	private static boolean sameInput(
+			InputBindTemplate first, InputBindTemplate second) {
+		if (first == second) {
+			return true;
+		}
+		if (first instanceof InputKey firstKey
+				&& second instanceof InputKey secondKey) {
+			return firstKey.device == secondKey.device
+					&& firstKey.keyCode == secondKey.keyCode
+					&& firstKey.modifier == secondKey.modifier;
+		}
+		if (first instanceof InputUseVanillaMapping firstMapping
+				&& second instanceof InputUseVanillaMapping secondMapping) {
+			return firstMapping.keyMappingName.equals(
+					secondMapping.keyMappingName);
+		}
+		return false;
 	}
 
 	public ControlSchemeTemplate makeHotbar(int hotbarId, InputBindTemplate useAbilityKey, @Nullable InputBindTemplate switchAbilityKey) {
