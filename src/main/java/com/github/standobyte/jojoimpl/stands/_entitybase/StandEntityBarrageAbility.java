@@ -174,6 +174,15 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 			Level level = performer.level();
 			
 			if (getPhase() == ActionPhase.PERFORM && performer instanceof StandEntity stand) {
+				ActionTarget target = getPunchTarget(stand);
+				if (target.isEmpty(level)) {
+					standRotationTarget = null;
+					aimAs = AimingEntity.CAMERA_ENTITY;
+				}
+				else {
+					standRotationTarget = target.copy().resolveEntityId(level);
+					aimAs = AimingEntity.STAND;
+				}
 				hitsThisTick = getHitsThisTick(level, stand);
 				stand.setBarrageHitsThisTick(hitsThisTick);
 				
@@ -186,8 +195,6 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 					}
 				}
 				else if (hitsThisTick > 0) {
-					ActionTarget target = getPunchTarget(stand);
-
 					tickBarrageSound(stand, target);
 					
 					boolean deflectedTarget = StandEntityPunchAbility.deflectSilverChariotProjectiles(stand, target);
@@ -328,7 +335,10 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 		
 		protected ActionTarget getPunchTarget(StandEntity stand) {
 			if (isGrabVariation()) {
-				return new ActionTarget(LivingComponentGrab.getEntityGrabbedBy(stand));
+				return StandEntityPunchAbility.validatePunchTarget(
+						stand,
+						new ActionTarget(
+								LivingComponentGrab.getEntityGrabbedBy(stand)));
 			}
 			ActionTarget target = StandEntityPunchAbility.getFreshPunchTarget(stand, getActionTargetSnapshot(stand.level()));
 			setActionTargetSnapshot(target);

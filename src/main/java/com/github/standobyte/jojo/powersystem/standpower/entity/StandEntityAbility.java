@@ -130,7 +130,8 @@ public class StandEntityAbility extends EntityActionAbility {
 	}
 
 	public static boolean canDefaultTargetEntityForAiming(StandEntity standEntity, Entity target) {
-		return canPickEntityForAiming(target) && standEntity.canAttackEntity(target);
+		return target.isAlive() && canPickEntityForAiming(target)
+				&& standEntity.canAttackEntity(target);
 	}
 
 	public boolean canTargetEntityForAiming(StandEntity standEntity, Entity target) {
