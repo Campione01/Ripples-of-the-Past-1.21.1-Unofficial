@@ -435,7 +435,13 @@ public class TimeStopState {
             return false;
         }
         boolean forceResumeVoiceLine = instance.ticksLeft() > Instance.TIME_RESUME_VOICELINE_TICKS;
-        Instance updated = instance.withTicksLeft(0, true, forceResumeVoiceLine);
+        Instance manualResume = instance.withTicksLeft(
+                instance.ticksLeft(), true, forceResumeVoiceLine);
+        if (instance.ticksLeft() > Instance.TIME_RESUME_SOUND_TICKS) {
+            playResumeSound(manualResume, true);
+        }
+        Instance updated = manualResume.withTicksLeft(
+                0, true, forceResumeVoiceLine);
         instances.put(id, updated);
         syncInstanceToAll(updated);
         return true;
@@ -447,7 +453,10 @@ public class TimeStopState {
         while (iter.hasNext()) {
             var entry = iter.next();
             Instance instance = entry.getValue().tickDown();
-            boolean shouldEnd = shouldEndTimeStop(instance);
+            boolean manualResume = instance.ticksManuallySet()
+                    && instance.ticksLeft() <= 0;
+            boolean shouldEnd = !manualResume
+                    && shouldEndTimeStop(instance);
             if (instance.ticksLeft() > 0 && !shouldEnd) {
                 boolean forcedResumeVoiceLinePlayed = playResumeVoiceLine(instance);
                 if (forcedResumeVoiceLinePlayed) {
@@ -849,7 +858,13 @@ public class TimeStopState {
             case SILENT -> null;
         };
         if (resumeVoiceLineUser != null && power != null && voiceLine != null) {
-            JojoModUtil.sayVoiceLine(resumeVoiceLineUser, voiceLine);
+            JojoModUtil.sayVoiceLine(
+                    resumeVoiceLineUser,
+                    voiceLine,
+                    1.0F,
+                    1.0F,
+                    200,
+                    true);
         }
         return instance.forceResumeVoiceLine();
     }
@@ -866,7 +881,13 @@ public class TimeStopState {
 	}
 
 	private void playResumeSound(Instance instance) {
-        if (instance.ticksLeft() == Instance.TIME_RESUME_SOUND_TICKS) {
+        playResumeSound(instance, false);
+    }
+
+	private void playResumeSound(Instance instance, boolean force) {
+        if (force
+                || instance.ticksLeft()
+                        == Instance.TIME_RESUME_SOUND_TICKS) {
             if (instance.resumeSoundUserId() < 0) {
                 return;
             }
