@@ -467,10 +467,10 @@ public class StandEntityRenderer<
 			useStandAlphaMaterial = renderState.alpha < 1.0F;
 		}
 		if (translucent) {
-			return ModRenderTypes.standTranslucentCull(texture);
+			return standTranslucentRenderType(texture);
 		}
 		else if (bodyVisible) {
-			return useStandAlphaMaterial ? ModRenderTypes.standTranslucentCull(texture) : this.model.renderType(texture);
+			return useStandAlphaMaterial ? standTranslucentRenderType(texture) : this.model.renderType(texture);
 		}
 		else {
 			return glowing ? RenderType.outline(texture) : null;
@@ -483,7 +483,16 @@ public class StandEntityRenderer<
 		if (RenderStateCrutches.currentStandEntityRenderState instanceof StandEntityRenderState renderState) {
 			useStandAlphaMaterial |= renderState.alpha < 1.0F;
 		}
-		return useStandAlphaMaterial ? ModRenderTypes.standTranslucentCull(texture) : this.model.renderType(texture);
+		return useStandAlphaMaterial ? standTranslucentRenderType(texture) : this.model.renderType(texture);
+	}
+
+	protected RenderType standTranslucentRenderType(ResourceLocation texture) {
+		// The 1.16.5 Stand models were authored for two-sided translucency.
+		// Keep culling only where it protects the first-person camera from
+		// internal and far-side model surfaces.
+		return Minecraft.getInstance().options.getCameraType().isFirstPerson()
+				? ModRenderTypes.standTranslucentCull(texture)
+				: ModRenderTypes.standTranslucent(texture);
 	}
 
 	int classicSolidColor(T entity) {
