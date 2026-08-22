@@ -13,6 +13,26 @@ def build_dir = "${project.buildDir}"
 def snapshot_full_version = "${minecraft_version}-${mod_version}-${snapshot_version}"
 def mod_full_version = release_snapshot.toBoolean() ? "${snapshot_full_version}" : "${minecraft_version}-${mod_version}"
 def file_name = file_name
+def git_output = { List<String> command ->
+    try {
+        return providers.exec {
+            commandLine(command)
+            ignoreExitValue = true
+        }.standardOutput.asText.get().trim()
+    }
+    catch (Exception ignored) {
+        return ''
+    }
+}
+def git_commit = git_output(['git', 'rev-parse', 'HEAD'])
+if (!(git_commit ==~ /(?i)[0-9a-f]{40}/)) {
+    git_commit = 'unknown'
+}
+else {
+    git_commit = git_commit.toLowerCase(java.util.Locale.ROOT)
+}
+def git_dirty = !git_output([
+        'git', 'status', '--porcelain', '--untracked-files=normal']).isEmpty()
 version = "${mod_full_version}"
 group = mod_group_id
 
@@ -179,6 +199,18 @@ tasks.withType(JavaCompile).configureEach {
 tasks.withType(org.gradle.api.tasks.bundling.AbstractArchiveTask).configureEach {
     preserveFileTimestamps = false
     reproducibleFileOrder = true
+}
+
+tasks.withType(Jar).configureEach {
+    manifest {
+        attributes(
+                'Implementation-Title': file_name,
+                'Implementation-Version':
+                        "${project.version}+git.${git_commit}" +
+                                (git_dirty ? '.dirty' : ''),
+                'ROTP-Git-Commit': git_commit,
+                'ROTP-Git-Dirty': git_dirty.toString())
+    }
 }
 
 tasks.register('clientSettingsSmokeTest', JavaExec) {

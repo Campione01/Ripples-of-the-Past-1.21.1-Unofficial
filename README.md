@@ -59,6 +59,13 @@ On Linux or macOS:
 The build output is local only. This repository does not include an automated
 binary publication workflow and does not upload or publish the resulting JAR.
 
+Each built runtime JAR records the exact source commit in
+`META-INF/MANIFEST.MF` as `ROTP-Git-Commit`. Minecraft also writes a
+`ROTP build identity` line to `logs/latest.log` during mod initialization.
+Use that commit identity when reporting or comparing builds; the historical
+`0.2.2.2` mod version and JAR filename alone do not distinguish newer source
+revisions from older builds.
+
 ## License and attribution
 
 The program is distributed under

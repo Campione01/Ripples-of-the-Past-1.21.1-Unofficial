@@ -55,6 +55,13 @@ public class JojoMod {
 	public static final Logger LOGGER = LogUtils.getLogger();
 
 	public JojoMod(IEventBus modEventBus, ModContainer modContainer) {
+		String implementationVersion = JojoMod.class.getPackage()
+				.getImplementationVersion();
+		LOGGER.info("ROTP build identity: modVersion={}, artifact={}",
+				modContainer.getModInfo().getVersion(),
+				implementationVersion != null
+						? implementationVersion
+						: "development");
 		modEventBus.register(this);
 		modContainer.registerConfig(ModConfig.Type.COMMON, JojoModConfig.COMMON_SPEC);
 
