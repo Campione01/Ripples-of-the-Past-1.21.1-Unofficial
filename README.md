@@ -47,17 +47,20 @@ Requirements:
 On Windows:
 
 ```powershell
-.\gradlew.bat build
+.\gradlew.bat clean build
 ```
 
 On Linux or macOS:
 
 ```bash
-./gradlew build
+./gradlew clean build
 ```
 
 The build output is local only. This repository does not include an automated
 binary publication workflow and does not upload or publish the resulting JAR.
+The playable artifact is the non-sources ROTP JAR under `build/libs/`.
+Do not install `build/moddev/artifacts/neoforge-*.jar`, a `-sources.jar`, or a
+same-named JAR left over from an older build.
 
 Each built runtime JAR records the exact source commit in
 `META-INF/MANIFEST.MF` as `ROTP-Git-Commit`. Minecraft also writes a
