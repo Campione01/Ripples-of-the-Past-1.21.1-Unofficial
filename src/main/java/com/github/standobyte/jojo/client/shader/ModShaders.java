@@ -55,6 +55,7 @@ public class ModShaders implements ResourceManagerReloadListener, AutoCloseable 
 	@ApiStatus.Internal public List<RotpShader> _allShaders = new ArrayList<>();
 	public ShaderInstance coreStandTranslucent;
 	private ShaderInstance privateTargetBlit;
+	private ShaderInstance privateTargetEntityMask;
 
 	private void init() {
 		Minecraft mc = Minecraft.getInstance();
@@ -117,11 +118,19 @@ public class ModShaders implements ResourceManagerReloadListener, AutoCloseable 
 				shader -> instance.coreStandTranslucent = shader);
 		loadPrivateTargetCoreShader(event, ResourceLocation.withDefaultNamespace("position_tex"),
 				DefaultVertexFormat.POSITION_TEX, shader -> instance.privateTargetBlit = shader);
+		loadPrivateTargetCoreShader(event, ResourceLocation.withDefaultNamespace("rendertype_entity_solid"),
+				DefaultVertexFormat.NEW_ENTITY, shader -> instance.privateTargetEntityMask = shader);
 		StandAuraShaders.loadCoreShader(event);
 	}
 
 	public static ShaderInstance privateTargetBlit() {
 		return instance != null ? instance.privateTargetBlit : null;
+	}
+
+	public static ShaderInstance privateTargetEntityMask() {
+		return instance != null
+				? instance.privateTargetEntityMask
+				: null;
 	}
 
 	public void resize(int width, int height) {

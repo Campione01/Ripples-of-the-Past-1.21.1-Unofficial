@@ -207,14 +207,26 @@ public final class StandAuraFxIntegrationSmokeTest {
         require(shaders, "StandAuraShaders.loadCoreShader(event)");
         require(shaders, "loadPrivateTargetCoreShader(event");
         require(shaders, "privateTargetBlit");
+        require(shaders, "privateTargetEntityMask");
         require(shaders,
                 "ResourceLocation.withDefaultNamespace(\"position_tex\")");
+        require(shaders,
+                "ResourceLocation.withDefaultNamespace("
+                        + "\"rendertype_entity_solid\")");
+        check(!shaders.contains(
+                        "GameRenderer.getRendertypeEntitySolidShader"),
+                "private mask shader can fall back to Iris's world target");
         require(privateTargetShader, "public boolean iris$skipDraw()");
         require(privateTargetShader, "return true;");
         require(auraShaders, "ModShaders.loadPrivateTargetCoreShader(");
         require(entityMask, "destinationState::bindCapturedDrawTarget");
         require(entityMask, "targetState.drawFramebuffer()");
         require(entityMask, "ModShaders.privateTargetBlit()");
+        require(entityMask, "ModShaders"
+                + "::privateTargetEntityMask");
+        check(!entityMask.contains("GameRenderer"
+                        + "::getRendertypeEntitySolidShader"),
+                "mask rerender still uses the Iris-owned world shader");
         requireOrder(
                 entityMask,
                 "ShaderInstance shader = ModShaders.privateTargetBlit();",

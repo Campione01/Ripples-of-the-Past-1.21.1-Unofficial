@@ -979,8 +979,7 @@ public final class EntityMaskPostEffect implements AutoCloseable {
 						.setShaderState(
 								new RenderStateShard
 										.ShaderStateShard(
-												GameRenderer
-														::getRendertypeEntitySolidShader))
+												ModShaders::privateTargetEntityMask))
 						.setTransparencyState(
 								RenderStateShard.NO_TRANSPARENCY)
 						.setDepthTestState(

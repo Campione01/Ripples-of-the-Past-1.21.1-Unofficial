@@ -187,6 +187,11 @@ public final class EntityMaskPostEffectSmokeTest {
 						&& source.contains(
 								"delegate.endBatch();"),
 				"BLOCK capture no longer preserves source cutout state");
+		check(source.contains("ModShaders"
+						+ "::privateTargetEntityMask")
+						&& !source.contains("GameRenderer"
+								+ "::getRendertypeEntitySolidShader"),
+				"mask drawing can still let Iris replace the private FBO");
 		String compactSource = compact(source);
 		check(count(
 						compactSource,
