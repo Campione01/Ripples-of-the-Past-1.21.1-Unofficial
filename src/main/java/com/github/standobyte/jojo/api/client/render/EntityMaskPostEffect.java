@@ -17,6 +17,7 @@ import org.joml.Matrix4fStack;
 import org.joml.Vector4f;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
+import org.lwjgl.opengl.GL30;
 
 import com.github.standobyte.jojo.client.shader.ModShaders;
 import com.github.standobyte.jojo.client.shader.core.RenderTargetState;
@@ -61,8 +62,9 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
  * <p>The core owns every offscreen target. Requests are identity-keyed,
  * drained before capture, and rerendered through the registered entity
  * renderer into a forced mask buffer. The compositor can sample only that
- * mask, its entity-depth attachment, and the public current main-target depth.
- * No Iris or Super Resolution target or texture is acquired or replaced.</p>
+ * mask, its entity-depth attachment, and either the current main-target depth
+ * or a core-owned depth snapshot. No Iris or Super Resolution target or
+ * texture is acquired or replaced.</p>
  */
 @OnlyIn(Dist.CLIENT)
 public final class EntityMaskPostEffect implements AutoCloseable {
@@ -86,10 +88,14 @@ public final class EntityMaskPostEffect implements AutoCloseable {
 
 	@Nullable private static TextureTarget maskTarget;
 	@Nullable private static TextureTarget auraTarget;
+	@Nullable private static TextureTarget sceneDepthTarget;
 	private static int maskTargetWidth = -1;
 	private static int maskTargetHeight = -1;
 	private static int auraTargetWidth = -1;
 	private static int auraTargetHeight = -1;
+	private static int sceneDepthTargetWidth = -1;
+	private static int sceneDepthTargetHeight = -1;
+	private static boolean irisSceneDepthValid;
 
 	private final ResourceLocation id;
 	private final int order;
@@ -256,50 +262,163 @@ public final class EntityMaskPostEffect implements AutoCloseable {
 
 	@ApiStatus.Internal
 	public static void onFrame(RenderLevelStageEvent event) {
-		if (event.getStage()
-				!= RenderLevelStageEvent.Stage.AFTER_LEVEL) {
+		RenderLevelStageEvent.Stage stage = event.getStage();
+		if (stage == RenderLevelStageEvent.Stage.AFTER_ENTITIES) {
+			captureIrisSceneDepth();
 			return;
 		}
-		List<FrameEffect> frameEffects = new ArrayList<>();
-		for (EntityMaskPostEffect effect : snapshot) {
-			List<QueuedRequest> requests = effect.drainQueue();
-			if (!requests.isEmpty()) {
-				frameEffects.add(
-						new FrameEffect(effect, requests));
+		if (stage != RenderLevelStageEvent.Stage.AFTER_LEVEL) {
+			return;
+		}
+		try {
+			List<FrameEffect> frameEffects = new ArrayList<>();
+			for (EntityMaskPostEffect effect : snapshot) {
+				List<QueuedRequest> requests = effect.drainQueue();
+				if (!requests.isEmpty()) {
+					frameEffects.add(
+							new FrameEffect(effect, requests));
+				}
+			}
+			if (frameEffects.isEmpty()) {
+				return;
+			}
+
+			Minecraft minecraft = Minecraft.getInstance();
+			RenderTarget mainTarget = minecraft.getMainRenderTarget();
+			if (!canSampleSceneDepth(minecraft, mainTarget)) {
+				return;
+			}
+			RenderTarget sceneTarget = mainTarget;
+			if (ClientRenderCompatibility.snapshot()
+					.irisShaderPackInUse()) {
+				sceneTarget = validIrisSceneDepth(
+						mainTarget.viewWidth,
+						mainTarget.viewHeight);
+				if (sceneTarget == null) {
+					return;
+				}
+			}
+
+			RenderStateScope state = RenderStateScope.capture();
+			try {
+				ensureMaskTarget(
+						mainTarget.viewWidth,
+						mainTarget.viewHeight);
+				for (FrameEffect frameEffect : frameEffects) {
+					renderEffect(
+							frameEffect,
+							event,
+							minecraft,
+							mainTarget,
+							sceneTarget);
+				}
+			}
+			catch (RuntimeException exception) {
+				JojoMod.getLogger().error(
+						"Entity mask post effects failed; "
+								+ "the captured render target was restored.",
+						exception);
+			}
+			finally {
+				state.restore();
 			}
 		}
-		if (frameEffects.isEmpty()) {
+		finally {
+			invalidateIrisSceneDepth();
+		}
+	}
+
+	private static void captureIrisSceneDepth() {
+		invalidateIrisSceneDepth();
+		if (!ClientRenderCompatibility.snapshot()
+				.irisShaderPackInUse()
+				|| !hasQueuedRequests()) {
 			return;
 		}
-
 		Minecraft minecraft = Minecraft.getInstance();
 		RenderTarget mainTarget = minecraft.getMainRenderTarget();
 		if (!canSampleSceneDepth(minecraft, mainTarget)) {
 			return;
 		}
 
-		RenderStateScope state = RenderStateScope.capture();
+		RenderTargetState state = new RenderTargetState();
+		state.capture();
 		try {
-			ensureMaskTarget(
+			int sourceWidth = state.viewportWidth();
+			int sourceHeight = state.viewportHeight();
+			if (sourceWidth <= 0 || sourceHeight <= 0) {
+				return;
+			}
+			ensureSceneDepthTarget(
 					mainTarget.viewWidth,
 					mainTarget.viewHeight);
-			for (FrameEffect frameEffect : frameEffects) {
-				renderEffect(
-						frameEffect,
-						event,
-						minecraft,
-						mainTarget);
+			TextureTarget currentSceneDepthTarget = sceneDepthTarget;
+			if (currentSceneDepthTarget == null) {
+				return;
 			}
-		}
-		catch (RuntimeException exception) {
-			JojoMod.getLogger().error(
-					"Entity mask post effects failed; "
-							+ "the captured render target was restored.",
-					exception);
+			currentSceneDepthTarget.bindWrite(false);
+			int targetFramebuffer = GL11.glGetInteger(
+					GL30.GL_DRAW_FRAMEBUFFER_BINDING);
+			GL30.glBindFramebuffer(
+					GL30.GL_READ_FRAMEBUFFER,
+					state.drawFramebuffer());
+			GL30.glBindFramebuffer(
+					GL30.GL_DRAW_FRAMEBUFFER,
+					targetFramebuffer);
+			if (GL30.glCheckFramebufferStatus(
+						GL30.GL_READ_FRAMEBUFFER)
+						!= GL30.GL_FRAMEBUFFER_COMPLETE
+					|| GL30.glCheckFramebufferStatus(
+							GL30.GL_DRAW_FRAMEBUFFER)
+							!= GL30.GL_FRAMEBUFFER_COMPLETE) {
+				return;
+			}
+			GL30.glBlitFramebuffer(
+					state.viewportX(),
+					state.viewportY(),
+					state.viewportX() + sourceWidth,
+					state.viewportY() + sourceHeight,
+					0,
+					0,
+					currentSceneDepthTarget.viewWidth,
+					currentSceneDepthTarget.viewHeight,
+					GL11.GL_DEPTH_BUFFER_BIT,
+					GL11.GL_NEAREST);
+			irisSceneDepthValid = GL11.glGetError()
+					== GL11.GL_NO_ERROR;
 		}
 		finally {
 			state.restore();
 		}
+	}
+
+	private static boolean hasQueuedRequests() {
+		for (EntityMaskPostEffect effect : snapshot) {
+			synchronized (effect.queueLock) {
+				if (!effect.queueOrder.isEmpty()) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	@Nullable
+	private static RenderTarget validIrisSceneDepth(
+			int width,
+			int height) {
+		TextureTarget target = sceneDepthTarget;
+		return irisSceneDepthValid
+				&& target != null
+				&& sceneDepthTargetWidth == width
+				&& sceneDepthTargetHeight == height
+				&& canSampleSceneDepth(Minecraft.getInstance(), target)
+				? target
+				: null;
+	}
+
+	private static void invalidateIrisSceneDepth() {
+		irisSceneDepthValid = false;
 	}
 
 	private static boolean canSampleSceneDepth(
@@ -316,7 +435,8 @@ public final class EntityMaskPostEffect implements AutoCloseable {
 			FrameEffect frameEffect,
 			RenderLevelStageEvent event,
 			Minecraft minecraft,
-			RenderTarget mainTarget) {
+			RenderTarget mainTarget,
+			RenderTarget sceneTarget) {
 		int outputWidth = Math.max(
 				1,
 				Math.round(
@@ -369,7 +489,7 @@ public final class EntityMaskPostEffect implements AutoCloseable {
 								mainTarget.viewHeight,
 								Objects.requireNonNull(maskTarget),
 								currentAuraTarget,
-								mainTarget);
+								sceneTarget);
 				frameEffect.effect().compositor.composite(context);
 				renderedAny |= context.drewComposite();
 			}
@@ -856,6 +976,24 @@ public final class EntityMaskPostEffect implements AutoCloseable {
 		auraTargetHeight = height;
 	}
 
+	private static void ensureSceneDepthTarget(
+			int width,
+			int height) {
+		if (sceneDepthTarget != null
+				&& sceneDepthTargetWidth == width
+				&& sceneDepthTargetHeight == height) {
+			return;
+		}
+		if (sceneDepthTarget != null) {
+			sceneDepthTarget.destroyBuffers();
+		}
+		sceneDepthTarget = new TextureTarget(
+				width, height, true, Minecraft.ON_OSX);
+		sceneDepthTargetWidth = width;
+		sceneDepthTargetHeight = height;
+		invalidateIrisSceneDepth();
+	}
+
 	private static void releaseTargetsRaw() {
 		if (maskTarget != null) {
 			maskTarget.destroyBuffers();
@@ -865,10 +1003,17 @@ public final class EntityMaskPostEffect implements AutoCloseable {
 			auraTarget.destroyBuffers();
 			auraTarget = null;
 		}
+		if (sceneDepthTarget != null) {
+			sceneDepthTarget.destroyBuffers();
+			sceneDepthTarget = null;
+		}
 		maskTargetWidth = -1;
 		maskTargetHeight = -1;
 		auraTargetWidth = -1;
 		auraTargetHeight = -1;
+		sceneDepthTargetWidth = -1;
+		sceneDepthTargetHeight = -1;
+		invalidateIrisSceneDepth();
 	}
 
 	@ApiStatus.Internal
@@ -899,7 +1044,10 @@ public final class EntityMaskPostEffect implements AutoCloseable {
 
 	@ApiStatus.Internal
 	public static void closeLoadedTargets() {
-		if (maskTarget == null && auraTarget == null) {
+		invalidateIrisSceneDepth();
+		if (maskTarget == null
+				&& auraTarget == null
+				&& sceneDepthTarget == null) {
 			return;
 		}
 		Minecraft minecraft = Minecraft.getInstance();
