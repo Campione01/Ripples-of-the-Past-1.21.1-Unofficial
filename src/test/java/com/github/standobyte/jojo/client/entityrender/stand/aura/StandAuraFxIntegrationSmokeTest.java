@@ -219,8 +219,12 @@ public final class StandAuraFxIntegrationSmokeTest {
         require(privateTargetShader, "public boolean iris$skipDraw()");
         require(privateTargetShader, "return true;");
         require(auraShaders, "ModShaders.loadPrivateTargetCoreShader(");
-        require(entityMask, "destinationState::bindCapturedDrawTarget");
-        require(entityMask, "targetState.drawFramebuffer()");
+        require(entityMask, "RenderLevelStageEvent.Stage.AFTER_LEVEL");
+        require(entityMask, "blitAuraToMain(");
+        require(entityMask, "() -> mainTarget.bindWrite(true)");
+        check(!entityMask.contains(
+                        "RenderLevelStageEvent.Stage.AFTER_ENTITIES"),
+                "aura result still enters the pre-composite Iris G-buffer");
         require(entityMask, "ModShaders.privateTargetBlit()");
         require(entityMask, "ModShaders"
                 + "::privateTargetEntityMask");
@@ -237,8 +241,6 @@ public final class StandAuraFxIntegrationSmokeTest {
                 "shader.apply();",
                 "bindDrawTarget.run();",
                 "BufferUploader.draw(builder.buildOrThrow());");
-        check(!entityMask.contains("main.bindWrite(true)"),
-                "entity mask result still blindly targets the main FBO");
         check(!entityMask.contains("BufferUploader.drawWithShader("),
                 "shader apply can still rebind a private target during draw");
         require(screen, "StandAuraSettings.PARAMETERS");

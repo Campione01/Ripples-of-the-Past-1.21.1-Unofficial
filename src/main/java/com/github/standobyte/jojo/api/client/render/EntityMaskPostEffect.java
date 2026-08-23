@@ -17,7 +17,6 @@ import org.joml.Matrix4fStack;
 import org.joml.Vector4f;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
-import org.lwjgl.opengl.GL30;
 
 import com.github.standobyte.jojo.client.shader.ModShaders;
 import com.github.standobyte.jojo.client.shader.core.RenderTargetState;
@@ -258,7 +257,7 @@ public final class EntityMaskPostEffect implements AutoCloseable {
 	@ApiStatus.Internal
 	public static void onFrame(RenderLevelStageEvent event) {
 		if (event.getStage()
-				!= RenderLevelStageEvent.Stage.AFTER_ENTITIES) {
+				!= RenderLevelStageEvent.Stage.AFTER_LEVEL) {
 			return;
 		}
 		List<FrameEffect> frameEffects = new ArrayList<>();
@@ -289,8 +288,7 @@ public final class EntityMaskPostEffect implements AutoCloseable {
 						frameEffect,
 						event,
 						minecraft,
-						mainTarget,
-						state);
+						mainTarget);
 			}
 		}
 		catch (RuntimeException exception) {
@@ -318,8 +316,7 @@ public final class EntityMaskPostEffect implements AutoCloseable {
 			FrameEffect frameEffect,
 			RenderLevelStageEvent event,
 			Minecraft minecraft,
-			RenderTarget mainTarget,
-			RenderStateScope destinationState) {
+			RenderTarget mainTarget) {
 		int outputWidth = Math.max(
 				1,
 				Math.round(
@@ -391,8 +388,7 @@ public final class EntityMaskPostEffect implements AutoCloseable {
 		frameEffect.effect().runtimeFailure.settleBatch(
 				attemptedGroup, groupFailed);
 		if (renderedAny) {
-			blitAuraToCapturedTarget(
-					currentAuraTarget, destinationState);
+			blitAuraToMain(currentAuraTarget, mainTarget);
 		}
 	}
 
@@ -604,9 +600,9 @@ public final class EntityMaskPostEffect implements AutoCloseable {
 		context.markDrewComposite();
 	}
 
-	private static void blitAuraToCapturedTarget(
+	private static void blitAuraToMain(
 			RenderTarget aura,
-			RenderStateScope destinationState) {
+			RenderTarget mainTarget) {
 		RenderSystem.enableBlend();
 		RenderSystem.defaultBlendFunc();
 		RenderSystem.disableDepthTest();
@@ -622,7 +618,7 @@ public final class EntityMaskPostEffect implements AutoCloseable {
 		shader.setSampler("Sampler0", aura.getColorTextureId());
 		drawClipQuad(
 				shader,
-				destinationState::bindCapturedDrawTarget,
+				() -> mainTarget.bindWrite(true),
 				0.0F,
 				0.0F,
 				1.0F,
@@ -1379,16 +1375,6 @@ public final class EntityMaskPostEffect implements AutoCloseable {
 			RenderSystem.setShader(() -> shader);
 		}
 
-		private void bindCapturedDrawTarget() {
-			GL30.glBindFramebuffer(
-					GL30.GL_DRAW_FRAMEBUFFER,
-					targetState.drawFramebuffer());
-			GlStateManager._viewport(
-					targetState.viewportX(),
-					targetState.viewportY(),
-					targetState.viewportWidth(),
-					targetState.viewportHeight());
-		}
 	}
 
 }

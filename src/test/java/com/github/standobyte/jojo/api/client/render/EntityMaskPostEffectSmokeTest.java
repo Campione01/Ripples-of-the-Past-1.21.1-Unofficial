@@ -216,10 +216,10 @@ public final class EntityMaskPostEffectSmokeTest {
 		check(source.contains(
 						"renderedAny |= context.drewComposite()")
 				&& source.contains("if (renderedAny) {")
-				&& source.contains("blitAuraToCapturedTarget("),
-				"a no-draw compositor can still touch the captured target");
+				&& source.contains("blitAuraToMain("),
+				"a no-draw compositor can still touch the final main target");
 		int blitMethod = compactSource.indexOf(
-				"privatestaticvoidblitAuraToCapturedTarget(");
+				"privatestaticvoidblitAuraToMain(");
 		int blitSampler = compactSource.indexOf(
 				"shader.setSampler(\"Sampler0\","
 						+ "aura.getColorTextureId());",
@@ -230,6 +230,13 @@ public final class EntityMaskPostEffectSmokeTest {
 						&& blitSampler > blitMethod
 						&& blitDraw > blitSampler,
 				"raw private-target blit lost its V0 aura sampler");
+		check(source.contains(
+						"RenderLevelStageEvent.Stage.AFTER_LEVEL")
+						&& !source.contains(
+								"RenderLevelStageEvent.Stage.AFTER_ENTITIES")
+						&& source.contains(
+								"() -> mainTarget.bindWrite(true)"),
+				"aura composition can still run in the Iris G-buffer stage");
 		check(source.contains("finally {\n\t\t\tstate.restore();")
 						&& source.contains(
 								"RenderSystem.setProjectionMatrix(")
