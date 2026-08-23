@@ -100,18 +100,26 @@ float sampleDepth(sampler2D depthTexture, vec2 uv) {
     return texture(depthTexture, uv).r;
 }
 
-vec2 shapeToMaskUv(vec2 p) {
-    vec2 shapeScale = max(abs(uShapeScale), vec2(0.0001));
-    vec2 shaped = (p - uShapeOffset) / shapeScale;
+vec2 maskUv(vec2 p) {
     vec2 localUv = vec2(
-        (shaped.x / max(uAspect, 0.0001)) * 0.5 + 0.5,
-        shaped.y * 0.5 + 0.5
+        (p.x / max(uAspect, 0.0001)) * 0.5 + 0.5,
+        p.y * 0.5 + 0.5
     );
     return mix(uMaskUvMin, uMaskUvMax, localUv);
 }
 
+vec2 effectCoordinates(vec2 p) {
+    vec2 defaultScale = vec2(0.42, 0.68);
+    vec2 relativeScale = max(
+        abs(uShapeScale / defaultScale),
+        vec2(0.0001)
+    );
+    vec2 relativeOffset = uShapeOffset - vec2(0.0, 0.05);
+    return (p - relativeOffset) / relativeScale;
+}
+
 float sampleEntityDepthAtShape(vec2 p) {
-    vec2 uv = shapeToMaskUv(p);
+    vec2 uv = maskUv(p);
     float depth = sampleDepth(uEntityDepthTex, uv);
     if (depth < VALID_DEPTH_MAX) {
         return depth;
@@ -129,7 +137,7 @@ float sampleEntityDepthAtShape(vec2 p) {
                 0.012 * (float(stepIndex) / 4.0);
             float nearbyDepth = sampleDepth(
                 uEntityDepthTex,
-                shapeToMaskUv(p + direction * shapeDistance)
+                maskUv(p + direction * shapeDistance)
             );
             best = min(best, nearbyDepth);
         }
@@ -138,7 +146,7 @@ float sampleEntityDepthAtShape(vec2 p) {
 }
 
 float sampleMaskAtShape(vec2 p) {
-    return sampleMask(shapeToMaskUv(p));
+    return sampleMask(maskUv(p));
 }
 
 float standAuraSdf(vec2 p, out float nearestEntityDepth) {
@@ -217,7 +225,7 @@ void main() {
     float distanceToMask =
         standAuraSdf(p, nearestEntityDepth);
     float antiAlias = max(uAntiAlias, 0.0001);
-    vec2 q = p * mix(
+    vec2 q = effectCoordinates(p) * mix(
         uNoiseScale,
         uNoiseScale * 1.25,
         chaos
@@ -422,7 +430,7 @@ void main() {
 
     float sceneDepth = sampleDepth(
         uSceneDepthTex,
-        shapeToMaskUv(p)
+        mix(uMaskUvMin, uMaskUvMax, vUv)
     );
     if (nearestEntityDepth < VALID_DEPTH_MAX
             && sceneDepth

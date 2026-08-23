@@ -189,6 +189,9 @@ public final class StandAuraFxIntegrationSmokeTest {
         String packagedNotice = read(root,
                 "src/main/resources/META-INF/"
                         + "stand-aura-fx-notice.md");
+        String legacyApi = read(root,
+                "src/main/java/com/inza/standaurafx/api/"
+                        + "StandAuraFxApi.java");
 
         require(renderer, "new StandAuraLayer<>(this)");
         require(setup, "StandAuraFxClient.register()");
@@ -201,8 +204,22 @@ public final class StandAuraFxIntegrationSmokeTest {
         require(fragment, "const int DIRECTION_COUNT = 16;");
         require(fragment, "const int STEP_COUNT = 48;");
         require(fragment, "uniform sampler2D uSceneDepthTex;");
+        require(fragment, "vec2 maskUv(vec2 p)");
         require(fragment,
-                "vec2 shaped = (p - uShapeOffset) / shapeScale;");
+                "vec2 relativeScale = max(");
+        require(fragment,
+                "vec2 relativeOffset = uShapeOffset - vec2(0.0, 0.05);");
+        require(fragment,
+                "vec2 q = effectCoordinates(p) * mix(");
+        require(fragment,
+                "mix(uMaskUvMin, uMaskUvMax, vUv)");
+        check(!fragment.contains("shapeToMaskUv"),
+                "shape controls moved the entity mask or depth lookup");
+        require(legacyApi,
+                "com.github.standobyte.jojo.api.client.render.StandAuraFx");
+        require(legacyApi, "public static void renderAura(Entity entity)");
+        require(legacyApi,
+                "public static void renderAura(Entity entity, int auraColor)");
         require(notice, "6f36008b37bc7165a8c1fd594b246923557dc417");
         require(packagedNotice,
                 "6f36008b37bc7165a8c1fd594b246923557dc417");
