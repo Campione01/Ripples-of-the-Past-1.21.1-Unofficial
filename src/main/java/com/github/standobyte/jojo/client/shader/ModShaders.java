@@ -11,6 +11,7 @@ import org.jetbrains.annotations.ApiStatus;
 import com.github.standobyte.jojo.api.client.render.AddonPostEffect;
 import com.github.standobyte.jojo.api.client.render.EntityMaskPostEffect;
 import com.github.standobyte.jojo.client.ModClientResources;
+import com.github.standobyte.jojo.client.entityrender.stand.aura.StandAuraShaders;
 import com.github.standobyte.jojo.client.shader.core.RotpShader;
 import com.github.standobyte.jojo.core.JojoMod;
 import com.github.standobyte.jojo.util.reflection.ClientReflection;
@@ -112,6 +113,7 @@ public class ModShaders implements ResourceManagerReloadListener, AutoCloseable 
 		}
 		loadCoreShader(event, JojoMod.resLoc("stand_translucent"), DefaultVertexFormat.NEW_ENTITY,
 				shader -> instance.coreStandTranslucent = shader);
+		StandAuraShaders.loadCoreShader(event);
 	}
 
 	public void resize(int width, int height) {

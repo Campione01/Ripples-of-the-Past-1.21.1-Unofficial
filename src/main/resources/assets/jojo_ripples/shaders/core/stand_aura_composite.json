@@ -1,0 +1,43 @@
+{
+  "vertex": "jojo_ripples:stand_aura_composite",
+  "fragment": "jojo_ripples:stand_aura_composite",
+  "samplers": [
+    { "name": "uMaskTex" },
+    { "name": "uEntityDepthTex" },
+    { "name": "uSceneDepthTex" }
+  ],
+  "uniforms": [
+    { "name": "uTexelSize", "type": "float", "count": 2, "values": [ 1.0, 1.0 ] },
+    { "name": "uMaskUvMin", "type": "float", "count": 2, "values": [ 0.0, 0.0 ] },
+    { "name": "uMaskUvMax", "type": "float", "count": 2, "values": [ 1.0, 1.0 ] },
+    { "name": "uTime", "type": "float", "count": 1, "values": [ 0.0 ] },
+    { "name": "uChaos", "type": "float", "count": 1, "values": [ 0.2 ] },
+    { "name": "uGlobalAlpha", "type": "float", "count": 1, "values": [ 0.9 ] },
+    { "name": "uShapeScale", "type": "float", "count": 2, "values": [ 0.42, 0.68 ] },
+    { "name": "uShapeOffset", "type": "float", "count": 2, "values": [ 0.0, 0.05 ] },
+    { "name": "uAspect", "type": "float", "count": 1, "values": [ 1.0 ] },
+    { "name": "uAntiAlias", "type": "float", "count": 1, "values": [ 0.002 ] },
+    { "name": "uAuraThickness", "type": "float", "count": 1, "values": [ 0.45 ] },
+    { "name": "uBaseAuraWidth", "type": "float", "count": 1, "values": [ 0.05 ] },
+    { "name": "uAuraWidthChaos", "type": "float", "count": 1, "values": [ 0.028 ] },
+    { "name": "uEdgeWarpStrength", "type": "float", "count": 1, "values": [ 0.01 ] },
+    { "name": "uNoiseScale", "type": "float", "count": 1, "values": [ 10.0 ] },
+    { "name": "uFillAlphaBase", "type": "float", "count": 1, "values": [ 0.32 ] },
+    { "name": "uFillAlphaFlow", "type": "float", "count": 1, "values": [ 0.2 ] },
+    { "name": "uCoreAlpha", "type": "float", "count": 1, "values": [ 0.16 ] },
+    { "name": "uEdgeAlphaBase", "type": "float", "count": 1, "values": [ 0.8 ] },
+    { "name": "uEdgeAlphaFlow", "type": "float", "count": 1, "values": [ 0.25 ] },
+    { "name": "uRimAlpha", "type": "float", "count": 1, "values": [ 0.42 ] },
+    { "name": "uInnerColorA", "type": "float", "count": 3, "values": [ 0.74, 0.82, 0.97 ] },
+    { "name": "uInnerColorB", "type": "float", "count": 3, "values": [ 0.95, 0.97, 1.0 ] },
+    { "name": "uOuterColorA", "type": "float", "count": 3, "values": [ 0.74, 0.82, 0.97 ] },
+    { "name": "uOuterColorB", "type": "float", "count": 3, "values": [ 0.95, 0.97, 1.0 ] },
+    { "name": "uEdgeColor", "type": "float", "count": 3, "values": [ 0.95, 0.97, 1.0 ] },
+    { "name": "uRimColor", "type": "float", "count": 3, "values": [ 0.95, 0.97, 1.0 ] },
+    { "name": "uInnerHighlightBase", "type": "float", "count": 1, "values": [ 0.35 ] },
+    { "name": "uInnerHighlightFlow", "type": "float", "count": 1, "values": [ 0.2 ] },
+    { "name": "uOuterHighlightBase", "type": "float", "count": 1, "values": [ 0.7 ] },
+    { "name": "uOuterHighlightFlow", "type": "float", "count": 1, "values": [ 0.25 ] },
+    { "name": "uEdgeHighlightStrength", "type": "float", "count": 1, "values": [ 0.55 ] }
+  ]
+}

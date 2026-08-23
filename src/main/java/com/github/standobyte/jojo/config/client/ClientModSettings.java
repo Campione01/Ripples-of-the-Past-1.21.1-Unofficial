@@ -43,6 +43,7 @@ public class ClientModSettings {
 		public float standOthersTransparency = 50.0F;
 		public boolean classicStandObstruction = true;
 		public boolean standOutline = true;
+		public StandAuraSettings standAura = new StandAuraSettings();
 
 		public boolean menacingParticles = true;
 		public boolean characterVoiceLines = true;
@@ -59,6 +60,10 @@ public class ClientModSettings {
 		private void sanitize() {
 			standTransparency = clampTransparency(standTransparency);
 			standOthersTransparency = clampTransparency(standOthersTransparency);
+			if (standAura == null) {
+				standAura = new StandAuraSettings();
+			}
+			standAura.sanitize();
 		}
 
 		private static float clampTransparency(float transparency) {

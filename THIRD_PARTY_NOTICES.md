@@ -4,6 +4,22 @@ This project incorporates or adapts code from the components below. Fixed
 upstream revisions are recorded so later license changes do not obscure the
 terms under which the relevant code was received.
 
+## StandAuraFx
+
+- Project: StandAuraFx by KINnaoinza
+- Revision: `6f36008b37bc7165a8c1fd594b246923557dc417`
+- Source: <https://github.com/KINnao087/StandAuraFx/tree/6f36008b37bc7165a8c1fd594b246923557dc417>
+- License at that revision: GNU GPL version 3
+- Local use: the automatic Stand/player aura modes, exact-target request API,
+  configuration defaults, color treatment, animated 16-direction by 48-step
+  mask SDF, and scene-depth-aware compositor were adapted into the core on
+  2026-08-23. Rendering now uses the existing core-owned exact-entity mask,
+  Stand lifecycle opacity, and Stand translucent fallback material.
+
+The upstream root `LICENSE` is GPLv3. Its legacy `mods.toml` still says
+`All Rights Reserved`; this integration relies on the repository-level GPLv3
+grant fixed at the revision above. The complete GPLv3 text is in `LICENSE`.
+
 ## Mocha
 
 - Project: Unnamed Team Mocha

@@ -16,6 +16,7 @@ import com.github.standobyte.jojo.client.entityanim.molang.AnimMolangQuery.AnimM
 import com.github.standobyte.jojo.client.entityanim.pose.AnimFramePose;
 import com.github.standobyte.jojo.client.entityrender.EntityActionRenderState;
 import com.github.standobyte.jojo.client.entityrender.parsemodel.loader.RotpGeckoModelLoader;
+import com.github.standobyte.jojo.client.entityrender.stand.aura.StandAuraLayer;
 import com.github.standobyte.jojo.client.standskin.StandSkin;
 import com.github.standobyte.jojo.client.standskin.StandSkinsLoader;
 import com.github.standobyte.jojo.client.rendertype.ModRenderTypes;
@@ -84,6 +85,7 @@ public class StandEntityRenderer<
 		this.addLayer(standGlowLayer);
 		this.addLayer(magiciansRedFlameLayer);
 		this.addLayer(silverChariotRapierFlameLayer);
+		this.addLayer(new StandAuraLayer<>(this));
 	}
 	
 	public final S createRenderState(T entity, float partialTick) {

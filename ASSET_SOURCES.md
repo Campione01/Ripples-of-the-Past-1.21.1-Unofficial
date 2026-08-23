@@ -19,6 +19,15 @@ Known upstream asset contributors are:
 Detailed contribution roles are preserved in [NOTICE.md](NOTICE.md).
 Campione01 does not claim original authorship of inherited upstream assets.
 
+## Stand Aura FX shader source
+
+The `stand_aura_composite` shader is a Minecraft 1.21.1/GLSL 150 adaptation
+of the GPLv3 StandAuraFx shader by KINnaoinza, fixed at revision
+`6f36008b37bc7165a8c1fd594b246923557dc417`:
+<https://github.com/KINnao087/StandAuraFx/tree/6f36008b37bc7165a8c1fd594b246923557dc417>.
+The adaptation retains the upstream SDF/noise/color algorithm and moves
+framebuffer ownership into ROTP's existing exact-entity mask compositor.
+
 ## Deliberately excluded assets
 
 The Git snapshot excludes:

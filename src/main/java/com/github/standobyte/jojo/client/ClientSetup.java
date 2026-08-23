@@ -4,6 +4,7 @@ import java.io.File;
 
 import com.github.standobyte.jojo.client.input.InputHandler;
 import com.github.standobyte.jojo.client.itemrender.ModItemModelOverrides;
+import com.github.standobyte.jojo.client.entityrender.stand.aura.StandAuraFxClient;
 import com.github.standobyte.jojo.client.ui.screen_jojomenu.JojoMenuTabs;
 import com.github.standobyte.jojo.config.client.ClientModSettings;
 import com.github.standobyte.jojo.core.JojoMod;
@@ -34,6 +35,7 @@ public class ClientSetup {
 	@SubscribeEvent(priority = EventPriority.HIGHEST)
 	public static void onClientSetup0(FMLClientSetupEvent event) {
 		AbilitySelectionVisualCorePolicies.register();
+		StandAuraFxClient.register();
 		JojoMenuTabs.initDefaults();
 	}
 

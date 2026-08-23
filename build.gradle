@@ -327,6 +327,16 @@ tasks.register('firstPersonExtraArmContractSmokeTest', JavaExec) {
             'com.github.standobyte.jojo.client.firstperson.FirstPersonExtraArmContractSmokeTest'
 }
 
+tasks.register('standAuraFxIntegrationSmokeTest', JavaExec) {
+    group = 'verification'
+    description = 'Verifies integrated Stand Aura FX defaults, persistence, renderer ownership, and shader contract.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
+    mainClass =
+            'com.github.standobyte.jojo.client.entityrender.stand.aura.StandAuraFxIntegrationSmokeTest'
+    systemProperty 'standAuraProjectDir', project.projectDir.absolutePath
+}
+
 tasks.named('check').configure {
     dependsOn tasks.named('clientSettingsSmokeTest')
     dependsOn tasks.named('addonApiSmokeTest')
@@ -338,6 +348,7 @@ tasks.named('check').configure {
     dependsOn tasks.named('distanceStrengthDecayPolicySmokeTest')
     dependsOn tasks.named('goldExperienceLifeformOrderingSmokeTest')
     dependsOn tasks.named('firstPersonExtraArmContractSmokeTest')
+    dependsOn tasks.named('standAuraFxIntegrationSmokeTest')
 }
 
 // IDEA no longer automatically downloads sources/javadoc jars for dependencies, so we need to explicitly enable the behavior.
