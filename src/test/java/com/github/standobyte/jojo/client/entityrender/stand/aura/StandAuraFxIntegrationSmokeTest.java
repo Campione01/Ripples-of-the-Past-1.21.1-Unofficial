@@ -187,6 +187,9 @@ public final class StandAuraFxIntegrationSmokeTest {
         String layer = read(root,
                 "src/main/java/com/github/standobyte/jojo/client/"
                         + "entityrender/stand/aura/StandAuraLayer.java");
+        String livingLayer = read(root,
+                "src/main/java/com/github/standobyte/jojo/client/"
+                        + "entityrender/stand/aura/LivingAuraLayer.java");
         String compositor = read(root,
                 "src/main/java/com/github/standobyte/jojo/client/"
                         + "entityrender/stand/aura/"
@@ -194,9 +197,6 @@ public final class StandAuraFxIntegrationSmokeTest {
         String fragment = read(root,
                 "src/main/resources/assets/jojo_ripples/shaders/core/"
                         + "stand_aura_composite.fsh");
-        String compositeDefinition = read(root,
-                "src/main/resources/assets/jojo_ripples/shaders/core/"
-                        + "stand_aura_composite.json");
         String notice = read(root, "THIRD_PARTY_NOTICES.md");
         String packagedNotice = read(root,
                 "src/main/resources/META-INF/"
@@ -251,27 +251,34 @@ public final class StandAuraFxIntegrationSmokeTest {
         require(layer, "state.visualContext.effectiveAlpha()");
         require(layer, "ModRenderTypes.standTranslucent(texture)");
         require(compositor, "EntityMaskPostEffect.register(");
+        requireOrder(
+                compositor,
+                "ClientRenderCompatibility.snapshot()",
+                ".irisShaderPackInUse()) {",
+                "return false;");
+        requireOrder(
+                compositor,
+                ".irisShaderPackInUse()) {",
+                "return false;",
+                "StandAuraSettings settings = settings();");
+        requireOrder(
+                compositor,
+                "StandAuraSettings settings = settings();",
+                "current.setOutputScale(settings.framebufferScale);",
+                "return current.queue(");
+        requireOrder(
+                layer,
+                "if (StandAuraMaskCompositor.queue(",
+                "return;",
+                "ModRenderTypes.standTranslucent(texture)");
+        requireOrder(
+                livingLayer,
+                "if (StandAuraMaskCompositor.queue(",
+                "return;",
+                "RenderType.entityTranslucent(texture(entity))");
         require(fragment, "const int DIRECTION_COUNT = 16;");
         require(fragment, "const int STEP_COUNT = 48;");
         require(fragment, "uniform sampler2D uSceneDepthTex;");
-        require(fragment, "uniform float uSceneDepthOcclusion;");
-        require(compositeDefinition,
-                "{ \"name\": \"uSceneDepthOcclusion\", "
-                        + "\"type\": \"float\", \"count\": 1, "
-                        + "\"values\": [ 1.0 ] }");
-        require(auraShaders,
-                "ClientRenderCompatibility.snapshot()");
-        require(auraShaders, "\"uSceneDepthOcclusion\"");
-        requireOrder(
-                auraShaders,
-                ".irisShaderPackInUse()",
-                "? 0.0F",
-                ": 1.0F");
-        requireOrder(
-                fragment,
-                "if (uSceneDepthOcclusion > 0.5)",
-                "float sceneDepth = sampleDepth(",
-                "if (nearestEntityDepth < VALID_DEPTH_MAX");
         require(fragment, "vec2 maskUv(vec2 p)");
         require(fragment,
                 "vec2 relativeScale = max(");

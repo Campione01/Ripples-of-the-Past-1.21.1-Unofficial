@@ -1,6 +1,5 @@
 package com.github.standobyte.jojo.client.entityrender.stand.aura;
 
-import com.github.standobyte.jojo.api.client.render.ClientRenderCompatibility;
 import com.github.standobyte.jojo.api.client.render.EntityMaskCompositeContext;
 import com.github.standobyte.jojo.client.shader.ModShaders;
 import com.github.standobyte.jojo.config.client.ClientModSettings;
@@ -62,11 +61,6 @@ public final class StandAuraShaders {
         shader.safeGetUniform("uShapeOffset").set(
                 settings.shapeOffsetX,
                 settings.shapeOffsetY);
-        shader.safeGetUniform("uSceneDepthOcclusion").set(
-                ClientRenderCompatibility.snapshot()
-                        .irisShaderPackInUse()
-                        ? 0.0F
-                        : 1.0F);
         shader.safeGetUniform("uAuraThickness").set(thickness);
         shader.safeGetUniform("uBaseAuraWidth").set(
                 settings.baseAuraWidth * thickness);

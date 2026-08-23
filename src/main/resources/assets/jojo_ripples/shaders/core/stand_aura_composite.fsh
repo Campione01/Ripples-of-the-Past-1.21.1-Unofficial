@@ -16,7 +16,6 @@ uniform vec2 uShapeScale;
 uniform vec2 uShapeOffset;
 uniform float uAspect;
 uniform float uAntiAlias;
-uniform float uSceneDepthOcclusion;
 uniform float uAuraThickness;
 uniform float uBaseAuraWidth;
 uniform float uAuraWidthChaos;
@@ -429,16 +428,14 @@ void main() {
         1.0
     ) * uGlobalAlpha;
 
-    if (uSceneDepthOcclusion > 0.5) {
-        float sceneDepth = sampleDepth(
-            uSceneDepthTex,
-            mix(uMaskUvMin, uMaskUvMax, vUv)
-        );
-        if (nearestEntityDepth < VALID_DEPTH_MAX
-                && sceneDepth
-                    < nearestEntityDepth - DEPTH_BIAS) {
-            discard;
-        }
+    float sceneDepth = sampleDepth(
+        uSceneDepthTex,
+        mix(uMaskUvMin, uMaskUvMax, vUv)
+    );
+    if (nearestEntityDepth < VALID_DEPTH_MAX
+            && sceneDepth
+                < nearestEntityDepth - DEPTH_BIAS) {
+        discard;
     }
     if (alpha <= 0.001) {
         discard;

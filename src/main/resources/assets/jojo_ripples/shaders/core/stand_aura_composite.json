@@ -17,7 +17,6 @@
     { "name": "uShapeOffset", "type": "float", "count": 2, "values": [ 0.0, 0.05 ] },
     { "name": "uAspect", "type": "float", "count": 1, "values": [ 1.0 ] },
     { "name": "uAntiAlias", "type": "float", "count": 1, "values": [ 0.002 ] },
-    { "name": "uSceneDepthOcclusion", "type": "float", "count": 1, "values": [ 1.0 ] },
     { "name": "uAuraThickness", "type": "float", "count": 1, "values": [ 0.45 ] },
     { "name": "uBaseAuraWidth", "type": "float", "count": 1, "values": [ 0.05 ] },
     { "name": "uAuraWidthChaos", "type": "float", "count": 1, "values": [ 0.028 ] },

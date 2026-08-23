@@ -1,5 +1,6 @@
 package com.github.standobyte.jojo.client.entityrender.stand.aura;
 
+import com.github.standobyte.jojo.api.client.render.ClientRenderCompatibility;
 import com.github.standobyte.jojo.api.client.render.EntityMaskCompositeContext;
 import com.github.standobyte.jojo.api.client.render.EntityMaskPostEffect;
 import com.github.standobyte.jojo.config.client.ClientModSettings;
@@ -25,6 +26,10 @@ final class StandAuraMaskCompositor {
     }
 
     static boolean queue(Entity entity, int color, float alpha) {
+        if (ClientRenderCompatibility.snapshot()
+                .irisShaderPackInUse()) {
+            return false;
+        }
         StandAuraSettings settings = settings();
         ShaderInstance shader = StandAuraShaders.composite();
         EntityMaskPostEffect current = effect;
