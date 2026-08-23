@@ -194,6 +194,9 @@ public final class StandAuraFxIntegrationSmokeTest {
         String fragment = read(root,
                 "src/main/resources/assets/jojo_ripples/shaders/core/"
                         + "stand_aura_composite.fsh");
+        String compositeDefinition = read(root,
+                "src/main/resources/assets/jojo_ripples/shaders/core/"
+                        + "stand_aura_composite.json");
         String notice = read(root, "THIRD_PARTY_NOTICES.md");
         String packagedNotice = read(root,
                 "src/main/resources/META-INF/"
@@ -251,6 +254,24 @@ public final class StandAuraFxIntegrationSmokeTest {
         require(fragment, "const int DIRECTION_COUNT = 16;");
         require(fragment, "const int STEP_COUNT = 48;");
         require(fragment, "uniform sampler2D uSceneDepthTex;");
+        require(fragment, "uniform float uSceneDepthOcclusion;");
+        require(compositeDefinition,
+                "{ \"name\": \"uSceneDepthOcclusion\", "
+                        + "\"type\": \"float\", \"count\": 1, "
+                        + "\"values\": [ 1.0 ] }");
+        require(auraShaders,
+                "ClientRenderCompatibility.snapshot()");
+        require(auraShaders, "\"uSceneDepthOcclusion\"");
+        requireOrder(
+                auraShaders,
+                ".irisShaderPackInUse()",
+                "? 0.0F",
+                ": 1.0F");
+        requireOrder(
+                fragment,
+                "if (uSceneDepthOcclusion > 0.5)",
+                "float sceneDepth = sampleDepth(",
+                "if (nearestEntityDepth < VALID_DEPTH_MAX");
         require(fragment, "vec2 maskUv(vec2 p)");
         require(fragment,
                 "vec2 relativeScale = max(");
