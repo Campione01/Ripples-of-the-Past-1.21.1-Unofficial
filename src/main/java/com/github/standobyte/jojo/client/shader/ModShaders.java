@@ -12,6 +12,7 @@ import com.github.standobyte.jojo.api.client.render.AddonPostEffect;
 import com.github.standobyte.jojo.api.client.render.EntityMaskPostEffect;
 import com.github.standobyte.jojo.client.ModClientResources;
 import com.github.standobyte.jojo.client.entityrender.stand.aura.StandAuraShaders;
+import com.github.standobyte.jojo.client.shader.core.PrivateTargetShaderInstance;
 import com.github.standobyte.jojo.client.shader.core.RotpShader;
 import com.github.standobyte.jojo.core.JojoMod;
 import com.github.standobyte.jojo.util.reflection.ClientReflection;
@@ -53,6 +54,7 @@ public class ModShaders implements ResourceManagerReloadListener, AutoCloseable 
 	public ResolveShaderManager resolveShaderManager;
 	@ApiStatus.Internal public List<RotpShader> _allShaders = new ArrayList<>();
 	public ShaderInstance coreStandTranslucent;
+	private ShaderInstance privateTargetBlit;
 
 	private void init() {
 		Minecraft mc = Minecraft.getInstance();
@@ -113,7 +115,13 @@ public class ModShaders implements ResourceManagerReloadListener, AutoCloseable 
 		}
 		loadCoreShader(event, JojoMod.resLoc("stand_translucent"), DefaultVertexFormat.NEW_ENTITY,
 				shader -> instance.coreStandTranslucent = shader);
+		loadPrivateTargetCoreShader(event, ResourceLocation.withDefaultNamespace("position_tex"),
+				DefaultVertexFormat.POSITION_TEX, shader -> instance.privateTargetBlit = shader);
 		StandAuraShaders.loadCoreShader(event);
+	}
+
+	public static ShaderInstance privateTargetBlit() {
+		return instance != null ? instance.privateTargetBlit : null;
 	}
 
 	public void resize(int width, int height) {
@@ -176,6 +184,27 @@ public class ModShaders implements ResourceManagerReloadListener, AutoCloseable 
 		}
 		catch (IOException e) {
 			JojoMod.getLogger().error("Failed loading a core shader from the mod", e);
+			init.accept(null);
+		}
+	}
+
+	public static void loadPrivateTargetCoreShader(
+			RegisterShadersEvent event,
+			ResourceLocation path,
+			VertexFormat vertexFormat,
+			Consumer<ShaderInstance> init) {
+		ResourceProvider resourceProvider = event.getResourceProvider();
+		ShaderInstance shader;
+		try {
+			shader = new PrivateTargetShaderInstance(
+					resourceProvider, path, vertexFormat);
+			event.registerShader(shader, init);
+		}
+		catch (IOException e) {
+			JojoMod.getLogger().error(
+					"Failed loading a private-target core shader {}",
+					path,
+					e);
 			init.accept(null);
 		}
 	}

@@ -93,6 +93,12 @@ public class JojoMenuTabs {
 		return !active.isEmpty() ? active.get(0) : null;
 	}
 
+	public static boolean openHamonTeacherScreen() {
+		Minecraft mc = Minecraft.getInstance();
+		return mc.player != null && CATEGORY_HAMON.isActive()
+				&& CATEGORY_HAMON.onClick(mc, mc.screen);
+	}
+
 	public static <P extends Power<P>> P getPowerForMenu(
 			PowerClass<P> powerClass) {
 		P cached = ClientPowerCache.getPower(powerClass);

@@ -20,6 +20,7 @@ public final class HamonPayloadContractSmokeTest {
 		testStatTrainingLimit();
 		testClearLifecycleContracts();
 		testSyncedConfigAndUiContracts();
+		testTeacherInteractionUiContract();
 
 		Set<String> known = HamonTeachersSkillsPacket.knownTeacherSkills(
 				Set.of("overdrive", "not_a_registered_hamon_skill"),
@@ -63,6 +64,65 @@ public final class HamonPayloadContractSmokeTest {
 						1, HamonStatFeedbackPacket.Stat.STRENGTH, 1, 0.0F,
 						false, List.of("x".repeat(129))),
 				"learnable-skill feedback must reject names above fixed wire capacity");
+	}
+
+	private static void testTeacherInteractionUiContract() {
+		String entitySource = readSource(Path.of(
+				"src/main/java/com/github/standobyte/jojoimpl/powers/hamon/entity/HamonMasterEntity.java"));
+		String interaction = section(entitySource,
+				"public InteractionResult mobInteract(",
+				"public boolean canStandOnFluid(");
+		check(interaction.contains("hand == InteractionHand.MAIN_HAND")
+					&& interaction.contains("HamonUtil.interactWithHamonTeacher("),
+				"Hamon master main-hand use must reach the production teacher interaction");
+
+		String utilSource = readSource(Path.of(
+				"src/main/java/com/github/standobyte/jojoimpl/powers/hamon/HamonUtil.java"));
+		String teacherInteraction = section(utilSource,
+				"public static void interactWithHamonTeacher(",
+				"public static void startLearningHamon(");
+		check(teacherInteraction.contains("playerHamon != null && !level.isClientSide()")
+					&& teacherInteraction.contains("player instanceof ServerPlayer serverPlayer")
+					&& teacherInteraction.contains("player.isAlive() && !player.isSpectator()")
+					&& teacherInteraction.contains("PacketDistributor.sendToPlayer(serverPlayer, new TrHamonTeacherScreenPacket())"),
+				"the authoritative teacher interaction must send the screen handoff only to an eligible Hamon player");
+
+		String packetSource = readSource(Path.of(
+				"src/main/java/com/github/standobyte/jojoimpl/powers/hamon/TrHamonTeacherScreenPacket.java"));
+		check(packetSource.contains("StreamCodec.unit(new TrHamonTeacherScreenPacket())")
+					&& packetSource.contains("JojoMenuTabs.openHamonTeacherScreen();"),
+				"the clientbound teacher-screen payload must be bounded and enter the production menu route");
+
+		String registrationSource = readSource(Path.of(
+				"src/main/java/com/github/standobyte/jojo/PacketsRegister.java"));
+		check(registrationSource.contains("PayloadRegistrar::playToClient, new TrHamonTeacherScreenPacket.Handler(")
+					&& registrationSource.contains("tr_hamon_teacher_screen"),
+				"the Hamon teacher-screen payload must be registered clientbound");
+
+		String tabsSource = readSource(Path.of(
+				"src/main/java/com/github/standobyte/jojo/client/ui/screen_jojomenu/JojoMenuTabs.java"));
+		String openScreen = section(tabsSource,
+				"public static boolean openHamonTeacherScreen()",
+				"public static <P extends Power<P>>");
+		check(openScreen.contains("CATEGORY_HAMON.isActive()")
+					&& openScreen.contains("CATEGORY_HAMON.onClick(mc, mc.screen)")
+					&& !openScreen.contains("new Hamon"),
+				"teacher interaction must open an active Hamon production tab rather than construct a screen directly");
+		String tabOpened = section(tabsSource,
+				"public static void onTabOpened(",
+				"public static void initDefaults()");
+		check(tabOpened.contains("curCategory == CATEGORY_HAMON")
+					&& tabOpened.contains("new ClHamonWindowOpenedPacket()"),
+				"opening the teacher screen must request current exercises and nearby teacher skills");
+
+		String tabSource = readSource(Path.of(
+				"src/main/java/com/github/standobyte/jojo/client/ui/screen_jojomenu/Tab.java"));
+		String tabClick = section(tabSource,
+				"public boolean onTabClick(",
+				"public Tab withName(");
+		check(tabClick.contains("mc.setScreen(screen);")
+					&& tabClick.contains("JojoMenuTabs.onTabOpened(this);"),
+				"the production Hamon tab must set the screen and run its network-aware open lifecycle");
 	}
 
 	private static void testClearLifecycleContracts() {

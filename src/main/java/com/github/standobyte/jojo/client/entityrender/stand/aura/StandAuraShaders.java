@@ -22,7 +22,7 @@ public final class StandAuraShaders {
 
     public static void loadCoreShader(RegisterShadersEvent event) {
         composite = null;
-        ModShaders.loadCoreShader(
+        ModShaders.loadPrivateTargetCoreShader(
                 event,
                 JojoMod.resLoc("stand_aura_composite"),
                 DefaultVertexFormat.POSITION_TEX,

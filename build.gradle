@@ -300,6 +300,15 @@ tasks.register('stoneMaskArmorRenderContractSmokeTest', JavaExec) {
             'com.github.standobyte.jojo.client.render.armor.StoneMaskArmorRenderContractSmokeTest'
 }
 
+tasks.register('stoneMaskUseInputSmokeTest', JavaExec) {
+    group = 'verification'
+    description = 'Verifies worn Stone Mask knife use keeps vanilla input ownership.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
+    mainClass =
+            'com.github.standobyte.jojo.client.input.StoneMaskUseInputSmokeTest'
+}
+
 tasks.register('distanceStrengthDecayPolicySmokeTest', JavaExec) {
     group = 'verification'
     description = 'Verifies per-Stand remote-control strength decay policy and range-cap separation.'
@@ -345,6 +354,7 @@ tasks.named('check').configure {
     dependsOn tasks.named('networkPayloadSafetySmokeTest')
     dependsOn tasks.named('addonRuntimeCompatibilityGuardsSmokeTest')
     dependsOn tasks.named('stoneMaskArmorRenderContractSmokeTest')
+    dependsOn tasks.named('stoneMaskUseInputSmokeTest')
     dependsOn tasks.named('distanceStrengthDecayPolicySmokeTest')
     dependsOn tasks.named('goldExperienceLifeformOrderingSmokeTest')
     dependsOn tasks.named('firstPersonExtraArmContractSmokeTest')

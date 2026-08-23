@@ -211,8 +211,8 @@ public final class EntityMaskPostEffectSmokeTest {
 		check(source.contains(
 						"renderedAny |= context.drewComposite()")
 				&& source.contains("if (renderedAny) {")
-				&& source.contains("blitAuraToMain("),
-				"a no-draw compositor can still touch the main target");
+				&& source.contains("blitAuraToCapturedTarget("),
+				"a no-draw compositor can still touch the captured target");
 		check(source.contains("finally {\n\t\t\tstate.restore();")
 						&& source.contains(
 								"RenderSystem.setProjectionMatrix(")

@@ -171,6 +171,15 @@ public final class StandAuraFxIntegrationSmokeTest {
         String shaders = read(root,
                 "src/main/java/com/github/standobyte/jojo/client/"
                         + "shader/ModShaders.java");
+        String privateTargetShader = read(root,
+                "src/main/java/com/github/standobyte/jojo/client/"
+                        + "shader/core/PrivateTargetShaderInstance.java");
+        String entityMask = read(root,
+                "src/main/java/com/github/standobyte/jojo/api/client/"
+                        + "render/EntityMaskPostEffect.java");
+        String auraShaders = read(root,
+                "src/main/java/com/github/standobyte/jojo/client/"
+                        + "entityrender/stand/aura/StandAuraShaders.java");
         String screen = read(root,
                 "src/main/java/com/github/standobyte/jojo/powersystem/"
                         + "standpower/client_screens/"
@@ -196,6 +205,25 @@ public final class StandAuraFxIntegrationSmokeTest {
         require(renderer, "new StandAuraLayer<>(this)");
         require(setup, "StandAuraFxClient.register()");
         require(shaders, "StandAuraShaders.loadCoreShader(event)");
+        require(shaders, "loadPrivateTargetCoreShader(event");
+        require(shaders, "privateTargetBlit");
+        require(shaders,
+                "ResourceLocation.withDefaultNamespace(\"position_tex\")");
+        require(privateTargetShader, "public boolean iris$skipDraw()");
+        require(privateTargetShader, "return true;");
+        require(auraShaders, "ModShaders.loadPrivateTargetCoreShader(");
+        require(entityMask, "destinationState::bindCapturedDrawTarget");
+        require(entityMask, "targetState.drawFramebuffer()");
+        require(entityMask, "ModShaders.privateTargetBlit()");
+        requireOrder(
+                entityMask,
+                "shader.apply();",
+                "bindDrawTarget.run();",
+                "BufferUploader.draw(builder.buildOrThrow());");
+        check(!entityMask.contains("main.bindWrite(true)"),
+                "entity mask result still blindly targets the main FBO");
+        check(!entityMask.contains("BufferUploader.drawWithShader("),
+                "shader apply can still rebind a private target during draw");
         require(screen, "StandAuraSettings.PARAMETERS");
         require(screen, "settings.standAura.enabled");
         require(layer, "state.visualContext.effectiveAlpha()");
@@ -259,6 +287,18 @@ public final class StandAuraFxIntegrationSmokeTest {
 
     private static void require(String text, String token) {
         check(text.contains(token), "missing production token: " + token);
+    }
+
+    private static void requireOrder(
+            String text, String first, String second, String third) {
+        int firstIndex = text.indexOf(first);
+        int secondIndex = text.indexOf(second, firstIndex + 1);
+        int thirdIndex = text.indexOf(third, secondIndex + 1);
+        check(firstIndex >= 0
+                        && secondIndex > firstIndex
+                        && thirdIndex > secondIndex,
+                "production tokens are out of order: "
+                        + first + " -> " + second + " -> " + third);
     }
 
     private static void check(boolean condition, String message) {

@@ -65,6 +65,7 @@ import net.minecraft.world.entity.projectile.Snowball;
 import net.minecraft.world.entity.projectile.ThrownEgg;
 import net.minecraft.world.entity.projectile.ThrownPotion;
 import net.neoforged.neoforge.common.Tags;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 public final class HamonUtil {
 	private HamonUtil() {}
@@ -110,11 +111,16 @@ public final class HamonUtil {
 				startLearningHamon(level, player, playerPower, teacher, teacherHamon);
 			}
 		}
-		else if (playerHamon != null && !level.isClientSide() && player.getAbilities().instabuild) {
-			playerHamon.setBreathingLevel(HamonData.MAX_BREATHING_LEVEL);
-			playerHamon.setHamonStatPoints(HamonData.HamonStat.STRENGTH, HamonData.MAX_HAMON_POINTS, true, true);
-			playerHamon.setHamonStatPoints(HamonData.HamonStat.CONTROL, HamonData.MAX_HAMON_POINTS, true, true);
-			playerHamon.syncOnUpdate(player);
+		else if (playerHamon != null && !level.isClientSide()) {
+			if (player instanceof ServerPlayer serverPlayer && player.isAlive() && !player.isSpectator()) {
+				PacketDistributor.sendToPlayer(serverPlayer, new TrHamonTeacherScreenPacket());
+			}
+			if (player.getAbilities().instabuild) {
+				playerHamon.setBreathingLevel(HamonData.MAX_BREATHING_LEVEL);
+				playerHamon.setHamonStatPoints(HamonData.HamonStat.STRENGTH, HamonData.MAX_HAMON_POINTS, true, true);
+				playerHamon.setHamonStatPoints(HamonData.HamonStat.CONTROL, HamonData.MAX_HAMON_POINTS, true, true);
+				playerHamon.syncOnUpdate(player);
+			}
 		}
 	}
 

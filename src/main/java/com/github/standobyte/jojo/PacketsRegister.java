@@ -114,6 +114,7 @@ import com.github.standobyte.jojoimpl.powers.hamon.TrHamonLiquidWalkingPacket;
 import com.github.standobyte.jojoimpl.powers.hamon.TrHamonMeditationPacket;
 import com.github.standobyte.jojoimpl.powers.hamon.TrHamonEntityChargePacket;
 import com.github.standobyte.jojoimpl.powers.hamon.TrHamonSyncPlayerLearnerPacket;
+import com.github.standobyte.jojoimpl.powers.hamon.TrHamonTeacherScreenPacket;
 import com.github.standobyte.jojoimpl.powers.hamon.TrHamonWallClimbingPacket;
 import com.github.standobyte.jojoimpl.powers.hamon.TrHamonWallClimbMovementPacket;
 
@@ -189,6 +190,7 @@ public class PacketsRegister {
 		registerPacket(registrar, PayloadRegistrar::playToClient, new TrHamonWallClimbingPacket.Handler(JojoMod.resLoc("tr_hamon_wall_climbing")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new TrHamonWallClimbMovementPacket.Handler(JojoMod.resLoc("tr_hamon_wall_climb_moving")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new TrHamonSyncPlayerLearnerPacket.Handler(JojoMod.resLoc("tr_hamon_sync_player_learner")));
+		registerPacket(registrar, PayloadRegistrar::playToClient, new TrHamonTeacherScreenPacket.Handler(JojoMod.resLoc("tr_hamon_teacher_screen")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new HamonTeachersSkillsPacket.Handler(JojoMod.resLoc("hamon_teachers_skills")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new HamonExercisesPacket.Handler(JojoMod.resLoc("hamon_exercises")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new HamonStatFeedbackPacket.Handler(JojoMod.resLoc("hamon_stat_feedback")));

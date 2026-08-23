@@ -17,7 +17,9 @@ import org.joml.Matrix4fStack;
 import org.joml.Vector4f;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
+import org.lwjgl.opengl.GL30;
 
+import com.github.standobyte.jojo.client.shader.ModShaders;
 import com.github.standobyte.jojo.client.shader.core.RenderTargetState;
 import com.github.standobyte.jojo.core.JojoMod;
 import com.mojang.blaze3d.pipeline.RenderTarget;
@@ -287,13 +289,14 @@ public final class EntityMaskPostEffect implements AutoCloseable {
 						frameEffect,
 						event,
 						minecraft,
-						mainTarget);
+						mainTarget,
+						state);
 			}
 		}
 		catch (RuntimeException exception) {
 			JojoMod.getLogger().error(
 					"Entity mask post effects failed; "
-							+ "the main target was restored.",
+							+ "the captured render target was restored.",
 					exception);
 		}
 		finally {
@@ -315,7 +318,8 @@ public final class EntityMaskPostEffect implements AutoCloseable {
 			FrameEffect frameEffect,
 			RenderLevelStageEvent event,
 			Minecraft minecraft,
-			RenderTarget mainTarget) {
+			RenderTarget mainTarget,
+			RenderStateScope destinationState) {
 		int outputWidth = Math.max(
 				1,
 				Math.round(
@@ -387,7 +391,8 @@ public final class EntityMaskPostEffect implements AutoCloseable {
 		frameEffect.effect().runtimeFailure.settleBatch(
 				attemptedGroup, groupFailed);
 		if (renderedAny) {
-			blitAuraToMain(currentAuraTarget, mainTarget);
+			blitAuraToCapturedTarget(
+					currentAuraTarget, destinationState);
 		}
 	}
 
@@ -564,7 +569,6 @@ public final class EntityMaskPostEffect implements AutoCloseable {
 		RenderTarget mask = context.maskTarget();
 		RenderTarget aura = context.auraTarget();
 		RenderTarget scene = context.sceneTarget();
-		aura.bindWrite(true);
 		RenderSystem.enableBlend();
 		RenderSystem.defaultBlendFunc();
 		RenderSystem.disableDepthTest();
@@ -590,8 +594,9 @@ public final class EntityMaskPostEffect implements AutoCloseable {
 				2.0F / Math.max(context.width(), 1),
 				2.0F / Math.max(context.height(), 1)));
 		uniformUpdater.update(shader, context);
-		RenderSystem.setShader(() -> shader);
 		drawClipQuad(
+				shader,
+				() -> aura.bindWrite(true),
 				context.minU(),
 				context.minV(),
 				context.maxU(),
@@ -599,23 +604,33 @@ public final class EntityMaskPostEffect implements AutoCloseable {
 		context.markDrewComposite();
 	}
 
-	private static void blitAuraToMain(
+	private static void blitAuraToCapturedTarget(
 			RenderTarget aura,
-			RenderTarget main) {
-		main.bindWrite(true);
+			RenderStateScope destinationState) {
 		RenderSystem.enableBlend();
 		RenderSystem.defaultBlendFunc();
 		RenderSystem.disableDepthTest();
 		RenderSystem.depthMask(false);
 		RenderSystem.disableCull();
 		RenderSystem.colorMask(true, true, true, true);
-		RenderSystem.setShader(GameRenderer::getPositionTexShader);
 		RenderSystem.setShaderTexture(
 				0, aura.getColorTextureId());
-		drawClipQuad(0.0F, 0.0F, 1.0F, 1.0F);
+		ShaderInstance shader = ModShaders.privateTargetBlit();
+		if (shader == null) {
+			shader = GameRenderer.getPositionTexShader();
+		}
+		drawClipQuad(
+				shader,
+				destinationState::bindCapturedDrawTarget,
+				0.0F,
+				0.0F,
+				1.0F,
+				1.0F);
 	}
 
 	private static void drawClipQuad(
+			ShaderInstance shader,
+			Runnable bindDrawTarget,
 			float minU,
 			float minV,
 			float maxU,
@@ -649,8 +664,19 @@ public final class EntityMaskPostEffect implements AutoCloseable {
 						.setUv(maxU, maxV);
 				builder.addVertex(minX, maxY, 0.0F)
 						.setUv(minU, maxV);
-				BufferUploader.drawWithShader(
-						builder.buildOrThrow());
+				shader.setDefaultUniforms(
+						VertexFormat.Mode.QUADS,
+						RenderSystem.getModelViewMatrix(),
+						RenderSystem.getProjectionMatrix(),
+						Minecraft.getInstance().getWindow());
+				shader.apply();
+				try {
+					bindDrawTarget.run();
+					BufferUploader.draw(builder.buildOrThrow());
+				}
+				finally {
+					shader.clear();
+				}
 			}
 		}
 		finally {
@@ -1351,6 +1377,17 @@ public final class EntityMaskPostEffect implements AutoCloseable {
 			}
 			GlStateManager._activeTexture(activeTexture);
 			RenderSystem.setShader(() -> shader);
+		}
+
+		private void bindCapturedDrawTarget() {
+			GL30.glBindFramebuffer(
+					GL30.GL_DRAW_FRAMEBUFFER,
+					targetState.drawFramebuffer());
+			GlStateManager._viewport(
+					targetState.viewportX(),
+					targetState.viewportY(),
+					targetState.viewportWidth(),
+					targetState.viewportHeight());
 		}
 	}
 

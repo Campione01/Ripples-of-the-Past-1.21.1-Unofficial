@@ -36,6 +36,8 @@ import com.github.standobyte.jojo.client.util.functions.ClientUtil;
 import com.github.standobyte.jojo.config.client.ClientModSettings;
 import com.github.standobyte.jojo.event.client.PreKeyInputEvent;
 import com.github.standobyte.jojo.init.power.ModPlayerPowers;
+import com.github.standobyte.jojo.item.KnifeItem;
+import com.github.standobyte.jojo.item.StoneMaskItem;
 import com.github.standobyte.jojo.network.NetworkPayloadValidation;
 import com.github.standobyte.jojo.network.c2s.ClAbilityInputPacket;
 import com.github.standobyte.jojo.network.c2s.ClNoParamsPacket;
@@ -76,8 +78,10 @@ import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.AbstractArrow;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.neoforged.bus.api.EventPriority;
@@ -297,9 +301,14 @@ public class InputHandler {
 
 	private ClientControlScheme getActiveControlSchemeForInput(ClientKey key, KeyModifier keyModifier) {
 		ClientControlScheme activeControlScheme = getActiveControlScheme();
+		boolean vanillaUseTrigger =
+				key.equals(ClientKey.fromVanillaKeybind(mc.options.keyUse));
+		if (shouldPreserveStoneMaskKnifeUse(vanillaUseTrigger)) {
+			return null;
+		}
 		if (shouldPreserveUnsummonedStandVanillaUsePress(
 				activeControlScheme,
-				key.equals(ClientKey.fromVanillaKeybind(mc.options.keyUse)),
+				vanillaUseTrigger,
 				keyModifier)) {
 			return null;
 		}
@@ -321,8 +330,36 @@ public class InputHandler {
 	}
 
 	boolean shouldPreserveSemanticVanillaUsePress() {
-		return shouldPreserveUnsummonedStandVanillaUsePress(
+		return shouldPreserveStoneMaskKnifeUse(true)
+				|| shouldPreserveUnsummonedStandVanillaUsePress(
 				getActiveControlScheme(), true, getCurModifier());
+	}
+
+	private boolean shouldPreserveStoneMaskKnifeUse(
+			boolean vanillaUseTrigger) {
+		Player player = mc.player;
+		return player != null && shouldPreserveStoneMaskKnifeUse(
+				vanillaUseTrigger,
+				player.getItemBySlot(EquipmentSlot.HEAD).getItem()
+						instanceof StoneMaskItem,
+				stoneMaskKnifeCount(player.getMainHandItem()),
+				stoneMaskKnifeCount(player.getOffhandItem()));
+	}
+
+	private static int stoneMaskKnifeCount(ItemStack stack) {
+		return stack.getItem() instanceof KnifeItem
+				? stack.getCount()
+				: 0;
+	}
+
+	@ApiStatus.Internal
+	public static boolean shouldPreserveStoneMaskKnifeUse(
+			boolean vanillaUseTrigger,
+			boolean stoneMaskWorn,
+			int mainHandKnifeCount,
+			int offHandKnifeCount) {
+		return vanillaUseTrigger && stoneMaskWorn
+				&& mainHandKnifeCount + offHandKnifeCount == 1;
 	}
 
 	private boolean shouldPreserveUnsummonedStandVanillaUsePress(
