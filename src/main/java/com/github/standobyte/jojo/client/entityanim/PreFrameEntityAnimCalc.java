@@ -24,6 +24,7 @@ import com.github.standobyte.jojo.powersystem.standpower.entity.StandEntity;
 import com.github.standobyte.jojoimpl.powers.hamon.HamonData;
 import com.github.standobyte.jojoimpl.powers.pillarman.PillarmanData;
 import com.github.standobyte.jojoimpl.powers.pillarman.PillarmanPowerType;
+import com.github.standobyte.jojoimpl.stands._entitybase.StandEntityPunchAbility.StandEntityPunch;
 
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
@@ -172,7 +173,11 @@ public class PreFrameEntityAnimCalc {
 					stand.nonIdlePoseTimeStamp = stand.tickCount;
 				}
 
-				AnimWithId animPossiblyReplaced = getStandAnim(standSkin, animVariables.animId, idleAnim, stand.isArmsOnlyMode());
+				boolean implicitPunchMirror = action instanceof StandEntityPunch punch
+						&& punch.usesHandedAnimation();
+				AnimWithId animPossiblyReplaced = getStandAnim(
+						standSkin, animVariables.animId, idleAnim,
+						stand.isArmsOnlyMode(), implicitPunchMirror);
 				anim = animPossiblyReplaced.anim;
 				animVariables.animId = animPossiblyReplaced.animId;
 			}
@@ -238,9 +243,19 @@ public class PreFrameEntityAnimCalc {
 	}
 	
 	public static AnimWithId getStandAnim(StandSkin skin, ActionAnimIdentifier animId, ActionAnimIdentifier curIdleAnim, boolean armsOnly) {
+		return getStandAnim(skin, animId, curIdleAnim, armsOnly, false);
+	}
+
+	public static AnimWithId getStandAnim(
+			StandSkin skin,
+			ActionAnimIdentifier animId,
+			ActionAnimIdentifier curIdleAnim,
+			boolean armsOnly,
+			boolean implicitHandMirror) {
 		if (skin != null) {
 			if (animId != null) {
-				RotpAnimDefinition anim = skin.getStandAnimation(anims -> anims.getNamedAnim(animId, armsOnly));
+				RotpAnimDefinition anim = skin.getStandAnimation(
+						anims -> anims.getNamedAnim(animId, armsOnly, implicitHandMirror));
 				if (anim == null) {
 					anim = skin.getStandAnimation(anims -> anims.getNamedAnim(curIdleAnim));
 					if (anim != null) {

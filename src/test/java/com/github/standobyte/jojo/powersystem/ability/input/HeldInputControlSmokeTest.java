@@ -62,6 +62,7 @@ public final class HeldInputControlSmokeTest {
 				"held-input map was not fully drained");
 
 		verifyStandItemUseGenerationLifecycle();
+		verifyClientTrackerReconstruction();
 		verifyPublicServerContract();
 	}
 
@@ -101,6 +102,31 @@ public final class HeldInputControlSmokeTest {
 				&& server.acceptNetworkPressGeneration(
 						keyId, nextGeneration),
 				"the next same-key input collided with the Stand item-use generation");
+	}
+
+	private static void verifyClientTrackerReconstruction() {
+		short keyId = 5;
+		InputGenerationTracker firstClient =
+				new InputGenerationTracker();
+		InputGenerationTracker server = new InputGenerationTracker();
+		long serverFloor = 0L;
+		for (int i = 0; i < 100; i++) {
+			serverFloor =
+					firstClient.nextSessionInputGeneration(keyId);
+			check(server.acceptNetworkPressGeneration(
+						keyId, serverFloor),
+					"server rejected the pre-transition input history");
+		}
+
+		InputGenerationTracker reconstructedClient =
+				new InputGenerationTracker();
+		long nextGeneration =
+				reconstructedClient.nextSessionInputGeneration(keyId);
+		check(nextGeneration > serverFloor,
+				"reconstructed client reset its input generation");
+		check(server.acceptNetworkPressGeneration(
+					keyId, nextGeneration),
+				"server rejected input after client tracker reconstruction");
 	}
 
 	private static void verifyPublicServerContract() {

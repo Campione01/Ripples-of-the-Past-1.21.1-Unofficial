@@ -419,7 +419,7 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 			onArmsOnlyModeUpdated();
 		}
 		else if (SWING_OFF_HAND.equals(dataParameter)) {
-			swingingArm = getPunchingHand();
+			swingingArm = getCurrentPunchingHand();
 		}
 		else if (BARRAGE_CLASH_OPPONENT_ID.equals(dataParameter)) {
 			barrageClashOpponent = Optional.ofNullable(level().getEntity(entityData.get(BARRAGE_CLASH_OPPONENT_ID)));
@@ -958,12 +958,36 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		return entityData.get(SWING_OFF_HAND) ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND;
 	}
 
+	public InteractionHand getCurrentPunchingHand() {
+		if (usesSilverChariotRapierHand()) {
+			return InteractionHand.MAIN_HAND;
+		}
+		return entityData.get(SWING_OFF_HAND) ? InteractionHand.MAIN_HAND : InteractionHand.OFF_HAND;
+	}
+
+	public boolean canAlternatePunchHands() {
+		return !usesSilverChariotRapierHand();
+	}
+
+	public void applySyncedPunchingHand(InteractionHand hand) {
+		if (usesSilverChariotRapierHand()) {
+			hand = InteractionHand.MAIN_HAND;
+		}
+		setCurrentPunchingHand(hand);
+		lastStandSwingTick = tickCount;
+		alternateAdditionalSwing = false;
+	}
+
+	private void setCurrentPunchingHand(InteractionHand hand) {
+		swingingArm = hand;
+		entityData.set(SWING_OFF_HAND, hand == InteractionHand.MAIN_HAND);
+	}
+
 	public InteractionHand alternateHands() {
 		if (usesSilverChariotRapierHand()) {
-			entityData.set(SWING_OFF_HAND, false);
+			setCurrentPunchingHand(InteractionHand.MAIN_HAND);
 			lastStandSwingTick = tickCount;
 			alternateAdditionalSwing = false;
-			swingingArm = InteractionHand.MAIN_HAND;
 			return InteractionHand.MAIN_HAND;
 		}
 		InteractionHand hand = InteractionHand.MAIN_HAND;
@@ -972,7 +996,6 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 			if (offHand) {
 				hand = InteractionHand.OFF_HAND;
 			}
-			entityData.set(SWING_OFF_HAND, !offHand);
 			lastStandSwingTick = tickCount;
 			alternateAdditionalSwing = false;
 		}
@@ -982,7 +1005,7 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 			}
 			alternateAdditionalSwing = !alternateAdditionalSwing;
 		}
-		swingingArm = hand;
+		setCurrentPunchingHand(hand);
 		return hand;
 	}
 

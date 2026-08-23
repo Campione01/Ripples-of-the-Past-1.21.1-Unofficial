@@ -1,5 +1,7 @@
 package com.github.standobyte.jojo.powersystem.entityaction;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 import javax.annotation.Nullable;
 
 import org.jetbrains.annotations.ApiStatus;
@@ -16,6 +18,9 @@ import net.minecraft.world.entity.LivingEntity;
 
 @ApiStatus.Internal
 public class EntityActionInputState implements TickingEntityData {
+	private static final AtomicLong CLIENT_INPUT_GENERATION =
+			new AtomicLong();
+
 	public final LivingEntity user;
 	public final ActionInputBuffer inputBuffer = new ActionInputBuffer();
 
@@ -37,7 +42,9 @@ public class EntityActionInputState implements TickingEntityData {
 
 	@ApiStatus.Internal
 	public long nextInputGeneration(short keyId) {
-		return inputGenerations.nextInputGeneration(keyId);
+		return user.level().isClientSide()
+				? inputGenerations.nextSessionInputGeneration(keyId)
+				: inputGenerations.nextInputGeneration(keyId);
 	}
 
 	@ApiStatus.Internal
@@ -78,6 +85,13 @@ public class EntityActionInputState implements TickingEntityData {
 			return generation;
 		}
 
+		public long nextSessionInputGeneration(short keyId) {
+			long generation = nextClientSessionGeneration(
+					inputGenerationCounter);
+			observeInputGeneration(keyId, generation);
+			return generation;
+		}
+
 		public boolean acceptNetworkPressGeneration(
 				short keyId, long generation) {
 			if (generation <= latestInputGeneration(keyId)) {
@@ -110,6 +124,21 @@ public class EntityActionInputState implements TickingEntityData {
 
 		public long latestInputGeneration(short keyId) {
 			return latestInputGenerations.getOrDefault(keyId, 0L);
+		}
+	}
+
+	private static long nextClientSessionGeneration(long localFloor) {
+		while (true) {
+			long current = CLIENT_INPUT_GENERATION.get();
+			long floor = Math.max(current, localFloor);
+			if (floor == Long.MAX_VALUE) {
+				throw new IllegalStateException(
+						"Ability input generation exhausted");
+			}
+			if (CLIENT_INPUT_GENERATION.compareAndSet(
+					current, floor + 1L)) {
+				return floor + 1L;
+			}
 		}
 	}
 

@@ -2,6 +2,7 @@ package com.github.standobyte.jojo.client.entityanim;
 
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -92,6 +93,7 @@ public class AnimationSet {
 			Map.entry("crossfire_hurricane_special", List.of("flameBurst")));
 
 	public final Map<String, List<RotpAnimDefinition>> namedAnimations;
+	private final Map<RotpAnimDefinition, RotpAnimDefinition> implicitHandMirrors = new IdentityHashMap<>();
 	@Nullable public List<AnimFramePose> coolPoses;
 	@Nullable public RotpAnimDefinition idleAnim;
 //	@Nullable protected AnimWithExtras curAnim;
@@ -155,6 +157,14 @@ public class AnimationSet {
 
 	@Nullable
 	public RotpAnimDefinition getNamedAnim(ActionAnimIdentifier animId, boolean armsOnly) {
+		return getNamedAnim(animId, armsOnly, false);
+	}
+
+	@Nullable
+	public RotpAnimDefinition getNamedAnim(
+			ActionAnimIdentifier animId,
+			boolean armsOnly,
+			boolean implicitHandMirror) {
 		if (armsOnly) {
 			String armsOnlyName = "armsOnly_" + animId.name();
 			RotpAnimDefinition armsOnlyAnim = getNamedAnim(armsOnlyName, animId.index());
@@ -165,8 +175,44 @@ public class AnimationSet {
 			if (legacyArmsOnlyAnim != null) {
 				return legacyArmsOnlyAnim;
 			}
+			if (implicitHandMirror) {
+				RotpAnimDefinition mirroredArmsOnlyAnim = getImplicitHandedAnim(armsOnlyName, animId.index());
+				if (mirroredArmsOnlyAnim != null) {
+					return mirroredArmsOnlyAnim;
+				}
+			}
 		}
-		return getNamedAnim(animId);
+		RotpAnimDefinition anim = getNamedAnim(animId);
+		return anim != null || !implicitHandMirror
+				? anim : getImplicitHandedAnim(animId.name(), animId.index());
+	}
+
+	@Nullable
+	private RotpAnimDefinition getImplicitHandedAnim(String handedName, int index) {
+		boolean mirror;
+		String baseName;
+		if (handedName.endsWith("_left")) {
+			mirror = false;
+			baseName = handedName.substring(0, handedName.length() - "_left".length());
+		}
+		else if (handedName.endsWith("_right")) {
+			mirror = true;
+			baseName = handedName.substring(0, handedName.length() - "_right".length());
+		}
+		else {
+			return null;
+		}
+
+		RotpAnimDefinition baseAnim = getNamedAnim(baseName, index);
+		if (baseAnim == null) {
+			baseAnim = getAliasedNamedAnim(baseName, index);
+		}
+		if (baseAnim == null || !mirror) {
+			return baseAnim;
+		}
+		RotpAnimDefinition resolvedBaseAnim = baseAnim;
+		return implicitHandMirrors.computeIfAbsent(resolvedBaseAnim, anim -> anim.copyWithAnim(
+				AnimationMirror.mirror(anim.boneAnimations, 0, Float.MAX_VALUE)));
 	}
 	
 	@Nullable

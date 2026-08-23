@@ -18,6 +18,8 @@ public class RoadRollerRenderer extends SimpleEntityRenderer<RoadRollerEntity, R
 		super(context);
 		initTexture(TEXTURE, false);
 		initModel(new RoadRollerModel(context.bakeLayer(ModEntityTypeRenderers.ROAD_ROLLER)));
+		// The donor model's wheel bottoms are already authored at entity Y=0.
+		offsetModelByEntityHeight(false);
 	}
 
 	@Override

@@ -21,6 +21,8 @@ import com.github.standobyte.jojo.powersystem.ability.AbilityType;
 import com.github.standobyte.jojo.powersystem.ability.AbilityUsageGroup;
 import com.github.standobyte.jojo.powersystem.ability.condition.AvailableAbilities;
 import com.github.standobyte.jojo.powersystem.ability.condition.ConditionCheck;
+import com.github.standobyte.jojo.powersystem.entityaction.ActionAnimIdentifier;
+import com.github.standobyte.jojo.powersystem.entityaction.ActionAnimIdentifier.ActionAnimIdHandsided;
 import com.github.standobyte.jojo.powersystem.entityaction.ActionPhase;
 import com.github.standobyte.jojo.powersystem.entityaction.EntityActionInstance;
 import com.github.standobyte.jojo.powersystem.entityaction.LivingComponentAction;
@@ -44,11 +46,13 @@ import com.github.standobyte.v1_21_4_stuff.missingmethods._EntitySelector;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.level.Level;
@@ -124,6 +128,9 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	public void initActionFromConfig(EntityActionInstance action, Level level, LivingEntity standUser, LivingEntity standEntity) {
 		super.initActionFromConfig(action, level, standUser, standEntity);
 		if (!level.isClientSide() && standEntity instanceof StandEntity stand) {
+			if (action instanceof StandEntityPunch punch) {
+				punch.handedAnimation = usesSinglePunchHandedAnimation(stand.getUserPower(), stand);
+			}
 			action.phasesLength.put(ActionPhase.WINDUP, StandStatFormulas.getLightAttackWindup(
 					stand.getAttackSpeed(), stand.getFinisherMeter(), stand.guardCounter(), 
 					stand.getCurStandAction() == null || stand.getCurStandAction().ability != this));
@@ -132,10 +139,45 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			action.phasesLength.put(ActionPhase.RECOVERY, lightRecovery * (stand.isArmsOnlyMode() ? 2 : 4));
 		}
 	}
+
+	@Override
+	public ActionAnimIdentifier getEntityAnim(EntityActionInstance action) {
+		ActionAnimIdentifier baseAnim = super.getEntityAnim(action);
+		if (action instanceof StandEntityPunch punch
+				&& punch.usesHandedAnimation()
+				&& action.getPerformer() instanceof StandEntity stand) {
+			HumanoidArm side = punch.getPunchingHand() == InteractionHand.MAIN_HAND
+					? stand.getMainArm() : stand.getMainArm().getOpposite();
+			return selectHandedAnimation(baseAnim, true, side);
+		}
+		return baseAnim;
+	}
+
+	private boolean usesSinglePunchHandedAnimation(StandPower standPower, StandEntity stand) {
+		if (usageGroup != AbilityUsageGroup.COMBAT
+				|| anim.index() > 0
+				|| !stand.canAlternatePunchHands()) {
+			return false;
+		}
+		String baseName = name();
+		return standPower != null && baseName != null
+				&& standPower.getMoveset().getAbility(baseName + "2") == null;
+	}
+
+	static ActionAnimIdentifier selectHandedAnimation(
+			ActionAnimIdentifier baseAnim,
+			boolean handedAnimation,
+			HumanoidArm side) {
+		return handedAnimation
+				? new ActionAnimIdHandsided(baseAnim).get(side)
+				: baseAnim;
+	}
 	
 	public static class StandEntityPunch extends EntityActionInstance {
 		protected boolean playedSwingSound;
 		protected boolean playedStandCrySound;
+		protected InteractionHand punchingHand = InteractionHand.MAIN_HAND;
+		protected boolean handedAnimation;
 
 		public StandEntityPunch(EntityActionType ability) {
 			super(ability);
@@ -145,10 +187,15 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		public void onActionSet(EntityActionInstance prevAction) {
 			playedStandCrySound = prevAction != null;
 			if (performer instanceof StandEntity stand) {
-				if (stand.isArmsOnlyMode() && stand.getPunchingHand() == InteractionHand.OFF_HAND) {
+				if (stand.level().isClientSide()) {
+					stand.applySyncedPunchingHand(punchingHand);
+				}
+				else {
+					punchingHand = stand.alternateHands();
+				}
+				if (stand.isArmsOnlyMode() && punchingHand == InteractionHand.OFF_HAND) {
 					stand.setArmsOnlyMode(true, true);
 				}
-				stand.alternateHands();
 				double minOffset = Math.min(0.5, stand.getEffectiveRange());
 				double maxOffset = Math.min(2, stand.getMaxRange());
 				ActionTarget target = captureActionTargetFromAim(stand);
@@ -156,6 +203,28 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 				keepStandAimedAtTarget(target);
 			}
 			aimAs = AimingEntity.STAND;
+		}
+
+		public InteractionHand getPunchingHand() {
+			return punchingHand;
+		}
+
+		public boolean usesHandedAnimation() {
+			return handedAnimation;
+		}
+
+		@Override
+		public void toBuf(FriendlyByteBuf buf) {
+			super.toBuf(buf);
+			buf.writeEnum(punchingHand);
+			buf.writeBoolean(handedAnimation);
+		}
+
+		@Override
+		public void fromBuf(FriendlyByteBuf buf) {
+			super.fromBuf(buf);
+			punchingHand = buf.readEnum(InteractionHand.class);
+			handedAnimation = buf.readBoolean();
 		}
 		
 		@Override

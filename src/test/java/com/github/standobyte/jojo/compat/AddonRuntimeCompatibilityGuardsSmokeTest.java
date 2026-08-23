@@ -4,10 +4,16 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import com.github.standobyte.jojo.client.entityrender.entities.RoadRollerGroundAlignmentSmokeTest;
+import com.github.standobyte.jojoimpl.stands._entitybase.StandLightPunchCompatibilitySmokeTest;
+
 public final class AddonRuntimeCompatibilityGuardsSmokeTest {
 	private AddonRuntimeCompatibilityGuardsSmokeTest() {}
 
 	public static void main(String[] args) {
+		StandLightPunchCompatibilitySmokeTest.run();
+		RoadRollerGroundAlignmentSmokeTest.run();
+
 		Path root = Path.of(System.getProperty("user.dir"));
 		Path main = root.resolve("src/main/java");
 
