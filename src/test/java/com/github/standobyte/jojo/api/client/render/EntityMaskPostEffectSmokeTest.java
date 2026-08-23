@@ -230,34 +230,13 @@ public final class EntityMaskPostEffectSmokeTest {
 						&& blitSampler > blitMethod
 						&& blitDraw > blitSampler,
 				"raw private-target blit lost its V0 aura sampler");
-		int depthCapture = source.indexOf(
-				"private static void captureIrisSceneDepth()");
-		int nextMethod = source.indexOf(
-				"private static boolean hasQueuedRequests()",
-				depthCapture);
-		String depthCaptureBody = source.substring(
-				depthCapture, nextMethod);
 		check(source.contains(
 						"RenderLevelStageEvent.Stage.AFTER_LEVEL")
-						&& source.contains(
+						&& !source.contains(
 								"RenderLevelStageEvent.Stage.AFTER_ENTITIES")
-						&& depthCaptureBody.contains(
-								"GL11.GL_DEPTH_BUFFER_BIT")
-						&& !depthCaptureBody.contains(
-								"blitAuraToMain(")
 						&& source.contains(
 								"() -> mainTarget.bindWrite(true)"),
-				"Iris depth capture or AFTER_LEVEL color ownership drifted");
-		check(source.contains("irisShaderPackInUse()")
-						&& source.contains("validIrisSceneDepth(")
-						&& source.contains("sceneTarget = mainTarget;")
-						&& source.contains(
-								"finally {\n\t\t\tinvalidateIrisSceneDepth();")
-						&& source.contains(
-								"sceneDepthTargetWidth == width")
-						&& source.contains(
-								"sceneDepthTargetHeight == height"),
-				"Iris depth snapshot is not fail-closed and frame-scoped");
+				"aura composition can still run in the Iris G-buffer stage");
 		check(source.contains("finally {\n\t\t\tstate.restore();")
 						&& source.contains(
 								"RenderSystem.setProjectionMatrix(")

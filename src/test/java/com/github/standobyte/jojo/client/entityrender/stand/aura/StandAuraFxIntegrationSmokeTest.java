@@ -220,18 +220,11 @@ public final class StandAuraFxIntegrationSmokeTest {
         require(privateTargetShader, "return true;");
         require(auraShaders, "ModShaders.loadPrivateTargetCoreShader(");
         require(entityMask, "RenderLevelStageEvent.Stage.AFTER_LEVEL");
-        require(entityMask, "RenderLevelStageEvent.Stage.AFTER_ENTITIES");
-        require(entityMask, "captureIrisSceneDepth()");
-        require(entityMask, "GL11.GL_DEPTH_BUFFER_BIT");
-        require(entityMask, "validIrisSceneDepth(");
-        require(entityMask, "sceneTarget = mainTarget;");
-        require(entityMask, "invalidateIrisSceneDepth();");
         require(entityMask, "blitAuraToMain(");
         require(entityMask, "() -> mainTarget.bindWrite(true)");
-        requireOrder(entityMask,
-                "if (stage == RenderLevelStageEvent.Stage.AFTER_ENTITIES)",
-                "captureIrisSceneDepth();",
-                "if (stage != RenderLevelStageEvent.Stage.AFTER_LEVEL)");
+        check(!entityMask.contains(
+                        "RenderLevelStageEvent.Stage.AFTER_ENTITIES"),
+                "aura result still enters the pre-composite Iris G-buffer");
         require(entityMask, "ModShaders.privateTargetBlit()");
         require(entityMask, "ModShaders"
                 + "::privateTargetEntityMask");
