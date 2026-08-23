@@ -213,6 +213,18 @@ public final class EntityMaskPostEffectSmokeTest {
 				&& source.contains("if (renderedAny) {")
 				&& source.contains("blitAuraToCapturedTarget("),
 				"a no-draw compositor can still touch the captured target");
+		int blitMethod = compactSource.indexOf(
+				"privatestaticvoidblitAuraToCapturedTarget(");
+		int blitSampler = compactSource.indexOf(
+				"shader.setSampler(\"Sampler0\","
+						+ "aura.getColorTextureId());",
+				blitMethod);
+		int blitDraw = compactSource.indexOf(
+				"drawClipQuad(", blitSampler);
+		check(blitMethod >= 0
+						&& blitSampler > blitMethod
+						&& blitDraw > blitSampler,
+				"raw private-target blit lost its V0 aura sampler");
 		check(source.contains("finally {\n\t\t\tstate.restore();")
 						&& source.contains(
 								"RenderSystem.setProjectionMatrix(")

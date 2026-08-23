@@ -217,6 +217,11 @@ public final class StandAuraFxIntegrationSmokeTest {
         require(entityMask, "ModShaders.privateTargetBlit()");
         requireOrder(
                 entityMask,
+                "ShaderInstance shader = ModShaders.privateTargetBlit();",
+                "shader.setSampler(\"Sampler0\", aura.getColorTextureId());",
+                "drawClipQuad(");
+        requireOrder(
+                entityMask,
                 "shader.apply();",
                 "bindDrawTarget.run();",
                 "BufferUploader.draw(builder.buildOrThrow());");

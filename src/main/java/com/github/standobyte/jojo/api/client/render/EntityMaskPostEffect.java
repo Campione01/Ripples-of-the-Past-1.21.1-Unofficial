@@ -619,6 +619,7 @@ public final class EntityMaskPostEffect implements AutoCloseable {
 		if (shader == null) {
 			shader = GameRenderer.getPositionTexShader();
 		}
+		shader.setSampler("Sampler0", aura.getColorTextureId());
 		drawClipQuad(
 				shader,
 				destinationState::bindCapturedDrawTarget,
