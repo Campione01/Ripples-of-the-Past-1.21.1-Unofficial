@@ -25,6 +25,7 @@ public class JojoCommandsCommand {
 			"pillarman",
 			"rockpaperscissors",
 			"rps",
+			"jojoconfig",
 			"jojocontrols");
 
 	public static void addCommand(String literal) {

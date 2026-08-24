@@ -23,8 +23,10 @@ repository.
 ## Publication scope
 
 This repository publishes source and project resources, including the inherited
-sound and voice assets used by the mod. It does not publish a release JAR or an
-automated binary artifact.
+sound and voice assets used by the mod. Independently labeled release JARs may
+also be distributed through third-party hosting such as CurseForge. Every binary
+release must identify the exact public source commit used to build it and link
+back to this repository as its Corresponding Source under GPLv3.
 
 The following local resources are deliberately excluded from the source
 snapshot:
@@ -56,9 +58,11 @@ On Linux or macOS:
 ./gradlew clean build
 ```
 
-The build output is local only. This repository does not include an automated
-binary publication workflow and does not upload or publish the resulting JAR.
-The playable artifact is the non-sources ROTP JAR under `build/libs/`.
+The build remains a local, maintainer-controlled operation; this repository does
+not automatically upload the resulting JAR. The playable artifact is the
+non-sources ROTP JAR under `build/libs/`. Only an artifact whose exact source
+commit is public and whose bundled legal notices have been verified may be
+distributed.
 Do not install `build/moddev/artifacts/neoforge-*.jar`, a `-sources.jar`, or a
 same-named JAR left over from an older build.
 
@@ -68,6 +72,15 @@ Each built runtime JAR records the exact source commit in
 Use that commit identity when reporting or comparing builds; the historical
 `0.2.2.2` mod version and JAR filename alone do not distinguish newer source
 revisions from older builds.
+
+## Editable Stand stats
+
+Server operators can run `/jojoconfig stand_stats` to generate editable
+Stand-stat member files in the current world's `datapacks/jojoconfig` data
+pack. Supplying a Stand ID generates only that Stand. After editing the JSON,
+run vanilla `/reload`; the existing data-driven Stand loader applies and
+synchronizes the values. Existing files are preserved unless the explicit
+`force` subcommand is used. `/jojoconfig folder_link` prints the generated path.
 
 ## License and attribution
 

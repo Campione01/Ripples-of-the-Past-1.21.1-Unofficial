@@ -1,5 +1,25 @@
 # Independent Modification Record
 
+## Editable Stand-stat data files - 2026-08-24
+
+- restored the operator-only `/jojoconfig` command from the 1.16.5 feature
+  line for generating all or one Stand's editable numeric data;
+- emitted current-loader `jojostandpowers/<stand>/stats.json` member files
+  instead of reintroducing the removed parallel configuration loader;
+- preserved administrator edits by default and required an explicit `force`
+  subcommand before replacing existing templates;
+- generated a current-format world data pack and bilingual editing guide, with
+  normal `/reload` application through the existing server/client sync path.
+
+## GPL distribution packaging - 2026-08-24
+
+- embedded the GPLv3 text, upstream attribution, third-party notices, asset
+  provenance, and modification record in release and source JARs;
+- updated the repository publication boundary for explicitly unofficial binary
+  releases that link to the exact public Corresponding Source commit;
+- retained the distinct unofficial artifact and in-game display names so the
+  release cannot be mistaken for a StandoByte-supported build.
+
 ## Menu and stone mask rendering reliability - 2026-07-30
 
 - made the JoJo menu key fall back to the live player power attachments when

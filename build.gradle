@@ -202,6 +202,27 @@ tasks.withType(org.gradle.api.tasks.bundling.AbstractArchiveTask).configureEach 
 }
 
 tasks.withType(Jar).configureEach {
+    from('LICENSE') {
+        into 'META-INF'
+        rename { 'LICENSE-ROTP.txt' }
+    }
+    from('NOTICE.md') {
+        into 'META-INF'
+        rename { 'NOTICE-ROTP.md' }
+    }
+    from('THIRD_PARTY_NOTICES.md') {
+        into 'META-INF'
+    }
+    from('licenses') {
+        into 'META-INF/licenses'
+    }
+    from('ASSET_SOURCES.md') {
+        into 'META-INF'
+    }
+    from('CHANGES.md') {
+        into 'META-INF'
+        rename { 'CHANGES-ROTP.md' }
+    }
     manifest {
         attributes(
                 'Implementation-Title': file_name,

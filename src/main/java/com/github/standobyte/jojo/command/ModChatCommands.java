@@ -5,6 +5,7 @@ import com.github.standobyte.jojo.command.commands.JojoCommandsCommand;
 import com.github.standobyte.jojo.command.commands.HamonStatCommand;
 import com.github.standobyte.jojo.command.commands.JojoEnergyCommand;
 import com.github.standobyte.jojo.command.commands.JojoControlsCommand;
+import com.github.standobyte.jojo.command.commands.JojoConfigCommand;
 import com.github.standobyte.jojo.command.commands.PillarmanModeCommand;
 import com.github.standobyte.jojo.command.commands.RockPaperScissorsCommand;
 import com.github.standobyte.jojo.command.commands.StandCommand;
@@ -39,6 +40,7 @@ public class ModChatCommands {
 		PillarmanModeCommand.register(dispatcher);		// "pillarman"
 		RockPaperScissorsCommand.register(dispatcher);	// "rockpaperscissors" / "rps"
 		JojoControlsCommand.register(dispatcher);	// "jojocontrols"
+		JojoConfigCommand.register(dispatcher, context);	// "jojoconfig"
 		StandSkillsCommand.register(dispatcher);	// "stand_skills unlock/unlock_all/reset"
 		JojoCommandsCommand.register(dispatcher);	// "jojocommands" / "commands_list"
 	}

@@ -63,6 +63,7 @@ import com.github.standobyte.jojo.client.shader.core.EntityOutlinePostChainCompa
 import com.github.standobyte.jojo.client.shader.TimeStopShaderRouteSmokeTest;
 import com.github.standobyte.jojo.client.standskin.sprites.AbilityIconSpritesCompatibilitySmokeTest;
 import com.github.standobyte.jojo.client.ui.text.StandSkillTextSmokeTest;
+import com.github.standobyte.jojo.command.commands.JojoConfigCommandSmokeTest;
 import com.github.standobyte.jojo.item.CoreItemResourceSmokeTest;
 import com.github.standobyte.jojo.item.StandRemoverItemContractSmokeTest;
 import com.github.standobyte.jojo.mechanics.standdisc.StandWrittenOnDiscSmokeTest;
@@ -387,6 +388,7 @@ public final class RotpAddonApiSmokeTest {
 		StandRemoverItemContractSmokeTest.run();
 		StandPowerInstanceChangeSmokeTest.run();
 		StandRandomWeightSmokeTest.run();
+		JojoConfigCommandSmokeTest.run();
 		StandArrowPoolOverridesSmokeTest.run();
 		GrabContextVariationSmokeTest.run();
 		SharedGrabChargedHeavyInputSmokeTest.run();
