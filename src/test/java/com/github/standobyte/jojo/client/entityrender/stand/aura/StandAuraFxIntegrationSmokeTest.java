@@ -233,12 +233,9 @@ public final class StandAuraFxIntegrationSmokeTest {
                 "private mask shader can fall back to Iris's world target");
         require(privateTargetShader, "public boolean iris$skipDraw()");
         require(privateTargetShader, "return true;");
-        require(standRenderTypes,
-                "if (IrisShaderPipelineCompat.isShaderPackInUse())");
-        require(standRenderTypes,
-                "return RenderType.entityTranslucent(texture, outline);");
-        require(standRenderTypes,
-                "return RenderType.entityTranslucentCull(texture);");
+        check(!standRenderTypes.contains(
+                        "IrisShaderPipelineCompat.isShaderPackInUse()"),
+                "Iris still replaces Stand vertex alpha with a pack entity shader");
         require(standRenderTypes,
                 "return STAND_TRANSLUCENT.apply(texture, "
                         + "new StandTranslucentState(outline, false));");
@@ -258,6 +255,8 @@ public final class StandAuraFxIntegrationSmokeTest {
                 "targetState.viewportX()");
         require(standTranslucencyFramebuffer,
                 "targetState.restore();");
+        require(standTranslucencyFramebuffer,
+                "compositeIfPending()");
         require(auraShaders, "ModShaders.loadPrivateTargetCoreShader(");
         require(entityMask, "RenderLevelStageEvent.Stage.AFTER_LEVEL");
         require(entityMask, "blitAuraToMain(");
