@@ -174,6 +174,15 @@ public final class StandAuraFxIntegrationSmokeTest {
         String privateTargetShader = read(root,
                 "src/main/java/com/github/standobyte/jojo/client/"
                         + "shader/core/PrivateTargetShaderInstance.java");
+        String standRenderTypes = read(root,
+                "src/main/java/com/github/standobyte/jojo/client/"
+                        + "rendertype/ModRenderTypes.java");
+        String standTranslucentFragment = read(root,
+                "src/main/resources/assets/jojo_ripples/shaders/core/"
+                        + "stand_translucent.fsh");
+        String standTranslucencyFramebuffer = read(root,
+                "src/main/java/com/github/standobyte/jojo/client/"
+                        + "shader/StandTranslucencyFramebuffer.java");
         String entityMask = read(root,
                 "src/main/java/com/github/standobyte/jojo/api/client/"
                         + "render/EntityMaskPostEffect.java");
@@ -209,6 +218,9 @@ public final class StandAuraFxIntegrationSmokeTest {
         require(setup, "StandAuraFxClient.register()");
         require(shaders, "StandAuraShaders.loadCoreShader(event)");
         require(shaders, "loadPrivateTargetCoreShader(event");
+        require(shaders,
+                "loadPrivateTargetCoreShader(event, "
+                        + "JojoMod.resLoc(\"stand_translucent\")");
         require(shaders, "privateTargetBlit");
         require(shaders, "privateTargetEntityMask");
         require(shaders,
@@ -221,6 +233,22 @@ public final class StandAuraFxIntegrationSmokeTest {
                 "private mask shader can fall back to Iris's world target");
         require(privateTargetShader, "public boolean iris$skipDraw()");
         require(privateTargetShader, "return true;");
+        check(!standRenderTypes.contains(
+                        "IrisShaderPipelineCompat.isShaderPackInUse()"),
+                "Iris still replaces Stand vertex alpha with a pack entity shader");
+        require(standRenderTypes,
+                "return STAND_TRANSLUCENT.apply(texture, "
+                        + "new StandTranslucentState(outline, false));");
+        require(standRenderTypes,
+                "return STAND_TRANSLUCENT.apply(texture, "
+                        + "new StandTranslucentState(true, true));");
+        require(standTranslucentFragment,
+                "color *= vertexColor * ColorModulator;");
+        require(standTranslucencyFramebuffer,
+                "stage == RenderLevelStageEvent.Stage.AFTER_LEVEL");
+        check(!standTranslucencyFramebuffer.contains(
+                        "CustomLevelRenderStages.BEFORE_SPECTATOR_SHADER"),
+                "Stand alpha composite still runs inside Iris's world pipeline");
         require(auraShaders, "ModShaders.loadPrivateTargetCoreShader(");
         require(entityMask, "RenderLevelStageEvent.Stage.AFTER_LEVEL");
         require(entityMask, "blitAuraToMain(");

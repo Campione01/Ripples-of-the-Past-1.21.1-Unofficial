@@ -114,7 +114,7 @@ public class ModShaders implements ResourceManagerReloadListener, AutoCloseable 
 		for (RotpShader shader : instance._allShaders) {
 			shader.loadCoreShaders(event);
 		}
-		loadCoreShader(event, JojoMod.resLoc("stand_translucent"), DefaultVertexFormat.NEW_ENTITY,
+		loadPrivateTargetCoreShader(event, JojoMod.resLoc("stand_translucent"), DefaultVertexFormat.NEW_ENTITY,
 				shader -> instance.coreStandTranslucent = shader);
 		loadPrivateTargetCoreShader(event, ResourceLocation.withDefaultNamespace("position_tex"),
 				DefaultVertexFormat.POSITION_TEX, shader -> instance.privateTargetBlit = shader);

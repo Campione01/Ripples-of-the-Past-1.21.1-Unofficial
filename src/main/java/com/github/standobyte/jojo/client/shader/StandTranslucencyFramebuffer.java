@@ -102,7 +102,7 @@ public final class StandTranslucencyFramebuffer extends RotpShader {
 
 	@Override
 	public void frameRenderCallback(RenderLevelStageEvent.Stage stage) {
-		if (usedThisFrame && stage == CustomLevelRenderStages.BEFORE_SPECTATOR_SHADER) {
+		if (usedThisFrame && stage == RenderLevelStageEvent.Stage.AFTER_LEVEL) {
 			compositeIfPending();
 		}
 	}
