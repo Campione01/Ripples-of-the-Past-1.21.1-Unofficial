@@ -246,6 +246,9 @@ public final class StandAuraFxIntegrationSmokeTest {
                 "color *= vertexColor * ColorModulator;");
         require(standTranslucencyFramebuffer,
                 "stage == RenderLevelStageEvent.Stage.AFTER_LEVEL");
+        require(standTranslucencyFramebuffer,
+                "ModShaders.loadPrivateTargetCoreShader(event, "
+                        + "JojoMod.resLoc(\"stand_translucency_composite\")");
         check(!standTranslucencyFramebuffer.contains(
                         "CustomLevelRenderStages.BEFORE_SPECTATOR_SHADER"),
                 "Stand alpha composite still runs inside Iris's world pipeline");

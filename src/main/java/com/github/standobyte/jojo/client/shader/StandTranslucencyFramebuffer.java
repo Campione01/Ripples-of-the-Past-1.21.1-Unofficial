@@ -37,7 +37,7 @@ public final class StandTranslucencyFramebuffer extends RotpShader {
 
 	@Override
 	public void loadCoreShaders(RegisterShadersEvent event) {
-		ModShaders.loadCoreShader(event, JojoMod.resLoc("stand_translucency_composite"),
+		ModShaders.loadPrivateTargetCoreShader(event, JojoMod.resLoc("stand_translucency_composite"),
 				DefaultVertexFormat.BLIT_SCREEN, shader -> compositeShader = shader);
 	}
 
