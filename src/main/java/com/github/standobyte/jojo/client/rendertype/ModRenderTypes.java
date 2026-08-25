@@ -63,6 +63,9 @@ public final class ModRenderTypes extends RenderType {
 	}
 
 	public static RenderType standTranslucent(ResourceLocation texture, boolean outline) {
+		if (IrisShaderPipelineCompat.isShaderPackInUse()) {
+			return RenderType.entityTranslucent(texture, outline);
+		}
 		return STAND_TRANSLUCENT.apply(texture, new StandTranslucentState(outline, false));
 	}
 
@@ -71,6 +74,9 @@ public final class ModRenderTypes extends RenderType {
 	}
 
 	public static RenderType standTranslucentCull(ResourceLocation texture) {
+		if (IrisShaderPipelineCompat.isShaderPackInUse()) {
+			return RenderType.entityTranslucentCull(texture);
+		}
 		return STAND_TRANSLUCENT.apply(texture, new StandTranslucentState(true, true));
 	}
 
