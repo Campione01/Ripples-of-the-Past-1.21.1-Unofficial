@@ -115,7 +115,7 @@ public final class StandTranslucencyFramebuffer extends RotpShader {
 
 	private void compositeAndReset() {
 		try {
-			compositeToCurrentTarget();
+			compositeToMainTarget();
 		}
 		finally {
 			preparedThisFrame = false;
@@ -123,16 +123,16 @@ public final class StandTranslucencyFramebuffer extends RotpShader {
 		}
 	}
 
-	private void compositeToCurrentTarget() {
+	private void compositeToMainTarget() {
+		RenderTarget mainTarget = Minecraft.getInstance().getMainRenderTarget();
 		targetState.capture();
 		try {
-			int width = Math.max(1, targetState.viewportWidth());
-			int height = Math.max(1, targetState.viewportHeight());
+			int width = Math.max(1, mainTarget.viewWidth);
+			int height = Math.max(1, mainTarget.viewHeight);
 			ensureSize(sceneDepthBuffer, width, height);
-			copyDepthFrom(sceneDepthBuffer, targetState.drawFramebuffer(),
-					targetState.viewportX(), targetState.viewportY(), width, height);
-			targetState.restore();
-			targetState.capture();
+			copyDepthFrom(sceneDepthBuffer, mainTarget.frameBufferId,
+					0, 0, width, height);
+			mainTarget.bindWrite(true);
 
 			RenderSystem.enableBlend();
 			RenderSystem.blendFuncSeparate(

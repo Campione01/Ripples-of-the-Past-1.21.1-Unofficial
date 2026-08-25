@@ -249,6 +249,12 @@ public final class StandAuraFxIntegrationSmokeTest {
         require(standTranslucencyFramebuffer,
                 "ModShaders.loadPrivateTargetCoreShader(event, "
                         + "JojoMod.resLoc(\"stand_translucency_composite\")");
+        require(standTranslucencyFramebuffer,
+                "Minecraft.getInstance().getMainRenderTarget()");
+        require(standTranslucencyFramebuffer,
+                "copyDepthFrom(sceneDepthBuffer, mainTarget.frameBufferId");
+        require(standTranslucencyFramebuffer,
+                "mainTarget.bindWrite(true);");
         check(!standTranslucencyFramebuffer.contains(
                         "CustomLevelRenderStages.BEFORE_SPECTATOR_SHADER"),
                 "Stand alpha composite still runs inside Iris's world pipeline");
