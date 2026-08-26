@@ -33,10 +33,23 @@ public final class RenderTargetState {
 		if (!captured) {
 			return;
 		}
-		GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, drawFramebuffer);
-		GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, readFramebuffer);
-		GlStateManager._viewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+		restorePhysicalTarget();
 		captured = false;
+	}
+
+	public void restoreAfterLogicalMainTarget(RenderTarget mainTarget) {
+		if (!captured) {
+			return;
+		}
+		mainTarget.bindWrite(false);
+		restorePhysicalTarget();
+		captured = false;
+	}
+
+	private void restorePhysicalTarget() {
+		GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, drawFramebuffer);
+		GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, readFramebuffer);
+		GlStateManager._viewport(viewport[0], viewport[1], viewport[2], viewport[3]);
 	}
 
 	public int drawFramebuffer() {

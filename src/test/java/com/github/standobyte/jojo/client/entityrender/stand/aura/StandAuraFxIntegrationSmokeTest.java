@@ -183,6 +183,9 @@ public final class StandAuraFxIntegrationSmokeTest {
         String standTranslucencyFramebuffer = read(root,
                 "src/main/java/com/github/standobyte/jojo/client/"
                         + "shader/StandTranslucencyFramebuffer.java");
+        String renderTargetState = read(root,
+                "src/main/java/com/github/standobyte/jojo/client/"
+                        + "shader/core/RenderTargetState.java");
         String entityMask = read(root,
                 "src/main/java/com/github/standobyte/jojo/api/client/"
                         + "render/EntityMaskPostEffect.java");
@@ -242,6 +245,15 @@ public final class StandAuraFxIntegrationSmokeTest {
         require(standRenderTypes,
                 "return STAND_TRANSLUCENT.apply(texture, "
                         + "new StandTranslucentState(true, true));");
+        require(standRenderTypes, "ModRenderTypes::restoreStandOutlineTarget");
+        require(standRenderTypes,
+                "restoreIrisWorldTargetAfterOutline =");
+        require(standRenderTypes,
+                "ClientRenderCompatibility.snapshot().irisShaderPackInUse()");
+        require(standRenderTypes,
+                "!EntityMaskPostEffect.isCapturePass()");
+        require(standRenderTypes,
+                "STAND_OUTLINE_TARGET_STATE.restoreAfterLogicalMainTarget(");
         require(standTranslucentFragment,
                 "color *= vertexColor * ColorModulator;");
         require(standTranslucencyFramebuffer,
@@ -257,6 +269,28 @@ public final class StandAuraFxIntegrationSmokeTest {
                 "targetState.restore();");
         require(standTranslucencyFramebuffer,
                 "compositeIfPending()");
+        require(standTranslucencyFramebuffer,
+                "ClientRenderCompatibility.snapshot().irisShaderPackInUse()");
+        require(standTranslucencyFramebuffer,
+                "!EntityMaskPostEffect.isCapturePass()");
+        require(standTranslucencyFramebuffer,
+                "targetState.restoreAfterLogicalMainTarget(");
+        check(!standTranslucencyFramebuffer.contains("target.bindWrite(false)"),
+                "Stand depth copy still changes Iris logical target ownership");
+        require(standTranslucencyFramebuffer,
+                "GlStateManager._glBindFramebuffer(");
+        require(standTranslucencyFramebuffer, "new GlStateBackup()");
+        require(standTranslucencyFramebuffer,
+                "RenderSystem.restoreGlState(glState)");
+        requireOrder(
+                renderTargetState,
+                "mainTarget.bindWrite(false);",
+                "restorePhysicalTarget();",
+                "captured = false;");
+        require(renderTargetState,
+                "GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, drawFramebuffer)");
+        require(renderTargetState,
+                "GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, readFramebuffer)");
         require(auraShaders, "ModShaders.loadPrivateTargetCoreShader(");
         require(entityMask, "RenderLevelStageEvent.Stage.AFTER_LEVEL");
         require(entityMask, "blitAuraToMain(");

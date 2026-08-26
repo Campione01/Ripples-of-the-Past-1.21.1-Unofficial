@@ -3,10 +3,13 @@ package com.github.standobyte.jojo.client.shader;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
 
+import com.github.standobyte.jojo.api.client.render.ClientRenderCompatibility;
+import com.github.standobyte.jojo.api.client.render.EntityMaskPostEffect;
 import com.github.standobyte.jojo.client.shader.core.RenderTargetState;
 import com.github.standobyte.jojo.client.shader.core.RotpShader;
 import com.github.standobyte.jojo.core.JojoMod;
 import com.mojang.blaze3d.pipeline.RenderTarget;
+import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.BufferUploader;
@@ -16,6 +19,7 @@ import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.server.packs.resources.ResourceManager;
+import net.neoforged.neoforge.client.GlStateBackup;
 import net.neoforged.neoforge.client.event.RegisterShadersEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 
@@ -26,6 +30,7 @@ public final class StandTranslucencyFramebuffer extends RotpShader {
 	private ShaderInstance compositeShader;
 	private boolean preparedThisFrame;
 	private boolean usedThisFrame;
+	private boolean restoreIrisWorldTarget;
 
 	public StandTranslucencyFramebuffer(Minecraft minecraft) {
 		buffer = createMainTargetBuffer(minecraft);
@@ -55,6 +60,7 @@ public final class StandTranslucencyFramebuffer extends RotpShader {
 	public void beginFrame() {
 		preparedThisFrame = false;
 		usedThisFrame = false;
+		restoreIrisWorldTarget = false;
 	}
 
 	public void bindForWrite() {
@@ -62,6 +68,8 @@ public final class StandTranslucencyFramebuffer extends RotpShader {
 			return;
 		}
 		targetState.capture();
+		restoreIrisWorldTarget = ClientRenderCompatibility.snapshot().irisShaderPackInUse()
+				&& !EntityMaskPostEffect.isCapturePass();
 		int width = Math.max(1, targetState.viewportWidth());
 		int height = Math.max(1, targetState.viewportHeight());
 		if (ensureSize(buffer, width, height)) {
@@ -77,7 +85,13 @@ public final class StandTranslucencyFramebuffer extends RotpShader {
 	}
 
 	public void restoreRenderTarget() {
-		targetState.restore();
+		if (restoreIrisWorldTarget) {
+			targetState.restoreAfterLogicalMainTarget(Minecraft.getInstance().getMainRenderTarget());
+		}
+		else {
+			targetState.restore();
+		}
+		restoreIrisWorldTarget = false;
 	}
 
 	private boolean ensureSize(RenderTarget target, int width, int height) {
@@ -90,14 +104,20 @@ public final class StandTranslucencyFramebuffer extends RotpShader {
 
 	private void copyDepthFrom(RenderTarget target, int sourceFramebuffer,
 			int sourceX, int sourceY, int width, int height) {
-		target.bindWrite(false);
-		int targetFramebuffer = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
-		GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, sourceFramebuffer);
-		GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, targetFramebuffer);
-		GL30.glBlitFramebuffer(
-				sourceX, sourceY, sourceX + width, sourceY + height,
-				0, 0, width, height,
-				GL11.GL_DEPTH_BUFFER_BIT, GL11.GL_NEAREST);
+		int previousDrawFramebuffer = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
+		int previousReadFramebuffer = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
+		try {
+			GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, sourceFramebuffer);
+			GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, target.frameBufferId);
+			GL30.glBlitFramebuffer(
+					sourceX, sourceY, sourceX + width, sourceY + height,
+					0, 0, width, height,
+					GL11.GL_DEPTH_BUFFER_BIT, GL11.GL_NEAREST);
+		}
+		finally {
+			GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, previousDrawFramebuffer);
+			GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, previousReadFramebuffer);
+		}
 	}
 
 	@Override
@@ -125,6 +145,8 @@ public final class StandTranslucencyFramebuffer extends RotpShader {
 
 	private void compositeToCurrentTarget() {
 		targetState.capture();
+		GlStateBackup glState = new GlStateBackup();
+		RenderSystem.backupGlState(glState);
 		try {
 			int width = Math.max(1, targetState.viewportWidth());
 			int height = Math.max(1, targetState.viewportHeight());
@@ -143,9 +165,8 @@ public final class StandTranslucencyFramebuffer extends RotpShader {
 			drawDepthAwareComposite(width, height);
 		}
 		finally {
-			RenderSystem.disableBlend();
-			RenderSystem.defaultBlendFunc();
 			targetState.restore();
+			RenderSystem.restoreGlState(glState);
 		}
 	}
 

@@ -3,6 +3,8 @@ package com.github.standobyte.jojo.client.rendertype;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
+import com.github.standobyte.jojo.api.client.render.ClientRenderCompatibility;
+import com.github.standobyte.jojo.api.client.render.EntityMaskPostEffect;
 import com.github.standobyte.jojo.client.shader.ModShaders;
 import com.github.standobyte.jojo.client.shader.StandTranslucencyFramebuffer;
 import com.github.standobyte.jojo.client.shader.core.RenderTargetState;
@@ -20,6 +22,7 @@ public final class ModRenderTypes extends RenderType {
 	private static final RenderStateShard.ShaderStateShard RENDERTYPE_STAND_TRANSLUCENT_SHADER =
 			new RenderStateShard.ShaderStateShard(() -> ModShaders.getInstance().coreStandTranslucent);
 	private static final RenderTargetState STAND_OUTLINE_TARGET_STATE = new RenderTargetState();
+	private static boolean restoreIrisWorldTargetAfterOutline;
 	private static final RenderStateShard.OutputStateShard STAND_TRANSLUCENCY_TARGET =
 			new RenderStateShard.OutputStateShard(JojoMod.MOD_ID + ":stand_translucency_target",
 					ModRenderTypes::bindStandTranslucencyTarget,
@@ -27,7 +30,7 @@ public final class ModRenderTypes extends RenderType {
 	private static final RenderStateShard.OutputStateShard STAND_OUTLINE_TARGET =
 			new RenderStateShard.OutputStateShard(JojoMod.MOD_ID + ":stand_outline_target",
 					ModRenderTypes::bindStandOutlineTarget,
-					STAND_OUTLINE_TARGET_STATE::restore);
+					ModRenderTypes::restoreStandOutlineTarget);
 
 	private static final BiFunction<ResourceLocation, StandTranslucentState, RenderType> STAND_TRANSLUCENT = Util.memoize(
 			(texture, renderState) -> {
@@ -100,8 +103,22 @@ public final class ModRenderTypes extends RenderType {
 
 	private static void bindStandOutlineTarget() {
 		if (net.minecraft.client.Minecraft.getInstance().levelRenderer.entityTarget() != null) {
+			restoreIrisWorldTargetAfterOutline =
+					ClientRenderCompatibility.snapshot().irisShaderPackInUse()
+					&& !EntityMaskPostEffect.isCapturePass();
 			STAND_OUTLINE_TARGET_STATE.bind(net.minecraft.client.Minecraft.getInstance().levelRenderer.entityTarget());
 		}
+	}
+
+	private static void restoreStandOutlineTarget() {
+		if (restoreIrisWorldTargetAfterOutline) {
+			STAND_OUTLINE_TARGET_STATE.restoreAfterLogicalMainTarget(
+					net.minecraft.client.Minecraft.getInstance().getMainRenderTarget());
+		}
+		else {
+			STAND_OUTLINE_TARGET_STATE.restore();
+		}
+		restoreIrisWorldTargetAfterOutline = false;
 	}
 
 	private record StandTranslucentState(boolean outline, boolean cull) {}
