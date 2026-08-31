@@ -72,9 +72,18 @@ goto fail
 
 set CLASSPATH=
 
+@rem Prefer a relative wrapper path when the current directory already is
+@rem the project directory. Some Java launchers convert command-line
+@rem arguments through the host ANSI code page, which corrupts an absolute
+@rem path whose characters that code page cannot represent. Any other
+@rem working directory keeps the original absolute path unchanged.
+set WRAPPER_JAR=%APP_HOME%\gradle\wrapper\gradle-wrapper.jar
+set APP_HOME_CMP=%APP_HOME%
+if "%APP_HOME_CMP:~-1%"=="\" set APP_HOME_CMP=%APP_HOME_CMP:~0,-1%
+if /i "%CD%"=="%APP_HOME_CMP%" set WRAPPER_JAR=gradle\wrapper\gradle-wrapper.jar
 
 @rem Execute Gradle
-"%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %GRADLE_OPTS% "-Dorg.gradle.appname=%APP_BASE_NAME%" -classpath "%CLASSPATH%" -jar "%APP_HOME%\gradle\wrapper\gradle-wrapper.jar" %*
+"%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %GRADLE_OPTS% "-Dorg.gradle.appname=%APP_BASE_NAME%" -classpath "%CLASSPATH%" -jar "%WRAPPER_JAR%" %*
 
 :end
 @rem End local scope for the variables with windows NT shell
