@@ -38,6 +38,7 @@ import com.github.standobyte.jojo.event.client.PreKeyInputEvent;
 import com.github.standobyte.jojo.init.power.ModPlayerPowers;
 import com.github.standobyte.jojo.item.KnifeItem;
 import com.github.standobyte.jojo.item.StoneMaskItem;
+import com.github.standobyte.jojo.mechanics.standdisc.StandDiscItem;
 import com.github.standobyte.jojo.network.NetworkPayloadValidation;
 import com.github.standobyte.jojo.network.c2s.ClAbilityInputPacket;
 import com.github.standobyte.jojo.network.c2s.ClNoParamsPacket;
@@ -303,6 +304,9 @@ public class InputHandler {
 		ClientControlScheme activeControlScheme = getActiveControlScheme();
 		boolean vanillaUseTrigger =
 				key.equals(ClientKey.fromVanillaKeybind(mc.options.keyUse));
+		if (shouldPreserveStandDiscUse(vanillaUseTrigger)) {
+			return null;
+		}
 		if (shouldPreserveStoneMaskKnifeUse(vanillaUseTrigger)) {
 			return null;
 		}
@@ -330,9 +334,26 @@ public class InputHandler {
 	}
 
 	boolean shouldPreserveSemanticVanillaUsePress() {
-		return shouldPreserveStoneMaskKnifeUse(true)
+		return shouldPreserveStandDiscUse(true)
+				|| shouldPreserveStoneMaskKnifeUse(true)
 				|| shouldPreserveUnsummonedStandVanillaUsePress(
 				getActiveControlScheme(), true, getCurModifier());
+	}
+
+	private boolean shouldPreserveStandDiscUse(boolean vanillaUseTrigger) {
+		Player player = mc.player;
+		return player != null && shouldPreserveStandDiscUse(
+				vanillaUseTrigger,
+				player.getMainHandItem().getItem() instanceof StandDiscItem,
+				player.getOffhandItem().getItem() instanceof StandDiscItem);
+	}
+
+	@ApiStatus.Internal
+	public static boolean shouldPreserveStandDiscUse(
+			boolean vanillaUseTrigger,
+			boolean mainHandStandDisc,
+			boolean offHandStandDisc) {
+		return vanillaUseTrigger && (mainHandStandDisc || offHandStandDisc);
 	}
 
 	private boolean shouldPreserveStoneMaskKnifeUse(
