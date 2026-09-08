@@ -323,11 +323,19 @@ tasks.register('stoneMaskArmorRenderContractSmokeTest', JavaExec) {
 
 tasks.register('stoneMaskUseInputSmokeTest', JavaExec) {
     group = 'verification'
-    description = 'Verifies worn Stone Mask knife use keeps vanilla input ownership.'
+    description = 'Verifies Stone Mask knife and Stand Disc use keep vanilla input ownership.'
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
     mainClass =
             'com.github.standobyte.jojo.client.input.StoneMaskUseInputSmokeTest'
+}
+
+tasks.register('standOffsetScaleSmokeTest', JavaExec) {
+    group = 'verification'
+    description = 'Verifies scaled Stand-user offsets without double-applying age or pose height.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
+    mainClass = 'com.github.standobyte.jojo.powersystem.standpower.entity.StandOffsetFromUserScaleSmokeTest'
 }
 
 tasks.register('distanceStrengthDecayPolicySmokeTest', JavaExec) {

@@ -14,6 +14,7 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Pose;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.network.PacketDistributor;
 
@@ -113,9 +114,10 @@ public class StandOffsetFromUser {
 	
 	public Vec3 getPosition(LivingEntity userEntity) {
 		Vec3 offset = getAbsoluteOffset(userEntity, standEntity.level().isClientSide());
-		if (userEntity.isBaby()) {
-			offset = offset.scale(userEntity.getAgeScale());
-		}
+		float ageScale = userEntity.isBaby() ? userEntity.getAgeScale() : 1;
+		// Standing width includes vanilla/Pehkui size, without crouching or swimming height changes.
+		offset = scaleOffsetForUser(offset, userEntity.getDimensions(Pose.STANDING).width(),
+				userEntity.getType().getDimensions().width(), ageScale);
 		
 		double maxRange = standEntity.getMaxRangeForMovement(userEntity);
 		double offsetDist = offset.lengthSqr();
@@ -125,6 +127,14 @@ public class StandOffsetFromUser {
 		}
 		
 		return AlignBy.EYE_POS.align(userEntity, standEntity, offset);
+	}
+
+	static Vec3 scaleOffsetForUser(Vec3 offset, float scaledWidth, float defaultWidth, float ageScale) {
+		double ageAdjustedWidth = (double) defaultWidth * ageScale;
+		double physicalScale = scaledWidth > 0 && Float.isFinite(scaledWidth)
+				&& ageAdjustedWidth > 0 && Double.isFinite(ageAdjustedWidth)
+				? scaledWidth / ageAdjustedWidth : 1;
+		return offset.scale(ageScale * physicalScale);
 	}
 	
 	public Vec3 getAbsoluteOffset(LivingEntity userEntity, boolean lerp) {
