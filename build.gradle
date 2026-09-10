@@ -261,6 +261,14 @@ tasks.register('genericModelGeometrySmokeTest', JavaExec) {
     }
 }
 
+tasks.register('clientCursorIsolationSmokeTest', JavaExec) {
+    group = 'verification'
+    description = 'Checks virtual cursor routing for isolated Bridge clients.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
+    mainClass = 'com.github.standobyte.jojo.client.util.ClientCursorUtilSmokeTest'
+}
+
 tasks.register('entityMaskPostEffectSmokeTest', JavaExec) {
     group = 'verification'
     description = 'Runs focused private entity-mask capture smoke tests.'

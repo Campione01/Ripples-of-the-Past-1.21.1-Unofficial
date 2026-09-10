@@ -1,5 +1,11 @@
 # Independent Modification Record
 
+## Background input integration - 2026-09-09
+
+- keep Stand-menu cursor recentering inside Minecraft for named isolated
+  MineClient Bridge sessions, without changing the operating system cursor;
+- preserve normal foreground input and the legacy self-test path.
+
 ## Blockbench polygon rendering - 2026-09-09
 
 - triangulate mesh faces with more than four vertices before emitting the
