@@ -1,0 +1,9 @@
+{
+  "vertex": "blit_screen",
+  "fragment": "jojo_ripples:stand_surface_resolve",
+  "samplers": [
+    { "name": "SurfaceColorSampler" },
+    { "name": "SurfaceDepthSampler" }
+  ],
+  "uniforms": []
+}

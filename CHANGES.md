@@ -1,5 +1,18 @@
 # Independent Modification Record
 
+## Player casting pose preservation - 2026-09-10
+
+- retain the current precomputed player pose when an addon action belongs to a
+  Stand controller instead of the player itself;
+- keep idle pose clearing and stale attack-metadata cleanup independent.
+
+## Isolated surface diagnostic capture - 2026-09-10
+
+- resolve each selected diagnostic body into a separate surface scratch target
+  before combining its color and depth with the existing Stand target;
+- keep the diagnostic disabled by default. Cross-body color ordering and live
+  effect compatibility are not certified by this experimental path.
+
 ## Scoped surface-opacity diagnosis - 2026-09-09
 
 - add a default-off, exact-entity diagnostic capture material to distinguish

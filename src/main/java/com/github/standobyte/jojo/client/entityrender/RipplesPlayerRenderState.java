@@ -11,15 +11,20 @@ public class RipplesPlayerRenderState {
 	public static void extract(LivingEntity entity, HumanoidRenderState vanillaRenderState, RipplesPlayerRenderState modRenderState, 
 			float partialTick/*, ItemModelResolver itemModelResolver*/) {
 		EntityActionRenderState.extract(modRenderState.entityAction, entity, partialTick);
-		if (LivingComponentAction.getCurEntityAction(entity) == null) {
-			modRenderState.entityAction.pose = null;
+		if (finishExtraction(modRenderState, LivingComponentAction.getCurEntityAction(entity) != null)) {
+			vanillaRenderState.isCrouching = false;
+		}
+	}
+
+	static boolean finishExtraction(RipplesPlayerRenderState modRenderState, boolean hasPlayerAction) {
+		if (!hasPlayerAction) {
+			// FINAL also carries addon and persistent poses without a player action.
+			// EntityActionRenderState.extract replaces it with null on an idle frame.
 			modRenderState.entityAction.barrageSwings = null;
 			modRenderState.entityAction.animId = null;
 			modRenderState.entityAction.armsObstructView = false;
 		}
-		if (modRenderState.entityAction.pose != null) {
-			vanillaRenderState.isCrouching = false;
-		}
+		return modRenderState.entityAction.pose != null;
 	}
 	
 	public static interface RipplesRenderStateExtensionMixin {

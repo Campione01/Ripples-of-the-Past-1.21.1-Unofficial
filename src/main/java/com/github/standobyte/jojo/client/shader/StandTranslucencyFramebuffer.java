@@ -14,9 +14,11 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.BufferUploader;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.neoforged.neoforge.client.GlStateBackup;
@@ -27,7 +29,10 @@ public final class StandTranslucencyFramebuffer extends RotpShader {
 	private final RenderTarget buffer;
 	private final RenderTarget sceneDepthBuffer;
 	private final RenderTargetState targetState = new RenderTargetState();
+	private final RenderTargetState surfaceTargetState = new RenderTargetState();
+	private RenderTarget surfaceBuffer;
 	private ShaderInstance compositeShader;
+	private ShaderInstance surfaceResolveShader;
 	private boolean preparedThisFrame;
 	private boolean usedThisFrame;
 	private boolean restoreIrisWorldTarget;
@@ -44,6 +49,8 @@ public final class StandTranslucencyFramebuffer extends RotpShader {
 	public void loadCoreShaders(RegisterShadersEvent event) {
 		ModShaders.loadPrivateTargetCoreShader(event, JojoMod.resLoc("stand_translucency_composite"),
 				DefaultVertexFormat.BLIT_SCREEN, shader -> compositeShader = shader);
+		ModShaders.loadPrivateTargetCoreShader(event, JojoMod.resLoc("stand_surface_resolve"),
+				DefaultVertexFormat.BLIT_SCREEN, shader -> surfaceResolveShader = shader);
 	}
 
 	@Override
@@ -55,6 +62,10 @@ public final class StandTranslucencyFramebuffer extends RotpShader {
 	public void close() {
 		buffer.destroyBuffers();
 		sceneDepthBuffer.destroyBuffers();
+		if (surfaceBuffer != null) {
+			surfaceBuffer.destroyBuffers();
+			surfaceBuffer = null;
+		}
 	}
 
 	public void beginFrame() {
@@ -92,6 +103,115 @@ public final class StandTranslucencyFramebuffer extends RotpShader {
 			targetState.restore();
 		}
 		restoreIrisWorldTarget = false;
+	}
+
+	public boolean canResolveBodySurface() {
+		return compositeShader != null && surfaceResolveShader != null;
+	}
+
+	public void drawBodySurface(MeshData meshData, RenderType surfaceMaterial) {
+		try (meshData) {
+			RenderSystem.assertOnRenderThread();
+			boolean restoreIrisTarget = ClientRenderCompatibility.snapshot().irisShaderPackInUse()
+					&& !EntityMaskPostEffect.isCapturePass();
+			ShaderInstance previousShader = RenderSystem.getShader();
+			GlStateBackup glState = new GlStateBackup();
+			RenderSystem.backupGlState(glState);
+			surfaceTargetState.capture();
+			try {
+				int sourceFramebuffer = surfaceTargetState.drawFramebuffer();
+				if (sourceFramebuffer == buffer.frameBufferId
+						|| (surfaceBuffer != null && sourceFramebuffer == surfaceBuffer.frameBufferId)) {
+					throw new IllegalStateException("Stand surface capture requires a world draw target");
+				}
+				int width = Math.max(1, surfaceTargetState.viewportWidth());
+				int height = Math.max(1, surfaceTargetState.viewportHeight());
+				RenderSystem.disableScissor();
+				RenderSystem.colorMask(true, true, true, true);
+				RenderSystem.depthMask(true);
+				if (surfaceBuffer == null) {
+					surfaceBuffer = createMainTargetBuffer(Minecraft.getInstance());
+				}
+				ensureSize(surfaceBuffer, width, height);
+				if (ensureSize(buffer, width, height)) {
+					preparedThisFrame = false;
+				}
+				if (!preparedThisFrame) {
+					buffer.clear(Minecraft.ON_OSX);
+					copyDepthFrom(buffer, sourceFramebuffer, surfaceTargetState.viewportX(),
+							surfaceTargetState.viewportY(), width, height);
+					preparedThisFrame = true;
+				}
+				surfaceBuffer.clear(Minecraft.ON_OSX);
+				// Another Stand's accumulated depth must never become this body's scene seed.
+				copyDepthFrom(surfaceBuffer, sourceFramebuffer, surfaceTargetState.viewportX(),
+						surfaceTargetState.viewportY(), width, height);
+				surfaceBuffer.bindWrite(true);
+				// Iris can suppress RenderType.draw's state calls while merging; own this material scope explicitly.
+				try {
+					surfaceMaterial.setupRenderState();
+					BufferUploader.drawWithShader(meshData);
+				}
+				finally {
+					surfaceMaterial.clearRenderState();
+				}
+				resolveBodySurface();
+				usedThisFrame = true;
+			}
+			finally {
+				try {
+					if (restoreIrisTarget) {
+						surfaceTargetState.restoreAfterLogicalMainTarget(Minecraft.getInstance().getMainRenderTarget());
+					}
+					else {
+						surfaceTargetState.restore();
+					}
+				}
+				finally {
+					RenderSystem.restoreGlState(glState);
+					RenderSystem.setShader(() -> previousShader);
+				}
+			}
+		}
+	}
+
+	private void resolveBodySurface() {
+		buffer.bindWrite(true);
+		RenderSystem.disableCull();
+		surfaceResolveShader.setSampler("SurfaceColorSampler", surfaceBuffer.getColorTextureId());
+		surfaceResolveShader.setSampler("SurfaceDepthSampler", surfaceBuffer.getDepthTextureId());
+		try {
+			surfaceResolveShader.apply();
+			RenderSystem.enableBlend();
+			RenderSystem.blendFuncSeparate(
+					GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA,
+					GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA);
+			RenderSystem.colorMask(true, true, true, true);
+			RenderSystem.disableDepthTest();
+			RenderSystem.depthMask(false);
+			drawSurfaceQuad();
+
+			// Preserve every body's color contribution, then merge only the nearest depth.
+			RenderSystem.disableBlend();
+			RenderSystem.colorMask(false, false, false, false);
+			RenderSystem.enableDepthTest();
+			RenderSystem.depthFunc(GL11.GL_LEQUAL);
+			RenderSystem.depthMask(true);
+			drawSurfaceQuad();
+		}
+		finally {
+			surfaceResolveShader.clear();
+		}
+	}
+
+	private void drawSurfaceQuad() {
+		BufferBuilder builder = RenderSystem.renderThreadTesselator().begin(
+				VertexFormat.Mode.QUADS, DefaultVertexFormat.BLIT_SCREEN);
+		builder.addVertex(0.0F, 0.0F, 0.0F);
+		builder.addVertex(1.0F, 0.0F, 0.0F);
+		builder.addVertex(1.0F, 1.0F, 0.0F);
+		builder.addVertex(0.0F, 1.0F, 0.0F);
+		BufferUploader.draw(builder.buildOrThrow());
 	}
 
 	private boolean ensureSize(RenderTarget target, int width, int height) {
