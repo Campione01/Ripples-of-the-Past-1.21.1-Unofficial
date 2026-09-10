@@ -30,6 +30,7 @@ public final class StandSurfaceDiagnosticSmokeTest {
 		verifyRenderGuards();
 		verifySeparatedBarrage();
 		verifyNearestSurfaceBlend();
+		verifyBinaryGlowCoverage();
 		verifyIndependentSurfaceMerge();
 		verifySubmissionIndependentOrder();
 		verifyScratchScopeContract();
@@ -164,6 +165,18 @@ public final class StandSurfaceDiagnosticSmokeTest {
 				"a third body must preserve both earlier bodies' alpha contributions");
 		check(0.6 < 0.95 && 0.6 > 0.2,
 				"a body behind another Stand but in front of the scene requires an independent scene depth seed");
+	}
+
+	private static void verifyBinaryGlowCoverage() {
+		for (double alpha : new double[] {0.25, 0.8}) {
+			double oldCoverage = alpha + alpha * (1.0 - alpha);
+			double preservedCoverage = alpha * 0.0 + alpha * 1.0;
+			double glowColor = 0.9 * alpha + 0.3 * alpha * 0.0;
+			check(oldCoverage > alpha && close(preservedCoverage, alpha),
+					"binary glow must not accumulate another model-opacity layer");
+			check(close(glowColor / preservedCoverage, 0.9),
+					"coverage-preserving glow must retain its intended bright color");
+		}
 	}
 
 	private static void verifySubmissionIndependentOrder() {

@@ -42,6 +42,18 @@ public final class ModRenderTypes extends RenderType {
 						RenderSystem.disableBlend();
 						RenderSystem.defaultBlendFunc();
 					});
+	private static final RenderStateShard.TransparencyStateShard STAND_SURFACE_GLOW_TRANSPARENCY =
+			new RenderStateShard.TransparencyStateShard(JojoMod.MOD_ID + ":stand_surface_glow",
+					() -> {
+						// Binary glow texels replace lit RGB without adding a second coverage layer.
+						RenderSystem.enableBlend();
+						RenderSystem.blendFuncSeparate(
+								GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ZERO,
+								GlStateManager.SourceFactor.ZERO, GlStateManager.DestFactor.ONE);
+					}, () -> {
+						RenderSystem.disableBlend();
+						RenderSystem.defaultBlendFunc();
+					});
 	private static final RenderTargetState STAND_OUTLINE_TARGET_STATE = new RenderTargetState();
 	private static boolean restoreIrisWorldTargetAfterOutline;
 	private static final RenderStateShard.OutputStateShard STAND_TRANSLUCENCY_TARGET =
@@ -58,14 +70,15 @@ public final class ModRenderTypes extends RenderType {
 				RenderType.CompositeState state = RenderType.CompositeState.builder()
 						.setShaderState(RENDERTYPE_STAND_TRANSLUCENT_SHADER)
 						.setTextureState(new RenderStateShard.TextureStateShard(texture, false, false))
-						.setTransparencyState(renderState.nearestSurface
-								? STAND_SURFACE_DIAGNOSTIC_TRANSPARENCY : TRANSLUCENT_TRANSPARENCY)
+						.setTransparencyState(renderState.coverageGlow ? STAND_SURFACE_GLOW_TRANSPARENCY
+								: renderState.nearestSurface ? STAND_SURFACE_DIAGNOSTIC_TRANSPARENCY : TRANSLUCENT_TRANSPARENCY)
 						.setCullState(renderState.cull ? CULL : NO_CULL)
 						.setLightmapState(LIGHTMAP)
 						.setOverlayState(OVERLAY)
 						.setOutputState(renderState.isolatedOutput ? MAIN_TARGET : STAND_TRANSLUCENCY_TARGET)
 						.createCompositeState(renderState.outline);
 				String suffix = (renderState.nearestSurface ? "_surface_diagnostic" : "")
+						+ (renderState.coverageGlow ? "_surface_glow" : "")
 						+ (renderState.cull ? "_cull" : "");
 				return create(JojoMod.MOD_ID + ":stand_translucent" + suffix, DefaultVertexFormat.NEW_ENTITY,
 						VertexFormat.Mode.QUADS, 1536, true, true, state);
@@ -142,6 +155,9 @@ public final class ModRenderTypes extends RenderType {
 
 			@Override
 			public com.mojang.blaze3d.vertex.VertexConsumer getBuffer(RenderType renderType) {
+				if (renderType instanceof StandSurfaceRenderType surface && surface.requiresSurfaceBody) {
+					renderType = surface.resolveSurfaceBody(surfaceBody && surface.groupKey == bodyGroup);
+				}
 				var body = delegate.getBuffer(renderType);
 				if (renderType instanceof StandSurfaceRenderType surface && surface.groupKey == bodyGroup) {
 					surfaceBody |= surface.nearestSurface;
@@ -157,6 +173,18 @@ public final class ModRenderTypes extends RenderType {
 				return body;
 			}
 		};
+	}
+
+	/** For binary glow masks contained within an opted-in body's texture coverage. */
+	public static RenderType standSurfaceGlow(ResourceLocation texture, boolean cull) {
+		int ownerId = RenderStateCrutches.currentStandEntityRenderState instanceof StandEntityRenderState state
+				? state.entityId : 0;
+		return new StandSurfaceRenderType(
+				STAND_TRANSLUCENT.apply(texture, new StandTranslucentState(true, cull, false, true, true)),
+				STAND_TRANSLUCENT.apply(texture, new StandTranslucentState(true, cull, false, true)),
+				STAND_TRANSLUCENT.apply(texture, new StandTranslucentState(true, cull)),
+				RenderType.entityTranslucent(texture), 0.0, ownerId, false,
+				surfaceGroupKey(), nextSurfaceOrder(), false, false, true);
 	}
 
 	public static RenderType standSurfaceDiagnostic(ResourceLocation texture, boolean cull) {
@@ -230,10 +258,19 @@ public final class ModRenderTypes extends RenderType {
 		private final int emissionOrder;
 		private final boolean bodyPass;
 		private final boolean nearestSurface;
+		private final boolean requiresSurfaceBody;
 
 		private StandSurfaceRenderType(RenderType surfaceMaterial, RenderType ordinaryMaterial,
 				RenderType fallbackMaterial, RenderType shadowMaterial, double viewDepth, int ownerId,
 				boolean consolidate, Object groupKey, int emissionOrder, boolean bodyPass, boolean nearestSurface) {
+			this(surfaceMaterial, ordinaryMaterial, fallbackMaterial, shadowMaterial, viewDepth, ownerId,
+					consolidate, groupKey, emissionOrder, bodyPass, nearestSurface, false);
+		}
+
+		private StandSurfaceRenderType(RenderType surfaceMaterial, RenderType ordinaryMaterial,
+				RenderType fallbackMaterial, RenderType shadowMaterial, double viewDepth, int ownerId,
+				boolean consolidate, Object groupKey, int emissionOrder, boolean bodyPass, boolean nearestSurface,
+				boolean requiresSurfaceBody) {
 			super(surfaceMaterial.name + "_isolated", surfaceMaterial.format(), surfaceMaterial.mode(),
 					surfaceMaterial.bufferSize(), surfaceMaterial.affectsCrumbling(), surfaceMaterial.sortOnUpload(),
 					() -> {}, () -> {});
@@ -248,6 +285,13 @@ public final class ModRenderTypes extends RenderType {
 			this.emissionOrder = emissionOrder;
 			this.bodyPass = bodyPass;
 			this.nearestSurface = nearestSurface;
+			this.requiresSurfaceBody = requiresSurfaceBody;
+		}
+
+		private StandSurfaceRenderType resolveSurfaceBody(boolean present) {
+			return new StandSurfaceRenderType(present ? surfaceMaterial : ordinaryMaterial, ordinaryMaterial,
+					fallbackMaterial, shadowMaterial, viewDepth, ownerId, consolidate, groupKey,
+					emissionOrder, bodyPass, nearestSurface);
 		}
 
 		@Override
@@ -271,7 +315,8 @@ public final class ModRenderTypes extends RenderType {
 			StandTranslucencyFramebuffer framebuffer = shaders != null ? shaders.standTranslucencyFramebuffer : null;
 			if (framebuffer != null && framebuffer.canResolveBodySurface()
 					&& !EntityMaskPostEffect.isCapturePass() && !ClientRenderCompatibility.isIrisShadowPass()) {
-				framebuffer.drawBodySurface(meshData, surfaceMaterial, viewDepth, ownerId, groupKey, emissionOrder, bodyPass);
+				framebuffer.drawBodySurface(meshData, requiresSurfaceBody ? ordinaryMaterial : surfaceMaterial,
+						viewDepth, ownerId, groupKey, emissionOrder, bodyPass);
 			}
 			else {
 				RenderType material = ClientRenderCompatibility.isIrisShadowPass() ? shadowMaterial : fallbackMaterial;
@@ -288,7 +333,11 @@ public final class ModRenderTypes extends RenderType {
 		}
 	}
 
-	private record StandTranslucentState(boolean outline, boolean cull, boolean nearestSurface, boolean isolatedOutput) {
+	private record StandTranslucentState(boolean outline, boolean cull, boolean nearestSurface, boolean isolatedOutput,
+			boolean coverageGlow) {
+		private StandTranslucentState(boolean outline, boolean cull, boolean nearestSurface, boolean isolatedOutput) {
+			this(outline, cull, nearestSurface, isolatedOutput, false);
+		}
 		private StandTranslucentState(boolean outline, boolean cull) {
 			this(outline, cull, false, false);
 		}

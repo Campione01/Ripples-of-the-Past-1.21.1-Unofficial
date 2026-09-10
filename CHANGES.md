@@ -1,5 +1,12 @@
 # Independent Modification Record
 
+## Binary glow coverage - 2026-09-10
+
+- expose an opt-in binary glow material that replaces emissive color while
+  preserving its captured body's opacity and self-depth;
+- fall back to ordinary glow when no nearest-surface body was submitted, including
+  opaque and non-opted-in rendering. Existing glow callers are unchanged.
+
 ## Individual translucent barrage surfaces - 2026-09-10
 
 - isolate the nearest surface of each opted-in fist trail, retaining its original
