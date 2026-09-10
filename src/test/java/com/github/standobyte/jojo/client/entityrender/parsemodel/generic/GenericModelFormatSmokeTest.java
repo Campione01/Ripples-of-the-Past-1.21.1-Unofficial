@@ -56,6 +56,7 @@ public final class GenericModelFormatSmokeTest {
 		verifyConcaveHexagonBake();
 		verifyTiltedHexagonSharesOrientation();
 		verifyQuadWithCollinearBoundaryBake();
+		verifyTranslatedClosedMeshBoundsAndNormals();
 		verifyRepeatedVertexIdPreservesOrder();
 		verifyDegenerateNormalFails();
 	}
@@ -74,6 +75,43 @@ public final class GenericModelFormatSmokeTest {
 		float[][] quad = { { 0, 0, 2 }, { 3, 0, 2 }, { 3, 2, 2 }, { 0, 2, 2 } };
 		// Existing Blockbench quad order repair must still handle a crossed input order.
 		verifyPolygons(bakeFace(quad, new int[] { 0, 2, 1, 3 }), quad, 1, 6);
+	}
+
+	private static void verifyTranslatedClosedMeshBoundsAndNormals() {
+		float[][] points = {
+				{ 1, 2, 5 }, { 3, 2, 5 }, { 3, 4, 5 }, { 1, 4, 5 },
+				{ 1, 2, 7 }, { 3, 2, 7 }, { 3, 4, 7 }, { 1, 4, 7 }
+		};
+		JsonObject model = meshModel(points, new int[] { 0, 3, 2, 1 });
+		JsonObject mesh = model.getAsJsonArray("elements").get(0).getAsJsonObject();
+		JsonObject template = mesh.getAsJsonObject("faces").getAsJsonObject("face");
+		JsonObject faces = new JsonObject();
+		int[][] orders = {
+				{ 0, 3, 2, 1 }, { 4, 5, 6, 7 }, { 0, 1, 5, 4 },
+				{ 3, 7, 6, 2 }, { 0, 4, 7, 3 }, { 1, 2, 6, 5 }
+		};
+		for (int i = 0; i < orders.length; i++) {
+			JsonObject face = template.deepCopy();
+			JsonArray vertices = new JsonArray();
+			for (int vertex : orders[i]) vertices.add("v" + vertex);
+			face.add("vertices", vertices);
+			faces.add("face" + i, face);
+		}
+		mesh.add("faces", faces);
+		ModelPart.Cube cube = bakeModel(model);
+		check(cube.minX == -3 && cube.maxX == -1 && cube.minY == -4 && cube.maxY == -2
+				&& cube.minZ == 5 && cube.maxZ == 7, "mesh bounds incorrectly include the bone origin");
+		check(cube.polygons.length == 6, "translated closed cube lost a face");
+		Vector3f center = new Vector3f(-2, -3, 6);
+		for (ModelPart.Polygon polygon : cube.polygons) {
+			Vector3f faceCenter = new Vector3f();
+			for (ModelPart.Vertex vertex : polygon.vertices) faceCenter.add(vertex.pos);
+			faceCenter.mul(0.25F).sub(center);
+			check(polygon.vertices.length == 4 && Math.abs(polygon.normal.lengthSquared() - 1) < 0.0001F,
+					"translated cube emitted an invalid polygon");
+			check(polygon.normal.dot(faceCenter) > 0.9999F,
+					"translated closed mesh has an inward-facing surface from an origin-biased center");
+		}
 	}
 
 	private static void verifyConvexHexagonsBake() {

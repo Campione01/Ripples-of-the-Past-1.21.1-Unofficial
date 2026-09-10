@@ -68,12 +68,12 @@ public final class BlockbenchMeshDefinition extends CubeDefinition {
 	public static class MeshBuilder {
 		protected final boolean livingEntityRenderHacks;
 		protected final MeshFaceBuilder faceBuilder;
-		protected float minX;
-		protected float minY;
-		protected float minZ;
-		protected float maxX;
-		protected float maxY;
-		protected float maxZ;
+		protected float minX = Float.POSITIVE_INFINITY;
+		protected float minY = Float.POSITIVE_INFINITY;
+		protected float minZ = Float.POSITIVE_INFINITY;
+		protected float maxX = Float.NEGATIVE_INFINITY;
+		protected float maxY = Float.NEGATIVE_INFINITY;
+		protected float maxZ = Float.NEGATIVE_INFINITY;
 		protected final List<MeshFace> faces = new ArrayList<>();
 		
 		public MeshBuilder(boolean livingEntityRenderHacks) {

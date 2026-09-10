@@ -1,5 +1,11 @@
 # Independent Modification Record
 
+## Offset mesh lighting - 2026-09-09
+
+- compute imported mesh bounds from actual vertices rather than including the
+  bone origin, keeping offset closed surfaces and their lighting normals consistent;
+- add a translated closed-mesh regression without changing model art or opacity.
+
 ## Background input integration - 2026-09-09
 
 - keep Stand-menu cursor recentering inside Minecraft for named isolated
