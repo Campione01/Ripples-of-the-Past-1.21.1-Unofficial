@@ -1,7 +1,9 @@
 package com.github.standobyte.jojo.client.rendertype;
 
 import java.nio.ByteBuffer;
+import java.util.IdentityHashMap;
 import java.util.Objects;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import org.joml.Matrix3f;
@@ -15,21 +17,30 @@ import com.mojang.blaze3d.vertex.VertexFormatElement;
 import net.minecraft.client.renderer.block.model.BakedQuad;
 
 public final class BarrageVertexConsumer implements VertexConsumer {
+	private static final Object UNKEYED_BARRAGE = new Object();
 	private final VertexConsumer body;
-	private final Supplier<VertexConsumer> barrageSupplier;
-	private VertexConsumer barrage;
+	private final Function<Object, VertexConsumer> barrageFactory;
+	private final IdentityHashMap<Object, VertexConsumer> barrage = new IdentityHashMap<>();
 
 	public BarrageVertexConsumer(VertexConsumer body, Supplier<VertexConsumer> barrageSupplier) {
 		this.body = Objects.requireNonNull(body, "body");
-		this.barrageSupplier = Objects.requireNonNull(barrageSupplier, "barrageSupplier");
+		Supplier<VertexConsumer> supplier = Objects.requireNonNull(barrageSupplier, "barrageSupplier");
+		this.barrageFactory = ignored -> supplier.get();
+	}
+
+	public BarrageVertexConsumer(VertexConsumer body, Function<Object, VertexConsumer> barrageFactory) {
+		this.body = Objects.requireNonNull(body, "body");
+		this.barrageFactory = Objects.requireNonNull(barrageFactory, "barrageFactory");
 	}
 
 	public static VertexConsumer forBarrage(VertexConsumer consumer) {
+		return forBarrage(consumer, UNKEYED_BARRAGE);
+	}
+
+	public static VertexConsumer forBarrage(VertexConsumer consumer, Object swingKey) {
 		if (consumer instanceof BarrageVertexConsumer tagged) {
-			if (tagged.barrage == null) {
-				tagged.barrage = Objects.requireNonNull(tagged.barrageSupplier.get(), "barrage");
-			}
-			return tagged.barrage;
+			return tagged.barrage.computeIfAbsent(Objects.requireNonNull(swingKey, "swingKey"),
+					key -> Objects.requireNonNull(tagged.barrageFactory.apply(key), "barrage"));
 		}
 		return consumer;
 	}

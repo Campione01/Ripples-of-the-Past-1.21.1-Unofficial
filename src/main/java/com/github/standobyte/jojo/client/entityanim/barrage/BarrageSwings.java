@@ -17,6 +17,7 @@ import com.github.standobyte.jojo.client.entityrender.EntityActionRenderState;
 import com.github.standobyte.jojo.client.entityrender.stand.HumanoidPart;
 import com.github.standobyte.jojo.client.entityrender.stand.StandEntityModel;
 import com.github.standobyte.jojo.client.entityrender.stand.StandEntityRenderState;
+import com.github.standobyte.jojo.client.rendertype.BarrageVertexConsumer;
 import com.github.standobyte.jojo.powersystem.standpower.entity.StandEntity;
 import com.github.standobyte.jojo.powersystem.standpower.entity.StandStatFormulas;
 import com.github.standobyte.v1_21_4_stuff.renderstate.EntityRenderState;
@@ -106,7 +107,7 @@ public class BarrageSwings {
 			int packedLight, int packedOverlay, int color, float xRot) {
 		try {
 			for (BarrageSwing swing : barrageSwings) {
-				swing.poseAndRender(model, poseStack, buffer, 
+				swing.poseAndRender(model, poseStack, BarrageVertexConsumer.forBarrage(buffer, swing),
 						packedLight, packedOverlay, color, xRot);
 			}
 		}

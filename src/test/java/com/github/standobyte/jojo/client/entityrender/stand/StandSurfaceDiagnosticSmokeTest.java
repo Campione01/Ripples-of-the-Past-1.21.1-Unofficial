@@ -110,6 +110,21 @@ public final class StandSurfaceDiagnosticSmokeTest {
 				"one model layer must reuse its trail consumer");
 		check(BarrageVertexConsumer.forBarrage(body) == body,
 				"ordinary and classic model consumers must remain unchanged");
+		Object firstSwing = new Object();
+		Object secondSwing = new Object();
+		int[] keyedAllocations = {0};
+		VertexConsumer keyed = new BarrageVertexConsumer(body, key -> {
+			keyedAllocations[0]++;
+			return countingConsumer(new int[] {0});
+		});
+		VertexConsumer first = BarrageVertexConsumer.forBarrage(keyed, firstSwing);
+		VertexConsumer second = BarrageVertexConsumer.forBarrage(keyed, secondSwing);
+		check(first != second && keyedAllocations[0] == 2,
+				"different fist swings must not share a nearest-surface batch");
+		check(BarrageVertexConsumer.forBarrage(keyed, firstSwing) == first && keyedAllocations[0] == 2,
+				"a swing consumer must be reused within its model layer");
+		check(BarrageVertexConsumer.forBarrage(body, firstSwing) == body,
+				"untagged barrage consumers must remain unchanged");
 	}
 
 	private static VertexConsumer countingConsumer(int[] calls) {

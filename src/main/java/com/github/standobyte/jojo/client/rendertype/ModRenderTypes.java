@@ -1,6 +1,7 @@
 package com.github.standobyte.jojo.client.rendertype;
 
 import java.util.Optional;
+import java.util.IdentityHashMap;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -136,7 +137,7 @@ public final class ModRenderTypes extends RenderType {
 
 	public static MultiBufferSource separateSurfaceBarrage(MultiBufferSource delegate, Object bodyGroup) {
 		return new MultiBufferSource() {
-			private final Object barrageGroup = new Object();
+			private final IdentityHashMap<Object, Object> barrageGroups = new IdentityHashMap<>();
 			private boolean surfaceBody;
 
 			@Override
@@ -145,12 +146,12 @@ public final class ModRenderTypes extends RenderType {
 				if (renderType instanceof StandSurfaceRenderType surface && surface.groupKey == bodyGroup) {
 					surfaceBody |= surface.nearestSurface;
 					if (surfaceBody) {
-						// The model chooses this stream only for fist trails, including matching glow layers.
-						return new BarrageVertexConsumer(body, () -> delegate.getBuffer(
-								new StandSurfaceRenderType(surface.ordinaryMaterial, surface.ordinaryMaterial,
+						// Each translucent fist keeps its nearest surface, while distinct fists still blend together.
+						return new BarrageVertexConsumer(body, swing -> delegate.getBuffer(
+								new StandSurfaceRenderType(surface.surfaceMaterial, surface.ordinaryMaterial,
 										surface.fallbackMaterial, surface.shadowMaterial, surface.viewDepth,
-										surface.ownerId, true, barrageGroup, surface.emissionOrder,
-										surface.bodyPass, false)));
+										surface.ownerId, false, barrageGroups.computeIfAbsent(swing, key -> new Object()),
+										surface.emissionOrder, surface.bodyPass, surface.nearestSurface)));
 					}
 				}
 				return body;

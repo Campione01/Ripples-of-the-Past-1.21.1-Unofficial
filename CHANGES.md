@@ -1,5 +1,11 @@
 # Independent Modification Record
 
+## Individual translucent barrage surfaces - 2026-09-10
+
+- isolate the nearest surface of each opted-in fist trail, retaining its original
+  alpha and ordinary composition with other fists and the main body;
+- share each swing's depth with its own glow layer without altering barrage poses.
+
 ## Surface body and barrage separation - 2026-09-10
 
 - keep opted-in Stand bodies on their nearest-surface material during barrages;
