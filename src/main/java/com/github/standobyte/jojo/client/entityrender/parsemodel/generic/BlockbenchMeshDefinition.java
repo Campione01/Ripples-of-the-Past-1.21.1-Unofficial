@@ -177,6 +177,10 @@ public final class BlockbenchMeshDefinition extends CubeDefinition {
 			}
 
 			private void addQuad(VertexDefinition[] source, @Nullable VertexDefinition[] normalAnchor) {
+				// Meshy can export a zero-coverage quad with only one or two distinct positions.
+				if (calcNormalFromVertices && isCollapsedQuad(source)) {
+					return;
+				}
 				VertexDefinition[] vertices = source.length == 3
 						? new VertexDefinition[] { source[0], source[1], source[2], source[2] }
 						: source;
@@ -233,10 +237,42 @@ public final class BlockbenchMeshDefinition extends CubeDefinition {
 
 	private record FaceOrientation(Vector3f normal, boolean reverse) {}
 
+	private static boolean isCollapsedQuad(VertexDefinition[] vertices) {
+		if (vertices.length != 4) return false;
+		Vector3f first = vertices[0].pos();
+		Vector3f second = null;
+		for (VertexDefinition vertex : vertices) {
+			Vector3f position = vertex.pos();
+			if (!Float.isFinite(position.x) || !Float.isFinite(position.y) || !Float.isFinite(position.z)) {
+				return false;
+			}
+			if (!position.equals(first)) {
+				if (second == null) second = position;
+				else if (!position.equals(second)) return false;
+			}
+		}
+		return true;
+	}
+
 	private static FaceOrientation faceOrientation(VertexDefinition[] vertices, Vector3f cubeCenter,
 			boolean invertNormal) {
+		for (VertexDefinition vertex : vertices) {
+			Vector3f position = vertex.pos();
+			if (!Float.isFinite(position.x) || !Float.isFinite(position.y) || !Float.isFinite(position.z)) {
+				throw new IllegalArgumentException("Mesh face has a non-finite position");
+			}
+		}
 		Vector3f a = vertices[0].pos(), b = vertices[1].pos(), c = vertices[2].pos();
-		Vector3f normal = unitNormal(new Vector3f(b).sub(a).cross(new Vector3f(c).sub(a)));
+		Vector3f cross = new Vector3f(b).sub(a).cross(new Vector3f(c).sub(a));
+		if (cross.lengthSquared() == 0 && vertices.length == 4) {
+			c = vertices[3].pos();
+			cross.set(b).sub(a).cross(new Vector3f(c).sub(a));
+			if (cross.lengthSquared() == 0) {
+				b = vertices[2].pos();
+				cross.set(b).sub(a).cross(new Vector3f(c).sub(a));
+			}
+		}
+		Vector3f normal = unitNormal(cross);
 		Vector3f fromCenter = new Vector3f((a.x + b.x + c.x) / 3,
 				(a.y + b.y + c.y) / 3, (a.z + b.z + c.z) / 3).sub(cubeCenter);
 		boolean reverse = normal.dot(fromCenter) < 0;

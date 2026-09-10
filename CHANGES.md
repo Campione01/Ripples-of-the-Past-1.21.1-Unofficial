@@ -1,5 +1,12 @@
 # Independent Modification Record
 
+## Collapsed mesh export faces - 2026-09-10
+
+- ignore finite auto-normal quads containing only one or two distinct positions,
+  including the zero-coverage helmet face in the bundled The World model;
+- derive valid quad normals from another ordered triple when the first three
+  vertices are collinear, retaining winding, UVs and invalid-data checks.
+
 ## Binary glow coverage - 2026-09-10
 
 - expose an opt-in binary glow material that replaces emissive color while

@@ -1,5 +1,9 @@
 package com.github.standobyte.jojo.client.entityrender.parsemodel.generic;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -11,6 +15,7 @@ import java.util.Set;
 import org.joml.Vector3f;
 
 import com.github.standobyte.jojo.client.entityrender.parsemodel.ParseModEntityModel.Utils.RotatedCubeCounter;
+import com.github.standobyte.jojo.client.entityrender.parsemodel.gecko.GeckoModelFormat;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonArray;
@@ -43,7 +48,7 @@ public final class GenericModelFormatSmokeTest {
 			System.out.println("Supplied model baked: faces=" + faces + ", path=" + path);
 		}
 		System.out.println("GenericModelFormat smoke tests passed: outliner, triangle/quad, "
-				+ "convex/concave/tilted polygons, collinear quad boundary, UVs and finite unit normals");
+				+ "convex/concave/tilted polygons, collinear quad boundary, The World helmet, UVs and finite unit normals");
 	}
 
 	public static void run() {
@@ -56,6 +61,9 @@ public final class GenericModelFormatSmokeTest {
 		verifyConcaveHexagonBake();
 		verifyTiltedHexagonSharesOrientation();
 		verifyQuadWithCollinearBoundaryBake();
+		verifyDirectQuadWithCollinearLeadingVertices();
+		verifyTheWorldCollapsedQuad();
+		verifyBundledTheWorldMeshBakes();
 		verifyTranslatedClosedMeshBoundsAndNormals();
 		verifyRepeatedVertexIdPreservesOrder();
 		verifyDegenerateNormalFails();
@@ -161,6 +169,87 @@ public final class GenericModelFormatSmokeTest {
 		Vector3f second = new Vector3f(v[2].pos).sub(v[0].pos).cross(new Vector3f(v[3].pos).sub(v[0].pos));
 		check(first.lengthSquared() > 0 && second.lengthSquared() > 0,
 				"quad diagonal must keep both triangles nondegenerate without dropping any UV vertex");
+	}
+
+	private static void verifyDirectQuadWithCollinearLeadingVertices() {
+		float[][] points = { { 0, 0, 2 }, { 1, 0, 2 }, { 2, 0, 2 }, { 0, 1, 2 } };
+		for (int[] order : List.of(new int[] { 0, 1, 2, 3 }, new int[] { 3, 2, 1, 0 })) {
+			BlockbenchMeshDefinition.MeshBuilder builder = new BlockbenchMeshDefinition.MeshBuilder(false);
+			var face = builder.startFaceCalcNormal();
+			for (int index : order) {
+				face.withVertex(points[index][0], points[index][1], points[index][2], index, index + 0.5F);
+			}
+			face.createFace();
+			ModelPart.Cube cube = builder.buildCube().bake(16, 16);
+			check(cube.polygons.length == 1, "valid leading-collinear quad was omitted");
+			ModelPart.Polygon polygon = cube.polygons[0];
+			check(polygon.vertices.length == 4 && Math.abs(polygon.normal.lengthSquared() - 1) < 0.0001F,
+					"leading-collinear quad needs a finite unit normal");
+			for (int i = 0; i < order.length; i++) {
+				int index = order[i];
+				ModelPart.Vertex vertex = polygon.vertices[i];
+				check(vertex.pos.equals(new Vector3f(points[index][0], points[index][1], points[index][2]))
+						&& vertex.u == index / 16F && vertex.v == (index + 0.5F) / 16F,
+						"normal fallback changed authored quad winding, positions or UVs");
+			}
+			Vector3f a = polygon.vertices[0].pos;
+			Vector3f first = new Vector3f(polygon.vertices[1].pos).sub(a)
+					.cross(new Vector3f(polygon.vertices[2].pos).sub(a));
+			Vector3f second = new Vector3f(polygon.vertices[2].pos).sub(a)
+					.cross(new Vector3f(polygon.vertices[3].pos).sub(a));
+			check(first.dot(polygon.normal) >= 0 && second.dot(polygon.normal) >= 0
+					&& Math.abs((first.length() + second.length()) * 0.5F - 1) < 0.0001F,
+					"normal fallback changed visible quad coverage or disagrees with its winding");
+		}
+	}
+
+	private static void verifyTheWorldCollapsedQuad() {
+		// helmet.poly_mesh.polys[9] uses position indices [15, 14, 15, 15].
+		BlockbenchMeshDefinition.MeshBuilder builder = new BlockbenchMeshDefinition.MeshBuilder(false);
+		builder.startFaceCalcNormal()
+				.withVertex(0.41728, 26, -3.97344, 75, 100)
+				.withVertex(0.4173, 32.4, -3.97344, 75, 106)
+				.withVertex(0.41728, 26, -3.97344, 75, 100)
+				.withVertex(0.41728, 26, -3.97344, 75, 100).createFace();
+		check(builder.buildCube() == null, "two-position Meshy quad must not emit invented geometry or normals");
+
+		builder.startFaceCalcNormal()
+				.withVertex(0.41728, 26, -3.97344, 75, 100)
+				.withVertex(0.4173, 32.4, -3.97344, 75, 106)
+				.withVertex(0.41728, 26, -3.97344, 75, 100)
+				.withVertex(Double.NaN, 26, -3.97344, 75, 100).createFace();
+		try {
+			builder.buildCube().bake(128, 128);
+			throw new AssertionError("non-finite positions must not be hidden as a collapsed quad");
+		}
+		catch (IllegalArgumentException expected) {
+			check(expected.getMessage().contains("non-finite"), "non-finite vertex needs an actionable error");
+		}
+	}
+
+	private static void verifyBundledTheWorldMeshBakes() {
+		String resource = "/assets/jojo_ripples/stand_skins/the_world/assets/jojo_ripples/geo/the_world.geo.json";
+		try (InputStream input = GenericModelFormatSmokeTest.class.getResourceAsStream(resource)) {
+			check(input != null, "bundled The World model resource is missing");
+			ModelPart root = GeckoModelFormat.parseGeckoModel(
+					JsonParser.parseReader(new InputStreamReader(input, StandardCharsets.UTF_8))).bakeRoot();
+			ModelPart helmet = root.getAllParts().filter(part -> part.hasChild("helmet")).findFirst()
+					.orElseThrow(() -> new AssertionError("The World helmet bone is missing")).getChild("helmet");
+			check(helmet.cubes.size() == 1 && helmet.cubes.get(0).polygons.length == 14,
+					"The World helmet must preserve all fourteen non-collapsed mesh faces");
+			for (ModelPart part : root.getAllParts().toList()) {
+				for (ModelPart.Cube cube : part.cubes) {
+					for (ModelPart.Polygon polygon : cube.polygons) {
+						check(polygon.vertices.length == 4 && Float.isFinite(polygon.normal.lengthSquared())
+								&& Math.abs(polygon.normal.lengthSquared() - 1) < 0.0001F,
+								"bundled The World model emitted an invalid polygon normal");
+					}
+				}
+			}
+		}
+		catch (IOException error) {
+			throw new AssertionError("Cannot read bundled The World model", error);
+		}
 	}
 
 	private static void verifyConcaveHexagonBake() {
