@@ -22,6 +22,7 @@ import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 
 import net.minecraft.Util;
 import net.minecraft.client.renderer.RenderStateShard;
+import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.resources.ResourceLocation;
 
@@ -104,9 +105,10 @@ public final class ModRenderTypes extends RenderType {
 		// Ordinary effects/trails keep their blending, but must share the body queue's depth ordering.
 		return new StandSurfaceRenderType(
 				STAND_TRANSLUCENT.apply(texture, new StandTranslucentState(outline, cull, false, true)),
+				STAND_TRANSLUCENT.apply(texture, new StandTranslucentState(outline, cull, false, true)),
 				STAND_TRANSLUCENT.apply(texture, new StandTranslucentState(outline, cull)),
 				RenderType.entityTranslucent(texture), 0.0, ownerId, true,
-				surfaceGroupKey(), nextSurfaceOrder(), false);
+				surfaceGroupKey(), nextSurfaceOrder(), false, false);
 	}
 
 	private static Object surfaceGroupKey() {
@@ -124,10 +126,36 @@ public final class ModRenderTypes extends RenderType {
 
 	public static RenderType asStandBody(RenderType renderType) {
 		if (renderType instanceof StandSurfaceRenderType surface) {
-			return new StandSurfaceRenderType(surface.surfaceMaterial, surface.fallbackMaterial, surface.shadowMaterial,
-					surface.viewDepth, surface.ownerId, surface.consolidate, surface.groupKey, surface.emissionOrder, true);
+			return new StandSurfaceRenderType(surface.surfaceMaterial, surface.ordinaryMaterial,
+					surface.fallbackMaterial, surface.shadowMaterial,
+					surface.viewDepth, surface.ownerId, surface.consolidate, surface.groupKey,
+					surface.emissionOrder, true, surface.nearestSurface);
 		}
 		return renderType;
+	}
+
+	public static MultiBufferSource separateSurfaceBarrage(MultiBufferSource delegate, Object bodyGroup) {
+		return new MultiBufferSource() {
+			private final Object barrageGroup = new Object();
+			private boolean surfaceBody;
+
+			@Override
+			public com.mojang.blaze3d.vertex.VertexConsumer getBuffer(RenderType renderType) {
+				var body = delegate.getBuffer(renderType);
+				if (renderType instanceof StandSurfaceRenderType surface && surface.groupKey == bodyGroup) {
+					surfaceBody |= surface.nearestSurface;
+					if (surfaceBody) {
+						// The model chooses this stream only for fist trails, including matching glow layers.
+						return new BarrageVertexConsumer(body, () -> delegate.getBuffer(
+								new StandSurfaceRenderType(surface.ordinaryMaterial, surface.ordinaryMaterial,
+										surface.fallbackMaterial, surface.shadowMaterial, surface.viewDepth,
+										surface.ownerId, true, barrageGroup, surface.emissionOrder,
+										surface.bodyPass, false)));
+					}
+				}
+				return body;
+			}
+		};
 	}
 
 	public static RenderType standSurfaceDiagnostic(ResourceLocation texture, boolean cull) {
@@ -139,9 +167,10 @@ public final class ModRenderTypes extends RenderType {
 		// Iris batches by RenderType identity without consulting canConsolidateConsecutiveGeometry.
 		return new StandSurfaceRenderType(
 				STAND_TRANSLUCENT.apply(texture, new StandTranslucentState(true, cull, true)),
+				STAND_TRANSLUCENT.apply(texture, new StandTranslucentState(true, cull, false, true)),
 				STAND_TRANSLUCENT.apply(texture, new StandTranslucentState(true, cull)),
 				RenderType.entityTranslucent(texture), viewDepth, ownerId, false,
-				surfaceGroupKey(), nextSurfaceOrder(), true);
+				surfaceGroupKey(), nextSurfaceOrder(), true, true);
 	}
 
 	public static RenderType standTranslucentDirectCull(ResourceLocation texture) {
@@ -190,6 +219,7 @@ public final class ModRenderTypes extends RenderType {
 
 	private static final class StandSurfaceRenderType extends RenderType {
 		private final RenderType surfaceMaterial;
+		private final RenderType ordinaryMaterial;
 		private final RenderType fallbackMaterial;
 		private final RenderType shadowMaterial;
 		private final double viewDepth;
@@ -198,13 +228,16 @@ public final class ModRenderTypes extends RenderType {
 		private final Object groupKey;
 		private final int emissionOrder;
 		private final boolean bodyPass;
+		private final boolean nearestSurface;
 
-		private StandSurfaceRenderType(RenderType surfaceMaterial, RenderType fallbackMaterial, RenderType shadowMaterial,
-				double viewDepth, int ownerId, boolean consolidate, Object groupKey, int emissionOrder, boolean bodyPass) {
+		private StandSurfaceRenderType(RenderType surfaceMaterial, RenderType ordinaryMaterial,
+				RenderType fallbackMaterial, RenderType shadowMaterial, double viewDepth, int ownerId,
+				boolean consolidate, Object groupKey, int emissionOrder, boolean bodyPass, boolean nearestSurface) {
 			super(surfaceMaterial.name + "_isolated", surfaceMaterial.format(), surfaceMaterial.mode(),
 					surfaceMaterial.bufferSize(), surfaceMaterial.affectsCrumbling(), surfaceMaterial.sortOnUpload(),
 					() -> {}, () -> {});
 			this.surfaceMaterial = surfaceMaterial;
+			this.ordinaryMaterial = ordinaryMaterial;
 			this.fallbackMaterial = fallbackMaterial;
 			this.shadowMaterial = shadowMaterial;
 			this.viewDepth = viewDepth;
@@ -213,6 +246,7 @@ public final class ModRenderTypes extends RenderType {
 			this.groupKey = groupKey;
 			this.emissionOrder = emissionOrder;
 			this.bodyPass = bodyPass;
+			this.nearestSurface = nearestSurface;
 		}
 
 		@Override

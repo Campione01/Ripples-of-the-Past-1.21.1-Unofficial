@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 
 import com.github.standobyte.jojo.client.rendertype.ModRenderTypes;
+import com.github.standobyte.jojo.client.rendertype.BarrageVertexConsumer;
 import com.github.standobyte.jojo.client.shader.StandSurfaceDraw;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.ByteBufferBuilder;
@@ -27,6 +28,7 @@ public final class StandSurfaceDiagnosticSmokeTest {
 		verifyDefaultOff();
 		verifyExactTarget();
 		verifyRenderGuards();
+		verifySeparatedBarrage();
 		verifyNearestSurfaceBlend();
 		verifyIndependentSurfaceMerge();
 		verifySubmissionIndependentOrder();
@@ -82,6 +84,38 @@ public final class StandSurfaceDiagnosticSmokeTest {
 	private static boolean allows(String target, String entityType, float alpha, boolean bodyVisible, int exclusions) {
 		return StandSurfaceDiagnosticPolicy.useNearestSurface(target, entityType, alpha, bodyVisible,
 				(exclusions & 1) != 0, (exclusions & 2) != 0, (exclusions & 4) != 0, (exclusions & 8) != 0);
+	}
+
+	private static void verifySeparatedBarrage() {
+		check(StandSurfaceDiagnosticPolicy.useNearestSurface(TARGET, TARGET, 0.8F, true,
+				false, false, false, true, true), "a separated barrage must retain nearest-surface body rendering");
+		for (int guards = 1; guards < 8; guards++) {
+			check(!StandSurfaceDiagnosticPolicy.useNearestSurface(TARGET, TARGET, 0.8F, true,
+					(guards & 1) != 0, (guards & 2) != 0, (guards & 4) != 0, true, true),
+					"separating trails must not bypass mask, classic or afterimage guards");
+		}
+		int[] bodyCalls = {0};
+		int[] trailCalls = {0};
+		int[] allocations = {0};
+		VertexConsumer body = countingConsumer(bodyCalls);
+		VertexConsumer trails = countingConsumer(trailCalls);
+		VertexConsumer split = new BarrageVertexConsumer(body, () -> { allocations[0]++; return trails; });
+		split.addVertex(1, 2, 3).setColor(10, 20, 30, 40).setUv(0.25F, 0.5F);
+		check(bodyCalls[0] == 3 && trailCalls[0] == 0 && allocations[0] == 0,
+				"body geometry must not allocate or write the trail stream");
+		BarrageVertexConsumer.forBarrage(split).addVertex(4, 5, 6).setColor(40, 30, 20, 10);
+		check(bodyCalls[0] == 3 && trailCalls[0] == 2 && allocations[0] == 1,
+				"barrage geometry must not enter the body stream");
+		check(BarrageVertexConsumer.forBarrage(split) == trails && allocations[0] == 1,
+				"one model layer must reuse its trail consumer");
+		check(BarrageVertexConsumer.forBarrage(body) == body,
+				"ordinary and classic model consumers must remain unchanged");
+	}
+
+	private static VertexConsumer countingConsumer(int[] calls) {
+		return (VertexConsumer) java.lang.reflect.Proxy.newProxyInstance(
+				VertexConsumer.class.getClassLoader(), new Class<?>[] {VertexConsumer.class},
+				(proxy, method, args) -> { calls[0]++; return method.getReturnType() == void.class ? null : proxy; });
 	}
 
 	private static void verifyNearestSurfaceBlend() {

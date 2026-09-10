@@ -407,11 +407,14 @@ public class StandEntityRenderer<
 		RenderStateCrutches.Snapshot crutchSnapshot = preRender(renderState);
 		Object previousSurfaceGroup = renderState.surfaceDrawGroup;
 		int previousSurfaceSequence = renderState.surfaceDrawSequence;
+		boolean previousBarrageSplit = renderState.surfaceBarrageSplit;
 		renderState.surfaceDrawGroup = new Object();
 		renderState.surfaceDrawSequence = 0;
+		renderState.surfaceBarrageSplit = true;
 		try {
 			bufferSource = StandMaterialTintPolicies.wrap(
 					bufferSource, entity, partialTicks);
+			bufferSource = ModRenderTypes.separateSurfaceBarrage(bufferSource, renderState.surfaceDrawGroup);
 			this.model = modelFrom(renderState);
 			logRuntimeModelState(entity, renderState);
 
@@ -431,6 +434,7 @@ public class StandEntityRenderer<
 		finally {
 			renderState.surfaceDrawGroup = previousSurfaceGroup;
 			renderState.surfaceDrawSequence = previousSurfaceSequence;
+			renderState.surfaceBarrageSplit = previousBarrageSplit;
 			postRender(crutchSnapshot);
 		}
 	}
@@ -493,7 +497,7 @@ public class StandEntityRenderer<
 					surfaceTarget, entityTypeId,
 					renderState.alpha, bodyVisible, EntityMaskPostEffect.isCapturePass(),
 					renderState.obstructionRenderMode != ObstructionRenderMode.NONE,
-					surfaceDiagnosticAfterimageDepth > 0, surfaceHasBarrage)) {
+					surfaceDiagnosticAfterimageDepth > 0, surfaceHasBarrage, renderState.surfaceBarrageSplit)) {
 				if (ClientRenderCompatibility.isIrisShadowPass()) {
 					return this.model.renderType(texture);
 				}

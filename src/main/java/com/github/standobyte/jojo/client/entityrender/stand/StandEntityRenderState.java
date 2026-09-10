@@ -23,6 +23,7 @@ public class StandEntityRenderState extends HumanoidRenderState {
 	public int entityId;
 	public Object surfaceDrawGroup;
 	public int surfaceDrawSequence;
+	public boolean surfaceBarrageSplit;
 	public float alpha = 1;
 	public StandVisualContext visualContext = StandVisualContext.preview();
 	public HumanoidPart[] visibleParts = HumanoidPart.ALL;

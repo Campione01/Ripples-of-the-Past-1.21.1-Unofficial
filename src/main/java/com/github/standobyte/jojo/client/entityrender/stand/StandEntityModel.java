@@ -210,7 +210,8 @@ public class StandEntityModel<T extends StandEntity, S extends StandEntityRender
 		Reminder.thatThisShouldBeInAnEntityModelMixinInstead();
 		if (shouldRenderBarrageLayer(renderState)) {
 			BarrageSwings.currentlyRendering.renderLayerBarrage((EntityModel<?>) (Object) this, 
-					poseStack, buffer, packedLight, packedOverlay, renderColor,
+					poseStack, com.github.standobyte.jojo.client.rendertype.BarrageVertexConsumer.forBarrage(buffer),
+					packedLight, packedOverlay, renderColor,
 					renderState != null ? renderState.xRot : 0);
 		}
 	}

@@ -1,5 +1,11 @@
 # Independent Modification Record
 
+## Surface body and barrage separation - 2026-09-10
+
+- keep opted-in Stand bodies on their nearest-surface material during barrages;
+  emit fist trails and their matching glow into a separate ordinary-alpha group;
+- retain existing poses, timing, classic obstruction, masks and afterimage behavior.
+
 ## Ordered surface translucency - 2026-09-10
 
 - retain owned geometry and its camera, light and fog state across Iris batching;
