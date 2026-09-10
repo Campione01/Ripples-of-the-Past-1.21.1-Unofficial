@@ -21,7 +21,10 @@ public abstract class StandTranslucencyGameRendererMixin {
 
 	@Inject(method = "renderLevel", at = @At("RETURN"))
 	private void jojo_ripples$compositeStandWithoutHandPass(DeltaTracker deltaTracker, CallbackInfo ci) {
-		jojo_ripples$compositePendingStand();
+		ModShaders shaders = ModShaders.getInstance();
+		if (shaders != null && shaders.standTranslucencyFramebuffer != null) {
+			shaders.standTranslucencyFramebuffer.finishFrame();
+		}
 	}
 
 	private static void jojo_ripples$compositePendingStand() {

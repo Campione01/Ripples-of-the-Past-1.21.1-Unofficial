@@ -309,6 +309,7 @@ public class StandSkinsLoader implements PreparableReloadListener {
 		private ResourceLocation standId;
 		private OptionalInt uiColor = OptionalInt.empty();
 		private float[] scale;
+		private boolean surfaceTranslucency;
 		private Optional<ResourceLocation> storyPart = Optional.empty();
 		private Map<ResourceLocation, LayerDefinition> models;
 		private Map<ResourceLocation, AnimationSet.Builder> animations;
@@ -340,6 +341,7 @@ public class StandSkinsLoader implements PreparableReloadListener {
 			if (models != null) skin.withModels(models);
 			if (animations != null) skin.withAnimations(animations);
 			if (scale != null && scale.length >= 2) skin.withScale(scale[0], scale[1]);
+			skin.withSurfaceTranslucency(surfaceTranslucency);
 			if (soundEvents != null) skin.withSoundEvents(soundEvents);
 			if (soundFiles != null) skin.withSounds(soundFiles.entrySet().stream().collect(Collectors.toMap(
 					Map.Entry::getKey, entry -> entry.getValue().getFirst())));
@@ -351,6 +353,9 @@ public class StandSkinsLoader implements PreparableReloadListener {
 	
 	private void loadSkinInfo(JsonObject skinInfoJson, StandSkinResourceBuilder builder, Logger logger) {
 		ResourceLocation.CODEC.decode(JsonOps.INSTANCE, skinInfoJson.get("stand_type")).ifSuccess(res -> builder.standId = res.getFirst());
+		if (skinInfoJson.has("surface_translucency")) {
+			builder.surfaceTranslucency = skinInfoJson.get("surface_translucency").getAsBoolean();
+		}
 		if (skinInfoJson.has("color")) {
 			builder.uiColor = OptionalInt.of(0xff000000 | JSONUtil.parseColor(skinInfoJson.get("color")));
 		}

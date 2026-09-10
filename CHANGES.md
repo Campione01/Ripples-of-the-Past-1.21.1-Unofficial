@@ -1,5 +1,14 @@
 # Independent Modification Record
 
+## Ordered surface translucency - 2026-09-10
+
+- retain owned geometry and its camera, light and fog state across Iris batching;
+  order ordinary and selected Stand draws together, keeping body depth for its overlays
+  and fresh depth for separate render invocations;
+- preserve color writes and culling between surface resolves and exclude Iris shadow passes;
+- support opt-in `surface_translucency` skin metadata. Existing skins and separate
+  mask, classic-obstruction, afterimage and barrage paths retain their prior defaults.
+
 ## Player casting pose preservation - 2026-09-10
 
 - retain the current precomputed player pose when an addon action belongs to a

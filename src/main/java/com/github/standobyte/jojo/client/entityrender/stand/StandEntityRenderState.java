@@ -20,6 +20,9 @@ public class StandEntityRenderState extends HumanoidRenderState {
 	public StandSkin skin;
 	public final EntityActionRenderState action = new EntityActionRenderState();
 	public int tint = -1;
+	public int entityId;
+	public Object surfaceDrawGroup;
+	public int surfaceDrawSequence;
 	public float alpha = 1;
 	public StandVisualContext visualContext = StandVisualContext.preview();
 	public HumanoidPart[] visibleParts = HumanoidPart.ALL;
@@ -34,6 +37,7 @@ public class StandEntityRenderState extends HumanoidRenderState {
 	public boolean visibleForSpectator;
 
     public static void extractStandRenderState(StandEntity entity, StandEntityRenderState reusedState, float partialTick) {
+		reusedState.entityId = entity.getId();
 		reusedState.visibleParts = armsOnlyVisibleParts(entity);
 		reusedState.resetObstruction();
 		reusedState.tint = -1;

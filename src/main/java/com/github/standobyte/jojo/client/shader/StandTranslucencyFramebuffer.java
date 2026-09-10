@@ -1,5 +1,11 @@
 package com.github.standobyte.jojo.client.shader;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
 
@@ -33,9 +39,11 @@ public final class StandTranslucencyFramebuffer extends RotpShader {
 	private RenderTarget surfaceBuffer;
 	private ShaderInstance compositeShader;
 	private ShaderInstance surfaceResolveShader;
+	private final List<StandSurfaceDraw> pendingSurfaces = new ArrayList<>();
 	private boolean preparedThisFrame;
 	private boolean usedThisFrame;
 	private boolean restoreIrisWorldTarget;
+	private boolean acceptingSurfaceDraws;
 
 	public StandTranslucencyFramebuffer(Minecraft minecraft) {
 		buffer = createMainTargetBuffer(minecraft);
@@ -55,11 +63,14 @@ public final class StandTranslucencyFramebuffer extends RotpShader {
 
 	@Override
 	public void resize(int width, int height) {
+		acceptingSurfaceDraws = false;
 		preparedThisFrame = false;
 	}
 
 	@Override
 	public void close() {
+		acceptingSurfaceDraws = false;
+		clearPendingSurfaces();
 		buffer.destroyBuffers();
 		sceneDepthBuffer.destroyBuffers();
 		if (surfaceBuffer != null) {
@@ -69,6 +80,8 @@ public final class StandTranslucencyFramebuffer extends RotpShader {
 	}
 
 	public void beginFrame() {
+		clearPendingSurfaces();
+		acceptingSurfaceDraws = true;
 		preparedThisFrame = false;
 		usedThisFrame = false;
 		restoreIrisWorldTarget = false;
@@ -106,12 +119,41 @@ public final class StandTranslucencyFramebuffer extends RotpShader {
 	}
 
 	public boolean canResolveBodySurface() {
-		return compositeShader != null && surfaceResolveShader != null;
+		return acceptingSurfaceDraws && compositeShader != null && surfaceResolveShader != null;
 	}
 
-	public void drawBodySurface(MeshData meshData, RenderType surfaceMaterial) {
+	public void drawBodySurface(MeshData meshData, RenderType surfaceMaterial,
+			double viewDepth, int ownerId, Object groupKey, int emissionOrder, boolean bodyPass) {
 		try (meshData) {
 			RenderSystem.assertOnRenderThread();
+			StandSurfaceDraw draw = StandSurfaceDraw.capture(meshData, surfaceMaterial,
+					ModShaders.getInstance().coreStandTranslucent, viewDepth, ownerId, groupKey, emissionOrder, bodyPass);
+			try {
+				pendingSurfaces.add(draw);
+				usedThisFrame = true;
+			}
+			catch (Throwable error) {
+				draw.close();
+				throw error;
+			}
+		}
+	}
+
+	private void drainBodySurfaces() {
+		if (pendingSurfaces.isEmpty()) {
+			return;
+		}
+		Map<Object, List<StandSurfaceDraw>> drawsByGroup = new LinkedHashMap<>();
+		for (StandSurfaceDraw draw : pendingSurfaces) {
+			drawsByGroup.computeIfAbsent(draw.groupKey(), key -> new ArrayList<>()).add(draw);
+		}
+		List<List<StandSurfaceDraw>> groups = new ArrayList<>(drawsByGroup.values());
+		groups.forEach(group -> group.sort(Comparator.comparing(StandSurfaceDraw::bodyPass).reversed()
+				.thenComparingInt(StandSurfaceDraw::emissionOrder)));
+		groups.sort((left, right) -> StandSurfaceDraw.compareBackToFront(
+				left.getFirst().viewDepth(), left.getFirst().ownerId(),
+				right.getFirst().viewDepth(), right.getFirst().ownerId()));
+		try {
 			boolean restoreIrisTarget = ClientRenderCompatibility.snapshot().irisShaderPackInUse()
 					&& !EntityMaskPostEffect.isCapturePass();
 			ShaderInstance previousShader = RenderSystem.getShader();
@@ -142,20 +184,29 @@ public final class StandTranslucencyFramebuffer extends RotpShader {
 							surfaceTargetState.viewportY(), width, height);
 					preparedThisFrame = true;
 				}
-				surfaceBuffer.clear(Minecraft.ON_OSX);
-				// Another Stand's accumulated depth must never become this body's scene seed.
-				copyDepthFrom(surfaceBuffer, sourceFramebuffer, surfaceTargetState.viewportX(),
-						surfaceTargetState.viewportY(), width, height);
-				surfaceBuffer.bindWrite(true);
-				// Iris can suppress RenderType.draw's state calls while merging; own this material scope explicitly.
-				try {
-					surfaceMaterial.setupRenderState();
-					BufferUploader.drawWithShader(meshData);
+				for (List<StandSurfaceDraw> group : groups) {
+					// The previous depth-only resolve disabled color writes and culling.
+					RenderSystem.colorMask(true, true, true, true);
+					RenderSystem.depthMask(true);
+					RenderSystem.enableDepthTest();
+					RenderSystem.depthFunc(GL11.GL_LEQUAL);
+					RenderSystem.enableCull();
+					surfaceBuffer.clear(Minecraft.ON_OSX);
+					// Use the completed world depth, never another body's accumulated depth.
+					copyDepthFrom(surfaceBuffer, sourceFramebuffer, surfaceTargetState.viewportX(),
+							surfaceTargetState.viewportY(), width, height);
+					surfaceBuffer.bindWrite(true);
+					// Keep the body's depth for its overlays; a different render invocation gets a fresh scratch.
+					for (StandSurfaceDraw draw : group) {
+						RenderSystem.colorMask(true, true, true, true);
+						RenderSystem.depthMask(true);
+						RenderSystem.enableDepthTest();
+						RenderSystem.depthFunc(GL11.GL_LEQUAL);
+						RenderSystem.enableCull();
+						draw.draw();
+					}
+					resolveBodySurface();
 				}
-				finally {
-					surfaceMaterial.clearRenderState();
-				}
-				resolveBodySurface();
 				usedThisFrame = true;
 			}
 			finally {
@@ -172,6 +223,34 @@ public final class StandTranslucencyFramebuffer extends RotpShader {
 					RenderSystem.setShader(() -> previousShader);
 				}
 			}
+		}
+		finally {
+			clearPendingSurfaces();
+		}
+	}
+
+	private void clearPendingSurfaces() {
+		RuntimeException failure = null;
+		try {
+			for (StandSurfaceDraw draw : pendingSurfaces) {
+				try {
+					draw.close();
+				}
+				catch (RuntimeException error) {
+					if (failure == null) {
+						failure = error;
+					}
+					else {
+						failure.addSuppressed(error);
+					}
+				}
+			}
+		}
+		finally {
+			pendingSurfaces.clear();
+		}
+		if (failure != null) {
+			throw failure;
 		}
 	}
 
@@ -253,8 +332,18 @@ public final class StandTranslucencyFramebuffer extends RotpShader {
 		}
 	}
 
+	public void finishFrame() {
+		try {
+			compositeIfPending();
+		}
+		finally {
+			acceptingSurfaceDraws = false;
+		}
+	}
+
 	private void compositeAndReset() {
 		try {
+			drainBodySurfaces();
 			compositeToCurrentTarget();
 		}
 		finally {

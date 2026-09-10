@@ -43,6 +43,24 @@ public final class ClientRenderCompatibility {
 		}
 	}
 
+	public static boolean isIrisShadowPass() {
+		ModList mods = ModList.get();
+		if (mods == null || !mods.isLoaded("iris")) {
+			return false;
+		}
+		IrisApiMethods methods = irisApiMethods();
+		if (methods == null) {
+			return false;
+		}
+		try {
+			Object irisApi = methods.getInstance().invoke(null);
+			return irisApi != null && Boolean.TRUE.equals(methods.isRenderingShadowPass().invoke(irisApi));
+		}
+		catch (ReflectiveOperationException | LinkageError ignored) {
+			return false;
+		}
+	}
+
 	private static IrisApiMethods irisApiMethods() {
 		IrisApiMethods methods = irisApiMethods;
 		if (methods != null) {
@@ -60,7 +78,8 @@ public final class ClientRenderCompatibility {
 						ClientRenderCompatibility.class.getClassLoader());
 				methods = new IrisApiMethods(
 						irisApi.getMethod("getInstance"),
-						irisApi.getMethod("isShaderPackInUse"));
+						irisApi.getMethod("isShaderPackInUse"),
+						irisApi.getMethod("isRenderingShadowPass"));
 				irisApiMethods = methods;
 				return methods;
 			}
@@ -73,7 +92,8 @@ public final class ClientRenderCompatibility {
 
 	private record IrisApiMethods(
 			Method getInstance,
-			Method isShaderPackInUse) {}
+			Method isShaderPackInUse,
+			Method isRenderingShadowPass) {}
 
 	public record Snapshot(
 			boolean irisLoaded,

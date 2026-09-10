@@ -6,6 +6,8 @@ import java.util.function.Function;
 
 import com.github.standobyte.jojo.api.client.render.ClientRenderCompatibility;
 import com.github.standobyte.jojo.api.client.render.EntityMaskPostEffect;
+import com.github.standobyte.v1_21_4_stuff.renderstate.RenderStateCrutches;
+import com.github.standobyte.jojo.client.entityrender.stand.StandEntityRenderState;
 import com.github.standobyte.jojo.client.shader.ModShaders;
 import com.github.standobyte.jojo.client.shader.StandTranslucencyFramebuffer;
 import com.github.standobyte.jojo.client.shader.core.RenderTargetState;
@@ -59,7 +61,7 @@ public final class ModRenderTypes extends RenderType {
 						.setCullState(renderState.cull ? CULL : NO_CULL)
 						.setLightmapState(LIGHTMAP)
 						.setOverlayState(OVERLAY)
-						.setOutputState(renderState.nearestSurface ? MAIN_TARGET : STAND_TRANSLUCENCY_TARGET)
+						.setOutputState(renderState.isolatedOutput ? MAIN_TARGET : STAND_TRANSLUCENCY_TARGET)
 						.createCompositeState(renderState.outline);
 				String suffix = (renderState.nearestSurface ? "_surface_diagnostic" : "")
 						+ (renderState.cull ? "_cull" : "");
@@ -85,7 +87,7 @@ public final class ModRenderTypes extends RenderType {
 	}
 
 	public static RenderType standTranslucent(ResourceLocation texture, boolean outline) {
-		return STAND_TRANSLUCENT.apply(texture, new StandTranslucentState(outline, false));
+		return queuedStandTranslucent(texture, outline, false);
 	}
 
 	public static RenderType standTranslucent(ResourceLocation texture) {
@@ -93,14 +95,53 @@ public final class ModRenderTypes extends RenderType {
 	}
 
 	public static RenderType standTranslucentCull(ResourceLocation texture) {
-		return STAND_TRANSLUCENT.apply(texture, new StandTranslucentState(true, true));
+		return queuedStandTranslucent(texture, true, true);
+	}
+
+	private static RenderType queuedStandTranslucent(ResourceLocation texture, boolean outline, boolean cull) {
+		int ownerId = RenderStateCrutches.currentStandEntityRenderState instanceof StandEntityRenderState state
+				? state.entityId : 0;
+		// Ordinary effects/trails keep their blending, but must share the body queue's depth ordering.
+		return new StandSurfaceRenderType(
+				STAND_TRANSLUCENT.apply(texture, new StandTranslucentState(outline, cull, false, true)),
+				STAND_TRANSLUCENT.apply(texture, new StandTranslucentState(outline, cull)),
+				RenderType.entityTranslucent(texture), 0.0, ownerId, true,
+				surfaceGroupKey(), nextSurfaceOrder(), false);
+	}
+
+	private static Object surfaceGroupKey() {
+		if (RenderStateCrutches.currentStandEntityRenderState instanceof StandEntityRenderState state
+				&& state.surfaceDrawGroup != null) {
+			return state.surfaceDrawGroup;
+		}
+		return new Object();
+	}
+
+	private static int nextSurfaceOrder() {
+		return RenderStateCrutches.currentStandEntityRenderState instanceof StandEntityRenderState state
+				&& state.surfaceDrawGroup != null ? state.surfaceDrawSequence++ : 0;
+	}
+
+	public static RenderType asStandBody(RenderType renderType) {
+		if (renderType instanceof StandSurfaceRenderType surface) {
+			return new StandSurfaceRenderType(surface.surfaceMaterial, surface.fallbackMaterial, surface.shadowMaterial,
+					surface.viewDepth, surface.ownerId, surface.consolidate, surface.groupKey, surface.emissionOrder, true);
+		}
+		return renderType;
 	}
 
 	public static RenderType standSurfaceDiagnostic(ResourceLocation texture, boolean cull) {
+		return standSurfaceDiagnostic(texture, cull, 0.0, 0);
+	}
+
+	public static RenderType standSurfaceDiagnostic(ResourceLocation texture, boolean cull,
+			double viewDepth, int ownerId) {
 		// Iris batches by RenderType identity without consulting canConsolidateConsecutiveGeometry.
 		return new StandSurfaceRenderType(
 				STAND_TRANSLUCENT.apply(texture, new StandTranslucentState(true, cull, true)),
-				STAND_TRANSLUCENT.apply(texture, new StandTranslucentState(true, cull)));
+				STAND_TRANSLUCENT.apply(texture, new StandTranslucentState(true, cull)),
+				RenderType.entityTranslucent(texture), viewDepth, ownerId, false,
+				surfaceGroupKey(), nextSurfaceOrder(), true);
 	}
 
 	public static RenderType standTranslucentDirectCull(ResourceLocation texture) {
@@ -150,18 +191,33 @@ public final class ModRenderTypes extends RenderType {
 	private static final class StandSurfaceRenderType extends RenderType {
 		private final RenderType surfaceMaterial;
 		private final RenderType fallbackMaterial;
+		private final RenderType shadowMaterial;
+		private final double viewDepth;
+		private final int ownerId;
+		private final boolean consolidate;
+		private final Object groupKey;
+		private final int emissionOrder;
+		private final boolean bodyPass;
 
-		private StandSurfaceRenderType(RenderType surfaceMaterial, RenderType fallbackMaterial) {
+		private StandSurfaceRenderType(RenderType surfaceMaterial, RenderType fallbackMaterial, RenderType shadowMaterial,
+				double viewDepth, int ownerId, boolean consolidate, Object groupKey, int emissionOrder, boolean bodyPass) {
 			super(surfaceMaterial.name + "_isolated", surfaceMaterial.format(), surfaceMaterial.mode(),
 					surfaceMaterial.bufferSize(), surfaceMaterial.affectsCrumbling(), surfaceMaterial.sortOnUpload(),
 					() -> {}, () -> {});
 			this.surfaceMaterial = surfaceMaterial;
 			this.fallbackMaterial = fallbackMaterial;
+			this.shadowMaterial = shadowMaterial;
+			this.viewDepth = viewDepth;
+			this.ownerId = ownerId;
+			this.consolidate = consolidate;
+			this.groupKey = groupKey;
+			this.emissionOrder = emissionOrder;
+			this.bodyPass = bodyPass;
 		}
 
 		@Override
 		public boolean canConsolidateConsecutiveGeometry() {
-			return false;
+			return consolidate;
 		}
 
 		@Override
@@ -178,26 +234,32 @@ public final class ModRenderTypes extends RenderType {
 		public void draw(MeshData meshData) {
 			ModShaders shaders = ModShaders.getInstance();
 			StandTranslucencyFramebuffer framebuffer = shaders != null ? shaders.standTranslucencyFramebuffer : null;
-			if (framebuffer != null && framebuffer.canResolveBodySurface() && !EntityMaskPostEffect.isCapturePass()) {
-				framebuffer.drawBodySurface(meshData, surfaceMaterial);
+			if (framebuffer != null && framebuffer.canResolveBodySurface()
+					&& !EntityMaskPostEffect.isCapturePass() && !ClientRenderCompatibility.isIrisShadowPass()) {
+				framebuffer.drawBodySurface(meshData, surfaceMaterial, viewDepth, ownerId, groupKey, emissionOrder, bodyPass);
 			}
 			else {
+				RenderType material = ClientRenderCompatibility.isIrisShadowPass() ? shadowMaterial : fallbackMaterial;
 				try (meshData) {
 					try {
-						fallbackMaterial.setupRenderState();
+						material.setupRenderState();
 						BufferUploader.drawWithShader(meshData);
 					}
 					finally {
-						fallbackMaterial.clearRenderState();
+						material.clearRenderState();
 					}
 				}
 			}
 		}
 	}
 
-	private record StandTranslucentState(boolean outline, boolean cull, boolean nearestSurface) {
+	private record StandTranslucentState(boolean outline, boolean cull, boolean nearestSurface, boolean isolatedOutput) {
 		private StandTranslucentState(boolean outline, boolean cull) {
-			this(outline, cull, false);
+			this(outline, cull, false, false);
+		}
+
+		private StandTranslucentState(boolean outline, boolean cull, boolean nearestSurface) {
+			this(outline, cull, nearestSurface, nearestSurface);
 		}
 	}
 }

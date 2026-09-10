@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 
 import com.github.standobyte.jojo.client.rendertype.ModRenderTypes;
+import com.github.standobyte.jojo.client.shader.StandSurfaceDraw;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.MeshData;
@@ -28,6 +29,7 @@ public final class StandSurfaceDiagnosticSmokeTest {
 		verifyRenderGuards();
 		verifyNearestSurfaceBlend();
 		verifyIndependentSurfaceMerge();
+		verifySubmissionIndependentOrder();
 		verifyScratchScopeContract();
 		System.out.println("Stand surface policy, blend math and source-scope checks passed; live draw validation remains required");
 	}
@@ -115,6 +117,27 @@ public final class StandSurfaceDiagnosticSmokeTest {
 				"a body behind another Stand but in front of the scene requires an independent scene depth seed");
 	}
 
+	private static void verifySubmissionIndependentOrder() {
+		record Surface(int owner, double depth, double gray) {}
+		Surface near = new Surface(7, 2.0, 0.8);
+		Surface far = new Surface(3, 6.0, 0.2);
+		for (List<Surface> submitted : List.of(List.of(near, far), List.of(far, near))) {
+			List<Surface> draws = new ArrayList<>(submitted);
+			draws.sort((left, right) -> StandSurfaceDraw.compareBackToFront(
+					left.depth(), left.owner(), right.depth(), right.owner()));
+			double color = 0;
+			double alpha = 0;
+			for (Surface draw : draws) {
+				color = draw.gray() * 0.8 + color * 0.2;
+				alpha = 0.8 + alpha * 0.2;
+			}
+			check(draws.equals(List.of(far, near)) && close(color, 0.672) && close(alpha, 0.96),
+					"body color changed with Iris submission order");
+		}
+		check(StandSurfaceDraw.compareBackToFront(4.0, 2, 4.0, 9) < 0,
+				"equal-depth bodies need a stable owner tie break");
+	}
+
 	// This check needs a real NeoForge client; plain Java cannot initialize RenderType's registries.
 	public static void verifyBodyBatchBoundaryInBootstrappedClient() {
 		ResourceLocation texture = ResourceLocation.fromNamespaceAndPath("test", "textures/stand.png");
@@ -186,29 +209,51 @@ public final class StandSurfaceDiagnosticSmokeTest {
 		String framebuffer = read(root.resolve(
 				"src/main/java/com/github/standobyte/jojo/client/shader/StandTranslucencyFramebuffer.java"));
 		int captureStart = framebuffer.indexOf("public void drawBodySurface(");
+		int drainStart = framebuffer.indexOf("private void drainBodySurfaces()");
 		int resolveStart = framebuffer.indexOf("private void resolveBodySurface()");
 		int quadStart = framebuffer.indexOf("private void drawSurfaceQuad()");
-		check(captureStart >= 0 && resolveStart > captureStart && quadStart > resolveStart,
+		check(captureStart >= 0 && drainStart > captureStart && resolveStart > drainStart && quadStart > resolveStart,
 				"body capture and resolve scopes are missing");
-		String capture = framebuffer.substring(captureStart, resolveStart);
+		String capture = framebuffer.substring(captureStart, drainStart);
+		String drain = framebuffer.substring(drainStart, resolveStart);
 		String resolve = framebuffer.substring(resolveStart, quadStart);
 		require(framebuffer, "private final RenderTargetState surfaceTargetState = new RenderTargetState();");
 		require(capture, "try (meshData)");
-		require(capture, "int sourceFramebuffer = surfaceTargetState.drawFramebuffer();");
-		require(capture, "sourceFramebuffer == buffer.frameBufferId");
-		require(capture, "copyDepthFrom(surfaceBuffer, sourceFramebuffer,");
-		check(!capture.contains("copyDepthFrom(surfaceBuffer, buffer.frameBufferId"),
+		require(capture, "StandSurfaceDraw.capture(");
+		require(capture, "pendingSurfaces.add(draw);");
+		check(!capture.contains("resolveBodySurface();") && !capture.contains("copyDepthFrom("),
+				"arrival-time draws must not resolve before ordering and final scene depth");
+		require(drain, "StandSurfaceDraw.compareBackToFront(");
+		require(drain, "int sourceFramebuffer = surfaceTargetState.drawFramebuffer();");
+		require(drain, "sourceFramebuffer == buffer.frameBufferId");
+		require(drain, "copyDepthFrom(surfaceBuffer, sourceFramebuffer,");
+		check(!drain.contains("copyDepthFrom(surfaceBuffer, buffer.frameBufferId"),
 				"another Stand's accumulated depth became the next body's scene seed");
-		check(capture.indexOf("surfaceBuffer.clear(") < capture.indexOf("copyDepthFrom(surfaceBuffer,")
-				&& capture.indexOf("copyDepthFrom(surfaceBuffer,") < capture.indexOf("surfaceMaterial.setupRenderState();")
-				&& capture.indexOf("BufferUploader.drawWithShader(meshData);") < capture.indexOf("resolveBodySurface();"),
+		check(drain.indexOf("surfaceBuffer.clear(") < drain.indexOf("copyDepthFrom(surfaceBuffer,")
+				&& drain.indexOf("copyDepthFrom(surfaceBuffer,") < drain.indexOf("draw.draw();")
+				&& drain.indexOf("draw.draw();") < drain.indexOf("resolveBodySurface();"),
 				"scratch clear, scene seed, body draw and resolve are out of order");
-		require(capture, "surfaceTargetState.restoreAfterLogicalMainTarget(");
-		require(capture, "surfaceTargetState.restore();");
-		require(capture, "RenderSystem.restoreGlState(glState);");
-		require(capture, "RenderSystem.setShader(() -> previousShader);");
-		require(capture, "BufferUploader.drawWithShader(meshData);");
-		require(capture, "surfaceMaterial.clearRenderState();");
+		require(drain, "surfaceTargetState.restoreAfterLogicalMainTarget(");
+		require(drain, "surfaceTargetState.restore();");
+		require(drain, "RenderSystem.restoreGlState(glState);");
+		require(drain, "RenderSystem.setShader(() -> previousShader);");
+		require(drain, "clearPendingSurfaces();");
+		String bodyLoop = drain.substring(drain.indexOf("for (List<StandSurfaceDraw> group : groups)"));
+		check(bodyLoop.indexOf("RenderSystem.colorMask(true, true, true, true);") < bodyLoop.indexOf("surfaceBuffer.clear("),
+				"the previous depth-only pass left the next scratch clear/color draw masked out");
+		require(bodyLoop, "RenderSystem.enableCull();");
+		check(bodyLoop.indexOf("surfaceBuffer.clear(") < bodyLoop.indexOf("for (StandSurfaceDraw draw : group)"),
+				"same-body overlays must keep body depth rather than clearing their own scratch");
+		require(drain, "drawsByGroup.computeIfAbsent(draw.groupKey()");
+		require(drain, "Comparator.comparing(StandSurfaceDraw::bodyPass).reversed()");
+		require(drain, ".thenComparingInt(StandSurfaceDraw::emissionOrder)");
+		String ownedDraw = read(root.resolve("src/main/java/com/github/standobyte/jojo/client/shader/StandSurfaceDraw.java"));
+		require(ownedDraw, "vertexBuffer.upload(meshData);");
+		require(ownedDraw, "new Matrix4f(RenderSystem.getModelViewMatrix())");
+		require(ownedDraw, "new Matrix4f(RenderSystem.getProjectionMatrix())");
+		require(ownedDraw, "RenderSystem.getShaderColor().clone()");
+		require(ownedDraw, "snapshot.apply(shader);");
+		require(ownedDraw, "surfaceMaterial.clearRenderState();");
 		require(resolve, "RenderSystem.colorMask(true, true, true, true);");
 		require(resolve, "RenderSystem.disableDepthTest();");
 		require(resolve, "RenderSystem.depthMask(false);");
@@ -220,9 +265,14 @@ public final class StandSurfaceDiagnosticSmokeTest {
 		require(framebuffer, "ModShaders.loadPrivateTargetCoreShader(event, JojoMod.resLoc(\"stand_surface_resolve\")");
 		String renderTypes = read(root.resolve(
 				"src/main/java/com/github/standobyte/jojo/client/rendertype/ModRenderTypes.java"));
-		require(renderTypes, ".setOutputState(renderState.nearestSurface ? MAIN_TARGET : STAND_TRANSLUCENCY_TARGET)");
-		require(renderTypes, "fallbackMaterial.setupRenderState();");
-		require(renderTypes, "fallbackMaterial.clearRenderState();");
+		require(renderTypes, ".setOutputState(renderState.isolatedOutput ? MAIN_TARGET : STAND_TRANSLUCENCY_TARGET)");
+		require(renderTypes, "return queuedStandTranslucent(texture, outline, false);");
+		require(renderTypes, "return queuedStandTranslucent(texture, true, true);");
+		require(framebuffer, "return acceptingSurfaceDraws && compositeShader != null && surfaceResolveShader != null;");
+		require(renderTypes, "material.setupRenderState();");
+		require(renderTypes, "material.clearRenderState();");
+		require(renderTypes, "ClientRenderCompatibility.isIrisShadowPass() ? shadowMaterial : fallbackMaterial");
+		require(renderTypes, "!ClientRenderCompatibility.isIrisShadowPass()");
 		String shader = read(root.resolve(
 				"src/main/resources/assets/jojo_ripples/shaders/core/stand_surface_resolve.fsh"));
 		require(shader, "if (surfaceColor.a <= 0.0)");

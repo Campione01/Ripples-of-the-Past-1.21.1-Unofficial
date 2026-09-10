@@ -54,6 +54,7 @@ public class StandSkin {
 	protected Map<ResourceLocation, AnimationSet> animations = new HashMap<>();
 	protected AnimationSet standEntityAnims;
 	protected float[] renderScale;
+	private boolean surfaceTranslucency;
 	
 	protected Map<ResourceLocation, WeighedSoundEvents> soundEvents = new HashMap<>();
 	protected Map<ResourceLocation, ResourceLocation> existingSounds = new HashMap<>();
@@ -101,6 +102,14 @@ public class StandSkin {
 				ClientUtil.PLAYER_RENDER_SCALE * width / ClientUtil.DEFAULT_STAND_WIDTH,
 				ClientUtil.PLAYER_RENDER_SCALE * height / ClientUtil.DEFAULT_STAND_HEIGHT
 		};
+	}
+
+	protected void withSurfaceTranslucency(boolean enabled) {
+		this.surfaceTranslucency = enabled;
+	}
+
+	public boolean usesSurfaceTranslucency() {
+		return surfaceTranslucency;
 	}
 	
 	protected void withSoundEvents(Map<ResourceLocation, WeighedSoundEvents> soundEvents) {

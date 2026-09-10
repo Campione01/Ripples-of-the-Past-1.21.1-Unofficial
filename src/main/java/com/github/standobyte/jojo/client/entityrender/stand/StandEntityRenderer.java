@@ -6,6 +6,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 
 import com.github.standobyte.jojo.api.client.render.EntityMaskPostEffect;
+import com.github.standobyte.jojo.api.client.render.ClientRenderCompatibility;
 import com.github.standobyte.jojo.api.client.render.StandMaterialTintPolicies;
 import com.github.standobyte.jojo.client.entityanim.AnimationSet;
 import com.github.standobyte.jojo.client.entityanim.barrage.BarrageSwings;
@@ -404,6 +405,10 @@ public class StandEntityRenderer<
 	private void render(T entity, S renderState, float entityYaw, float partialTicks, PoseStack poseStack,
 			MultiBufferSource bufferSource, int light, boolean displayFire) {
 		RenderStateCrutches.Snapshot crutchSnapshot = preRender(renderState);
+		Object previousSurfaceGroup = renderState.surfaceDrawGroup;
+		int previousSurfaceSequence = renderState.surfaceDrawSequence;
+		renderState.surfaceDrawGroup = new Object();
+		renderState.surfaceDrawSequence = 0;
 		try {
 			bufferSource = StandMaterialTintPolicies.wrap(
 					bufferSource, entity, partialTicks);
@@ -424,6 +429,8 @@ public class StandEntityRenderer<
 					Mth.rotationAroundAxis(Mth.Y_AXIS, this.entityRenderDispatcher.cameraOrientation(), new org.joml.Quaternionf()));
 		}
 		finally {
+			renderState.surfaceDrawGroup = previousSurfaceGroup;
+			renderState.surfaceDrawSequence = previousSurfaceSequence;
 			postRender(crutchSnapshot);
 		}
 	}
@@ -479,20 +486,32 @@ public class StandEntityRenderer<
 			boolean surfaceHasBarrage = renderState.action.barrageSwings != null
 					&& (renderState.action.barrageSwings.isBarragingAnim
 							|| renderState.action.barrageSwings.hasSmthToRender());
-			if (!STAND_SURFACE_DIAGNOSTIC_TARGET.isEmpty() && StandSurfaceDiagnosticPolicy.useNearestSurface(
-					STAND_SURFACE_DIAGNOSTIC_TARGET, entity.getType().builtInRegistryHolder().key().location().toString(),
+			String entityTypeId = entity.getType().builtInRegistryHolder().key().location().toString();
+			String surfaceTarget = renderState.skin != null && renderState.skin.usesSurfaceTranslucency()
+					? entityTypeId : STAND_SURFACE_DIAGNOSTIC_TARGET;
+			if (StandSurfaceDiagnosticPolicy.useNearestSurface(
+					surfaceTarget, entityTypeId,
 					renderState.alpha, bodyVisible, EntityMaskPostEffect.isCapturePass(),
 					renderState.obstructionRenderMode != ObstructionRenderMode.NONE,
 					surfaceDiagnosticAfterimageDepth > 0, surfaceHasBarrage)) {
+				if (ClientRenderCompatibility.isIrisShadowPass()) {
+					return this.model.renderType(texture);
+				}
+				var camera = entityRenderDispatcher.camera;
+				var cameraPosition = camera.getPosition();
+				var forward = camera.getLookVector();
+				double viewDepth = (renderState.x - cameraPosition.x) * forward.x()
+						+ (renderState.y + renderState.boundingBoxHeight * 0.5 - cameraPosition.y) * forward.y()
+						+ (renderState.z - cameraPosition.z) * forward.z();
 				return ModRenderTypes.standSurfaceDiagnostic(texture,
-						Minecraft.getInstance().options.getCameraType().isFirstPerson());
+						Minecraft.getInstance().options.getCameraType().isFirstPerson(), viewDepth, entity.getId());
 			}
 		}
 		if (translucent) {
-			return standTranslucentRenderType(texture);
+			return ModRenderTypes.asStandBody(standTranslucentRenderType(texture));
 		}
 		else if (bodyVisible) {
-			return useStandAlphaMaterial ? standTranslucentRenderType(texture) : this.model.renderType(texture);
+			return useStandAlphaMaterial ? ModRenderTypes.asStandBody(standTranslucentRenderType(texture)) : this.model.renderType(texture);
 		}
 		else {
 			return glowing ? RenderType.outline(texture) : null;
