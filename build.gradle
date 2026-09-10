@@ -250,6 +250,17 @@ tasks.register('addonApiSmokeTest', JavaExec) {
     mainClass = 'com.github.standobyte.jojo.api.RotpAddonApiSmokeTest'
 }
 
+tasks.register('genericModelGeometrySmokeTest', JavaExec) {
+    group = 'verification'
+    description = 'Checks Blockbench polygon emission and optionally bakes a supplied model.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
+    mainClass = 'com.github.standobyte.jojo.client.entityrender.parsemodel.generic.GenericModelFormatSmokeTest'
+    if (providers.gradleProperty('modelFile').isPresent()) {
+        args providers.gradleProperty('modelFile').get()
+    }
+}
+
 tasks.register('entityMaskPostEffectSmokeTest', JavaExec) {
     group = 'verification'
     description = 'Runs focused private entity-mask capture smoke tests.'

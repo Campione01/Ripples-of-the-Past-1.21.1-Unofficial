@@ -2,7 +2,9 @@ package com.github.standobyte.jojo.client.entityrender.parsemodel.generic;
 
 import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import javax.annotation.Nullable;
@@ -155,28 +157,42 @@ public final class BlockbenchMeshDefinition extends CubeDefinition {
 			}
 			
 			public BlockbenchMeshDefinition.MeshBuilder createFace() {
-				if (verticesBuilder.size() > 2) {
-					VertexDefinition[] vertices = this.verticesBuilder.toArray(new VertexDefinition[4]);
-					if (this.verticesBuilder.size() == 3) {
-						vertices[3] = vertices[2];
-					}
-					
-					MeshFace face;
-					if (calcNormalFromVertices) {
-						face = new FaceLazyNormal(vertices, invertCalcNormal);
-					}
-					else {
-						if (faceNormal == null) {
-							faceNormal = (direction != null ? direction : Direction.UP).step();
+				try {
+					if (verticesBuilder.size() > 4) {
+						List<VertexDefinition[]> triangles = MeshVerticesHelper.triangulatePolygon(
+								verticesBuilder.toArray(VertexDefinition[]::new));
+						VertexDefinition[] normalAnchor = triangles.get(0);
+						for (VertexDefinition[] triangle : triangles) {
+							addQuad(triangle, normalAnchor);
 						}
-						face = new FaceDefinition(vertices, faceNormal);
 					}
-					
-					boxBuilder.faces.add(face);
+					else if (verticesBuilder.size() > 2) {
+						addQuad(verticesBuilder.toArray(VertexDefinition[]::new), null);
+					}
 				}
-				
-				this.verticesBuilder.clear();
+				finally {
+					verticesBuilder.clear();
+				}
 				return boxBuilder;
+			}
+
+			private void addQuad(VertexDefinition[] source, @Nullable VertexDefinition[] normalAnchor) {
+				VertexDefinition[] vertices = source.length == 3
+						? new VertexDefinition[] { source[0], source[1], source[2], source[2] }
+						: source;
+				if (vertices.length != 4) {
+					throw new IllegalArgumentException("Mesh faces must emit exactly four vertices");
+				}
+				MeshFace face;
+				if (calcNormalFromVertices) {
+					face = new FaceLazyNormal(vertices, invertCalcNormal, normalAnchor);
+				}
+				else {
+					Vector3f normal = faceNormal != null ? faceNormal
+							: (direction != null ? direction : Direction.UP).step();
+					face = new FaceDefinition(vertices, normal);
+				}
+				boxBuilder.faces.add(face);
 			}
 		}
 	}
@@ -186,37 +202,23 @@ public final class BlockbenchMeshDefinition extends CubeDefinition {
 		ModelPart.Polygon createFace(Vector3f cubeCenter, float texWidth, float texHeight);
 	}
 	
-	protected static record FaceLazyNormal(VertexDefinition[] vertices, boolean invertNormal) implements MeshFace {
+	protected static record FaceLazyNormal(VertexDefinition[] vertices, boolean invertNormal,
+			@Nullable VertexDefinition[] normalAnchor) implements MeshFace {
 		
 		@Override
 		public ModelPart.Polygon createFace(Vector3f cubeCenter, float texWidth, float texHeight) {
+			return createFace(texWidth, texHeight, faceOrientation(this.vertices, cubeCenter, invertNormal));
+		}
+
+		ModelPart.Polygon createFace(float texWidth, float texHeight, FaceOrientation orientation) {
 			var vertices = new ModelPart.Vertex[this.vertices.length];
 			for (int i = 0; i < vertices.length; i++) {
 				vertices[i] = this.vertices[i].createVertex(texWidth, texHeight);
 			}
-			Vector3f a = vertices[0].pos;
-			Vector3f b = vertices[1].pos;
-			Vector3f c = vertices[2].pos;
-			Vector3f vec1 = new Vector3f(b).sub(a);
-			Vector3f vec2 = new Vector3f(c).sub(a);
-			Vector3f faceNormal = new Vector3f(vec1); faceNormal.cross(vec2);
-			faceNormal.normalize();
-			
-			Vector3f vecFromCenter = new Vector3f(
-					(a.x() + b.x() + c.x()) / 3,
-					(a.y() + b.y() + c.y()) / 3,
-					(a.z() + b.z() + c.z()) / 3);
-			vecFromCenter = vecFromCenter.sub(cubeCenter);
-			
-			if (faceNormal.dot(vecFromCenter) < 0) {
+			if (orientation.reverse()) {
 				reverseWinding(vertices, this.vertices[2] == this.vertices[3]);
-				faceNormal.mul(-1);
 			}
-			if (invertNormal) {
-				faceNormal.mul(-1);
-			}
-//			return new ModelPart.Polygon(vertices, new Vector3f(faceNormal));
-			return _ModelPart$Polygon.create(vertices, new Vector3f(faceNormal));
+			return _ModelPart$Polygon.create(vertices, new Vector3f(orientation.normal()));
 		}
 
 		private static void reverseWinding(ModelPart.Vertex[] vertices, boolean triangle) {
@@ -227,6 +229,20 @@ public final class BlockbenchMeshDefinition extends CubeDefinition {
 				vertices[2] = second;
 			}
 		}
+	}
+
+	private record FaceOrientation(Vector3f normal, boolean reverse) {}
+
+	private static FaceOrientation faceOrientation(VertexDefinition[] vertices, Vector3f cubeCenter,
+			boolean invertNormal) {
+		Vector3f a = vertices[0].pos(), b = vertices[1].pos(), c = vertices[2].pos();
+		Vector3f normal = unitNormal(new Vector3f(b).sub(a).cross(new Vector3f(c).sub(a)));
+		Vector3f fromCenter = new Vector3f((a.x + b.x + c.x) / 3,
+				(a.y + b.y + c.y) / 3, (a.z + b.z + c.z) / 3).sub(cubeCenter);
+		boolean reverse = normal.dot(fromCenter) < 0;
+		if (reverse) normal.mul(-1);
+		if (invertNormal) normal.mul(-1);
+		return new FaceOrientation(normal, reverse);
 	}
 	
 	public static record FaceDefinition(VertexDefinition[] vertices, Vector3f normal) implements MeshFace {
@@ -242,8 +258,16 @@ public final class BlockbenchMeshDefinition extends CubeDefinition {
 				vertices[i] = this.vertices[i].createVertex(texWidth, texHeight);
 			}
 //			return new ModelPart.Polygon(vertices, new Vector3f(normal));
-			return _ModelPart$Polygon.create(vertices, new Vector3f(normal));
+			return _ModelPart$Polygon.create(vertices, unitNormal(normal));
 		}
+	}
+
+	private static Vector3f unitNormal(Vector3f normal) {
+		float lengthSquared = normal.lengthSquared();
+		if (!Float.isFinite(lengthSquared) || lengthSquared <= 0) {
+			throw new IllegalArgumentException("Mesh face has a degenerate or non-finite normal");
+		}
+		return new Vector3f(normal).normalize();
 	}
 	
 	public static record VertexDefinition(Vector3f pos, float uPos, float vPos) {
@@ -277,8 +301,17 @@ public final class BlockbenchMeshDefinition extends CubeDefinition {
 		float texWidth = pTexWidth * texScale.u();
 		float texHeight = pTexHeight * texScale.v();
 		Vector3f center = new Vector3f(origin.x() + dimensions.x() / 2, origin.y() + dimensions.y() / 2, origin.z() + dimensions.z() / 2);
+		// One orientation decision per source n-gon, not per ear near the center plane.
+		Map<VertexDefinition[], FaceOrientation> orientations = new IdentityHashMap<>();
 		ModelPart.Polygon[] polygons = this.faces.stream()
-				.map(face -> face.createFace(center, texWidth, texHeight))
+				.map(face -> {
+					if (face instanceof FaceLazyNormal lazy && lazy.normalAnchor() != null) {
+						FaceOrientation orientation = orientations.computeIfAbsent(lazy.normalAnchor(),
+								anchor -> faceOrientation(anchor, center, lazy.invertNormal()));
+						return lazy.createFace(texWidth, texHeight, orientation);
+					}
+					return face.createFace(center, texWidth, texHeight);
+				})
 				.toArray(ModelPart.Polygon[]::new);
 		cube.polygons = polygons;
 		return cube;

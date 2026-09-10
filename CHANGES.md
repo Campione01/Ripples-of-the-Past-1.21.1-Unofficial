@@ -1,5 +1,13 @@
 # Independent Modification Record
 
+## Blockbench polygon rendering - 2026-09-09
+
+- triangulate mesh faces with more than four vertices before emitting the
+  renderer's four-vertex primitives, preserving per-vertex texture coordinates;
+- retain authored mesh vertex order during deduplication and add real model
+  bake coverage for convex and concave polygons;
+- preserve existing two-sided Stand rendering and shader-target ownership.
+
 ## Editable Stand-stat data files - 2026-08-24
 
 - restored the operator-only `/jojoconfig` command from the 1.16.5 feature

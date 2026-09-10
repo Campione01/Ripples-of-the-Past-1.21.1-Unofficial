@@ -4,7 +4,7 @@ import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumMap;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -335,7 +335,7 @@ public class GenericModelFormat {
 		}
 	}
 
-	protected static final Set<String> visitedVerticesReused = new HashSet<>();
+	protected static final Set<String> visitedVerticesReused = new LinkedHashSet<>();
 	static CubeDefinition makeModelBox(BlockbenchElement element, Vector3f parentPivot) {
 		return switch (element) {
 			case ElementMesh mesh -> {
@@ -349,7 +349,7 @@ public class GenericModelFormat {
 					if (face.vertices.length > 2) {
 						visitedVerticesReused.clear();
 						for (String vertex : face.vertices) {
-							// using an ordered set in case a mesh face uses the same vertex twice for whatever f-ing reason
+							// Deduplicate IDs without losing the authored polygon boundary order.
 							visitedVerticesReused.add(vertex);
 						}
 						VertexDefinition[] vertices = new VertexDefinition[visitedVerticesReused.size()];
@@ -358,7 +358,7 @@ public class GenericModelFormat {
 							float[] uv = face.uv.get(vertexId);
 							vertices[i++] = new VertexDefinition(verticesMap.get(vertexId), uv[0], uv[1]);
 						}
-						if (vertices.length > 3) {
+						if (vertices.length == 4) {
 							MeshVerticesHelper.sortVertices(vertices);
 						}
 						
