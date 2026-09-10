@@ -9,6 +9,8 @@ import com.github.standobyte.jojo.client.shader.ModShaders;
 import com.github.standobyte.jojo.client.shader.StandTranslucencyFramebuffer;
 import com.github.standobyte.jojo.client.shader.core.RenderTargetState;
 import com.github.standobyte.jojo.core.JojoMod;
+import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.blaze3d.vertex.VertexFormat.Mode;
@@ -21,6 +23,18 @@ import net.minecraft.resources.ResourceLocation;
 public final class ModRenderTypes extends RenderType {
 	private static final RenderStateShard.ShaderStateShard RENDERTYPE_STAND_TRANSLUCENT_SHADER =
 			new RenderStateShard.ShaderStateShard(() -> ModShaders.getInstance().coreStandTranslucent);
+	private static final RenderStateShard.TransparencyStateShard STAND_SURFACE_DIAGNOSTIC_TRANSPARENCY =
+			new RenderStateShard.TransparencyStateShard(JojoMod.MOD_ID + ":stand_surface_diagnostic",
+					() -> {
+						// Keep only the nearest surface's premultiplied RGBA in the existing target.
+						RenderSystem.enableBlend();
+						RenderSystem.blendFuncSeparate(
+								GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ZERO,
+								GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ZERO);
+					}, () -> {
+						RenderSystem.disableBlend();
+						RenderSystem.defaultBlendFunc();
+					});
 	private static final RenderTargetState STAND_OUTLINE_TARGET_STATE = new RenderTargetState();
 	private static boolean restoreIrisWorldTargetAfterOutline;
 	private static final RenderStateShard.OutputStateShard STAND_TRANSLUCENCY_TARGET =
@@ -37,13 +51,15 @@ public final class ModRenderTypes extends RenderType {
 				RenderType.CompositeState state = RenderType.CompositeState.builder()
 						.setShaderState(RENDERTYPE_STAND_TRANSLUCENT_SHADER)
 						.setTextureState(new RenderStateShard.TextureStateShard(texture, false, false))
-						.setTransparencyState(TRANSLUCENT_TRANSPARENCY)
+						.setTransparencyState(renderState.nearestSurface
+								? STAND_SURFACE_DIAGNOSTIC_TRANSPARENCY : TRANSLUCENT_TRANSPARENCY)
 						.setCullState(renderState.cull ? CULL : NO_CULL)
 						.setLightmapState(LIGHTMAP)
 						.setOverlayState(OVERLAY)
 						.setOutputState(STAND_TRANSLUCENCY_TARGET)
 						.createCompositeState(renderState.outline);
-				String suffix = renderState.cull ? "_cull" : "";
+				String suffix = (renderState.nearestSurface ? "_surface_diagnostic" : "")
+						+ (renderState.cull ? "_cull" : "");
 				return create(JojoMod.MOD_ID + ":stand_translucent" + suffix, DefaultVertexFormat.NEW_ENTITY,
 						VertexFormat.Mode.QUADS, 1536, true, true, state);
 			});
@@ -75,6 +91,10 @@ public final class ModRenderTypes extends RenderType {
 
 	public static RenderType standTranslucentCull(ResourceLocation texture) {
 		return STAND_TRANSLUCENT.apply(texture, new StandTranslucentState(true, true));
+	}
+
+	public static RenderType standSurfaceDiagnostic(ResourceLocation texture, boolean cull) {
+		return STAND_TRANSLUCENT.apply(texture, new StandTranslucentState(true, cull, true));
 	}
 
 	public static RenderType standTranslucentDirectCull(ResourceLocation texture) {
@@ -121,5 +141,9 @@ public final class ModRenderTypes extends RenderType {
 		restoreIrisWorldTargetAfterOutline = false;
 	}
 
-	private record StandTranslucentState(boolean outline, boolean cull) {}
+	private record StandTranslucentState(boolean outline, boolean cull, boolean nearestSurface) {
+		private StandTranslucentState(boolean outline, boolean cull) {
+			this(outline, cull, false);
+		}
+	}
 }

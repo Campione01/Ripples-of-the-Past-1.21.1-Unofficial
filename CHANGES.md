@@ -1,5 +1,12 @@
 # Independent Modification Record
 
+## Scoped surface-opacity diagnosis - 2026-09-09
+
+- add a default-off, exact-entity diagnostic capture material to distinguish
+  repeated surface blending from model/texture defects;
+- preserve ordinary rendering and exclude masks, classic obstruction,
+  afterimages and active barrage trails. This is not a default transparency fix.
+
 ## Offset mesh lighting - 2026-09-09
 
 - compute imported mesh bounds from actual vertices rather than including the

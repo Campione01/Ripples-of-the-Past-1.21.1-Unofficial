@@ -269,6 +269,14 @@ tasks.register('clientCursorIsolationSmokeTest', JavaExec) {
     mainClass = 'com.github.standobyte.jojo.client.util.ClientCursorUtilSmokeTest'
 }
 
+tasks.register('standSurfaceDiagnosticSmokeTest', JavaExec) {
+    group = 'verification'
+    description = 'Checks the default-off surface-capture diagnostic and blend counterexample.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
+    mainClass = 'com.github.standobyte.jojo.client.entityrender.stand.StandSurfaceDiagnosticSmokeTest'
+}
+
 tasks.register('entityMaskPostEffectSmokeTest', JavaExec) {
     group = 'verification'
     description = 'Runs focused private entity-mask capture smoke tests.'

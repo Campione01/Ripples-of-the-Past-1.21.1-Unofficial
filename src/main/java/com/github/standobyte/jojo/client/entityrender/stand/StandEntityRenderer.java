@@ -54,6 +54,8 @@ public class StandEntityRenderer<
 				S extends StandEntityRenderState, 
 				M extends StandEntityModel<T, S>> 
 		extends LivingEntityRenderer<T, M> {
+	private static final String STAND_SURFACE_DIAGNOSTIC_TARGET = StandSurfaceDiagnosticPolicy.configuredTarget();
+	private int surfaceDiagnosticAfterimageDepth;
 	@Deprecated(forRemoval = true)
 	public final S reusedState = this.createRenderState();
 	public final S outOfLevelRenderState = createRenderState();
@@ -385,8 +387,14 @@ public class StandEntityRenderer<
 
 	public void renderAfterimage(T entity, float entityYaw, float partialTicks, PoseStack poseStack,
 			MultiBufferSource bufferSource, int light) {
-		S renderState = this.createRenderState(entity, partialTicks);
-		render(entity, renderState, entityYaw, partialTicks, poseStack, bufferSource, light);
+		surfaceDiagnosticAfterimageDepth++;
+		try {
+			S renderState = this.createRenderState(entity, partialTicks);
+			render(entity, renderState, entityYaw, partialTicks, poseStack, bufferSource, light);
+		}
+		finally {
+			surfaceDiagnosticAfterimageDepth--;
+		}
 	}
 
 	public void render(T entity, S renderState, float entityYaw, float partialTicks, PoseStack poseStack, MultiBufferSource bufferSource, int light) {
@@ -467,6 +475,18 @@ public class StandEntityRenderer<
 				return glowing ? RenderType.outline(texture) : null;
 			}
 			useStandAlphaMaterial = renderState.alpha < 1.0F;
+			// ClientStuff also retains an empty BarrageSwings instance while idle.
+			boolean surfaceHasBarrage = renderState.action.barrageSwings != null
+					&& (renderState.action.barrageSwings.isBarragingAnim
+							|| renderState.action.barrageSwings.hasSmthToRender());
+			if (!STAND_SURFACE_DIAGNOSTIC_TARGET.isEmpty() && StandSurfaceDiagnosticPolicy.useNearestSurface(
+					STAND_SURFACE_DIAGNOSTIC_TARGET, entity.getType().builtInRegistryHolder().key().location().toString(),
+					renderState.alpha, bodyVisible, EntityMaskPostEffect.isCapturePass(),
+					renderState.obstructionRenderMode != ObstructionRenderMode.NONE,
+					surfaceDiagnosticAfterimageDepth > 0, surfaceHasBarrage)) {
+				return ModRenderTypes.standSurfaceDiagnostic(texture,
+						Minecraft.getInstance().options.getCameraType().isFirstPerson());
+			}
 		}
 		if (translucent) {
 			return standTranslucentRenderType(texture);
