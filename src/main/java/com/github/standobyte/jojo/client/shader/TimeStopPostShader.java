@@ -82,6 +82,9 @@ public class TimeStopPostShader extends RotpShader {
                     if (pass.getEffect().safeGetUniform("TSLength") != null) {
                         pass.getEffect().safeGetUniform("TSLength").set(manager.length());
                     }
+                    if (pass.getEffect().safeGetUniform("TSStartupTicksLeft") != null) {
+                        pass.getEffect().safeGetUniform("TSStartupTicksLeft").set(manager.startupTicksLeft());
+                    }
                     if (pass.getEffect().safeGetUniform("TSEffectLength") != null) {
                         pass.getEffect().safeGetUniform("TSEffectLength").set(manager.effectLength());
                     }

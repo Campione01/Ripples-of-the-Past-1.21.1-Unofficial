@@ -17,6 +17,7 @@
     { "name": "TSEffectLength", "type": "float", "count": 1, "values": [ 0.0 ] },
     { "name": "TSTicks", "type": "float", "count": 1, "values": [ 0.0 ] },
     { "name": "TSLength", "type": "float", "count": 1, "values": [ 0.0 ] },
+    { "name": "TSStartupTicksLeft", "type": "float", "count": 1, "values": [ 0.0 ] },
     { "name": "CenterScreenCoord", "type": "float", "count": 2, "values": [ 0.5, 0.5 ] },
     { "name": "FadeInLength", "type": "float", "count": 1, "values": [ 5.0 ] },
     { "name": "Gray", "type": "float", "count": 3, "values": [ 0.3, 0.59, 0.11 ] },

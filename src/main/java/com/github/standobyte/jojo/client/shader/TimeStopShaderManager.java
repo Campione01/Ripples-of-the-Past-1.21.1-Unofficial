@@ -41,6 +41,7 @@ public class TimeStopShaderManager {
     private float ticks;
     private float length = 100.0f;
     private float effectLength = 35.0f;
+    private float startupTicksLeft;
     private boolean active;
     private int activeInstanceId = Integer.MIN_VALUE;
     private int visualInstanceId = Integer.MIN_VALUE;
@@ -102,14 +103,20 @@ public class TimeStopShaderManager {
         this.activeInstanceId = instance.id();
 		float partialTick = ClientUtil.partialTick(event.getPartialTick(), true);
 		int timelineLength = ClientTimeStopHandler.getTimeStopLength();
-		this.length = timelineLength > 0 ? timelineLength : instance.ticksPassed() + instance.ticksLeft();
-		this.ticks = Math.min(this.length, ClientTimeStopHandler.getTimeStopTicks() + partialTick);
+		updateTimeline(instance, timelineLength, ClientTimeStopHandler.getTimeStopTicks(), partialTick);
 		this.effectLength = animationConfig && !openingEffectSuppressed ? 35.0f : 0.0f;
 		this.previousShader = this.selectedShader;
 		this.selectedShader = selectShaderPath(instance, animationConfig);
         logSelectedShader(instance, animationConfig);
         updateCenter(event, instance);
         openingVisualPending = false;
+    }
+
+    void updateTimeline(TimeStopState.Instance instance, int timelineLength, int timelineTicks, float partialTick) {
+        this.length = timelineLength > 0 ? timelineLength : instance.ticksPassed() + instance.ticksLeft();
+        this.ticks = Math.min(this.length, timelineTicks + partialTick);
+        // Keep opening-wave timing unchanged; only the end fade includes pending startup.
+        this.startupTicksLeft = Math.max(-instance.ticksPassed(), 0);
     }
 
     private void logSelectedShader(TimeStopState.Instance instance, boolean animationConfig) {
@@ -292,6 +299,7 @@ public class TimeStopShaderManager {
         selectedShader = null;
         center.set(0.5f, 0.5f);
         ticks = 0.0f;
+        startupTicksLeft = 0.0f;
     }
 
     public void reset() {
@@ -304,6 +312,7 @@ public class TimeStopShaderManager {
         selectedShader = null;
         center.set(0.5f, 0.5f);
         ticks = 0.0f;
+        startupTicksLeft = 0.0f;
         visualInstanceId = Integer.MIN_VALUE;
         visualUserId = -1;
         visualRoute = "";
@@ -352,5 +361,9 @@ public class TimeStopShaderManager {
 
     public float effectLength() {
         return effectLength;
+    }
+
+    public float startupTicksLeft() {
+        return startupTicksLeft;
     }
 }

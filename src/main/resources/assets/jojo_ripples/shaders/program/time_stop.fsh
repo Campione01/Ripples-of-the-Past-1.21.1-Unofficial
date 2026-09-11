@@ -8,6 +8,7 @@ uniform vec2 InSize;
 uniform float TSEffectLength;
 uniform float TSTicks;
 uniform float TSLength;
+uniform float TSStartupTicksLeft;
 uniform vec2 CenterScreenCoord;
 uniform float FadeInLength;
 
@@ -62,8 +63,8 @@ vec3 desaturate(vec3 rgb) {
     float saturation = Saturation;
     float fadeIn = 1.0;
 
-    float timeLeft = TSLength - TSTicks;
-    if (FadeInLength > 0.0 && TSLength - TSTicks < FadeInLength) {
+    float timeLeft = TSLength - TSTicks + TSStartupTicksLeft;
+    if (FadeInLength > 0.0 && timeLeft < FadeInLength) {
         fadeIn = max(timeLeft, 0.0) / FadeInLength;
         saturation = 1.0 - fadeIn * (1.0 - saturation);
     }
