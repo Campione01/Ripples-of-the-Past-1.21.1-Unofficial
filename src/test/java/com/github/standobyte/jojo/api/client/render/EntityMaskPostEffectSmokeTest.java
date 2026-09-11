@@ -26,6 +26,7 @@ public final class EntityMaskPostEffectSmokeTest {
 		verifyUvMapping();
 		verifyCaptureProjectionParity();
 		verifyEntityInterpolation();
+		verifyDepthWriteResetBetweenGroups();
 		verifySourceBoundary();
 		verifyStateNeutralPrivateCaptureBoundary();
 	}
@@ -177,6 +178,26 @@ public final class EntityMaskPostEffectSmokeTest {
 		timer.advanceTime(140L, true);
 		check(Math.abs(EntityMaskPostEffect.capturePartialTick(timer, false) - 0.6F) < 0.00001F,
 				"mask ignored the paused interpolation residual");
+	}
+
+	private static void verifyDepthWriteResetBetweenGroups() {
+		String source = compact(read(Path.of("src/main/java/com/github/standobyte/jojo/"
+				+ "api/client/render/EntityMaskPostEffect.java")));
+		int captureStart = source.indexOf("privatestaticvoidrenderGroupMaskGeometry(");
+		int captureEnd = source.indexOf("privatestaticPreparedRequestprepareRequest(", captureStart);
+		check(captureStart >= 0 && captureEnd > captureStart,
+				"mask geometry capture boundary is missing");
+		String capture = source.substring(captureStart, captureEnd);
+		int writesEnabled = capture.indexOf("RenderSystem.depthMask(true);");
+		int depthClear = capture.indexOf("currentMaskTarget.clear(Minecraft.ON_OSX);");
+		int draw = capture.indexOf("delegate.endBatch();");
+		check(writesEnabled >= 0 && writesEnabled < depthClear && depthClear < draw
+				&& !capture.substring(writesEnabled, draw).contains("RenderSystem.depthMask(false)"),
+				"each mask group must enable depth writes before clearing and drawing, even after a composite");
+		int composite = source.indexOf("staticvoiddrawComposite(");
+		int compositeEnd = source.indexOf("privatestaticvoidblitAuraToMain(", composite);
+		check(source.substring(composite, compositeEnd).contains("RenderSystem.depthMask(false);"),
+				"screen-space aura composition must remain depth-write disabled");
 	}
 
 	private static void verifyFailureEpisodeLatch() {

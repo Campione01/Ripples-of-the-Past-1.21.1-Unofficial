@@ -488,6 +488,8 @@ public final class EntityMaskPostEffect implements AutoCloseable {
 		if (currentMaskTarget == null) {
 			return;
 		}
+		// Composite disables depth writes; both this clear and the next mask draw require them.
+		RenderSystem.depthMask(true);
 		currentMaskTarget.setClearColor(
 				0.0F, 0.0F, 0.0F, 0.0F);
 		currentMaskTarget.bindWrite(true);
