@@ -35,6 +35,7 @@ import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.blaze3d.vertex.VertexSorting;
 
 import net.minecraft.client.Camera;
+import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.LightTexture;
@@ -336,10 +337,13 @@ public final class EntityMaskPostEffect implements AutoCloseable {
 		currentAuraTarget.bindWrite(true);
 		currentAuraTarget.clear(Minecraft.ON_OSX);
 
+		Matrix4f maskModelView = captureModelView(
+				RenderSystem.getModelViewMatrix(), event.getModelViewMatrix());
 		Map<Object, RenderGroup> groups = groupRequests(
 				frameEffect.requests(),
 				event,
-				mainTarget);
+				mainTarget,
+				maskModelView);
 		boolean renderedAny = false;
 		boolean attemptedGroup = false;
 		boolean groupFailed = false;
@@ -352,12 +356,13 @@ public final class EntityMaskPostEffect implements AutoCloseable {
 				renderGroupMask(
 						minecraft,
 						event,
-						group.requests());
+						group.requests(),
+						maskModelView);
 				EntityMaskCompositeContext context =
 						new EntityMaskCompositeContext(
 								group.key(),
 								group.entities(),
-								partialTick(event),
+								group.requests().getFirst().partialTick(),
 								group.auraThicknessScale(),
 								group.bounds().minU(),
 								group.bounds().minV(),
@@ -406,21 +411,22 @@ public final class EntityMaskPostEffect implements AutoCloseable {
 	private static Map<Object, RenderGroup> groupRequests(
 			List<QueuedRequest> requests,
 			RenderLevelStageEvent event,
-			RenderTarget mainTarget) {
+			RenderTarget mainTarget,
+			Matrix4f maskModelView) {
 		Map<Object, MutableRenderGroup> mutable =
 				new LinkedHashMap<>();
 		EntityRenderDispatcher dispatcher =
 				Minecraft.getInstance().getEntityRenderDispatcher();
-		float partialTick = partialTick(event);
 		for (QueuedRequest request : requests) {
 			if (!canRender(request.entity())) {
 				continue;
 			}
 			PreparedRequest prepared = prepareRequest(
-					dispatcher, request, partialTick);
+					dispatcher, request, partialTick(event, request.entity()));
 			ProjectedBounds projected = projectEntityBounds(
 					prepared,
 					event,
+					maskModelView,
 					mainTarget.viewWidth,
 					mainTarget.viewHeight);
 			if (projected.bounds().isEmpty()) {
@@ -446,6 +452,37 @@ public final class EntityMaskPostEffect implements AutoCloseable {
 	private static void renderGroupMask(
 			Minecraft minecraft,
 			RenderLevelStageEvent event,
+			List<PreparedRequest> requests,
+			Matrix4f maskModelView) {
+		Matrix4f projection = new Matrix4f(RenderSystem.getProjectionMatrix());
+		VertexSorting sorting = RenderSystem.getVertexSorting();
+		Matrix4fStack modelView = RenderSystem.getModelViewStack();
+		modelView.pushMatrix();
+		try {
+			modelView.set(maskModelView);
+			RenderSystem.applyModelViewMatrix();
+			RenderSystem.setProjectionMatrix(event.getProjectionMatrix(), sorting);
+			renderGroupMaskGeometry(minecraft, event, requests);
+		}
+		finally {
+			try {
+				RenderSystem.setProjectionMatrix(projection, sorting);
+			}
+			finally {
+				modelView.popMatrix();
+				RenderSystem.applyModelViewMatrix();
+			}
+		}
+	}
+
+	static Matrix4f captureModelView(Matrix4f parentModelView, Matrix4f cameraModelView) {
+		// AFTER_LEVEL has popped the camera matrix that normal entity rendering multiplies here.
+		return new Matrix4f(parentModelView).mul(cameraModelView);
+	}
+
+	private static void renderGroupMaskGeometry(
+			Minecraft minecraft,
+			RenderLevelStageEvent event,
 			List<PreparedRequest> requests) {
 		TextureTarget currentMaskTarget = maskTarget;
 		if (currentMaskTarget == null) {
@@ -468,25 +505,25 @@ public final class EntityMaskPostEffect implements AutoCloseable {
 			runCapturePass(() -> {
 				Vec3 cameraPosition =
 						event.getCamera().getPosition();
-				float partialTick = partialTick(event);
 				for (PreparedRequest request : requests) {
 					Entity entity = request.entity();
 					if (!canRender(entity)) {
 						continue;
 					}
+					float partialTick = request.partialTick();
 					double renderX = Mth.lerp(
 							partialTick,
-							entity.xo,
+							entity.xOld,
 							entity.getX()) - cameraPosition.x;
 					double renderY = Mth.lerp(
 							partialTick,
-							entity.yo,
+							entity.yOld,
 							entity.getY()) - cameraPosition.y;
 					double renderZ = Mth.lerp(
 							partialTick,
-							entity.zo,
+							entity.zOld,
 							entity.getZ()) - cameraPosition.z;
-					float yaw = Mth.rotLerp(
+					float yaw = Mth.lerp(
 							partialTick,
 							entity.yRotO,
 							entity.getYRot());
@@ -515,7 +552,7 @@ public final class EntityMaskPostEffect implements AutoCloseable {
 		Vec3 renderOffset =
 				renderer.getRenderOffset(entity, partialTick);
 		return new PreparedRequest(
-				request, renderer, renderOffset);
+				request, renderer, renderOffset, partialTick);
 	}
 
 	@SuppressWarnings({"rawtypes", "unchecked"})
@@ -691,16 +728,17 @@ public final class EntityMaskPostEffect implements AutoCloseable {
 	private static ProjectedBounds projectEntityBounds(
 			PreparedRequest request,
 			RenderLevelStageEvent event,
+			Matrix4f modelView,
 			int width,
 			int height) {
 		Entity entity = request.entity();
-		float partialTick = partialTick(event);
+		float partialTick = request.partialTick();
 		double interpolatedX = Mth.lerp(
-				partialTick, entity.xo, entity.getX());
+				partialTick, entity.xOld, entity.getX());
 		double interpolatedY = Mth.lerp(
-				partialTick, entity.yo, entity.getY());
+				partialTick, entity.yOld, entity.getY());
 		double interpolatedZ = Mth.lerp(
-				partialTick, entity.zo, entity.getZ());
+				partialTick, entity.zOld, entity.getZ());
 		AABB box = entity.getBoundingBox()
 				.move(
 						interpolatedX - entity.getX(),
@@ -711,7 +749,6 @@ public final class EntityMaskPostEffect implements AutoCloseable {
 		ProjectionBounds projectionBounds =
 				new ProjectionBounds();
 		Vec3 camera = event.getCamera().getPosition();
-		Matrix4f modelView = event.getModelViewMatrix();
 		Matrix4f projection = event.getProjectionMatrix();
 		double[] xs = {box.minX, box.maxX};
 		double[] ys = {box.minY, box.maxY};
@@ -781,13 +818,7 @@ public final class EntityMaskPostEffect implements AutoCloseable {
 			Vec3 camera,
 			Matrix4f modelView,
 			Matrix4f projection) {
-		Vector4f corner = new Vector4f(
-				(float) (x - camera.x),
-				(float) (y - camera.y),
-				(float) (z - camera.z),
-				1.0F);
-		modelView.transform(corner);
-		projection.transform(corner);
+		Vector4f corner = projectPosition(x, y, z, camera, modelView, projection);
 		if (corner.w <= 0.0001F) {
 			return false;
 		}
@@ -808,6 +839,14 @@ public final class EntityMaskPostEffect implements AutoCloseable {
 		return true;
 	}
 
+	static Vector4f projectPosition(double x, double y, double z, Vec3 camera,
+			Matrix4f modelView, Matrix4f projection) {
+		Vector4f corner = new Vector4f(
+				(float) (x - camera.x), (float) (y - camera.y), (float) (z - camera.z), 1.0F);
+		modelView.transform(corner);
+		return projection.transform(corner);
+	}
+
 	private static float estimateThicknessByDistance(
 			AABB box,
 			Vec3 camera) {
@@ -821,9 +860,13 @@ public final class EntityMaskPostEffect implements AutoCloseable {
 	}
 
 	private static float partialTick(
-			RenderLevelStageEvent event) {
-		return event.getPartialTick()
-				.getGameTimeDeltaTicks();
+			RenderLevelStageEvent event, Entity entity) {
+		return capturePartialTick(event.getPartialTick(),
+				entity.level().tickRateManager().isEntityFrozen(entity));
+	}
+
+	static float capturePartialTick(DeltaTracker tracker, boolean entityFrozen) {
+		return tracker.getGameTimeDeltaPartialTick(!entityFrozen);
 	}
 
 	private static void ensureMaskTarget(int width, int height) {
@@ -1015,7 +1058,8 @@ public final class EntityMaskPostEffect implements AutoCloseable {
 	private record PreparedRequest(
 			QueuedRequest request,
 			EntityRenderer<?> renderer,
-			Vec3 renderOffset) {
+			Vec3 renderOffset,
+			float partialTick) {
 		private Entity entity() {
 			return request.entity();
 		}

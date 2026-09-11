@@ -6,9 +6,14 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.joml.Matrix4f;
+import org.joml.Vector4f;
+
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 
+import net.minecraft.client.DeltaTracker;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.phys.Vec3;
 
 public final class EntityMaskPostEffectSmokeTest {
 	private EntityMaskPostEffectSmokeTest() {}
@@ -19,6 +24,8 @@ public final class EntityMaskPostEffectSmokeTest {
 		verifyCaptureRenderTypes();
 		verifyFailureEpisodeLatch();
 		verifyUvMapping();
+		verifyCaptureProjectionParity();
+		verifyEntityInterpolation();
 		verifySourceBoundary();
 		verifyStateNeutralPrivateCaptureBoundary();
 	}
@@ -120,6 +127,58 @@ public final class EntityMaskPostEffectSmokeTest {
 				"unrelated line geometry entered the entity mask");
 	}
 
+	private static void verifyCaptureProjectionParity() {
+		Vec3 camera = new Vec3(100.25D, 72.5D, -200.75D);
+		Matrix4f parent = new Matrix4f().translation(0.125F, -0.0625F, 0.25F).rotateZ(0.12F);
+		Matrix4f parentBefore = new Matrix4f(parent);
+		Matrix4f projection = new Matrix4f().perspective((float) Math.toRadians(70), 16F / 9F, 0.05F, 1000F);
+		for (float yaw : new float[] { 0, 70, -125 }) {
+			for (float pitch : new float[] { 0, -25, 40 }) {
+				Matrix4f cameraView = new Matrix4f().rotateX((float) Math.toRadians(pitch))
+						.rotateY((float) Math.toRadians(yaw));
+				Matrix4f cameraBefore = new Matrix4f(cameraView);
+				Matrix4f captured = EntityMaskPostEffect.captureModelView(parent, cameraView);
+				for (Vec3 point : List.of(new Vec3(101, 72, -207), new Vec3(99, 74, -203))) {
+					Vector4f expected = new Vector4f((float) (point.x - camera.x),
+							(float) (point.y - camera.y), (float) (point.z - camera.z), 1.0F);
+					cameraView.transform(expected);
+					parent.transform(expected);
+					projection.transform(expected);
+					Vector4f actual = EntityMaskPostEffect.projectPosition(
+							point.x, point.y, point.z, camera, captured, projection);
+					check(actual.equals(expected, 0.00001F),
+							"mask and bounds differ from the normal parent * camera transform");
+					if (actual.w > 0.001F && actual.z >= -actual.w && actual.z <= actual.w) {
+						float u = actual.x / actual.w * 0.5F + 0.5F;
+						float v = actual.y / actual.w * 0.5F + 0.5F;
+						check(Math.abs(EntityMaskPostEffect.clipCoordinate(u) - expected.x / expected.w) < 0.00001F
+								&& Math.abs(EntityMaskPostEffect.clipCoordinate(v) - expected.y / expected.w) < 0.00001F,
+								"mask projection and framebuffer-quad coordinates disagree at yaw=" + yaw
+										+ ", pitch=" + pitch + ", actual=" + actual + ", expected=" + expected);
+					}
+				}
+				check(parent.equals(parentBefore) && cameraView.equals(cameraBefore),
+						"capture matrix construction mutated its caller's matrices");
+			}
+		}
+	}
+
+	private static void verifyEntityInterpolation() {
+		DeltaTracker.Timer timer = new DeltaTracker.Timer(20.0F, 0L, milliseconds -> milliseconds);
+		timer.advanceTime(80L, true);
+		check(timer.getGameTimeDeltaTicks() > 1.0F
+				&& Math.abs(EntityMaskPostEffect.capturePartialTick(timer, false) - 0.6F) < 0.00001F,
+				"mask used elapsed frame ticks instead of the entity interpolation residual");
+		timer.updateFrozenState(true);
+		check(EntityMaskPostEffect.capturePartialTick(timer, true) == 1.0F
+				&& Math.abs(EntityMaskPostEffect.capturePartialTick(timer, false) - 0.6F) < 0.00001F,
+				"mask ignored per-entity frozen interpolation");
+		timer.updatePauseState(true);
+		timer.advanceTime(140L, true);
+		check(Math.abs(EntityMaskPostEffect.capturePartialTick(timer, false) - 0.6F) < 0.00001F,
+				"mask ignored the paused interpolation residual");
+	}
+
 	private static void verifyFailureEpisodeLatch() {
 		EntityMaskPostEffect.FailureEpisodeLatch latch =
 				new EntityMaskPostEffect.FailureEpisodeLatch();
@@ -199,7 +258,7 @@ public final class EntityMaskPostEffectSmokeTest {
 						== 1
 						&& compactSource.contains(
 								"newPreparedRequest("
-										+ "request,renderer,renderOffset)")
+										+ "request,renderer,renderOffset,partialTick)")
 						&& compactSource.contains(
 								".move(request.renderOffset())")
 						&& compactSource.contains(
@@ -209,6 +268,23 @@ public final class EntityMaskPostEffectSmokeTest {
 						&& compactSource.contains(
 								"renderZ+renderOffset.z"),
 				"renderer offset is not shared by bounds and capture");
+		check(compactSource.contains("RenderSystem.getModelViewMatrix(),event.getModelViewMatrix()")
+				&& compactSource.contains("modelView.set(maskModelView);")
+				&& compactSource.contains("RenderSystem.setProjectionMatrix(event.getProjectionMatrix(),sorting);")
+				&& compactSource.contains("renderGroupMaskGeometry(minecraft,event,requests);}")
+				&& compactSource.contains("finally{try{RenderSystem.setProjectionMatrix(projection,sorting);}")
+				&& compactSource.contains("finally{modelView.popMatrix();RenderSystem.applyModelViewMatrix();}")
+				&& compactSource.contains("projectEntityBounds(prepared,event,maskModelView,")
+				&& compactSource.contains("tracker.getGameTimeDeltaPartialTick(!entityFrozen)")
+				&& count(compactSource, "floatpartialTick=request.partialTick();") == 2
+				&& count(compactSource, "entity.xOld") == 2
+				&& count(compactSource, "entity.yOld") == 2
+				&& count(compactSource, "entity.zOld") == 2
+				&& !compactSource.contains("getGameTimeDeltaTicks()")
+				&& !compactSource.contains("entity.xo")
+				&& !compactSource.contains("entity.yo")
+				&& !compactSource.contains("entity.zo"),
+				"mask transform scope, shared projection or entity interpolation contract drifted");
 		check(!source.contains("renderFlame(")
 						&& !source.contains("renderShadow(")
 						&& !source.contains("renderHitbox("),
