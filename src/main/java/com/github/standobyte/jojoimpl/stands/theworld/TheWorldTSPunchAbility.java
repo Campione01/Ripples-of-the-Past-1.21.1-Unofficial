@@ -30,6 +30,7 @@ import com.github.standobyte.jojo.subsystems.target.HitResultUtil;
 import com.github.standobyte.jojo.subsystems.target.ActionTarget.TargetType;
 import com.github.standobyte.jojo.subsystems.timestop.TimeStopLearning;
 import com.github.standobyte.jojo.subsystems.timestop.TimeStopState;
+import com.github.standobyte.jojo.util.functions.CollisionHelper;
 import com.github.standobyte.jojo.util.functions.JojoModUtil;
 import com.github.standobyte.jojoimpl.stands._entitybase.StandAbilityStamina;
 import com.github.standobyte.jojoimpl.stands._entitybase.StandEntityHeavyPunchAbility;
@@ -45,6 +46,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.CollisionContext;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 public class TheWorldTSPunchAbility extends StandEntityAbility {
@@ -337,7 +339,15 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 				timeStopTicks = Math.min(timeStopTicks, ticksForWindup);
 			}
 
-			blinkPos = stand.collideNextPos(blinkPos);
+			if (target.getType() == TargetType.BLOCK) {
+				// Eye-aligned block targets can put the feet into the floor; collide the full body.
+				CollisionHelper.BlockCollisionResult collision = CollisionHelper.collideBoundingBox(
+						blinkPos.subtract(stand.position()), stand.getBoundingBox(), serverLevel, CollisionContext.of(stand));
+				blinkPos = stand.position().add(collision.x, collision.y, collision.z);
+			}
+			else {
+				blinkPos = stand.collideNextPos(blinkPos);
+			}
 			stand.moveTo(blinkPos.x, blinkPos.y, blinkPos.z);
 
 			skipTicksForStandAndUser(standPower, stand, timeStopTicks);
