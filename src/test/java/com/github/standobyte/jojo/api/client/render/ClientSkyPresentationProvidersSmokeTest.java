@@ -1,5 +1,8 @@
 package com.github.standobyte.jojo.api.client.render;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 import net.minecraft.resources.ResourceLocation;
@@ -82,6 +85,7 @@ public final class ClientSkyPresentationProvidersSmokeTest {
 						active, query -> null));
 		ClientSkyPresentationProviders.resetForTests();
 		verifyShaderPresentation();
+		verifyIrisShadowParity();
 	}
 
 	private static void verifyShaderPresentation() {
@@ -142,6 +146,54 @@ public final class ClientSkyPresentationProvidersSmokeTest {
 		}
 		check(ClientSkyPresentationProviders.shaderWorldTime(null, 0.5F, 18000, 0.5F) == 18000,
 				"clearing providers retained shader time state");
+	}
+
+	private static void verifyIrisShadowParity() {
+		String source;
+		try {
+			source = Files.readString(Path.of("src/main/java/com/github/standobyte/jojo/"
+					+ "mixin/client/render/IrisCelestialSkyPresentationMixin.java"));
+		}
+		catch (IOException error) {
+			throw new AssertionError("Cannot read Iris sky presentation hook", error);
+		}
+		check(source.contains("\"net.irisshaders.iris.uniforms.CelestialUniforms\"")
+				&& source.contains("\"net.irisshaders.iris.shadows.ShadowRenderer\"")
+				&& source.contains("@Pseudo") && source.contains("method = \"getSkyAngle\"")
+				&& source.contains("ClientSkyPresentationProviders.shaderTimeOfDay("),
+				"Iris celestial uniforms and shadow matrices must share the same optional sky-angle hook");
+
+		boolean[] active = { true };
+		ClientSkyPresentation daylight = new ClientSkyPresentation() {
+			@Override
+			public float timeOfDay(float original, float partialTick) {
+				return 0.0F;
+			}
+		};
+		ClientSkyPresentationProviders.register(id("shadow_daylight"), query -> active[0] ? daylight : null);
+		try {
+			float celestial = ClientSkyPresentationProviders.shaderTimeOfDay(null, 0.5F, 0.5F);
+			float shadow = ClientSkyPresentationProviders.shaderTimeOfDay(null, 0.5F, 0.5F);
+			check(irisShadowAngle(celestial, shadow) == 0.25F,
+					"midnight daylight override left the shadow direction below the horizon");
+			check(irisShadowAngle(celestial, 0.5F) == 0.75F,
+					"regression fixture must distinguish the previously unmodified shadow sky angle");
+			active[0] = false;
+			celestial = ClientSkyPresentationProviders.shaderTimeOfDay(null, 0.5F, 0.5F);
+			shadow = ClientSkyPresentationProviders.shaderTimeOfDay(null, 0.5F, 0.5F);
+			check(celestial == 0.5F && shadow == 0.5F && irisShadowAngle(celestial, shadow) == 0.25F,
+					"inactive daylight override changed Iris's normal midnight moon-shadow direction");
+		}
+		finally {
+			ClientSkyPresentationProviders.resetForTests();
+		}
+	}
+
+	private static float irisShadowAngle(float celestialSkyAngle, float shadowSkyAngle) {
+		// Iris 1.8.13 ShadowRenderer uses its own sun angle but CelestialUniforms.isDay().
+		float celestialSunAngle = celestialSkyAngle < 0.75F ? celestialSkyAngle + 0.25F : celestialSkyAngle - 0.75F;
+		float shadowSunAngle = shadowSkyAngle < 0.75F ? shadowSkyAngle + 0.25F : shadowSkyAngle - 0.75F;
+		return celestialSunAngle <= 0.5F ? shadowSunAngle : shadowSunAngle - 0.5F;
 	}
 
 	private static ResourceLocation id(String path) {

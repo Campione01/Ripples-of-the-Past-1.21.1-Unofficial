@@ -11,7 +11,10 @@ import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.client.multiplayer.ClientLevel;
 
 @Pseudo
-@Mixin(targets = "net.irisshaders.iris.uniforms.CelestialUniforms", remap = false)
+@Mixin(targets = {
+		"net.irisshaders.iris.uniforms.CelestialUniforms",
+		"net.irisshaders.iris.shadows.ShadowRenderer"
+}, remap = false)
 public abstract class IrisCelestialSkyPresentationMixin {
 	@WrapOperation(method = "getSkyAngle", at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/client/multiplayer/ClientLevel;getTimeOfDay(F)F"),
