@@ -2,8 +2,10 @@ package com.github.standobyte.jojo.client.rendertype;
 
 import java.util.Optional;
 import java.util.IdentityHashMap;
+import java.util.Objects;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import com.github.standobyte.jojo.api.client.render.ClientRenderCompatibility;
 import com.github.standobyte.jojo.api.client.render.EntityMaskPostEffect;
@@ -25,6 +27,7 @@ import net.minecraft.Util;
 import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.resources.ResourceLocation;
 
 public final class ModRenderTypes extends RenderType {
@@ -140,6 +143,9 @@ public final class ModRenderTypes extends RenderType {
 
 	public static RenderType asStandBody(RenderType renderType) {
 		if (renderType instanceof StandSurfaceRenderType surface) {
+			if (surface.replayShader != null) {
+				return renderType;
+			}
 			return new StandSurfaceRenderType(surface.surfaceMaterial, surface.ordinaryMaterial,
 					surface.fallbackMaterial, surface.shadowMaterial,
 					surface.viewDepth, surface.ownerId, surface.consolidate, surface.groupKey,
@@ -151,28 +157,68 @@ public final class ModRenderTypes extends RenderType {
 	public static MultiBufferSource separateSurfaceBarrage(MultiBufferSource delegate, Object bodyGroup) {
 		return new MultiBufferSource() {
 			private final IdentityHashMap<Object, Object> barrageGroups = new IdentityHashMap<>();
-			private boolean surfaceBody;
+			private final SurfaceBodyState bodyState = new SurfaceBodyState();
 
 			@Override
 			public com.mojang.blaze3d.vertex.VertexConsumer getBuffer(RenderType renderType) {
-				if (renderType instanceof StandSurfaceRenderType surface && surface.requiresSurfaceBody) {
-					renderType = surface.resolveSurfaceBody(surfaceBody && surface.groupKey == bodyGroup);
+				if (renderType instanceof StandSurfaceRenderType surface && surface.requiresQueuedBody) {
+					renderType = surface.resolveQueuedBody(bodyState.hasQueuedBody(surface.groupKey == bodyGroup));
+				}
+				else if (renderType instanceof StandSurfaceRenderType surface && surface.requiresSurfaceBody) {
+					renderType = surface.resolveSurfaceBody(bodyState.hasNearestBody(surface.groupKey == bodyGroup));
 				}
 				var body = delegate.getBuffer(renderType);
 				if (renderType instanceof StandSurfaceRenderType surface && surface.groupKey == bodyGroup) {
-					surfaceBody |= surface.nearestSurface;
-					if (surfaceBody) {
+					bodyState.observe(surface.bodyPass, surface.nearestSurface);
+					if (bodyState.hasNearestBody(true)) {
 						// Each translucent fist keeps its nearest surface, while distinct fists still blend together.
 						return new BarrageVertexConsumer(body, swing -> delegate.getBuffer(
 								new StandSurfaceRenderType(surface.surfaceMaterial, surface.ordinaryMaterial,
 										surface.fallbackMaterial, surface.shadowMaterial, surface.viewDepth,
 										surface.ownerId, false, barrageGroups.computeIfAbsent(swing, key -> new Object()),
-										surface.emissionOrder, surface.bodyPass, surface.nearestSurface)));
+										surface.emissionOrder, surface.bodyPass, surface.nearestSurface,
+										false, surface.replayShader, false)));
 					}
 				}
 				return body;
 			}
 		};
+	}
+
+	static final class SurfaceBodyState {
+		private boolean nearestBody;
+		private boolean queuedBody;
+
+		void observe(boolean bodyPass, boolean nearestSurface) {
+			nearestBody |= nearestSurface;
+			queuedBody |= bodyPass || nearestSurface;
+		}
+
+		boolean hasNearestBody(boolean sameGroup) {
+			return sameGroup && nearestBody;
+		}
+
+		boolean hasQueuedBody(boolean sameGroup) {
+			return sameGroup && queuedBody;
+		}
+	}
+
+	/**
+	 * Replays a custom overlay after the current queued body, or uses the native fallback.
+	 * The private material must leave the caller-bound framebuffer intact. Its shader must
+	 * accept the supplied mesh format and use already-transformed UVs, not mutable texture state.
+	 */
+	public static RenderType standSurfaceOverlay(RenderType privateMaterial,
+			Supplier<ShaderInstance> replayShader, RenderType nativeFallback, RenderType shadowFallback) {
+		Objects.requireNonNull(privateMaterial, "privateMaterial");
+		Objects.requireNonNull(replayShader, "replayShader");
+		Objects.requireNonNull(nativeFallback, "nativeFallback");
+		Objects.requireNonNull(shadowFallback, "shadowFallback");
+		int ownerId = RenderStateCrutches.currentStandEntityRenderState instanceof StandEntityRenderState state
+				? state.entityId : 0;
+		return new StandSurfaceRenderType(privateMaterial, privateMaterial, nativeFallback, shadowFallback,
+				0.0, ownerId, false, surfaceGroupKey(), nextSurfaceOrder(), false, false,
+				false, replayShader, true);
 	}
 
 	/** For binary glow masks contained within an opted-in body's texture coverage. */
@@ -259,6 +305,8 @@ public final class ModRenderTypes extends RenderType {
 		private final boolean bodyPass;
 		private final boolean nearestSurface;
 		private final boolean requiresSurfaceBody;
+		private final Supplier<ShaderInstance> replayShader;
+		private final boolean requiresQueuedBody;
 
 		private StandSurfaceRenderType(RenderType surfaceMaterial, RenderType ordinaryMaterial,
 				RenderType fallbackMaterial, RenderType shadowMaterial, double viewDepth, int ownerId,
@@ -271,6 +319,14 @@ public final class ModRenderTypes extends RenderType {
 				RenderType fallbackMaterial, RenderType shadowMaterial, double viewDepth, int ownerId,
 				boolean consolidate, Object groupKey, int emissionOrder, boolean bodyPass, boolean nearestSurface,
 				boolean requiresSurfaceBody) {
+			this(surfaceMaterial, ordinaryMaterial, fallbackMaterial, shadowMaterial, viewDepth, ownerId,
+					consolidate, groupKey, emissionOrder, bodyPass, nearestSurface, requiresSurfaceBody, null, false);
+		}
+
+		private StandSurfaceRenderType(RenderType surfaceMaterial, RenderType ordinaryMaterial,
+				RenderType fallbackMaterial, RenderType shadowMaterial, double viewDepth, int ownerId,
+				boolean consolidate, Object groupKey, int emissionOrder, boolean bodyPass, boolean nearestSurface,
+				boolean requiresSurfaceBody, Supplier<ShaderInstance> replayShader, boolean requiresQueuedBody) {
 			super(surfaceMaterial.name + "_isolated", surfaceMaterial.format(), surfaceMaterial.mode(),
 					surfaceMaterial.bufferSize(), surfaceMaterial.affectsCrumbling(), surfaceMaterial.sortOnUpload(),
 					() -> {}, () -> {});
@@ -286,6 +342,17 @@ public final class ModRenderTypes extends RenderType {
 			this.bodyPass = bodyPass;
 			this.nearestSurface = nearestSurface;
 			this.requiresSurfaceBody = requiresSurfaceBody;
+			this.replayShader = replayShader;
+			this.requiresQueuedBody = requiresQueuedBody;
+		}
+
+		private RenderType resolveQueuedBody(boolean present) {
+			if (!present) {
+				return ClientRenderCompatibility.isIrisShadowPass() ? shadowMaterial : fallbackMaterial;
+			}
+			return new StandSurfaceRenderType(surfaceMaterial, ordinaryMaterial, fallbackMaterial, shadowMaterial,
+					viewDepth, ownerId, consolidate, groupKey, emissionOrder, false, false,
+					false, replayShader, false);
 		}
 
 		private StandSurfaceRenderType resolveSurfaceBody(boolean present) {
@@ -313,10 +380,19 @@ public final class ModRenderTypes extends RenderType {
 		public void draw(MeshData meshData) {
 			ModShaders shaders = ModShaders.getInstance();
 			StandTranslucencyFramebuffer framebuffer = shaders != null ? shaders.standTranslucencyFramebuffer : null;
-			if (framebuffer != null && framebuffer.canResolveBodySurface()
+			if (!requiresQueuedBody && framebuffer != null && framebuffer.canResolveBodySurface()
 					&& !EntityMaskPostEffect.isCapturePass() && !ClientRenderCompatibility.isIrisShadowPass()) {
-				framebuffer.drawBodySurface(meshData, requiresSurfaceBody ? ordinaryMaterial : surfaceMaterial,
-						viewDepth, ownerId, groupKey, emissionOrder, bodyPass);
+				if (replayShader == null) {
+					framebuffer.drawBodySurface(meshData, requiresSurfaceBody ? ordinaryMaterial : surfaceMaterial,
+							viewDepth, ownerId, groupKey, emissionOrder, bodyPass);
+				}
+				else {
+					try (meshData) {
+						framebuffer.drawBodySurface(meshData, surfaceMaterial,
+								Objects.requireNonNull(replayShader.get(), "overlay replay shader"),
+								viewDepth, ownerId, groupKey, emissionOrder, false);
+					}
+				}
 			}
 			else {
 				RenderType material = ClientRenderCompatibility.isIrisShadowPass() ? shadowMaterial : fallbackMaterial;

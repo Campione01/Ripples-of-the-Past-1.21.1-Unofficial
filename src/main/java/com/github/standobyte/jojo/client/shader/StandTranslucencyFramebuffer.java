@@ -124,10 +124,16 @@ public final class StandTranslucencyFramebuffer extends RotpShader {
 
 	public void drawBodySurface(MeshData meshData, RenderType surfaceMaterial,
 			double viewDepth, int ownerId, Object groupKey, int emissionOrder, boolean bodyPass) {
+		drawBodySurface(meshData, surfaceMaterial, ModShaders.getInstance().coreStandTranslucent,
+				viewDepth, ownerId, groupKey, emissionOrder, bodyPass);
+	}
+
+	public void drawBodySurface(MeshData meshData, RenderType surfaceMaterial, ShaderInstance replayShader,
+			double viewDepth, int ownerId, Object groupKey, int emissionOrder, boolean bodyPass) {
 		try (meshData) {
 			RenderSystem.assertOnRenderThread();
 			StandSurfaceDraw draw = StandSurfaceDraw.capture(meshData, surfaceMaterial,
-					ModShaders.getInstance().coreStandTranslucent, viewDepth, ownerId, groupKey, emissionOrder, bodyPass);
+					replayShader, viewDepth, ownerId, groupKey, emissionOrder, bodyPass);
 			try {
 				pendingSurfaces.add(draw);
 				usedThisFrame = true;

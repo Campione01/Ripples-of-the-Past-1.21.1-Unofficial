@@ -9,6 +9,7 @@ import java.util.List;
 
 import com.github.standobyte.jojo.client.rendertype.ModRenderTypes;
 import com.github.standobyte.jojo.client.rendertype.BarrageVertexConsumer;
+import com.github.standobyte.jojo.client.rendertype.StandSurfaceOverlaySmokeTest;
 import com.github.standobyte.jojo.client.shader.StandSurfaceDraw;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.ByteBufferBuilder;
@@ -34,6 +35,7 @@ public final class StandSurfaceDiagnosticSmokeTest {
 		verifyIndependentSurfaceMerge();
 		verifySubmissionIndependentOrder();
 		verifyScratchScopeContract();
+		StandSurfaceOverlaySmokeTest.runChecks();
 		System.out.println("Stand surface policy, blend math and source-scope checks passed; live draw validation remains required");
 	}
 
@@ -335,6 +337,10 @@ public final class StandSurfaceDiagnosticSmokeTest {
 		require(renderTypes, "material.clearRenderState();");
 		require(renderTypes, "ClientRenderCompatibility.isIrisShadowPass() ? shadowMaterial : fallbackMaterial");
 		require(renderTypes, "!ClientRenderCompatibility.isIrisShadowPass()");
+		require(renderTypes, "!requiresQueuedBody && framebuffer != null");
+		require(renderTypes, "Objects.requireNonNull(replayShader.get(), \"overlay replay shader\")");
+		require(framebuffer, "RenderType surfaceMaterial, ShaderInstance replayShader");
+		require(framebuffer, "replayShader, viewDepth, ownerId, groupKey, emissionOrder, bodyPass");
 		String shader = read(root.resolve(
 				"src/main/resources/assets/jojo_ripples/shaders/core/stand_surface_resolve.fsh"));
 		require(shader, "if (surfaceColor.a <= 0.0)");
