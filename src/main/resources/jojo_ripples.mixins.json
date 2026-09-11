@@ -125,6 +125,8 @@
 	"client.render.LivingEntityRenderLayerExtensionMixin",
 	"client.render.ClientLevelSkyPresentationMixin",
 	"client.render.LevelRendererSkyPresentationMixin",
+	"client.render.IrisCelestialSkyPresentationMixin",
+	"client.render.IrisWorldTimeSkyPresentationMixin",
 	"client.time.AbstractSoundInstanceRegionalTimeDilationAccessor",
 	"client.time.DeltaTrackerTimerRegionalTimeDilationMixin",
 	"client.time.ParticleEngineRegionalTimeDilationMixin",

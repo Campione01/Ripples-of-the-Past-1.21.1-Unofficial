@@ -3,7 +3,7 @@ package com.github.standobyte.jojo.api.client.render;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Presentation-only transforms for the vanilla client sky path.
+ * Presentation-only transforms for the client sky and compatible shader sky uniforms.
  */
 public interface ClientSkyPresentation {
 	default float timeOfDay(float original, float partialTick) {

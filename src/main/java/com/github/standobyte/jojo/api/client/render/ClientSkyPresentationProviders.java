@@ -17,11 +17,11 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
 
 /**
- * Owner-keyed presentation policies for the vanilla client sky.
+ * Owner-keyed presentation policies for the client sky.
  *
  * <p>The first active provider wins in registration order. Policies only
- * transform vanilla sky values; they do not mutate level time, game rules,
- * framebuffers, shaders, or third-party renderer state. Resolution is
+ * transform sky values and compatible shader sky uniform inputs; they do not
+ * mutate level time, game rules, framebuffers, or shader programs. Resolution is
  * stateless, so resource reload and disconnect require no retained-world
  * cleanup.</p>
  */
@@ -63,6 +63,36 @@ public final class ClientSkyPresentationProviders {
 			logFailure(resolved.owner(), "time of day", error);
 			return original;
 		}
+	}
+
+	public static float shaderTimeOfDay(
+			ClientLevel level, float partialTick, float original) {
+		float presented = timeOfDay(level, partialTick, original);
+		return Float.isFinite(presented) && presented >= 0.0F && presented < 1.0F
+				? presented : original;
+	}
+
+	public static int shaderWorldTime(
+			ClientLevel level, float partialTick, int original, float originalSkyAngle) {
+		return worldTimeFromSkyAngle(original, originalSkyAngle,
+				shaderTimeOfDay(level, partialTick, originalSkyAngle));
+	}
+
+	static int worldTimeFromSkyAngle(int original, float originalSkyAngle, float presentedSkyAngle) {
+		if (presentedSkyAngle == originalSkyAngle || !Float.isFinite(presentedSkyAngle)
+				|| presentedSkyAngle < 0.0F || presentedSkyAngle >= 1.0F) {
+			return original;
+		}
+		// Invert DimensionType.timeOfDay's monotonic daylight curve, not angle * 24000.
+		double low = 0.0D;
+		double high = 1.0D;
+		for (int i = 0; i < 32; i++) {
+			double phase = (low + high) * 0.5D;
+			double angle = (2.0D * phase + 0.5D - Math.cos(Math.PI * phase) * 0.5D) / 3.0D;
+			if (angle < presentedSkyAngle) low = phase;
+			else high = phase;
+		}
+		return Math.floorMod((int) Math.round(((low + high) * 0.5D + 0.25D) * 24000.0D), 24000);
 	}
 
 	public static float skyDarken(
