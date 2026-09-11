@@ -250,6 +250,15 @@ tasks.register('addonApiSmokeTest', JavaExec) {
     mainClass = 'com.github.standobyte.jojo.api.RotpAddonApiSmokeTest'
 }
 
+tasks.register('theWorldTsPunchSmokeTest', JavaExec) {
+    group = 'verification'
+    description = 'Checks time-skip punch travel budget boundaries.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
+    mainClass = 'com.github.standobyte.jojoimpl.stands.theworld.TheWorldTsPunchSmokeTest'
+    workingDir = projectDir
+}
+
 tasks.register('genericModelGeometrySmokeTest', JavaExec) {
     group = 'verification'
     description = 'Checks Blockbench polygon emission and optionally bakes a supplied model.'
@@ -411,6 +420,7 @@ tasks.register('standAuraFxIntegrationSmokeTest', JavaExec) {
 }
 
 tasks.named('check').configure {
+    dependsOn tasks.named('theWorldTsPunchSmokeTest')
     dependsOn tasks.named('clientSettingsSmokeTest')
     dependsOn tasks.named('addonApiSmokeTest')
     dependsOn tasks.named('timeStopBehaviorPolicySmokeTest')

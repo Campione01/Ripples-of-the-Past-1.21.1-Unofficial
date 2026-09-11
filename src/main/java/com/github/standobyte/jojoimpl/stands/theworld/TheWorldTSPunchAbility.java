@@ -147,6 +147,16 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 		return TS_PUNCH_ANIM;
 	}
 
+	static double getBlinkDistanceRatio(int timeStopTicks, int ticksForWindup, double ticksForDistance) {
+		if (timeStopTicks <= ticksForWindup || !Double.isFinite(ticksForDistance) || ticksForDistance < 0) {
+			return 0;
+		}
+		if (ticksForDistance == 0) {
+			return 1;
+		}
+		return Mth.clamp(((double) timeStopTicks - ticksForWindup) / ticksForDistance, 0, 1);
+	}
+
 	public static class TheWorldTSPunch extends StandEntityHeavyPunchAbility.StandEntityHeavyPunch {
 		private ActionTarget targetAfterBlink = ActionTarget.EMPTY;
 
@@ -252,10 +262,12 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 
 		@Override
 		protected ActionTarget getPunchTarget(StandEntity stand) {
-			if (targetAfterBlink != ActionTarget.EMPTY && !targetAfterBlink.isEmpty(stand.level())) {
-				return targetAfterBlink;
+			ActionTarget target = targetAfterBlink != ActionTarget.EMPTY ? targetAfterBlink : super.getPunchTarget(stand);
+			target = StandEntityPunchAbility.validatePunchTarget(stand, target);
+			if (target.getType() == TargetType.ENTITY && !stand.hasLineOfSight(target.getMainEntity())) {
+				return ActionTarget.EMPTY;
 			}
-			return super.getPunchTarget(stand);
+			return target;
 		}
 
 		private static ActionTarget blinkStandTowardTarget(StandEntity stand, EntityActionInstance prevAction,
@@ -278,24 +290,22 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 					: TimeStopLearning.MIN_TIME_STOP_TICKS;
 			int ticksForWindup = 10 + (prevAction != null ? 20 : 0);
 			double speed = getDistancePerTick(stand);
-			if (speed > 0) {
+			if (Double.isFinite(speed) && speed > 0) {
 				double ticksForDistance = blinkPos.subtract(stand.position()).length() / speed;
-				if (timeStopTicks < ticksForDistance + ticksForWindup) {
-					if (timeStopTicks > ticksForWindup && ticksForDistance > 0) {
-						blinkPos = blinkPos.subtract(stand.position())
-								.scale((double) timeStopTicks - ticksForWindup / ticksForDistance)
-								.add(stand.position());
-					}
-					else {
-						blinkPos = stand.position();
-					}
+				double distanceRatio = getBlinkDistanceRatio(timeStopTicks, ticksForWindup, ticksForDistance);
+				if (distanceRatio <= 0) {
+					blinkPos = stand.position();
+				}
+				else if (distanceRatio < 1) {
+					blinkPos = stand.position().lerp(blinkPos, distanceRatio);
 				}
 				else {
 					timeStopTicks = Mth.ceil(ticksForDistance) + ticksForWindup;
 				}
 			}
 			else {
-				timeStopTicks = ticksForWindup;
+				blinkPos = stand.position();
+				timeStopTicks = Math.min(timeStopTicks, ticksForWindup);
 			}
 
 			blinkPos = stand.collideNextPos(blinkPos);
