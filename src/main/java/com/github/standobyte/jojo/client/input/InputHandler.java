@@ -379,8 +379,10 @@ public class InputHandler {
 			boolean stoneMaskWorn,
 			int mainHandKnifeCount,
 			int offHandKnifeCount) {
+		// Main-hand knives consume Use before vanilla can try the off hand.
 		return vanillaUseTrigger && stoneMaskWorn
-				&& mainHandKnifeCount + offHandKnifeCount == 1;
+				&& (mainHandKnifeCount == 1
+						|| mainHandKnifeCount == 0 && offHandKnifeCount == 1);
 	}
 
 	private boolean shouldPreserveUnsummonedStandVanillaUsePress(

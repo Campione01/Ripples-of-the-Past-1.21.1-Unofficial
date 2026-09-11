@@ -24,9 +24,18 @@ public final class StoneMaskUseInputSmokeTest {
 		check(!InputHandler.shouldPreserveStoneMaskKnifeUse(
 				true, true, 2, 0),
 				"stacked knives bypassed the one-knife requirement");
-		check(!InputHandler.shouldPreserveStoneMaskKnifeUse(
+		check(InputHandler.shouldPreserveStoneMaskKnifeUse(
 				true, true, 1, 1),
-				"two hands each holding a knife bypassed the one-knife requirement");
+				"an off-hand knife blocked single main-hand knife activation");
+		check(InputHandler.shouldPreserveStoneMaskKnifeUse(
+				true, true, 1, 16),
+				"stacked off-hand knives blocked single main-hand knife activation");
+		check(!InputHandler.shouldPreserveStoneMaskKnifeUse(
+				true, true, 16, 1),
+				"single off-hand knife activation bypassed main-hand knife throwing");
+		check(!InputHandler.shouldPreserveStoneMaskKnifeUse(
+				true, true, 0, 16),
+				"stacked off-hand knives bypassed the one-knife requirement");
 		check(!InputHandler.shouldPreserveStoneMaskKnifeUse(
 				true, true, 0, 0),
 				"an empty hand bypassed the one-knife requirement");
