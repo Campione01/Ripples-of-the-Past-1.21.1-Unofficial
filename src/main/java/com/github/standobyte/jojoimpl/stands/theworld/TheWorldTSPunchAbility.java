@@ -157,8 +157,14 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 		return Mth.clamp(((double) timeStopTicks - ticksForWindup) / ticksForDistance, 0, 1);
 	}
 
+	static double getEntityBlinkFeetY(double alignedFeetY, double targetFeetY) {
+		return Math.max(alignedFeetY, targetFeetY);
+	}
+
 	public static class TheWorldTSPunch extends StandEntityHeavyPunchAbility.StandEntityHeavyPunch {
 		private ActionTarget targetAfterBlink = ActionTarget.EMPTY;
+		private boolean gravityOverridden;
+		private boolean previousNoGravity;
 
 		public TheWorldTSPunch(EntityActionType ability) {
 			super(ability);
@@ -167,14 +173,37 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 		@Override
 		public void onActionSet(EntityActionInstance prevAction) {
 			super.onActionSet(prevAction);
-			if (performer instanceof StandEntity stand && !stand.level().isClientSide()) {
-				stand.summonLockTicks = 0;
-				ActionTarget target = blinkStandTowardTarget(stand, prevAction, getActionTargetSnapshot(stand.level()));
-				targetAfterBlink = setActionTargetSnapshot(target);
-				if (!target.isEmpty(stand.level())) {
-					standRotationTarget = target;
+			if (performer instanceof StandEntity stand) {
+				// Following normally masks old velocity; a stationary blink must not inherit it.
+				stand.setDeltaMovement(Vec3.ZERO);
+				if (!stand.level().isClientSide()) {
+					previousNoGravity = stand.isNoGravity();
+					gravityOverridden = true;
+					stand.setNoGravity(true);
+					stand.hurtMarked = true;
+					stand.summonLockTicks = 0;
+					ActionTarget target = blinkStandTowardTarget(stand, prevAction, getActionTargetSnapshot(stand.level()));
+					targetAfterBlink = setActionTargetSnapshot(target);
+					if (!target.isEmpty(stand.level())) {
+						standRotationTarget = target;
+					}
 				}
 			}
+		}
+
+		@Override
+		public void onActionCleared(EntityActionInstance newAction) {
+			if (performer instanceof StandEntity stand) {
+				stand.setDeltaMovement(Vec3.ZERO);
+				if (!stand.level().isClientSide()) {
+					if (gravityOverridden) {
+						stand.setNoGravity(previousNoGravity);
+						gravityOverridden = false;
+					}
+					stand.hurtMarked = true;
+				}
+			}
+			super.onActionCleared(newAction);
 		}
 
 		@Override
@@ -358,7 +387,8 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 				Entity targetEntity, ActionTarget target) {
 			Vec3 targetPos = targetEntity.getEyePosition();
 			double offset = 0.5 + stand.getBbWidth() + targetEntity.getBoundingBox().getXsize() / 2;
-			return offsetFromTargetPosition(stand, aimingEntity, targetPos, offset);
+			Vec3 blinkPos = offsetFromTargetPosition(stand, aimingEntity, targetPos, offset);
+			return new Vec3(blinkPos.x, getEntityBlinkFeetY(blinkPos.y, targetEntity.getY()), blinkPos.z);
 		}
 
 		private static Vec3 getBlockTargetTeleportPos(StandEntity stand, LivingEntity aimingEntity, ActionTarget target) {

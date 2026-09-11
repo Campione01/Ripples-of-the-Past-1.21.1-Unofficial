@@ -29,7 +29,18 @@ public final class TheWorldTsPunchSmokeTest {
 					"movement spent windup ticks for budget " + budget);
 		}
 
+		checkLanding(100.7095, 101, 101, "taller Stand landed below the target's floor");
+		checkLanding(101.4, 101, 101.4, "valid higher landing was lowered");
+		checkLanding(118.7, 120, 120, "airborne target lost its feet-height lower bound");
+		checkLanding(121, 120, 121, "higher airborne landing was lowered");
+		checkLanding(-64.2, -63, -63, "negative-world-height landing ignored the target's feet");
+
 		System.out.println("The World TS Punch focused smoke test passed.");
+	}
+
+	private static void checkLanding(double alignedFeetY, double targetFeetY, double expected, String message) {
+		double actual = TheWorldTSPunchAbility.getEntityBlinkFeetY(alignedFeetY, targetFeetY);
+		check(Math.abs(actual - expected) <= EPSILON, message + ": expected=" + expected + ", actual=" + actual);
 	}
 
 	private static void checkRatio(int budget, int windup, double distance, double expected, String message) {
