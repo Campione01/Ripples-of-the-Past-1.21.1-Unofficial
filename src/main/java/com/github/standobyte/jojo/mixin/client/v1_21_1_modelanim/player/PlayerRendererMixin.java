@@ -12,6 +12,7 @@ import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.github.standobyte.jojo.client.entityrender.RipplesPlayerRenderState;
 import com.github.standobyte.jojo.client.entityrender.RipplesPlayerRenderState.RipplesRenderStateExtensionMixin;
 import com.github.standobyte.jojoimpl.powers.hamon.HamonZoomPunchState;
+import com.github.standobyte.jojoimpl.powers.hamon.client.TornadoOverdriveEffectLayer;
 import com.github.standobyte.jojoimpl.powers.pillarman.client.PillarmanStoneFormLayer;
 import com.github.standobyte.v1_21_4_stuff.renderstate.HumanoidRenderState;
 import com.github.standobyte.v1_21_4_stuff.renderstate.LivingEntityRenderState;
@@ -97,13 +98,23 @@ public abstract class PlayerRendererMixin extends LivingEntityRenderer<AbstractC
 		}
 		PillarmanStoneFormLayer.OuterLayerVisibility stoneFormOuterLayer =
 				PillarmanStoneFormLayer.captureOuterLayerVisibility(player, renderer.getModel());
+		boolean tornadoOverdrive = TornadoOverdriveEffectLayer.isTornadoOverdriveActive(player);
+		if (tornadoOverdrive) {
+			poseStack.pushPose();
+		}
 		try {
+			if (tornadoOverdrive) {
+				TornadoOverdriveEffectLayer.rotateBody(poseStack, player, partialTick);
+			}
 			if (stoneFormOuterLayer != null) {
 				stoneFormOuterLayer.hide();
 			}
 			original.call(renderer, entity, entityYaw, partialTick, poseStack, buffer, light);
 		}
 		finally {
+			if (tornadoOverdrive) {
+				poseStack.popPose();
+			}
 			if (stoneFormOuterLayer != null) {
 				stoneFormOuterLayer.restore();
 			}

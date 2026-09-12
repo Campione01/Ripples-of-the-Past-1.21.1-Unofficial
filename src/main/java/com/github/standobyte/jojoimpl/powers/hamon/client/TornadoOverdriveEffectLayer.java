@@ -53,12 +53,18 @@ public class TornadoOverdriveEffectLayer<T extends LivingEntity, M extends Human
 		}
 	}
 
-	private static boolean isTornadoOverdriveActive(LivingEntity entity) {
+	public static boolean isTornadoOverdriveActive(LivingEntity entity) {
 		EntityActionInstance action = LivingComponentAction.getCurEntityAction(entity);
 		return action != null
+				&& !action.isOver()
 				&& action.ability instanceof Ability ability
 				&& (ability.abilityType == HamonPowerType.HAMON_TORNADO_OVERDRIVE.get()
 						|| "tornado_overdrive".equals(ability.getAbilityId().nameInMoveset()));
+	}
+
+	public static void rotateBody(PoseStack poseStack, LivingEntity entity, float partialTick) {
+		// Entity age keeps advancing while the held action's phase timer stays at its endpoint.
+		poseStack.mulPose(Axis.YP.rotation((entity.tickCount + partialTick) * 2.0F % ((float) Math.PI * 2.0F)));
 	}
 
 	private static LayerDefinition createLayer() {

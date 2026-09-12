@@ -7875,6 +7875,11 @@
 		},
 		"scarlet_overdrive": {
 			"animation_length": 5.05,
+			"timeline": {
+				"0.0": "phase = WINDUP;",
+				"4.05": "phase = PERFORM;",
+				"4.5": "phase = RECOVERY;"
+			},
 			"bones": {
 				"body": {
 					"rotation": {
