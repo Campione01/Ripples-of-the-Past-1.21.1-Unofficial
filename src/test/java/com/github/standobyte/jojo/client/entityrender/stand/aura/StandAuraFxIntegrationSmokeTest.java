@@ -239,12 +239,29 @@ public final class StandAuraFxIntegrationSmokeTest {
         check(!standRenderTypes.contains(
                         "IrisShaderPipelineCompat.isShaderPackInUse()"),
                 "Iris still replaces Stand vertex alpha with a pack entity shader");
-        require(standRenderTypes,
-                "return STAND_TRANSLUCENT.apply(texture, "
-                        + "new StandTranslucentState(outline, false));");
-        require(standRenderTypes,
-                "return STAND_TRANSLUCENT.apply(texture, "
-                        + "new StandTranslucentState(true, true));");
+        // Aura materials now share the Stand body's ordered surface queue.
+        String compactRenderTypes = standRenderTypes.replaceAll("\\s+", "");
+        require(compactRenderTypes,
+                "standTranslucent(ResourceLocationtexture,booleanoutline){"
+                        + "returnqueuedStandTranslucent(texture,outline,false);}");
+        require(compactRenderTypes,
+                "standTranslucentCull(ResourceLocationtexture){"
+                        + "returnqueuedStandTranslucent(texture,true,true);}");
+        int queueStart = compactRenderTypes.indexOf(
+                "privatestaticRenderTypequeuedStandTranslucent(");
+        int queueEnd = compactRenderTypes.indexOf(
+                "privatestaticObjectsurfaceGroupKey()", queueStart);
+        check(queueStart >= 0 && queueEnd > queueStart,
+                "Stand translucent queue implementation is missing");
+        String queuedMaterial = compactRenderTypes.substring(queueStart, queueEnd);
+        require(queuedMaterial, "returnnewStandSurfaceRenderType(");
+        require(queuedMaterial,
+                "STAND_TRANSLUCENT.apply(texture,"
+                        + "newStandTranslucentState(outline,cull,false,true))");
+        require(queuedMaterial,
+                "STAND_TRANSLUCENT.apply(texture,"
+                        + "newStandTranslucentState(outline,cull))");
+        require(queuedMaterial, "surfaceGroupKey(),nextSurfaceOrder(),false,false");
         require(standRenderTypes, "ModRenderTypes::restoreStandOutlineTarget");
         require(standRenderTypes,
                 "restoreIrisWorldTargetAfterOutline =");
