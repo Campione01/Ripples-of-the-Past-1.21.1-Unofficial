@@ -1195,6 +1195,15 @@
       "loop": "hold_on_last_frame",
       "animation_length": 0.9333,
       "bones": {
+        "head_rot": {
+          "rotation": {
+            "vector": [
+              "query.head_x_rotation",
+              "query.head_y_rotation",
+              0
+            ]
+          }
+        },
         "body_rot": {
           "rotation": {
             "0": {
@@ -1488,6 +1497,15 @@
       "loop": "hold_on_last_frame",
       "animation_length": 1.2,
       "bones": {
+        "head_rot": {
+          "rotation": {
+            "vector": [
+              "query.head_x_rotation",
+              "query.head_y_rotation",
+              0
+            ]
+          }
+        },
         "body_rot": {
           "rotation": {
             "0": {
