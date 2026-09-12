@@ -118,6 +118,8 @@ public final class SilverChariotEquipmentLifecycleGameTests {
 	}
 
 	private static void assertLightAttackSelection(GameTestHelper helper, StandPower power, Ability expected) {
+		// Each equipment phase is a new power tick; moves are intentionally cached within one tick.
+		power.tick();
 		AvailableAbilities available = power.updateAvailableMoves();
 		helper.assertTrue(available.getContextVariation("light_attack") == expected,
 				"Base light-attack input did not resolve to " + expected.name());
