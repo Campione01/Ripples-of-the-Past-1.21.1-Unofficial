@@ -1820,6 +1820,7 @@
   "jojo_ripples.ability.puppet.release": "解除傀儡操控",
   "jojo_ripples.menu.stand.display_settings": "替身显示",
   "jojo_ripples.stand_display.classic_outline": "经典轮廓：%s",
+  "jojo_ripples.stand_display.compact_hotbar": "精简技能栏：%s",
   "jojo_ripples.stand_display.classic_obstruction": "经典防遮挡：%s",
   "jojo_ripples.stand_display.own_transparency": "自身替身透明度：%s%%",
   "jojo_ripples.stand_display.other_transparency": "其他替身透明度：%s%%",

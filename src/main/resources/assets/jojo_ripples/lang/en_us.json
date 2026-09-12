@@ -1833,6 +1833,7 @@
   "jojo_ripples.ability.puppet.release": "Release Puppet",
   "jojo_ripples.menu.stand.display_settings": "Stand Display",
   "jojo_ripples.stand_display.classic_outline": "Classic outline: %s",
+  "jojo_ripples.stand_display.compact_hotbar": "Compact skill bar: %s",
   "jojo_ripples.stand_display.classic_obstruction": "Classic obstruction: %s",
   "jojo_ripples.stand_display.own_transparency": "Own stand transparency: %s%%",
   "jojo_ripples.stand_display.other_transparency": "Other stands transparency: %s%%",

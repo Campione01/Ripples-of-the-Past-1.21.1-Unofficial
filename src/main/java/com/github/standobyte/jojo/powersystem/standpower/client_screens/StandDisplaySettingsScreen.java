@@ -26,6 +26,7 @@ public class StandDisplaySettingsScreen extends Screen implements IJojoMenuScree
 	private final Tab tab;
 	private Button classicObstructionButton;
 	private Button outlineButton;
+	private Button compactHotbarButton;
 	private TransparencySlider ownTransparencySlider;
 	private TransparencySlider otherTransparencySlider;
 	private static final int AURA_PARAMETERS_PER_PAGE = 5;
@@ -75,6 +76,10 @@ public class StandDisplaySettingsScreen extends Screen implements IJojoMenuScree
 				button -> openAuraPage(0))
 				.bounds(x, y + 134, controlWidth, 20)
 				.build());
+		compactHotbarButton = addRenderableWidget(Button.builder(compactHotbarMessage(), button -> {
+			ClientModSettings.edit(settings -> settings.compactStandHotbar = !settings.compactStandHotbar, false);
+			updateControls();
+		}).bounds(x, y + 160, controlWidth, 20).build());
 		updateControls();
 	}
 
@@ -213,6 +218,7 @@ public class StandDisplaySettingsScreen extends Screen implements IJojoMenuScree
 		classicObstructionButton.setMessage(classicObstructionMessage());
 		outlineButton.active = settings().classicStandObstruction;
 		outlineButton.setMessage(outlineMessage());
+		compactHotbarButton.setMessage(compactHotbarMessage());
 	}
 
 	private Component classicObstructionMessage() {
@@ -223,6 +229,11 @@ public class StandDisplaySettingsScreen extends Screen implements IJojoMenuScree
 	private Component outlineMessage() {
 		return Component.translatable("jojo_ripples.stand_display.classic_outline",
 				Component.translatable(settings().standOutline ? "options.on" : "options.off"));
+	}
+
+	private Component compactHotbarMessage() {
+		return Component.translatable("jojo_ripples.stand_display.compact_hotbar",
+				Component.translatable(settings().compactStandHotbar ? "options.on" : "options.off"));
 	}
 
 	private static ClientModSettings.Settings settings() {

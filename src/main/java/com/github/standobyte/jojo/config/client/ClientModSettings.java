@@ -33,6 +33,7 @@ public class ClientModSettings {
 //		public boolean hudHotbarFold = true;
 		public boolean showLockedSlots = false;
 		public boolean abilitySelectionWheel = true;
+		public boolean compactStandHotbar = false;
 
 		public boolean resolveShaders = true;
 		public boolean timeStopAnimation = true;
@@ -162,6 +163,7 @@ public class ClientModSettings {
 		normalizeTransparencyField(settings, "standOthersTransparency");
 		normalizeBooleanField(settings, "classicStandObstruction");
 		normalizeBooleanField(settings, "standOutline");
+		normalizeBooleanField(settings, "compactStandHotbar");
 		return settings;
 	}
 

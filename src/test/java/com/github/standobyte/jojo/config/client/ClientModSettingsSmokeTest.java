@@ -25,6 +25,9 @@ public final class ClientModSettingsSmokeTest {
 			loadInvalidStandDisplayFieldsPreserveUnrelatedSettings();
 			loadUnknownLegacyModeDefaultsToClassicTrue();
 			editStandDisplayFieldsPersistExactValues();
+			compactHotbarDefaultsAndPersistsWithoutChangingDisplaySettings();
+			invalidCompactHotbarValueKeepsOtherSettings();
+			com.github.standobyte.jojo.client.ui.hud_power.CompactStandHotbarWindowSmokeTest.run();
 			savedJsonAssertionsRejectNestedSameNameKeys();
 			savedJsonAssertionsRejectBroadcastedOwner();
 			savedJsonAssertionsParseScientificNotationAsNumbers();
@@ -196,6 +199,40 @@ public final class ClientModSettingsSmokeTest {
 					"new stand display edits persist exact values");
 			assertSavedSettingsJson(settingsFile, 33.0F, 44.0F, false, false, false,
 					"new stand display edits persist exact values");
+		});
+	}
+
+	private static void compactHotbarDefaultsAndPersistsWithoutChangingDisplaySettings() throws Exception {
+		withSettingsFile("{\"standTransparency\":20,\"abilitySelectionWheel\":true}", settingsFile -> {
+			ClientModSettings.init(settingsFile.toFile());
+			assertBooleanEquals(false, ClientModSettings.getSettingsReadOnly().compactStandHotbar,
+					"legacy file keeps the complete hotbar by default");
+			ClientModSettings.edit(settings -> settings.compactStandHotbar = true, false);
+			GSON.parseTopLevelObject(Files.readString(settingsFile), "compact saved")
+					.assertPrimitiveBooleanEquals("compactStandHotbar", true, "compact saved");
+			resetInstance();
+			ClientModSettings.init(settingsFile.toFile());
+			assertBooleanEquals(true, ClientModSettings.getSettingsReadOnly().compactStandHotbar,
+					"compact setting survives reload");
+			assertFloatEquals(20, ClientModSettings.getSettingsReadOnly().standTransparency,
+					"compact setting preserves transparency");
+			assertBooleanEquals(true, ClientModSettings.getSettingsReadOnly().abilitySelectionWheel,
+					"compact setting preserves the complete selection wheel");
+			ClientModSettings.edit(settings -> settings.compactStandHotbar = false, false);
+			resetInstance();
+			ClientModSettings.init(settingsFile.toFile());
+			assertBooleanEquals(false, ClientModSettings.getSettingsReadOnly().compactStandHotbar,
+					"complete hotbar can be restored and persisted");
+		});
+	}
+
+	private static void invalidCompactHotbarValueKeepsOtherSettings() throws Exception {
+		withSettingsFile("{\"compactStandHotbar\":{},\"standTransparency\":25}", settingsFile -> {
+			ClientModSettings.init(settingsFile.toFile());
+			assertBooleanEquals(false, ClientModSettings.getSettingsReadOnly().compactStandHotbar,
+					"invalid compact value uses disabled default");
+			assertFloatEquals(25, ClientModSettings.getSettingsReadOnly().standTransparency,
+					"invalid compact value does not reset unrelated display options");
 		});
 	}
 

@@ -35,6 +35,7 @@ import com.github.standobyte.jojo.client.ui.utils.TextUtil;
 import com.github.standobyte.jojo.client.ui.utils.tooltip.TooltipParams;
 import com.github.standobyte.jojo.client.util.functions.ClientUtil;
 import com.github.standobyte.jojo.client.util.functions.ShortenText;
+import com.github.standobyte.jojo.config.client.ClientModSettings;
 import com.github.standobyte.jojo.core.JojoMod;
 import com.github.standobyte.jojo.powersystem.Power;
 import com.github.standobyte.jojo.powersystem.PowerClass;
@@ -281,6 +282,10 @@ public class PowerHudControlsElement extends HudElement {
 
 		// hotbars
 		boolean standHotbarDisplay = controlScheme.powerClassCosmetic == PowerClass.STAND;
+		boolean compactHotbarDisplay = standHotbarDisplay
+				&& ClientModSettings.getSettingsReadOnly().compactStandHotbar
+				&& hud.forContainerMenu == TriState.DEFAULT
+				&& Minecraft.getInstance().screen == null;
 		KeyModifier hotbarDisplayModifier = standHotbarDisplay ? KeyModifier.NONE : modifier;
 		for (Hotbar hotbar : curGroup.hotbars) {
 			if (!hotbar.slots.isEmpty()) {
@@ -292,7 +297,11 @@ public class PowerHudControlsElement extends HudElement {
 				hotbarUI.isSelectingAbility = modInput.isSelectingAbility(hotbar);
 				hotbarUI.highlight = hotbarUI.isSelectingAbility && !hotbar.alwaysSwitchAbility();
 
-				for (ClientControlScheme.HotbarSlot slot : hotbar.slots) {
+				CompactStandHotbarWindow.Range visibleRange = CompactStandHotbarWindow.visibleRange(
+						hotbar.slots.size(), hotbar.slotIndex, compactHotbarDisplay);
+				for (int slotPosition = visibleRange.startInclusive();
+						slotPosition < visibleRange.endExclusive(); slotPosition++) {
+					ClientControlScheme.HotbarSlot slot = hotbar.slots.get(slotPosition);
 					HotbarSlotUI slotUI = new HotbarSlotUI();
 					ClientKey key = input.getKey();
 					slotUI.bind = new BindUI();
@@ -340,10 +349,6 @@ public class PowerHudControlsElement extends HudElement {
 				}
 				
 				hotbarUI.keybindWidth = font.width(hotbarUI.keybind) + 4;
-				hotbarUI.width = hotbarUI.keybindWidth + hotbarUI.slots.size() * SLOT_WIDTH + 4;
-				if (hotbarUI.switchHint != null) {
-					hotbarUI.width = Math.max(font.width(hotbarUI.switchHint), hotbarUI.width);
-				}
 
 				this.hotbars.add(hotbarUI);
 			}
@@ -359,6 +364,10 @@ public class PowerHudControlsElement extends HudElement {
 		int maxHotbarKeybindWidth = this.hotbars.stream().mapToInt(hotbar -> hotbar.keybindWidth).max().orElse(0);
 		for (var hotbarUI : this.hotbars) {
 			hotbarUI.keybindWidth = maxHotbarKeybindWidth;
+			hotbarUI.width = hotbarUI.keybindWidth + hotbarUI.slots.size() * SLOT_WIDTH + 4;
+			if (hotbarUI.switchHint != null) {
+				hotbarUI.width = Math.max(font.width(hotbarUI.switchHint), hotbarUI.width);
+			}
 		}
 
 		int y = 0;
@@ -373,7 +382,7 @@ public class PowerHudControlsElement extends HudElement {
 		for (HotbarUILine hotbar : this.hotbars) {
 			y += 8;
 			hotbar.y = y;
-			int x = 12;
+			int x = hotbar.keybindWidth;
 			for (HotbarSlotUI slot : hotbar.slots) {
 				if (slot.bind != null) {
 					hoverableAbilities.add(Pair.of(slot.bind, new ScreenRectangle(
