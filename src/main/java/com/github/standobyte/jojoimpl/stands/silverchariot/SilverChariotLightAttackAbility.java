@@ -73,6 +73,13 @@ public class SilverChariotLightAttackAbility extends StandEntityPunchAbility {
 		if (user == null) {
 			return false;
 		}
+		if (user.level().isClientSide()) {
+			StandEntity stand = standPower.getSummonedStandEntity();
+			if (stand != null) {
+				// The user attachment is server-owned; equipment flags are synced with the Stand.
+				return !stand.isSilverChariotRapierVisible();
+			}
+		}
 		SilverChariotState state = SilverChariotState.get(user);
 		return state != null && !state.hasRapier();
 	}
