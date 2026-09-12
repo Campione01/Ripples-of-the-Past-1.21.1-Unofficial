@@ -178,6 +178,7 @@ public class HamonData extends PlayerPowerData {
 	private final Map<String, Integer> abilityCooldownTotals = new HashMap<>();
 	private boolean waterWalkingPrevTick;
 	private boolean waterWalkingThisTick;
+	private int waterWalkingContactTick = Integer.MIN_VALUE;
 	private boolean trWaterWalking;
 	private boolean clWaterWalkingTickSpark = true;
 	private boolean clWaterWalkingLargeSpark;
@@ -1782,6 +1783,19 @@ public class HamonData extends PlayerPowerData {
 
 	public void setWaterWalkingThisTick() {
 		waterWalkingThisTick = true;
+	}
+
+	boolean hasWaterWalkingContact(int tick) {
+		return waterWalkingContactTick == tick;
+	}
+
+	boolean claimWaterWalkingContact(int tick) {
+		setWaterWalkingThisTick();
+		if (hasWaterWalkingContact(tick)) {
+			return false;
+		}
+		waterWalkingContactTick = tick;
+		return true;
 	}
 
 	public void postTickWaterWalking(LivingEntity user) {

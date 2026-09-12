@@ -13,7 +13,16 @@ import net.minecraft.world.level.material.FluidState;
 public final class HamonMovementHelper {
 	private HamonMovementHelper() {}
 
+	// Called from collision-shape queries: never mutate movement or spend resources here.
 	public static boolean onLiquidWalkingEvent(LivingEntity entity, FluidState fluidState) {
+		if (entity == null || fluidState == null || fluidState.isEmpty()) {
+			return false;
+		}
+		HamonData hamon = PlayerPower.getPowerData(entity, ModPlayerPowers.HAMON).orElse(null);
+		return isLiquidWalking(entity, hamon, fluidState);
+	}
+
+	public static boolean onLiquidWalkingContact(LivingEntity entity, FluidState fluidState) {
 		if (entity == null || fluidState == null || fluidState.isEmpty()) {
 			return false;
 		}
@@ -21,7 +30,12 @@ public final class HamonMovementHelper {
 		if (!isLiquidWalking(entity, hamon, fluidState)) {
 			return false;
 		}
-		hamon.setWaterWalkingThisTick();
+		if (hamon.claimWaterWalkingContact(entity.tickCount) && !entity.level().isClientSide()) {
+			if (fluidState.is(FluidTags.LAVA) && !entity.fireImmune() && !hasFrostWalker(entity)) {
+				entity.hurt(entity.damageSources().hotFloor(), 1.0F);
+			}
+			hamon.consumeEnergy(hamon.waterWalkingTickCost(), entity);
+		}
 		return true;
 	}
 
@@ -35,20 +49,12 @@ public final class HamonMovementHelper {
 		if (fluidState.is(FluidTags.WATER) && entity.isOnFire()) {
 			return false;
 		}
-		float tickCost = hamon.waterWalkingTickCost();
-		if (!hamon.hasEnergy(tickCost, entity)) {
-			return false;
-		}
-		entity.setOnGround(true);
-
-		if (!entity.level().isClientSide()) {
-			if (fluidState.is(FluidTags.LAVA) && !entity.fireImmune() && !hasFrostWalker(entity)) {
-				entity.hurt(entity.damageSources().hotFloor(), 1.0F);
-			}
-			hamon.consumeEnergy(tickCost, entity);
-		}
-		return true;
+		// Supporting-block queries can repeat after the movement's last affordable debit.
+		return hamon.hasWaterWalkingContact(entity.tickCount)
+				|| hamon.hasEnergy(hamon.waterWalkingTickCost(), entity);
 	}
+
+	public record FluidContact(double verticalDisplacement, FluidState fluidState) {}
 
 	private static boolean hasFrostWalker(LivingEntity entity) {
 		return EnchantmentHelper.getEnchantmentLevel(entity.registryAccess()

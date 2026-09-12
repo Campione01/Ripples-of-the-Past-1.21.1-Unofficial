@@ -1,14 +1,12 @@
 package com.github.standobyte.jojo.mixin.hamon;
 
-import java.util.HashMap;
-import java.util.Map;
-
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
 import com.github.standobyte.jojoimpl.powers.hamon.HamonMovementHelper;
+import com.github.standobyte.jojoimpl.powers.hamon.HamonMovementHelper.FluidContact;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
@@ -30,19 +28,12 @@ public class EntityLiquidWalkingMixin {
 		}
 
 		if (originalDisplacement.y <= 0.0D && !jojo_ripples$isTouchingFluid(entity, entity.getBoundingBox().deflate(0.001D))) {
-			Map<Vec3, Double> points = jojo_ripples$findFluidDistances(entity, originalDisplacement);
-			Double highestDistance = null;
-
-			for (Map.Entry<Vec3, Double> point : points.entrySet()) {
-				if (highestDistance == null || point.getValue() != null && point.getValue() > highestDistance) {
-					highestDistance = point.getValue();
-				}
-			}
-
-			if (highestDistance != null) {
-				Vec3 finalDisplacement = new Vec3(originalDisplacement.x, highestDistance, originalDisplacement.z);
+			FluidContact contact = jojo_ripples$findFluidContact(entity, originalDisplacement);
+			if (contact != null) {
+				Vec3 finalDisplacement = new Vec3(originalDisplacement.x, contact.verticalDisplacement(), originalDisplacement.z);
 				AABB finalBox = entity.getBoundingBox().move(finalDisplacement).deflate(0.001D);
-				if (!jojo_ripples$isTouchingFluid(entity, finalBox)) {
+				if (!jojo_ripples$isTouchingFluid(entity, finalBox)
+						&& HamonMovementHelper.onLiquidWalkingContact(entity, contact.fluidState())) {
 					entity.fallDistance = 0.0F;
 					entity.setOnGround(true);
 					return finalDisplacement;
@@ -54,17 +45,18 @@ public class EntityLiquidWalkingMixin {
 	}
 
 	@Unique
-	private static Map<Vec3, Double> jojo_ripples$findFluidDistances(LivingEntity entity, Vec3 originalDisplacement) {
+	private static FluidContact jojo_ripples$findFluidContact(LivingEntity entity, Vec3 originalDisplacement) {
 		AABB box = entity.getBoundingBox().move(originalDisplacement);
-		HashMap<Vec3, Double> points = new HashMap<>();
-		points.put(new Vec3(box.minX, box.minY, box.minZ), null);
-		points.put(new Vec3(box.minX, box.minY, box.maxZ), null);
-		points.put(new Vec3(box.maxX, box.minY, box.minZ), null);
-		points.put(new Vec3(box.maxX, box.minY, box.maxZ), null);
+		Vec3[] points = {
+				new Vec3(box.minX, box.minY, box.minZ),
+				new Vec3(box.minX, box.minY, box.maxZ),
+				new Vec3(box.maxX, box.minY, box.minZ),
+				new Vec3(box.maxX, box.minY, box.maxZ)
+		};
+		FluidContact highestContact = null;
 
 		double fluidStepHeight = entity.onGround() ? Math.max(1.0D, entity.maxUpStep()) : 0.0D;
-		for (Map.Entry<Vec3, Double> entry : points.entrySet()) {
-			Vec3 point = entry.getKey();
+		for (Vec3 point : points) {
 			for (int i = 0; ; --i) {
 				BlockPos landingPos = BlockPos.containing(point.x, point.y + i + fluidStepHeight, point.z);
 				FluidState landingState = entity.level().getFluidState(landingPos);
@@ -76,13 +68,15 @@ public class EntityLiquidWalkingMixin {
 				}
 
 				if (!landingState.isEmpty() && HamonMovementHelper.onLiquidWalkingEvent(entity, landingState)) {
-					entry.setValue(distanceToFluidSurface);
+					if (highestContact == null || distanceToFluidSurface > highestContact.verticalDisplacement()) {
+						highestContact = new FluidContact(distanceToFluidSurface, landingState);
+					}
 					break;
 				}
 			}
 		}
 
-		return points;
+		return highestContact;
 	}
 
 	@Unique
