@@ -7,6 +7,7 @@ import java.util.function.Function;
 
 import javax.annotation.Nullable;
 
+import com.github.standobyte.jojo.client.entityanim.PreFrameEntityAnimCalc.LivingAnimState;
 import com.github.standobyte.jojo.client.sound.ClientsideSoundsHelper;
 import com.github.standobyte.jojo.init.ModParticles;
 import com.github.standobyte.jojo.init.ModSoundEvents;
@@ -25,6 +26,7 @@ import com.github.standobyte.jojoimpl.powers.hamon.ModHamonSkills;
 
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
@@ -204,6 +206,17 @@ public class HamonSunlightYellowOverdriveAbility extends HamonActionRuntimeAbili
 		@Override
 		protected boolean shouldHoldPhaseAtEnd() {
 			return getPhase() == ActionPhase.WINDUP;
+		}
+
+		@Override
+		public void extractAnim(LivingAnimState animVariables, LivingEntity performer, float partialTick) {
+			super.extractAnim(animVariables, performer, partialTick);
+			HamonSunlightYellowOverdriveAbility ability = syoAbility();
+			if (getPhase() == ActionPhase.PERFORM && ability != null) {
+				// Runtime ends at stopTick, before the generic held-phase sentinel.
+				animVariables.phaseCompletion = Mth.clamp(
+						animVariables.phaseTime / Math.max(ability.getStopTick(), 1), 0.0F, 1.0F);
+			}
 		}
 
 		public float getSpentEnergyForAura(HamonData hamon) {
