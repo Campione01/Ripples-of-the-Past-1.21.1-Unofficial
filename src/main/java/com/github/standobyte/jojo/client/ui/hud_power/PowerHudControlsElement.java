@@ -28,6 +28,7 @@ import com.github.standobyte.jojo.client.standskin.StandSkin;
 import com.github.standobyte.jojo.client.standskin.StandSkinsLoader;
 import com.github.standobyte.jojo.client.standskin.sprites.AbilityIconSprites;
 import com.github.standobyte.jojo.client.textsymbols.IconSymbols;
+import com.github.standobyte.jojo.client.ui.AbilitySelectionWheel;
 import com.github.standobyte.jojo.client.ui.hud_power.PowerHud.AbilityHud;
 import com.github.standobyte.jojo.client.ui.utils.BlitFloat;
 import com.github.standobyte.jojo.client.ui.utils.GuiIcon;
@@ -285,7 +286,8 @@ public class PowerHudControlsElement extends HudElement {
 		boolean compactHotbarDisplay = standHotbarDisplay
 				&& ClientModSettings.getSettingsReadOnly().compactStandHotbar
 				&& hud.forContainerMenu == TriState.DEFAULT
-				&& Minecraft.getInstance().screen == null;
+				&& (Minecraft.getInstance().screen == null
+						|| Minecraft.getInstance().screen instanceof AbilitySelectionWheel);
 		KeyModifier hotbarDisplayModifier = standHotbarDisplay ? KeyModifier.NONE : modifier;
 		for (Hotbar hotbar : curGroup.hotbars) {
 			if (!hotbar.slots.isEmpty()) {
