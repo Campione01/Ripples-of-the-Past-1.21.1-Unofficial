@@ -19,6 +19,7 @@ import com.github.standobyte.jojo.powersystem.playerpower.PlayerPower;
 import com.github.standobyte.jojoimpl.powers.hamon.ClHamonAbandonButtonPacket;
 import com.github.standobyte.jojoimpl.powers.hamon.ClHamonMeditationPacket;
 import com.github.standobyte.jojoimpl.powers.hamon.HamonData;
+import com.mojang.blaze3d.systems.RenderSystem;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
@@ -34,6 +35,7 @@ import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.Enchantments;
+import net.neoforged.neoforge.client.GlStateBackup;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 public class HamonStatsScreen extends PlaceholderScreen {
@@ -510,11 +512,21 @@ public class HamonStatsScreen extends PlaceholderScreen {
 
     private void drawStatBar(GuiGraphics gui, int x, int y,
             int fillU, int fillV, float progress) {
-        int fillWidth = (int) (50.0F * clamp01(progress));
-        if (fillWidth > 0) {
-            blit(gui, x, y + 1, fillWidth, 5, fillU, fillV, fillWidth, 5, BlitFloat.NO_TINT);
+        GlStateBackup glState = new GlStateBackup();
+        RenderSystem.backupGlState(glState);
+        try {
+            // The frame's translucent interior must not overwrite the progress fill.
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+            int fillWidth = (int) (50.0F * clamp01(progress));
+            if (fillWidth > 0) {
+                blit(gui, x, y + 1, fillWidth, 5, fillU, fillV, fillWidth, 5, BlitFloat.NO_TINT);
+            }
+            blit(gui, x - 1, y, 52, 7, 202, 227, 52, 7, BlitFloat.NO_TINT);
         }
-        blit(gui, x - 1, y, 52, 7, 202, 227, 52, 7, BlitFloat.NO_TINT);
+        finally {
+            RenderSystem.restoreGlState(glState);
+        }
     }
 
     private void renderFullTrainingShine(GuiGraphics gui, int x, int y, float partialTick) {
