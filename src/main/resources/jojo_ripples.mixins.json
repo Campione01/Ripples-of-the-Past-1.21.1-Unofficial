@@ -136,6 +136,7 @@
     "client.modelanim.AnimatedEntityMixin",
     "client.hamon.ParticleEngineHamonAuraMixin",
     "client.timestop.ClientLevelTimeStopTickMixin",
+    "client.timestop.ProjectileTimeStopSpawnRotationMixin",
     "client.timestop.LevelRendererTimeStopMixin",
     "client.timestop.MinecraftTimeStopAccessor",
     "client.timestop.ParticleEngineTimeStopMixin",
