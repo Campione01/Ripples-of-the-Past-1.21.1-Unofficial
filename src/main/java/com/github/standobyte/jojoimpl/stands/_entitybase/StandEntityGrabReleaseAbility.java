@@ -19,6 +19,8 @@ public class StandEntityGrabReleaseAbility extends Ability {
 	public StandEntityGrabReleaseAbility(AbilityType<?> abilityType, AbilityId abilityId) {
 		super(abilityType, abilityId);
 		usageGroup = AbilityUsageGroup.GRAB;
+		spriteName = "stand_grab_release";
+		useAbilityTypeResourceNamespace();
 	}
 
 	@Override
