@@ -9,9 +9,9 @@ import com.github.standobyte.jojo.powersystem.standpower.entity.StandEntityAbili
 import com.github.standobyte.jojo.subsystems.target.ActionTarget;
 import com.github.standobyte.jojo.subsystems.target.ActionTargetAim;
 import com.github.standobyte.jojo.subsystems.target.HitResultUtil;
+import com.github.standobyte.jojoimpl.stands._entitybase.StandEntityBarrageAbility;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -39,6 +39,10 @@ public class ClientsideAim {
 			StandEntity stand = ClientGlobals.playerStandEntity;
 			if (stand != null) {
 				EntityActionInstance curAction = LivingComponentAction.getCurEntityAction(stand);
+				if (StandEntityBarrageAbility.isDirectionalBarrage(stand, curAction)) {
+					standAim.setTarget(StandEntityBarrageAbility.clipDirectionalBarrageTarget(stand, curAction, partialTick));
+					return;
+				}
 
 				LivingEntity aiming;
 				if (isPlayerCameraEntity && curAction == null) {
@@ -64,9 +68,7 @@ public class ClientsideAim {
 				boolean standOffsetLerping = aiming == stand && isPlayerCameraEntity && stand.isFollowingUser() && stand.offsetFromUser.getLerpAmount() < 1;
 				if (!standOffsetLerping) {
 					Vec3 lookPos = aiming.getEyePosition(partialTick);
-					Vec3 lookVec = aiming.calculateViewVector(
-							Mth.clamp(partialTick, aiming.xRotO, aiming.getXRot()), 
-							Mth.clamp(partialTick, aiming.yRotO, aiming.getYRot()));
+					Vec3 lookVec = aiming.getViewVector(partialTick);
 					Predicate<Entity> targetFilter = curAction != null && curAction.ability instanceof StandEntityAbility standAbility
 							? entity -> standAbility.canTargetEntityForAiming(stand, entity)
 							: entity -> StandEntityAbility.canDefaultTargetEntityForAiming(stand, entity);

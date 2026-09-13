@@ -35,6 +35,7 @@ import com.github.standobyte.jojo.subsystems.ServerBlockDestroyTracker;
 import com.github.standobyte.jojo.subsystems.entity_grab.LivingComponentGrab;
 import com.github.standobyte.jojo.subsystems.target.ActionTarget;
 import com.github.standobyte.jojo.subsystems.target.AimingEntity;
+import com.github.standobyte.jojo.subsystems.target.HitResultUtil;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -43,6 +44,8 @@ import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockState;
@@ -122,7 +125,8 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 			LivingEntity powerUser, LivingEntity performer) {
 		super.initActionFromConfig(action, level, powerUser, performer);
 		if (!level.isClientSide() && performer instanceof StandEntity stand) {
-			if (powerUser != null && powerUser.hasEffect(ModStatusEffects.RESOLVE)) {
+			if (isDirectionalBarrage(stand, action)
+					|| powerUser != null && powerUser.hasEffect(ModStatusEffects.RESOLVE)) {
 				action.phasesLength.put(ActionPhase.PERFORM, Integer.MAX_VALUE);
 			}
 			else {
@@ -130,6 +134,28 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 			}
 			action.phasesLength.put(ActionPhase.RECOVERY, stand.isArmsOnlyMode() ? 0 : StandStatFormulas.getBarrageRecovery(stand.getAttackSpeed()));
 		}
+	}
+
+	public static boolean isDirectionalBarrage(StandEntity stand, @Nullable EntityActionInstance action) {
+		return action instanceof StandEntityBarrage
+				&& action.ability instanceof StandEntityBarrageAbility
+				&& action.ability.getAbilityUsageCategory() == AbilityUsageGroup.COMBAT
+				&& stand.getUser() instanceof Player
+				&& !StandEntityPunchAbility.shouldRetainPunchTarget(stand, action.ability);
+	}
+
+	public static ActionTarget clipDirectionalBarrageTarget(
+			StandEntity stand, EntityActionInstance action, float partialTick) {
+		LivingEntity user = stand.getUser();
+		if (user == null || !(action.ability instanceof StandEntityAbility ability)) {
+			return ActionTarget.EMPTY;
+		}
+		ActionTarget target = HitResultUtil.clip(user.getEyePosition(partialTick), user.getViewVector(partialTick),
+				stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE),
+				stand.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE), stand.level(),
+				entity -> ability.canTargetEntityForAiming(stand, entity)
+						&& StandEntityPunchAbility.canStandHit(stand, entity), user, 0);
+		return StandEntityPunchAbility.validatePunchTarget(stand, target);
 	}
 	
 	public static class StandEntityBarrage extends EntityActionInstance {
@@ -152,6 +178,9 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 				keepStandAimedAtTarget(target);
 				aimAs = AimingEntity.STAND;
 				StandEntityPunchAbility.releaseUnlockedPunchTarget(stand, this);
+				if (isDirectionalBarrage(stand, this)) {
+					setActionTargetSnapshot(null);
+				}
 				if (level.isClientSide()) {
 					if (ClientGlobals.canHearStand(stand) && !stand.isArmsOnlyMode() && shouldPlayBarrageCry(level, stand)) {
 						StandCrySoundHandler.create(stand, getBarrageCrySound(), 1, 1,
@@ -178,6 +207,16 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 			}
 			
 			if (getPhase() == ActionPhase.PERFORM && performer instanceof StandEntity stand) {
+				boolean directional = isDirectionalBarrage(stand, this);
+				StandPower standPower = StandPower.get(getPowerUser());
+				if (directional && !level.isClientSide()
+						&& (standPower == null || !standPower.consumeStamina(4, true))) {
+					hitsThisTick = 0;
+					stand.setBarrageHitsThisTick(0);
+					punchedTarget = null;
+					startRecovery();
+					return;
+				}
 				ActionTarget target = getPunchTarget(stand);
 				if (target.isEmpty(level)) {
 					standRotationTarget = null;
@@ -191,7 +230,6 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 				hitsThisTick = getHitsThisTick(level, stand);
 				stand.setBarrageHitsThisTick(hitsThisTick);
 				
-				StandPower standPower = StandPower.get(getPowerUser());
 				if (hitsThisTick > 0 && level.isClientSide()) {
 					if (ClientGlobals.canHearStand(stand)) {
 						level.playLocalSound(stand.getX(), stand.getEyeY(), stand.getZ(), ClientsideSoundsHelper.withStandSkin(
@@ -214,7 +252,7 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 					}
 					punchedTarget = target;
 				}
-				if (standPower != null) {
+				if (standPower != null && (!directional || level.isClientSide())) {
 					standPower.consumeStamina(4, true);
 				}
 			}
@@ -339,6 +377,10 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 		}
 		
 		protected ActionTarget getPunchTarget(StandEntity stand) {
+			if (isDirectionalBarrage(stand, this)) {
+				setActionTargetSnapshot(null);
+				return clipDirectionalBarrageTarget(stand, this, 1.0F);
+			}
 			if (isGrabVariation()) {
 				return StandEntityPunchAbility.validatePunchTarget(
 						stand,

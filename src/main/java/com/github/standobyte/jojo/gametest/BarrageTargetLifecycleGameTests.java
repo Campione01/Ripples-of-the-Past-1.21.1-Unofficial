@@ -22,6 +22,7 @@ import com.github.standobyte.jojo.powersystem.standpower.type.StandType;
 import com.github.standobyte.jojo.subsystems.target.ActionTarget;
 import com.github.standobyte.jojo.subsystems.target.AimingEntity;
 import com.github.standobyte.jojoimpl.stands._entitybase.StandEntityPunchAbility;
+import com.github.standobyte.jojoimpl.stands._entitybase.StandEntityBarrageAbility;
 import com.mojang.authlib.GameProfile;
 
 import net.minecraft.core.BlockPos;
@@ -193,6 +194,10 @@ public final class BarrageTargetLifecycleGameTests {
 			helper.assertTrue(!new PlayerClientBroadcastedSettings().standAttackTargetLock,
 					"Continuous Stand target lock must default to disabled");
 			settings.standAttackTargetLock = locked;
+			boolean directional = !locked && "barrage".equals(abilityName);
+			if (directional) {
+				user.getAbilities().instabuild = true;
+			}
 			helper.assertTrue(StandPowerTransitions.insert(power, new StandInstance(standType)).status()
 					== StandPowerTransitions.Status.APPLIED, "Could not grant Star Platinum");
 			helper.assertTrue(standType.summon(user, power), "Could not summon Star Platinum");
@@ -200,7 +205,10 @@ public final class BarrageTargetLifecycleGameTests {
 			helper.assertTrue(stand != null, "Summoned Stand is missing");
 			stand.moveTo(userPos.x, userPos.y, userPos.z);
 			initial = spawnCow(helper, userPos.add(0.0D, 0.0D, 1.0D));
-			current = spawnCow(helper, userPos.add(0.75D, 0.0D, 1.25D));
+			current = spawnCow(helper, userPos.add(directional ? 1.4D : 0.75D, 0.0D, 1.25D));
+			if (directional) {
+				lookAt(user, initial.getBoundingBox().getCenter());
+			}
 			LivingComponentAction component = LivingComponentAction.getComponent(stand);
 			component.entityAim.setTarget(new ActionTarget(initial));
 			Ability ability = power.getAbility(abilityName);
@@ -213,7 +221,12 @@ public final class BarrageTargetLifecycleGameTests {
 			}
 
 			component.entityAim.setTarget(new ActionTarget(current));
-			ActionTarget selected = StandEntityPunchAbility.getFreshPunchTarget(stand, new ActionTarget(initial));
+			if (directional) {
+				lookAt(user, current.getBoundingBox().getCenter());
+			}
+			ActionTarget selected = directional
+					? StandEntityBarrageAbility.clipDirectionalBarrageTarget(stand, action, 1.0F)
+					: StandEntityPunchAbility.getFreshPunchTarget(stand, new ActionTarget(initial));
 			Cow expected = locked ? initial : current;
 			Cow untouched = locked ? current : initial;
 			helper.assertTrue(selected.getMainEntity() == expected,
@@ -238,8 +251,13 @@ public final class BarrageTargetLifecycleGameTests {
 				}
 				component.entityAim.setTarget(ActionTarget.EMPTY);
 				LivingComponentAction.getComponent(user).entityAim.setTarget(ActionTarget.EMPTY);
-				helper.assertTrue(StandEntityPunchAbility.getFreshPunchTarget(
-						stand, new ActionTarget(initial)).isEmpty(helper.getLevel()),
+				if (directional) {
+					lookAt(user, user.getEyePosition().add(0, 2, -3));
+				}
+				ActionTarget emptyAim = directional
+						? StandEntityBarrageAbility.clipDirectionalBarrageTarget(stand, action, 1.0F)
+						: StandEntityPunchAbility.getFreshPunchTarget(stand, new ActionTarget(initial));
+				helper.assertTrue(emptyAim.isEmpty(helper.getLevel()),
 						abilityName + " retained an entity after the crosshair moved to empty space");
 				float initialHealth = initial.getHealth();
 				float currentHealth = current.getHealth();
@@ -266,6 +284,17 @@ public final class BarrageTargetLifecycleGameTests {
 			GameTestHelper helper, EntityActionInstance action, String abilityName) {
 		helper.assertTrue(action.standRotationTarget == null && action.aimAs == AimingEntity.CAMERA_ENTITY,
 				abilityName + " kept Stand-direction aiming or a persistent rotation target while lock was disabled");
+	}
+
+	private static void lookAt(Player user, Vec3 target) {
+		Vec3 delta = target.subtract(user.getEyePosition());
+		float yaw = (float) -Math.toDegrees(Math.atan2(delta.x, delta.z));
+		float pitch = (float) -Math.toDegrees(Math.atan2(delta.y, Math.sqrt(delta.x * delta.x + delta.z * delta.z)));
+		user.setYRot(yaw);
+		user.setYHeadRot(yaw);
+		user.setXRot(pitch);
+		user.yRotO = yaw;
+		user.xRotO = pitch;
 	}
 
 	private static Cow spawnCow(GameTestHelper helper, Vec3 position) {
