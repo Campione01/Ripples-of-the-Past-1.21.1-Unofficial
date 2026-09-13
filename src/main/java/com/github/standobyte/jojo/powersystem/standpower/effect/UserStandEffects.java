@@ -130,6 +130,16 @@ public class UserStandEffects extends EntityCustomEffectsMap<StandEffectInstance
 	}
 
 	@ApiStatus.Internal
+	public void transferFrom(UserStandEffects previous, StandPower standPower) {
+		if (previous == this) {
+			return;
+		}
+		// Keep the new map's owner without restarting retained effects or leaving old-owner callbacks.
+		previous.effects.forEach((id, effect) -> effects.put(id, effect.withStand(standPower)));
+		previous.effects.clear();
+	}
+
+	@ApiStatus.Internal
 	public void onStandUserDeath(LivingEntity user) {
 		var it = effects.int2ObjectEntrySet().iterator();
 		while (it.hasNext()) {

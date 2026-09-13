@@ -109,8 +109,8 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 		tickAbilityCooldowns();
 		tickResolve();
 		tickSoulCheck();
+		userStandEffects.tick();
 		if (hasPower()) {
-			userStandEffects.tick();
 			standInstance.ifPresent(stand -> stand.syncIfDirty(user));
 		}
 		if (!user.level().isClientSide()) {
@@ -846,8 +846,7 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 		newEntityData.abilityCooldownTotals.clear();
 		newEntityData.abilityCooldownTotals.putAll(this.abilityCooldownTotals);
 		newEntityData.resolveCounter.copyValues(this.resolveCounter, wasDeath);
-		newEntityData.userStandEffects = this.userStandEffects;
-		newEntityData.userStandEffects.setPowerData(newEntityData);
+		newEntityData.userStandEffects.transferFrom(this.userStandEffects, newEntityData);
 		newEntityData.userStandAwakeningState = this.userStandAwakeningState;
 	}
 
