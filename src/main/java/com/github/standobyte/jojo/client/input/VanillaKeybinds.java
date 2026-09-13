@@ -48,12 +48,15 @@ public class VanillaKeybinds {
 				@Override
 				public boolean isActive() {
 					InputHandler inputHandler = InputHandler.getInstance();
-					boolean preserveVanillaUse = inputHandler != null
+					boolean inGameContextActive = KeyConflictContext.IN_GAME.isActive();
+					boolean hasBindingOwner = inGameContextActive && inputHandler != null
+							&& inputHandler.hasActiveGrabChargedHeavyBinding();
+					boolean preserveVanillaUse = hasBindingOwner
 							&& inputHandler
 									.shouldPreserveSemanticVanillaUsePress();
 					return shouldActivateGrabChargedHeavyConflictContext(
-							KeyConflictContext.IN_GAME.isActive(),
-							preserveVanillaUse);
+							inGameContextActive,
+							preserveVanillaUse, hasBindingOwner);
 				}
 
 				@Override
@@ -69,7 +72,16 @@ public class VanillaKeybinds {
 	public static boolean shouldActivateGrabChargedHeavyConflictContext(
 			boolean inGameContextActive,
 			boolean preserveSemanticVanillaUsePress) {
-		return inGameContextActive && !preserveSemanticVanillaUsePress;
+		return shouldActivateGrabChargedHeavyConflictContext(
+				inGameContextActive, preserveSemanticVanillaUsePress, true);
+	}
+
+	@ApiStatus.Internal
+	public static boolean shouldActivateGrabChargedHeavyConflictContext(
+			boolean inGameContextActive,
+			boolean preserveSemanticVanillaUsePress,
+			boolean hasActiveBindingOwner) {
+		return inGameContextActive && hasActiveBindingOwner && !preserveSemanticVanillaUsePress;
 	}
 
 	public KeyMapping summonStand;

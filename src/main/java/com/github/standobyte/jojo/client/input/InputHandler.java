@@ -74,6 +74,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.player.Input;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.FriendlyByteBuf;
@@ -338,6 +339,43 @@ public class InputHandler {
 				|| shouldPreserveStoneMaskKnifeUse(true)
 				|| shouldPreserveUnsummonedStandVanillaUsePress(
 				getActiveControlScheme(), true, getCurModifier());
+	}
+
+	boolean hasActiveGrabChargedHeavyBinding() {
+		if (inputsDisabled || vanillaKeybinds == null || vanillaKeybinds.grabChargedHeavy == null) {
+			return false;
+		}
+		ClientControlScheme controls = getActiveControlScheme();
+		return hasActiveGrabChargedHeavyBinding(
+				controls != null ? controls.getCurGroup() : null, vanillaKeybinds.grabChargedHeavy, inputsDisabled);
+	}
+
+	@ApiStatus.Internal
+	public static boolean hasActiveGrabChargedHeavyBinding(
+			@Nullable ClientControlScheme.MoveGroup controls, @Nullable KeyMapping keyMapping, boolean controlsDisabled) {
+		if (controlsDisabled || controls == null || keyMapping == null || keyMapping.isUnbound()) {
+			return false;
+		}
+		// Mapping identity avoids re-entering its conflict context during ownership checks.
+		for (ClientControlScheme.Bind bind : controls.binds) {
+			if (bind.input != null && bind.ability != null && bind.inputMethod != null
+					&& bind.input.usesVanillaMapping(keyMapping)) {
+				return true;
+			}
+		}
+		for (Hotbar hotbar : controls.hotbars) {
+			HotbarSlot selected = hotbar.getSelected();
+			if (hotbar.useAbilityKey != null && selected != null
+					&& !selected.binds.movesByModifier.isEmpty()
+					&& hotbar.useAbilityKey.usesVanillaMapping(keyMapping)) {
+				return true;
+			}
+			if (hotbar.switchAbilityKey != null && hotbar.switchAbilityKey.usesVanillaMapping(keyMapping)
+					&& hotbar.slots.stream().anyMatch(slot -> !slot.binds.movesByModifier.isEmpty())) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private boolean shouldPreserveStandDiscUse(boolean vanillaUseTrigger) {

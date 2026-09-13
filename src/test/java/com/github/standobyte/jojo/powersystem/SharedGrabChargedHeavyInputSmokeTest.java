@@ -4,13 +4,22 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 
 import com.github.standobyte.jojo.client.input.InputHandler;
 import com.github.standobyte.jojo.client.input.VanillaKeybinds;
+import com.github.standobyte.jojo.client.input.controlscheme.ClientControlScheme;
+import com.github.standobyte.jojo.client.input.controlscheme.ClientInputBind;
+import com.github.standobyte.jojo.client.input.controlscheme.ClientKey;
 import com.github.standobyte.jojo.powersystem.ability.controls.ControlSchemeTemplate;
 import com.github.standobyte.jojo.powersystem.ability.controls.InputKey;
 import com.github.standobyte.jojo.powersystem.ability.controls.InputMethod;
 import com.github.standobyte.jojo.powersystem.ability.controls.InputUseVanillaMapping;
+import com.mojang.blaze3d.platform.InputConstants;
+
+import net.minecraft.client.KeyMapping;
+import net.minecraft.network.chat.Component;
+import net.neoforged.neoforge.client.settings.KeyModifier;
 
 public final class SharedGrabChargedHeavyInputSmokeTest {
 	private static final String KEY_MAPPING_NAME = "jojo_ripples.key.grab_charged_heavy";
@@ -37,6 +46,7 @@ public final class SharedGrabChargedHeavyInputSmokeTest {
 				((InputUseVanillaMapping) MovesetBuilder.DEFAULT_GRAB_INPUT).keyMappingName),
 				"unexpected shared combat KeyMapping name");
 		verifyMultipleBindingsForOneAbility();
+		verifyActiveBindingOwnership();
 
 		Path root = Path.of(System.getProperty("user.dir"));
 		verifyUnsummonedStandVanillaUseOwnership(root);
@@ -113,6 +123,75 @@ public final class SharedGrabChargedHeavyInputSmokeTest {
 		copy.defaultGroup.additionalSeparateBinds.clear();
 		check(template.defaultGroup.additionalSeparateBinds.size() == 1,
 				"control-scheme copy mutations leaked into the source template");
+	}
+
+	private static void verifyActiveBindingOwnership() {
+		KeyMapping mapping = standaloneMapping("test.shared_grab_charged_heavy");
+		KeyMapping otherMapping = standaloneMapping("test.other_same_physical_key");
+		ClientControlScheme.MoveGroup controls = new ClientControlScheme.MoveGroup("test", Component.empty(), null);
+		// Mapping ownership never resolves gameplay power or registry state.
+		var ability = new ClientControlScheme.AbilityControlsEntry(null, "heavy_charged");
+		check(!InputHandler.hasActiveGrabChargedHeavyBinding(null, mapping, false),
+				"no active controls must leave Shift+Use to vanilla");
+		check(!InputHandler.hasActiveGrabChargedHeavyBinding(controls, mapping, false),
+				"an empty/passive control group must not claim the shared mapping");
+		controls.binds.add(new ClientControlScheme.Bind(new ClientInputBind(otherMapping), InputMethod.HOLD, ability));
+		controls.binds.add(new ClientControlScheme.Bind(new ClientInputBind(
+				ClientKey.make(InputConstants.Type.MOUSE, InputConstants.MOUSE_BUTTON_RIGHT), KeyModifier.SHIFT),
+				InputMethod.HOLD, ability));
+		check(!InputHandler.hasActiveGrabChargedHeavyBinding(controls, mapping, false),
+				"same physical key without the shared KeyMapping reference must not claim its conflict context");
+		controls.binds.add(new ClientControlScheme.Bind(new ClientInputBind(mapping), InputMethod.HOLD, ability));
+		check(InputHandler.hasActiveGrabChargedHeavyBinding(controls, mapping, false),
+				"a current charged-heavy binding must retain shared mapping ownership");
+		check(!InputHandler.hasActiveGrabChargedHeavyBinding(controls, mapping, true),
+				"disabled controls must not suppress vanilla Shift+Use");
+		mapping.setKey(InputConstants.Type.KEYSYM.getOrCreate(75));
+		check(InputHandler.hasActiveGrabChargedHeavyBinding(controls, mapping, false),
+				"rebinding the shared KeyMapping must retain ownership by reference");
+		mapping.setKey(InputConstants.Type.KEYSYM.getOrCreate(-1));
+		check(!InputHandler.hasActiveGrabChargedHeavyBinding(controls, mapping, false),
+				"an unbound shared mapping must not claim input");
+		mapping.setKey(InputConstants.Type.MOUSE.getOrCreate(InputConstants.MOUSE_BUTTON_RIGHT));
+		controls.binds.clear();
+		ClientControlScheme.Hotbar hotbar = new ClientControlScheme.Hotbar(new ClientInputBind(otherMapping), new ClientInputBind(mapping));
+		ClientControlScheme.HotbarSlot slot = new ClientControlScheme.HotbarSlot(0);
+		slot.binds.movesByModifier.put(KeyModifier.NONE, Map.of(InputMethod.CLICK, List.of(ability)));
+		hotbar.slots.add(slot);
+		controls.hotbars.add(hotbar);
+		check(InputHandler.hasActiveGrabChargedHeavyBinding(controls, mapping, false),
+				"a populated hotbar selector using the shared mapping is a real input owner");
+		hotbar.switchAbilityKey = new ClientInputBind(otherMapping);
+		check(!InputHandler.hasActiveGrabChargedHeavyBinding(controls, mapping, false),
+				"an unrelated hotbar use/selector mapping must not claim the shared mapping");
+		hotbar.useAbilityKey = new ClientInputBind(mapping);
+		check(InputHandler.hasActiveGrabChargedHeavyBinding(controls, mapping, false),
+				"a populated hotbar using the shared mapping must retain ownership");
+		hotbar.slots.clear();
+		check(!InputHandler.hasActiveGrabChargedHeavyBinding(controls, mapping, false),
+				"an empty hotbar cannot own an ability input");
+		hotbar.switchAbilityKey = new ClientInputBind(mapping);
+		check(!InputHandler.hasActiveGrabChargedHeavyBinding(controls, mapping, false),
+				"an empty hotbar selector cannot own the shared mapping");
+
+		check(!VanillaKeybinds.shouldActivateGrabChargedHeavyConflictContext(true, false, false),
+				"ownerless shared mapping must not suppress vanilla input");
+		check(VanillaKeybinds.shouldActivateGrabChargedHeavyConflictContext(true, false, true),
+				"a real enabled mapping owner must retain combat input");
+		check(!VanillaKeybinds.shouldActivateGrabChargedHeavyConflictContext(true, true, true),
+				"semantic vanilla-use exceptions must still override a real owner");
+		check(!VanillaKeybinds.shouldActivateGrabChargedHeavyConflictContext(false, false, true),
+				"a mapping owner must not activate outside the game");
+	}
+
+	private static KeyMapping standaloneMapping(String name) {
+		return new KeyMapping(name, InputConstants.Type.MOUSE, InputConstants.MOUSE_BUTTON_RIGHT, "test.controls") {
+			@Override
+			public boolean isUnbound() {
+				// Same unknown-key predicate without initializing GLFW in the standalone JVM.
+				return getKey().getType() == InputConstants.Type.KEYSYM && getKey().getValue() == -1;
+			}
+		};
 	}
 
 	private static void verifyUnsummonedStandVanillaUseOwnership(Path root) {
