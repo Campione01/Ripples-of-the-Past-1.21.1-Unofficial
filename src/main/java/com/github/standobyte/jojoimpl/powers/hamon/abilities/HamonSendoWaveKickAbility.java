@@ -68,6 +68,12 @@ public class HamonSendoWaveKickAbility extends HamonActionRuntimeAbility {
 	}
 
 	@Override
+	public boolean canContinueAction(EntityActionInstance action) {
+		LivingEntity user = action.getPowerUser();
+		return user != null && user.isAlive() && super.canContinueAction(action);
+	}
+
+	@Override
 	public ActionAnimIdentifier getEntityAnim(EntityActionInstance action) {
 		LivingEntity user = action != null ? action.getPowerUser() : null;
 		return user != null ? SENDO_WAVE_KICK_ANIMS[getSendoWaveKickAnimIndex(user)] : super.getEntityAnim(action);
@@ -121,6 +127,12 @@ public class HamonSendoWaveKickAbility extends HamonActionRuntimeAbility {
 
 		public float getInitialYRot() {
 			return initialYRot;
+		}
+
+		@Override
+		protected boolean shouldHoldPhaseAtEnd() {
+			// Landing/fluid contact ends the flight, not the nominal pose phase length.
+			return getPhase() == ActionPhase.PERFORM;
 		}
 
 		@Override
