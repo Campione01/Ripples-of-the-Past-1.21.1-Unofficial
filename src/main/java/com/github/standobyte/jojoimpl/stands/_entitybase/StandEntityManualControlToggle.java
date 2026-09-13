@@ -15,6 +15,7 @@ import com.github.standobyte.jojo.powersystem.standpower.StandPower;
 import com.github.standobyte.jojo.powersystem.standpower.StandUtil;
 import com.github.standobyte.jojo.powersystem.standpower.entity.EntityStandType;
 import com.github.standobyte.jojo.powersystem.standpower.entity.StandEntity;
+import com.github.standobyte.jojo.powersystem.standpower.entity.StandEntity.StandFlag;
 import com.github.standobyte.jojo.subsystems.entity_puppetcontrol.EntityComponentController;
 import com.github.standobyte.jojo.subsystems.entity_puppetcontrol.client.ClientEntityController;
 import com.github.standobyte.jojo.subsystems.entity_puppetcontrol.client.stand.ClientStandController;
@@ -63,7 +64,7 @@ public class StandEntityManualControlToggle extends Ability {
 			boolean shift = readKeepPositionInput(extraClientInput, user);
 			StandEntity stand = StandUtil.getSummonedStand(user);
 			if (stand != null) {
-				if (!stand.isManuallyControlled()) {
+				if (!stand.isManuallyControlled() && EntityComponentController.getControlTarget(user) != stand) {
 					on(level, stand);
 				}
 				else {
@@ -88,9 +89,16 @@ public class StandEntityManualControlToggle extends Ability {
 	}
 	
 	public static void on(Level level, StandEntity stand) {
-		stand.setCanFollowUser(true);
-		stand.setManuallyControlled(true);
 		LivingEntity user = stand.getUser();
+		if (user == null) {
+			return;
+		}
+		stand.setManuallyControlled(true);
+		// The client-facing getter depends on an existing controller, so inspect the accepted flag.
+		if (!stand.getStandFlag(StandFlag.MANUAL_CONTROL)) {
+			return;
+		}
+		stand.setCanFollowUser(true);
 		if (level.isClientSide()) {
 			if (user == ClientProxy.getClientPlayer()) {
 				ClientEntityController.setInstance(new ClientStandController(stand));
@@ -105,14 +113,17 @@ public class StandEntityManualControlToggle extends Ability {
 		stand.setCanFollowUser(!keepPosition);
 		stand.setManuallyControlled(false);
 		LivingEntity user = stand.getUser();
+		if (user == null) {
+			return;
+		}
 		if (level.isClientSide()) {
-			if (user == ClientProxy.getClientPlayer()) {
+			if (user == ClientProxy.getClientPlayer() && ClientEntityController.isBeingControlledByClient(stand)) {
 				ClientEntityController.setInstance(null);
 			}
 		}
 		else {
 			EntityComponentController component = ComponentUtil.getExistingDataOrNull(user, ModDataAttachmentTypes.CONTROLLER);
-			if (component != null) {
+			if (component != null && component.getControlTarget() == stand) {
 				component.stopControlling();
 			}
 		}
