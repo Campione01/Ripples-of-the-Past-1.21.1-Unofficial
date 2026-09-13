@@ -8,6 +8,7 @@ import java.util.function.Function;
 import javax.annotation.Nullable;
 
 import com.github.standobyte.jojo.client.ClientGlobals;
+import com.github.standobyte.jojo.config.client.PlayerClientBroadcastedSettings;
 import com.github.standobyte.jojo.client.sound.ClientsideSoundsHelper;
 import com.github.standobyte.jojo.client.sound.sounds.EntityLingeringSoundInstance;
 import com.github.standobyte.jojo.customobjects.DamageSourceModified;
@@ -203,6 +204,9 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 				keepStandAimedAtTarget(target);
 			}
 			aimAs = AimingEntity.STAND;
+			if (performer instanceof StandEntity stand) {
+				releaseUnlockedPunchTarget(stand, this);
+			}
 		}
 
 		public InteractionHand getPunchingHand() {
@@ -230,6 +234,9 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		@Override
 		public void actionTick() {
 			Level level = performer.level();
+			if (performer instanceof StandEntity stand) {
+				releaseUnlockedPunchTarget(stand, this);
+			}
 			if (level.isClientSide() && !(playedSwingSound && playedStandCrySound)
 					&& performer instanceof StandEntity stand && ClientGlobals.canHearStand(stand)) {
 				if (!playedSwingSound) {
@@ -304,6 +311,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 				else {
 					aimAs = AimingEntity.CAMERA_ENTITY;
 				}
+				releaseUnlockedPunchTarget(stand, this);
 			}
 		}
 		
@@ -417,7 +425,8 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			if (isGrabVariation()) {
 				return new ActionTarget(LivingComponentGrab.getEntityGrabbedBy(stand));
 			}
-			ActionTarget target = StandEntityPunchAbility.getFreshPunchTarget(stand, getActionTargetSnapshot(stand.level()));
+			ActionTarget target = StandEntityPunchAbility.getFreshPunchTarget(
+					stand, getActionTargetSnapshot(stand.level()), shouldRetainPunchTarget(stand, ability));
 			setActionTargetSnapshot(target);
 			return target;
 		}
@@ -460,8 +469,33 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	}
 
 	public static ActionTarget getFreshPunchTarget(StandEntity stand, ActionTarget preferredTarget) {
+		EntityActionInstance action = LivingComponentAction.getCurEntityAction(stand);
+		return getFreshPunchTarget(stand, preferredTarget,
+				action == null || shouldRetainPunchTarget(stand, action.ability));
+	}
+
+	public static boolean shouldRetainPunchTarget(StandEntity stand, EntityActionType ability) {
+		if (stand.isManuallyControlled() || ability.getAbilityUsageCategory() == AbilityUsageGroup.GRAB
+				|| !(ability instanceof StandEntityPunchAbility
+						|| ability instanceof StandEntityHeavyPunchAbility
+						|| ability instanceof StandEntityBarrageAbility)) {
+			return true;
+		}
+		return PlayerClientBroadcastedSettings.isStandAttackTargetLockEnabled(stand.getUserPower());
+	}
+
+	public static void releaseUnlockedPunchTarget(StandEntity stand, EntityActionInstance action) {
+		if (!shouldRetainPunchTarget(stand, action.ability)) {
+			action.standRotationTarget = null;
+			action.aimAs = AimingEntity.CAMERA_ENTITY;
+		}
+	}
+
+	public static ActionTarget getFreshPunchTarget(
+			StandEntity stand, ActionTarget preferredTarget, boolean retainPreferredTarget) {
 		Level level = stand.level();
-		ActionTarget target = validatePunchTarget(stand, preferredTarget);
+		ActionTarget target = retainPreferredTarget
+				? validatePunchTarget(stand, preferredTarget) : ActionTarget.EMPTY;
 		if (!target.isEmpty(level)) {
 			return target;
 		}

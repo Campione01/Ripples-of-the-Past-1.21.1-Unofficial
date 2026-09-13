@@ -27,6 +27,8 @@ public final class ClientModSettingsSmokeTest {
 			editStandDisplayFieldsPersistExactValues();
 			compactHotbarDefaultsAndPersistsWithoutChangingDisplaySettings();
 			invalidCompactHotbarValueKeepsOtherSettings();
+			attackTargetLockDefaultsAndPersistsWithoutChangingMarker();
+			invalidAttackTargetLockKeepsOtherSettings();
 			com.github.standobyte.jojo.client.ui.hud_power.CompactStandHotbarWindowSmokeTest.run();
 			savedJsonAssertionsRejectNestedSameNameKeys();
 			savedJsonAssertionsRejectBroadcastedOwner();
@@ -233,6 +235,40 @@ public final class ClientModSettingsSmokeTest {
 					"invalid compact value uses disabled default");
 			assertFloatEquals(25, ClientModSettings.getSettingsReadOnly().standTransparency,
 					"invalid compact value does not reset unrelated display options");
+		});
+	}
+
+	private static void attackTargetLockDefaultsAndPersistsWithoutChangingMarker() throws Exception {
+		withSettingsFile("{\"standAimMarker\":true,\"standTransparency\":20}", settingsFile -> {
+			ClientModSettings.init(settingsFile.toFile());
+			assertBooleanEquals(false, ClientModSettings.getSettingsReadOnly().broadcasted.standAttackTargetLock,
+					"existing settings default to unlocked attacks");
+			ClientModSettings.edit(settings -> settings.broadcasted.standAttackTargetLock = true, false);
+			resetInstance();
+			ClientModSettings.init(settingsFile.toFile());
+			assertBooleanEquals(true, ClientModSettings.getSettingsReadOnly().broadcasted.standAttackTargetLock,
+					"target lock survives reload");
+			assertBooleanEquals(true, ClientModSettings.getSettingsReadOnly().standAimMarker,
+					"target lock leaves the marker enabled");
+			assertFloatEquals(20, ClientModSettings.getSettingsReadOnly().standTransparency,
+					"target lock preserves transparency");
+			ClientModSettings.edit(settings -> settings.broadcasted.standAttackTargetLock = false, false);
+			resetInstance();
+			ClientModSettings.init(settingsFile.toFile());
+			assertBooleanEquals(false, ClientModSettings.getSettingsReadOnly().broadcasted.standAttackTargetLock,
+					"target lock can be disabled and persisted");
+			assertBooleanEquals(true, ClientModSettings.getSettingsReadOnly().standAimMarker,
+					"disabling lock does not disable the red marker");
+		});
+	}
+
+	private static void invalidAttackTargetLockKeepsOtherSettings() throws Exception {
+		withSettingsFile("{\"broadcasted\":{\"standAttackTargetLock\":{}},\"standAimMarker\":true}", settingsFile -> {
+			ClientModSettings.init(settingsFile.toFile());
+			assertBooleanEquals(false, ClientModSettings.getSettingsReadOnly().broadcasted.standAttackTargetLock,
+					"invalid target lock falls back to disabled");
+			assertBooleanEquals(true, ClientModSettings.getSettingsReadOnly().standAimMarker,
+					"invalid target lock leaves marker settings unchanged");
 		});
 	}
 

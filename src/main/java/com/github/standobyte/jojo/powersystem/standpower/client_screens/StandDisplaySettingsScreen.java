@@ -14,6 +14,7 @@ import com.github.standobyte.jojo.core.JojoMod;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -27,6 +28,7 @@ public class StandDisplaySettingsScreen extends Screen implements IJojoMenuScree
 	private Button classicObstructionButton;
 	private Button outlineButton;
 	private Button compactHotbarButton;
+	private Button attackTargetLockButton;
 	private TransparencySlider ownTransparencySlider;
 	private TransparencySlider otherTransparencySlider;
 	private static final int AURA_PARAMETERS_PER_PAGE = 5;
@@ -65,21 +67,28 @@ public class StandDisplaySettingsScreen extends Screen implements IJojoMenuScree
 		classicObstructionButton = addRenderableWidget(Button.builder(classicObstructionMessage(), button -> toggleClassicObstruction())
 				.bounds(x, y, controlWidth, 20).build());
 		outlineButton = addRenderableWidget(Button.builder(outlineMessage(), button -> toggleOutline())
-				.bounds(x, y + 32, controlWidth, 20).build());
-		ownTransparencySlider = addRenderableWidget(new TransparencySlider(x, y + 70, controlWidth,
+				.bounds(x, y + 26, controlWidth, 20).build());
+		ownTransparencySlider = addRenderableWidget(new TransparencySlider(x, y + 52, controlWidth,
 				"jojo_ripples.stand_display.own_transparency", true));
-		otherTransparencySlider = addRenderableWidget(new TransparencySlider(x, y + 102, controlWidth,
+		otherTransparencySlider = addRenderableWidget(new TransparencySlider(x, y + 78, controlWidth,
 				"jojo_ripples.stand_display.other_transparency", false));
 		addRenderableWidget(Button.builder(
 				Component.translatable(
 						"jojo_ripples.stand_display.aura_settings"),
 				button -> openAuraPage(0))
-				.bounds(x, y + 134, controlWidth, 20)
+				.bounds(x, y + 104, controlWidth, 20)
 				.build());
 		compactHotbarButton = addRenderableWidget(Button.builder(compactHotbarMessage(), button -> {
 			ClientModSettings.edit(settings -> settings.compactStandHotbar = !settings.compactStandHotbar, false);
 			updateControls();
-		}).bounds(x, y + 160, controlWidth, 20).build());
+		}).bounds(x, y + 130, controlWidth, 20).build());
+		attackTargetLockButton = addRenderableWidget(Button.builder(attackTargetLockMessage(), button -> {
+			ClientModSettings.edit(settings -> settings.broadcasted.standAttackTargetLock =
+					!settings.broadcasted.standAttackTargetLock, true);
+			updateControls();
+		}).bounds(x, y + 156, controlWidth, 20)
+				.tooltip(Tooltip.create(Component.translatable("jojo_ripples.stand_display.attack_target_lock.tooltip")))
+				.build());
 		updateControls();
 	}
 
@@ -219,6 +228,7 @@ public class StandDisplaySettingsScreen extends Screen implements IJojoMenuScree
 		outlineButton.active = settings().classicStandObstruction;
 		outlineButton.setMessage(outlineMessage());
 		compactHotbarButton.setMessage(compactHotbarMessage());
+		attackTargetLockButton.setMessage(attackTargetLockMessage());
 	}
 
 	private Component classicObstructionMessage() {
@@ -234,6 +244,11 @@ public class StandDisplaySettingsScreen extends Screen implements IJojoMenuScree
 	private Component compactHotbarMessage() {
 		return Component.translatable("jojo_ripples.stand_display.compact_hotbar",
 				Component.translatable(settings().compactStandHotbar ? "options.on" : "options.off"));
+	}
+
+	private Component attackTargetLockMessage() {
+		return Component.translatable("jojo_ripples.stand_display.attack_target_lock",
+				Component.translatable(settings().broadcasted.standAttackTargetLock ? "options.on" : "options.off"));
 	}
 
 	private static ClientModSettings.Settings settings() {

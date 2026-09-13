@@ -1821,6 +1821,8 @@
   "jojo_ripples.menu.stand.display_settings": "替身显示",
   "jojo_ripples.stand_display.classic_outline": "经典轮廓：%s",
   "jojo_ripples.stand_display.compact_hotbar": "精简技能栏：%s",
+  "jojo_ripples.stand_display.attack_target_lock": "持续锁定攻击目标：%s",
+  "jojo_ripples.stand_display.attack_target_lock.tooltip": "让轻击、重击和连打持续锁定已选中的目标。关闭后改为跟随当前瞄准目标，不影响目标标记显示。",
   "jojo_ripples.stand_display.classic_obstruction": "经典防遮挡：%s",
   "jojo_ripples.stand_display.own_transparency": "自身替身透明度：%s%%",
   "jojo_ripples.stand_display.other_transparency": "其他替身透明度：%s%%",

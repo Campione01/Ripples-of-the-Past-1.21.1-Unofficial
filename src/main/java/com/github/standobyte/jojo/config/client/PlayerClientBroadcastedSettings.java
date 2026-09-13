@@ -32,6 +32,7 @@ public class PlayerClientBroadcastedSettings implements SynchronizablePlayerData
 	public HumanoidArm standSide = HumanoidArm.RIGHT;
 	public boolean vampireGlowingEyes = true;
 	public boolean noStandAbilityCooldown = false;
+	public boolean standAttackTargetLock = false;
 
 	public PlayerClientBroadcastedSettings() {
 		this.owner = null;
@@ -47,12 +48,14 @@ public class PlayerClientBroadcastedSettings implements SynchronizablePlayerData
 		buf.writeEnum(standSide);
 		buf.writeBoolean(vampireGlowingEyes);
 		buf.writeBoolean(noStandAbilityCooldown);
+		buf.writeBoolean(standAttackTargetLock);
 	}
 
 	public void fromBuf(FriendlyByteBuf buf) {
 		standSide = buf.readEnum(HumanoidArm.class);
 		vampireGlowingEyes = buf.readBoolean();
 		noStandAbilityCooldown = buf.readBoolean();
+		standAttackTargetLock = buf.readBoolean();
 	}
 
 	public PlayerClientBroadcastedSettings copy() {
@@ -65,6 +68,7 @@ public class PlayerClientBroadcastedSettings implements SynchronizablePlayerData
 		this.standSide = other.standSide;
 		this.vampireGlowingEyes = other.vampireGlowingEyes;
 		this.noStandAbilityCooldown = other.noStandAbilityCooldown;
+		this.standAttackTargetLock = other.standAttackTargetLock;
 	}
 
 
@@ -107,6 +111,7 @@ public class PlayerClientBroadcastedSettings implements SynchronizablePlayerData
 		nbt.putString("StandSide", standSide.getSerializedName());
 		nbt.putBoolean("VampireGlowingEyes", vampireGlowingEyes);
 		nbt.putBoolean("NoStandAbilityCooldown", noStandAbilityCooldown);
+		nbt.putBoolean("StandAttackTargetLock", standAttackTargetLock);
 		return nbt;
 	}
 
@@ -115,6 +120,17 @@ public class PlayerClientBroadcastedSettings implements SynchronizablePlayerData
 		standSide = HumanoidArm.LEFT.getSerializedName().equals(nbt.getString("StandSide")) ? HumanoidArm.LEFT : HumanoidArm.RIGHT;
 		vampireGlowingEyes = nbt.getBoolean("VampireGlowingEyes");
 		noStandAbilityCooldown = nbt.getBoolean("NoStandAbilityCooldown");
+		standAttackTargetLock = nbt.getBoolean("StandAttackTargetLock");
+	}
+
+	public static boolean isStandAttackTargetLockEnabled(StandPower standPower) {
+		if (standPower == null || !standPower.hasPower()) {
+			return false;
+		}
+		if (standPower.getUser() instanceof Player player) {
+			return getPlayerSettings(player).map(settings -> settings.standAttackTargetLock).orElse(false);
+		}
+		return true;
 	}
 
 	public static boolean isNoStandAbilityCooldownEnabled(StandPower standPower) {

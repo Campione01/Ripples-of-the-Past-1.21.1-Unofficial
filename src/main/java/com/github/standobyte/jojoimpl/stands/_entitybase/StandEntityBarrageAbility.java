@@ -151,6 +151,7 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 				setStandFrontOffsetFromTarget(stand, target, minOffset, maxOffset);
 				keepStandAimedAtTarget(target);
 				aimAs = AimingEntity.STAND;
+				StandEntityPunchAbility.releaseUnlockedPunchTarget(stand, this);
 				if (level.isClientSide()) {
 					if (ClientGlobals.canHearStand(stand) && !stand.isArmsOnlyMode() && shouldPlayBarrageCry(level, stand)) {
 						StandCrySoundHandler.create(stand, getBarrageCrySound(), 1, 1,
@@ -172,6 +173,9 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 		@Override
 		public void actionTick() {
 			Level level = performer.level();
+			if (performer instanceof StandEntity stand) {
+				StandEntityPunchAbility.releaseUnlockedPunchTarget(stand, this);
+			}
 			
 			if (getPhase() == ActionPhase.PERFORM && performer instanceof StandEntity stand) {
 				ActionTarget target = getPunchTarget(stand);
@@ -183,6 +187,7 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 					standRotationTarget = target.copy().resolveEntityId(level);
 					aimAs = AimingEntity.STAND;
 				}
+				StandEntityPunchAbility.releaseUnlockedPunchTarget(stand, this);
 				hitsThisTick = getHitsThisTick(level, stand);
 				stand.setBarrageHitsThisTick(hitsThisTick);
 				
@@ -340,7 +345,9 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 						new ActionTarget(
 								LivingComponentGrab.getEntityGrabbedBy(stand)));
 			}
-			ActionTarget target = StandEntityPunchAbility.getFreshPunchTarget(stand, getActionTargetSnapshot(stand.level()));
+			ActionTarget target = StandEntityPunchAbility.getFreshPunchTarget(
+					stand, getActionTargetSnapshot(stand.level()),
+					StandEntityPunchAbility.shouldRetainPunchTarget(stand, ability));
 			setActionTargetSnapshot(target);
 			return target;
 		}

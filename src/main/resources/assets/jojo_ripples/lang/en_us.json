@@ -1834,6 +1834,8 @@
   "jojo_ripples.menu.stand.display_settings": "Stand Display",
   "jojo_ripples.stand_display.classic_outline": "Classic outline: %s",
   "jojo_ripples.stand_display.compact_hotbar": "Compact skill bar: %s",
+  "jojo_ripples.stand_display.attack_target_lock": "Keep attack target: %s",
+  "jojo_ripples.stand_display.attack_target_lock.tooltip": "Keep light, heavy and barrage attacks locked on their target. When off, follow your current aim instead. The target marker is unchanged.",
   "jojo_ripples.stand_display.classic_obstruction": "Classic obstruction: %s",
   "jojo_ripples.stand_display.own_transparency": "Own stand transparency: %s%%",
   "jojo_ripples.stand_display.other_transparency": "Other stands transparency: %s%%",

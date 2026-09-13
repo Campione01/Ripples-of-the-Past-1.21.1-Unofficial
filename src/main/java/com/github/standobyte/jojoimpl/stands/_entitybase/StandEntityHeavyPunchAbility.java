@@ -171,6 +171,7 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 				ActionTarget target = captureActionTargetFromAim(stand);
 				setStandFrontOffsetFromTarget(stand, target, minOffset, maxOffset);
 				keepStandAimedAtTarget(target);
+				StandEntityPunchAbility.releaseUnlockedPunchTarget(stand, this);
 				Level level = performer.level();
 				if (isGrabVariation() && stand.offsetFromUser.grabIdleOffset != null) {
 					stand.offsetFromUser.setOffset(stand.offsetFromUser.grabIdleOffset, StandOffsetFromUser.Rotations.HEAD);
@@ -189,6 +190,9 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 		@Override
 		public void actionTick() {
 			Level level = performer.level();
+			if (performer instanceof StandEntity stand) {
+				StandEntityPunchAbility.releaseUnlockedPunchTarget(stand, this);
+			}
 			if (level.isClientSide() && !(playedSwingSound && playedStandCrySound)
 					&& performer instanceof StandEntity stand && ClientGlobals.canHearStand(stand)) {
 				if (!playedSwingSound) {
@@ -273,6 +277,7 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 				else {
 					aimAs = AimingEntity.CAMERA_ENTITY;
 				}
+				StandEntityPunchAbility.releaseUnlockedPunchTarget(stand, this);
 			}
 		}
 		
@@ -379,7 +384,9 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 			if (isGrabVariation()) {
 				return new ActionTarget(punchTarget);
 			}
-			ActionTarget target = StandEntityPunchAbility.getFreshPunchTarget(stand, getActionTargetSnapshot(stand.level()));
+			ActionTarget target = StandEntityPunchAbility.getFreshPunchTarget(
+					stand, getActionTargetSnapshot(stand.level()),
+					StandEntityPunchAbility.shouldRetainPunchTarget(stand, ability));
 			setActionTargetSnapshot(target);
 			return target;
 		}

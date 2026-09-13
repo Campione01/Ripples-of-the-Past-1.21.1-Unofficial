@@ -164,6 +164,9 @@ public class ClientModSettings {
 		normalizeBooleanField(settings, "classicStandObstruction");
 		normalizeBooleanField(settings, "standOutline");
 		normalizeBooleanField(settings, "compactStandHotbar");
+		if (settings.has("broadcasted") && settings.get("broadcasted").isJsonObject()) {
+			normalizeBooleanField(settings.getAsJsonObject("broadcasted"), "standAttackTargetLock");
+		}
 		return settings;
 	}
 

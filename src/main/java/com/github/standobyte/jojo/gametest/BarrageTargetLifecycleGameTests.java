@@ -1,10 +1,13 @@
 package com.github.standobyte.jojo.gametest;
 
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 import com.github.standobyte.jojo.api.stand.StandPowerTransitions;
 import com.github.standobyte.jojo.core.JojoMod;
 import com.github.standobyte.jojo.core.JojoRegistries;
+import com.github.standobyte.jojo.config.client.PlayerClientBroadcastedSettings;
+import com.github.standobyte.jojo.init.ModDataAttachmentTypes;
 import com.github.standobyte.jojo.powersystem.PowerClass;
 import com.github.standobyte.jojo.powersystem.ability.Ability;
 import com.github.standobyte.jojo.powersystem.entityaction.EntityActionInstance;
@@ -59,6 +62,7 @@ public final class BarrageTargetLifecycleGameTests {
 			helper.assertTrue(helper.getLevel().addFreshEntity(user),
 					"Could not add barrage target-lifecycle player");
 			power = PowerClass.STAND.attachGet(user);
+			user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get()).standAttackTargetLock = true;
 			StandPowerTransitions.Result inserted = StandPowerTransitions.insert(
 					power, new StandInstance(standType));
 			helper.assertTrue(
@@ -143,6 +147,125 @@ public final class BarrageTargetLifecycleGameTests {
 			}
 			user.discard();
 		}
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void lightPunchFollowsAimWithoutLock(GameTestHelper helper) {
+		verifyAimSwitch(helper, "punch", false);
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void heavyPunchFollowsAimWithoutLock(GameTestHelper helper) {
+		verifyAimSwitch(helper, "heavy_punch", false);
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void barrageFollowsAimWithoutLock(GameTestHelper helper) {
+		verifyAimSwitch(helper, "barrage", false);
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void lightPunchLockRetainsTarget(GameTestHelper helper) {
+		verifyAimSwitch(helper, "punch", true);
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void heavyPunchLockRetainsTarget(GameTestHelper helper) {
+		verifyAimSwitch(helper, "heavy_punch", true);
+	}
+
+	private static void verifyAimSwitch(GameTestHelper helper, String abilityName, boolean locked) {
+		String testName = "AimSwitch_" + abilityName + "_" + locked;
+		Player user = FakePlayerFactory.get(helper.getLevel(), new GameProfile(
+				UUID.nameUUIDFromBytes(testName.getBytes(StandardCharsets.US_ASCII)), testName));
+		StandType standType = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("star_platinum"));
+		StandPower power = null;
+		Cow initial = null;
+		Cow current = null;
+		try {
+			helper.assertTrue(standType != null, "Missing Star Platinum Stand type");
+			Vec3 userPos = Vec3.atCenterOf(helper.absolutePos(new BlockPos(2, 2, 2)));
+			user.moveTo(userPos.x, userPos.y, userPos.z);
+			helper.assertTrue(helper.getLevel().addFreshEntity(user), "Could not add targeting player");
+			power = PowerClass.STAND.attachGet(user);
+			PlayerClientBroadcastedSettings settings =
+					user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get());
+			helper.assertTrue(!new PlayerClientBroadcastedSettings().standAttackTargetLock,
+					"Continuous Stand target lock must default to disabled");
+			settings.standAttackTargetLock = locked;
+			helper.assertTrue(StandPowerTransitions.insert(power, new StandInstance(standType)).status()
+					== StandPowerTransitions.Status.APPLIED, "Could not grant Star Platinum");
+			helper.assertTrue(standType.summon(user, power), "Could not summon Star Platinum");
+			StandEntity stand = power.getSummonedStandEntity();
+			helper.assertTrue(stand != null, "Summoned Stand is missing");
+			stand.moveTo(userPos.x, userPos.y, userPos.z);
+			initial = spawnCow(helper, userPos.add(0.0D, 0.0D, 1.0D));
+			current = spawnCow(helper, userPos.add(0.75D, 0.0D, 1.25D));
+			LivingComponentAction component = LivingComponentAction.getComponent(stand);
+			component.entityAim.setTarget(new ActionTarget(initial));
+			Ability ability = power.getAbility(abilityName);
+			helper.assertTrue(ability instanceof EntityActionType, "Missing ordinary attack " + abilityName);
+			EntityActionInstance action = ((EntityActionType) ability)
+					.initActionOnAbilityUse(helper.getLevel(), user, stand, null);
+			component.setAction(action, user, SyncType.NO_SYNC);
+			if (!locked) {
+				assertNoPersistentLock(helper, action, abilityName);
+			}
+
+			component.entityAim.setTarget(new ActionTarget(current));
+			ActionTarget selected = StandEntityPunchAbility.getFreshPunchTarget(stand, new ActionTarget(initial));
+			Cow expected = locked ? initial : current;
+			Cow untouched = locked ? current : initial;
+			helper.assertTrue(selected.getMainEntity() == expected,
+					abilityName + " did not obey its target-lock setting when aim changed");
+			float expectedHealth = expected.getHealth();
+			float untouchedHealth = untouched.getHealth();
+			for (int tick = 0; tick < 60 && expected.getHealth() >= expectedHealth
+					&& component.getAction() == action; tick++) {
+				component.tick();
+			}
+			helper.assertTrue(expected.getHealth() < expectedHealth, abilityName + " did not damage its aimed target");
+			helper.assertTrue(untouched.getHealth() == untouchedHealth, abilityName + " damaged the other entity");
+
+			if (!locked) {
+				assertNoPersistentLock(helper, action, abilityName);
+				if (!"barrage".equals(abilityName)) {
+					component.setAction(null, user, SyncType.NO_SYNC);
+					component.entityAim.setTarget(new ActionTarget(initial));
+					action = ((EntityActionType) ability)
+							.initActionOnAbilityUse(helper.getLevel(), user, stand, null);
+					component.setAction(action, user, SyncType.NO_SYNC);
+				}
+				component.entityAim.setTarget(ActionTarget.EMPTY);
+				LivingComponentAction.getComponent(user).entityAim.setTarget(ActionTarget.EMPTY);
+				helper.assertTrue(StandEntityPunchAbility.getFreshPunchTarget(
+						stand, new ActionTarget(initial)).isEmpty(helper.getLevel()),
+						abilityName + " retained an entity after the crosshair moved to empty space");
+				float initialHealth = initial.getHealth();
+				float currentHealth = current.getHealth();
+				for (int tick = 0; tick < 60 && component.getAction() == action; tick++) {
+					component.tick();
+				}
+				helper.assertTrue(initial.getHealth() == initialHealth && current.getHealth() == currentHealth,
+						abilityName + " damaged an entity while aiming at empty space");
+				assertNoPersistentLock(helper, action, abilityName);
+			}
+			helper.succeed();
+		}
+		finally {
+			if (power != null && power.isSummoned() && standType != null) {
+				standType.forceUnsummon(user, power);
+			}
+			if (initial != null) initial.discard();
+			if (current != null) current.discard();
+			user.discard();
+		}
+	}
+
+	private static void assertNoPersistentLock(
+			GameTestHelper helper, EntityActionInstance action, String abilityName) {
+		helper.assertTrue(action.standRotationTarget == null && action.aimAs == AimingEntity.CAMERA_ENTITY,
+				abilityName + " kept Stand-direction aiming or a persistent rotation target while lock was disabled");
 	}
 
 	private static Cow spawnCow(GameTestHelper helper, Vec3 position) {

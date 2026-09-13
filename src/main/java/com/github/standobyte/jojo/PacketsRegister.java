@@ -127,7 +127,7 @@ import net.neoforged.neoforge.network.handling.IPayloadHandler;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 public class PacketsRegister {
-	public static final String NETWORK_PROTOCOL_VERSION = "4";
+	public static final String NETWORK_PROTOCOL_VERSION = "5";
 
 	public static void register(RegisterPayloadHandlersEvent event) {
 		PayloadRegistrar registrar = event.registrar(NETWORK_PROTOCOL_VERSION);
