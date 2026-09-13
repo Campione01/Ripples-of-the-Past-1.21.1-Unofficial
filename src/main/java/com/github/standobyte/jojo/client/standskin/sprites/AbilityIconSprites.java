@@ -44,6 +44,7 @@ public class AbilityIconSprites implements AutoCloseable {
 			Map.entry("grab_punch", List.of("punch")),
 			Map.entry("grab_barrage", List.of("barrage")),
 			Map.entry("grab_heavy_punch", List.of("heavy_punch")),
+			Map.entry("grab_kick", List.of("kick")),
 			Map.entry("grab_uppercut", List.of("finisher_uppercut", "uppercut", "heavy_punch")),
 			Map.entry("grab_finisher", List.of("finisher", "heavy_punch")),
 			Map.entry("grab_throw", List.of("grab", "heavy_punch")),
