@@ -46,16 +46,42 @@ public final class TimeStopProgressionGameTests {
 		Player player = helper.makeMockPlayer(GameType.SURVIVAL);
 		try {
 			StandPower power = grantTimeStopStand(helper, player, JojoMod.resLoc("star_platinum"));
+			var timeStop = power.getMoveset().getAbility(TimeStopLearning.TIME_STOP);
+			var punch = power.getMoveset().getAbility("punch");
+			helper.assertTrue(timeStop != null && punch != null,
+					"Blink dependency fixture is missing core Time Stop or punch");
+			helper.assertTrue(power.getCurTypeData().isSkillUnlocked(TimeStopLearning.TIME_STOP)
+					&& !power.getCurTypeData()._lockedAbilities.contains(TimeStopLearning.TIME_STOP),
+					"Time Stop must already be learned before checking its separate Resolve gate");
+			helper.assertTrue(!power.isUserCreative() && power.getResolveLevel() == 0
+					&& !timeStop.getResolveUnlockConditionCheck(power).isPositive()
+					&& !timeStop.getUnlockConditionCheck(power).isPositive(),
+					"Low-Resolve survival fixture must leave learned core Time Stop ineligible");
 			TimeStopBlinkAbility blink = ModStandAbilities.TIME_STOP_BLINK.get().createInstance(
 					new AbilityId(PowerClass.STAND, JojoMod.resLoc("star_platinum"), "test_blink"));
+			helper.assertTrue(!blink.getUnlockConditionCheck(power).isPositive(),
+					"Default blink dependency bypassed core Time Stop's Resolve gate");
+			blink.setTimeStopAbilityName("punch");
+			helper.assertTrue(punch.getUnlockConditionCheck(power).isPositive()
+					&& !timeStop.getUnlockConditionCheck(power).isPositive(),
+					"Configured-dependency fixture must distinguish eligible punch from ineligible Time Stop");
+			helper.assertTrue(blink.getUnlockConditionCheck(power).isPositive(),
+					"Blink ignored its explicitly configured unlocked dependency");
+			blink.setTimeStopAbilityName(TimeStopLearning.TIME_STOP);
+			helper.assertTrue(!blink.getUnlockConditionCheck(power).isPositive(),
+					"Restoring the existing but ineligible Time Stop dependency must lock blink");
+
+			power.setResolveLevel(power.getMaxResolveLevel());
+			helper.assertTrue(timeStop.getResolveUnlockConditionCheck(power).isPositive()
+					&& timeStop.getUnlockConditionCheck(power).isPositive(),
+					"Maximum Resolve did not make learned core Time Stop eligible");
 			helper.assertTrue(blink.getUnlockConditionCheck(power).isPositive(),
 					"Default blink dependency did not retain the unlocked core Time Stop");
 			blink.setTimeStopAbilityName("absent_test_ability");
+			helper.assertTrue(timeStop.getUnlockConditionCheck(power).isPositive(),
+					"Core Time Stop must remain eligible for the missing-dependency negative control");
 			helper.assertTrue(!blink.getUnlockConditionCheck(power).isPositive(),
 					"A missing configured dependency must not unlock blink");
-			blink.setTimeStopAbilityName("punch");
-			helper.assertTrue(blink.getUnlockConditionCheck(power).isPositive(),
-					"Blink ignored its explicitly configured unlocked dependency");
 			helper.assertTrue(!blink.getUnlockConditionCheck(null).isPositive(),
 					"Blink without a power context must remain locked");
 		}

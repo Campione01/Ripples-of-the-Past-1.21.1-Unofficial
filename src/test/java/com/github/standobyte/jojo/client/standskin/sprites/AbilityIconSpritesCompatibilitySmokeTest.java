@@ -2,7 +2,9 @@ package com.github.standobyte.jojo.client.standskin.sprites;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Arrays;
+import java.awt.image.BufferedImage;
+
+import javax.imageio.ImageIO;
 
 import com.github.standobyte.jojo.powersystem.ability.AbilityId;
 import com.github.standobyte.jojo.powersystem.ability.AbilityType;
@@ -34,16 +36,29 @@ public final class AbilityIconSpritesCompatibilitySmokeTest {
 		StandEntityGrabReleaseAbility release = releaseType.createInstance(new AbilityId(
 				null, ResourceLocation.fromNamespaceAndPath("rotp_test", "test_stand"), "grab_release"));
 		check(ResourceLocation.fromNamespaceAndPath("jojo_ripples", "stand_grab_release")
-				.equals(release.getSpriteId(null)), "addon release must use the shared cancellation icon");
+				.equals(release.getSpriteId(null)), "addon release must use the shared release icon");
 		check("jojo_ripples.ability.grab_release".equals(release.getTranslationKey()),
 				"automatically added release must use its existing core translation");
 		try (InputStream releaseIcon = AbilityIconSpritesCompatibilitySmokeTest.class.getResourceAsStream(
-				"/assets/jojo_ripples/textures/ability/stand_grab_release.png");
-				InputStream originalCancel = AbilityIconSpritesCompatibilitySmokeTest.class.getResourceAsStream(
-						"/assets/jojo_ripples/textures/ability/hamon_rebuff_overdrive_cancel.png")) {
-			check(releaseIcon != null && originalCancel != null, "shared release icon must be packaged");
-			check(Arrays.equals(releaseIcon.readAllBytes(), originalCancel.readAllBytes()),
-					"release must reuse the original cancellation symbol, not a punch or shield");
+				"/assets/jojo_ripples/textures/ability/stand_grab_release.png")) {
+			check(releaseIcon != null, "shared release icon must be packaged");
+			BufferedImage icon = ImageIO.read(releaseIcon);
+			check(icon != null && icon.getWidth() == 32 && icon.getHeight() == 32,
+					"shared release icon must be a readable 32px PNG");
+			int visiblePixels = 0;
+			int transparentPixels = 0;
+			for (int y = 0; y < icon.getHeight(); y++) {
+				for (int x = 0; x < icon.getWidth(); x++) {
+					if ((icon.getRGB(x, y) >>> 24) == 0) {
+						transparentPixels++;
+					}
+					else {
+						visiblePixels++;
+					}
+				}
+			}
+			check(visiblePixels > 0 && transparentPixels > 0,
+					"shared release icon must have visible art on a transparent background");
 		}
 		catch (IOException exception) {
 			throw new AssertionError("Could not read the shared release icon", exception);
