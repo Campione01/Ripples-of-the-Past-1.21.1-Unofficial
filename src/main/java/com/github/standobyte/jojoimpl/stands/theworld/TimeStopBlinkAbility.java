@@ -47,6 +47,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
 public class TimeStopBlinkAbility extends Ability {
 	private static final double MAX_BLINK_DISTANCE = 192;
 	private boolean teleportBehindEntity;
+	private String timeStopAbilityName = "time_stop";
 
 	public TimeStopBlinkAbility(AbilityType<?> abilityType, AbilityId abilityId) {
 		super(abilityType, abilityId);
@@ -75,6 +76,14 @@ public class TimeStopBlinkAbility extends Ability {
 		return this;
 	}
 
+	public TimeStopBlinkAbility setTimeStopAbilityName(String abilityName) {
+		if (abilityName == null || abilityName.isBlank()) {
+			throw new IllegalArgumentException("Time Stop ability name must not be blank");
+		}
+		timeStopAbilityName = abilityName;
+		return this;
+	}
+
 	@Override
 	public boolean isAbilityUnlocked(Power<?> context) {
 		return getUnlockConditionCheck(context).isPositive();
@@ -82,8 +91,9 @@ public class TimeStopBlinkAbility extends Ability {
 
 	@Override
 	public ConditionCheck getUnlockConditionCheck(Power<?> context) {
-		Ability timeStop = context != null ? context.getAbility("time_stop") : null;
-		return timeStop != null ? timeStop.getUnlockConditionCheck(context) : ConditionCheck.createNegative("not_unlocked");
+		Ability timeStop = context != null ? context.getMoveset().getAbility(timeStopAbilityName) : null;
+		return timeStop != null && timeStop != this
+				? timeStop.getUnlockConditionCheck(context) : ConditionCheck.createNegative("not_unlocked");
 	}
 
 	@Override

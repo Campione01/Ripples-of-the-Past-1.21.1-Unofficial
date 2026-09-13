@@ -7,7 +7,9 @@ import com.github.standobyte.jojo.api.stand.StandPowerTransitions;
 import com.github.standobyte.jojo.core.JojoMod;
 import com.github.standobyte.jojo.core.JojoRegistries;
 import com.github.standobyte.jojo.init.power.ModPlayerPowers;
+import com.github.standobyte.jojo.init.power.ModStandAbilities;
 import com.github.standobyte.jojo.powersystem.PowerClass;
+import com.github.standobyte.jojo.powersystem.ability.AbilityId;
 import com.github.standobyte.jojo.powersystem.playerpower.PlayerPower;
 import com.github.standobyte.jojo.powersystem.playerpower.PlayerPowerType;
 import com.github.standobyte.jojo.powersystem.standpower.StandInstance;
@@ -18,6 +20,7 @@ import com.github.standobyte.jojo.subsystems.timestop.TimeStopState;
 import com.github.standobyte.jojoimpl.powers.pillarman.PillarmanData;
 import com.github.standobyte.jojoimpl.powers.vampirism.VampirismState;
 import com.github.standobyte.jojoimpl.powers.zombie.ZombieData;
+import com.github.standobyte.jojoimpl.stands.theworld.TimeStopBlinkAbility;
 
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -37,6 +40,30 @@ public final class TimeStopProgressionGameTests {
 			PowerSkillUnlocks.register(JojoMod.resLoc("time_stop_progression_gametest"));
 
 	private TimeStopProgressionGameTests() {}
+
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void timeStopBlinkUsesConfiguredUnlockAbility(GameTestHelper helper) {
+		Player player = helper.makeMockPlayer(GameType.SURVIVAL);
+		try {
+			StandPower power = grantTimeStopStand(helper, player, JojoMod.resLoc("star_platinum"));
+			TimeStopBlinkAbility blink = ModStandAbilities.TIME_STOP_BLINK.get().createInstance(
+					new AbilityId(PowerClass.STAND, JojoMod.resLoc("star_platinum"), "test_blink"));
+			helper.assertTrue(blink.getUnlockConditionCheck(power).isPositive(),
+					"Default blink dependency did not retain the unlocked core Time Stop");
+			blink.setTimeStopAbilityName("absent_test_ability");
+			helper.assertTrue(!blink.getUnlockConditionCheck(power).isPositive(),
+					"A missing configured dependency must not unlock blink");
+			blink.setTimeStopAbilityName("punch");
+			helper.assertTrue(blink.getUnlockConditionCheck(power).isPositive(),
+					"Blink ignored its explicitly configured unlocked dependency");
+			helper.assertTrue(!blink.getUnlockConditionCheck(null).isPositive(),
+					"Blink without a power context must remain locked");
+		}
+		finally {
+			player.discard();
+		}
+		helper.succeed();
+	}
 
 	@GameTest(template = "empty", timeoutTicks = 80)
 	public static void timeStopTrainingPersistsAcrossSurvivalReload(
