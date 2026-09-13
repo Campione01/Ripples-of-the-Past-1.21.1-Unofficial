@@ -184,6 +184,7 @@
 	"client.EntityClMixin",
 	"client.LivingEntityClMixin",
 	"client.directional_gravity.CameraDirectionalGravityMixin",
+	"client.directional_gravity.LivingEntityRendererDirectionalGravityMixin",
 	"client.directional_gravity.LocalPlayerDirectionalGravityMixin",
 	"client.hamon.LivingEntityWallClimbTravelMixin",
 	"client.BleedingHealthGui",
