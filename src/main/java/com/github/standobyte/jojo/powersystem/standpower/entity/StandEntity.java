@@ -1128,11 +1128,15 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 	}
 	
 	public void onUnsummonUserInput() {
-		if (!this.isBeingRetracted()) {
-			this.retractAndUnsummon();
-		}
-		else if (this.isManuallyControlled()) {
+		if (this.isBeingRetracted() && this.isManuallyControlled()) {
 			this.stopRetraction();
+		}
+		else {
+			EntityActionInstance curAction = getCurStandAction();
+			// Ordinary return-to-user movement is not an unsummon action.
+			if (curAction == null || curAction.ability != ModSpecialActions.STAND_UNSUMMON.get()) {
+				this.retractAndUnsummon();
+			}
 		}
 	}
 

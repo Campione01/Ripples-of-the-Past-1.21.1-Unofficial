@@ -7,7 +7,12 @@ import com.github.standobyte.jojo.core.JojoMod;
 import com.github.standobyte.jojo.core.JojoRegistries;
 import com.github.standobyte.jojo.init.ModDataAttachmentTypes;
 import com.github.standobyte.jojo.init.ModEntityTypes;
+import com.github.standobyte.jojo.init.ModSpecialActions;
 import com.github.standobyte.jojo.powersystem.PowerClass;
+import com.github.standobyte.jojo.powersystem.ability.controls.InputMethod;
+import com.github.standobyte.jojo.powersystem.ability.input.AbilityInput;
+import com.github.standobyte.jojo.powersystem.ability.input.ActionInputBuffer.BufferingState;
+import com.github.standobyte.jojo.powersystem.entityaction.LivingComponentAction;
 import com.github.standobyte.jojo.powersystem.standpower.StandInstance;
 import com.github.standobyte.jojo.powersystem.standpower.StandPower;
 import com.github.standobyte.jojo.powersystem.standpower.entity.StandEntity;
@@ -121,6 +126,104 @@ public final class StandManualControlAdmissionGameTests {
 			assertOtherControlRetained(helper, fixture, otherTarget);
 		}
 		helper.succeed();
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void ordinaryRetractionAcceptsUnsummonInput(GameTestHelper helper) {
+		try (Fixture fixture = new Fixture(helper.getLevel())) {
+			fixture.initialize(helper, false);
+			fixture.stand.moveTo(fixture.user.position().add(5, 0, 0));
+			fixture.stand.retract();
+			helper.assertTrue(fixture.stand.isBeingRetracted() && !fixture.stand.isManuallyControlled()
+					&& !fixture.stand.isCloseToUser() && fixture.stand.getCurStandAction() == null,
+					"Fixture did not enter distant ordinary retraction");
+			fixture.stand.onUnsummonUserInput();
+			assertUnsummonAction(helper, fixture.stand);
+
+			fixture.stand.copyPosition(fixture.user);
+			int duration = fixture.stand.getUnsummonDuration();
+			for (int tick = 0; tick <= duration && !fixture.stand.isRemoved(); tick++) {
+				LivingComponentAction.getComponent(fixture.stand).tick();
+			}
+			helper.assertTrue(fixture.stand.isRemoved() && fixture.power.getSummonedStandEntity() == null,
+					"Accepted ordinary-retraction unsummon did not finish after reaching the user");
+		}
+		helper.succeed();
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void repeatedUnsummonInputDoesNotRestartAction(GameTestHelper helper) {
+		try (Fixture fixture = new Fixture(helper.getLevel())) {
+			fixture.initialize(helper, false);
+			fixture.stand.onUnsummonUserInput();
+			assertUnsummonAction(helper, fixture.stand);
+			var action = fixture.stand.getCurStandAction();
+			LivingComponentAction.getComponent(fixture.stand).tick();
+			float phaseTick = action.getPhaseTick();
+			helper.assertTrue(phaseTick > 0, "Unsummon action did not advance before repeated input");
+			fixture.stand.onUnsummonUserInput();
+			helper.assertTrue(fixture.stand.getCurStandAction() == action && action.getPhaseTick() == phaseTick,
+					"Repeated input replaced or restarted an existing unsummon action");
+			fixture.stand.retract();
+			fixture.stand.onUnsummonUserInput();
+			helper.assertTrue(fixture.stand.getCurStandAction() == action && action.getPhaseTick() == phaseTick,
+					"Retraction state allowed repeated input to restart an existing unsummon action");
+		}
+		helper.succeed();
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void manualRetractionInputStillCancelsUnsummon(GameTestHelper helper) {
+		try (Fixture fixture = new Fixture(helper.getLevel())) {
+			fixture.initialize(helper, false);
+			StandEntityManualControlToggle.on(helper.getLevel(), fixture.stand);
+			assertControlPair(helper, fixture, true);
+			fixture.stand.moveTo(fixture.user.position().add(5, 0, 0));
+			fixture.stand.retractAndUnsummon();
+			helper.assertTrue(fixture.stand.isBeingRetracted(), "Manual unsummon did not start retraction");
+			assertUnsummonAction(helper, fixture.stand);
+			fixture.stand.onUnsummonUserInput();
+			helper.assertTrue(!fixture.stand.isBeingRetracted() && fixture.stand.getCurStandAction() == null,
+					"Second manual-control input did not cancel retraction and unsummon");
+			assertControlPair(helper, fixture, true);
+		}
+		helper.succeed();
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void heldAbilityStillBlocksRetractionUnsummon(GameTestHelper helper) {
+		try (Fixture fixture = new Fixture(helper.getLevel())) {
+			fixture.initialize(helper, false);
+			var barrage = fixture.power.getAbility("barrage");
+			helper.assertTrue(barrage != null, "Missing production barrage ability");
+			short key = 1;
+			var held = AbilityInput.keyPress(key, barrage, fixture.user, null,
+					InputMethod.HOLD, 0, BufferingState.clickOnly(), barrage.abilityId);
+			var inputState = fixture.user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get());
+			var action = fixture.stand.getCurStandAction();
+			helper.assertTrue(held != null && held.action != null && inputState.heldKeys.get(key) == held
+					&& action != null && action.ability == barrage,
+					"Production barrage press did not establish the held-ability fixture");
+			fixture.stand.moveTo(fixture.user.position().add(5, 0, 0));
+			fixture.stand.retract();
+			fixture.stand.onUnsummonUserInput();
+			helper.assertTrue(fixture.stand.isBeingRetracted() && fixture.stand.getCurStandAction() == action
+					&& inputState.heldKeys.get(key) == held,
+					"Unsummon input bypassed the held-ability guard during ordinary retraction");
+			helper.assertTrue(AbilityInput.keyReleaseFromNetwork(key, fixture.user, held.generation)
+					== AbilityInput.ReleaseResult.RELEASED && inputState.heldKeys.isEmpty(),
+					"Production release did not clear the held-ability input");
+			fixture.stand.onUnsummonUserInput();
+			assertUnsummonAction(helper, fixture.stand);
+		}
+		helper.succeed();
+	}
+
+	private static void assertUnsummonAction(GameTestHelper helper, StandEntity stand) {
+		var action = stand.getCurStandAction();
+		helper.assertTrue(action != null && action.ability == ModSpecialActions.STAND_UNSUMMON.get(),
+				"Expected production unsummon action: retracted=" + stand.isBeingRetracted()
+						+ ", manual=" + stand.isManuallyControlled() + ", action=" + action);
 	}
 
 	private static void assertControlPair(GameTestHelper helper, Fixture fixture, boolean controlled) {
