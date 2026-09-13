@@ -325,6 +325,20 @@ public class TimeStopState {
         }
     }
 
+    @ApiStatus.Internal
+    public void updateGrabbedEntityPosition(LivingEntity entity) {
+        if (entity.level() != level || !shouldFreeze(entity)) {
+            return;
+        }
+        freezeEntity(entity);
+        FrozenEntityState state = frozenEntities.get(entity.getId());
+        if (state != null) {
+            // Holding an entity replaces its old momentum, but not its original AI state.
+            frozenEntities.put(entity.getId(), new FrozenEntityState(
+                    entity.position(), Vec3.ZERO, 0.0F, state.wasNoAi()));
+        }
+    }
+
     public void unfreezeEntity(Entity entity) {
         FrozenEntityState state = frozenEntities.remove(entity.getId());
         if (state == null) {

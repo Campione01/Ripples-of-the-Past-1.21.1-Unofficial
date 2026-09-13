@@ -20,7 +20,9 @@ import com.github.standobyte.jojo.powersystem.standpower.entity.StandEntityAbili
 import com.github.standobyte.jojo.powersystem.standpower.entity.StandOffsetFromUser;
 import com.github.standobyte.jojo.subsystems.entity_grab.LivingComponentGrab;
 import com.github.standobyte.jojo.subsystems.target.AimingEntity;
+import com.github.standobyte.jojo.subsystems.timestop.TimeStopState;
 
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
@@ -87,16 +89,23 @@ public class StandEntityGrabThrowAbility extends StandEntityAbility {
 				if (grabbedEntity != null) {
 					standGrab.setGrabTarget(null);
 					Vec3 throwVec = performer.getLookAngle().scale(2);
-					grabbedEntity.setDeltaMovement(throwVec);
-					grabbedEntity.hurtMarked = true;
-
 					StandEntity stand = (StandEntity) performer;
 					float explRadius = Math.min((float) stand.getAttackDamage() * 0.175F, 10);
-					KnockbackCollisionImpact kbImpact = KnockbackCollisionImpact.getHandler(grabbedEntity);
-					if (kbImpact != null) {
-						kbImpact
-						.onPunchSetKnockbackImpact(grabbedEntity.getDeltaMovement(), stand)
-						.withImpactExplosion(Math.max(explRadius - 0.5F, 0), null, 0);
+					TimeStopState timeStop = level instanceof ServerLevel serverLevel
+							&& serverLevel.hasData(ModDataAttachmentTypes.TIME_STOP.get())
+							? serverLevel.getData(ModDataAttachmentTypes.TIME_STOP.get()) : null;
+					if (timeStop != null && timeStop.shouldFreeze(grabbedEntity)) {
+						LivingComponentGrab targetGrab = grabbedEntity.getData(ModDataAttachmentTypes.LIVING_GRAB.get());
+						long releaseRevision = targetGrab.getGrabRevision();
+						timeStop.queueOnTimeResume(grabbedEntity, () -> {
+							if (grabbedEntity.isAlive() && !grabbedEntity.isRemoved() && grabbedEntity.level() == level
+									&& targetGrab.getGrabRevision() == releaseRevision && !targetGrab.isGrabbed()) {
+								applyThrow(grabbedEntity, stand, throwVec, explRadius);
+							}
+						});
+					}
+					else {
+						applyThrow(grabbedEntity, stand, throwVec, explRadius);
 					}
 				}
 				StandPower standPower = StandPower.get(getPowerUser());
@@ -105,6 +114,16 @@ public class StandEntityGrabThrowAbility extends StandEntityAbility {
 				}
 			}
 			aimAs = AimingEntity.CAMERA_ENTITY;
+		}
+
+		private static void applyThrow(LivingEntity target, StandEntity stand, Vec3 throwVec, float explRadius) {
+			target.setDeltaMovement(throwVec);
+			target.hurtMarked = true;
+			KnockbackCollisionImpact kbImpact = KnockbackCollisionImpact.getHandler(target);
+			if (kbImpact != null) {
+				kbImpact.onPunchSetKnockbackImpact(throwVec, stand)
+						.withImpactExplosion(Math.max(explRadius - 0.5F, 0), null, 0);
+			}
 		}
 
 		@Override

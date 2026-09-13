@@ -11,10 +11,12 @@ import com.github.standobyte.jojo.core.JojoMod;
 import com.github.standobyte.jojo.entityattachment.TickingEntityData;
 import com.github.standobyte.jojo.init.ModDataAttachmentTypes;
 import com.github.standobyte.jojo.powersystem.standpower.entity.StandEntity;
+import com.github.standobyte.jojo.subsystems.timestop.TimeStopState;
 import com.github.standobyte.jojo.util.functions.MathUtil;
 import com.github.standobyte.jojo.util.functions.UtilFunctions;
 
 import net.minecraft.world.entity.Entity;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
@@ -36,6 +38,7 @@ public class LivingComponentGrab implements TickingEntityData {
 	private final LivingEntity thisEntity;
 	private LivingEntity grabbingEntity;
 	private LivingEntity grabbedTarget;
+	private long grabRevision;
 
 	public float xRotWhenGrabbed;
 	public float yRotDiffWhenGrabbed;
@@ -116,6 +119,14 @@ public class LivingComponentGrab implements TickingEntityData {
 	@ApiStatus.Internal
 	public void setGrabbedBy(@Nullable LivingEntity grabbing) {
 		boolean clientSide = thisEntity.level().isClientSide();
+		if (this.grabbingEntity != grabbing) {
+			TimeStopState timeStop = getTimeStopState();
+			if (this.grabbingEntity != null && thisEntity.isAlive()
+					&& timeStop != null && timeStop.shouldFreeze(thisEntity)) {
+				setGrabbedPos();
+			}
+			grabRevision++;
+		}
 		if (!clientSide) {
 			Optional.ofNullable(thisEntity.getAttribute(Attributes.ATTACK_DAMAGE)).ifPresent(attackDamage -> {
 				attackDamage.removeModifier(GRABBED_NO_ATTACK_POWER.id());
@@ -139,6 +150,10 @@ public class LivingComponentGrab implements TickingEntityData {
 		}
 
 		this.grabbingEntity = grabbing;
+	}
+
+	public long getGrabRevision() {
+		return grabRevision;
 	}
 
 	public boolean isGrabbed() {
@@ -196,7 +211,20 @@ public class LivingComponentGrab implements TickingEntityData {
 
 		if (!thisEntity.level().isClientSide()) {
 			applyRotationDiff();
+			TimeStopState timeStop = getTimeStopState();
+			if (timeStop != null) {
+				timeStop.updateGrabbedEntityPosition(thisEntity);
+			}
 		}
+	}
+
+	@Nullable
+	private TimeStopState getTimeStopState() {
+		if (thisEntity.level() instanceof ServerLevel level
+				&& level.hasData(ModDataAttachmentTypes.TIME_STOP.get())) {
+			return level.getData(ModDataAttachmentTypes.TIME_STOP.get());
+		}
+		return null;
 	}
 
 	@ApiStatus.Internal
