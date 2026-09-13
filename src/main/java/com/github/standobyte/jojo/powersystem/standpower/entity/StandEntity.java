@@ -316,8 +316,6 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		if (standCanHaveNoPhysics) {
 			noPhysics = true;
 		}
-		
-		openStandHandsContainer();
 	}
 	
 
@@ -394,6 +392,8 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		LivingEntity user = getUser();
 		if (user != null && player.is(user) && player.isAlive()) {
 			StandEntityManualControlToggle.off(level(), this, false);
+			// ServerEntity sends the entity's pairing bundle before this callback.
+			openStandHandsContainer();
 		}
 	}
 
@@ -2249,7 +2249,14 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		if (!level().isClientSide()) {
 			LivingEntity user = getUser();
 			if (user instanceof ServerPlayer pl) {
-				PlayerExternalContainers.get(pl).openMenu(StandHandsContainerMenu.createServerSide(this), null);
+				PlayerExternalContainers containers = PlayerExternalContainers.get(pl);
+				// Tracking can restart with a new client entity; replace only this Stand's old menus.
+				for (var container : List.copyOf(containers.getAllContainers())) {
+					if (container instanceof StandHandsContainerMenu hands && hands.standEntity == this) {
+						containers.closeMenu(container.containerId);
+					}
+				}
+				containers.openMenu(StandHandsContainerMenu.createServerSide(this), null);
 			}
 		}
 	}
