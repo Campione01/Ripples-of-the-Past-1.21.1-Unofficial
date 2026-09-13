@@ -136,12 +136,11 @@ public final class DirectionalGravityApi {
 		Vec3 anchor = position.get();
 		data.updateAppliedDirection(direction);
 		entity.refreshDimensions();
+		// Commit placement independently of transports whose teleport hook may be a no-op.
+		entity.moveTo(anchor.x, anchor.y, anchor.z);
 		if (entity instanceof ServerPlayer player) {
 			player.connection.teleport(anchor.x, anchor.y, anchor.z,
 					player.getYRot(), player.getXRot());
-		}
-		else {
-			entity.moveTo(anchor.x, anchor.y, anchor.z);
 		}
 		entity.setDeltaMovement(velocity);
 		clearPreviousSupport(entity);
