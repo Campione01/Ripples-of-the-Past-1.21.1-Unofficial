@@ -16,15 +16,22 @@ public final class NetworkProtocolNegotiationSmokeTest {
 	private NetworkProtocolNegotiationSmokeTest() {}
 
 	public static void run() {
-		check("4".equals(PacketsRegister.NETWORK_PROTOCOL_VERSION),
-				"UUID-bound generation payloads require core protocol v4");
+		check(Integer.parseInt(PacketsRegister.NETWORK_PROTOCOL_VERSION) >= 5,
+				"synchronized target-lock settings require core protocol v5 or later");
 
 		var matching = NetworkComponentNegotiator.validateComponent(
 				requiredComponent(PacketsRegister.NETWORK_PROTOCOL_VERSION),
-				requiredComponent("4"),
+				requiredComponent(PacketsRegister.NETWORK_PROTOCOL_VERSION),
 				"client");
 		check(matching.isEmpty(),
-				"matching v4 peers must negotiate the required play payload");
+				"matching current peers must negotiate the required play payload");
+
+		var oldSettings = NetworkComponentNegotiator.validateComponent(
+				requiredComponent(PacketsRegister.NETWORK_PROTOCOL_VERSION),
+				requiredComponent("4"),
+				"client");
+		check(oldSettings.isPresent() && !oldSettings.get().success(),
+				"a v4 peer must fail before interpreting the new settings payload");
 
 		var generationOnly = NetworkComponentNegotiator.validateComponent(
 				requiredComponent(PacketsRegister.NETWORK_PROTOCOL_VERSION),
