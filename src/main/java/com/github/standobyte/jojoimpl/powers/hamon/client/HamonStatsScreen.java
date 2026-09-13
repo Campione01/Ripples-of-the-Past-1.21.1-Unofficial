@@ -593,9 +593,20 @@ public class HamonStatsScreen extends PlaceholderScreen {
 
     private void blit(GuiGraphics gui, int x, int y, int width, int height,
             int u, int v, int uWidth, int vHeight, int tint) {
-        BlitFloat.blit(gui.pose(), Minecraft.getInstance(), HAMON_WINDOW,
-                x, y, width, height, 1,
-                u, v, uWidth, vHeight, 256, 256, tint);
+        gui.flush();
+        GlStateBackup glState = new GlStateBackup();
+        RenderSystem.backupGlState(glState);
+        try {
+            // Keep transparent bar interiors and later text above the same GUI plane.
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+            BlitFloat.blit(gui.pose(), Minecraft.getInstance(), HAMON_WINDOW,
+                    x, y, width, height, 0,
+                    u, v, uWidth, vHeight, 256, 256, tint);
+        }
+        finally {
+            RenderSystem.restoreGlState(glState);
+        }
     }
 
     private static float statProgress(int points, int level) {
