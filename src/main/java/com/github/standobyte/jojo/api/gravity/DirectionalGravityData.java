@@ -8,16 +8,72 @@ import java.util.Objects;
 import org.jetbrains.annotations.ApiStatus;
 
 import com.github.standobyte.jojo.core.JojoMod;
+import com.github.standobyte.jojo.init.ModDataAttachmentTypes;
+import com.github.standobyte.jojo.subsystems.directional_gravity.DirectionalGravityRuntime;
 
 import net.minecraft.core.Direction;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.attachment.AttachmentSyncHandler;
+import net.neoforged.neoforge.attachment.IAttachmentHolder;
 
 @ApiStatus.Internal
 public final class DirectionalGravityData {
+	public static final AttachmentSyncHandler<DirectionalGravityData> SYNC_HANDLER =
+			new AttachmentSyncHandler<>() {
+		@Override
+		public void write(RegistryFriendlyByteBuf buffer, DirectionalGravityData data,
+				boolean initialSync) {
+			AuthoritativeFrame frame = data.currentFrame();
+			buffer.writeVarLong(frame.revision());
+			buffer.writeEnum(frame.direction());
+			writeVector(buffer, frame.position());
+			writeVector(buffer, frame.worldVelocity());
+		}
+
+		@Override
+		public DirectionalGravityData read(IAttachmentHolder holder, RegistryFriendlyByteBuf buffer,
+				DirectionalGravityData previousValue) {
+			AuthoritativeFrame frame = readFrame(buffer);
+			if (!(holder instanceof LivingEntity living) || !living.level().isClientSide()) {
+				throw new IllegalArgumentException("Directional gravity sync requires a client living entity");
+			}
+			// Keep provider bindings and install the first data object before refreshing its geometry.
+			DirectionalGravityData data = previousValue != null ? previousValue
+					: living.getData(ModDataAttachmentTypes.DIRECTIONAL_GRAVITY.get());
+			Direction previousDirection = data.appliedDirection;
+			if (data.acceptAuthoritativeFrame(frame)) {
+				Vec3 position = frame.position();
+				living.lerpTo(position.x, position.y, position.z,
+						living.getYRot(), living.getXRot(), 0);
+				living.moveTo(position.x, position.y, position.z);
+				living.refreshDimensions();
+				living.setDeltaMovement(frame.worldVelocity());
+				if (previousDirection != frame.direction()) {
+					DirectionalGravityApi.clearPreviousSupport(living);
+				}
+			}
+			return data;
+		}
+	};
+
+	private final LivingEntity owner;
 	private final Map<ResourceLocation, Binding> bindings = new HashMap<>();
 	private List<Candidate> snapshot = List.of();
 	private Direction appliedDirection = Direction.DOWN;
+	private long appliedRevision;
+	private boolean hasAuthoritativeFrame;
+
+	public DirectionalGravityData() {
+		this(null);
+	}
+
+	public DirectionalGravityData(LivingEntity owner) {
+		this.owner = owner;
+	}
 
 	boolean bind(ResourceLocation sourceId, int priority,
 			DirectionalGravitySource source) {
@@ -88,7 +144,60 @@ public final class DirectionalGravityData {
 			return false;
 		}
 		appliedDirection = direction;
+		appliedRevision = Math.incrementExact(appliedRevision);
 		return true;
+	}
+
+	AuthoritativeFrame currentFrame() {
+		LivingEntity entity = Objects.requireNonNull(owner, "Directional gravity attachment owner");
+		Vec3 velocity = entity.getDeltaMovement();
+		if (DirectionalGravityRuntime.isLocalFrame(entity)
+				&& !DirectionalGravityRuntime.isWorldMoveAdapterActive(entity)) {
+			velocity = DirectionalGravityTransforms.toWorld(
+					DirectionalGravityRuntime.localFrameDirection(entity), velocity);
+		}
+		// Initial tracking must use the holder's current position, never a cached transition anchor.
+		return new AuthoritativeFrame(appliedRevision, appliedDirection, entity.position(), velocity);
+	}
+
+	boolean acceptAuthoritativeFrame(AuthoritativeFrame frame) {
+		if (hasAuthoritativeFrame && frame.revision() <= appliedRevision) {
+			return false;
+		}
+		appliedRevision = frame.revision();
+		appliedDirection = frame.direction();
+		hasAuthoritativeFrame = true;
+		return true;
+	}
+
+	static AuthoritativeFrame readFrame(RegistryFriendlyByteBuf buffer) {
+		return new AuthoritativeFrame(buffer.readVarLong(), buffer.readEnum(Direction.class),
+				readVector(buffer), readVector(buffer));
+	}
+
+	private static void writeVector(RegistryFriendlyByteBuf buffer, Vec3 vector) {
+		buffer.writeDouble(vector.x);
+		buffer.writeDouble(vector.y);
+		buffer.writeDouble(vector.z);
+	}
+
+	private static Vec3 readVector(RegistryFriendlyByteBuf buffer) {
+		return new Vec3(buffer.readDouble(), buffer.readDouble(), buffer.readDouble());
+	}
+
+	record AuthoritativeFrame(long revision, Direction direction, Vec3 position, Vec3 worldVelocity) {
+		AuthoritativeFrame {
+			Objects.requireNonNull(direction);
+			Objects.requireNonNull(position);
+			Objects.requireNonNull(worldVelocity);
+			if (revision < 0 || !finite(position) || !finite(worldVelocity)) {
+				throw new IllegalArgumentException("Invalid authoritative gravity frame");
+			}
+		}
+
+		private static boolean finite(Vec3 vector) {
+			return Double.isFinite(vector.x) && Double.isFinite(vector.y) && Double.isFinite(vector.z);
+		}
 	}
 
 	Direction resolve(Entity entity) {

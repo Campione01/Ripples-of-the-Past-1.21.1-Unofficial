@@ -2,6 +2,7 @@ package com.github.standobyte.jojo.api.gravity;
 
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.phys.Vec3;
 
 public final class DirectionalGravityDataSmokeTest {
 	private DirectionalGravityDataSmokeTest() {}
@@ -87,6 +88,38 @@ public final class DirectionalGravityDataSmokeTest {
 		runtimeFailureIsQuarantined();
 		validBindingCommitsPastRuntimeFailure();
 		unbindResolvesPastFailingSources();
+		authoritativeFramesPreserveBindingsAndRejectDuplicateMovement();
+	}
+
+	private static void authoritativeFramesPreserveBindingsAndRejectDuplicateMovement() {
+		DirectionalGravityData data = new DirectionalGravityData();
+		ResourceLocation sourceId = id("client_provider");
+		MutableSource source = new MutableSource(Direction.WEST);
+		data.bind(sourceId, 100, source);
+		check(data.acceptAuthoritativeFrame(new DirectionalGravityData.AuthoritativeFrame(
+				0, Direction.DOWN, new Vec3(10, 20, 30), new Vec3(0.1, -0.2, 0.3))),
+				"initial applied frame at revision zero must be accepted");
+		check(data.resolve(null) == Direction.WEST && data.appliedDirection() == Direction.DOWN,
+				"client provider request must not override the server's deferred frame");
+		check(data.contains(sourceId, source), "initial sync discarded client provider bindings");
+		check(data.acceptAuthoritativeFrame(new DirectionalGravityData.AuthoritativeFrame(
+				1, Direction.WEST, new Vec3(11, 21, 31), new Vec3(0.1, -0.2, 0.3))),
+				"new applied revision must be accepted");
+		check(!data.acceptAuthoritativeFrame(new DirectionalGravityData.AuthoritativeFrame(
+				1, Direction.WEST, new Vec3(999, 999, 999), Vec3.ZERO)),
+				"same revision must not reapply an anchor or erase ordinary movement");
+		check(!data.acceptAuthoritativeFrame(new DirectionalGravityData.AuthoritativeFrame(
+				0, Direction.DOWN, Vec3.ZERO, Vec3.ZERO)),
+				"stale applied frame must not roll back a newer direction");
+		check(data.appliedDirection() == Direction.WEST && data.contains(sourceId, source),
+				"ignored frame changed direction or provider identity");
+		source.direction = Direction.NORTH;
+		check(data.resolve(null) == Direction.NORTH && data.appliedDirection() == Direction.WEST,
+				"provider changes must remain separate from authoritative applied state");
+		check(data.acceptAuthoritativeFrame(new DirectionalGravityData.AuthoritativeFrame(
+				2, Direction.DOWN, new Vec3(12, 22, 32), new Vec3(0.4, 0.5, 0.6))),
+				"authoritative return to DOWN must be accepted");
+		check(data.contains(sourceId, source), "return-to-DOWN sync discarded an independent provider");
 	}
 
 	private static void failedBindingDoesNotCommit() {

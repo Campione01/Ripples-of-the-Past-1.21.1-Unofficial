@@ -66,7 +66,8 @@ public final class ModDataAttachmentTypes {
 
 	@ApiStatus.Internal
 	public static final Supplier<AttachmentType<DirectionalGravityData>> DIRECTIONAL_GRAVITY = ATTACHMENT_TYPES.register("directional_gravity",
-			() -> AttachmentType.builder(obj -> obj instanceof LivingEntity ? new DirectionalGravityData() : null).build());
+			() -> AttachmentType.builder(obj -> obj instanceof LivingEntity living ? new DirectionalGravityData(living) : null)
+					.sync(DirectionalGravityData.SYNC_HANDLER).build());
 	
 	public static final Supplier<AttachmentType<JojoModLivingVariables>> LIVING_VARS = ATTACHMENT_TYPES.register("living_vars", 
 			() -> AttachmentType.serializable(obj -> obj instanceof LivingEntity entity ? new JojoModLivingVariables(entity) : null).build());

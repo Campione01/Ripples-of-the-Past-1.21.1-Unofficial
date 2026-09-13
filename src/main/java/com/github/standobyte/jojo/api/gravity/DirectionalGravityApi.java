@@ -3,11 +3,15 @@ package com.github.standobyte.jojo.api.gravity;
 import java.util.Objects;
 
 import com.github.standobyte.jojo.init.ModDataAttachmentTypes;
+import com.github.standobyte.jojo.subsystems.directional_gravity.DirectionalGravityCollision;
+import com.github.standobyte.jojo.subsystems.directional_gravity.DirectionalGravityRuntime;
 
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Runtime binding surface for directional gravity v1 and v2.
@@ -22,6 +26,11 @@ import net.minecraft.world.entity.LivingEntity;
  * entity and treated as inactive. The first failure is logged; a matching
  * {@link #directionChanged(LivingEntity, ResourceLocation,
  * DirectionalGravitySource)} call or a rebind explicitly retries it.</p>
+ *
+ * <p>The server applies a resolved direction only when the reoriented body has
+ * a nearby collision-free placement. Otherwise its previous applied frame is
+ * retained and tick reconciliation retries the request. The core synchronizes
+ * applied frames and absolute anchors; client bindings never predict placement.</p>
  */
 public final class DirectionalGravityApi {
 	public static final int DEFAULT_PRIORITY = 0;
@@ -43,10 +52,8 @@ public final class DirectionalGravityApi {
 				ModDataAttachmentTypes.DIRECTIONAL_GRAVITY.get());
 		Direction resolvedDirection = data.bindAndResolve(
 				entity, sourceId, priority, source);
-		if (data.updateAppliedDirection(
-				effectiveDirection(entity, resolvedDirection))) {
-			entity.refreshDimensions();
-		}
+		applyDirectionSafely(entity, data,
+				effectiveDirection(entity, resolvedDirection));
 	}
 
 	public static void unbind(LivingEntity entity, ResourceLocation sourceId,
@@ -58,10 +65,9 @@ public final class DirectionalGravityApi {
 		if (data == null) {
 			return;
 		}
-		if (data.unbind(sourceId, source)
-				&& data.updateAppliedDirection(effectiveDirection(
-						entity, data.resolve(entity)))) {
-			entity.refreshDimensions();
+		if (data.unbind(sourceId, source)) {
+			applyDirectionSafely(entity, data,
+					effectiveDirection(entity, data.resolve(entity)));
 		}
 	}
 
@@ -76,13 +82,13 @@ public final class DirectionalGravityApi {
 			return;
 		}
 		DirectionalGravityData data = existingData(entity);
-		if (data != null && data.reactivate(sourceId, source)
-				&& data.updateAppliedDirection(effectiveDirection(
-						entity, data.resolve(entity)))) {
-			entity.refreshDimensions();
+		if (data != null && data.reactivate(sourceId, source)) {
+			applyDirectionSafely(entity, data,
+					effectiveDirection(entity, data.resolve(entity)));
 		}
 	}
 
+	/** Returns the winning provider request, which may still be awaiting clear space. */
 	public static Direction getDirection(Entity entity) {
 		if (entity == null) {
 			return Direction.DOWN;
@@ -103,14 +109,52 @@ public final class DirectionalGravityApi {
 	}
 
 	/**
-	 * Reconciles a mutable provider before an entity tick.
+	 * Reconciles a mutable provider and retries a deferred server frame before an entity tick.
 	 */
 	public static void reconcileEffectiveDirection(Entity entity) {
 		DirectionalGravityData data = existingData(entity);
-		if (data != null && data.updateAppliedDirection(
-				effectiveDirection(entity, data.resolve(entity)))) {
-			entity.refreshDimensions();
+		if (data != null && !entity.level().isClientSide()) {
+			applyDirectionSafely(entity, data,
+					effectiveDirection(entity, data.resolve(entity)));
 		}
+	}
+
+	private static void applyDirectionSafely(Entity entity,
+			DirectionalGravityData data, Direction direction) {
+		if (entity.level().isClientSide()
+				|| data.appliedDirection() == direction
+				|| DirectionalGravityRuntime.isLocalFrame(entity)) {
+			return;
+		}
+		var position = DirectionalGravityCollision.findTransitionPosition(
+				entity, data.appliedDirection(), direction);
+		if (position.isEmpty()) {
+			// Keep the requested providers intact; the existing tick reconciliation retries.
+			return;
+		}
+		Vec3 velocity = entity.getDeltaMovement();
+		Vec3 anchor = position.get();
+		data.updateAppliedDirection(direction);
+		entity.refreshDimensions();
+		if (entity instanceof ServerPlayer player) {
+			player.connection.teleport(anchor.x, anchor.y, anchor.z,
+					player.getYRot(), player.getXRot());
+		}
+		else {
+			entity.moveTo(anchor.x, anchor.y, anchor.z);
+		}
+		entity.setDeltaMovement(velocity);
+		clearPreviousSupport(entity);
+		// Absolute player teleports clear client velocity; this frame restores world momentum.
+		entity.syncData(ModDataAttachmentTypes.DIRECTIONAL_GRAVITY.get());
+	}
+
+	static void clearPreviousSupport(Entity entity) {
+		entity.setOnGround(false);
+		entity.horizontalCollision = false;
+		entity.verticalCollision = false;
+		entity.verticalCollisionBelow = false;
+		entity.minorHorizontalCollision = false;
 	}
 
 	private static Direction effectiveDirection(Entity entity,

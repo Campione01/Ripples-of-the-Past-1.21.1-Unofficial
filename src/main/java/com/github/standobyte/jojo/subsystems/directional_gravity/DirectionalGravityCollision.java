@@ -3,6 +3,7 @@ package com.github.standobyte.jojo.subsystems.directional_gravity;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 
 import com.github.standobyte.jojo.api.gravity.DirectionalGravityTransforms;
 
@@ -12,6 +13,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.border.WorldBorder;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.BooleanOp;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
@@ -22,6 +24,66 @@ public final class DirectionalGravityCollision {
 	private static final double STEP_EPSILON = 1.0E-5;
 
 	private DirectionalGravityCollision() {}
+
+	/** Finds a nearby clear frame without moving the old body through a solid barrier. */
+	public static Optional<Vec3> findTransitionPosition(Entity entity,
+			Direction previous, Direction next) {
+		AABB oldBox = entity.getBoundingBox();
+		Vec3 oldCenter = oldBox.getCenter();
+		AABB nextAtOrigin = DirectionalGravityTransforms.rotateBox(next,
+				entity.getDimensions(entity.getPose()).makeBoundingBox(Vec3.ZERO), Vec3.ZERO);
+		Vec3 centerOffset = nextAtOrigin.getCenter();
+		AABB centered = nextAtOrigin.move(oldCenter.subtract(centerOffset));
+		if (entity.noPhysics || clearTransitionBox(entity, centered)) {
+			return Optional.of(oldCenter.subtract(centerOffset));
+		}
+
+		Level level = entity.level();
+		AABB searchBounds = oldBox.minmax(centered);
+		double halfX = centered.getXsize() / 2.0;
+		double halfY = centered.getYsize() / 2.0;
+		double halfZ = centered.getZsize() / 2.0;
+		WorldBorder border = level.getWorldBorder();
+		double minX = Math.max(searchBounds.minX, border.getMinX() + halfX);
+		double maxX = Math.min(searchBounds.maxX, border.getMaxX() - halfX);
+		double minZ = Math.max(searchBounds.minZ, border.getMinZ() + halfZ);
+		double maxZ = Math.min(searchBounds.maxZ, border.getMaxZ() - halfZ);
+		if (minX >= maxX || minZ >= maxZ) {
+			return Optional.empty();
+		}
+		VoxelShape search = Shapes.create(new AABB(minX, searchBounds.minY, minZ,
+				maxX, searchBounds.maxY, maxZ));
+		// Vanilla findFreePosition handles blocks; exclude other entities from its center search too.
+		for (VoxelShape collision : level.getEntityCollisions(entity,
+				searchBounds.inflate(halfX, halfY, halfZ))) {
+			for (AABB box : collision.toAabbs()) {
+				search = Shapes.join(search, Shapes.create(box.inflate(halfX, halfY, halfZ)),
+						BooleanOp.ONLY_FIRST);
+			}
+		}
+		Optional<Vec3> freeCenter = level.findFreePosition(entity, search, oldCenter,
+				centered.getXsize(), centered.getYsize(), centered.getZsize());
+		if (freeCenter.isEmpty()) {
+			return Optional.empty();
+		}
+		Vec3 centerMovement = freeCenter.get().subtract(oldCenter);
+		AABB candidate = centered.move(centerMovement);
+		if (!clearTransitionBox(entity, candidate)) {
+			return Optional.empty();
+		}
+		Vec3 allowed = collideWithShapes(previous, centerMovement, oldBox,
+				collectColliders(entity, oldBox.expandTowards(centerMovement)));
+		if (!same(allowed.x, centerMovement.x) || !same(allowed.y, centerMovement.y)
+				|| !same(allowed.z, centerMovement.z)) {
+			return Optional.empty();
+		}
+		return Optional.of(freeCenter.get().subtract(centerOffset));
+	}
+
+	private static boolean clearTransitionBox(Entity entity, AABB box) {
+		return entity.level().getWorldBorder().isWithinBounds(box)
+				&& entity.level().noCollision(entity, box.deflate(1.0E-7));
+	}
 
 	public static Vec3 collide(Entity entity, Vec3 requested,
 			Direction gravity) {
