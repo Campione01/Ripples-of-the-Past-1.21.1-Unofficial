@@ -56,10 +56,11 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 	private static final int ROW_COLOR = 0x33000000;
 	private static final int HOVER_COLOR = 0x66303030;
 	private static final int SELECTED_COLOR = 0x995D933C;
+	private static final int TECHNIQUE_BUTTON_Y = 191;
 	private static final int LIST_X = 16;
 	private static final int LIST_Y = 48;
 	private static final int LIST_WIDTH = 92;
-	private static final int LIST_HEIGHT = 144;
+	private static final int LIST_HEIGHT = TECHNIQUE_BUTTON_Y - LIST_Y - 7;
 	private static final int DETAIL_X = 118;
 	private static final int DETAIL_Y = 48;
 	private static final int DETAIL_WIDTH = 96;
@@ -106,7 +107,7 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 	protected void init() {
 		int x = getWindowX(this);
 		int y = getWindowY(this);
-		int skillsButtonY = view == View.TECHNIQUE ? y + 199 : y + 92;
+		int skillsButtonY = view == View.TECHNIQUE ? y + TECHNIQUE_BUTTON_Y : y + 92;
 
 		learnSkillButton = addRenderableWidget(new PaperButton(x + 152, skillsButtonY, 72, 20,
 				Component.translatable("hamon.learnButton"),
@@ -129,7 +130,7 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 				button -> PacketDistributor.sendToServer(ClLearnSkillPacket.learnAll(
 						PowerClass.PLAYER_POWER, ModPlayerPowers.HAMON.get().getId()))));
 		learnAllSkillsButton.setTooltip(Tooltip.create(Component.translatable("jojo_ripples.note.creative_only")));
-		pickTechniqueButton = addRenderableWidget(new PaperButton(x + 152, y + 199, 72, 20,
+		pickTechniqueButton = addRenderableWidget(new PaperButton(x + 152, y + TECHNIQUE_BUTTON_Y, 72, 20,
 				Component.translatable("hamon.pick_technique"),
 				button -> {
 					if (selectedTechnique != null) {
@@ -556,7 +557,7 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 					? "jojo_ripples.hamon.skills.perk.other_technique"
 					: "jojo_ripples.hamon.skills.perk.on_pick",
 					Component.translatable("hamon.technique." + perk.name())),
-					x, y, DETAIL_WIDTH, otherTechnique ? LOCKED_COLOR : DIM_TEXT_COLOR);
+					x, y, DETAIL_WIDTH, otherTechnique ? LOCKED_COLOR : TEXT_COLOR, true);
 		}
 		else if (!learned && warning != null && !creative) {
 			drawWrapped(gui, warning.plainCopy().withStyle(ChatFormatting.RED), x, y, DETAIL_WIDTH, LOCKED_COLOR);
@@ -672,8 +673,12 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 	}
 
 	private int drawWrapped(GuiGraphics gui, Component text, int x, int y, int width, int color) {
+		return drawWrapped(gui, text, x, y, width, color, false);
+	}
+
+	private int drawWrapped(GuiGraphics gui, Component text, int x, int y, int width, int color, boolean shadow) {
 		for (FormattedCharSequence line : font.split(text, width)) {
-			gui.drawString(font, line, x, y, color, false);
+			gui.drawString(font, line, x, y, color, shadow);
 			y += 10;
 		}
 		return y;
