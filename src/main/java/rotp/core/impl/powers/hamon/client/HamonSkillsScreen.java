@@ -254,7 +254,8 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 		ConditionCheck canLearn = unlockable != null ? unlockable.canUnlockFromMenu(playerPower, data) : ConditionCheck.NEGATIVE;
 		boolean selectedLearned = selectedSkill != null && data.isSkillUnlocked(selectedSkill.name());
 		boolean needsTechniquePick = view == View.TECHNIQUE && data.getCharacterTechnique() == null;
-		learnSkillButton.visible = selectedSkill != null && !selectedLearned && !needsTechniquePick;
+		boolean automaticPerk = !creative && perkTechnique(selectedSkill) != null;
+		learnSkillButton.visible = selectedSkill != null && !selectedLearned && !needsTechniquePick && !automaticPerk;
 		learnSkillButton.active = unlockable != null && (creative || canLearn.isPositive());
 		if (creative && selectedSkill != null && !selectedLearned) {
 			learnSkillButton.setTooltip(Tooltip.create(Component.translatable("jojo_ripples.player_power.skills.creative_unlock")));
@@ -389,8 +390,25 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 		if (player != null && player.isCreative()) {
 			return true;
 		}
+		HamonTechniqueDefinition perk = perkTechnique(skill);
+		if (perk != null) {
+			HamonTechnique technique = ModHamonSkills.techniqueByName(perk.name());
+			return technique != null && technique.canPick(data);
+		}
 		UnlockableSkill unlockable = data.getAllSkills().get(skill.name());
 		return unlockable != null && unlockable.canUnlockFromMenu(playerPower, data).isPositive();
+	}
+
+	@Nullable
+	private HamonTechniqueDefinition perkTechnique(@Nullable HamonSkillDefinition skill) {
+		if (skill != null) {
+			for (HamonTechniqueDefinition technique : ModHamonSkills.TECHNIQUE_DEFINITIONS) {
+				if (technique.isTechniquePerk(skill.name())) {
+					return technique;
+				}
+			}
+		}
+		return null;
 	}
 
 	private ResourceLocation skillIconPath(String skillName) {
@@ -511,11 +529,15 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 		UnlockableSkill unlockable = data.getAllSkills().get(selectedSkill.name());
 		ConditionCheck canLearn = unlockable != null ? unlockable.canUnlockFromMenu(playerPower, data) : ConditionCheck.NEGATIVE;
 		boolean learned = data.isSkillUnlocked(selectedSkill.name());
+		HamonTechniqueDefinition perk = perkTechnique(selectedSkill);
+		boolean automaticPerk = perk != null && !creative;
+		boolean available = creative || (automaticPerk ? canLearn(selectedSkill, data, playerPower, player) : canLearn.isPositive());
 		y = drawWrapped(gui, Component.translatable("hamonSkill." + selectedSkill.name() + ".name"), x, y, DETAIL_WIDTH, TEXT_COLOR) + 3;
 		gui.drawString(font, learned ? Component.translatable("jojo_ripples.hamon.skills.learned")
-				: (creative || canLearn.isPositive()) ? Component.translatable("hamon.learnButton")
+				: automaticPerk ? Component.translatable("jojo_ripples.hamon.skills.perk")
+				: available ? Component.translatable("hamon.learnButton")
 						: Component.translatable("jojo_ripples.hamon.skills.locked"),
-				x, y, learned ? LEARNED_COLOR : (creative || canLearn.isPositive()) ? TEXT_COLOR : LOCKED_COLOR, false);
+				x, y, learned ? LEARNED_COLOR : available ? TEXT_COLOR : LOCKED_COLOR, false);
 		y += 13;
 		y = drawWrapped(gui, Component.translatable("hamonSkill." + selectedSkill.name() + ".desc"), x, y, DETAIL_WIDTH, TEXT_COLOR) + 4;
 		if (!selectedSkill.prerequisiteSkills().isEmpty()) {
@@ -527,7 +549,16 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 					String.join(", ", selectedSkill.unlocksAbilities())), x, y, DETAIL_WIDTH, DIM_TEXT_COLOR) + 3;
 		}
 		Component warning = canLearn.getWarning();
-		if (!learned && warning != null && !creative) {
+		if (!learned && automaticPerk) {
+			boolean otherTechnique = data.getCharacterTechnique() != null
+					&& !perk.name().equals(data.getCharacterTechniqueName());
+			drawWrapped(gui, Component.translatable(otherTechnique
+					? "jojo_ripples.hamon.skills.perk.other_technique"
+					: "jojo_ripples.hamon.skills.perk.on_pick",
+					Component.translatable("hamon.technique." + perk.name())),
+					x, y, DETAIL_WIDTH, otherTechnique ? LOCKED_COLOR : DIM_TEXT_COLOR);
+		}
+		else if (!learned && warning != null && !creative) {
 			drawWrapped(gui, warning.plainCopy().withStyle(ChatFormatting.RED), x, y, DETAIL_WIDTH, LOCKED_COLOR);
 		}
 	}
