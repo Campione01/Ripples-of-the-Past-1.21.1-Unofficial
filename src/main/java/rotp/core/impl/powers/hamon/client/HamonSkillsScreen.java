@@ -56,6 +56,7 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 	private static final int ROW_COLOR = 0x33000000;
 	private static final int HOVER_COLOR = 0x66303030;
 	private static final int SELECTED_COLOR = 0x995D933C;
+	private static final int SKILL_ACTION_BUTTON_X = 144;
 	private static final int TECHNIQUE_BUTTON_Y = 191;
 	private static final int LIST_X = 16;
 	private static final int LIST_Y = 48;
@@ -109,7 +110,7 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 		int y = getWindowY(this);
 		int skillsButtonY = view == View.TECHNIQUE ? y + TECHNIQUE_BUTTON_Y : y + 92;
 
-		learnSkillButton = addRenderableWidget(new PaperButton(x + 152, skillsButtonY, 72, 20,
+		learnSkillButton = addRenderableWidget(new PaperButton(x + SKILL_ACTION_BUTTON_X, skillsButtonY, 72, 20,
 				Component.translatable("hamon.learnButton"),
 				button -> {
 					if (selectedSkill != null) {
@@ -125,12 +126,12 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 					}
 				}));
 		resetSkillsButton.setTooltip(Tooltip.create(Component.translatable("jojo_ripples.note.creative_only")));
-		learnAllSkillsButton = addRenderableWidget(new PaperButton(x + 80, skillsButtonY, 68, 20,
+		learnAllSkillsButton = addRenderableWidget(new PaperButton(x + 80, skillsButtonY, 60, 20,
 				Component.translatable("jojo_ripples.stand_skills.learn_all"),
 				button -> PacketDistributor.sendToServer(ClLearnSkillPacket.learnAll(
 						PowerClass.PLAYER_POWER, ModPlayerPowers.HAMON.get().getId()))));
 		learnAllSkillsButton.setTooltip(Tooltip.create(Component.translatable("jojo_ripples.note.creative_only")));
-		pickTechniqueButton = addRenderableWidget(new PaperButton(x + 152, y + TECHNIQUE_BUTTON_Y, 72, 20,
+		pickTechniqueButton = addRenderableWidget(new PaperButton(x + SKILL_ACTION_BUTTON_X, y + TECHNIQUE_BUTTON_Y, 72, 20,
 				Component.translatable("hamon.pick_technique"),
 				button -> {
 					if (selectedTechnique != null) {
