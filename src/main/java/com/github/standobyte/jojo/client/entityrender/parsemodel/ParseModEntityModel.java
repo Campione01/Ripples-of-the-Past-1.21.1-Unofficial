@@ -76,7 +76,8 @@ public class ParseModEntityModel {
 		
 		public UnbakedModelGeometry() {}
 		
-		private final Map<PartDefinition, String> orphanage = new HashMap<>();
+		private record OrphanNames(String childName, String parentName) {}
+		private final Map<PartDefinition, OrphanNames> orphanage = new HashMap<>();
 		public void addModelPart(String name, PartDefinition modelPart, @Nullable String parentName) {
 			allModelParts.put(name, modelPart);
 			if (parentName == null) {
@@ -90,16 +91,16 @@ public class ParseModEntityModel {
 					_PartDefinition.addOrReplaceChild(parent, name, modelPart);
 				}
 				else {
-					orphanage.put(modelPart, parentName);
+					orphanage.put(modelPart, new OrphanNames(name, parentName));
 				}
 			}
 			
 			if (!orphanage.isEmpty()) {
-				Iterator<Map.Entry<PartDefinition, String>> orphanIter = orphanage.entrySet().iterator();
+				Iterator<Map.Entry<PartDefinition, OrphanNames>> orphanIter = orphanage.entrySet().iterator();
 				while (orphanIter.hasNext()) {
-					Map.Entry<PartDefinition, String> orphan = orphanIter.next();
-					if (orphan.getValue().equals(name)) {
-						_PartDefinition.addOrReplaceChild(modelPart, orphan.getValue(), orphan.getKey());
+					Map.Entry<PartDefinition, OrphanNames> orphan = orphanIter.next();
+					if (orphan.getValue().parentName().equals(name)) {
+						_PartDefinition.addOrReplaceChild(modelPart, orphan.getValue().childName(), orphan.getKey());
 						orphanIter.remove();
 					}
 				}

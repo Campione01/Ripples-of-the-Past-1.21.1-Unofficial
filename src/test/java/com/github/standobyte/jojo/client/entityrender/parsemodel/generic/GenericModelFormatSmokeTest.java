@@ -14,6 +14,7 @@ import java.util.Set;
 
 import org.joml.Vector3f;
 
+import com.github.standobyte.jojo.client.entityrender.parsemodel.ParseModEntityModel.UnbakedModelGeometry;
 import com.github.standobyte.jojo.client.entityrender.parsemodel.ParseModEntityModel.Utils.RotatedCubeCounter;
 import com.github.standobyte.jojo.client.entityrender.parsemodel.gecko.GeckoModelFormat;
 import com.google.gson.JsonParseException;
@@ -22,7 +23,10 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
 import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.model.geom.PartPose;
+import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
+import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
 
 public final class GenericModelFormatSmokeTest {
@@ -48,10 +52,15 @@ public final class GenericModelFormatSmokeTest {
 			System.out.println("Supplied model baked: faces=" + faces + ", path=" + path);
 		}
 		System.out.println("GenericModelFormat smoke tests passed: outliner, triangle/quad, "
-				+ "convex/concave/tilted polygons, collinear quad boundary, The World helmet, UVs and finite unit normals");
+				+ "convex/concave/tilted polygons, collinear quad boundary, The World helmet, UVs, finite unit normals "
+				+ "and model-part attachment order");
 	}
 
 	public static void run() {
+		verifyParentFirstGeometryAndReplacement();
+		verifyChildBeforeParentGeometry();
+		verifyMultipleOrphansPreserveNames();
+		verifyNestedOutOfOrderGeometry();
 		verifyLeafWithoutChildrenParses();
 		verifyLeafWithNullChildrenParses();
 		verifyNullChildEntryFailsWithPath();
@@ -67,6 +76,97 @@ public final class GenericModelFormatSmokeTest {
 		verifyTranslatedClosedMeshBoundsAndNormals();
 		verifyRepeatedVertexIdPreservesOrder();
 		verifyDegenerateNormalFails();
+	}
+
+	private static void verifyParentFirstGeometryAndReplacement() {
+		UnbakedModelGeometry geometry = new UnbakedModelGeometry();
+		PartDefinition parent = geometryPart(1);
+		PartDefinition child = geometryPart(2);
+		PartDefinition oldDetail = geometryPart(3);
+		geometry.addModelPart("body", parent, null);
+		geometry.addModelPart("head", child, "body");
+		geometry.addModelPart("detail", oldDetail, "head");
+		check(geometry.getGeometryDefinition().getRoot().getChild("body") == parent
+				&& parent.getChild("head") == child && child.getChild("detail") == oldDetail,
+				"parent-first attachment must retain the supplied parts and child names");
+
+		PartDefinition replacement = geometryPart(4);
+		PartDefinition newDetail = replacement.addOrReplaceChild("new_detail",
+				CubeListBuilder.create(), PartPose.ZERO);
+		replacement.addOrReplaceChild("detail", CubeListBuilder.create(), PartPose.ZERO);
+		geometry.addModelPart("head", replacement, "body");
+		check(parent.getChild("head") == replacement
+				&& geometry.getNamedModelParts().get("head") == replacement,
+				"same-name attachment must still replace the original part");
+		check(replacement.getChild("detail") == oldDetail && replacement.getChild("new_detail") == newDetail,
+				"replacement must preserve the existing child-merge precedence and new children");
+		ModelPart baked = LayerDefinition.create(geometry.getGeometryDefinition(), 16, 16).bakeRoot()
+				.getChild("body").getChild("head");
+		check(baked.cubes.size() == 1 && baked.x == 4 && baked.getChild("detail").cubes.size() == 1,
+				"replacement lost its geometry, pose or inherited child geometry during bake");
+	}
+
+	private static void verifyChildBeforeParentGeometry() {
+		UnbakedModelGeometry geometry = new UnbakedModelGeometry();
+		PartDefinition head = geometryPart(2);
+		PartDefinition headRot = geometryPart(3);
+		PartDefinition torso = geometryPart(1);
+		geometry.addModelPart("head", head, "torso_bend");
+		geometry.addModelPart("head_rot", headRot, "head");
+		geometry.addModelPart("torso_bend", torso, null);
+		check(torso.children.keySet().equals(Set.of("head")) && torso.getChild("head") == head,
+				"a deferred head must retain its own name, not be renamed to torso_bend");
+		check(head.getChild("head_rot") == headRot,
+				"deferred attachment must preserve the original head subtree");
+		ModelPart baked = LayerDefinition.create(geometry.getGeometryDefinition(), 16, 16).bakeRoot()
+				.getChild("torso_bend").getChild("head").getChild("head_rot");
+		check(baked.cubes.size() == 1 && baked.x == 3,
+				"the deferred head geometry must remain reachable under the authored path");
+	}
+
+	private static void verifyMultipleOrphansPreserveNames() {
+		UnbakedModelGeometry geometry = new UnbakedModelGeometry();
+		PartDefinition left = geometryPart(1);
+		PartDefinition right = geometryPart(2);
+		PartDefinition leftDetail = geometryPart(3);
+		PartDefinition rightDetail = geometryPart(4);
+		PartDefinition body = geometryPart(0);
+		geometry.addModelPart("left", left, "body");
+		geometry.addModelPart("right", right, "body");
+		geometry.addModelPart("left_detail", leftDetail, "left");
+		geometry.addModelPart("right_detail", rightDetail, "right");
+		geometry.addModelPart("body", body, null);
+		check(body.children.keySet().equals(Set.of("left", "right"))
+				&& body.getChild("left") == left && body.getChild("right") == right,
+				"siblings awaiting one parent must not overwrite each other under the parent name");
+		check(left.getChild("left_detail") == leftDetail && right.getChild("right_detail") == rightDetail,
+				"sibling orphan subtrees must remain separate");
+	}
+
+	private static void verifyNestedOutOfOrderGeometry() {
+		UnbakedModelGeometry geometry = new UnbakedModelGeometry();
+		PartDefinition body = geometryPart(0);
+		PartDefinition torso = geometryPart(1);
+		PartDefinition head = geometryPart(2);
+		PartDefinition headRot = geometryPart(3);
+		geometry.addModelPart("head_rot", headRot, "head");
+		geometry.addModelPart("head", head, "torso_bend");
+		geometry.addModelPart("torso_bend", torso, "body");
+		geometry.addModelPart("body", body, null);
+		PartDefinition attachedBody = geometry.getGeometryDefinition().getRoot().getChild("body");
+		check(attachedBody == body && body.getChild("torso_bend") == torso
+				&& torso.getChild("head") == head && head.getChild("head_rot") == headRot,
+				"nested deferred parts must retain every original identity and path component");
+		ModelPart baked = LayerDefinition.create(geometry.getGeometryDefinition(), 16, 16).bakeRoot();
+		check(baked.getAllParts().count() == 5
+				&& baked.getChild("body").getChild("torso_bend").getChild("head").getChild("head_rot")
+						.cubes.size() == 1,
+				"nested attachment must bake the complete tree without renamed or missing parts");
+	}
+
+	private static PartDefinition geometryPart(float x) {
+		return new MeshDefinition().getRoot().addOrReplaceChild("part",
+				CubeListBuilder.create().texOffs(0, 0).addBox(0, 0, 0, 1, 1, 1), PartPose.offset(x, 0, 0));
 	}
 
 	private static void verifyTriangleAndQuadBake() {
