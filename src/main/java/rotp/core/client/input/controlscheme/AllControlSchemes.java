@@ -1,0 +1,45 @@
+package rotp.core.client.input.controlscheme;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import rotp.core.core.JojoMod;
+import rotp.core.core.JojoRegistries;
+import rotp.core.powersystem.PowerType;
+import rotp.core.powersystem.ability.controls.ControlSchemeTemplate;
+
+import net.minecraft.resources.ResourceLocation;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.EventPriority;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
+
+@EventBusSubscriber(modid = JojoMod.MOD_ID, value = Dist.CLIENT)
+public class AllControlSchemes {
+	public static Map<ResourceLocation, ClientControlScheme> controls = new HashMap<>();
+	
+	public static ClientControlScheme getForPowerType(PowerType powerType) {
+		return controls.get(powerType.getId());
+	}
+
+	@SubscribeEvent(priority = EventPriority.LOW)
+	public static void createPowerControlSchemes(FMLClientSetupEvent event) {
+		for (var playerPowerEntry : JojoRegistries.PLAYER_POWER_TYPES_REG.entrySet()) {
+			add(playerPowerEntry.getValue());
+		}
+		
+		// XXX (data-driven stands) load controls for data-driven stands
+		for (var playerPowerEntry : JojoRegistries.DEFAULT_STANDS_REG.entrySet()) {
+			add(playerPowerEntry.getValue());
+		}
+	}
+	
+	private static void add(PowerType powerType) {
+		ResourceLocation id = powerType.getId();
+		ControlSchemeTemplate defaultCtrlScheme =
+				powerType.makeDefaultControlSchemeTemplate();
+		controls.put(id, ClientControlScheme.create(defaultCtrlScheme, powerType));
+	}
+	
+}

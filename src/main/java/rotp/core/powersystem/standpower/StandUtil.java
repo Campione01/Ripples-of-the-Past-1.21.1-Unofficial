@@ -1,0 +1,299 @@
+package rotp.core.powersystem.standpower;
+
+import javax.annotation.Nullable;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
+import rotp.core.api.stand.StandArrowPoolOverrides;
+import rotp.core.init.power.ModStands;
+import rotp.core.init.ModEntityAttributes;
+import rotp.core.init.ModStatusEffects;
+import rotp.core.mechanics.resolve.ResolveModeEffect;
+import rotp.core.modcompat.JojoModsInteraction;
+import rotp.core.network.s2c.StandEntitySoundPacket;
+import rotp.core.network.s2c.StandSkinSoundPacket;
+import rotp.core.powersystem.Power;
+import rotp.core.powersystem.PowerClass;
+import rotp.core.powersystem.standpower.entity.StandEntity;
+import rotp.core.powersystem.standpower.type.StandType;
+import rotp.core.subsystems.entity_grab.LivingComponentGrab;
+import rotp.core.util.functions.AttributeUtil;
+import rotp.core.util.functions.JojoModUtil;
+import rotp.core.util.sound.MultiSoundEventResolver;
+import com.mojang.datafixers.util.Either;
+
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.players.PlayerList;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.Attribute;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.event.EventHooks;
+import net.neoforged.neoforge.event.PlayLevelSoundEvent;
+import net.neoforged.neoforge.network.PacketDistributor;
+
+public class StandUtil {
+	
+	public static Stream<StandType> standsForPlayerArrow() {
+		return StandType.getAllEnabledStands()
+				.filter(ModStands.PLAYER_CAN_GET_FROM_ARROW::contains)
+				.filter(stand -> !StandArrowPoolOverrides
+						.isExcluded(stand.getId()));
+	}
+	
+	public static Either<StandType, Component> randomStandOrError(Player player, RandomSource random) {
+		if (player.level().isClientSide()) {
+			throw new IllegalStateException("Can only use this function to get a random Stand on server side");
+		}
+		List<StandType> stands = standsForPlayerArrow().toList();
+		if (stands.isEmpty()) {
+			return Either.right(Component.translatable("jojo.arrow.no_stands"));
+		}
+		Optional<StandType> selected = randomWeightedStand(stands, random);
+		return selected.<Either<StandType, Component>>map(Either::left)
+				.orElseGet(() -> Either.right(
+						Component.translatable("jojo.arrow.no_stand_weights")));
+	}
+
+	static Optional<StandType> randomWeightedStand(
+			List<StandType> stands,
+			RandomSource random) {
+		double[] weights = new double[stands.size()];
+		for (int i = 0; i < stands.size(); i++) {
+			weights[i] = safeRandomWeight(stands.get(i));
+		}
+		int selectedIndex = randomWeightedIndex(weights, random);
+		return selectedIndex >= 0
+				? Optional.of(stands.get(selectedIndex))
+				: Optional.empty();
+	}
+
+	static int randomWeightedIndex(
+			double[] weights,
+			RandomSource random) {
+		double weightSum = 0.0D;
+		for (double weight : weights) {
+			weightSum += safeRandomWeight(weight);
+		}
+		if (!(weightSum > 0.0D) || !Double.isFinite(weightSum)) {
+			return -1;
+		}
+
+		double randomWeight = random.nextDouble() * weightSum;
+		int lastWeightedIndex = -1;
+		for (int i = 0; i < weights.length; i++) {
+			double weight = safeRandomWeight(weights[i]);
+			if (weight <= 0.0D) {
+				continue;
+			}
+			lastWeightedIndex = i;
+			randomWeight -= weight;
+			if (randomWeight < 0.0D) {
+				return i;
+			}
+		}
+		return lastWeightedIndex;
+	}
+
+	private static double safeRandomWeight(StandType stand) {
+		return safeRandomWeight(stand.getStandStats().getRandomWeight());
+	}
+
+	private static double safeRandomWeight(double weight) {
+		return Double.isFinite(weight) && weight > 0.0D ? weight : 0.0D;
+	}
+
+    public static LivingEntity getStandUser(LivingEntity entityMaybeStand) {
+        if (entityMaybeStand instanceof StandEntity stand) {
+            LivingEntity user = stand.getUser();
+            if (user != null) return user;
+        }
+        return entityMaybeStand;
+    }
+    
+    @Nullable
+    public static StandEntity getSummonedStand(LivingEntity standUser) {
+    	StandPower standPower = StandPower.get(standUser);
+    	return standPower != null ? standPower.getSummonedStandEntity() : null;
+    }
+
+    public static StandEntity getSummonedStand(Power<?> standPower) {
+    	StandPower _standPower = PowerClass.STAND.cast(standPower);
+    	return _standPower != null ? _standPower.getSummonedStandEntity() : null;
+    }
+
+    @Nullable
+    public static LivingEntity getStandGrabTarget(Power<?> power) {
+    	StandEntity stand = getSummonedStand(power);
+    	return stand != null ? LivingComponentGrab.getEntityGrabbedBy(stand) : null;
+    }
+    
+    public static class StandAndUserEntity {
+    	protected static StandAndUserEntity instance = new StandAndUserEntity();
+    	
+    	@Nullable public LivingEntity standUser;
+    	@Nullable public LivingEntity standEntity;
+    }
+    
+    public static StandAndUserEntity getStandAndUser(LivingEntity someEntity) {
+    	LivingEntity targetStandEntity = StandUtil.getSummonedStand(someEntity);
+    	LivingEntity targetStandUser = someEntity == targetStandEntity ? StandUtil.getStandUser(targetStandEntity) : someEntity;
+    	StandAndUserEntity obj = StandAndUserEntity.instance;
+    	obj.standUser = targetStandUser;
+    	obj.standEntity = targetStandEntity;
+    	return obj;
+    }
+    
+    public static boolean isEntityStandUser(LivingEntity entity) {
+    	StandPower standData = StandPower.get(entity);
+    	return standData != null && standData.hasPower() || JojoModsInteraction.entityHasStandFromAnotherMod(entity);
+    }
+
+    public static boolean entityCanSeeStands(LivingEntity entity) {
+    	return entity instanceof Player player && JojoModUtil.seesInvisibleAsSpectator(player)
+    			|| isEntityStandUser(entity)
+    			|| entity.hasEffect(ModStatusEffects.SPIRIT_VISION);
+    }
+
+    public static boolean entityCanHearStands(Player player) {
+    	return entityCanSeeStands(player);
+    }
+
+	public static double staminaCondition(StandPower standPower) {
+		return standIgnoresStaminaDebuff(standPower) ? 1
+				: 0.25 + Math.min((double) (standPower.getStamina() / standPower.getMaxStamina()) * 1.5, 0.75);
+	}
+
+	public static boolean standIgnoresStaminaDebuff(StandPower standPower) {
+		if (standPower == null) {
+			return true;
+		}
+		LivingEntity user = standPower.getUser();
+		return user == null || ResolveModeEffect.getResolveEffectLvl(user) >= 0 || standPower.isUserCreative();
+	}
+	
+	
+	public static double getPhysicalStatValue(StandPower standPower, StandStat stat) {
+		StandEntity standEntity = standPower.getSummonedStandEntity();
+		LivingEntity user = standPower.getUser();
+		if (standEntity != null) {
+			return switch (stat) {
+				case STRENGTH -> standEntity.getAttackDamage();
+				case ATTACK_SPEED -> standEntity.getAttackSpeed();
+				case DURABILITY -> standEntity.getDurability();
+				case PRECISION -> standEntity.getPrecision();
+			};
+		}
+		else if (user != null) {
+			Holder<Attribute> attribute = switch (stat) {
+				case STRENGTH -> ModEntityAttributes.STAND_STRENGTH;
+				case ATTACK_SPEED -> ModEntityAttributes.STAND_SPEED;
+				case DURABILITY -> ModEntityAttributes.STAND_DURABILITY;
+				case PRECISION -> ModEntityAttributes.STAND_PRECISION;
+			};
+			return AttributeUtil.getValueOrDefault(user, attribute, 0) * staminaCondition(standPower);
+		}
+		
+		else return 0;
+	}
+	
+	public enum StandStat {
+		STRENGTH,
+		ATTACK_SPEED,
+		DURABILITY,
+		PRECISION
+	}
+
+	public static void leap(Entity entity, float leapStrength) {
+		entity.setOnGround(false);
+		entity.hasImpulse = true;
+		if (entity instanceof LivingEntity livingEntity) {
+			livingEntity.setJumping(true);
+		}
+		Vec3 leap = Vec3.directionFromRotation(Math.min(entity.getXRot(), -30F), entity.getYRot()).scale(leapStrength);
+		entity.setDeltaMovement(leap.x, leap.y * 0.5, leap.z);
+	}
+	
+	
+	public static void broadcastSound(ServerLevel level, Vec3 pos, Holder<SoundEvent> sound, 
+			boolean onlyForStandUsers, StandPower userPower, 
+			SoundSource category, float volume, float pitch) {
+		PlayLevelSoundEvent.AtPosition event = EventHooks.onPlaySoundAtPosition(level, pos.x, pos.y, pos.z, sound, category, volume, pitch);
+		if (event.isCanceled() || event.getSound() == null) return;
+		
+		sound = event.getSound();
+		category = event.getSource();
+		volume = event.getNewVolume();
+		pitch = event.getNewPitch();
+		sound = MultiSoundEventResolver.resolve(sound);
+		
+		StandSkinSoundPacket packet = StandSkinSoundPacket.play(pos, sound, userPower, category, volume, pitch);
+		double radius = sound.value().getRange(volume);
+        Packet<?> vanillaPacket = new ClientboundCustomPayloadPacket(packet);
+        PlayerList playerList = level.getServer().getPlayerList();
+        ResourceKey<Level> dimension = level.dimension();
+        for (ServerPlayer player : playerList.getPlayers()) {
+        	if (player.level().dimension() == dimension && (!onlyForStandUsers || StandUtil.entityCanHearStands(player))) {
+        		double diffX = pos.x - player.getX();
+        		double diffY = pos.y - player.getY();
+        		double diffZ = pos.z - player.getZ();
+        		if (diffX * diffX + diffY * diffY + diffZ * diffZ < radius * radius) {
+        			player.connection.send(vanillaPacket);
+        		}
+        	}
+        }
+	}
+
+	public static void broadcastSoundWithCondition(ServerLevel level, Vec3 pos, Holder<SoundEvent> sound,
+			boolean onlyForStandUsers, StandPower userPower,
+			SoundSource category, float volume, float pitch, Predicate<ServerPlayer> playerFilter) {
+		PlayLevelSoundEvent.AtPosition event = EventHooks.onPlaySoundAtPosition(level, pos.x, pos.y, pos.z, sound, category, volume, pitch);
+		if (event.isCanceled() || event.getSound() == null) return;
+		
+		sound = event.getSound();
+		category = event.getSource();
+		volume = event.getNewVolume();
+		pitch = event.getNewPitch();
+		
+		StandSkinSoundPacket packet = StandSkinSoundPacket.play(pos, sound, userPower, category, volume, pitch);
+        Packet<?> vanillaPacket = new ClientboundCustomPayloadPacket(packet);
+        PlayerList playerList = level.getServer().getPlayerList();
+        ResourceKey<Level> dimension = level.dimension();
+        for (ServerPlayer player : playerList.getPlayers()) {
+        	if (player.level().dimension() == dimension
+        			&& (!onlyForStandUsers || StandUtil.entityCanHearStands(player))
+        			&& playerFilter.test(player)) {
+        		player.connection.send(vanillaPacket);
+        	}
+        }
+	}
+
+	public static void playStandEntitySound(StandEntity standEntity, SoundEvent sound, float volume, float pitch) {
+		playStandEntitySound(standEntity, BuiltInRegistries.SOUND_EVENT.wrapAsHolder(sound), volume, pitch);
+	}
+
+	public static void playStandEntitySound(StandEntity standEntity, Holder<SoundEvent> sound, float volume, float pitch) {
+		if (standEntity.isSilent() || standEntity.level().isClientSide()) {
+			return;
+		}
+		sound = MultiSoundEventResolver.resolve(sound);
+		PacketDistributor.sendToPlayersTrackingEntityAndSelf(standEntity,
+				new StandEntitySoundPacket(standEntity, sound, volume, pitch));
+	}
+
+}

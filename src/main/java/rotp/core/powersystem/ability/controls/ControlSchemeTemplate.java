@@ -1,0 +1,340 @@
+package rotp.core.powersystem.ability.controls;
+
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Nullable;
+
+import org.jetbrains.annotations.ApiStatus;
+
+import rotp.core.powersystem.MovesetBuilder;
+import com.mojang.datafixers.util.Pair;
+
+import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import net.minecraft.Util;
+
+public class ControlSchemeTemplate {
+	public Map<String, GroupTemplate> groups = new LinkedHashMap<>();
+	public GroupTemplate defaultGroup = new GroupTemplate("moveset_default_group", null);
+	private transient Int2ObjectMap<AbilitiesHotbar> hotbarsById = new Int2ObjectArrayMap<>();
+
+	public ControlSchemeTemplate deepCopy() {
+		ControlSchemeTemplate copy = new ControlSchemeTemplate();
+		copy.groups.clear();
+		copy.hotbarsById.clear();
+		Map<AbilitiesHotbar, AbilitiesHotbar> hotbarCopies = new IdentityHashMap<>();
+		
+		for (GroupTemplate group : this.groups.values()) {
+			GroupTemplate groupCopy = group == this.defaultGroup 
+					? copy.defaultGroup 
+					: new GroupTemplate(group.name, group.toggleHudKey);
+			groupCopy.separateBinds.putAll(group.separateBinds);
+			groupCopy.additionalSeparateBinds.addAll(
+					group.additionalSeparateBinds);
+			for (AbilitiesHotbar hotbar : group.hotbars) {
+				AbilitiesHotbar hotbarCopy = copyHotbar(hotbar);
+				hotbarCopies.put(hotbar, hotbarCopy);
+				groupCopy.hotbars.add(hotbarCopy);
+			}
+			copy.groups.put(groupCopy.name, groupCopy);
+		}
+		
+		for (var entry : this.hotbarsById.int2ObjectEntrySet()) {
+			AbilitiesHotbar hotbarCopy = hotbarCopies.get(entry.getValue());
+			if (hotbarCopy != null) {
+				copy.hotbarsById.put(entry.getIntKey(), hotbarCopy);
+			}
+		}
+		
+		copy._curGroup = this._curGroup == this.defaultGroup
+				? copy.defaultGroup
+				: copy.groups.getOrDefault(this._curGroup.name, copy.defaultGroup);
+		return copy;
+	}
+
+	private static AbilitiesHotbar copyHotbar(AbilitiesHotbar hotbar) {
+		AbilitiesHotbar copy = new AbilitiesHotbar(hotbar.useAbilityKey, hotbar.switchAbilityKey);
+		for (Map<InputKey.Modifier, Map<InputMethod, String>> slot : hotbar.slots) {
+			copy.slots.add(copySlot(slot));
+		}
+		return copy;
+	}
+
+	private static Map<InputKey.Modifier, Map<InputMethod, String>> copySlot(
+			Map<InputKey.Modifier, Map<InputMethod, String>> slot) {
+		Map<InputKey.Modifier, Map<InputMethod, String>> copy = new HashMap<>();
+		for (var entry : slot.entrySet()) {
+			copy.put(entry.getKey(), copyInputMap(entry.getValue()));
+		}
+		return copy;
+	}
+
+	private static Map<InputMethod, String> copyInputMap(Map<InputMethod, String> inputMap) {
+		return new EnumMap<>(inputMap);
+	}
+
+	public static class GroupTemplate {
+		public final String name;
+		@Nullable public final InputBindTemplate toggleHudKey;
+
+		public Map<String, Pair<InputMethod, InputBindTemplate>> separateBinds = new LinkedHashMap<>();
+		public List<SeparateBindTemplate> additionalSeparateBinds =
+				new ArrayList<>();
+		public List<AbilitiesHotbar> hotbars = new ArrayList<>();
+
+		public GroupTemplate(String name, InputBindTemplate toggleHudKey) {
+			this.name = name;
+			this.toggleHudKey = toggleHudKey;
+		}
+
+		public boolean isEmpty() {
+			return separateBinds.isEmpty()
+					&& additionalSeparateBinds.isEmpty()
+					&& hotbars.isEmpty();
+		}
+	}
+
+	public static record SeparateBindTemplate(
+			String ability,
+			InputMethod inputMethod,
+			InputBindTemplate input) {}
+
+	public static class AbilitiesHotbar {
+		public List<Map<InputKey.Modifier, Map<InputMethod, String>>> slots = new ArrayList<>();
+		public InputBindTemplate useAbilityKey;
+		@Nullable public InputBindTemplate switchAbilityKey;
+
+		public AbilitiesHotbar(InputBindTemplate useAbilityKey, @Nullable InputBindTemplate switchAbilityKey) {
+			this.useAbilityKey = useAbilityKey;
+			this.switchAbilityKey = switchAbilityKey;
+		}
+	}
+
+	public ControlSchemeTemplate() {
+		groups.put(defaultGroup.name, defaultGroup);
+	}
+
+
+	@ApiStatus.Internal
+	public MovesetBuilder curMovesetBuilder;
+
+	@ApiStatus.Internal
+	public MovesetBuilder finalizeControlScheme() {
+		MovesetBuilder movesetBuilder = curMovesetBuilder;
+		this.curMovesetBuilder = null;
+		return movesetBuilder;
+	}
+
+
+	public ControlSchemeTemplate bind(String ability, InputMethod inputMethod, InputBindTemplate key) {
+		Pair<InputMethod, InputBindTemplate> existing =
+				_curGroup.separateBinds.putIfAbsent(
+						ability, Pair.of(inputMethod, key));
+		if (existing != null
+				&& !sameBinding(existing, inputMethod, key)
+				&& _curGroup.additionalSeparateBinds.stream()
+						.noneMatch(bind -> bind.ability().equals(ability)
+								&& bind.inputMethod() == inputMethod
+								&& sameInput(bind.input(), key))) {
+			_curGroup.additionalSeparateBinds.add(
+					new SeparateBindTemplate(ability, inputMethod, key));
+		}
+		return this;
+	}
+
+	private static boolean sameBinding(
+			Pair<InputMethod, InputBindTemplate> existing,
+			InputMethod inputMethod,
+			InputBindTemplate input) {
+		return existing.getFirst() == inputMethod
+				&& sameInput(existing.getSecond(), input);
+	}
+
+	private static boolean sameInput(
+			InputBindTemplate first, InputBindTemplate second) {
+		if (first == second) {
+			return true;
+		}
+		if (first instanceof InputKey firstKey
+				&& second instanceof InputKey secondKey) {
+			return firstKey.device == secondKey.device
+					&& firstKey.keyCode == secondKey.keyCode
+					&& firstKey.modifier == secondKey.modifier;
+		}
+		if (first instanceof InputUseVanillaMapping firstMapping
+				&& second instanceof InputUseVanillaMapping secondMapping) {
+			return firstMapping.keyMappingName.equals(
+					secondMapping.keyMappingName);
+		}
+		return false;
+	}
+
+	public ControlSchemeTemplate makeHotbar(int hotbarId, InputBindTemplate useAbilityKey, @Nullable InputBindTemplate switchAbilityKey) {
+		if (_curGroup != null) {
+			AbilitiesHotbar hotbar = new AbilitiesHotbar(useAbilityKey, switchAbilityKey);
+			hotbarsById.put(hotbarId, hotbar);
+			_curGroup.hotbars.add(hotbar);
+		}
+		return this;
+	}
+
+	public ControlSchemeTemplate addToHotbar(String ability, int hotbarId, InputMethod inputMethod) {
+		Map<InputKey.Modifier, Map<InputMethod, String>> slot = new HashMap<>();
+		slot.put(null, Util.make(new EnumMap<>(InputMethod.class), map -> map.put(inputMethod, ability)));
+		hotbarsById.get(hotbarId).slots.add(slot);
+		return this;
+	}
+
+	@ApiStatus.Internal
+	public void appendToExistingHotbar(
+			String ability, int hotbarId, InputMethod inputMethod) {
+		AbilitiesHotbar hotbar = hotbarsById.get(hotbarId);
+		if (hotbar == null) {
+			throw new IllegalStateException(
+					"hotbar does not exist: " + hotbarId);
+		}
+		Map<InputKey.Modifier, Map<InputMethod, String>> slot = new HashMap<>();
+		slot.put(null, Util.make(
+				new EnumMap<>(InputMethod.class),
+				map -> map.put(inputMethod, ability)));
+		hotbar.slots.add(slot);
+	}
+
+	@ApiStatus.Internal
+	public void insertAfterExistingHotbarSlot(
+			String ability,
+			int hotbarId,
+			String anchorAbility,
+			InputMethod inputMethod) {
+		AbilitiesHotbar hotbar = requireHotbar(hotbarId);
+		int anchorIndex = findUniqueHotbarSlot(
+				hotbar, anchorAbility);
+		Map<InputKey.Modifier, Map<InputMethod, String>> slot =
+				new HashMap<>();
+		slot.put(null, Util.make(
+				new EnumMap<>(InputMethod.class),
+				map -> map.put(inputMethod, ability)));
+		hotbar.slots.add(anchorIndex + 1, slot);
+	}
+
+	@ApiStatus.Internal
+	public void addExistingHotbarSlotVariation(
+			String ability,
+			int hotbarId,
+			String baseAbility,
+			InputKey.Modifier modifier,
+			InputMethod inputMethod) {
+		AbilitiesHotbar hotbar = requireHotbar(hotbarId);
+		int slotIndex = findUniqueHotbarSlot(
+				hotbar, baseAbility);
+		Map<InputKey.Modifier, Map<InputMethod, String>> slot =
+				hotbar.slots.get(slotIndex);
+		Map<InputMethod, String> variations =
+				slot.computeIfAbsent(
+						modifier,
+						__ -> new EnumMap<>(InputMethod.class));
+		String existing = variations.putIfAbsent(
+				inputMethod, ability);
+		if (existing != null && !existing.equals(ability)) {
+			throw new IllegalStateException(
+					"hotbar variation already exists for "
+							+ modifier + " " + inputMethod
+							+ ": " + existing);
+		}
+	}
+
+	@ApiStatus.Internal
+	public void bindToExistingGroup(
+			String groupName,
+			String ability,
+			InputMethod inputMethod,
+			InputBindTemplate input) {
+		GroupTemplate group = groups.get(groupName);
+		if (group == null) {
+			throw new IllegalStateException(
+					"moveset group does not exist: " + groupName);
+		}
+		Pair<InputMethod, InputBindTemplate> existing =
+				group.separateBinds.putIfAbsent(
+						ability, Pair.of(inputMethod, input));
+		if (existing != null) {
+			throw new IllegalStateException(
+					"ability binding already exists in moveset group "
+							+ groupName + ": " + ability);
+		}
+	}
+
+	private AbilitiesHotbar requireHotbar(int hotbarId) {
+		AbilitiesHotbar hotbar = hotbarsById.get(hotbarId);
+		if (hotbar == null) {
+			throw new IllegalStateException(
+					"hotbar does not exist: " + hotbarId);
+		}
+		return hotbar;
+	}
+
+	private static int findUniqueHotbarSlot(
+			AbilitiesHotbar hotbar, String ability) {
+		int match = -1;
+		for (int i = 0; i < hotbar.slots.size(); i++) {
+			boolean contains = hotbar.slots.get(i).values()
+					.stream()
+					.flatMap(inputMethods ->
+							inputMethods.values().stream())
+					.anyMatch(ability::equals);
+			if (contains) {
+				if (match >= 0) {
+					throw new IllegalStateException(
+							"hotbar ability is ambiguous: "
+									+ ability);
+				}
+				match = i;
+			}
+		}
+		if (match < 0) {
+			throw new IllegalStateException(
+					"hotbar ability does not exist: " + ability);
+		}
+		return match;
+	}
+
+	public ControlSchemeTemplate addHotbarSlotVariation(String ability, String baseAbility, @Nullable InputKey.Modifier modifier, InputMethod inputMethod) {
+		for (AbilitiesHotbar hotbar : hotbarsById.values()) {
+			for (Map<InputKey.Modifier, Map<InputMethod, String>> slot : hotbar.slots) {
+				Map<InputMethod, String> baseVariation = slot.get(null);
+				if (baseVariation != null && baseVariation.values().contains(baseAbility)) {
+					Map<InputMethod, String> byInputMethod = slot.computeIfAbsent(modifier, 
+							__ -> new EnumMap<>(InputMethod.class));
+					byInputMethod.put(inputMethod, ability);
+				}
+			}
+		}
+		return this;
+	}
+	
+	
+	
+	@ApiStatus.Internal
+	public GroupTemplate _curGroup = defaultGroup;
+	public ControlSchemeTemplate makeMovesetGroup(String name, InputBindTemplate toggleHudKey) {
+		GroupTemplate group = groups.computeIfAbsent(name, _name -> new GroupTemplate(_name, toggleHudKey));
+		this._curGroup = group;
+		return this;
+	}
+	
+	public ControlSchemeTemplate setMovesetGroup(@Nullable String name) {
+		this._curGroup = getMovesetGroup(name);
+		return this;
+	}
+
+	public GroupTemplate getMovesetGroup(@Nullable String name) {
+		return name == null ? defaultGroup : groups.get(name);
+	}
+
+}

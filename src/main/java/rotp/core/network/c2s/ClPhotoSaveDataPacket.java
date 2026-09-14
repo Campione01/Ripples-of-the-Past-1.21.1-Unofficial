@@ -1,0 +1,62 @@
+package rotp.core.network.c2s;
+
+import rotp.core.PacketsRegister;
+import rotp.core.core.JojoMod;
+import rotp.core.item.polaroid.PhotosHandler;
+import rotp.core.network.BatchSender;
+
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
+
+public record ClPhotoSaveDataPacket(long photoId, BatchSender.Batch dataBatch) implements CustomPacketPayload {
+	private static CustomPacketPayload.Type<ClPhotoSaveDataPacket> type;
+
+	public ClPhotoSaveDataPacket(RegistryFriendlyByteBuf buf) {
+		this(buf.readLong(), BatchSender.Batch.read(buf));
+	}
+
+	public void write(RegistryFriendlyByteBuf buf) {
+		buf.writeLong(photoId);
+		dataBatch.write(buf);
+	}
+
+	@Override
+	public Type<? extends CustomPacketPayload> type() {
+		return type;
+	}
+
+	public static class Handler implements PacketsRegister.PacketCodecHandler<ClPhotoSaveDataPacket> {
+		public Handler(ResourceLocation packetId) {
+			type = new CustomPacketPayload.Type<>(packetId);
+		}
+
+		@Override
+		public Type<ClPhotoSaveDataPacket> type() {
+			return type;
+		}
+
+		@Override
+		public StreamCodec<? super RegistryFriendlyByteBuf, ClPhotoSaveDataPacket> reader() {
+			return StreamCodec.ofMember(ClPhotoSaveDataPacket::write, ClPhotoSaveDataPacket::new);
+		}
+
+		@Override
+		public void handle(ClPhotoSaveDataPacket payload, IPayloadContext context) {
+			if (!(context.player() instanceof ServerPlayer player)) {
+				return;
+			}
+			PhotosHandler serverPhotos = PhotosHandler.get(player.server);
+			try {
+				serverPhotos.receivePhotoBatch(payload.photoId, payload.dataBatch, player);
+			}
+			catch (RuntimeException e) {
+				JojoMod.getLogger().warn("Failed to receive Polaroid photo batch {} from {}",
+						payload.photoId, player.getGameProfile().getName(), e);
+			}
+		}
+	}
+}

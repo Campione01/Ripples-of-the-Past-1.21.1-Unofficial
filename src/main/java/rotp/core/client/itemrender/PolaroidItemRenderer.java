@@ -1,0 +1,26 @@
+package rotp.core.client.itemrender;
+
+import rotp.core.client.itemrender.custommodel.CustomItemRenderer;
+import rotp.core.client.polaroid.PolaroidHelper;
+import rotp.core.core.JojoMod;
+import com.mojang.blaze3d.vertex.PoseStack;
+
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.world.item.ItemDisplayContext;
+import net.minecraft.world.item.ItemStack;
+
+public class PolaroidItemRenderer extends CustomItemRenderer {
+	public PolaroidItemRenderer(Minecraft mc) {
+		super(mc, JojoMod.resLoc("polaroid"), JojoMod.resLoc("textures/item/polaroid.png"));
+	}
+
+	@Override
+	public void renderByItem(ItemStack stack, ItemDisplayContext displayContext, PoseStack poseStack,
+			MultiBufferSource buffer, int light, int overlay) {
+		if (entity == Minecraft.getInstance().player && PolaroidHelper.isTakingPhoto()) {
+			return;
+		}
+		super.renderByItem(stack, displayContext, poseStack, buffer, light, overlay);
+	}
+}

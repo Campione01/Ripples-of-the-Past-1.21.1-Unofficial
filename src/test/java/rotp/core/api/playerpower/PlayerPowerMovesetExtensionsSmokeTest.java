@@ -1,0 +1,874 @@
+package rotp.core.api.playerpower;
+
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import rotp.core.powersystem.Moveset;
+import rotp.core.powersystem.MovesetBuilder;
+import rotp.core.powersystem.PowerClass;
+import rotp.core.powersystem.ability.Ability;
+import rotp.core.powersystem.ability.AbilityType;
+import rotp.core.powersystem.ability.controls.ControlSchemeTemplate;
+import rotp.core.powersystem.ability.controls.InputKey;
+import rotp.core.powersystem.ability.controls.InputMethod;
+import rotp.core.powersystem.ability.controls.InputUseVanillaMapping;
+import rotp.core.powersystem.playerpower.PlayerPower;
+import rotp.core.powersystem.playerpower.PlayerPowerData;
+import rotp.core.powersystem.playerpower.PlayerPowerType;
+import com.google.gson.JsonObject;
+
+import net.minecraft.resources.ResourceLocation;
+
+public final class PlayerPowerMovesetExtensionsSmokeTest {
+	private static final ResourceLocation ORDERED_TARGET =
+			id("rotp_test", "ordered_player_power");
+	private static final AbilityType<Ability> ANCHOR_TYPE =
+			abilityType("anchor");
+	private static final AbilityType<Ability> TAIL_TYPE =
+			abilityType("tail");
+	private static final AbilityType<Ability> LOW_A_TYPE =
+			abilityType("low_a");
+	private static final AbilityType<Ability> LOW_B_TYPE =
+			abilityType("low_b");
+	private static final AbilityType<Ability> ALPHA_TYPE =
+			abilityType("alpha");
+	private static final AbilityType<Ability> ZETA_TYPE =
+			abilityType("zeta");
+	private static final AbilityType<Ability> REPLACEMENT_TYPE =
+			abilityType("replacement");
+
+	private PlayerPowerMovesetExtensionsSmokeTest() {}
+
+	public static void run() {
+		verifyRestrictedBuilderSurface();
+		registerOrderedExtensions();
+		verifyDuplicateConflictAndRevision();
+		verifyRepeatedApplicationAndOrdering();
+		verifyPlayerPowerTypeLifecycle();
+		verifyHotbarSlotVariation();
+		verifyDirectGroupBinding();
+		verifyLateRegistrationRefreshesCaches();
+		verifyNoCrossPowerLeakage();
+		verifyMissingReferencesAndConflictsFailFast();
+		verifyAddedAbilityResourceNamespace();
+		verifyAbilityReplacement();
+		verifyInvalidAbilityReplacementsFailFast();
+		verifyFailedExtensionIsAtomic();
+	}
+
+	private static void verifyAddedAbilityResourceNamespace() {
+		ResourceLocation target = id(
+				"rotp_test", "added_player_power_resource_namespace");
+		AbilityType<Ability> addonType = abilityType(
+				"rotp_addon_test", "added_player_power_visual");
+		PlayerPowerMovesetExtensions.register(
+				PlayerPowerMovesetExtensions.builder(
+						target,
+						id("rotp_addon_test",
+								"added_player_power_visual_extension"),
+						0)
+				.addAbility(
+						"added_player_power_visual",
+						addonType.registryKey,
+						() -> addonType)
+				.build());
+
+		Moveset moveset = new TestPlayerPowerType(
+				target, baseMoveset()).makeMoveset(null);
+		Ability added = moveset.abilities.get(
+				"added_player_power_visual");
+		check("rotp_addon_test".equals(
+					added.getResourceNamespace()),
+				"added PlayerPower ability must use its ability type resource namespace");
+		check(id("rotp_addon_test", "added_player_power_visual")
+				.equals(added.getSpriteId(null)),
+				"added PlayerPower ability sprite must use its addon namespace");
+		check("rotp_addon_test.ability.added_player_power_visual".equals(
+					added.getTranslationKey()),
+				"added PlayerPower translation must use its addon namespace");
+	}
+
+	private static void registerOrderedExtensions() {
+		PlayerPowerMovesetExtensions.register(
+				orderedExtension(
+						ORDERED_TARGET,
+						id("rotp_test", "zeta_extension"),
+						20,
+						List.of("zeta"),
+						List.of(ZETA_TYPE)));
+		PlayerPowerMovesetExtensions.register(
+				orderedExtension(
+						ORDERED_TARGET,
+						id("rotp_test", "low_extension"),
+						10,
+						List.of("low_a", "low_b"),
+						List.of(LOW_A_TYPE, LOW_B_TYPE)));
+		PlayerPowerMovesetExtensions.register(
+				orderedExtension(
+						ORDERED_TARGET,
+						id("rotp_test", "alpha_extension"),
+						20,
+						List.of("alpha"),
+						List.of(ALPHA_TYPE)));
+	}
+
+	private static void verifyDuplicateConflictAndRevision() {
+		long before =
+				PlayerPowerMovesetExtensions.targetRevision(
+						ORDERED_TARGET);
+		PlayerPowerMovesetExtensions.register(
+				orderedExtension(
+						ORDERED_TARGET,
+						id("rotp_test", "alpha_extension"),
+						20,
+						List.of("alpha"),
+						List.of(ALPHA_TYPE)));
+		check(PlayerPowerMovesetExtensions.targetRevision(
+						ORDERED_TARGET) == before,
+				"equal registration must not increment revision");
+
+		expectFailure(
+				() -> PlayerPowerMovesetExtensions.register(
+						orderedExtension(
+								ORDERED_TARGET,
+								id("rotp_test", "alpha_extension"),
+								21,
+								List.of("alpha"),
+								List.of(ALPHA_TYPE))),
+				"Conflicting PlayerPower moveset extension definition");
+	}
+
+	private static void verifyRepeatedApplicationAndOrdering() {
+		MovesetBuilder builder = baseMoveset();
+		PlayerPowerMovesetExtensions.applyRegisteredExtensions(
+				ORDERED_TARGET, builder);
+		PlayerPowerMovesetExtensions.applyRegisteredExtensions(
+				ORDERED_TARGET, builder);
+		assertOrderedBuilder(builder);
+	}
+
+	private static void verifyPlayerPowerTypeLifecycle() {
+		TestPlayerPowerType powerType =
+				new TestPlayerPowerType(
+						ORDERED_TARGET, baseMoveset());
+
+		assertOrderedMoveset(powerType.makeMoveset(null));
+		assertOrderedMoveset(powerType.makeMoveset(null));
+		assertOrderedMoveset(powerType.getBaseMoveset());
+		assertOrderedHotbar(
+				powerType.makeDefaultControlSchemeTemplate());
+
+		JsonObject config = new JsonObject();
+		JsonObject moveset = new JsonObject();
+		moveset.add("abilities", new JsonObject());
+		config.add("moveset", moveset);
+		powerType.applyConfig(config);
+		assertOrderedMoveset(powerType.makeMoveset(null));
+		assertOrderedHotbar(
+				powerType.makeDefaultControlSchemeTemplate());
+
+		powerType.restoreDefaults();
+		assertOrderedMoveset(powerType.getBaseMoveset());
+		assertOrderedHotbar(
+				powerType.makeDefaultControlSchemeTemplate());
+	}
+
+	private static void verifyHotbarSlotVariation() {
+		ResourceLocation target =
+				id("rotp_test", "variation_target");
+		AbilityType<Ability> variationType =
+				abilityType("blood_refill");
+		PlayerPowerMovesetExtensions.register(
+				PlayerPowerMovesetExtensions.builder(
+								target,
+								id("rotp_test", "variation_extension"),
+								100)
+						.addAbility(
+								"blood_refill",
+								variationType.registryKey,
+								() -> variationType)
+						.addHotbarSlotVariation(
+								"default",
+								0,
+								"anchor",
+								"blood_refill",
+								InputKey.Modifier.SHIFT,
+								InputMethod.HOLD)
+						.build());
+
+		TestPlayerPowerType powerType =
+				new TestPlayerPowerType(target, baseMoveset());
+		Moveset moveset = powerType.makeMoveset(null);
+		check(new ArrayList<>(moveset.abilities.keySet())
+						.equals(List.of(
+								"anchor",
+								"tail",
+								"blood_refill")),
+				"variation ability registration drifted");
+
+		ControlSchemeTemplate controls =
+				powerType.makeDefaultControlSchemeTemplate();
+		List<Map<InputKey.Modifier, Map<InputMethod, String>>> slots =
+				controls.defaultGroup.hotbars.get(0).slots;
+		check(slots.size() == 2,
+				"slot variation must not create a standalone slot");
+		check("anchor".equals(
+						slots.get(0).get(null)
+								.get(InputMethod.CLICK)),
+				"base hotbar entry drifted");
+		check("blood_refill".equals(
+						slots.get(0)
+								.get(InputKey.Modifier.SHIFT)
+								.get(InputMethod.HOLD)),
+				"shift-hold variation was not attached");
+	}
+
+	private static void verifyDirectGroupBinding() {
+		ResourceLocation target =
+				id("rotp_test", "group_binding_target");
+		ResourceLocation extensionId =
+				id("rotp_test", "group_binding_extension");
+		AbilityType<Ability> petrifyType =
+				abilityType("petrify");
+		PlayerPowerMovesetExtensions.register(
+				PlayerPowerMovesetExtensions.builder(
+								target, extensionId, 100)
+						.addAbility(
+								"petrify",
+								petrifyType.registryKey,
+								() -> petrifyType)
+						.bindInExistingGroup(
+								"default",
+								"combat",
+								"petrify",
+								InputMethod.HOLD,
+								InputKey.RMB.withModifier(
+										InputKey.Modifier.SHIFT))
+						.build());
+
+		TestPlayerPowerType powerType =
+				new TestPlayerPowerType(
+						target, groupedBaseMoveset());
+		ControlSchemeTemplate controls =
+				powerType.makeDefaultControlSchemeTemplate();
+		var bind = controls.groups.get("combat")
+				.separateBinds.get("petrify");
+		check(bind != null
+						&& bind.getFirst() == InputMethod.HOLD,
+				"direct group bind input method drifted");
+		check(bind.getSecond() instanceof InputKey key
+						&& key.device == InputKey.InputType.MOUSE
+						&& key.keyCode == InputKey.RMB.keyCode
+						&& key.modifier == InputKey.Modifier.SHIFT,
+				"direct group bind input drifted");
+		check(controls.defaultGroup.hotbars.isEmpty(),
+				"direct group bind created an obsolete hotbar");
+
+		ResourceLocation mappingTarget =
+				id("rotp_test", "mapping_group_binding_target");
+		AbilityType<Ability> mappingType =
+				abilityType("mapping_bind");
+		for (int i = 0; i < 2; i++) {
+			PlayerPowerMovesetExtensions.register(
+					PlayerPowerMovesetExtensions.builder(
+									mappingTarget,
+									id("rotp_test",
+											"mapping_group_binding"),
+									100)
+							.addAbility(
+									"mapping_bind",
+									mappingType.registryKey,
+									() -> mappingType)
+							.bindInExistingGroup(
+									"default",
+									"combat",
+									"mapping_bind",
+									InputMethod.CLICK,
+									new InputUseVanillaMapping(
+											"key.use"))
+							.build());
+		}
+		check(PlayerPowerMovesetExtensions.targetRevision(
+						mappingTarget) == 1L,
+				"equivalent key-mapping binds must be idempotent");
+	}
+
+	private static void verifyLateRegistrationRefreshesCaches() {
+		ResourceLocation target =
+				id("rotp_test", "late_player_power");
+		TestPlayerPowerType powerType =
+				new TestPlayerPowerType(target, baseMoveset());
+		check(new ArrayList<>(
+						powerType.getBaseMoveset().abilities.keySet())
+						.equals(List.of("anchor", "tail")),
+				"unregistered extension altered cached moveset");
+
+		AbilityType<Ability> lateType = abilityType("late");
+		PlayerPowerMovesetExtensions.register(
+				orderedExtension(
+						target,
+						id("rotp_test", "late_extension"),
+						0,
+						List.of("late"),
+						List.of(lateType)));
+
+		check(new ArrayList<>(
+						powerType.getBaseMoveset().abilities.keySet())
+						.equals(List.of(
+								"anchor", "tail", "late")),
+				"late registration did not refresh base moveset");
+		assertHotbarAbilities(
+				powerType.makeDefaultControlSchemeTemplate(),
+				List.of("anchor", "late", "tail"));
+	}
+
+	private static void verifyNoCrossPowerLeakage() {
+		TestPlayerPowerType unrelated =
+				new TestPlayerPowerType(
+						id("rotp_test", "unrelated_player_power"),
+						baseMoveset());
+		check(new ArrayList<>(
+						unrelated.makeMoveset(null)
+								.abilities.keySet())
+						.equals(List.of("anchor", "tail")),
+				"PlayerPower extension leaked to another target");
+		assertHotbarAbilities(
+				unrelated.makeDefaultControlSchemeTemplate(),
+				List.of("anchor", "tail"));
+	}
+
+	private static void verifyMissingReferencesAndConflictsFailFast() {
+		AbilityType<Ability> missingSchemeType =
+				abilityType("missing_scheme");
+		ResourceLocation missingSchemeTarget =
+				id("rotp_test", "missing_scheme_target");
+		PlayerPowerMovesetExtensions.register(
+				PlayerPowerMovesetExtensions.builder(
+								missingSchemeTarget,
+								id("rotp_test", "missing_scheme_extension"),
+								0)
+						.addAbility(
+								"missing_scheme",
+								missingSchemeType.registryKey,
+								() -> missingSchemeType)
+						.insertAfterInHotbar(
+								"absent",
+								0,
+								"anchor",
+								"missing_scheme",
+								InputMethod.HOLD)
+						.build());
+		expectFailure(
+				() -> new TestPlayerPowerType(
+						missingSchemeTarget, baseMoveset())
+						.makeMoveset(null),
+				"control scheme does not exist: absent");
+
+		AbilityType<Ability> missingHotbarType =
+				abilityType("missing_hotbar");
+		ResourceLocation missingHotbarTarget =
+				id("rotp_test", "missing_hotbar_target");
+		PlayerPowerMovesetExtensions.register(
+				PlayerPowerMovesetExtensions.builder(
+								missingHotbarTarget,
+								id("rotp_test", "missing_hotbar_extension"),
+								0)
+						.addAbility(
+								"missing_hotbar",
+								missingHotbarType.registryKey,
+								() -> missingHotbarType)
+						.insertAfterInHotbar(
+								"default",
+								9,
+								"anchor",
+								"missing_hotbar",
+								InputMethod.HOLD)
+						.build());
+		expectFailure(
+				() -> new TestPlayerPowerType(
+						missingHotbarTarget, baseMoveset())
+						.makeMoveset(null),
+				"hotbar does not exist: 9");
+
+		AbilityType<Ability> missingAnchorType =
+				abilityType("missing_anchor");
+		ResourceLocation missingAnchorTarget =
+				id("rotp_test", "missing_anchor_target");
+		PlayerPowerMovesetExtensions.register(
+				PlayerPowerMovesetExtensions.builder(
+								missingAnchorTarget,
+								id("rotp_test", "missing_anchor_extension"),
+								0)
+						.addAbility(
+								"missing_anchor",
+								missingAnchorType.registryKey,
+								() -> missingAnchorType)
+						.insertAfterInHotbar(
+								"default",
+								0,
+								"absent",
+								"missing_anchor",
+								InputMethod.HOLD)
+						.build());
+		expectFailure(
+				() -> new TestPlayerPowerType(
+						missingAnchorTarget, baseMoveset())
+						.makeMoveset(null),
+				"hotbar entry references missing ability: absent");
+
+		ResourceLocation missingAbilityTarget =
+				id("rotp_test", "missing_ability_target");
+		PlayerPowerMovesetExtensions.register(
+				PlayerPowerMovesetExtensions.builder(
+								missingAbilityTarget,
+								id("rotp_test", "missing_ability_extension"),
+								0)
+						.insertAfterInHotbar(
+								"default",
+								0,
+								"anchor",
+								"absent",
+								InputMethod.HOLD)
+						.build());
+		expectFailure(
+				() -> new TestPlayerPowerType(
+						missingAbilityTarget, baseMoveset())
+						.makeMoveset(null),
+				"hotbar entry references missing ability: absent");
+
+		AbilityType<Ability> actualType =
+				abilityType("actual_type");
+		ResourceLocation mismatchTarget =
+				id("rotp_test", "mismatch_target");
+		PlayerPowerMovesetExtensions.register(
+				PlayerPowerMovesetExtensions.builder(
+								mismatchTarget,
+								id("rotp_test", "mismatch_extension"),
+								0)
+						.addAbility(
+								"mismatch",
+								id("rotp_test", "expected_type"),
+								() -> actualType)
+						.build());
+		expectFailure(
+				() -> new TestPlayerPowerType(
+						mismatchTarget, baseMoveset())
+						.makeMoveset(null),
+				"ability type ID mismatch");
+
+		AbilityType<Ability> collisionType =
+				abilityType("collision");
+		ResourceLocation collisionTarget =
+				id("rotp_test", "variation_collision_target");
+		PlayerPowerMovesetExtensions.register(
+				PlayerPowerMovesetExtensions.builder(
+								collisionTarget,
+								id("rotp_test", "collision_extension"),
+								0)
+						.addAbility(
+								"collision",
+								collisionType.registryKey,
+								() -> collisionType)
+						.addHotbarSlotVariation(
+								"default",
+								0,
+								"anchor",
+								"collision",
+								InputKey.Modifier.SHIFT,
+								InputMethod.HOLD)
+						.build());
+		expectFailure(
+				() -> new TestPlayerPowerType(
+						collisionTarget,
+						baseMovesetWithShiftVariation())
+						.makeMoveset(null),
+				"hotbar variation already exists");
+
+		AbilityType<Ability> missingGroupType =
+				abilityType("missing_group");
+		ResourceLocation missingGroupTarget =
+				id("rotp_test", "missing_group_target");
+		PlayerPowerMovesetExtensions.register(
+				PlayerPowerMovesetExtensions.builder(
+								missingGroupTarget,
+								id("rotp_test",
+										"missing_group_extension"),
+								0)
+						.addAbility(
+								"missing_group",
+								missingGroupType.registryKey,
+								() -> missingGroupType)
+						.bindInExistingGroup(
+								"default",
+								"absent",
+								"missing_group",
+								InputMethod.HOLD,
+								InputKey.RMB)
+						.build());
+		expectFailure(
+				() -> new TestPlayerPowerType(
+						missingGroupTarget, groupedBaseMoveset())
+						.makeMoveset(null),
+				"moveset group does not exist: absent");
+	}
+
+	private static void verifyAbilityReplacement() {
+		ResourceLocation target =
+				id("rotp_test", "player_power_replacement_target");
+		PlayerPowerMovesetExtensions.register(
+				PlayerPowerMovesetExtensions.builder(
+								target,
+								id("rotp_test",
+										"player_power_replacement_extension"),
+								0)
+						.replaceAbility(
+								"anchor",
+								ANCHOR_TYPE.registryKey,
+								REPLACEMENT_TYPE.registryKey,
+								() -> REPLACEMENT_TYPE)
+						.build());
+
+		MovesetBuilder builder = baseMoveset();
+		PlayerPowerMovesetExtensions.applyRegisteredExtensions(
+				target, builder);
+		check(new ArrayList<>(builder.abilities.keySet())
+						.equals(List.of("anchor", "tail")),
+				"replacement must preserve the ability key and order");
+		check(builder.abilities.get("anchor").abilityTypeId()
+						.equals(REPLACEMENT_TYPE.registryKey),
+				"replacement did not install the requested ability type");
+		Ability replacement = builder.build(null, target)
+				.abilities.get("anchor");
+		check("rotp_test".equals(replacement.getResourceNamespace()),
+				"PlayerPower replacement must retain the target power namespace");
+		check(id("rotp_test", "anchor").equals(
+				replacement.getSpriteId(null)),
+				"PlayerPower replacement sprite must retain the target namespace");
+		assertHotbarAbilities(
+				builder.controlSchemes.get("default"),
+				List.of("anchor", "tail"));
+	}
+
+	private static void verifyInvalidAbilityReplacementsFailFast() {
+		ResourceLocation missingTarget =
+				id("rotp_test", "player_power_replacement_missing");
+		PlayerPowerMovesetExtensions.register(
+				PlayerPowerMovesetExtensions.builder(
+								missingTarget,
+								id("rotp_test",
+										"player_power_replacement_missing_extension"),
+								0)
+						.replaceAbility(
+								"absent",
+								ANCHOR_TYPE.registryKey,
+								REPLACEMENT_TYPE.registryKey,
+								() -> REPLACEMENT_TYPE)
+						.build());
+		expectFailure(
+				() -> PlayerPowerMovesetExtensions
+						.applyRegisteredExtensions(
+								missingTarget, baseMoveset()),
+				"ability does not exist: absent");
+
+		ResourceLocation wrongCurrentTarget =
+				id("rotp_test", "player_power_replacement_wrong_current");
+		PlayerPowerMovesetExtensions.register(
+				PlayerPowerMovesetExtensions.builder(
+								wrongCurrentTarget,
+								id("rotp_test",
+										"player_power_replacement_wrong_current_extension"),
+								0)
+						.replaceAbility(
+								"anchor",
+								TAIL_TYPE.registryKey,
+								REPLACEMENT_TYPE.registryKey,
+								() -> REPLACEMENT_TYPE)
+						.build());
+		expectFailure(
+				() -> PlayerPowerMovesetExtensions
+						.applyRegisteredExtensions(
+								wrongCurrentTarget, baseMoveset()),
+				"current ability type ID mismatch for anchor");
+
+		ResourceLocation wrongReplacementTarget =
+				id("rotp_test", "player_power_replacement_wrong_result");
+		PlayerPowerMovesetExtensions.register(
+				PlayerPowerMovesetExtensions.builder(
+								wrongReplacementTarget,
+								id("rotp_test",
+										"player_power_replacement_wrong_result_extension"),
+								0)
+						.replaceAbility(
+								"anchor",
+								ANCHOR_TYPE.registryKey,
+								REPLACEMENT_TYPE.registryKey,
+								() -> ZETA_TYPE)
+						.build());
+		expectFailure(
+				() -> PlayerPowerMovesetExtensions
+						.applyRegisteredExtensions(
+								wrongReplacementTarget, baseMoveset()),
+				"replacement ability type ID mismatch");
+	}
+
+	private static void verifyFailedExtensionIsAtomic() {
+		ResourceLocation target =
+				id("rotp_test", "player_power_replacement_atomic");
+		PlayerPowerMovesetExtensions.register(
+				PlayerPowerMovesetExtensions.builder(
+								target,
+								id("rotp_test",
+										"player_power_replacement_atomic_extension"),
+								0)
+						.replaceAbility(
+								"anchor",
+								ANCHOR_TYPE.registryKey,
+								REPLACEMENT_TYPE.registryKey,
+								() -> REPLACEMENT_TYPE)
+						.insertAfterInHotbar(
+								"missing_scheme",
+								0,
+								"anchor",
+								"tail",
+								InputMethod.HOLD)
+						.build());
+
+		MovesetBuilder builder = baseMoveset();
+		expectFailure(
+				() -> PlayerPowerMovesetExtensions
+						.applyRegisteredExtensions(target, builder),
+				"control scheme does not exist: missing_scheme");
+		check(builder.abilities.get("anchor").abilityTypeId()
+						.equals(ANCHOR_TYPE.registryKey),
+				"failed extension must roll back an earlier replacement");
+		check(new ArrayList<>(builder.abilities.keySet())
+						.equals(List.of("anchor", "tail")),
+				"failed extension changed the ability key order");
+		assertHotbarAbilities(
+				builder.controlSchemes.get("default"),
+				List.of("anchor", "tail"));
+	}
+
+	private static PlayerPowerMovesetExtensions.Extension
+			orderedExtension(
+					ResourceLocation target,
+					ResourceLocation extensionId,
+					int order,
+					List<String> abilityNames,
+					List<AbilityType<Ability>> abilityTypes) {
+		PlayerPowerMovesetExtensions.Builder builder =
+				PlayerPowerMovesetExtensions.builder(
+						target, extensionId, order);
+		for (int i = 0; i < abilityNames.size(); i++) {
+			String abilityName = abilityNames.get(i);
+			AbilityType<Ability> abilityType =
+					abilityTypes.get(i);
+			builder.addAbility(
+					abilityName,
+					abilityType.registryKey,
+					() -> abilityType);
+			builder.insertAfterInHotbar(
+					"default",
+					0,
+					"anchor",
+					abilityName,
+					InputMethod.HOLD);
+		}
+		return builder.build();
+	}
+
+	private static MovesetBuilder baseMoveset() {
+		return new MovesetBuilder()
+				.addAbility("anchor", ANCHOR_TYPE)
+				.addAbility("tail", TAIL_TYPE)
+				.makeControlScheme("default")
+					.makeHotbar(0, InputKey.RMB, InputKey.Q)
+					.addToHotbar(
+							"anchor", 0, InputMethod.CLICK)
+					.addToHotbar(
+							"tail", 0, InputMethod.HOLD)
+				.finalizeControlScheme();
+	}
+
+	private static MovesetBuilder
+			baseMovesetWithShiftVariation() {
+		AbilityType<Ability> occupiedType =
+				abilityType("occupied");
+		return new MovesetBuilder()
+				.addAbility("anchor", ANCHOR_TYPE)
+				.addAbility("tail", TAIL_TYPE)
+				.addAbility("occupied", occupiedType)
+				.makeControlScheme("default")
+					.makeHotbar(0, InputKey.RMB, InputKey.Q)
+					.addToHotbar(
+							"anchor", 0, InputMethod.CLICK)
+					.addHotbarSlotVariation(
+							"occupied",
+							"anchor",
+							InputKey.Modifier.SHIFT,
+							InputMethod.HOLD)
+					.addToHotbar(
+							"tail", 0, InputMethod.HOLD)
+				.finalizeControlScheme();
+	}
+
+	private static MovesetBuilder groupedBaseMoveset() {
+		return new MovesetBuilder()
+				.addAbility("anchor", ANCHOR_TYPE)
+				.addAbility("tail", TAIL_TYPE)
+				.makeControlScheme("default")
+					.makeMovesetGroup("combat", InputKey.G)
+						.bind(
+								"anchor",
+								InputMethod.CLICK,
+								InputKey.LMB)
+						.bind(
+								"tail",
+								InputMethod.HOLD,
+								InputKey.RMB)
+				.finalizeControlScheme();
+	}
+
+	private static void assertOrderedBuilder(
+			MovesetBuilder builder) {
+		check(new ArrayList<>(builder.abilities.keySet())
+						.equals(List.of(
+								"anchor",
+								"tail",
+								"low_a",
+								"low_b",
+								"alpha",
+								"zeta")),
+				"ability application order drifted");
+		assertOrderedHotbar(
+				builder.controlSchemes.get("default"));
+	}
+
+	private static void assertOrderedMoveset(
+			Moveset moveset) {
+		check(new ArrayList<>(moveset.abilities.keySet())
+						.equals(List.of(
+								"anchor",
+								"tail",
+								"low_a",
+								"low_b",
+								"alpha",
+								"zeta")),
+				"PlayerPower moveset lifecycle reordered abilities");
+	}
+
+	private static void assertOrderedHotbar(
+			ControlSchemeTemplate controls) {
+		assertHotbarAbilities(
+				controls,
+				List.of(
+						"anchor",
+						"low_a",
+						"low_b",
+						"alpha",
+						"zeta",
+						"tail"));
+	}
+
+	private static void assertHotbarAbilities(
+			ControlSchemeTemplate controls,
+			List<String> expected) {
+		check(controls != null,
+				"expected control scheme is missing");
+		check(controls.defaultGroup.hotbars.size() == 1,
+				"extension created an unexpected hotbar");
+		List<Map<InputKey.Modifier, Map<InputMethod, String>>> slots =
+				controls.defaultGroup.hotbars.get(0).slots;
+		check(slots.size() == expected.size(),
+				"hotbar slot count drifted");
+		List<String> actual = new ArrayList<>();
+		for (Map<InputKey.Modifier, Map<InputMethod, String>> slot
+				: slots) {
+			Map<InputMethod, String> base = slot.get(null);
+			check(base != null && base.size() == 1,
+					"hotbar base slot shape drifted");
+			actual.add(base.values().iterator().next());
+		}
+		check(actual.equals(expected),
+				"hotbar order drifted: " + actual);
+	}
+
+	private static void verifyRestrictedBuilderSurface() {
+		for (Method method
+				: PlayerPowerMovesetExtensions.Builder.class
+						.getMethods()) {
+			check(method.getReturnType() != MovesetBuilder.class,
+					"public extension builder exposes MovesetBuilder");
+			check(method.getReturnType()
+							!= ControlSchemeTemplate.class,
+					"public extension builder exposes controls");
+			for (Class<?> parameter
+					: method.getParameterTypes()) {
+				check(parameter != MovesetBuilder.class,
+						"public extension builder accepts MovesetBuilder");
+				check(parameter
+								!= ControlSchemeTemplate.class,
+						"public extension builder accepts controls");
+			}
+		}
+	}
+
+	private static AbilityType<Ability> abilityType(
+			String path) {
+		return abilityType("rotp_test", path);
+	}
+
+	private static AbilityType<Ability> abilityType(
+			String namespace, String path) {
+		return new AbilityType<>(id(namespace, path), Ability::new);
+	}
+
+	private static ResourceLocation id(
+			String namespace, String path) {
+		return ResourceLocation.fromNamespaceAndPath(
+				namespace, path);
+	}
+
+	private static void expectFailure(
+			Runnable action, String expectedMessage) {
+		try {
+			action.run();
+			throw new AssertionError(
+					"Expected failure containing: "
+							+ expectedMessage);
+		}
+		catch (IllegalStateException expected) {
+			check(expected.getMessage().contains(expectedMessage),
+					"unexpected failure: "
+							+ expected.getMessage());
+		}
+	}
+
+	private static void check(
+			boolean condition, String message) {
+		if (!condition) {
+			throw new AssertionError(message);
+		}
+	}
+
+	private static final class TestPlayerPowerType
+			extends PlayerPowerType<PlayerPowerData> {
+		private TestPlayerPowerType(
+				ResourceLocation registryKey,
+				MovesetBuilder moveset) {
+			super(registryKey, moveset);
+		}
+
+		@Override
+		public PlayerPowerData newDataInstance() {
+			return null;
+		}
+
+		@Override
+		public PowerClass<PlayerPower> getPowerClass() {
+			return null;
+		}
+	}
+}

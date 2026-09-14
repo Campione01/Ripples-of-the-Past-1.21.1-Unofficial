@@ -1,0 +1,145 @@
+package rotp.core.mechanics.standdisc;
+
+import java.util.List;
+
+import javax.annotation.Nullable;
+
+import rotp.core.api.stand.StandPowerTransitions;
+import rotp.core.client.standskin.StandSkin;
+import rotp.core.client.standskin.StandSkinsLoader;
+import rotp.core.init.ModItemDataComponents;
+import rotp.core.init.ModItems;
+import rotp.core.powersystem.PowerClass;
+import rotp.core.powersystem.standpower.StandInstance;
+import rotp.core.powersystem.standpower.StandInstance.StandPart;
+import rotp.core.powersystem.standpower.StandPower;
+import rotp.core.powersystem.standpower.type.StandType;
+import rotp.core.subsystems.StoryPart;
+
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.Holder;
+import net.minecraft.network.chat.CommonComponents;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.level.Level;
+
+public class StandDiscItem extends Item {
+
+	public StandDiscItem(Properties properties) {
+		super(properties);
+	}
+
+	@Override
+	public void appendHoverText(ItemStack item, Item.TooltipContext ctx, List<Component> tooltip, TooltipFlag flags) {
+		StandWrittenOnDisc discStand = item.get(ModItemDataComponents.DISC_STAND.get());
+		if (discStand == null || !discStand.isValid()) return;
+		
+		StandInstance standInstance = discStand.getInstance();
+		StandType standType = standInstance.getStandType();
+		Component standName = standInstance.getStandName(true);
+		if (standName != null) {
+			tooltip.add(standName);
+		}
+
+		StandSkin skin = StandSkinsLoader.getInstance().getSkin(standInstance);
+		if (skin != null) {
+			Holder<StoryPart> storyPart = skin.getStoryPart(ctx.registries());
+			if (storyPart != null) {
+				tooltip.add(storyPart.value().getPartName());
+			}
+		}
+
+		for (StandPart standPart : StandPart.values()) {
+			if (!standInstance.hasPart(standPart)) {
+				tooltip.add(Component.translatable("jojo.disc.missing_part." + standPart.serializedName())
+						.withStyle(ChatFormatting.DARK_GRAY));
+			}
+		}
+		
+		if (standType != null && !standType.discExtraTooltip.isEmpty()) {
+			tooltip.add(CommonComponents.EMPTY);
+			tooltip.addAll(standType.discExtraTooltip);
+		}
+	}
+	
+	@Nullable
+	public String getCreatorModId(ItemStack itemStack) {
+		ResourceLocation id;
+		StandInstance stand = getStandInstance(itemStack);
+		if (stand != null) {
+			id = stand.getStandId();
+			if (id != null) {
+				return id.getNamespace();
+			}
+		}
+		return super.getCreatorModId(itemStack);
+	}
+
+	@Override
+	public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
+		ItemStack discItem = player.getItemInHand(hand);
+		if (!level.isClientSide()) {
+			StandWrittenOnDisc discStand = discItem.get(ModItemDataComponents.DISC_STAND.get());
+			if (discStand == null || !discStand.isValid()) return InteractionResultHolder.fail(discItem);
+			
+			PowerClass.STAND.attachPower(player);
+			StandPower stand = PowerClass.STAND.get(player);
+			if (stand != null) {
+				StandInstance replacement = discStand.copyStandInstance();
+				StandPowerTransitions.TransitionContext context =
+						new StandPowerTransitions.TransitionContext(
+								ModItems.STAND_DISC.getId(),
+								player);
+				StandPowerTransitions.Result transition = stand.getStandInstance()
+						.map(current -> StandPowerTransitions.replace(
+								stand,
+								current.getStandId(),
+								replacement,
+								context))
+						.orElseGet(() -> StandPowerTransitions.insert(
+								stand, replacement, context));
+				if (!transition.applied()) {
+					return InteractionResultHolder.fail(discItem);
+				}
+				if (!player.getAbilities().instabuild) {
+					discItem.shrink(1);
+					transition.previous().filter(StandInstance::standExists).ifPresent(prev -> {
+						ItemEntity discItemEntity = player.drop(withStand(prev), false);
+						if (discItemEntity != null) {
+							discItemEntity.setPickUpDelay(5);
+							discItemEntity.setTarget(player.getUUID());
+						}
+					});
+				}
+			}
+			else {
+				return InteractionResultHolder.fail(discItem);
+			}
+			return InteractionResultHolder.success(discItem);
+		}
+		return InteractionResultHolder.consume(discItem);
+	}
+
+
+	@Nullable
+	public static StandInstance getStandInstance(ItemStack discItem) {
+		StandWrittenOnDisc discStand = discItem.get(ModItemDataComponents.DISC_STAND.get());
+		if (discStand == null || !discStand.isValid()) return null;
+
+		return discStand.copyStandInstance();
+	}
+
+	public static ItemStack withStand(StandInstance standInstance) {
+		ItemStack disc = new ItemStack(ModItems.STAND_DISC.get());
+		disc.set(ModItemDataComponents.DISC_STAND.get(), new StandWrittenOnDisc(standInstance));
+		return disc;
+	}
+
+}

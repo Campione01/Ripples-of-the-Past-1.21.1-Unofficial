@@ -239,7 +239,7 @@ tasks.register('clientSettingsSmokeTest', JavaExec) {
     description = 'Runs focused client settings load smoke tests.'
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
-    mainClass = 'com.github.standobyte.jojo.config.client.ClientModSettingsSmokeTest'
+    mainClass = 'rotp.core.config.client.ClientModSettingsSmokeTest'
 }
 
 tasks.register('addonApiSmokeTest', JavaExec) {
@@ -247,7 +247,7 @@ tasks.register('addonApiSmokeTest', JavaExec) {
     description = 'Runs the public addon API and namespaced ability resource smoke test.'
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
-    mainClass = 'com.github.standobyte.jojo.api.RotpAddonApiSmokeTest'
+    mainClass = 'rotp.core.api.RotpAddonApiSmokeTest'
 }
 
 tasks.register('theWorldTsPunchSmokeTest', JavaExec) {
@@ -255,7 +255,7 @@ tasks.register('theWorldTsPunchSmokeTest', JavaExec) {
     description = 'Checks time-skip punch travel budget boundaries.'
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
-    mainClass = 'com.github.standobyte.jojoimpl.stands.theworld.TheWorldTsPunchSmokeTest'
+    mainClass = 'rotp.core.impl.stands.theworld.TheWorldTsPunchSmokeTest'
     workingDir = projectDir
 }
 
@@ -264,7 +264,7 @@ tasks.register('genericModelGeometrySmokeTest', JavaExec) {
     description = 'Checks Blockbench polygon emission and optionally bakes a supplied model.'
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
-    mainClass = 'com.github.standobyte.jojo.client.entityrender.parsemodel.generic.GenericModelFormatSmokeTest'
+    mainClass = 'rotp.core.client.entityrender.parsemodel.generic.GenericModelFormatSmokeTest'
     if (providers.gradleProperty('modelFile').isPresent()) {
         args providers.gradleProperty('modelFile').get()
     }
@@ -275,7 +275,7 @@ tasks.register('clientCursorIsolationSmokeTest', JavaExec) {
     description = 'Checks virtual cursor routing for isolated Bridge clients.'
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
-    mainClass = 'com.github.standobyte.jojo.client.util.ClientCursorUtilSmokeTest'
+    mainClass = 'rotp.core.client.util.ClientCursorUtilSmokeTest'
 }
 
 tasks.register('standSurfaceDiagnosticSmokeTest', JavaExec) {
@@ -283,7 +283,7 @@ tasks.register('standSurfaceDiagnosticSmokeTest', JavaExec) {
     description = 'Checks the default-off surface-capture diagnostic and blend counterexample.'
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
-    mainClass = 'com.github.standobyte.jojo.client.entityrender.stand.StandSurfaceDiagnosticSmokeTest'
+    mainClass = 'rotp.core.client.entityrender.stand.StandSurfaceDiagnosticSmokeTest'
 }
 
 tasks.register('playerRenderStateSmokeTest', JavaExec) {
@@ -291,7 +291,7 @@ tasks.register('playerRenderStateSmokeTest', JavaExec) {
     description = 'Checks addon player poses and idle cleanup through render-state extraction.'
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
-    mainClass = 'com.github.standobyte.jojo.client.entityrender.RipplesPlayerRenderStateSmokeTest'
+    mainClass = 'rotp.core.client.entityrender.RipplesPlayerRenderStateSmokeTest'
 }
 
 tasks.register('entityMaskPostEffectSmokeTest', JavaExec) {
@@ -300,7 +300,7 @@ tasks.register('entityMaskPostEffectSmokeTest', JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
     mainClass =
-            'com.github.standobyte.jojo.api.client.render.EntityMaskPostEffectSmokeTest'
+            'rotp.core.api.client.render.EntityMaskPostEffectSmokeTest'
 }
 
 tasks.register('clientRegionalTimeDilationSmokeTest', JavaExec) {
@@ -309,7 +309,7 @@ tasks.register('clientRegionalTimeDilationSmokeTest', JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
     mainClass =
-            'com.github.standobyte.jojo.api.client.time.ClientRegionalTimeDilationPoliciesSmokeTest'
+            'rotp.core.api.client.time.ClientRegionalTimeDilationPoliciesSmokeTest'
 }
 
 tasks.register('timeStopBehaviorPolicySmokeTest', JavaExec) {
@@ -318,7 +318,7 @@ tasks.register('timeStopBehaviorPolicySmokeTest', JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
     mainClass =
-            'com.github.standobyte.jojo.api.timestop.TimeStopBehaviorPoliciesSmokeTest'
+            'rotp.core.api.timestop.TimeStopBehaviorPoliciesSmokeTest'
 }
 
 tasks.register('entitySoftLandingProvidersSmokeTest', JavaExec) {
@@ -327,7 +327,7 @@ tasks.register('entitySoftLandingProvidersSmokeTest', JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
     mainClass =
-            'com.github.standobyte.jojo.api.block.EntitySoftLandingProvidersSmokeTest'
+            'rotp.core.api.block.EntitySoftLandingProvidersSmokeTest'
 }
 
 tasks.register('directionalGravityV2SmokeTest', JavaExec) {
@@ -336,7 +336,7 @@ tasks.register('directionalGravityV2SmokeTest', JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
     mainClass =
-            'com.github.standobyte.jojo.api.gravity.DirectionalGravityV2SmokeTest'
+            'rotp.core.api.gravity.DirectionalGravityV2SmokeTest'
 }
 
 tasks.register('networkPayloadSafetySmokeTest', JavaExec) {
@@ -344,7 +344,7 @@ tasks.register('networkPayloadSafetySmokeTest', JavaExec) {
     description = 'Runs core network payload bounds and ownership contract tests.'
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
-    mainClass = 'com.github.standobyte.jojo.network.NetworkPayloadSafetySmokeTest'
+    mainClass = 'rotp.core.network.NetworkPayloadSafetySmokeTest'
 }
 
 tasks.register('addonRuntimeCompatibilityGuardsSmokeTest', JavaExec) {
@@ -353,7 +353,7 @@ tasks.register('addonRuntimeCompatibilityGuardsSmokeTest', JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
     mainClass =
-            'com.github.standobyte.jojo.compat.AddonRuntimeCompatibilityGuardsSmokeTest'
+            'rotp.core.compat.AddonRuntimeCompatibilityGuardsSmokeTest'
 }
 
 tasks.register('stoneMaskArmorRenderContractSmokeTest', JavaExec) {
@@ -362,7 +362,7 @@ tasks.register('stoneMaskArmorRenderContractSmokeTest', JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
     mainClass =
-            'com.github.standobyte.jojo.client.render.armor.StoneMaskArmorRenderContractSmokeTest'
+            'rotp.core.client.render.armor.StoneMaskArmorRenderContractSmokeTest'
 }
 
 tasks.register('stoneMaskUseInputSmokeTest', JavaExec) {
@@ -371,7 +371,7 @@ tasks.register('stoneMaskUseInputSmokeTest', JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
     mainClass =
-            'com.github.standobyte.jojo.client.input.StoneMaskUseInputSmokeTest'
+            'rotp.core.client.input.StoneMaskUseInputSmokeTest'
 }
 
 tasks.register('standOffsetScaleSmokeTest', JavaExec) {
@@ -379,7 +379,7 @@ tasks.register('standOffsetScaleSmokeTest', JavaExec) {
     description = 'Verifies scaled Stand-user offsets without double-applying age or pose height.'
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
-    mainClass = 'com.github.standobyte.jojo.powersystem.standpower.entity.StandOffsetFromUserScaleSmokeTest'
+    mainClass = 'rotp.core.powersystem.standpower.entity.StandOffsetFromUserScaleSmokeTest'
 }
 
 tasks.register('distanceStrengthDecayPolicySmokeTest', JavaExec) {
@@ -388,7 +388,7 @@ tasks.register('distanceStrengthDecayPolicySmokeTest', JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
     mainClass =
-            'com.github.standobyte.jojo.powersystem.standpower.entity.DistanceStrengthDecayPolicySmokeTest'
+            'rotp.core.powersystem.standpower.entity.DistanceStrengthDecayPolicySmokeTest'
 }
 
 tasks.register('goldExperienceLifeformOrderingSmokeTest', JavaExec) {
@@ -397,7 +397,7 @@ tasks.register('goldExperienceLifeformOrderingSmokeTest', JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
     mainClass =
-            'com.github.standobyte.jojoimpl.stands.goldexperience.GoldExperienceLifeformOrderingSmokeTest'
+            'rotp.core.impl.stands.goldexperience.GoldExperienceLifeformOrderingSmokeTest'
 }
 
 tasks.register('firstPersonExtraArmContractSmokeTest', JavaExec) {
@@ -406,7 +406,7 @@ tasks.register('firstPersonExtraArmContractSmokeTest', JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
     mainClass =
-            'com.github.standobyte.jojo.client.firstperson.FirstPersonExtraArmContractSmokeTest'
+            'rotp.core.client.firstperson.FirstPersonExtraArmContractSmokeTest'
 }
 
 tasks.register('standAuraFxIntegrationSmokeTest', JavaExec) {
@@ -415,7 +415,7 @@ tasks.register('standAuraFxIntegrationSmokeTest', JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
     mainClass =
-            'com.github.standobyte.jojo.client.entityrender.stand.aura.StandAuraFxIntegrationSmokeTest'
+            'rotp.core.client.entityrender.stand.aura.StandAuraFxIntegrationSmokeTest'
     systemProperty 'standAuraProjectDir', project.projectDir.absolutePath
 }
 

@@ -15,10 +15,20 @@ copied or adapted from the upstream projects and preserves their authorship.
 
 StandoByte is the original author. This repository is maintained by
 Campione01 and is not an official fork, release, continuation, or endorsement
-by StandoByte. The historical `com.github.standobyte` Java package names and
-the `jojo_ripples` mod id are retained solely for source and save/mod
-compatibility; they do not imply upstream ownership or approval of this
-repository.
+by StandoByte. Project-scoped Java namespaces distinguish the maintained port
+without changing the upstream authorship or license obligations.
+
+## Java API migration
+
+The maintained core now uses `rotp.core` and `rotp.core.impl`; the StandAuraFx
+API uses `rotp.standaurafx`. The old Java package aliases are not included.
+Existing addon binaries and data packs containing Java class names must be
+adapted and rebuilt against this API. Update the core and its adapted addons
+together; do not mix old addon binaries with the renamed core.
+
+The `jojo_ripples` mod id, registry and resource identifiers, network payload
+identifiers, and saved-data keys are unchanged. Existing copyright notices,
+licenses and original-author credits remain part of the distribution.
 
 ## Publication scope
 

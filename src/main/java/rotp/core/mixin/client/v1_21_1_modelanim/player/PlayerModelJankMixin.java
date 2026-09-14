@@ -1,0 +1,64 @@
+package rotp.core.mixin.client.v1_21_1_modelanim.player;
+
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import rotp.core.client.entityanim.playerbend.PlayerModelBends;
+import rotp.core.api.client.render.PlayerArmPoseProviders;
+import rotp.core.compat.v1_21_4.OldPlayerModelJank;
+import com.mojang.blaze3d.vertex.PoseStack;
+
+import net.minecraft.client.model.EntityModel;
+import net.minecraft.client.model.HumanoidModel;
+import net.minecraft.client.model.PlayerModel;
+import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.world.entity.HumanoidArm;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+
+@Mixin(PlayerModel.class)
+public abstract class PlayerModelJankMixin extends HumanoidModelMixin {
+	@Shadow private boolean slim;
+	
+	@Inject(method = "<init>("
+			+ "Lnet/minecraft/client/model/geom/ModelPart;"
+			+ "Z)V", at = @At("RETURN"))
+	protected void jojo_ripples$_onInitModel(ModelPart root, boolean slim, CallbackInfo ci) {
+		OldPlayerModelJank._setOuterLayerBends((EntityModel<?>) this, this);
+	}
+
+	// if you ever animate skeletons, you'll need a separate mixin to SkeletonModel for the same reason
+	@Inject(method = "translateToHand", at = @At("HEAD"))
+	public void jojo_ripples$becauseTheyDidntCallSuper_translateToBentHandBefore(HumanoidArm side, PoseStack poseStack, CallbackInfo ci) {
+		if (this.jojo_ripples$playerAnim) {
+			PlayerModelBends.translateToAnimHand1((HumanoidModel<?>) (Object) this, this, side, poseStack);
+		}
+	}
+
+	@Inject(method = "translateToHand", at = @At("TAIL"))
+	public void jojo_ripples$becauseTheyDidntCallSuper_translateToBentHandAfter(HumanoidArm side, PoseStack poseStack, CallbackInfo ci) {
+		if (this.jojo_ripples$playerAnim) {
+			 PlayerModelBends.translateToAnimHand2((HumanoidModel<?>) (Object) this, this, side, poseStack);
+		}
+	}
+
+	@Inject(method = "setupAnim", at = @At("TAIL"))
+	private void jojo_ripples$applyAddonPlayerArmPose(
+			LivingEntity entity,
+			float limbSwing,
+			float limbSwingAmount,
+			float ageInTicks,
+			float netHeadYaw,
+			float headPitch,
+			CallbackInfo ci) {
+		if (entity instanceof Player player) {
+			PlayerArmPoseProviders.applyPostSetup(
+					player,
+					(PlayerModel<?>) (Object) this);
+		}
+	}
+
+}

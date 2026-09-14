@@ -1,0 +1,33 @@
+package rotp.core.client.entityrender.entities;
+
+import rotp.core.client.ModEntityTypeRenderers;
+import rotp.core.client.ui.utils.BlitFloat;
+import rotp.core.core.JojoMod;
+import rotp.core.customobjects.RoadRollerEntity;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+
+import net.minecraft.client.renderer.entity.EntityRendererProvider;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.resources.ResourceLocation;
+
+public class RoadRollerRenderer extends SimpleEntityRenderer<RoadRollerEntity, RoadRollerModel> {
+	public static final ResourceLocation TEXTURE = JojoMod.resLoc("textures/entity/road_roller.png");
+
+	public RoadRollerRenderer(EntityRendererProvider.Context context) {
+		super(context);
+		initTexture(TEXTURE, false);
+		initModel(new RoadRollerModel(context.bakeLayer(ModEntityTypeRenderers.ROAD_ROLLER)));
+		// The donor model's wheel bottoms are already authored at entity Y=0.
+		offsetModelByEntityHeight(false);
+	}
+
+	@Override
+	protected void renderModel(RoadRollerEntity entity, RoadRollerModel model, float partialTick,
+			PoseStack poseStack, VertexConsumer vertexBuilder, int packedLight) {
+		int overlay = entity.getTicksBeforeExplosion() > 0 && entity.getTicksBeforeExplosion() / 5 % 2 == 0
+				? OverlayTexture.pack(OverlayTexture.u(1.0F), OverlayTexture.v(false))
+				: OverlayTexture.NO_OVERLAY;
+		model.renderToBuffer(poseStack, vertexBuilder, packedLight, overlay, BlitFloat.NO_TINT);
+	}
+}

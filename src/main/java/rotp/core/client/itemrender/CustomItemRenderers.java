@@ -1,0 +1,199 @@
+package rotp.core.client.itemrender;
+
+import java.util.Map;
+import java.util.function.UnaryOperator;
+
+import org.joml.Matrix3f;
+import org.slf4j.Logger;
+
+import rotp.core.client.itemrender.custommodel.BakedCustomModel;
+import rotp.core.client.itemrender.custommodel.CustomBlockRenderer;
+import rotp.core.client.itemrender.custommodel.CustomItemRenderer;
+import rotp.core.client.itemrender.custommodel.ItemRendererProvider;
+import rotp.core.client.itemrender.standdisc.StandDiscRenderer;
+import rotp.core.client.render.armor.BladeHatArmorClientExtensions;
+import rotp.core.client.render.armor.BreathControlMaskArmorClientExtensions;
+import rotp.core.client.render.armor.SatiporojaScarfArmorClientExtensions;
+import rotp.core.client.render.armor.StoneMaskArmorClientExtensions;
+import rotp.core.client.render.armor.model.BladeHatArmorModel;
+import rotp.core.core.JojoMod;
+import rotp.core.init.ModBlockEntities;
+import rotp.core.init.ModBlocks;
+import rotp.core.init.ModItems;
+import rotp.core.item.CassetteRecordedItem;
+import rotp.core.mechanics.clothes.sewing.SewingMachineBlockEntity;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.logging.LogUtils;
+import com.mojang.math.Axis;
+
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.resources.model.BakedModel;
+import net.minecraft.client.resources.model.ModelResourceLocation;
+import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemDisplayContext;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.item.Item;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.EventPriority;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
+import net.neoforged.neoforge.client.event.EntityRenderersEvent;
+import net.neoforged.neoforge.client.event.ModelEvent;
+import net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent;
+import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
+import net.neoforged.neoforge.client.event.RenderPlayerEvent;
+import net.neoforged.neoforge.client.extensions.common.RegisterClientExtensionsEvent;
+
+@EventBusSubscriber(modid = JojoMod.MOD_ID, value = Dist.CLIENT)
+public class CustomItemRenderers {
+	private static final Logger LOGGER = LogUtils.getLogger();
+
+	public static BlockEntityWithoutLevelRenderer modLogoRenderer;
+	public static StandDiscRenderer standDiscRenderer;
+	public static ClackersItemRenderer clackersRenderer;
+	public static RoadRollerItemRenderer roadRollerRenderer;
+	public static TommyGunItemRenderer tommyGunRenderer;
+	public static PolaroidItemRenderer polaroidRenderer;
+	public static CustomBlockRenderer<SewingMachineBlockEntity> sewingMachineRenderer;
+
+	@SubscribeEvent
+	public static void registerItemRenderers(RegisterClientExtensionsEvent event) {
+		event.registerItem(new ItemRendererProvider(() -> modLogoRenderer), ModItems.DEBUG_ITEM);
+		event.registerItem(new ItemRendererProvider(() -> standDiscRenderer), ModItems.STAND_DISC);
+		event.registerItem(new ItemRendererProvider(() -> clackersRenderer), ModItems.CLACKERS);
+		event.registerItem(new ItemRendererProvider(() -> roadRollerRenderer), ModItems.ROAD_ROLLER);
+		event.registerItem(new ItemRendererProvider(() -> tommyGunRenderer), ModItems.TOMMY_GUN);
+		event.registerItem(new ItemRendererProvider(() -> polaroidRenderer), ModItems.POLAROID);
+		event.registerItem(new ItemRendererProvider(() -> sewingMachineRenderer), ModItems.SEWING_MACHINE);
+		registerStoneMaskArmorExtensions(
+				event,
+				ModItems.STONE_MASK.get(),
+				ModItems.AJA_STONE_MASK.get());
+		event.registerItem(new BladeHatArmorClientExtensions(), ModItems.BLADE_HAT);
+		event.registerItem(new BreathControlMaskArmorClientExtensions(), ModItems.BREATH_CONTROL_MASK);
+		event.registerItem(new GlovesClientExtensions(), ModItems.GLOVES, ModItems.BUBBLE_GLOVES);
+		event.registerItem(new SatiporojaScarfArmorClientExtensions(), ModItems.SATIPOROJA_SCARF);
+	}
+
+	static void registerStoneMaskArmorExtensions(
+			RegisterClientExtensionsEvent event,
+			Item stoneMask,
+			Item ajaStoneMask) {
+		StoneMaskArmorClientExtensions.register(
+				event,
+				stoneMask,
+				ajaStoneMask);
+	}
+
+	@SubscribeEvent
+	public static void verifyStoneMaskArmorExtensions(
+			FMLClientSetupEvent event) {
+		event.enqueueWork(() -> {
+			requireStoneMaskArmorExtension(
+					"stone_mask", ModItems.STONE_MASK.get());
+			requireStoneMaskArmorExtension(
+					"aja_stone_mask", ModItems.AJA_STONE_MASK.get());
+		});
+	}
+
+	private static void requireStoneMaskArmorExtension(
+			String itemId, Item item) {
+		if (!StoneMaskArmorClientExtensions
+				.ownsArmorPass(item)) {
+			throw new IllegalStateException(
+					"Missing dedicated armor model for " + itemId);
+		}
+	}
+
+	@SubscribeEvent(priority = EventPriority.HIGH)
+	public static void hideBladeHatOuterLayer(RenderPlayerEvent.Pre event) {
+		BladeHatArmorModel.modifyOuterLayer(event.getRenderer().getModel(), event.getEntity());
+	}
+
+	@SubscribeEvent(priority = EventPriority.LOW)
+	public static void addListener(RegisterClientReloadListenersEvent event) {
+		Minecraft mc = Minecraft.getInstance();
+		
+		modLogoRenderer = new CustomItemRenderer(mc, 
+				ResourceLocation.fromNamespaceAndPath(JojoMod.MOD_ID, "mod_logo"),
+				ResourceLocation.fromNamespaceAndPath(JojoMod.MOD_ID, "textures/mod_logo_model.png")) {
+			@Override
+			public void renderByItem(ItemStack stack, ItemDisplayContext displayContext, PoseStack poseStack, MultiBufferSource buffer, int packedLight, int packedOverlay) {
+				poseStack.pushPose();
+				poseStack.scale(0.75f, 0.75f, 0.75f);
+				poseStack.translate(0.125f, 0f, 0);
+				Matrix3f lighting = poseStack.last().normal();
+				lighting.rotate(Axis.YP.rotationDegrees(45));
+				lighting.rotate(Axis.XP.rotationDegrees(-45));
+				lighting.rotate(Axis.ZP.rotationDegrees(-45));
+				super.renderByItem(stack, displayContext, poseStack, buffer, packedLight, packedOverlay);
+				poseStack.popPose();
+			}
+		};
+		
+		standDiscRenderer = new StandDiscRenderer(mc);
+		clackersRenderer = new ClackersItemRenderer(mc);
+		roadRollerRenderer = new RoadRollerItemRenderer(mc);
+		tommyGunRenderer = new TommyGunItemRenderer(mc);
+		polaroidRenderer = new PolaroidItemRenderer(mc);
+	}
+
+	@SubscribeEvent(priority = EventPriority.LOW)
+	public static void registerBlockEntityModel(EntityRenderersEvent.RegisterRenderers event) {
+		event.registerBlockEntityRenderer(ModBlockEntities.SEWING_MACHINE.get(), ctx -> {
+			sewingMachineRenderer = new CustomBlockRenderer<>(ctx, 
+					ResourceLocation.fromNamespaceAndPath(JojoMod.MOD_ID, "sewing_machine"),
+					ResourceLocation.fromNamespaceAndPath(JojoMod.MOD_ID, "textures/block/sewing_machine.png"), 
+					new SewingMachineBlockEntity(BlockPos.ZERO, ModBlocks.SEWING_MACHINE.get().defaultBlockState()));
+			return sewingMachineRenderer;
+		});
+	}
+
+	@SubscribeEvent
+	public static void setItemModelsAsCustom(ModelEvent.ModifyBakingResult event) {
+		Map<ModelResourceLocation, BakedModel> registry = event.getModels();
+		CustomItemRenderers.registerCustomBakedModel(ModItems.DEBUG_ITEM.getId(), registry, model -> new BakedCustomModel(model));
+		CustomItemRenderers.registerCustomBakedModel(ModItems.STAND_DISC.getId(), registry, model -> new BakedCustomModel(model));
+		CustomItemRenderers.registerCustomBakedModel(ModItems.CLACKERS.getId(), registry, model -> new BakedCustomModel(model).setCaptureEntity());
+		CustomItemRenderers.registerCustomBakedModel(ModItems.ROAD_ROLLER.getId(), registry, model -> new BakedCustomModel(model));
+		CustomItemRenderers.registerCustomBakedModel(ModItems.TOMMY_GUN.getId(), registry, model -> new BakedCustomModel(model).setCaptureEntity());
+		CustomItemRenderers.registerCustomBakedModel(ModItems.POLAROID.getId(), registry, model -> new BakedCustomModel(model).setCaptureEntity());
+		CustomItemRenderers.registerCustomBakedModel(ModItems.SEWING_MACHINE.getId(), registry, model -> new BakedCustomModel(model));
+	}
+
+
+	public static void registerCustomBakedModel(ResourceLocation itemResLoc, 
+			Map<ModelResourceLocation, BakedModel> modelRegistry, UnaryOperator<BakedModel> newModel) {
+		ModelResourceLocation modelResLoc = ModelResourceLocation.inventory(itemResLoc);
+		BakedModel existingModel = modelRegistry.get(modelResLoc);
+		if (existingModel == null) {
+			LOGGER.error("Did not find original {} model in registry", modelResLoc);
+		}
+		else if (existingModel.isCustomRenderer()) {
+			LOGGER.error("Tried to replace {} model twice", modelResLoc);
+		}
+		else {
+			modelRegistry.put(modelResLoc, newModel.apply(existingModel));
+		}
+	}
+
+
+
+	@SubscribeEvent
+	public static void registerItemColoring(RegisterColorHandlersEvent.Item event) {
+		event.register(StandDiscRenderer::getItemModelLayerColor, ModItems.STAND_DISC.get());
+
+		event.register((stack, layer) -> {
+			if (layer != 1) return -1;
+			return CassetteRecordedItem.getCassetteData(stack)
+					.flatMap(cap -> cap.dye())
+					.map(DyeColor::getTextureDiffuseColor)
+					.orElse(0xEFF0E0);
+		}, ModItems.CASSETTE_RECORDED.get());
+	}
+}
