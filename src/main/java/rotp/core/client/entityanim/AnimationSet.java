@@ -38,6 +38,7 @@ public class AnimationSet {
 			Map.entry("time_breaker", "timeBreaker"),
 			Map.entry("ts_punch", "timeBreaker"),
 			Map.entry("finisher", "finisherPunch"),
+			Map.entry("finisher_punch", "finisherPunch"),
 			Map.entry("grab_punch", "punch"),
 			Map.entry("grab_barrage", "barrage"),
 			Map.entry("grab_heavy_punch", "heavy_punch"),
@@ -125,11 +126,25 @@ public class AnimationSet {
 		return anims.get(index % anims.size());
 	}
 
+	/**
+	 * Alias targets are themselves aliased names in the 1.16 files ported add-ons still ship
+	 * (heavy_charged -> heavy_punch -> heavyPunch), so a missing direct target follows the chain a few steps.
+	 */
+	private static final int MAX_ALIAS_DEPTH = 4;
+
 	@Nullable
 	private RotpAnimDefinition getAliasedNamedAnim(String name, int index) {
+		return getAliasedNamedAnim(name, index, 0);
+	}
+
+	@Nullable
+	private RotpAnimDefinition getAliasedNamedAnim(String name, int index, int depth) {
+		if (depth >= MAX_ALIAS_DEPTH) {
+			return null;
+		}
 		String indexedAlias = LEGACY_INDEXED_ANIM_ALIASES.get(name);
 		if (indexedAlias != null) {
-			RotpAnimDefinition anim = getNamedAnim(indexedAlias, index);
+			RotpAnimDefinition anim = getNamedAnimOrAliased(indexedAlias, index, depth);
 			if (anim != null) {
 				return anim;
 			}
@@ -137,7 +152,7 @@ public class AnimationSet {
 
 		String alias = LEGACY_ANIM_ALIASES.get(name);
 		if (alias != null) {
-			RotpAnimDefinition anim = getNamedAnim(alias, index);
+			RotpAnimDefinition anim = getNamedAnimOrAliased(alias, index, depth);
 			if (anim != null) {
 				return anim;
 			}
@@ -146,13 +161,19 @@ public class AnimationSet {
 		List<String> extraAliases = EXTRA_LEGACY_ANIM_ALIASES.get(name);
 		if (extraAliases != null) {
 			for (String extraAlias : extraAliases) {
-				RotpAnimDefinition anim = getNamedAnim(extraAlias, index);
+				RotpAnimDefinition anim = getNamedAnimOrAliased(extraAlias, index, depth);
 				if (anim != null) {
 					return anim;
 				}
 			}
 		}
 		return null;
+	}
+
+	@Nullable
+	private RotpAnimDefinition getNamedAnimOrAliased(String name, int index, int depth) {
+		RotpAnimDefinition anim = getNamedAnim(name, index);
+		return anim != null ? anim : getAliasedNamedAnim(name, index, depth + 1);
 	}
 
 	@Nullable

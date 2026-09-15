@@ -17,6 +17,7 @@ import rotp.core.client.entityrender.stand.StandEntityRenderer;
 import rotp.core.client.standskin.StandSkin;
 import rotp.core.client.standskin.StandSkinsLoader;
 import rotp.core.config.client.ClientModSettings;
+import rotp.core.core.JojoMod;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.entityaction.ActionAnimIdentifier;
@@ -262,29 +263,58 @@ public class PreFrameEntityAnimCalc {
 			boolean armsOnly,
 			boolean implicitHandMirror) {
 		if (animId == null || animId.isIdle()
-				|| skin.getStandAnimation(anims -> anims.getNamedAnim(animId, armsOnly, implicitHandMirror)) != null
+				|| lookupStandAnim(skin, animId, armsOnly, implicitHandMirror) != null
 				|| !(action.ability instanceof Ability ability)) {
 			return animId;
 		}
-		List<String> candidates = new ArrayList<>(2);
+		List<String> candidates = new ArrayList<>(3);
 		String name = animId.name();
 		ResourceLocation standType = stand.getStandType();
 		if (standType != null && name.startsWith(standType.getPath() + "_")) {
 			candidates.add(name.substring(standType.getPath().length() + 1));
 		}
 		if (ability.abilityType != null && ability.abilityType.registryKey != null) {
-			candidates.add(ability.abilityType.registryKey.getPath());
+			String registryPath = ability.abilityType.registryKey.getPath();
+			candidates.add(registryPath);
+			// the core attack types are registered as stand_punch/stand_barrage/...; 1.16 played their clips
+			// (punch, barrage, heavy_punch, ...) whatever the add-on named the action
+			if (registryPath.startsWith(STAND_TYPE_REGISTRY_PREFIX)) {
+				candidates.add(registryPath.substring(STAND_TYPE_REGISTRY_PREFIX.length()));
+			}
 		}
 		for (String candidate : candidates) {
 			if (candidate.isEmpty() || candidate.equals(name)) {
 				continue;
 			}
 			ActionAnimIdentifier fallback = ActionAnimIdentifier.getOrCreate(candidate, animId.index(), animId.isIdle());
-			if (skin.getStandAnimation(anims -> anims.getNamedAnim(fallback, armsOnly, implicitHandMirror)) != null) {
+			if (lookupStandAnim(skin, fallback, armsOnly, implicitHandMirror) != null) {
 				return fallback;
 			}
 		}
 		return animId;
+	}
+
+	private static final String STAND_TYPE_REGISTRY_PREFIX = "stand_";
+	/** Generic humanoid clips for the core Stand actions (punch, barrage, heavy punches, block, grab...). */
+	private static final ResourceLocation DEFAULT_STAND_ANIMS = JojoMod.resLoc("stand_default");
+
+	/**
+	 * The 1.16 humanoid Stand model carried built-in poses for the generic Stand actions, so ported add-on
+	 * skins may never have shipped those clips. A skin (or its default skin) that has no clip for a non-idle
+	 * action falls back to the generic humanoid set, which only moves the canonical humanoid bones.
+	 */
+	@Nullable
+	private static RotpAnimDefinition lookupStandAnim(
+			StandSkin skin, ActionAnimIdentifier animId, boolean armsOnly, boolean implicitHandMirror) {
+		RotpAnimDefinition anim = skin.getStandAnimation(anims -> anims.getNamedAnim(animId, armsOnly, implicitHandMirror));
+		if (anim == null && !animId.isIdle()) {
+			AnimationLoader loader = AnimationLoader.getInstance();
+			AnimationSet defaults = loader != null ? loader.getAnimSet(DEFAULT_STAND_ANIMS) : null;
+			if (defaults != null) {
+				anim = defaults.getNamedAnim(animId, armsOnly, implicitHandMirror);
+			}
+		}
+		return anim;
 	}
 
 	public static AnimWithId getStandAnim(StandSkin skin, ActionAnimIdentifier animId, ActionAnimIdentifier curIdleAnim) {
@@ -303,8 +333,7 @@ public class PreFrameEntityAnimCalc {
 			boolean implicitHandMirror) {
 		if (skin != null) {
 			if (animId != null) {
-				RotpAnimDefinition anim = skin.getStandAnimation(
-						anims -> anims.getNamedAnim(animId, armsOnly, implicitHandMirror));
+				RotpAnimDefinition anim = lookupStandAnim(skin, animId, armsOnly, implicitHandMirror);
 				if (anim == null) {
 					anim = skin.getStandAnimation(anims -> anims.getNamedAnim(curIdleAnim));
 					if (anim != null) {
