@@ -4,7 +4,9 @@ import javax.annotation.Nullable;
 
 import rotp.core.client.standskin.StandSkin;
 import rotp.core.client.standskin.StandSkinsLoader;
+import rotp.core.powersystem.Moveset;
 import rotp.core.powersystem.MovesetBuilder;
+import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.controls.InputUseVanillaMapping;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.unlockableskill.UnlockableSkill;
@@ -50,7 +52,31 @@ public final class StandSkillText {
 		if (standKey != null && Language.getInstance().has(standKey)) {
 			return Component.translatable(standKey, args);
 		}
+		if (!Language.getInstance().has(baseKey)) {
+			// Add-on Stands ported from 1.16 have no skill screen texts: name the skill after its ability
+			// and leave a missing description or controls line empty instead of showing the raw key.
+			if (!suffix.isEmpty()) {
+				return Component.empty();
+			}
+			Ability ability = skillAbility(standPower, skill);
+			if (ability != null) {
+				return ability.getName(standPower);
+			}
+		}
 		return Component.translatable(baseKey, args);
+	}
+
+	@Nullable
+	private static Ability skillAbility(@Nullable StandPower standPower, UnlockableSkill skill) {
+		if (standPower == null || !standPower.hasPower()) {
+			return null;
+		}
+		Moveset moveset = standPower.getMoveset();
+		Ability ability = moveset.getAbility(skill.skillName);
+		if (ability == null && !skill.unlocksAbilities.isEmpty()) {
+			ability = moveset.getAbility(skill.unlocksAbilities.get(0));
+		}
+		return ability;
 	}
 
 	static Object[] skinFormatArgs(Object[] args) {

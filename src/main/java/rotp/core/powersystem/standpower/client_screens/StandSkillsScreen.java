@@ -49,6 +49,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.renderer.texture.MissingTextureAtlasSprite;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.sounds.SoundManager;
 import net.minecraft.network.chat.Component;
@@ -239,6 +240,13 @@ public class StandSkillsScreen extends Screen implements IJojoMenuScreen {
 			int skillSpriteColor = unlockedOrOnlyMissingStandExp ? BlitFloat.NO_TINT : 0x40404040;
 			
 			TextureAtlasSprite icon = abilityIconSprites.getAbilityIcon(skill.skillName, standSkin);
+			if (MissingTextureAtlasSprite.getLocation().equals(icon.contents().name())) {
+				// Abilities whose icon depends on their state only ship the state sprites the HUD asks for.
+				Ability ability = standPower.hasPower() ? standPower.getMoveset().getAbility(skill.skillName) : null;
+				if (ability != null) {
+					icon = abilityIconSprites.getAbilityIcon(ability, standPower, standSkin);
+				}
+			}
 			RenderSystem.enableBlend();
 			RenderSystem.defaultBlendFunc();
 			BlitFloat.blit(guiGraphics.pose(), minecraft, icon, 
