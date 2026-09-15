@@ -23,6 +23,7 @@ import rotp.core.item.StoneMaskItem;
 import rotp.core.item.StoneMaskItem.MaskActivationResult;
 import rotp.core.network.s2c.BloodParticlesPacket;
 import rotp.core.powersystem.playerpower.PlayerPower;
+import rotp.core.powersystem.standpower.entity.StandLinkDamageSource;
 import rotp.core.util.functions.AttributeUtil;
 import rotp.core.util.functions.DamageUtil;
 import rotp.core.impl.powers.pillarman.PillarmanData;
@@ -37,7 +38,10 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.Difficulty;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.effect.MobEffectCategory;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.EntitySelector;
@@ -61,6 +65,8 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.common.Tags;
+import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
 import net.neoforged.neoforge.event.entity.living.MobEffectEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
@@ -99,6 +105,13 @@ public class BleedingEffect extends StatusEffectModified implements StatusEffect
 			}
 		}
 		
+		// Physical damage makes the target splash blood on whatever is next to it (Stone Mask wearers included),
+		// which is what activates the mask in the original mod when hitting a villager or mob.
+		@SubscribeEvent(priority = EventPriority.LOWEST)
+		public static void onLivingDamage(LivingDamageEvent.Post event) {
+			bleed(event.getSource(), event.getNewDamage(), event.getEntity());
+		}
+
 		// can't use onAdded for this, as we need the previous effect instance as part of the context
 		@SubscribeEvent(priority = EventPriority.LOWEST)
 		public static void onPotionAdded(MobEffectEvent.Added event) {
@@ -128,6 +141,24 @@ public class BleedingEffect extends StatusEffectModified implements StatusEffect
 		}
 	}
 
+
+	public static void bleed(DamageSource dmgSource, float dmgAmount, LivingEntity target) {
+		if (dmgSource instanceof StandLinkDamageSource standLink) {
+			dmgSource = standLink.actualSource;
+		}
+		Level level = target.level();
+		if (level.isClientSide() || dmgAmount < 0.98F
+				|| dmgSource.is(DamageTypeTags.BYPASSES_ARMOR) && !dmgSource.is(DamageTypes.FALL)
+				|| dmgSource.is(DamageTypeTags.IS_FIRE)
+				|| dmgSource.is(Tags.DamageTypes.IS_MAGIC)
+				|| dmgSource.is(DamageTypeTags.BYPASSES_INVULNERABILITY)
+				|| dmgSource.is(ModDamageTypes.PILLAR_MAN_ABSORPTION)
+				|| !JojoDefinitions.canBleed(target)) {
+			return;
+		}
+		CrazyDBloodCutterAbility.onBleedingAdded(target);
+		splashBlood(level, target.getBoundingBox().getCenter(), 2, dmgAmount, OptionalInt.empty(), target);
+	}
 
 	public static int limitAmplifier(LivingEntity entity, int amplifier) {
 		return Math.min(amplifier, Math.max(

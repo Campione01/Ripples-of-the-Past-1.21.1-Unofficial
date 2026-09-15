@@ -125,6 +125,9 @@ public class VampirismBloodDrainAbility extends VampirismActionAbility {
 		@Override
 		public void onButtonStopHold() {
 			forceStop();
+			// The client's authoritative instance (and other viewers) only learn about the stop through this sync;
+			// without it their PERFORM phase never ends and the looping drain sound keeps playing.
+			syncPhaseChanges();
 		}
 
 		@Override
