@@ -1,5 +1,8 @@
 package rotp.core.client.entityanim;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import javax.annotation.Nullable;
 
 import rotp.core.api.client.animation.AddonPlayerAnimations;
@@ -15,6 +18,7 @@ import rotp.core.client.standskin.StandSkin;
 import rotp.core.client.standskin.StandSkinsLoader;
 import rotp.core.config.client.ClientModSettings;
 import rotp.core.init.power.ModPlayerPowers;
+import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.entityaction.ActionAnimIdentifier;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
@@ -175,6 +179,11 @@ public class PreFrameEntityAnimCalc {
 
 				boolean implicitPunchMirror = action instanceof StandEntityPunch punch
 						&& punch.usesHandedAnimation();
+				if (action != null && standSkin != null) {
+					animVariables.animId = resolvePortedActionAnim(
+							standSkin, stand, action, animVariables.animId,
+							stand.isArmsOnlyMode(), implicitPunchMirror);
+				}
 				AnimWithId animPossiblyReplaced = getStandAnim(
 						standSkin, animVariables.animId, idleAnim,
 						stand.isArmsOnlyMode(), implicitPunchMirror);
@@ -238,6 +247,46 @@ public class PreFrameEntityAnimCalc {
 		return null;
 	}
 	
+	/**
+	 * Ported add-ons often register the core punch/barrage/heavy types under a Stand-prefixed moveset name
+	 * ({@code the_grateful_dead_barrage}) while their animation files keep the generic clip names, so the
+	 * moveset-name lookup finds nothing and the Stand idles through the attack. When the moveset name has no
+	 * clip, try the name without the Stand's own prefix and then the ability type's registry path before the
+	 * idle fallback in {@link #getStandAnim}.
+	 */
+	private static ActionAnimIdentifier resolvePortedActionAnim(
+			StandSkin skin,
+			StandEntity stand,
+			EntityActionInstance action,
+			ActionAnimIdentifier animId,
+			boolean armsOnly,
+			boolean implicitHandMirror) {
+		if (animId == null || animId.isIdle()
+				|| skin.getStandAnimation(anims -> anims.getNamedAnim(animId, armsOnly, implicitHandMirror)) != null
+				|| !(action.ability instanceof Ability ability)) {
+			return animId;
+		}
+		List<String> candidates = new ArrayList<>(2);
+		String name = animId.name();
+		ResourceLocation standType = stand.getStandType();
+		if (standType != null && name.startsWith(standType.getPath() + "_")) {
+			candidates.add(name.substring(standType.getPath().length() + 1));
+		}
+		if (ability.abilityType != null && ability.abilityType.registryKey != null) {
+			candidates.add(ability.abilityType.registryKey.getPath());
+		}
+		for (String candidate : candidates) {
+			if (candidate.isEmpty() || candidate.equals(name)) {
+				continue;
+			}
+			ActionAnimIdentifier fallback = ActionAnimIdentifier.getOrCreate(candidate, animId.index(), animId.isIdle());
+			if (skin.getStandAnimation(anims -> anims.getNamedAnim(fallback, armsOnly, implicitHandMirror)) != null) {
+				return fallback;
+			}
+		}
+		return animId;
+	}
+
 	public static AnimWithId getStandAnim(StandSkin skin, ActionAnimIdentifier animId, ActionAnimIdentifier curIdleAnim) {
 		return getStandAnim(skin, animId, curIdleAnim, false);
 	}
