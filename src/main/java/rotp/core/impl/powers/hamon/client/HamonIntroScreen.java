@@ -10,6 +10,7 @@ import rotp.core.client.ui.screen_jojomenu.TabCategory;
 import rotp.core.client.ui.utils.BlitFloat;
 import rotp.core.client.ui.utils.Scrolling;
 import rotp.core.core.JojoMod;
+import com.mojang.blaze3d.systems.RenderSystem;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
@@ -55,8 +56,7 @@ public class HamonIntroScreen extends PlaceholderScreen {
 		y = drawWrapped(gui, Component.translatable("hamon.intro.breath.text1",
 				Component.translatable("hamon.intro.breath.text1.underlined").withStyle(ChatFormatting.UNDERLINE)),
 				x + 3, y + 12, CONTENT_WIDTH - 6, 0xFFFFFFFF) + 4;
-		Bars.renderHorizontalBarWithTranslucent(gui.pose(), x, y, 0.0F, 1.0F,
-				Bars.BAR_HORIZONTAL_FILL, HAMON_COLOR, 1.0F);
+		renderEnergyBar(gui, x, y, 0.0F, 1.0F);
 		y += 14;
 
 		y = drawWrapped(gui, Component.translatable("hamon.intro.breath.text2",
@@ -70,8 +70,7 @@ public class HamonIntroScreen extends PlaceholderScreen {
 
 		float ticks = (ClientTickHandler.tickCount + partialTick) % 100.0F;
 		float energyFill = Mth.clamp((ticks - 20.0F) / 60.0F, 0.0F, 1.0F);
-		Bars.renderHorizontalBarWithTranslucent(gui.pose(), x, y, energyFill, 1.0F,
-				Bars.BAR_HORIZONTAL_FILL, HAMON_COLOR, 1.0F);
+		renderEnergyBar(gui, x, y, energyFill, 1.0F);
 		y += 16;
 
 		stabilityToggleContentY = y - top;
@@ -85,8 +84,7 @@ public class HamonIntroScreen extends PlaceholderScreen {
 			float slowTicks = (ClientTickHandler.tickCount + partialTick) % 750.0F;
 			float stabilityFill = 0.4F + 0.6F * slowTicks / 720.0F;
 			float slowEnergyFill = Mth.clamp((slowTicks - 20.0F) / 60.0F, 0.0F, stabilityFill);
-			Bars.renderHorizontalBarWithTranslucent(gui.pose(), x, y, slowEnergyFill, stabilityFill,
-					Bars.BAR_HORIZONTAL_FILL, HAMON_COLOR, 1.0F);
+			renderEnergyBar(gui, x, y, slowEnergyFill, stabilityFill);
 			y += 14;
 			y = drawWrapped(gui, Component.translatable("hamon.intro.breath.text5"),
 					x + 3, y, CONTENT_WIDTH - 6, 0xFFFFFFFF) + 6;
@@ -111,8 +109,26 @@ public class HamonIntroScreen extends PlaceholderScreen {
 	private void renderBreathAbilityIcon(GuiGraphics gui, int x, int y) {
 		gui.fill(x - 2, y - 2, x + 18, y + 18, 0xFF101010);
 		gui.fill(x - 1, y - 1, x + 17, y + 17, 0xFF8A8A8A);
+		prepareImmediateBlit();
 		BlitFloat.blit(gui.pose(), Minecraft.getInstance(), HAMON_BREATH_ICON,
 				x, y, 16, 16, 0, BlitFloat.NO_TINT);
+	}
+
+	/**
+	 * The bars and the icon are drawn by BlitFloat straight through the tesselator, outside the GuiGraphics
+	 * batches. The HUD enables blending itself before the same calls (PowerHud), but a Screen inherits whatever
+	 * state the blurred background left, so the translucent bar textures came out opaque black (BUG (3) B3-02).
+	 */
+	private static void prepareImmediateBlit() {
+		RenderSystem.enableBlend();
+		RenderSystem.defaultBlendFunc();
+		RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+	}
+
+	private void renderEnergyBar(GuiGraphics gui, int x, int y, float barFill, float translucentFill) {
+		prepareImmediateBlit();
+		Bars.renderHorizontalBarWithTranslucent(gui.pose(), x, y, barFill, translucentFill,
+				Bars.BAR_HORIZONTAL_FILL, HAMON_COLOR, 1.0F);
 	}
 
 	private void renderStabilityToggle(GuiGraphics gui, int x, int y) {

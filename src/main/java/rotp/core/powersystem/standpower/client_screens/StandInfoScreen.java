@@ -29,6 +29,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
@@ -211,14 +212,17 @@ public class StandInfoScreen extends Screen implements IJojoMenuScreen {
 		}
 		
 		
-		// stand description
-		var description = minecraft.font.split(Component.translatable(standData.getPowerType().getId().toLanguageKey("stand", "desc")), 200);
-		int lineX = x + 10;
-		int lineHeight = 9;
-		int lineY = y + 220 - description.size() * lineHeight;
-		for (var line : description) {
-			guiGraphics.drawString(minecraft.font, line, lineX, lineY, 0xFF000000, false);
-			lineY += lineHeight;
+		// stand description (optional: ported add-ons never shipped one, and the raw key must not be shown)
+		String descriptionKey = standData.getPowerType().getId().toLanguageKey("stand", "desc");
+		if (Language.getInstance().has(descriptionKey)) {
+			var description = minecraft.font.split(Component.translatable(descriptionKey), 200);
+			int lineX = x + 10;
+			int lineHeight = 9;
+			int lineY = y + 220 - description.size() * lineHeight;
+			for (var line : description) {
+				guiGraphics.drawString(minecraft.font, line, lineX, lineY, 0xFF000000, false);
+				lineY += lineHeight;
+			}
 		}
 	}
 
