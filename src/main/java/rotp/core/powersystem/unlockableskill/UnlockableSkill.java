@@ -50,7 +50,7 @@ public abstract class UnlockableSkill {
 			int count = missingPrerequsites.size();
 			for (int i = 0; i < count; i++) {
 				String skill = missingPrerequsites.get(i);
-				MutableComponent skillName = skillName(skill);
+				Component skillName = prerequisiteName(userPower, data, skill);
 				allNames = allNames.append(Component.translatable("jojo_ripples.list.entry", skillName));
 			}
 			Component fullMessage = Component.translatable("jojo_ripples.stand_skills.prerequisites", allNames);
@@ -87,6 +87,12 @@ public abstract class UnlockableSkill {
 	
 	protected static MutableComponent skillName(String internalName) {
 		return Component.translatable("jojo_ripples.skill." + internalName);
+	}
+
+	// A missing prerequisite is named the way its own skill is named in the menu (Hamon skills use hamonSkill.*).
+	protected Component prerequisiteName(Power<?> userPower, PowerData data, String prerequisite) {
+		UnlockableSkill skill = data.getAllSkills().get(prerequisite);
+		return skill != null ? skill.textName : skillName(prerequisite);
 	}
 	
 	public UnlockableSkill withAbility(String abilityName, String... extra) {

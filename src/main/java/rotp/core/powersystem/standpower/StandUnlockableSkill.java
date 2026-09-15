@@ -2,6 +2,7 @@ package rotp.core.powersystem.standpower;
 
 import java.util.Optional;
 
+import rotp.core.client.ui.text.StandSkillText;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.PowerData;
 import rotp.core.powersystem.ability.Ability;
@@ -42,7 +43,18 @@ public class StandUnlockableSkill extends UnlockableSkill {
 		
 		return ConditionCheck.POSITIVE;
 	}
-	
+
+	@Override
+	protected Component prerequisiteName(Power<?> userPower, PowerData data, String prerequisite) {
+		UnlockableSkill skill = data.getAllSkills().get(prerequisite);
+		if (skill != null && userPower instanceof StandPower standPower && standPower.getUser() != null
+				&& standPower.getUser().level().isClientSide()) {
+			// the same name the skill screen lists (skin text, then the ability name for ported add-on Stands)
+			return StandSkillText.name(standPower, skill);
+		}
+		return super.prerequisiteName(userPower, data, prerequisite);
+	}
+
 	public int getDevPotentialCosmeticPoints(StandPower userPower, StandTypePersistentData data, boolean isUnlocked) {
 		if (isUnlocked) return 0;
 		if (expToUnlock > 0) return expToUnlock;
