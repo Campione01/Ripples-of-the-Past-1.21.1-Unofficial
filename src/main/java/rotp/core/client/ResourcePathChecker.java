@@ -68,8 +68,10 @@ public class ResourcePathChecker {
 		public CompletableFuture<Void> reload(PreparationBarrier barrier, ResourceManager manager,
 		        ProfilerFiller preparationsProfiler, ProfilerFiller reloadProfiler,
 				Executor backgroundExecutor, Executor gameExecutor) {
+			// On the game executor: without one this runs on the common pool and iterates ALL while
+			// StandSkinsLoader.apply, on the game thread, is still inserting into it through getOrCreate.
 			return barrier.wait(null)
-					.thenRunAsync(() -> ALL.values().forEach(path -> path.checked = false));
+					.thenRunAsync(() -> ALL.values().forEach(path -> path.checked = false), gameExecutor);
 		}
 
 	}
