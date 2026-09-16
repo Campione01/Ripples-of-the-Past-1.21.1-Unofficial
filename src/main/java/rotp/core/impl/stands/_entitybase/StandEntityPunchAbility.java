@@ -554,17 +554,24 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	
 	// 
 	
-	protected static List<String> punchNamesBuffer = new ArrayList<>();
 	@Nullable
 	protected Ability getComboPunch(StandPower standPower) {
 		if (standPower == null) return null;
-		
+
 		Moveset moveset = standPower.getMoveset();
 		StandEntity standEntity = standPower.getSummonedStandEntity();
-		
+
 		if (this.isSubAbility) return null;
-		
-		punchNamesBuffer.clear();
+
+		// This list used to be a static field reused across calls, and that crashed the client with
+		// "Index 0 out of bounds for length 0" here. Two threads run this method - the render thread through
+		// ClientPowerCache.onFrame -> Power.updateAvailableMoves, and the server thread through the ability input
+		// packets - so one could clear the shared list between the other's size() and its get(i). It has to be a
+		// cross-thread clear: the loop below re-reads the bound each iteration, so a same-thread clear would just
+		// end it early. The second loop does capture size once, which would make a re-entrant clear fatal too; no
+		// isAbilityAvailable override reaches back into this method today, but a local list means neither hazard
+		// can return.
+		List<String> punchNamesBuffer = new ArrayList<>();
 		String baseName = this.name();
 		if (baseName == null) {
 			return null;
