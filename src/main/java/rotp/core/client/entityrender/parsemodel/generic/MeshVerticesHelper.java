@@ -131,11 +131,13 @@ public class MeshVerticesHelper {
 		return first.lengthSquared() > 0 && second.lengthSquared() > 0;
 	}
 	
-	private static Vector3f _startP = new Vector3f();
-	private static Vector3f _startEnd = new Vector3f();
-	private static Vector3f normal = new Vector3f();
-	
 	private static boolean magicFunction(Vector3f base1, Vector3f base2, Vector3f top, Vector3f check) {
+		// Local for the same reason as the caller's vertex buffer: mesh parsing runs on several
+		// reload worker threads at once, and shared scratch vectors silently mix up two faces.
+		Vector3f _startP = new Vector3f();
+		Vector3f _startEnd = new Vector3f();
+		Vector3f normal = new Vector3f();
+
 		// Construct a plane with coplanar points "base1" and "base2" with a normal towards "top"
 		subVectors(_startP, top, base1);
 		subVectors(_startEnd, base2, base1);

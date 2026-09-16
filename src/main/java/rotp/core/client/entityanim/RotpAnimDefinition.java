@@ -84,10 +84,14 @@ public class RotpAnimDefinition {
 	public void initStaticPoses(FloatList poseTimestamps) {
 		if (poseTimestamps != null) {
 			coolPoses = new ArrayList<>(poseTimestamps.size());
+			// This runs on a resource-reload worker while the render thread keeps drawing the old
+			// models, so it may not touch the render thread's shared scratch pose or lerp target.
+			AnimFramePose posesOffThread = new AnimFramePose();
+			Vector3f lerpTargetOffThread = new Vector3f();
 			FloatListIterator iter = poseTimestamps.iterator();
 			while (iter.hasNext()) {
 				float timestamp = iter.nextFloat();
-				AnimFramePose frame = calcAnimPose(null, null, timestamp, 1);
+				AnimFramePose frame = calcAnimPose(null, null, timestamp, 1, posesOffThread, lerpTargetOffThread);
 				frame = frame.deepCopy();
 				coolPoses.add(frame);
 			}
@@ -95,16 +99,26 @@ public class RotpAnimDefinition {
 	}
 
 
-	public AnimFramePose calcAnimPose(@Nullable AnimMolangVariables animVariables, 
+	public AnimFramePose calcAnimPose(@Nullable AnimMolangVariables animVariables,
 			@Nullable AnimFramePose prevPunchPose, float seconds, float animSpeed) {
+		return calcAnimPose(animVariables, prevPunchPose, seconds, animSpeed, AnimFramePose.reused, TARGET);
+	}
+
+	/**
+	 * Writes the frame through caller-supplied scratch instead of the shared static ones, so that a
+	 * thread other than the render thread can calculate a pose without corrupting a frame in flight.
+	 */
+	public AnimFramePose calcAnimPose(@Nullable AnimMolangVariables animVariables,
+			@Nullable AnimFramePose prevPunchPose, float seconds, float animSpeed,
+			AnimFramePose destPose, Vector3f lerpTarget) {
 		evaluateQueries(animVariables);
-		AnimFramePose frame = AnimFramePose.reused.clear();
+		AnimFramePose frame = destPose.clear();
 
 		Map<String, List<IAnimationChannel>> anim = SmoothPunchComboAnimTransition.transition(boneAnimations, prevPunchPose);
 		for (Map.Entry<String, List<IAnimationChannel>> entry : anim.entrySet()) {
 			ModelPartFrame modelPartPose = frame.getForModelPart(entry.getKey());
 			for (IAnimationChannel tf : entry.getValue()) {
-				Vector3f vec = calcVec(this, tf, seconds, animSpeed);
+				Vector3f vec = calcVec(this, tf, seconds, animSpeed, lerpTarget);
 				modelPartPose.set(vec, tf.target());
 			}
 		}
@@ -261,8 +275,13 @@ public class RotpAnimDefinition {
 	protected static final Vector3f TARGET = new Vector3f();
 	
 	public static Vector3f calcVec(RotpAnimDefinition anim, IAnimationChannel tf, float seconds, float animSpeed) {
+		return calcVec(anim, tf, seconds, animSpeed, TARGET);
+	}
+
+	public static Vector3f calcVec(RotpAnimDefinition anim, IAnimationChannel tf, float seconds, float animSpeed,
+			Vector3f lerpTarget) {
 		Keyframe[] keyframes = tf.keyframes();
-		Vector3f vec = anim.lerpKeyframes(keyframes, seconds, animSpeed);
+		Vector3f vec = anim.lerpKeyframes(keyframes, seconds, animSpeed, lerpTarget);
 		adjustBlockbenchVec(tf.target(), vec);
 		return vec;
 	}
@@ -281,14 +300,18 @@ public class RotpAnimDefinition {
 	}
 	
 	public Vector3f lerpKeyframes(Keyframe[] keyframes, float seconds, float animSpeed) {
+		return lerpKeyframes(keyframes, seconds, animSpeed, TARGET);
+	}
+
+	public Vector3f lerpKeyframes(Keyframe[] keyframes, float seconds, float animSpeed, Vector3f lerpTarget) {
 		int i = Math.max(0, Mth.binarySearch(0, keyframes.length, index -> seconds <= keyframes[index].timestamp()) - 1);
 		int j = Math.min(keyframes.length - 1, i + 1);
 		Keyframe keyframe = keyframes[i];
 		Keyframe keyframe2 = keyframes[j];
 		float h = seconds - keyframe.timestamp();
 		float k = j != i ? Mth.clamp(h / (keyframe2.timestamp() - keyframe.timestamp()), 0.0f, 1.0f) : 0.0f;
-		keyframe2.interpolation().apply(TARGET, k, keyframes, i, j, animSpeed);
-		return TARGET;
+		keyframe2.interpolation().apply(lerpTarget, k, keyframes, i, j, animSpeed);
+		return lerpTarget;
 	}
 	
 	

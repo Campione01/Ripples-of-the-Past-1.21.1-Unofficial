@@ -270,6 +270,14 @@ tasks.register('genericModelGeometrySmokeTest', JavaExec) {
     }
 }
 
+tasks.register('animPoseThreadIsolationSmokeTest', JavaExec) {
+    group = 'verification'
+    description = 'Checks that reload-time pose calculation keeps off the render thread scratch.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
+    mainClass = 'rotp.core.client.entityanim.AnimPoseThreadIsolationSmokeTest'
+}
+
 tasks.register('clientCursorIsolationSmokeTest', JavaExec) {
     group = 'verification'
     description = 'Checks virtual cursor routing for isolated Bridge clients.'

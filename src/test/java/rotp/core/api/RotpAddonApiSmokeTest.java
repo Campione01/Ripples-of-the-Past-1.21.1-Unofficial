@@ -58,6 +58,7 @@ import rotp.core.api.client.render.FirstPersonPostArmLayersSmokeTest;
 import rotp.core.api.client.render.ScopedPlayerModelVisibilitySmokeTest;
 import rotp.core.api.client.render.ScopedPlayerModelPoseSmokeTest;
 import rotp.core.api.client.animation.AddonPlayerAnimationsSmokeTest;
+import rotp.core.client.entityanim.AnimPoseThreadIsolationSmokeTest;
 import rotp.core.client.entityrender.parsemodel.generic.GenericModelFormatSmokeTest;
 import rotp.core.client.shader.core.EntityOutlinePostChainCompatSmokeTest;
 import rotp.core.client.shader.TimeStopShaderRouteSmokeTest;
@@ -394,6 +395,7 @@ public final class RotpAddonApiSmokeTest {
 		SharedGrabChargedHeavyInputSmokeTest.run();
 		CrazyDRestoreExtensionSmokeTest.run();
 		GenericModelFormatSmokeTest.run();
+		AnimPoseThreadIsolationSmokeTest.run();
 		AbilityIconSpritesCompatibilitySmokeTest.run();
 		StandSkillTextSmokeTest.run();
 		RollbackTransactionFoundationSmokeTest.run();

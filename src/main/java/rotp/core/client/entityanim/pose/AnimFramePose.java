@@ -15,10 +15,12 @@ public class AnimFramePose {
 	protected Map<String, ModelPartFrame> modelPartCache = new HashMap<>();
 	public Map<String, ModelPartFrame> pose = new HashMap<>();
 	
+	/** The render thread's scratch pose. Any other thread calculates poses through its own instance. */
 	public static AnimFramePose reused = new AnimFramePose();
-	
+
 	public ModelPartFrame getForModelPart(String modelPartName) {
-		// FIXME ConcurrentModificationError on F3+T
+		// Neither map is synchronised, so an instance belongs to a single thread. Letting the
+		// resource-reload workers share the render thread's is what used to throw on F3+T.
 		return this.pose.computeIfAbsent(modelPartName, __ -> modelPartCache
 				.computeIfAbsent(modelPartName, ___ -> new ModelPartFrame()));
 	}

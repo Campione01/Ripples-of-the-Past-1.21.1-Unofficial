@@ -7,10 +7,12 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CyclicBarrier;
 
 import org.joml.Vector3f;
 
@@ -76,6 +78,74 @@ public final class GenericModelFormatSmokeTest {
 		verifyTranslatedClosedMeshBoundsAndNormals();
 		verifyRepeatedVertexIdPreservesOrder();
 		verifyDegenerateNormalFails();
+		verifyConcurrentMeshParsingIsIsolated();
+	}
+
+	private static void verifyConcurrentMeshParsingIsIsolated() {
+		// Vanilla submits every reload listener's prepare() to the same background executor, so the
+		// three model loaders parse meshes on different worker threads at once. Scratch state shared
+		// between those calls drops or duplicates a face's vertices instead of merely slowing it down.
+		float[][] hexagon = {
+				{ -2, 4, -2 }, { 2, 4, -2 }, { 3, 4, -1 },
+				{ 3, 4, 2 }, { -3, 4, 2 }, { -3, 4, -1 }
+		};
+		float[][] quad = { { 1, 2, 5 }, { 3, 2, 5 }, { 3, 4, 5 }, { 1, 4, 5 } };
+		JsonObject hexagonModel = meshModel(hexagon, new int[] { 0, 1, 2, 3, 4, 5 });
+		JsonObject quadModel = meshModel(quad, new int[] { 0, 3, 2, 1 });
+		String hexagonBaseline = describeCube(bakeModel(hexagonModel.deepCopy()));
+		String quadBaseline = describeCube(bakeModel(quadModel.deepCopy()));
+
+		int workerCount = 8;
+		int iterations = 300;
+		CyclicBarrier start = new CyclicBarrier(workerCount);
+		List<Throwable> failures = Collections.synchronizedList(new ArrayList<>());
+		List<Thread> workers = new ArrayList<>();
+		for (int i = 0; i < workerCount; i++) {
+			boolean bakesHexagon = i % 2 == 0;
+			JsonObject source = bakesHexagon ? hexagonModel : quadModel;
+			String expected = bakesHexagon ? hexagonBaseline : quadBaseline;
+			// Each worker parses its own copy of the JSON, so the only state they can share is the parser's.
+			Thread worker = new Thread(() -> {
+				try {
+					start.await();
+					for (int pass = 0; pass < iterations; pass++) {
+						check(describeCube(bakeModel(source.deepCopy())).equals(expected),
+								"a concurrent bake disagrees with the single-threaded geometry");
+					}
+				}
+				catch (Throwable error) {
+					failures.add(error);
+				}
+			}, "mesh-parse-" + i);
+			workers.add(worker);
+			worker.start();
+		}
+		for (Thread worker : workers) {
+			try {
+				worker.join();
+			}
+			catch (InterruptedException interrupted) {
+				Thread.currentThread().interrupt();
+				throw new AssertionError("interrupted while waiting for a mesh parse worker", interrupted);
+			}
+		}
+		if (!failures.isEmpty()) {
+			throw new AssertionError("mesh parsing is not thread-isolated: " + failures.get(0), failures.get(0));
+		}
+	}
+
+	private static String describeCube(ModelPart.Cube cube) {
+		StringBuilder geometry = new StringBuilder();
+		for (ModelPart.Polygon polygon : cube.polygons) {
+			geometry.append('[');
+			for (ModelPart.Vertex vertex : polygon.vertices) {
+				geometry.append(vertex.pos.x()).append(',').append(vertex.pos.y()).append(',').append(vertex.pos.z())
+						.append('/').append(vertex.u).append(',').append(vertex.v).append(';');
+			}
+			geometry.append('|').append(polygon.normal.x()).append(',')
+					.append(polygon.normal.y()).append(',').append(polygon.normal.z()).append(']');
+		}
+		return geometry.toString();
 	}
 
 	private static void verifyParentFirstGeometryAndReplacement() {

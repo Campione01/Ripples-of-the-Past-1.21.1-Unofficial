@@ -335,7 +335,6 @@ public class GenericModelFormat {
 		}
 	}
 
-	protected static final Set<String> visitedVerticesReused = new LinkedHashSet<>();
 	static CubeDefinition makeModelBox(BlockbenchElement element, Vector3f parentPivot) {
 		return switch (element) {
 			case ElementMesh mesh -> {
@@ -343,18 +342,21 @@ public class GenericModelFormat {
 				origin.sub(parentPivot);
 				Map<String, Vector3f> verticesMap = mesh.vertices;
 				Collection<MeshFace> faces = mesh.faces.values();
-				
+
+				// Model parsing runs on the reload worker threads, several at a time, so this stays
+				// local: a shared buffer mixes two faces' vertices and breaks the polygon boundary.
+				Set<String> visitedVertices = new LinkedHashSet<>();
 				MeshBuilder meshBuilder = new MeshBuilder(true);
 				for (MeshFace face : faces) {
 					if (face.vertices.length > 2) {
-						visitedVerticesReused.clear();
+						visitedVertices.clear();
 						for (String vertex : face.vertices) {
 							// Deduplicate IDs without losing the authored polygon boundary order.
-							visitedVerticesReused.add(vertex);
+							visitedVertices.add(vertex);
 						}
-						VertexDefinition[] vertices = new VertexDefinition[visitedVerticesReused.size()];
+						VertexDefinition[] vertices = new VertexDefinition[visitedVertices.size()];
 						int i = 0;
-						for (String vertexId : visitedVerticesReused) {
+						for (String vertexId : visitedVertices) {
 							float[] uv = face.uv.get(vertexId);
 							vertices[i++] = new VertexDefinition(verticesMap.get(vertexId), uv[0], uv[1]);
 						}
