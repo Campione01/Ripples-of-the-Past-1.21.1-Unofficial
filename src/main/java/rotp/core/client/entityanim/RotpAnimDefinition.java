@@ -86,7 +86,8 @@ public class RotpAnimDefinition {
 			coolPoses = new ArrayList<>(poseTimestamps.size());
 			// This runs on a resource-reload worker while the render thread keeps drawing the old
 			// models, so it writes the frame through its own scratch, not the render thread's.
-			// (evaluateQueries still shares AnimMolangQuery.instance; that one is tracked separately.)
+			// (evaluateQueries goes through AnimMolangQuery.instance, whose query context is
+			// per-thread for the same reason.)
 			AnimFramePose posesOffThread = new AnimFramePose();
 			Vector3f lerpTargetOffThread = new Vector3f();
 			FloatListIterator iter = poseTimestamps.iterator();

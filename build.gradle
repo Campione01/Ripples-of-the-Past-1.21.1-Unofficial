@@ -278,6 +278,14 @@ tasks.register('animPoseThreadIsolationSmokeTest', JavaExec) {
     mainClass = 'rotp.core.client.entityanim.AnimPoseThreadIsolationSmokeTest'
 }
 
+tasks.register('molangQueryThreadIsolationSmokeTest', JavaExec) {
+    group = 'verification'
+    description = 'Checks that reload-time and render-time Molang query contexts stay separate.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
+    mainClass = 'rotp.core.client.entityanim.MolangQueryThreadIsolationSmokeTest'
+}
+
 tasks.register('clientCursorIsolationSmokeTest', JavaExec) {
     group = 'verification'
     description = 'Checks virtual cursor routing for isolated Bridge clients.'
