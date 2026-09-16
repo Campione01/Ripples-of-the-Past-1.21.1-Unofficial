@@ -439,7 +439,7 @@ public class WalkmanSoundHandler {
 		});
 	}
 
-	private static boolean hasLoadedSound(SoundEvent soundEvent) {
+	static boolean hasLoadedSound(SoundEvent soundEvent) {
 		WeighedSoundEvents sounds = Minecraft.getInstance().getSoundManager().getSoundEvent(soundEvent.getLocation());
 		return sounds != null && sounds.getSound(RandomSourceHolder.RANDOM) != SoundManager.EMPTY_SOUND;
 	}

@@ -143,6 +143,7 @@ public class ClientTickHandler {
 	}
 
 	private static void tickResolveOst(Minecraft mc) {
+		releaseFinishedOst(mc);
 		if (mc.player != null && mc.player.isAlive()) {
 			MobEffectInstance resolve = mc.player.getEffect(ModStatusEffects.RESOLVE);
 			if (resolve != null) {
@@ -151,7 +152,7 @@ public class ClientTickHandler {
 					resolveOstActive = true;
 				}
 				if (resolve.getDuration() == 40) {
-					fadeAwayOst(mc, 100);
+					fadeAwayOst(100);
 				}
 				if (mc.player.tickCount % 100 == 0) {
 					mc.getMusicManager().stopPlaying();
@@ -160,36 +161,59 @@ public class ClientTickHandler {
 			}
 		}
 		resolveOstActive = false;
-		fadeAwayOst(mc, 20);
+		fadeAwayOst(20);
+	}
+
+	// The OST holds Minecraft's Music slider at 0 while it plays, and that slider is a persisted option: left at 0
+	// it stays there for good and is written to options.txt the next time any options screen closes. The
+	// instance can only put it back from tick(), and the sound engine stops ticking an instance the moment it
+	// drops it - when the track ends on its own, when a resource reload or a disconnect clears every sound, or
+	// when it never accepted the instance at all. So the handler that started the OST watches for it going away
+	// and restores the music itself; the instance's own restore, if it already ran, makes this a no-op.
+	private static void releaseFinishedOst(Minecraft mc) {
+		if (ost != null && (ost.isStopped() || !mc.getSoundManager().isActive(ost))) {
+			ost.restoreMusic();
+			ost = null;
+		}
 	}
 
 	private static void startPlayingOst(Minecraft mc, int level) {
 		mc.getMusicManager().stopPlaying();
-		if (ost == null || ost.isStopped()) {
+		if (ost != null) {
+			// Resolve came back while the previous OST was still fading out. Two instances must never hold the
+			// slider at once: the second would read the first's 0 as the volume to come back to.
+			ost.stopOst();
+			mc.getSoundManager().stop(ost);
 			ost = null;
-			StandPower stand = StandPower.get(mc.player);
-			if (stand != null && stand.hasPower() && stand.getPowerType() != null) {
-				OstSoundList ostList = stand.getPowerType().getOst(mc.player);
-				if (ostList != null) {
-					SoundEvent ostSound = ostList.get(level);
-					if (ostSound != null) {
-						ost = new StandOstSound(ostSound, mc);
-						mc.getSoundManager().play(ost);
+		}
+		StandPower stand = StandPower.get(mc.player);
+		if (stand != null && stand.hasPower() && stand.getPowerType() != null) {
+			OstSoundList ostList = stand.getPowerType().getOst(mc.player);
+			if (ostList != null) {
+				SoundEvent ostSound = ostList.get(level);
+				// The stock Stands register their OST events and ship no audio (the tracks come from a resource
+				// pack), so on a stock install this is a sound that was never going to play. WalkmanSoundHandler
+				// already asks the same question before listing a cassette track.
+				if (ostSound != null && WalkmanSoundHandler.hasLoadedSound(ostSound)) {
+					StandOstSound sound = new StandOstSound(ostSound, mc);
+					mc.getSoundManager().play(sound);
+					// SoundEngine.play declines silently for more reasons than a missing sound - the Records slider
+					// at 0, no audio device - and an instance it declined is one nobody will ever tick or stop.
+					// Only an accepted instance gets to mute the music.
+					if (mc.getSoundManager().isActive(sound)) {
+						sound.muteMusic();
+						ost = sound;
 					}
 				}
 			}
 		}
 	}
 
-	private static void fadeAwayOst(Minecraft mc, int fadeAwayTicks) {
+	private static void fadeAwayOst(int fadeAwayTicks) {
+		// The instance stays referenced through the fade. releaseFinishedOst lets go of it once it has stopped or
+		// the engine has dropped it, and only then is the music known to be back.
 		if (ost != null) {
-			if (!ost.isStopped()) {
-				ost.setFadeAway(fadeAwayTicks);
-			}
-			else {
-				mc.getSoundManager().stop(ost);
-			}
-			ost = null;
+			ost.setFadeAway(fadeAwayTicks);
 		}
 	}
 
