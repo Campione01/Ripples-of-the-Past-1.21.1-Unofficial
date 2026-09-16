@@ -33,6 +33,8 @@ public class ClientModSettings {
 //		public boolean hudHotbarFold = true;
 		public boolean showLockedSlots = false;
 		public boolean abilitySelectionWheel = true;
+		public boolean abilitySelectionScroll = true;
+		public boolean releaseToUseAbility = false;
 		public boolean compactStandHotbar = false;
 
 		public boolean resolveShaders = true;

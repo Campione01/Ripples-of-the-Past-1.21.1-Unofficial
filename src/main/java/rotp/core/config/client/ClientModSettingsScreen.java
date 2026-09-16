@@ -168,6 +168,24 @@ public class ClientModSettingsScreen extends Screen {
 		}.withIcon(toIconPath("ability_selection_wheel"));
 		addRenderableWidget(abilitySelectionWheel.createButton(calcButtonX(i), calcButtonY(i++) + yOffset, 150, 20, this, i));
 
+		Setting<Boolean> abilitySelectionScroll = new BooleanSetting(settings, 
+				Component.translatable("jojo_ripples.config.client.abilitySelectionScroll"), 
+				Component.translatable("jojo_ripples.config.client.abilitySelectionScroll.tooltip")
+				) {
+			@Override public Boolean get() { return settingsValues.abilitySelectionScroll; }
+			@Override public void set(Boolean value) {  settingsValues.abilitySelectionScroll = value; }
+		};
+		addRenderableWidget(abilitySelectionScroll.createButton(calcButtonX(i), calcButtonY(i++) + yOffset, 150, 20, this, i));
+
+		Setting<Boolean> releaseToUseAbility = new BooleanSetting(settings, 
+				Component.translatable("jojo_ripples.config.client.releaseToUseAbility"), 
+				Component.translatable("jojo_ripples.config.client.releaseToUseAbility.tooltip")
+				) {
+			@Override public Boolean get() { return settingsValues.releaseToUseAbility; }
+			@Override public void set(Boolean value) {  settingsValues.releaseToUseAbility = value; }
+		};
+		addRenderableWidget(releaseToUseAbility.createButton(calcButtonX(i), calcButtonY(i++) + yOffset, 150, 20, this, i));
+
 		
 		// Stand settings
 

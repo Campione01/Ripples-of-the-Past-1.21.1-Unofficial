@@ -136,7 +136,56 @@ public class InputHandler {
 	public void handleKeyBindingsPost(ClientTickEvent.Post event) {
 		vanillaKeybinds.handleTick();
 		tickReleaseEventQueue();
+		tickPendingReleaseUse();
 		tickKeyPressIndication();
+	}
+	
+	private void tickPendingReleaseUse() {
+		if (pendingReleaseUse.isEmpty()) {
+			return;
+		}
+		var iter = pendingReleaseUse.iterator();
+		while (iter.hasNext()) {
+			PendingHotbarUse pending = iter.next();
+			// The ability selection wheel closes on its own render, and on the tick it does the selected ability can
+			// still be flagged inactive client-side - resolving it then finds nothing, which is why this waits for it
+			// to become usable instead of firing once and hoping.
+			if (mc.screen == null && isSelectedAbilityUsable(pending.hotbar)) {
+				useSelectedHotbarAbility(pending.hotbar);
+				iter.remove();
+			}
+			else if (++pending.waitedTicks >= PENDING_RELEASE_USE_TICKS) {
+				iter.remove();
+			}
+		}
+	}
+	
+	/** Whether the hotbar's selected ability would resolve to something usable right now. */
+	private boolean isSelectedAbilityUsable(Hotbar hotbar) {
+		HotbarSlot slot = hotbar.getSelected();
+		if (slot == null || slot.showAbility() == null) {
+			return false;
+		}
+		List<AbilityControlsEntry> clickBound = slot.getBinds().getAll(getCurModifier(), InputMethod.CLICK);
+		if (clickBound.isEmpty()) {
+			return false;
+		}
+		CurInput probe = CurInput.instance;
+		probe.reset();
+		ClientControlScheme.setPrioritizedAbility(probe.clickAbility, clickBound,
+				inputState -> AbilityInputState.isInputActive(inputState, PowerHud.isInContainerScreen()));
+		boolean usable = probe.clickAbility.curActiveAbility != null;
+		probe.reset();
+		return usable;
+	}
+	
+	private static final class PendingHotbarUse {
+		private final Hotbar hotbar;
+		private int waitedTicks;
+		
+		private PendingHotbarUse(Hotbar hotbar) {
+			this.hotbar = hotbar;
+		}
 	}
 
 	@SubscribeEvent
@@ -152,6 +201,7 @@ public class InputHandler {
 				modifiersQueue,
 				hotbarsSelection,
 				toggledHotbarsSelection);
+		pendingReleaseUse.clear();
 		hamonDoubleShift.reset();
 		lastActionKey = null;
 		inputsDisabled = false;
@@ -906,6 +956,9 @@ public class InputHandler {
 	// Hotbar stuff
 	
 	public Map<Hotbar, ClientKey> hotbarsSelection = new IdentityHashMap<>();
+	private final List<PendingHotbarUse> pendingReleaseUse = new ArrayList<>();
+	/** How long to keep waiting for the selected ability to become usable before giving up (client ticks). */
+	private static final int PENDING_RELEASE_USE_TICKS = 10;
 	private final Set<Hotbar> toggledHotbarsSelection = Collections.newSetFromMap(new IdentityHashMap<>());
 	protected float hotbarsSelectionTimestamp;
 	
@@ -931,6 +984,8 @@ public class InputHandler {
 	
 	public void checkStopHotbarSelection(ClientKey releasedKey) {
 		if (!hotbarsSelection.isEmpty()) {
+			boolean releaseToUse = ClientModSettings.getSettingsReadOnly().releaseToUseAbility;
+			List<Hotbar> useOnRelease = null;
 			var iter = hotbarsSelection.entrySet().iterator();
 			while (iter.hasNext()) {
 				var entry = iter.next();
@@ -939,16 +994,63 @@ public class InputHandler {
 					if (mc.screen instanceof AbilitySelectionWheel wheel && wheel.abilities == entry.getKey()) {
 						wheel.commitHoveredSelection();
 					}
+					if (releaseToUse) {
+						if (useOnRelease == null) useOnRelease = new ArrayList<>(1);
+						useOnRelease.add(entry.getKey());
+					}
 					iter.remove();
 				}
 			}
+			if (useOnRelease != null) {
+				// Deferred to the next client tick on purpose. When the ability selection wheel is open the release
+				// arrives while that screen is still up, and the wheel only takes itself down on its next render, so
+				// firing here would be swallowed. By the next tick the selection is gone, the wheel has closed and
+				// the ability sees the hotbar as no longer being browsed.
+				for (Hotbar hotbar : useOnRelease) {
+					pendingReleaseUse.add(new PendingHotbarUse(hotbar));
+				}
+			}
 		}
+	}
+	
+	/**
+	 * The classic "hold the hotbar key, pick, release to use it" flow, off by default
+	 * ({@link ClientModSettings.Settings#releaseToUseAbility}). Releasing the key still commits the choice as it
+	 * always did, and the hotbar's own use key keeps working, so both ways are available at once.
+	 *
+	 * <p>This replays a real press and release of that hotbar's use key rather than resolving the ability itself, so
+	 * the release goes down exactly the path a manual press takes - hold/click disambiguation, cooldowns, the
+	 * client-side ability state, and whatever key the player has rebound the use key to. Resolving it by hand looked
+	 * equivalent but was not: on the tick the wheel closes the selected ability is not yet flagged active, so the
+	 * hand-rolled version silently resolved nothing.
+	 */
+	private void useSelectedHotbarAbility(Hotbar hotbar) {
+		if (inputsDisabled || mc.player == null || hotbar.useAbilityKey == null) {
+			return;
+		}
+		if (mc.screen instanceof AbilitySelectionWheel wheel && wheel.abilities == hotbar) {
+			wheel.onClose();
+		}
+		if (mc.screen != null) {
+			return;
+		}
+		HotbarSlot slot = hotbar.getSelected();
+		ClientKey useKey = hotbar.useAbilityKey.getKey();
+		if (slot == null || slot.showAbility() == null || useKey == null) {
+			return;
+		}
+		input(useKey, InputConstants.PRESS, 0);
+		input(useKey, InputConstants.RELEASE, 0);
 	}
 	
 	public boolean hotbarScroll(double scrollDelta) {
 		@Nullable AbilitySelectionWheel curWheel = mc.screen instanceof AbilitySelectionWheel w ? w : null;
 		if (mc.screen != null && curWheel == null) return false;
 		if (scrollDelta == 0) return false;
+		// Picking an ability by scrolling is its own mechanism, separate from the selection wheel, and each can be
+		// turned off on its own. Inside the wheel the scroll still moves the highlight, since there the wheel itself
+		// is the mechanism the player asked for.
+		if (curWheel == null && !ClientModSettings.getSettingsReadOnly().abilitySelectionScroll) return false;
 		
 		boolean scrolledAHotbar = false;
 		ClientControlScheme controlScheme = getActiveControlSchemeForHotbarOperation();
