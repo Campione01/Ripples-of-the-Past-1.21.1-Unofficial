@@ -9,8 +9,6 @@ import java.util.WeakHashMap;
 import java.util.function.BiConsumer;
 
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.effect.MobEffects;
 
 /**
  * Slice 5a framework extension — entity glow channel API.
@@ -95,10 +93,12 @@ public final class EntityGlowChannel {
 		if (target == null || durationTicks <= 0) {
 			return;
 		}
-		GlowState previous = glowState.get(target);
-		boolean previousGlowing = previous != null ? previous.previousGlowing() : target.isCurrentlyGlowing();
-		glowState.put(target, new GlowState(color, target.tickCount + durationTicks, previousGlowing));
-		target.setGlowingTag(true);
+		// The glow is drawn by the mixins that ask this class (isCurrentlyGlowing, shouldEntityAppearGlowing,
+		// getTeamColor), so the vanilla glowing flag is never touched. It used to be set here and "restored" on clear,
+		// but on the client Entity.setGlowingTag writes flag 6 from isCurrentlyGlowing(), which reads flag 6 back:
+		// once set it could not be cleared, and every detected entity kept a white outline after the glow ended
+		// (1.16's setClGlowingColor / resetClGlowingColor left nothing behind).
+		glowState.put(target, new GlowState(color, target.tickCount + durationTicks));
 	}
 
 	/**
@@ -106,20 +106,11 @@ public final class EntityGlowChannel {
 	 */
 	public void clear(Entity target) {
 		if (target != null) {
-			GlowState state = glowState.remove(target);
-			if (state != null) {
-				restoreVanillaGlow(target, state);
-			}
+			glowState.remove(target);
 		}
 	}
 
 	public void clearAll() {
-		for (Map.Entry<Entity, GlowState> entry : new ArrayList<>(glowState.entrySet())) {
-			Entity target = entry.getKey();
-			if (target != null) {
-				restoreVanillaGlow(target, entry.getValue());
-			}
-		}
 		glowState.clear();
 	}
 
@@ -133,12 +124,5 @@ public final class EntityGlowChannel {
 		}
 	}
 
-	private static void restoreVanillaGlow(Entity target, GlowState state) {
-		if (!state.previousGlowing() && target instanceof LivingEntity living && living.hasEffect(MobEffects.GLOWING)) {
-			return;
-		}
-		target.setGlowingTag(state.previousGlowing());
-	}
-
-	private static record GlowState(OptionalInt color, int expiresAtTick, boolean previousGlowing) {}
+	private static record GlowState(OptionalInt color, int expiresAtTick) {}
 }
