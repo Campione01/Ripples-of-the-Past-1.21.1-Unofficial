@@ -399,13 +399,28 @@ public class StandSkin {
 		return lang != null ? lang.get(key) : null;
 	}
 	
-	private static String formatTranslation(String translation, Object... args) {
+	static String formatTranslation(String translation, Object... args) {
 		try {
-			return String.format(java.util.Locale.ROOT, translation, args);
+			return String.format(java.util.Locale.ROOT, translation, formatArgs(args));
 		}
 		catch (IllegalFormatException e) {
 			return translation;
 		}
+	}
+	
+	/**
+	 * A skin's translation is formatted with {@link String#format}, not by the game's translation lookup, so a
+	 * {@link Component} argument (an entity or item name) would print its {@code toString()} -
+	 * "translation{key='entity.minecraft.cow', args=[]}". Pass its visible text instead.
+	 */
+	static Object[] formatArgs(Object[] args) {
+		Object[] formatArgs = args.clone();
+		for (int i = 0; i < formatArgs.length; i++) {
+			if (formatArgs[i] instanceof Component component) {
+				formatArgs[i] = component.getString();
+			}
+		}
+		return formatArgs;
 	}
 	
 }

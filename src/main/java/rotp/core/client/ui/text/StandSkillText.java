@@ -46,7 +46,7 @@ public final class StandSkillText {
 			UnlockableSkill skill, String suffix, Object... args) {
 		String baseKey = baseKey(skill, suffix);
 		if (standSkin != null && standSkin.hasTranslation(baseKey)) {
-			return standSkin.translatable(baseKey, skinFormatArgs(args));
+			return standSkin.translatable(baseKey, args);
 		}
 		String standKey = standSkillKey(standPower, skill, suffix);
 		if (standKey != null && Language.getInstance().has(standKey)) {
@@ -77,16 +77,6 @@ public final class StandSkillText {
 			ability = moveset.getAbility(skill.unlocksAbilities.get(0));
 		}
 		return ability;
-	}
-
-	static Object[] skinFormatArgs(Object[] args) {
-		Object[] formatArgs = args.clone();
-		for (int i = 0; i < formatArgs.length; i++) {
-			if (formatArgs[i] instanceof Component component) {
-				formatArgs[i] = component.getString();
-			}
-		}
-		return formatArgs;
 	}
 
 	private static Component grabChargedHeavyKeyName() {

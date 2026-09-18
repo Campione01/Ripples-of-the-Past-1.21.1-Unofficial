@@ -64,7 +64,7 @@ import rotp.core.client.entityrender.parsemodel.generic.GenericModelFormatSmokeT
 import rotp.core.client.shader.core.EntityOutlinePostChainCompatSmokeTest;
 import rotp.core.client.shader.TimeStopShaderRouteSmokeTest;
 import rotp.core.client.standskin.sprites.AbilityIconSpritesCompatibilitySmokeTest;
-import rotp.core.client.ui.text.StandSkillTextSmokeTest;
+import rotp.core.client.standskin.StandSkinFormatSmokeTest;
 import rotp.core.command.commands.JojoConfigCommandSmokeTest;
 import rotp.core.item.CoreItemResourceSmokeTest;
 import rotp.core.item.StandRemoverItemContractSmokeTest;
@@ -399,7 +399,7 @@ public final class RotpAddonApiSmokeTest {
 		AnimPoseThreadIsolationSmokeTest.run();
 		MolangQueryThreadIsolationSmokeTest.run();
 		AbilityIconSpritesCompatibilitySmokeTest.run();
-		StandSkillTextSmokeTest.run();
+		StandSkinFormatSmokeTest.run();
 		RollbackTransactionFoundationSmokeTest.run();
 		DirectionalGravityTransformsSmokeTest.run();
 		DirectionalGravityDataSmokeTest.run();
