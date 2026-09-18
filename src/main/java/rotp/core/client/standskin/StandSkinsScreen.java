@@ -612,8 +612,15 @@ public class StandSkinsScreen extends Screen implements IJojoMenuScreen {
 	 */
 	private static final Set<ResourceLocation> STANDS_WITHOUT_UI_MODEL = ConcurrentHashMap.newKeySet();
 
-	/** Draws the skin's Stand icon centered on (centerX, centerY), `size` pixels across. */
-	public static void renderSkinIcon(GuiGraphics gui, StandSkin skin, float centerX, float centerY, float size) {
+	/**
+	 * Draws the skin's Stand icon centered on (centerX, centerY), `size` pixels across.
+	 * <p>
+	 * {@code skin} is null for a Stand that ships no skin at all (the Stand info screen gets its skin from
+	 * {@code StandSkinsLoader.getSkin}, which returns null then) - there is nothing to draw, and it must not crash
+	 * the screen.
+	 */
+	public static void renderSkinIcon(GuiGraphics gui, @Nullable StandSkin skin, float centerX, float centerY, float size) {
+		if (skin == null) return;
 		GuiIcon icon = skin.getStandIcon();
 		if (icon == null) return;
 		RenderSystem.enableBlend();

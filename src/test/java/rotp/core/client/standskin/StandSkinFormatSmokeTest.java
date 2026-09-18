@@ -22,6 +22,10 @@ public final class StandSkinFormatSmokeTest {
 		String name = StandSkin.formatTranslation("Stay with %s", Component.literal("Cow"));
 		check("Stay with Cow".equals(name),
 				"a Component argument must not reach String.format as its toString(): " + name);
+
+		// a Stand with no skin at all reaches the icon fallback with a null skin (Stand info screen); it drew
+		// nothing and crashed the client instead
+		StandSkinsScreen.renderSkinIcon(null, null, 0, 0, 16);
 	}
 
 	private static void check(boolean condition, String message) {
