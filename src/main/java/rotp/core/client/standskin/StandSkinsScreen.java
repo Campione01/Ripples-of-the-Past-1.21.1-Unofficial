@@ -2,6 +2,8 @@ package rotp.core.client.standskin;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
@@ -439,19 +441,27 @@ public class StandSkinsScreen extends Screen implements IJojoMenuScreen {
 			int color = isHovered ? skin.getColor() : 0x80FFFFFF;
 			skinBox.render(gui.pose(), x, y, color);
 
-			renderStand(gui, mouseX, mouseY, ticks, isHovered, 
-					x + boxWidth / 2, standY + boxHeight / 2 + 35, 30, 1, 
+			boolean drawn = renderStand(gui, mouseX, mouseY, ticks, isHovered,
+					x + boxWidth / 2, standY + boxHeight / 2 + 35, 30, 1,
 					0, 0, 0, 0);
+			if (!drawn) {
+				renderSkinIcon(gui, skin, x + boxWidth / 2, y + boxHeight / 2, 32);
+			}
 		}
-		
-		public void renderStand(GuiGraphics gui, int mouseX, int mouseY, float ticks, boolean isHovered, 
-				float posX, float posY, float scale, float scaleZoom, 
+
+		/**
+		 * @return false when this Stand has no model to show (see {@link #renderStandModel}), so the caller can
+		 * show something else instead of an empty box
+		 */
+		public boolean renderStand(GuiGraphics gui, int mouseX, int mouseY, float ticks, boolean isHovered,
+				float posX, float posY, float scale, float scaleZoom,
 				float yRot, float xRot, float xOffsetRatio, float yOffsetRatio) {
 			if (standType instanceof EntityStandType) {
-				renderStandModel(gui, posX, posY, scale, scaleZoom, 
-						yRot, xRot, xOffsetRatio, yOffsetRatio, 
+				return renderStandModel(gui, posX, posY, scale, scaleZoom,
+						yRot, xRot, xOffsetRatio, yOffsetRatio,
 						(EntityStandType) standType, skin, ticks, 0xFFFFFFFF);
 			}
+			return false;
 		}
 		
 		// XXX set it to one of the stand summon poses
@@ -466,16 +476,21 @@ public class StandSkinsScreen extends Screen implements IJojoMenuScreen {
 				
 				poseStack.pushPose();
 				poseStack.translate(0, 0, -100);
-				renderStandModel(gui, windowX + 60, windowY + 150, scale, 1, 
-						(float) Math.PI + angle, 0, 0, 0, 
-						(EntityStandType) standType, skin, 
+				boolean drawn = renderStandModel(gui, windowX + 60, windowY + 150, scale, 1,
+						(float) Math.PI + angle, 0, 0, 0,
+						(EntityStandType) standType, skin,
 						(renderer, renderState) -> renderer.extractSkinMenuRenderState(renderState, skin, standType.getId(), 0, 0xFFB0B0B0, MenuType.STAND_INFO));
-				
+
 				poseStack.popPose();
-				renderStandModel(gui, windowX + 45, windowY + 150, scale, 1, 
-						angle, 0, 0, 0, 
-						(EntityStandType) standType, skin, 
-						(renderer, renderState) -> renderState.tint = 0xFFFFFFFF);
+				if (drawn) {
+					renderStandModel(gui, windowX + 45, windowY + 150, scale, 1,
+							angle, 0, 0, 0,
+							(EntityStandType) standType, skin,
+							(renderer, renderState) -> renderState.tint = 0xFFFFFFFF);
+				}
+				else {
+					renderSkinIcon(gui, skin, windowX + 52, windowY + 100, 48);
+				}
 			}
 		}
 
@@ -510,17 +525,17 @@ public class StandSkinsScreen extends Screen implements IJojoMenuScreen {
 			this.skinIndex = skinIndex;
 		}
 
-		// TODO (stans skins UI) stand icon
 		public void render(GuiGraphics gui, int mouseX, int mouseY, float ticks) {
-//			ResourceLocation standIcon = JojoModUtil.makeTextureLocation("power", 
-//					skinFullView.skin.standTypeId.getNamespace(), skinFullView.skin.standTypeId.getPath());
-//			standIcon = skinFullView.skin.getRemappedResPath(standIcon).or(standIcon);
-//			minecraft.getTextureManager().bind(standIcon);
-//			blit(matrixStack, 4, 4, 0, 0, 16, 16, 16, 16);
-			
-			skinView.renderStand(gui, mouseX, mouseY, ticks, true, 
-					WINDOW_WIDTH / 2 - 15, 180, 70, scale, 
+			// 1.16's full view drew the skin's own Stand icon in this corner (a skin can replace the icon);
+			// the port left it as a TODO, so switching between skins gave no sign of which icon each carries.
+			renderSkinIcon(gui, skin, 12, 12, 16);
+
+			boolean drawn = skinView.renderStand(gui, mouseX, mouseY, ticks, true,
+					WINDOW_WIDTH / 2 - 15, 180, 70, scale,
 					yRot * MathUtil.PI, xRot * MathUtil.PI, xOffset, yOffset);
+			if (!drawn) {
+				renderSkinIcon(gui, skin, WINDOW_WIDTH / 2 - 15, 100, 64);
+			}
 			
 			if (screen.isSkinSelected(skin)) {
 				BlitFloat.blit(gui.pose(), Minecraft.getInstance(), TEXTURE_ELEMENTS, 
@@ -581,19 +596,46 @@ public class StandSkinsScreen extends Screen implements IJojoMenuScreen {
 		}
 	}
 
-	public static <S extends StandEntityRenderState> void renderStandModel(GuiGraphics gui, float posX, float posY, 
-			float scale, float scaleZoom, float yRot, float xRot, float xOffsetRatio, float yOffsetRatio, 
+	public static <S extends StandEntityRenderState> boolean renderStandModel(GuiGraphics gui, float posX, float posY,
+			float scale, float scaleZoom, float yRot, float xRot, float xOffsetRatio, float yOffsetRatio,
 			EntityStandType standType, StandSkin standSkin, float ticks, int tint) {
-		renderStandModel(gui, posX, posY, 
+		return renderStandModel(gui, posX, posY,  
 				scale, scaleZoom, yRot, xRot, xOffsetRatio, yOffsetRatio, 
 				standType, standSkin, 
 				(renderer, renderState) -> renderer.extractSkinMenuRenderState(renderState, standSkin, standType.getId(), ticks, tint, MenuType.STAND_SKINS));
 	}
 
-	public static <S extends StandEntityRenderState> void renderStandModel(GuiGraphics gui, float posX, float posY, 
-			float scale, float scaleZoom, float yRot, float xRot, float xOffsetRatio, float yOffsetRatio, 
-			EntityStandType standType, StandSkin standSkin, 
+	/**
+	 * Stands whose entity deliberately has no Stand model - Hermit Purple is vines on the user, Bad Company and
+	 * Harvest are the units they command - register a no-op renderer. There is nothing to draw for them here,
+	 * which is not an error: the callers show the skin's icon instead.
+	 */
+	private static final Set<ResourceLocation> STANDS_WITHOUT_UI_MODEL = ConcurrentHashMap.newKeySet();
+
+	/** Draws the skin's Stand icon centered on (centerX, centerY), `size` pixels across. */
+	public static void renderSkinIcon(GuiGraphics gui, StandSkin skin, float centerX, float centerY, float size) {
+		GuiIcon icon = skin.getStandIcon();
+		if (icon == null) return;
+		RenderSystem.enableBlend();
+		RenderSystem.defaultBlendFunc();
+		icon.render(gui.pose(), centerX - size / 2, centerY - size / 2, size, size, 0xFFFFFFFF);
+		RenderSystem.disableBlend();
+	}
+
+	/** @return whether a Stand model was drawn */
+	public static <S extends StandEntityRenderState> boolean renderStandModel(GuiGraphics gui, float posX, float posY,
+			float scale, float scaleZoom, float yRot, float xRot, float xOffsetRatio, float yOffsetRatio,
+			EntityStandType standType, StandSkin standSkin,
 			BiConsumer<StandEntityRenderer<?, S, ?>, S> extractRenderState) {
+		Object rendererRaw = Minecraft.getInstance().getEntityRenderDispatcher().renderers.get(standType.getEntityType());
+		if (!(rendererRaw instanceof StandEntityRenderer<?, ?, ?>)) {
+			if (STANDS_WITHOUT_UI_MODEL.add(standType.getId())) {
+				JojoMod.getLogger().info("Stand {} (entity type {}) has no Stand model renderer; its skins are shown by icon.",
+						standType.getId(), EntityType.getKey(standType.getEntityType()));
+			}
+			return false;
+		}
+
 		Quaternionf rotation = new Quaternionf()
 				.rotateX(-xRot)
 				.rotateY(-yRot);
@@ -611,13 +653,6 @@ public class StandSkinsScreen extends Screen implements IJojoMenuScreen {
 		EntityRenderDispatcher renderManager = Minecraft.getInstance().getEntityRenderDispatcher();
 		boolean shadowDisabled = false;
 		try {
-			Object rendererRaw = renderManager.renderers.get(standType.getEntityType());
-			if (!(rendererRaw instanceof StandEntityRenderer<?, ?, ?>)) {
-				JojoMod.getLogger().error("Cannot render Stand skin UI model for stand {}, skin {}, entity type {}: no StandEntityRenderer is registered.",
-						standType.getId(), standSkin.skinId, EntityType.getKey(standType.getEntityType()));
-				return;
-			}
-			
 			@SuppressWarnings("unchecked")
 			StandEntityRenderer<?, S, ?> renderer = (StandEntityRenderer<?, S, ?>) rendererRaw;
 			renderManager.setRenderShadow(false);
@@ -638,5 +673,6 @@ public class StandSkinsScreen extends Screen implements IJojoMenuScreen {
 			gui.pose().popPose();
 			Lighting.setupFor3DItems();
 		}
+		return true;
 	}
 }
