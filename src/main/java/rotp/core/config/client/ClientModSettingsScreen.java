@@ -49,6 +49,7 @@ public class ClientModSettingsScreen extends Screen {
 	
 	protected final List<Title> categories = new ArrayList<>();
 	protected static record Title(Component title, int y) {}
+	private Button backButton;
 
 	public ClientModSettingsScreen(Screen lastScreen, ClientModSettings settings) {
 		this(lastScreen, settings, Component.translatable("jojo_ripples.options.client.title"));
@@ -70,6 +71,11 @@ public class ClientModSettingsScreen extends Screen {
 	@Override
 	protected void init() {
 		addRenderableWidgets();
+		List<AbstractWidget> options = children().stream()
+				.filter(child -> child instanceof AbstractWidget && child != backButton)
+				.map(child -> (AbstractWidget) child).toList();
+		options.forEach(this::removeWidget);
+		addRenderableWidget(new ClientSettingsList(minecraft, width, height, options, categories));
 	}
 
 	protected void addRenderableWidgets() {
@@ -77,8 +83,6 @@ public class ClientModSettingsScreen extends Screen {
 		int i = 0;
 		int yOffset = 0;
 		
-		// TODO make client config screen scrollable for when there'll be more config options
-
 		BooleanSetting characterVoiceLines = new BooleanSetting(settings, 
 				Component.translatable("jojo_ripples.config.client.characterVoiceLines"), 
 				Component.translatable("jojo_ripples.config.client.characterVoiceLines.tooltip")
@@ -402,7 +406,7 @@ public class ClientModSettingsScreen extends Screen {
 			++buttonsAdded;
 		}
 
-		addRenderableWidget(new Button.Builder(
+		backButton = addRenderableWidget(new Button.Builder(
 				text, button -> minecraft.setScreen(lastScreen))
 				.bounds(this.width / 2 - 100, 
 						this.height - 26, 
@@ -660,9 +664,6 @@ public class ClientModSettingsScreen extends Screen {
 	public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTicks) {
 		super.render(guiGraphics, mouseX, mouseY, partialTicks);
 		guiGraphics.drawCenteredString(font, title, width / 2, 15, 0xFFFFFF);
-		for (var categoryTitle : categories) {
-			guiGraphics.drawCenteredString(font, categoryTitle.title, width / 2, categoryTitle.y, 0xC0C0C0);
-		}
 	}
 
 
