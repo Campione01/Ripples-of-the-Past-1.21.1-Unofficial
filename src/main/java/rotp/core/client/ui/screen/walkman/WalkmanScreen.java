@@ -89,7 +89,6 @@ public class WalkmanScreen extends AbstractContainerScreen<WalkmanMenu> {
 	public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
 		updateCassette();
 		updateButtons();
-		renderBackground(guiGraphics, mouseX, mouseY, partialTick);
 		super.render(guiGraphics, mouseX, mouseY, partialTick);
 		renderTooltip(guiGraphics, mouseX, mouseY);
 	}

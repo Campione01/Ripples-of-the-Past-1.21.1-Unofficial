@@ -658,12 +658,11 @@ public class ClientModSettingsScreen extends Screen {
 
 	@Override
 	public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTicks) {
-		renderBackground(guiGraphics, mouseX, mouseY, partialTicks);
+		super.render(guiGraphics, mouseX, mouseY, partialTicks);
 		guiGraphics.drawCenteredString(font, title, width / 2, 15, 0xFFFFFF);
 		for (var categoryTitle : categories) {
 			guiGraphics.drawCenteredString(font, categoryTitle.title, width / 2, categoryTitle.y, 0xC0C0C0);
 		}
-		super.render(guiGraphics, mouseX, mouseY, partialTicks);
 	}
 
 

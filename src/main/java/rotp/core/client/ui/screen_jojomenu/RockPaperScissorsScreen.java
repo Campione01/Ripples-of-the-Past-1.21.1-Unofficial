@@ -140,7 +140,6 @@ public class RockPaperScissorsScreen extends Screen {
 
     @Override
     public void render(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
-        renderBackground(gui, mouseX, mouseY, partialTick);
         updateButtonState();
         sendThoughtsIfNeeded(mouseX, mouseY);
         super.render(gui, mouseX, mouseY, partialTick);

@@ -484,7 +484,6 @@ public class GoldExperienceChooseLifeformScreen extends Screen implements Screen
 
     @Override
     public void render(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
-        renderBackground(gui, mouseX, mouseY, partialTick);
         super.render(gui, mouseX, mouseY, partialTick);
         gui.drawCenteredString(font, title, width / 2, height / 2 - 96, 0xFFFFFF);
         Component selectedText = visibleChoices.isEmpty() || selectedLifeformId == null

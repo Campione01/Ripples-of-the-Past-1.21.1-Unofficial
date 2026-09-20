@@ -150,8 +150,6 @@ public class SewingMachineScreen extends AbstractContainerScreen<SewingMachineCo
 			onNextFrame = null;
 		}
 
-		this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
-
 		StoryCharacter selectedCharacter = getSettings().getSelectedCharacter();
 		characterName = selectedCharacter != null ? selectedCharacter.getName(false) : CommonComponents.EMPTY;
 
