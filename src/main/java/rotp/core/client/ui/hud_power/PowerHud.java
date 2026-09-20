@@ -51,6 +51,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.LayeredDraw;
+import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.Screen;
@@ -1067,6 +1068,10 @@ public class PowerHud {
 	
 	
 	public static class StandRange extends HudElement {
+		private int distanceWidth = -1;
+		private int strengthWidth = -1;
+		private int percentageWidth;
+		private int lineHeight;
 
 		public StandRange(String name, int x0, int y0, int width, int height) {
 			super(name, x0, y0, width, height);
@@ -1083,6 +1088,24 @@ public class PowerHud {
 			StandEntity stand = ClientGlobals.playerStandEntity;
 			return stand != null && !ClientGlobals.isPlayerStandFullBodyUnsummoning() && stand.isManuallyControlled();
 		}
+
+		private StandRangeLayout fittedLayout(int viewportWidth) {
+			// Raw bounds retain the preferred position when the viewport becomes wide again.
+			return StandRangeLayout.place(rectangle.left(), rectangle.top(), viewportWidth, lineHeight,
+					distanceWidth, strengthWidth, percentageWidth);
+		}
+
+		@Override
+		public ScreenRectangle getRectangle() {
+			if (distanceWidth < 0) return rectangle;
+			StandRangeLayout layout = fittedLayout(Minecraft.getInstance().getWindow().getGuiScaledWidth());
+			return new ScreenRectangle(layout.x(), layout.y(), layout.width(), layout.height());
+		}
+
+		@Override public int getX() { return getRectangle().left(); }
+		@Override public int getY() { return getRectangle().top(); }
+		@Override public int getWidth() { return getRectangle().width(); }
+		@Override public int getHeight() { return getRectangle().height(); }
 		
 		@Override
 		public void renderElement(GuiGraphics guiGraphics, DeltaTracker deltaTracker) {
@@ -1091,22 +1114,22 @@ public class PowerHud {
 			double damageFactor = stand.rangeEfficiency;
 			Font font = Minecraft.getInstance().font;
 
-			int x = this.getX();
-			int y = this.getY();
-			int width;
-			int height;
 			Component distanceString = Component.literal(String.format("%.2f m", distance));
-			guiGraphics.drawString(font, distanceString, x, y, 0xFFFFFFFF);
-			width = font.width(distanceString);
-			height = font.lineHeight;
-			if (damageFactor < 1) {
-				y += 12;
-				Component strength = Component.translatable("jojo_ripples.overlay.stand_strength", String.format("%.2f%%", damageFactor * 100F));
-				guiGraphics.drawString(font, strength, x, y, 0xFF4040);
-				width = Math.max(width, font.width(strength));
-				height += 12;
+			Component percentage = damageFactor < 1 ? Component.literal(String.format("%.2f%%", damageFactor * 100F)) : null;
+			Component strength = percentage != null
+					? Component.translatable("jojo_ripples.overlay.stand_strength", percentage.getString()) : null;
+			distanceWidth = font.width(distanceString);
+			strengthWidth = strength != null ? font.width(strength) : -1;
+			percentageWidth = percentage != null ? font.width(percentage) : 0;
+			lineHeight = font.lineHeight;
+			updateRectangle(Math.max(distanceWidth, strengthWidth),
+					lineHeight + (strength != null ? StandRangeLayout.LINE_STEP : 0));
+			StandRangeLayout layout = fittedLayout(guiGraphics.guiWidth());
+			guiGraphics.drawString(font, distanceString, layout.x(), layout.y(), 0xFFFFFFFF);
+			if (strength != null) {
+				guiGraphics.drawString(font, layout.percentageOnly() ? percentage : strength,
+						layout.strengthX(distanceWidth), layout.strengthY(), 0xFF4040);
 			}
-			updateRectangle(width, height);
 		}
 	}
 	
