@@ -409,7 +409,7 @@ tasks.register('distanceStrengthDecayPolicySmokeTest', JavaExec) {
 
 tasks.register('goldExperienceLifeformOrderingSmokeTest', JavaExec) {
     group = 'verification'
-    description = 'Verifies stable Gold Experience lifeform ordering across broad entity-type inputs.'
+    description = 'Verifies stable Gold Experience lifeform ordering and responsive picker layout.'
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
     mainClass =

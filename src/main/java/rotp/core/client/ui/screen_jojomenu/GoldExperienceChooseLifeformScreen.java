@@ -19,21 +19,18 @@ import rotp.core.impl.stands.goldexperience.GoldExperienceLifeformState;
 import rotp.core.impl.stands.goldexperience.GoldExperienceLifeforms;
 import com.mojang.blaze3d.platform.InputConstants;
 
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 public class GoldExperienceChooseLifeformScreen extends Screen implements ScreenLetsUseWASD {
-    private static final int LIST_ROWS_PER_COLUMN = 5;
-    private static final int LIST_PAGE_SIZE = LIST_ROWS_PER_COLUMN * 2;
-    private static final int GRID_COLUMNS = 4;
-    private static final int GRID_ROWS = 4;
-    private static final int GRID_PAGE_SIZE = GRID_COLUMNS * GRID_ROWS;
     private static String savedSearchFilter = "";
     private static FilterMode savedFilterMode = FilterMode.ALL;
     private static ViewMode savedViewMode = ViewMode.GRID;
@@ -60,6 +57,7 @@ public class GoldExperienceChooseLifeformScreen extends Screen implements Screen
     private Button favoriteFilterButton;
     private Button newFilterButton;
     private Button viewModeButton;
+    private GoldExperienceLifeformLayout layout;
 
     private enum FilterMode {
         ALL("jojo.ui.lifeform_ui_mode.all"),
@@ -115,6 +113,7 @@ public class GoldExperienceChooseLifeformScreen extends Screen implements Screen
     @Override
     protected void init() {
         super.init();
+        layout = GoldExperienceLifeformLayout.forScreen(width, height, savedViewMode == ViewMode.GRID);
         selectionDirty = false;
         page = 0;
         choiceButtons.clear();
@@ -150,14 +149,14 @@ public class GoldExperienceChooseLifeformScreen extends Screen implements Screen
                 page--;
                 updateChoiceButtons();
             }
-        }).pos(width / 2 - 55, height / 2 + 106).size(20, 20).build());
+        }).pos(width / 2 - 55, layout.toolsY()).size(20, 20).build());
 
         nextPageButton = addRenderableWidget(Button.builder(Component.literal(">"), button -> {
             if ((page + 1) * pageSize() < visibleChoices.size()) {
                 page++;
                 updateChoiceButtons();
             }
-        }).pos(width / 2 + 35, height / 2 + 106).size(20, 20).build());
+        }).pos(width / 2 + 35, layout.toolsY()).size(20, 20).build());
 
         favoriteButton = addRenderableWidget(Button.builder(Component.empty(), button -> {
             GoldExperienceLifeformState currentState = playerState();
@@ -173,7 +172,7 @@ public class GoldExperienceChooseLifeformScreen extends Screen implements Screen
                 currentState.setFavoriteFromSync(selectedLifeformId, true);
             }
             updateChoiceButtons();
-        }).pos(width / 2 - 125, height / 2 + 106).size(68, 20).build());
+        }).pos(width / 2 - 125, layout.toolsY()).size(68, 20).build());
 
         clearNewButton = addRenderableWidget(Button.builder(Component.translatable("jojo_ripples.lifeform.clear_new"), button -> {
             GoldExperienceLifeformState currentState = playerState();
@@ -182,7 +181,7 @@ public class GoldExperienceChooseLifeformScreen extends Screen implements Screen
                 currentState.clearNewUnseenLifeformsFromSync();
                 updateChoiceButtons();
             }
-        }).pos(width / 2 + 57, height / 2 + 106).size(68, 20).build());
+        }).pos(width / 2 + 57, layout.toolsY()).size(68, 20).build());
 
         doneButton = addRenderableWidget(Button.builder(Component.translatable("gui.done"), button -> {
             if (selectedLifeformId != null) {
@@ -193,10 +192,10 @@ public class GoldExperienceChooseLifeformScreen extends Screen implements Screen
                 }
             }
             onClose();
-        }).pos(width / 2 - 80, height / 2 + 130).size(72, 20).build());
+        }).pos(width / 2 - 80, layout.doneY()).size(72, 20).build());
 
         addRenderableWidget(Button.builder(Component.translatable("gui.cancel"), button -> onClose())
-                .pos(width / 2 + 8, height / 2 + 130)
+                .pos(width / 2 + 8, layout.doneY())
                 .size(72, 20)
                 .build());
 
@@ -204,8 +203,9 @@ public class GoldExperienceChooseLifeformScreen extends Screen implements Screen
     }
 
     private void addSearchAndFilterWidgets() {
-        int topY = height / 2 - 76;
-        searchBox = addRenderableWidget(new EditBox(font, width / 2 - 125, topY, 168, 18,
+        int topY = layout.searchY();
+        int left = layout.headerLeft();
+        searchBox = addRenderableWidget(new EditBox(font, left, topY, 168, 18,
                 Component.translatable("jojo.ge_lifeform.search_field")));
         searchBox.setMaxLength(80);
         searchBox.setValue(savedSearchFilter);
@@ -219,7 +219,7 @@ public class GoldExperienceChooseLifeformScreen extends Screen implements Screen
             if (searchBox != null) {
                 searchBox.setValue("");
             }
-        }).pos(width / 2 + 47, topY).size(20, 18).build());
+        }).pos(left + 172, topY).size(20, 18).build());
 
         unlockAllButton = addRenderableWidget(Button.builder(Component.translatable("jojo.ge_lifeform.unlock_all"), button -> {
             PacketDistributor.sendToServer(ClGELifeformUiPacket.unlockAll());
@@ -229,24 +229,25 @@ public class GoldExperienceChooseLifeformScreen extends Screen implements Screen
                 currentState.learnAllValidLifeforms(mc.level);
                 updateChoiceButtons();
             }
-        }).pos(width / 2 + 71, topY).size(90, 18).build());
+        }).pos(left + 196, topY).size(90, 18).build());
 
         int filterY = topY + 22;
+        int filterWidth = layout.filterWidth();
         allFilterButton = addRenderableWidget(Button.builder(FilterMode.ALL.label(),
                 button -> setFilterMode(FilterMode.ALL))
-                .pos(width / 2 - 125, filterY).size(80, 18).build());
+                .pos(left, filterY).size(filterWidth, 18).build());
         favoriteFilterButton = addRenderableWidget(Button.builder(FilterMode.FAVORITES.label(),
                 button -> setFilterMode(FilterMode.FAVORITES))
-                .pos(width / 2 - 41, filterY).size(80, 18).build());
+                .pos(left + filterWidth + 4, filterY).size(filterWidth, 18).build());
         newFilterButton = addRenderableWidget(Button.builder(FilterMode.NEW.label(),
                 button -> setFilterMode(FilterMode.NEW))
-                .pos(width / 2 + 43, filterY).size(80, 18).build());
+                .pos(left + (filterWidth + 4) * 2, filterY).size(filterWidth, 18).build());
 
         viewModeButton = addRenderableWidget(Button.builder(Component.empty(), button -> {
             savedViewMode = savedViewMode.opposite();
             page = 0;
             Minecraft.getInstance().setScreen(new GoldExperienceChooseLifeformScreen(null));
-        }).pos(width / 2 + 127, filterY).size(62, 18).build());
+        }).pos(left + (filterWidth + 4) * 3, filterY).size(62, 18).build());
     }
 
     private void setFilterMode(FilterMode filterMode) {
@@ -319,12 +320,15 @@ public class GoldExperienceChooseLifeformScreen extends Screen implements Screen
                 button.visible = true;
                 button.active = !lifeformId.equals(selectedLifeformId);
                 button.setMessage(choiceButtonLabel(state, choice, lifeformId.equals(selectedLifeformId), choiceButtonWidth() - 8));
+                button.setTooltip(Tooltip.create(choice.getDescription().copy()
+                        .append(Component.literal("\n" + lifeformId).withStyle(ChatFormatting.GRAY))));
             }
             else {
                 choiceButtonIds.set(slot, null);
                 button.visible = false;
                 button.active = false;
                 button.setMessage(Component.empty());
+                button.setTooltip(null);
             }
         }
 
@@ -438,7 +442,7 @@ public class GoldExperienceChooseLifeformScreen extends Screen implements Screen
     }
 
     private int pageSize() {
-        return savedViewMode == ViewMode.GRID ? GRID_PAGE_SIZE : LIST_PAGE_SIZE;
+        return layout.pageSize();
     }
 
     private int choiceButtonWidth() {
@@ -451,21 +455,17 @@ public class GoldExperienceChooseLifeformScreen extends Screen implements Screen
 
     private int choiceButtonX(int slot) {
         if (savedViewMode == ViewMode.GRID) {
-            int gridWidth = GRID_COLUMNS * choiceButtonWidth() + (GRID_COLUMNS - 1) * 4;
-            return width / 2 - gridWidth / 2 + (slot % GRID_COLUMNS) * (choiceButtonWidth() + 4);
+            int columns = layout.columns();
+            int gridWidth = columns * choiceButtonWidth() + (columns - 1) * 4;
+            return width / 2 - gridWidth / 2 + (slot % columns) * (choiceButtonWidth() + 4);
         }
 
-        boolean leftColumn = slot < LIST_ROWS_PER_COLUMN;
+        boolean leftColumn = slot < layout.rowsPerColumn();
         return leftColumn ? width / 2 - 125 : width / 2 + 5;
     }
 
     private int choiceButtonY(int slot) {
-        if (savedViewMode == ViewMode.GRID) {
-            return height / 2 - 18 + (slot / GRID_COLUMNS) * 22;
-        }
-
-        int row = slot < LIST_ROWS_PER_COLUMN ? slot : slot - LIST_ROWS_PER_COLUMN;
-        return height / 2 - 22 + row * 22;
+        return layout.choiceY(slot);
     }
 
     private Component choiceButtonLabel(@Nullable GoldExperienceLifeformState state, EntitySubtype<?> choice, boolean selected, int maxWidth) {
@@ -485,11 +485,11 @@ public class GoldExperienceChooseLifeformScreen extends Screen implements Screen
     @Override
     public void render(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
         super.render(gui, mouseX, mouseY, partialTick);
-        gui.drawCenteredString(font, title, width / 2, height / 2 - 96, 0xFFFFFF);
+        gui.drawCenteredString(font, title, width / 2, layout.titleY(), 0xFFFFFF);
         Component selectedText = visibleChoices.isEmpty() || selectedLifeformId == null
                 ? Component.translatable("jojo_ripples.lifeform.none")
                 : Component.translatable("jojo_ripples.lifeform.selected", GoldExperienceLifeforms.displayName(selectedLifeformId));
-        gui.drawCenteredString(font, selectedText, width / 2, height / 2 + 90, 0xFFFFFF);
+        gui.drawCenteredString(font, selectedText, width / 2, layout.selectedY(), 0xFFFFFF);
         if (!holdsButton && holdMode) {
             onClose();
         }

@@ -9,12 +9,54 @@ import java.util.Map;
 import java.util.Random;
 import java.util.stream.IntStream;
 
+import rotp.core.client.ui.screen_jojomenu.GoldExperienceLifeformLayout;
+
 public final class GoldExperienceLifeformOrderingSmokeTest {
     private GoldExperienceLifeformOrderingSmokeTest() {}
 
     public static void main(String[] args) {
         verifyPriorityAndTieBreaker();
         verifyKeysAreSnapshottedOnce();
+        verifyPickerLayout();
+    }
+
+    private static void verifyPickerLayout() {
+        for (int width : new int[] {320, 427, 640, 960}) {
+            for (int height : new int[] {240, 270, 300, 360, 480}) {
+                for (boolean grid : new boolean[] {false, true}) {
+                    GoldExperienceLifeformLayout layout = GoldExperienceLifeformLayout.forScreen(width, height, grid);
+                    check(layout.titleY() >= 0, "picker title outside screen");
+                    check(layout.searchY() + 40 <= layout.choiceTopY(), "filters overlap choices");
+                    check(layout.doneY() + 20 <= height - 6, "picker buttons outside screen");
+                    check(layout.selectedY() + 9 < layout.toolsY(), "selection label overlaps controls");
+                    check(layout.toolsY() + 20 < layout.doneY(), "footer rows overlap");
+                    check(layout.headerLeft() >= 8, "header outside left edge");
+                    check(layout.headerLeft() + 3 * (layout.filterWidth() + 4) + 62 <= width - 8,
+                            "view button outside right edge");
+                    check(layout.headerLeft() + 286 <= width - 8, "creative search controls outside screen");
+                    for (int slot = 0; slot < layout.pageSize(); slot++) {
+                        check(layout.choiceY(slot) >= layout.choiceTopY(), "choice above list");
+                        check(layout.choiceY(slot) + 20 < layout.selectedY(), "choice overlaps footer");
+                    }
+                    List<Integer> visited = new ArrayList<>();
+                    for (int page = 0; page * layout.pageSize() < 101; page++) {
+                        for (int slot = 0; slot < layout.pageSize(); slot++) {
+                            int index = page * layout.pageSize() + slot;
+                            if (index < 101) visited.add(index);
+                        }
+                    }
+                    check(visited.equals(IntStream.range(0, 101).boxed().toList()), "responsive pagination lost choices");
+                }
+            }
+        }
+        GoldExperienceLifeformLayout large = GoldExperienceLifeformLayout.forScreen(640, 360, false);
+        check(large.titleY() == 84 && large.searchY() == 104 && large.choiceTopY() == 158
+                && large.selectedY() == 270 && large.toolsY() == 286 && large.doneY() == 310
+                && large.rowsPerColumn() == 5, "normal-size list layout changed");
+        check(GoldExperienceLifeformLayout.forScreen(427, 240, false).pageSize() == 8,
+                "small list should paginate four rows per column");
+        check(GoldExperienceLifeformLayout.forScreen(427, 240, true).pageSize() == 16,
+                "small grid should retain four rows");
     }
 
     private static void verifyPriorityAndTieBreaker() {
