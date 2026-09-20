@@ -14,8 +14,23 @@ public enum StandControlType {
 			double rangeMax,
 			boolean manualControl,
 			boolean distanceStrengthDecay) {
+		validate(controlType, effectiveRange, rangeMax,
+				manualControl, distanceStrengthDecay, false);
+	}
+
+	static void validate(
+			StandControlType controlType,
+			double effectiveRange,
+			double rangeMax,
+			boolean manualControl,
+			boolean distanceStrengthDecay,
+			boolean colonyCoordinatorManualControl) {
 		if (controlType == null) {
 			throw new IllegalStateException("standControlType is required");
+		}
+		if (colonyCoordinatorManualControl && controlType != COLONY) {
+			throw new IllegalStateException(
+					"Dedicated colony coordinator control requires COLONY");
 		}
 		if (!Double.isFinite(effectiveRange) || effectiveRange <= 0.0D) {
 			throw new IllegalStateException(
@@ -47,10 +62,16 @@ public enum StandControlType {
 						"LONG_DISTANCE_OPERATION requires manualControl without distanceStrengthDecay");
 			}
 		}
-		case AUTOMATIC, COLONY, PHENOMENON -> {
+		case AUTOMATIC, PHENOMENON -> {
 			if (manualControl || distanceStrengthDecay) {
 				throw new IllegalStateException(
 						controlType + " cannot use generic manual control or distance decay");
+			}
+		}
+		case COLONY -> {
+			if (distanceStrengthDecay || manualControl && !colonyCoordinatorManualControl) {
+				throw new IllegalStateException(
+						"COLONY cannot use generic manual control or distance decay");
 			}
 		}
 		case HYBRID_FORM -> {

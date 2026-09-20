@@ -25,6 +25,12 @@ public final class DistanceStrengthDecayPolicySmokeTest {
 				StandControlType.COLONY,
 				1, 100, false, false);
 		StandControlType.validate(
+				StandControlType.COLONY,
+				60, 60, true, false, true);
+		StandControlType.validate(
+				StandControlType.COLONY,
+				60, 60, false, false, true);
+		StandControlType.validate(
 				StandControlType.PHENOMENON,
 				1, 1, false, false);
 		expectFailure(
@@ -61,6 +67,29 @@ public final class DistanceStrengthDecayPolicySmokeTest {
 						StandControlType.AUTOMATIC,
 						1, 10, true, false),
 				"AUTOMATIC cannot use generic manual control or distance decay");
+		expectFailure(
+				() -> StandControlType.validate(
+						StandControlType.COLONY,
+						60, 60, true, false),
+				"COLONY cannot use generic manual control or distance decay");
+		expectFailure(
+				() -> StandControlType.validate(
+						StandControlType.COLONY,
+						60, 60, true, false, false),
+				"COLONY cannot use generic manual control or distance decay");
+		expectFailure(
+				() -> StandControlType.validate(
+						StandControlType.COLONY,
+						10, 60, true, true, true),
+				"COLONY cannot use generic manual control or distance decay");
+		for (StandControlType otherType : StandControlType.values()) {
+			if (otherType != StandControlType.COLONY) {
+				expectFailure(
+						() -> StandControlType.validate(
+								otherType, 10, 60, true, false, true),
+						"Dedicated colony coordinator control requires COLONY");
+			}
+		}
 		expectFailure(
 				() -> StandControlType.validate(
 						StandControlType.HYBRID_FORM,
@@ -103,6 +132,14 @@ public final class DistanceStrengthDecayPolicySmokeTest {
 		check(!type.contains("manualControlEnabled = true")
 				&& type.contains("new DefaultedValue.Bool(false)"),
 				"legacy entity Stand construction must fail closed instead of inheriting permissive booleans");
+		String compactType = type.replaceAll("\\s+", "");
+		check(compactType.contains(
+				"protectedbooleansupportsColonyCoordinatorManualControl(){returnfalse;}")
+				&& compactType.contains(
+						"manualControl,distanceStrengthDecay,supportsColonyCoordinatorManualControl())")
+				&& compactType.contains(
+						"manualControlEnabled,distanceStrengthDecayEnabled.value,supportsColonyCoordinatorManualControl())"),
+				"dedicated colony control must be opt-in for construction and runtime config validation");
 		check(type.contains("if (!manualControlConfigured)")
 				&& type.contains("if (!distanceStrengthDecayConfigured)"),
 				"explicit false policy fields must remain distinguishable from omitted fields");
@@ -132,6 +169,21 @@ public final class DistanceStrengthDecayPolicySmokeTest {
 				&& !movementPacket.contains(
 						"stand.absMoveTo(posXcl, posYcl, posZcl, yRot, xRot)"),
 				"manual movement packets must preserve the range-clamped server position");
+		check(movementPacket.contains("boolean canMoveManually = stand.canMoveManually();")
+				&& movementPacket.contains("if (!canMoveManually) {"),
+				"dedicated coordinator movement authorization must remain enforced by the server packet");
+
+		String toggle = read(root.resolve(
+				"src/main/java/rotp/core/impl/stands/_entitybase/StandEntityManualControlToggle.java"));
+		String toggleOn = toggle.substring(
+				toggle.indexOf("public static void on("),
+				toggle.indexOf("public static void off("));
+		int flagSet = toggleOn.indexOf("stand.setManuallyControlled(true);");
+		int controllerSet = toggleOn.indexOf(
+				"EntityComponentController.setControlTarget(user, stand, \"stand\");");
+		check(flagSet >= 0 && controllerSet > flagSet
+				&& !toggleOn.contains("canMoveManually("),
+				"initial manual-control binding must not depend on authorization for an already-bound movement session");
 
 		String heavyPunch = read(root.resolve(
 				"src/main/java/rotp/core/impl/stands/_entitybase/StandEntityHeavyPunchAbility.java"));

@@ -132,7 +132,8 @@ public class EntityStandType extends StandType {
 			boolean distanceStrengthDecay) {
 		StandControlType.validate(
 				standControlType, effectiveRange, rangeMax,
-				manualControl, distanceStrengthDecay);
+				manualControl, distanceStrengthDecay,
+				supportsColonyCoordinatorManualControl());
 		if (Double.compare(stats.rangeEffective(), effectiveRange) != 0
 				|| Double.compare(stats.rangeMax(), rangeMax) != 0) {
 			throw new IllegalStateException(
@@ -163,7 +164,13 @@ public class EntityStandType extends StandType {
 				standControlType,
 				stats.rangeEffective(), stats.rangeMax(),
 				manualControlEnabled,
-				distanceStrengthDecayEnabled.value);
+				distanceStrengthDecayEnabled.value,
+				supportsColonyCoordinatorManualControl());
+	}
+
+	/** Dedicated colony coordinators must own their movement authorization and control cleanup. */
+	protected boolean supportsColonyCoordinatorManualControl() {
+		return false;
 	}
 
 	final void validateStandControlPolicyIfComplete() {
