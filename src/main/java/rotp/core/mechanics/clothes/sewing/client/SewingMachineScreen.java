@@ -6,15 +6,18 @@ import java.util.List;
 import java.util.Map;
 
 import org.joml.Quaternionf;
+import org.joml.Vector2i;
+import org.joml.Vector2ic;
+import org.joml.Vector3f;
 import org.lwjgl.glfw.GLFW;
 
 import rotp.core.client.ui.screen_widgets.FilterList;
 import rotp.core.client.ui.utils.BlitFloat;
 import rotp.core.client.util.functions.ClientUtil;
+import rotp.core.compat.v1_21_4.GuiScissor;
 import rotp.core.core.JojoMod;
 import rotp.core.mechanics.clothes.client.layer.HumanoidClothesLayer;
 import rotp.core.mechanics.clothes.client.layer.HumanoidClothesRSExtension;
-import rotp.core.mechanics.clothes.client.ui.PlayerClothesScreen;
 import rotp.core.mechanics.clothes.itemdata.ClothesSet;
 import rotp.core.mechanics.clothes.itemdata.ClothesSlotType;
 import rotp.core.mechanics.clothes.itemdata.StoryCharacter;
@@ -29,6 +32,8 @@ import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipPositioner;
 import net.minecraft.client.model.AnimationUtils;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.PlayerModel;
@@ -45,6 +50,8 @@ import net.minecraft.core.Holder;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.PlayerModelPart;
@@ -62,6 +69,7 @@ public class SewingMachineScreen extends AbstractContainerScreen<SewingMachineCo
 	FilterList<SelectCharacterButton> charactersList;
 	protected Component characterName;
 	protected final Map<ClothesSet, ClothesSetButton> clothesSelection = new LinkedHashMap<>();
+	private SewingScreenFit screenFit = SewingScreenFit.IDENTITY;
 
 	public SewingMachineScreen(SewingMachineContainer pMenu, Inventory pPlayerInventory, Component pTitle) {
 		super(pMenu, pPlayerInventory, CommonComponents.EMPTY);
@@ -81,6 +89,7 @@ public class SewingMachineScreen extends AbstractContainerScreen<SewingMachineCo
 
 		imageWidth = WINDOW_WIDTH + 18;
 		imageHeight = WINDOW_HEIGHT;
+		screenFit = SewingScreenFit.forBounds(width, height, leftPos, topPos, imageWidth, imageHeight);
 		titleLabelX = 26;
 		titleLabelY = 28;
 		inventoryLabelX = 26;
@@ -138,6 +147,51 @@ public class SewingMachineScreen extends AbstractContainerScreen<SewingMachineCo
 		return super.keyPressed(keyCode, scanCode, modifiers);
 	}
 
+	@Override
+	public boolean mouseClicked(double mouseX, double mouseY, int button) {
+		return super.mouseClicked(screenFit.toLayoutX(mouseX), screenFit.toLayoutY(mouseY), button);
+	}
+
+	@Override
+	public boolean mouseReleased(double mouseX, double mouseY, int button) {
+		return super.mouseReleased(screenFit.toLayoutX(mouseX), screenFit.toLayoutY(mouseY), button);
+	}
+
+	@Override
+	public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+		return super.mouseDragged(screenFit.toLayoutX(mouseX), screenFit.toLayoutY(mouseY), button,
+				screenFit.toLayoutDelta(dragX), screenFit.toLayoutDelta(dragY));
+	}
+
+	@Override
+	public void mouseMoved(double mouseX, double mouseY) {
+		super.mouseMoved(screenFit.toLayoutX(mouseX), screenFit.toLayoutY(mouseY));
+	}
+
+	@Override
+	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+		return super.mouseScrolled(screenFit.toLayoutX(mouseX), screenFit.toLayoutY(mouseY), scrollX, scrollY);
+	}
+
+	@Override
+	public void setTooltipForNextRenderPass(List<FormattedCharSequence> tooltip,
+			ClientTooltipPositioner positioner, boolean override) {
+		SewingScreenFit fit = screenFit;
+		if (!fit.isIdentity()) {
+			// Screen.renderWithTooltip is final and draws queued tooltips after our pose is restored.
+			ClientTooltipPositioner original = positioner;
+			positioner = (screenWidth, screenHeight, mouseX, mouseY, tooltipWidth, tooltipHeight) -> {
+				Vector2ic point = original.positionTooltip(
+						(int) Math.ceil(fit.toLayoutX(screenWidth)), (int) Math.ceil(fit.toLayoutY(screenHeight)),
+						Mth.floor(fit.toLayoutX(mouseX)), Mth.floor(fit.toLayoutY(mouseY)),
+						(int) Math.ceil(tooltipWidth / fit.scale()), (int) Math.ceil(tooltipHeight / fit.scale()));
+				return new Vector2i(fit.tooltipX(point.x(), tooltipWidth, screenWidth),
+						fit.tooltipY(point.y(), tooltipHeight, screenHeight));
+			};
+		}
+		super.setTooltipForNextRenderPass(tooltip, positioner, override);
+	}
+
 	protected final int getWindowX() {
 		return leftPos + 18;
 	}
@@ -167,6 +221,29 @@ public class SewingMachineScreen extends AbstractContainerScreen<SewingMachineCo
 		StoryCharacter selectedCharacter = getSettings().getSelectedCharacter();
 		characterName = selectedCharacter != null ? selectedCharacter.getName(false) : CommonComponents.EMPTY;
 
+		renderTransparentBackground(guiGraphics);
+		PoseStack pose = guiGraphics.pose();
+		pose.pushPose();
+		pose.translate(screenFit.offsetX(), screenFit.offsetY(), 0.0);
+		pose.scale(screenFit.scale(), screenFit.scale(), 1.0F);
+		try {
+			renderContents(guiGraphics, Mth.floor(screenFit.toLayoutX(mouseX)),
+					Mth.floor(screenFit.toLayoutY(mouseY)), partialTick, selectedCharacter);
+		} finally {
+			guiGraphics.flush();
+			pose.popPose();
+		}
+		renderTooltip(guiGraphics, mouseX, mouseY);
+	}
+
+	@Override
+	public void renderBackground(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+		// The screen-sized shade is drawn outside the local window transform.
+		renderBg(guiGraphics, partialTick, mouseX, mouseY);
+	}
+
+	private void renderContents(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick,
+			StoryCharacter selectedCharacter) {
 		super.render(guiGraphics, mouseX, mouseY, partialTick);
 		
 		partialTick = ClientUtil.partialTick(minecraft.getTimer(), false);
@@ -187,25 +264,55 @@ public class SewingMachineScreen extends AbstractContainerScreen<SewingMachineCo
 		}
 //		ClientUtil.disableGlScissor();
 
-		PlayerClothesScreen.renderEntityInInventoryFollowsMouse(
-				guiGraphics, 
-				x + 26, y + 178, x + 75, y + 248, 
-				30, 0.0625f, mouseX, mouseY, 
-				this.minecraft.player);
+		renderPlayerPreview(guiGraphics, x + 26, y + 178, x + 75, y + 248, mouseX, mouseY);
 
 		if (selectedCharacter != null) {
 			if (getSettings().getSelectedSet() != null) {
-				renderSetShowcase(x + 43, y + 138, 
+				renderSetShowcase((float) screenFit.toScreenX(x + 43), (float) screenFit.toScreenY(y + 138),
 						minecraft.player, 
 						menu.craftingSlots.slots,
-						partialTick, 0, 43);
+						partialTick, 0, 43 * screenFit.scale());
 			}
 		}
 
 		charactersList.render(guiGraphics, minecraft, mouseX, mouseY, partialTick);
 		renderUnlockBars(guiGraphics, partialTick);
 
-		renderTooltip(guiGraphics, mouseX, mouseY);
+	}
+
+	private void renderPlayerPreview(GuiGraphics graphics, int x1, int y1, int x2, int y2, int mouseX, int mouseY) {
+		LocalPlayer player = minecraft.player;
+		float centerX = (x1 + x2) / 2.0F;
+		float centerY = (y1 + y2) / 2.0F;
+		float yaw = (float) Math.atan((centerX - mouseX) / 40.0F);
+		float pitch = (float) Math.atan((centerY - mouseY) / 40.0F);
+		Quaternionf pitchRotation = new Quaternionf().rotateX(pitch * 20.0F * Mth.DEG_TO_RAD);
+		Quaternionf rotation = new Quaternionf().rotateZ((float) Math.PI).mul(pitchRotation);
+		float oldBodyYaw = player.yBodyRot;
+		float oldYaw = player.getYRot();
+		float oldPitch = player.getXRot();
+		float oldHeadYaw = player.yHeadRot;
+		float oldPrevHeadYaw = player.yHeadRotO;
+		// The 1.21.1 inventory helper does not transform its scissor rectangle with the pose.
+		GuiScissor.enableScissor(graphics, x1, y1, x2, y2);
+		try {
+			player.yBodyRot = 180.0F + yaw * 20.0F;
+			player.setYRot(180.0F + yaw * 40.0F);
+			player.setXRot(-pitch * 20.0F);
+			player.yHeadRot = player.getYRot();
+			player.yHeadRotO = player.getYRot();
+			float entityScale = player.getScale();
+			InventoryScreen.renderEntityInInventory(graphics, centerX, centerY, 30.0F / entityScale,
+					new Vector3f(0, player.getBbHeight() / 2.0F + 0.0625F * entityScale, 0),
+					rotation, pitchRotation, player);
+		} finally {
+			player.yBodyRot = oldBodyYaw;
+			player.setYRot(oldYaw);
+			player.setXRot(oldPitch);
+			player.yHeadRot = oldHeadYaw;
+			player.yHeadRotO = oldPrevHeadYaw;
+			graphics.disableScissor();
+		}
 	}
 
 	@Override
@@ -259,11 +366,13 @@ public class SewingMachineScreen extends AbstractContainerScreen<SewingMachineCo
 	@Override
 	protected void renderTooltip(GuiGraphics guiGraphics, int mouseX, int mouseY) {
 		super.renderTooltip(guiGraphics, mouseX, mouseY);
+		int layoutMouseX = Mth.floor(screenFit.toLayoutX(mouseX));
+		int layoutMouseY = Mth.floor(screenFit.toLayoutY(mouseY));
 //		for (AbstractWidget widget : getWidgets()) {
 //			renderWidgetTooltips(guiGraphics, mouseX, mouseY, widget);
 //		}
 		charactersList.forEachRendered(charButton -> {
-			if (charButton.isVisible && charButton.isMouseOver(mouseX, mouseY)) {
+			if (charButton.isVisible && charButton.isMouseOver(layoutMouseX, layoutMouseY)) {
 				setTooltipForNextRenderPass(charButton.character.getCharacter().value().getName(true));
 			}
 		});

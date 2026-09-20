@@ -433,6 +433,22 @@ tasks.register('sewingSearchSmokeTest', JavaExec) {
     mainClass = 'rotp.core.mechanics.clothes.sewing.client.SewingSearchSmokeTest'
 }
 
+tasks.register('sewingScreenFitSmokeTest', JavaExec) {
+    group = 'verification'
+    description = 'Verifies sewing viewport bounds, inverse mouse coordinates, preview anchors and unscaled parity.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
+    mainClass = 'rotp.core.mechanics.clothes.sewing.client.SewingScreenFitSmokeTest'
+}
+
+tasks.register('clothesModelLoaderSmokeTest', JavaExec) {
+    group = 'verification'
+    description = 'Verifies clothing model loading across resource namespaces with bundled geometry.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
+    mainClass = 'rotp.core.mechanics.clothes.client.layer.ClothesModelLoaderSmokeTest'
+}
+
 tasks.register('standAuraFxIntegrationSmokeTest', JavaExec) {
     group = 'verification'
     description = 'Verifies integrated Stand Aura FX defaults, persistence, renderer ownership, and shader contract.'
@@ -456,6 +472,8 @@ tasks.named('check').configure {
     dependsOn tasks.named('distanceStrengthDecayPolicySmokeTest')
     dependsOn tasks.named('goldExperienceLifeformOrderingSmokeTest')
     dependsOn tasks.named('sewingSearchSmokeTest')
+    dependsOn tasks.named('sewingScreenFitSmokeTest')
+    dependsOn tasks.named('clothesModelLoaderSmokeTest')
     dependsOn tasks.named('firstPersonExtraArmContractSmokeTest')
     dependsOn tasks.named('standAuraFxIntegrationSmokeTest')
 }

@@ -1,11 +1,13 @@
 package rotp.core.mechanics.clothes.sewing.client;
 
 import rotp.core.client.ui.utils.BlitFloat;
+import rotp.core.compat.v1_21_4.GuiScissor;
 import rotp.core.mechanics.clothes.itemdata.ClothesSet;
 import rotp.core.compat.v1_21_4.missingmethods.ARGB;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 
+import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -60,7 +62,7 @@ public class ClothesSetButton extends Button {
 
 		Component message = getMessage();
 
-		renderScrollingString(guiGraphics, fontrenderer, message, 
+		renderFittedScrollingString(guiGraphics, fontrenderer, message,
 				x + 2, y, 
 				x + this.width - 2, y + this.height, 
 				j | Mth.ceil(this.alpha * 255.0F) << 24);
@@ -68,6 +70,29 @@ public class ClothesSetButton extends Button {
 //		int textX = x + this.width / 2;
 //		int textY = y + (this.height - 8) / 2;
 //		guiGraphics.drawCenteredString(fontrenderer, message, textX, textY, j | Mth.ceil(this.alpha * 255.0F) << 24);
+	}
+
+	private static void renderFittedScrollingString(GuiGraphics graphics, Font font, Component text,
+			int minX, int minY, int maxX, int maxY, int color) {
+		int textWidth = font.width(text);
+		int availableWidth = maxX - minX;
+		if (textWidth <= availableWidth) {
+			renderScrollingString(graphics, font, text, minX, minY, maxX, maxY, color);
+			return;
+		}
+		int y = (minY + maxY - 9) / 2 + 1;
+		int overflow = textWidth - availableWidth;
+		double seconds = (double) Util.getMillis() / 1000.0;
+		double period = Math.max((double) overflow * 0.5, 3.0);
+		double phase = Math.sin((Math.PI / 2) * Math.cos((Math.PI * 2) * seconds / period)) / 2.0 + 0.5;
+		double offset = Mth.lerp(phase, 0.0, (double) overflow);
+		// Preserve vanilla scrolling, but clip in the screen-local transformed coordinate space.
+		GuiScissor.enableScissor(graphics, minX, minY, maxX, maxY);
+		try {
+			graphics.drawString(font, text, minX - (int) offset, y, color);
+		} finally {
+			graphics.disableScissor();
+		}
 	}
 
 }

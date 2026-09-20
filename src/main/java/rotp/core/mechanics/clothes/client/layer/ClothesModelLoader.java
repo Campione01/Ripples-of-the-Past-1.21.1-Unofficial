@@ -60,9 +60,6 @@ public class ClothesModelLoader extends SimplePreparableReloadListener<Map<Resou
 				Map<ResourceLocation, Resource> resources = resourceManager.listResources(DIR, path -> path.getPath().endsWith(EXTENSION));
 				for (var resourceEntry : resources.entrySet()) {
 					ResourceLocation resourcePathFull = resourceEntry.getKey();
-					if (!JojoMod.MOD_ID.equals(resourcePathFull.getNamespace())) {
-						continue;
-					}
 					ResourceLocation modelPath = resourcePathFull.withPath(
 							StringUtil.trimEnding(resourceEntry.getKey().getPath(), EXTENSION).substring(DIR.length() + 1));
 					try (var reader = resourceEntry.getValue().openAsReader()) {
