@@ -7,6 +7,7 @@ import rotp.core.client.ui.utils.BlitFloat;
 import rotp.core.subsystems.StoryPart;
 import com.google.common.base.Supplier;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.systems.RenderSystem;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -32,15 +33,20 @@ public class StoryPartFilterToggle extends ToggleBox {
 		int y = getY();
 		if (getState()) texX += width;
 		if (isHovered()) texX += width * 2;
-		BlitFloat.blit(poseStack, mc, SewingMachineScreen.TEXTURE, 
-				x, y, width, height, 0, 
-				texX, 258, 512, 512, 512, 512, 
-				BlitFloat.NO_TINT);
-		
-		BlitFloat.blit(poseStack, mc, part.getPartIcon(), 
-				x + 1, y + 1, width, height, 0, 
-				0, 0, 16, 16, 16, 16, 
-				BlitFloat.NO_TINT);
+		RenderSystem.enableBlend();
+		RenderSystem.defaultBlendFunc();
+		try {
+			BlitFloat.blit(poseStack, mc, SewingMachineScreen.TEXTURE,
+					x, y, width, height, 0,
+					texX, 258, width, height, 512, 512,
+					BlitFloat.NO_TINT);
+			BlitFloat.blit(poseStack, mc, part.getPartIcon(),
+					x + 1, y + 1, width - 2, height - 2, 0,
+					0, 0, 16, 16, 16, 16,
+					BlitFloat.NO_TINT);
+		} finally {
+			RenderSystem.disableBlend();
+		}
 	}
 
 }

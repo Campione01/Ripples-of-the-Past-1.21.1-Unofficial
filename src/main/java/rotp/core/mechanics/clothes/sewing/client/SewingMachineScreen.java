@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.joml.Quaternionf;
+import org.lwjgl.glfw.GLFW;
 
 import rotp.core.client.ui.screen_widgets.FilterList;
 import rotp.core.client.ui.utils.BlitFloat;
@@ -96,16 +97,17 @@ public class SewingMachineScreen extends AbstractContainerScreen<SewingMachineCo
 						() -> getSettings().isPartIncluded(part),
 						newState -> getSettings().setFilter(this, part, newState), part);
 				map.put(part, toggle);
-				addWidget(toggle);
+				addRenderableWidget(toggle);
 			}
 		});
 
-		addWidget(searchBox = Util.make(new ClothesSetSearchField(minecraft.font, getWindowX() + 24, getWindowY() + 7, 106, 10, 
+		addRenderableWidget(searchBox = Util.make(new ClothesSetSearchField(minecraft.font, getWindowX() + 24, getWindowY() + 7, 106, 10,
 				Component.translatable("jojo.clothes.search")),
 				box -> {
 					box.setMaxLength(50);
 					box.setBordered(false);
 					box.setTextColor(0xFFFFFF);
+					box.setValue(getSettings().searchBar);
 				}));
 
 		List<SelectCharacterButton> characters = new ArrayList<>();
@@ -114,14 +116,26 @@ public class SewingMachineScreen extends AbstractContainerScreen<SewingMachineCo
 			button.x = leftPos;
 			characters.add(button);
 		});
-		charactersList = addWidget(new FilterList<>(characters, 
+		charactersList = addWidget(new FilterList<>(characters,
 				leftPos, topPos + 18, 18, topPos + imageHeight, 18, FilterList.AlignmentY.TOP));
 
+		searchBox.setResponder(input -> getSettings().updatedSearchBar(this, input));
 		getSettings().updateFilter(this);
 
 		if (getSettings().getSelectedCharUI() != null) {
 			getSettings().getSelectedCharUI().setupClothesSelectionUI();
 		}
+	}
+
+	@Override
+	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+		if (keyCode == GLFW.GLFW_KEY_ESCAPE || keyCode == GLFW.GLFW_KEY_TAB) {
+			return super.keyPressed(keyCode, scanCode, modifiers);
+		}
+		if (searchBox != null && (searchBox.keyPressed(keyCode, scanCode, modifiers) || searchBox.canConsumeInput())) {
+			return true;
+		}
+		return super.keyPressed(keyCode, scanCode, modifiers);
 	}
 
 	protected final int getWindowX() {

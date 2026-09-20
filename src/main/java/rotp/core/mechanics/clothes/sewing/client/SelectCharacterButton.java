@@ -39,7 +39,7 @@ public class SelectCharacterButton implements FilterList.Entry {
 		if (isVisible) {
 			PoseStack poseStack = guiGraphics.pose();
 			int texX = 0;
-			if (this.character.getCharacter() == screen.getSettings().getSelectedCharacter()) {
+			if (this.character.getCharacter().value() == screen.getSettings().getSelectedCharacter()) {
 				texX += 18;
 			}
 			else if (isMouseOver(mouseX, mouseY)) {

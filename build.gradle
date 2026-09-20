@@ -425,6 +425,14 @@ tasks.register('firstPersonExtraArmContractSmokeTest', JavaExec) {
             'rotp.core.client.firstperson.FirstPersonExtraArmContractSmokeTest'
 }
 
+tasks.register('sewingSearchSmokeTest', JavaExec) {
+    group = 'verification'
+    description = 'Verifies sewing character and outfit name matching without a running client.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
+    mainClass = 'rotp.core.mechanics.clothes.sewing.client.SewingSearchSmokeTest'
+}
+
 tasks.register('standAuraFxIntegrationSmokeTest', JavaExec) {
     group = 'verification'
     description = 'Verifies integrated Stand Aura FX defaults, persistence, renderer ownership, and shader contract.'
@@ -447,6 +455,7 @@ tasks.named('check').configure {
     dependsOn tasks.named('stoneMaskUseInputSmokeTest')
     dependsOn tasks.named('distanceStrengthDecayPolicySmokeTest')
     dependsOn tasks.named('goldExperienceLifeformOrderingSmokeTest')
+    dependsOn tasks.named('sewingSearchSmokeTest')
     dependsOn tasks.named('firstPersonExtraArmContractSmokeTest')
     dependsOn tasks.named('standAuraFxIntegrationSmokeTest')
 }

@@ -1,6 +1,7 @@
 package rotp.core.mechanics.clothes.sewing.client;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -47,13 +48,18 @@ public class ClothesCharacterUIEntry {
 		setFilteredClothesSets(allClothesSets.stream()
 				.filter(set -> 
 				set.value().getStoryPart().map(Holder::value).filter(partFilters::contains).isPresent() && 
-				("".equals(searchBar)
-				|| searchByName && false
-				)).collect(Collectors.toList()));
+				matchesSearch(searchBar, searchByName, character.value().getName(false).getString(),
+						set.value().getName().getString())).collect(Collectors.toList()));
 //		if (!filteredClothesSets.isEmpty() && !filteredClothesSets.contains(selectedSet)) {
 //			setSelectedSet(filteredClothesSets.get(0));
 //		}
 		return !filteredClothesSets.isEmpty();
+	}
+
+	static boolean matchesSearch(String search, boolean searchByName, String characterName, String clothesName) {
+		String query = search.strip().toLowerCase(Locale.ROOT);
+		return query.isEmpty() || searchByName && (characterName.toLowerCase(Locale.ROOT).contains(query)
+				|| clothesName.toLowerCase(Locale.ROOT).contains(query));
 	}
 
 	public Holder<ClothesSet> getSelectedSet() {
@@ -62,15 +68,16 @@ public class ClothesCharacterUIEntry {
 
 	public void setSelectedSet(Holder<ClothesSet> set) {
 		this.selectedSet = set;
-		ClothesSet currentlyRendered = screen.getSettings().getSelectedSet().value();
-		if (currentlyRendered != null && currentlyRendered.getCharacter() == this.character && currentlyRendered != this.selectedSet) {
+		Holder<ClothesSet> currentlyRendered = screen.getSettings().getSelectedSet();
+		if (screen.getSettings().getSelectedCharacter() == this.character.value()
+				&& (currentlyRendered == null || currentlyRendered.value() != set.value())) {
 			screen.getSettings().selectSet(screen, selectedSet);
 		}
 	}
 
 	protected void setFilteredClothesSets(List<Holder<ClothesSet>> list) {
 		this.filteredClothesSets = list;
-		if (screen.getSettings().getSelectedCharacter() == this.character) {
+		if (screen.getSettings().getSelectedCharacter() == this.character.value()) {
 			setupClothesSelectionUI();
 		}
 	}

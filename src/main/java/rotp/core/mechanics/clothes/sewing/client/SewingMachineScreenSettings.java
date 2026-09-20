@@ -123,7 +123,7 @@ public class SewingMachineScreenSettings {
 
 			ClothesSet clothes = clothesHolder.value();
 			ClothesCharacterUIEntry character = characters.get(clothes.getCharacter().value());
-			if (this.selectedCharacter != clothes.getCharacter()) {
+			if (this.selectedCharacter != clothes.getCharacter().value()) {
 				this.selectedCharacter = clothes.getCharacter().value();
 
 				character.setupClothesSelectionUI();
