@@ -794,6 +794,8 @@ public class PowerHud {
 						tick > 5.0F ? 0.25F : 0.0F, 0.75F);
 				guiGraphics.fill(x + 1, y + 1, x + Bars.HORIZONTAL_LENGTH - 1,
 						y + Bars.HORIZONTAL_WIDTH - 1, ARGB.color(alpha, 0xFF0000));
+				RenderSystem.enableBlend();
+				RenderSystem.defaultBlendFunc();
 				BlitFloat.blit(guiGraphics.pose(), Minecraft.getInstance(), Bars.BAR_HORIZONTAL_SCALE,
 						x, y, Bars.HORIZONTAL_LENGTH, Bars.HORIZONTAL_WIDTH, 0.0F, BlitFloat.NO_TINT);
 			}

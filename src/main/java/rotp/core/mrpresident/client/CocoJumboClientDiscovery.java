@@ -4,6 +4,8 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
+import com.mojang.blaze3d.systems.RenderSystem;
+
 import rotp.core.client.ClientProxy;
 import rotp.core.client.render.item.InventoryItemHighlight;
 import rotp.core.client.ui.hud_misc.VanillaGuiHelper;
@@ -84,12 +86,15 @@ public final class CocoJumboClientDiscovery {
 				int screenHeight = guiGraphics.guiHeight();
 				int halfWidth = guiGraphics.guiWidth() / 2;
 				int frameY = screenHeight - 23;
+				RenderSystem.enableBlend();
+				RenderSystem.defaultBlendFunc();
 				if (offHand == HumanoidArm.LEFT) {
 					guiGraphics.blitSprite(VanillaHudSprites.HOTBAR_OFFHAND_LEFT_SPRITE, halfWidth - 91 - 29, frameY, 29, 24);
 				}
 				else {
 					guiGraphics.blitSprite(VanillaHudSprites.HOTBAR_OFFHAND_RIGHT_SPRITE, halfWidth + 91, frameY, 29, 24);
 				}
+				RenderSystem.disableBlend();
 				int itemX = offHand == HumanoidArm.LEFT ? halfWidth - 91 - 26 : halfWidth + 91 + 10;
 				int itemY = screenHeight - 16 - 3;
 				VanillaGuiHelper.renderSlot(guiGraphics, itemX, itemY, deltaTracker, mc.player, turtleItemIcon, mc, 22);
