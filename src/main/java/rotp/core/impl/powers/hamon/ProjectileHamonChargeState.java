@@ -11,6 +11,7 @@ import rotp.core.init.ModParticles;
 import rotp.core.init.ModSoundEvents;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.powersystem.playerpower.PlayerPower;
+import rotp.core.subsystems.timestop.TimeStopState;
 import rotp.core.impl.powers.hamon.abilities.HamonAbilityHelpers;
 import rotp.core.impl.powers.hamon.abilities.HamonAbilityHelpers.HamonAttackProperties;
 
@@ -89,12 +90,21 @@ public class ProjectileHamonChargeState implements TickingEntityData, Synchroniz
 		}
 
 		if (projectile.level().isClientSide()) {
+			if (TimeStopState.shouldFreezeClientEntity(projectile)) {
+				return;
+			}
 			if (!chargeWearsOff() || tickCount++ <= maxChargeTicks) {
 				tickClientChargeEffects();
 			}
 			return;
 		}
 
+		// Frozen projectiles still tick attachments; their charge age must pause.
+		var timeStop = ModDataAttachmentTypes.TIME_STOP.get();
+		if (projectile.level().hasData(timeStop)
+				&& projectile.level().getData(timeStop).shouldFreeze(projectile)) {
+			return;
+		}
 		if (chargeWearsOff() && tickCount++ > maxChargeTicks) {
 			setHasCharge(false);
 		}
