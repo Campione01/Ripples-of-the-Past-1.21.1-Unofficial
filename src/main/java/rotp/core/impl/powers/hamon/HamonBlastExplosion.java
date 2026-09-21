@@ -8,6 +8,7 @@ import javax.annotation.Nullable;
 import rotp.core.customobjects.explosion.CustomExplosion;
 import rotp.core.init.ModCustomExplosions;
 import rotp.core.impl.powers.hamon.abilities.HamonAbilityHelpers;
+import rotp.core.impl.powers.hamon.abilities.HamonAbilityHelpers.HamonAttackProperties;
 
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.damagesource.DamageSource;
@@ -52,8 +53,13 @@ public class HamonBlastExplosion extends CustomExplosion {
 	@Override
 	protected void hurtEntity(Entity entity, float damage, Vec3 knockbackVec) {
 		if (entity instanceof LivingEntity living) {
-			HamonAbilityHelpers.hamonHurtWithAmount(living, damage,
-					HamonAbilityHelpers.hamonDamageSource(level, getDirectSourceEntity(), getDirectSourceEntity()));
+			float scaledDamage = HamonAbilityHelpers.hamonDamageAmount(living, damage);
+			if (scaledDamage <= 0.0F) {
+				return;
+			}
+			HamonAbilityHelpers.hamonHurtWithAmount(living, scaledDamage,
+					HamonAbilityHelpers.hamonDamageSource(level, getDirectSourceEntity(), getDirectSourceEntity()),
+					HamonAttackProperties.NO_SOURCE_ENTITY_HAMON_MULTIPLIER);
 		}
 	}
 
