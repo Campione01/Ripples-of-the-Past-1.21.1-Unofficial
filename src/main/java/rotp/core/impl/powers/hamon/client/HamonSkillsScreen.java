@@ -606,8 +606,7 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 			for (var entry : selectedTechnique.branchEfficiencies().entrySet()) {
 				Component line = Component.literal("+" + Math.round(entry.getValue() * 100.0F) + "% ")
 						.append(branchTitle(entry.getKey()));
-				gui.drawString(font, line, x, y, TEXT_COLOR, false);
-				y += 11;
+				y = drawWrapped(gui, line, x, y, DETAIL_WIDTH, TEXT_COLOR) + 1;
 			}
 		}
 	}
