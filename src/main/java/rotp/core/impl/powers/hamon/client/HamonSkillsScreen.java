@@ -89,6 +89,7 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 
 	private final View view;
 	private final Scrolling listScrolling = new Scrolling(LIST_HEIGHT, 0);
+	private final Scrolling detailScrolling = new Scrolling(40, 0);
 	@Nullable private HamonSkillDefinition selectedSkill;
 	@Nullable private HamonTechniqueDefinition selectedTechnique;
 	private Button learnSkillButton;
@@ -125,12 +126,14 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 						PacketDistributor.sendToServer(ClHamonResetSkillsButtonPacket.resetTab(view.resetTab));
 					}
 				}));
-		resetSkillsButton.setTooltip(Tooltip.create(Component.translatable("jojo_ripples.note.creative_only")));
+		Component creativeSkillsHint = Component.translatable("jojo_ripples.note.creative_only")
+				.append("\n").append(Component.translatable("jojo_ripples.player_power.skills.creative_hint"));
+		resetSkillsButton.setTooltip(Tooltip.create(creativeSkillsHint));
 		learnAllSkillsButton = addRenderableWidget(new PaperButton(x + 80, skillsButtonY, 60, 20,
 				Component.translatable("jojo_ripples.stand_skills.learn_all"),
 				button -> PacketDistributor.sendToServer(ClLearnSkillPacket.learnAll(
 						PowerClass.PLAYER_POWER, ModPlayerPowers.HAMON.get().getId()))));
-		learnAllSkillsButton.setTooltip(Tooltip.create(Component.translatable("jojo_ripples.note.creative_only")));
+		learnAllSkillsButton.setTooltip(Tooltip.create(creativeSkillsHint));
 		pickTechniqueButton = addRenderableWidget(new PaperButton(x + SKILL_ACTION_BUTTON_X, y + TECHNIQUE_BUTTON_Y, 72, 20,
 				Component.translatable("hamon.pick_technique"),
 				button -> {
@@ -157,10 +160,10 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 			return;
 		}
 
-		if (view.stat != null) {
+		if (view.stat != null && selectedSkill == null) {
 			renderGeneralHeader(gui, data, x, y);
 		}
-		else {
+		else if (view.stat == null) {
 			String techniqueName = data.getCharacterTechniqueName();
 			Component selected = techniqueName.isEmpty() ? Component.literal("-") : Component.translatable("hamon.technique." + techniqueName);
 			gui.drawString(font, Component.translatable("jojo_ripples.hamon.technique.selected", selected),
@@ -197,8 +200,9 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 		int points = data.getSkillPoints(view.stat);
 		Component pointsText = Component.translatable("hamon.skill_points", points);
 		int pointsX = x + 202 - font.width(pointsText);
-		gui.drawString(font, pointsText, pointsX, y + 31, points > 0 ? LEARNED_COLOR : LOCKED_COLOR, false);
-		gui.drawString(font, Component.literal("?"), x + 207, y + 31, DIM_TEXT_COLOR, false);
+		int pointsY = pointsX < x + 22 + font.width(levelText) ? y + 42 : y + 31;
+		gui.drawString(font, pointsText, pointsX, pointsY, points > 0 ? LEARNED_COLOR : LOCKED_COLOR, false);
+		gui.drawString(font, Component.literal("?"), x + 207, pointsY, DIM_TEXT_COLOR, false);
 
 		if (points > 0) {
 			boolean teacherNearby = data.getTeacherSkills() != null;
@@ -214,11 +218,12 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 		if (view.stat == null) {
 			return;
 		}
-		if (mouseX >= x + 204 && mouseX < x + 215 && mouseY >= y + 29 && mouseY < y + 42) {
+		if (selectedSkill == null && mouseX >= x + 204 && mouseX < x + 215
+				&& mouseY >= y + 29 && mouseY < y + 53) {
 			gui.renderComponentTooltip(font, List.of(nextSkillPointHint(data)), mouseX, mouseY);
 			return;
 		}
-		if (data.getSkillPoints(view.stat) > 0
+		if (selectedSkill == null && data.getSkillPoints(view.stat) > 0
 				&& mouseX >= x + 203 && mouseX < x + 215 && mouseY >= y + 17 && mouseY < y + 29) {
 			gui.renderComponentTooltip(font, List.of(unspentPointsHint(data)), mouseX, mouseY);
 		}
@@ -341,7 +346,7 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 		for (HamonSkillBranch branch : view.branches) {
 			int branchIndex = BRANCH_INDEX.getOrDefault(branch, 0);
 			int centerX = originX + 9 + branchIndex * SKILL_TREE_BRANCH_WIDTH + 3 + 13 + 13;
-			gui.drawCenteredString(font, trimToWidth(branchTitle(branch), 75),
+			gui.drawCenteredString(font, trimToWidth(branchTitle(branch), SKILL_TREE_BRANCH_WIDTH - 6),
 					centerX, originY + SKILL_TREE_START_Y - 18, TEXT_COLOR);
 		}
 
@@ -519,10 +524,7 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 				renderTechniqueDetails(gui, data, x, y, mouseX, mouseY);
 			}
 			else {
-				drawWrapped(gui, Component.translatable("jojo_ripples.hamon.skills.not_selected"), x, y, DETAIL_WIDTH, DIM_TEXT_COLOR);
-				if (player != null && player.isCreative()) {
-					drawWrapped(gui, Component.translatable("jojo_ripples.player_power.skills.creative_hint"), x, y + 24, DETAIL_WIDTH, DIM_TEXT_COLOR);
-				}
+				drawWrapped(gui, Component.translatable("jojo_ripples.hamon.skills.not_selected"), x, y + 12, DETAIL_WIDTH, DIM_TEXT_COLOR);
 			}
 			return;
 		}
@@ -534,39 +536,62 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 		HamonTechniqueDefinition perk = perkTechnique(selectedSkill);
 		boolean automaticPerk = perk != null && !creative;
 		boolean available = creative || (automaticPerk ? canLearn(selectedSkill, data, playerPower, player) : canLearn.isPositive());
-		y = drawWrapped(gui, Component.translatable("hamonSkill." + selectedSkill.name() + ".name"), x, y, DETAIL_WIDTH, TEXT_COLOR) + 3;
-		gui.drawString(font, learned ? Component.translatable("jojo_ripples.hamon.skills.learned")
+		Component skillName = Component.translatable("hamonSkill." + selectedSkill.name() + ".name");
+		Component status = learned ? Component.translatable("jojo_ripples.hamon.skills.learned")
 				: automaticPerk ? Component.translatable("jojo_ripples.hamon.skills.perk")
 				: available ? Component.translatable("hamon.learnButton")
-						: Component.translatable("jojo_ripples.hamon.skills.locked"),
-				x, y, learned ? LEARNED_COLOR : available ? TEXT_COLOR : LOCKED_COLOR, false);
-		y += 13;
-		y = drawWrapped(gui, Component.translatable("hamonSkill." + selectedSkill.name() + ".desc"), x, y, DETAIL_WIDTH, TEXT_COLOR) + 4;
+						: Component.translatable("jojo_ripples.hamon.skills.locked");
+		int statusColor = learned ? LEARNED_COLOR : available ? TEXT_COLOR : LOCKED_COLOR;
+		boolean treeView = view != View.TECHNIQUE;
+		int detailWidth = treeView ? 192 : DETAIL_WIDTH - 5;
+		if (treeView) {
+			x = getWindowX(this) + 16;
+			int statusX = getWindowX(this) + 208 - font.width(status);
+			gui.drawString(font, trimToWidth(skillName, statusX - x - 6), x, getWindowY(this) + 31, TEXT_COLOR, false);
+			gui.drawString(font, status, statusX, getWindowY(this) + 31, statusColor, false);
+			y = getWindowY(this) + DETAIL_Y;
+		}
+		// The general tree occupies the lower half; keep its description above the action row.
+		detailScrolling.uiHeight = treeView ? 40 : LIST_HEIGHT;
+		int contentY = y;
+		detailScrolling.pushOffsetScissor(gui, contentY, x, x + detailWidth);
+		if (!treeView) {
+			y = drawWrapped(gui, skillName, x, y, detailWidth, TEXT_COLOR) + 3;
+			gui.drawString(font, status, x, y, statusColor, false);
+			y += 13;
+		}
+		y = drawWrapped(gui, Component.translatable("hamonSkill." + selectedSkill.name() + ".desc"), x, y, detailWidth, TEXT_COLOR) + 4;
 		if (!selectedSkill.prerequisiteSkills().isEmpty()) {
 			y = drawWrapped(gui, Component.translatable("jojo_ripples.hamon.skills.prerequisites",
-					String.join(", ", selectedSkill.prerequisiteSkills())), x, y, DETAIL_WIDTH, DIM_TEXT_COLOR) + 3;
+					String.join(", ", selectedSkill.prerequisiteSkills())), x, y, detailWidth, DIM_TEXT_COLOR) + 3;
 		}
 		if (!selectedSkill.unlocksAbilities().isEmpty()) {
 			y = drawWrapped(gui, Component.translatable("jojo_ripples.hamon.skills.unlocks",
-					String.join(", ", selectedSkill.unlocksAbilities())), x, y, DETAIL_WIDTH, DIM_TEXT_COLOR) + 3;
+					String.join(", ", selectedSkill.unlocksAbilities())), x, y, detailWidth, DIM_TEXT_COLOR) + 3;
 		}
 		Component warning = canLearn.getWarning();
 		if (!learned && automaticPerk) {
 			boolean otherTechnique = data.getCharacterTechnique() != null
 					&& !perk.name().equals(data.getCharacterTechniqueName());
-			drawWrapped(gui, Component.translatable(otherTechnique
+			y = drawWrapped(gui, Component.translatable(otherTechnique
 					? "jojo_ripples.hamon.skills.perk.other_technique"
 					: "jojo_ripples.hamon.skills.perk.on_pick",
 					Component.translatable("hamon.technique." + perk.name())),
-					x, y, DETAIL_WIDTH, otherTechnique ? LOCKED_COLOR : TEXT_COLOR, true);
+					x, y, detailWidth, otherTechnique ? LOCKED_COLOR : TEXT_COLOR, true);
 		}
 		else if (!learned && warning != null && !creative) {
-			drawWrapped(gui, warning.plainCopy().withStyle(ChatFormatting.RED), x, y, DETAIL_WIDTH, LOCKED_COLOR);
+			y = drawWrapped(gui, warning.plainCopy().withStyle(ChatFormatting.RED), x, y, detailWidth, LOCKED_COLOR);
+		}
+		detailScrolling.pop(gui);
+		detailScrolling.setContentsHeight(y - contentY);
+		int[] bar = detailScrolling.getScrollBarBounds(0, 5);
+		if (bar != null) {
+			gui.fill(x + detailWidth + 1, contentY + bar[0], x + detailWidth + 3, contentY + bar[1], 0xFFA7A7A7);
 		}
 	}
 
 	private void renderTechniqueDetails(GuiGraphics gui, HamonData data, int x, int y, int mouseX, int mouseY) {
-		gui.drawString(font, Component.translatable("hamon.technique." + selectedTechnique.name()), x, y, TEXT_COLOR, false);
+		gui.drawString(font, trimToWidth(Component.translatable("hamon.technique." + selectedTechnique.name()), DETAIL_WIDTH), x, y, TEXT_COLOR, false);
 		y += 14;
 		HamonTechnique current = data.getCharacterTechnique();
 		if (current != null && current.getName().equals(selectedTechnique.name())) {
@@ -782,7 +807,7 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 				if (view != View.TECHNIQUE) {
 					SkillNode node = getHoveredSkillNode(buildSkillNodes(), mouseX, mouseY);
 					if (node != null) {
-						selectedSkill = node.skill;
+						selectSkill(node.skill);
 						selectedTechnique = null;
 						return true;
 					}
@@ -791,7 +816,7 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 					int slotIndex = getHoveredTechniqueSlot(mouseX, mouseY);
 					HamonSkillDefinition slotSkill = slotIndex >= 0 ? techniqueSlotSkill(data, slotIndex) : null;
 					if (slotSkill != null) {
-						selectedSkill = slotSkill;
+						selectSkill(slotSkill);
 						HamonTechnique current = data.getCharacterTechnique();
 						if (current != null) {
 							selectedTechnique = techniqueDefinition(current.getName());
@@ -803,7 +828,7 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 					TechniqueCard card = getHoveredTechniqueCard(cards, mouseX, mouseY);
 					if (card != null) {
 						selectedTechnique = card.technique;
-						selectedSkill = getHoveredTechniqueCardSkill(card, mouseX, mouseY);
+						selectSkill(getHoveredTechniqueCardSkill(card, mouseX, mouseY));
 						return true;
 					}
 				}
@@ -814,11 +839,26 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 
 	@Override
 	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+		int detailX = getWindowX(this) + (view == View.TECHNIQUE ? DETAIL_X : 16);
+		int detailY = getWindowY(this) + DETAIL_Y;
+		int detailWidth = view == View.TECHNIQUE ? DETAIL_WIDTH : 198;
+		if (selectedSkill != null && mouseX >= detailX && mouseX < detailX + detailWidth
+				&& mouseY >= detailY && mouseY < detailY + detailScrolling.uiHeight) {
+			detailScrolling.scroll(scrollY);
+			return true;
+		}
 		if (view == View.TECHNIQUE) {
 			listScrolling.scroll(scrollY);
 			return true;
 		}
 		return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+	}
+
+	private void selectSkill(@Nullable HamonSkillDefinition skill) {
+		if (!Objects.equals(selectedSkill, skill)) {
+			detailScrolling.setScrollOffset(0);
+		}
+		selectedSkill = skill;
 	}
 
 	private static Component branchTitle(HamonSkillBranch branch) {
