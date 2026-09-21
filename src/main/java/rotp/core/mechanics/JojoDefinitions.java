@@ -25,6 +25,10 @@ public class JojoDefinitions {
 		if (entity.getType().is(EntityTypeTags.UNDEAD)) {
 			return true;
 		}
+		PlayerPower power = PlayerPower.get(entity);
+		if (power != null && power.getPowerType() == ModPlayerPowers.ZOMBIE.get()) {
+			return true;
+		}
 		if (entity instanceof Player player) {
 			if (isPlayerJojoVampiric(player)) {
 				return true;

@@ -66,6 +66,11 @@ public class EntityHamonChargeState implements TickingEntityData, Synchronizable
 		if (charge == null) {
 			return;
 		}
+		// Frozen entities still tick attachments, but their charge lifetime must pause.
+		var timeStop = ModDataAttachmentTypes.TIME_STOP.get();
+		if (entity.level().hasData(timeStop) && entity.level().getData(timeStop).shouldFreeze(entity)) {
+			return;
+		}
 		charge.tick(entity, null, entity.level(), entity.getBoundingBox().inflate(1.0D));
 		if (charge.shouldBeRemoved()) {
 			charge = null;
