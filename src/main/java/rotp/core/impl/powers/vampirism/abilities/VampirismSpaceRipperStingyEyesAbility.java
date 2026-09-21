@@ -38,6 +38,11 @@ public class VampirismSpaceRipperStingyEyesAbility extends VampirismActionAbilit
 		}
 
 		@Override
+		protected boolean shouldHoldPhaseAtEnd() {
+			return getPhase() == ActionPhase.WINDUP;
+		}
+
+		@Override
 		public void actionPerformStart() {
 			Level level = level();
 			if (level.isClientSide()) {
@@ -86,7 +91,13 @@ public class VampirismSpaceRipperStingyEyesAbility extends VampirismActionAbilit
 		@Override
 		public void onButtonStopHold() {
 			if (getPhase() == ActionPhase.WINDUP) {
-				forceStop();
+				if (getPhaseTick() >= getCurPhaseLength()) {
+					setPhaseStart(ActionPhase.PERFORM);
+				}
+				else {
+					forceStop();
+				}
+				syncPhaseChanges();
 			}
 		}
 
