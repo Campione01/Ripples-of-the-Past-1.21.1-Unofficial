@@ -76,6 +76,11 @@ public class VampirismFreezeAbility extends VampirismActionAbility {
 		return ConditionCheck.POSITIVE;
 	}
 
+	private boolean canApplyFreeze(LivingEntity user) {
+		Power<?> power = getUserPower(user);
+		return power != null && checkSpecificConditions(power).isPositive();
+	}
+
 	public static class FreezeInstance extends EntityActionInstance {
 		public FreezeInstance(EntityActionType ability) {
 			super(ability);
@@ -95,7 +100,12 @@ public class VampirismFreezeAbility extends VampirismActionAbility {
 				return;
 			}
 
+			boolean requirementsFulfilled = ability instanceof VampirismFreezeAbility freezeAbility
+					&& freezeAbility.canApplyFreeze(user);
 			if (level.isClientSide()) {
+				if (!requirementsFulfilled) {
+					return;
+				}
 				Vec3 particlePos = user.position().add(
 						(randomOffset(user.getBbWidth() + 1.0F)),
 						user.getRandom().nextDouble() * (user.getBbHeight() + 1.0F),
@@ -105,11 +115,14 @@ public class VampirismFreezeAbility extends VampirismActionAbility {
 			}
 
 			VampirismState state = VampirismState.get(user);
+			if (!isUserCreative() && state.blood().current() < HOLD_BLOOD_COST) {
+				forceStop();
+				return;
+			}
+			if (!requirementsFulfilled) {
+				return;
+			}
 			if (!isUserCreative()) {
-				if (state.blood().current() < HOLD_BLOOD_COST) {
-					forceStop();
-					return;
-				}
 				state.blood().consume(HOLD_BLOOD_COST);
 			}
 
@@ -234,8 +247,9 @@ public class VampirismFreezeAbility extends VampirismActionAbility {
 		}
 		LivingEntity targetLiving = event.getEntity();
 		EntityActionInstance action = LivingComponentAction.getCurEntityAction(targetLiving);
-		if (action != null && action.ability instanceof VampirismFreezeAbility
-				&& action.getPhase() == ActionPhase.PERFORM) {
+		if (action != null && action.ability instanceof VampirismFreezeAbility freezeAbility
+				&& action.getPhase() == ActionPhase.PERFORM
+				&& freezeAbility.canApplyFreeze(targetLiving)) {
 			Level level = attacker.level();
 			int difficulty = level.getDifficulty().getId();
 			attackerLiving.addEffect(new MobEffectInstance(ModStatusEffects.FREEZE, difficulty * 100, difficulty));

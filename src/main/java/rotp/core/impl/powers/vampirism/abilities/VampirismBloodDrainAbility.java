@@ -57,6 +57,21 @@ public class VampirismBloodDrainAbility extends VampirismActionAbility {
 
 	@Override
 	public ConditionCheck checkSpecificConditions(Power<?> context) {
+		ConditionCheck check = checkUserConditions(context);
+		if (!check.isPositive()) {
+			return check;
+		}
+		LivingEntity target = getDrainTarget(context.getUser());
+		if (target == null) {
+			return ConditionCheck.NEGATIVE;
+		}
+		if (!canDrainBloodFrom(target)) {
+			return ConditionCheck.createNegative("blood");
+		}
+		return ConditionCheck.POSITIVE;
+	}
+
+	private ConditionCheck checkUserConditions(Power<?> context) {
 		ConditionCheck check = super.checkSpecificConditions(context);
 		if (!check.isPositive()) {
 			return check;
@@ -70,13 +85,6 @@ public class VampirismBloodDrainAbility extends VampirismActionAbility {
 		}
 		if (user.level().getDifficulty() == Difficulty.PEACEFUL) {
 			return ConditionCheck.createNegative("peaceful");
-		}
-		LivingEntity target = getDrainTarget(user);
-		if (target == null) {
-			return ConditionCheck.NEGATIVE;
-		}
-		if (!canDrainBloodFrom(target)) {
-			return ConditionCheck.createNegative("blood");
 		}
 		return ConditionCheck.POSITIVE;
 	}
@@ -113,6 +121,13 @@ public class VampirismBloodDrainAbility extends VampirismActionAbility {
 			}
 			LivingEntity user = getPowerUser();
 			if (user == null || level().isClientSide()) {
+				return;
+			}
+			if (!(ability instanceof VampirismBloodDrainAbility drainAbility)) {
+				return;
+			}
+			Power<?> context = drainAbility.getUserPower(user);
+			if (context == null || !drainAbility.checkUserConditions(context).isPositive()) {
 				return;
 			}
 			LivingEntity target = getDrainTarget(user, getActionTargetSnapshot(level()));
