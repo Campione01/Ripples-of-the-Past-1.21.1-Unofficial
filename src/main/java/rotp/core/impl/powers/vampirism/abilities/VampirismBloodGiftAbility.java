@@ -91,11 +91,30 @@ public class VampirismBloodGiftAbility extends VampirismActionAbility {
 		}
 
 		@Override
+		public void _tickAction() {
+			// 1.16: a user stopped in time did not tick, so the 60-tick hold waited for time to resume.
+			if (!VampirismActionAbility.isFrozenInStoppedTime(getPowerUser())) {
+				super._tickAction();
+			}
+		}
+
+		@Override
 		public void actionTick() {
 			if (getPhase() != ActionPhase.WINDUP || level().isClientSide()) {
 				return;
 			}
 			LivingEntity user = getPowerUser();
+			if (user != null && ability instanceof VampirismBloodGiftAbility giftAbility) {
+				Power<?> context = giftAbility.getUserPower(user);
+				// 1.16 PowerBaseImpl.checkRequirements ran every held tick: a stun ends the hold with its message.
+				ConditionCheck check = context != null ? giftAbility.checkMainModLogicConditions(context) : ConditionCheck.POSITIVE;
+				if (!check.isPositive()) {
+					ConditionCheck.sendActionFailedMessage(giftAbility, check, user);
+					forceStop();
+					syncPhaseChanges();
+					return;
+				}
+			}
 			if (user == null || !canContinueWindup(user)
 					|| getPhaseTick() < HOLD_TO_FIRE_TICKS && !consumeBlood(user, HOLD_BLOOD_COST_PER_TICK)) {
 				forceStop();

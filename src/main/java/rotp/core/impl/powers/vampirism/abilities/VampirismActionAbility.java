@@ -10,9 +10,11 @@ import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.playerpower.PlayerPower;
+import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.impl.powers.vampirism.VampirismData;
 
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 
@@ -97,6 +99,18 @@ public class VampirismActionAbility extends EntityActionAbility {
 
 	protected static VampirismData getVampirismData(LivingEntity user) {
 		return user != null ? PlayerPower.getPowerData(user, ModPlayerPowers.VAMPIRISM).orElse(null) : null;
+	}
+
+	/**
+	 * Frozen entities still tick their attachments during a time stop. In 1.16 a user stopped in time
+	 * did not tick at all, so its held vampirism and zombie actions waited for time to resume.
+	 */
+	public static boolean isFrozenInStoppedTime(LivingEntity user) {
+		if (user != null && user.level() instanceof ServerLevel level) {
+			var timeStop = ModDataAttachmentTypes.TIME_STOP.get();
+			return level.hasData(timeStop) && level.getData(timeStop).shouldFreeze(user);
+		}
+		return false;
 	}
 
 	protected static boolean consumeBlood(LivingEntity user, float amount) {

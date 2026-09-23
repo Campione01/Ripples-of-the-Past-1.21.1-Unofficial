@@ -76,15 +76,27 @@ public class VampirismFreezeAbility extends VampirismActionAbility {
 		return ConditionCheck.POSITIVE;
 	}
 
-	private boolean canApplyFreeze(LivingEntity user) {
+	private ConditionCheck checkHoldConditions(LivingEntity user) {
 		Power<?> power = getUserPower(user);
-		return power != null && checkSpecificConditions(power).isPositive();
+		return power != null ? checkSpecificConditions(power) : ConditionCheck.NEGATIVE;
+	}
+
+	private boolean canApplyFreeze(LivingEntity user) {
+		return checkHoldConditions(user).isPositive();
 	}
 
 	public static class FreezeInstance extends EntityActionInstance {
 		public FreezeInstance(EntityActionType ability) {
 			super(ability);
 			userWalkSpeed = 0.75F;
+		}
+
+		@Override
+		public void _tickAction() {
+			// 1.16: a user stopped in time did not tick, so the hold waited without costing blood.
+			if (!VampirismActionAbility.isFrozenInStoppedTime(getPowerUser())) {
+				super._tickAction();
+			}
 		}
 
 		@Override
@@ -100,10 +112,12 @@ public class VampirismFreezeAbility extends VampirismActionAbility {
 				return;
 			}
 
-			boolean requirementsFulfilled = ability instanceof VampirismFreezeAbility freezeAbility
-					&& freezeAbility.canApplyFreeze(user);
+			if (!(ability instanceof VampirismFreezeAbility freezeAbility)) {
+				return;
+			}
 			if (level.isClientSide()) {
-				if (!requirementsFulfilled) {
+				// Until the server's stop arrives, a failed condition shows no particles.
+				if (!freezeAbility.canApplyFreeze(user)) {
 					return;
 				}
 				Vec3 particlePos = user.position().add(
@@ -115,11 +129,22 @@ public class VampirismFreezeAbility extends VampirismActionAbility {
 			}
 
 			VampirismState state = VampirismState.get(user);
-			if (!isUserCreative() && state.blood().current() < HOLD_BLOOD_COST) {
-				forceStop();
-				return;
+			Power<?> power = freezeAbility.getUserPower(user);
+			// 1.16 PowerBaseImpl.checkRequirements ran every held tick: stun first, then the blood check
+			// (NonStandAction.checkEnergy, message no_energy_vampirism), then the action's own conditions.
+			ConditionCheck check = power != null ? freezeAbility.checkMainModLogicConditions(power) : ConditionCheck.NEGATIVE;
+			if (check.isPositive() && !isUserCreative() && state.blood().current() < HOLD_BLOOD_COST) {
+				check = ConditionCheck.createNegative("no_energy_vampirism");
 			}
-			if (!requirementsFulfilled) {
+			if (check.isPositive()) {
+				check = freezeAbility.checkHoldConditions(user);
+			}
+			if (!check.isPositive()) {
+				// 1.16 PowerBaseImpl.tickHeldAction: a failed condition (stun, blood, hand, fire, ultrawarm,
+				// peaceful) ends the hold with its message; a new press is needed to resume.
+				ConditionCheck.sendActionFailedMessage(freezeAbility, check, user);
+				forceStop();
+				syncPhaseChanges();
 				return;
 			}
 			if (!isUserCreative()) {

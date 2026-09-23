@@ -19,6 +19,7 @@ import rotp.core.powersystem.playerpower.PlayerPower;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
 import rotp.core.impl.powers.vampirism.VampirismUtil;
+import rotp.core.impl.powers.vampirism.abilities.VampirismActionAbility;
 import rotp.core.impl.powers.vampirism.abilities.VampirismBloodDrainAbility;
 import rotp.core.impl.powers.vampirism.entity.HungryZombieEntity;
 import rotp.core.impl.powers.zombie.ZombieData;
@@ -47,6 +48,21 @@ public class ZombieDevourAbility extends ZombieActionAbility {
 
 	@Override
 	public ConditionCheck checkSpecificConditions(Power<?> context) {
+		ConditionCheck check = checkUserConditions(context);
+		if (!check.isPositive()) {
+			return check;
+		}
+		LivingEntity target = getDevourTarget(context.getUser());
+		if (target == null) {
+			return ConditionCheck.NEGATIVE;
+		}
+		if (!JojoDefinitions.canBleed(target) || JojoDefinitions.isUndeadOrVampiric(target)) {
+			return ConditionCheck.createNegative("blood");
+		}
+		return ConditionCheck.POSITIVE;
+	}
+
+	private ConditionCheck checkUserConditions(Power<?> context) {
 		ConditionCheck check = super.checkSpecificConditions(context);
 		if (!check.isPositive()) {
 			return check;
@@ -61,14 +77,21 @@ public class ZombieDevourAbility extends ZombieActionAbility {
 		if (user.level().getDifficulty() == Difficulty.PEACEFUL) {
 			return ConditionCheck.createNegative("peaceful");
 		}
-		LivingEntity target = getDevourTarget(user);
-		if (target == null) {
-			return ConditionCheck.NEGATIVE;
-		}
-		if (!JojoDefinitions.canBleed(target) || JojoDefinitions.isUndeadOrVampiric(target)) {
-			return ConditionCheck.createNegative("blood");
-		}
 		return ConditionCheck.POSITIVE;
+	}
+
+	private ConditionCheck checkHoldConditions(Power<?> context) {
+		// 1.16 PowerBaseImpl.checkRequirements ran every held tick, the stun check included.
+		ConditionCheck check = checkMainModLogicConditions(context);
+		if (!check.isPositive()) {
+			return check;
+		}
+		ZombieData zombie = getZombieData(context);
+		if (zombie != null && zombie.isDisguiseEnabled()) {
+			// 1.16 ZombieDevour.checkTarget: during a hold the disguise only paused devouring.
+			return ConditionCheck.NEGATIVE_CONTINUE_HOLD;
+		}
+		return checkUserConditions(context);
 	}
 
 	public static class DevourInstance extends EntityActionInstance {
@@ -77,10 +100,10 @@ public class ZombieDevourAbility extends ZombieActionAbility {
 		}
 
 		@Override
-		public void onActionSet(EntityActionInstance prevAction) {
-			LivingEntity user = getPowerUser();
-			if (user != null) {
-				captureActionTargetFromAim(user);
+		public void _tickAction() {
+			// 1.16: a user stopped in time did not tick, so devouring waited for time to resume.
+			if (!VampirismActionAbility.isFrozenInStoppedTime(getPowerUser())) {
+				super._tickAction();
 			}
 		}
 
@@ -105,7 +128,25 @@ public class ZombieDevourAbility extends ZombieActionAbility {
 			if (user == null || level().isClientSide()) {
 				return;
 			}
-			LivingEntity target = getDevourTarget(user, getActionTargetSnapshot(level()));
+			if (!(ability instanceof ZombieDevourAbility devourAbility)) {
+				return;
+			}
+			Power<?> context = devourAbility.getUserPower(user);
+			ConditionCheck check = context != null ? devourAbility.checkHoldConditions(context) : ConditionCheck.NEGATIVE;
+			if (check.shouldContinueHold()) {
+				return;
+			}
+			if (!check.isPositive()) {
+				// 1.16 PowerBaseImpl.tickHeldAction: a failed condition (stun, hand, peaceful) ends the
+				// hold with its message; a new press is needed to resume.
+				ConditionCheck.sendActionFailedMessage(devourAbility, check, user);
+				forceStop();
+				syncPhaseChanges();
+				return;
+			}
+			// 1.16 re-read the live mouse target every held tick; without a devourable
+			// target in reach devouring only pauses (NEGATIVE_CONTINUE_HOLD).
+			LivingEntity target = getDevourTarget(user);
 			if (target == null || !JojoDefinitions.canBleed(target) || JojoDefinitions.isUndeadOrVampiric(target)) {
 				return;
 			}

@@ -69,6 +69,14 @@ public class VampirismHamonSuicideAbility extends VampirismActionAbility {
 		}
 
 		@Override
+		public void _tickAction() {
+			// 1.16: a user stopped in time did not tick, so the 100-tick hold waited for time to resume.
+			if (!VampirismActionAbility.isFrozenInStoppedTime(getPowerUser())) {
+				super._tickAction();
+			}
+		}
+
+		@Override
 		public void onSetPhase(ActionPhase newPhase) {
 			super.onSetPhase(newPhase);
 			if (newPhase == ActionPhase.WINDUP && level().isClientSide()) {

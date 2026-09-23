@@ -89,16 +89,22 @@ public class VampirismBloodDrainAbility extends VampirismActionAbility {
 		return ConditionCheck.POSITIVE;
 	}
 
+	private ConditionCheck checkHoldConditions(Power<?> context) {
+		// 1.16 PowerBaseImpl.checkRequirements ran every held tick, the stun check included.
+		ConditionCheck check = checkMainModLogicConditions(context);
+		return check.isPositive() ? checkUserConditions(context) : check;
+	}
+
 	public static class BloodDrainInstance extends EntityActionInstance {
 		public BloodDrainInstance(EntityActionType ability) {
 			super(ability);
 		}
 
 		@Override
-		public void onActionSet(EntityActionInstance prevAction) {
-			LivingEntity user = getPowerUser();
-			if (user != null) {
-				captureActionTargetFromAim(user);
+		public void _tickAction() {
+			// 1.16: a user stopped in time did not tick, so the drain waited for time to resume.
+			if (!VampirismActionAbility.isFrozenInStoppedTime(getPowerUser())) {
+				super._tickAction();
 			}
 		}
 
@@ -127,10 +133,18 @@ public class VampirismBloodDrainAbility extends VampirismActionAbility {
 				return;
 			}
 			Power<?> context = drainAbility.getUserPower(user);
-			if (context == null || !drainAbility.checkUserConditions(context).isPositive()) {
+			ConditionCheck check = context != null ? drainAbility.checkHoldConditions(context) : ConditionCheck.NEGATIVE;
+			if (!check.isPositive()) {
+				// 1.16 PowerBaseImpl.tickHeldAction: a failed condition (stun, hand, peaceful) ends the
+				// hold with its message; a new press is needed to resume.
+				ConditionCheck.sendActionFailedMessage(drainAbility, check, user);
+				forceStop();
+				syncPhaseChanges();
 				return;
 			}
-			LivingEntity target = getDrainTarget(user, getActionTargetSnapshot(level()));
+			// 1.16 re-read the live mouse target every held tick; without a drainable
+			// target in reach the drain only pauses (NEGATIVE_CONTINUE_HOLD).
+			LivingEntity target = getDrainTarget(user);
 			if (target == null || !canDrainBloodFrom(target)) {
 				return;
 			}
