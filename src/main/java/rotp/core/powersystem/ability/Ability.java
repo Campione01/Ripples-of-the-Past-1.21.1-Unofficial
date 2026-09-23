@@ -155,14 +155,13 @@ public class Ability {
 		return resolveLevelToUnlock;
 	}
 
+	/**
+	 * 1.16's Action.Builder.cooldown(n) was cooldown(0, n), and StandAction's Resolve multiplier
+	 * defaulted to 0, so a plain Stand cooldown is gone while the user has Resolve.
+	 * A cooldown Resolve must not shorten is cooldown(n, 0) or cooldown(0, n, 1.0F).
+	 */
 	public Ability cooldown(int ticks) {
-		int cooldown = Math.max(ticks, 0);
-		this.cooldownTicks = cooldown;
-		this.cooldownTechnicalTicks = 0;
-		this.cooldownAdditionalTicks = cooldown;
-		this.cooldownResolveMultiplier = 1.0F;
-		this.cooldownResolveMultiplierApplies = false;
-		return this;
+		return cooldown(0, ticks);
 	}
 
 	public Ability cooldown(int technicalTicks, int additionalTicks) {

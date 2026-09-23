@@ -73,6 +73,7 @@ import rotp.core.mechanics.standarrow.StandVirusMobGiverLifecyclePolicySmokeTest
 import rotp.core.network.s2c.TrPowerDataPacketSmokeTest;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.AbilityId;
+import rotp.core.powersystem.ability.AbilityResolveCooldownSmokeTest;
 import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.ability.condition.GrabContextVariationSmokeTest;
 import rotp.core.powersystem.ability.input.HeldInputControlSmokeTest;
@@ -393,6 +394,7 @@ public final class RotpAddonApiSmokeTest {
 		JojoConfigCommandSmokeTest.run();
 		StandArrowPoolOverridesSmokeTest.run();
 		GrabContextVariationSmokeTest.run();
+		AbilityResolveCooldownSmokeTest.run();
 		SharedGrabChargedHeavyInputSmokeTest.run();
 		CrazyDRestoreExtensionSmokeTest.run();
 		GenericModelFormatSmokeTest.run();
