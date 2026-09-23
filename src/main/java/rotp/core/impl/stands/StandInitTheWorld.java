@@ -71,6 +71,8 @@ public class StandInitTheWorld {
 				.addAbility("guard", ModStandAbilities.GUARD)
 				.addAbility("time_stop", ModStandAbilities.TIME_STOP, ability -> {
 					ability.setIgnoresPerformerStun();
+					// 1.16 TheWorldTimeStop: a hit during the charge stops it (Star Platinum's does not).
+					ability.setCancelHeldOnGettingAttacked();
 				})
 				.addAbility("time_stop_blink", ModStandAbilities.TIME_STOP_BLINK, ability -> {
 					ability.setTeleportBehindEntity();

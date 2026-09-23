@@ -124,6 +124,10 @@ public class PlayerPower extends Power<PlayerPower> {
 	@Override
 	public void tick() {
 		super.tick();
+		// Frozen in stopped time: energy, blood and cooldowns wait, as 1.16 skipped the user's tick.
+		if (isPausedInStoppedTime()) {
+			return;
+		}
 		PlayerPowerData suspendedData =
 				resolveTemporarilySuspendedData();
 		if (suspendedData != null) {

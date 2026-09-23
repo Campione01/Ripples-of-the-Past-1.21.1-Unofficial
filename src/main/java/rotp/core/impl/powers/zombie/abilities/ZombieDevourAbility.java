@@ -19,7 +19,6 @@ import rotp.core.powersystem.playerpower.PlayerPower;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
 import rotp.core.impl.powers.vampirism.VampirismUtil;
-import rotp.core.impl.powers.vampirism.abilities.VampirismActionAbility;
 import rotp.core.impl.powers.vampirism.abilities.VampirismBloodDrainAbility;
 import rotp.core.impl.powers.vampirism.entity.HungryZombieEntity;
 import rotp.core.impl.powers.zombie.ZombieData;
@@ -44,6 +43,7 @@ public class ZombieDevourAbility extends ZombieActionAbility {
 		setButtonHoldPhase(ActionPhase.PERFORM);
 		setDefaultPhaseLength(ActionPhase.WINDUP, 0);
 		setDefaultPhaseLength(ActionPhase.RECOVERY, 0);
+		setCancelHeldOnGettingAttacked();
 	}
 
 	@Override
@@ -80,31 +80,9 @@ public class ZombieDevourAbility extends ZombieActionAbility {
 		return ConditionCheck.POSITIVE;
 	}
 
-	private ConditionCheck checkHoldConditions(Power<?> context) {
-		// 1.16 PowerBaseImpl.checkRequirements ran every held tick, the stun check included.
-		ConditionCheck check = checkMainModLogicConditions(context);
-		if (!check.isPositive()) {
-			return check;
-		}
-		ZombieData zombie = getZombieData(context);
-		if (zombie != null && zombie.isDisguiseEnabled()) {
-			// 1.16 ZombieDevour.checkTarget: during a hold the disguise only paused devouring.
-			return ConditionCheck.NEGATIVE_CONTINUE_HOLD;
-		}
-		return checkUserConditions(context);
-	}
-
 	public static class DevourInstance extends EntityActionInstance {
 		public DevourInstance(EntityActionType ability) {
 			super(ability);
-		}
-
-		@Override
-		public void _tickAction() {
-			// 1.16: a user stopped in time did not tick, so devouring waited for time to resume.
-			if (!VampirismActionAbility.isFrozenInStoppedTime(getPowerUser())) {
-				super._tickAction();
-			}
 		}
 
 		@Override
@@ -131,23 +109,29 @@ public class ZombieDevourAbility extends ZombieActionAbility {
 			if (!(ability instanceof ZombieDevourAbility devourAbility)) {
 				return;
 			}
+			// 1.16 PowerBaseImpl.checkRequirements order, every held tick: stun and alive, then the
+			// target check (ZombieDevour.checkTarget), then the action's conditions.
 			Power<?> context = devourAbility.getUserPower(user);
-			ConditionCheck check = context != null ? devourAbility.checkHoldConditions(context) : ConditionCheck.NEGATIVE;
-			if (check.shouldContinueHold()) {
-				return;
+			ConditionCheck check = context != null ? devourAbility.checkMainModLogicConditions(context) : ConditionCheck.NEGATIVE;
+			LivingEntity target = null;
+			if (check.isPositive()) {
+				// The disguise, or no devourable target in reach, only pauses devouring (NEGATIVE_CONTINUE_HOLD).
+				ZombieData zombie = getZombieData(context);
+				if (zombie != null && zombie.isDisguiseEnabled()) {
+					return;
+				}
+				target = getDevourTarget(user);
+				if (target == null || !JojoDefinitions.canBleed(target) || JojoDefinitions.isUndeadOrVampiric(target)) {
+					return;
+				}
+				check = devourAbility.checkUserConditions(context);
 			}
 			if (!check.isPositive()) {
-				// 1.16 PowerBaseImpl.tickHeldAction: a failed condition (stun, hand, peaceful) ends the
+				// 1.16 PowerBaseImpl.tickHeldAction: a failed stun, hand or peaceful check ends the
 				// hold with its message; a new press is needed to resume.
 				ConditionCheck.sendActionFailedMessage(devourAbility, check, user);
 				forceStop();
 				syncPhaseChanges();
-				return;
-			}
-			// 1.16 re-read the live mouse target every held tick; without a devourable
-			// target in reach devouring only pauses (NEGATIVE_CONTINUE_HOLD).
-			LivingEntity target = getDevourTarget(user);
-			if (target == null || !JojoDefinitions.canBleed(target) || JojoDefinitions.isUndeadOrVampiric(target)) {
 				return;
 			}
 			drainPerform(level(), user, target);

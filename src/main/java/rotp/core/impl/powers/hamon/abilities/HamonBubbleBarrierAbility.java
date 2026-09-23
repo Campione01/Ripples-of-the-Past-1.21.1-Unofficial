@@ -1,10 +1,13 @@
 package rotp.core.impl.powers.hamon.abilities;
 
+import javax.annotation.Nullable;
+
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.entityaction.ActionPhase;
+import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.impl.powers.hamon.entity.HamonBubbleBarrierEntity;
 
@@ -32,7 +35,26 @@ public class HamonBubbleBarrierAbility extends HamonActionRuntimeAbility {
 	}
 
 	public static class BubbleBarrierInstance extends HamonActionRuntimeAbility.HamonHeldActionInstance {
+		@Nullable private HamonBubbleBarrierEntity chargingBarrier;
+
 		public BubbleBarrierInstance(EntityActionType ability) { super(ability); }
+
+		// 1.16 HamonBubbleBarrier.startedHolding: the barrier appears when the hold starts and grows in place
+		// while it charges; the barrier removes itself if the hold ends before it fires.
+		@Override
+		public void onActionSet(EntityActionInstance prevAction) {
+			Level level = level();
+			LivingEntity user = getPowerUser();
+			if (user != null && !level.isClientSide()) {
+				chargingBarrier = new HamonBubbleBarrierEntity(level, user).setCharging();
+				level.addFreshEntity(chargingBarrier);
+			}
+		}
+
+		public boolean isChargingBarrier(HamonBubbleBarrierEntity barrier) {
+			return barrier == chargingBarrier && !isOver()
+					&& (getPhase() == ActionPhase.WINDUP || getPhase() == ActionPhase.PERFORM);
+		}
 
 		@Override
 		public void actionPerformStart() {
@@ -48,9 +70,11 @@ public class HamonBubbleBarrierAbility extends HamonActionRuntimeAbility {
 				syncPhaseChanges();
 				return;
 			}
-			HamonBubbleBarrierEntity bubbleBarrier = new HamonBubbleBarrierEntity(level, user);
-			bubbleBarrier.shootFromRotation(user, 1.0F, 0.0F);
-			level.addFreshEntity(bubbleBarrier);
+			// The barrier that grew during the charge goes where the user looks when it fires.
+			if (chargingBarrier != null && chargingBarrier.isAlive()) {
+				chargingBarrier.shootFromCharge(user);
+			}
+			chargingBarrier = null;
 		}
 	}
 }

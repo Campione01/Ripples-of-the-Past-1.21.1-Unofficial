@@ -15,6 +15,7 @@ import rotp.core.entityattachment.TickingEntityData;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.input.AbilityInput;
 import rotp.core.powersystem.ability.condition.AvailableAbilities;
+import rotp.core.subsystems.timestop.TimeStopState;
 import rotp.core.util.functions.NBTUtil;
 import com.mojang.datafixers.util.Either;
 
@@ -48,10 +49,24 @@ public abstract class Power<P extends Power<P>> implements SynchronizablePlayerD
 	@Override
 	public void tick() {
 		cachedMovesThisTick = false;
+		// 1.16 skipped a stopped user's whole tick, so the power's timers (cooldowns, stamina, energy) wait for time to resume.
+		pausedInStoppedTime = TimeStopState.shouldFreezeOnServer(user);
+		if (pausedInStoppedTime) {
+			return;
+		}
 		PowerData curPowerData = getCurTypeData();
 		if (curPowerData != null) {
 			curPowerData.tick(this);
 		}
+	}
+	
+	private boolean pausedInStoppedTime;
+	
+	/**
+	 * Whether this tick's timers were skipped because the user is frozen in stopped time.
+	 */
+	public boolean isPausedInStoppedTime() {
+		return pausedInStoppedTime;
 	}
 	
 	public boolean canUsePower() {

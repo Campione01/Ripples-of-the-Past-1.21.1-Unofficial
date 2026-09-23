@@ -91,14 +91,6 @@ public class VampirismBloodGiftAbility extends VampirismActionAbility {
 		}
 
 		@Override
-		public void _tickAction() {
-			// 1.16: a user stopped in time did not tick, so the 60-tick hold waited for time to resume.
-			if (!VampirismActionAbility.isFrozenInStoppedTime(getPowerUser())) {
-				super._tickAction();
-			}
-		}
-
-		@Override
 		public void actionTick() {
 			if (getPhase() != ActionPhase.WINDUP || level().isClientSide()) {
 				return;

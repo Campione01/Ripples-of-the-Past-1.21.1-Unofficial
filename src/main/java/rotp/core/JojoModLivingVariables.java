@@ -8,6 +8,7 @@ import rotp.core.entityattachment.TickingEntityData;
 import rotp.core.core.JojoMod;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.network.s2c.TrDyingBodyTimerPacket;
+import rotp.core.subsystems.timestop.TimeStopState;
 
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderLookup.Provider;
@@ -52,8 +53,14 @@ public class JojoModLivingVariables implements INBTSerializable<CompoundTag>, Ti
 	}
 	
 	public void tick() {
-		bleedingParticlesPos = null;
+		// Port-only (the suspicious-block arrow window), so it is not tied to the living tick.
 		if (findMoreArrowsTimer >= 0) findMoreArrowsTimer--;
+		// 1.16 LivingUtilCap and PlayerUtilCap ran the rest from the living and player tick,
+		// which an entity frozen in stopped time skips.
+		if (TimeStopState.shouldFreezeOnServer(entity)) {
+			return;
+		}
+		bleedingParticlesPos = null;
 		if (knivesThrewTicks > 0) {
 			knivesThrewTicks--;
 		}

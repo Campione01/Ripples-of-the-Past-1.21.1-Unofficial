@@ -104,20 +104,26 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 	@Override
 	public void tick() {
 		super.tick();
-		tickStamina();
-		tickLeapCooldown();
-		tickAbilityCooldowns();
-		tickResolve();
-		tickSoulCheck();
-		userStandEffects.tick();
+		// Frozen in stopped time: stamina, cooldowns, Resolve and the Stand's effects wait, as 1.16 skipped the user's tick.
+		boolean paused = isPausedInStoppedTime();
+		if (!paused) {
+			tickStamina();
+			tickLeapCooldown();
+			tickAbilityCooldowns();
+			tickResolve();
+			tickSoulCheck();
+			userStandEffects.tick();
+		}
 		if (hasPower()) {
 			standInstance.ifPresent(stand -> stand.syncIfDirty(user));
 		}
 		if (!user.level().isClientSide()) {
 			tickWrongLevelStandEntity();
-			tickMissingStandPartEffects();
-			if (healingDamageFromArrow && !StandArrowItem.healArrowDamage(user)) {
-				healingDamageFromArrow = false;
+			if (!paused) {
+				tickMissingStandPartEffects();
+				if (healingDamageFromArrow && !StandArrowItem.healArrowDamage(user)) {
+					healingDamageFromArrow = false;
+				}
 			}
 			if (!canUsePower()) {
 				StandType type = getPowerType();

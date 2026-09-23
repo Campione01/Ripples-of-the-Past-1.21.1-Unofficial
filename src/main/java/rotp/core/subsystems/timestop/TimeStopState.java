@@ -252,6 +252,17 @@ public class TimeStopState {
         return isTimeStopped(entity) && !canEntityMoveInStoppedTime(entity);
     }
 
+    /**
+     * {@link #shouldFreeze} for an entity in its own server level; false on the client and where time never stopped.
+     */
+    public static boolean shouldFreezeOnServer(Entity entity) {
+        if (!(entity.level() instanceof ServerLevel serverLevel)) {
+            return false;
+        }
+        var attachmentType = ModDataAttachmentTypes.TIME_STOP.get();
+        return serverLevel.hasData(attachmentType) && serverLevel.getData(attachmentType).shouldFreeze(entity);
+    }
+
     public static boolean shouldFreezeClientEntity(Entity entity) {
         if (entity == null || entity.isRemoved() || !isTimeStoppedClientEntity(entity)) {
             return false;

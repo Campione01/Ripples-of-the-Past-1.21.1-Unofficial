@@ -1,5 +1,7 @@
 package rotp.core.impl.powers.hamon.abilities;
 
+import java.util.Optional;
+
 import rotp.core.client.particle.CustomParticlesHelper;
 import rotp.core.client.sound.HamonSparksLoopSound;
 import rotp.core.mechanics.HypnosisEffect;
@@ -16,8 +18,12 @@ import rotp.core.impl.powers.hamon.HamonData;
 import rotp.core.impl.powers.hamon.HamonHypnosisState;
 import rotp.core.impl.powers.hamon.HamonHypnosisState.HypnosisTargetCheck;
 
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 public class HamonHypnosisAbility extends HamonActionRuntimeAbility {
@@ -28,6 +34,8 @@ public class HamonHypnosisAbility extends HamonActionRuntimeAbility {
 		setDefaultPhaseLength(ActionPhase.PERFORM, 6);
 		setButtonHoldPhase(ActionPhase.PERFORM);
 		setDefaultPhaseLength(ActionPhase.RECOVERY, 4);
+		// 1.16 HamonHypnosis: a hit while charging stops it before the hypnosis lands.
+		setCancelHeldOnGettingAttacked();
 	}
 
 	@Override
@@ -41,23 +49,42 @@ public class HamonHypnosisAbility extends HamonActionRuntimeAbility {
 				: ConditionCheck.NEGATIVE;
 	}
 
+	// 1.16 re-checked Hypnosis against the live mouse target on every held tick (losing it ended the hold)
+	// and fired at the target of the last one.
+	@Override
+	protected ConditionCheck checkHeldTickConditions(HamonHeldActionInstance action, LivingEntity user, Power<?> context) {
+		ConditionCheck check = checkConditions(context);
+		if (check.isPositive() && action instanceof HypnosisInstance hypnosis) {
+			hypnosis.setHypnosisTarget(HamonAbilityHelpers.getAimTarget(user, user.level()));
+		}
+		return check;
+	}
+
+	// 1.16 HamonHypnosis.holdTick, on every held tick of the charge: the target looks at the user and stops moving
+	// (server); the user's own client shows sparks halfway along the look and plays their sound.
 	@Override
 	protected void onHeldTick(HamonHeldActionInstance action, LivingEntity user, Power<?> context, HamonData hamon, int ticksHeld) {
 		if (!(action instanceof HypnosisInstance hypnosis)) {
 			return;
 		}
 		Level level = user.level();
-		ActionTarget target = hypnosis.getHypnosisTarget(level);
-		if (target.getType() != TargetType.ENTITY || !(target.getMainEntity() instanceof LivingEntity livingTarget)
-				|| !checkHypnosisTarget(target, user).isPositive()) {
+		if (level.isClientSide()) {
+			if (isClientPlayer(user) && checkConditions(context).isPositive()) {
+				ActionTarget target = HamonAbilityHelpers.getAimTarget(user, level);
+				if (target.getType() == TargetType.ENTITY && target.getMainEntity() instanceof LivingEntity livingTarget) {
+					hypnosisClientFeedback(user, livingTarget);
+				}
+			}
 			return;
 		}
-		if (level.isClientSide()) {
-			hypnosisClientFeedback(user, livingTarget);
-		}
-		else {
+		ActionTarget target = hypnosis.getHypnosisTarget(level);
+		if (target.getType() == TargetType.ENTITY && target.getMainEntity() instanceof LivingEntity livingTarget) {
 			HamonHypnosisState.get(livingTarget).startedHypnosisProcess(user);
 		}
+	}
+
+	private static boolean isClientPlayer(LivingEntity user) {
+		return user == Minecraft.getInstance().player;
 	}
 
 	private static ConditionCheck checkHypnosisTarget(ActionTarget target, LivingEntity user) {
@@ -72,11 +99,26 @@ public class HamonHypnosisAbility extends HamonActionRuntimeAbility {
 	}
 
 	private static void hypnosisClientFeedback(LivingEntity user, LivingEntity livingTarget) {
-		Vec3 userPos = user.getEyePosition();
-		Vec3 targetPos = livingTarget.getBoundingBox().getCenter();
+		Vec3 userPos = user.getEyePosition(1.0F);
+		double distanceToTarget = getDistance(user, livingTarget.getBoundingBox());
+		Vec3 targetPos = userPos.add(user.getLookAngle().scale(distanceToTarget));
 		Vec3 particlesPos = userPos.add(targetPos.subtract(userPos).scale(0.5D));
 		HamonSparksLoopSound.playSparkSound(user, particlesPos, 1.0F, true);
 		CustomParticlesHelper.createHamonSparkParticles(null, particlesPos, 1);
+	}
+
+	// 1.16 JojoModUtil.getDistance: from the eyes to where a line towards the box's eye-level centre enters it.
+	private static double getDistance(Entity entity, AABB targetAabb) {
+		Vec3 startPos = entity.getEyePosition(1.0F);
+		if (targetAabb.contains(startPos)) {
+			return 0.0D;
+		}
+		Vec3 endPos = new Vec3(
+				Mth.lerp(0.5D, targetAabb.minX, targetAabb.maxX),
+				Mth.lerp(entity.getBbHeight() == 0.0F ? 0.0D : entity.getEyeHeight() / entity.getBbHeight(), targetAabb.minY, targetAabb.maxY),
+				Mth.lerp(0.5D, targetAabb.minZ, targetAabb.maxZ));
+		Optional<Vec3> clipOptional = targetAabb.clip(startPos, endPos);
+		return clipOptional.map(clipVec -> startPos.distanceTo(clipVec) - entity.getBbWidth() / 2.0D).orElse(-1.0D);
 	}
 
 	public static class HypnosisInstance extends HamonActionRuntimeAbility.HamonHeldActionInstance {
@@ -92,6 +134,10 @@ public class HamonHypnosisAbility extends HamonActionRuntimeAbility {
 
 		ActionTarget getHypnosisTarget(Level level) {
 			return getActionTargetSnapshot(level);
+		}
+
+		void setHypnosisTarget(ActionTarget target) {
+			setActionTargetSnapshot(target);
 		}
 
 		@Override

@@ -96,7 +96,7 @@ public class HamonSendoOverdriveAbility extends HamonActionRuntimeAbility {
 		private float preRuntimeEnergy;
 		private float preRuntimeEfficiency = 1.0F;
 		private float baseUsageStatPoints;
-		private float heldTicksBeforePerform;
+		private float heldTicksBeforePerform = -1.0F;
 
 		public SendoOverdriveInstance(EntityActionType ability) {
 			super(ability);
@@ -108,6 +108,18 @@ public class HamonSendoOverdriveAbility extends HamonActionRuntimeAbility {
 				heldTicksBeforePerform = getPhaseTick();
 			}
 			super.onSetPhase(newPhase);
+		}
+
+		// 1.16 HamonSendoOverdrive.stoppedHolding sent the wave on any release; a release before the full
+		// charge only narrowed its sparks.
+		@Override
+		public void onButtonStopHold() {
+			if (getPhase() == ActionPhase.WINDUP) {
+				setPhaseStart(ActionPhase.PERFORM);
+				syncPhaseChanges();
+				return;
+			}
+			super.onButtonStopHold();
 		}
 
 		@Override
@@ -140,7 +152,7 @@ public class HamonSendoOverdriveAbility extends HamonActionRuntimeAbility {
 			float controlRatio = PlayerPower.getPowerData(user, ModPlayerPowers.HAMON)
 					.map(hamon -> (float) hamon.getHamonControlLevel() / (float) HamonData.MAX_STAT_LEVEL)
 					.orElse(0.0F);
-			float heldRatio = Mth.clamp(((heldTicksBeforePerform > 0.0F ? heldTicksBeforePerform : HOLD_TO_FIRE_TICKS) - 1.0F)
+			float heldRatio = Mth.clamp(((heldTicksBeforePerform >= 0.0F ? heldTicksBeforePerform : HOLD_TO_FIRE_TICKS) - 1.0F)
 					/ (float) HOLD_TO_FIRE_TICKS, 0.0F, 1.0F);
 
 			HamonSendoOverdriveEntity sendoOverdrive = new HamonSendoOverdriveEntity(level, user, face.getAxis())

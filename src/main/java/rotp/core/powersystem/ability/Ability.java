@@ -183,14 +183,24 @@ public class Ability {
 				return 0;
 			}
 		}
+		return cooldownTicksFor(isStandUserInResolve(context));
+	}
+
+	/** Only the additional part is multiplied, and only for a Stand user in Resolve. */
+	int cooldownTicksFor(boolean standUserInResolve) {
 		int additional = cooldownAdditionalTicks;
-		if (cooldownResolveMultiplierApplies && context instanceof StandPower standPower) {
-			LivingEntity user = standPower.getUser();
-			if (user != null && user.hasEffect(ModStatusEffects.RESOLVE)) {
-				additional = (int) ((float) additional * cooldownResolveMultiplier);
-			}
+		if (standUserInResolve && cooldownResolveMultiplierApplies) {
+			additional = (int) ((float) additional * cooldownResolveMultiplier);
 		}
 		return cooldownTechnicalTicks + additional;
+	}
+
+	static boolean isStandUserInResolve(@Nullable Power<?> context) {
+		if (context instanceof StandPower standPower) {
+			LivingEntity user = standPower.getUser();
+			return user != null && user.hasEffect(ModStatusEffects.RESOLVE);
+		}
+		return false;
 	}
 
 	public boolean shouldSetCooldownOnKeyPress(InputMethod inputMethod) {

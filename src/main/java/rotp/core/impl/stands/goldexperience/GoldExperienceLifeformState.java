@@ -13,6 +13,7 @@ import rotp.core.entityattachment.SynchronizablePlayerData;
 import rotp.core.entityattachment.TickingEntityData;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.network.s2c.TrGELifeformStatePacket;
+import rotp.core.subsystems.timestop.TimeStopState;
 import rotp.core.util.mc.entitysubtype.EntitySubtype;
 
 import net.minecraft.core.HolderLookup;
@@ -320,7 +321,8 @@ public final class GoldExperienceLifeformState implements TickingEntityData, Syn
 
     @Override
     public void tick() {
-        if (!entity.level().isClientSide() && animalAgeCooldown > 0) {
+        // 1.16 PlayerUtilCap counted this down in the player tick, which a player frozen in stopped time skips.
+        if (!entity.level().isClientSide() && animalAgeCooldown > 0 && !TimeStopState.shouldFreezeOnServer(entity)) {
             --animalAgeCooldown;
         }
     }

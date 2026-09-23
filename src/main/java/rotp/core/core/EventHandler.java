@@ -19,17 +19,12 @@ import rotp.core.mechanics.standdisc.StandDiscItem;
 import rotp.core.network.s2c.TrRefreshMovementInTimeStopPacket;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.Power;
-import rotp.core.powersystem.entityaction.ActionPhase;
-import rotp.core.powersystem.entityaction.EntityActionInstance;
-import rotp.core.powersystem.entityaction.LivingComponentAction;
-import rotp.core.powersystem.entityaction.netcode.SyncType;
+import rotp.core.powersystem.ability.EntityActionAbility;
 import rotp.core.powersystem.playerpower.PlayerPower;
 import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandInstance.StandPart;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.StandUtil;
-import rotp.core.powersystem.standpower.entity.StandEntity;
-import rotp.core.powersystem.standpower.entity.StandLinkDamageSource;
 import rotp.core.powersystem.standpower.effect.UserStandEffects;
 import rotp.core.subsystems.timestop.TimeStopState;
 import rotp.core.util.functions.DamageUtil;
@@ -52,15 +47,12 @@ import rotp.core.impl.powers.hamon.abilities.HamonRebuffOverdriveAbility;
 import rotp.core.impl.powers.hamon.abilities.HamonRopeTrapAbility;
 import rotp.core.impl.powers.hamon.abilities.HamonSendoWaveKickAbility;
 import rotp.core.impl.powers.hamon.abilities.HamonSnakeMufflerAbility;
-import rotp.core.impl.powers.vampirism.abilities.VampirismBloodDrainAbility;
 import rotp.core.impl.powers.vampirism.abilities.VampirismFreezeAbility;
 import rotp.core.impl.powers.vampirism.entity.HungryZombieEntity;
 import rotp.core.impl.stands.boyiiman.BoyIIManStandPartTakenEffect;
 import rotp.core.impl.stands.crazydiamond.AngeloRockEntity;
 import rotp.core.impl.stands.crazydiamond.CrazyDAngeloRockPunchEffect;
 import rotp.core.impl.stands.goldexperience.GECreatedLifeformEffect;
-import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility;
-import rotp.core.impl.stands.theworld.TimeStopAbility;
 import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.sounds.SoundSource;
@@ -324,49 +316,11 @@ public class EventHandler {
 				&& partsTaken.hasPart(StandPart.ARMS);
 	}
 
-	@SubscribeEvent(priority = EventPriority.HIGHEST)
-	public static void onTheWorldTimeStopUserAttacked(LivingIncomingDamageEvent event) {
-		LivingEntity target = event.getEntity();
-		if (target.level().isClientSide() || !target.isAlive()
-				|| event.getSource().getDirectEntity() == null) {
-			return;
-		}
-		StandPower standPower = StandPower.get(target);
-		if (standPower == null || standPower.getPowerType() != ModStands.THE_WORLD.get()) {
-			return;
-		}
-		cancelTheWorldTimeStopCharge(target);
-		StandEntity standEntity = standPower.getSummonedStandEntity();
-		if (standEntity != null) {
-			cancelTheWorldTimeStopCharge(standEntity);
-		}
-	}
-
-	private static void cancelTheWorldTimeStopCharge(LivingEntity actionHolder) {
-		EntityActionInstance curAction = LivingComponentAction.getCurEntityAction(actionHolder);
-		if (curAction != null && curAction.ability instanceof TimeStopAbility
-				&& curAction.getPhase() == ActionPhase.BUTTON_CHARGE) {
-			LivingComponentAction.getComponent(actionHolder).setAction(null, SyncType.TRACKING_AND_SELF);
-		}
-	}
-
-	@SubscribeEvent(priority = EventPriority.HIGHEST)
-	public static void onStandBarrageUserHealthLinkInterrupted(LivingIncomingDamageEvent event) {
-		LivingEntity target = event.getEntity();
-		DamageSource source = event.getSource();
-		if (target.level().isClientSide() || !target.isAlive()
-				|| event.getAmount() < 4F
-				|| source.getDirectEntity() == null
-				|| !(source instanceof StandLinkDamageSource standLinkDamage)
-				|| !(standLinkDamage.standEntity instanceof StandEntity standEntity)
-				|| !target.is(standEntity.getUser())) {
-			return;
-		}
-		EntityActionInstance curAction = LivingComponentAction.getCurEntityAction(standEntity);
-		if (curAction instanceof StandEntityBarrageAbility.StandEntityBarrage barrage
-				&& curAction.getPhase() != ActionPhase.RECOVERY) {
-			barrage.startRecovery();
-		}
+	// 1.16 onLivingDamage (LOWEST): held actions that cancelHeldOnGettingAttacked (The World's time stop charge,
+	// barrages hit through the health link, Blood Drain, Devour, Hypnosis, add-on actions) stop on a hit.
+	@SubscribeEvent(priority = EventPriority.LOWEST)
+	public static void cancelHeldActionsOnGettingAttacked(LivingDamageEvent.Post event) {
+		EntityActionAbility.onUserGettingAttacked(event);
 	}
 
 	@SubscribeEvent(priority = EventPriority.HIGHEST)
@@ -401,7 +355,6 @@ public class EventHandler {
 
 	@SubscribeEvent(priority = EventPriority.HIGHEST)
 	public static void onPillarmanUtilityIncomingDamage(LivingIncomingDamageEvent event) {
-		VampirismBloodDrainAbility.onUserIncomingDamage(event);
 		if (VampirismFreezeAbility.onUserIncomingDamage(event)
 				|| PillarmanBladeDashAttackAbility.onUserIncomingDamage(event)
 				|| PillarmanBladeBarrageAbility.onUserIncomingDamage(event)

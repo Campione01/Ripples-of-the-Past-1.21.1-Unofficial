@@ -37,14 +37,6 @@ public class VampirismSpaceRipperStingyEyesAbility extends VampirismActionAbilit
 		}
 
 		@Override
-		public void _tickAction() {
-			// 1.16: a user stopped in time did not tick, so charging and firing waited for time to resume.
-			if (!VampirismActionAbility.isFrozenInStoppedTime(getPowerUser())) {
-				super._tickAction();
-			}
-		}
-
-		@Override
 		public void onSetPhase(ActionPhase newPhase) {
 			// 1.16 charged at full speed (no heldWalkSpeed); only the firing instance walked at 0.3.
 			userWalkSpeed = newPhase == ActionPhase.PERFORM ? 0.3F : 1.0F;

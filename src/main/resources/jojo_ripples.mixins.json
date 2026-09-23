@@ -87,6 +87,7 @@
 	"timestop.EntityFluidPushMixin",
 	"timestop.TimeStopFloatTravelMixin",
 	"timestop.ServerLevelTimeStopTickMixin",
+	"timestop.ServerPlayerTimeStopTickMixin",
 	"timestop.TimeStopItemEntityMixin",
 	"mrpresident.ServerGamePacketListenerCocoCarryMixin",
 	"control.ServerGamePacketListenerCarriedPassengerActionMixin",

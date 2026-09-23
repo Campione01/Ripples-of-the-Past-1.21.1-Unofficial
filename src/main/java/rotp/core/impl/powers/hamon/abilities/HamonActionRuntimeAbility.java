@@ -228,6 +228,12 @@ public class HamonActionRuntimeAbility extends EntityActionAbility {
 		return hamonHoldToFireTicks;
 	}
 
+	// A hold-to-fire technique charges in its windup, as 1.16 held it before it fired.
+	@Override
+	public boolean isActionHeld(EntityActionInstance action) {
+		return isHamonHoldToFire() && action.getPhase() == ActionPhase.WINDUP || super.isActionHeld(action);
+	}
+
 	protected boolean consumeHeldRuntimeTick(LivingEntity user, int ticksHeld) {
 		Power<?> context = getUserPower(user);
 		HamonData hamon = getHamonData(context);
@@ -239,6 +245,23 @@ public class HamonActionRuntimeAbility extends EntityActionAbility {
 	}
 
 	protected void onHeldTick(HamonHeldActionInstance action, LivingEntity user, Power<?> context, HamonData hamon, int ticksHeld) {
+	}
+
+	// 1.16 held a technique from the press until it fired or was released: a hold-to-fire one holds while it
+	// charges (and after firing only if it keeps holding), any other held one while it performs.
+	protected boolean isHeldTickPhase(@Nullable ActionPhase phase) {
+		if (phase == ActionPhase.WINDUP) {
+			return isHamonHoldToFire();
+		}
+		return phase == ActionPhase.PERFORM && (!isHamonHoldToFire() || hamonContinueHoldingAfterFire);
+	}
+
+	/**
+	 * 1.16 PowerBaseImpl.tickHeldAction re-checked the held action's requirements on every server held tick,
+	 * before its hold tick; a failed check ended the hold with its message. By default nothing is re-checked.
+	 */
+	protected ConditionCheck checkHeldTickConditions(HamonHeldActionInstance action, LivingEntity user, Power<?> context) {
+		return ConditionCheck.POSITIVE;
 	}
 
 	protected void syncHeldRuntimeTick(LivingEntity user, HamonData hamon, int ticksHeld) {
@@ -350,46 +373,39 @@ public class HamonActionRuntimeAbility extends EntityActionAbility {
 		@Override
 		public void onSetPhase(ActionPhase newPhase) {
 			HamonActionRuntimeAbility hamonAbility = hamonAbility();
-			if (hamonAbility != null && hamonAbility.isHamonHoldToFire() && newPhase == ActionPhase.WINDUP) {
-				userWalkSpeed = hamonAbility.heldWalkSpeed;
-			}
-			else {
-				userWalkSpeed = hamonAbility != null && newPhase == ActionPhase.PERFORM ? hamonAbility.heldWalkSpeed : 1.0F;
-			}
+			userWalkSpeed = hamonAbility != null && hamonAbility.isHeldTickPhase(newPhase) ? hamonAbility.heldWalkSpeed : 1.0F;
 		}
 
+		// 1.16 onHoldTick ran on every held tick, a hold-to-fire technique's charge included; once it fired, it was no longer held.
 		@Override
 		public void actionTick() {
-			if (getPhase() != ActionPhase.PERFORM && getPhase() != ActionPhase.WINDUP) {
-				return;
-			}
 			HamonActionRuntimeAbility hamonAbility = hamonAbility();
+			if (hamonAbility == null || !hamonAbility.isHeldTickPhase(getPhase())) {
+				return;
+			}
 			LivingEntity user = getPowerUser();
-			Power<?> context = hamonAbility != null && user != null ? hamonAbility.getUserPower(user) : null;
-			HamonData hamon = hamonAbility != null ? hamonAbility.getHamonData(context) : null;
-			if (!level().isClientSide() && getPhase() == ActionPhase.WINDUP && hamonAbility != null
-					&& hamonAbility.isHamonHoldToFire()) {
-				if (user == null || hamon == null || !hamonAbility.consumeHeldRuntimeTick(user, ticksHeld)) {
-					forceStop();
-					syncPhaseChanges();
-					return;
-				}
-				hamonAbility.syncHeldRuntimeTick(user, hamon, ticksHeld);
-				ticksHeld++;
-				return;
-			}
-			if (getPhase() != ActionPhase.PERFORM) {
-				return;
-			}
+			Power<?> context = user != null ? hamonAbility.getUserPower(user) : null;
+			HamonData hamon = hamonAbility.getHamonData(context);
 			if (!level().isClientSide()) {
-				if (hamonAbility == null || user == null || hamon == null
-						|| !hamonAbility.consumeHeldRuntimeTick(user, ticksHeld)) {
+				if (user == null || hamon == null) {
+					forceStop();
+					syncPhaseChanges();
+					return;
+				}
+				ConditionCheck check = hamonAbility.checkHeldTickConditions(this, user, context);
+				if (!check.isPositive()) {
+					ConditionCheck.sendActionFailedMessage(hamonAbility, check, user);
+					forceStop();
+					syncPhaseChanges();
+					return;
+				}
+				if (!hamonAbility.consumeHeldRuntimeTick(user, ticksHeld)) {
 					forceStop();
 					syncPhaseChanges();
 					return;
 				}
 			}
-			if (hamonAbility != null && user != null && hamon != null) {
+			if (user != null && hamon != null) {
 				hamonAbility.onHeldTick(this, user, context, hamon, ticksHeld);
 				if (!level().isClientSide()) {
 					hamonAbility.syncHeldRuntimeTick(user, hamon, ticksHeld);

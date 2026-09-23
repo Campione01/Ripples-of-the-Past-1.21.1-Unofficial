@@ -30,6 +30,7 @@ import rotp.core.powersystem.standpower.StandInstance.StandPart;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.entity.StandEntityAbility;
 import rotp.core.powersystem.standpower.entity.StandEntityAbility.AutoSummonMode;
+import rotp.core.powersystem.standpower.entity.StandLinkDamageSource;
 import rotp.core.powersystem.standpower.entity.StandStatFormulas;
 import rotp.core.subsystems.ServerBlockDestroyTracker;
 import rotp.core.subsystems.entity_grab.LivingComponentGrab;
@@ -134,6 +135,19 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 			}
 			action.phasesLength.put(ActionPhase.RECOVERY, stand.isArmsOnlyMode() ? 0 : StandStatFormulas.getBarrageRecovery(stand.getAttackSpeed()));
 		}
+	}
+
+	// 1.16 StandEntityMeleeBarrage: a hit on the Stand of 4 or more, taken by the user through the health link.
+	@Override
+	public boolean cancelHeldOnGettingAttacked(EntityActionInstance action, DamageSource dmgSource, float dmgAmount) {
+		return dmgAmount >= 4.0F && dmgSource instanceof StandLinkDamageSource;
+	}
+
+	// The barrage is held until it goes into recovery.
+	@Override
+	public boolean isActionHeld(EntityActionInstance action) {
+		ActionPhase phase = action.getPhase();
+		return phase != null && phase != ActionPhase.RECOVERY;
 	}
 
 	public static boolean isDirectionalBarrage(StandEntity stand, @Nullable EntityActionInstance action) {

@@ -218,6 +218,11 @@ public class ClientControlScheme {
 		}
 		
 		public List<AbilityControlsEntry> getAll(@Nonnull KeyModifier curModifier, InputMethod inputMethod) {
+			return getAll(curModifier, inputMethod, AbilityControlsEntry::isAvailable);
+		}
+		
+		List<AbilityControlsEntry> getAll(@Nonnull KeyModifier curModifier, InputMethod inputMethod,
+				Predicate<AbilityControlsEntry> isAvailable) {
 			List<AbilityControlsEntry> list = null;
 			Map<InputMethod, List<AbilityControlsEntry>> modifiedBinds = movesByModifier.get(curModifier);
 			if (modifiedBinds != null) {
@@ -230,7 +235,7 @@ public class ClientControlScheme {
 				}
 			}
 			else if (lockedShiftUsesBase && curModifier == KeyModifier.SHIFT
-					&& list.stream().noneMatch(AbilityControlsEntry::isAvailable)) {
+					&& list.stream().noneMatch(isAvailable)) {
 				Map<InputMethod, List<AbilityControlsEntry>> baseBinds = movesByModifier.get(KeyModifier.NONE);
 				List<AbilityControlsEntry> baseList = baseBinds != null ? baseBinds.get(inputMethod) : null;
 				if (baseList != null && !baseList.isEmpty()) {

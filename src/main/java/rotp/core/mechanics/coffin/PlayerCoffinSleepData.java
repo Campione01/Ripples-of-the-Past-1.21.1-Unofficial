@@ -7,6 +7,7 @@ import rotp.core.entityattachment.SynchronizablePlayerData;
 import rotp.core.entityattachment.TickingEntityData;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.network.s2c.TrPlayerCoffinSleepPacket;
+import rotp.core.subsystems.timestop.TimeStopState;
 import rotp.core.util.reflection.CommonReflection;
 
 import net.minecraft.core.HolderLookup.Provider;
@@ -62,14 +63,16 @@ public class PlayerCoffinSleepData implements SynchronizablePlayerData, TickingE
 		if (owner == null) {
 			return;
 		}
+		// Waking up (1.16 PlayerWakeUpEvent) is still noticed for a player frozen in stopped time.
 		if (!owner.isSleeping()) {
 			if (coffinPreventDayTimeSkip) {
 				onWakeUp();
 			}
 			return;
 		}
+		// 1.16 PlayerUtilCap.tickCoffinSleepTimer ran from the player tick, which a frozen player skips.
 		if (coffinPreventDayTimeSkip && WoodenCoffinBlock.isSleepingInCoffin(owner) && !isSunny(owner.level())
-				&& owner instanceof ServerPlayer serverPlayer) {
+				&& owner instanceof ServerPlayer serverPlayer && !TimeStopState.shouldFreezeOnServer(serverPlayer)) {
 			CommonReflection.setSleepCounter(serverPlayer, 0);
 		}
 	}

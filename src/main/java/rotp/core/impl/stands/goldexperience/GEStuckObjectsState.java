@@ -4,6 +4,7 @@ import rotp.core.entityattachment.SynchronizableEntityData;
 import rotp.core.entityattachment.TickingEntityData;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.network.s2c.TrGEStuckObjectsPacket;
+import rotp.core.subsystems.timestop.TimeStopState;
 
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -62,7 +63,8 @@ public class GEStuckObjectsState implements TickingEntityData, SynchronizableEnt
 
 	@Override
 	public void tick() {
-		if (entity.level().isClientSide() || stuckKnives <= 0) {
+		// 1.16 LivingStuckObjects ticked from the living tick, which an entity frozen in stopped time skips.
+		if (entity.level().isClientSide() || stuckKnives <= 0 || TimeStopState.shouldFreezeOnServer(entity)) {
 			return;
 		}
 		if (stuckKnifeRemoveTime <= 0) {

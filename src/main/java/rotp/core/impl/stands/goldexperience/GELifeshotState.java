@@ -4,6 +4,7 @@ import rotp.core.entityattachment.TickingEntityData;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModStatusEffects;
 import rotp.core.network.s2c.TrGESplitConsciousnessPacket;
+import rotp.core.subsystems.timestop.TimeStopState;
 
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -36,6 +37,11 @@ public class GELifeshotState implements TickingEntityData, INBTSerializable<Comp
 
 	@Override
 	public void tick() {
+		// 1.16 ticked the resistance from the living tick and the knockback packet from the player tick,
+		// both skipped for an entity frozen in stopped time.
+		if (TimeStopState.shouldFreezeOnServer(entity)) {
+			return;
+		}
 		tickLifeshotKnockback();
 		if (lifeShotResistTicks > 0) {
 			--lifeShotResistTicks;

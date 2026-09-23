@@ -7,6 +7,7 @@ import javax.annotation.Nullable;
 import rotp.core.entityattachment.TickingEntityData;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModStatusEffects;
+import rotp.core.subsystems.timestop.TimeStopState;
 
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -99,7 +100,8 @@ public class HamonHypnosisState implements TickingEntityData, INBTSerializable<C
 
 	@Override
 	public void tick() {
-		if (lookAtHypnotizerTicks > 0) {
+		// 1.16 LivingUtilCap.tickHypnosisProcess ran from the living tick, which an entity frozen in stopped time skips.
+		if (lookAtHypnotizerTicks > 0 && !TimeStopState.shouldFreezeOnServer(entity)) {
 			--lookAtHypnotizerTicks;
 			if (hypnotizer != null && hypnotizer.isAlive() && entity instanceof Mob mob) {
 				mob.getLookControl().setLookAt(hypnotizer, 30.0F, 30.0F);

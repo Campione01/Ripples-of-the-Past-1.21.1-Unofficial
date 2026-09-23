@@ -21,10 +21,15 @@ import rotp.core.powersystem.entityaction.HeldInput;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.netcode.SyncType;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
+import rotp.core.powersystem.standpower.StandPower;
+import rotp.core.powersystem.standpower.entity.StandEntity;
 
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
+import net.neoforged.neoforge.common.damagesource.DamageContainer;
+import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
 
 public class EntityActionAbility extends Ability implements EntityActionType {
 	protected Function<EntityActionType, ? extends EntityActionInstance> createActionObj;
@@ -96,7 +101,9 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 		if (action == null) return null;
 		
 		LivingComponentAction actionComponent = LivingComponentAction.getComponent(performer);
-		boolean toBuffer = action.ability.shouldBufferInput(actionComponent);
+		// A paused action (performer frozen in stopped time) does not advance, so it must not hold back new input.
+		boolean toBuffer = action.ability.shouldBufferInput(actionComponent)
+				&& !actionComponent.isActionPausedInStoppedTime();
 		
 		HeldInput actionOrQueue = null;
 		if (toBuffer) {
@@ -155,6 +162,91 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 		return phase != null && phase != ActionPhase.RECOVERY
 				&& (buttonHoldingPhase != null || buttonChargePhase.getAsFloat() > 0
 						|| action.hasCustomButtonStopHoldHandler());
+	}
+	
+	
+	protected boolean cancelHeldOnGettingAttacked = false;
+	
+	/**
+	 * 1.16 Action.cancelHeldOnGettingAttacked: a hit the user takes while the action is held stops the hold.
+	 */
+	public EntityActionAbility setCancelHeldOnGettingAttacked() {
+		this.cancelHeldOnGettingAttacked = true;
+		return this;
+	}
+	
+	/**
+	 * Whether this hit stops the held action. Asked only for a hit with a direct entity;
+	 * dmgAmount is what the user took after armor and absorption, as in 1.16's LivingDamageEvent.
+	 */
+	public boolean cancelHeldOnGettingAttacked(EntityActionInstance action, DamageSource dmgSource, float dmgAmount) {
+		return cancelHeldOnGettingAttacked;
+	}
+	
+	/**
+	 * Whether the action is still held the way a 1.16 held action was:
+	 * charging before it fires, or in its button-holding phase.
+	 */
+	public boolean isActionHeld(EntityActionInstance action) {
+		ActionPhase phase = action.getPhase();
+		return phase != null && (phase == ActionPhase.BUTTON_CHARGE || phase == buttonHoldingPhase);
+	}
+	
+	/**
+	 * 1.16 stopHeldAction(false): the hold ends as releasing the key ends it,
+	 * except that a charge which has not fired yet is dropped instead of firing.
+	 */
+	public void stopHeldActionOnGettingAttacked(EntityActionInstance action) {
+		if (action.getPhase() == ActionPhase.BUTTON_CHARGE) {
+			action.forceStop();
+		}
+		else {
+			action.onKeyRelease(action.getPowerUser());
+		}
+		action.syncPhaseChanges();
+	}
+	
+	/**
+	 * 1.16 GameplayEventHandler.onLivingDamage -> PowerBaseImpl.onUserGettingAttacked: a hit with a direct entity
+	 * stops the user's held actions (its own and its Stand's) whose cancelHeldOnGettingAttacked says so.
+	 * A hit that a shield or an incoming-damage reduction brought to nothing never reached that event.
+	 */
+	@ApiStatus.Internal
+	public static void onUserGettingAttacked(LivingDamageEvent.Post event) {
+		LivingEntity user = event.getEntity();
+		DamageSource dmgSource = event.getSource();
+		if (user.level().isClientSide() || dmgSource.getDirectEntity() == null
+				|| damageBeforeArmor(event) <= 0) {
+			return;
+		}
+		float dmgAmount = event.getNewDamage();
+		stopHeldActionOf(user, user, dmgSource, dmgAmount);
+		StandPower standPower = StandPower.get(user);
+		StandEntity standEntity = standPower != null ? standPower.getSummonedStandEntity() : null;
+		if (standEntity != null && standEntity != user) {
+			stopHeldActionOf(standEntity, user, dmgSource, dmgAmount);
+		}
+	}
+	
+	private static void stopHeldActionOf(LivingEntity performer, LivingEntity user, DamageSource dmgSource, float dmgAmount) {
+		EntityActionInstance action = LivingComponentAction.getCurEntityAction(performer);
+		// A hit on the Stand itself is not its user's (a linked hit reaches the user as its own damage).
+		if (action != null && !action.isOver() && action.getPowerUser() == user
+				&& action.ability instanceof EntityActionAbility ability
+				&& ability.isActionHeld(action)
+				&& ability.cancelHeldOnGettingAttacked(action, dmgSource, dmgAmount)) {
+			ability.stopHeldActionOnGettingAttacked(action);
+		}
+	}
+	
+	// What entered actuallyHurt (1.16's LivingHurtEvent result): the damage taken plus what armor, enchantments,
+	// effects and absorption took off.
+	private static float damageBeforeArmor(LivingDamageEvent.Post event) {
+		return event.getNewDamage()
+				+ event.getReduction(DamageContainer.Reduction.ARMOR)
+				+ event.getReduction(DamageContainer.Reduction.ENCHANTMENTS)
+				+ event.getReduction(DamageContainer.Reduction.MOB_EFFECTS)
+				+ event.getReduction(DamageContainer.Reduction.ABSORPTION);
 	}
 	
 

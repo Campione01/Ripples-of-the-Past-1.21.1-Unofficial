@@ -24,7 +24,6 @@ import rotp.core.subsystems.target.ActionTarget.TargetType;
 import rotp.core.util.functions.DamageUtil;
 import rotp.core.impl.powers.vampirism.VampirismData;
 import rotp.core.impl.powers.vampirism.entity.HungryZombieEntity;
-import rotp.core.impl.powers.zombie.abilities.ZombieDevourAbility;
 
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -38,7 +37,6 @@ import net.minecraft.world.entity.monster.AbstractIllager;
 import net.minecraft.world.entity.npc.Npc;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 
 public class VampirismBloodDrainAbility extends VampirismActionAbility {
 	private static final double MAX_RANGE_SQ_ENTITY_TARGET = 4.0D;
@@ -48,6 +46,7 @@ public class VampirismBloodDrainAbility extends VampirismActionAbility {
 		setButtonHoldPhase(ActionPhase.PERFORM);
 		setDefaultPhaseLength(ActionPhase.WINDUP, 0);
 		setDefaultPhaseLength(ActionPhase.RECOVERY, 0);
+		setCancelHeldOnGettingAttacked();
 	}
 
 	@Override
@@ -89,23 +88,9 @@ public class VampirismBloodDrainAbility extends VampirismActionAbility {
 		return ConditionCheck.POSITIVE;
 	}
 
-	private ConditionCheck checkHoldConditions(Power<?> context) {
-		// 1.16 PowerBaseImpl.checkRequirements ran every held tick, the stun check included.
-		ConditionCheck check = checkMainModLogicConditions(context);
-		return check.isPositive() ? checkUserConditions(context) : check;
-	}
-
 	public static class BloodDrainInstance extends EntityActionInstance {
 		public BloodDrainInstance(EntityActionType ability) {
 			super(ability);
-		}
-
-		@Override
-		public void _tickAction() {
-			// 1.16: a user stopped in time did not tick, so the drain waited for time to resume.
-			if (!VampirismActionAbility.isFrozenInStoppedTime(getPowerUser())) {
-				super._tickAction();
-			}
 		}
 
 		@Override
@@ -132,20 +117,25 @@ public class VampirismBloodDrainAbility extends VampirismActionAbility {
 			if (!(ability instanceof VampirismBloodDrainAbility drainAbility)) {
 				return;
 			}
+			// 1.16 PowerBaseImpl.checkRequirements order, every held tick: stun and alive, then the
+			// live mouse target, then the action's conditions.
 			Power<?> context = drainAbility.getUserPower(user);
-			ConditionCheck check = context != null ? drainAbility.checkHoldConditions(context) : ConditionCheck.NEGATIVE;
+			ConditionCheck check = context != null ? drainAbility.checkMainModLogicConditions(context) : ConditionCheck.NEGATIVE;
+			LivingEntity target = null;
+			if (check.isPositive()) {
+				// Without a drainable target in reach the drain only pauses (NEGATIVE_CONTINUE_HOLD).
+				target = getDrainTarget(user);
+				if (target == null || !canDrainBloodFrom(target)) {
+					return;
+				}
+				check = drainAbility.checkUserConditions(context);
+			}
 			if (!check.isPositive()) {
-				// 1.16 PowerBaseImpl.tickHeldAction: a failed condition (stun, hand, peaceful) ends the
-				// hold with its message; a new press is needed to resume.
+				// 1.16 PowerBaseImpl.tickHeldAction: a failed stun, hand, peaceful or curing check ends
+				// the hold, with its message if it has one; a new press is needed to resume.
 				ConditionCheck.sendActionFailedMessage(drainAbility, check, user);
 				forceStop();
 				syncPhaseChanges();
-				return;
-			}
-			// 1.16 re-read the live mouse target every held tick; without a drainable
-			// target in reach the drain only pauses (NEGATIVE_CONTINUE_HOLD).
-			LivingEntity target = getDrainTarget(user);
-			if (target == null || !canDrainBloodFrom(target)) {
 				return;
 			}
 			drainPerform(level(), user, target);
@@ -271,20 +261,6 @@ public class VampirismBloodDrainAbility extends VampirismActionAbility {
 			}
 		}
 		return hurt;
-	}
-
-	public static void onUserIncomingDamage(LivingIncomingDamageEvent event) {
-		LivingEntity target = event.getEntity();
-		if (target.level().isClientSide() || event.getSource().getDirectEntity() == null) {
-			return;
-		}
-		EntityActionInstance action = LivingComponentAction.getCurEntityAction(target);
-		if (action != null && (action.ability instanceof VampirismBloodDrainAbility
-				|| action.ability instanceof ZombieDevourAbility)
-				&& action.getPhase() == ActionPhase.PERFORM) {
-			action.forceStop();
-			action.syncPhaseChanges();
-		}
 	}
 
 	private static void addOrExtendEffect(LivingEntity target, net.minecraft.core.Holder<net.minecraft.world.effect.MobEffect> effect,

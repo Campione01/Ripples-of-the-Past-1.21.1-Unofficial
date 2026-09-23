@@ -14,6 +14,8 @@ import rotp.core.entityattachment.SynchronizablePlayerData;
 import rotp.core.entityattachment.TickingEntityData;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModStatusEffects;
+import rotp.core.powersystem.Power;
+import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.entityaction.EntityActionInstance.InputLifecycleSnapshot;
 import rotp.core.powersystem.entityaction.netcode.SyncType;
 import rotp.core.powersystem.entityaction.netcode.TrEntityActionInstancePacket;
@@ -23,6 +25,7 @@ import rotp.core.subsystems.target.ActionTargetAim;
 
 import net.minecraft.core.HolderLookup.Provider;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
@@ -332,13 +335,41 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 					&& !action.ability.ignoresPerformerStun()) {
 				return;
 			}
-			tickAction();
+			if (!isActionPausedInStoppedTime()) {
+				tickAction();
+			}
+			else if (action.isOver()) {
+				// Stopped from outside while paused (key release, damage): clear it as tickAction does.
+				setAction(null, null, SyncType.NO_SYNC);
+			}
 			if (action != null && !entity.level().isClientSide()) {
 				SyncActionInstanceData.tickSyncDirtyData(
 						entity, actionGeneration,
 						action.synchedData.getDataSyncher());
 			}
 		}
+	}
+	
+	/**
+	 * 1.16 did not tick a performer stopped in time, so its action waits on the server until time
+	 * resumes. An ability a stopped user may use still runs, as 1.16 performed it on the key press
+	 * (a time stop invading stopped time).
+	 */
+	@ApiStatus.Internal
+	public boolean isActionPausedInStoppedTime() {
+		if (action == null || !(entity.level() instanceof ServerLevel level)) {
+			return false;
+		}
+		var timeStop = ModDataAttachmentTypes.TIME_STOP.get();
+		if (!level.hasData(timeStop) || !level.getData(timeStop).shouldFreeze(entity)) {
+			return false;
+		}
+		if (action.ability instanceof Ability ability && ability.abilityId.powerClass() != null) {
+			LivingEntity user = action.getPowerUser();
+			Power<?> power = user != null ? ability.getUserPower(user) : null;
+			return power == null || !ability.canBeUsedInStoppedTime(power);
+		}
+		return true;
 	}
 	
 	protected void tickAction() {

@@ -8,6 +8,7 @@ import org.jetbrains.annotations.ApiStatus;
 import rotp.core.entityattachment.SynchronizablePlayerData;
 import rotp.core.entityattachment.TickingEntityData;
 import rotp.core.entityattachment.custom_effect.sync.SyncStandEffectInstanceData;
+import rotp.core.subsystems.timestop.TimeStopState;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -86,10 +87,13 @@ public class EntityCustomEffectsMap<T extends EntityCustomEffect> implements Tic
 
 		Entity entity = getEntity();
 		Level level = entity.level();
+		// 1.16 ticked these effects (the Stand virus) from the living tick, which an entity frozen in stopped
+		// time skips; one that has already stopped is still cleared.
+		boolean paused = TimeStopState.shouldFreezeOnServer(entity);
 		var it = effects.int2ObjectEntrySet().iterator();
 		while (it.hasNext()) {
 			T effect = it.next().getValue();
-			if (!effect.isStopped()) {
+			if (!paused && !effect.isStopped()) {
 				effect.onTick();
 				if (!effect.isStopped() && !level.isClientSide()) {
 					SyncStandEffectInstanceData.tickSyncDirtyData(entity, effectsClass, effect);
