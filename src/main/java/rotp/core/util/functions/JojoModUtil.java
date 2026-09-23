@@ -20,9 +20,12 @@ import rotp.core.init.ModGamerules;
 import rotp.core.network.s2c.BrokenBlocksParticlesAndSoundsPacket;
 import rotp.core.network.s2c.PlayVoiceLinePacket;
 import rotp.core.network.s2c.TrResetDeathTimePacket;
+import rotp.core.powersystem.ability.AbilityId;
+import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.StandUtil;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.subsystems.entity_possessionv2.LivingComponentPossession;
+import rotp.core.impl.stands._entitybase.StandEntityBlockAbility;
 import rotp.core.impl.stands.crazydiamond.CrazyDRestoreTerrainAbility;
 import rotp.core.util.sound.MultiSoundEventResolver;
 
@@ -231,6 +234,19 @@ public class JojoModUtil {
 			return true;
 		}
 		return target instanceof StandEntity stand && stand.isStandBlocking();
+	}
+
+	/**
+	 * Whether the ability is a Stand's guard. 1.16 StandEntity.isStandBlocking was StandPose.BLOCK, the pose of every
+	 * StandEntityBlock whatever its slot; StandEntityBlockAbility is that action, and "guard" is the slot the core
+	 * gives it.
+	 */
+	public static boolean isStandGuardAbility(@Nullable EntityActionType ability) {
+		if (ability instanceof StandEntityBlockAbility) {
+			return true;
+		}
+		AbilityId abilityId = ability != null ? ability.getAbilityId() : null;
+		return abilityId != null && "guard".equals(abilityId.nameInMoveset());
 	}
 
 	public static boolean sayVoiceLine(LivingEntity entity, SoundEvent voiceLine) {

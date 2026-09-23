@@ -84,6 +84,10 @@ public class TimeStopBlinkAbility extends Ability {
 		return this;
 	}
 
+	public String getTimeStopAbilityName() {
+		return timeStopAbilityName;
+	}
+
 	@Override
 	public boolean isAbilityUnlocked(Power<?> context) {
 		return getUnlockConditionCheck(context).isPositive();
@@ -136,7 +140,9 @@ public class TimeStopBlinkAbility extends Ability {
 	}
 
 	private boolean performBlink(ServerLevel serverLevel, LivingEntity user, StandPower power) {
-		int timeStopTicks = getMaxImpliedTicks(power);
+		// 1.16 TimeStopInstant read its base time stop's training for reach and per-tick cost
+		String learningName = TimeStopLearning.getLearningName(power, timeStopAbilityName);
+		int timeStopTicks = getMaxImpliedTicks(power, learningName);
 		double playerSpeed = getDistancePerTick(user);
 		double maxDistance = Math.min(playerSpeed * timeStopTicks, MAX_BLINK_DISTANCE);
 		ActionTarget target = rayTraceBlinkTarget(user, maxDistance);
@@ -145,7 +151,7 @@ public class TimeStopBlinkAbility extends Ability {
 		if (!StandAbilityStamina.consumeOrMessage(this, power, user, effectiveTimeStopCost(power, getStaminaCost(power)))) {
 			return false;
 		}
-		power.consumeStamina(effectiveTimeStopCost(power, impliedTicks * getStaminaCostTicking(power)));
+		power.consumeStamina(effectiveTimeStopCost(power, impliedTicks * getStaminaCostTicking(power, learningName)));
 		Vec3 soundPos = user.position();
 		makeNearbyMobsLoseTarget(user, blinkPos);
 		user.teleportTo(blinkPos.x, blinkPos.y, blinkPos.z);
@@ -156,17 +162,17 @@ public class TimeStopBlinkAbility extends Ability {
 				false, power, SoundSource.AMBIENT, 5.0F, 1.0F,
 				player -> TimeStopState.canPlayerSeeInStoppedTime(player)
 						&& player.position().distanceToSqr(soundPos) < soundRadius * soundRadius);
-		TimeStopCooldowns.setTimeStopBlinkCooldowns(power, impliedTicks);
+		TimeStopCooldowns.setTimeStopBlinkCooldowns(power, this, impliedTicks);
 		TimeStopLearning.markUsedTimeStopToday(power);
 		return true;
 	}
 
-	private static int getMaxImpliedTicks(StandPower power) {
-		int timeStopTicks = TimeStopLearning.getTimeStopTicks(power);
+	private static int getMaxImpliedTicks(StandPower power, String learningName) {
+		int timeStopTicks = TimeStopLearning.getTimeStopTicks(power, learningName);
 		if (StandUtil.standIgnoresStaminaDebuff(power)) {
 			return timeStopTicks;
 		}
-		float tickingCost = effectiveTimeStopCost(power, getStaminaCostTicking(power));
+		float tickingCost = effectiveTimeStopCost(power, getStaminaCostTicking(power, learningName));
 		if (tickingCost <= 0.0F) {
 			return timeStopTicks;
 		}
@@ -183,8 +189,8 @@ public class TimeStopBlinkAbility extends Ability {
 		return TimeStopLearning.getTimeStopBlinkStaminaCost(power);
 	}
 
-	private static float getStaminaCostTicking(StandPower power) {
-		return TimeStopLearning.getTimeStopBlinkStaminaCostTicking(power);
+	private static float getStaminaCostTicking(StandPower power, String learningName) {
+		return TimeStopLearning.getTimeStopBlinkStaminaCostTicking(power, learningName);
 	}
 
 	private static Holder<SoundEvent> getTimeStopBlinkSound(StandPower power) {

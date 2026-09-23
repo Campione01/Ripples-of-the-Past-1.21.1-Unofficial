@@ -60,6 +60,7 @@ public final class TimeStopBehaviorPoliciesSmokeTest {
 				"audio SILENT kind drifted");
 		check(progression.humanMaxTicks() == 200
 						&& progression.enhancedMaxTicks() == 500
+						&& progression.zombieMaxTicks() == 500
 						&& progression.learningPerTick() == (float) Math.PI
 						&& progression.decayPerDay() == Float.MAX_VALUE
 						&& progression.cooldownPerTick() == -1.0F,
@@ -68,12 +69,52 @@ public final class TimeStopBehaviorPoliciesSmokeTest {
 				() -> new TimeStopProgressionPolicy(
 						200, 199, 1.0F, 0.0F, 3.0F),
 				"decreasing enhanced maximum was accepted");
+		checkZombieMaximum();
 
 		TimeStopBehaviorPolicies.resetForTests();
 		check(TimeStopBehaviorPolicies.registeredOwners().isEmpty()
 						&& TimeStopBehaviorPolicies.registeredStandTypes()
 								.isEmpty(),
 				"test reset retained time-stop behavior bindings");
+	}
+
+	/**
+	 * 1.16 TimeStop.Builder.timeStopMaxTicks(forHuman, forVampire, forPillarman, forZombie) kept
+	 * zombies on their own cap (at least the human one); the two-value form gave them the vampire cap.
+	 */
+	private static void checkZombieMaximum() {
+		TimeStopProgressionPolicy shadow =
+				new TimeStopProgressionPolicy(60, 80, 70, 0.1F, 0.0F, 3.0F);
+		check(shadow.humanMaxTicks() == 60
+						&& shadow.enhancedMaxTicks() == 80
+						&& shadow.zombieMaxTicks() == 70
+						&& shadow.learningPerTick() == 0.1F
+						&& shadow.decayPerDay() == 0.0F
+						&& shadow.cooldownPerTick() == 3.0F,
+				"six-value progression values drifted");
+		check(new TimeStopProgressionPolicy(60, 80, 0.1F, 0.0F, 3.0F)
+						.equals(new TimeStopProgressionPolicy(
+								60, 80, 80, 0.1F, 0.0F, 3.0F)),
+				"five-value progression must give zombies the enhanced maximum");
+		check(new TimeStopProgressionPolicy(60, 80, 100, 0.1F, 0.0F, 3.0F)
+						.zombieMaxTicks() == 100
+						&& new TimeStopProgressionPolicy(
+								60, 80, 60, 0.1F, 0.0F, 3.0F)
+								.zombieMaxTicks() == 60,
+				"a zombie maximum from the human value up was rejected");
+		expectFailure(
+				() -> new TimeStopProgressionPolicy(
+						60, 80, 59, 0.1F, 0.0F, 3.0F),
+				"zombie maximum below the human maximum was accepted");
+		try {
+			// add-ons compiled against the five-value record call this constructor
+			TimeStopProgressionPolicy.class.getConstructor(
+					int.class, int.class, float.class, float.class, float.class);
+		}
+		catch (NoSuchMethodException error) {
+			throw new AssertionError(
+					"five-value progression constructor was removed", error);
+		}
 	}
 
 	private static void expectFailure(Runnable action, String message) {

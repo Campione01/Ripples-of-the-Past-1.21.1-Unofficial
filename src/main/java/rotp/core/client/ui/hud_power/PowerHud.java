@@ -599,7 +599,8 @@ public class PowerHud {
 			}
 			
 			MultiLineScreenTooltip tooltipText = (MultiLineScreenTooltip) this.tooltip.get();
-			int resolveModeTimer = standPower.resolveCounter.resolveModeTimer.value;
+			// clamped to the effect's remaining duration, as the ring is
+			int resolveModeTimer = standPower.resolveCounter.getResolveModeTicksShown(standPower);
 			if (resolveModeTimer > 0) {
 				tooltipText.setTitle(Component.translatable("ripples_hud.resolve_mode",
 						Component.literal(StringUtil.formatTickDuration(resolveModeTimer, Minecraft.getInstance().level.tickRateManager().tickrate()))

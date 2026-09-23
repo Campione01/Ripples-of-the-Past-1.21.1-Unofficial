@@ -1,10 +1,18 @@
 package rotp.core.subsystems.timestop;
 
+import java.util.LinkedHashSet;
+import java.util.Set;
+
+import javax.annotation.Nullable;
+
 import rotp.core.api.timestop.TimeStopBehaviorPolicies;
 import rotp.core.api.timestop.TimeStopProgressionPolicy;
 import rotp.core.config.client.PlayerClientBroadcastedSettings;
+import rotp.core.impl.stands.theworld.TimeStopAbility;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.init.power.ModStands;
+import rotp.core.powersystem.ability.Ability;
+import rotp.core.powersystem.ability.TrainableAbility;
 import rotp.core.powersystem.playerpower.PlayerPower;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.StandUtil;
@@ -38,19 +46,50 @@ public final class TimeStopLearning {
 
 	private TimeStopLearning() {}
 
+	/**
+	 * The learning key of a time stop. 1.16 kept training per TimeStop action; the port keys it by the
+	 * ability's moveset name, and the core's time stops are all "time_stop", so saved progress keeps its key.
+	 */
+	public static String getLearningName(@Nullable Ability timeStop) {
+		if (timeStop instanceof TrainableAbility trainable && trainable.getLearningAbilityName() != null) {
+			return trainable.getLearningAbilityName();
+		}
+		return timeStop != null && timeStop.abilityId.powerTypeId() != null ? timeStop.name() : TIME_STOP;
+	}
+
+	/** The learning key of the time stop the moveset holds under this name (a blink's base time stop). */
+	public static String getLearningName(@Nullable StandPower power, String timeStopAbilityName) {
+		Ability timeStop = power != null ? power.getMoveset().getAbility(timeStopAbilityName) : null;
+		return timeStop != null ? getLearningName(timeStop) : timeStopAbilityName;
+	}
+
+	/** Without an ability at hand: the Stand's "time_stop", otherwise its time stop under another name. */
+	public static String getDefaultLearningName(@Nullable StandPower power) {
+		return getLearningName(TimeStopState.getDefaultTimeStopAbility(power));
+	}
+
 	public static int getTimeStopTicks(StandPower power) {
+		return getTimeStopTicks(power, getDefaultLearningName(power));
+	}
+
+	/** 1.16 TimeStop.getTimeStopTicks(power, action): each time stop lasts as long as its own training. */
+	public static int getTimeStopTicks(StandPower power, String learningName) {
 		if (isCreativeTimeStopTemplate(power)) {
 			return CREATIVE_TIME_STOP_TICKS;
 		}
-		return getSavedTimeStopTicks(power);
+		return getSavedTimeStopTicks(power, learningName);
 	}
 
 	public static int getSavedTimeStopTicks(StandPower power) {
+		return getSavedTimeStopTicks(power, getDefaultLearningName(power));
+	}
+
+	public static int getSavedTimeStopTicks(StandPower power, String learningName) {
 		if (power == null) {
 			return MIN_TIME_STOP_TICKS;
 		}
 		StandTypePersistentData data = power.getCurTypeData();
-		float points = data != null ? data.getAbilityLearningProgressPoints(TIME_STOP) : 0.0F;
+		float points = data != null ? data.getAbilityLearningProgressPoints(learningName) : 0.0F;
 		return getLearnedTimeStopTicks(points, getNormalMaxTimeStopTicks(power));
 	}
 
@@ -109,9 +148,7 @@ public final class TimeStopLearning {
 				? policy.enhancedMaxTicks()
 				: VAMPIRE_MAX_TIME_STOP_TICKS;
 		if (isHighSaturationZombie(user)) {
-			return policy != null
-					? enhancedMaxTicks
-					: ZOMBIE_MAX_TIME_STOP_TICKS;
+			return getZombieMaxTimeStopTicks(policy);
 		}
 		int pillarmanTicks =
 				getPillarmanTimeStopTicks(user, enhancedMaxTicks);
@@ -124,12 +161,26 @@ public final class TimeStopLearning {
 		return humanMaxTicks;
 	}
 
+	/** 1.16 getMaxTimeStopTicks: a high-saturation zombie gets the Stand's own zombie cap. */
+	static int getZombieMaxTimeStopTicks(@Nullable TimeStopProgressionPolicy policy) {
+		return policy != null ? policy.zombieMaxTicks() : ZOMBIE_MAX_TIME_STOP_TICKS;
+	}
+
 	public static float getTimeStopStaminaCostTick(StandPower power) {
-		return BASE_STAMINA_COST_TICK * HUMAN_MAX_TIME_STOP_TICKS / getTimeStopTicks(power);
+		return getTimeStopStaminaCostTick(power, getDefaultLearningName(power));
+	}
+
+	/** 1.16 TimeStop.getStaminaCostTicking: scaled by 100 / that time stop's own ticks. */
+	public static float getTimeStopStaminaCostTick(StandPower power, String learningName) {
+		return BASE_STAMINA_COST_TICK * HUMAN_MAX_TIME_STOP_TICKS / getTimeStopTicks(power, learningName);
 	}
 
 	public static float getTimeStopStaminaCost(StandPower power, int ticks) {
-		int maxTicks = getTimeStopTicks(power);
+		return getTimeStopStaminaCost(power, getDefaultLearningName(power), ticks);
+	}
+
+	public static float getTimeStopStaminaCost(StandPower power, String learningName, int ticks) {
+		int maxTicks = getTimeStopTicks(power, learningName);
 		int clampedTicks = Mth.clamp(ticks, MIN_RELEASE_TIME_STOP_TICKS, maxTicks);
 		return BASE_STAMINA_COST * clampedTicks / maxTicks;
 	}
@@ -139,7 +190,12 @@ public final class TimeStopLearning {
 	}
 
 	public static float getTimeStopBlinkStaminaCostTicking(StandPower power) {
-		return getTimeStopStaminaCostTick(power) * BLINK_STAMINA_RATIO;
+		return getTimeStopBlinkStaminaCostTicking(power, getDefaultLearningName(power));
+	}
+
+	/** 1.16 TimeStopInstant.getStaminaCostTicking: a share of its base time stop's per-tick cost. */
+	public static float getTimeStopBlinkStaminaCostTicking(StandPower power, String learningName) {
+		return getTimeStopStaminaCostTick(power, learningName) * BLINK_STAMINA_RATIO;
 	}
 
 	public static float getTsPunchTimeStopBaseStaminaCost(StandPower power) {
@@ -191,20 +247,25 @@ public final class TimeStopLearning {
 	}
 
 	public static void onTimeStopEnded(StandPower standPower, int ticksPassed) {
-		if (!canLearnFromEndedTimeStop(standPower)) {
+		onTimeStopEnded(standPower, TimeStopState.getDefaultTimeStopAbility(standPower), ticksPassed);
+	}
+
+	/** 1.16 TimeStopInstance.onRemoved: the time stop that ended learns, while it is still unlocked. */
+	public static void onTimeStopEnded(StandPower standPower, @Nullable Ability timeStop, int ticksPassed) {
+		if (!canLearnFromEndedTimeStop(standPower, timeStop)) {
 			return;
 		}
-		addTimeStopLearning(standPower,
+		addTimeStopLearning(standPower, getLearningName(timeStop),
 				getLearningPoints(learningPerTick(standPower), ticksPassed));
 	}
 
-	private static boolean canLearnFromEndedTimeStop(StandPower standPower) {
+	private static boolean canLearnFromEndedTimeStop(StandPower standPower, @Nullable Ability timeStop) {
 		return standPower != null && standPower.hasPower()
-				&& standPower.isAbilityUnlocked(TIME_STOP);
+				&& timeStop != null && timeStop.isAbilityUnlocked(standPower);
 	}
 
 	public static void onTsPunchTimeSkip(StandPower standPower, int ticksPassed) {
-		addTimeStopLearning(standPower,
+		addTimeStopLearning(standPower, getDefaultLearningName(standPower),
 				getLearningPoints(learningPerTick(standPower), ticksPassed));
 	}
 
@@ -212,13 +273,13 @@ public final class TimeStopLearning {
 		return learningPerTick * Math.max(ticksPassed, 0);
 	}
 
-	private static void addTimeStopLearning(StandPower standPower, float points) {
+	private static void addTimeStopLearning(StandPower standPower, String learningName, float points) {
 		if (isCreativeTimeStopTemplate(standPower)
 				|| standPower == null || !standPower.hasPower() || standPower.getCurTypeData() == null
-				|| standPower.getCurTypeData().getAbilityLearningProgressPoints(TIME_STOP) < 0.0F) {
+				|| standPower.getCurTypeData().getAbilityLearningProgressPoints(learningName) < 0.0F) {
 			return;
 		}
-		standPower.getCurTypeData().addAbilityLearningProgressPoints(TIME_STOP, points,
+		standPower.getCurTypeData().addAbilityLearningProgressPoints(learningName, points,
 				getMaxTrainingPoints(standPower), standPower);
 	}
 
@@ -235,9 +296,27 @@ public final class TimeStopLearning {
 				? policy.decayPerDay()
 				: TIME_STOP_DECAY_PER_DAY;
 		if (decayPerDay > 0.0F) {
-			data.addAbilityLearningProgressPoints(TIME_STOP, -decayPerDay,
-					getMaxTrainingPoints(standPower), standPower);
+			// 1.16 TimeStop.passivelyOnNewDay: every time stop of the Stand decays its own training.
+			for (String learningName : getTimeStopLearningNames(standPower)) {
+				data.addAbilityLearningProgressPoints(learningName, -decayPerDay,
+						getMaxTrainingPoints(standPower), standPower);
+			}
 		}
+	}
+
+	static Set<String> getTimeStopLearningNames(@Nullable StandPower standPower) {
+		Set<String> learningNames = new LinkedHashSet<>();
+		if (standPower != null) {
+			for (Ability ability : standPower.getMoveset().abilities.values()) {
+				if (ability instanceof TimeStopAbility) {
+					learningNames.add(getLearningName(ability));
+				}
+			}
+		}
+		if (learningNames.isEmpty()) {
+			learningNames.add(TIME_STOP);
+		}
+		return learningNames;
 	}
 
 	private static boolean isHighBloodVampire(LivingEntity user) {

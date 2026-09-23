@@ -100,34 +100,37 @@ public class ResolveCounter {
 			resolveLerp.lerpTick();
 			LivingEntity user = stand.getUser();
 			float resolveBeforeTick = getResolveValue();
+			boolean resolveEffectOn = user != null && user.hasEffect(ModStatusEffects.RESOLVE);
 			tickResolveValue(stand, user);
 			float curResolve = getResolveValue();
 			
-			if (resolveModeTimer.value > 0) {
-				resolveModeTimer.value--;
-			}
-			else {
-				if (!user.level().isClientSide()) {
-					user.removeEffect(ModStatusEffects.RESOLVE);
-				}
+			// 1.16 had no mode timer: a draining Resolve ends when its value runs out (tickResolveValue) and
+			// any Resolve ends on its effect's own duration, finite or infinite. The timer only shows what is left.
+			MobEffectInstance resolveMode = user.getEffect(ModStatusEffects.RESOLVE);
+			resolveModeTimer.value = nextResolveModeTimer(resolveModeTimer.value, resolveModeTimer.defaultValue,
+					resolveMode != null && drainsResolveValue(resolveMode.getAmplifier()), curResolve, getMaxResolveValue(stand));
+			if (resolveModeTimer.value <= 0) {
 				resolveModeTimer.defaultValue = -1;
 				resolveModeTimer.reset();
 			}
 			
-			if (noBoostDecayTicks > 0) {
-				noBoostDecayTicks--;
-			}
-			else {
-				boolean hadValue = resolveBeforeTick > 0;
-				if (hadValue) {
-					boostAttack = 1;
+			// 1.16 ResolveCounter.tick: boosts neither count down nor reset while the Resolve effect is on
+			if (!resolveEffectOn) {
+				if (noBoostDecayTicks > 0) {
+					noBoostDecayTicks--;
 				}
-				if (hadValue && curResolve == 0) {
-					boostChat = 1;
-					hpOnGettingAttacked = OptionalFloat.empty();
-				}
-				else if (user != null && user.getHealth() == user.getMaxHealth()) {
-					hpOnGettingAttacked = OptionalFloat.empty();
+				else {
+					boolean hadValue = resolveBeforeTick > 0;
+					if (hadValue) {
+						boostAttack = 1;
+					}
+					if (hadValue && curResolve == 0) {
+						boostChat = 1;
+						hpOnGettingAttacked = OptionalFloat.empty();
+					}
+					else if (user != null && user.getHealth() == user.getMaxHealth()) {
+						hpOnGettingAttacked = OptionalFloat.empty();
+					}
 				}
 			}
 			
@@ -138,6 +141,11 @@ public class ResolveCounter {
 	private void tickResolveValue(StandPower stand, LivingEntity user) {
 		MobEffectInstance resolveMode = user.getEffect(ModStatusEffects.RESOLVE);
 		if (resolveMode != null) {
+			// 1.16 ResolveCounter.tick: only levels below RESOLVE_EFFECT_MIN.length drain the value,
+			// a higher Resolve (GER's evolution, level 5) keeps it full for the whole effect
+			if (!drainsResolveValue(resolveMode.getAmplifier())) {
+				return;
+			}
 			int resolveLevel = resolveMode.getAmplifier();
 			if (resolveLevel < 0) {
 				resolveLevel = 255;
@@ -188,9 +196,14 @@ public class ResolveCounter {
 		LivingEntity user = stand.getUser();
 		MobEffectInstance resolveEffect = ResolveModeEffect.maxDurationResolveEffect(user);
 		if (resolveEffect != null) {
+			boolean timerOn = resolveModeTimer.defaultValue > -1 && resolveModeTimer.value > -1;
+			// an infinite Resolve with no countdown keeps a full ring
+			if (resolveEffect.isInfiniteDuration() && !timerOn) {
+				return 1;
+			}
 			int duration = resolveEffect.getDuration();
-			if (resolveModeTimer.defaultValue > -1 && resolveModeTimer.value > -1) {
-				duration = Math.min(resolveModeTimer.value, duration);
+			if (timerOn) {
+				duration = resolveModeTicksShown(resolveModeTimer.value, duration);
 			}
 			float value = duration + 1 - partialTick;
 			if (value > 0) {
@@ -201,6 +214,17 @@ public class ResolveCounter {
 			}
 		}
 		return -1;
+	}
+
+	/** Mode ticks the HUD prints: the timer, clamped to the effect's remaining duration as the ring is. */
+	public int getResolveModeTicksShown(StandPower stand) {
+		MobEffectInstance resolveEffect = ResolveModeEffect.maxDurationResolveEffect(stand.getUser());
+		return resolveEffect != null ? resolveModeTicksShown(resolveModeTimer.value, resolveEffect.getDuration()) : -1;
+	}
+
+	/** The mode timer, never past the effect's remaining ticks; effectTicks below 0 is an infinite effect. */
+	public static int resolveModeTicksShown(int timer, int effectTicks) {
+		return timer > 0 && effectTicks >= 0 ? Math.min(timer, effectTicks) : timer;
 	}
 
 
@@ -240,13 +264,48 @@ public class ResolveCounter {
 //			if (resolveLevel < RESOLVE_EFFECT_MAX.length) {
 //				resolveModeTimer.value = Math.max(resolveModeTimer.value, resolveModeTimer.defaultValue / 2);
 //			}
-			setResolveValue(stand, Math.max(getMaxResolveValue(stand) * 0.5F, getResolveValue()), 0);
-			resolveModeTimer.value = Math.max(resolveModeTimer.value, resolveModeTimer.defaultValue / 2);
+			// 1.16 ResolveCounter.addResolveValue: the boosted points are added first, then
+			// the value is kept at half or more (Rain Redemption's refill keeps it full)
+			float addedResolve = getResolveValue() + boostAddedValue(resolve, user);
+			setResolveValue(stand, Math.max(getMaxResolveValue(stand) * 0.5F, addedResolve), 0);
+			// the shown timer follows the new value at once; a non-draining Resolve's timer is its
+			// effect duration and is left alone (the original guard skipped levels past the table)
+			if (drainsResolveValue(resolveMode.getAmplifier())) {
+				resolveModeTimer.value = resolveModeTicksForValue(resolveModeTimer.defaultValue, getResolveValue(), getMaxResolveValue(stand));
+			}
 		}
 		
 		if (user instanceof ServerPlayer player) {
 			PacketDistributor.sendToPlayer(player, new ResolveBoostsPacket(this));
 		}
+	}
+
+	/** 1.16 ResolveCounter.tick drained the value only for Resolve levels below RESOLVE_EFFECT_MIN.length. */
+	public static boolean drainsResolveValue(int amplifier) {
+		return amplifier < RESOLVE_EFFECT_MIN.length;
+	}
+
+	/**
+	 * Resolve mode ticks left for a value: 1.16's draining value lost max / RESOLVE_EFFECT_MIN
+	 * per tick, so a value lasts value / max of the timer.
+	 */
+	public static int resolveModeTicksForValue(int modeTicksMax, float value, float maxValue) {
+		if (modeTicksMax <= 0 || maxValue <= 0) {
+			return 0;
+		}
+		return Mth.ceil(modeTicksMax * Mth.clamp(value / maxValue, 0.0F, 1.0F));
+	}
+
+	/**
+	 * The mode timer after a tick, on both sides. It is display only and never ends the Resolve:
+	 * a draining one shows how long its value lasts (so a refill, e.g. from a soul, stretches it),
+	 * any other one counts down the effect duration it started with (-1 for an infinite effect).
+	 */
+	public static int nextResolveModeTimer(int timer, int timerMax, boolean drainingResolve, float value, float maxValue) {
+		if (drainingResolve) {
+			return resolveModeTicksForValue(timerMax, value, maxValue);
+		}
+		return timer > 0 ? timer - 1 : timer;
 	}
 
 	protected float boostAddedValue(float value, LivingEntity entity) {
@@ -308,12 +367,14 @@ public class ResolveCounter {
 			setResolveValue(stand, stand.resolveCounter.getMaxResolveValue(stand), 0);
 			
 			boolean hasMinDuration = false;
-			if (resolveEffect.is(ModStatusEffects.RESOLVE)) {
+			// a non-draining Resolve (level 5+) runs for the effect's own duration, as in 1.16
+			if (resolveEffect.is(ModStatusEffects.RESOLVE) && drainsResolveValue(resolveEffect.getAmplifier())) {
 				hasMinDuration = true;
 				resolveModeTimer.defaultValue = RESOLVE_EFFECT_MIN[resolveLevel];
 			}
 			if (!hasMinDuration) {
-				resolveModeTimer.defaultValue = resolveEffect.getDuration();
+				// an infinite effect has no countdown to show (-1, never a huge timer)
+				resolveModeTimer.defaultValue = resolveEffect.isInfiniteDuration() ? -1 : resolveEffect.getDuration();
 			}
 			resolveModeTimer.reset();
 			
@@ -388,9 +449,14 @@ public class ResolveCounter {
 			}
 
 			if (dmgAmount >= user.getMaxHealth() * 0.4F) {
-				addResolveValue(stand, dmgAmount * BOOST_PER_DMG_DEALT * 10);
+				addResolveValue(stand, resolveOnGettingAttacked(dmgAmount));
 			}
 		}
+	}
+
+	/** 1.16 ResolveCounter.onGettingAttacked: a hit of 40% max health or more adds dmg * BOOST_PER_DMG_DEALT * 2 before boosts. */
+	public static float resolveOnGettingAttacked(float dmgAmount) {
+		return dmgAmount * BOOST_PER_DMG_DEALT * 2;
 	}
 
 	protected void tickBoostRemoteControl(StandPower stand) {

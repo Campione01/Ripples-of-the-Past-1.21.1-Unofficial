@@ -99,6 +99,7 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 		if (user == null || inputMethod == null) return null;
 		EntityActionInstance action = initActionOnAbilityUse(level, user, performer, extraClientInput);
 		if (action == null) return null;
+		action.setStartedByClick(inputMethod == InputMethod.CLICK);
 		
 		LivingComponentAction actionComponent = LivingComponentAction.getComponent(performer);
 		// A paused action (performer frozen in stopped time) does not advance, so it must not hold back new input.
@@ -190,6 +191,17 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 	public boolean isActionHeld(EntityActionInstance action) {
 		ActionPhase phase = action.getPhase();
 		return phase != null && (phase == ActionPhase.BUTTON_CHARGE || phase == buttonHoldingPhase);
+	}
+	
+	/**
+	 * Whether releasing the key still reaches an action a CLICK input started. 1.16 performed an action without a
+	 * hold on the click and never let the release cancel it; a click-bound action that holds (a button charge,
+	 * a button-holding phase, or whatever {@link #isActionHeld} counts) keeps the release as a held one does.
+	 */
+	public boolean keyReleaseReachesClickAction(EntityActionInstance action) {
+		return buttonHoldingPhase != null
+				|| action.phasesLength.getFloat(ActionPhase.BUTTON_CHARGE) > 0
+				|| isActionHeld(action);
 	}
 	
 	/**

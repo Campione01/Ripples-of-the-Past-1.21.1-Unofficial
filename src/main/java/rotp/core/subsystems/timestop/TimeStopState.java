@@ -41,9 +41,11 @@ import rotp.core.network.s2c.TrTimeStopInstancePacket;
 import rotp.core.network.s2c.TrTimeStopPlayerStatePacket;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
+import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.StandUtil;
 import rotp.core.powersystem.standpower.entity.StandEntity;
+import rotp.core.impl.stands.theworld.TimeStopAbility;
 import rotp.core.subsystems.movement_input_sync.PlayerMovementInputData;
 import rotp.core.subsystems.soul.SoulEntity;
 import rotp.core.util.functions.JojoModUtil;
@@ -85,6 +87,10 @@ public class TimeStopState {
 
     private final ServerLevel level;
     private final Map<Integer, TimeStopState.Instance> instances = new HashMap<>();
+    // Server-only: the ability that started each instance, like 1.16 TimeStopInstance.action.
+    private final Map<Integer, AbilityId> timeStopStarters = new HashMap<>();
+    // Server-only: the stamina each instance's start actually took; an early resume refunds a share of it.
+    private final Map<Integer, Float> timeStopStartCharges = new HashMap<>();
     private final Map<Integer, FrozenEntityState> frozenEntities = new HashMap<>();
     private final Map<Integer, List<Runnable>> onTimeResume = new HashMap<>();
     private final Set<UUID> playersVisionFrozen = new HashSet<>();
@@ -138,10 +144,42 @@ public class TimeStopState {
 
     @ApiStatus.Internal
     public boolean commitPreStart(TimeStopLifecycleEvent.PreStart event) {
+        return commitPreStart(event, null);
+    }
+
+    /**
+     * Commits the instance and remembers the ability that started it, so the instance
+     * ends, and its cooldown lands, on that ability whatever its moveset name.
+     */
+    @ApiStatus.Internal
+    public boolean commitPreStart(TimeStopLifecycleEvent.PreStart event, @Nullable Ability startingAbility) {
+        return commitPreStart(event, startingAbility, 0.0F);
+    }
+
+    /**
+     * Also records the stamina the start actually took. An early resume refunds a share of
+     * that record, and nothing when no charge was recorded.
+     */
+    @ApiStatus.Internal
+    public boolean commitPreStart(TimeStopLifecycleEvent.PreStart event, @Nullable Ability startingAbility,
+            float chargedStartCost) {
         if (event == null || event.isCanceled() || event.getLevel() != level) {
             return false;
         }
-        commitInstance(event.getInstance());
+        Instance instance = event.getInstance();
+        if (startingAbility != null) {
+            timeStopStarters.put(instance.id(), startingAbility.abilityId);
+        }
+        else {
+            timeStopStarters.remove(instance.id());
+        }
+        if (chargedStartCost > 0.0F && Float.isFinite(chargedStartCost)) {
+            timeStopStartCharges.put(instance.id(), chargedStartCost);
+        }
+        else {
+            timeStopStartCharges.remove(instance.id());
+        }
+        commitInstance(instance);
         return true;
     }
 
@@ -761,6 +799,8 @@ public class TimeStopState {
                 new ArrayList<>(removedInstances.size());
         Map<StandPower, Integer> cooldownTicks =
                 new IdentityHashMap<>();
+        Map<StandPower, String> cooldownAbilities =
+                new IdentityHashMap<>();
         for (Instance removed : removedInstances) {
             LivingEntity user = getLivingEntityById(removed.userId());
             StandPower power =
@@ -769,51 +809,125 @@ public class TimeStopState {
                 int effectiveTicksPassed =
                         Math.max(removed.ticksPassed(), 0);
                 settlements.add(new TimeStopSettlement(
-                        power, removed, effectiveTicksPassed));
-                cooldownTicks.merge(
-                        power, effectiveTicksPassed, Math::max);
+                        power, removed, effectiveTicksPassed,
+                        getStartingAbility(removed, power),
+                        timeStopStartCharges.getOrDefault(removed.id(), 0.0F)));
+                Integer previousTicks = cooldownTicks.get(power);
+                if (previousTicks == null || effectiveTicksPassed > previousTicks) {
+                    cooldownTicks.put(power, effectiveTicksPassed);
+                    cooldownAbilities.put(power, getCooldownAbilityName(removed, power));
+                }
+            }
+        }
+        for (Instance removed : removedInstances) {
+            if (!instances.containsKey(removed.id())) {
+                timeStopStarters.remove(removed.id());
+                timeStopStartCharges.remove(removed.id());
             }
         }
         for (TimeStopSettlement settlement : settlements) {
             refundUnusedTimeStopStartCost(
                     settlement.power(),
                     settlement.instance(),
-                    settlement.effectiveTicksPassed());
+                    settlement.effectiveTicksPassed(),
+                    settlement.chargedStartCost());
         }
+        // 1.16 TimeStopInstance.onRemoved: the learning goes to the time stop that started it.
         for (TimeStopSettlement settlement : settlements) {
             TimeStopLearning.onTimeStopEnded(
                     settlement.power(),
+                    settlement.timeStop(),
                     settlement.effectiveTicksPassed());
         }
         for (Map.Entry<StandPower, Integer> cooldown
                 : cooldownTicks.entrySet()) {
             TimeStopCooldowns.setTimeStopCooldownsOnTimeStopEnd(
-                    cooldown.getKey(), cooldown.getValue());
+                    cooldown.getKey(),
+                    cooldownAbilities.get(cooldown.getKey()),
+                    cooldown.getValue());
         }
     }
 
-	private void refundUnusedTimeStopStartCost(StandPower power, Instance removed, int effectiveTicksPassed) {
+    /**
+     * 1.16 TimeStopInstance.onRemoved put the cooldown on the TimeStop action that
+     * started the instance, so an add-on time stop is cooled down under its own name.
+     */
+    private String getCooldownAbilityName(Instance removed, StandPower power) {
+        AbilityId starter = timeStopStarters.get(removed.id());
+        if (starter != null && starter.powerTypeId() != null) {
+            return starter.nameInMoveset();
+        }
+        Ability timeStop = getMovesetTimeStopAbility(power);
+        return timeStop != null ? timeStop.name() : TimeStopCooldowns.TIME_STOP;
+    }
+
+    /**
+     * The ability whose unlock keeps the instance running. 1.16 TimeStopInstance.tick
+     * checked the action that started it, not a fixed name, so Shadow The World's
+     * "shadow_world_time_stop" and Catch the Rainbow's rain stop keep their instance.
+     */
+    @Nullable
+    private Ability getStartingAbility(Instance instance, StandPower power) {
+        AbilityId starter = timeStopStarters.get(instance.id());
+        if (starter == null || starter.powerTypeId() == null) {
+            return getMovesetTimeStopAbility(power);
+        }
+        Ability ability = power.getMoveset().getAbility(starter.nameInMoveset());
+        return ability != null && starter.equals(ability.abilityId) ? ability : null;
+    }
+
+    /**
+     * For instances started without an ability (API callers): the moveset's "time_stop",
+     * otherwise its first time-stop ability under any name.
+     */
+    @Nullable
+    private static Ability getMovesetTimeStopAbility(StandPower power) {
+        Ability timeStop = power.getMoveset().getAbility(TimeStopLearning.TIME_STOP);
+        if (timeStop != null) {
+            return timeStop;
+        }
+        for (Ability ability : power.getMoveset().abilities.values()) {
+            if (ability instanceof TimeStopAbility) {
+                return ability;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The time stop a Stand trains and is costed by when no ability is at hand.
+     */
+    @ApiStatus.Internal
+    @Nullable
+    public static Ability getDefaultTimeStopAbility(@Nullable StandPower power) {
+        return power != null ? getMovesetTimeStopAbility(power) : null;
+    }
+
+	private void refundUnusedTimeStopStartCost(StandPower power, Instance removed, int effectiveTicksPassed,
+			float chargedStartCost) {
 		if (!removed.refundUnusedStartCost()) {
 			return;
 		}
 		if (power.isStaminaInfinite()) {
 			return;
 		}
-		int totalTicks = Math.max(removed.totalTicks(), 0);
-		if (totalTicks <= 0) {
-			return;
-		}
-		int elapsedTicks = Math.max(0, Math.min(effectiveTicksPassed, totalTicks));
-		if (elapsedTicks >= totalTicks) {
-			return;
-		}
-		float unusedRatio = (float) (totalTicks - elapsedTicks) / (float) totalTicks;
-		float refund = TimeStopLearning.getTimeStopStaminaCost(power, removed.totalTicks())
-				* PlayerClientBroadcastedSettings.getTimeStopStaminaCostMultiplier(power)
-				* unusedRatio;
+		// a share of what the start took (policy and multiplier included), never repriced at the end
+		float refund = getUnusedStartCostRefund(chargedStartCost, removed.totalTicks(), effectiveTicksPassed);
 		if (refund > 0.0F) {
 			power.setStamina(power.getStamina() + refund);
 		}
+	}
+
+	/** The unused share of the recorded start charge; nothing without a recorded charge. */
+	static float getUnusedStartCostRefund(float chargedStartCost, int totalTicks, int effectiveTicksPassed) {
+		if (!(chargedStartCost > 0.0F) || !Float.isFinite(chargedStartCost) || totalTicks <= 0) {
+			return 0.0F;
+		}
+		int elapsedTicks = Math.max(0, Math.min(effectiveTicksPassed, totalTicks));
+		if (elapsedTicks >= totalTicks) {
+			return 0.0F;
+		}
+		return chargedStartCost * (float) (totalTicks - elapsedTicks) / (float) totalTicks;
 	}
 
     private void removeTimeStopEffectIfNoActiveInstance(Instance removed) {
@@ -833,7 +947,7 @@ public class TimeStopState {
         if (power == null || !power.hasPower()) {
             return true;
         }
-        Ability timeStop = power.getMoveset().getAbility(TimeStopLearning.TIME_STOP);
+        Ability timeStop = getStartingAbility(instance, power);
         if (timeStop == null || !timeStop.isAbilityUnlocked(power)) {
             return true;
         }
@@ -1197,7 +1311,9 @@ public class TimeStopState {
     private record TimeStopSettlement(
             StandPower power,
             Instance instance,
-            int effectiveTicksPassed) {}
+            int effectiveTicksPassed,
+            @Nullable Ability timeStop,
+            float chargedStartCost) {}
 
     public static record Instance(int id, int ticksLeft, int totalTicks, ChunkPos centerPos, int chunkRange, int userId, String visualRoute, Optional<ResourceLocation> standTypeId, Optional<ResourceLocation> selectedSkin, int resumeSoundUserId, int resumeVoiceLineUserId, boolean ticksManuallySet, boolean forceResumeVoiceLine, float staminaCostTick, int ticksPassed, boolean refundUnusedStartCost) {
         public static final int TIME_RESUME_SOUND_TICKS = 10;

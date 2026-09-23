@@ -1,5 +1,11 @@
 package rotp.core.subsystems.timestop;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import rotp.core.api.timestop.TimeStopProgressionPolicy;
+
 public final class TimeStopLearningContractSmokeTest {
 	private static final float EPSILON = 0.0001F;
 
@@ -58,6 +64,40 @@ public final class TimeStopLearningContractSmokeTest {
 		checkClose(TimeStopLearning.getLearningPoints(
 				TimeStopLearning.THE_WORLD_LEARNING_PER_TICK, -5), 0.0F,
 				"negative elapsed ticks awarded training");
+
+		verifyZombieCap();
+	}
+
+	/** 1.16 TimeStop.getMaxTimeStopTicks checked high-saturation zombies first, against their own cap. */
+	private static void verifyZombieCap() {
+		check(TimeStopLearning.getZombieMaxTimeStopTicks(null) == TimeStopLearning.ZOMBIE_MAX_TIME_STOP_TICKS,
+				"a Stand without a progression policy lost the core zombie cap");
+		// Shadow The World: timeStopMaxTicks(60, 80, 1000, 70)
+		check(TimeStopLearning.getZombieMaxTimeStopTicks(
+						new TimeStopProgressionPolicy(60, 80, 70, 0.1F, 0.0F, 3.0F)) == 70,
+				"a zombie must get the policy's zombie cap, not the enhanced one");
+		check(TimeStopLearning.getZombieMaxTimeStopTicks(
+						new TimeStopProgressionPolicy(60, 80, 0.1F, 0.0F, 3.0F)) == 80,
+				"a five-value policy must keep zombies on the enhanced cap");
+
+		String learning = read(Path.of(System.getProperty("user.dir")).resolve(
+				"src/main/java/rotp/core/subsystems/timestop/TimeStopLearning.java"));
+		int start = learning.indexOf("private static int getNormalMaxTimeStopTicks(StandPower power)");
+		int end = learning.indexOf("static int getZombieMaxTimeStopTicks(", start);
+		check(start >= 0 && end > start, "failed to locate getNormalMaxTimeStopTicks");
+		String normalMax = learning.substring(start, end);
+		int zombie = normalMax.indexOf("if (isHighSaturationZombie(user)) {\n\t\t\treturn getZombieMaxTimeStopTicks(policy);");
+		check(zombie >= 0 && zombie < normalMax.indexOf("getPillarmanTimeStopTicks(user, enhancedMaxTicks)"),
+				"high-saturation zombies must be capped first, by the zombie cap");
+	}
+
+	private static String read(Path path) {
+		try {
+			return Files.readString(path);
+		}
+		catch (IOException error) {
+			throw new AssertionError("failed to read " + path, error);
+		}
 	}
 
 	private static void checkClose(float actual, float expected, String message) {

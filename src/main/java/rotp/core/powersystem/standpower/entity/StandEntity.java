@@ -1925,6 +1925,9 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		return dmgAmount;
 	}
 
+	// The guard tryAutoBlock started on a hit, not one the user pressed. Server side only.
+	@Nullable private EntityActionInstance autoGuardAction;
+
 	private boolean tryAutoBlock(DamageSource dmgSource, boolean blockableAngle) {
 		LivingEntity user = getUser();
 		if (level().isClientSide() || isManuallyControlled() || !blockableAngle || getCurStandAction() != null
@@ -1934,19 +1937,47 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		if (userPower == null) {
 			userPower = StandPower.get(user);
 		}
+		Ability guard;
 		if (userPower == null || !userPower.isAbilityUnlocked("guard")) {
-			return false;
+			// 1.16 auto-guarded whatever slot held the Stand's block (StandEntityBlock), so a guard
+			// kept under another name is used when "guard" has none.
+			guard = userPower != null ? getUnlockedGuardInOtherSlot(userPower) : null;
 		}
-		Ability guard = userPower.getAbility("guard");
+		else {
+			guard = userPower.getAbility("guard");
+		}
 		if (guard instanceof EntityActionType guardActionType) {
 			EntityActionInstance action = guardActionType.createActionObj();
 			guardActionType.initActionFromConfig(action, level(), user, this);
 			action.phasesLength.put(ActionPhase.PERFORM, 5F);
 			action.setStartingPhase();
 			standAction.setAction(action, user, SyncType.TRACKING_AND_SELF);
+			autoGuardAction = action;
 			return true;
 		}
 		return false;
+	}
+
+	/**
+	 * Whether the Stand is in the 5-tick guard tryAutoBlock started on a hit, not a guard the user holds.
+	 * 1.16 ran the plain BLOCK_STAND_ENTITY task there, so a Stand's own guard tick did not run; the hit
+	 * is still blocked. Server side only.
+	 */
+	public boolean isAutoGuarding() {
+		// Every press builds a new instance, so a held guard of the same ability is not the auto-guard.
+		EntityActionInstance curAction = getCurStandAction();
+		return curAction != null && curAction == autoGuardAction;
+	}
+
+	@Nullable
+	private static Ability getUnlockedGuardInOtherSlot(StandPower power) {
+		for (Ability ability : power.getMoveset().abilities.values()) {
+			if (ability instanceof EntityActionType actionType && JojoModUtil.isStandGuardAbility(actionType)
+					&& ability.isAbilityUnlocked(power)) {
+				return ability;
+			}
+		}
+		return null;
 	}
 
 	protected float standDamageResistance(DamageSource dmgSource, float dmgAmount, boolean isBlocking) {
@@ -2166,10 +2197,10 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 	
 	public boolean isStandBlocking() {
 		EntityActionInstance curAction = LivingComponentAction.getCurEntityAction(this);
+		// 1.16 keyed this on StandPose.BLOCK, so a guard in any slot counts, not only the one named "guard".
 		return curAction != null 
 				&& curAction.getPhase() == ActionPhase.PERFORM
-				&& curAction.ability.getAbilityId() != null
-				&& curAction.ability.getAbilityId().nameInMoveset().equals("guard");
+				&& JojoModUtil.isStandGuardAbility(curAction.ability);
 	}
 
 	public boolean canStartBlocking() {

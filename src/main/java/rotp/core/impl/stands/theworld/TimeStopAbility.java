@@ -96,7 +96,8 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 
 	@Override
 	public String getLearningAbilityName() {
-		return TimeStopLearning.TIME_STOP;
+		// 1.16 trained each TimeStop action on its own; the core's time stops are all "time_stop"
+		return abilityId.powerTypeId() != null ? name() : TimeStopLearning.TIME_STOP;
 	}
 
 	@Override
@@ -266,7 +267,7 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 	@Override
 	public Component getName(Power<?> context) {
 		StandPower power = PowerClass.STAND.cast(context);
-		float seconds = (float) TimeStopLearning.getSavedTimeStopTicks(power) / 20F;
+		float seconds = (float) TimeStopLearning.getSavedTimeStopTicks(power, getLearningAbilityName()) / 20F;
 		String secondsString = String.format(Locale.ROOT, "%.2f", seconds);
 		boolean creativeTemplate = TimeStopLearning.isCreativeTimeStopTemplate(power);
 		if (power != null && power.getPowerType() == ModStands.STAR_PLATINUM.get()) {
@@ -331,7 +332,7 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 
 	private boolean hasEnoughTimeStopStamina(StandPower power) {
 		float defaultCost = TimeStopLearning.getTimeStopStaminaCost(
-				power, TimeStopLearning.MIN_RELEASE_TIME_STOP_TICKS);
+				power, getLearningAbilityName(), TimeStopLearning.MIN_RELEASE_TIME_STOP_TICKS);
 		TimeStopStartupCostDecision decision =
 				TimeStopBehaviorPolicies.resolveStartupCost(
 						power, abilityId, null, defaultCost);
@@ -396,7 +397,8 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 
 	private boolean startTimeStopAfterHold(LivingEntity user, boolean standAlreadySummoned) {
 		StandPower power = PowerClass.STAND.get(user);
-		return startTimeStopAfterHold(user, standAlreadySummoned, TimeStopLearning.getTimeStopTicks(power));
+		return startTimeStopAfterHold(user, standAlreadySummoned,
+				TimeStopLearning.getTimeStopTicks(power, getLearningAbilityName()));
 	}
 
 	private boolean startTimeStopAfterHold(LivingEntity user, boolean standAlreadySummoned, int requestedTimeStopTicks) {
@@ -414,8 +416,10 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 			return false;
 		}
 		ChunkPos centerPos = new ChunkPos(user.blockPosition());
+		// duration and per-tick cost come from this time stop's own training
+		String learningName = getLearningAbilityName();
 		int timeStopTicks = Mth.clamp(requestedTimeStopTicks, TimeStopLearning.MIN_RELEASE_TIME_STOP_TICKS,
-				TimeStopLearning.getTimeStopTicks(power));
+				TimeStopLearning.getTimeStopTicks(power, learningName));
 		String visualRoute = power.getPowerType() == ModStands.STAR_PLATINUM.get()
 				? "star_platinum_time_stop"
 				: "the_world_time_stop";
@@ -429,7 +433,7 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 				visualRoute,
 				instanceId,
 				instanceId,
-				TimeStopLearning.getTimeStopStaminaCostTick(power))
+				TimeStopLearning.getTimeStopStaminaCostTick(power, learningName))
 				.withStandSkin(power)
 				.withStartupDelay(TIME_STOP_OPENING_SETTLE_TICKS);
 		TimeStopLifecycleEvent.PreStart startEvent =
@@ -452,7 +456,7 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 		}
 		float defaultStaminaCost =
 				TimeStopLearning.getTimeStopStaminaCost(
-						power, instance.totalTicks());
+						power, learningName, instance.totalTicks());
 		TimeStopStartupCostDecision startupCost =
 				TimeStopBehaviorPolicies.resolveStartupCost(
 						power,
@@ -464,11 +468,14 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 		}
 		float timeStopStaminaCost = effectiveTimeStopStaminaCost(
 				power, startupCost.resolve(defaultStaminaCost));
+		float staminaBefore = power.getStamina();
 		if (!power.consumeStamina(timeStopStaminaCost, false)) {
 			ConditionCheck.sendActionFailedMessage(
 					this, ConditionCheck.createNegative("no_stamina"), user);
 			return false;
 		}
+		// what the start really took (0 with infinite stamina); the early-resume refund is a share of it
+		float chargedStartCost = Math.max(staminaBefore - power.getStamina(), 0.0F);
 		int startupDelay = Math.max(-instance.ticksPassed(), 0);
 		int statusDuration = (int) Math.min(
 				(long) instance.ticksLeft() + startupDelay,
@@ -480,10 +487,10 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 				false,
 				false,
 				true));
-		if (!state.commitPreStart(startEvent)) {
+		if (!state.commitPreStart(startEvent, this, chargedStartCost)) {
 			user.removeEffect(ModStatusEffects.TIME_STOP);
 			if (!power.isStaminaInfinite()) {
-				power.setStamina(power.getStamina() + timeStopStaminaCost);
+				power.setStamina(power.getStamina() + chargedStartCost);
 			}
 			return false;
 		}
@@ -574,14 +581,15 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 					LivingEntity user = getPowerUser();
 					if (ability instanceof TimeStopAbility timeStop && user != null) {
 						StandPower power = PowerClass.STAND.get(user);
-						int maxTicks = TimeStopLearning.getSavedTimeStopTicks(power);
+						String learningName = timeStop.getLearningAbilityName();
+						int maxTicks = TimeStopLearning.getSavedTimeStopTicks(power, learningName);
 						int chargeTicks = Math.max(curPhaseTick, 1);
 						float chargeRatio = TimeStopLearning.getTimeStopChargeRatio(
 								chargeTicks, curPhaseLength);
 						int timeStopTicks = TimeStopLearning.getReleasedTimeStopTicks(
 								maxTicks, chargeTicks, curPhaseLength);
 						float learningPoints = power != null && power.getCurTypeData() != null
-								? power.getCurTypeData().getAbilityLearningProgressPoints(TimeStopLearning.TIME_STOP)
+								? power.getCurTypeData().getAbilityLearningProgressPoints(learningName)
 								: -1.0F;
 						JojoMod.getLogger().info(
 								"Time stop release resolved: user={}, stand={}, chargeTicks={}, chargeLength={}, ratio={}, learningPoints={}, maxTicks={}, resolvedTicks={}.",

@@ -16,6 +16,7 @@ import rotp.core.entityattachment.syncheddata.SynchedDataHelper;
 import rotp.core.init.ModDamageTypes;
 import rotp.core.network.NetworkPayloadValidation;
 import rotp.core.powersystem.ability.AbilityUsageGroup;
+import rotp.core.powersystem.ability.EntityActionAbility;
 import rotp.core.powersystem.entityaction.netcode.TrEntityActionPhaseTimePacket;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.StandUtil;
@@ -65,6 +66,7 @@ public class EntityActionInstance implements HeldInput {
 	protected float curPhaseLength;
 	protected float phasePartialTick;
 	protected boolean stoppedHolding = false;
+	private boolean startedByClick;
 	
 	protected LivingEntity performer;
 	protected EntityResolver powerUser = new EntityResolver();
@@ -775,9 +777,29 @@ public class EntityActionInstance implements HeldInput {
 	@Override
 	@ApiStatus.Internal
 	public void onKeyRelease(LivingEntity user) {
-		if (!this.isOver()) {
+		if (!this.isOver() && !ignoresClickRelease()) {
 			onButtonStopHold();
 		}
+	}
+	
+	/**
+	 * Set by {@link EntityActionAbility#setOrBufferAction} when a CLICK input started this action.
+	 */
+	@ApiStatus.Internal
+	public void setStartedByClick(boolean startedByClick) {
+		this.startedByClick = startedByClick;
+	}
+	
+	public boolean isStartedByClick() {
+		return startedByClick;
+	}
+	
+	// 1.16 PowerBaseImpl.onClickAction performed an action without a hold on the click, and the key's release only
+	// reached a held action (InputHandler.stopHeldAction), so a click could not be cancelled by letting go of the key.
+	// An ambiguous click/hold key sends its release in the same frame as the click, before the action's first tick.
+	private boolean ignoresClickRelease() {
+		return startedByClick && ability instanceof EntityActionAbility entityAbility
+				&& !entityAbility.keyReleaseReachesClickAction(this);
 	}
 	
 	

@@ -66,6 +66,7 @@ import rotp.core.impl.powers.hamon.ClHamonMeditationPacket;
 import rotp.core.impl.powers.hamon.HamonData;
 import rotp.core.impl.powers.hamon.ModHamonSkills;
 import rotp.core.impl.powers.hamon.entity.LeavesGliderEntity;
+import rotp.core.impl.stands._entitybase.StandEntityBlockAbility;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.platform.InputConstants.Key;
 
@@ -692,9 +693,11 @@ public class InputHandler {
 	}
 
 	private static boolean isGuardClickAmbiguity(@Nullable BaseAndActiveAbility heldAbility, @Nullable BaseAndActiveAbility clickAbility) {
+		// A guard in any slot counts: 1.16 keyed the guard on StandPose.BLOCK, not on a slot name.
 		return heldAbility != null && clickAbility != null
 				&& heldAbility.baseAbility != null
-				&& "guard".equals(heldAbility.baseAbility.name());
+				&& ("guard".equals(heldAbility.baseAbility.name())
+						|| heldAbility.baseAbility instanceof StandEntityBlockAbility);
 	}
 	
 	private boolean handleDefaultJojoLmbRmb(ClientKey key, ClientControlScheme controlScheme) {

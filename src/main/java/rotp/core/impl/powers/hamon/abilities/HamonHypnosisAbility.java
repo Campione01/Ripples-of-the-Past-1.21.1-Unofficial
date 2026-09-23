@@ -2,6 +2,7 @@ package rotp.core.impl.powers.hamon.abilities;
 
 import java.util.Optional;
 
+import rotp.core.client.input.ClientsideAim;
 import rotp.core.client.particle.CustomParticlesHelper;
 import rotp.core.client.sound.HamonSparksLoopSound;
 import rotp.core.mechanics.HypnosisEffect;
@@ -69,9 +70,12 @@ public class HamonHypnosisAbility extends HamonActionRuntimeAbility {
 		}
 		Level level = user.level();
 		if (level.isClientSide()) {
-			if (isClientPlayer(user) && checkConditions(context).isPositive()) {
-				ActionTarget target = HamonAbilityHelpers.getAimTarget(user, level);
-				if (target.getType() == TargetType.ENTITY && target.getMainEntity() instanceof LivingEntity livingTarget) {
+			// The user's aim only goes from its client to the server, so its own client checks the aim it sends,
+			// as the 1.16 client checked its own mouse target.
+			if (isClientPlayer(user)) {
+				ActionTarget target = clientPlayerAim(level);
+				if (target.getType() == TargetType.ENTITY && target.getMainEntity() instanceof LivingEntity livingTarget
+						&& checkConditions(context, target, user).isPositive()) {
 					hypnosisClientFeedback(user, livingTarget);
 				}
 			}
@@ -83,8 +87,21 @@ public class HamonHypnosisAbility extends HamonActionRuntimeAbility {
 		}
 	}
 
+	// checkConditions against the given target instead of the aim the server keeps for the user.
+	private ConditionCheck checkConditions(Power<?> context, ActionTarget target, LivingEntity user) {
+		ConditionCheck check = checkMainModLogicConditions(context);
+		if (check.isPositive()) {
+			check = super.checkSpecificConditions(context);
+		}
+		return check.isPositive() ? checkHypnosisTarget(target, user) : check;
+	}
+
 	private static boolean isClientPlayer(LivingEntity user) {
 		return user == Minecraft.getInstance().player;
+	}
+
+	private static ActionTarget clientPlayerAim(Level level) {
+		return ClientsideAim.playerAim.getTarget().resolveEntityId(level);
 	}
 
 	private static ConditionCheck checkHypnosisTarget(ActionTarget target, LivingEntity user) {
