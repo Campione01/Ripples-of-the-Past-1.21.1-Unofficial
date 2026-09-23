@@ -115,6 +115,12 @@ public class ClientControlScheme {
 			}
 			return ability;
 		}
+		
+		/** In the current moveset right now (unlocked and valid in the context), not just shown as locked. */
+		public boolean isAvailable() {
+			AvailableAbilities allAbilities = this.powerClass != null ? ClientPowerCache.getAvailableAbilities(this.powerClass) : null;
+			return allAbilities != null && allAbilities.getContextVariationContainer(this.abilityName) != null;
+		}
 	}
 	
 	public static class Bind {
@@ -152,7 +158,7 @@ public class ClientControlScheme {
 	
 	public static class HotbarSlot {
 		public int index;
-		public final InputsByKeyModifier binds = new InputsByKeyModifier();
+		public final InputsByKeyModifier binds = new InputsByKeyModifier(true);
 		
 		public HotbarSlot(int index) {
 			this.index = index;
@@ -196,6 +202,20 @@ public class ClientControlScheme {
 	
 	public static class InputsByKeyModifier {
 		public final Map<KeyModifier, Map<InputMethod, List<AbilityControlsEntry>>> movesByModifier = new EnumMap<>(KeyModifier.class);
+		private final boolean lockedShiftUsesBase;
+		
+		public InputsByKeyModifier() {
+			this(false);
+		}
+		
+		/**
+		 * @param lockedShiftUsesBase hotbar slots: a SHIFT variation that isn't available leaves
+		 * SHIFT on the slot's base ability. 1.16 (ActionsOverlayGui#resolveVisibleActionInSlot)
+		 * only switched to the shift variation once it was unlocked.
+		 */
+		public InputsByKeyModifier(boolean lockedShiftUsesBase) {
+			this.lockedShiftUsesBase = lockedShiftUsesBase;
+		}
 		
 		public List<AbilityControlsEntry> getAll(@Nonnull KeyModifier curModifier, InputMethod inputMethod) {
 			List<AbilityControlsEntry> list = null;
@@ -207,6 +227,14 @@ public class ClientControlScheme {
 				Map<InputMethod, List<AbilityControlsEntry>> fallbackBinds = movesByModifier.get(KeyModifier.NONE);
 				if (fallbackBinds != null) {
 					list = fallbackBinds.get(inputMethod);
+				}
+			}
+			else if (lockedShiftUsesBase && curModifier == KeyModifier.SHIFT
+					&& list.stream().noneMatch(AbilityControlsEntry::isAvailable)) {
+				Map<InputMethod, List<AbilityControlsEntry>> baseBinds = movesByModifier.get(KeyModifier.NONE);
+				List<AbilityControlsEntry> baseList = baseBinds != null ? baseBinds.get(inputMethod) : null;
+				if (baseList != null && !baseList.isEmpty()) {
+					list = baseList;
 				}
 			}
 			return list != null ? list : Collections.emptyList();
