@@ -123,8 +123,11 @@ public class HamonCharge {
 		if (amount <= 0.0F) {
 			return false;
 		}
-		Entity sourceEntity = chargedEntity != null ? chargedEntity : user;
-		var source = HamonAbilityHelpers.hamonDamageSource(target.level(), sourceEntity, user);
+		// 1.16 HamonCharge: a charged living entity is itself the attacker, any other charged entity
+		// hurts on the Hamon user's behalf, and a charged block uses the anonymous Hamon source.
+		Entity causingEntity = chargedEntity instanceof LivingEntity ? chargedEntity
+				: chargedEntity != null ? user : null;
+		var source = HamonAbilityHelpers.hamonDamageSource(target.level(), chargedEntity, causingEntity);
 		if (source instanceof DamageSourceModified modified) {
 			modified.jojo_ripples$modifyKnockback(0.0F, 1.0F);
 		}
