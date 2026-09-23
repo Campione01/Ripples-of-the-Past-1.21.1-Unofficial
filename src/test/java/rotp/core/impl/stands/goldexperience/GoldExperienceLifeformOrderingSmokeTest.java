@@ -18,6 +18,38 @@ public final class GoldExperienceLifeformOrderingSmokeTest {
         verifyPriorityAndTieBreaker();
         verifyKeysAreSnapshottedOnce();
         verifyPickerLayout();
+        verifyEntityIconResources();
+    }
+
+    // The 1.16 core shipped these head icons for EntityTypeIcon (lifeform marker,
+    // new-lifeform toast). The squid icon sits where the 1.21.1 squid texture
+    // path maps to (entity/squid/squid.png) instead of 1.16's entity/squid.png.
+    private static final List<String> ENTITY_ICONS = List.of(
+            "bat", "bear/polarbear", "bee/bee", "blaze", "cat/black", "cat/ocelot",
+            "chicken", "cow/brown_mooshroom", "cow/cow", "cow/red_mooshroom",
+            "creeper/creeper", "dolphin", "enderdragon/dragon", "enderman/enderman",
+            "endermite", "fish/cod", "fish/pufferfish", "fish/salmon", "fish/tropical_a",
+            "fox/fox", "ghast/ghast", "guardian", "guardian_elder", "hoglin/hoglin",
+            "hoglin/zoglin", "horse/donkey", "horse/horse_white", "horse/mule",
+            "iron_golem/iron_golem", "llama/creamy", "panda/panda",
+            "parrot/parrot_red_blue", "phantom", "pig/pig", "piglin/piglin",
+            "piglin/piglin_brute", "piglin/zombified_piglin", "rabbit/brown",
+            "sheep/sheep", "shulker/shulker", "silverfish", "skeleton/skeleton",
+            "skeleton/stray", "skeleton/wither_skeleton", "slime/magmacube",
+            "slime/slime", "spider/cave_spider", "spider/spider", "squid/squid",
+            "strider/strider", "turtle/big_sea_turtle", "turtle/big_sea_turtle.stand",
+            "wither/wither", "wolf/wolf", "zombie/drowned", "zombie/husk",
+            "zombie/zombie", "unknown");
+
+    private static void verifyEntityIconResources() {
+        ClassLoader loader = GoldExperienceLifeformOrderingSmokeTest.class.getClassLoader();
+        check(ENTITY_ICONS.size() == 58, "entity icon list drifted from the 57 icons plus unknown");
+        for (String icon : ENTITY_ICONS) {
+            check(loader.getResource("assets/minecraft/textures/entity_icon/" + icon + ".png") != null,
+                    "missing GE entity icon: " + icon);
+        }
+        check(loader.getResource("assets/minecraft/textures/entity_icon/squid.png") == null,
+                "squid icon must follow the 1.21.1 squid texture path");
     }
 
     private static void verifyPickerLayout() {
