@@ -332,6 +332,11 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 				this.remove(user != null ? user.getRemovalReason() : RemovalReason.DISCARDED);
 				return;
 			}
+			if (user != null && entityData.get(USER_ID) != user.getId()) {
+				// PlayerList.respawn changes the new player's id after the clone event.
+				entityData.set(USER_ID, user.getId());
+				setUserRef(user);
+			}
 		}
 		
 		updateStandStatAttributes(this, user);
@@ -402,6 +407,14 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 	public void setUserAndPower(LivingEntity user, StandPower power) {
 		if (!level().isClientSide()) {
 			entityData.set(USER_ID, user.getId());
+			// 1.16 bound the Stand to this user object. The id lookup misses a user that is out of the
+			// level (a player being respawned), and a respawned player later reuses that id.
+			if (userRef.get() != user) {
+				setUserRef(user);
+				playerSettings = user instanceof Player player
+						? PlayerClientBroadcastedSettings.getPlayerSettings(player)
+						: Optional.empty();
+			}
 		}
 		this.userPower = power;
 	}
@@ -449,7 +462,9 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 	public LivingEntity getUser() {
 		if (hasUser()) {
 			LivingEntity user = userRef.get();
-			if (user == null) {
+			// Only the client looks the user up again by id. On the server a Stand whose user is gone must not
+			// pass to another entity with that id (the respawned player), whose StandPower does not own it.
+			if (user == null && level().isClientSide()) {
 				user = lookupUser(entityData.get(USER_ID));
 				if (user != null) {
 					setUserRef(user);

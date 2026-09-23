@@ -115,6 +115,7 @@ public class StandCommand {
 				PowerClass.STAND.attachPower(living);
 				StandPower stand = PowerClass.STAND.get(living);
 				if (stand != null && (replace || !stand.hasPower())) {
+					clearSameStandBeforeReplace(stand, standType);
 					stand.setStand(standType);
 					i++;
 				}
@@ -122,6 +123,16 @@ public class StandCommand {
 		}
 		
 		return GIVE_MSG.trySend(src, true, targets, i, standType.name.get());
+	}
+	
+	/**
+	 * 1.16 /stand give ... true cleared the power before giving, so the same Stand was unsummoned and
+	 * given anew. setStand alone leaves an equal Stand instance untouched.
+	 */
+	private static void clearSameStandBeforeReplace(StandPower stand, StandType standType) {
+		if (stand.hasPower() && stand.getPowerType() == standType) {
+			stand.setStand(null);
+		}
 	}
 	
 	private static int setRandomStand(CommandSourceStack src, Collection<ServerPlayer> targets, boolean replace) {
@@ -147,6 +158,7 @@ public class StandCommand {
 			
 			StandType standType = standOrError.left().orElse(null);
 			if (standType != null) {
+				clearSameStandBeforeReplace(stand, standType);
 				stand.setStand(standType);
 				i++;
 			}
