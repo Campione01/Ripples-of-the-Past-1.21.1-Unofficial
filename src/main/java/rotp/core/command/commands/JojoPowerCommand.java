@@ -74,6 +74,9 @@ public class JojoPowerCommand {
 						&& !power.hasPower()
 						&& power.trySetPowerType(powerType)) {
 					i++;
+					// 1.16 /jojopower give made a full-power vampire, not a Blood Gift one
+					power.getCurTypeData(ModPlayerPowers.VAMPIRISM)
+							.ifPresent(vampirism -> vampirism.setVampireFullPower(true, living));
 				}
 			}
 		}
