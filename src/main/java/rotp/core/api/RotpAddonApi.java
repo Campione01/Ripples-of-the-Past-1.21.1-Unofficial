@@ -155,6 +155,21 @@ public final class RotpAddonApi {
 					"client_sky_presentation_providers_v1";
 	public static final String FEATURE_CLIENT_SKY_RENDERERS_V1 =
 			"client_sky_renderers_v1";
+	/**
+	 * Time stops and blinks tuned to their own 1.16 values: TimeStopBlinkAbility base costs and
+	 * blink sound, TimeStopAbility#shortensChargeAtResolveFour, TimeStopLearning#onBlinkPunchTimeSkip.
+	 */
+	public static final String FEATURE_TIME_STOP_ABILITY_TUNING_V1 =
+			"time_stop_ability_tuning_v1";
+	/** ResolveCounter#addAttackerResolveMultTier (1.16 StandType.Builder#addAttackerResolveMultTier). */
+	public static final String FEATURE_STAND_ATTACKER_RESOLVE_TIERS_V1 =
+			"stand_attacker_resolve_tiers_v1";
+	/**
+	 * EntityActionAbility held-action rechecks and hit hooks: checkHeldActionConditions,
+	 * stopsOnHeavyAttack / onHitByHeavyAttack, setResetsAttackStrengthOnPerform.
+	 */
+	public static final String FEATURE_ENTITY_ACTION_HOOKS_V1 =
+			"entity_action_hooks_v1";
 
 	public static final Set<String> FEATURES = Set.of(
 			FEATURE_ABILITY_RESOURCE_NAMESPACE_V1,
@@ -223,7 +238,10 @@ public final class RotpAddonApi {
 			FEATURE_STAND_MATERIAL_TINT_POLICIES_V1,
 			FEATURE_LIVING_ENTITY_MATERIAL_TINT_POLICIES_V1,
 			FEATURE_CLIENT_SKY_PRESENTATION_PROVIDERS_V1,
-			FEATURE_CLIENT_SKY_RENDERERS_V1);
+			FEATURE_CLIENT_SKY_RENDERERS_V1,
+			FEATURE_TIME_STOP_ABILITY_TUNING_V1,
+			FEATURE_STAND_ATTACKER_RESOLVE_TIERS_V1,
+			FEATURE_ENTITY_ACTION_HOOKS_V1);
 
 	private RotpAddonApi() {}
 

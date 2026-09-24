@@ -19,7 +19,8 @@ public record ResolveBoostsPacket(
 		OptionalFloat hpOnGettingAttacked, 
 		int noBoostDecayTicks, 
 		int resolveModeTimer, 
-		int resolveModeTimerMax) implements CustomPacketPayload {
+		int resolveModeTimerMax, 
+		float maxAchievedValue) implements CustomPacketPayload {
 	private static CustomPacketPayload.Type<ResolveBoostsPacket> type;
 	
 	public ResolveBoostsPacket(ResolveCounter boosts) {
@@ -30,7 +31,9 @@ public record ResolveBoostsPacket(
 				boosts.hpOnGettingAttacked, 
 				boosts.noBoostDecayTicks, 
 				boosts.resolveModeTimer.value, 
-				boosts.resolveModeTimer.defaultValue);
+				boosts.resolveModeTimer.defaultValue, 
+				// 1.16 MaxAchievedResolvePacket
+				boosts.maxAchievedValue);
 	}
 
 	public static class Handler implements PacketsRegister.PacketOGHandler<ResolveBoostsPacket> {
@@ -53,6 +56,7 @@ public record ResolveBoostsPacket(
 			buf.writeVarInt(packet.noBoostDecayTicks);
 			buf.writeInt(packet.resolveModeTimer);
 			buf.writeInt(packet.resolveModeTimerMax);
+			buf.writeFloat(packet.maxAchievedValue);
 		}
 
 		@Override
@@ -64,7 +68,8 @@ public record ResolveBoostsPacket(
 			int noBoostDecayTicks = buf.readVarInt();
 			int resolveModeTimer = buf.readInt();
 			int resolveModeTimerMax = buf.readInt();
-			return new ResolveBoostsPacket(boostAttack, boostRemoteControl, boostChat, hpOnGettingAttacked, noBoostDecayTicks, resolveModeTimer, resolveModeTimerMax);
+			float maxAchievedValue = buf.readFloat();
+			return new ResolveBoostsPacket(boostAttack, boostRemoteControl, boostChat, hpOnGettingAttacked, noBoostDecayTicks, resolveModeTimer, resolveModeTimerMax, maxAchievedValue);
 		}
 
 		@Override
@@ -80,6 +85,7 @@ public record ResolveBoostsPacket(
 					standPower.resolveCounter.noBoostDecayTicks = payload.noBoostDecayTicks;
 					standPower.resolveCounter.resolveModeTimer.value = payload.resolveModeTimer;
 					standPower.resolveCounter.resolveModeTimer.defaultValue = payload.resolveModeTimerMax;
+					standPower.resolveCounter.maxAchievedValue = payload.maxAchievedValue;
 				}
 			}
 		}

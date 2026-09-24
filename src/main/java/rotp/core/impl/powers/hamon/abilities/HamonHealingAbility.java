@@ -11,12 +11,14 @@ import rotp.core.init.ModStatusEffects;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
+import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
 import rotp.core.util.functions.StatusEffectUtil;
+import rotp.core.util.functions.UtilFunctions;
 import rotp.core.impl.powers.hamon.HamonData;
 import rotp.core.impl.powers.hamon.HamonUtil;
 import rotp.core.impl.powers.hamon.ModHamonSkills;
@@ -25,6 +27,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
 import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
@@ -45,6 +48,13 @@ public class HamonHealingAbility extends HamonActionRuntimeAbility {
 
 	public HamonHealingAbility(AbilityType<?> abilityType, AbilityId abilityId) {
 		super(abilityType, abilityId, HealingInstance::new);
+	}
+
+	// 1.16 needsFreeMainHand (MCUtil.isHandFree: gloves count as a free hand), on the press and on every held tick.
+	@Override
+	protected ConditionCheck checkHeldItems(LivingEntity user) {
+		return UtilFunctions.isHandFree(user, InteractionHand.MAIN_HAND)
+				? ConditionCheck.POSITIVE : ConditionCheck.createNegative("hand");
 	}
 
 	@Override

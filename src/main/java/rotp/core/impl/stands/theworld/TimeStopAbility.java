@@ -293,11 +293,20 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 		if (power != null && power.getPowerType() == ModStands.STAR_PLATINUM.get()) {
 			return STAR_PLATINUM_HOLD_TO_FIRE_TICKS;
 		}
-		if (power != null && power.getPowerType() == ModStands.THE_WORLD.get()
+		if (power != null && shortensChargeAtResolveFour(power)
 				&& ResolveModeEffect.getEffectiveResolveLevel(user, power) >= 4) {
 			return THE_WORLD_RESOLVE_HOLD_TO_FIRE_TICKS;
 		}
 		return THE_WORLD_HOLD_TO_FIRE_TICKS;
+	}
+
+	/**
+	 * 1.16 TheWorldTimeStop#getHoldDurationToFire: from Resolve level 4 the charge takes
+	 * holdDurationToFireMaxLevel (20) ticks. Add-on time stops that 1.16 built as a
+	 * TheWorldTimeStop return true.
+	 */
+	protected boolean shortensChargeAtResolveFour(StandPower power) {
+		return power.getPowerType() == ModStands.THE_WORLD.get();
 	}
 
 	private boolean isCurrentlyInStoppedTime(LivingEntity user) {

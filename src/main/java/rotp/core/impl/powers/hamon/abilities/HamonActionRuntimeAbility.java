@@ -139,7 +139,8 @@ public class HamonActionRuntimeAbility extends EntityActionAbility {
 		if (!hasHamonEnergy(context, hamon)) {
 			return ConditionCheck.createNegative("no_energy_hamon");
 		}
-		return ConditionCheck.POSITIVE;
+		// 1.16 Action.checkHeldItems came after the energy check.
+		return checkHeldItems(user);
 	}
 
 	protected boolean consumeRuntimeOnPerform(LivingEntity user) {
@@ -264,6 +265,56 @@ public class HamonActionRuntimeAbility extends EntityActionAbility {
 		return ConditionCheck.POSITIVE;
 	}
 
+	// 1.16 HamonAction, NonStandAction and Action.checkConditions as they ran again on every held tick and before a
+	// released hold fired: the bloodstream, a dying body, meditation, some energy or breath left, then the held items.
+	@Override
+	protected ConditionCheck checkHeldSpecificConditions(EntityActionInstance action, Power<?> context) {
+		HamonData hamon = getHamonData(context);
+		LivingEntity user = context.getUser();
+		if (hamon == null || user == null) {
+			return ConditionCheck.NEGATIVE;
+		}
+		if (hamon.getBloodstreamEfficiency(user) <= 0.0F) {
+			return ConditionCheck.createNegative("hamon_no_bloodstream");
+		}
+		if (JojoDefinitions.isDyingBody(user)) {
+			return ConditionCheck.createNegative("dying_hamon");
+		}
+		if (hamon.isMeditating()) {
+			return ConditionCheck.NEGATIVE;
+		}
+		if (!hasHeldEnergy(context, hamon)) {
+			return ConditionCheck.createNegative("no_energy_hamon");
+		}
+		return checkHeldItems(user);
+	}
+
+	// NonStandAction.checkEnergy during a hold asked for the cost plus at least one held tick; Hamon energy passes
+	// while any energy or breath is left.
+	protected boolean hasHeldEnergy(Power<?> context, HamonData hamon) {
+		float needed = energyCost + getHeldTickEnergyCost(context, 0);
+		LivingEntity user = context != null ? context.getUser() : null;
+		return needed <= 0.0F || isCreative(context) || hamon.hasEnergy(needed, user);
+	}
+
+	/**
+	 * 1.16 Action.checkHeldItems: the free hands or the soap a technique needs, on the press and on every held tick.
+	 */
+	protected ConditionCheck checkHeldItems(LivingEntity user) {
+		return ConditionCheck.POSITIVE;
+	}
+
+	// 1.16 stopHeldAction(false) never fired a hold-to-fire technique: a stopped charge is dropped.
+	@Override
+	public void stopHeldActionOnGettingAttacked(EntityActionInstance action) {
+		if (isHamonHoldToFire() && action.getPhase() == ActionPhase.WINDUP) {
+			action.forceStop();
+			action.syncPhaseChanges();
+			return;
+		}
+		super.stopHeldActionOnGettingAttacked(action);
+	}
+
 	protected void syncHeldRuntimeTick(LivingEntity user, HamonData hamon, int ticksHeld) {
 		if (ticksHeld % 5 == 0) {
 			hamon.syncOnUpdate(user);
@@ -340,7 +391,8 @@ public class HamonActionRuntimeAbility extends EntityActionAbility {
 		protected boolean resolveHamonHoldToFireRelease() {
 			HamonActionRuntimeAbility hamonAbility = hamonAbility();
 			if (hamonAbility != null && hamonAbility.isHamonHoldToFire() && getPhase() == ActionPhase.WINDUP) {
-				if (getPhaseTick() >= hamonAbility.getHamonHoldToFireTicks()) {
+				// 1.16 stopHeldAction(true) checked the requirements once more before the released charge fired.
+				if (getPhaseTick() >= hamonAbility.getHamonHoldToFireTicks() && hamonAbility.canFireReleasedHold(this)) {
 					setPhaseStart(ActionPhase.PERFORM);
 				}
 				else {

@@ -4,6 +4,7 @@ import rotp.core.core.JojoMod;
 import rotp.core.init.ModItems;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.item.StoneMaskItem;
+import rotp.core.mechanics.BleedingEffect;
 import rotp.core.powersystem.playerpower.PlayerPower;
 
 import net.minecraft.gametest.framework.GameTest;
@@ -69,6 +70,11 @@ public final class StoneMaskUseGameTests {
 							+ player.hasInfiniteMaterials());
 			helper.assertTrue(knife.getCount() == 1,
 					"Stone Mask activation consumed the knife");
+			// 1.16: more blood on a full-power vampire's mask does not activate it again
+			helper.assertTrue(!BleedingEffect.applyStoneMask(player, equippedMask)
+					&& equippedMask.getDamageValue() == 2,
+					"A full-power vampire's Stone Mask activated again: damage="
+							+ equippedMask.getDamageValue());
 
 			StoneMaskItem maskItem = (StoneMaskItem) equippedMask.getItem();
 			for (int tick = 0; tick < 101; tick++) {

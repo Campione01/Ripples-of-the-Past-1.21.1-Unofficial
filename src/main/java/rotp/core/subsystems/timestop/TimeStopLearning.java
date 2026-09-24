@@ -186,7 +186,12 @@ public final class TimeStopLearning {
 	}
 
 	public static float getTimeStopBlinkStaminaCost(StandPower power) {
-		return BASE_STAMINA_COST * BLINK_STAMINA_RATIO;
+		return getTimeStopBlinkStaminaCost(power, BASE_STAMINA_COST);
+	}
+
+	/** 1.16 TimeStopInstant.getStaminaCost: 0.8 of its base time stop's staminaCost. */
+	public static float getTimeStopBlinkStaminaCost(StandPower power, float baseStaminaCost) {
+		return baseStaminaCost * BLINK_STAMINA_RATIO;
 	}
 
 	public static float getTimeStopBlinkStaminaCostTicking(StandPower power) {
@@ -195,7 +200,12 @@ public final class TimeStopLearning {
 
 	/** 1.16 TimeStopInstant.getStaminaCostTicking: a share of its base time stop's per-tick cost. */
 	public static float getTimeStopBlinkStaminaCostTicking(StandPower power, String learningName) {
-		return getTimeStopStaminaCostTick(power, learningName) * BLINK_STAMINA_RATIO;
+		return getTimeStopBlinkStaminaCostTicking(power, learningName, BASE_STAMINA_COST_TICK);
+	}
+
+	/** The same, for a base time stop built with its own staminaCostTick (1.16 TimeStop.getStaminaCostTicking). */
+	public static float getTimeStopBlinkStaminaCostTicking(StandPower power, String learningName, float baseStaminaCostTick) {
+		return baseStaminaCostTick * HUMAN_MAX_TIME_STOP_TICKS / getTimeStopTicks(power, learningName) * BLINK_STAMINA_RATIO;
 	}
 
 	public static float getTsPunchTimeStopBaseStaminaCost(StandPower power) {
@@ -264,13 +274,25 @@ public final class TimeStopLearning {
 				&& timeStop != null && timeStop.isAbilityUnlocked(standPower);
 	}
 
+	/** 1.16 TheWorldTSHeavyAttack: the skipped ticks train the time stop in whole points only. */
 	public static void onTsPunchTimeSkip(StandPower standPower, int ticksPassed) {
+		addTimeStopLearning(standPower, getDefaultLearningName(standPower),
+				getTsPunchLearningPoints(learningPerTick(standPower), ticksPassed));
+	}
+
+	/** A blink-punch time skip that trains in fractions, as 1.16 Reworked's StarPlatinumBlinkPunch did. */
+	public static void onBlinkPunchTimeSkip(StandPower standPower, int ticksPassed) {
 		addTimeStopLearning(standPower, getDefaultLearningName(standPower),
 				getLearningPoints(learningPerTick(standPower), ticksPassed));
 	}
 
 	static float getLearningPoints(float learningPerTick, int ticksPassed) {
 		return learningPerTick * Math.max(ticksPassed, 0);
+	}
+
+	/** 1.16 TheWorldTSHeavyAttack: (int) (timeStopLearningPerTick * timeStopTicks). */
+	static float getTsPunchLearningPoints(float learningPerTick, int ticksPassed) {
+		return (int) (learningPerTick * Math.max(ticksPassed, 0));
 	}
 
 	private static void addTimeStopLearning(StandPower standPower, String learningName, float points) {

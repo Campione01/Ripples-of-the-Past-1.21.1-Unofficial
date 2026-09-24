@@ -127,7 +127,8 @@ import net.neoforged.neoforge.network.handling.IPayloadHandler;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 public class PacketsRegister {
-	public static final String NETWORK_PROTOCOL_VERSION = "5";
+	// 6: resolveboost carries maxAchievedValue; the synced special_action registry has stand_entity_block
+	public static final String NETWORK_PROTOCOL_VERSION = "6";
 
 	public static void register(RegisterPayloadHandlersEvent event) {
 		PayloadRegistrar registrar = event.registrar(NETWORK_PROTOCOL_VERSION);

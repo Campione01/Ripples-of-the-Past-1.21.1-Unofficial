@@ -11,11 +11,13 @@ import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.playerpower.PlayerPower;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
+import rotp.core.util.functions.UtilFunctions;
 import rotp.core.impl.powers.hamon.HamonData;
 import rotp.core.impl.powers.hamon.HamonWallClimbingHelper;
 
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
@@ -40,7 +42,8 @@ public class HamonWallClimbingAbility extends HamonActionRuntimeAbility {
 		if (user == null) {
 			return ConditionCheck.NEGATIVE;
 		}
-		if (!user.getMainHandItem().isEmpty() || !user.getOffhandItem().isEmpty()) {
+		// 1.16 HamonWallClimbing2.checkHeldItems: MCUtil.areHandsFree (gloves count as free hands).
+		if (!UtilFunctions.areHandsFree(user, InteractionHand.MAIN_HAND, InteractionHand.OFF_HAND)) {
 			return ConditionCheck.createNegative("hands");
 		}
 		ActionTarget target = getAimTarget(user);

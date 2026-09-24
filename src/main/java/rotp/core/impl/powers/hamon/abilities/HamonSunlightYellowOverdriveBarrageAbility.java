@@ -16,6 +16,7 @@ import rotp.core.mechanics.HamonSpreadEffect;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
 import rotp.core.util.functions.JojoModUtil;
+import rotp.core.util.functions.UtilFunctions;
 import rotp.core.impl.powers.hamon.HamonData;
 import rotp.core.impl.powers.hamon.ModHamonSkills;
 
@@ -44,19 +45,20 @@ public class HamonSunlightYellowOverdriveBarrageAbility extends HamonActionRunti
 		setDefaultPhaseLength(ActionPhase.RECOVERY, 6);
 	}
 
+	// 1.16 checkHeldItems: MCUtil.areHandsFree (gloves count as free hands), on the press
+	// (through super.checkSpecificConditions) and on every held tick.
 	@Override
-	public ConditionCheck checkSpecificConditions(Power<?> context) {
-		ConditionCheck check = super.checkSpecificConditions(context);
-		if (!check.isPositive()) {
-			return check;
-		}
-		LivingEntity user = context.getUser();
-		if (user == null) {
-			return ConditionCheck.NEGATIVE;
-		}
-		return user.getMainHandItem().isEmpty() && user.getOffhandItem().isEmpty()
+	protected ConditionCheck checkHeldItems(LivingEntity user) {
+		return UtilFunctions.areHandsFree(user, InteractionHand.MAIN_HAND, InteractionHand.OFF_HAND)
 				? ConditionCheck.POSITIVE
 				: ConditionCheck.createNegative("hands");
+	}
+
+	// 1.16 drained 1% of the max energy in its own hold tick and asked for no held energy (holdEnergyCost 0),
+	// so the energy check of a hold always passed.
+	@Override
+	protected boolean hasHeldEnergy(Power<?> context, HamonData hamon) {
+		return true;
 	}
 
 	@Override

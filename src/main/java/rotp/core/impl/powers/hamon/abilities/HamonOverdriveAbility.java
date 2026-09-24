@@ -10,6 +10,7 @@ import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
+import rotp.core.util.functions.UtilFunctions;
 import rotp.core.impl.powers.hamon.HamonData;
 import rotp.core.impl.powers.hamon.ModHamonSkills;
 
@@ -38,7 +39,8 @@ public class HamonOverdriveAbility extends HamonActionRuntimeAbility {
 		if (user == null) {
 			return ConditionCheck.NEGATIVE;
 		}
-		if (!user.getItemInHand(InteractionHand.MAIN_HAND).isEmpty()) {
+		// 1.16 needsFreeMainHand (MCUtil.isHandFree: gloves count as a free hand).
+		if (!UtilFunctions.isHandFree(user, InteractionHand.MAIN_HAND)) {
 			return ConditionCheck.createNegative("hand");
 		}
 		ActionTarget target = getAimTarget(user, user.level());

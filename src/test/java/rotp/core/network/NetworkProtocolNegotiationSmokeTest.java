@@ -1,8 +1,10 @@
 package rotp.core.network;
 
+import java.util.Arrays;
 import java.util.Optional;
 
 import rotp.core.PacketsRegister;
+import rotp.core.mechanics.resolve.ResolveBoostsPacket;
 
 import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.resources.ResourceLocation;
@@ -18,6 +20,12 @@ public final class NetworkProtocolNegotiationSmokeTest {
 	public static void run() {
 		check(Integer.parseInt(PacketsRegister.NETWORK_PROTOCOL_VERSION) >= 5,
 				"synchronized target-lock settings require core protocol v5 or later");
+		// a v5 peer would read resolveboost one float short, or miss special_action entries, instead of failing negotiation
+		check(Arrays.stream(ResolveBoostsPacket.class.getRecordComponents())
+				.anyMatch(component -> component.getName().equals("maxAchievedValue")),
+				"resolveboost lost maxAchievedValue; recheck the protocol version");
+		check(Integer.parseInt(PacketsRegister.NETWORK_PROTOCOL_VERSION) >= 6,
+				"resolveboost's maxAchievedValue and the synced stand_entity_block need core protocol v6 or later");
 
 		var matching = NetworkComponentNegotiator.validateComponent(
 				requiredComponent(PacketsRegister.NETWORK_PROTOCOL_VERSION),
@@ -25,6 +33,13 @@ public final class NetworkProtocolNegotiationSmokeTest {
 				"client");
 		check(matching.isEmpty(),
 				"matching current peers must negotiate the required play payload");
+
+		var noMaxResolve = NetworkComponentNegotiator.validateComponent(
+				requiredComponent(PacketsRegister.NETWORK_PROTOCOL_VERSION),
+				requiredComponent("5"),
+				"client");
+		check(noMaxResolve.isPresent() && !noMaxResolve.get().success(),
+				"a v5 peer must fail negotiation before it reads the longer resolveboost payload");
 
 		var oldSettings = NetworkComponentNegotiator.validateComponent(
 				requiredComponent(PacketsRegister.NETWORK_PROTOCOL_VERSION),

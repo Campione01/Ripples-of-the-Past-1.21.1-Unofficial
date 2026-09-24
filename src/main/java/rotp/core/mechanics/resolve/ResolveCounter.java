@@ -1,5 +1,10 @@
 package rotp.core.mechanics.resolve;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+import javax.annotation.Nullable;
+
 import rotp.core.core.JojoMod;
 import rotp.core.JojoModConfig;
 import rotp.core.init.ModDamageTypes;
@@ -12,8 +17,16 @@ import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.util.objects_java.DefaultedValue;
 import rotp.core.util.objects_java.Lerp;
 import rotp.core.util.objects_java.OptionalFloat;
+import com.google.common.collect.BoundType;
+import com.google.common.collect.Multiset;
+import com.google.common.collect.SortedMultiset;
+import com.google.common.collect.TreeMultiset;
 
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.FloatTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.util.Mth;
@@ -35,7 +48,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 @EventBusSubscriber(modid = JojoMod.MOD_ID)
 public class ResolveCounter {
-	public static final float RESOLVE_DMG_REDUCTION = 0.6F;
+	public static final float RESOLVE_DMG_REDUCTION = 0.6667F;
 	public static final float[] DEFAULT_MAX_RESOLVE_VALUES = { 2500.0F, 10000.0F, 25000.0F, 50000.0F, 32500.0F };
 	protected static final float RESOLVE_DECAY = 2F;
 	protected static final int RESOLVE_NO_DECAY_TICKS = 400;
@@ -58,6 +71,14 @@ public class ResolveCounter {
 	public static final float BOOST_CHAT_MAX = 1.25F;
 	public static final float BOOST_PER_CHARACTER = 0.05F;
 
+	public static final int MAX_RESOLVE_RECORDS = 10;
+	/** 1.16 StandType.resolveMultiplierTier: every Stand starts at 5, addAttackerResolveMultTier raises it. */
+	public static final int DEFAULT_RESOLVE_MULTIPLIER_TIER = 5;
+	private static final Map<ResourceLocation, Integer> RESOLVE_MULTIPLIER_TIER_ADD = new ConcurrentHashMap<>(Map.of(
+			// 1.16 ModStandsInit: addAttackerResolveMultTier(1) on Star Platinum and The World
+			JojoMod.resLoc("star_platinum"), 1,
+			JojoMod.resLoc("the_world"), 1));
+
 	public Lerp.FloatValue resolveLerp = new Lerp.FloatValue();
 	public DefaultedValue.Int resolveModeTimer = new DefaultedValue.Int(-1);
 	public int noResolveDecayTicks = 0;
@@ -68,6 +89,11 @@ public class ResolveCounter {
 	public OptionalFloat hpOnGettingAttacked = OptionalFloat.empty();
 	public int noBoostDecayTicks = 0;
 
+	// 1.16 resolve records: the values fights reached (server only), which make climbing back up to them cheaper
+	protected final TreeMultiset<Float> resolveRecords = TreeMultiset.create();
+	protected boolean saveNextRecord = true;
+	public float maxAchievedValue;
+
 
 	public ResolveCounter() {}
 	
@@ -75,6 +101,10 @@ public class ResolveCounter {
 		this.resolveLerp = prev.resolveLerp;
 		this.resolveModeTimer = prev.resolveModeTimer;
 		this.noResolveDecayTicks = prev.noResolveDecayTicks;
+		this.resolveRecords.clear();
+		this.resolveRecords.addAll(prev.resolveRecords);
+		this.saveNextRecord = prev.saveNextRecord;
+		this.maxAchievedValue = prev.maxAchievedValue;
 		if (!wasDeath) {
 			this.boostAttack = prev.boostAttack;
 			this.boostChat = prev.boostChat;
@@ -82,8 +112,21 @@ public class ResolveCounter {
 			this.noBoostDecayTicks = prev.noBoostDecayTicks;
 		}
 		else {
-			clearBoosts();
+			resetOnDeath();
 		}
+	}
+
+	/** 1.16 ResolveCounter.alwaysResetOnDeath: the value is kept only as a record. */
+	protected void resetOnDeath() {
+		float resolve = getResolveValue();
+		if (resolve > 0) {
+			addResolveRecord(resolveRecords, resolve);
+		}
+		this.maxAchievedValue = maxResolveRecord(resolveRecords);
+		this.resolveLerp = new Lerp.FloatValue();
+		this.noResolveDecayTicks = 0;
+		this.saveNextRecord = true;
+		clearBoosts();
 	}
 	
 	public void clearBoosts() {
@@ -117,7 +160,8 @@ public class ResolveCounter {
 			// 1.16 ResolveCounter.tick: boosts neither count down nor reset while the Resolve effect is on
 			if (!resolveEffectOn) {
 				if (noBoostDecayTicks > 0) {
-					noBoostDecayTicks--;
+					// 1.16 counted the boosts on the value's own no-decay ticks, twice a tick with the Stand unsummoned
+					noBoostDecayTicks = countDownNoDecayTicks(noBoostDecayTicks, stand.isSummoned());
 				}
 				else {
 					boolean hadValue = resolveBeforeTick > 0;
@@ -160,13 +204,92 @@ public class ResolveCounter {
 		}
 		
 		if (noResolveDecayTicks > 0) {
-			noResolveDecayTicks--;
-			if (noResolveDecayTicks > 0 && !stand.isSummoned()) {
-				noResolveDecayTicks--;
+			boolean fightEnds = noResolveDecayTicks == 1;
+			noResolveDecayTicks = countDownNoDecayTicks(noResolveDecayTicks, stand.isSummoned());
+			// 1.16: the value a fight reached is kept as a record once its no-decay ticks run out
+			if (fightEnds && !user.level().isClientSide()) {
+				saveResolveRecord(stand);
 			}
 		}
 		else if (getResolveValue() > 0) {
 			resolveLerp.set(Math.max(getResolveValue() - RESOLVE_DECAY, 0), true);
+			if (getResolveValue() == 0) {
+				saveNextRecord = true;
+			}
+		}
+	}
+
+	/** 1.16 ResolveCounter.tick: the no-decay ticks drop by one, and by one more while any are left and the Stand is not summoned. */
+	public static int countDownNoDecayTicks(int ticks, boolean standSummoned) {
+		if (ticks <= 0) {
+			return ticks;
+		}
+		ticks--;
+		if (ticks > 0 && !standSummoned) {
+			ticks--;
+		}
+		return ticks;
+	}
+
+	protected void saveResolveRecord(StandPower stand) {
+		if (saveNextRecord) {
+			saveNextRecord = false;
+		}
+		else {
+			resolveRecords.pollFirstEntry();
+		}
+		float resolve = getResolveValue();
+		if (resolve > 0) {
+			addResolveRecord(resolveRecords, resolve);
+		}
+		setMaxAchievedValue(stand, maxResolveRecord(resolveRecords));
+	}
+
+	/** 1.16 DiscardingSortedMultisetWrapper.add with a capacity of MAX_RESOLVE_RECORDS. */
+	public static boolean addResolveRecord(SortedMultiset<Float> records, float value) {
+		while (records.size() > MAX_RESOLVE_RECORDS) {
+			records.pollFirstEntry();
+		}
+		if (records.size() == MAX_RESOLVE_RECORDS) {
+			float min = records.firstEntry().getElement();
+			if (value < min) {
+				return false;
+			}
+			records.remove(min);
+		}
+		return records.add(value);
+	}
+
+	public static float maxResolveRecord(SortedMultiset<Float> records) {
+		Multiset.Entry<Float> max = records.lastEntry();
+		return max != null ? max.getElement() : 0;
+	}
+
+	/**
+	 * 1.16 ResolveCounter.multiplyRecords: every record above the current value adds the part of the points that
+	 * stays below it once more per time it was reached.
+	 */
+	public static float multiplyRecords(SortedMultiset<Float> records, float currentResolve, float addedValue) {
+		float totalBoostedValue = 0;
+		for (Multiset.Entry<Float> entry : records.tailMultiset(currentResolve, BoundType.OPEN).entrySet()) {
+			float upperBorder = entry.getElement();
+			float multiplier = 1 + entry.getCount();
+			totalBoostedValue += Math.min(addedValue, upperBorder - currentResolve) * multiplier;
+		}
+		return totalBoostedValue + addedValue;
+	}
+
+	public float getMaxAchievedValue() {
+		return maxAchievedValue;
+	}
+
+	public void setMaxAchievedValue(StandPower stand, float value) {
+		if (this.maxAchievedValue != value) {
+			this.maxAchievedValue = value;
+			LivingEntity user = stand.getUser();
+			if (user instanceof ServerPlayer player) {
+				PacketDistributor.sendToPlayer(player, new ResolveBoostsPacket(this));
+			}
 		}
 	}
 	
@@ -310,13 +433,15 @@ public class ResolveCounter {
 
 	protected float boostAddedValue(float value, LivingEntity entity) {
 		value *= boostAttack * boostFromGettingAttacked(entity);
+		value = multiplyRecords(resolveRecords, getResolveValue(), value);
 		return value;
 	}
 
 	protected float boostFromGettingAttacked(LivingEntity user) {
 		PlayerPower playerPower = PlayerPower.get(user);
 		if (playerPower != null && playerPower.getPowerType() == ModPlayerPowers.VAMPIRISM.get()) {
-			return 1;
+			// 1.16: a vampire always had half of the missing health boost
+			return BOOST_MISSING_HP_MAX / 2;
 		}
 		float hp = user.getHealth();
 		if (hpOnGettingAttacked.isPresent() && hpOnGettingAttacked.getAsFloat() < hp) {
@@ -364,6 +489,7 @@ public class ResolveCounter {
 			int resolveLevel = Mth.clamp(resolveEffect.getAmplifier(), 0, RESOLVE_EFFECT_MAX.length - 1);
 			int newLevel = resolveLevel + 1;
 			stand.setResolveLevel(Math.min(newLevel, stand.getMaxResolveLevel()));
+			ResolveAdvancements.onResolveLevelSet(stand, Math.min(newLevel, stand.getMaxResolveLevel()));
 			setResolveValue(stand, stand.resolveCounter.getMaxResolveValue(stand), 0);
 			
 			boolean hasMinDuration = false;
@@ -401,6 +527,9 @@ public class ResolveCounter {
 	public void resetResolveValue(StandPower stand) {
 		resolveLerp.set(0, false);
 		noResolveDecayTicks = 0;
+		resolveRecords.clear();
+		saveNextRecord = true;
+		maxAchievedValue = 0;
 		clearBoosts();
 		resolveModeTimer.defaultValue = -1;
 		resolveModeTimer.reset();
@@ -510,6 +639,13 @@ public class ResolveCounter {
 		boostChat = nbt.getFloat("BoostChat");
 		hpOnGettingAttacked = nbt.contains("HpOnGettingAttacked") ? OptionalFloat.of(nbt.getFloat("HpOnGettingAttacked")) : OptionalFloat.empty();
 		noBoostDecayTicks = nbt.getInt("NoDecayTicks");
+		resolveRecords.clear();
+		ListTag records = nbt.getList("ResolveRecord", Tag.TAG_FLOAT);
+		for (int i = 0; i < records.size(); i++) {
+			addResolveRecord(resolveRecords, records.getFloat(i));
+		}
+		saveNextRecord = !nbt.contains("SaveNextRecord") || nbt.getBoolean("SaveNextRecord");
+		maxAchievedValue = nbt.getFloat("MaxAchieved");
 	}
 
 	public CompoundTag writeNBT() {
@@ -523,6 +659,13 @@ public class ResolveCounter {
 		nbt.putFloat("BoostChat", boostChat);
 		hpOnGettingAttacked.ifPresent(hp -> nbt.putFloat("HpOnGettingAttacked", hp));
 		nbt.putInt("NoDecayTicks", noBoostDecayTicks);
+		ListTag records = new ListTag();
+		for (float record : resolveRecords) {
+			records.add(FloatTag.valueOf(record));
+		}
+		nbt.put("ResolveRecord", records);
+		nbt.putBoolean("SaveNextRecord", saveNextRecord);
+		nbt.putFloat("MaxAchieved", maxAchievedValue);
 
 		return nbt;
 	}
@@ -586,12 +729,39 @@ public class ResolveCounter {
 				dmgAmount *= targetPower
 						.getTargetResolveMultiplier(attackerStand);
 			}
+			StandPower targetStand = StandPower.get(attackTarget);
+			if (targetStand != null && targetStand.hasPower()) {
+				dmgAmount *= standTargetResolveMultiplier(getResolveMultiplierTier(targetStand.getPowerType().getId()),
+						attackerStand.hasPower() ? getResolveMultiplierTier(attackerStand.getPowerType().getId()) : null);
+			}
 			if (ResolveModeEffect.getResolveEffectLvl(attackTarget) >= 0) {
 				dmgAmount *= Math.max(1 / (attackerStand.resolveCounter.getResolveRatio(attackerStand) + 0.2F), 1);
 			}
 
 			attackerStand.resolveCounter.addResolveOnAttack(attackerStand, dmgAmount);
 		}
+	}
+
+	/**
+	 * 1.16 StandType.getTargetResolveMultiplier: hitting a Stand user gives the target's tier + 1 less the attacker's
+	 * tier, at least 1 (1 between two ordinary Stands, 2 on Star Platinum or The World).
+	 */
+	public static float standTargetResolveMultiplier(int targetTier, @Nullable Integer attackerTier) {
+		float multiplier = targetTier + 1;
+		if (attackerTier != null) {
+			multiplier = Math.max(multiplier - attackerTier, 1);
+		}
+		return multiplier;
+	}
+
+	public static int getResolveMultiplierTier(@Nullable ResourceLocation standTypeId) {
+		return DEFAULT_RESOLVE_MULTIPLIER_TIER
+				+ (standTypeId != null ? RESOLVE_MULTIPLIER_TIER_ADD.getOrDefault(standTypeId, 0) : 0);
+	}
+
+	/** 1.16 StandType.Builder.addAttackerResolveMultTier, for add-on Stands. */
+	public static void addAttackerResolveMultTier(ResourceLocation standTypeId, int tierAdd) {
+		RESOLVE_MULTIPLIER_TIER_ADD.merge(standTypeId, tierAdd, Integer::sum);
 	}
 
 	public static boolean attackingTargetGivesResolve(Entity target) {

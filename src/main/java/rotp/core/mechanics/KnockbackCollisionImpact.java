@@ -22,6 +22,7 @@ import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.entity.StandStatFormulas;
 import rotp.core.powersystem.standpower.entity.StandStatFormulas.BlockMiningTier;
 import rotp.core.subsystems.target.ActionTarget;
+import rotp.core.subsystems.timestop.TimeStopState;
 import rotp.core.util.functions.AttributeUtil;
 import rotp.core.util.functions.CollisionHelper;
 import rotp.core.util.functions.CollisionHelper.BlockCollisionResult;
@@ -156,6 +157,11 @@ public class KnockbackCollisionImpact implements TickingEntityData, INBTSerializ
 
 	@Override
 	public void tick() {
+		// A stopped entity's motion waits in TimeStopState and reads as zero; in 1.16 it simply stayed on the
+		// entity, so an impact armed before or during the stop was still there when time resumed.
+		if (TimeStopState.shouldFreezeOnServer(entity)) {
+			return;
+		}
 		if (isActive()) {
 			if (knockbackImpactStrength <= 0) {
 				reset();

@@ -6,6 +6,7 @@ import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
+import rotp.core.util.functions.UtilFunctions;
 import rotp.core.impl.powers.hamon.HamonData;
 import rotp.core.impl.powers.hamon.ModHamonSkills;
 import rotp.core.impl.powers.hamon.entity.HamonTurquoiseBlueOverdriveEntity;
@@ -34,7 +35,8 @@ public class HamonTurquoiseBlueOverdriveAbility extends HamonActionRuntimeAbilit
 		if (user == null) {
 			return ConditionCheck.NEGATIVE;
 		}
-		if (!user.getItemInHand(InteractionHand.MAIN_HAND).isEmpty()) {
+		// 1.16 needsFreeMainHand (MCUtil.isHandFree: gloves count as a free hand).
+		if (!UtilFunctions.isHandFree(user, InteractionHand.MAIN_HAND)) {
 			return ConditionCheck.createNegative("hand");
 		}
 		return user.isInWaterOrBubble() ? ConditionCheck.POSITIVE : ConditionCheck.createNegative("underwater");

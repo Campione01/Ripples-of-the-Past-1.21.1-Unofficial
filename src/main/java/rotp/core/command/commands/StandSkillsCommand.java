@@ -14,6 +14,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.brigadier.exceptions.Dynamic2CommandExceptionType;
 import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
@@ -31,6 +32,16 @@ public class StandSkillsCommand {
 	private static final MultipleTargetsCommandResult RESET_MSG = new MultipleTargetsCommandResult("commands.standskills.reset");
 	private static final DynamicCommandExceptionType UNKNOWN_SKILL_EXCEPTION = new DynamicCommandExceptionType(
 			skill -> Component.translatable("commands.standskills.unlock.unknown", skill));
+	private static final Dynamic2CommandExceptionType UNLOCK_FAILED_SINGLE = new Dynamic2CommandExceptionType(
+			(skill, player) -> unlockFailedMessage(false, skill, player));
+	private static final Dynamic2CommandExceptionType UNLOCK_FAILED_MULTIPLE = new Dynamic2CommandExceptionType(
+			(skill, playerCount) -> unlockFailedMessage(true, skill, playerCount));
+
+	// the failed texts name the skill, then the player or the player count
+	static Component unlockFailedMessage(boolean multiple, Object skill, Object playerOrCount) {
+		return Component.translatable(multiple ? "commands.standskills.unlock.failed.multiple"
+				: "commands.standskills.unlock.failed.single", skill, playerOrCount);
+	}
 
 	public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
 		dispatcher.register(Commands.literal(JojoMod.MOD_ID).then(standSkillsCommand("stand_skills")));
@@ -74,7 +85,12 @@ public class StandSkillsCommand {
 		if (!knownSkill) {
 			throw UNKNOWN_SKILL_EXCEPTION.create(skillName);
 		}
-		return UNLOCK_MSG.trySend(source, true, targets, successful, skillName);
+		if (successful <= 0) {
+			throw targets.size() == 1
+					? UNLOCK_FAILED_SINGLE.create(skillName, targets.iterator().next().getDisplayName())
+					: UNLOCK_FAILED_MULTIPLE.create(skillName, targets.size());
+		}
+		return UNLOCK_MSG.success.send(source, true, targets, successful, new Object[] { skillName }, new Object[] { skillName });
 	}
 
 	private static int unlockAllSkills(CommandSourceStack source, Collection<ServerPlayer> targets) throws CommandSyntaxException {

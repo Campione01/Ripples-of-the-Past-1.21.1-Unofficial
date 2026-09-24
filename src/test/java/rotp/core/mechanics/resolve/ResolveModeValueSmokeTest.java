@@ -134,12 +134,14 @@ public final class ResolveModeValueSmokeTest {
 		int effectFlag = counterTick.indexOf("boolean resolveEffectOn = user != null && user.hasEffect(ModStatusEffects.RESOLVE);");
 		int valueTick = counterTick.indexOf("tickResolveValue(stand, user);");
 		int boostGuard = counterTick.indexOf("if (!resolveEffectOn) {");
-		int boostCountdown = counterTick.indexOf("noBoostDecayTicks--;");
+		String countdown = "noBoostDecayTicks = countDownNoDecayTicks(noBoostDecayTicks, stand.isSummoned());";
+		int boostCountdown = counterTick.indexOf(countdown);
 		int boostReset = counterTick.indexOf("boostAttack = 1;");
 		check(effectFlag >= 0 && valueTick > effectFlag,
 				"the Resolve effect must be read at the start of the tick, as in 1.16");
 		check(boostGuard > valueTick && boostCountdown > boostGuard && boostReset > boostCountdown
-				&& counterTick.indexOf("noBoostDecayTicks--;", boostCountdown + 1) < 0
+				&& counterTick.indexOf(countdown, boostCountdown + 1) < 0
+				&& !counterTick.contains("noBoostDecayTicks--")
 				&& counterTick.indexOf("boostAttack = 1;", boostReset + 1) < 0,
 				"boosts must neither count down nor reset while the Resolve effect is on");
 		int timerTick = counterTick.indexOf("resolveModeTimer.value = nextResolveModeTimer(resolveModeTimer.value, resolveModeTimer.defaultValue,");

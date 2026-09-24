@@ -31,6 +31,12 @@ public class HamonBubbleLauncherAbility extends HamonActionRuntimeAbility {
 		return context.getUser() instanceof LivingEntity user ? HamonSoapHelper.checkSoap(user) : ConditionCheck.NEGATIVE;
 	}
 
+	// 1.16 HamonBubbleLauncher.checkHeldItems: soap, checked on every held tick too.
+	@Override
+	protected ConditionCheck checkHeldItems(LivingEntity user) {
+		return HamonSoapHelper.checkSoap(user);
+	}
+
 	@Override
 	protected void onHeldTick(HamonHeldActionInstance action, LivingEntity user, Power<?> context, HamonData hamon, int ticksHeld) {
 		Level level = user.level();

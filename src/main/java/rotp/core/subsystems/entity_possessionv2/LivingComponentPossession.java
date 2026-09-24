@@ -9,6 +9,7 @@ import javax.annotation.Nullable;
 import rotp.core.entityattachment.SynchronizableEntityData;
 import rotp.core.entityattachment.TickingEntityData;
 import rotp.core.init.ModDataAttachmentTypes;
+import rotp.core.subsystems.timestop.TimeStopState;
 
 import net.minecraft.network.protocol.game.ClientboundSetCameraPacket;
 import net.minecraft.server.level.ServerLevel;
@@ -69,6 +70,10 @@ public class LivingComponentPossession implements TickingEntityData, Synchroniza
 	
 	@Override
 	public void tick() {
+		// 1.16 followed the possessed entity in ServerPlayer.tick, which a player stopped in time skipped
+		if (TimeStopState.shouldFreezeOnServer(thisEntity)) {
+			return;
+		}
 		if (possessTarget != null) {
 			if (!possessTarget.isAlive()) {
 				this.setPossessionTarget(null, null);

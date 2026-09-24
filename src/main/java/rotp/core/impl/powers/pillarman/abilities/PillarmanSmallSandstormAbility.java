@@ -22,6 +22,8 @@ public class PillarmanSmallSandstormAbility extends PillarmanActionAbility {
 		setDefaultPhaseLength(ActionPhase.WINDUP, 0);
 		setDefaultPhaseLength(ActionPhase.PERFORM, 1);
 		setDefaultPhaseLength(ActionPhase.RECOVERY, 0);
+		// 1.16 swingHand() without withUserPunch: performing it resets the attack strength.
+		setResetsAttackStrengthOnPerform();
 	}
 
 	public static class SmallSandstormInstance extends EntityActionInstance {

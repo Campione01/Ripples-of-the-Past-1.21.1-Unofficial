@@ -25,6 +25,7 @@ import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModEntityAttributes;
 import rotp.core.init.ModSoundEvents;
 import rotp.core.mechanics.JojoDefinitions;
+import rotp.core.mechanics.resolve.ResolveAdvancements;
 import rotp.core.mechanics.resolve.ResolveCounter;
 import rotp.core.mechanics.resolve.ResolveModeEffect;
 import rotp.core.mechanics.standarrow.StandArrowItem;
@@ -331,7 +332,8 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 	public void skipProgression() {
 		StandTypePersistentData data = getCurTypeData();
 		if (data != null) {
-			setResolveLevel(getMaxResolveLevel());
+			// 1.16 skipProgression set the level on the ResolveCounter directly, so no STAND_MAX
+			setResolveLevel(getMaxResolveLevel(), false);
 			if (!user.level().isClientSide()) {
 				for (String skillName : data.getAllSkills().keySet()) {
 					data._setSkillUnlocked(skillName, true, false);
@@ -670,6 +672,10 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 	}
 
 	public void setResolveLevel(int level) {
+		setResolveLevel(level, true);
+	}
+
+	private void setResolveLevel(int level, boolean fireStandMax) {
 		if (!usesResolve()) {
 			return;
 		}
@@ -678,6 +684,10 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 		if (data != null && type != null && data.setResolveLevel(this, level) && !user.level().isClientSide()) {
 			StandStats.updateStandStatAttributes(this, user);
 			type.onNewResolveLevel(this);
+		}
+		// 1.16 StandPower.setResolveLevel: STAND_MAX for a level at the maximum, changed or not
+		if (fireStandMax && data != null && type != null) {
+			ResolveAdvancements.onResolveLevelSet(this, level);
 		}
 	}
 	

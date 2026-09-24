@@ -10,6 +10,7 @@ import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
+import rotp.core.util.functions.UtilFunctions;
 import rotp.core.impl.powers.hamon.HamonData;
 import rotp.core.impl.powers.hamon.ModHamonSkills;
 
@@ -41,7 +42,8 @@ public class HamonOverdriveBeatAbility extends HamonActionRuntimeAbility {
 		if (user == null) {
 			return ConditionCheck.NEGATIVE;
 		}
-		if (!user.getItemInHand(InteractionHand.OFF_HAND).isEmpty()) {
+		// 1.16 needsFreeOffHand (MCUtil.isHandFree: gloves count as a free hand).
+		if (!UtilFunctions.isHandFree(user, InteractionHand.OFF_HAND)) {
 			return ConditionCheck.createNegative("hand");
 		}
 		HamonData hamon = getHamonData(context);
@@ -101,7 +103,7 @@ public class HamonOverdriveBeatAbility extends HamonActionRuntimeAbility {
 			}
 			Power<?> context = beatAbility.getUserPower(user);
 			HamonData hamon = beatAbility.getHamonData(context);
-			if (hamon == null || !user.getItemInHand(InteractionHand.OFF_HAND).isEmpty()) {
+			if (hamon == null) {
 				return;
 			}
 			Level level = level();
@@ -110,15 +112,18 @@ public class HamonOverdriveBeatAbility extends HamonActionRuntimeAbility {
 			if (target.getType() != TargetType.ENTITY || !(target.getMainEntity() instanceof LivingEntity livingTarget)) {
 				return;
 			}
-			float efficiency = hamon.getActionEfficiency(ENERGY_COST, true, ModHamonSkills.OVERDRIVE.get(), user);
-			if (HamonAbilityHelpers.hamonHurt(livingTarget, user, DAMAGE * efficiency)) {
-				level.playSound(null, livingTarget, ModSoundEvents.HAMON_SYO_PUNCH.get(),
-						SoundSource.PLAYERS, 1.0F, 1.5F);
-				livingTarget.knockback(1.25F, user.getX() - livingTarget.getX(), user.getZ() - livingTarget.getZ());
-				float pointsEnergy = Math.min(ENERGY_COST, hamon.getEnergy());
-				hamon.consumeEnergy(ENERGY_COST, user);
-				hamon.hamonPointsFromAction(HamonData.HamonStat.STRENGTH, pointsEnergy * efficiency);
-				hamon.syncOnUpdate(user);
+			// 1.16 punch: a filled off hand (checkHeldItems) loses only the Hamon part; the melee hit still lands.
+			if (UtilFunctions.isHandFree(user, InteractionHand.OFF_HAND)) {
+				float efficiency = hamon.getActionEfficiency(ENERGY_COST, true, ModHamonSkills.OVERDRIVE.get(), user);
+				if (HamonAbilityHelpers.hamonHurt(livingTarget, user, DAMAGE * efficiency)) {
+					level.playSound(null, livingTarget, ModSoundEvents.HAMON_SYO_PUNCH.get(),
+							SoundSource.PLAYERS, 1.0F, 1.5F);
+					livingTarget.knockback(1.25F, user.getX() - livingTarget.getX(), user.getZ() - livingTarget.getZ());
+					float pointsEnergy = Math.min(ENERGY_COST, hamon.getEnergy());
+					hamon.consumeEnergy(ENERGY_COST, user);
+					hamon.hamonPointsFromAction(HamonData.HamonStat.STRENGTH, pointsEnergy * efficiency);
+					hamon.syncOnUpdate(user);
+				}
 			}
 			HamonAbilityHelpers.doMeleeAttack(user, livingTarget);
 			if (user instanceof Player player) {

@@ -507,8 +507,18 @@ public class PowerHud {
 		public static final GuiIcon VERTICAL_EMPTY = new GuiIcon(JojoMod.resLoc("textures/hud/stand_resolve_vertical_empty.png"), 16, 32);
 		public static final GuiIcon VERTICAL_FULL = new GuiIcon(JojoMod.resLoc("textures/hud/stand_resolve_vertical_full.png"), 16, 32);
 
+		public static final int MAX_ACHIEVED_TINT = 0x66FFFFFF;
+
 		public Resolve(String name, int x0, int y0, int width, int height) {
 			super(name, x0, y0, width, height);
+		}
+
+		/** The bar's fill for a ratio: full only when full, else kept 5 pixels short of the end. */
+		public static float resolveBarFillWidth(float ratio, int width) {
+			if (!(ratio > 0)) {
+				return 0;
+			}
+			return ratio >= 1 ? width : Math.min(width * ratio, width - 5);
 		}
 
 		public Resolve(String name, SnappingH snappingHorizontal, SnappingV snappingVertical, 
@@ -570,7 +580,20 @@ public class PowerHud {
 			BlitFloat.blit(guiGraphics.pose(), mc, emptySprite.file, 
 					x, y, width, height, 0, 
 					BlitFloat.NO_TINT);
-			float fillWidth = resolveRatio >= 1 ? width : Math.min(width * resolveRatio, width - 5);
+			// 1.16 BarsRenderer: the highest recorded value shows as a translucent fill (40% alpha)
+			float maxResolve = standPower.resolveCounter.getMaxResolveValue(standPower);
+			float maxAchievedWidth = maxResolve > 0
+					? resolveBarFillWidth(standPower.resolveCounter.getMaxAchievedValue() / maxResolve, width) : 0;
+			if (maxAchievedWidth > 0) {
+				RenderSystem.enableBlend();
+				RenderSystem.defaultBlendFunc();
+				BlitFloat.blit(guiGraphics.pose(), mc, fullSprite.file,
+						x, y, maxAchievedWidth, height, 0,
+						0, 0, maxAchievedWidth, height, width, height,
+						MAX_ACHIEVED_TINT);
+				RenderSystem.disableBlend();
+			}
+			float fillWidth = resolveBarFillWidth(resolveRatio, width);
 			BlitFloat.blit(guiGraphics.pose(), mc, fullSprite.file, 
 					x, y, fillWidth, height, 0, 
 					0, 0, fillWidth, height, width, height, 

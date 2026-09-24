@@ -117,6 +117,8 @@ public class StandInitStarPlatinum {
 					.addToHotbar("enhanced_eyesight", 0, InputMethod.HOLD)
 					.addToHotbar("inhale", 0, InputMethod.HOLD)
 					.addToHotbar("time_stop", 0, InputMethod.HOLD)
+					// 1.16 blink (SHIFT variation of the time stop) as its own wheel slot
+					.addToHotbar("time_stop_blink", 0, InputMethod.CLICK)
 				.finalizeControlScheme()
 
 

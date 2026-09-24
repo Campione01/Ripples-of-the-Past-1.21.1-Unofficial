@@ -8,9 +8,11 @@ import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.playerpower.PlayerPower;
+import rotp.core.util.functions.UtilFunctions;
 import rotp.core.impl.powers.hamon.ModHamonSkills;
 import rotp.core.impl.powers.hamon.entity.HamonZoomPunchEntity;
 
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
 
@@ -37,7 +39,9 @@ public class HamonZoomPunchAbility extends HamonActionRuntimeAbility {
 		if (user == null) {
 			return ConditionCheck.NEGATIVE;
 		}
-		return user.getMainHandItem().isEmpty() ? ConditionCheck.POSITIVE : ConditionCheck.createNegative("hand");
+		// 1.16 needsFreeMainHand (MCUtil.isHandFree: gloves count as a free hand).
+		return UtilFunctions.isHandFree(user, InteractionHand.MAIN_HAND)
+				? ConditionCheck.POSITIVE : ConditionCheck.createNegative("hand");
 	}
 
 	public static class ZoomPunchInstance extends HamonActionRuntimeAbility.HamonRuntimeActionInstance {

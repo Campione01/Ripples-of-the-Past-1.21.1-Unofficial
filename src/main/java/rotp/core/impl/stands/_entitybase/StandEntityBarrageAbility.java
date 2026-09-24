@@ -150,6 +150,12 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 		return phase != null && phase != ActionPhase.RECOVERY;
 	}
 
+	// 1.16 StandEntityMeleeBarrage.stopOnHeavyAttack: an enemy heavy attack that hurts the Stand stops the barrage.
+	@Override
+	public boolean stopsOnHeavyAttack(EntityActionInstance action) {
+		return action instanceof StandEntityBarrage;
+	}
+
 	public static boolean isDirectionalBarrage(StandEntity stand, @Nullable EntityActionInstance action) {
 		return action instanceof StandEntityBarrage
 				&& action.ability instanceof StandEntityBarrageAbility

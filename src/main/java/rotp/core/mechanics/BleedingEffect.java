@@ -28,6 +28,7 @@ import rotp.core.util.functions.AttributeUtil;
 import rotp.core.util.functions.DamageUtil;
 import rotp.core.impl.powers.pillarman.PillarmanData;
 import rotp.core.impl.powers.pillarman.PillarmanMode;
+import rotp.core.impl.powers.vampirism.VampirismData;
 import rotp.core.impl.powers.vampirism.VampirismState;
 import rotp.core.impl.stands.crazydiamond.CrazyDBloodCutterAbility;
 import rotp.core.impl.stands.crazydiamond.DriedBloodDropsEffect;
@@ -323,6 +324,11 @@ public class BleedingEffect extends StatusEffectModified implements StatusEffect
 					applyActivationEffects(entity, headStack);
 					return true;
 				}
+				return false;
+			}
+			// 1.16 activated only a vampire not yet at full power (Vampirism is not replaceable), so blood on a
+			// finished vampire's mask (its own knife cut included) neither refills blood nor wears the mask again
+			if (playerPower.getCurTypeData(ModPlayerPowers.VAMPIRISM).map(VampirismData::isVampireAtFullPower).orElse(false)) {
 				return false;
 			}
 			playerPower.setPowerType(ModPlayerPowers.VAMPIRISM.get());

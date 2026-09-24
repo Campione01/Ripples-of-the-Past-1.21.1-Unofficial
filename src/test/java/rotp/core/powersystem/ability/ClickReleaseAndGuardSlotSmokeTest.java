@@ -123,8 +123,9 @@ public final class ClickReleaseAndGuardSlotSmokeTest {
 		String blocking = body(stand, "publicbooleanisStandBlocking()");
 		check(blocking.contains(squash("curAction.getPhase() == ActionPhase.PERFORM"))
 				&& blocking.contains(squash("JojoModUtil.isStandGuardAbility(curAction.ability)"))
+				&& blocking.contains(squash("|| curAction.ability instanceof StandEntityAutoBlockAction"))
 				&& !blocking.contains("nameInMoveset") && !blocking.contains("\"guard\""),
-				"isStandBlocking must count a guard in PERFORM by class, whatever its slot");
+				"isStandBlocking must count a guard in PERFORM by class, whatever its slot, and the generic guard");
 
 		String damage = body(stand, "protectedfloatgetDamageAfterMagicAbsorb(DamageSourcedmgSource,floatdmgAmount)");
 		int autoBlock = damage.indexOf(squash("tryAutoBlock(dmgSource, blockableAngle);"));
@@ -135,9 +136,10 @@ public final class ClickReleaseAndGuardSlotSmokeTest {
 		int noGuardSlot = auto.indexOf(squash("if (userPower == null || !userPower.isAbilityUnlocked(\"guard\")) {"));
 		int fallback = auto.indexOf(squash("guard = userPower != null ? getUnlockedGuardInOtherSlot(userPower) : null;"), noGuardSlot);
 		int guardSlot = auto.indexOf(squash("guard = userPower.getAbility(\"guard\");"), fallback);
+		int generic = auto.indexOf(squash("EntityActionType guardActionType = guard instanceof EntityActionType ownGuard ? ownGuard : StandEntityAutoBlockAction.get();"), guardSlot);
 		check(noGuardSlot >= 0 && fallback > noGuardSlot && guardSlot > fallback
-				&& auto.indexOf(squash("if (guard instanceof EntityActionType guardActionType) {"), guardSlot) > guardSlot,
-				"the auto-guard must fall back to an unlocked guard in another slot");
+				&& generic > guardSlot && auto.indexOf(squash("if (guardActionType != null) {"), generic) > generic,
+				"the auto-guard must fall back to an unlocked guard in another slot, then to the generic guard");
 		String other = body(stand, "privatestaticAbilitygetUnlockedGuardInOtherSlot(StandPowerpower)");
 		check(other.contains(squash("for (Ability ability : power.getMoveset().abilities.values()) {"))
 				&& other.contains(squash("JojoModUtil.isStandGuardAbility(actionType)"))

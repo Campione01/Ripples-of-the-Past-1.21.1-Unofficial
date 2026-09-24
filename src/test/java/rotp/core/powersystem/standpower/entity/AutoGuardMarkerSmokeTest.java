@@ -4,9 +4,11 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import rotp.core.impl.stands._entitybase.StandEntityAutoBlockAction;
 import rotp.core.impl.stands._entitybase.StandEntityBlockAbility;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
+import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 
 import net.minecraft.resources.ResourceLocation;
@@ -15,19 +17,55 @@ import net.minecraft.resources.ResourceLocation;
  * 1.16 StandEntity.actuallyHurt blocked a frontal hit on an idle Stand with the plain BLOCK_STAND_ENTITY task, so
  * the Stand's own guard (Kraft Work's KraftWorkBlock.standTickPerform) did not tick then. The port's tryAutoBlock
  * starts the Stand's own guard for 5 ticks; isAutoGuarding tells that guard apart from one the user holds, and the
- * hit is still blocked.
+ * hit is still blocked. A Stand with no unlocked guard of its own gets the generic guard, as every 1.16 Stand did.
  */
 public final class AutoGuardMarkerSmokeTest {
 	private static final String STAND_ENTITY =
 			"src/main/java/rotp/core/powersystem/standpower/entity/StandEntity.java";
 	private static final String ENTITY_ACTION_TYPE =
 			"src/main/java/rotp/core/powersystem/entityaction/type/EntityActionType.java";
+	private static final String AUTO_BLOCK_ACTION =
+			"src/main/java/rotp/core/impl/stands/_entitybase/StandEntityAutoBlockAction.java";
+	private static final String SPECIAL_ACTIONS = "src/main/java/rotp/core/init/ModSpecialActions.java";
 
 	private AutoGuardMarkerSmokeTest() {}
 
 	public static void run() {
 		verifyMarkerIdentity();
 		verifyTryAutoBlockMarks();
+		verifyGenericAutoBlock();
+	}
+
+	// 1.16 BLOCK_STAND_ENTITY: the guard every idle Stand took on a frontal hit, with or without a block of its own.
+	private static void verifyGenericAutoBlock() {
+		check("stand_entity_block".equals(StandEntityAutoBlockAction.ID.getPath()),
+				"the generic auto-guard keeps the 1.16 action name");
+		StandEntityAutoBlockAction generic = new StandEntityAutoBlockAction(StandEntityAutoBlockAction.ID);
+		EntityActionInstance auto = generic.createActionObj();
+		check(auto instanceof StandEntityAutoBlockAction.AutoBlockInstance && auto != generic.createActionObj(),
+				"each generic auto-guard must build its own action");
+		auto.onSetPhase(ActionPhase.PERFORM);
+		check(auto.userWalkSpeed == 0.3F, "the user walks at 0.3 while the generic guard holds, as with 1.16 StandEntityBlock");
+		auto.onSetPhase(ActionPhase.RECOVERY);
+		check(auto.userWalkSpeed == 1.0F, "the walk speed comes back after the guard");
+		StandEntityBlockAbility ownGuard = new AbilityType<StandEntityBlockAbility>(id("auto_guard_generic_block"),
+				StandEntityBlockAbility::new).createInstance(new AbilityId(null, id("test_power"), "guard"));
+		check(auto.canBeCancelledInto(ownGuard) && auto.canBeCancelledInto(generic),
+				"any action, the user's own guard too, can take over from the generic guard");
+		check("block".equals(generic.getEntityAnim(auto).name()), "the generic guard plays the Stand's block pose");
+
+		String action = compact(source(AUTO_BLOCK_ACTION));
+		String specialActions = compact(source(SPECIAL_ACTIONS));
+		check(specialActions.contains("STAND_ENTITY_BLOCK=ACTIONS.register(\"stand_entity_block\",StandEntityAutoBlockAction::new);")
+				&& action.contains("publicstaticEntityActionTypeget(){returnModSpecialActions.STAND_ENTITY_BLOCK.get();}"),
+				"the generic auto-guard must be registered so a client can decode it");
+		String stand = compact(source(STAND_ENTITY));
+		requireInOrder(stand,
+				"privatebooleantryAutoBlock(DamageSourcedmgSource,booleanblockableAngle){",
+				"EntityActionTypeguardActionType=guardinstanceofEntityActionTypeownGuard?ownGuard:StandEntityAutoBlockAction.get();",
+				"if(guardActionType!=null){",
+				"publicbooleanisStandBlocking(){",
+				"||curAction.abilityinstanceofStandEntityAutoBlockAction);");
 	}
 
 	// The marker is the instance tryAutoBlock built; a user's press of the same guard builds another one.

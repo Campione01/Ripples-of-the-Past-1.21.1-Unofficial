@@ -58,6 +58,8 @@ public class ResolveModeEffect extends StatusEffectModified {
 		StandPower standPower = StandPower.get(entity);
 		if (standPower != null && standPower.usesResolve()) {
 			ResolveCounter resolve = standPower.resolveCounter;
+			// 1.16 re-applied the attribute modifiers on an update: onResolveEffectEnded, then onResolveEffectStarted
+			resolve.onResolveEffectEnd(standPower, entity);
 			resolve.onResolveEffectStart(standPower, entity, instance);
 		}
 	}

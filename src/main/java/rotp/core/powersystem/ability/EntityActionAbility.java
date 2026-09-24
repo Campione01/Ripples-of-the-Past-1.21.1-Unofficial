@@ -13,6 +13,7 @@ import rotp.core.init.ModStatusEffects;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
+import rotp.core.powersystem.ability.input.AbilityInput;
 import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
 import rotp.core.powersystem.entityaction.ActionAnimIdentifier;
 import rotp.core.powersystem.entityaction.ActionPhase;
@@ -26,6 +27,7 @@ import rotp.core.powersystem.standpower.entity.StandEntity;
 
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.common.damagesource.DamageContainer;
@@ -216,6 +218,128 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 			action.onKeyRelease(action.getPowerUser());
 		}
 		action.syncPhaseChanges();
+	}
+	
+	
+	/**
+	 * 1.16 PowerBaseImpl.tickHeldAction re-ran checkRequirements on every tick of a held action, and stopHeldAction(true)
+	 * ran it once more before a released hold fired. This is the part every held action shares: the power is usable,
+	 * the performer is alive and, unless the action ignores it, not stunned.
+	 * {@link #checkHeldSpecificConditions} adds the ability's own.
+	 */
+	public ConditionCheck checkHeldActionConditions(EntityActionInstance action, Power<?> context) {
+		if (!context.canUsePower()) {
+			return ConditionCheck.NEGATIVE;
+		}
+		LivingEntity performer = action.getPerformer();
+		if (performer != null) {
+			if (!ignoresPerformerStun() && ModStatusEffects.isStunned(performer)) {
+				return ConditionCheck.createNegative("stun");
+			}
+			if (!performer.isAlive()) {
+				return ConditionCheck.NEGATIVE;
+			}
+		}
+		return checkHeldSpecificConditions(action, context);
+	}
+	
+	/**
+	 * What 1.16 Action.checkConditions checked again during a hold: the held items, soap, a target and so on.
+	 * Unlike {@link #checkConditions}, it must not ask again what the running hold already went through
+	 * (its cooldown, a busy performer).
+	 */
+	protected ConditionCheck checkHeldSpecificConditions(EntityActionInstance action, Power<?> context) {
+		return ConditionCheck.POSITIVE;
+	}
+	
+	/**
+	 * 1.16 stopHeldAction(false) after a failed check; by default the hold stops as a hit that cancels it stops it.
+	 */
+	public void stopHeldActionOnFailedCheck(EntityActionInstance action) {
+		stopHeldActionOnGettingAttacked(action);
+	}
+	
+	/**
+	 * 1.16 stopHeldAction(true): a released hold that no longer passes its checks ends without firing, and without
+	 * a message. The server decides; the client follows the synced phase.
+	 */
+	public boolean canFireReleasedHold(EntityActionInstance action) {
+		LivingEntity user = action.getPowerUser();
+		if (user == null || user.level().isClientSide() || abilityId.powerClass() == null) {
+			return true;
+		}
+		Power<?> context = getUserPower(user);
+		return context == null || checkHeldActionConditions(action, context).isPositive();
+	}
+	
+	/**
+	 * Server side, every tick the held action ticks (and while its Stand is stunned). Only a hold whose key is still
+	 * down is checked, as 1.16 kept a held action only while its key was held.
+	 * @return whether a failed check stopped the hold
+	 */
+	@ApiStatus.Internal
+	public boolean stopHeldActionIfConditionsFail(EntityActionInstance action) {
+		LivingEntity user = action.getPowerUser();
+		if (action.isOver() || user == null || user.level().isClientSide() || abilityId.powerClass() == null
+				|| !isActionHeld(action) || !AbilityInput.isHeldByKey(user, action)) {
+			return false;
+		}
+		Power<?> context = getUserPower(user);
+		if (context == null) {
+			return false;
+		}
+		ConditionCheck check = checkHeldActionConditions(action, context);
+		if (check.isPositive() || check.shouldContinueHold()) {
+			return false;
+		}
+		ConditionCheck.sendActionFailedMessage(this, check, user);
+		stopHeldActionOnFailedCheck(action);
+		// 1.16 always ended the hold, even for an action whose release leaves it held.
+		if (!action.isOver() && isActionHeld(action)) {
+			action.forceStop();
+			action.syncPhaseChanges();
+		}
+		return true;
+	}
+	
+	
+	/**
+	 * 1.16 StandEntityAction.stopOnHeavyAttack: whether a heavy attack that hurts the Stand performing this action
+	 * sends the action into its recovery (StandEntity.stopTaskWithRecovery). The melee barrage said yes.
+	 */
+	public boolean stopsOnHeavyAttack(EntityActionInstance action) {
+		return false;
+	}
+	
+	/**
+	 * 1.16 HeavyPunchInstance.afterAttack, called by a heavy attack that hurt the target: a Stand whose action
+	 * {@link #stopsOnHeavyAttack stops on a heavy attack} goes into its recovery.
+	 */
+	public static void onHitByHeavyAttack(Entity target) {
+		if (target instanceof StandEntity targetStand && targetStand.isAlive() && !targetStand.level().isClientSide()) {
+			EntityActionInstance action = LivingComponentAction.getCurEntityAction(targetStand);
+			if (action != null && !action.isOver() && action.ability instanceof EntityActionAbility ability
+					&& ability.stopsOnHeavyAttack(action)) {
+				action.setPhaseStart(ActionPhase.RECOVERY);
+				action.syncPhaseChanges();
+			}
+		}
+	}
+	
+	
+	protected boolean resetsAttackStrengthOnPerform = false;
+	
+	/**
+	 * 1.16 Action.Builder.swingHand() on an action without the user's own punch: performing it (Action.onPerform)
+	 * reset a player's attack strength, so a vanilla hit right after it is a weak one.
+	 */
+	public EntityActionAbility setResetsAttackStrengthOnPerform() {
+		this.resetsAttackStrengthOnPerform = true;
+		return this;
+	}
+	
+	public boolean resetsAttackStrengthOnPerform() {
+		return resetsAttackStrengthOnPerform;
 	}
 	
 	/**

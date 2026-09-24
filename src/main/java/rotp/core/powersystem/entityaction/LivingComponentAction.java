@@ -333,6 +333,10 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 			if (entity instanceof StandEntity standEntity
 					&& ModStatusEffects.isStunned(standEntity)
 					&& !action.ability.ignoresPerformerStun()) {
+				// 1.16 still checked the user's held action while its Stand was stunned, and the stun ended the hold.
+				if (!isActionPausedInStoppedTime() && action._stopHeldIfConditionsFail() && action.isOver()) {
+					setAction(null, null, SyncType.NO_SYNC);
+				}
 				return;
 			}
 			if (!isActionPausedInStoppedTime()) {

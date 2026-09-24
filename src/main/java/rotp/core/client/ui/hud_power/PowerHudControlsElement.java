@@ -288,7 +288,7 @@ public class PowerHudControlsElement extends HudElement {
 				&& hud.forContainerMenu == TriState.DEFAULT
 				&& (Minecraft.getInstance().screen == null
 						|| Minecraft.getInstance().screen instanceof AbilitySelectionWheel);
-		KeyModifier hotbarDisplayModifier = standHotbarDisplay ? KeyModifier.NONE : modifier;
+		KeyModifier hotbarDisplayModifier = hotbarDisplayModifier(standHotbarDisplay, modifier);
 		for (Hotbar hotbar : curGroup.hotbars) {
 			if (!hotbar.slots.isEmpty()) {
 				HotbarUILine hotbarUI = new HotbarUILine();
@@ -313,8 +313,7 @@ public class PowerHudControlsElement extends HudElement {
 					slotUI.slotIndex = slot.index;
 					
 					for (InputMethod inputMethod : InputMethod.values()) {
-						AbilityControlsEntry abilityEntry = standHotbarDisplay ? slot.getBaseBind(inputMethod)
-								: slot.getBinds().getFirst(hotbarDisplayModifier, inputMethod);
+						AbilityControlsEntry abilityEntry = slot.getBinds().getFirst(hotbarDisplayModifier, inputMethod);
 						if (abilityEntry != null) {
 							AbilityConditionCheck ability = abilityEntry.getAbility();
 							AbilityBindUI bind = makeAbilityBindUI(key, null, 
@@ -400,6 +399,14 @@ public class PowerHudControlsElement extends HudElement {
 			}
 		}
 		controlsHeight = y;
+	}
+
+	/**
+	 * 1.16 ActionsOverlayGui.resolveVisibleActionInSlot: with Shift held a slot shows its Shift variation (the base
+	 * one while that is locked), Stand hotbars included. Other modifiers still leave a Stand hotbar on its base.
+	 */
+	static KeyModifier hotbarDisplayModifier(boolean standHotbar, KeyModifier modifier) {
+		return standHotbar && modifier != KeyModifier.SHIFT ? KeyModifier.NONE : modifier;
 	}
 
 	private void updateWarnings(@Nullable Player player) {

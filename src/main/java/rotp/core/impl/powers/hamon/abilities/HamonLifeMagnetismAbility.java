@@ -15,8 +15,10 @@ import rotp.core.impl.powers.hamon.HamonPowerType;
 import rotp.core.impl.powers.hamon.HamonUtil;
 import rotp.core.impl.powers.hamon.entity.LeavesGliderEntity;
 import rotp.core.powersystem.playerpower.PlayerPower;
+import rotp.core.util.functions.UtilFunctions;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
@@ -59,8 +61,10 @@ public class HamonLifeMagnetismAbility extends HamonActionRuntimeAbility {
 		return !findLeavesItem(user).isEmpty();
 	}
 
+	// 1.16 checkHeldItems: leaves in either hand, else needsFreeMainHand (MCUtil.isHandFree: gloves count as free).
 	private static boolean canUseWithHeldItems(LivingEntity user) {
-		return user.getMainHandItem().isEmpty() || isLeavesItem(user.getMainHandItem()) || isLeavesItem(user.getOffhandItem());
+		return UtilFunctions.isHandFree(user, InteractionHand.MAIN_HAND)
+				|| isLeavesItem(user.getMainHandItem()) || isLeavesItem(user.getOffhandItem());
 	}
 
 	private static boolean isLeavesBlock(Level level, BlockPos pos) {

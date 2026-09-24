@@ -105,7 +105,11 @@ public class HamonHypnosisAbility extends HamonActionRuntimeAbility {
 	}
 
 	private static ConditionCheck checkHypnosisTarget(ActionTarget target, LivingEntity user) {
-		if (target.getType() != TargetType.ENTITY || !(target.getMainEntity() instanceof LivingEntity livingTarget)) {
+		// 1.16 PowerBaseImpl.checkTarget: with no entity aimed at (sky, block) an ENTITY action failed without a message
+		if (target.getType() != TargetType.ENTITY || target.getMainEntity() == null) {
+			return ConditionCheck.NEGATIVE;
+		}
+		if (!(target.getMainEntity() instanceof LivingEntity livingTarget)) {
 			return ConditionCheck.createNegative("hypnosis");
 		}
 		return switch (HamonHypnosisState.canBeHypnotized(livingTarget, user)) {

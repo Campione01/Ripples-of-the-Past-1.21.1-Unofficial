@@ -1,0 +1,31 @@
+{
+  "parent": "jojo_ripples:jojo/resolve",
+  "display": {
+    "icon": {
+      "id": "jojo_ripples:meteoric_scrap"
+    },
+    "title": {
+      "translate": "advancements.jojo.stand_max.title"
+    },
+    "description": {
+      "translate": "advancements.jojo.stand_max.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "rewards": {
+    "experience": 250
+  },
+  "criteria": {
+    "stand_max": {
+      "trigger": "jojo_ripples:stand_max"
+    }
+  },
+  "requirements": [
+    [
+      "stand_max"
+    ]
+  ]
+}

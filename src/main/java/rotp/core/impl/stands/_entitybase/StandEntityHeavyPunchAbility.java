@@ -26,11 +26,11 @@ import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.ability.AbilityUsageGroup;
+import rotp.core.powersystem.ability.EntityActionAbility;
 import rotp.core.powersystem.ability.condition.AvailableAbilities;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
-import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.StandUtil;
@@ -297,13 +297,8 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 				if (hurt) {
 					Entity knockedBack = targetEntity;
 					
-					EntityActionInstance targetAction = LivingComponentAction.getCurEntityAction(targetLiving);
-					if (targetAction != null) {
-						if (targetAction instanceof StandEntityBarrageAbility.StandEntityBarrage) {
-							targetAction.setPhaseStart(ActionPhase.RECOVERY);
-							targetAction.syncPhaseChanges();
-						}
-					}
+					// 1.16 HeavyPunchInstance.afterAttack: a Stand action that stops on a heavy attack (a barrage) goes into recovery.
+					EntityActionAbility.onHitByHeavyAttack(targetLiving);
 					
 					if (targetEntity instanceof StandEntity targetStand) {
 						LivingEntity standUser = targetStand.getUser();

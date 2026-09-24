@@ -12,6 +12,7 @@ import rotp.core.powersystem.MovesetBuilder;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.ability.AbilityUsageGroup;
+import rotp.core.powersystem.ability.EntityActionAbility;
 import rotp.core.powersystem.ability.controls.InputKey;
 import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.ability.controls.InputUseVanillaMapping;
@@ -160,14 +161,17 @@ public class HamonPowerType extends PlayerPowerType<HamonData> {
 					.addAbility("bubble_barrier", HAMON_BUBBLE_BARRIER, ability -> {
 						heldCombat(ability, 50F, 0.3F);
 						hamonHoldToFire(ability, 20, false, 20, 6);
+						swingHand(ability);
 						hamonShout(ability, ModSoundEvents.CAESAR_BUBBLE_BARRIER);
 					})
 					.addAbility("bubble_cutter", HAMON_BUBBLE_CUTTER, ability -> {
 						combatRuntime(ability, 500F, 10, null);
+						swingHand(ability);
 						hamonShout(ability, ModSoundEvents.CAESAR_BUBBLE_CUTTER);
 					})
 					.addAbility("bubble_cutter_gliding", HAMON_BUBBLE_CUTTER_GLIDING, ability -> {
 						combatRuntime(ability, 600F, 10, null);
+						swingHand(ability);
 						hamonShout(ability, ModSoundEvents.CAESAR_BUBBLE_CUTTER_GLIDING);
 					})
 					.addAbility("bubble_launcher", HAMON_BUBBLE_LAUNCHER, ability -> {
@@ -176,6 +180,7 @@ public class HamonPowerType extends PlayerPowerType<HamonData> {
 					})
 					.addAbility("hamon_cutter", HAMON_CUTTER, ability -> {
 						combatRuntime(ability, 400F, 0, null);
+						swingHand(ability);
 						hamonShout(ability, ModSoundEvents.ZEPPELI_HAMON_CUTTER);
 					})
 					.addAbility("hamon_detector", HAMON_DETECTOR, ability -> heldUtility(ability, 5F, 0.5F))
@@ -197,7 +202,10 @@ public class HamonPowerType extends PlayerPowerType<HamonData> {
 						combat(ability);
 						runtime(ability, 750F, 0, null);
 					})
-					.addAbility("organism_infusion", HAMON_ORGANISM_INFUSION, HamonPowerType::utility)
+					.addAbility("organism_infusion", HAMON_ORGANISM_INFUSION, ability -> {
+						utility(ability);
+						swingHand(ability);
+					})
 					.addAbility("hamon_overdrive", HAMON_OVERDRIVE, ability -> {
 						combat(ability);
 						runtime(ability, 600F, 0, null);
@@ -206,7 +214,10 @@ public class HamonPowerType extends PlayerPowerType<HamonData> {
 						heldCombat(ability, 70F, 0.5F);
 						hamonShout(ability, ModSoundEvents.JONATHAN_OVERDRIVE_BARRAGE);
 					})
-					.addAbility("plant_infusion", HAMON_PLANT_INFUSION, HamonPowerType::utility)
+					.addAbility("plant_infusion", HAMON_PLANT_INFUSION, ability -> {
+						utility(ability);
+						swingHand(ability);
+					})
 					.addAbility("plant_item_infusion", HAMON_PLANT_ITEM_INFUSION, HamonPowerType::utility)
 					.addAbility("projectile_shield", HAMON_PROJECTILE_SHIELD, ability -> {
 						heldUtility(ability, 15F, 0.3F);
@@ -224,6 +235,7 @@ public class HamonPowerType extends PlayerPowerType<HamonData> {
 						combat(ability);
 						runtime(ability, 900F, 0, null);
 						hamonHoldToFire(ability, 30, false, 30, 5);
+						swingHand(ability);
 						hamonTechniqueShout(ability, "jonathan", ModSoundEvents.JONATHAN_SENDO_OVERDRIVE);
 					})
 					.addAbility("sendo_wave_kick", HAMON_SENDO_WAVE_KICK, ability -> {
@@ -247,6 +259,7 @@ public class HamonPowerType extends PlayerPowerType<HamonData> {
 					.addAbility("turquoise_blue_overdrive", HAMON_TURQUOISE_BLUE_OVERDRIVE, ability -> {
 						combat(ability);
 						runtime(ability, 1000F, 10, null);
+						swingHand(ability);
 					})
 					.addAbility("wall_climbing", HAMON_WALL_CLIMBING, ability -> heldUtility(ability, 10F, 1.0F))
 					.addAbility("zoom_punch", HAMON_ZOOM_PUNCH, ability -> {
@@ -377,6 +390,13 @@ public class HamonPowerType extends PlayerPowerType<HamonData> {
 
 	private static void utility(Ability ability) {
 		ability.usageGroup = AbilityUsageGroup.UTILITY;
+	}
+
+	// 1.16 Action.Builder.swingHand() without withUserPunch(): performing it resets the player's attack strength.
+	private static void swingHand(Ability ability) {
+		if (ability instanceof EntityActionAbility entityAbility) {
+			entityAbility.setResetsAttackStrengthOnPerform();
+		}
 	}
 
 	private static void combatRuntime(Ability ability, float energyCost, int cooldownTicks, HamonData.HamonStat stat) {

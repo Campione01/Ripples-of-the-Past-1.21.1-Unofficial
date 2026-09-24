@@ -1,15 +1,23 @@
 package rotp.core.gametest;
 
+import java.util.Map;
 import java.util.Optional;
 
 import rotp.core.api.power.PowerSkillUnlocks;
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
+import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.init.power.ModStandAbilities;
 import rotp.core.powersystem.PowerClass;
+import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.AbilityId;
+import rotp.core.powersystem.ability.condition.AvailableAbilities;
+import rotp.core.powersystem.ability.controls.ControlSchemeTemplate;
+import rotp.core.powersystem.ability.controls.InputKey;
+import rotp.core.powersystem.ability.controls.InputMethod;
+import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
 import rotp.core.powersystem.playerpower.PlayerPower;
 import rotp.core.powersystem.playerpower.PlayerPowerType;
 import rotp.core.powersystem.standpower.StandInstance;
@@ -20,6 +28,7 @@ import rotp.core.subsystems.timestop.TimeStopState;
 import rotp.core.impl.powers.pillarman.PillarmanData;
 import rotp.core.impl.powers.vampirism.VampirismState;
 import rotp.core.impl.powers.zombie.ZombieData;
+import rotp.core.impl.stands.theworld.TimeStopAbility;
 import rotp.core.impl.stands.theworld.TimeStopBlinkAbility;
 
 import net.minecraft.core.HolderLookup;
@@ -28,6 +37,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.phys.Vec3;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.neoforged.neoforge.gametest.GameTestHolder;
@@ -84,6 +94,155 @@ public final class TimeStopProgressionGameTests {
 					"A missing configured dependency must not unlock blink");
 			helper.assertTrue(!blink.getUnlockConditionCheck(null).isPositive(),
 					"Blink without a power context must remain locked");
+		}
+		finally {
+			player.discard();
+		}
+		helper.succeed();
+	}
+
+	/**
+	 * The 1.16 blink (TimeResume's SHIFT variation of the time stop slot) is its own special-wheel slot
+	 * (owner boundary: Stand variants are direct wheel entries). It shows exactly when the time stop does,
+	 * is refused in stopped time (TimeStopInstant), and the time stop key still resumes the user's own stop.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void timeStopBlinkHasItsOwnWheelSlot(GameTestHelper helper) {
+		assertBlinkSlot(helper, JojoMod.resLoc("the_world"));
+		assertBlinkSlot(helper, JojoMod.resLoc("star_platinum"));
+		helper.succeed();
+	}
+
+	private static void assertBlinkSlot(GameTestHelper helper, ResourceLocation standId) {
+		// the blink's stamina cost reads the user's broadcasted settings
+		Player player = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
+		TimeStopState state = helper.getLevel().getData(ModDataAttachmentTypes.TIME_STOP.get());
+		int ownStopId = player.getId();
+		int foreignStopId = -(player.getId() * 4 + 1);
+		try {
+			// inside the test area: the stops below cover only the player's own chunk
+			Vec3 origin = helper.absoluteVec(new Vec3(0.5D, 1.0D, 0.5D));
+			player.moveTo(origin.x, origin.y, origin.z);
+			helper.assertTrue(helper.getLevel().addFreshEntity(player),
+					"Could not add " + standId + " blink slot test player");
+			StandPower power = grantTimeStopStand(helper, player, standId);
+			Ability timeStop = power.getMoveset().getAbility(TimeStopLearning.TIME_STOP);
+			Ability blink = power.getMoveset().getAbility("time_stop_blink");
+			helper.assertTrue(timeStop instanceof TimeStopAbility && blink instanceof TimeStopBlinkAbility,
+					standId + " moveset lost its time stop or blink");
+			helper.assertTrue(power.getMoveset().getAbility("time_resume") == null,
+					standId + " still registers the retired SHIFT time resume");
+			ControlSchemeTemplate template = power.getPowerType().makeDefaultControlSchemeTemplate();
+			helper.assertTrue(countSlots(template, TimeStopLearning.TIME_STOP, InputMethod.HOLD) == 1
+					&& countSlots(template, "time_stop_blink", InputMethod.CLICK) == 1,
+					standId + " wheel needs one held time stop slot and one blink slot");
+			helper.assertTrue(!hasModifierVariation(template),
+					standId + " wheel still carries a SHIFT/CTRL slot variation");
+
+			// time stop learned, Resolve 0: the time stop is locked, so is the blink
+			helper.assertTrue(available(power, "time_stop_blink") == null
+					&& available(power, TimeStopLearning.TIME_STOP) == null,
+					standId + " blink showed while its time stop was locked by Resolve");
+			power.setResolveLevel(power.getMaxResolveLevel());
+			helper.assertTrue(available(power, "time_stop_blink") == blink
+					&& available(power, TimeStopLearning.TIME_STOP) == timeStop,
+					standId + " blink did not show with its unlocked time stop");
+			power.getCurTypeData()._setSkillUnlocked(TimeStopLearning.TIME_STOP, false, false);
+			helper.assertTrue(available(power, "time_stop_blink") == null
+					&& available(power, TimeStopLearning.TIME_STOP) == null,
+					standId + " blink stayed after its time stop skill was forgotten");
+			power.getCurTypeData()._setSkillUnlocked(TimeStopLearning.TIME_STOP, true, false);
+			helper.assertTrue(available(power, "time_stop_blink") == blink,
+					standId + " blink did not come back with its time stop skill");
+			// the default blink keeps The World's 225 / 9 base: 180, and 9 * 100 / 5 * 0.8 at 5 ticks
+			TimeStopBlinkAbility timeStopBlink = (TimeStopBlinkAbility) blink;
+			helper.assertTrue(Math.abs(timeStopBlink.getBlinkStaminaCost(power) - 180.0F) <= 0.0001F
+					&& Math.abs(timeStopBlink.getBlinkStaminaCostTicking(power, TimeStopLearning.TIME_STOP)
+							- 144.0F) <= 0.0001F,
+					standId + " blink stamina costs drifted from 1.16");
+
+			ChunkPos chunk = new ChunkPos(player.blockPosition());
+			helper.assertTrue(state.tryPutInstance(new TimeStopState.Instance(foreignStopId, 200, 200,
+					chunk, 1, foreignStopId, "time_stop_blink_slot_gametest", foreignStopId, 0)),
+					"Could not start a foreign time stop over " + standId);
+			helper.assertTrue(!timeStopBlink.checkSpecificConditions(power).isPositive(),
+					standId + " blink must be refused in someone else's stopped time");
+			state.removeInstance(foreignStopId);
+
+			helper.assertTrue(state.tryPutInstance(new TimeStopState.Instance(ownStopId, 200, 200,
+					chunk, 1, player.getId(), "time_stop_blink_slot_gametest", player.getId(), 0)),
+					"Could not start " + standId + " own time stop");
+			helper.assertTrue(!timeStopBlink.checkSpecificConditions(power).isPositive(),
+					standId + " blink must be refused in the user's own stopped time");
+			helper.assertTrue(available(power, TimeStopLearning.TIME_STOP) == timeStop,
+					standId + " time stop slot must keep the time stop in the user's own stopped time");
+			BufferingState buffering = BufferingState.clickOnly();
+			timeStop.onKeyPress(helper.getLevel(), player, null, InputMethod.HOLD, 0.0F, buffering);
+			helper.assertTrue(buffering.isActionSuccess
+					&& state.getInstance(ownStopId).map(TimeStopState.Instance::ticksLeft).orElse(-1) == 0,
+					standId + " time stop key did not resume the user's own stopped time");
+		}
+		finally {
+			state.removeInstance(ownStopId);
+			state.removeInstance(foreignStopId);
+			player.discard();
+		}
+	}
+
+	private static Ability available(StandPower power, String abilityName) {
+		// a fresh resolution: the power caches its moves within a tick
+		AvailableAbilities available = new AvailableAbilities();
+		available.update(power, power.getMoveset());
+		return available.getContextVariation(abilityName);
+	}
+
+	private static int countSlots(ControlSchemeTemplate template, String ability, InputMethod inputMethod) {
+		int count = 0;
+		for (ControlSchemeTemplate.GroupTemplate group : template.groups.values()) {
+			for (ControlSchemeTemplate.AbilitiesHotbar hotbar : group.hotbars) {
+				for (Map<InputKey.Modifier, Map<InputMethod, String>> slot : hotbar.slots) {
+					Map<InputMethod, String> base = slot.get(null);
+					if (base != null && ability.equals(base.get(inputMethod))) {
+						count++;
+					}
+				}
+			}
+		}
+		return count;
+	}
+
+	private static boolean hasModifierVariation(ControlSchemeTemplate template) {
+		for (ControlSchemeTemplate.GroupTemplate group : template.groups.values()) {
+			for (ControlSchemeTemplate.AbilitiesHotbar hotbar : group.hotbars) {
+				for (Map<InputKey.Modifier, Map<InputMethod, String>> slot : hotbar.slots) {
+					for (InputKey.Modifier modifier : slot.keySet()) {
+						if (modifier != null) {
+							return true;
+						}
+					}
+				}
+			}
+		}
+		return false;
+	}
+
+	/** 1.16 TheWorldTSHeavyAttack trained (int) (0.1 * ticks); Reworked's blink punch kept fractions. */
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void timeStopPunchTrainsWholePoints(GameTestHelper helper) {
+		Player player = helper.makeMockPlayer(GameType.SURVIVAL);
+		try {
+			helper.assertTrue(helper.getLevel().addFreshEntity(player),
+					"Could not add TS punch training test player");
+			StandPower power = grantTimeStopStand(helper, player, JojoMod.resLoc("the_world"));
+			power.getCurTypeData().setAbilityLearningProgressPoints(
+					TimeStopLearning.TIME_STOP, 0.0F,
+					TimeStopLearning.getMaxTrainingPoints(power), power);
+			TimeStopLearning.onTsPunchTimeSkip(power, 9);
+			assertPoints(helper, power, 0.0F, "a 9-tick TS punch skip (0.9 truncated)");
+			TimeStopLearning.onTsPunchTimeSkip(power, 15);
+			assertPoints(helper, power, 1.0F, "a 15-tick TS punch skip (1.5 truncated)");
+			TimeStopLearning.onBlinkPunchTimeSkip(power, 5);
+			assertPoints(helper, power, 1.5F, "a 5-tick blink punch skip");
 		}
 		finally {
 			player.discard();

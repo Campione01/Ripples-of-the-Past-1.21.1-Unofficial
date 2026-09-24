@@ -9,6 +9,7 @@ import org.jetbrains.annotations.ApiStatus;
 import rotp.core.entityattachment.TickingEntityData;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.input.ActionInputBuffer;
+import rotp.core.subsystems.timestop.TimeStopState;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -31,6 +32,11 @@ public class EntityActionInputState implements TickingEntityData {
 
 	@Override
 	public void tick() {
+		// 1.16 checked the buffer in StandEntity.tick, which a stopped Stand skipped. The buffer outlives a stop anyway (its
+		// move is unusable then); this keeps a move check cached before the stop, in the same tick, from replaying it.
+		if (TimeStopState.shouldFreezeOnServer(user)) {
+			return;
+		}
 		inputBuffer.tickInputBuffer(this);
 	}
 

@@ -11,6 +11,7 @@ import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
 import rotp.core.util.functions.JojoModUtil;
+import rotp.core.util.functions.UtilFunctions;
 import rotp.core.impl.powers.hamon.HamonData;
 
 import net.minecraft.core.BlockPos;
@@ -34,17 +35,11 @@ public class HamonOverdriveBarrageAbility extends HamonActionRuntimeAbility {
 		setDefaultPhaseLength(ActionPhase.RECOVERY, 0);
 	}
 
+	// 1.16 HamonOverdriveBarrage.checkHeldItems: MCUtil.areHandsFree (gloves count as free hands), on the press
+	// (through super.checkSpecificConditions) and on every held tick.
 	@Override
-	public ConditionCheck checkSpecificConditions(Power<?> context) {
-		ConditionCheck check = super.checkSpecificConditions(context);
-		if (!check.isPositive()) {
-			return check;
-		}
-		LivingEntity user = context.getUser();
-		if (user == null) {
-			return ConditionCheck.NEGATIVE;
-		}
-		return user.getMainHandItem().isEmpty() && user.getOffhandItem().isEmpty()
+	protected ConditionCheck checkHeldItems(LivingEntity user) {
+		return UtilFunctions.areHandsFree(user, InteractionHand.MAIN_HAND, InteractionHand.OFF_HAND)
 				? ConditionCheck.POSITIVE
 				: ConditionCheck.createNegative("hands");
 	}

@@ -21,6 +21,7 @@ import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
+import rotp.core.util.functions.UtilFunctions;
 import rotp.core.impl.powers.hamon.HamonData;
 import rotp.core.impl.powers.hamon.ModHamonSkills;
 
@@ -71,6 +72,24 @@ public class HamonSunlightYellowOverdriveAbility extends HamonActionRuntimeAbili
 				? ConditionCheck.POSITIVE : ConditionCheck.createNegative("some_energy");
 	}
 
+	// 1.16 held the technique only until it fired; the punch after it was not held.
+	@Override
+	public boolean isActionHeld(EntityActionInstance action) {
+		return action.getPhase() == ActionPhase.WINDUP;
+	}
+
+	// 1.16 needsFreeMainHand (Scarlet Overdrive: needsFreeOffHand), checked on every held tick too.
+	@Override
+	protected ConditionCheck checkHeldItems(LivingEntity user) {
+		return isRequiredHandFree(user) ? ConditionCheck.POSITIVE : ConditionCheck.createNegative("hand");
+	}
+
+	// 1.16 charged min(max / 40, energy) a held tick, so the energy a hold needed never ran out.
+	@Override
+	protected boolean hasHeldEnergy(Power<?> context, HamonData hamon) {
+		return true;
+	}
+
 	@Override
 	protected float getHeldTickEnergyCost(Power<?> context, int ticksHeld) {
 		HamonData hamon = getHamonData(context);
@@ -88,8 +107,9 @@ public class HamonSunlightYellowOverdriveAbility extends HamonActionRuntimeAbili
 		return true;
 	}
 
+	// 1.16 MCUtil.isHandFree: gloves count as a free hand.
 	protected boolean isRequiredHandFree(LivingEntity user) {
-		return user.getItemInHand(getRequiredFreeHand()).isEmpty();
+		return UtilFunctions.isHandFree(user, getRequiredFreeHand());
 	}
 
 	protected InteractionHand getRequiredFreeHand() {
@@ -286,7 +306,8 @@ public class HamonSunlightYellowOverdriveAbility extends HamonActionRuntimeAbili
 		public void onButtonStopHold() {
 			HamonSunlightYellowOverdriveAbility ability = syoAbility();
 			if (ability != null && getPhase() == ActionPhase.WINDUP) {
-				if (getPhaseTick() >= ability.getMinChargeTicks()) {
+				// 1.16 stopHeldAction(true): a released charge fires only if it still passes its checks.
+				if (getPhaseTick() >= ability.getMinChargeTicks() && ability.canFireReleasedHold(this)) {
 					setPhaseStart(ActionPhase.PERFORM);
 				}
 				else {
@@ -300,13 +321,16 @@ public class HamonSunlightYellowOverdriveAbility extends HamonActionRuntimeAbili
 
 		private void performPunch(LivingEntity user) {
 			HamonSunlightYellowOverdriveAbility ability = syoAbility();
-			if (ability == null || userHamon == null || !ability.isRequiredHandFree(user)) {
+			if (ability == null || userHamon == null) {
 				return;
 			}
 			captureActionTargetFromAim(user);
 			ActionTarget target = getActionTargetSnapshot(level());
 			if (target.getType() == TargetType.ENTITY && target.getMainEntity() instanceof LivingEntity livingTarget) {
-				doHamonAttack(user, livingTarget, ability);
+				// 1.16 performPunch: a filled hand loses only the Hamon part of the punch.
+				if (ability.isRequiredHandFree(user)) {
+					doHamonAttack(user, livingTarget, ability);
+				}
 				HamonAbilityHelpers.doMeleeAttack(user, livingTarget);
 				if (user instanceof Player player) {
 					player.resetAttackStrengthTicker();

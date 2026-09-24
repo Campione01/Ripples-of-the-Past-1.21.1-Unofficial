@@ -512,6 +512,34 @@ public class AbilityInput {
 										generation)));
 	}
 
+	/**
+	 * Whether a key (or a mob's pseudo key) still holds this action. 1.16 PowerBaseImpl kept a held action only
+	 * while its key was down.
+	 */
+	@ApiStatus.Internal
+	public static boolean isHeldByKey(
+			LivingEntity user,
+			HeldInput action) {
+		if (user == null || action == null) {
+			return false;
+		}
+		EntityActionInputState input = user.getExistingData(
+				ModDataAttachmentTypes.ENTITY_ABILITY_INPUT)
+				.orElse(null);
+		return input != null && isHeldByKey(input.heldKeys, action);
+	}
+
+	static boolean isHeldByKey(
+			Int2ObjectMap<HeldInputEntry> heldInputs,
+			HeldInput action) {
+		for (HeldInputEntry entry : heldInputs.values()) {
+			if (entry.action == action) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	static boolean hasHeldInput(
 			Int2ObjectMap<HeldInputEntry> heldInputs,
 			PowerClass<?> powerClass) {

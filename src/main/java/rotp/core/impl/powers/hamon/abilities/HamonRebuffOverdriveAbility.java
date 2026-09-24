@@ -20,6 +20,7 @@ import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
 import rotp.core.util.functions.JojoModUtil;
+import rotp.core.util.functions.UtilFunctions;
 import rotp.core.impl.powers.hamon.HamonData;
 import rotp.core.impl.powers.hamon.ModHamonSkills;
 
@@ -133,9 +134,9 @@ public class HamonRebuffOverdriveAbility extends HamonActionRuntimeAbility {
 		return action instanceof HamonRebuffOverdrive rebuff ? rebuff : null;
 	}
 
+	// 1.16 checkHeldItems: MCUtil.areHandsFree (gloves count as free hands).
 	private static boolean hasFreeHands(LivingEntity user) {
-		return user.getItemInHand(InteractionHand.MAIN_HAND).isEmpty()
-				&& user.getItemInHand(InteractionHand.OFF_HAND).isEmpty();
+		return UtilFunctions.areHandsFree(user, InteractionHand.MAIN_HAND, InteractionHand.OFF_HAND);
 	}
 
 	public static class HamonRebuffOverdrive extends HamonActionRuntimeAbility.HamonRuntimeActionInstance {

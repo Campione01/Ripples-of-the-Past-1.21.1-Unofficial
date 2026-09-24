@@ -25,6 +25,8 @@ public class PillarmanEnhancedSensesAbility extends PillarmanActionAbility {
 		super(abilityType, abilityId, 2, PillarmanMode.NONE, true, 0.0F, 0.05F, 0.5F, 0,
 				EnhancedSensesInstance::new);
 		setButtonHoldPhase(ActionPhase.PERFORM);
+		// 1.16 ModPillarmanActions: ignoresPerformerStun, so it can be used in stone form.
+		setIgnoresPerformerStun();
 	}
 
 	public static class EnhancedSensesInstance extends PillarmanHeldActionInstance {

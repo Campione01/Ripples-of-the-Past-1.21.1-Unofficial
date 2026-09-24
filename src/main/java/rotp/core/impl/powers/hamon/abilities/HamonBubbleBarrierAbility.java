@@ -34,6 +34,12 @@ public class HamonBubbleBarrierAbility extends HamonActionRuntimeAbility {
 		return context.getUser() instanceof LivingEntity user ? HamonSoapHelper.checkSoap(user) : ConditionCheck.NEGATIVE;
 	}
 
+	// 1.16 HamonBubbleBarrier.checkHeldItems: soap, checked on every held tick too.
+	@Override
+	protected ConditionCheck checkHeldItems(LivingEntity user) {
+		return HamonSoapHelper.checkSoap(user);
+	}
+
 	public static class BubbleBarrierInstance extends HamonActionRuntimeAbility.HamonHeldActionInstance {
 		@Nullable private HamonBubbleBarrierEntity chargingBarrier;
 

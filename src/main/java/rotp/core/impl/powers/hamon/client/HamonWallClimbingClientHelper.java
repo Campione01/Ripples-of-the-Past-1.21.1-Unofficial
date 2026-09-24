@@ -2,6 +2,7 @@ package rotp.core.impl.powers.hamon.client;
 
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.powersystem.playerpower.PlayerPower;
+import rotp.core.util.functions.UtilFunctions;
 import rotp.core.impl.powers.hamon.ClHamonStopWallClimbPacket;
 import rotp.core.impl.powers.hamon.ClHamonWallClimbMovementPacket;
 import rotp.core.impl.powers.hamon.HamonData;
@@ -35,7 +36,9 @@ public final class HamonWallClimbingClientHelper {
 		float climbYRot = hamon.getWallClimbYRot(player.yBodyRot) * DEG_TO_RAD;
 		Vec3 gripVec = new Vec3(0.0D, 0.0D, HamonWallClimbingHelper.MAX_WALL_DISTANCE).yRot(climbYRot);
 
-		if (!player.getMainHandItem().isEmpty() || !player.getOffhandItem().isEmpty() || player.isSpectator()) {
+		// 1.16 MCUtil.itemHandFree: gloves count as a free hand.
+		if (!UtilFunctions.itemHandFree(player.getMainHandItem()) || !UtilFunctions.itemHandFree(player.getOffhandItem())
+				|| player.isSpectator()) {
 			stopWallClimbing(hamon);
 			return false;
 		}

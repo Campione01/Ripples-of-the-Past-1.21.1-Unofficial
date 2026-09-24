@@ -66,6 +66,7 @@ import rotp.core.util.functions.MathUtil.AABBDist;
 import rotp.core.util.objects_java.Lerp;
 import rotp.core.util.objects_mc.PrevRotations;
 import rotp.core.util.sound.MultiSoundEventResolver;
+import rotp.core.impl.stands._entitybase.StandEntityAutoBlockAction;
 import rotp.core.impl.stands._entitybase.StandEntityManualControlToggle;
 import rotp.core.impl.stands._entitybase.StandEntityUnsummonAction;
 import rotp.core.impl.stands.silverchariot.SCRapierEntity;
@@ -1928,7 +1929,18 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 	// The guard tryAutoBlock started on a hit, not one the user pressed. Server side only.
 	@Nullable private EntityActionInstance autoGuardAction;
 
+	/**
+	 * Whether an idle Stand hit from the front guards on its own (tryAutoBlock). An add-on Stand whose 1.16 entity
+	 * replaced actuallyHurt without the BLOCK_STAND_ENTITY line returns false; a guard the user holds still blocks.
+	 */
+	protected boolean autoGuardsOnHit() {
+		return true;
+	}
+
 	private boolean tryAutoBlock(DamageSource dmgSource, boolean blockableAngle) {
+		if (!autoGuardsOnHit()) {
+			return false;
+		}
 		LivingEntity user = getUser();
 		if (level().isClientSide() || isManuallyControlled() || !blockableAngle || getCurStandAction() != null
 				|| !canStartBlocking() || !canBlockDamage(dmgSource) || user == null) {
@@ -1946,7 +1958,9 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		else {
 			guard = userPower.getAbility("guard");
 		}
-		if (guard instanceof EntityActionType guardActionType) {
+		// 1.16 guarded with the generic BLOCK_STAND_ENTITY, so a Stand with no unlocked guard of its own still guards
+		EntityActionType guardActionType = guard instanceof EntityActionType ownGuard ? ownGuard : StandEntityAutoBlockAction.get();
+		if (guardActionType != null) {
 			EntityActionInstance action = guardActionType.createActionObj();
 			guardActionType.initActionFromConfig(action, level(), user, this);
 			action.phasesLength.put(ActionPhase.PERFORM, 5F);
@@ -2197,10 +2211,12 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 	
 	public boolean isStandBlocking() {
 		EntityActionInstance curAction = LivingComponentAction.getCurEntityAction(this);
-		// 1.16 keyed this on StandPose.BLOCK, so a guard in any slot counts, not only the one named "guard".
+		// 1.16 keyed this on StandPose.BLOCK, so a guard in any slot counts, not only the one named "guard",
+		// and so does the generic auto-guard.
 		return curAction != null 
 				&& curAction.getPhase() == ActionPhase.PERFORM
-				&& JojoModUtil.isStandGuardAbility(curAction.ability);
+				&& (JojoModUtil.isStandGuardAbility(curAction.ability)
+						|| curAction.ability instanceof StandEntityAutoBlockAction);
 	}
 
 	public boolean canStartBlocking() {

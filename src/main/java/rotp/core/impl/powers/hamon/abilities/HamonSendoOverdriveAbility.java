@@ -6,11 +6,13 @@ import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.entityaction.ActionPhase;
+import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.playerpower.PlayerPower;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
+import rotp.core.util.functions.UtilFunctions;
 import rotp.core.impl.powers.hamon.HamonData;
 import rotp.core.impl.powers.hamon.ModHamonSkills;
 import rotp.core.impl.powers.hamon.entity.HamonSendoOverdriveEntity;
@@ -47,11 +49,27 @@ public class HamonSendoOverdriveAbility extends HamonActionRuntimeAbility {
 		if (user == null) {
 			return ConditionCheck.NEGATIVE;
 		}
-		if (!user.getMainHandItem().isEmpty()) {
-			return ConditionCheck.createNegative("hand");
-		}
+		// The free hand was checked by super, through checkHeldItems.
 		return getSendoBlockTarget(user, user.level()).getType() == TargetType.BLOCK
 				? ConditionCheck.POSITIVE : ConditionCheck.NEGATIVE;
+	}
+
+	// 1.16 needsFreeMainHand (MCUtil.isHandFree: gloves count as a free hand), checked on every held tick too.
+	@Override
+	protected ConditionCheck checkHeldItems(LivingEntity user) {
+		return UtilFunctions.isHandFree(user, InteractionHand.MAIN_HAND)
+				? ConditionCheck.POSITIVE : ConditionCheck.createNegative("hand");
+	}
+
+	// 1.16 HamonSendoOverdrive.stoppedHolding sent the wave on any stop of the hold, a failed check included.
+	@Override
+	public void stopHeldActionOnGettingAttacked(EntityActionInstance action) {
+		if (action.getPhase() == ActionPhase.WINDUP) {
+			action.setPhaseStart(ActionPhase.PERFORM);
+			action.syncPhaseChanges();
+			return;
+		}
+		super.stopHeldActionOnGettingAttacked(action);
 	}
 
 	@Override

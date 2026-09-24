@@ -724,10 +724,24 @@ public class EntityActionInstance implements HeldInput {
 				syncPhaseChanges();
 				return;
 			}
+			if (_stopHeldIfConditionsFail() && isOver()) {
+				return;
+			}
 			_onTick();
 			_incPhaseTick();
 			checkNextPhase();
 		}
+	}
+	
+	/**
+	 * 1.16 PowerBaseImpl.tickHeldAction: a held action's requirements were checked again on every tick,
+	 * and a failed check ended the hold. Server side.
+	 * @return whether a failed check stopped the hold
+	 */
+	@ApiStatus.Internal
+	public boolean _stopHeldIfConditionsFail() {
+		return !isOver() && !level().isClientSide() && ability instanceof EntityActionAbility entityAbility
+				&& entityAbility.stopHeldActionIfConditionsFail(this);
 	}
 
 	@ApiStatus.Internal
@@ -752,10 +766,19 @@ public class EntityActionInstance implements HeldInput {
 		if (phase == ActionPhase.PERFORM) {
 			if (getPhaseTick() < 1) {
 				actionPerformStart();
+				resetAttackStrengthOnPerform();
 			}
 			if (getPhaseTick() + 1 >= curPhaseLength) {
 				actionPerformEnd();
 			}
+		}
+	}
+	
+	// 1.16 Action.onPerform: an action that swings the hand without the user's own punch resets a player's attack strength.
+	private void resetAttackStrengthOnPerform() {
+		if (ability instanceof EntityActionAbility entityAbility && entityAbility.resetsAttackStrengthOnPerform()
+				&& getPowerUser() instanceof Player player) {
+			player.resetAttackStrengthTicker();
 		}
 	}
 	

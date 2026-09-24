@@ -62,14 +62,20 @@ import rotp.core.client.entityanim.AnimPoseThreadIsolationSmokeTest;
 import rotp.core.client.entityanim.MolangQueryThreadIsolationSmokeTest;
 import rotp.core.client.entityrender.parsemodel.generic.GenericModelFormatSmokeTest;
 import rotp.core.client.input.controlscheme.HotbarShiftFallbackSmokeTest;
+import rotp.core.client.ui.hud_power.StandHotbarShiftDisplaySmokeTest;
+import rotp.core.entityattachment.FrozenAttachmentsRestSmokeTest;
+import rotp.core.resource.StandDamageBlockSubtitleSmokeTest;
 import rotp.core.client.shader.core.EntityOutlinePostChainCompatSmokeTest;
 import rotp.core.client.shader.TimeStopShaderRouteSmokeTest;
 import rotp.core.client.standskin.sprites.AbilityIconSpritesCompatibilitySmokeTest;
 import rotp.core.client.standskin.StandSkinFormatSmokeTest;
 import rotp.core.command.commands.JojoConfigCommandSmokeTest;
+import rotp.core.command.commands.StandSkillsUnlockMessageSmokeTest;
 import rotp.core.item.CoreItemResourceSmokeTest;
 import rotp.core.item.StandRemoverItemContractSmokeTest;
 import rotp.core.mechanics.resolve.ResolveModeValueSmokeTest;
+import rotp.core.mechanics.resolve.ResolveRestSmokeTest;
+import rotp.core.mechanics.resolve.StandMaxOnLevelSetSmokeTest;
 import rotp.core.mechanics.standdisc.StandWrittenOnDiscSmokeTest;
 import rotp.core.mechanics.standarrow.StandVirusMobGiverLifecyclePolicySmokeTest;
 import rotp.core.network.s2c.TrPowerDataPacketSmokeTest;
@@ -77,6 +83,7 @@ import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityResolveCooldownSmokeTest;
 import rotp.core.powersystem.ability.HeldActionAttackedCancelSmokeTest;
+import rotp.core.powersystem.ability.HeldConditionRecheckSmokeTest;
 import rotp.core.powersystem.ability.ClickReleaseAndGuardSlotSmokeTest;
 import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.ability.condition.GrabContextVariationSmokeTest;
@@ -85,11 +92,13 @@ import rotp.core.powersystem.SharedGrabChargedHeavyInputSmokeTest;
 import rotp.core.powersystem.standpower.StandPowerInstanceChangeSmokeTest;
 import rotp.core.powersystem.standpower.StandRandomWeightSmokeTest;
 import rotp.core.powersystem.standpower.entity.AutoGuardMarkerSmokeTest;
+import rotp.core.powersystem.standpower.entity.AutoGuardOptOutSmokeTest;
 import rotp.core.subsystems.rollback.RollbackTransactionFoundationSmokeTest;
 import rotp.core.subsystems.directional_gravity.DirectionalGravityCollisionSmokeTest;
 import rotp.core.subsystems.directional_gravity.DirectionalGravityFrameSmokeTest;
 import rotp.core.subsystems.entity_puppetcontrol.client.ClientEntityControllerCameraSmokeTest;
 import rotp.core.subsystems.entity_puppetcontrol.client.ClientEntityControllerPickSourceSmokeTest;
+import rotp.core.subsystems.timestop.TimeStopBlinkInputSmokeTest;
 import rotp.core.subsystems.timestop.TimeStopLearningContractSmokeTest;
 import rotp.core.subsystems.timestop.TimeStopPerAbilityLearningSmokeTest;
 import rotp.core.subsystems.timestop.TimeStopRefundPolicySmokeTest;
@@ -98,8 +107,12 @@ import rotp.core.impl.stands.crazydiamond.CrazyDRestoreExtensionSmokeTest;
 import rotp.core.impl.stands.starplatinum.StarFingerVisualOwnershipSmokeTest;
 import rotp.core.impl.npc.rps.RpsCheatStateSmokeTest;
 import rotp.core.impl.powers.hamon.abilities.HamonHoldToFireChargeSmokeTest;
+import rotp.core.impl.powers.hamon.abilities.HamonHeldConditionSmokeTest;
 import rotp.core.impl.powers.hamon.abilities.HamonHypnosisClientFeedbackSmokeTest;
+import rotp.core.impl.powers.hamon.abilities.HamonHypnosisNoTargetSmokeTest;
+import rotp.core.impl.powers.hamon.abilities.HamonFreeHandSmokeTest;
 import rotp.core.impl.powers.pillarman.abilities.PillarmanAbilityDataOwnershipSmokeTest;
+import rotp.core.impl.powers.pillarman.abilities.PillarmanActionFlagsSmokeTest;
 
 import net.minecraft.resources.ResourceLocation;
 
@@ -337,6 +350,15 @@ public final class RotpAddonApiSmokeTest {
 		check(RotpAddonApi.supportsFeature(
 				RotpAddonApi.FEATURE_CLIENT_SKY_RENDERERS_V1),
 				"client sky renderers feature missing");
+		check(RotpAddonApi.supportsFeature(
+				RotpAddonApi.FEATURE_TIME_STOP_ABILITY_TUNING_V1),
+				"time-stop ability tuning feature missing");
+		check(RotpAddonApi.supportsFeature(
+				RotpAddonApi.FEATURE_STAND_ATTACKER_RESOLVE_TIERS_V1),
+				"Stand attacker Resolve tiers feature missing");
+		check(RotpAddonApi.supportsFeature(
+				RotpAddonApi.FEATURE_ENTITY_ACTION_HOOKS_V1),
+				"entity action hooks feature missing");
 
 		AbilityType<Ability> addonType = new AbilityType<>(
 				id("rotp_test", "freeze"), Ability::new);
@@ -407,9 +429,19 @@ public final class RotpAddonApiSmokeTest {
 		HeldActionAttackedCancelSmokeTest.run();
 		ClickReleaseAndGuardSlotSmokeTest.run();
 		AutoGuardMarkerSmokeTest.run();
+		AutoGuardOptOutSmokeTest.run();
 		HamonHoldToFireChargeSmokeTest.run();
+		HeldConditionRecheckSmokeTest.run();
+		HamonHeldConditionSmokeTest.run();
 		HamonHypnosisClientFeedbackSmokeTest.run();
+		HamonHypnosisNoTargetSmokeTest.run();
+		HamonFreeHandSmokeTest.run();
+		PillarmanActionFlagsSmokeTest.run();
+		StandSkillsUnlockMessageSmokeTest.run();
 		HotbarShiftFallbackSmokeTest.run();
+		StandHotbarShiftDisplaySmokeTest.run();
+		FrozenAttachmentsRestSmokeTest.run();
+		StandDamageBlockSubtitleSmokeTest.run();
 		SharedGrabChargedHeavyInputSmokeTest.run();
 		CrazyDRestoreExtensionSmokeTest.run();
 		GenericModelFormatSmokeTest.run();
@@ -448,7 +480,11 @@ public final class RotpAddonApiSmokeTest {
 		TimeStopLearningContractSmokeTest.run();
 		TimeStopStartingAbilitySmokeTest.run();
 		TimeStopPerAbilityLearningSmokeTest.run();
+		TimeStopBlinkInputSmokeTest.run();
+		AddonFeatureApiSurfaceSmokeTest.run();
 		ResolveModeValueSmokeTest.run();
+		ResolveRestSmokeTest.run();
+		StandMaxOnLevelSetSmokeTest.run();
 		TimeStopEntityMovementAuthorizersSmokeTest.run();
 		ClientRegionalTimeDilationPoliciesSmokeTest.run();
 		ObserverWorldRenderPoliciesSmokeTest.run();

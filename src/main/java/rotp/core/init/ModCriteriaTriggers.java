@@ -69,6 +69,8 @@ public final class ModCriteriaTriggers {
     public static final DeferredHolder<CriterionTrigger<?>, NoConditionsTrigger> PILLARMAN_HEAT_MODE = TRIGGER_TYPES.register("pillarman_heat_mode", NoConditionsTrigger::new);
     public static final DeferredHolder<CriterionTrigger<?>, NoConditionsTrigger> PILLARMAN_LIGHT_MODE = TRIGGER_TYPES.register("pillarman_light_mode", NoConditionsTrigger::new);
     public static final DeferredHolder<CriterionTrigger<?>, NoConditionsTrigger> COFFIN_SLEEP = TRIGGER_TYPES.register("coffin_sleep", NoConditionsTrigger::new);
+    // 1.16 STAND_MAX, fired by ResolveAdvancements.onResolveLevelSet
+    public static final DeferredHolder<CriterionTrigger<?>, NoConditionsTrigger> STAND_MAX = TRIGGER_TYPES.register("stand_max", NoConditionsTrigger::new);
 
     private ModCriteriaTriggers() {}
 

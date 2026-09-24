@@ -8,9 +8,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import rotp.core.powersystem.ability.input.AbilityInput.ReleaseResult;
 import rotp.core.powersystem.entityaction.EntityActionInputState.InputGenerationTracker;
 import rotp.core.powersystem.entityaction.EntityActionInputState.HeldInputEntry;
+import rotp.core.powersystem.entityaction.HeldInput;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import net.minecraft.world.entity.LivingEntity;
 
 public final class HeldInputControlSmokeTest {
 	private HeldInputControlSmokeTest() {}
@@ -64,6 +66,18 @@ public final class HeldInputControlSmokeTest {
 		verifyStandItemUseGenerationLifecycle();
 		verifyClientTrackerReconstruction();
 		verifyPublicServerContract();
+		verifyHeldByKey();
+	}
+
+	// 1.16 kept a held action only while its key was down; only such a hold is re-checked every tick.
+	private static void verifyHeldByKey() {
+		Int2ObjectMap<HeldInputEntry> held = new Int2ObjectArrayMap<>();
+		HeldInput pressed = user -> {};
+		HeldInput unpressed = user -> {};
+		held.put(7, new HeldInputEntry((short) 7, 1L, null, pressed));
+		check(AbilityInput.isHeldByKey(held, pressed), "an action a key still holds was not found");
+		check(!AbilityInput.isHeldByKey(held, unpressed), "an action no key holds counted as held");
+		check(!AbilityInput.isHeldByKey((LivingEntity) null, pressed), "no user holds nothing");
 	}
 
 	private static void verifyStandItemUseGenerationLifecycle() {

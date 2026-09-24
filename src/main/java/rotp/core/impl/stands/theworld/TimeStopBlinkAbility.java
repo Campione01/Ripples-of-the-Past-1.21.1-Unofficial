@@ -1,5 +1,9 @@
 package rotp.core.impl.stands.theworld;
 
+import java.util.EnumSet;
+
+import javax.annotation.Nullable;
+
 import rotp.core.config.client.PlayerClientBroadcastedSettings;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModSoundEvents;
@@ -31,12 +35,14 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.RelativeMovement;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.WrappedGoal;
 import net.minecraft.world.level.ChunkPos;
@@ -48,11 +54,16 @@ public class TimeStopBlinkAbility extends Ability {
 	private static final double MAX_BLINK_DISTANCE = 192;
 	private boolean teleportBehindEntity;
 	private String timeStopAbilityName = "time_stop";
+	// 1.16 TimeStop.Builder staminaCost / staminaCostTick of the base time stop (The World's by default)
+	private float baseStaminaCost = TimeStopLearning.BASE_STAMINA_COST;
+	private float baseStaminaCostTick = TimeStopLearning.BASE_STAMINA_COST_TICK;
+	@Nullable private Holder<SoundEvent> blinkSound;
 
 	public TimeStopBlinkAbility(AbilityType<?> abilityType, AbilityId abilityId) {
 		super(abilityType, abilityId);
 		isSubAbility = true;
-		spriteName = "time_stop";
+		// own wheel slot: the 1.16 ts_blink icon (falls back to time_stop)
+		spriteName = "time_stop_blink";
 		partsRequired(StandPart.MAIN_BODY);
 	}
 
@@ -88,6 +99,34 @@ public class TimeStopBlinkAbility extends Ability {
 		return timeStopAbilityName;
 	}
 
+	/**
+	 * 1.16 TimeStopInstant costs 0.8 of its base time stop's staminaCost and staminaCostTick, so a blink
+	 * bound to a time stop built with other values than The World's 225 / 9 is given them here.
+	 */
+	public TimeStopBlinkAbility setBaseTimeStopStaminaCosts(float staminaCost, float staminaCostTick) {
+		if (!Float.isFinite(staminaCost) || staminaCost < 0.0F
+				|| !Float.isFinite(staminaCostTick) || staminaCostTick < 0.0F) {
+			throw new IllegalArgumentException("Time Stop stamina costs must be finite and non-negative");
+		}
+		baseStaminaCost = staminaCost;
+		baseStaminaCostTick = staminaCostTick;
+		return this;
+	}
+
+	/** 1.16 TimeStopInstant took its blink sound as a constructor argument. */
+	public TimeStopBlinkAbility setBlinkSound(Holder<SoundEvent> sound) {
+		blinkSound = sound;
+		return this;
+	}
+
+	public float getBlinkStaminaCost(StandPower power) {
+		return TimeStopLearning.getTimeStopBlinkStaminaCost(power, baseStaminaCost);
+	}
+
+	public float getBlinkStaminaCostTicking(StandPower power, String learningName) {
+		return TimeStopLearning.getTimeStopBlinkStaminaCostTicking(power, learningName, baseStaminaCostTick);
+	}
+
 	@Override
 	public boolean isAbilityUnlocked(Power<?> context) {
 		return getUnlockConditionCheck(context).isPositive();
@@ -119,7 +158,7 @@ public class TimeStopBlinkAbility extends Ability {
 		if (stand != null && LivingComponentAction.getCurEntityAction(stand) != null) {
 			return ConditionCheck.NEGATIVE;
 		}
-		ConditionCheck staminaCheck = StandAbilityStamina.check(context, effectiveTimeStopCost(standPower, getStaminaCost(standPower)));
+		ConditionCheck staminaCheck = StandAbilityStamina.check(context, effectiveTimeStopCost(standPower, getBlinkStaminaCost(standPower)));
 		if (!staminaCheck.isPositive()) {
 			return staminaCheck;
 		}
@@ -148,14 +187,15 @@ public class TimeStopBlinkAbility extends Ability {
 		ActionTarget target = rayTraceBlinkTarget(user, maxDistance);
 		Vec3 blinkPos = calcBlinkPos(serverLevel, user, target, maxDistance);
 		int impliedTicks = getImpliedTicks(user, blinkPos, playerSpeed, timeStopTicks);
-		if (!StandAbilityStamina.consumeOrMessage(this, power, user, effectiveTimeStopCost(power, getStaminaCost(power)))) {
+		if (!StandAbilityStamina.consumeOrMessage(this, power, user, effectiveTimeStopCost(power, getBlinkStaminaCost(power)))) {
 			return false;
 		}
-		power.consumeStamina(effectiveTimeStopCost(power, impliedTicks * getStaminaCostTicking(power, learningName)));
+		power.consumeStamina(effectiveTimeStopCost(power, impliedTicks * getBlinkStaminaCostTicking(power, learningName)));
 		Vec3 soundPos = user.position();
+		// 1.16 set the yaw toward the target from blinkPos before teleporting
+		Float facingYaw = getFacingYaw(target, blinkPos);
 		makeNearbyMobsLoseTarget(user, blinkPos);
-		user.teleportTo(blinkPos.x, blinkPos.y, blinkPos.z);
-		faceEntityTarget(user, target);
+		teleportFacing(user, blinkPos, facingYaw);
 		skipTicksForStandAndUser(power, impliedTicks);
 		double soundRadius = 16.0D * 5.0D;
 		StandUtil.broadcastSoundWithCondition(serverLevel, soundPos, getTimeStopBlinkSound(power),
@@ -167,16 +207,16 @@ public class TimeStopBlinkAbility extends Ability {
 		return true;
 	}
 
-	private static int getMaxImpliedTicks(StandPower power, String learningName) {
+	private int getMaxImpliedTicks(StandPower power, String learningName) {
 		int timeStopTicks = TimeStopLearning.getTimeStopTicks(power, learningName);
 		if (StandUtil.standIgnoresStaminaDebuff(power)) {
 			return timeStopTicks;
 		}
-		float tickingCost = effectiveTimeStopCost(power, getStaminaCostTicking(power, learningName));
+		float tickingCost = effectiveTimeStopCost(power, getBlinkStaminaCostTicking(power, learningName));
 		if (tickingCost <= 0.0F) {
 			return timeStopTicks;
 		}
-		float staminaAfterBaseCost = power.getStamina() - effectiveTimeStopCost(power, getStaminaCost(power));
+		float staminaAfterBaseCost = power.getStamina() - effectiveTimeStopCost(power, getBlinkStaminaCost(power));
 		int affordableTicks = Mth.floor(staminaAfterBaseCost / tickingCost);
 		return Mth.clamp(affordableTicks, TimeStopLearning.MIN_TIME_STOP_TICKS, timeStopTicks);
 	}
@@ -185,15 +225,10 @@ public class TimeStopBlinkAbility extends Ability {
 		return amount * PlayerClientBroadcastedSettings.getTimeStopStaminaCostMultiplier(power);
 	}
 
-	private static float getStaminaCost(StandPower power) {
-		return TimeStopLearning.getTimeStopBlinkStaminaCost(power);
-	}
-
-	private static float getStaminaCostTicking(StandPower power, String learningName) {
-		return TimeStopLearning.getTimeStopBlinkStaminaCostTicking(power, learningName);
-	}
-
-	private static Holder<SoundEvent> getTimeStopBlinkSound(StandPower power) {
+	private Holder<SoundEvent> getTimeStopBlinkSound(StandPower power) {
+		if (blinkSound != null) {
+			return blinkSound;
+		}
 		return power != null && power.getPowerType() == ModStands.STAR_PLATINUM.get()
 				? ModSoundEvents.STAR_PLATINUM_TIME_STOP_BLINK
 				: ModSoundEvents.THE_WORLD_TIME_STOP_BLINK;
@@ -266,16 +301,46 @@ public class TimeStopBlinkAbility extends Ability {
 		return new Vec3(pos.x, y, pos.z);
 	}
 
-	private static void faceEntityTarget(LivingEntity user, ActionTarget target) {
+	/** The yaw that faces an entity target from blinkPos, or null (no entity target: keep the yaw). */
+	@Nullable
+	public static Float getFacingYaw(ActionTarget target, Vec3 blinkPos) {
 		if (target.getType() != ActionTarget.TargetType.ENTITY || target.getEntity() == null) {
+			return null;
+		}
+		return getFacingYaw(target.getEntity().position(), blinkPos);
+	}
+
+	/** 1.16 MathUtil.yRotDegFromVec(targetPos - blinkPos); null straight above or below. */
+	@Nullable
+	public static Float getFacingYaw(Vec3 targetPos, Vec3 blinkPos) {
+		Vec3 toTarget = targetPos.subtract(blinkPos);
+		if (toTarget.horizontalDistanceSqr() < 1.0E-6D) {
+			return null;
+		}
+		return (float) -Mth.atan2(toTarget.x, toTarget.z) * Mth.RAD_TO_DEG;
+	}
+
+	/**
+	 * Teleports the user, turned to yaw when it is not null. ServerPlayer.teleportTo(x, y, z) sends the
+	 * rotation as relative (unchanged), so a server-side yaw never reached the client; 1.16's teleport
+	 * was absolute. A player gets an absolute yaw (pitch stays the client's own); others are turned
+	 * before Entity.teleportTo, which keeps the entity's rotation.
+	 */
+	public static void teleportFacing(LivingEntity user, Vec3 pos, @Nullable Float yaw) {
+		if (yaw != null && user instanceof ServerPlayer player && !player.isFakePlayer() && player.connection != null) {
+			player.connection.teleport(pos.x, pos.y, pos.z, yaw, player.getXRot(), EnumSet.of(RelativeMovement.X_ROT));
+			player.setYHeadRot(yaw);
 			return;
 		}
-		Vec3 toTarget = target.getEntity().position().subtract(user.position());
-		if (toTarget.lengthSqr() > 1e-6) {
-			float yRot = (float) (Mth.atan2(toTarget.z, toTarget.x) * (180F / Math.PI)) - 90F;
-			user.setYRot(yRot);
-			user.yRotO = yRot;
+		if (yaw != null) {
+			user.setYRot(yaw);
+			user.yRotO = yaw;
+			user.setYHeadRot(yaw);
+			user.yHeadRotO = yaw;
+			user.setYBodyRot(yaw);
+			user.yBodyRotO = yaw;
 		}
+		user.teleportTo(pos.x, pos.y, pos.z);
 	}
 
 	private static void skipTicksForStandAndUser(StandPower power, int ticks) {

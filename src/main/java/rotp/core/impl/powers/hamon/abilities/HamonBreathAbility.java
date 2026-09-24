@@ -7,6 +7,7 @@ import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.entityaction.ActionPhase;
+import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 
 import net.minecraft.world.entity.LivingEntity;
@@ -30,6 +31,18 @@ public class HamonBreathAbility extends HamonActionRuntimeAbility {
 			return ConditionCheck.NEGATIVE;
 		}
 		return user.getAirSupply() >= user.getMaxAirSupply() ? ConditionCheck.POSITIVE : ConditionCheck.createNegative("no_air");
+	}
+
+	// 1.16 HamonBreath.checkSpecificConditions ran on every held tick too: losing air ends the breath.
+	@Override
+	protected ConditionCheck checkHeldSpecificConditions(EntityActionInstance action, Power<?> context) {
+		ConditionCheck check = super.checkHeldSpecificConditions(action, context);
+		if (!check.isPositive()) {
+			return check;
+		}
+		LivingEntity user = context.getUser();
+		return user != null && user.getAirSupply() >= user.getMaxAirSupply()
+				? ConditionCheck.POSITIVE : ConditionCheck.createNegative("no_air");
 	}
 
 	public static class BreathInstance extends HamonActionRuntimeAbility.HamonHeldActionInstance {

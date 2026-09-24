@@ -5,16 +5,13 @@ import rotp.core.init.ModSoundEvents;
 import rotp.core.mechanics.KnockbackCollisionImpact;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
-import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
-import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.StandInstance.StandPart;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.entity.StandStatFormulas;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.util.functions.JojoModUtil;
-import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility;
 
 import net.minecraft.core.Holder;
@@ -72,11 +69,8 @@ public class TheWorldKickAbility extends StandEntityHeavyPunchAbility {
 					sweepTargetsAroundKick(targetLiving, level, stand, dmgAmount * KICK_SWEEP_DAMAGE_FACTOR);
 
 					Entity knockedBack = targetEntity;
-					EntityActionInstance targetAction = LivingComponentAction.getCurEntityAction(targetLiving);
-					if (targetAction instanceof StandEntityBarrageAbility.StandEntityBarrage) {
-						targetAction.setPhaseStart(ActionPhase.RECOVERY);
-						targetAction.syncPhaseChanges();
-					}
+					// 1.16 HeavyPunchInstance.afterAttack: a Stand action that stops on a heavy attack (a barrage) goes into recovery.
+					rotp.core.powersystem.ability.EntityActionAbility.onHitByHeavyAttack(targetLiving);
 
 					if (targetEntity instanceof StandEntity targetStand) {
 						LivingEntity standUser = targetStand.getUser();
