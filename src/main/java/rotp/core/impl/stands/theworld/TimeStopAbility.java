@@ -46,7 +46,6 @@ import rotp.core.powersystem.standpower.entity.StandEntityAbility.AutoSummonMode
 import rotp.core.subsystems.timestop.TimeStopCooldowns;
 import rotp.core.subsystems.timestop.TimeStopLearning;
 import rotp.core.subsystems.timestop.TimeStopState;
-import rotp.core.util.functions.JojoModUtil;
 import rotp.core.impl.powers.hamon.ModHamonSkills;
 
 import net.minecraft.core.Holder;
@@ -70,6 +69,8 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 	private static final int TIME_STOP_OPENING_SETTLE_TICKS = 35;
 	private static final int STAR_PLATINUM_RESOLVE_LEVEL_TO_UNLOCK = 4;
 	private static final int THE_WORLD_RESOLVE_LEVEL_TO_UNLOCK = 2;
+	// 1.16 core time stops had heldWalkSpeed(0); the owner's Batch907 boundary keeps the charge free to walk.
+	private float heldWalkSpeed = 1.0F;
 
 	public TimeStopAbility(AbilityType<?> abilityType, AbilityId abilityId) {
 		super(abilityType, abilityId, TimeStopAction::new);
@@ -77,6 +78,19 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 		setDefaultPhaseLength(ActionPhase.PERFORM, 1);
 		setDefaultPhaseLength(ActionPhase.RECOVERY, 0);
 		partsRequired(StandPart.MAIN_BODY);
+	}
+
+	/** 1.16 TimeStop.Builder#heldWalkSpeed: the user's walk speed while the time stop charges (Shadow The World 0.7). */
+	public TimeStopAbility setHeldWalkSpeed(float heldWalkSpeed) {
+		if (!Float.isFinite(heldWalkSpeed) || heldWalkSpeed < 0.0F || heldWalkSpeed > 1.0F) {
+			throw new IllegalArgumentException("Time Stop held walk speed must be within 0..1");
+		}
+		this.heldWalkSpeed = heldWalkSpeed;
+		return this;
+	}
+
+	public float getHeldWalkSpeed() {
+		return heldWalkSpeed;
 	}
 
 	@Override
@@ -374,9 +388,7 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 			case SOUND -> decision.sound();
 			case SILENT -> null;
 		};
-		if (voiceLine != null) {
-			JojoModUtil.sayVoiceLine(user, voiceLine);
-		}
+		sayShout(user, voiceLine);
 	}
 
 	private Holder<SoundEvent> getTimeStopVoiceLine(LivingEntity user, StandPower power, boolean standAlreadySummoned) {
@@ -569,6 +581,9 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 		@Override
 		public void onSetPhase(ActionPhase newPhase) {
 			userWalkSpeed = 1.0F;
+			if (newPhase == ActionPhase.BUTTON_CHARGE && ability instanceof TimeStopAbility timeStop) {
+				userWalkSpeed = timeStop.heldWalkSpeed;
+			}
 		}
 
 		@Override

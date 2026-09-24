@@ -62,7 +62,6 @@ import rotp.core.impl.stands.crazydiamond.brokenblocks.EntityMadeFromBlock;
 import rotp.core.impl.stands.crazydiamond.brokenblocks.EntityMadeFromBlock.EntityReference;
 import rotp.core.impl.stands.crazydiamond.brokenblocks.PrevBlockInfo;
 import rotp.core.impl.stands._entitybase.StandAbilityStamina;
-import rotp.core.util.functions.JojoModUtil;
 
 import it.unimi.dsi.fastutil.ints.IntArraySet;
 import it.unimi.dsi.fastutil.ints.IntSet;
@@ -105,7 +104,7 @@ public class CrazyDRestoreTerrainAbility extends NoPoseStandEntityAbility {
 			LivingEntity powerUser, LivingEntity performer) {
 		super.initActionFromConfig(action, level, powerUser, performer);
 		if (!level.isClientSide() && powerUser != null) {
-			JojoModUtil.sayVoiceLine(powerUser, ModSoundEvents.JOSUKE_FIX);
+			sayShout(powerUser, ModSoundEvents.JOSUKE_FIX);
 		}
 	}
 	

@@ -204,6 +204,7 @@
   "rotp.commands.stand.give.random.failed.single": "Failed to give a random Stand to %s",
   "rotp.commands.stand.give.random.failed.multiple": "Failed to give random Stands %s players",
   "rotp.commands.stand.remove.success.single": "Removed %s from %s",
+  "rotp.commands.stand.remove.success.single.no_stand": "Dados de Stand apagados de %s",
   "rotp.commands.stand.remove.success.multiple": "Removed Stands from %s players",
   "rotp.commands.stand.query.failed.single": "%s doesn't have a Stand",
   "rotp.commands.stand.query.failed.multiple": "All %s entities do not have Stands",

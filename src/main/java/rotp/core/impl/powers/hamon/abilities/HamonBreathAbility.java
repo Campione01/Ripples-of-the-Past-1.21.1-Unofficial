@@ -19,6 +19,8 @@ public class HamonBreathAbility extends HamonActionRuntimeAbility {
 		setDefaultPhaseLength(ActionPhase.WINDUP, 0);
 		setButtonHoldPhase(ActionPhase.PERFORM);
 		setDefaultPhaseLength(ActionPhase.RECOVERY, 0);
+		// 1.16 HamonBreath#playVoiceLine overrode the sneak rule away
+		setPlaysVoiceLineOnSneak();
 	}
 
 	@Override

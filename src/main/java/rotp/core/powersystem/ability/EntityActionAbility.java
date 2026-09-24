@@ -223,9 +223,11 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 	
 	/**
 	 * 1.16 PowerBaseImpl.tickHeldAction re-ran checkRequirements on every tick of a held action, and stopHeldAction(true)
-	 * ran it once more before a released hold fired. This is the part every held action shares: the power is usable,
-	 * the performer is alive and, unless the action ignores it, not stunned.
-	 * {@link #checkHeldSpecificConditions} adds the ability's own.
+	 * ran it once more before a released hold fired. Rechecked here, per tick and on release: the power is usable,
+	 * the performer is alive and, unless the action ignores it, not stunned, and the Stand still has the parts the
+	 * action needs (1.16 StandAction partsRequired). {@link #checkHeldSpecificConditions} adds the ability's own
+	 * (items, target, stamina and so on); an ability that does not override it rechecks none of those.
+	 * Not rechecked: the cooldown and a busy performer, which the running hold already went through.
 	 */
 	public ConditionCheck checkHeldActionConditions(EntityActionInstance action, Power<?> context) {
 		if (!context.canUsePower()) {
@@ -239,6 +241,11 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 			if (!performer.isAlive()) {
 				return ConditionCheck.NEGATIVE;
 			}
+		}
+		// 1.16 StandAction.checkConditions ran on every held tick: a lost Stand part ends the hold.
+		ConditionCheck partsCheck = checkStandPartsRequired(context);
+		if (!partsCheck.isPositive()) {
+			return partsCheck;
 		}
 		return checkHeldSpecificConditions(action, context);
 	}
@@ -261,7 +268,8 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 	
 	/**
 	 * 1.16 stopHeldAction(true): a released hold that no longer passes its checks ends without firing, and without
-	 * a message. The server decides; the client follows the synced phase.
+	 * a message. The checks are those of {@link #checkHeldActionConditions}. The server decides; the client follows
+	 * the synced phase. Only release code that calls this rechecks; the core Stand releases do not.
 	 */
 	public boolean canFireReleasedHold(EntityActionInstance action) {
 		LivingEntity user = action.getPowerUser();

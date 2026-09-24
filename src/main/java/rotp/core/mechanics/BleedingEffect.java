@@ -328,7 +328,13 @@ public class BleedingEffect extends StatusEffectModified implements StatusEffect
 			}
 			// 1.16 activated only a vampire not yet at full power (Vampirism is not replaceable), so blood on a
 			// finished vampire's mask (its own knife cut included) neither refills blood nor wears the mask again
-			if (playerPower.getCurTypeData(ModPlayerPowers.VAMPIRISM).map(VampirismData::isVampireAtFullPower).orElse(false)) {
+			Optional<VampirismData> curVampirism = playerPower.getCurTypeData(ModPlayerPowers.VAMPIRISM);
+			if (curVampirism.map(VampirismData::isVampireAtFullPower).orElse(false)) {
+				return false;
+			}
+			// 1.16 givePower: only a user with no power, or whose power type is replaceable with Vampirism
+			// (Hamon), becomes a vampire; a Zombie or an add-on power that refuses keeps its power.
+			if (curVampirism.isEmpty() && !playerPower.canGetPower(ModPlayerPowers.VAMPIRISM.get())) {
 				return false;
 			}
 			playerPower.setPowerType(ModPlayerPowers.VAMPIRISM.get());

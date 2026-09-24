@@ -6,6 +6,10 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
 
+import javax.annotation.Nullable;
+
+import org.jetbrains.annotations.ApiStatus;
+
 import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.apache.commons.lang3.mutable.MutableFloat;
 import org.apache.commons.lang3.tuple.Pair;
@@ -59,6 +63,8 @@ import net.minecraft.world.phys.shapes.BooleanOp;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import net.neoforged.neoforge.attachment.IAttachmentHolder;
+import net.neoforged.neoforge.attachment.IAttachmentSerializer;
 import net.neoforged.neoforge.common.util.INBTSerializable;
 
 public class KnockbackCollisionImpact implements TickingEntityData, INBTSerializable<CompoundTag> {
@@ -157,8 +163,9 @@ public class KnockbackCollisionImpact implements TickingEntityData, INBTSerializ
 
 	@Override
 	public void tick() {
-		// A stopped entity's motion waits in TimeStopState and reads as zero; in 1.16 it simply stayed on the
-		// entity, so an impact armed before or during the stop was still there when time resumed.
+		// An impact armed before or during a stop waits for time to resume, with the knockback stacked on the
+		// stopped entity's motion. 1.16 also ran the stuck check below while stopped, re-hitting whatever the
+		// entity touched every stopped tick; that is left out.
 		if (TimeStopState.shouldFreezeOnServer(entity)) {
 			return;
 		}
@@ -186,13 +193,18 @@ public class KnockbackCollisionImpact implements TickingEntityData, INBTSerializ
 			
 			knockbackImpactStrength = Math.min(knockbackImpactStrength, deltaMovementLen);
 
-//			// spiders get stuck in cave corners not triggering the impact, so we try to manually trigger it here
-//			Vec3 entityPos = entity.position();
-//			if (prevTickPos != null && Math.abs(prevTickPos.x - entityPos.x) < 1E-7 && Math.abs(prevTickPos.z - entityPos.z) < 1E-7) {
-//				collideBreakBlocks(deltaMovement, deltaMovement, entity.level());
-//			}
-//			prevTickPos = entityPos;
+			// spiders get stuck in cave corners not triggering the impact, so we try to manually trigger it here
+			Vec3 entityPos = entity.position();
+			if (stuckSinceLastTick(prevTickPos, entityPos)) {
+				collideBreakBlocks(deltaMovement, deltaMovement, entity.level());
+			}
+			prevTickPos = entityPos;
 		}
+	}
+
+	/** 1.16 KnockbackCollisionImpact.tick: stuck means no sideways move since the last tick. */
+	static boolean stuckSinceLastTick(Vec3 prevTickPos, Vec3 entityPos) {
+		return prevTickPos != null && Math.abs(prevTickPos.x - entityPos.x) < 1E-7 && Math.abs(prevTickPos.z - entityPos.z) < 1E-7;
 	}
 
 	public double getKnockbackImpactStrength() {
@@ -216,6 +228,7 @@ public class KnockbackCollisionImpact implements TickingEntityData, INBTSerializ
 		CompoundTag nbt = new CompoundTag();
 		if (isActive()) {
 			Vec3.CODEC.encodeStart(NbtOps.INSTANCE, knockbackVec).ifSuccess(vecNbt -> nbt.put("Vec", vecNbt));
+			nbt.putDouble("Power", knockbackImpactStrength);
 			nbt.putDouble("MinCos", minCos);
 			nbt.putBoolean("HadBlockImpact", hadImpactWithBlock);
 			nbt.putFloat("ExplosionRadius", explosionRadius);
@@ -329,7 +342,7 @@ public class KnockbackCollisionImpact implements TickingEntityData, INBTSerializ
 							doGlassBleeding.setTrue();
 						}
 						if (blockState.getBlock() instanceof CactusBlock) {
-							hurtTarget(entity, level.damageSources().cactus(), 2);
+							hurtTarget(entity, level.damageSources().cactus(), 1);
 						}
 						if (entity.isOnFire()) {
 							JojoModUtil.blockCatchFire(level, blockPos, blockState, null, asLiving);
@@ -343,8 +356,11 @@ public class KnockbackCollisionImpact implements TickingEntityData, INBTSerializ
 
 				Vec3 collisionDir = new Vec3(collision.movementX - collision.x, collision.movementY - collision.y, collision.movementZ - collision.z);
 				Direction faceHit = Direction.getNearest(collisionDir.x, collisionDir.y, collisionDir.z);
-				if (breakBlocks) {
-					if (explosionRadius > 0) {
+				// 1.16: landing on the floor ends the impact without the explosion or the wall damage
+				boolean hitFloor = faceHit == Direction.DOWN;
+				if (breakBlocks && !hitFloor) {
+					// an impact loaded from NBT has no attacker, and the explosion needs one
+					if (explosionRadius > 0 && attacker != null) {
 						AABB entityBB = entity.getBoundingBox();
 						Vec3 hitPos = new Vec3(
 								Mth.lerp(faceHit.getStepX() * 0.5 + 0.5, entityBB.minX, entityBB.maxX), 
@@ -367,7 +383,7 @@ public class KnockbackCollisionImpact implements TickingEntityData, INBTSerializ
 					}
 				}
 
-				if (wallDamage.floatValue() > 0) {
+				if (wallDamage.floatValue() > 0 && !hitFloor) {
 					hurtTarget(entity, level.damageSources().flyIntoWall(), wallDamage.floatValue());
 				}
 
@@ -379,25 +395,28 @@ public class KnockbackCollisionImpact implements TickingEntityData, INBTSerializ
 	}
 
 	protected boolean onCollideWith(Entity target, LivingEntity targetAsLiving, Vec3 thisEntityMotion) {
-		if (targetAsLiving != null) {
-			if (syoPunchBaseDamage > 0 && attacker != null) {
-				HamonAbilityHelpers.hamonHurtWithParticles(targetAsLiving, attacker,
-						syoPunchBaseDamage * 0.5F, hamonParticles, 8);
-			}
-			boolean hurt = DamageUtil.dealDamageAndSetOnFire(target, 
-					e -> {
-						DamageSource dmgSource = DamageUtil.make(target.level(), 
-								ModDamageTypes.ENTITY_FLEW_INTO, entity, entity, null);
-						return hurtTarget(e, dmgSource, (float) getKnockbackImpactStrength() * 5);
-					}, 
-					scarletOverdriveFireTicks, false);
-			if (hurt) {
-				targetAsLiving.knockback((float) getKnockbackImpactStrength(), -thisEntityMotion.x, -thisEntityMotion.z);
-			}
-			return hurt;
+		if (targetAsLiving != null && syoPunchBaseDamage > 0 && attacker != null) {
+			HamonAbilityHelpers.hamonHurtWithParticles(targetAsLiving, attacker,
+					syoPunchBaseDamage * 0.5F, hamonParticles, 8);
 		}
+		// 1.16 hurt any entity flown into (a boat or an item frame too), set it on fire in whole seconds,
+		// and knocked a living one back even when the hurt failed
+		boolean hurt = DamageUtil.dealDamageAndSetOnFire(target,
+				e -> {
+					DamageSource dmgSource = DamageUtil.make(target.level(),
+							ModDamageTypes.ENTITY_FLEW_INTO, entity, entity, null);
+					return hurtTarget(e, dmgSource, (float) getKnockbackImpactStrength() * 5);
+				},
+				wholeSecondsOfFire(scarletOverdriveFireTicks), false);
+		if (targetAsLiving != null) {
+			targetAsLiving.knockback((float) getKnockbackImpactStrength(), -thisEntityMotion.x, -thisEntityMotion.z);
+		}
+		return hurt;
+	}
 
-		return false;
+	/** 1.16 passed fireTicks / 20 as seconds, dropping the part of a second. */
+	static int wholeSecondsOfFire(int fireTicks) {
+		return fireTicks / 20 * 20;
 	}
 
 	protected boolean hurtTarget(Entity target, DamageSource dmgSource, float amount) {
@@ -416,4 +435,31 @@ public class KnockbackCollisionImpact implements TickingEntityData, INBTSerializ
 	public static KnockbackCollisionImpact getHandler(Entity entity) {
 		return entity.getData(ModDataAttachmentTypes.KB_IMPACT);
 	}
+
+	/** The entity's impact if it ever had one armed or loaded, without attaching one to every entity that moves. */
+	@ApiStatus.Internal
+	@Nullable
+	public static KnockbackCollisionImpact getExistingHandler(Entity entity) {
+		return entity.getExistingDataOrNull(ModDataAttachmentTypes.KB_IMPACT);
+	}
+
+	/** 1.16 EntityUtilCap saved an armed impact with its entity ("KbImpact"); an idle one writes nothing. */
+	@ApiStatus.Internal
+	public static final IAttachmentSerializer<CompoundTag, KnockbackCollisionImpact> SERIALIZER = new IAttachmentSerializer<>() {
+		@Override
+		public KnockbackCollisionImpact read(IAttachmentHolder holder, CompoundTag tag, HolderLookup.Provider provider) {
+			if (!(holder instanceof Entity holderEntity)) {
+				throw new IllegalArgumentException("A knockback impact belongs to an entity, not " + holder);
+			}
+			KnockbackCollisionImpact impact = new KnockbackCollisionImpact(holderEntity);
+			impact.deserializeNBT(provider, tag);
+			return impact;
+		}
+
+		@Nullable
+		@Override
+		public CompoundTag write(KnockbackCollisionImpact impact, HolderLookup.Provider provider) {
+			return impact.isActive() ? impact.serializeNBT(provider) : null;
+		}
+	};
 }

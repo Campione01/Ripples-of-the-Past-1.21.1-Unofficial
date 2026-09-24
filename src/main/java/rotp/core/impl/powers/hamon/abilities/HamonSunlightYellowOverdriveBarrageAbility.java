@@ -5,6 +5,7 @@ import rotp.core.init.ModStatusEffects;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
+import rotp.core.powersystem.ability.input.AbilityInput;
 import rotp.core.init.ModSoundEvents;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.entityaction.ActionAnimIdentifier;
@@ -43,6 +44,8 @@ public class HamonSunlightYellowOverdriveBarrageAbility extends HamonActionRunti
 		setDefaultPhaseLength(ActionPhase.WINDUP, 30);
 		setDefaultPhaseLength(ActionPhase.PERFORM, MAX_BARRAGE_DURATION + FINISHING_PUNCH_DURATION);
 		setDefaultPhaseLength(ActionPhase.RECOVERY, 6);
+		// 1.16 JONATHAN_SUNLIGHT_YELLOW_OVERDRIVE_BARRAGE was the SHIFT variation of the Overdrive Barrage
+		setPlaysVoiceLineOnSneak();
 	}
 
 	// 1.16 checkHeldItems: MCUtil.areHandsFree (gloves count as free hands), on the press
@@ -61,10 +64,19 @@ public class HamonSunlightYellowOverdriveBarrageAbility extends HamonActionRunti
 		return true;
 	}
 
+	// 1.16 energyCost 0 and holdEnergyCost 0: NonStandAction.checkEnergy asked for no energy on the press and at the
+	// release, so the barrage starts and fires with no energy and no breath left.
+	@Override
+	protected boolean hasHamonEnergy(Power<?> context, HamonData hamon) {
+		return true;
+	}
+
+	// 1.16 consumeEnergy(power.getMaxEnergy() / 100), where NonStandPower.getMaxEnergy is at least 1: with no breath
+	// left the tick still asks for 0.01, fails, and leaves the user out of breath.
 	@Override
 	protected float getHeldTickEnergyCost(Power<?> context, int ticksHeld) {
 		HamonData hamon = getHamonData(context);
-		return hamon != null ? hamon.getMaxEnergy() / 100.0F : super.getHeldTickEnergyCost(context, ticksHeld);
+		return hamon != null ? Math.max(hamon.getMaxEnergy(), 1.0F) / 100.0F : super.getHeldTickEnergyCost(context, ticksHeld);
 	}
 
 	@Override
@@ -80,6 +92,34 @@ public class HamonSunlightYellowOverdriveBarrageAbility extends HamonActionRunti
 		private boolean finishingPunch;
 
 		public SYOverdriveBarrageInstance(EntityActionType ability) { super(ability); }
+
+		// 1.16 holdToFire(60, false).holdType(): a full charge stays held until the key is released.
+		@Override
+		protected boolean shouldHoldPhaseAtEnd() {
+			return getPhase() == ActionPhase.WINDUP;
+		}
+
+		@Override
+		protected void _onTick() {
+			HamonActionRuntimeAbility hamonAbility = hamonAbility();
+			if (getPhase() == ActionPhase.WINDUP && !level().isClientSide() && hamonAbility != null
+					&& getPhaseTick() >= hamonAbility.getHamonHoldToFireTicks()
+					&& !AbilityInput.isHeldByKey(getPowerUser(), this)) {
+				// No key holds it (a buffered input, an action set by code): it fires at the full charge.
+				setPhaseStart(ActionPhase.PERFORM);
+				syncPhaseChanges();
+			}
+			super._onTick();
+		}
+
+		@Override
+		public void onSetPhase(ActionPhase newPhase) {
+			super.onSetPhase(newPhase);
+			// 1.16 Instance.getWalkSpeed: the user stands still through the barrage and its finisher.
+			if (newPhase == ActionPhase.PERFORM) {
+				userWalkSpeed = 0.0F;
+			}
+		}
 
 		@Override
 		public void actionTick() {
@@ -109,7 +149,8 @@ public class HamonSunlightYellowOverdriveBarrageAbility extends HamonActionRunti
 			if (level.isClientSide()) return;
 			LivingEntity user = getPowerUser();
 			if (user == null) return;
-			JojoModUtil.sayVoiceLine(user, ModSoundEvents.JONATHAN_SYO_BARRAGE);
+			// 1.16 perform: sayVoiceLine(..., interrupt true), cutting off the start line said on the press
+			JojoModUtil.sayVoiceLine(user, ModSoundEvents.JONATHAN_SYO_BARRAGE, 1.0F, 1.0F, 200, true);
 		}
 
 		private void tickChargeCost(LivingEntity user) {
@@ -119,11 +160,13 @@ public class HamonSunlightYellowOverdriveBarrageAbility extends HamonActionRunti
 			HamonActionRuntimeAbility hamonAbility = hamonAbility();
 			Power<?> context = hamonAbility != null ? hamonAbility.getUserPower(user) : null;
 			HamonData hamon = hamonAbility != null ? hamonAbility.getHamonData(context) : null;
-			if (hamonAbility == null || hamon == null || !hamonAbility.consumeHeldRuntimeTick(user, ticksHeld)) {
+			if (hamonAbility == null || hamon == null) {
 				forceStop();
 				syncPhaseChanges();
 				return;
 			}
+			// 1.16 holdTick ignored a failed consumeEnergy: with no energy and no breath left the charge goes on.
+			hamonAbility.consumeHeldRuntimeTick(user, ticksHeld);
 			hamonAbility.syncHeldRuntimeTick(user, hamon, ticksHeld);
 			ticksHeld++;
 		}

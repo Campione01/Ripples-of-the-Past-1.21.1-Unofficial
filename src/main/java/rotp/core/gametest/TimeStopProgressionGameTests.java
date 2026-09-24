@@ -176,17 +176,88 @@ public final class TimeStopProgressionGameTests {
 					standId + " blink must be refused in the user's own stopped time");
 			helper.assertTrue(available(power, TimeStopLearning.TIME_STOP) == timeStop,
 					standId + " time stop slot must keep the time stop in the user's own stopped time");
+			// 1.16 TimeResume: the first press leaves 11 ticks, the second resumes at once
 			BufferingState buffering = BufferingState.clickOnly();
 			timeStop.onKeyPress(helper.getLevel(), player, null, InputMethod.HOLD, 0.0F, buffering);
 			helper.assertTrue(buffering.isActionSuccess
+					&& state.getInstance(ownStopId).map(TimeStopState.Instance::ticksLeft).orElse(-1)
+							== TimeStopState.Instance.TIME_RESUME_FIRST_CLICK_TICKS,
+					standId + " time stop key did not start resuming the user's own stopped time");
+			BufferingState secondPress = BufferingState.clickOnly();
+			timeStop.onKeyPress(helper.getLevel(), player, null, InputMethod.HOLD, 0.0F, secondPress);
+			helper.assertTrue(secondPress.isActionSuccess
 					&& state.getInstance(ownStopId).map(TimeStopState.Instance::ticksLeft).orElse(-1) == 0,
-					standId + " time stop key did not resume the user's own stopped time");
+					standId + " a second time stop key press did not resume at once");
 		}
 		finally {
 			state.removeInstance(ownStopId);
 			state.removeInstance(foreignStopId);
 			player.discard();
 		}
+	}
+
+	/**
+	 * 1.16 TimeResume: the first press leaves 11 ticks; the resume sound plays at 10, the forced resume line at 9,
+	 * and time resumes on the 11th tick. A second press, or a first one with 11 or fewer left, resumes at once.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void manualResumeKeepsTheOriginalElevenTicks(GameTestHelper helper) {
+		Player player = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
+		TimeStopState state = helper.getLevel().getData(ModDataAttachmentTypes.TIME_STOP.get());
+		int stopId = player.getId();
+		try {
+			Vec3 origin = helper.absoluteVec(new Vec3(0.5D, 1.0D, 0.5D));
+			player.moveTo(origin.x, origin.y, origin.z);
+			helper.assertTrue(helper.getLevel().addFreshEntity(player), "Could not add the manual resume test player");
+			StandPower power = grantTimeStopStand(helper, player, JojoMod.resLoc("the_world"));
+			power.setResolveLevel(power.getMaxResolveLevel());
+			ChunkPos chunk = new ChunkPos(player.blockPosition());
+			int firstPress = TimeStopState.Instance.TIME_RESUME_FIRST_CLICK_TICKS;
+
+			startOwnStop(helper, state, player, chunk, 200);
+			helper.assertTrue(state.requestManualResume(stopId)
+					&& ticksLeft(state, stopId) == firstPress
+					&& state.getInstance(stopId).map(TimeStopState.Instance::forceResumeVoiceLine).orElse(false),
+					"The first press did not leave 11 ticks with the resume line due");
+			for (int tick = 1; tick < firstPress; tick++) {
+				state.tickLifecycle();
+				helper.assertTrue(ticksLeft(state, stopId) == firstPress - tick && state.isTimeStopped(chunk),
+						"Time did not keep counting down after the first press, tick " + tick);
+				boolean lineDue = state.getInstance(stopId).map(TimeStopState.Instance::forceResumeVoiceLine).orElse(false);
+				// the resume sound's tick (10) leaves the line for the next one
+				helper.assertTrue(lineDue == (tick < 2), "The forced resume line was not said at 9 ticks left, tick " + tick);
+			}
+			state.tickLifecycle();
+			helper.assertTrue(state.getInstance(stopId).isEmpty() && !state.isTimeStopped(chunk),
+					"Time did not resume 11 ticks after the first press");
+
+			startOwnStop(helper, state, player, chunk, 200);
+			helper.assertTrue(state.requestManualResume(stopId), "The first press was refused");
+			state.tickLifecycle();
+			helper.assertTrue(state.requestManualResume(stopId) && ticksLeft(state, stopId) == 0,
+					"A second press did not resume at once");
+			state.tickLifecycle();
+			helper.assertTrue(state.getInstance(stopId).isEmpty(), "The second press left the stop running");
+
+			startOwnStop(helper, state, player, chunk, firstPress);
+			helper.assertTrue(state.requestManualResume(stopId) && ticksLeft(state, stopId) == 0,
+					"A first press with 11 ticks left did not resume at once");
+		}
+		finally {
+			state.removeInstance(stopId);
+			player.discard();
+		}
+		helper.succeed();
+	}
+
+	private static void startOwnStop(GameTestHelper helper, TimeStopState state, Player player, ChunkPos chunk, int ticks) {
+		helper.assertTrue(state.tryPutInstance(new TimeStopState.Instance(player.getId(), ticks, 200,
+				chunk, 1, player.getId(), "time_stop_manual_resume_gametest", player.getId(), 0)),
+				"Could not start the manual resume test stop");
+	}
+
+	private static int ticksLeft(TimeStopState state, int stopId) {
+		return state.getInstance(stopId).map(TimeStopState.Instance::ticksLeft).orElse(-1);
 	}
 
 	private static Ability available(StandPower power, String abilityName) {

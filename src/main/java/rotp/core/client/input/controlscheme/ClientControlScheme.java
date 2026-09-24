@@ -211,7 +211,8 @@ public class ClientControlScheme {
 		/**
 		 * @param lockedShiftUsesBase hotbar slots: a SHIFT variation that isn't available leaves
 		 * SHIFT on the slot's base ability. 1.16 (ActionsOverlayGui#resolveVisibleActionInSlot)
-		 * only switched to the shift variation once it was unlocked.
+		 * only switched to the shift variation once it was unlocked, and then for the whole slot,
+		 * so a modifier with its own variation never falls back to the base per input method.
 		 */
 		public InputsByKeyModifier(boolean lockedShiftUsesBase) {
 			this.lockedShiftUsesBase = lockedShiftUsesBase;
@@ -229,7 +230,10 @@ public class ClientControlScheme {
 				list = modifiedBinds.get(inputMethod);
 			}
 			if ((list == null || list.isEmpty()) && curModifier != KeyModifier.NONE) {
-				Map<InputMethod, List<AbilityControlsEntry>> fallbackBinds = movesByModifier.get(KeyModifier.NONE);
+				// 1.16 swapped the whole hotbar slot to its shift variation: a variation bound only as a click
+				// (or only as a hold) must not borrow the base ability for the other input method.
+				boolean slotVariation = lockedShiftUsesBase && modifierOwnsSlot(curModifier, isAvailable);
+				Map<InputMethod, List<AbilityControlsEntry>> fallbackBinds = slotVariation ? null : movesByModifier.get(KeyModifier.NONE);
 				if (fallbackBinds != null) {
 					list = fallbackBinds.get(inputMethod);
 				}
@@ -243,6 +247,20 @@ public class ClientControlScheme {
 				}
 			}
 			return list != null ? list : Collections.emptyList();
+		}
+		
+		/** The modifier has its own variation on this slot (SHIFT: one that is available) under any input method. */
+		private boolean modifierOwnsSlot(KeyModifier modifier, Predicate<AbilityControlsEntry> isAvailable) {
+			Map<InputMethod, List<AbilityControlsEntry>> binds = movesByModifier.get(modifier);
+			if (binds != null) {
+				for (List<AbilityControlsEntry> entries : binds.values()) {
+					if (entries != null && !entries.isEmpty()
+							&& (modifier != KeyModifier.SHIFT || entries.stream().anyMatch(isAvailable))) {
+						return true;
+					}
+				}
+			}
+			return false;
 		}
 		
 		@Nullable

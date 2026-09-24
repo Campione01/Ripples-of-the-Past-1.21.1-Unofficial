@@ -131,7 +131,8 @@ public final class HamonUtil {
 		if (playerPower == null) {
 			playerPower = PowerClass.PLAYER_POWER.attachGet(player);
 		}
-		if (playerPower != null && !playerPower.hasPower()) {
+		// 1.16 canGetPower(HAMON) / givePower: no power, or one replaceable with Hamon (the Speedwagon power).
+		if (playerPower != null && playerPower.canGetPower(ModPlayerPowers.HAMON.get())) {
 			if (teacherHamon.characterIs(ModHamonSkills.CHARACTER_ZEPPELI.get())) {
 				JojoModUtil.sayVoiceLine(teacher, ModSoundEvents.ZEPPELI_FORCE_BREATH.get());
 				teacher.swing(InteractionHand.MAIN_HAND, true);

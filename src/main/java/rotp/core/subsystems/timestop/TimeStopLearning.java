@@ -9,6 +9,7 @@ import rotp.core.api.timestop.TimeStopBehaviorPolicies;
 import rotp.core.api.timestop.TimeStopProgressionPolicy;
 import rotp.core.config.client.PlayerClientBroadcastedSettings;
 import rotp.core.impl.stands.theworld.TimeStopAbility;
+import rotp.core.impl.stands.theworld.TimeStopBlinkAbility;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.init.power.ModStands;
 import rotp.core.powersystem.ability.Ability;
@@ -208,12 +209,28 @@ public final class TimeStopLearning {
 		return baseStaminaCostTick * HUMAN_MAX_TIME_STOP_TICKS / getTimeStopTicks(power, learningName) * BLINK_STAMINA_RATIO;
 	}
 
+	/**
+	 * 1.16 TheWorldTSHeavyAttack priced its time skip from the blink it was built with: half the blink's
+	 * start cost, plus the blink's per-tick cost. The moveset's blink carries an add-on's own base costs.
+	 */
 	public static float getTsPunchTimeStopBaseStaminaCost(StandPower power) {
-		return getTimeStopBlinkStaminaCost(power) * TS_PUNCH_BLINK_STAMINA_RATIO;
+		TimeStopBlinkAbility blink = getTsPunchBlink(power);
+		return (blink != null ? blink.getBlinkStaminaCost(power) : getTimeStopBlinkStaminaCost(power))
+				* TS_PUNCH_BLINK_STAMINA_RATIO;
 	}
 
 	public static float getTsPunchTimeStopStaminaCostTicking(StandPower power) {
-		return getTimeStopBlinkStaminaCostTicking(power);
+		TimeStopBlinkAbility blink = getTsPunchBlink(power);
+		return blink != null
+				? blink.getBlinkStaminaCostTicking(power, getLearningName(power, blink.getTimeStopAbilityName()))
+				: getTimeStopBlinkStaminaCostTicking(power);
+	}
+
+	@Nullable
+	private static TimeStopBlinkAbility getTsPunchBlink(@Nullable StandPower power) {
+		return power != null
+				&& power.getMoveset().getAbility(TimeStopCooldowns.TIME_STOP_BLINK) instanceof TimeStopBlinkAbility blink
+				? blink : null;
 	}
 
 	public static int getAffordableTsPunchTimeStopTicks(StandPower power) {

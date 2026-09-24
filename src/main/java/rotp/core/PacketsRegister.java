@@ -33,6 +33,7 @@ import rotp.core.network.s2c.DatapackStandsPacket;
 import rotp.core.network.s2c.DeflectedBulletPacket;
 import rotp.core.network.s2c.EntitySyncMotionBypassingPacket;
 import rotp.core.network.s2c.ItemBreakVisualsPacket;
+import rotp.core.network.s2c.KnockbackResTickPacket;
 import rotp.core.network.s2c.PhotoDataPacket;
 import rotp.core.network.s2c.PhotoForOtherPlayerPacket;
 import rotp.core.network.s2c.PhotoIdAssignedPacket;
@@ -40,6 +41,7 @@ import rotp.core.network.s2c.PlayVoiceLinePacket;
 import rotp.core.network.s2c.RPSGameStatePacket;
 import rotp.core.network.s2c.RPSOpponentPickThoughtsPacket;
 import rotp.core.network.s2c.ResetSyncedCommonConfigPacket;
+import rotp.core.network.s2c.ServerIdPacket;
 import rotp.core.network.s2c.SoulSpawnPacket;
 import rotp.core.network.s2c.StandEntitySoundPacket;
 import rotp.core.network.s2c.StandFullClearPacket;
@@ -128,7 +130,8 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 public class PacketsRegister {
 	// 6: resolveboost carries maxAchievedValue; the synced special_action registry has stand_entity_block
-	public static final String NETWORK_PROTOCOL_VERSION = "6";
+	// 7: knockbackrestick (1.16 KnockbackResTickPacket), serverid (1.16 ServerIdPacket)
+	public static final String NETWORK_PROTOCOL_VERSION = "7";
 
 	public static void register(RegisterPayloadHandlersEvent event) {
 		PayloadRegistrar registrar = event.registrar(NETWORK_PROTOCOL_VERSION);
@@ -213,6 +216,7 @@ public class PacketsRegister {
 		registerPacket(registrar, PayloadRegistrar::playToClient, new PhotoIdAssignedPacket.Handler(JojoMod.resLoc("photoid")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new PhotoDataPacket.Handler(JojoMod.resLoc("photodata")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new PhotoForOtherPlayerPacket.Handler(JojoMod.resLoc("photoother")));
+		registerPacket(registrar, PayloadRegistrar::playToClient, new ServerIdPacket.Handler(JojoMod.resLoc("serverid")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new TrTimeStopInstancePacket.Handler(JojoMod.resLoc("trtimestopinstance")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new TrTimeStopPlayerStatePacket.Handler(JojoMod.resLoc("trtimestopplayerstate")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new TrRefreshMovementInTimeStopPacket.Handler(JojoMod.resLoc("trrefreshmovementintimestop")));
@@ -244,6 +248,7 @@ public class PacketsRegister {
 		registerPacket(registrar, PayloadRegistrar::playToClient, new ExternalContainerSyncSetDataPacket.Handler(JojoMod.resLoc("extcdata")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new EntitySyncMotionBypassingPacket.Handler(JojoMod.resLoc("motfix")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new TrResetDeathTimePacket.Handler(JojoMod.resLoc("undeath")));
+		registerPacket(registrar, PayloadRegistrar::playToClient, new KnockbackResTickPacket.Handler(JojoMod.resLoc("knockbackrestick")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new DeflectedBulletPacket.Handler(JojoMod.resLoc("projdefl")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new BloodParticlesPacket.Handler(JojoMod.resLoc("blood")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new BrokenChunkBlocksPacket.Handler(JojoMod.resLoc("brokenblocks")));

@@ -53,6 +53,8 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 	private static final ActionAnimIdentifier TS_PUNCH_ANIM = ActionAnimIdentifier.getOrCreate("ts_punch", false);
 	private static final float STAMINA_COST = 50F;
 	private static final int RESOLVE_LEVEL_TO_UNLOCK = 3;
+	private float staminaCost = STAMINA_COST;
+	private boolean trainsTimeStop = true;
 
 	public TheWorldTSPunchAbility(AbilityType<?> abilityType, AbilityId abilityId) {
 		super(abilityType, abilityId, TheWorldTSPunch::new);
@@ -64,6 +66,29 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 		partsRequired(StandPart.MAIN_BODY, StandPart.ARMS);
 		cooldown(50);
 		resolveLevelToUnlock(RESOLVE_LEVEL_TO_UNLOCK);
+	}
+
+	/** 1.16 StandEntityAction.Builder#staminaCost of an add-on TS punch (The World's is 50). */
+	public TheWorldTSPunchAbility setStaminaCost(float staminaCost) {
+		if (!Float.isFinite(staminaCost) || staminaCost < 0.0F) {
+			throw new IllegalArgumentException("TS punch stamina cost must be finite and non-negative");
+		}
+		this.staminaCost = staminaCost;
+		return this;
+	}
+
+	public float getStaminaCost() {
+		return staminaCost;
+	}
+
+	/** 1.16 TheWorldTSHeavyAttack trained its time stop by the skipped ticks; an add-on TS punch that did not passes false. */
+	public TheWorldTSPunchAbility setTrainsTimeStop(boolean trainsTimeStop) {
+		this.trainsTimeStop = trainsTimeStop;
+		return this;
+	}
+
+	public boolean trainsTimeStop() {
+		return trainsTimeStop;
 	}
 
 	@Override
@@ -105,7 +130,7 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 		}
 
 		ConditionCheck check = super.checkSpecificConditions(context);
-		return check.isPositive() ? StandAbilityStamina.check(context, STAMINA_COST) : check;
+		return check.isPositive() ? StandAbilityStamina.check(context, staminaCost) : check;
 	}
 
 	@Override
@@ -184,7 +209,9 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 					stand.setNoGravity(true);
 					stand.hurtMarked = true;
 					stand.summonLockTicks = 0;
-					ActionTarget target = blinkStandTowardTarget(stand, prevAction, getActionTargetSnapshot(stand.level()));
+					boolean trainsTimeStop = !(ability instanceof TheWorldTSPunchAbility tsPunch) || tsPunch.trainsTimeStop;
+					ActionTarget target = blinkStandTowardTarget(stand, prevAction, getActionTargetSnapshot(stand.level()),
+							trainsTimeStop);
 					targetAfterBlink = setActionTargetSnapshot(target);
 					if (!target.isEmpty(stand.level())) {
 						standRotationTarget = target;
@@ -215,8 +242,9 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 				ActionTarget target = getPunchTarget(stand);
 				if (!level.isClientSide()) {
 					StandPower standPower = StandPower.get(getPowerUser());
+					float staminaCost = ability instanceof TheWorldTSPunchAbility tsPunch ? tsPunch.staminaCost : STAMINA_COST;
 					if (getPowerUser() == null
-							|| !StandAbilityStamina.consumeOrMessage(ability, standPower, getPowerUser(), STAMINA_COST)) {
+							|| !StandAbilityStamina.consumeOrMessage(ability, standPower, getPowerUser(), staminaCost)) {
 						return;
 					}
 
@@ -302,7 +330,7 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 		}
 
 		private static ActionTarget blinkStandTowardTarget(StandEntity stand, EntityActionInstance prevAction,
-				ActionTarget inputTarget) {
+				ActionTarget inputTarget, boolean trainsTimeStop) {
 			LivingEntity user = stand.getUser();
 			if (user == null || !(stand.level() instanceof ServerLevel serverLevel)) {
 				return ActionTarget.EMPTY;
@@ -354,7 +382,9 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 			playTimeSkipBlinkSound(serverLevel, stand, standPower);
 			if (standPower != null) {
 				TimeStopLearning.consumeTsPunchTimeStopStamina(standPower, timeStopTicks);
-				TimeStopLearning.onTsPunchTimeSkip(standPower, timeStopTicks);
+				if (trainsTimeStop) {
+					TimeStopLearning.onTsPunchTimeSkip(standPower, timeStopTicks);
+				}
 			}
 			return target;
 		}

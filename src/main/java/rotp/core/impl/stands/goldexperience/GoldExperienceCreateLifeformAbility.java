@@ -229,7 +229,7 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceUtilityAb
             standPower.setAbilityCooldown(CREATE_LIFEFORM_ABILITY_NAME, cooldown, cooldown);
         }
         level.addFreshEntity(transformation);
-        JojoModUtil.sayVoiceLine(user, ModSoundEvents.GIORNO_NEW_LIFE);
+        sayShout(user, ModSoundEvents.GIORNO_NEW_LIFE);
 
         GECreatedLifeformEffect createdLifeform = ModStandAbilities.EFFECT_GE_CREATED_LIFEFORM.get().create(level);
         source.applyToEffect(createdLifeform);

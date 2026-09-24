@@ -304,6 +304,8 @@ public class RockPaperScissorsGame {
                 StandInstance wholeStand = loserStand.getStandInstance().map(StandInstance::copy).orElse(null);
                 if (wholeStand != null) {
                     loserStand.setStandInstance(Optional.empty());
+                    // 1.16 putOutStand: the Resolve value went with the Stand (ResolveCounter.onClearStandType)
+                    loserStand.resolveCounter.resetResolveValue(loserStand);
                     winnerStand.userStandEffects.addEffect(new BoyIIManStandPartTakenEffect(wholeStand).withTarget(roundLoser));
                 }
             }

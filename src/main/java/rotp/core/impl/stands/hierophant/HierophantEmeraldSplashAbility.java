@@ -28,7 +28,6 @@ import rotp.core.powersystem.standpower.type.StandTypePersistentData;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
 import rotp.core.subsystems.target.HitResultUtil;
-import rotp.core.util.functions.JojoModUtil;
 import rotp.core.impl.stands._entitybase.StandAbilityStamina;
 
 import net.minecraft.network.FriendlyByteBuf;
@@ -67,6 +66,8 @@ public class HierophantEmeraldSplashAbility extends StandEntityAbility implement
 		setDefaultPhaseLength(ActionPhase.RECOVERY, 40);
 		if (concentrated) {
 			cooldown(5, 60);
+			// 1.16 hierophant_green_es_concentrated was the SHIFT variation
+			setPlaysVoiceLineOnSneak();
 		}
 	}
 
@@ -198,7 +199,7 @@ public class HierophantEmeraldSplashAbility extends StandEntityAbility implement
 				return;
 			}
 			if (!voiceLinePlayed && user != null) {
-				JojoModUtil.sayVoiceLine(user, ModSoundEvents.KAKYOIN_EMERALD_SPLASH);
+				Ability.sayShoutOf(ability, user, ModSoundEvents.KAKYOIN_EMERALD_SPLASH);
 				voiceLinePlayed = true;
 			}
 			if (!standSoundPlayed) {

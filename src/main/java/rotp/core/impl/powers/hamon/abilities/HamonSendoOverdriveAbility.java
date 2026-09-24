@@ -5,6 +5,7 @@ import rotp.core.powersystem.Power;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
+import rotp.core.powersystem.ability.input.AbilityInput;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
@@ -72,10 +73,27 @@ public class HamonSendoOverdriveAbility extends HamonActionRuntimeAbility {
 		super.stopHeldActionOnGettingAttacked(action);
 	}
 
+	// 1.16 stoppedHolding sent the wave on any stop with a block targeted. A release that failed its checks (no energy
+	// or breath left) only skipped the perform: the wave still went, and consumeEnergy(energyCost) was still asked for.
 	@Override
 	protected boolean consumeRuntimeOnPerform(LivingEntity user) {
-		return getSendoBlockTarget(user, user.level()).getType() == TargetType.BLOCK
-				&& super.consumeRuntimeOnPerform(user);
+		if (getSendoBlockTarget(user, user.level()).getType() != TargetType.BLOCK) {
+			return false;
+		}
+		Power<?> context = getUserPower(user);
+		HamonData hamon = getHamonData(context);
+		if (hamon == null) {
+			return false;
+		}
+		if (!hamon.isAbilityOnCooldown(name()) && hasHamonEnergy(context, hamon)) {
+			super.consumeRuntimeOnPerform(user);
+		}
+		else {
+			hamon.getHamonEnergyUsageEfficiency(ENERGY_COST, true, user);
+			hamon.syncOnUpdate(user);
+			playHamonShout(user, hamon);
+		}
+		return true;
 	}
 
 	private static ActionTarget getSendoBlockTarget(LivingEntity user, Level level) {
@@ -115,6 +133,7 @@ public class HamonSendoOverdriveAbility extends HamonActionRuntimeAbility {
 		private float preRuntimeEfficiency = 1.0F;
 		private float baseUsageStatPoints;
 		private float heldTicksBeforePerform = -1.0F;
+		private int windupTicksHeld;
 
 		public SendoOverdriveInstance(EntityActionType ability) {
 			super(ability);
@@ -123,9 +142,16 @@ public class HamonSendoOverdriveAbility extends HamonActionRuntimeAbility {
 		@Override
 		public void onSetPhase(ActionPhase newPhase) {
 			if (newPhase == ActionPhase.PERFORM && getPhase() == ActionPhase.WINDUP) {
-				heldTicksBeforePerform = getPhaseTick();
+				// 1.16 heldRatio counted every held tick; the windup's own tick stops at its full length.
+				heldTicksBeforePerform = Math.max(getPhaseTick(), windupTicksHeld);
 			}
 			super.onSetPhase(newPhase);
+		}
+
+		// 1.16 holdToFire(30, true): a full charge stays held until the key is released.
+		@Override
+		protected boolean shouldHoldPhaseAtEnd() {
+			return getPhase() == ActionPhase.WINDUP;
 		}
 
 		// 1.16 HamonSendoOverdrive.stoppedHolding sent the wave on any release; a release before the full
@@ -142,6 +168,17 @@ public class HamonSendoOverdriveAbility extends HamonActionRuntimeAbility {
 
 		@Override
 		protected void _onTick() {
+			if (getPhase() == ActionPhase.WINDUP) {
+				if (!level().isClientSide() && getPhaseTick() >= holdToFireTicks()
+						&& !AbilityInput.isHeldByKey(getPowerUser(), this)) {
+					// No key holds it (a buffered click, an action set by code): it fires at the full charge.
+					setPhaseStart(ActionPhase.PERFORM);
+					syncPhaseChanges();
+				}
+				else {
+					windupTicksHeld++;
+				}
+			}
 			if (!capturedPreRuntimeState && getPhase() == ActionPhase.PERFORM && getPhaseTick() < 1 && !level().isClientSide()) {
 				capturePreRuntimeState();
 			}
@@ -198,6 +235,11 @@ public class HamonSendoOverdriveAbility extends HamonActionRuntimeAbility {
 				baseUsageStatPoints = Math.min(ENERGY_COST, preRuntimeEnergy) * preRuntimeEfficiency;
 				capturedPreRuntimeState = true;
 			});
+		}
+
+		private int holdToFireTicks() {
+			HamonActionRuntimeAbility ability = hamonAbility();
+			return ability != null && ability.getHamonHoldToFireTicks() > 0 ? ability.getHamonHoldToFireTicks() : HOLD_TO_FIRE_TICKS;
 		}
 	}
 }

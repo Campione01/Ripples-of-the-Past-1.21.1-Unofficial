@@ -98,14 +98,26 @@ public class PillarmanModeCommand {
 		final int successCount = success;
 		if (targets.size() == 1) {
 			Component targetName = targets.iterator().next().getDisplayName();
-			source.sendSuccess(() -> Component.translatable("commands.pillarman.mode.success.single",
-					selectedMode, targetName), true);
+			source.sendSuccess(() -> modeSuccessSingle(selectedMode, targetName), true);
 		}
 		else {
-			source.sendSuccess(() -> Component.translatable("commands.pillarman.mode.success.multiple",
-					selectedMode, successCount), true);
+			source.sendSuccess(() -> modeSuccessMultiple(selectedMode, successCount), true);
 		}
 		return success;
+	}
+
+	static Component modeSuccessSingle(PillarmanMode mode, Component targetName) {
+		return Component.translatable("commands.pillarman.mode.success.single", modeArg(mode), targetName);
+	}
+
+	static Component modeSuccessMultiple(PillarmanMode mode, int count) {
+		return Component.translatable("commands.pillarman.mode.success.multiple", modeArg(mode), count);
+	}
+
+	// 1.16 printed the Mode enum by its name. A 1.21 translation argument must be a Component, Number, Boolean
+	// or String: the enum itself threw IllegalArgumentException after the mode was already set.
+	static String modeArg(PillarmanMode mode) {
+		return mode.name();
 	}
 
 	private static CommandSyntaxException failed(Collection<ServerPlayer> targets) {

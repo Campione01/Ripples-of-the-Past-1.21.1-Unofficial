@@ -13,6 +13,8 @@ import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.EntityActionAbility;
+import rotp.core.powersystem.ability.condition.ConditionCheck;
+import rotp.core.powersystem.ability.input.AbilityInput;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInputState;
 import rotp.core.powersystem.entityaction.EntityActionInputState.HeldInputEntry;
@@ -22,6 +24,7 @@ import rotp.core.powersystem.entityaction.netcode.SyncType;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.playerpower.PlayerPower;
 import rotp.core.powersystem.standpower.StandInstance;
+import rotp.core.powersystem.standpower.StandInstance.StandPart;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.type.StandType;
@@ -48,7 +51,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * 1.16 PowerBaseImpl.tickHeldAction re-ran checkRequirements on every tick of a held action (the key still down):
- * a failed check (a filled hand, no soap, a stun) ended the hold with stopHeldAction(false), which fired nothing
+ * a failed check (a filled hand, no soap, a stun, a lost Stand part) ended the hold with stopHeldAction(false), which fired nothing
  * except Sendo Overdrive's wave. StandEntityMeleeBarrage.stopOnHeavyAttack let a heavy attack stop a barrage, and
  * Action.onPerform reset a player's attack strength for a swingHand technique.
  */
@@ -223,6 +226,50 @@ public final class HeldConditionRecheckGameTests {
 		}
 	}
 
+	// 1.16 StandAction.checkConditions (partsRequired) ran on every held tick and before a release fired.
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void lostStandArmsEndHeldBarrage(GameTestHelper helper) {
+		try (StandFixture f = new StandFixture(helper, "HeldBarrageArms", "star_platinum")) {
+			EntityActionAbility barrage = f.ability("barrage");
+			EntityActionInstance held = startBarrage(helper, barrage, f.user, f.stand, f.standAction);
+			holdByKey(f.user, held, PowerClass.STAND);
+			f.standAction.tick();
+			helper.assertTrue(held.getPhase() == ActionPhase.PERFORM && barrage.canFireReleasedHold(held),
+					"the held barrage did not go on while the Stand had its arms" + f.state(barrage, held));
+			f.instance.removePart(StandPart.ARMS);
+			helper.assertTrue(!barrage.canFireReleasedHold(held),
+					"the release recheck passed after the Stand lost its arms" + f.state(barrage, held));
+			f.standAction.tick();
+			helper.assertTrue(held.getPhase() == ActionPhase.RECOVERY,
+					"losing the Stand's arms did not end the held barrage" + f.state(barrage, held));
+			helper.succeed();
+		}
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void lostStandBodyDropsCrossfireCharge(GameTestHelper helper) {
+		try (StandFixture f = new StandFixture(helper, "HeldCrossfireBody", "magicians_red")) {
+			EntityActionAbility crossfire = f.ability("crossfire_hurricane");
+			EntityActionInstance charge = crossfire.initActionOnAbilityUse(helper.getLevel(), f.user, f.stand, null);
+			f.standAction.setAction(charge, f.user, SyncType.NO_SYNC);
+			holdByKey(f.user, charge, PowerClass.STAND);
+			f.tick(5);
+			// The phase tick shows the charge really ticked (it starts in BUTTON_CHARGE).
+			helper.assertTrue(f.standAction.getAction() == charge && charge.getPhase() == ActionPhase.BUTTON_CHARGE
+					&& charge.getPhaseTick() > 0, "Crossfire Hurricane is not charging" + f.state(crossfire, charge));
+			f.instance.removePart(StandPart.MAIN_BODY);
+			f.tick(1);
+			helper.assertTrue(charge.isOver() && f.standAction.getAction() == null,
+					"losing the Stand's body did not drop the held Crossfire Hurricane charge" + f.state(crossfire, charge));
+			// Releasing after the drop fires nothing, nor does the charge end (20 ticks) come.
+			charge.onKeyRelease(f.user);
+			f.tick(25);
+			helper.assertTrue(charge.isOver() && f.standAction.getAction() == null,
+					"the dropped Crossfire Hurricane charge still fired" + f.state(crossfire, charge));
+			helper.succeed();
+		}
+	}
+
 	private static EntityActionInstance startBarrage(GameTestHelper helper, EntityActionType barrage,
 			Player user, StandEntity stand, LivingComponentAction standAction) {
 		EntityActionInstance action = barrage.initActionOnAbilityUse(helper.getLevel(), user, stand, null);
@@ -330,6 +377,89 @@ public final class HeldConditionRecheckGameTests {
 			user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get()).heldKeys.clear();
 			component.setAction(null, SyncType.NO_SYNC);
 			user.removeAllEffects();
+			user.discard();
+		}
+	}
+
+	private static final class StandFixture implements AutoCloseable {
+		private final GameTestHelper helper;
+		private final Player user;
+		private final StandType standType;
+		private StandPower power;
+		private StandInstance instance;
+		private StandEntity stand;
+		private LivingComponentAction standAction;
+
+		private StandFixture(GameTestHelper helper, String name, String standId) {
+			this.helper = helper;
+			user = FakePlayerFactory.get(helper.getLevel(), new GameProfile(UUID.randomUUID(), name));
+			standType = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc(standId));
+			try {
+				helper.assertTrue(standType != null, "Missing Stand type " + standId);
+				Vec3 userPos = Vec3.atCenterOf(helper.absolutePos(new BlockPos(2, 2, 2)));
+				user.moveTo(userPos.x, userPos.y, userPos.z);
+				helper.assertTrue(helper.getLevel().addFreshEntity(user), "Could not add Stand part test player");
+				power = PowerClass.STAND.attachGet(user);
+				StandPowerTransitions.Result inserted = StandPowerTransitions.insert(power, new StandInstance(standType));
+				helper.assertTrue(inserted.status() == StandPowerTransitions.Status.APPLIED,
+						"Could not grant " + standId + ": " + inserted.status());
+				instance = power.getStandInstance().orElse(null);
+				helper.assertTrue(instance != null, "Granted " + standId + " has no Stand instance");
+				helper.assertTrue(standType.summon(user, power), "Could not summon " + standId);
+				stand = power.getSummonedStandEntity();
+				helper.assertTrue(stand != null, "Summoned " + standId + " entity is missing");
+				standAction = LivingComponentAction.getComponent(stand);
+				// The summon lock skips the action tick (StandEntity.tick counts it down, which the test does not run):
+				// Magician's Red (speed 11) has 7 ticks of it.
+				stand.summonLockTicks = 0;
+				// A directional barrage pays stamina every tick and stops at 0; a new power starts with none.
+				power.setStamina(power.getMaxStamina());
+			}
+			catch (RuntimeException | Error e) {
+				close();
+				throw e;
+			}
+		}
+
+		private EntityActionAbility ability(String name) {
+			Ability found = power.getAbility(name);
+			helper.assertTrue(found instanceof EntityActionAbility, "Missing Stand ability " + name);
+			return (EntityActionAbility) found;
+		}
+
+		private void tick(int count) {
+			for (int tick = 0; tick < count; tick++) {
+				standAction.tick();
+			}
+		}
+
+		// Failure detail: what the held recheck sees and what would skip it.
+		private String state(EntityActionAbility ability, EntityActionInstance action) {
+			ConditionCheck check = ability.checkHeldActionConditions(action, power);
+			String reason = check.getWarning() != null ? check.getWarning().getString() : "-";
+			return " [phase=" + action.getPhase() + " phaseTick=" + action.getPhaseTick()
+					+ " current=" + (standAction.getAction() == action)
+					+ " parts=" + instance.getAllParts()
+					+ " heldCheck=" + check.isPositive() + "/" + reason
+					+ " isActionHeld=" + ability.isActionHeld(action)
+					+ " heldByKey=" + AbilityInput.isHeldByKey(user, action)
+					+ " releaseCheck=" + ability.canFireReleasedHold(action)
+					+ " summonLock=" + stand.summonLockTicks
+					+ " stunned=" + ModStatusEffects.isStunned(stand)
+					+ " stamina=" + power.getStamina() + "]";
+		}
+
+		@Override
+		public void close() {
+			user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get()).heldKeys.clear();
+			if (instance != null) {
+				for (StandPart part : StandPart.values()) {
+					instance.addPart(part);
+				}
+			}
+			if (power != null && power.isSummoned() && standType != null) {
+				standType.forceUnsummon(user, power);
+			}
 			user.discard();
 		}
 	}

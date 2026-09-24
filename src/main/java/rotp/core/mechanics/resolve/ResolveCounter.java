@@ -14,6 +14,7 @@ import rotp.core.powersystem.playerpower.PlayerPower;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.StandUtil;
 import rotp.core.powersystem.standpower.entity.StandEntity;
+import rotp.core.powersystem.standpower.entity.StandUserGuard;
 import rotp.core.util.objects_java.DefaultedValue;
 import rotp.core.util.objects_java.Lerp;
 import rotp.core.util.objects_java.OptionalFloat;
@@ -678,7 +679,8 @@ public class ResolveCounter {
 	public static void onAttack(LivingIncomingDamageEvent event) {
 		LivingEntity target = event.getEntity();
 		DamageSource dmgSource = event.getSource();
-		float dmgAmount = event.getAmount();
+		// 1.16 resolveOnHurtEvent ran at HIGHEST, before a guarding Stand cut the hit on its user
+		float dmgAmount = event.getAmount() + StandUserGuard.guardCut(event);
 		
 		if (target.is(dmgSource.getEntity()) || !target.isAlive()) return;
 		float points = dmgAmount;
@@ -783,6 +785,10 @@ public class ResolveCounter {
 
     @SubscribeEvent(priority = EventPriority.NORMAL)
     public static void resolveOnTakingDamage(LivingDamageEvent.Pre event) {
+    	// 1.16 LivingDamageEvent never fired for a hit the Stand's guard took whole (blockDamage cancelled it)
+    	if (StandUserGuard.blockedWhole(event.getContainer())) {
+    		return;
+    	}
     	LivingEntity target = event.getEntity();
     	StandPower stand = StandPower.get(target);
     	if (stand != null && stand.usesResolve()) {

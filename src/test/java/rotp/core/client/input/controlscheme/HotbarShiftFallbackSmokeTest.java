@@ -14,7 +14,9 @@ import net.neoforged.neoforge.client.settings.KeyModifier;
 /**
  * 1.16 (ActionsOverlayGui#resolveVisibleActionInSlot) switched a hotbar slot to its SHIFT
  * variation only once that variation was unlocked; otherwise SHIFT kept the base ability.
- * Separate binds keep the port's plain fallback (SHIFT only falls back when nothing is bound).
+ * The switch covered the whole slot, so a variation bound for one input method leaves nothing
+ * of the base under SHIFT. Separate binds keep the port's plain fallback (SHIFT only falls back
+ * when nothing is bound).
  */
 public final class HotbarShiftFallbackSmokeTest {
 	private static final AbilityControlsEntry BASE = new AbilityControlsEntry(null, "base");
@@ -41,8 +43,10 @@ public final class HotbarShiftFallbackSmokeTest {
 		check(slot.getAll(KeyModifier.SHIFT, InputMethod.HOLD).equals(List.of(BASE))
 				&& slot.getFirst(KeyModifier.SHIFT, InputMethod.HOLD) == BASE,
 				"the public lookup must fall back through the real availability check");
-		check(slot.getAll(KeyModifier.SHIFT, InputMethod.CLICK, SHIFT_AVAILABLE).equals(List.of(BASE_CLICK)),
-				"a missing SHIFT bind must fall back to the base bind of the same input method");
+		check(slot.getAll(KeyModifier.SHIFT, InputMethod.CLICK, SHIFT_AVAILABLE).isEmpty(),
+				"an available SHIFT variation takes the whole slot: no base click under SHIFT");
+		check(slot.getAll(KeyModifier.SHIFT, InputMethod.CLICK, NONE_AVAILABLE).equals(List.of(BASE_CLICK)),
+				"a locked SHIFT variation leaves every input method on the base");
 		check(slot.getAll(KeyModifier.NONE, InputMethod.HOLD, SHIFT_AVAILABLE).equals(List.of(BASE))
 				&& slot.getAll(KeyModifier.NONE, InputMethod.HOLD, NONE_AVAILABLE).equals(List.of(BASE)),
 				"without a modifier the base bind must be used whatever is available");
@@ -61,6 +65,51 @@ public final class HotbarShiftFallbackSmokeTest {
 				&& shiftOnly.getAll(KeyModifier.SHIFT, InputMethod.HOLD, NONE_AVAILABLE).equals(List.of(SHIFT_VARIANT)),
 				"a slot without base binds must not invent one");
 
+		// 1.16 Heavens Door: Return Pages (instant) is the shift variation of the held Tear Out a Page.
+		InputsByKeyModifier clickOverHold = new ClientControlScheme.HotbarSlot(3).binds;
+		bind(clickOverHold, KeyModifier.NONE, InputMethod.HOLD, BASE);
+		bind(clickOverHold, KeyModifier.SHIFT, InputMethod.CLICK, SHIFT_VARIANT);
+		check(clickOverHold.getAll(KeyModifier.SHIFT, InputMethod.CLICK, SHIFT_AVAILABLE).equals(List.of(SHIFT_VARIANT))
+				&& clickOverHold.getAll(KeyModifier.SHIFT, InputMethod.HOLD, SHIFT_AVAILABLE).isEmpty(),
+				"a SHIFT click variation over a held base must not leave the base hold under SHIFT");
+		check(clickOverHold.getAll(KeyModifier.SHIFT, InputMethod.HOLD, NONE_AVAILABLE).equals(List.of(BASE))
+				&& clickOverHold.getAll(KeyModifier.SHIFT, InputMethod.HOLD).equals(List.of(BASE)),
+				"a locked SHIFT click variation leaves the held base under SHIFT");
+		check(clickOverHold.getAll(KeyModifier.NONE, InputMethod.HOLD, SHIFT_AVAILABLE).equals(List.of(BASE))
+				&& clickOverHold.getAll(KeyModifier.NONE, InputMethod.CLICK, SHIFT_AVAILABLE).isEmpty(),
+				"without SHIFT the slot keeps its held base only");
+
+		// 1.16 Spice Girl: the held bounce_her is the shift variation of the instant bounce.
+		InputsByKeyModifier holdOverClick = new ClientControlScheme.HotbarSlot(4).binds;
+		bind(holdOverClick, KeyModifier.NONE, InputMethod.CLICK, BASE_CLICK);
+		bind(holdOverClick, KeyModifier.SHIFT, InputMethod.HOLD, SHIFT_VARIANT);
+		check(holdOverClick.getAll(KeyModifier.SHIFT, InputMethod.HOLD, SHIFT_AVAILABLE).equals(List.of(SHIFT_VARIANT))
+				&& holdOverClick.getAll(KeyModifier.SHIFT, InputMethod.CLICK, SHIFT_AVAILABLE).isEmpty(),
+				"a SHIFT hold variation over a clicked base must not leave the base click under SHIFT");
+
+		// A slot without a variation for the held modifier still uses its base (Shift/Ctrl held to move).
+		InputsByKeyModifier plain = new ClientControlScheme.HotbarSlot(5).binds;
+		bind(plain, KeyModifier.NONE, InputMethod.HOLD, BASE);
+		check(plain.getAll(KeyModifier.SHIFT, InputMethod.HOLD, SHIFT_AVAILABLE).equals(List.of(BASE))
+				&& plain.getAll(KeyModifier.CONTROL, InputMethod.HOLD, SHIFT_AVAILABLE).equals(List.of(BASE))
+				&& plain.getAll(KeyModifier.SHIFT, InputMethod.CLICK, SHIFT_AVAILABLE).isEmpty(),
+				"a slot without a modifier variation must keep falling back to its base");
+
+		InputsByKeyModifier controlOverClick = new ClientControlScheme.HotbarSlot(6).binds;
+		bind(controlOverClick, KeyModifier.NONE, InputMethod.CLICK, BASE_CLICK);
+		bind(controlOverClick, KeyModifier.CONTROL, InputMethod.HOLD, CONTROL_VARIANT);
+		check(controlOverClick.getAll(KeyModifier.CONTROL, InputMethod.CLICK, NONE_AVAILABLE).isEmpty()
+				&& controlOverClick.getAll(KeyModifier.CONTROL, InputMethod.HOLD, NONE_AVAILABLE).equals(List.of(CONTROL_VARIANT)),
+				"a CONTROL variation also takes the whole slot");
+
+		InputsByKeyModifier bothMethods = new ClientControlScheme.HotbarSlot(7).binds;
+		bind(bothMethods, KeyModifier.NONE, InputMethod.HOLD, BASE);
+		bind(bothMethods, KeyModifier.SHIFT, InputMethod.CLICK, SHIFT_VARIANT);
+		bind(bothMethods, KeyModifier.SHIFT, InputMethod.HOLD, SHIFT_VARIANT);
+		check(bothMethods.getAll(KeyModifier.SHIFT, InputMethod.CLICK, SHIFT_AVAILABLE).equals(List.of(SHIFT_VARIANT))
+				&& bothMethods.getAll(KeyModifier.SHIFT, InputMethod.HOLD, SHIFT_AVAILABLE).equals(List.of(SHIFT_VARIANT)),
+				"a variation bound on both input methods keeps both");
+
 		InputsByKeyModifier separate = new InputsByKeyModifier();
 		bind(separate, KeyModifier.NONE, InputMethod.HOLD, BASE);
 		bind(separate, KeyModifier.SHIFT, InputMethod.HOLD, SHIFT_VARIANT);
@@ -73,6 +122,11 @@ public final class HotbarShiftFallbackSmokeTest {
 		bind(separateNoShift, KeyModifier.NONE, InputMethod.HOLD, BASE);
 		check(separateNoShift.getAll(KeyModifier.SHIFT, InputMethod.HOLD, NONE_AVAILABLE).equals(List.of(BASE)),
 				"separate binds must still fall back when no SHIFT entry is bound");
+		InputsByKeyModifier separateClickOverHold = new InputsByKeyModifier();
+		bind(separateClickOverHold, KeyModifier.NONE, InputMethod.HOLD, BASE);
+		bind(separateClickOverHold, KeyModifier.SHIFT, InputMethod.CLICK, SHIFT_VARIANT);
+		check(separateClickOverHold.getAll(KeyModifier.SHIFT, InputMethod.HOLD, SHIFT_AVAILABLE).equals(List.of(BASE)),
+				"separate binds keep the per-input-method fallback");
 	}
 
 	private static void bind(InputsByKeyModifier binds, KeyModifier modifier,

@@ -3,6 +3,7 @@ package rotp.core.impl.stands.silverchariot;
 import rotp.core.init.ModSoundEvents;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.PowerClass;
+import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
@@ -13,7 +14,6 @@ import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.entity.StandStatFormulas;
 import rotp.core.subsystems.target.ActionTarget;
-import rotp.core.util.functions.JojoModUtil;
 import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility;
 
 import net.minecraft.core.Holder;
@@ -118,11 +118,11 @@ public class SilverChariotBarrageAbility extends StandEntityBarrageAbility {
 					return;
 				}
 				if (!state.hasArmor() && state.ticksAfterArmorRemoval() < 40) {
-					JojoModUtil.sayVoiceLine(user, ModSoundEvents.POLNAREFF_FENCING);
+					Ability.sayShoutOf(ability, user, ModSoundEvents.POLNAREFF_FENCING);
 					return;
 				}
 			}
-			JojoModUtil.sayVoiceLine(user, ModSoundEvents.POLNAREFF_HORA_HORA_HORA);
+			Ability.sayShoutOf(ability, user, ModSoundEvents.POLNAREFF_HORA_HORA_HORA);
 		}
 	}
 }

@@ -115,7 +115,7 @@ public class StandCommand {
 				PowerClass.STAND.attachPower(living);
 				StandPower stand = PowerClass.STAND.get(living);
 				if (stand != null && (replace || !stand.hasPower())) {
-					clearSameStandBeforeReplace(stand, standType);
+					clearBeforeReplace(stand);
 					stand.setStand(standType);
 					i++;
 				}
@@ -126,12 +126,13 @@ public class StandCommand {
 	}
 	
 	/**
-	 * 1.16 /stand give ... true cleared the power before giving, so the same Stand was unsummoned and
-	 * given anew. setStand alone leaves an equal Stand instance untouched.
+	 * 1.16 /stand give ... true and /stand random ... true called power.clear() before giving: the Stand was
+	 * unsummoned and removed with its Resolve value, boosts and records (ResolveCounter.onClearStandType), so the
+	 * same Stand was given anew. The port's clear is the stand remover's transition.
 	 */
-	private static void clearSameStandBeforeReplace(StandPower stand, StandType standType) {
-		if (stand.hasPower() && stand.getPowerType() == standType) {
-			stand.setStand(null);
+	private static void clearBeforeReplace(StandPower stand) {
+		if (stand.hasPower()) {
+			stand.applyDestructiveTransition(false);
 		}
 	}
 	
@@ -158,7 +159,7 @@ public class StandCommand {
 			
 			StandType standType = standOrError.left().orElse(null);
 			if (standType != null) {
-				clearSameStandBeforeReplace(stand, standType);
+				clearBeforeReplace(stand);
 				stand.setStand(standType);
 				i++;
 			}
@@ -176,14 +177,24 @@ public class StandCommand {
 		for (Entity entity : targets) {
 			if (entity instanceof LivingEntity living) {
 				StandPower stand = StandPower.get(living);
-				if (stand != null && stand.hasPower()) {
-					singlePrevType = stand.getPowerType();
-					stand.setStand(null);
+				if (stand != null) {
+					if (stand.hasPower()) {
+						singlePrevType = stand.getPowerType();
+					}
+					// 1.16 /stand clear: power.clear() and fullStandClear(). The Resolve value, boosts and records go
+					// with the Stand, and so do the Resolve levels, the learning of every Stand and the had-a-Stand flag.
+					// A target without a Stand still had its Stand progression wiped.
+					stand.applyDestructiveTransition(true);
 					i++;
 				}
 			}
 		}
 		
+		if (i > 0 && targets.size() == 1 && singlePrevType == null) {
+			Component target = targets.iterator().next().getDisplayName();
+			src.sendSuccess(() -> Component.translatable("rotp.commands.stand.remove.success.single.no_stand", target), true);
+			return i;
+		}
 		return REMOVE_MSG.trySend(src, true, targets, i, 
 				singlePrevType != null ? new Object[] { singlePrevType.name.get() } : new Object[] {},
 				new Object[] {});

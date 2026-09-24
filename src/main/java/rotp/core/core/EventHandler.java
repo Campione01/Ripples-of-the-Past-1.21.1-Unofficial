@@ -26,8 +26,8 @@ import rotp.core.powersystem.standpower.StandInstance.StandPart;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.StandUtil;
 import rotp.core.powersystem.standpower.effect.UserStandEffects;
+import rotp.core.powersystem.standpower.entity.StandUserGuard;
 import rotp.core.subsystems.timestop.TimeStopState;
-import rotp.core.util.functions.DamageUtil;
 import rotp.core.util.functions.JojoModUtil;
 import rotp.core.impl.powers.hamon.HamonData;
 import rotp.core.impl.powers.hamon.HamonUtil;
@@ -348,13 +348,14 @@ public class EventHandler {
 		}
 		TimeStopState state = serverLevel.getData(attachmentType);
 		if (state.shouldFreeze(target)) {
-			event.setCanceled(true);
-			DamageUtil.applyKnockbackStack(target, event.getStrength(), event.getRatioX(), event.getRatioZ());
+			TimeStopState.stackKnockbackWhileStopped(event);
 		}
 	}
 
 	@SubscribeEvent(priority = EventPriority.HIGHEST)
 	public static void onPillarmanUtilityIncomingDamage(LivingIncomingDamageEvent event) {
+		// 1.16 onLivingHurtStart: a guarding Stand takes a hit it can take first; the checks below still run
+		StandUserGuard.redirectToGuardingStand(event);
 		if (VampirismFreezeAbility.onUserIncomingDamage(event)
 				|| PillarmanBladeDashAttackAbility.onUserIncomingDamage(event)
 				|| PillarmanBladeBarrageAbility.onUserIncomingDamage(event)
@@ -374,6 +375,10 @@ public class EventHandler {
 		}
 		if (HamonSnakeMufflerAbility.onUserIncomingDamage(event)) {
 			event.setCanceled(true);
+			return;
+		}
+		// 1.16 blockDamage: the guarding Stand comes first, and a hit it blocked whole gets no Hamon protection
+		if (StandUserGuard.blockDamage(event)) {
 			return;
 		}
 		LivingEntity target = event.getEntity();

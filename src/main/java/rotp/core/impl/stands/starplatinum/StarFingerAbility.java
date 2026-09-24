@@ -21,7 +21,6 @@ import rotp.core.powersystem.standpower.entity.StandEntityAbility;
 import rotp.core.powersystem.standpower.entity.StandOffsetFromUser;
 import rotp.core.subsystems.hitboxes.ExtendableOBB;
 import rotp.core.subsystems.hitboxes.OrientedBoundingBox;
-import rotp.core.util.functions.JojoModUtil;
 import rotp.core.util.functions.MathUtil;
 import rotp.core.impl.stands._entitybase.StandAbilityStamina;
 
@@ -57,7 +56,7 @@ public class StarFingerAbility extends StandEntityAbility {
 			LivingEntity powerUser, LivingEntity performer) {
 		super.initActionFromConfig(action, level, powerUser, performer);
 		if (!level.isClientSide() && powerUser != null) {
-			JojoModUtil.sayVoiceLine(powerUser, ModSoundEvents.JOTARO_STAR_FINGER);
+			sayShout(powerUser, ModSoundEvents.JOTARO_STAR_FINGER);
 		}
 	}
 

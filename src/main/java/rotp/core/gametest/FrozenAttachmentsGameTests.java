@@ -36,7 +36,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 /**
  * Attachments a stopped entity keeps as they were. 1.16 ticked the knockback impact from the world tick with the
  * entity's own motion, which the stop left alone, and checked a Stand's buffered input in StandEntity.tick, which a
- * stopped entity skipped. The port keeps a stopped entity's motion aside and still ticks its attachments.
+ * stopped entity skipped. The port leaves a stopped entity's motion on it, as 1.16 did, and still ticks its attachments.
  */
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)

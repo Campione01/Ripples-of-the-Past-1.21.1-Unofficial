@@ -1,6 +1,7 @@
 package rotp.core.impl.stands.theworld;
 
 import java.util.EnumSet;
+import java.util.function.BiFunction;
 
 import javax.annotation.Nullable;
 
@@ -58,6 +59,7 @@ public class TimeStopBlinkAbility extends Ability {
 	private float baseStaminaCost = TimeStopLearning.BASE_STAMINA_COST;
 	private float baseStaminaCostTick = TimeStopLearning.BASE_STAMINA_COST_TICK;
 	@Nullable private Holder<SoundEvent> blinkSound;
+	@Nullable private BiFunction<LivingEntity, Entity, Vec3> entityTargetTeleportPos;
 
 	public TimeStopBlinkAbility(AbilityType<?> abilityType, AbilityId abilityId) {
 		super(abilityType, abilityId);
@@ -116,6 +118,16 @@ public class TimeStopBlinkAbility extends Ability {
 	/** 1.16 TimeStopInstant took its blink sound as a constructor argument. */
 	public TimeStopBlinkAbility setBlinkSound(Holder<SoundEvent> sound) {
 		blinkSound = sound;
+		return this;
+	}
+
+	/**
+	 * 1.16 TimeStopInstant#getEntityTargetTeleportPos was overridden by add-on blinks (Shadow The World
+	 * lands behind the target's whole look vector, pitch included). Takes the user and the target entity;
+	 * null keeps the core rule.
+	 */
+	public TimeStopBlinkAbility setEntityTargetTeleportPos(@Nullable BiFunction<LivingEntity, Entity, Vec3> teleportPos) {
+		entityTargetTeleportPos = teleportPos;
 		return this;
 	}
 
@@ -275,6 +287,9 @@ public class TimeStopBlinkAbility extends Ability {
 	}
 
 	private Vec3 getEntityTargetTeleportPos(LivingEntity user, Entity targetEntity) {
+		if (entityTargetTeleportPos != null) {
+			return entityTargetTeleportPos.apply(user, targetEntity);
+		}
 		if (teleportBehindEntity) {
 			return targetEntity.position().subtract(Vec3.directionFromRotation(0, targetEntity.getYRot())
 					.scale(targetEntity.getBbWidth() + user.getBbWidth()));

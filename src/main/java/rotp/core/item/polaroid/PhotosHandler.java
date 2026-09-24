@@ -16,6 +16,7 @@ import rotp.core.core.JojoMod;
 import rotp.core.network.BatchReceiver;
 import rotp.core.network.BatchSender;
 import rotp.core.network.s2c.PhotoDataPacket;
+import rotp.core.network.s2c.ServerIdPacket;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectArrayMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
@@ -179,6 +180,14 @@ public class PhotosHandler {
 		PhotosHandler handler = HANDLERS.get(event.getServer());
 		if (handler != null) {
 			handler.cleanupExpiredUploads(handler.gameTime());
+		}
+	}
+
+	// 1.16 SaveFileUtilCap.onPlayerLogIn: the client learns the photo server id on login
+	@SubscribeEvent
+	public static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
+		if (event.getEntity() instanceof ServerPlayer player) {
+			PacketDistributor.sendToPlayer(player, new ServerIdPacket(get(player.server).serverId()));
 		}
 	}
 

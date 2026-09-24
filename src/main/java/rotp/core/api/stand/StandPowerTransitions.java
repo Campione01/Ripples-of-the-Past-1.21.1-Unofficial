@@ -235,6 +235,8 @@ public final class StandPowerTransitions {
 			return Result.failed(vetoStatus);
 		}
 		power.setStandInstance(Optional.empty());
+		// 1.16 putOutStand/clear: the Resolve value went with the Stand (ResolveCounter.onClearStandType)
+		power.resetResolveValue();
 		return Result.applied(Optional.of(previousSnapshot), Optional.empty());
 	}
 
@@ -573,6 +575,7 @@ public final class StandPowerTransitions {
 		}
 		Optional<StandInstance> getStandInstance();
 		void setStandInstance(Optional<StandInstance> standInstance);
+		default void resetResolveValue() {}
 		default void applyDestructiveTransition(boolean fullReset) {
 			setStandInstance(Optional.empty());
 		}
@@ -612,6 +615,11 @@ public final class StandPowerTransitions {
 		@Override
 		public void setStandInstance(Optional<StandInstance> standInstance) {
 			power.setStandInstance(standInstance);
+		}
+
+		@Override
+		public void resetResolveValue() {
+			power.resolveCounter.resetResolveValue(power);
 		}
 
 		@Override

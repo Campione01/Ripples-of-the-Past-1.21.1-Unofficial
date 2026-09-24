@@ -10,6 +10,8 @@ import rotp.core.init.ModDamageTypes;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.mechanics.JojoDefinitions;
 import rotp.core.powersystem.playerpower.PlayerPower;
+import rotp.core.powersystem.standpower.entity.StandEntity;
+import rotp.core.subsystems.timestop.TimeStopState;
 import rotp.core.impl.powers.hamon.HamonData;
 import rotp.core.impl.powers.vampirism.abilities.VampFreezeAbility;
 
@@ -131,7 +133,8 @@ public class DamageUtil {
 	public static void knockback3d(LivingEntity target, float strength, float xRot, float yRot) {
 		Vec3 knockbackVec = Vec3.directionFromRotation(xRot, yRot).normalize();
 		LivingKnockBackEvent event = CommonHooks.onLivingKnockBack(target, strength, knockbackVec.x, knockbackVec.z);
-		if (event.isCanceled()) {
+		// 1.16: a knockback stacked on a stopped target still gets the 3D push on top
+		if (event.isCanceled() && !TimeStopState.stackedKnockbackInstead(event)) {
 			return;
 		}
 		strength = event.getStrength();
@@ -143,6 +146,28 @@ public class DamageUtil {
 		target.hasImpulse = true;
 		target.setDeltaMovement(target.getDeltaMovement().add(knockbackVec.scale(strength)));
 		target.hurtMarked = true;
+		// 1.16: a Stand passes the upward part on to its user
+		if (target instanceof StandEntity stand) {
+			LivingEntity standUser = stand.getUser();
+			if (standUser != null && !standUser.is(target)) {
+				upwardsKnockback(standUser, (float) knockbackVec.y * strength);
+			}
+		}
+	}
+
+	/** 1.16 DamageUtil.upwardsKnockback. */
+	private static void upwardsKnockback(LivingEntity target, float strength) {
+		strength *= 1.0F - (float) target.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE);
+		if (strength != 0) {
+			target.setDeltaMovement(target.getDeltaMovement().add(0, strength, 0));
+			target.hurtMarked = true;
+		}
+		if (target instanceof StandEntity stand) {
+			LivingEntity standUser = stand.getUser();
+			if (standUser != null && !standUser.is(target)) {
+				upwardsKnockback(standUser, strength);
+			}
+		}
 	}
 
 	public static boolean canHurtStands(DamageSource dmgSource) {

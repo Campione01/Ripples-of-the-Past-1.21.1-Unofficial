@@ -28,6 +28,10 @@ public class HamonBubbleCutterAbility extends HamonActionRuntimeAbility {
 		setDefaultPhaseLength(ActionPhase.WINDUP, 6);
 		setDefaultPhaseLength(ActionPhase.PERFORM, 4);
 		setDefaultPhaseLength(ActionPhase.RECOVERY, 3);
+		if (gliding) {
+			// 1.16 CAESAR_BUBBLE_CUTTER_GLIDING was the SHIFT variation of the Bubble Cutter
+			setPlaysVoiceLineOnSneak();
+		}
 	}
 
 	public boolean isGliding() {

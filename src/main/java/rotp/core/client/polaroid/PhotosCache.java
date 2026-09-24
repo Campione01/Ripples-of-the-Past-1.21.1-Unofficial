@@ -138,6 +138,8 @@ public class PhotosCache {
 	public static void onLogOut(UUID serverId) {
 		TO_SEND.values().forEach(SendPhotoToServer::close);
 		TO_SEND.clear();
+		// 1.16 ClientEventHandler.getServerId: no id while logged out; the next server sends its own (ServerIdPacket)
+		currentServerId = UNKNOWN_SERVER;
 		if (serverId != null) {
 			Long2ObjectMap<PhotoHolder> photos = PHOTOS_CACHE.get(serverId);
 			if (photos != null) {

@@ -204,6 +204,7 @@
   "rotp.commands.stand.give.random.failed.single": "予%s隨機替身敗",
   "rotp.commands.stand.give.random.failed.multiple": "予%s玩家隨機替身敗",
   "rotp.commands.stand.remove.success.single": "奪%s於%s",
+  "rotp.commands.stand.remove.success.single.no_stand": "清%s替身數",
   "rotp.commands.stand.remove.success.multiple": "Removed Stands from %s players",
   "rotp.commands.stand.query.failed.single": "%s無替身",
   "rotp.commands.stand.query.failed.multiple": "All %s entities do not have Stands",

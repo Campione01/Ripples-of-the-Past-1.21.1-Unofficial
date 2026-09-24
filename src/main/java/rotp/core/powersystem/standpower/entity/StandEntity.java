@@ -31,6 +31,7 @@ import rotp.core.init.ModEntityAttributes;
 import rotp.core.init.ModSoundEvents;
 import rotp.core.init.ModSpecialActions;
 import rotp.core.init.ModStatusEffects;
+import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.item.KnifeItem;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.entityaction.ActionPhase;
@@ -1377,9 +1378,11 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 
 	public double getDurability() {
 		double durability = getAttributeValue(ModEntityAttributes.STAND_DURABILITY);
-//		if (ModPowers.VAMPIRISM.get().isHighOnBlood(getUser())) {
-//			durability *= 2;
-//		}
+		// 1.16: a vampire user high on blood doubles it
+		LivingEntity user = getUser();
+		if (user != null && ModPlayerPowers.VAMPIRISM.get().isHighOnBlood(user)) {
+			durability *= 2;
+		}
 		return durability * getStandEfficiency();
 	}
 
@@ -1937,6 +1940,14 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		return true;
 	}
 
+	/**
+	 * Whether the guard also blocks hits aimed at the user (StandUserGuard, 1.16 standBlockUserAttack). 1.16 did it for
+	 * a Stand in the block pose; an add-on whose guard was not that pose and that cuts its user's hits itself returns false.
+	 */
+	protected boolean guardsHitsOnUser() {
+		return true;
+	}
+
 	private boolean tryAutoBlock(DamageSource dmgSource, boolean blockableAngle) {
 		if (!autoGuardsOnHit()) {
 			return false;
@@ -2009,11 +2020,12 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 					}
 				}
 			}
-//			Float multiplier = getCurrentTask().map(task -> task.getAction()
-//					.getDamageBlockMultiplier(userPower, this, task)).orElse(null);
-//			if (multiplier != null && multiplier != 0) {
-//				blockedRatio += (1 - blockedRatio) * multiplier;
-//			}
+			// 1.16: a Stand busy with any task (the block too, hit from outside the guard) blocks half of the rest
+			EntityActionInstance curAction = getCurStandAction();
+			float multiplier = curAction != null ? getDamageBlockMultiplier(curAction) : 0;
+			if (multiplier != 0) {
+				blockedRatio += (1 - blockedRatio) * multiplier;
+			}
 			if (blockedRatio >= 1) {
 				wasDamageBlocked = true;
 //				if (dmgSource.getEntity() instanceof StandEntity) {
@@ -2033,10 +2045,20 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 			}
 			if (wasDamageBlocked) {
 				blockDamage += finalDamage;
+				// 1.16 onLivingDamage: a blocked hit staggers neither the Stand nor its user
+				NoKnockbackOnBlocking.setOneTickKbRes(this);
 			}
 			return finalDamage;
 		}
 		return dmgAmount;
+	}
+
+	/**
+	 * 1.16 StandEntityAction.getDamageBlockMultiplier: the part of a hit blocked while the Stand is busy with an
+	 * action and not blocking it. No 1.16 action changed the 0.5.
+	 */
+	protected float getDamageBlockMultiplier(EntityActionInstance curAction) {
+		return 0.5F;
 	}
 
 	public boolean canBlockDamage(DamageSource dmgSource) {
@@ -2207,6 +2229,14 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 			}
 		}
 		return ModSoundEvents.STAND_DAMAGE_BLOCK.get();
+	}
+
+	// 1.16 playAttackBlockSound: the guard blocked a hit aimed at the user
+	public void playStandBlockSound(DamageSource damageSource) {
+		SoundEvent blockSound = getStandBlockSound(damageSource);
+		if (blockSound != null) {
+			playSound(blockSound, getSoundVolume(), getVoicePitch());
+		}
 	}
 	
 	public boolean isStandBlocking() {

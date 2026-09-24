@@ -16,6 +16,7 @@ import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
+import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.mechanics.JojoDefinitions;
 import rotp.core.util.functions.JojoModUtil;
@@ -183,7 +184,25 @@ public class HamonActionRuntimeAbility extends EntityActionAbility {
 	}
 
 	protected void playHamonShout(LivingEntity user, HamonData hamon) {
+		// a hold-to-fire technique said its line when it was pressed (HamonRuntimeActionInstance._onTick)
+		if (pressShoutPlayed(user)) {
+			return;
+		}
+		sayHamonShout(user, hamon);
+	}
+
+	private boolean pressShoutPlayed(LivingEntity user) {
+		return isHamonHoldToFire()
+				&& LivingComponentAction.getCurEntityAction(user) instanceof HamonRuntimeActionInstance action
+				&& action.hamonAbility() == this && action.pressShoutPlayed;
+	}
+
+	private void sayHamonShout(LivingEntity user, HamonData hamon) {
 		if (user.level().isClientSide()) {
+			return;
+		}
+		// 1.16 Action#playVoiceLine: no line while sneaking, unless the technique was a SHIFT variation
+		if (skipsShoutWhileSneaking(user)) {
 			return;
 		}
 		Supplier<? extends SoundEvent> shoutSupplier = null;
@@ -350,6 +369,7 @@ public class HamonActionRuntimeAbility extends EntityActionAbility {
 
 	public static class HamonRuntimeActionInstance extends EntityActionInstance {
 		private boolean runtimeApplied;
+		private boolean pressShoutPlayed;
 
 		public HamonRuntimeActionInstance(EntityActionType ability) {
 			super(ability);
@@ -357,6 +377,17 @@ public class HamonActionRuntimeAbility extends EntityActionAbility {
 
 		@Override
 		protected void _onTick() {
+			HamonActionRuntimeAbility pressed = hamonAbility();
+			// 1.16 PowerBaseImpl.onClickAction said a hold-to-fire technique's line on the press, not when it fired
+			if (!pressShoutPlayed && pressed != null && pressed.isHamonHoldToFire()
+					&& getPhase() == ActionPhase.WINDUP && !level().isClientSide()) {
+				pressShoutPlayed = true;
+				LivingEntity user = getPowerUser();
+				HamonData hamon = user != null ? pressed.getHamonData(pressed.getUserPower(user)) : null;
+				if (hamon != null) {
+					pressed.sayHamonShout(user, hamon);
+				}
+			}
 			if (!runtimeApplied && getPhase() == ActionPhase.PERFORM && getPhaseTick() < 1) {
 				runtimeApplied = true;
 				LivingEntity user = getPowerUser();

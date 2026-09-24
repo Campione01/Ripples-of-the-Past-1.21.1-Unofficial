@@ -31,21 +31,25 @@ import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.ability.finisher.AbilityStandFinisherData;
 import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
 import rotp.core.powersystem.entityaction.HeldInput;
+import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandInstance.StandPart;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.subsystems.timestop.TimeStopClientAwareness;
 import rotp.core.subsystems.timestop.TimeStopState;
+import rotp.core.util.functions.JojoModUtil;
 import rotp.core.util.functions.StringUtil;
 import com.google.gson.JsonObject;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.core.Holder;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
@@ -61,6 +65,7 @@ public class Ability {
 	public boolean isSubAbility = false;
 	private final EnumSet<StandPart> partsRequired = EnumSet.noneOf(StandPart.class);
 	private int resolveLevelToUnlock = -1;
+	private boolean playsVoiceLineOnSneak;
 	protected int cooldownTicks;
 	protected int cooldownTechnicalTicks;
 	protected int cooldownAdditionalTicks;
@@ -317,6 +322,39 @@ public class Ability {
 	}
 	
 	/**
+	 * The Resolve level this ability asks for in this context, per-Stand overrides included (the core time stop's
+	 * is 4 for Star Platinum and 2 for The World). 0 or less: no Resolve gate.
+	 */
+	public final int getRequiredResolveLevel(@Nullable Power<?> context) {
+		return getRequiredResolveLevelToUnlock(context);
+	}
+
+	/** 1.16 Action#playsVoiceLineOnSneak: a SHIFT variation (or a heavy finisher) still shouts while its user sneaks. */
+	public Ability setPlaysVoiceLineOnSneak() {
+		playsVoiceLineOnSneak = true;
+		return this;
+	}
+
+	public boolean playsVoiceLineOnSneak() {
+		return playsVoiceLineOnSneak;
+	}
+
+	/** 1.16 Action#playVoiceLine: no shout when the user sneaks, unless {@link #playsVoiceLineOnSneak()}. */
+	public boolean skipsShoutWhileSneaking(@Nullable LivingEntity user) {
+		return user != null && user.isShiftKeyDown() && !playsVoiceLineOnSneak();
+	}
+
+	/** Says this ability's shout (1.16 Action.Builder#shout) under the sneak rule of {@link #skipsShoutWhileSneaking}. */
+	public boolean sayShout(LivingEntity user, @Nullable Holder<SoundEvent> shout) {
+		return shout != null && !skipsShoutWhileSneaking(user) && JojoModUtil.sayVoiceLine(user, shout);
+	}
+
+	/** {@link #sayShout} for code that holds the ability as an action instance's EntityActionType. */
+	public static boolean sayShoutOf(@Nullable EntityActionType ability, LivingEntity user, @Nullable Holder<SoundEvent> shout) {
+		return ability instanceof Ability shouting && shouting.sayShout(user, shout);
+	}
+
+	/**
 	 * A version of {@link Ability#checkSpecificConditions(Power)} with more control, allowing one ability to disable others dynamically
 	 */
 	// FIXME target parameter (or a simple enough getter)
@@ -340,6 +378,26 @@ public class Ability {
 	
 	@ApiStatus.Internal
 	public ConditionCheck checkMainModLogicConditions(Power<?> context) {
+		ConditionCheck partsCheck = checkStandPartsRequired(context);
+		if (!partsCheck.isPositive()) {
+			return partsCheck;
+		}
+		if (!canBeUsedInStoppedTime(context) && isUserStoppedInTime(context)) {
+			return ConditionCheck.NEGATIVE;
+		}
+		if (context instanceof StandPower standPower
+				&& !PlayerClientBroadcastedSettings.isNoStandAbilityCooldownEnabled(standPower)
+				&& standPower.isAbilityOnCooldown(name())) {
+			return ConditionCheck.createNegative("cooldown");
+		}
+		return ConditionCheck.POSITIVE;
+	}
+
+	/**
+	 * 1.16 StandAction.checkConditions: a Stand that lost a part the action needs (partsRequired) cannot use it.
+	 * Also re-checked during a hold by EntityActionAbility#checkHeldActionConditions.
+	 */
+	ConditionCheck checkStandPartsRequired(Power<?> context) {
 		if (!partsRequired.isEmpty()) {
 			StandPower standPower = PowerClass.STAND.cast(context);
 			if (standPower != null && standPower.hasPower()) {
@@ -352,14 +410,6 @@ public class Ability {
 					}
 				}
 			}
-		}
-		if (!canBeUsedInStoppedTime(context) && isUserStoppedInTime(context)) {
-			return ConditionCheck.NEGATIVE;
-		}
-		if (context instanceof StandPower standPower
-				&& !PlayerClientBroadcastedSettings.isNoStandAbilityCooldownEnabled(standPower)
-				&& standPower.isAbilityOnCooldown(name())) {
-			return ConditionCheck.createNegative("cooldown");
 		}
 		return ConditionCheck.POSITIVE;
 	}

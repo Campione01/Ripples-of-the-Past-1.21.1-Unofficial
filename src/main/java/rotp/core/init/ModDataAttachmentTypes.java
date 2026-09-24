@@ -95,8 +95,10 @@ public final class ModDataAttachmentTypes {
 			() -> AttachmentType.serializable(obj -> obj instanceof LivingEntity entity ? new EntityClothesInventory(entity) : null).build());
 	
 	
-	public static final Supplier<AttachmentType<KnockbackCollisionImpact>> KB_IMPACT = ATTACHMENT_TYPES.register("kb_impact", 
-			() -> AttachmentType.builder(obj -> obj instanceof Entity entity ? new KnockbackCollisionImpact(entity) : null).build());
+	// saved while armed, as 1.16 EntityUtilCap did
+	public static final Supplier<AttachmentType<KnockbackCollisionImpact>> KB_IMPACT = ATTACHMENT_TYPES.register("kb_impact",
+			() -> AttachmentType.builder(obj -> obj instanceof Entity entity ? new KnockbackCollisionImpact(entity) : null)
+					.serialize(KnockbackCollisionImpact.SERIALIZER).build());
 
 	public static final Supplier<AttachmentType<EntityComponentController>> CONTROLLER = ATTACHMENT_TYPES.register("controller_player", 
 			() -> AttachmentType.builder(obj -> obj instanceof Entity entity ? new EntityComponentController(entity) : null).build());

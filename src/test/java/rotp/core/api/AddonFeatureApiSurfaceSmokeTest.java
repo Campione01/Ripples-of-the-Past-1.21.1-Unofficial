@@ -36,9 +36,56 @@ public final class AddonFeatureApiSurfaceSmokeTest {
 		String entityAction = "rotp.core.powersystem.ability.EntityActionAbility";
 		String instance = "rotp.core.powersystem.entityaction.EntityActionInstance";
 		requirePublic(entityAction, "checkHeldActionConditions", instance, "rotp.core.powersystem.Power");
+		requirePublic(entityAction, "canFireReleasedHold", instance);
 		requirePublic(entityAction, "stopsOnHeavyAttack", instance);
 		requirePublic(entityAction, "onHitByHeavyAttack", "net.minecraft.world.entity.Entity");
 		requirePublic(entityAction, "setResetsAttackStrengthOnPerform");
+
+		check(RotpAddonApi.supportsFeature(RotpAddonApi.FEATURE_STAND_USER_GUARD_V1),
+				"the Stand's guard of its user is not advertised");
+		String standEntity = "rotp.core.powersystem.standpower.entity.StandEntity";
+		String noKnockback = "rotp.core.powersystem.standpower.entity.NoKnockbackOnBlocking";
+		String living = "net.minecraft.world.entity.LivingEntity";
+		requireOverridable(standEntity, "guardsHitsOnUser");
+		requireOverridable(standEntity, "getDamageBlockMultiplier", instance);
+		requirePublic(standEntity, "playStandBlockSound", "net.minecraft.world.damagesource.DamageSource");
+		requirePublic(noKnockback, "setOneTickKbRes", living);
+		requirePublic(noKnockback, "hasOneTickKbRes", living);
+		requirePublic(noKnockback, "cancelHurtSound", living);
+
+		check(RotpAddonApi.supportsFeature(RotpAddonApi.FEATURE_TIME_STOP_PUNCH_TUNING_V1),
+				"TS punch tuning is not advertised");
+		String tsPunch = "rotp.core.impl.stands.theworld.TheWorldTSPunchAbility";
+		requirePublic(tsPunch, "setStaminaCost", float.class);
+		requirePublic(tsPunch, "setTrainsTimeStop", boolean.class);
+
+		check(RotpAddonApi.supportsFeature(RotpAddonApi.FEATURE_TIME_STOP_BLINK_TARGET_POS_V1),
+				"the blink's entity target position hook is not advertised");
+		requirePublic("rotp.core.impl.stands.theworld.TimeStopBlinkAbility", "setEntityTargetTeleportPos",
+				java.util.function.BiFunction.class);
+		requirePublic(tsPunch, "getStaminaCost");
+		requirePublic(tsPunch, "trainsTimeStop");
+
+		check(RotpAddonApi.supportsFeature(RotpAddonApi.FEATURE_TIME_STOP_HELD_WALK_SPEED_V1),
+				"the time stop's held walk speed is not advertised");
+		String timeStop = "rotp.core.impl.stands.theworld.TimeStopAbility";
+		requirePublic(timeStop, "setHeldWalkSpeed", float.class);
+		requirePublic(timeStop, "getHeldWalkSpeed");
+
+		String ability = "rotp.core.powersystem.ability.Ability";
+		String power = "rotp.core.powersystem.Power";
+		check(RotpAddonApi.supportsFeature(RotpAddonApi.FEATURE_ABILITY_REQUIRED_RESOLVE_LEVEL_V1),
+				"the ability's required Resolve level is not advertised");
+		requirePublic(ability, "getRequiredResolveLevel", power);
+
+		check(RotpAddonApi.supportsFeature(RotpAddonApi.FEATURE_ABILITY_SHOUTS_V1),
+				"the ability shout sneak rule is not advertised");
+		requirePublic(ability, "sayShout", living, "net.minecraft.core.Holder");
+		requirePublic(ability, "sayShoutOf", "rotp.core.powersystem.entityaction.type.EntityActionType", living,
+				"net.minecraft.core.Holder");
+		requirePublic(ability, "setPlaysVoiceLineOnSneak");
+		requireOverridable(ability, "playsVoiceLineOnSneak");
+		requirePublic(ability, "skipsShoutWhileSneaking", living);
 	}
 
 	private static void requirePublic(String owner, String name, Object... parameters) {

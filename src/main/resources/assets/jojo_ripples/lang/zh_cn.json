@@ -206,6 +206,7 @@
   "rotp.commands.stand.give.random.failed.single": "未能给于 %s 随机替身",
   "rotp.commands.stand.give.random.failed.multiple": "未能给于 %s 随机的替身",
   "rotp.commands.stand.remove.success.single": "已将 %s 从 %s 身上移除",
+  "rotp.commands.stand.remove.success.single.no_stand": "已清除 %s 的替身数据",
   "rotp.commands.stand.remove.success.multiple": "已移除 %s 名玩家的替身",
   "rotp.commands.stand.query.failed.single": "%s 没有替身",
   "rotp.commands.stand.query.failed.multiple": "全部 %s 个实体都没有替身",

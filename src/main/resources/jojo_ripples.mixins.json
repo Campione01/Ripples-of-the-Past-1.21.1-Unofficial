@@ -187,6 +187,7 @@
 	"client.directional_gravity.CameraDirectionalGravityMixin",
 	"client.directional_gravity.LivingEntityRendererDirectionalGravityMixin",
 	"client.directional_gravity.LocalPlayerDirectionalGravityMixin",
+	"client.polaroid.CameraPolaroidMixin",
 	"client.hamon.LivingEntityWallClimbTravelMixin",
 	"client.BleedingHealthGui",
 	"client.modcompat.WoRStandRendering",

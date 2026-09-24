@@ -4,6 +4,7 @@ import rotp.core.init.ModSoundEvents;
 import rotp.core.powersystem.standpower.StandInstance.StandPart;
 
 import rotp.core.powersystem.Power;
+import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
@@ -16,7 +17,6 @@ import rotp.core.powersystem.standpower.StandUtil;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.entity.StandEntityAbility;
 import rotp.core.powersystem.standpower.entity.StandOffsetFromUser;
-import rotp.core.util.functions.JojoModUtil;
 import rotp.core.impl.stands._entitybase.StandAbilityStamina;
 
 import net.minecraft.world.entity.LivingEntity;
@@ -77,7 +77,7 @@ public class MagiciansRedRedBindAbility extends StandEntityAbility {
 			MRRedBindEntity bind = new MRRedBindEntity(stand, level);
 			addProjectileWithStandStats(bind);
 			if (!stand.willHeavyPunchBeFinisher()) {
-				JojoModUtil.sayVoiceLine(user, ModSoundEvents.AVDOL_RED_BIND);
+				Ability.sayShoutOf(ability, user, ModSoundEvents.AVDOL_RED_BIND);
 			}
 			StandUtil.playStandEntitySound(stand, ModSoundEvents.MAGICIANS_RED_RED_BIND, 1.0F, 1.0F);
 		}

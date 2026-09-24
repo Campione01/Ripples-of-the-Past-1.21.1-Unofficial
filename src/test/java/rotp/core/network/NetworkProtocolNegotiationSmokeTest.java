@@ -5,6 +5,7 @@ import java.util.Optional;
 
 import rotp.core.PacketsRegister;
 import rotp.core.mechanics.resolve.ResolveBoostsPacket;
+import rotp.core.network.s2c.KnockbackResTickPacket;
 
 import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.resources.ResourceLocation;
@@ -26,6 +27,12 @@ public final class NetworkProtocolNegotiationSmokeTest {
 				"resolveboost lost maxAchievedValue; recheck the protocol version");
 		check(Integer.parseInt(PacketsRegister.NETWORK_PROTOCOL_VERSION) >= 6,
 				"resolveboost's maxAchievedValue and the synced stand_entity_block need core protocol v6 or later");
+		// a v6 peer has no knockbackrestick payload to decode the server's blocked-hit packets with
+		check(Arrays.stream(KnockbackResTickPacket.class.getRecordComponents())
+				.anyMatch(component -> component.getName().equals("entityId")),
+				"knockbackrestick lost its entity id; recheck the protocol version");
+		check(Integer.parseInt(PacketsRegister.NETWORK_PROTOCOL_VERSION) >= 7,
+				"the clientbound knockbackrestick payload needs core protocol v7 or later");
 
 		var matching = NetworkComponentNegotiator.validateComponent(
 				requiredComponent(PacketsRegister.NETWORK_PROTOCOL_VERSION),
@@ -33,6 +40,13 @@ public final class NetworkProtocolNegotiationSmokeTest {
 				"client");
 		check(matching.isEmpty(),
 				"matching current peers must negotiate the required play payload");
+
+		var noKnockbackResTick = NetworkComponentNegotiator.validateComponent(
+				requiredComponent(PacketsRegister.NETWORK_PROTOCOL_VERSION),
+				requiredComponent("6"),
+				"client");
+		check(noKnockbackResTick.isPresent() && !noKnockbackResTick.get().success(),
+				"a v6 peer must fail negotiation before it receives knockbackrestick");
 
 		var noMaxResolve = NetworkComponentNegotiator.validateComponent(
 				requiredComponent(PacketsRegister.NETWORK_PROTOCOL_VERSION),

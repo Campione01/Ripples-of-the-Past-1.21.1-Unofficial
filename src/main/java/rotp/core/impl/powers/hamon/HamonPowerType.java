@@ -8,6 +8,7 @@ import static rotp.core.init.power.ModPlayerPowers.PLAYER_POWERS;
 import java.util.function.Supplier;
 
 import rotp.core.init.ModSoundEvents;
+import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.powersystem.MovesetBuilder;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.AbilityType;
@@ -382,6 +383,12 @@ public class HamonPowerType extends PlayerPowerType<HamonData> {
 		return power.getCurTypeData(HAMON)
 				.map(hamon -> 1.0F + hamon.getBreathingLevel() * 0.01F)
 				.orElse(1.0F);
+	}
+
+	// 1.16 HamonPowerType.isReplaceableWith: Vampirism (the Stone Mask) may replace Hamon, nothing else.
+	@Override
+	public boolean isReplaceableWith(PlayerPowerType<?> newType) {
+		return newType == ModPlayerPowers.VAMPIRISM.get();
 	}
 
 	private static void combat(Ability ability) {

@@ -4,6 +4,7 @@ import javax.annotation.Nullable;
 
 import rotp.core.core.JojoMod;
 import rotp.core.powersystem.standpower.StandPower;
+import rotp.core.powersystem.standpower.entity.StandUserGuard;
 import rotp.core.util.functions.AttributeUtil;
 import rotp.core.util.functions.MathUtil;
 
@@ -41,46 +42,49 @@ public interface DamageSourceModified {
 	StandPower jojo_ripples$standPower();
 	
 	
+	/**
+	 * The hit whose knockback changes apply to the target's knockback now: the one it is taking, or null outside a
+	 * hit. A hit the guard passes to the user's Stand reaches the user already changed, through StandEntity.knockback.
+	 */
+	@Nullable
+	public static DamageSource currentKnockbackSource(LivingEntity target) {
+		if (target.damageContainers.isEmpty()) {
+			return null;
+		}
+		DamageContainer curDamage = target.damageContainers.peek();
+		return StandUserGuard.isRedirecting(curDamage) ? null : curDamage.getSource();
+	}
+
 	@SubscribeEvent(priority = EventPriority.HIGHEST)
 	public static void _onKnockbackEvent(LivingKnockBackEvent event) {
-		LivingEntity target = event.getEntity();
-		if (!target.damageContainers.isEmpty()) {
-			DamageContainer curDamage = target.damageContainers.peek();
-			DamageSource dmgSource = curDamage.getSource();
-			if (dmgSource instanceof DamageSourceModified kbModifier) {
-				event.setStrength((event.getStrength() + kbModifier.jojo_ripples$addKnockback()) * kbModifier.jojo_ripples$knockbackMultiplier());
-				float yRotDeg = kbModifier.jojo_ripples$knockbackYRotDeg();
-				if (yRotDeg != 0) {
-					double ratioX = event.getRatioX();
-					double ratioZ = event.getRatioZ();
-					float yRot = yRotDeg * MathUtil.DEG_TO_RAD;
-					double sin = Math.sin(yRot);
-					double cos = Math.cos(yRot);
-					event.setRatioX(ratioX * cos - ratioZ * sin);
-					event.setRatioZ(ratioX * sin + ratioZ * cos);
-				}
+		if (currentKnockbackSource(event.getEntity()) instanceof DamageSourceModified kbModifier) {
+			event.setStrength((event.getStrength() + kbModifier.jojo_ripples$addKnockback()) * kbModifier.jojo_ripples$knockbackMultiplier());
+			float yRotDeg = kbModifier.jojo_ripples$knockbackYRotDeg();
+			if (yRotDeg != 0) {
+				double ratioX = event.getRatioX();
+				double ratioZ = event.getRatioZ();
+				float yRot = yRotDeg * MathUtil.DEG_TO_RAD;
+				double sin = Math.sin(yRot);
+				double cos = Math.cos(yRot);
+				event.setRatioX(ratioX * cos - ratioZ * sin);
+				event.setRatioZ(ratioX * sin + ratioZ * cos);
 			}
 		}
 	}
 
 	@SubscribeEvent(priority = EventPriority.LOWEST)
 	public static void _onKnockbackXRotEvent(LivingKnockBackEvent event) {
-		LivingEntity target = event.getEntity();
-		if (!target.damageContainers.isEmpty()) {
-			DamageContainer curDamage = target.damageContainers.peek();
-			DamageSource dmgSource = curDamage.getSource();
-			if (dmgSource instanceof DamageSourceModified kbModifier) {
-				float xRotDeg = kbModifier.jojo_ripples$knockbackXRotDeg();
-				if (xRotDeg != 0) {
-					float finalStrength = event.getStrength();
-					kbModifier.jojo_ripples$setKnockbackXRotAppliedStrength(finalStrength);
-					float xRotRad = xRotDeg * MathUtil.DEG_TO_RAD;
-					if (Math.abs(xRotDeg) < 90F) {
-						event.setStrength(finalStrength * Mth.cos(xRotRad));
-					}
-					else {
-						event.setStrength(0);
-					}
+		if (currentKnockbackSource(event.getEntity()) instanceof DamageSourceModified kbModifier) {
+			float xRotDeg = kbModifier.jojo_ripples$knockbackXRotDeg();
+			if (xRotDeg != 0) {
+				float finalStrength = event.getStrength();
+				kbModifier.jojo_ripples$setKnockbackXRotAppliedStrength(finalStrength);
+				float xRotRad = xRotDeg * MathUtil.DEG_TO_RAD;
+				if (Math.abs(xRotDeg) < 90F) {
+					event.setStrength(finalStrength * Mth.cos(xRotRad));
+				}
+				else {
+					event.setStrength(0);
 				}
 			}
 		}

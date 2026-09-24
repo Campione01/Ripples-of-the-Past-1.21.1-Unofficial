@@ -1,5 +1,6 @@
 package rotp.core.subsystems.timestop;
 
+import java.lang.ref.WeakReference;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.ArrayList;
@@ -28,6 +29,7 @@ import rotp.core.api.timestop.TimeStopAwarenessProviders;
 import rotp.core.api.timestop.TimeStopLifecycleEvent.RemovalReason;
 import rotp.core.config.client.PlayerClientBroadcastedSettings;
 import rotp.core.core.JojoMod;
+import rotp.core.customobjects.DamageSourceModified;
 import rotp.core.customobjects.entity_projectile.KnifeEntity;
 import rotp.core.customobjects.entity_projectile.OwnerBoundProjectileEntity;
 import rotp.core.event.ModEventHooks;
@@ -48,7 +50,9 @@ import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.impl.stands.theworld.TimeStopAbility;
 import rotp.core.subsystems.movement_input_sync.PlayerMovementInputData;
 import rotp.core.subsystems.soul.SoulEntity;
+import rotp.core.util.functions.DamageUtil;
 import rotp.core.util.functions.JojoModUtil;
+import rotp.core.util.functions.MathUtil;
 import rotp.core.util.functions.UtilFunctions;
 import rotp.core.util.functions_network.NetworkUtil;
 
@@ -60,6 +64,8 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.util.Mth;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
@@ -71,6 +77,7 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.living.LivingKnockBackEvent;
 import net.neoforged.neoforge.event.tick.LevelTickEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
@@ -362,12 +369,12 @@ public class TimeStopState {
         if (!isFreezable(entity) || frozenEntities.containsKey(entity.getId())) {
             return;
         }
+        // The motion stays on the entity, as in 1.16 (a stopped entity just did not tick): knockback and pushes
+        // taken in stopped time stack onto it and the entity flies when time resumes.
         frozenEntities.put(entity.getId(), new FrozenEntityState(
                 entity.position(),
-                entity.getDeltaMovement(),
                 entity.fallDistance,
                 entity instanceof Mob mob ? mob.isNoAi() : null));
-        entity.setDeltaMovement(Vec3.ZERO);
         entity.fallDistance = 0;
         if (entity instanceof Mob mob) {
             mob.setNoAi(true);
@@ -383,9 +390,48 @@ public class TimeStopState {
         FrozenEntityState state = frozenEntities.get(entity.getId());
         if (state != null) {
             // Holding an entity replaces its old momentum, but not its original AI state.
+            entity.setDeltaMovement(Vec3.ZERO);
             frozenEntities.put(entity.getId(), new FrozenEntityState(
-                    entity.position(), Vec3.ZERO, 0.0F, state.wasNoAi()));
+                    entity.position(), 0.0F, state.wasNoAi()));
         }
+    }
+
+    /**
+     * Knockback on a stopped entity adds up on its waiting motion instead of halving it (1.16 stackKnockbackInstead).
+     * An angled hit keeps its angle: 1.16 punches knocked back by strength * cos(xRot) and added strength * -sin(xRot)
+     * upwards on their own, which the port does after the vanilla knockback a stopped entity never reaches.
+     */
+    @ApiStatus.Internal
+    public static void stackKnockbackWhileStopped(LivingKnockBackEvent event) {
+        LivingEntity target = event.getEntity();
+        float strength = event.getStrength();
+        // not a hit the guard passes to the Stand: that knockback reaches the user already changed
+        DamageSource source = DamageSourceModified.currentKnockbackSource(target);
+        if (source instanceof DamageSourceModified angled && angled.jojo_ripples$knockbackXRotDeg() != 0) {
+            angled.jojo_ripples$setKnockbackXRotAppliedStrength(strength);
+            strength = angledKnockbackHorizontal(strength, angled.jojo_ripples$knockbackXRotDeg());
+        }
+        event.setCanceled(true);
+        DamageUtil.applyKnockbackStack(target, strength, event.getRatioX(), event.getRatioZ());
+        DamageSourceModified.afterKnockbackApplied(target, source);
+        lastStackedKnockback = new WeakReference<>(event);
+    }
+
+    // the knockback event stackKnockbackWhileStopped last took over; weak, so it keeps no entity alive
+    private static WeakReference<LivingKnockBackEvent> lastStackedKnockback = new WeakReference<>(null);
+
+    /**
+     * Whether stackKnockbackWhileStopped took this knockback over. 1.16 DamageUtil.knockback3d still added its 3D push
+     * to a knockback stacked on a stopped target (LivingUtilCap.didStackKnockbackInstead).
+     */
+    @ApiStatus.Internal
+    public static boolean stackedKnockbackInstead(LivingKnockBackEvent event) {
+        return event != null && lastStackedKnockback.get() == event;
+    }
+
+    /** 1.16 StandEntityPunch: the ground part of an angled knockback, none at a right angle. */
+    static float angledKnockbackHorizontal(float strength, float xRotDeg) {
+        return Math.abs(xRotDeg) < 90F ? strength * Mth.cos(xRotDeg * MathUtil.DEG_TO_RAD) : 0;
     }
 
     public void unfreezeEntity(Entity entity) {
@@ -393,7 +439,6 @@ public class TimeStopState {
         if (state == null) {
             return;
         }
-        entity.setDeltaMovement(state.deltaMovement());
         entity.fallDistance = state.fallDistance();
         if (entity instanceof Mob mob && state.wasNoAi() != null) {
             mob.setNoAi(state.wasNoAi());
@@ -492,22 +537,35 @@ public class TimeStopState {
         }
     }
 
+    /**
+     * 1.16 TimeResume: the first press leaves 11 ticks, so the resume sound plays on the next tick and time resumes
+     * about 0.55 s after the press. A second press, or a first one with 11 ticks or fewer left, resumes at once.
+     */
     public boolean requestManualResume(int id) {
         Instance instance = instances.get(id);
         if (instance == null || !instance.isActive()) {
             return false;
         }
-        boolean forceResumeVoiceLine = instance.ticksLeft() > Instance.TIME_RESUME_VOICELINE_TICKS;
-        Instance manualResume = instance.withTicksLeft(
-                instance.ticksLeft(), true, forceResumeVoiceLine);
-        if (instance.ticksLeft() > Instance.TIME_RESUME_SOUND_TICKS) {
-            playResumeSound(manualResume, true);
+        int ticks = manualResumeTicks(instance);
+        // 1.16 setTicksLeft: a stop first cut from over 30 ticks to under 30 still says its resume line
+        boolean forceResumeVoiceLine = !instance.ticksManuallySet()
+                && instance.ticksLeft() > Instance.TIME_RESUME_VOICELINE_TICKS
+                && ticks < Instance.TIME_RESUME_VOICELINE_TICKS;
+        Instance updated = instance.withTicksLeft(ticks, true, forceResumeVoiceLine);
+        if (ticks <= 0 && instance.ticksLeft() > Instance.TIME_RESUME_SOUND_TICKS) {
+            // resumed before the resume sound's tick (11 left, or two presses in one tick): play it now
+            playResumeSound(updated, true);
         }
-        Instance updated = manualResume.withTicksLeft(
-                0, true, forceResumeVoiceLine);
         instances.put(id, updated);
         syncInstanceToAll(updated);
         return true;
+    }
+
+    /** 1.16 TimeResume.perform: 11 ticks on the first press, 0 on a second one or with 11 or fewer left. */
+    static int manualResumeTicks(Instance instance) {
+        return !instance.ticksManuallySet() && instance.ticksLeft() > Instance.TIME_RESUME_FIRST_CLICK_TICKS
+                ? Instance.TIME_RESUME_FIRST_CLICK_TICKS
+                : 0;
     }
 
     public void tickLifecycle() {
@@ -1213,7 +1271,6 @@ public class TimeStopState {
     }
 
     private void applyInterruptedFreezeState(Entity entity) {
-        entity.setDeltaMovement(Vec3.ZERO);
         entity.fallDistance = 0;
         if (entity instanceof LivingEntity living && living.invulnerableTime > 0) {
             living.invulnerableTime--;
@@ -1303,7 +1360,7 @@ public class TimeStopState {
         public static final Awareness FREE = new Awareness(true, true);
     }
 
-    private record FrozenEntityState(Vec3 position, Vec3 deltaMovement, float fallDistance, @Nullable Boolean wasNoAi) {}
+    private record FrozenEntityState(Vec3 position, float fallDistance, @Nullable Boolean wasNoAi) {}
 
     private record PendingRemoval(
             Instance instance, RemovalReason reason) {}

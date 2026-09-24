@@ -14,9 +14,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import rotp.core.JojoModLivingVariables;
 import rotp.core.customobjects.DamageSourceModified;
 import rotp.core.init.ModDamageTypes;
+import rotp.core.powersystem.standpower.entity.NoKnockbackOnBlocking;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -42,6 +46,22 @@ public abstract class LivingEntityMixin extends Entity {
 		if (JojoModLivingVariables.get((LivingEntity) (Entity) this).isDyingBody()) {
 			ci.cancel();
 		}
+		// 1.16 LivingEntityMixin: no hurt sound for a hit the guard blocked
+		else if (NoKnockbackOnBlocking.cancelHurtSound((LivingEntity) (Entity) this)) {
+			ci.cancel();
+		}
+	}
+
+	// 1.16 LivingEntityClMixin.jojoCancelClientHurtSound: the client plays a player's own hurt sound here
+	@WrapOperation(method = "handleDamageEvent", at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/world/entity/LivingEntity;getHurtSound(Lnet/minecraft/world/damagesource/DamageSource;)"
+					+ "Lnet/minecraft/sounds/SoundEvent;"))
+	public SoundEvent jojo_ripples$cancelBlockedClientHurtSound(LivingEntity entity, DamageSource source,
+			Operation<SoundEvent> original) {
+		if (NoKnockbackOnBlocking.cancelHurtSound(entity)) {
+			return null;
+		}
+		return original.call(entity, source);
 	}
 	
 
@@ -73,14 +93,30 @@ public abstract class LivingEntityMixin extends Entity {
 
 	
 	@Shadow(remap = false) Stack<DamageContainer> damageContainers;
-	
+
+	// NeoForge returns from hurt on a cancelled LivingIncomingDamageEvent without popping the hit's container, and the
+	// knockback readers take the top of the stack for the hit being taken
+	@WrapOperation(method = "hurt", at = @At(value = "INVOKE", remap = false,
+			target = "Lnet/neoforged/neoforge/common/CommonHooks;onEntityIncomingDamage("
+					+ "Lnet/minecraft/world/entity/LivingEntity;"
+					+ "Lnet/neoforged/neoforge/common/damagesource/DamageContainer;)Z"))
+	private boolean jojo_ripples$popCancelledDamageContainer(LivingEntity entity, DamageContainer container,
+			Operation<Boolean> original) {
+		boolean canceled = original.call(entity, container);
+		// only its own container, in case a NeoForge build pops it itself
+		if (canceled && !damageContainers.isEmpty() && damageContainers.peek() == container) {
+			damageContainers.pop();
+		}
+		return canceled;
+	}
+
 	@Inject(method = "knockback", at = @At(
-			value = "INVOKE", 
-			target = "setDeltaMovement", 
+			value = "INVOKE",
+			target = "setDeltaMovement",
 			shift = At.Shift.AFTER))
 	public void jojo_ripples$modifyKnockback(CallbackInfo ci) {
-		DamageSource curDamage = !damageContainers.isEmpty() ? damageContainers.peek().getSource() : null;
-		DamageSourceModified.afterKnockbackApplied((LivingEntity) (Entity) this, curDamage);
+		LivingEntity entity = (LivingEntity) (Entity) this;
+		DamageSourceModified.afterKnockbackApplied(entity, DamageSourceModified.currentKnockbackSource(entity));
 	}
 	
 	

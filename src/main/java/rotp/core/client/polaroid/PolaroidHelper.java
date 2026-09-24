@@ -1,5 +1,7 @@
 package rotp.core.client.polaroid;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.function.UnaryOperator;
 
 import javax.annotation.Nullable;
@@ -38,10 +40,13 @@ public class PolaroidHelper {
 	private static final int PHOTO_WIDTH = 272;
 	private static final int PHOTO_HEIGHT = 236;
 
-	@Nullable private static PendingPhoto pendingPhoto;
+	// Photos asked for and not taken yet, one a frame (the player's own and Hermit Purple's can come in one tick)
+	private static final Deque<PendingPhoto> PENDING_PHOTOS = new ArrayDeque<>();
+	// the options from before the first pending photo, restored after the last
 	private static boolean guiWasHidden;
 	private static CameraType previousCameraType;
 	private static boolean previousCanSeeStands;
+	private static boolean standsHidden;
 
 	public static void takePicture(@Nullable Vec3 cameraPos, @Nullable UnaryOperator<Vector3f> cameraAngle,
 			boolean canCaptureStands, int giveToPlayerId) {
@@ -49,24 +54,49 @@ public class PolaroidHelper {
 		if (mc.level == null || mc.player == null) {
 			return;
 		}
-		guiWasHidden = mc.options.hideGui;
-		previousCameraType = mc.options.getCameraType();
-		previousCanSeeStands = ClientGlobals.canSeeStands;
 		mc.setScreen(null);
-		mc.options.hideGui = true;
-		mc.options.setCameraType(CameraType.FIRST_PERSON);
-		if (!canCaptureStands) {
-			ClientGlobals.canSeeStands = false;
+		PendingPhoto photo = new PendingPhoto(cameraPos, cameraAngle, canCaptureStands, giveToPlayerId);
+		if (PENDING_PHOTOS.isEmpty()) {
+			// a later request must not save the options this one forces
+			guiWasHidden = mc.options.hideGui;
+			previousCameraType = mc.options.getCameraType();
+			previousCanSeeStands = ClientGlobals.canSeeStands;
+			standsHidden = false;
+			mc.options.hideGui = true;
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			showStandsFor(photo);
 		}
-		pendingPhoto = new PendingPhoto(cameraPos, cameraAngle, canCaptureStands, giveToPlayerId);
+		PENDING_PHOTOS.addLast(photo);
+	}
+
+	// 1.16 hid Stands from a photo that cannot capture them
+	private static void showStandsFor(PendingPhoto photo) {
+		if (!photo.canCaptureStands) {
+			ClientGlobals.canSeeStands = false;
+			standsHidden = true;
+		}
+		else if (standsHidden) {
+			ClientGlobals.canSeeStands = previousCanSeeStands;
+		}
 	}
 
 	public static boolean isTakingPhoto() {
-		return pendingPhoto != null;
+		return !PENDING_PHOTOS.isEmpty();
+	}
+
+	/**
+	 * 1.16 pictureCameraSetup moved the camera to this position and detached it, so a photo taken from outside the
+	 * player (the left-hand selfie, Hermit Purple's photo of another player) shows that player. Applied at the end
+	 * of Camera.setup (CameraPolaroidMixin); null keeps the player's own eyes.
+	 */
+	@Nullable
+	public static Vec3 photoCameraPosition() {
+		PendingPhoto pending = PENDING_PHOTOS.peekFirst();
+		return pending != null ? pending.cameraPos : null;
 	}
 
 	public static void onCameraAngles(ViewportEvent.ComputeCameraAngles event) {
-		PendingPhoto pending = pendingPhoto;
+		PendingPhoto pending = PENDING_PHOTOS.peekFirst();
 		if (pending != null && pending.cameraAngle != null) {
 			Vector3f angles = pending.cameraAngle.apply(new Vector3f(event.getPitch(), event.getYaw(), event.getRoll()));
 			event.setPitch(angles.x());
@@ -76,11 +106,10 @@ public class PolaroidHelper {
 	}
 
 	public static void capturePhoto(RenderLevelStageEvent event) {
-		if (pendingPhoto == null || event.getStage() != RenderLevelStageEvent.Stage.AFTER_LEVEL) {
+		if (PENDING_PHOTOS.isEmpty() || event.getStage() != RenderLevelStageEvent.Stage.AFTER_LEVEL) {
 			return;
 		}
-		PendingPhoto capture = pendingPhoto;
-		pendingPhoto = null;
+		PendingPhoto capture = PENDING_PHOTOS.pollFirst();
 
 		Minecraft mc = Minecraft.getInstance();
 		try {
@@ -92,12 +121,20 @@ public class PolaroidHelper {
 			PhotosCache.queueToSendToServer(resized, cropped, capture.giveToPlayerId);
 		}
 		finally {
-			mc.options.hideGui = guiWasHidden;
-			if (previousCameraType != null) {
-				mc.options.setCameraType(previousCameraType);
+			PendingPhoto next = PENDING_PHOTOS.peekFirst();
+			if (next != null) {
+				// the next photo is taken next frame, still with the forced options
+				showStandsFor(next);
 			}
-			if (!capture.canCaptureStands) {
-				ClientGlobals.canSeeStands = previousCanSeeStands;
+			else {
+				mc.options.hideGui = guiWasHidden;
+				if (previousCameraType != null) {
+					mc.options.setCameraType(previousCameraType);
+				}
+				if (standsHidden) {
+					ClientGlobals.canSeeStands = previousCanSeeStands;
+					standsHidden = false;
+				}
 			}
 		}
 	}

@@ -165,11 +165,43 @@ public final class RotpAddonApi {
 	public static final String FEATURE_STAND_ATTACKER_RESOLVE_TIERS_V1 =
 			"stand_attacker_resolve_tiers_v1";
 	/**
-	 * EntityActionAbility held-action rechecks and hit hooks: checkHeldActionConditions,
-	 * stopsOnHeavyAttack / onHitByHeavyAttack, setResetsAttackStrengthOnPerform.
+	 * EntityActionAbility held-action rechecks and hit hooks: checkHeldActionConditions (each held tick and, through
+	 * canFireReleasedHold, before a released hold fires: power usable, performer alive and not stunned, the Stand
+	 * parts the action needs, then the ability's own checkHeldSpecificConditions; not the cooldown or a busy
+	 * performer), canFireReleasedHold, stopsOnHeavyAttack / onHitByHeavyAttack, setResetsAttackStrengthOnPerform.
 	 */
 	public static final String FEATURE_ENTITY_ACTION_HOOKS_V1 =
 			"entity_action_hooks_v1";
+	/**
+	 * A guarding Stand also guards the hits aimed at its user (1.16 standBlockUserAttack): StandEntity#guardsHitsOnUser
+	 * (a Stand that cuts its user's hits itself returns false) and #getDamageBlockMultiplier, and
+	 * NoKnockbackOnBlocking#setOneTickKbRes / #hasOneTickKbRes / #cancelHurtSound, and StandUserGuard#blockedWhole
+	 * (a hit the guard took whole; 1.16 cancelled it, so damage handlers such as counters skip it).
+	 */
+	public static final String FEATURE_STAND_USER_GUARD_V1 =
+			"stand_user_guard_v1";
+	/**
+	 * TheWorldTSPunchAbility#setStaminaCost / #setTrainsTimeStop, and a TS punch prices its time skip from the
+	 * moveset's time_stop_blink (1.16 TheWorldTSHeavyAttack was built with its blink), so an add-on blink's own
+	 * base costs reach its TS punch.
+	 */
+	public static final String FEATURE_TIME_STOP_PUNCH_TUNING_V1 =
+			"time_stop_punch_tuning_v1";
+	/** TimeStopBlinkAbility#setEntityTargetTeleportPos (1.16 TimeStopInstant#getEntityTargetTeleportPos). */
+	public static final String FEATURE_TIME_STOP_BLINK_TARGET_POS_V1 =
+			"time_stop_blink_target_pos_v1";
+	/** TimeStopAbility#setHeldWalkSpeed / #getHeldWalkSpeed (1.16 TimeStop.Builder#heldWalkSpeed; the core's stays 1). */
+	public static final String FEATURE_TIME_STOP_HELD_WALK_SPEED_V1 =
+			"time_stop_held_walk_speed_v1";
+	/** Ability#getRequiredResolveLevel(Power): the Resolve gate with per-Stand overrides, which add-ons could not read. */
+	public static final String FEATURE_ABILITY_REQUIRED_RESOLVE_LEVEL_V1 =
+			"ability_required_resolve_level_v1";
+	/**
+	 * 1.16 Action#playVoiceLine's sneak rule: Ability#sayShout / #sayShoutOf / #skipsShoutWhileSneaking, and
+	 * #setPlaysVoiceLineOnSneak / #playsVoiceLineOnSneak for a former SHIFT variation or a heavy finisher.
+	 */
+	public static final String FEATURE_ABILITY_SHOUTS_V1 =
+			"ability_shouts_v1";
 
 	public static final Set<String> FEATURES = Set.of(
 			FEATURE_ABILITY_RESOURCE_NAMESPACE_V1,
@@ -241,7 +273,13 @@ public final class RotpAddonApi {
 			FEATURE_CLIENT_SKY_RENDERERS_V1,
 			FEATURE_TIME_STOP_ABILITY_TUNING_V1,
 			FEATURE_STAND_ATTACKER_RESOLVE_TIERS_V1,
-			FEATURE_ENTITY_ACTION_HOOKS_V1);
+			FEATURE_ENTITY_ACTION_HOOKS_V1,
+			FEATURE_STAND_USER_GUARD_V1,
+			FEATURE_TIME_STOP_PUNCH_TUNING_V1,
+			FEATURE_TIME_STOP_BLINK_TARGET_POS_V1,
+			FEATURE_TIME_STOP_HELD_WALK_SPEED_V1,
+			FEATURE_ABILITY_REQUIRED_RESOLVE_LEVEL_V1,
+			FEATURE_ABILITY_SHOUTS_V1);
 
 	private RotpAddonApi() {}
 
