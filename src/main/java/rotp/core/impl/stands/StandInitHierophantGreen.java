@@ -64,6 +64,8 @@ public class StandInitHierophantGreen {
 					.addToHotbar("grapple", 0, InputMethod.HOLD)
 					.addToHotbar("grapple_entity", 0, InputMethod.HOLD)
 					.addToHotbar("barrier", 0, InputMethod.CLICK)
+					// 1.16 SHIFT variation of the splash; own wheel slot (Batch916), LMB keeps the normal splash
+					.addToHotbar("emerald_splash_concentrated", 0, InputMethod.HOLD)
 				.finalizeControlScheme()
 
 				.makeControlScheme("keybinds")

@@ -1,12 +1,20 @@
 package rotp.core.mixin.damage;
 
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import rotp.core.customobjects.DamageSourceModified;
+import rotp.core.init.ModDamageTypes;
 import rotp.core.powersystem.standpower.StandPower;
+import rotp.core.powersystem.standpower.entity.StandEntity;
 
 import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 
 @Mixin(DamageSource.class)
 public class DamageSourceMixin implements DamageSourceModified {
@@ -111,5 +119,23 @@ public class DamageSourceMixin implements DamageSourceModified {
 	@Override
 	public StandPower jojo_ripples$standPower() {
 		return jojo_ripples$standPower;
+	}
+
+	// 1.16 StandEntityDamageSource.scalesWithDifficulty: a hit whose direct attacker is a non-player mob (the Stand)
+	// scales with difficulty when the Stand's user is a non-player mob too; Stand projectiles never did.
+	@Inject(method = "scalesWithDifficulty", at = @At("HEAD"), cancellable = true)
+	private void jojo_ripples$standScalesWithDifficulty(CallbackInfoReturnable<Boolean> cir) {
+		DamageSource self = (DamageSource) (Object) this;
+		Entity direct = self.getDirectEntity();
+		StandPower power = jojo_ripples$standPower;
+		if (power == null && !(direct instanceof StandEntity && self.is(ModDamageTypes.STAND_ATTACK))) {
+			return;
+		}
+		if (!(direct instanceof LivingEntity) || direct instanceof Player) {
+			cir.setReturnValue(false);
+			return;
+		}
+		LivingEntity user = power != null ? power.getUser() : ((StandEntity) direct).getUser();
+		cir.setReturnValue(user != null && !(user instanceof Player));
 	}
 }

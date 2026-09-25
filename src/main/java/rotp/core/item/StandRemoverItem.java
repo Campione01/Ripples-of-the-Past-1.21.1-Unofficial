@@ -125,7 +125,10 @@ public class StandRemoverItem extends Item {
 		if (!result.applied()) {
 			return false;
 		}
+		// FULL_CLEAR's Arrow cost reset is in StandPower.applyDestructiveTransition
 		if (!ejectedDisc.isEmpty()) {
+			// 1.16 putOutStand: the ejected Stand stays taken
+			StandDiscItem.markPutOut(target, ejectedDisc);
 			ItemUtil.giveItemTo(target, ejectedDisc, true);
 		}
 		return true;

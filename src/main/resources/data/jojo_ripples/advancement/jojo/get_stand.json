@@ -2,7 +2,10 @@
   "parent": "jojo_ripples:jojo/root",
   "display": {
     "icon": {
-      "item": "jojo_ripples:stand_arrow_meteorite"
+      "id": "jojo_ripples:meteoric_scrap",
+      "components": {
+        "minecraft:custom_model_data": 8
+      }
     },
     "title": {
       "translate": "advancements.jojo.get_stand.title"

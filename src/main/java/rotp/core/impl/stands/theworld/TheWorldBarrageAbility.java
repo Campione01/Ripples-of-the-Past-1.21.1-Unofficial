@@ -16,6 +16,8 @@ import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.util.functions.JojoModUtil;
 import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility;
 
+import javax.annotation.Nullable;
+
 import net.minecraft.core.Holder;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.sounds.SoundEvent;
@@ -23,7 +25,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
 
 public class TheWorldBarrageAbility extends StandEntityBarrageAbility {
-	private boolean suppressStandCryForNextAction;
+	@Nullable private Holder<SoundEvent> shoutForNextAction;
 
 	public TheWorldBarrageAbility(AbilityType<?> abilityType, AbilityId abilityId) {
 		super(abilityType, abilityId, TheWorldBarrage::new);
@@ -32,30 +34,27 @@ public class TheWorldBarrageAbility extends StandEntityBarrageAbility {
 	@Override
 	public HeldInput onKeyPress(Level level, LivingEntity user, FriendlyByteBuf extraClientInput,
 			InputMethod inputMethod, float clickHoldResolveTime, BufferingState bufferingState) {
+		// 1.16 TheWorldBarrage#getShout: wasActive is read before the press auto-summons the Stand
 		StandPower standPower = PowerClass.STAND.get(user);
 		boolean standAlreadySummoned = standPower != null && standPower.getSummonedStandEntity() != null;
-		boolean canPlayShout = standAlreadySummoned && !user.isShiftKeyDown();
-		boolean voiceLineTriggered = false;
-		if (canPlayShout && !level.isClientSide()) {
-			Holder<SoundEvent> shout = isHighBloodVampire(user) ? ModSoundEvents.DIO_WRY : ModSoundEvents.DIO_MUDA_MUDA;
-			voiceLineTriggered = JojoModUtil.sayVoiceLine(user, shout);
+		Holder<SoundEvent> shout = null;
+		if (!level.isClientSide() && !skipsShoutWhileSneaking(user)) {
+			shout = standAlreadySummoned && isHighBloodVampire(user) ? ModSoundEvents.DIO_WRY : ModSoundEvents.DIO_MUDA_MUDA;
 		}
-		suppressStandCryForNextAction = voiceLineTriggered;
-		HeldInput heldInput;
+		shoutForNextAction = shout;
 		try {
-			heldInput = super.onKeyPress(level, user, extraClientInput, inputMethod, clickHoldResolveTime, bufferingState);
+			return super.onKeyPress(level, user, extraClientInput, inputMethod, clickHoldResolveTime, bufferingState);
 		}
 		finally {
-			suppressStandCryForNextAction = false;
+			shoutForNextAction = null;
 		}
-		return heldInput;
 	}
 
 	@Override
 	public EntityActionInstance initActionOnAbilityUse(Level level, LivingEntity powerUser, LivingEntity performer, FriendlyByteBuf extraInput) {
 		EntityActionInstance action = super.initActionOnAbilityUse(level, powerUser, performer, extraInput);
-		if (suppressStandCryForNextAction && action instanceof TheWorldBarrage barrage) {
-			barrage.suppressStandCry();
+		if (shoutForNextAction != null && action instanceof TheWorldBarrage barrage) {
+			barrage.shoutOnStart(powerUser, shoutForNextAction);
 		}
 		return action;
 	}
@@ -68,6 +67,9 @@ public class TheWorldBarrageAbility extends StandEntityBarrageAbility {
 
 	public static class TheWorldBarrage extends StandEntityBarrage {
 		private boolean suppressStandCry;
+		// server only: the press shout, said once the barrage is actually set
+		@Nullable private LivingEntity shoutUser;
+		@Nullable private Holder<SoundEvent> pendingShout;
 
 		public TheWorldBarrage(EntityActionType ability) {
 			super(ability);
@@ -75,6 +77,29 @@ public class TheWorldBarrageAbility extends StandEntityBarrageAbility {
 
 		public void suppressStandCry() {
 			this.suppressStandCry = true;
+		}
+
+		public boolean isStandCrySuppressed() {
+			return suppressStandCry;
+		}
+
+		void shoutOnStart(LivingEntity user, Holder<SoundEvent> shout) {
+			this.shoutUser = user;
+			this.pendingShout = shout;
+		}
+
+		@Override
+		public void onActionSet(@Nullable EntityActionInstance prevAction) {
+			// 1.16 said the line only for a press that started the barrage, and a said line drops the Stand's cry;
+			// set before the action is synced, so the client reads the flag
+			if (pendingShout != null && shoutUser != null && !level().isClientSide()) {
+				if (JojoModUtil.sayVoiceLine(shoutUser, pendingShout)) {
+					suppressStandCry = true;
+				}
+			}
+			pendingShout = null;
+			shoutUser = null;
+			super.onActionSet(prevAction);
 		}
 
 		@Override

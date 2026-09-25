@@ -9,6 +9,7 @@ import javax.annotation.Nullable;
 
 import rotp.core.init.ModItemDataComponents;
 import rotp.core.impl.stands.goldexperience.GEStuckObjectsState;
+import rotp.core.mechanics.ContextualVillagerTradeEvents;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
@@ -20,9 +21,14 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Entity.RemovalReason;
+import net.minecraft.world.entity.EntityEvent;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.gossip.GossipType;
 import net.minecraft.world.entity.animal.horse.AbstractHorse;
 import net.minecraft.world.entity.decoration.ItemFrame;
+import net.minecraft.world.entity.monster.piglin.Piglin;
+import net.minecraft.world.entity.monster.piglin.PiglinAi;
+import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.item.ItemStack;
@@ -229,6 +235,22 @@ public class ItemTracker {
 						case AbstractHorse horse -> {
 							horse.getInventory().setChanged();
 						}
+						// 1.16 TrackerItemStack.onShrink: taking a villager's item angers it
+						case Villager villager -> {
+							Player thief = getTrackingPlayer(level);
+							if (thief != null) {
+								villager.getGossips().add(thief.getUUID(), GossipType.MAJOR_NEGATIVE, 25);
+								level.broadcastEntityEvent(villager, EntityEvent.VILLAGER_ANGRY);
+								ContextualVillagerTradeEvents.setRefusesTrading(villager, thief.getUUID(), true);
+							}
+						}
+						// taking a piglin's barter gold counts as hurting it
+						case Piglin piglin -> {
+							Player thief = getTrackingPlayer(level);
+							if (thief != null && copy.isPiglinCurrency()) {
+								PiglinScam.onScammed(piglin, thief);
+							}
+						}
 						default -> {}
 					}
 				}
@@ -357,52 +379,10 @@ public class ItemTracker {
 	}
 
 
-//	public void onShrink(ServerLevel level) {
-//		if (positionBlock != null) {
-//			BlockEntity tileEntity = level.getBlockEntity(positionBlock);
-//			if (tileEntity instanceof JukeboxBlockEntity) {
-//				JukeboxBlockEntity jukebox = (JukeboxBlockEntity) tileEntity;
-//				BlockState blockState = level.getBlockState(positionBlock);
-//				level.levelEvent(1010, positionBlock, 0);
-//				jukebox.clearContent();
-//				blockState = blockState.setValue(JukeboxBlock.HAS_RECORD, Boolean.valueOf(false));
-//				level.setBlock(positionBlock, blockState, 2);
-//			}
-//		}
-//		else if (positionEntity.isPresent()) {
-//			Entity entity = getAtEntity(level);
-//			if (entity instanceof ItemFrame itemFrame) {
-//				itemFrame.setItem(ItemStack.EMPTY);
-//			}
-//			else if (entity instanceof Villager villager) {
-//				Player thiefPlayer = getTrackingPlayer(level);
-//				if (thiefPlayer != null) {
-//					villager.getGossips().add(thiefPlayer.getUUID(), GossipType.MAJOR_NEGATIVE, 25);
-//					level.broadcastEntityEvent(entity, MCUtil.EntityEvents.VILLAGER_ANGRY);
-//					entity.getCapability(MerchantDataProvider.CAPABILITY).ifPresent(merchantData -> {
-//						merchantData.setRefuseTrading(thiefPlayer.getUUID(), true);
-//					});
-//				}
-//			}
-//			else if (entity instanceof Piglin piglin && itemStack.getItem() == PiglinTasks.BARTERING_ITEM) {
-//				Player thiefPlayer = getTrackingPlayer(level);
-//				if (thiefPlayer != null) {
-//					PiglinTasksAccess.onPiglinScammed(piglin, thiefPlayer);
-//				}
-//			}
-//		}
-//	}
-//
-////	private static class PiglinTasksAccess extends PiglinTasks {
-////
-////		protected static void onPiglinScammed(PiglinEntity piglin, LivingEntity player) {
-////			PiglinTasks.wasHurtBy(piglin, player);
-////			/*
-////			 * TODO piglin scam counter
-////			 *     if > 0, when receiving a gold ingot, they don't give an item back and instead decrement the counter
-////			 *         if after the decrement scam counter == 0, stop attacking
-////			 */
-////			// incrementScamCounter(piglin);
-////		}
-////	}
+	// PiglinAi.wasHurtBy is protected, as PiglinTasks.wasHurtBy was in 1.16
+	private static final class PiglinScam extends PiglinAi {
+		static void onScammed(Piglin piglin, LivingEntity thief) {
+			wasHurtBy(piglin, thief);
+		}
+	}
 }

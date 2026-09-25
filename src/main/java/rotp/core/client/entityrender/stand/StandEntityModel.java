@@ -55,6 +55,8 @@ public class StandEntityModel<T extends StandEntity, S extends StandEntityRender
 	public ModelPart right_leg;
 	public ModelPart right_leg_bend;
 	private float alpha = 1.0F;
+	// Star Platinum hair bones present in this model (empty for other Stands)
+	private final List<ModelPart> swayingHair;
 	private static final ArmorPartVisibility[] SILVER_CHARIOT_ARMOR_PARTS = {
 			new ArmorPartVisibility("head_armor", HumanoidPart.HEAD),
 			new ArmorPartVisibility("torso_armornt", HumanoidPart.BODY),
@@ -93,6 +95,7 @@ public class StandEntityModel<T extends StandEntity, S extends StandEntityRender
 		right_leg_xrot = _this.jojo_ripples$getAnyDescendantWithName("right_leg_xrot").orElse(null);
 		right_leg = _this.jojo_ripples$getAnyDescendantWithName("right_leg").orElse(null);
 		right_leg_bend = _this.jojo_ripples$getAnyDescendantWithName("right_leg_bend").orElse(null);
+		swayingHair = StandHairSway.collect(_this::jojo_ripples$getAnyDescendantWithName);
 		
 		addMissingItemHoldPoints();
 		HiddenModelPartsUtil.initHiddenParts(this);
@@ -126,7 +129,18 @@ public class StandEntityModel<T extends StandEntity, S extends StandEntityRender
 			head.xRot = renderState.xRot * MathUtil.DEG_TO_RAD;
 			head.yRot = renderState.yRot * MathUtil.DEG_TO_RAD;
 		}
+		swayHair(renderState.ageInTicks);
 		applySilverChariotVisualState(renderState);
+	}
+
+	// 1.16 SP hair sway, added after the clip pose (resetPose above keeps it from building up)
+	private void swayHair(float ticks) {
+		for (int i = 0; i < swayingHair.size(); i++) {
+			ModelPart hair = swayingHair.get(i);
+			PartPose initialPose = hair.getInitialPose();
+			hair.xRot += StandHairSway.xRot(ticks, initialPose.x);
+			hair.yRot += StandHairSway.yRot(ticks, initialPose.y);
+		}
 	}
 
 	private void applySilverChariotVisualState(S renderState) {

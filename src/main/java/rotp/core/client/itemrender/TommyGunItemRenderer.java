@@ -58,7 +58,8 @@ public class TommyGunItemRenderer extends CustomItemRenderer {
 	}
 
 	private void renderFire(ItemStack itemStack, PoseStack poseStack, MultiBufferSource buffer, int overlay, ModelPart fire) {
-		float fireTicks = TommyGunItem.getGunshotTick(itemStack) - Minecraft.getInstance().getTimer().getGameTimeDeltaTicks();
+		// render partial tick, as 1.16 ClientUtil.getPartialTick()
+		float fireTicks = TommyGunItem.getGunshotTick(itemStack) - ClientUtil.partialTick();
 		if (fireTicks > 1.0F) {
 			ResourceLocation texture = fireTicks >= 1.5F ? FIRE_2 : FIRE_1;
 			VertexConsumer vertexBuilder = ItemRenderer.getFoilBufferDirect(

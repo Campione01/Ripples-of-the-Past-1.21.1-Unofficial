@@ -54,6 +54,11 @@ public class ArrowLoyalty {
 		}
 	}
 	
+	// 1.16: any entity hit stops further entity hits and starts the Loyalty return
+	public void onEntityHit() {
+		this.dealtDamage = true;
+	}
+
 	public boolean canHitEntity() {
 		return !dealtDamage;
 	}

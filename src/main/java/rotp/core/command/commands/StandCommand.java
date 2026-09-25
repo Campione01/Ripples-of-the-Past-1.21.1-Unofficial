@@ -7,9 +7,11 @@ import java.util.List;
 import rotp.core.command.MultipleTargetsCommandResult;
 import rotp.core.command.argument.StandArgument;
 import rotp.core.core.JojoMod;
+import rotp.core.core.JojoRegistries;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.StandUtil;
+import rotp.core.powersystem.standpower.datapack.DataDrivenStandsLoader;
 import rotp.core.powersystem.standpower.type.StandType;
 import com.google.common.collect.ImmutableList;
 import com.mojang.brigadier.CommandDispatcher;
@@ -22,6 +24,7 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -101,6 +104,13 @@ public class StandCommand {
 					.then(
 					Commands.argument("targets", EntityArgument.entities())
 						.executes(src -> removeStand(src.getSource(), EntityArgument.getEntities(src, "targets")))
+					)
+				)
+				.then(
+				Commands.literal("type")
+					.then(
+					Commands.argument("target", EntityArgument.player())
+						.executes(src -> queryStand(src.getSource(), EntityArgument.getPlayer(src, "target")))
 					)
 				)
 			)
@@ -198,6 +208,31 @@ public class StandCommand {
 		return REMOVE_MSG.trySend(src, true, targets, i, 
 				singlePrevType != null ? new Object[] { singlePrevType.name.get() } : new Object[] {},
 				new Object[] {});
+	}
+
+	// 1.16 /stand type: names the player's Stand and returns its numeric id
+	private static int queryStand(CommandSourceStack src, ServerPlayer player) throws CommandSyntaxException {
+		StandPower stand = StandPower.get(player);
+		if (stand != null && stand.hasPower()) {
+			StandType type = stand.getPowerType();
+			src.sendSuccess(() -> Component.translatable("rotp.commands.stand.query.success",
+					player.getDisplayName(), type.name.get()), false);
+			return standNumericId(type);
+		}
+		throw QUERY_MSG.fail.ERROR_SINGLE.create(player.getDisplayName());
+	}
+
+	// Registry id as in 1.16; datapack Stands follow the registry, sorted by id
+	static int standNumericId(StandType type) {
+		ResourceLocation id = type.getId();
+		StandType registered = JojoRegistries.DEFAULT_STANDS_REG.get(id);
+		if (registered != null) {
+			return JojoRegistries.DEFAULT_STANDS_REG.getId(registered);
+		}
+		List<ResourceLocation> datapackIds = DataDrivenStandsLoader.getAllDatapackStands()
+				.map(StandType::getId).sorted().toList();
+		int index = datapackIds.indexOf(id);
+		return index >= 0 ? JojoRegistries.DEFAULT_STANDS_REG.size() + index : id.hashCode() & Integer.MAX_VALUE;
 	}
 
 

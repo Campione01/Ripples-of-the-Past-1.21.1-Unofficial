@@ -395,9 +395,12 @@ public class KnockbackCollisionImpact implements TickingEntityData, INBTSerializ
 	}
 
 	protected boolean onCollideWith(Entity target, LivingEntity targetAsLiving, Vec3 thisEntityMotion) {
-		if (targetAsLiving != null && syoPunchBaseDamage > 0 && attacker != null) {
-			HamonAbilityHelpers.hamonHurtWithParticles(targetAsLiving, attacker,
-					syoPunchBaseDamage * 0.5F, hamonParticles, 8);
+		// 1.16 dealt it without an attacker too (none after a reload): direct = the flying entity,
+		// causing = the attacker, else the flying entity (1.16 EntityDamageSource)
+		if (targetAsLiving != null && syoPunchBaseDamage > 0) {
+			// 1.16 attack.hamonParticle: the S.Y.O./Scarlet colour rides the hit's spark emitter, no extra burst
+			HamonAbilityHelpers.hamonHurt(targetAsLiving, syoPunchBaseDamage * 0.5F,
+					entity, attacker != null ? attacker : entity, hamonParticles);
 		}
 		// 1.16 hurt any entity flown into (a boat or an item frame too), set it on fire in whole seconds,
 		// and knocked a living one back even when the hurt failed

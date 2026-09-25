@@ -28,6 +28,8 @@ import rotp.core.powersystem.standpower.StandInstance.StandPart;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.type.StandType;
+import rotp.core.subsystems.entity_grab.LivingComponentGrab;
+import rotp.core.subsystems.timestop.TimeStopState;
 import rotp.core.impl.powers.hamon.HamonData;
 import rotp.core.impl.powers.hamon.ModHamonSkills;
 import rotp.core.impl.powers.hamon.entity.HamonSendoOverdriveEntity;
@@ -36,12 +38,17 @@ import com.mojang.authlib.GameProfile;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -158,6 +165,60 @@ public final class HeldConditionRecheckGameTests {
 		}
 	}
 
+	// 1.16 checkConditions refused a user frozen in someone else's stopped time (!canUpdate), and stopHeldAction(true)
+	// ran it on release: a charge released while frozen is dropped, and nothing fires when time resumes.
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void releaseWhileFrozenInStoppedTimeDropsCharge(GameTestHelper helper) {
+		TimeStopState timeStops = helper.getLevel().getData(ModDataAttachmentTypes.TIME_STOP.get());
+		try (HamonFixture f = new HamonFixture(helper, "HeldSyoFrozen", ModHamonSkills.SUNLIGHT_YELLOW_OVERDRIVE.get())) {
+			EntityActionAbility syo = f.ability("sunlight_yellow_overdrive");
+			int stopId = -(f.user.getId() * 4 + 3);
+			try {
+				EntityActionInstance action = chargeSyo(helper, f, syo);
+				// A stop owned by no one: the user is not its stopper.
+				helper.assertTrue(timeStops.tryPutInstance(new TimeStopState.Instance(stopId, 200, 200,
+						new ChunkPos(f.user.blockPosition()), 1, -1, "held_release_frozen_test"))
+						&& timeStops.shouldFreeze(f.user), "the user did not freeze in the stopped time");
+				helper.assertTrue(!syo.canFireReleasedHold(action),
+						"the release recheck let a user frozen in stopped time fire");
+				releaseKey(f.user, action);
+				helper.assertTrue(action.isOver(),
+						"a charge released while frozen in stopped time was not dropped: phase=" + action.getPhase());
+				// The paused component clears it while time is still stopped.
+				f.tick(1);
+				helper.assertTrue(f.component.getAction() == null, "the dropped charge was not cleared while frozen");
+				// Time resumes: the dropped charge stays dropped.
+				timeStops.removeInstance(stopId);
+				f.tick(5);
+				helper.assertTrue(action.isOver() && f.component.getAction() == null,
+						"the charge released while frozen fired after time resumed");
+				// Control: the same release out of stopped time punches.
+				f.hamon.setEnergy(f.hamon.getMaxEnergy());
+				EntityActionInstance control = chargeSyo(helper, f, syo);
+				releaseKey(f.user, control);
+				helper.assertTrue(control.getPhase() == ActionPhase.PERFORM,
+						"the S.Y.O. release did not punch: phase=" + control.getPhase());
+			}
+			finally {
+				// Removed before the level ticks, so no neighbouring test is frozen.
+				timeStops.removeInstance(stopId);
+			}
+			helper.succeed();
+		}
+	}
+
+	// S.Y.O. held by its key, past its 10-tick minimum charge and short of its 40-tick full charge
+	private static EntityActionInstance chargeSyo(GameTestHelper helper, HamonFixture f, EntityActionAbility syo) {
+		EntityActionInstance action = f.start("sunlight_yellow_overdrive", true);
+		for (int tick = 0; tick < 30 && !(action.getPhase() == ActionPhase.WINDUP && action.getPhaseTick() >= 12); tick++) {
+			f.tick(1);
+		}
+		helper.assertTrue(f.component.getAction() == action && action.getPhase() == ActionPhase.WINDUP
+				&& action.getPhaseTick() >= 12 && syo.canFireReleasedHold(action),
+				"S.Y.O. is not charged past its minimum: phase=" + action.getPhase() + " phaseTick=" + action.getPhaseTick());
+		return action;
+	}
+
 	@GameTest(template = "empty", timeoutTicks = 80)
 	public static void swingHandTechniqueResetsAttackStrength(GameTestHelper helper) {
 		try (HamonFixture f = new HamonFixture(helper, "SwingHandCutter", ModHamonSkills.HAMON_CUTTER.get())) {
@@ -268,6 +329,229 @@ public final class HeldConditionRecheckGameTests {
 					"the dropped Crossfire Hurricane charge still fired" + f.state(crossfire, charge));
 			helper.succeed();
 		}
+	}
+
+	// 1.16 stopHeldAction(true) rechecked before a released hold fired; the port's early time stop release too.
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void lostStandBodyStopsEarlyTimeStopRelease(GameTestHelper helper) {
+		TimeStopState timeStops = helper.getLevel().getData(ModDataAttachmentTypes.TIME_STOP.get());
+		try (StandFixture f = new StandFixture(helper, "HeldTimeStopBody", "star_platinum")) {
+			EntityActionAbility timeStop = f.ability("time_stop");
+			int stopId = f.user.getId();
+			try {
+				// Released on the tick the body is lost: the per-tick recheck never saw it.
+				EntityActionInstance charge = chargeTimeStop(helper, f, timeStop);
+				f.instance.removePart(StandPart.MAIN_BODY);
+				releaseKey(f.user, charge);
+				helper.assertTrue(timeStops.getInstance(stopId).isEmpty() && f.standAction.getAction() == null,
+						"an early release without the Stand's body still stopped time" + f.state(timeStop, charge));
+				// Control: with the body back the same early release stops time.
+				f.instance.addPart(StandPart.MAIN_BODY);
+				EntityActionInstance control = chargeTimeStop(helper, f, timeStop);
+				releaseKey(f.user, control);
+				helper.assertTrue(timeStops.getInstance(stopId).isPresent() && f.standAction.getAction() == null,
+						"the early time stop release did not stop time" + f.state(timeStop, control));
+			}
+			finally {
+				// Removed before the level ticks, so no neighbouring test is frozen.
+				timeStops.removeInstance(stopId);
+				f.user.removeEffect(ModStatusEffects.TIME_STOP);
+			}
+			helper.succeed();
+		}
+	}
+
+	// Port-own charged heavy punch under the 1.16 rule: a released hold fires only if it passes the recheck
+	// (stopHeldAction(true)), and a failed held check (stopHeldAction(false)) fires nothing.
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void failedRecheckDropsChargedHeavyRelease(GameTestHelper helper) {
+		try (StandFixture f = new StandFixture(helper, "HeldChargedHeavy", "star_platinum")) {
+			EntityActionAbility heavy = f.ability("heavy_charged");
+			// Released in the held windup on the tick the Stand is stunned: the per-tick recheck never saw it.
+			EntityActionInstance windup = chargeHeavy(helper, f, heavy, true);
+			f.stand.addEffect(new MobEffectInstance(ModStatusEffects.STUN, 40));
+			helper.assertTrue(windup.getPhase() == ActionPhase.WINDUP && !heavy.canFireReleasedHold(windup),
+					"the stun did not fail the release recheck" + f.state(heavy, windup));
+			releaseKey(f.user, windup);
+			helper.assertTrue(windup.isOver(),
+					"a windup release that failed the recheck still punched" + f.state(heavy, windup));
+			// A stun during the held windup ends the hold without the punch.
+			f.stand.removeEffect(ModStatusEffects.STUN);
+			EntityActionInstance stunned = chargeHeavy(helper, f, heavy, true);
+			f.stand.addEffect(new MobEffectInstance(ModStatusEffects.STUN, 40));
+			f.tick(1);
+			helper.assertTrue(stunned.isOver() && f.standAction.getAction() == null,
+					"a stun during the held windup still punched" + f.state(heavy, stunned));
+			f.stand.removeEffect(ModStatusEffects.STUN);
+			// Control: the same windup release punches.
+			EntityActionInstance fired = chargeHeavy(helper, f, heavy, true);
+			releaseKey(f.user, fired);
+			helper.assertTrue(fired.getPhase() == ActionPhase.PERFORM,
+					"the windup release did not punch" + f.state(heavy, fired));
+
+			// Released during the button charge, it fires when the charge ends, with the key already up.
+			ServerPlayer player = (ServerPlayer) f.user;
+			try {
+				EntityActionInstance early = chargeHeavy(helper, f, heavy, false);
+				releaseKey(f.user, early);
+				player.setGameMode(GameType.SPECTATOR);
+				tickOutOfButtonCharge(f, early);
+				helper.assertTrue(early.isOver() && f.standAction.getAction() == null,
+						"a charge released early still punched after the user lost the power" + f.state(heavy, early));
+			}
+			finally {
+				player.setGameMode(GameType.SURVIVAL);
+			}
+			// Control: the same early release punches when the charge ends.
+			EntityActionInstance charged = chargeHeavy(helper, f, heavy, false);
+			releaseKey(f.user, charged);
+			tickOutOfButtonCharge(f, charged);
+			helper.assertTrue(charged.getPhase() == ActionPhase.PERFORM,
+					"the early release did not punch when the charge ended" + f.state(heavy, charged));
+			helper.succeed();
+		}
+	}
+
+	// Port-own grab throw under the same rule; its own held condition is the grabbed target.
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void stunOrLostGrabDropsHeldGrabThrow(GameTestHelper helper) {
+		try (StandFixture f = new StandFixture(helper, "HeldGrabThrow", "star_platinum")) {
+			EntityActionAbility grabThrow = f.ability("grab_throw");
+			LivingComponentGrab standGrab = f.stand.getData(ModDataAttachmentTypes.LIVING_GRAB.get());
+			Cow target = EntityType.COW.create(helper.getLevel());
+			helper.assertTrue(target != null, "Could not create the grab throw target");
+			Vec3 targetPos = Vec3.atCenterOf(helper.absolutePos(new BlockPos(2, 2, 4)));
+			target.moveTo(targetPos.x, targetPos.y, targetPos.z);
+			helper.assertTrue(helper.getLevel().addFreshEntity(target), "Could not add the grab throw target");
+			try {
+				// Released in the held windup on the tick the Stand is stunned: the per-tick recheck never saw it.
+				EntityActionInstance stunned = chargeThrow(helper, f, grabThrow, standGrab, target, true);
+				f.stand.addEffect(new MobEffectInstance(ModStatusEffects.STUN, 40));
+				helper.assertTrue(!grabThrow.canFireReleasedHold(stunned),
+						"the stun did not fail the grab throw release recheck" + f.state(grabThrow, stunned));
+				releaseKey(f.user, stunned);
+				helper.assertTrue(stunned.isOver(),
+						"a stunned windup release still threw" + f.state(grabThrow, stunned));
+				f.stand.removeEffect(ModStatusEffects.STUN);
+				helper.assertTrue(standGrab.getGrabbedEntity() == target && target.getDeltaMovement().lengthSqr() < 1.0E-6,
+						"the dropped grab throw let go of or moved the target");
+
+				// Released on the tick the grab is lost.
+				EntityActionInstance lost = chargeThrow(helper, f, grabThrow, standGrab, target, true);
+				standGrab.setGrabTarget(null);
+				helper.assertTrue(!grabThrow.canFireReleasedHold(lost),
+						"losing the grab target did not fail the release recheck" + f.state(grabThrow, lost));
+				releaseKey(f.user, lost);
+				helper.assertTrue(lost.isOver(),
+						"a windup release without a grab target still threw" + f.state(grabThrow, lost));
+
+				// A grab lost during the held windup ends the hold.
+				EntityActionInstance held = chargeThrow(helper, f, grabThrow, standGrab, target, true);
+				standGrab.setGrabTarget(null);
+				f.tick(1);
+				helper.assertTrue(held.isOver() && f.standAction.getAction() == null,
+						"losing the grab target did not end the held throw" + f.state(grabThrow, held));
+
+				// Released during the button charge, then the grab is lost before the charge ends.
+				EntityActionInstance early = chargeThrow(helper, f, grabThrow, standGrab, target, false);
+				releaseKey(f.user, early);
+				standGrab.setGrabTarget(null);
+				tickPastCharge(f, early);
+				helper.assertTrue(early.isOver() && f.standAction.getAction() == null,
+						"an early release still threw after the grab target was lost" + f.state(grabThrow, early));
+				// Control: the same early release throws when the charge ends.
+				EntityActionInstance charged = chargeThrow(helper, f, grabThrow, standGrab, target, false);
+				releaseKey(f.user, charged);
+				tickPastCharge(f, charged);
+				helper.assertTrue(charged.getPhase() == ActionPhase.PERFORM,
+						"the early release did not throw when the charge ended" + f.state(grabThrow, charged));
+
+				// Control: a windup release with the target still grabbed throws it.
+				EntityActionInstance fired = chargeThrow(helper, f, grabThrow, standGrab, target, true);
+				helper.assertTrue(target.getDeltaMovement().lengthSqr() < 1.0E-6, "the target moved before the throw");
+				releaseKey(f.user, fired);
+				helper.assertTrue(fired.getPhase() == ActionPhase.PERFORM,
+						"the windup release did not throw" + f.state(grabThrow, fired));
+				for (int tick = 0; tick < 20 && fired.getPhase() == ActionPhase.PERFORM; tick++) {
+					f.tick(1);
+				}
+				helper.assertTrue(standGrab.getGrabbedEntity() == null && target.getDeltaMovement().lengthSqr() > 1,
+						"the windup release did not throw the target" + f.state(grabThrow, fired));
+			}
+			finally {
+				standGrab.setGrabTarget(null);
+				target.discard();
+			}
+			helper.succeed();
+		}
+	}
+
+	// grab_throw with the target grabbed, held by its key, in BUTTON_CHARGE or ticked on into its held WINDUP
+	private static EntityActionInstance chargeThrow(GameTestHelper helper, StandFixture f, EntityActionAbility grabThrow,
+			LivingComponentGrab standGrab, LivingEntity target, boolean toWindup) {
+		f.standAction.setAction(null, f.user, SyncType.NO_SYNC);
+		// setGrabTarget drops a target that is already grabbed, even by the same Stand
+		if (standGrab.getGrabbedEntity() != target) {
+			standGrab.setGrabTarget(target);
+		}
+		helper.assertTrue(standGrab.getGrabbedEntity() == target, "Could not grab the throw target");
+		EntityActionInstance charge = grabThrow.initActionOnAbilityUse(helper.getLevel(), f.user, f.stand, null);
+		f.standAction.setAction(charge, f.user, SyncType.NO_SYNC);
+		holdByKey(f.user, charge, PowerClass.STAND);
+		f.tick(1);
+		for (int tick = 0; toWindup && tick < 60 && charge.getPhase() == ActionPhase.BUTTON_CHARGE; tick++) {
+			f.tick(1);
+		}
+		ActionPhase expected = toWindup ? ActionPhase.WINDUP : ActionPhase.BUTTON_CHARGE;
+		helper.assertTrue(f.standAction.getAction() == charge && charge.getPhase() == expected,
+				"the grab throw is not in " + expected + f.state(grabThrow, charge));
+		return charge;
+	}
+
+	// past the button charge and the zero-length windup an early release leaves
+	private static void tickPastCharge(StandFixture f, EntityActionInstance action) {
+		for (int tick = 0; tick < 60 && (action.getPhase() == ActionPhase.BUTTON_CHARGE
+				|| action.getPhase() == ActionPhase.WINDUP); tick++) {
+			f.tick(1);
+		}
+	}
+
+	// heavy_charged held by its key, in BUTTON_CHARGE or ticked on into its held WINDUP
+	private static EntityActionInstance chargeHeavy(GameTestHelper helper, StandFixture f, EntityActionAbility heavy,
+			boolean toWindup) {
+		f.standAction.setAction(null, f.user, SyncType.NO_SYNC);
+		EntityActionInstance charge = heavy.initActionOnAbilityUse(helper.getLevel(), f.user, f.stand, null);
+		f.standAction.setAction(charge, f.user, SyncType.NO_SYNC);
+		holdByKey(f.user, charge, PowerClass.STAND);
+		f.tick(1);
+		for (int tick = 0; toWindup && tick < 60 && charge.getPhase() == ActionPhase.BUTTON_CHARGE; tick++) {
+			f.tick(1);
+		}
+		ActionPhase expected = toWindup ? ActionPhase.WINDUP : ActionPhase.BUTTON_CHARGE;
+		helper.assertTrue(f.standAction.getAction() == charge && charge.getPhase() == expected,
+				"the charged heavy punch is not in " + expected + f.state(heavy, charge));
+		return charge;
+	}
+
+	private static void tickOutOfButtonCharge(StandFixture f, EntityActionInstance action) {
+		for (int tick = 0; tick < 60 && action.getPhase() == ActionPhase.BUTTON_CHARGE; tick++) {
+			f.tick(1);
+		}
+	}
+
+	private static EntityActionInstance chargeTimeStop(GameTestHelper helper, StandFixture f, EntityActionAbility timeStop) {
+		EntityActionInstance charge = timeStop.initActionOnAbilityUse(helper.getLevel(), f.user, f.stand, null);
+		f.standAction.setAction(charge, f.user, SyncType.NO_SYNC);
+		holdByKey(f.user, charge, PowerClass.STAND);
+		f.tick(3);
+		helper.assertTrue(f.standAction.getAction() == charge && charge.getPhase() == ActionPhase.BUTTON_CHARGE
+				&& charge.getPhaseTick() > 0, "the time stop is not charging" + f.state(timeStop, charge));
+		return charge;
+	}
+
+	private static void releaseKey(LivingEntity user, EntityActionInstance action) {
+		user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get()).heldKeys.clear();
+		action.onKeyRelease(user);
 	}
 
 	private static EntityActionInstance startBarrage(GameTestHelper helper, EntityActionType barrage,

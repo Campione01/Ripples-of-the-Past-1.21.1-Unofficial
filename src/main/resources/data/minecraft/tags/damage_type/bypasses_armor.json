@@ -14,6 +14,8 @@
     "jojo_ripples:vampire_freeze",
     "jojo_ripples:suffocation",
     "jojo_ripples:stand_arrow",
-    "jojo_ripples:stand_arrow_virus"
+    "jojo_ripples:stand_arrow_virus",
+    "jojo_ripples:rock_broken",
+    "jojo_ripples:rock_respawn"
   ]
 }

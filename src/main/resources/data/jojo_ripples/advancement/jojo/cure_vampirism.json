@@ -2,7 +2,7 @@
   "parent": "jojo_ripples:jojo/get_vampirism",
   "display": {
     "icon": {
-      "item": "minecraft:enchanted_golden_apple"
+      "id": "minecraft:enchanted_golden_apple"
     },
     "title": {
       "translate": "advancements.jojo.cure_vampirism.title"
@@ -10,14 +10,14 @@
     "description": {
       "translate": "advancements.jojo.cure_vampirism.description"
     },
-    "frame": "goal",
+    "frame": "task",
     "show_toast": true,
     "announce_to_chat": true,
     "hidden": false
   },
   "criteria": {
     "cure_vampirism": {
-      "trigger": "jojo_ripples:abandon_hamon"
+      "trigger": "jojo_ripples:cure_vampirism"
     }
   },
   "requirements": [["cure_vampirism"]]

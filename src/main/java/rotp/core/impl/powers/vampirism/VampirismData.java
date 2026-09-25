@@ -2,10 +2,12 @@ package rotp.core.impl.powers.vampirism;
 
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
 import rotp.core.JojoModConfig;
+import rotp.core.init.ModCriteriaTriggers;
 import rotp.core.init.ModSoundEvents;
 import rotp.core.init.ModStatusEffects;
 import rotp.core.init.power.ModPlayerPowers;
@@ -44,6 +46,10 @@ public class VampirismData extends PlayerPowerData {
 	private static final double[] CURING_NAUSEA_CHANCE =
 			new double[] { 0.0D, 0.0D, 1.0D / 2400.0D, 1.0D / 1200.0D, 1.0D / 600.0D };
 	private static final int LAST_BLOOD_LEVEL_UNKNOWN = -999;
+	private static final List<Holder<MobEffect>> PASSIVE_EFFECTS = List.of(
+			MobEffects.HEALTH_BOOST, MobEffects.REGENERATION, MobEffects.DAMAGE_BOOST,
+			MobEffects.MOVEMENT_SPEED, MobEffects.DIG_SPEED, MobEffects.JUMP, MobEffects.NIGHT_VISION,
+			MobEffects.MOVEMENT_SLOWDOWN, MobEffects.DIG_SLOWDOWN, MobEffects.WEAKNESS, MobEffects.BLINDNESS);
 
 	private float bloodLevel;
 	private int backboneTicks;
@@ -51,6 +57,7 @@ public class VampirismData extends PlayerPowerData {
 	private int lastBloodLevel = LAST_BLOOD_LEVEL_UNKNOWN;
 	private int curingTicks;
 	private boolean curingStageChanged;
+	private boolean removingPassiveEffects;
 	private boolean vampireHamonUser;
 	private int hamonStrengthLevel;
 	private String prevHamonCharacter = "";
@@ -320,6 +327,15 @@ public class VampirismData extends PlayerPowerData {
 		}
 	}
 
+	@Override
+	public void resetAbilityCooldowns(LivingEntity user) {
+		if (!abilityCooldowns.isEmpty() || !abilityCooldownTotals.isEmpty()) {
+			abilityCooldowns.clear();
+			abilityCooldownTotals.clear();
+			syncOnUpdate(user);
+		}
+	}
+
 	public int bloodLevel(LivingEntity user) {
 		int difficultyId = getDifficultyId(user);
 		if (difficultyId == 0) {
@@ -432,6 +448,10 @@ public class VampirismData extends PlayerPowerData {
 		}
 		if (user instanceof Player player) {
 			player.getFoodData().setFoodLevel(1);
+		}
+		if (user instanceof ServerPlayer serverPlayer) {
+			// 1.16 VAMPIRISM_CURED grants the cure_vampirism advancement
+			ModCriteriaTriggers.triggerVampirismCured(serverPlayer);
 		}
 		user.level().playSound(null, user, ModSoundEvents.VAMPIRE_CURE_END.get(), user.getSoundSource(), 1.0F, 1.0F);
 		user.removeEffect(ModStatusEffects.VAMPIRE_SUN_BURN);
@@ -572,6 +592,13 @@ public class VampirismData extends PlayerPowerData {
 	}
 
 	private void updateVampirePassiveEffects(LivingEntity user) {
+		for (Holder<MobEffect> effect : PASSIVE_EFFECTS) {
+			refreshHiddenEffect(user, effect, getPassiveEffectLevel(user, effect));
+		}
+	}
+
+	// Amplifier of the hidden passive effect for the current blood level and curing stage; -1 means none.
+	private int getPassiveEffectLevel(LivingEntity user, Holder<MobEffect> effect) {
 		int difficultyId = getDifficultyId(user);
 		int bloodLevel = bloodLevel(user);
 		int curingStage = getCuringStage(user);
@@ -583,32 +610,55 @@ public class VampirismData extends PlayerPowerData {
 				bloodLevel -= curingStage;
 			}
 		}
-		refreshHiddenEffect(user, MobEffects.HEALTH_BOOST, difficultyId * (curingStage > 0 ? 5 - curingStage * 2 : 5) - 1);
-		refreshHiddenEffect(user, MobEffects.REGENERATION, Math.min(bloodLevel - 2, 4));
-		refreshHiddenEffect(user, MobEffects.DAMAGE_BOOST, bloodLevel - 5);
-		refreshHiddenEffect(user, MobEffects.MOVEMENT_SPEED, bloodLevel - 4);
-		refreshHiddenEffect(user, MobEffects.DIG_SPEED, bloodLevel - 4);
-		refreshHiddenEffect(user, MobEffects.JUMP, bloodLevel - 4);
-		refreshHiddenEffect(user, MobEffects.NIGHT_VISION, 0);
 		int harmfulAmp = curingStage >= 4 ? 3 - difficultyId : -1;
-		refreshHiddenEffect(user, MobEffects.MOVEMENT_SLOWDOWN, harmfulAmp);
-		refreshHiddenEffect(user, MobEffects.DIG_SLOWDOWN, harmfulAmp);
-		refreshHiddenEffect(user, MobEffects.WEAKNESS, harmfulAmp);
-		refreshHiddenEffect(user, MobEffects.BLINDNESS, curingStage >= 4 ? 0 : -1);
+		if (effect.is(MobEffects.HEALTH_BOOST)) {
+			return difficultyId * (curingStage > 0 ? 5 - curingStage * 2 : 5) - 1;
+		}
+		if (effect.is(MobEffects.REGENERATION)) {
+			return Math.min(bloodLevel - 2, 4);
+		}
+		if (effect.is(MobEffects.DAMAGE_BOOST)) {
+			return bloodLevel - 5;
+		}
+		if (effect.is(MobEffects.MOVEMENT_SPEED) || effect.is(MobEffects.DIG_SPEED) || effect.is(MobEffects.JUMP)) {
+			return bloodLevel - 4;
+		}
+		if (effect.is(MobEffects.NIGHT_VISION)) {
+			return 0;
+		}
+		if (effect.is(MobEffects.MOVEMENT_SLOWDOWN) || effect.is(MobEffects.DIG_SLOWDOWN) || effect.is(MobEffects.WEAKNESS)) {
+			return harmfulAmp;
+		}
+		if (effect.is(MobEffects.BLINDNESS)) {
+			return curingStage >= 4 ? 0 : -1;
+		}
+		return -1;
+	}
+
+	/**
+	 * 1.16 GameplayEventHandler.cancelPotionRemoval: milk, totems and effect clearing do not remove
+	 * a hidden passive effect the vampire power grants at its current level.
+	 */
+	public static boolean isKeptPassiveEffect(LivingEntity user, MobEffectInstance instance) {
+		if (instance.isVisible() || instance.showIcon()) {
+			return false;
+		}
+		VampirismData data = PlayerPower.getPowerData(user, ModPlayerPowers.VAMPIRISM).orElse(null);
+		return data != null && !data.removingPassiveEffects
+				&& data.getPassiveEffectLevel(user, instance.getEffect()) == instance.getAmplifier();
 	}
 
 	private void removeVampirePassiveEffects(LivingEntity user) {
-		removeHiddenPassiveEffect(user, MobEffects.HEALTH_BOOST);
-		removeHiddenPassiveEffect(user, MobEffects.REGENERATION);
-		removeHiddenPassiveEffect(user, MobEffects.DAMAGE_BOOST);
-		removeHiddenPassiveEffect(user, MobEffects.MOVEMENT_SPEED);
-		removeHiddenPassiveEffect(user, MobEffects.DIG_SPEED);
-		removeHiddenPassiveEffect(user, MobEffects.JUMP);
-		removeHiddenPassiveEffect(user, MobEffects.NIGHT_VISION);
-		removeHiddenPassiveEffect(user, MobEffects.MOVEMENT_SLOWDOWN);
-		removeHiddenPassiveEffect(user, MobEffects.DIG_SLOWDOWN);
-		removeHiddenPassiveEffect(user, MobEffects.WEAKNESS);
-		removeHiddenPassiveEffect(user, MobEffects.BLINDNESS);
+		// Suspension still runs while this power is current, so let the removal through.
+		removingPassiveEffects = true;
+		try {
+			for (Holder<MobEffect> effect : PASSIVE_EFFECTS) {
+				removeHiddenPassiveEffect(user, effect);
+			}
+		}
+		finally {
+			removingPassiveEffects = false;
+		}
 	}
 
 	private static void refreshHiddenEffect(LivingEntity user, Holder<MobEffect> effect, int amplifier) {

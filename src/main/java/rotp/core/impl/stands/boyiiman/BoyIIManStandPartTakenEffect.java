@@ -2,6 +2,9 @@ package rotp.core.impl.stands.boyiiman;
 
 import java.util.Optional;
 
+import javax.annotation.Nullable;
+
+import rotp.core.JojoModConfig;
 import rotp.core.entityattachment.custom_effect.EntityCustomEffectType;
 import rotp.core.init.power.ModStandAbilities;
 import rotp.core.powersystem.PowerClass;
@@ -13,6 +16,7 @@ import com.mojang.datafixers.util.Pair;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 
 public class BoyIIManStandPartTakenEffect extends StandEffectInstance {
@@ -60,6 +64,13 @@ public class BoyIIManStandPartTakenEffect extends StandEffectInstance {
 				}
 			}
 		}
+	}
+
+	// 1.16: with keepStandOnDeath the dead loser stays the target, so the parts can still go back after respawn
+	@Override
+	protected boolean shouldClearTarget(Entity target, @Nullable LivingEntity targetLiving) {
+		return targetLiving != null && targetLiving.isDeadOrDying()
+				&& !JojoModConfig.getCommonConfigInstance(level.isClientSide()).keepStandOnDeath.get();
 	}
 
 	@Override

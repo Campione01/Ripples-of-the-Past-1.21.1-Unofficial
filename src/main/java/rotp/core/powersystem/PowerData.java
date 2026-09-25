@@ -10,6 +10,7 @@ import org.jetbrains.annotations.ApiStatus;
 
 import rotp.core.network.s2c.TrPowerDataPacket;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
+import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.unlockableskill.UnlockableSkill;
 import rotp.core.util.functions.NBTUtil;
 import rotp.core.util.functions_network.NetworkUtil;
@@ -68,7 +69,12 @@ public abstract class PowerData implements INBTSerializable<CompoundTag> {
 	
 	public void tick(Power<?> userPower) {}
 
-	public void onPowerGiven(Power<?> userPower, @Nullable PowerType oldType, @Nullable PowerData oldData) {}
+	public void onPowerGiven(Power<?> userPower, @Nullable PowerType oldType, @Nullable PowerData oldData) {
+		// 1.16 TypeSpecificData.onPowerGiven: a new non-Stand power re-applies a skipped Stand progression
+		if (!(userPower instanceof StandPower)) {
+			StandPower.reapplySkippedProgression(userPower.getUser());
+		}
+	}
 
 	public void onPowerCleared(Power<?> userPower, @Nullable PowerType newType) {}
 	

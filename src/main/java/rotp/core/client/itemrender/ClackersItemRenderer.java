@@ -6,6 +6,7 @@ import rotp.core.client.ModEntityTypeRenderers;
 import rotp.core.client.entityrender.entities.ClackersModel;
 import rotp.core.client.itemrender.custommodel.CustomItemRenderer;
 import rotp.core.client.itemrender.custommodel.ISTERWithEntity;
+import rotp.core.client.util.functions.ClientUtil;
 import rotp.core.core.JojoMod;
 import rotp.core.item.ClackersItem;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -62,7 +63,8 @@ public class ClackersItemRenderer extends BlockEntityWithoutLevelRenderer implem
 		ClackersModel model = getClackersModel();
 		boolean leftHand = displayContext == ItemDisplayContext.FIRST_PERSON_LEFT_HAND
 				|| displayContext == ItemDisplayContext.THIRD_PERSON_LEFT_HAND;
-		float partialTick = Minecraft.getInstance().getTimer().getGameTimeDeltaTicks();
+		// render partial tick, as 1.16 ClientUtil.getPartialTick()
+		float partialTick = ClientUtil.partialTick();
 
 		setupModel(itemStack, model, leftHand, partialTick);
 

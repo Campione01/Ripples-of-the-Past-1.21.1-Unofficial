@@ -1,9 +1,12 @@
 package rotp.core.impl.powers.hamon.client;
 
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -17,8 +20,10 @@ import rotp.core.client.ui.screen_jojomenu.Tab;
 import rotp.core.client.ui.screen_jojomenu.TabCategory;
 import rotp.core.client.ui.utils.Scrolling;
 import rotp.core.core.JojoMod;
+import rotp.core.init.ModItems;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.powersystem.PowerClass;
+import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.playerpower.PlayerPower;
 import rotp.core.powersystem.unlockableskill.ClLearnSkillPacket;
@@ -39,9 +44,11 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 public class HamonSkillsScreen extends PlaceholderScreen {
@@ -76,6 +83,9 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 	private static final int TECHNIQUE_SLOT_GAP = 2;
 	private static final int TECHNIQUE_SLOTS_PER_ROW = 3;
 	private static final int TECHNIQUE_SLOTS_Y = DETAIL_Y + 27;
+	private static final int TREE_TEXT_BOTTOM = 89;
+	private static final int DOUBLE_CLICK_TICKS = 7;
+	private static final DecimalFormat PERCENTAGE_FORMAT = new DecimalFormat("#.#", DecimalFormatSymbols.getInstance(Locale.ROOT));
 	private static final Map<HamonSkillBranch, Integer> BRANCH_INDEX = new EnumMap<>(HamonSkillBranch.class);
 
 	static {
@@ -96,13 +106,34 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 	private Button resetSkillsButton;
 	private Button learnAllSkillsButton;
 	private Button pickTechniqueButton;
+	@Nullable private HamonTechniqueDefinition pickTooltipTechnique;
+	private int detailAreaTop = DETAIL_Y;
+	private int generalHeaderBottom;
+	private int screenTicks;
+	private int lastSkillClickTick = -DOUBLE_CLICK_TICKS;
+	@Nullable private HamonSkillDefinition lastClickedSkill;
 
 	public HamonSkillsScreen(Component title, TabCategory category, Tab tab, View view) {
 		super(title, category, tab, HAMON_WINDOW);
 		this.view = view;
-		if (view == View.TECHNIQUE && !ModHamonSkills.TECHNIQUE_DEFINITIONS.isEmpty()) {
-			this.selectedTechnique = ModHamonSkills.TECHNIQUE_DEFINITIONS.get(0);
+		if (view == View.TECHNIQUE) {
+			// open on the picked technique; with none, the tab description shows first (1.16)
+			HamonData data = currentHamonData();
+			HamonTechnique current = data != null ? data.getCharacterTechnique() : null;
+			this.selectedTechnique = current != null ? techniqueDefinition(current.getName()) : null;
 		}
+	}
+
+	@Nullable
+	private static HamonData currentHamonData() {
+		Player player = Minecraft.getInstance().player;
+		return player != null ? PlayerPower.getPowerData(player, ModPlayerPowers.HAMON).orElse(null) : null;
+	}
+
+	@Override
+	public void tick() {
+		super.tick();
+		screenTicks++;
 	}
 
 	@Override
@@ -141,6 +172,7 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 						PacketDistributor.sendToServer(ClHamonPickTechniquePacket.pickTechnique(selectedTechnique.name()));
 					}
 				}));
+		pickTooltipTechnique = null;
 	}
 
 	@Override
@@ -171,6 +203,14 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 		}
 
 		updateButtons(data, playerPower, player);
+		SkillNode hoveredNode = null;
+		if (view == View.TECHNIQUE && HamonTechnique.techniquesLocked(data)) {
+			// 1.16 HamonTechniqueTabGui.isLocked: the tab only shows the unlock level
+			selectedSkill = null;
+			renderTechniquesLocked(gui, data, x, y);
+			renderTabTooltip(gui, this, mouseX, mouseY);
+			return;
+		}
 		if (view == View.TECHNIQUE) {
 			List<TechniqueCard> cards = buildTechniqueCards();
 			listScrolling.setContentsHeight(cards.stream().mapToInt(card -> card.y + card.height).max().orElse(0));
@@ -180,12 +220,61 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 		}
 		else {
 			List<SkillNode> nodes = buildSkillNodes();
-			SkillNode hovered = getHoveredSkillNode(nodes, mouseX, mouseY);
-			renderGeneralSkillTree(gui, nodes, hovered, data, playerPower, player);
+			hoveredNode = getHoveredSkillNode(nodes, mouseX, mouseY);
+			renderGeneralSkillTree(gui, nodes, hoveredNode, data, playerPower, player);
 		}
 		renderDetails(gui, data, playerPower, player, mouseX, mouseY);
 		renderGeneralGuidanceTooltips(gui, data, mouseX, mouseY, x, y);
+		if (hoveredNode != null) {
+			renderSkillNodeTooltip(gui, hoveredNode.skill, data, mouseX, mouseY);
+		}
+		else if (view.stat != null) {
+			renderBranchDescTooltip(gui, mouseX, mouseY);
+		}
 		renderTabTooltip(gui, this, mouseX, mouseY);
+	}
+
+	private void renderTechniquesLocked(GuiGraphics gui, HamonData data, int x, int y) {
+		int lineY = y + LIST_Y + 12;
+		// techniques disabled by config: blank tab, not "level 2147483647"
+		for (Component locked : HamonSkillsText.techniquesLockedLines(data.techniquesEnabled(), HamonData.techniqueSkillRequirement(0))) {
+			for (FormattedCharSequence line : font.split(locked, 200)) {
+				gui.drawString(font, line, x + getWindowWidth() / 2 - font.width(line) / 2, lineY, TEXT_COLOR, false);
+				lineY += 10;
+			}
+		}
+	}
+
+	// 1.16 HamonSkillElementLearnable tooltip: name, then the missing prerequisites in red
+	private void renderSkillNodeTooltip(GuiGraphics gui, HamonSkillDefinition skill, HamonData data, int mouseX, int mouseY) {
+		List<Component> lines = new ArrayList<>();
+		lines.add(Component.translatable("hamonSkill." + skill.name() + ".name"));
+		List<String> missing = skill.prerequisiteSkills().stream()
+				.filter(prerequisite -> !data.isSkillUnlocked(prerequisite))
+				.collect(Collectors.toList());
+		if (!missing.isEmpty()) {
+			lines.add(Component.translatable("hamon.skill.required_skills_list").withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC));
+			for (String prerequisite : missing) {
+				lines.add(Component.translatable("hamonSkill." + prerequisite + ".name").withStyle(ChatFormatting.RED));
+			}
+		}
+		gui.renderComponentTooltip(font, lines, mouseX, mouseY);
+	}
+
+	// 1.16 HamonGeneralSkillsTabGui: the strip above each branch column shows the branch description
+	private void renderBranchDescTooltip(GuiGraphics gui, int mouseX, int mouseY) {
+		int originX = getWindowX(this) + WINDOW_THIN_BORDER;
+		int originY = getWindowY(this) + WINDOW_UPPER_BORDER;
+		int branchColumn = HamonSkillsText.hoveredBranchColumn(mouseX - originX, mouseY - originY, SKILL_TREE_START_Y, view.branches.length);
+		if (branchColumn < 0) {
+			return;
+		}
+		for (HamonSkillBranch branch : view.branches) {
+			if (BRANCH_INDEX.getOrDefault(branch, 0) == branchColumn) {
+				gui.renderTooltip(font, font.split(HamonSkillsText.branchDesc(branch), HamonSkillsText.BRANCH_DESC_WRAP), mouseX, mouseY);
+				return;
+			}
+		}
 	}
 
 	private void renderGeneralHeader(GuiGraphics gui, HamonData data, int x, int y) {
@@ -201,6 +290,7 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 		Component pointsText = Component.translatable("hamon.skill_points", points);
 		int pointsX = x + 202 - font.width(pointsText);
 		int pointsY = pointsX < x + 22 + font.width(levelText) ? y + 42 : y + 31;
+		generalHeaderBottom = pointsY + 11;
 		gui.drawString(font, pointsText, pointsX, pointsY, points > 0 ? LEARNED_COLOR : LOCKED_COLOR, false);
 		gui.drawString(font, Component.literal("?"), x + 207, pointsY, DIM_TEXT_COLOR, false);
 
@@ -262,7 +352,8 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 		boolean selectedLearned = selectedSkill != null && data.isSkillUnlocked(selectedSkill.name());
 		boolean needsTechniquePick = view == View.TECHNIQUE && data.getCharacterTechnique() == null;
 		boolean automaticPerk = !creative && perkTechnique(selectedSkill) != null;
-		learnSkillButton.visible = selectedSkill != null && !selectedLearned && !needsTechniquePick && !automaticPerk;
+		boolean techniqueLocked = view == View.TECHNIQUE && HamonTechnique.techniquesLocked(data);
+		learnSkillButton.visible = !techniqueLocked && selectedSkill != null && !selectedLearned && !needsTechniquePick && !automaticPerk;
 		learnSkillButton.active = unlockable != null && (creative || canLearn.isPositive());
 		if (creative && selectedSkill != null && !selectedLearned) {
 			learnSkillButton.setTooltip(Tooltip.create(Component.translatable("jojo_ripples.player_power.skills.creative_unlock")));
@@ -272,18 +363,52 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 			learnSkillButton.setTooltip(warning != null ? Tooltip.create(warning.plainCopy().withStyle(ChatFormatting.RED)) : null);
 		}
 
-		resetSkillsButton.visible = selectedSkill == null && view.resetTab != null && HamonData.canResetTab(player, view.resetTab);
+		resetSkillsButton.visible = !techniqueLocked && selectedSkill == null && view.resetTab != null && HamonData.canResetTab(player, view.resetTab);
 		learnAllSkillsButton.visible = selectedSkill == null && creative;
-		pickTechniqueButton.visible = needsTechniquePick && selectedTechnique != null;
+		pickTechniqueButton.visible = !techniqueLocked && needsTechniquePick && selectedTechnique != null;
 		HamonTechnique technique = selectedTechnique != null ? ModHamonSkills.techniqueByName(selectedTechnique.name()) : null;
 		pickTechniqueButton.active = technique != null && technique.canPick(data);
+		if (pickTechniqueButton.visible && pickTooltipTechnique != selectedTechnique) {
+			pickTooltipTechnique = selectedTechnique;
+			pickTechniqueButton.setTooltip(Tooltip.create(pickTechniqueTooltip(selectedTechnique)));
+		}
+	}
+
+	// 1.16 HamonTechniqueTabGui pick tooltip: branch buffs, then the no-reset warning
+	private Component pickTechniqueTooltip(HamonTechniqueDefinition technique) {
+		List<Component> lines = new ArrayList<>();
+		List<Map.Entry<HamonSkillBranch, Float>> buffs = sortedBranchBuffs(technique);
+		if (!buffs.isEmpty()) {
+			lines.add(Component.translatable("hamon.technique.skill_buff1").withStyle(ChatFormatting.ITALIC, ChatFormatting.GRAY));
+			for (Map.Entry<HamonSkillBranch, Float> entry : buffs) {
+				lines.add(Component.translatable("hamon.technique.skill_buff.branch", branchTitle(entry.getKey()),
+						PERCENTAGE_FORMAT.format(entry.getValue() * 100.0F)).withStyle(ChatFormatting.GREEN));
+			}
+		}
+		lines.add(Component.literal(" "));
+		lines.add(Component.translatable("hamon.technique.no_reset_warning").withStyle(ChatFormatting.ITALIC, ChatFormatting.RED));
+		lines.add(Component.translatable("hamon.technique.no_reset_warning.2_tmp").withStyle(ChatFormatting.ITALIC, ChatFormatting.RED));
+		MutableComponent tooltip = Component.empty();
+		for (int i = 0; i < lines.size(); i++) {
+			if (i > 0) {
+				tooltip.append("\n");
+			}
+			tooltip.append(lines.get(i));
+		}
+		return tooltip;
+	}
+
+	private static List<Map.Entry<HamonSkillBranch, Float>> sortedBranchBuffs(HamonTechniqueDefinition technique) {
+		return technique.branchEfficiencies().entrySet().stream()
+				.sorted(Map.Entry.comparingByKey())
+				.collect(Collectors.toList());
 	}
 
 	private List<TechniqueCard> buildTechniqueCards() {
 		List<TechniqueCard> cards = new ArrayList<>();
 		int y = 0;
 		for (HamonTechniqueDefinition technique : ModHamonSkills.TECHNIQUE_DEFINITIONS) {
-			int icons = technique.perksOnPick().size() + technique.skillIds().size();
+			int icons = techniqueCardSkills(technique).size() + (hasSoapHint(technique) ? 1 : 0);
 			int iconRows = Math.max(1, (icons + TECHNIQUE_CARD_ICONS_PER_ROW - 1) / TECHNIQUE_CARD_ICONS_PER_ROW);
 			int height = 22 + iconRows * (TECHNIQUE_CARD_ICON_SIZE + TECHNIQUE_CARD_ICON_GAP);
 			cards.add(new TechniqueCard(technique, y, height));
@@ -346,8 +471,12 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 		for (HamonSkillBranch branch : view.branches) {
 			int branchIndex = BRANCH_INDEX.getOrDefault(branch, 0);
 			int centerX = originX + 9 + branchIndex * SKILL_TREE_BRANCH_WIDTH + 3 + 13 + 13;
-			gui.drawCenteredString(font, trimToWidth(branchTitle(branch), SKILL_TREE_BRANCH_WIDTH - 6),
-					centerX, originY + SKILL_TREE_START_Y - 18, TEXT_COLOR);
+			// 1.16: full name wrapped at 75 px, one line per font line
+			List<FormattedCharSequence> titleLines = HamonSkillsText.branchTitleLines(branch, font::split);
+			for (int line = 0; line < titleLines.size(); line++) {
+				gui.drawCenteredString(font, titleLines.get(line), centerX,
+						originY + SKILL_TREE_START_Y - 18 + line * HamonSkillsText.BRANCH_TITLE_LINE_HEIGHT, TEXT_COLOR);
+			}
 		}
 
 		SkillNode selectedNode = findSkillNode(nodes, selectedSkill);
@@ -469,21 +598,40 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 				renderTechniqueCardIcon(gui, skill, iconX, iconY, data, playerPower, player,
 						card.technique.isTechniquePerk(skill.name()));
 			}
+			if (hasSoapHint(card.technique)) {
+				int i = cardSkills.size();
+				int iconX = x + 3 + (i % TECHNIQUE_CARD_ICONS_PER_ROW) * (TECHNIQUE_CARD_ICON_SIZE + TECHNIQUE_CARD_ICON_GAP);
+				int iconY = cardY + 18 + (i / TECHNIQUE_CARD_ICONS_PER_ROW) * (TECHNIQUE_CARD_ICON_SIZE + TECHNIQUE_CARD_ICON_GAP);
+				gui.fill(iconX, iconY, iconX + TECHNIQUE_CARD_ICON_SIZE, iconY + TECHNIQUE_CARD_ICON_SIZE, ROW_COLOR);
+				gui.renderItem(new ItemStack(ModItems.SOAP.get()), iconX + 1, iconY + 1);
+			}
 		}
 		listScrolling.pop(gui);
 
 		if (hoveredSkill != null) {
-			gui.renderComponentTooltip(font, List.of(
-					Component.translatable("hamonSkill." + hoveredSkill.name() + ".name"),
-					Component.translatable("hamonSkill." + hoveredSkill.name() + ".desc")), mouseX, mouseY);
+			gui.renderComponentTooltip(font, skillTooltip(hoveredSkill), mouseX, mouseY);
 		}
+		else if (hoveredCard != null && hasSoapHint(hoveredCard.technique)
+				&& hoveredTechniqueCardIcon(hoveredCard, mouseX, mouseY) == techniqueCardSkills(hoveredCard.technique).size()) {
+			// 1.16 HamonCharacterTechniqueBox: Caesar's soap resource hint
+			List<FormattedCharSequence> lines = new ArrayList<>();
+			lines.add(Component.translatable("hamon.caesar_soap_hint.name").getVisualOrderText());
+			lines.addAll(font.split(Component.translatable("hamon.caesar_soap_hint.desc").withStyle(ChatFormatting.ITALIC), 200));
+			gui.renderTooltip(font, lines, mouseX, mouseY);
+		}
+	}
+
+	private static boolean hasSoapHint(HamonTechniqueDefinition technique) {
+		return technique == ModHamonSkills.CAESAR_TECHNIQUE_DEF;
 	}
 
 	private List<HamonSkillDefinition> techniqueCardSkills(HamonTechniqueDefinition technique) {
 		List<HamonSkillDefinition> skills = new ArrayList<>();
+		// 1.16: death perks hidden while the synced keepHamonOnDeath is on
+		boolean keepHamon = rotp.core.JojoModConfig.getCommonConfigInstance(true).keepHamonOnDeath.get();
 		for (String skillName : technique.perksOnPick()) {
 			HamonSkillDefinition skill = ModHamonSkills.definitionFor(skillName);
-			if (skill != null) {
+			if (skill != null && rotp.core.impl.powers.hamon.HamonUtil.isTechniquePerkShown(skillName, keepHamon)) {
 				skills.add(skill);
 			}
 		}
@@ -524,7 +672,7 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 				renderTechniqueDetails(gui, data, x, y, mouseX, mouseY);
 			}
 			else {
-				drawWrapped(gui, Component.translatable("jojo_ripples.hamon.skills.not_selected"), x, y + 12, DETAIL_WIDTH, DIM_TEXT_COLOR);
+				renderTabDescription(gui);
 			}
 			return;
 		}
@@ -554,20 +702,26 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 		// The general tree occupies the lower half; keep its description above the action row.
 		detailScrolling.uiHeight = treeView ? 40 : LIST_HEIGHT;
 		int contentY = y;
+		detailAreaTop = contentY;
 		detailScrolling.pushOffsetScissor(gui, contentY, x, x + detailWidth);
 		if (!treeView) {
 			y = drawWrapped(gui, skillName, x, y, detailWidth, TEXT_COLOR) + 3;
 			gui.drawString(font, status, x, y, statusColor, false);
 			y += 13;
 		}
-		y = drawWrapped(gui, Component.translatable("hamonSkill." + selectedSkill.name() + ".desc"), x, y, detailWidth, TEXT_COLOR) + 4;
+		for (Component descLine : HamonSkillsText.descLines(selectedSkill)) {
+			y = drawWrapped(gui, descLine, x, y, detailWidth, TEXT_COLOR);
+		}
+		y += 4;
+		// translated skill and ability names, not registry ids
 		if (!selectedSkill.prerequisiteSkills().isEmpty()) {
 			y = drawWrapped(gui, Component.translatable("jojo_ripples.hamon.skills.prerequisites",
-					String.join(", ", selectedSkill.prerequisiteSkills())), x, y, detailWidth, DIM_TEXT_COLOR) + 3;
+					HamonSkillsText.prerequisiteNames(selectedSkill.prerequisiteSkills())), x, y, detailWidth, DIM_TEXT_COLOR) + 3;
 		}
 		if (!selectedSkill.unlocksAbilities().isEmpty()) {
 			y = drawWrapped(gui, Component.translatable("jojo_ripples.hamon.skills.unlocks",
-					String.join(", ", selectedSkill.unlocksAbilities())), x, y, detailWidth, DIM_TEXT_COLOR) + 3;
+					HamonSkillsText.abilityNames(selectedSkill.unlocksAbilities(), id -> abilityTranslationKey(playerPower, id))),
+					x, y, detailWidth, DIM_TEXT_COLOR) + 3;
 		}
 		Component warning = canLearn.getWarning();
 		if (!learned && automaticPerk) {
@@ -590,6 +744,36 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 		}
 	}
 
+	// 1.16 HamonTabGui: '<tab>.desc' while nothing is selected
+	private void renderTabDescription(GuiGraphics gui) {
+		boolean treeView = view != View.TECHNIQUE;
+		int x = getWindowX(this) + (treeView ? 16 : DETAIL_X);
+		int top = treeView ? Math.max(getWindowY(this) + DETAIL_Y, generalHeaderBottom) : getWindowY(this) + DETAIL_Y;
+		int width = treeView ? 192 : DETAIL_WIDTH - 5;
+		detailScrolling.uiHeight = treeView ? getWindowY(this) + TREE_TEXT_BOTTOM - top : LIST_HEIGHT;
+		detailAreaTop = top;
+		detailScrolling.pushOffsetScissor(gui, top, x, x + width);
+		int bottom = drawWrapped(gui, tabDescription(), x, top, width, TEXT_COLOR);
+		detailScrolling.pop(gui);
+		detailScrolling.setContentsHeight(bottom - top);
+		int[] bar = detailScrolling.getScrollBarBounds(0, 5);
+		if (bar != null) {
+			gui.fill(x + width + 1, top + bar[0], x + width + 3, top + bar[1], 0xFFA7A7A7);
+		}
+	}
+
+	private Component tabDescription() {
+		if (view == View.TECHNIQUE) {
+			Object onlyOne = HamonData.mixHamonTechniques() ? "" : Component.translatable("hamon.techniques.tab.desc.only_one");
+			return Component.translatable(view.titleKey + ".desc", onlyOne);
+		}
+		return Component.translatable(view.titleKey + ".desc");
+	}
+
+	private boolean tabDescriptionShown() {
+		return selectedSkill == null && (view != View.TECHNIQUE || selectedTechnique == null);
+	}
+
 	private void renderTechniqueDetails(GuiGraphics gui, HamonData data, int x, int y, int mouseX, int mouseY) {
 		gui.drawString(font, trimToWidth(Component.translatable("hamon.technique." + selectedTechnique.name()), DETAIL_WIDTH), x, y, TEXT_COLOR, false);
 		y += 14;
@@ -603,7 +787,7 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 		int slotRows = (HamonData.techniqueSlotsCount() + TECHNIQUE_SLOTS_PER_ROW - 1) / TECHNIQUE_SLOTS_PER_ROW;
 		y = slotsY + slotRows * (TECHNIQUE_SLOT_SIZE + TECHNIQUE_SLOT_GAP) + 3;
 		if (!selectedTechnique.branchEfficiencies().isEmpty()) {
-			for (var entry : selectedTechnique.branchEfficiencies().entrySet()) {
+			for (var entry : sortedBranchBuffs(selectedTechnique)) {
 				Component line = Component.literal("+" + Math.round(entry.getValue() * 100.0F) + "% ")
 						.append(branchTitle(entry.getKey()));
 				y = drawWrapped(gui, line, x, y, DETAIL_WIDTH, TEXT_COLOR) + 1;
@@ -673,9 +857,7 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 			gui.renderComponentTooltip(font, List.of(Component.translatable("hamon.technique_slot.free")), mouseX, mouseY);
 		}
 		else if (hoveredState == TechniqueSlotState.HAS_SKILL && hoveredSkill != null) {
-			gui.renderComponentTooltip(font, List.of(
-					Component.translatable("hamonSkill." + hoveredSkill.name() + ".name"),
-					Component.translatable("hamonSkill." + hoveredSkill.name() + ".desc")), mouseX, mouseY);
+			gui.renderComponentTooltip(font, skillTooltip(hoveredSkill), mouseX, mouseY);
 		}
 	}
 
@@ -743,6 +925,12 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 		if (card == null) {
 			return null;
 		}
+		int index = hoveredTechniqueCardIcon(card, mouseX, mouseY);
+		List<HamonSkillDefinition> skills = techniqueCardSkills(card.technique);
+		return index >= 0 && index < skills.size() ? skills.get(index) : null;
+	}
+
+	private int hoveredTechniqueCardIcon(TechniqueCard card, double mouseX, double mouseY) {
 		int listX = getWindowX(this) + LIST_X;
 		int listY = getWindowY(this) + LIST_Y;
 		int contentY = listScrolling.getYHovered(listY, (int) mouseY);
@@ -750,18 +938,16 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 		int localY = contentY - card.y - 18;
 		int stride = TECHNIQUE_CARD_ICON_SIZE + TECHNIQUE_CARD_ICON_GAP;
 		if (localX < 0 || localY < 0) {
-			return null;
+			return -1;
 		}
 		int column = localX / stride;
 		int row = localY / stride;
 		if (column >= TECHNIQUE_CARD_ICONS_PER_ROW
 				|| localX % stride >= TECHNIQUE_CARD_ICON_SIZE
 				|| localY % stride >= TECHNIQUE_CARD_ICON_SIZE) {
-			return null;
+			return -1;
 		}
-		int index = row * TECHNIQUE_CARD_ICONS_PER_ROW + column;
-		List<HamonSkillDefinition> skills = techniqueCardSkills(card.technique);
-		return index < skills.size() ? skills.get(index) : null;
+		return row * TECHNIQUE_CARD_ICONS_PER_ROW + column;
 	}
 
 	private int getHoveredTechniqueSlot(double mouseX, double mouseY) {
@@ -799,14 +985,14 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 		if (clickTab(mouseX, mouseY, button, this)) {
 			return true;
 		}
-		if (button == 0) {
-			Player player = Minecraft.getInstance().player;
-			HamonData data = player != null ? PlayerPower.getPowerData(player, ModPlayerPowers.HAMON).orElse(null) : null;
+		HamonData data = currentHamonData();
+		boolean techniqueLocked = view == View.TECHNIQUE && HamonTechnique.techniquesLocked(data);
+		if (button == 0 && !techniqueLocked) {
 			if (data != null) {
 				if (view != View.TECHNIQUE) {
 					SkillNode node = getHoveredSkillNode(buildSkillNodes(), mouseX, mouseY);
 					if (node != null) {
-						selectSkill(node.skill);
+						clickSkill(node.skill);
 						selectedTechnique = null;
 						return true;
 					}
@@ -827,27 +1013,78 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 					TechniqueCard card = getHoveredTechniqueCard(cards, mouseX, mouseY);
 					if (card != null) {
 						selectedTechnique = card.technique;
-						selectSkill(getHoveredTechniqueCardSkill(card, mouseX, mouseY));
+						HamonSkillDefinition cardSkill = getHoveredTechniqueCardSkill(card, mouseX, mouseY);
+						if (cardSkill != null) {
+							clickSkill(cardSkill);
+						}
+						else {
+							selectSkill(null);
+						}
 						return true;
 					}
 				}
 			}
 		}
-		return super.mouseClicked(mouseX, mouseY, button);
+		if (super.mouseClicked(mouseX, mouseY, button)) {
+			return true;
+		}
+		// 1.16 HamonSkillsTabGui.mouseReleased: a right click or an empty left click clears the selection
+		if (data != null && !techniqueLocked && isInsideWindow(mouseX, mouseY)
+				&& (button == 1 || button == 0 && !isOverDetailText(mouseX, mouseY)
+						&& !isOverVisibleButton(learnSkillButton, mouseX, mouseY)
+						&& !isOverVisibleButton(pickTechniqueButton, mouseX, mouseY))) {
+			if (button == 1 && selectedSkill == null && view == View.TECHNIQUE) {
+				selectedTechnique = null;
+			}
+			selectSkill(null);
+			return true;
+		}
+		return false;
+	}
+
+	// 1.16 HamonSkillsTabGui: a second click on the same skill within 7 ticks presses Learn
+	private void clickSkill(HamonSkillDefinition skill) {
+		boolean secondClick = Objects.equals(lastClickedSkill, skill)
+				&& screenTicks - lastSkillClickTick < DOUBLE_CLICK_TICKS;
+		selectSkill(skill);
+		if (secondClick && learnSkillButton.visible && learnSkillButton.active) {
+			learnSkillButton.onPress();
+		}
+		lastClickedSkill = skill;
+		lastSkillClickTick = screenTicks;
+	}
+
+	private boolean isInsideWindow(double mouseX, double mouseY) {
+		int x = getWindowX(this);
+		int y = getWindowY(this);
+		return mouseX >= x && mouseX < x + getWindowWidth() && mouseY >= y && mouseY < y + getWindowHeight();
+	}
+
+	private boolean isOverDetailText(double mouseX, double mouseY) {
+		int x = getWindowX(this) + (view == View.TECHNIQUE ? DETAIL_X : 16);
+		int width = view == View.TECHNIQUE ? DETAIL_WIDTH : 198;
+		int height = view == View.TECHNIQUE ? LIST_HEIGHT : detailScrolling.uiHeight;
+		int top = view == View.TECHNIQUE ? getWindowY(this) + DETAIL_Y : detailAreaTop;
+		return mouseX >= x && mouseX < x + width && mouseY >= top && mouseY < top + height;
+	}
+
+	private static boolean isOverVisibleButton(Button button, double mouseX, double mouseY) {
+		return button.visible && mouseX >= button.getX() && mouseX < button.getX() + button.getWidth()
+				&& mouseY >= button.getY() && mouseY < button.getY() + button.getHeight();
 	}
 
 	@Override
 	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-		int detailX = getWindowX(this) + (view == View.TECHNIQUE ? DETAIL_X : 16);
-		int detailY = getWindowY(this) + DETAIL_Y;
-		int detailWidth = view == View.TECHNIQUE ? DETAIL_WIDTH : 198;
-		if (selectedSkill != null && mouseX >= detailX && mouseX < detailX + detailWidth
-				&& mouseY >= detailY && mouseY < detailY + detailScrolling.uiHeight) {
+		boolean techniqueLocked = view == View.TECHNIQUE && HamonTechnique.techniquesLocked(currentHamonData());
+		if (!techniqueLocked && (selectedSkill != null || tabDescriptionShown())
+				&& isOverDetailText(mouseX, mouseY)) {
 			detailScrolling.scroll(scrollY);
 			return true;
 		}
 		if (view == View.TECHNIQUE) {
-			listScrolling.scroll(scrollY);
+			if (!techniqueLocked) {
+				listScrolling.scroll(scrollY);
+			}
 			return true;
 		}
 		return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
@@ -861,32 +1098,44 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 	}
 
 	private static Component branchTitle(HamonSkillBranch branch) {
-		return Component.translatable(switch (branch) {
-		case OVERDRIVE -> "hamon.skills.overdrive";
-		case INFUSION -> "hamon.skills.infusion";
-		case FLEXIBILITY -> "hamon.skills.flexibility";
-		case HEALING -> "hamon.skills.life";
-		case ATTRACTANT_REPELLENT -> "hamon.skills.attractant_repellent";
-		case BODY_MANIPULATION -> "hamon.skills.body_manipulation";
-		case CHARACTER_TECHNIQUE -> "hamon.techniques.tab";
-		});
+		return HamonSkillsText.branchTitle(branch);
+	}
+
+	// name, then the description lines (1.16 AbstractHamonSkill.getDescTranslated)
+	private static List<Component> skillTooltip(HamonSkillDefinition skill) {
+		List<Component> lines = new ArrayList<>();
+		lines.add(Component.translatable("hamonSkill." + skill.name() + ".name"));
+		lines.addAll(HamonSkillsText.descLines(skill));
+		return lines;
+	}
+
+	// the moveset ability's own key (add-on namespaces), or null for the core key
+	@Nullable
+	private static String abilityTranslationKey(@Nullable PlayerPower playerPower, String abilityId) {
+		if (playerPower == null || !playerPower.hasPower()) {
+			return null;
+		}
+		Ability ability = playerPower.getMoveset().getAbility(abilityId);
+		return ability != null ? ability.getTranslationKey() : null;
 	}
 
 	public enum View {
-		STRENGTH(Component.translatable("hamon.strength_skills.tab"), HamonData.HamonStat.STRENGTH, HamonSkillsTab.STRENGTH,
+		STRENGTH("hamon.strength_skills.tab", HamonData.HamonStat.STRENGTH, HamonSkillsTab.STRENGTH,
 				HamonSkillBranch.OVERDRIVE, HamonSkillBranch.INFUSION, HamonSkillBranch.FLEXIBILITY),
-		CONTROL(Component.translatable("hamon.control_skills.tab"), HamonData.HamonStat.CONTROL, HamonSkillsTab.CONTROL,
+		CONTROL("hamon.control_skills.tab", HamonData.HamonStat.CONTROL, HamonSkillsTab.CONTROL,
 				HamonSkillBranch.HEALING, HamonSkillBranch.ATTRACTANT_REPELLENT, HamonSkillBranch.BODY_MANIPULATION),
-		TECHNIQUE(Component.translatable("hamon.techniques.tab"), null, HamonSkillsTab.TECHNIQUE,
+		TECHNIQUE("hamon.techniques.tab", null, HamonSkillsTab.TECHNIQUE,
 				HamonSkillBranch.CHARACTER_TECHNIQUE);
 
+		private final String titleKey;
 		private final Component title;
 		@Nullable private final HamonData.HamonStat stat;
 		@Nullable private final HamonSkillsTab resetTab;
 		private final HamonSkillBranch[] branches;
 
-		private View(Component title, @Nullable HamonData.HamonStat stat, @Nullable HamonSkillsTab resetTab, HamonSkillBranch... branches) {
-			this.title = title;
+		private View(String titleKey, @Nullable HamonData.HamonStat stat, @Nullable HamonSkillsTab resetTab, HamonSkillBranch... branches) {
+			this.titleKey = titleKey;
+			this.title = Component.translatable(titleKey);
 			this.stat = stat;
 			this.resetTab = resetTab;
 			this.branches = branches;

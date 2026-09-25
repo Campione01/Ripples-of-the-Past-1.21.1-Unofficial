@@ -1,0 +1,21 @@
+{
+  "anvil_cost": 1,
+  "description": {
+    "translate": "enchantment.jojo_ripples.stand_arrow_xp_reduction"
+  },
+  "max_cost": {
+    "base": 22,
+    "per_level_above_first": 11
+  },
+  "max_level": 5,
+  "min_cost": {
+    "base": 12,
+    "per_level_above_first": 11
+  },
+  "primary_items": "#jojo_ripples:enchantable/stand_arrow",
+  "slots": [
+    "mainhand"
+  ],
+  "supported_items": "#jojo_ripples:enchantable/stand_arrow",
+  "weight": 10
+}

@@ -6,6 +6,84 @@
   "overrides": [
     {
       "predicate": {
+        "custom_model_data": 1
+      },
+      "model": "jojo_ripples:item/item_icon_katakana_go"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 2
+      },
+      "model": "jojo_ripples:item/item_icon_crimson_bubble"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 3
+      },
+      "model": "jojo_ripples:item/item_icon_vampirism_freeze"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 4
+      },
+      "model": "jojo_ripples:item/item_icon_star_platinum_barrage"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 5
+      },
+      "model": "jojo_ripples:item/item_icon_resolve_full"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 6
+      },
+      "model": "jojo_ripples:item/item_icon_resolve_effect"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 7
+      },
+      "model": "jojo_ripples:item/item_icon_time_stop"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 8
+      },
+      "model": "jojo_ripples:item/item_icon_sp_translucent"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 9
+      },
+      "model": "jojo_ripples:item/item_icon_sp"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 10
+      },
+      "model": "jojo_ripples:item/item_icon_soul_cloud"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 11
+      },
+      "model": "jojo_ripples:item/item_icon_rps_icons"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 12
+      },
+      "model": "jojo_ripples:item/item_icon_mr_fireball"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 13
+      },
+      "model": "jojo_ripples:item/item_icon_steve_muscle"
+    },
+    {
+      "predicate": {
         "custom_model_data": 14
       },
       "model": "jojo_ripples:item/item_icon_awaken"
@@ -51,6 +129,12 @@
         "custom_model_data": 21
       },
       "model": "jojo_ripples:item/item_icon_pillarman_explode"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 22
+      },
+      "model": "jojo_ripples:item/item_icon_turtle_model"
     }
   ]
 }

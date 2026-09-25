@@ -56,6 +56,7 @@
   "item.jojo_ripples.mr_president_master_key.hint": "Can be used to recover a lost key for a locked turtle.",
   "block.jojo_ripples.coco_jumbo_shell": "Turtle Shell",
   "entity.jojo_ripples.coco_jumbo_turtle": "Coco Jumbo",
+  "item.jojo_ripples.coco_jumbo_spawn_egg": "Coco Jumbo Spawn Egg",
   "key.categories.jojo_ripples": "JoJo: Ripples of the Past",
   "jojo_ripples.key.toggle_stand": "Summon/unsummon Stand",
   "jojo_ripples.key.toggle_stand.desc": "Also toggles the Stand controls HUD.",

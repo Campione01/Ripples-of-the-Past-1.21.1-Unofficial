@@ -56,9 +56,9 @@ public class StandInitSilverChariot {
 					.bind("guard", InputMethod.HOLD, InputKey.RMB)
 					.bind("light_attack", InputMethod.CLICK, InputKey.LMB)
 					.bind("melee_barrage", InputMethod.HOLD, InputKey.LMB)
-					.bind("sweeping_attack", InputMethod.CLICK, InputKey.RMB)
+					// 1.16 heavy: the sweep finisher replaces it at meter >= 0.5
+					.bind("dash_attack", InputMethod.CLICK, InputKey.RMB) // hotbar scheme
 					.makeHotbar(0, USE_SPECIAL, SWITCH_SPECIAL)
-					.addToHotbar("dash_attack", 0, InputMethod.CLICK)
 					.addToHotbar("rapier_launch", 0, InputMethod.CLICK)
 					.addToHotbar("take_off_armor", 0, InputMethod.CLICK)
 				.finalizeControlScheme()
@@ -68,7 +68,7 @@ public class StandInitSilverChariot {
 					.bind("guard", InputMethod.HOLD, InputKey.RMB)
 					.bind("light_attack", InputMethod.CLICK, InputKey.LMB)
 					.bind("melee_barrage", InputMethod.HOLD, InputKey.LMB)
-					.bind("sweeping_attack", InputMethod.CLICK, InputKey.RMB)
+					.bind("dash_attack", InputMethod.CLICK, InputKey.RMB) // keybinds scheme
 				.finalizeControlScheme()
 
 

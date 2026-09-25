@@ -97,4 +97,10 @@ public class GEStuckObjectsState implements TickingEntityData, SynchronizableEnt
 	public static GEStuckObjectsState get(LivingEntity entity) {
 		return entity.getData(ModDataAttachmentTypes.GE_STUCK_OBJECTS_STATE);
 	}
+
+	// Read for render layers: never creates the attachment.
+	public static int stuckKnives(LivingEntity entity) {
+		GEStuckObjectsState state = entity.getExistingDataOrNull(ModDataAttachmentTypes.GE_STUCK_OBJECTS_STATE);
+		return state != null ? state.stuckKnives : 0;
+	}
 }

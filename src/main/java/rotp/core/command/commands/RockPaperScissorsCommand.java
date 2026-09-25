@@ -1,6 +1,7 @@
 package rotp.core.command.commands;
 
 import java.util.List;
+import java.util.UUID;
 
 import rotp.core.ServerSavedData;
 import rotp.core.network.s2c.RPSGameStatePacket;
@@ -67,20 +68,35 @@ public class RockPaperScissorsCommand {
         source.sendSuccess(() -> Component.translatable("jojo.rps.game_invite.sent", target.getDisplayName()), false);
     }
 
-    private static void startGame(ServerSavedData data, ServerPlayer player, ServerPlayer target) {
-        data.rpsPvpGames.put(player, target.getUUID(), false);
-        data.rpsPvpGames.put(target, player.getUUID(), false);
+    /** Starts (or resumes a paused) match for an accepted invite; public for gametests. */
+    public static void startGame(ServerSavedData data, ServerPlayer player, ServerPlayer target) {
+        endCurrentGame(data, player, target);
+        endCurrentGame(data, target, player);
+        data.rpsPvpGames.startPvp(player, target);
         RockPaperScissorsGame playerGame =
                 data.rpsPvpGames.get(player.getUUID());
         RockPaperScissorsGame targetGame =
                 data.rpsPvpGames.get(target.getUUID());
         PacketDistributor.sendToPlayer(player,
                 RPSGameStatePacket.enteredGame(
-                        target.getId(), List.of(), List.of(), 1,
+                        target.getId(), List.copyOf(playerGame.playerPreviousPicks()),
+                        List.copyOf(playerGame.opponentPreviousPicks()), playerGame.round(),
                         playerGame.sessionEpoch()));
         PacketDistributor.sendToPlayer(target,
                 RPSGameStatePacket.enteredGame(
-                        player.getId(), List.of(), List.of(), 1,
+                        player.getId(), List.copyOf(targetGame.playerPreviousPicks()),
+                        List.copyOf(targetGame.opponentPreviousPicks()), targetGame.round(),
                         targetGame.sessionEpoch()));
+    }
+
+    // a game left open by death or relog must not stay linked to its old opponent
+    private static void endCurrentGame(ServerSavedData data, ServerPlayer player, ServerPlayer newOpponent) {
+        UUID oldOpponent = data.rpsPvpGames.leave(player.getUUID());
+        if (oldOpponent != null && !oldOpponent.equals(newOpponent.getUUID())) {
+            ServerPlayer oldOpponentPlayer = player.getServer().getPlayerList().getPlayer(oldOpponent);
+            if (oldOpponentPlayer != null) {
+                PacketDistributor.sendToPlayer(oldOpponentPlayer, RPSGameStatePacket.leftGame());
+            }
+        }
     }
 }

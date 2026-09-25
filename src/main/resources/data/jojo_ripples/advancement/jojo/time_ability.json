@@ -1,0 +1,38 @@
+{
+  "parent": "jojo_ripples:jojo/summon_stand",
+  "display": {
+    "icon": {
+      "id": "minecraft:clock"
+    },
+    "title": {
+      "translate": "advancements.jojo.time_ability.title"
+    },
+    "description": {
+      "translate": "advancements.jojo.time_ability.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "star_platinum": {
+      "trigger": "jojo_ripples:time_ability",
+      "conditions": {
+        "stand": "jojo_ripples:star_platinum"
+      }
+    },
+    "the_world": {
+      "trigger": "jojo_ripples:time_ability",
+      "conditions": {
+        "stand": "jojo_ripples:the_world"
+      }
+    }
+  },
+  "requirements": [
+    [
+      "star_platinum",
+      "the_world"
+    ]
+  ]
+}

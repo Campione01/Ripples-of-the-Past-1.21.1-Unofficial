@@ -14,6 +14,10 @@ public final class ModMapDecorationTypes {
     public static final DeferredHolder<MapDecorationType, MapDecorationType> PILLARMAN_TEMPLE =
             MAP_DECORATION_TYPES.register("pillarman_temple",
                     () -> new MapDecorationType(JojoMod.resLoc("pillarman_temple"), true, 0x508d50, true, false));
+    // 1.16 meteorite map: icon textures/map/meteorite.png, map color 0x6d6bb9
+    public static final DeferredHolder<MapDecorationType, MapDecorationType> METEORITE =
+            MAP_DECORATION_TYPES.register("meteorite",
+                    () -> new MapDecorationType(JojoMod.resLoc("meteorite"), true, 0x6d6bb9, true, false));
 
     private ModMapDecorationTypes() {}
 }

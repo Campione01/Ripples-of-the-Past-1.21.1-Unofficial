@@ -12,8 +12,12 @@ import rotp.core.mechanics.resolve.ResolveCounter;
 import rotp.core.network.NetworkPayloadValidation;
 import rotp.core.network.s2c.CommonConfigPacket;
 import rotp.core.network.s2c.ResetSyncedCommonConfigPacket;
+import rotp.core.powersystem.standpower.StandUtil;
+
+import javax.annotation.Nullable;
 
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import net.neoforged.neoforge.common.ModConfigSpec;
@@ -63,7 +67,11 @@ public class JojoModConfig {
 	public static class Common {
 		public final ConfigValue<Boolean> keepStandOnDeath;
 		public final ConfigValue<Boolean> keepVampirismOnDeath;
+		public final ConfigValue<Boolean> keepHamonOnDeath;
 		public final ConfigValue<Boolean> dropStandDisc;
+		public final ConfigValue<Boolean> hamonTempleSpawn;
+		public final ConfigValue<Boolean> meteoriteSpawn;
+		public final ConfigValue<Boolean> pillarManTempleSpawn;
 		public final ConfigValue<Boolean> skipStandProgression;
 		public final ConfigValue<List<? extends Double>> resolveLvlPoints;
 		public final ConfigValue<Integer> timeStopChunkRange;
@@ -75,6 +83,10 @@ public class JojoModConfig {
 		public final ConfigValue<Boolean> breathingTrainingDeterioration;
 		public final ConfigValue<Integer> breathingHamonStatGap;
 		public final ConfigValue<Boolean> hamonEnergyTicksDown;
+		public final ConfigValue<Double> hamonDamageMultiplier;
+		public final ConfigValue<Boolean> mixHamonTechniques;
+		public final ConfigValue<List<? extends Integer>> techniqueSkillRequirements;
+		public final ConfigValue<Boolean> spawnCocoJumboTurtle;
 		public final ConfigValue<List<? extends Double>> maxBloodMultiplier;
 		public final ConfigValue<List<? extends Double>> bloodDrainMultiplier;
 		public final ConfigValue<List<? extends Double>> bloodTickDown;
@@ -86,6 +98,10 @@ public class JojoModConfig {
 		public final ConfigValue<Boolean> soulAscension;
 		public final ConfigValue<Boolean> saveDestroyedBlocks;
 		public final ConfigValue<Boolean> endermenBeyondTimeSpace;
+		public final ConfigValue<List<? extends String>> bannedStands;
+		public final ConfigValue<StandUtil.StandRandomPoolFilter> standArrowMode;
+		public final ConfigValue<Integer> standXpCostInitial;
+		public final ConfigValue<Integer> standXpCostIncrease;
 
 		private Common(ModConfigSpec.Builder builder) {
 			builder.push("Keep Powers After Death");
@@ -96,11 +112,27 @@ public class JojoModConfig {
 					builder.comment("The weak vampirism version from the Blood Gift ability will not be kept.")
 					.translation("jojo.config.keepVampirismOnDeath")
 					.define("keepVampirismOnDeath", true), true);
+			keepHamonOnDeath = ConfigValue.fromSpec(
+					builder.translation("jojo.config.keepHamonOnDeath")
+					.define("keepHamonOnDeath", true), true);
 			dropStandDisc = ConfigValue.fromSpec(
 					builder.comment("If enabled, Stand users drop their Stand's Disc upon death.",
 							"Works only when keepStandOnDeath is set to false.")
 					.translation("jojo.config.dropStandDisc")
 					.define("dropStandDisc", false), false);
+			builder.pop();
+
+			// 1.16 structure toggles; server-side worldgen only, not synced.
+			builder.push("Structures Spawn");
+			hamonTempleSpawn = ConfigValue.fromSpec(
+					builder.translation("jojo.config.hamonTempleSpawn")
+					.define("hamonTempleSpawn", true), true);
+			meteoriteSpawn = ConfigValue.fromSpec(
+					builder.translation("jojo.config.meteoriteSpawn")
+					.define("meteoriteSpawn", true), true);
+			pillarManTempleSpawn = ConfigValue.fromSpec(
+					builder.translation("jojo.config.pillarManTempleSpawn")
+					.define("pillarManTempleSpawn", true), true);
 			builder.pop();
 
 			builder.push("Stand settings");
@@ -117,6 +149,35 @@ public class JojoModConfig {
 					.defineList("resolveLvlPoints", JojoModConfig::defaultResolveLvlPoints, JojoModConfig::isPositiveFiniteDouble),
 					defaultResolveLvlPoints());
 			builder.pop();
+
+			standArrowMode = ConfigValue.fromSpec(
+					builder.comment("Special rule limiting the pool of Stands randomly chosen from on multiplayer servers.",
+							"NONE - can randomly give any of the available Stands",
+							"LEAST_TAKEN - can only choose from the Stands fewer players on the server have",
+							"NOT_TAKEN - can only give a Stand no other player on the server has")
+					.translation("jojo.config.standArrowMode")
+					.defineEnum("standArrowMode", StandUtil.StandRandomPoolFilter.NONE),
+					StandUtil.StandRandomPoolFilter.NONE);
+
+			bannedStands = ConfigValue.fromSpec(
+					builder.comment("List of Stands excluded from the pool used by Arrows, \"/stand random\" and \"/standdisc random\".",
+							"These Stands are still available via commands such as \"/stand give\".",
+							"Their Discs are not shown in the mod's Creative tab (only in the Search tab) and can't be used.",
+							"The format is the same as for the \"/stand give\" command (e.g., \"" + JojoMod.MOD_ID + ":star_platinum\").")
+					.translation("jojo.config.bannedStands")
+					.defineListAllowEmpty("bannedStands", List.<String>of(),
+							() -> JojoMod.MOD_ID + ":star_platinum", JojoModConfig::isStandIdString),
+					List.<String>of());
+
+			// 1.16 Arrow section; server-side only
+			standXpCostInitial = ConfigValue.fromSpec(
+					builder.comment("The initial cost of getting a Stand from a Stand Arrow (in experience levels).")
+					.translation("jojo.config.standXpCostInitial")
+					.defineInRange("standXpCostInitial", 30, 0, 9999), 30);
+			standXpCostIncrease = ConfigValue.fromSpec(
+					builder.comment("The increase of the cost for getting a Stand for each previous one the player has got before.")
+					.translation("jojo.config.standXpCostIncrease")
+					.defineInRange("standXpCostIncrease", 5, 0, 9999), 5);
 
 			builder.push("Time Stop");
 			timeStopChunkRange = ConfigValue.fromSpec(
@@ -162,6 +223,21 @@ public class JojoModConfig {
 					builder.comment("Whether or not Hamon energy ticks down a few seconds after the user performs Hamon Breath.")
 					.translation("jojo.config.hamonEnergyTicksDown")
 					.define("hamonEnergyTicksDown", true), true);
+			hamonDamageMultiplier = ConfigValue.fromSpec(
+					builder.comment("Damage multiplier applied to all Hamon attacks.")
+					.translation("jojo.config.hamonDamageMultiplier")
+					.defineInRange("hamonDamageMultiplier", 1.0D, 0.0D, 128.0D), 1.0D);
+			mixHamonTechniques = ConfigValue.fromSpec(
+					builder.comment("Whether or not picking skills from different character-specific Hamon techniques is allowed.")
+					.translation("jojo.config.mixHamonTechniques")
+					.define("mixHamonTechniques", false), false);
+			techniqueSkillRequirements = ConfigValue.fromSpec(
+					builder.comment("At what levels of Hamon Strength and Hamon Control each slot for a skill from the Technique tab is unlocked, and how many slots are there.",
+							"Could be used to increase the default limit of 3 slots when paired with mixHamonTechniques setting enabled.")
+					.translation("jojo.config.techniqueSkillRequirements")
+					.defineListAllowEmpty("techniqueSkillRequirements", defaultTechniqueSkillRequirements(),
+							() -> 20, JojoModConfig::isNonNegativeInteger),
+					defaultTechniqueSkillRequirements());
 			builder.pop();
 			maxBloodMultiplier = ConfigValue.fromSpec(
 					builder.comment("Max vampire blood multiplier by difficulty.",
@@ -213,6 +289,10 @@ public class JojoModConfig {
 							"It may cause longer saving and loading time for larger worlds.")
 					.translation("jojo.config.saveDestroyedBlocks")
 					.define("saveDestroyedBlocks", false), false);
+			spawnCocoJumboTurtle = ConfigValue.fromSpec(
+					builder.comment("Whether or not a turtle mob that can get Mr. President Stand spawns naturally.")
+					.translation("jojo.config.spawnCocoJumboTurtle")
+					.define("spawnCocoJumboTurtle", true), true);
 			endermenBeyondTimeSpace = ConfigValue.fromSpec(
 					builder.comment("Disable this to make endermen also be frozen in stopped time.",
 							"But what if there is an in-mod lore reason for this...")
@@ -223,7 +303,11 @@ public class JojoModConfig {
 		private Common() {
 			keepStandOnDeath = ConfigValue.synced(true);
 			keepVampirismOnDeath = ConfigValue.synced(true);
+			keepHamonOnDeath = ConfigValue.synced(true);
 			dropStandDisc = ConfigValue.synced(false);
+			hamonTempleSpawn = ConfigValue.synced(true);
+			meteoriteSpawn = ConfigValue.synced(true);
+			pillarManTempleSpawn = ConfigValue.synced(true);
 			skipStandProgression = ConfigValue.synced(false);
 			resolveLvlPoints = ConfigValue.synced(defaultResolveLvlPoints());
 			timeStopChunkRange = ConfigValue.synced(12);
@@ -235,6 +319,10 @@ public class JojoModConfig {
 			breathingTrainingDeterioration = ConfigValue.synced(true);
 			breathingHamonStatGap = ConfigValue.synced(-1);
 			hamonEnergyTicksDown = ConfigValue.synced(true);
+			hamonDamageMultiplier = ConfigValue.synced(1.0D);
+			mixHamonTechniques = ConfigValue.synced(false);
+			techniqueSkillRequirements = ConfigValue.synced(defaultTechniqueSkillRequirements());
+			spawnCocoJumboTurtle = ConfigValue.synced(true);
 			maxBloodMultiplier = ConfigValue.synced(defaultMaxBloodMultiplier());
 			bloodDrainMultiplier = ConfigValue.synced(defaultBloodDrainMultiplier());
 			bloodTickDown = ConfigValue.synced(defaultBloodTickDown());
@@ -246,15 +334,35 @@ public class JojoModConfig {
 			soulAscension = ConfigValue.synced(true);
 			saveDestroyedBlocks = ConfigValue.synced(false);
 			endermenBeyondTimeSpace = ConfigValue.synced(true);
+			bannedStands = ConfigValue.synced(List.<String>of());
+			standArrowMode = ConfigValue.synced(StandUtil.StandRandomPoolFilter.NONE);
+			standXpCostInitial = ConfigValue.synced(30);
+			standXpCostIncrease = ConfigValue.synced(5);
 		}
 
 		private static Common syncedDefaults() {
 			return new Common();
 		}
 
+		public boolean isStandBanned(@Nullable ResourceLocation standId) {
+			return standId != null && bannedStandIds().contains(standId.toString());
+		}
+
+		public List<String> bannedStandIds() {
+			List<String> ids = new ArrayList<>();
+			for (String entry : bannedStands.get()) {
+				ResourceLocation id = normalizeStandId(entry);
+				if (id != null) {
+					ids.add(id.toString());
+				}
+			}
+			return ids;
+		}
+
 		private void apply(SyncedValues values) {
 			keepStandOnDeath.set(values.keepStandOnDeath);
 			keepVampirismOnDeath.set(values.keepVampirismOnDeath);
+			keepHamonOnDeath.set(values.keepHamonOnDeath);
 			dropStandDisc.set(values.dropStandDisc);
 			skipStandProgression.set(values.skipStandProgression);
 			resolveLvlPoints.set(List.copyOf(values.resolveLvlPoints));
@@ -266,6 +374,8 @@ public class JojoModConfig {
 			breathingTrainingDeterioration.set(values.breathingTrainingDeterioration);
 			breathingHamonStatGap.set(values.breathingHamonStatGap);
 			hamonEnergyTicksDown.set(values.hamonEnergyTicksDown);
+			mixHamonTechniques.set(values.mixHamonTechniques);
+			techniqueSkillRequirements.set(List.copyOf(values.techniqueSkillRequirements));
 			maxBloodMultiplier.set(List.copyOf(values.maxBloodMultiplier));
 			bloodDrainMultiplier.set(List.copyOf(values.bloodDrainMultiplier));
 			bloodTickDown.set(List.copyOf(values.bloodTickDown));
@@ -274,11 +384,14 @@ public class JojoModConfig {
 			soulAscension.set(values.soulAscension);
 			saveDestroyedBlocks.set(values.saveDestroyedBlocks);
 			endermenBeyondTimeSpace.set(values.endermenBeyondTimeSpace);
+			bannedStands.set(values.bannedStands);
+			standArrowMode.set(values.standArrowMode);
 		}
 
 		private void resetSyncedValues() {
 			keepStandOnDeath.clearCache();
 			keepVampirismOnDeath.clearCache();
+			keepHamonOnDeath.clearCache();
 			dropStandDisc.clearCache();
 			skipStandProgression.clearCache();
 			resolveLvlPoints.clearCache();
@@ -291,6 +404,8 @@ public class JojoModConfig {
 			breathingTrainingDeterioration.clearCache();
 			breathingHamonStatGap.clearCache();
 			hamonEnergyTicksDown.clearCache();
+			mixHamonTechniques.clearCache();
+			techniqueSkillRequirements.clearCache();
 			maxBloodMultiplier.clearCache();
 			bloodDrainMultiplier.clearCache();
 			bloodTickDown.clearCache();
@@ -299,12 +414,15 @@ public class JojoModConfig {
 			soulAscension.clearCache();
 			saveDestroyedBlocks.clearCache();
 			endermenBeyondTimeSpace.clearCache();
+			bannedStands.clearCache();
+			standArrowMode.clearCache();
 		}
 
 		public static class SyncedValues {
 			private static final int MAX_SYNCED_DOUBLE_VALUES = 64;
 			private final boolean keepStandOnDeath;
 			private final boolean keepVampirismOnDeath;
+			private final boolean keepHamonOnDeath;
 			private final boolean dropStandDisc;
 			private final boolean skipStandProgression;
 			private final List<Double> resolveLvlPoints;
@@ -316,6 +434,10 @@ public class JojoModConfig {
 			private final boolean breathingTrainingDeterioration;
 			private final int breathingHamonStatGap;
 			private final boolean hamonEnergyTicksDown;
+			// the Hamon screen reads these two on the client
+			private static final int MAX_SYNCED_TECHNIQUE_SLOTS = 64;
+			private final boolean mixHamonTechniques;
+			private final List<Integer> techniqueSkillRequirements;
 			private final List<Double> maxBloodMultiplier;
 			private final List<Double> bloodDrainMultiplier;
 			private final List<Double> bloodTickDown;
@@ -324,10 +446,16 @@ public class JojoModConfig {
 			private final boolean soulAscension;
 			private final boolean saveDestroyedBlocks;
 			private final boolean endermenBeyondTimeSpace;
+			private static final int MAX_SYNCED_STAND_IDS = 1024;
+			private static final int MAX_STAND_ID_LENGTH = 256;
+			private final List<String> bannedStands;
+			// the arrow tooltip names the pool mode on multiplayer
+			private final StandUtil.StandRandomPoolFilter standArrowMode;
 
 			public SyncedValues(Common config) {
 				this.keepStandOnDeath = config.keepStandOnDeath.get();
 				this.keepVampirismOnDeath = config.keepVampirismOnDeath.get();
+				this.keepHamonOnDeath = config.keepHamonOnDeath.get();
 				this.dropStandDisc = config.dropStandDisc.get();
 				this.skipStandProgression = config.skipStandProgression.get();
 				this.resolveLvlPoints = config.resolveLvlPoints.get().stream().map(Double::valueOf).toList();
@@ -339,6 +467,9 @@ public class JojoModConfig {
 				this.breathingTrainingDeterioration = config.breathingTrainingDeterioration.get();
 				this.breathingHamonStatGap = config.breathingHamonStatGap.get();
 				this.hamonEnergyTicksDown = config.hamonEnergyTicksDown.get();
+				this.mixHamonTechniques = config.mixHamonTechniques.get();
+				this.techniqueSkillRequirements = config.techniqueSkillRequirements.get().stream()
+						.limit(MAX_SYNCED_TECHNIQUE_SLOTS).map(value -> Math.max(0, value)).toList();
 				this.maxBloodMultiplier = config.maxBloodMultiplier.get().stream().map(Double::valueOf).toList();
 				this.bloodDrainMultiplier = config.bloodDrainMultiplier.get().stream().map(Double::valueOf).toList();
 				this.bloodTickDown = config.bloodTickDown.get().stream().map(Double::valueOf).toList();
@@ -347,6 +478,12 @@ public class JojoModConfig {
 				this.soulAscension = config.soulAscension.get();
 				this.saveDestroyedBlocks = config.saveDestroyedBlocks.get();
 				this.endermenBeyondTimeSpace = config.endermenBeyondTimeSpace.get();
+				this.bannedStands = config.bannedStandIds().stream()
+						.filter(id -> id.length() <= MAX_STAND_ID_LENGTH)
+						.distinct()
+						.limit(MAX_SYNCED_STAND_IDS)
+						.toList();
+				this.standArrowMode = config.standArrowMode.get();
 			}
 
 			public SyncedValues(RegistryFriendlyByteBuf buf) {
@@ -360,12 +497,21 @@ public class JojoModConfig {
 				this.endermenBeyondTimeSpace = (flags & 64) > 0;
 				this.breathingTrainingDeterioration = (flags & 0x80) != 0;
 				this.keepVampirismOnDeath = buf.readBoolean();
+				this.keepHamonOnDeath = buf.readBoolean();
 				this.standDamageMultiplier = buf.readDouble();
 				this.standResistanceMultiplier = buf.readDouble();
 				this.hamonPointsMultiplier = buf.readDouble();
 				this.breathingTrainingMultiplier = buf.readDouble();
 				this.breathingHamonStatGap = Mth.clamp(buf.readVarInt(), -1, 100);
 				this.hamonEnergyTicksDown = buf.readBoolean();
+				this.mixHamonTechniques = buf.readBoolean();
+				int techniqueSlots = NetworkPayloadValidation.requireCollectionSize(
+						buf.readVarInt(), MAX_SYNCED_TECHNIQUE_SLOTS, "technique slot");
+				List<Integer> requirements = new ArrayList<>(techniqueSlots);
+				for (int i = 0; i < techniqueSlots; i++) {
+					requirements.add(Math.max(0, buf.readVarInt()));
+				}
+				this.techniqueSkillRequirements = List.copyOf(requirements);
 				this.timeStopChunkRange = Math.max(0, buf.readVarInt());
 				int resolvePointsCount = NetworkPayloadValidation.requireCollectionSize(
 						buf.readVarInt(), MAX_SYNCED_DOUBLE_VALUES,
@@ -382,6 +528,15 @@ public class JojoModConfig {
 				this.bloodDrainMultiplier = readDoubleList(buf, defaultBloodDrainMultiplier(), false);
 				this.bloodTickDown = readDoubleList(buf, defaultBloodTickDown(), false);
 				this.vampirismCuringDuration = Math.max(1, buf.readVarInt());
+				int bannedCount = NetworkPayloadValidation.requireCollectionSize(
+						buf.readVarInt(), MAX_SYNCED_STAND_IDS, "banned Stand");
+				List<String> banned = new ArrayList<>(bannedCount);
+				for (int i = 0; i < bannedCount; i++) {
+					banned.add(buf.readUtf(MAX_STAND_ID_LENGTH));
+				}
+				this.bannedStands = List.copyOf(banned);
+				StandUtil.StandRandomPoolFilter[] poolFilters = StandUtil.StandRandomPoolFilter.values();
+				this.standArrowMode = poolFilters[Mth.clamp(buf.readVarInt(), 0, poolFilters.length - 1)];
 			}
 
 			public void writeToBuf(RegistryFriendlyByteBuf buf) {
@@ -396,12 +551,18 @@ public class JojoModConfig {
 				if (breathingTrainingDeterioration) flags |= (byte) 0x80;
 				buf.writeByte(flags);
 				buf.writeBoolean(keepVampirismOnDeath);
+				buf.writeBoolean(keepHamonOnDeath);
 				buf.writeDouble(standDamageMultiplier);
 				buf.writeDouble(standResistanceMultiplier);
 				buf.writeDouble(hamonPointsMultiplier);
 				buf.writeDouble(breathingTrainingMultiplier);
 				buf.writeVarInt(Mth.clamp(breathingHamonStatGap, -1, 100));
 				buf.writeBoolean(hamonEnergyTicksDown);
+				buf.writeBoolean(mixHamonTechniques);
+				buf.writeVarInt(techniqueSkillRequirements.size());
+				for (int value : techniqueSkillRequirements) {
+					buf.writeVarInt(value);
+				}
 				buf.writeVarInt(timeStopChunkRange);
 				NetworkPayloadValidation.requireOutboundCollectionSize(
 						resolveLvlPoints.size(), MAX_SYNCED_DOUBLE_VALUES,
@@ -414,6 +575,13 @@ public class JojoModConfig {
 				writeDoubleList(buf, bloodDrainMultiplier);
 				writeDoubleList(buf, bloodTickDown);
 				buf.writeVarInt(vampirismCuringDuration);
+				NetworkPayloadValidation.requireOutboundCollectionSize(
+						bannedStands.size(), MAX_SYNCED_STAND_IDS, "banned Stand");
+				buf.writeVarInt(bannedStands.size());
+				for (String id : bannedStands) {
+					buf.writeUtf(id, MAX_STAND_ID_LENGTH);
+				}
+				buf.writeVarInt(standArrowMode.ordinal());
 			}
 
 			private static List<Double> readDoubleList(RegistryFriendlyByteBuf buf, List<Double> defaults,
@@ -517,6 +685,14 @@ public class JojoModConfig {
 		return List.of(10.0D, 4.0D, 2.0D, 1.0D);
 	}
 
+	private static List<Integer> defaultTechniqueSkillRequirements() {
+		return List.of(20, 30, 40);
+	}
+
+	private static boolean isNonNegativeInteger(Object value) {
+		return value instanceof Integer intValue && intValue >= 0;
+	}
+
 	private static boolean isPositiveFiniteDouble(Object value) {
 		if (value instanceof Double doubleValue) {
 			return doubleValue > 0 && Double.isFinite(doubleValue);
@@ -525,6 +701,20 @@ public class JojoModConfig {
 			return intValue > 0;
 		}
 		return false;
+	}
+
+	// bare paths and 1.16 "jojo:" ids name this mod's Stands
+	@Nullable
+	static ResourceLocation normalizeStandId(@Nullable String value) {
+		ResourceLocation id = value != null ? ResourceLocation.tryParse(value.trim()) : null;
+		if (id != null && ("minecraft".equals(id.getNamespace()) || "jojo".equals(id.getNamespace()))) {
+			id = ResourceLocation.fromNamespaceAndPath(JojoMod.MOD_ID, id.getPath());
+		}
+		return id;
+	}
+
+	private static boolean isStandIdString(Object value) {
+		return value instanceof String string && ResourceLocation.tryParse(string.trim()) != null;
 	}
 
 	private static boolean isNonNegativeFiniteDouble(Object value) {

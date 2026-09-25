@@ -42,12 +42,16 @@ public class ItemTracking implements INBTSerializable<ListTag> {
 		this.serverSideHolder = serverSideHolder;
 	}
 
+	@Nullable
 	public ItemTracker startTracking(ItemStack itemStack, @Nonnull ServerLevel level, UUID trackerId) {
+		// fail soft: this runs on server tick paths, a throw would crash the server
 		if (itemStack.isEmpty()) {
-			throw new IllegalArgumentException("Cannot track empty items");
+			JojoMod.getLogger().warn("Cannot track empty items");
+			return null;
 		}
 		if (itemStack.getCount() != 1) {
-			throw new IllegalArgumentException("Cannot track stacked items, only item stacks with count == 1 are supported");
+			JojoMod.getLogger().warn("Cannot track stacked items ({}), only item stacks with count == 1 are supported", itemStack);
+			return null;
 		}
 
 		ItemTracker tracker = new ItemTracker(trackerId, this);
@@ -63,6 +67,7 @@ public class ItemTracking implements INBTSerializable<ListTag> {
 		return tracker;
 	}
 
+	@Nullable
 	public ItemTracker startTracking(ItemStack itemStack, @Nonnull ServerLevel level) {
 		return startTracking(itemStack, level, Mth.createInsecureUUID());
 	}

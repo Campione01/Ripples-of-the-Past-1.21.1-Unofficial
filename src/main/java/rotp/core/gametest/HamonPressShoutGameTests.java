@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
+import javax.annotation.Nullable;
+
 import rotp.core.core.JojoMod;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModSoundEvents;
@@ -45,6 +47,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * Barrage's start line on the press, then its barrage line at the release (perform, interrupt on).
  * 1.16 HamonSendoOverdrive.stoppedHolding sent the wave on any stop with a block targeted; a release that failed its
  * energy check skipped only the perform, and consumeEnergy(900) still left an empty user out of breath.
+ * 1.16 HamonBreath.playVoiceLine said the breath line only at 0 Hamon energy, with no repeat guard (delay 0).
  */
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -53,7 +56,9 @@ public final class HamonPressShoutGameTests {
 
 	private HamonPressShoutGameTests() {}
 
-	@GameTest(template = "empty", timeoutTicks = 120)
+	// A neighbouring test's time stop over the user pauses its action (LivingComponentAction.isActionPausedInStoppedTime):
+	// a paused Sendo release never performs and sends no wave. These tests run in a batch that stops no time.
+	@GameTest(template = "empty", timeoutTicks = 120, batch = GameTestBatches.NO_TIME_STOP)
 	public static void syoBarrageStartLineOnPressBarrageLineAtRelease(GameTestHelper helper) {
 		try (Fixture f = new Fixture(helper, ModHamonSkills.SUNLIGHT_YELLOW_OVERDRIVE_BARRAGE.get());
 				VoiceLines lines = new VoiceLines(helper, f.user)) {
@@ -76,7 +81,7 @@ public final class HamonPressShoutGameTests {
 		}
 	}
 
-	@GameTest(template = "empty", timeoutTicks = 80)
+	@GameTest(template = "empty", timeoutTicks = 80, batch = GameTestBatches.NO_TIME_STOP)
 	public static void sendoReleaseWithNoEnergyStillSendsTheWave(GameTestHelper helper) {
 		try (Fixture f = new Fixture(helper, ModHamonSkills.SENDO_OVERDRIVE.get())) {
 			AABB area = sendoWall(helper);
@@ -94,6 +99,40 @@ public final class HamonPressShoutGameTests {
 					"1.16 stoppedHolding sent the wave on a release that failed its energy check");
 			helper.assertTrue(f.user.getAirSupply() == 0,
 					"1.16 still asked for the cost, which leaves an empty user out of breath: air=" + f.user.getAirSupply());
+			helper.succeed();
+		}
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 80, batch = GameTestBatches.NO_TIME_STOP)
+	public static void breathLineOnlyAtNoEnergyWithoutRepeatGuard(GameTestHelper helper) {
+		try (Fixture f = new Fixture(helper, null);
+				VoiceLines lines = new VoiceLines(helper, f.user)) {
+			SoundEvent line = ModSoundEvents.BREATH_DEFAULT.get();
+			EntityActionInstance breath = f.start("hamon_breath", true);
+			f.tick(3);
+			helper.assertTrue(breath.getPhase() == ActionPhase.PERFORM, "The breath is not held: " + breath.getPhase());
+			helper.assertTrue(lines.count(line) == 0,
+					"1.16 said the breath line only at 0 Hamon energy: said " + lines.count(line) + " times at energy " + f.hamon.getEnergy());
+			f.stop();
+
+			// breaths in a row at 0 energy: all said, as 1.16 used voiceLineDelay 0.
+			// The power and the action tick in either order (class-keyed ticking map), so both orders are run:
+			// with the power first, a breath tick adds energy before the action's first perform tick.
+			for (int breaths = 1; breaths <= 4; breaths++) {
+				boolean powerFirst = breaths > 2;
+				f.hamon.setBreathStability(f.hamon.getMaxBreathStability());
+				f.hamon.setEnergy(0.0F);
+				f.user.setAirSupply(f.user.getMaxAirSupply());
+				breath = f.start("hamon_breath", true);
+				f.tickWithPower(3, powerFirst);
+				helper.assertTrue(!powerFirst || f.hamon.getEnergy() > 0.0F,
+						"The Hamon power did not tick the breath: energy " + f.hamon.getEnergy());
+				helper.assertTrue(breath.getPhase() == ActionPhase.PERFORM, "The breath at 0 energy is not held: " + breath.getPhase());
+				helper.assertTrue(lines.count(line) == breaths,
+						"1.16 said the breath line on each breath at 0 energy: breath " + breaths
+							+ (powerFirst ? " (power ticked first)" : "") + ", said " + lines.count(line));
+				f.stop();
+			}
 			helper.succeed();
 		}
 	}
@@ -148,7 +187,7 @@ public final class HamonPressShoutGameTests {
 		private final HamonData hamon;
 		private final LivingComponentAction component;
 
-		private Fixture(GameTestHelper helper, HamonSkill skill) {
+		private Fixture(GameTestHelper helper, @Nullable HamonSkill skill) {
 			this.helper = helper;
 			user = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
 			Vec3 origin = Vec3.atCenterOf(helper.absolutePos(new BlockPos(2, 2, 2)));
@@ -159,8 +198,10 @@ public final class HamonPressShoutGameTests {
 			power = PowerClass.PLAYER_POWER.attachGet(user);
 			power.setPowerType(ModPlayerPowers.HAMON.get());
 			hamon = PlayerPower.getPowerData(user, ModPlayerPowers.HAMON).orElseThrow();
-			hamon.learnSkill(skill);
-			helper.assertTrue(hamon.isSkillLearned(skill), "Could not grant " + skill);
+			if (skill != null) {
+				hamon.learnSkill(skill);
+				helper.assertTrue(hamon.isSkillLearned(skill), "Could not grant " + skill);
+			}
 			hamon.setBreathStability(hamon.getMaxBreathStability());
 			hamon.setEnergy(hamon.getMaxEnergy());
 			component = LivingComponentAction.getComponent(user);
@@ -187,10 +228,29 @@ public final class HamonPressShoutGameTests {
 			}
 		}
 
-		@Override
-		public void close() {
+		// also ticks the Hamon power (breath energy), before or after the action
+		private void tickWithPower(int count, boolean powerFirst) {
+			for (int tick = 0; tick < count; tick++) {
+				user.tickCount++;
+				if (powerFirst) {
+					power.tick();
+				}
+				component.tick();
+				if (!powerFirst) {
+					power.tick();
+				}
+				user.getData(ModDataAttachmentTypes.PLAYER_VOICE_LINES.get()).tick();
+			}
+		}
+
+		private void stop() {
 			user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get()).heldKeys.clear();
 			component.setAction(null, SyncType.NO_SYNC);
+		}
+
+		@Override
+		public void close() {
+			stop();
 			user.removeAllEffects();
 			user.discard();
 		}

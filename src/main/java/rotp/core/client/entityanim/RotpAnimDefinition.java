@@ -54,6 +54,8 @@ public class RotpAnimDefinition {
 	protected final Map<String, List<IAnimationChannel>> boneAnimations;
 	protected final List<KeyframeQuery> queries;
 	public final AnimInstructionTimelines instructionTimelines;
+	/** Playback clock; carries the 1.16 SpeedModifier value from the clip's "anim_speed" timeline key. */
+	public final ClipClock clock;
 	@Nullable public List<AnimFramePose> coolPoses;
 	@Nullable public AnimationMirror animationMirror;
 	
@@ -72,6 +74,7 @@ public class RotpAnimDefinition {
 				.toList();
 		
 		this.instructionTimelines = instructionTimelines;
+		this.clock = ClipClock.of(lengthInSeconds, loopBackTo, instructionTimelines);
 		this.coolPoses = coolPoses;
 	}
 	
@@ -221,7 +224,7 @@ public class RotpAnimDefinition {
 							appliedPhaseAnim = true;
 						}
 						case CONSTANT_LENGTH -> {
-							float phaseSecs = entityAction.phaseTime / 20f;
+							float phaseSecs = clock.elapsed(entityAction.phaseTime);
 							animSeconds = curPhaseTime + phaseSecs;
 //							if (entity != null && animSeconds >= this.animation.lengthInSeconds()) {
 //								entity.onSetPoseAnimEnded();
@@ -230,7 +233,7 @@ public class RotpAnimDefinition {
 						}
 						case LOOP_BACK -> {
 							float loopLen = nextPhaseTime - curPhase.getValue().loopBackTo;
-							float phaseSecs = entityAction.phaseTime / 20f;
+							float phaseSecs = clock.elapsed(entityAction.phaseTime);
 							if (curPhase.getValue().loopBackTo <= curPhaseTime) {
 								animSeconds = curPhaseTime + phaseSecs % loopLen;
 							}
@@ -262,15 +265,7 @@ public class RotpAnimDefinition {
 	 * @return anim time in seconds
 	 */
 	public float getAnimTime(float ticks) {
-		float time = ticks / 20f;
-		if (loopBackTo.isPresent()) {
-			float loopBackTo = this.loopBackTo.getAsFloat();
-			if (time > lengthInSeconds) {
-				float loopLen = lengthInSeconds - loopBackTo;
-				time = (time - loopBackTo) % loopLen + loopBackTo;
-			}
-		}
-		return time;
+		return clock.seconds(ticks);
 	}
 	
 
@@ -326,6 +321,51 @@ public class RotpAnimDefinition {
 
 	public static class TimelineKeys {
 		public static final String BARRAGE = "barrage";
+	}
+
+
+	/**
+	 * Clip playback clock. 1.16 played some player clips through a KosmX SpeedModifier;
+	 * the clip keeps its 1.16 keyframe times and sets the speed with a timeline key.
+	 * No client classes here, so server gametests can run it.
+	 */
+	public static final class ClipClock {
+		/** Timeline key for the playback speed, e.g. "0": "anim_speed = 1.75". */
+		public static final String SPEED_KEY = "anim_speed";
+
+		public final float speed;
+		public final float lengthInSeconds;
+		public final OptionalFloat loopBackTo;
+
+		public ClipClock(float speed, float lengthInSeconds, OptionalFloat loopBackTo) {
+			this.speed = speed > 0 ? speed : 1;
+			this.lengthInSeconds = lengthInSeconds;
+			this.loopBackTo = loopBackTo;
+		}
+
+		public static ClipClock of(float lengthInSeconds, OptionalFloat loopBackTo, @Nullable AnimInstructionTimelines timelines) {
+			// no key -> 0 -> speed 1
+			float speed = timelines != null ? (float) timelines.getNumericTimelineVal(SPEED_KEY, 0) : 1;
+			return new ClipClock(speed, lengthInSeconds, loopBackTo);
+		}
+
+		/** Clip seconds played after this many ticks, without looping. */
+		public float elapsed(float ticks) {
+			return ticks * speed / 20f;
+		}
+
+		/** Clip seconds shown after this many ticks; looping clips wrap in clip seconds. */
+		public float seconds(float ticks) {
+			float time = elapsed(ticks);
+			if (loopBackTo.isPresent()) {
+				float loopBack = loopBackTo.getAsFloat();
+				if (time > lengthInSeconds) {
+					float loopLen = lengthInSeconds - loopBack;
+					time = (time - loopBack) % loopLen + loopBack;
+				}
+			}
+			return time;
+		}
 	}
 	
 	

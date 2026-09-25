@@ -23,7 +23,6 @@ import rotp.core.powersystem.standpower.entity.StandEntityAbility;
 import rotp.core.powersystem.standpower.type.StandTypePersistentData;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.HitResultUtil;
-import rotp.core.util.functions.JojoModUtil;
 import rotp.core.impl.stands._entitybase.StandAbilityStamina;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 
@@ -52,6 +51,8 @@ public class MagiciansRedCrossfireHurricaneAbility extends StandEntityAbility im
 		partsRequired(StandPart.MAIN_BODY);
 		if (SPECIAL_ABILITY.equals(name())) {
 			isSubAbility = true;
+			// 1.16 SHIFT variation: still shouts while its user sneaks
+			setPlaysVoiceLineOnSneak();
 		}
 		setDefaultPhaseLength(ActionPhase.BUTTON_CHARGE, HOLD_TO_FIRE_TICKS);
 	}
@@ -120,13 +121,30 @@ public class MagiciansRedCrossfireHurricaneAbility extends StandEntityAbility im
 	}
 
 	public static class CrossfireShot extends EntityActionInstance {
+		// server only: the press shout is said once per charge
+		private boolean pressShoutSaid;
 
 		public CrossfireShot(EntityActionType ability) {
 			super(ability);
 		}
 
+		public boolean isPressShoutSaid() {
+			return pressShoutSaid;
+		}
+
 		@Override
 		public void onActionSet(EntityActionInstance prevAction) {
+			// 1.16 said the shout on the press that starts the charge (sneak rule included), not when the ankh fires
+			if (!pressShoutSaid && getPhase() == ActionPhase.BUTTON_CHARGE
+					&& performer != null && !performer.level().isClientSide()) {
+				pressShoutSaid = true;
+				LivingEntity user = getPowerUser();
+				if (user != null) {
+					Ability.sayShoutOf(ability, user, SPECIAL_ABILITY.equals(ability.getAbilityId().nameInMoveset())
+							? ModSoundEvents.AVDOL_CROSSFIRE_HURRICANE_SPECIAL
+							: ModSoundEvents.AVDOL_CROSSFIRE_HURRICANE);
+				}
+			}
 			if (getPerformer() instanceof StandEntity stand) {
 				ActionTarget target = captureActionTargetFromAim(stand);
 				keepStandAimedAtTarget(target);
@@ -152,9 +170,6 @@ public class MagiciansRedCrossfireHurricaneAbility extends StandEntityAbility im
 			boolean special = SPECIAL_ABILITY.equals(ability.getAbilityId().nameInMoveset());
 			int shots = special ? SPECIAL_SHOT_COUNT : 1;
 			Vec3 targetPos = special ? getAimTarget(level, stand, user) : null;
-			JojoModUtil.sayVoiceLine(user, special
-					? ModSoundEvents.AVDOL_CROSSFIRE_HURRICANE_SPECIAL
-					: ModSoundEvents.AVDOL_CROSSFIRE_HURRICANE);
 			for (int i = 0; i < shots; i++) {
 				MRCrossfireHurricaneEntity cross = new MRCrossfireHurricaneEntity(special, performer, level);
 				cross.setShootingPosOf(performer);

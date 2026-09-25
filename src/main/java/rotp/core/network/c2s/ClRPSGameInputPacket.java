@@ -1,5 +1,7 @@
 package rotp.core.network.c2s;
 
+import java.util.UUID;
+
 import javax.annotation.Nullable;
 
 import rotp.core.PacketsRegister;
@@ -9,6 +11,7 @@ import rotp.core.api.rps.RpsCheatRegistration;
 import rotp.core.api.rps.RpsCheatRegistrations;
 import rotp.core.core.JojoMod;
 import rotp.core.init.ModCriteriaTriggers;
+import rotp.core.init.ModCustomStats;
 import rotp.core.init.ModSoundEvents;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.network.s2c.RPSGameStatePacket;
@@ -89,22 +92,26 @@ public class ClRPSGameInputPacket implements CustomPacketPayload {
         @Override
         public void handle(ClRPSGameInputPacket payload, IPayloadContext context) {
             Player player = context.player();
-            if (!(player instanceof ServerPlayer serverPlayer)) {
-                return;
+            if (player instanceof ServerPlayer serverPlayer) {
+                handleOnServer(serverPlayer, payload);
             }
-            ServerSavedData data = ServerSavedData.get(serverPlayer.getServer());
-            RockPaperScissorsGame game = data.rpsPvpGames.get(serverPlayer.getUUID());
-            if (game == null
-                    || !serverPlayer.getUUID().equals(game.player())) {
-                return;
-            }
-            switch (payload.packetType) {
-                case PICK -> handlePick(serverPlayer, data, game, payload.pick);
-                case CHEAT -> handleCheat(serverPlayer, data, game,
-                        payload.cheatPower,
-                        payload.cheatSessionEpoch);
-                case QUIT -> handleQuit(serverPlayer, data, game);
-            }
+        }
+    }
+
+    /** Server side of the packet; public so gametests can drive it without a client. */
+    public static void handleOnServer(ServerPlayer serverPlayer, ClRPSGameInputPacket payload) {
+        ServerSavedData data = ServerSavedData.get(serverPlayer.getServer());
+        RockPaperScissorsGame game = data.rpsPvpGames.get(serverPlayer.getUUID());
+        if (game == null
+                || !serverPlayer.getUUID().equals(game.player())) {
+            return;
+        }
+        switch (payload.packetType) {
+            case PICK -> handlePick(serverPlayer, data, game, payload.pick);
+            case CHEAT -> handleCheat(serverPlayer, data, game,
+                    payload.cheatPower,
+                    payload.cheatSessionEpoch);
+            case QUIT -> handleQuit(serverPlayer, data, game);
         }
     }
 
@@ -306,7 +313,8 @@ public class ClRPSGameInputPacket implements CustomPacketPayload {
             return;
         }
         RockPaperScissorsGame opponentGame = data.rpsPvpGames.get(opponentPlayer.getUUID());
-        if (opponentGame == null) {
+        if (!isReciprocalGame(player, game, opponentPlayer, opponentGame)) {
+            // no game, or the opponent is in another match now: never pick into it
             handleQuit(player, data, game);
             return;
         }
@@ -408,16 +416,19 @@ public class ClRPSGameInputPacket implements CustomPacketPayload {
         boolean playerWon = game.playerWonMatch();
         PacketDistributor.sendToPlayer(player, RPSGameStatePacket.gameOver(playerWon));
         ModCriteriaTriggers.triggerRpsGame(player, playerWon, game.opponentWonMatch());
+        if (playerWon) {
+            player.awardStat(ModCustomStats.RPS_WON);
+        }
         data.rpsPvpGames.remove(player.getUUID());
     }
 
     private static void handleQuit(ServerPlayer player, ServerSavedData data, RockPaperScissorsGame game) {
-        data.rpsPvpGames.remove(player.getUUID());
+        // ends the opponent's game only for a mutual match; an unfinished one is paused
+        UUID opponent = data.rpsPvpGames.leave(player.getUUID());
         PacketDistributor.sendToPlayer(player, RPSGameStatePacket.leftGame());
-        if (!game.opponentIsNpc()) {
-            ServerPlayer opponentPlayer = player.getServer().getPlayerList().getPlayer(game.opponent());
+        if (opponent != null) {
+            ServerPlayer opponentPlayer = player.getServer().getPlayerList().getPlayer(opponent);
             if (opponentPlayer != null) {
-                data.rpsPvpGames.remove(opponentPlayer.getUUID());
                 PacketDistributor.sendToPlayer(opponentPlayer, RPSGameStatePacket.leftGame());
             }
         }

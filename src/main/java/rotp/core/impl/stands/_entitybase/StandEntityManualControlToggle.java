@@ -47,9 +47,17 @@ public class StandEntityManualControlToggle extends Ability {
 
 	@Override
 	public ConditionCheck checkSpecificConditions(Power<?> context) {
-		return canUseManualControl(context)
-				? ConditionCheck.POSITIVE
-				: ConditionCheck.createNegative("manual_control_disabled");
+		if (!canUseManualControl(context)) {
+			return ConditionCheck.createNegative("manual_control_disabled");
+		}
+		// 1.16 StandUtil.setManualControl silently refused arms-only Stands; grey the icon, no message
+		StandEntity stand = StandUtil.getSummonedStand(context);
+		LivingEntity user = context.getUser();
+		if (stand != null && user != null && stand.isArmsOnlyMode() && !stand.isManuallyControlled()
+				&& EntityComponentController.getControlTarget(user) != stand) {
+			return ConditionCheck.NEGATIVE;
+		}
+		return ConditionCheck.POSITIVE;
 	}
 	
 	private static boolean canUseManualControl(Power<?> context) {
@@ -90,7 +98,8 @@ public class StandEntityManualControlToggle extends Ability {
 	
 	public static void on(Level level, StandEntity stand) {
 		LivingEntity user = stand.getUser();
-		if (user == null) {
+		// 1.16 StandUtil.setManualControl: arms-only Stands cannot be taken over
+		if (user == null || stand.isArmsOnlyMode()) {
 			return;
 		}
 		stand.setManuallyControlled(true);

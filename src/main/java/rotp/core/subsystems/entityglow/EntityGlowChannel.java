@@ -9,6 +9,8 @@ import java.util.WeakHashMap;
 import java.util.function.BiConsumer;
 
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Slice 5a framework extension — entity glow channel API.
@@ -122,6 +124,26 @@ public final class EntityGlowChannel {
 			}
 			currentGlow(target).ifPresent(color -> consumer.accept(target, color));
 		}
+	}
+
+	/**
+	 * 1.16 ClientEventHandler.getEntityGEDetectHp: the live tagged entity whose box centre is closest to the look
+	 * direction from {@code from} (largest dot product), or null.
+	 */
+	public Entity mostLookedAt(Level level, Vec3 from, Vec3 look) {
+		Entity best = null;
+		double bestDot = Double.NEGATIVE_INFINITY;
+		for (Entity target : new ArrayList<>(glowState.keySet())) {
+			if (target == null || !target.isAlive() || target.level() != level || currentGlow(target).isEmpty()) {
+				continue;
+			}
+			double dot = target.getBoundingBox().getCenter().subtract(from).normalize().dot(look);
+			if (dot > bestDot) {
+				bestDot = dot;
+				best = target;
+			}
+		}
+		return best;
 	}
 
 	private static record GlowState(OptionalInt color, int expiresAtTick) {}

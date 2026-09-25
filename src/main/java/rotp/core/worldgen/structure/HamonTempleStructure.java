@@ -2,7 +2,9 @@ package rotp.core.worldgen.structure;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.IntBinaryOperator;
 
+import rotp.core.JojoModConfig;
 import rotp.core.core.JojoMod;
 import rotp.core.init.ModStructures;
 import com.mojang.serialization.MapCodec;
@@ -47,23 +49,57 @@ public class HamonTempleStructure extends Structure {
 
     @Override
     protected Optional<GenerationStub> findGenerationPoint(GenerationContext context) {
-        ChunkPos chunkPos = context.chunkPos();
-        int x = chunkPos.getMiddleBlockX();
-        int z = chunkPos.getMiddleBlockZ();
-        int y = context.chunkGenerator().getFirstOccupiedHeight(x, z, Heightmap.Types.WORLD_SURFACE_WG, context.heightAccessor(), context.randomState());
-        if (y < 90) {
-            return Optional.empty();
-        }
-        BlockPos origin = new BlockPos(x, y, z);
-        return Optional.of(new GenerationStub(origin, builder -> generatePieces(context.structureTemplateManager(), origin, builder, context.random())));
+        IntBinaryOperator surface = (x, z) -> context.chunkGenerator().getFirstOccupiedHeight(x, z,
+                Heightmap.Types.WORLD_SURFACE_WG, context.heightAccessor(), context.randomState());
+        return generationPoint(context, surface);
     }
 
-    private static void generatePieces(StructureTemplateManager templateManager, BlockPos origin, StructurePiecesBuilder builder, RandomSource random) {
+    // Surface is injectable so gametests can use it on a flat world.
+    public static Optional<GenerationStub> generationPoint(GenerationContext context, IntBinaryOperator surface) {
+        // 1.16 "Structures Spawn" toggle (common config)
+        if (!JojoModConfig.getCommonConfigInstance(false).hamonTempleSpawn.get()) {
+            return Optional.empty();
+        }
+        BlockPos origin = anchor(context.chunkPos(), surface);
+        if (origin == null) {
+            return Optional.empty();
+        }
+        // Biome is tested at the centre surface (1.16 used the surface biome), not at the sunk origin.
+        BlockPos probe = new BlockPos(origin.getX(), surface.applyAsInt(origin.getX(), origin.getZ()), origin.getZ());
+        return Optional.of(new GenerationStub(probe, builder -> generatePieces(context.structureTemplateManager(), origin, builder, context.random())));
+    }
+
+    // 1.16 anchor: chunk corner + 7, null when that column is below 90, else the footprint
+    // minimum (each sample floored at 80) sunk 3 blocks.
+    public static BlockPos anchor(ChunkPos chunkPos, IntBinaryOperator surfaceHeight) {
+        int centerX = chunkPos.getMinBlockX() + 7;
+        int centerZ = chunkPos.getMinBlockZ() + 7;
+        if (surfaceHeight.applyAsInt(centerX, centerZ) < 90) {
+            return null;
+        }
+        int minY = Integer.MAX_VALUE;
+        for (int x = centerX - 24; x <= centerX + 24; x += 8) {
+            for (int z = centerZ - 24; z <= centerZ + 24; z += 8) {
+                minY = Math.min(minY, Math.max(80, surfaceHeight.applyAsInt(x, z)));
+            }
+        }
+        return new BlockPos(centerX, minY - 3, centerZ);
+    }
+
+    // Every template the temple places (gametest checks they load).
+    public static List<ResourceLocation> templateIds() {
+        List<ResourceLocation> ids = new java.util.ArrayList<>(List.of(BUILDING, PATHWAY));
+        ids.addAll(List.of(ROCKS));
+        return ids;
+    }
+
+    public static void generatePieces(StructureTemplateManager templateManager, BlockPos origin, StructurePiecesBuilder builder, RandomSource random) {
         builder.addPiece(new Piece(templateManager, BUILDING.toString(), origin.offset(-24, -3, -24), Rotation.NONE));
         for (Rotation rotation : Rotation.values()) {
             builder.addPiece(new Piece(templateManager, PATHWAY.toString(), origin.offset(-1, -4, -1).offset(new BlockPos(-22, 0, -1).rotate(rotation)), rotation));
             ResourceLocation rock = ROCKS[random.nextInt(ROCKS.length)];
-            builder.addPiece(new Piece(templateManager, rock.toString(), origin.offset(new BlockPos(-21, -3, 0).rotate(rotation)), Rotation.NONE));
+            // 1.16: rock sits at (-4,-3,-4) + R(-21,0,0), centred on the pathway's outer end.
+            builder.addPiece(new Piece(templateManager, rock.toString(), origin.offset(-4, -3, -4).offset(new BlockPos(-21, 0, 0).rotate(rotation)), Rotation.NONE));
         }
     }
 
@@ -85,6 +121,10 @@ public class HamonTempleStructure extends Structure {
             super(ModStructures.HAMON_TEMPLE_PIECE.get(), tag, manager,
                     location -> new StructurePlaceSettings().setRotation(Rotation.valueOf(tag.getString("Rotation"))).setMirror(Mirror.NONE));
             this.rotation = Rotation.valueOf(tag.getString("Rotation"));
+        }
+
+        public String templateId() {
+            return templateName;
         }
 
         @Override

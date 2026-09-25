@@ -53,5 +53,11 @@ public class HamonTechnique {
 	public boolean canPick(HamonData hamon) {
 		return hamon != null && hamon.techniquesEnabled() && hamon.getCharacterTechnique() == null;
 	}
-	
+
+	// 1.16 tab lock: no technique until Strength and Control reach the first slot level
+	public static boolean techniquesLocked(HamonData hamon) {
+		return hamon == null || !hamon.techniquesEnabled()
+				|| hamon.getCharacterTechnique() == null && !hamon.hasTechniqueLevel(0);
+	}
+
 }

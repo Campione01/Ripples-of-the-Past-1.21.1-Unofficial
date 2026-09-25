@@ -7,7 +7,10 @@ import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
+import rotp.core.JojoModConfig;
 import rotp.core.api.stand.StandArrowPoolOverrides;
+import rotp.core.command.configpack.PlayerStandAssignmentConfig;
+import rotp.core.core.JojoMod;
 import rotp.core.init.power.ModStands;
 import rotp.core.init.ModEntityAttributes;
 import rotp.core.init.ModStatusEffects;
@@ -19,6 +22,8 @@ import rotp.core.powersystem.Power;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.type.StandType;
+import rotp.core.subsystems.ServerDuplicateCounter;
+import rotp.core.subsystems.ServerDuplicateCounter.UniquenessPriority;
 import rotp.core.subsystems.entity_grab.LivingComponentGrab;
 import rotp.core.util.functions.AttributeUtil;
 import rotp.core.util.functions.JojoModUtil;
@@ -31,6 +36,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.PlayerList;
@@ -43,17 +49,31 @@ import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.EventHooks;
 import net.neoforged.neoforge.event.PlayLevelSoundEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 public class StandUtil {
 	
 	public static Stream<StandType> standsForPlayerArrow() {
+		return standsForPlayerArrow(false);
+	}
+
+	public static Stream<StandType> standsForPlayerArrow(boolean clientSide) {
 		return StandType.getAllEnabledStands()
 				.filter(ModStands.PLAYER_CAN_GET_FROM_ARROW::contains)
 				.filter(stand -> !StandArrowPoolOverrides
-						.isExcluded(stand.getId()));
+						.isExcluded(stand.getId()))
+				.filter(stand -> !isStandBanned(stand, clientSide));
+	}
+
+	// 1.16 bannedStands config: out of arrows, random rolls, discs and the creative tab
+	public static boolean isStandBanned(@Nullable StandType standType, boolean clientSide) {
+		return standType != null
+				&& JojoModConfig.getCommonConfigInstance(clientSide).isStandBanned(standType.getId());
 	}
 	
 	public static Either<StandType, Component> randomStandOrError(Player player, RandomSource random) {
@@ -64,10 +84,61 @@ public class StandUtil {
 		if (stands.isEmpty()) {
 			return Either.right(Component.translatable("jojo.arrow.no_stands"));
 		}
+		// 1.16: /jojoconfig assign_stand limits the pool per player
+		stands = PlayerStandAssignmentConfig.limitToAssignedStands(player, stands);
+		if (stands.isEmpty()) {
+			return Either.right(Component.translatable("jojo.arrow.assigned_banned", player.getName()));
+		}
+		// 1.16 standArrowMode: LEAST_TAKEN / NOT_TAKEN narrow the pool server-wide
+		stands = limitStandPool(JojoModConfig.getCommonConfigInstance(false).standArrowMode.get(), player, stands);
+		if (stands.isEmpty()) {
+			return Either.right(Component.translatable("jojo.arrow.all_stands_taken"));
+		}
 		Optional<StandType> selected = randomWeightedStand(stands, random);
 		return selected.<Either<StandType, Component>>map(Either::left)
 				.orElseGet(() -> Either.right(
 						Component.translatable("jojo.arrow.no_stand_weights")));
+	}
+
+	// 1.16 StandUtil.StandRandomPoolFilter (config key standArrowMode)
+	public enum StandRandomPoolFilter {
+		NONE,
+		// only the Stands the fewest players on the server hold
+		LEAST_TAKEN,
+		// only the Stands no player on the server holds
+		NOT_TAKEN
+	}
+
+	public static List<StandType> limitStandPool(@Nullable StandRandomPoolFilter filter, Player player, List<StandType> stands) {
+		MinecraftServer server = player.getServer();
+		if (filter == null || filter == StandRandomPoolFilter.NONE || stands.isEmpty() || server == null) {
+			return stands;
+		}
+		UniquenessPriority mode = filter == StandRandomPoolFilter.NOT_TAKEN
+				? UniquenessPriority.ON_SERVER_UNIQUE
+				: UniquenessPriority.ON_SERVER;
+		return ServerDuplicateCounter.StandHolders.get(server).counter
+				.getMostUnique(mode, player.getUUID(), stands.stream(), StandType::getId)
+				.toList();
+	}
+
+	// 1.16 StandPower give/clear kept the server-wide taken count
+	public static void trackTakenStand(ServerPlayer player, @Nullable StandType stand) {
+		MinecraftServer server = player.getServer();
+		if (server != null) {
+			ServerDuplicateCounter.StandHolders.get(server).setHeld(player.getUUID(), stand != null ? stand.getId() : null);
+		}
+	}
+
+	// Stands given before the count existed are counted on login
+	@EventBusSubscriber(modid = JojoMod.MOD_ID)
+	public static class TakenStandEvents {
+		@SubscribeEvent
+		public static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
+			if (event.getEntity() instanceof ServerPlayer player) {
+				trackTakenStand(player, PowerClass.STAND.attachGet(player).getPowerType());
+			}
+		}
 	}
 
 	static Optional<StandType> randomWeightedStand(
@@ -186,7 +257,19 @@ public class StandUtil {
 		LivingEntity user = standPower.getUser();
 		return user == null || ResolveModeEffect.getResolveEffectLvl(user) >= 0 || standPower.isUserCreative();
 	}
-	
+
+	/** 1.16 StandPower client tick: below half stamina, where the debuff applies, the stamina bar flashes red. */
+	public static boolean showsStaminaDebuff(StandPower standPower) {
+		return standPower != null && standPower.getStamina() < standPower.getMaxStamina() * 0.5F
+				&& !standIgnoresStaminaDebuff(standPower);
+	}
+
+	/** 1.16 HUD: the Resolve icon was filled by level / max level. */
+	public static float resolveLevelFill(StandPower standPower) {
+		int maxLevel = standPower != null ? standPower.getMaxResolveLevel() : 0;
+		return maxLevel > 0 ? Math.min(Math.max((float) standPower.getResolveLevel() / (float) maxLevel, 0.0F), 1.0F) : 0.0F;
+	}
+
 	
 	public static double getPhysicalStatValue(StandPower standPower, StandStat stat) {
 		StandEntity standEntity = standPower.getSummonedStandEntity();
@@ -228,7 +311,18 @@ public class StandUtil {
 		Vec3 leap = Vec3.directionFromRotation(Math.min(entity.getXRot(), -30F), entity.getYRot()).scale(leapStrength);
 		entity.setDeltaMovement(leap.x, leap.y * 0.5, leap.z);
 	}
-	
+
+	/** 1.16 leap icon fill: 1 - cooldown / period, full without a period. */
+	public static float leapIconFill(int cooldown, int period) {
+		return period != 0 ? Math.min(Math.max(1.0F - (float) cooldown / (float) period, 0.0F), 1.0F) : 1.0F;
+	}
+
+	/** 1.16 leap icon x: beside the hotbar on the main arm's side, 20 further out past a hotbar attack indicator. */
+	public static int leapIconX(int guiWidth, boolean rightArm, boolean hotbarAttackIndicator) {
+		int shift = hotbarAttackIndicator ? 20 : 0;
+		return rightArm ? guiWidth / 2 + 91 + 6 + shift : guiWidth / 2 - 91 - 22 - shift;
+	}
+
 	
 	public static void broadcastSound(ServerLevel level, Vec3 pos, Holder<SoundEvent> sound, 
 			boolean onlyForStandUsers, StandPower userPower, 

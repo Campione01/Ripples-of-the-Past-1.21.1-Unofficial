@@ -14,7 +14,6 @@ import rotp.core.subsystems.target.ActionTarget.TargetType;
 import rotp.core.impl.powers.hamon.HamonData;
 import rotp.core.impl.powers.hamon.ModHamonSkills;
 
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
@@ -73,20 +72,9 @@ public class HamonMetalSilverOverdriveAbility extends HamonActionRuntimeAbility 
 		return target != null ? target.resolveEntityId(level) : ActionTarget.EMPTY;
 	}
 
-	static boolean dealMetalSilverDamage(LivingEntity target, LivingEntity user, float damage) {
-		boolean hurt = HamonAbilityHelpers.hamonHurt(target, user, damage);
-		if (hurt) {
-			sendSilverSparks(target, 8);
-		}
-		return hurt;
-	}
-
-	private static void sendSilverSparks(LivingEntity target, int count) {
-		if (target.level() instanceof ServerLevel serverLevel) {
-			serverLevel.sendParticles(ModParticles.HAMON_SPARK_SILVER.get(),
-					target.getX(), target.getY(0.5D), target.getZ(), count,
-					target.getBbWidth() * 0.25D, target.getBbHeight() * 0.25D, target.getBbWidth() * 0.25D, 0.05D);
-		}
+	// 1.16 hamonParticle(HAMON_SPARK_SILVER): one silver hit emitter, no extra burst; public for gametests
+	public static boolean dealMetalSilverDamage(LivingEntity target, LivingEntity user, float damage) {
+		return HamonAbilityHelpers.hamonHurt(target, damage, user, user, ModParticles.HAMON_SPARK_SILVER.get());
 	}
 
 	public static class MetalSilverOverdriveInstance extends HamonActionRuntimeAbility.HamonRuntimeActionInstance {

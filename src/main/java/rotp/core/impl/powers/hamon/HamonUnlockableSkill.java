@@ -72,7 +72,7 @@ public class HamonUnlockableSkill extends UnlockableSkill {
 		}
 
 		HamonTechnique technique = hamon.getCharacterTechnique();
-		if (technique == null || !HamonData.MIX_HAMON_TECHNIQUES && !technique.isTechniqueSkill(skillName)) {
+		if (technique == null || !HamonData.mixHamonTechniques() && !technique.isTechniqueSkill(skillName)) {
 			return ConditionCheck.createNegative(Component.translatable("hamon.closed.technique.bug"));
 		}
 		int learnedTechniqueSkills = hamon.getLearnedTechniqueSkillCount();

@@ -85,7 +85,8 @@ public class PillarmanHideInEntityAbility extends PillarmanActionAbility {
 			}
 			LivingEntity target = getValidTarget(user, level);
 			if (target != null) {
-				LivingComponentPossession.setPossessionTarget(user, target, "pillarman_hide_in_entity");
+				// Shift leaves it (LivingComponentPossession.tick)
+				LivingComponentPossession.setPossessionTarget(user, target, LivingComponentPossession.PILLARMAN_HIDE_IN_ENTITY);
 			}
 		}
 	}

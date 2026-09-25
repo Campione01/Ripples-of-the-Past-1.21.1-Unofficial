@@ -201,7 +201,16 @@ public class ModDamageTypes {
 			DamageTypeTags.PANIC_CAUSES,
 			DamageTypeTags.NO_KNOCKBACK,
 			Tags.DamageTypes.IS_ENVIRONMENT);
-	
+
+	// Angelo rock deaths (1.16 "rockBroken" / "rockRespawn": bypassArmor + bypassInvul)
+	public static final ResourceKey<DamageType> ROCK_BROKEN = DAMAGE_TYPES.withTags(JojoMod.resLoc("rock_broken"),
+			DamageTypeTags.BYPASSES_ARMOR,
+			DamageTypeTags.BYPASSES_INVULNERABILITY);
+
+	public static final ResourceKey<DamageType> ROCK_RESPAWN = DAMAGE_TYPES.withTags(JojoMod.resLoc("rock_respawn"),
+			DamageTypeTags.BYPASSES_ARMOR,
+			DamageTypeTags.BYPASSES_INVULNERABILITY);
+
 	static {
 		DAMAGE_TYPES.addToTag(CAN_HURT_STANDS, ResourceLocation.fromNamespaceAndPath("jojowor", "stand"), false);
 	}

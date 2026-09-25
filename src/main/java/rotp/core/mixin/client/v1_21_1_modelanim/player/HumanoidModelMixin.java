@@ -18,6 +18,7 @@ import rotp.core.client.entityrender.EntityActionRenderState;
 import rotp.core.client.entityrender.RipplesPlayerRenderState;
 import rotp.core.client.entityrender.RipplesPlayerRenderState.RipplesRenderStateExtensionMixin;
 import rotp.core.mrpresident.CocoJumboTurtleEntity;
+import rotp.core.util.mod.HumanoidArmPoses;
 import rotp.core.compat.v1_21_4.missingmethods.Model_1_21_2plus;
 import rotp.core.compat.v1_21_4.renderstate.HumanoidRenderState;
 import com.google.common.collect.ImmutableList;
@@ -159,6 +160,24 @@ public abstract class HumanoidModelMixin/* extends ModelMixinSuperclass*/ extend
 	@Inject(method = "setupAnim", at = @At("TAIL"))
 	public void jojo_ripples$cocoJumboCarryPose(LivingEntity entity, float limbSwing, float limbSwingAmount, float ageInTicks,
 			float netHeadYaw, float headPitch, CallbackInfo ci) {
+		// 1.16 BipedModelMixin: leaves glider and coffin arm poses
+		float[] pose = new float[HumanoidArmPoses.SIZE];
+		pose[HumanoidArmPoses.LEFT_X] = leftArm.xRot;
+		pose[HumanoidArmPoses.LEFT_Y] = leftArm.yRot;
+		pose[HumanoidArmPoses.LEFT_Z] = leftArm.zRot;
+		pose[HumanoidArmPoses.RIGHT_X] = rightArm.xRot;
+		pose[HumanoidArmPoses.RIGHT_Y] = rightArm.yRot;
+		pose[HumanoidArmPoses.RIGHT_Z] = rightArm.zRot;
+		pose[HumanoidArmPoses.BODY_Z] = body.zRot;
+		if (HumanoidArmPoses.apply(entity, pose)) {
+			leftArm.xRot = pose[HumanoidArmPoses.LEFT_X];
+			leftArm.yRot = pose[HumanoidArmPoses.LEFT_Y];
+			leftArm.zRot = pose[HumanoidArmPoses.LEFT_Z];
+			rightArm.xRot = pose[HumanoidArmPoses.RIGHT_X];
+			rightArm.yRot = pose[HumanoidArmPoses.RIGHT_Y];
+			rightArm.zRot = pose[HumanoidArmPoses.RIGHT_Z];
+			body.zRot = pose[HumanoidArmPoses.BODY_Z];
+		}
 		for (Entity passenger : entity.getPassengers()) {
 			if (CocoJumboTurtleEntity.isCarriedTurtle(passenger, entity)) {
 				if (entity.getMainArm() == HumanoidArm.LEFT) {

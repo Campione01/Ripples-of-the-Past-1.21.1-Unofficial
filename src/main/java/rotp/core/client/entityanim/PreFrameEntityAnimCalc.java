@@ -10,6 +10,7 @@ import rotp.core.api.client.animation.AddonPlayerAnimations.PlayerAnimationState
 import rotp.core.client.entityanim.RotpAnimDefinition.AnimWithId;
 import rotp.core.client.entityanim.barrage.BarrageSwings;
 import rotp.core.client.entityanim.molang.AnimMolangQuery.AnimMolangVariables;
+import rotp.core.client.entityanim.playerbend.ArmsFollowPitch;
 import rotp.core.client.entityanim.pose.AnimFramePose;
 import rotp.core.client.entityanim.pose.AnimatedEntity;
 import rotp.core.client.entityrender.stand.StandEntityModel;
@@ -21,23 +22,29 @@ import rotp.core.core.JojoMod;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.entityaction.ActionAnimIdentifier;
+import rotp.core.powersystem.entityaction.ActionAnimIdentifier.ActionAnimIdHandsided;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.playerpower.PlayerPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.impl.powers.hamon.HamonData;
+import rotp.core.impl.powers.hamon.entity.HamonMasterEntity;
 import rotp.core.impl.powers.pillarman.PillarmanData;
 import rotp.core.impl.powers.pillarman.PillarmanPowerType;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility.StandEntityPunch;
 
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.model.HumanoidModel;
+import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.entity.EntityRenderer;
+import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.TickRateManager;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
@@ -111,13 +118,17 @@ public class PreFrameEntityAnimCalc {
 				&& living instanceof Player player
 						? AddonPlayerAnimations.resolve(player, partialTick)
 						: null;
-		
+		// 1.16 HamonMasterModel: the NPC always sits in the meditation pose
+		@Nullable HamonMasterEntity sittingHamonMaster = action == null && stand == null
+				&& living instanceof HamonMasterEntity master ? master : null;
+
 		LivingAnimState animVariables = LivingAnimState.reusedInstance;
 		if (action != null
 				|| stand != null
 				|| persistentHamonPose != null
 				|| persistentStoneForm != null
-				|| addonPlayerAnimation != null) {
+				|| addonPlayerAnimation != null
+				|| sittingHamonMaster != null) {
 			if (persistentHamonPose != null) {
 				animVariables.reset();
 				animVariables.animSet = ModPlayerPowers.HAMON.get().getId();
@@ -141,6 +152,9 @@ public class PreFrameEntityAnimCalc {
 					animVariables.animId = ActionAnimIdentifier.getOrCreate("pillarman_stone_form",
 							persistentStoneForm.getStoneFormPose(), false);
 					animVariables.time = persistentStoneForm.getStoneFormAnimTicks() + partialTick;
+				}
+				else if (sittingHamonMaster != null) {
+					fillHamonMasterPose(animVariables, sittingHamonMaster, partialTick);
 				}
 				else if (addonPlayerAnimation != null) {
 					animVariables.animSet =
@@ -181,6 +195,7 @@ public class PreFrameEntityAnimCalc {
 				boolean implicitPunchMirror = action instanceof StandEntityPunch punch
 						&& punch.usesHandedAnimation();
 				if (action != null && standSkin != null) {
+					animVariables.animId = userSideOfMirroredClip(standSkin, stand, animVariables.animId);
 					animVariables.animId = resolvePortedActionAnim(
 							standSkin, stand, action, animVariables.animId,
 							stand.isArmsOnlyMode(), implicitPunchMirror);
@@ -192,13 +207,26 @@ public class PreFrameEntityAnimCalc {
 				animVariables.animId = animPossiblyReplaced.animId;
 			}
 			else {
-				anim = getPlayerAnim(animVariables.animSet, animVariables.animId);
+				anim = getPlayerAnim(animVariables.animSet, animVariables.animId, AnimationSet.handedClipArm(living));
 			}
 			
 			if (anim != null) {
 				float timeSeconds = anim.getAnimTime(animVariables);
-				pose = anim.calcAnimPose(AnimMolangVariables.extract(living, partialTick), 
+				AnimMolangVariables molangVariables = AnimMolangVariables.extract(living, partialTick);
+				float lookXRot = molangVariables.xRot;
+				pose = anim.calcAnimPose(molangVariables,
 						actionComponent != null ? actionComponent.clPrevPunchPose : null, timeSeconds, 1);
+				if (stand == null) {
+					// 1.16 KosmXArmsRotationModifier: barrage arms follow the look pitch
+					AnimFramePose.ModelPartFrame leftArm = pose.getIfPresent("left_arm");
+					AnimFramePose.ModelPartFrame rightArm = pose.getIfPresent("right_arm");
+					ArmsFollowPitch.tiltArms(anim.instructionTimelines, lookXRot,
+							leftArm != null ? leftArm.rotationOffset : null,
+							rightArm != null ? rightArm.rotationOffset : null);
+				}
+				boolean userPoseCopied = stand != null && stand.isArmsOnlyMode() && animVariables.animId != null
+						&& AnimationSet.copiesUserPoseInArmsOnly(animVariables.animId.name())
+						&& copyUserBipedPose(stand, pose);
 				((AnimatedEntity) living).jojo_ripples$setModelPose(AnimatedEntity.PoseType.UNMODIFIED, pose);
 				
 				if (newFrame) {
@@ -208,7 +236,7 @@ public class PreFrameEntityAnimCalc {
 					}
 				}
 				
-				if (ClientModSettings.getSettingsReadOnly().standMotionTilt && stand != null) {
+				if (ClientModSettings.getSettingsReadOnly().standMotionTilt && stand != null && !userPoseCopied) {
 					EntityRenderer renderer = Minecraft.getInstance().getEntityRenderDispatcher().getRenderer(living);
 					if (renderer instanceof StandEntityRenderer standEntityRenderer) {
 						StandEntityModel model = standEntityRenderer.getEntityModel(stand);
@@ -224,6 +252,16 @@ public class PreFrameEntityAnimCalc {
 		return pose;
 	}
 
+	/**
+	 * 1.16 played the Hamon meditation clip on the Hamon Master at half speed, on one timeline shared by
+	 * the model, so an NPC was met already seated: start at the clip's loop point (1.75 s = 35 ticks).
+	 */
+	static void fillHamonMasterPose(LivingAnimState animVariables, HamonMasterEntity master, float partialTick) {
+		animVariables.animSet = ModPlayerPowers.HAMON.get().getId();
+		animVariables.animId = ActionAnimIdentifier.getOrCreate("meditation", false);
+		animVariables.time = 35.0F + (master.tickCount + partialTick) * 0.5F;
+	}
+
 	private static ActionAnimIdentifier selectStandIdleAnim(StandEntity stand, ActionAnimIdentifier baseIdleAnim) {
 		if (!StandEntityRenderer.IDLE_ANIM.equals(baseIdleAnim)) {
 			return baseIdleAnim;
@@ -236,13 +274,65 @@ public class PreFrameEntityAnimCalc {
 		}
 		return baseIdleAnim;
 	}
+
+	/**
+	 * A mirrored clip requested by its base name (Crazy Diamond's repair/revert/uncraft reach) plays the side of
+	 * the user's main arm, as 1.16 mirrored those poses for left-handed users. A skin shipping the base clip keeps it.
+	 */
+	private static ActionAnimIdentifier userSideOfMirroredClip(StandSkin skin, StandEntity stand, ActionAnimIdentifier animId) {
+		LivingEntity user = stand.getUser();
+		if (animId == null || animId.isIdle() || user == null || stand.isArmsOnlyMode()) {
+			return animId;
+		}
+		HumanoidArm mainArm = user.getMainArm();
+		ActionAnimIdentifier sided = new ActionAnimIdHandsided(animId).get(mainArm);
+		boolean[] useSided = { false };
+		// the first set that resolves the name decides, so a skin's own base or aliased clip still wins
+		skin.getStandAnimation(anims -> {
+			if (AnimationSet.userSideKey(animId.name(), mainArm, anims.namedAnimations::containsKey) != null) {
+				useSided[0] = true;
+				return anims.getNamedAnim(sided);
+			}
+			return anims.getNamedAnim(animId);
+		});
+		return useSided[0] ? sided : animId;
+	}
+
+	/**
+	 * 1.16 CopyBipedUserPose: with only its arm out, the reach clips gave way to the user's own head, arm and leg
+	 * rotations, so the lone arm overlays the user's arm instead of reaching out from an invisible turned body.
+	 */
+	private static boolean copyUserBipedPose(StandEntity stand, AnimFramePose pose) {
+		LivingEntity user = stand.getUser();
+		if (user == null
+				|| !(Minecraft.getInstance().getEntityRenderDispatcher().getRenderer(user) instanceof LivingEntityRenderer<?, ?> userRenderer)
+				|| !(userRenderer.getModel() instanceof HumanoidModel<?> userModel)) {
+			return false;
+		}
+		// 1.16 reset the whole Stand pose first, so body, torso and bend bones stay neutral
+		pose.clear();
+		copyRotation(pose, "head", userModel.head);
+		copyRotation(pose, "left_arm", userModel.leftArm);
+		copyRotation(pose, "right_arm", userModel.rightArm);
+		copyRotation(pose, "left_leg", userModel.leftLeg);
+		copyRotation(pose, "right_leg", userModel.rightLeg);
+		return true;
+	}
+
+	private static void copyRotation(AnimFramePose pose, String bone, ModelPart from) {
+		pose.getForModelPart(bone).rotationOffset.set(from.xRot, from.yRot, from.zRot);
+	}
 	
 	public static RotpAnimDefinition getPlayerAnim(ResourceLocation animSetPath, ActionAnimIdentifier animId) {
+		return getPlayerAnim(animSetPath, animId, HumanoidArm.RIGHT);
+	}
+
+	/** 1.16 mirrored the handed Hamon, Pillar Man and vampire clips for left-handed players. */
+	public static RotpAnimDefinition getPlayerAnim(ResourceLocation animSetPath, ActionAnimIdentifier animId, HumanoidArm mainArm) {
 		if (animSetPath != null && animId != null) {
 			AnimationSet animSet = AnimationLoader.getInstance().getAnimSet(animSetPath);
 			if (animSet != null) {
-				RotpAnimDefinition anim = animSet.getNamedAnim(animId);
-				return anim;
+				return animSet.getPlayerAnim(animId, mainArm);
 			}
 		}
 		return null;

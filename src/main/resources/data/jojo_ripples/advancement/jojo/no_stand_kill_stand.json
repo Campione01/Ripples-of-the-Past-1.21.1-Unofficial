@@ -2,7 +2,7 @@
   "parent": "jojo_ripples:jojo/root",
   "display": {
     "icon": {
-      "item": "minecraft:netherite_sword"
+      "id": "minecraft:netherite_sword"
     },
     "title": {
       "translate": "advancements.jojo.no_stand_kill_stand.title"

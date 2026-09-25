@@ -31,6 +31,8 @@ public final class StandPowerTransitions {
 			new TransitionContext(
 					JojoMod.resLoc("legacy_stand_transition_api"),
 					null);
+	// the core Stand Disc's context source (ModItems.STAND_DISC id)
+	private static final ResourceLocation STAND_DISC_SOURCE = JojoMod.resLoc("stand_disc");
 	private static final Map<ResourceLocation, TransitionVeto> VETOES =
 			new LinkedHashMap<>();
 	private static final Map<ResourceLocation, MutationVeto>
@@ -51,6 +53,10 @@ public final class StandPowerTransitions {
 		return extract(new StandPowerAccess(power), expectedCurrent);
 	}
 
+	/**
+	 * Legacy replace: also resets the Resolve value (levels kept), the leap cooldown and the stamina, as 1.16
+	 * clear() + give did. Use the context overload to keep them.
+	 */
 	public static Result replace(StandPower power, ResourceLocation expectedCurrent, StandInstance replacement) {
 		Objects.requireNonNull(power, "power");
 		return replace(
@@ -74,7 +80,9 @@ public final class StandPowerTransitions {
 
 	/**
 	 * Replaces the expected Stand through a contextual, server-thread mutation
-	 * preflight.
+	 * preflight. Keeps the Resolve value, leap cooldown and stamina (an act
+	 * change), except for the Stand Disc source, which resets them like the
+	 * legacy replace.
 	 */
 	public static Result replace(
 			StandPower power,
@@ -289,7 +297,19 @@ public final class StandPowerTransitions {
 		if (vetoStatus != null) {
 			return Result.failed(vetoStatus);
 		}
+		// 1.16 StandDiscItem.use ran putOutStand()/clear() then give, so a disc swap resets like the legacy
+		// replace (the vetoes above still saw the disc source)
+		if (STAND_DISC_SOURCE.equals(context.source())) {
+			context = LEGACY_CONTEXT;
+		}
 		power.setStandInstance(Optional.of(committed));
+		// 1.16 evolutions ran clear() then give: the old Stand's Resolve value went with it. Other context
+		// callers (Tusk's act change) keep it.
+		if (context == LEGACY_CONTEXT) {
+			power.resetResolveValue();
+			// 1.16 give -> onNewPowerGiven zeroed the leap cooldown; an act change keeps it
+			power.resetLeapCooldown();
+		}
 		return Result.applied(Optional.of(previousSnapshot), Optional.of(committed));
 	}
 
@@ -576,6 +596,7 @@ public final class StandPowerTransitions {
 		Optional<StandInstance> getStandInstance();
 		void setStandInstance(Optional<StandInstance> standInstance);
 		default void resetResolveValue() {}
+		default void resetLeapCooldown() {}
 		default void applyDestructiveTransition(boolean fullReset) {
 			setStandInstance(Optional.empty());
 		}
@@ -620,6 +641,11 @@ public final class StandPowerTransitions {
 		@Override
 		public void resetResolveValue() {
 			power.resolveCounter.resetResolveValue(power);
+		}
+
+		@Override
+		public void resetLeapCooldown() {
+			power.resetLeapCooldownForNewStand();
 		}
 
 		@Override

@@ -2,7 +2,12 @@
   "parent": "jojo_ripples:jojo/pillarman_evolve",
   "display": {
     "icon": {
-      "item": "jojo_ripples:aja_stone_mask"
+      "id": "jojo_ripples:aja_stone_mask",
+      "components": {
+        "minecraft:custom_data": {
+          "Activated": 1
+        }
+      }
     },
     "title": {
       "translate": "advancements.jojo.pillarman_evolve_aja.title"

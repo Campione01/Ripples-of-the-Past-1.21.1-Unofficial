@@ -1,9 +1,5 @@
 package rotp.core.impl.stands.goldexperience;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
-
 import rotp.core.customobjects.DamageSourceModified;
 import rotp.core.customobjects.ObjectEntity;
 import rotp.core.entityattachment.syncheddata.SynchedDataBuilder;
@@ -34,9 +30,6 @@ import net.minecraft.world.phys.Vec3;
 public class GoldExperienceHeavyPunchAbility extends StandEntityHeavyPunchAbility {
     private static final String LIFESHOT_PUNCH_ABILITY = "lifeshot_punch";
     private static final float LIFESHOT_KNOCKBACK_MULTIPLIER = 1.25F;
-    private static final float TOOTH_KNOCKOUT_CHANCE = 0.38F;
-    private static final int TOOTH_KNOCKOUT_COOLDOWN_TICKS = 5 * 20;
-    private static final Map<UUID, Long> LAST_TOOTH_KNOCKOUT_TICKS = new HashMap<>();
 
     public GoldExperienceHeavyPunchAbility(AbilityType<?> abilityType, AbilityId abilityId) {
         super(abilityType, abilityId);
@@ -225,19 +218,9 @@ public class GoldExperienceHeavyPunchAbility extends StandEntityHeavyPunchAbilit
             synchedData.set(TOOTH_READY, ready);
         }
 
+        // 1.16 getToothObject: every hurting punch on a toothed species, no chance or cooldown
         private static boolean shouldKnockOutTooth(StandEntity stand, LivingEntity target) {
-            long gameTime = stand.level().getGameTime();
-            UUID targetId = target.getUUID();
-            Long lastKnockoutTick = LAST_TOOTH_KNOCKOUT_TICKS.get(targetId);
-            if (lastKnockoutTick != null && gameTime - lastKnockoutTick < TOOTH_KNOCKOUT_COOLDOWN_TICKS) {
-                return false;
-            }
-            if (stand.getRandom().nextFloat() >= TOOTH_KNOCKOUT_CHANCE) {
-                return false;
-            }
-            LAST_TOOTH_KNOCKOUT_TICKS.put(targetId, gameTime);
-            LAST_TOOTH_KNOCKOUT_TICKS.entrySet().removeIf(entry -> gameTime - entry.getValue() > 20 * 60);
-            return true;
+            return GoldExperienceToothLifeformAbility.isToothSourceTarget(target);
         }
 
         private static ObjectEntity knockOutTooth(ServerLevel level, StandEntity stand, LivingEntity target) {

@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -20,8 +21,11 @@ import rotp.core.core.JojoMod;
 import rotp.core.util.functions.NBTUtil;
 import rotp.core.util.objects_java.ReuseableStream;
 
+import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.world.level.saveddata.SavedData;
 
 public class ServerDuplicateCounter {
 	public UniquenessPriority _mode;
@@ -35,6 +39,10 @@ public class ServerDuplicateCounter {
 	public static record EntryCounter<T>(T value, ResourceLocation id, int seenByPlayer, int seenOnServer) {}
 
 	public <T> Stream<T> getMostUnique(UUID playerId, Stream<T> eligible, Function<T, ResourceLocation> getId) {
+		return getMostUnique(_mode, playerId, eligible, getId);
+	}
+
+	public <T> Stream<T> getMostUnique(UniquenessPriority mode, UUID playerId, Stream<T> eligible, Function<T, ResourceLocation> getId) {
 		Map<ResourceLocation, MutableInt> playerCounter = _perPlayerCounters.get(playerId);
 		Stream<EntryCounter<T>> counters = eligible.map(entry -> {
 			ResourceLocation id = getId.apply(entry);
@@ -44,7 +52,7 @@ public class ServerDuplicateCounter {
 		});
 		
 		Stream<EntryCounter<T>> mostUnique;
-		switch (_mode) {
+		switch (mode) {
 			case FOR_PLAYER -> {
 				mostUnique = getAllMin(getAllMin(counters, 
 						EntryCounter::seenByPlayer), 
@@ -65,7 +73,7 @@ public class ServerDuplicateCounter {
 						EntryCounter::seenOnServer, 0), 
 						EntryCounter::seenByPlayer);
 			}
-			default -> throw new UnsupportedOperationException("Unimplemented case: " + _mode);
+			default -> throw new UnsupportedOperationException("Unimplemented case: " + mode);
 		}
 		return mostUnique.map(EntryCounter::value);
 	}
@@ -95,7 +103,11 @@ public class ServerDuplicateCounter {
 		MutableInt count = _serverWideCounter.get(valueId);
 		if (count != null) count.decrement();
 	}
-	
+
+	public void incrementOnlyOnServer(ResourceLocation valueId) {
+		_serverWideCounter.computeIfAbsent(valueId, __ -> new MutableInt(0)).increment();
+	}
+
 	
 	public int getSeenOnServer(ResourceLocation entryId) {
 		return getValue(_serverWideCounter.get(entryId));
@@ -167,8 +179,103 @@ public class ServerDuplicateCounter {
 	}
 
 
+	/*
+	 * 1.16 SaveFileUtilCap.timesStandsTaken: which Stand each player on the server holds.
+	 * Read by the standArrowMode pool filter (LEAST_TAKEN / NOT_TAKEN).
+	 */
+	public static class StandHolders extends SavedData {
+		private static final String FILE_NAME = JojoMod.MOD_ID + "-stands_taken";
+		private final Map<UUID, ResourceLocation> holders = new HashMap<>();
+		// 1.16 putOutStand: Stands a player put onto a disc stay taken
+		private final Map<ResourceLocation, MutableInt> onDisc = new HashMap<>();
+		// rebuilt from holders and onDisc on load, so it cannot drift
+		public final ServerDuplicateCounter counter = new ServerDuplicateCounter(UniquenessPriority.ON_SERVER);
+
+		public static StandHolders get(MinecraftServer server) {
+			return server.overworld().getDataStorage().computeIfAbsent(
+					new SavedData.Factory<>(StandHolders::new, StandHolders::load), FILE_NAME);
+		}
+
+		// idempotent: setting the same Stand again does not count it twice
+		public void setHeld(UUID playerId, @Nullable ResourceLocation standId) {
+			ResourceLocation old = standId != null ? holders.put(playerId, standId) : holders.remove(playerId);
+			if (Objects.equals(old, standId)) return;
+			if (old != null) counter.decrementCounter(playerId, old);
+			if (standId != null) counter.incrementCounter(playerId, standId);
+			setDirty();
+		}
+
+		@Nullable
+		public ResourceLocation getHeld(UUID playerId) {
+			return holders.get(playerId);
+		}
+
+		// a player's Stand went onto a disc (1.16 clear(false)): still counted
+		public void putOnDisc(ResourceLocation standId) {
+			onDisc.computeIfAbsent(standId, __ -> new MutableInt(0)).increment();
+			counter.incrementOnlyOnServer(standId);
+			setDirty();
+		}
+
+		// a counted disc's Stand went back into a player; false if none was counted
+		public boolean takeFromDisc(ResourceLocation standId) {
+			MutableInt count = onDisc.get(standId);
+			if (count == null || count.intValue() <= 0) return false;
+			count.decrement();
+			if (count.intValue() <= 0) onDisc.remove(standId);
+			counter.decrementOnlyOnServer(standId);
+			setDirty();
+			return true;
+		}
+
+		public int getOnDisc(ResourceLocation standId) {
+			return getValue(onDisc.get(standId));
+		}
+
+		@Override
+		public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
+			CompoundTag held = new CompoundTag();
+			holders.forEach((playerId, standId) -> held.putString(playerId.toString(), standId.toString()));
+			tag.put("Holders", held);
+			CompoundTag discs = new CompoundTag();
+			onDisc.forEach((standId, count) -> discs.putInt(standId.toString(), count.intValue()));
+			tag.put("OnDisc", discs);
+			return tag;
+		}
+
+		public static StandHolders load(CompoundTag tag, HolderLookup.Provider registries) {
+			StandHolders data = new StandHolders();
+			CompoundTag held = tag.getCompound("Holders");
+			for (String key : held.getAllKeys()) {
+				ResourceLocation standId = ResourceLocation.tryParse(held.getString(key));
+				UUID playerId;
+				try {
+					playerId = UUID.fromString(key);
+				}
+				catch (IllegalArgumentException e) {
+					continue;
+				}
+				if (standId != null) {
+					data.setHeld(playerId, standId);
+				}
+			}
+			CompoundTag discs = tag.getCompound("OnDisc");
+			for (String key : discs.getAllKeys()) {
+				ResourceLocation standId = ResourceLocation.tryParse(key);
+				if (standId != null) {
+					for (int i = discs.getInt(key); i > 0; i--) {
+						data.putOnDisc(standId);
+					}
+				}
+			}
+			data.setDirty(false);
+			return data;
+		}
+	}
+
+
 	public enum UniquenessPriority {
-		/* filter for the entries most unique FOR THE PLAYER, 
+		/* filter for the entries most unique FOR THE PLAYER,
 		 * then pick the ones most unique ON THE SERVER 
 		 * (for PvE-focused content)
 		 */

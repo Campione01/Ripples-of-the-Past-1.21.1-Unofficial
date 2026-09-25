@@ -72,6 +72,21 @@ public class HamonMasterEntity extends Mob implements Npc {
 		return super.finalizeSpawn(level, difficulty, spawnType, spawnGroupData);
 	}
 
+	// Template-placed masters skip finalizeSpawn; 1.16 re-added base Hamon after loading.
+	// Checked on the first server tick so worldgen threads never touch power data.
+	private boolean masterHamonChecked;
+
+	@Override
+	public void tick() {
+		if (!masterHamonChecked && !level().isClientSide()) {
+			masterHamonChecked = true;
+			if (PlayerPower.getPowerData(this, ModPlayerPowers.HAMON).isEmpty()) {
+				addMasterHamon();
+			}
+		}
+		super.tick();
+	}
+
 	@Override
 	public boolean isInvulnerableTo(DamageSource source) {
 		return super.isInvulnerableTo(source) || source.is(ModDamageTypes.HAMON);

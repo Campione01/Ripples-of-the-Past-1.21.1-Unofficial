@@ -8,6 +8,7 @@ import java.util.function.Consumer;
 import rotp.core.core.JojoMod;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.powersystem.playerpower.PlayerPower;
+import rotp.core.powersystem.playerpower.PlayerPowerData;
 import rotp.core.impl.powers.hamon.HamonData;
 import rotp.core.impl.powers.pillarman.PillarmanData;
 import rotp.core.impl.powers.vampirism.BloodEconomy;
@@ -60,7 +61,8 @@ public class JojoEnergyCommand {
 	}
 
 	private static LiteralArgumentBuilder<CommandSourceStack> powerEnergyCommand(String literal, EnergyKind kind) {
-		return Commands.literal(literal).then(energyCommand("energy", kind));
+		// Op-only like 1.16; the first registration of a shared node decides its requires.
+		return Commands.literal(literal).requires(ctx -> ctx.hasPermission(2)).then(energyCommand("energy", kind));
 	}
 
 	private static LiteralArgumentBuilder<CommandSourceStack> energyCommand(String literal, EnergyKind kind) {
@@ -162,6 +164,14 @@ public class JojoEnergyCommand {
 		PlayerPower power = PlayerPower.get(user);
 		if (power == null || !power.hasPower()) {
 			return Optional.empty();
+		}
+		// Add-on powers (Ultimate Lifeform, Speedwagon): 1.16 took any non-stand power's energy.
+		if (kind == EnergyKind.ANY && power.getCurTypeData() instanceof PlayerPowerData data) {
+			float max = data.getCommandMaxEnergy(user);
+			if (max > 0.0F) {
+				return Optional.of(new EnergyAccess(data.getCommandEnergy(), max,
+						amount -> data.setCommandEnergy(user, amount)));
+			}
 		}
 		if (kind.matches(EnergyKind.HAMON)) {
 			Optional<HamonData> hamon = power.getCurTypeData(ModPlayerPowers.HAMON);

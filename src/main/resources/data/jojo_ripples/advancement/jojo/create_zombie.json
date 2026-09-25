@@ -2,7 +2,7 @@
   "parent": "jojo_ripples:jojo/get_vampirism",
   "display": {
     "icon": {
-      "item": "minecraft:zombie_head"
+      "id": "minecraft:zombie_head"
     },
     "title": {
       "translate": "advancements.jojo.create_zombie.title"

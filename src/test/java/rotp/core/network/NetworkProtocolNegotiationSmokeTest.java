@@ -33,6 +33,9 @@ public final class NetworkProtocolNegotiationSmokeTest {
 				"knockbackrestick lost its entity id; recheck the protocol version");
 		check(Integer.parseInt(PacketsRegister.NETWORK_PROTOCOL_VERSION) >= 7,
 				"the clientbound knockbackrestick payload needs core protocol v7 or later");
+		// R148 added clglidercolor, standassign, trspecialeffect, trhamonparticles and trafkmenacing
+		check(Integer.parseInt(PacketsRegister.NETWORK_PROTOCOL_VERSION) >= 8,
+				"the R148 payloads (leaves glider colour, Stand assignment, special effects, Hamon particles, AFK menacing) need core protocol v8 or later");
 
 		var matching = NetworkComponentNegotiator.validateComponent(
 				requiredComponent(PacketsRegister.NETWORK_PROTOCOL_VERSION),

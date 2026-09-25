@@ -56,22 +56,24 @@ public class ClAngeloRockButtonPacket implements CustomPacketPayload {
 
 		@Override
 		public void handle(ClAngeloRockButtonPacket packet, IPayloadContext context) {
-			if (!(context.player() instanceof ServerPlayer player)) {
-				return;
+			if (context.player() instanceof ServerPlayer player) {
+				handleOnServer(player, packet);
 			}
-			Entity possessed = LivingComponentPossession.getEntityPossessedBy(player);
-			if (possessed != null && possessed.getType() == ModEntityTypes.ANGELO_ROCK.get()) {
-				switch (packet.packetType) {
-				case RESPAWN:
-					LivingComponentPossession.setPossessionTarget(player, null, null);
-					player.invulnerableTime = 0;
-					player.removeEffect(MobEffects.DAMAGE_RESISTANCE);
-					player.hurt(player.damageSources().genericKill(), Float.MAX_VALUE);
-					break;
-				case GRUNT:
-					possessed.playSound(ModSoundEvents.ANGELO_ROCK_GRUNT.get(), 1, 1);
-					break;
-				}
+		}
+	}
+
+	public static void handleOnServer(ServerPlayer player, ClAngeloRockButtonPacket packet) {
+		Entity possessed = LivingComponentPossession.getEntityPossessedBy(player);
+		if (possessed != null && possessed.getType() == ModEntityTypes.ANGELO_ROCK.get()) {
+			switch (packet.packetType) {
+			case RESPAWN:
+				// 1.16 death message "rockRespawn"; ending the possession kills with it
+				player.removeEffect(MobEffects.DAMAGE_RESISTANCE);
+				LivingComponentPossession.respawnFromAngeloRock(player);
+				break;
+			case GRUNT:
+				possessed.playSound(ModSoundEvents.ANGELO_ROCK_GRUNT.get(), 1, 1);
+				break;
 			}
 		}
 	}

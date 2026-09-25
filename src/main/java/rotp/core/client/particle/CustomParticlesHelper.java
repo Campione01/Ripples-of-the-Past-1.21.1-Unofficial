@@ -9,7 +9,10 @@ import javax.annotation.Nullable;
 import rotp.core.client.ClientGlobals;
 import rotp.core.client.particle.type.custom.BloodFromEntityParticle;
 import rotp.core.client.particle.type.custom.EntityPosParticle;
+import rotp.core.client.particle.type.custom.MenacingParticleEmitter;
+import rotp.core.client.sound.sounds.EntityLingeringSoundInstance;
 import rotp.core.init.ModParticles;
+import rotp.core.init.ModSoundEvents;
 import rotp.core.util.functions.MathUtil;
 import rotp.core.impl.stands.crazydiamond.client.CrazyDRestorationHandItemParticle;
 import rotp.core.impl.powers.hamon.client.particle.custom.FirstPersonHamonAura;
@@ -32,6 +35,8 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleType;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.core.particles.SimpleParticleType;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.LivingEntity;
@@ -78,11 +83,12 @@ public abstract class CustomParticlesHelper {
 //
 //
 //
-//	public static void addMenacingParticleEmitter(Entity entity, SimpleParticleType particle) {
-//		Minecraft mc = Minecraft.getInstance();
-//		ClientReflection.getTrackingEmitters(Minecraft.getInstance().particleEngine).add(
-//				new MenacingParticleEmitter(mc.level, entity, particle, mc.player));
-//	}
+	// 1.16 TrEntitySpecialEffectPacket: "Go" particles beside the entity for 10 s
+	public static void addMenacingParticleEmitter(Entity entity, SimpleParticleType particle) {
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.level == null || mc.player == null) return;
+		mc.particleEngine.add(new MenacingParticleEmitter(mc.level, entity, particle, mc.player));
+	}
 
 	public static boolean createCDRestorationParticle(LivingEntity entity, InteractionHand hand) {
 		if (!ClientGlobals.canSeeStands) return false;
@@ -242,10 +248,28 @@ public abstract class CustomParticlesHelper {
 		}
 	}
 
-//	public static void createParticlesEmitter(Entity entity, ParticleOptions type, int ticks) {
-//		Minecraft.getInstance().particleEngine.createTrackingEmitter(entity, type, ticks);
-//	}
-//
+	public static void createParticlesEmitter(Entity entity, ParticleOptions type, int ticks) {
+		Minecraft.getInstance().particleEngine.createTrackingEmitter(entity, type, ticks);
+	}
+
+	// 1.16 HamonUtil.createHamonSparkParticlesEmitter client half: staggered tracking emitters plus the long crackle
+	public static void createHamonSparkParticlesEmitter(Entity entity, float intensity, float soundVolumeMultiplier, ParticleOptions particle) {
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.level == null || !(intensity > 0.0F)) {
+			return;
+		}
+		intensity = Math.min(intensity, 4.0F);
+		float volume = intensity * 2.0F * soundVolumeMultiplier;
+		int emitters = (int) (intensity * 9.5F);
+		for (int i = emitters; i >= 0; i--) {
+			createParticlesEmitter(entity, particle, Math.max(1, emitters - i));
+			if (i % 2 == 0 && i < 4 && volume > 0.0F) {
+				mc.getSoundManager().play(new EntityLingeringSoundInstance(ModSoundEvents.HAMON_SPARKS_LONG.get(), SoundSource.AMBIENT,
+						Math.min(volume, 1.0F), 1.0F + (mc.level.random.nextFloat() - 0.5F) * 0.15F, entity, mc.level));
+			}
+		}
+	}
+
 	public static boolean addParticle(Particle particle, Vec3 particlePos, boolean overrideLimiter, boolean alwaysVisible) {
 		Minecraft mc = Minecraft.getInstance();
 		Camera activerenderinfo = mc.gameRenderer.getMainCamera();

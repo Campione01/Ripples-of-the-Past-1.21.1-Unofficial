@@ -12,9 +12,11 @@ import javax.annotation.Nullable;
 
 import rotp.core.core.JojoMod;
 import rotp.core.init.ModEntityTypes;
+import rotp.core.init.power.ModStandAbilities;
 import rotp.core.init.power.ModStands;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.standpower.StandPower;
+import rotp.core.powersystem.standpower.effect.UserStandEffects;
 import rotp.core.util.functions.AttributeUtil;
 import rotp.core.util.mc.entitysubtype.EntitySubtype;
 import rotp.core.util.mc.entitysubtype.EntityTypeToInstance;
@@ -54,10 +56,14 @@ import net.minecraft.world.entity.monster.Vex;
 import net.minecraft.world.entity.monster.piglin.AbstractPiglin;
 import net.minecraft.world.entity.npc.Npc;
 import net.minecraft.world.entity.raid.Raider;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ShearsItem;
 import net.minecraft.world.item.trading.Merchant;
 import net.minecraft.world.level.Level;
 import net.minecraft.util.RandomSource;
+import net.neoforged.neoforge.common.IShearable;
+import net.neoforged.neoforge.common.ItemAbilities;
 
 public final class GoldExperienceLifeforms {
     private static final String COCO_JUMBO_STAND_SUBTYPE = "stand";
@@ -288,6 +294,14 @@ public final class GoldExperienceLifeforms {
         return entity instanceof LivingEntity living
                 ? AttributeUtil.getValueOrDefault(living, Attributes.ATTACK_DAMAGE, 0.0D)
                 : 0.0D;
+    }
+
+    // 1.16 ShearsItemMixin: shears that would shear a GE lifeform are refused instead (the shearer takes 1 damage)
+    public static boolean refusesShearing(Player player, ItemStack stack, Entity target) {
+        return target instanceof LivingEntity living && target instanceof IShearable shearable
+                && (stack.getItem() instanceof ShearsItem || stack.canPerformAction(ItemAbilities.SHEARS_HARVEST))
+                && UserStandEffects.isTargetedBy(living, ModStandAbilities.EFFECT_GE_CREATED_LIFEFORM.get())
+                && shearable.isShearable(player, stack, target.level(), target.blockPosition());
     }
 
     public static boolean isNativeLifeform(Entity targetEntity, Level level, LivingEntity user) {

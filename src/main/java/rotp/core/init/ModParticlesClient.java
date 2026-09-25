@@ -48,7 +48,11 @@ public class ModParticlesClient {
 		event.registerSpriteSet(ModParticles.BOILING_BLOOD_POP.get(),	LavaParticle.Provider::new);
 		event.registerSpriteSet(ModParticles.FLAME_ONE_TICK.get(),		OneTickFlameParticle.Factory::new);
 		event.registerSpriteSet(ModParticles.METEORITE_VIRUS.get(),		MeteoriteVirusParticle.Factory::new);
-		event.registerSpriteSet(ModParticles.MENACING.get(),			OnomatopoeiaParticle.GoFactory::new);
+		// the menacing emitter reads the saved sprite set
+		event.registerSpriteSet(ModParticles.MENACING.get(),			sprite -> {
+			CustomParticlesHelper.saveSpriteSet(ModParticles.MENACING.get(), sprite);
+			return new OnomatopoeiaParticle.GoFactory(sprite);
+		});
 		event.registerSpriteSet(ModParticles.RESOLVE.get(),				OnomatopoeiaParticle.DoFactory::new);
 		event.registerSpriteSet(ModParticles.KATAKANA_DO.get(),			OnomatopoeiaParticle.DoFactory::new);
 		event.registerSpriteSet(ModParticles.SOUL_CLOUD.get(),			SoulCloudParticleFactory::new);

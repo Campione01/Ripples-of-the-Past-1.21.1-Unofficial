@@ -108,8 +108,10 @@ public final class StandUserGuardSmokeTest {
 				"returnattacker!=stand&&attacker!=user&&!stand.isInvulnerableTo(source);",
 				// in the hurt cooldown only the excess over lastHurt is cut; lastHurt keeps the whole hit
 				"if(user.invulnerableTime>10&&!source.is(DamageTypeTags.BYPASSES_COOLDOWN)){",
-				"floatleft=cut.apply(Math.max(amount-lastHurt,0));if(left<=0&&onLanded!=null){BLOCKED_WHOLE.add(container);}"
-						+ "returnamount-left;",
+				"floatexcess=Math.max(amount-lastHurt,0);floatleft=cut.apply(excess);"
+						+ "if(left<=0&&onLanded!=null){BLOCKED_WHOLE.add(container);}",
+				// Resolve gets the cut of the excess back (guardCut)
+				"if(excess-left>0){GUARD_CUTS.merge(container,excess-left,Float::sum);}returnamount-left;",
 				"booleanshieldTakesIt=user.isDamageSourceBlocked(source);",
 				"user.lastHurt+=removed;",
 				// 1.16 cancelled a hit the Stand's block took whole; the explosion cut never did
@@ -139,10 +141,20 @@ public final class StandUserGuardSmokeTest {
 
 	private static void requireInOrder(String text, String... tokens) {
 		int from = 0;
+		String previous = "<start>";
 		for (String token : tokens) {
 			int at = text.indexOf(token, from);
-			check(at >= 0, "Stand user guard source lost or reordered: " + token);
+			if (at < 0) {
+				// say whether the token is gone or only out of order, and show what follows the last match
+				int anywhere = text.indexOf(token);
+				String state = anywhere < 0 ? "lost (not in the compacted source)"
+						: "reordered (found at " + anywhere + ", before the previous token ended at " + from + ")";
+				String after = text.substring(from, Math.min(text.length(), from + 240));
+				throw new AssertionError("Stand user guard source " + state + ": " + token
+						+ "\n  previous token: " + previous + "\n  source after it: " + after);
+			}
 			from = at + token.length();
+			previous = token;
 		}
 	}
 

@@ -4,6 +4,7 @@ import java.util.List;
 
 import javax.annotation.Nullable;
 
+import rotp.core.JojoModConfig;
 import rotp.core.init.ModCriteriaTriggers;
 import rotp.core.init.ModDamageTypes;
 import rotp.core.init.ModItems;
@@ -11,6 +12,7 @@ import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.item.GlovesItem;
 import rotp.core.mechanics.HamonSpreadEffect;
 import rotp.core.mechanics.JojoDefinitions;
+import rotp.core.network.s2c.TrHamonParticlesPacket;
 import rotp.core.powersystem.playerpower.PlayerPower;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.subsystems.target.ActionTarget;
@@ -117,6 +119,12 @@ public final class HamonAbilityHelpers {
 
 	public static boolean hamonHurt(LivingEntity target, float baseDamage,
 			@Nullable Entity directEntity, @Nullable Entity causingEntity) {
+		return hamonHurt(target, baseDamage, directEntity, causingEntity, null);
+	}
+
+	// sparkParticle: 1.16 HamonAttackProperties.hamonParticle, null for the default spark
+	public static boolean hamonHurt(LivingEntity target, float baseDamage,
+			@Nullable Entity directEntity, @Nullable Entity causingEntity, @Nullable ParticleOptions sparkParticle) {
 		if (targetHasHamonDamageImmunity(target)) {
 			return false;
 		}
@@ -124,7 +132,8 @@ public final class HamonAbilityHelpers {
 		if (damage <= 0.0F) {
 			return false;
 		}
-		return hamonHurtWithAmount(target, damage, hamonDamageSource(target.level(), directEntity, causingEntity));
+		return hamonHurtWithAmountAndSparks(target, damage,
+				hamonDamageSource(target.level(), directEntity, causingEntity), sparkParticle);
 	}
 
 	public static DamageSource hamonDamageSource(Level level, @Nullable Entity directEntity, @Nullable Entity causingEntity) {
@@ -140,24 +149,31 @@ public final class HamonAbilityHelpers {
 	}
 
 	public static boolean hamonHurtWithAmount(LivingEntity target, float damage, DamageSource source) {
+		return hamonHurtWithAmountAndSparks(target, damage, source, null);
+	}
+
+	private static boolean hamonHurtWithAmountAndSparks(LivingEntity target, float damage, DamageSource source,
+			@Nullable ParticleOptions sparkParticle) {
 		if (targetHasHamonDamageImmunity(target)) {
 			return false;
 		}
 		float damageBeforeSourceMultiplier = damage;
-		damage *= sourceEntityHamonMultiplier(source);
+		damage *= sourceEntityHamonMultiplier(source) * configHamonDamageMultiplier();
 		int invulTicks = target.invulnerableTime;
 		float lastHurt = target.lastHurt;
 		target.invulnerableTime = 0;
 		boolean hurt = target.hurt(source, damage);
 		target.invulnerableTime = invulTicks;
 		target.lastHurt = lastHurt;
+		float dealtDamage = damage;
 		damage = damageBeforeSourceMultiplier;
 		if (hurt) {
 			target.hurtMarked = true;
+			sendHamonSparkEmitter(target, dealtDamage, sparkParticle);
 			applyHamonSpread(target, damage, source);
 			if (target instanceof ServerPlayer player
 					&& target.getItemBySlot(EquipmentSlot.HEAD).is(ModItems.SATIPOROJA_SCARF.get())
-					&& JojoDefinitions.isUndeadOrVampiric(target)) {
+					&& JojoDefinitions.isAffectedByHamon(target)) {
 				ModCriteriaTriggers.triggerVampireHamonDamageScarf(player);
 			}
 		}
@@ -179,18 +195,25 @@ public final class HamonAbilityHelpers {
 		int invulTicks = target.invulnerableTime;
 		float lastHurt = target.lastHurt;
 		target.invulnerableTime = 0;
-		boolean hurt = target.hurt(source, damage);
+		float dealtDamage = damage * configHamonDamageMultiplier();
+		boolean hurt = target.hurt(source, dealtDamage);
 		target.invulnerableTime = invulTicks;
 		target.lastHurt = lastHurt;
 		if (hurt) {
 			target.hurtMarked = true;
+			sendHamonSparkEmitter(target, dealtDamage, null);
 			if (target instanceof ServerPlayer player
 					&& target.getItemBySlot(EquipmentSlot.HEAD).is(ModItems.SATIPOROJA_SCARF.get())
-					&& JojoDefinitions.isUndeadOrVampiric(target)) {
+					&& JojoDefinitions.isAffectedByHamon(target)) {
 				ModCriteriaTriggers.triggerVampireHamonDamageScarf(player);
 			}
 		}
 		return hurt;
+	}
+
+	// 1.16 DamageUtil: the hamonDamageMultiplier config scales every Hamon hit, spread excluded
+	public static float configHamonDamageMultiplier() {
+		return JojoModConfig.getCommonConfigInstance(false).hamonDamageMultiplier.get().floatValue();
 	}
 
 	private static float sourceEntityHamonMultiplier(DamageSource source) {
@@ -253,13 +276,34 @@ public final class HamonAbilityHelpers {
 				.orElse(false);
 	}
 
+	// 1.16 hamonParticle: the coloured spark rides the hit's emitter, no separate burst (particleCount unused)
 	public static boolean hamonHurtWithParticles(LivingEntity target, LivingEntity user,
 			float baseDamage, ParticleOptions particles, int particleCount) {
-		boolean hurt = hamonHurt(target, user, baseDamage);
-		if (hurt && particles != null) {
-			sendHamonParticles(target, particles, particleCount);
+		return hamonHurt(target, baseDamage, user, user, particles);
+	}
+
+	// 1.16 DamageUtil.dealHamonDamage: every landed Hamon hit sparks on the target, scaled by the dealt damage
+	private static void sendHamonSparkEmitter(LivingEntity target, float dealtDamage, @Nullable ParticleOptions sparkParticle) {
+		if (target.level().isClientSide()) {
+			return;
 		}
-		return hurt;
+		TrHamonParticlesPacket packet = TrHamonParticlesPacket.emitter(target,
+				dealtDamage / (HamonData.MAX_HAMON_STRENGTH_MULTIPLIER * 5.0F), 1.0F, sparkParticle);
+		if (packet != null) {
+			lastSparkEmitter = packet;
+			TrHamonParticlesPacket.send(target, packet);
+		}
+	}
+
+	// last emitter sent by the server, read by the gametests
+	@Nullable
+	private static volatile TrHamonParticlesPacket lastSparkEmitter;
+
+	@Nullable
+	public static TrHamonParticlesPacket takeLastSparkEmitter() {
+		TrHamonParticlesPacket packet = lastSparkEmitter;
+		lastSparkEmitter = null;
+		return packet;
 	}
 
 	public static boolean hamonHurtThroughInvul(LivingEntity target, LivingEntity user, float baseDamage) {

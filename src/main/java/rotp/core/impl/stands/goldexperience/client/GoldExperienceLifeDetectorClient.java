@@ -1,26 +1,49 @@
 package rotp.core.impl.stands.goldexperience.client;
 
+import java.util.List;
 import java.util.OptionalInt;
+
+import com.mojang.blaze3d.systems.RenderSystem;
 
 import rotp.core.client.ClientGlobals;
 import rotp.core.client.VisualPipelineDiagnostics;
 import rotp.core.client.standskin.StandSkin;
 import rotp.core.client.standskin.StandSkinsLoader;
+import rotp.core.client.ui.hud_power.PowerHud;
+import rotp.core.client.ui.utils.BlitFloat;
+import rotp.core.client.ui.utils.GuiIcon;
+import rotp.core.client.util.functions.ClientUtil;
+import rotp.core.core.JojoMod;
+import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
+import rotp.core.powersystem.playerpower.PlayerPower;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.subsystems.entityglow.EntityGlowChannel;
 import rotp.core.subsystems.soul.SoulEntity;
 import rotp.core.impl.stands.goldexperience.GoldExperienceHealAbility;
+import rotp.core.impl.stands.goldexperience.GoldExperienceLifeDetectorReadout;
+import rotp.core.impl.stands.goldexperience.GoldExperienceLifeDetectorReadout.ReadoutKind;
+import rotp.core.impl.stands.goldexperience.GoldExperienceLifeDetectorReadout.ReadoutLine;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.inventory.tooltip.TooltipRenderUtil;
 import net.minecraft.util.FastColor;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 
+@EventBusSubscriber(modid = JojoMod.MOD_ID, value = Dist.CLIENT)
 public final class GoldExperienceLifeDetectorClient {
 	private static final String LIFE_DETECTOR_ID = "life_detector";
 	private static final double MAX_SCAN_RADIUS = 32.0;
@@ -130,5 +153,128 @@ public final class GoldExperienceLifeDetectorClient {
 			blue = Math.min(255, Math.round(blue * scale));
 		}
 		return FastColor.ARGB32.color(0, red, green, Math.max(blue, 64));
+	}
+
+
+	// 1.16 ClientEventHandler.hudRenderEntityGEDetectorData: the readout next to the detected entity looked at.
+	private static final int ICON_WIDTH = 17;
+	private static final int LINE_HEIGHT = 10;
+	private static final GuiIcon HEALTH_ICON = new GuiIcon(JojoMod.resLoc("textures/gui/sprites/health.png"), 9, 9);
+
+	private static Entity readoutTarget;
+	private static ClientUtil.PosOnScreen readoutTargetPos;
+
+	@SubscribeEvent
+	public static void findReadoutTarget(RenderLevelStageEvent event) {
+		if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_ENTITIES) {
+			return;
+		}
+		readoutTarget = null;
+		readoutTargetPos = null;
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.player == null || mc.level == null) {
+			return;
+		}
+		Entity target = EntityGlowChannel.GE_LIFE_DETECTOR.mostLookedAt(
+				mc.level, event.getCamera().getPosition(), mc.player.getLookAngle());
+		if (target == null) {
+			return;
+		}
+		float partialTick = ClientUtil.partialTick(event.getPartialTick(), target);
+		Vec3 pos = target.getPosition(partialTick).add(0, target.getBbHeight() * 0.5F, 0);
+		readoutTarget = target;
+		readoutTargetPos = ClientUtil.posOnScreen(pos, event.getCamera(), event.getModelViewMatrix(), event.getProjectionMatrix());
+	}
+
+	public static void renderHud(GuiGraphics guiGraphics) {
+		Entity entity = readoutTarget;
+		ClientUtil.PosOnScreen entityPos = readoutTargetPos;
+		Minecraft mc = Minecraft.getInstance();
+		if (entity == null || entityPos == null || !entityPos.isOnScreen() || entity.level() != mc.level) {
+			return;
+		}
+		List<ReadoutLine> lines = GoldExperienceLifeDetectorReadout.readout(entity);
+		if (lines.isEmpty()) {
+			return;
+		}
+		Font font = mc.font;
+		int screenWidth = guiGraphics.guiWidth();
+		int screenHeight = guiGraphics.guiHeight();
+		int anchorX = (int) (screenWidth * entityPos.pos().x);
+		int anchorY = (int) (screenHeight * (1 - entityPos.pos().y));
+
+		int width = 0;
+		for (ReadoutLine line : lines) {
+			width = Math.max(width, ICON_WIDTH + font.width(line.percent() + "%"));
+		}
+		int height = lines.size() * LINE_HEIGHT - 2;
+		// 1.16 GuiUtils.drawHoveringText placement
+		int x = anchorX + 12;
+		if (x + width + 4 > screenWidth) {
+			x = anchorX - 16 - width;
+		}
+		int y = anchorY - 12;
+		if (y < 4) {
+			y = 4;
+		}
+		else if (y + height + 4 > screenHeight) {
+			y = screenHeight - height - 4;
+		}
+
+		// Stand UI colour border, as 1.16
+		int uiColor = standUiColor(mc.player);
+		int background = 0xF0000000
+				| ((FastColor.ARGB32.red(uiColor) / 5) << 16) | ((FastColor.ARGB32.green(uiColor) / 5) << 8) | (FastColor.ARGB32.blue(uiColor) / 5);
+		int borderStart = 0x50000000 | uiColor;
+		int borderEnd = (borderStart & 0xFEFEFE) >> 1 | borderStart & 0xFF000000;
+		TooltipRenderUtil.renderTooltipBackground(guiGraphics, x, y, width, height, 0,
+				background, background, borderStart, borderEnd);
+
+		RenderSystem.enableBlend();
+		RenderSystem.defaultBlendFunc();
+		int lineY = y;
+		for (ReadoutLine line : lines) {
+			renderIcon(guiGraphics, line.kind(), entity, x, lineY);
+			guiGraphics.drawString(font, line.percent() + "%", x + ICON_WIDTH, lineY, 0xFFFFFFFF);
+			lineY += LINE_HEIGHT;
+		}
+		RenderSystem.disableBlend();
+	}
+
+	private static void renderIcon(GuiGraphics guiGraphics, ReadoutKind kind, Entity entity, int x, int y) {
+		switch (kind) {
+		case HEALTH -> HEALTH_ICON.render(guiGraphics.pose(), x, y - 1, 9, 9, BlitFloat.NO_TINT);
+		case ENERGY -> {
+			GuiIcon icon = energyIcon(entity);
+			if (icon != null) {
+				icon.render(guiGraphics.pose(), x - 1, y - 2, 10, 10, BlitFloat.NO_TINT);
+			}
+		}
+		case STAMINA -> PowerHud.Stamina.ICON.render(guiGraphics.pose(), x - 1, y - 2, 10, 10, BlitFloat.NO_TINT);
+		case RESOLVE -> PowerHud.Resolve.HORIZONTAL_FULL.render(guiGraphics.pose(), x, y - 1, 16, 8, BlitFloat.NO_TINT);
+		}
+	}
+
+	private static GuiIcon energyIcon(Entity entity) {
+		PlayerPower power = entity instanceof LivingEntity living ? PlayerPower.get(living) : null;
+		var type = power != null ? power.getPowerType() : null;
+		if (type == null) return null;
+		if (type == ModPlayerPowers.HAMON.get()) return PowerHud.HamonEnergy.ICON;
+		if (type == ModPlayerPowers.VAMPIRISM.get()) return PowerHud.VampireEnergy.ICON;
+		if (type == ModPlayerPowers.ZOMBIE.get()) return PowerHud.ZombieEnergy.ICON;
+		if (type == ModPlayerPowers.PILLAR_MAN.get()) return PowerHud.PillarmanEnergy.ICON;
+		return null;
+	}
+
+	// 1.16 ActionsOverlayGui.getPowerUiColor(STAND): the Stand skin colour, white without one
+	private static int standUiColor(LivingEntity user) {
+		StandPower standPower = user != null ? StandPower.get(user) : null;
+		if (standPower != null && StandSkinsLoader.getInstance() != null) {
+			StandSkin skin = StandSkinsLoader.getInstance().getSkin(standPower);
+			if (skin != null) {
+				return skin.getColor() & 0xFFFFFF;
+			}
+		}
+		return 0xFFFFFF;
 	}
 }

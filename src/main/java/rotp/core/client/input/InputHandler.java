@@ -35,6 +35,7 @@ import rotp.core.client.ui.hud_power.PowerHud;
 import rotp.core.client.util.functions.ClientUtil;
 import rotp.core.config.client.ClientModSettings;
 import rotp.core.event.client.PreKeyInputEvent;
+import rotp.core.init.ModStatusEffects;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.item.KnifeItem;
 import rotp.core.item.StoneMaskItem;
@@ -90,6 +91,7 @@ import net.minecraft.world.phys.HitResult;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.ICancellableEvent;
 import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.neoforge.client.event.CalculatePlayerTurnEvent;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
@@ -371,6 +373,11 @@ public class InputHandler {
 		ClientControlScheme directPlayerPowerControlScheme = getDirectPlayerPowerControlScheme(key, keyModifier);
 		if (directPlayerPowerControlScheme != null) {
 			return directPlayerPowerControlScheme;
+		}
+		// player keys from the controls editor (1.16 ActionKeybindEntry KeyActiveType)
+		ClientControlScheme customKeyScheme = AllControlSchemes.getCustomKeyScheme(key, keyModifier, activeControlScheme);
+		if (customKeyScheme != null) {
+			return customKeyScheme;
 		}
 		if (activeControlScheme != null) {
 			return activeControlScheme;
@@ -1212,8 +1219,17 @@ public class InputHandler {
 	public void playerMovementInput(MovementInputUpdateEvent event) {
 		Player player = event.getEntity();
 		Input input = event.getInput();
+		// 1.16 ControllerStand.onInputUpdate: a stunned player's own movement keys do nothing
+		if ((mc.getCameraEntity() == player || mc.getCameraEntity() == null) && ModStatusEffects.isStunned(player)) {
+			input.forwardImpulse = 0;
+			input.leftImpulse = 0;
+			input.jumping = false;
+			if (player.getVehicle() != null) {
+				input.shiftKeyDown = false;
+			}
+		}
 		float movementMultiplier = 1;
-		
+
 		EntityActionInstance playerAction = LivingComponentAction.getCurEntityAction(player);
 		if (playerAction != null) {
 			movementMultiplier *= playerAction.userWalkSpeed;
@@ -1396,6 +1412,26 @@ public class InputHandler {
 		return ARROW_KEYS.get(keyCode);
 	}
 
+
+	// 1.16 shouldVanillaInputStun: vanilla attack and use clicks do nothing while stunned.
+	// Ability clicks are handled earlier and still reach the server's own stun checks.
+	@SubscribeEvent(priority = EventPriority.LOWEST)
+	public void cancelVanillaClickInStun(InteractionKeyMappingTriggered event) {
+		if ((event.isAttack() || event.isUseItem()) && mc.player != null && ModStatusEffects.isStunned(mc.player)) {
+			event.setCanceled(true);
+			event.setSwingHand(false);
+		}
+	}
+
+	// 1.16 ZERO_SENSITIVITY: the camera does not turn while stunned (0.6 * s + 0.2 == 0).
+	private static final double STUNNED_MOUSE_SENSITIVITY = -1.0 / 3.0;
+
+	@SubscribeEvent(priority = EventPriority.LOWEST)
+	public void freezeCameraInStun(CalculatePlayerTurnEvent event) {
+		if (mc.player != null && ModStatusEffects.isStunned(mc.player)) {
+			event.setMouseSensitivity(STUNNED_MOUSE_SENSITIVITY);
+		}
+	}
 
 	@SubscribeEvent(priority = EventPriority.LOWEST)
 	public void fixArrowPunchKick(InteractionKeyMappingTriggered event) {

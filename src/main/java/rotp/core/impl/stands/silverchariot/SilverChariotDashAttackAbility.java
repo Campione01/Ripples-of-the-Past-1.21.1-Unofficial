@@ -10,9 +10,11 @@ import java.util.Set;
 import rotp.core.client.ClientGlobals;
 import rotp.core.client.sound.ClientsideSoundsHelper;
 import rotp.core.init.ModSoundEvents;
+import rotp.core.mechanics.KnockbackCollisionImpact;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.AbilityId;
+import rotp.core.powersystem.ability.EntityActionAbility;
 import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.entityaction.ActionPhase;
@@ -28,11 +30,13 @@ import rotp.core.subsystems.target.HitResultUtil;
 import rotp.core.subsystems.timestop.TimeStopState;
 import rotp.core.util.functions.MathUtil;
 import rotp.core.impl.stands._entitybase.StandAbilityStamina;
+import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 
 import net.minecraft.util.Mth;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.level.Level;
@@ -60,7 +64,34 @@ public class SilverChariotDashAttackAbility extends StandEntityAbility {
 		if (!level.isClientSide() && performer instanceof StandEntity stand) {
 			action.phasesLength.put(ActionPhase.PERFORM, Math.max(StandStatFormulas.getHeavyAttackWindup(
 					stand.getAttackSpeed(), stand.getFinisherMeter()), 2));
-			action.phasesLength.put(ActionPhase.RECOVERY, StandStatFormulas.getHeavyAttackRecovery(stand.getAttackSpeed(), stand.getFinisherMeter()));
+			// recovery is set in onActionSet from the finisher snapshot
+		}
+	}
+
+	/** 1.16 StandEntityHeavyAttack onClick/onTaskSet: snapshot the finisher meter, recover by it, spend 0.51. */
+	static void setHeavyFinisher(EntityActionInstance action, StandEntity stand) {
+		boolean server = !stand.level().isClientSide();
+		if (server) {
+			stand.setHeavyPunchFinisher();
+		}
+		action.phasesLength.put(ActionPhase.RECOVERY, StandStatFormulas.getHeavyAttackRecovery(
+				stand.getAttackSpeed(), stand.getLastHeavyFinisherValue()));
+		if (server) {
+			stand.addFinisherMeter(-0.51F, 0);
+		}
+	}
+
+	/** 1.16 HeavyPunchInstance.afterAttack: stop a hit Stand's barrage, arm the wall impact on the knocked-back entity. */
+	static void afterHeavyHit(StandEntity stand, LivingEntity target) {
+		EntityActionAbility.onHitByHeavyAttack(target);
+		Entity knockedBack = target;
+		if (target instanceof StandEntity targetStand && targetStand.getUser() != null) {
+			knockedBack = targetStand.getUser();
+		}
+		KnockbackCollisionImpact kbImpact = KnockbackCollisionImpact.getHandler(knockedBack);
+		if (kbImpact != null) {
+			kbImpact.onPunchSetKnockbackImpact(knockedBack.getDeltaMovement(), stand)
+					.withImpactExplosion(Math.max(StandEntityHeavyPunchAbility.calcExplosionRadius(stand) - 0.5F, 0), null, 0);
 		}
 	}
 
@@ -77,16 +108,8 @@ public class SilverChariotDashAttackAbility extends StandEntityAbility {
 	}
 
 	private static boolean lacksRapier(Power<?> context) {
-		StandPower standPower = PowerClass.STAND.cast(context);
-		if (standPower == null) {
-			return false;
-		}
-		LivingEntity user = standPower.getUser();
-		if (user == null) {
-			return false;
-		}
-		SilverChariotState state = SilverChariotState.get(user);
-		return state != null && !state.hasRapier();
+		// Client-aware: the HUD greys the move from the Stand's synced flag
+		return !SilverChariotState.hasRapier(PowerClass.STAND.cast(context));
 	}
 
 	@Override
@@ -121,6 +144,7 @@ public class SilverChariotDashAttackAbility extends StandEntityAbility {
 				ActionTarget target = captureActionTargetFromAim(stand);
 				keepStandAimedAtTarget(target);
 				retractAfterDash = stand.followingUserIsEnabled() && !stand.isManuallyControlled() && !stand.isBeingRetracted();
+				setHeavyFinisher(this, stand);
 			}
 		}
 
@@ -267,6 +291,7 @@ public class SilverChariotDashAttackAbility extends StandEntityAbility {
 					if (standEntityAttack(stand, candidate, dmgSource, damage)) {
 						knockbackTarget(stand, candidate, dashForward);
 						candidate.hurtMarked = true;
+						afterHeavyHit(stand, candidate);
 					}
 				}
 				case BLOCK -> StandEntityPunchAbility.StandEntityPunch.hitBlockTarget(target, level, stand, !isUserCreative());

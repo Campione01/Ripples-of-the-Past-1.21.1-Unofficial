@@ -20,7 +20,6 @@ import rotp.core.network.c2s.ClWalkmanControlsPacket;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -42,12 +41,12 @@ public class WalkmanScreen extends AbstractContainerScreen<WalkmanMenu> {
 	private WalkmanPlaybackMode mode = WalkmanPlaybackMode.STOP_AT_THE_END;
 	private int walkmanId;
 
-	private Button playButton;
-	private Button flipSideButton;
-	private Button stopButton;
-	private Button rewindButton;
-	private Button fastForwardButton;
-	private Button playbackModeSwitch;
+	private WalkmanButton playButton;
+	private WalkmanButton flipSideButton;
+	private WalkmanButton stopButton;
+	private WalkmanButton rewindButton;
+	private WalkmanButton fastForwardButton;
+	private WalkmanButton playbackModeSwitch;
 	private WalkmanVolumeWheel volumeWheel;
 
 	public WalkmanScreen(WalkmanMenu menu, Inventory inventory, Component title) {
@@ -70,14 +69,29 @@ public class WalkmanScreen extends AbstractContainerScreen<WalkmanMenu> {
 			currentSide = currentTrack != null ? currentTrack.side() : null;
 		}
 
-		int x = leftPos + 38;
-		int y = topPos + 106;
-		rewindButton = addRenderableWidget(Button.builder(Component.empty(), button -> rewind()).bounds(x, y, 20, 16).build());
-		playButton = addRenderableWidget(Button.builder(Component.empty(), button -> play()).bounds(x + 23, y, 43, 16).build());
-		flipSideButton = addRenderableWidget(Button.builder(Component.empty(), button -> flip()).bounds(x + 23, y, 43, 16).build());
-		fastForwardButton = addRenderableWidget(Button.builder(Component.empty(), button -> fastForward()).bounds(x + 69, y, 20, 16).build());
-		stopButton = addRenderableWidget(Button.builder(Component.empty(), button -> stop()).bounds(x + 92, y, 32, 16).build());
-		playbackModeSwitch = addRenderableWidget(Button.builder(Component.empty(), button -> toggleLoop()).bounds(x + 139, y, 20, 16).build());
+		// 1.16 walkman keys: texture sprites, text only as hover tooltips
+		int y = topPos + WalkmanScreenLayout.KEY_Y;
+		int keyH = WalkmanScreenLayout.KEY_HEIGHT;
+		int small = WalkmanScreenLayout.SMALL_KEY_WIDTH;
+		int wide = WalkmanScreenLayout.WIDE_KEY_WIDTH;
+		rewindButton = addRenderableWidget(new WalkmanButton(leftPos + WalkmanScreenLayout.REWIND_X, y, small, keyH,
+				this::rewind, this::rewindTooltip, WalkmanScreenLayout.REWIND_X));
+		playButton = addRenderableWidget(new WalkmanButton(leftPos + WalkmanScreenLayout.PLAY_X, y, wide, keyH,
+				this::play, () -> Component.translatable("walkman.button.play", tooltipTrackName(currentTrack)), WalkmanScreenLayout.PLAY_X));
+		flipSideButton = addRenderableWidget(new WalkmanButton(leftPos + WalkmanScreenLayout.PLAY_X, y, wide, keyH,
+				this::flip, this::flipTooltip, WalkmanScreenLayout.PLAY_X));
+		fastForwardButton = addRenderableWidget(new WalkmanButton(leftPos + WalkmanScreenLayout.FAST_FORWARD_X, y, small, keyH,
+				this::fastForward, this::fastForwardTooltip, WalkmanScreenLayout.FAST_FORWARD_X));
+		stopButton = addRenderableWidget(new WalkmanButton(leftPos + WalkmanScreenLayout.STOP_X, y, small, keyH,
+				this::stop, () -> Component.translatable("walkman.button.stop"), WalkmanScreenLayout.STOP_X));
+		playbackModeSwitch = addRenderableWidget(new WalkmanButton(leftPos + WalkmanScreenLayout.LEVER_X, WalkmanScreenLayout.leverY(topPos, mode),
+				WalkmanScreenLayout.LEVER_WIDTH, WalkmanScreenLayout.LEVER_HEIGHT, this::toggleLoop,
+				() -> Component.translatable("walkman.button.playback_mode." + (mode == WalkmanPlaybackMode.LOOP ? "loop" : "default")), -1) {
+			@Override
+			protected void renderSprite(GuiGraphics guiGraphics) {
+				guiGraphics.blit(TEXTURE, getX(), getY(), WalkmanScreenLayout.leverTexX(isHovered()), WalkmanScreenLayout.LEVER_TEX_Y, width, height);
+			}
+		});
 
 		volumeWheel = addRenderableWidget(new WalkmanVolumeWheel(this, leftPos + 17, topPos + 61, 11, 37));
 		volumeWheel.setValue(walkmanData.volume(), false);
@@ -91,6 +105,22 @@ public class WalkmanScreen extends AbstractContainerScreen<WalkmanMenu> {
 		updateButtons();
 		super.render(guiGraphics, mouseX, mouseY, partialTick);
 		renderTooltip(guiGraphics, mouseX, mouseY);
+		for (WalkmanButton button : List.of(rewindButton, playButton, flipSideButton, fastForwardButton, stopButton, playbackModeSwitch)) {
+			if (button.showsTooltip()) {
+				guiGraphics.renderTooltip(font, button.tooltip(), mouseX, mouseY);
+				break;
+			}
+		}
+	}
+
+	@Override
+	public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+		// the container screen only drags slots; pass the drag to the focused widget (volume wheel) as 1.16 did
+		if (WalkmanScreenLayout.forwardsDrag(getFocused() != null, isDragging(), button)
+				&& getFocused().mouseDragged(mouseX, mouseY, button, dragX, dragY)) {
+			return true;
+		}
+		return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
 	}
 
 	private void updateCassette() {
@@ -131,15 +161,30 @@ public class WalkmanScreen extends AbstractContainerScreen<WalkmanMenu> {
 		fastForwardButton.active = playing && playlist.getFastForwardTrack() != null;
 		playButton.visible = !flipSideButton.active;
 		flipSideButton.visible = !playButton.visible;
+		// lever is 9 px lower in loop mode
+		playbackModeSwitch.setY(WalkmanScreenLayout.leverY(topPos, mode));
+	}
 
-		playButton.setMessage(Component.translatable("walkman.button.play", tooltipTrackName(currentTrack)));
-		flipSideButton.setMessage(Component.translatable("walkman.button.flip", tooltipTrackName(playlist != null ? playlist.getFlipSideTrack() : null)));
-		stopButton.setMessage(Component.translatable("walkman.button.stop"));
-		rewindButton.setMessage(Component.translatable("walkman.button.rewind", tooltipTrackName(playlist != null ? playlist.getRewindTrack() : currentTrack)));
-		fastForwardButton.setMessage(playlist != null && playlist.stopAfterCurrentTrack()
-				? Component.translatable("walkman.button.fast_forward.end")
-				: Component.translatable("walkman.button.fast_forward", tooltipTrackName(playlist != null ? playlist.getFastForwardTrack() : currentTrack)));
-		playbackModeSwitch.setMessage(Component.translatable("walkman.button.playback_mode." + (mode == WalkmanPlaybackMode.LOOP ? "loop" : "default")));
+	private Component rewindTooltip() {
+		Playlist playlist = WalkmanSoundHandler.getPlaylist(walkmanId);
+		TrackInfo track = playlist != null ? playlist.getRewindTrack() : null;
+		// rewinding the first track restarts it
+		boolean restart = track != null && track.equals(playlist.getCurrentTrack());
+		String key = WalkmanScreenLayout.rewindKey(restart);
+		return restart ? Component.translatable(key) : Component.translatable(key, tooltipTrackName(track));
+	}
+
+	private Component flipTooltip() {
+		Playlist playlist = WalkmanSoundHandler.getPlaylist(walkmanId);
+		return Component.translatable("walkman.button.flip", tooltipTrackName(playlist != null ? playlist.getFlipSideTrack() : null));
+	}
+
+	private Component fastForwardTooltip() {
+		Playlist playlist = WalkmanSoundHandler.getPlaylist(walkmanId);
+		if (playlist != null && playlist.stopAfterCurrentTrack()) {
+			return Component.translatable("walkman.button.fast_forward.end");
+		}
+		return Component.translatable("walkman.button.fast_forward", tooltipTrackName(playlist != null ? playlist.getFastForwardTrack() : null));
 	}
 
 	private void play() {
@@ -241,7 +286,7 @@ public class WalkmanScreen extends AbstractContainerScreen<WalkmanMenu> {
 	private Component tooltipTrackName(TrackInfo track) {
 		return track != null
 				? track.track().name().copy().withStyle(ChatFormatting.DARK_GREEN, ChatFormatting.UNDERLINE)
-				: Component.literal("");
+				: WalkmanScreenLayout.missingTrackName();
 	}
 
 	@Override

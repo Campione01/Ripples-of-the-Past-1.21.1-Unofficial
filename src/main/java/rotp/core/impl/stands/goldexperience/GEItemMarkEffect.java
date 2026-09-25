@@ -119,4 +119,9 @@ public class GEItemMarkEffect extends StandEffectInstance {
         return power != null && power.userStandEffects.getEffectsOfType(ModStandAbilities.EFFECT_GE_ITEM_MARK.get())
                 .anyMatch(effect -> tracker.trackerId.equals(effect.getItemTrackerId()));
     }
+
+    // 1.16 GoldExperienceMarkItem.ClientStuff: only the viewer's own marked item gets the imbued-with-life glint.
+    public static boolean rendersImbuedGlint(ItemStack item, @Nullable LivingEntity viewer) {
+        return viewer != null && !item.isEmpty() && isItemMarked(item, viewer);
+    }
 }

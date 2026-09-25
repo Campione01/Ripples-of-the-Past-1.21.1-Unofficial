@@ -10,6 +10,7 @@ import javax.annotation.Nullable;
 import org.jetbrains.annotations.ApiStatus;
 
 import rotp.core.api.playerpower.PlayerPowerDelegations;
+import rotp.core.command.commands.JojoControlsCommand;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.api.leap.LeapAccessPolicies;
@@ -159,6 +160,7 @@ public class PlayerPower extends Power<PlayerPower> {
 			if (!user.level().isClientSide()) {
 				PacketDistributor.sendToPlayersTrackingEntityAndSelf(user, new TrPowerTypePacket(user.getId(), type));
 				if (user instanceof ServerPlayer player && type != null) {
+					JojoControlsCommand.sendPowerControlsHint(player);
 					ModCriteriaTriggers.triggerGetPower(player, this);
 				}
 			}
@@ -579,6 +581,7 @@ public class PlayerPower extends Power<PlayerPower> {
 						getRetainedTemporaryType()));
 		if (triggerAcquisitionCriterion
 				&& user instanceof ServerPlayer player) {
+			JojoControlsCommand.sendPowerControlsHint(player);
 			ModCriteriaTriggers.triggerGetPower(player, this);
 		}
 		currentData.syncToAllTracking(user);
@@ -663,7 +666,19 @@ public class PlayerPower extends Power<PlayerPower> {
 					new TrPlayerPowerLeapCooldownPacket(user.getId(), leapCooldown));
 		}
 	}
-	
+
+	// 1.16 resetCooldowns: one tracker per power, so the retained type's cooldowns go too
+	public void resetAbilityCooldowns() {
+		PlayerPowerData curData = getCurTypeData() instanceof PlayerPowerData data ? data : null;
+		if (curData != null) {
+			curData.resetAbilityCooldowns(user);
+		}
+		PlayerPowerData retainedData = resolveTemporarilySuspendedData();
+		if (retainedData != null && retainedData != curData) {
+			retainedData.resetAbilityCooldowns(user);
+		}
+	}
+
 	@SuppressWarnings("unchecked")
 	public <T extends PlayerPowerType<D>, D extends PlayerPowerData> Optional<D> getCurTypeData(Supplier<T> matchCurrentType) {
 		if (matchCurrentType == null) {

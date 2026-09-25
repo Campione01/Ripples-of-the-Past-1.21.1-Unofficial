@@ -43,18 +43,24 @@ public class LeavesGliderRenderer extends EntityRenderer<LeavesGliderEntity> {
             poseStack.scale(1.0F, -1.0F, -1.0F);
             poseStack.translate(0.0D, -entity.getBbHeight(), 0.0D);
             model.setupAnim(entity, 0.0F, 0.0F, entity.tickCount + partialTick, entityYaw, entity.getXRot());
-            model.renderToBuffer(poseStack, vertexBuilder, packedLight, OverlayTexture.NO_OVERLAY, foliageColor(entity));
+            model.renderToBuffer(poseStack, vertexBuilder, packedLight, OverlayTexture.NO_OVERLAY, Tint.argb(entity));
             poseStack.popPose();
         }
 
         super.render(entity, entityYaw, partialTick, poseStack, buffer, packedLight);
     }
 
-    private static int foliageColor(LeavesGliderEntity entity) {
-        int color = Minecraft.getInstance().getBlockColors().getColor(entity.getLeavesBlock(), entity.level(), entity.blockPosition(), 0);
-        if (color < 0) {
-            color = 0xFFFFFF;
+    /**
+     * 1.16 LeavesGliderRenderer: draw the glider's own tint (server tint, or the first client's report
+     * from readSpawnData), never a per-client lookup. No client classes here, so gametests can load it.
+     */
+    public static final class Tint {
+        private Tint() {}
+
+        // RGB tint as opaque ARGB; unset (-1) draws white, as 1.16 ClientUtil.rgb(-1)
+        public static int argb(LeavesGliderEntity entity) {
+            int color = entity.getFoliageColor();
+            return 0xFF000000 | color;
         }
-        return 0xFF000000 | color;
     }
 }

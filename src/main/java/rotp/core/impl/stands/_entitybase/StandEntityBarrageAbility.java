@@ -1,5 +1,7 @@
 package rotp.core.impl.stands._entitybase;
 
+import java.util.Map;
+import java.util.WeakHashMap;
 import java.util.function.Function;
 
 import javax.annotation.Nullable;
@@ -50,6 +52,16 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.tick.EntityTickEvent;
+import rotp.core.core.JojoMod;
 
 public class StandEntityBarrageAbility extends StandEntityAbility {
 	@Nullable private Holder<SoundEvent> barrageHitSound;
@@ -417,12 +429,32 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 		protected void hitEntity(ActionTarget target, Level level, StandEntity stand) {
 			Entity targetEntity = target.getMainEntity();
 			if (targetEntity != null) {
-				DamageSource dmgSource = makeBarrageDamageSource();
+				boolean resolve = isResolveBarrage(stand);
+				DamageSource dmgSource = makeBarrageDamageSource(stand, targetEntity);
 				float dmgAmount = StandStatFormulas.getBarrageHitDamage(stand.getAttackDamage(), stand.getPrecision()) * hitsThisTick;
-				standEntityAttack(stand, targetEntity, dmgSource, dmgAmount);
-				
-				stand.addFinisherMeter(0.005f * hitsThisTick);
+				if (standEntityAttack(stand, targetEntity, dmgSource, dmgAmount) && resolve) {
+					pinResolveBarrageTarget(targetEntity);
+				}
+
+				addBarrageFinisher(stand, dmgSource);
 			}
+		}
+
+		/** Barrage source with the 1.16 per-target knockback factor (see getBarrageKnockbackMultiplier). */
+		protected DamageSource makeBarrageDamageSource(StandEntity stand, Entity target) {
+			DamageSource dmgSource = makeBarrageDamageSource();
+			((DamageSourceModified) dmgSource).jojo_ripples$modifyKnockback(0, getBarrageKnockbackMultiplier(stand, target));
+			return dmgSource;
+		}
+
+		/**
+		 * 1.16 BarrageEntityPunch.afterAttack: 0.005 per punch still in the damage source
+		 * after the target's barrage-clash parry; a fully parried tick still gives 0.005.
+		 */
+		public void addBarrageFinisher(StandEntity stand, DamageSource dmgSource) {
+			int hitsLeft = dmgSource instanceof DamageSourceModified modified
+					? modified.jojo_ripples$barrageHitsCount() : hitsThisTick;
+			stand.addFinisherMeter(0.005f * Math.max(hitsLeft, 1));
 		}
 
 		protected DamageSource makeBarrageDamageSource() {
@@ -436,6 +468,12 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 		protected void hitBlock(ActionTarget target, Level level, StandEntity stand) {
 			BlockPos blockPos = target.getBlockPos();
 			BlockState blockState = level.getBlockState(blockPos);
+			if (blockState.isAir()) return;
+			// 1.16 StandEntity.breakBlock gate (gamerule, LivingDestroyBlockEvent, spawn protection):
+			// protected blocks get no break, no cracks and no block hit sound
+			if (!StandEntityPunchAbility.StandEntityPunch.canStandBreakBlock(level, blockPos, blockState, stand)) {
+				return;
+			}
 			
 			double standStrength = stand.getAttackDamage();
 			double standSpeed = stand.getAttackSpeed();
@@ -461,7 +499,78 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 				}
 			}
 		}
-		
+
+	}
+
+	/**
+	 * 1.16 BarrageEntityPunch knockback factor: attack damage * 0.0075 of the normal knockback,
+	 * none on a Stand or while the user has Resolve.
+	 */
+	public static float getBarrageKnockbackMultiplier(StandEntity stand, Entity target) {
+		if (target instanceof StandEntity || isResolveBarrage(stand)) {
+			return 0;
+		}
+		return Mth.clamp((float) stand.getAttackDamage() * 0.0075F, 0, 1);
+	}
+
+	public static boolean isResolveBarrage(StandEntity stand) {
+		LivingEntity user = stand.getUser();
+		return user != null && user.hasEffect(ModStatusEffects.RESOLVE);
+	}
+
+	public static final ResourceLocation RESOLVE_BARRAGE_NO_GRAVITY_ID = JojoMod.resLoc("resolve_barrage_no_gravity");
+	public static final int RESOLVE_BARRAGE_NO_GRAVITY_TICKS = 3;
+	// server thread only: target -> ticks of its own left before gravity returns
+	private static final Map<LivingEntity, Integer> RESOLVE_NO_GRAVITY = new WeakHashMap<>();
+
+	/**
+	 * 1.16 BarrageEntityPunch.doHit with a Resolve user: a hit target hangs in the air
+	 * (LivingUtilCap.setNoGravityFor(3)) and a mob drops its path.
+	 */
+	public static void pinResolveBarrageTarget(Entity target) {
+		if (!(target instanceof LivingEntity living) || living.level().isClientSide()) {
+			return;
+		}
+		AttributeInstance gravity = living.getAttribute(Attributes.GRAVITY);
+		if (gravity != null) {
+			RESOLVE_NO_GRAVITY.put(living, RESOLVE_BARRAGE_NO_GRAVITY_TICKS);
+			if (!gravity.hasModifier(RESOLVE_BARRAGE_NO_GRAVITY_ID)) {
+				Vec3 motion = living.getDeltaMovement();
+				living.setDeltaMovement(motion.x, Math.max(motion.y, 0), motion.z);
+				gravity.addTransientModifier(new AttributeModifier(RESOLVE_BARRAGE_NO_GRAVITY_ID,
+						-1, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+			}
+		}
+		if (living instanceof Mob mob) {
+			mob.getNavigation().stop();
+		}
+	}
+
+	@EventBusSubscriber(modid = JojoMod.MOD_ID)
+	public static final class ResolveBarrageNoGravity {
+		private ResolveBarrageNoGravity() {}
+
+		// 1.16 LivingUtilCap.tickNoGravityModifier, server side, on the target's own tick
+		@SubscribeEvent
+		public static void onEntityTick(EntityTickEvent.Pre event) {
+			if (event.getEntity().level().isClientSide() || RESOLVE_NO_GRAVITY.isEmpty()
+					|| !(event.getEntity() instanceof LivingEntity living)) {
+				return;
+			}
+			Integer ticks = RESOLVE_NO_GRAVITY.get(living);
+			if (ticks == null) {
+				return;
+			}
+			if (ticks > 1) {
+				RESOLVE_NO_GRAVITY.put(living, ticks - 1);
+				return;
+			}
+			RESOLVE_NO_GRAVITY.remove(living);
+			AttributeInstance gravity = living.getAttribute(Attributes.GRAVITY);
+			if (gravity != null) {
+				gravity.removeModifier(RESOLVE_BARRAGE_NO_GRAVITY_ID);
+			}
+		}
 	}
 
 }

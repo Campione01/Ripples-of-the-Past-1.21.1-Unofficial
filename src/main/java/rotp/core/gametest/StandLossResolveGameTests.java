@@ -36,13 +36,15 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * 1.16 cleared the Resolve value whenever a Stand was taken (StandPower.clear / putOutStand ->
  * ResolveCounter.onClearStandType), levels kept: Boy II Man's third win (RockPaperScissorsGame putOutStand) and the
  * add-ons' disc and mob removals (Whitesnake putOutStand, Mobs With Powers clear), which the port routes through the
- * legacy StandPowerTransitions.extract. 1.16 /stand clear on a player without a Stand still ran fullStandClear
+ * legacy StandPowerTransitions.extract. The add-on evolutions (clear() + give in 1.16) go through the legacy replace,
+ * which resets too; Tusk's act change keeps the value. 1.16 /stand clear on a player without a Stand still ran fullStandClear
  * (commands.stand.remove.success.single.no_stand).
  */
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class StandLossResolveGameTests {
 	private static final ResourceLocation STAR_PLATINUM = JojoMod.resLoc("star_platinum");
+	private static final ResourceLocation THE_WORLD = JojoMod.resLoc("the_world");
 	private static final int LEVEL = 2;
 	private static final float EPS = 1.0E-3F;
 
@@ -61,6 +63,52 @@ public final class StandLossResolveGameTests {
 			user.give(STAR_PLATINUM);
 			helper.assertTrue(user.power.getResolveLevel() == Math.max(LEVEL, user.levelOfANewStand()),
 					"1.16 putOutStand kept the Resolve level: level " + user.power.getResolveLevel());
+		}
+		finally {
+			user.close();
+		}
+		helper.succeed();
+	}
+
+	// 1.16 evolutions (GER, SCR, Shadow, Heaven, Neo, SBC) ran clear() + give; the port routes them through the legacy replace
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void legacyReplaceTakesTheResolveValueButKeepsTheLevel(GameTestHelper helper) {
+		User user = new User(helper, "LegacyReplaceResolve", new BlockPos(2, 2, 2));
+		try {
+			user.give(STAR_PLATINUM);
+			user.fillResolve();
+			StandPowerTransitions.Result replaced = StandPowerTransitions.replace(user.power, STAR_PLATINUM,
+					user.instance(THE_WORLD));
+			helper.assertTrue(replaced.applied() && user.power.getPowerType() == user.type(THE_WORLD),
+					"The legacy replace did not evolve the Stand: " + replaced.status());
+			user.assertResolveCleared("The legacy StandPowerTransitions.replace");
+			helper.assertTrue(StandPowerTransitions.replace(user.power, THE_WORLD, user.instance(STAR_PLATINUM)).applied(),
+					"Could not replace The World back");
+			helper.assertTrue(user.power.getResolveLevel() == Math.max(LEVEL, user.levelOfANewStand()),
+					"1.16 clear() kept the Resolve level of the old Stand: level " + user.power.getResolveLevel());
+		}
+		finally {
+			user.close();
+		}
+		helper.succeed();
+	}
+
+	// 1.16 Tusk was one Stand with an act field, so an act change kept the value; Tusk uses the context replace
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void contextReplaceKeepsTheResolveValue(GameTestHelper helper) {
+		User user = new User(helper, "ContextReplaceResolve", new BlockPos(2, 2, 2));
+		try {
+			user.give(STAR_PLATINUM);
+			user.fillResolve();
+			StandPowerTransitions.Result replaced = StandPowerTransitions.replace(user.power, STAR_PLATINUM,
+					user.instance(THE_WORLD), new StandPowerTransitions.TransitionContext(
+							JojoMod.resLoc("gametest_act_change"), user.player));
+			helper.assertTrue(replaced.applied() && user.power.getPowerType() == user.type(THE_WORLD),
+					"The context replace did not change the Stand: " + replaced.status());
+			ResolveCounter counter = user.power.resolveCounter;
+			helper.assertTrue(Math.abs(counter.getResolveValue() - 400.0F) < EPS && counter.boostAttack == 2.0F
+					&& counter.maxAchievedValue == 900.0F, "The context replace took the Resolve value: "
+							+ counter.getResolveValue() + ", boost " + counter.boostAttack);
 		}
 		finally {
 			user.close();
@@ -130,10 +178,18 @@ public final class StandLossResolveGameTests {
 		}
 
 		void give(ResourceLocation standId) {
+			helper.assertTrue(StandPowerTransitions.insert(power, instance(standId)).status()
+					== StandPowerTransitions.Status.APPLIED, "Could not grant " + standId);
+		}
+
+		StandType type(ResourceLocation standId) {
 			StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(standId);
 			helper.assertTrue(type != null, "Missing registered Stand " + standId);
-			helper.assertTrue(StandPowerTransitions.insert(power, new StandInstance(type)).status()
-					== StandPowerTransitions.Status.APPLIED, "Could not grant " + standId);
+			return type;
+		}
+
+		StandInstance instance(ResourceLocation standId) {
+			return new StandInstance(type(standId));
 		}
 
 		// a Resolve level, a value in its no-decay ticks, an attack boost and a record, as a fight leaves them

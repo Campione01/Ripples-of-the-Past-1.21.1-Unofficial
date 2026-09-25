@@ -43,14 +43,19 @@ public record ClHamonPickTechniquePacket(ResourceLocation techniqueId) implement
 
 		@Override
 		public void handle(ClHamonPickTechniquePacket payload, IPayloadContext context) {
-			Player player = context.player();
-			PlayerPower.getPowerData(player, HamonPowerType.HAMON).ifPresent(hamon -> {
-				HamonTechnique technique = ModHamonSkills.techniqueByName(payload.techniqueId.getPath());
-				if (technique != null && technique.getRegistryKey().equals(payload.techniqueId)) {
-					hamon.pickHamonTechnique(player, technique);
-				}
-			});
+			pickFromClient(context.player(), payload.techniqueId);
 		}
+	}
+
+	// Server side of the menu Pick button; the menu hides it while the technique tab is locked.
+	public static boolean pickFromClient(Player player, ResourceLocation techniqueId) {
+		HamonData hamon = PlayerPower.getPowerData(player, HamonPowerType.HAMON).orElse(null);
+		if (hamon == null || HamonTechnique.techniquesLocked(hamon)) {
+			return false;
+		}
+		HamonTechnique technique = ModHamonSkills.techniqueByName(techniqueId.getPath());
+		return technique != null && technique.getRegistryKey().equals(techniqueId)
+				&& hamon.pickHamonTechnique(player, technique);
 	}
 
 	@Override

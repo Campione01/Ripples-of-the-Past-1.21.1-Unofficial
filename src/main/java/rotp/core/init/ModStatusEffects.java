@@ -1,7 +1,12 @@
 package rotp.core.init;
 
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
+
+import javax.annotation.Nullable;
 
 import org.jetbrains.annotations.ApiStatus;
 
@@ -18,6 +23,9 @@ import rotp.core.mechanics.UndeadRegenerationEffect;
 import rotp.core.mechanics.VampireSunBurnEffect;
 import rotp.core.mechanics.resolve.ResolveModeEffect;
 import rotp.core.mechanics.standarrow.StandVirusEffect;
+import rotp.core.powersystem.PowerClass;
+import rotp.core.powersystem.standpower.StandPower;
+import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.impl.stands.goldexperience.GELifeshotEffect;
 import rotp.core.impl.stands.goldexperience.GELifeshotState;
 
@@ -58,6 +66,10 @@ public class ModStatusEffects {
 			id -> new VampireSunBurnEffect().setUncurable());
 
 	public static final DeferredHolder<MobEffect, StatusEffectModified> SPIRIT_VISION = STATUS_EFFECTS.register("spirit_vision",
+			id -> new StatusEffectModified(MobEffectCategory.BENEFICIAL, 0x8E45FF).setUncurable());
+
+	// 1.16 INTEGRATED_STAND: the holder's own attacks can hurt Stands (see DamageUtil.canHurtStands)
+	public static final DeferredHolder<MobEffect, StatusEffectModified> INTEGRATED_STAND = STATUS_EFFECTS.register("integrated_stand",
 			id -> new StatusEffectModified(MobEffectCategory.BENEFICIAL, 0x8E45FF).setUncurable());
 
 	public static final DeferredHolder<MobEffect, StatusEffectModified> FULL_INVISIBILITY = STATUS_EFFECTS.register("full_invisibility",
@@ -128,6 +140,50 @@ public class ModStatusEffects {
 		});
 	}
 
+	// 1.16 StandEntity.SHARED_EFFECTS_FROM_USER: a stunned or immobilized user's summoned Stand is too; add-ons may add more
+	public static final List<Holder<MobEffect>> SHARED_EFFECTS_FROM_USER = new CopyOnWriteArrayList<>(List.of(STUN, IMMOBILIZE));
+
+	@SafeVarargs
+	public static void addSharedEffectsFromUser(Holder<MobEffect>... effects) {
+		Collections.addAll(SHARED_EFFECTS_FROM_USER, effects);
+	}
+
+	public static boolean isEffectSharedFromUser(Holder<MobEffect> effect) {
+		for (Holder<MobEffect> shared : SHARED_EFFECTS_FROM_USER) {
+			if (shared == effect || shared.unwrapKey().map(key -> effect.is(key)).orElse(false)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	@Nullable
+	private static StandEntity summonedStandOf(LivingEntity user) {
+		StandPower power = PowerClass.STAND.get(user);
+		StandEntity stand = power != null ? power.getSummonedStandEntity() : null;
+		return stand != null && stand != user && stand.isAlive() ? stand : null;
+	}
+
+	// 1.16 EntityStandType.giveEffectSharedWithStand
+	private static void giveEffectSharedWithStand(LivingEntity user, MobEffectInstance effectInstance) {
+		if (isEffectSharedFromUser(effectInstance.getEffect())) {
+			StandEntity stand = summonedStandOf(user);
+			if (stand != null) {
+				stand.addEffect(new MobEffectInstance(effectInstance));
+			}
+		}
+	}
+
+	// 1.16 EntityStandType.removeEffectSharedWithStand
+	private static void removeEffectSharedWithStand(LivingEntity user, Holder<MobEffect> effect) {
+		if (effect != null && isEffectSharedFromUser(effect)) {
+			StandEntity stand = summonedStandOf(user);
+			if (stand != null) {
+				stand.removeEffect(effect);
+			}
+		}
+	}
+
 	public static boolean isStunned(LivingEntity entity) {
 		return entity.hasEffect(STUN) || entity.hasEffect(HAMON_SHOCK);
 	}
@@ -167,6 +223,7 @@ public class ModStatusEffects {
 		LivingEntity entity = event.getEntity();
 		if (!entity.level().isClientSide()) {
 			MobEffectInstance effectInstance = event.getEffectInstance();
+			giveEffectSharedWithStand(entity, effectInstance);
 			trackAddEffect(effectInstance, entity);
 			if (effectInstance.getEffect().is(SENSORY_OVERLOAD)) {
 				GELifeshotState.get(entity).setSendLifeshotNextTick();
@@ -179,6 +236,7 @@ public class ModStatusEffects {
 		LivingEntity entity = event.getEntity();
 		if (!entity.level().isClientSide()) {
 			MobEffectInstance effect = event.getEffectInstance();
+			removeEffectSharedWithStand(entity, effect != null ? effect.getEffect() : event.getEffect());
 			if (effect != null) {
 				trackRemoveEffect(effect.getEffect(), entity);
 			}
@@ -194,6 +252,7 @@ public class ModStatusEffects {
 		if (!entity.level().isClientSide()) {
 			MobEffectInstance effect = event.getEffectInstance();
 			if (effect != null) {
+				removeEffectSharedWithStand(entity, effect.getEffect());
 				trackRemoveEffect(effect.getEffect(), entity);
 			}
 		}

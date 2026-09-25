@@ -42,7 +42,12 @@ public final class AbilityShoutSmokeTest {
 		require(source("impl/stands/crazydiamond/CrazyDRestoreTerrainAbility.java"), "sayShout(powerUser,ModSoundEvents.JOSUKE_FIX);");
 		require(source("impl/stands/goldexperience/GoldExperienceCreateLifeformAbility.java"),
 				"sayShout(user,ModSoundEvents.GIORNO_NEW_LIFE);");
-		require(source("impl/stands/theworld/TheWorldBarrageAbility.java"), "canPlayShout=standAlreadySummoned&&!user.isShiftKeyDown();");
+		// 1.16 TheWorldBarrage: every starting press shouts unless sneaking; WRY only when the Stand was already out
+		String theWorldBarrage = compact(source("impl/stands/theworld/TheWorldBarrageAbility.java"));
+		require(theWorldBarrage, "if(!level.isClientSide()&&!skipsShoutWhileSneaking(user)){"
+				+ "shout=standAlreadySummoned&&isHighBloodVampire(user)?ModSoundEvents.DIO_WRY:ModSoundEvents.DIO_MUDA_MUDA;}");
+		check(!theWorldBarrage.contains("setPlaysVoiceLineOnSneak"),
+				"the 1.16 shout sneak rule lost: The World's barrage is no SHIFT variation and must not shout while sneaking");
 		require(source("impl/powers/hamon/abilities/HamonActionRuntimeAbility.java"),
 				"privatevoidsayHamonShout(LivingEntityuser,HamonDatahamon){if(user.level().isClientSide()){return;}"
 				+ "if(skipsShoutWhileSneaking(user)){return;}");

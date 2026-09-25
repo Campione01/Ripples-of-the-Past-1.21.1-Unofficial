@@ -2,6 +2,7 @@ package rotp.core.mechanics;
 
 import rotp.core.JojoModLivingVariables;
 import rotp.core.adventure.npc.PowerUserMobEntity;
+import rotp.core.init.ModEntityTypeTags;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.modcompat.OptionalDependencyHelper;
 import rotp.core.powersystem.playerpower.PlayerPower;
@@ -66,6 +67,13 @@ public class JojoDefinitions {
 	}
 
 	public static boolean isAffectedByHamon(LivingEntity entity) {
+		// 1.16 JojoModUtil: entity type tags win over the undead check, no_hamon_damage first
+		if (entity.getType().is(ModEntityTypeTags.NO_HAMON_DAMAGE)) {
+			return false;
+		}
+		if (entity.getType().is(ModEntityTypeTags.HAMON_DAMAGE)) {
+			return true;
+		}
 		return isUndeadOrVampiric(entity);
 	}
 

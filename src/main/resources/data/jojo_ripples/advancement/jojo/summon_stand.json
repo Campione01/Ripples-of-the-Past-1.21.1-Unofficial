@@ -2,7 +2,10 @@
   "parent": "jojo_ripples:jojo/get_stand",
   "display": {
     "icon": {
-      "item": "jojo_ripples:meteoric_scrap"
+      "id": "jojo_ripples:meteoric_scrap",
+      "components": {
+        "minecraft:custom_model_data": 9
+      }
     },
     "title": {
       "translate": "advancements.jojo.summon_stand.title"

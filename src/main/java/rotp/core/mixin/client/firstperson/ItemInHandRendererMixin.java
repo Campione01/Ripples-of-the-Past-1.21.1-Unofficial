@@ -73,6 +73,11 @@ public class ItemInHandRendererMixin
 			LocalPlayer playerEntity, int combinedLight, CallbackInfo ci) {
 		if (FirstPersonRender.onFirstPersonRender(minecraft, partialTicks, poseStack, buffer, combinedLight)) {
 			ci.cancel();
+			return;
+		}
+		// 1.16 cancelHandRender: no hands while meditating.
+		if (FirstPersonRender.HandVisibility.hidesHandsForMeditation(minecraft.getCameraEntity())) {
+			ci.cancel();
 		}
 	}
 
@@ -81,6 +86,15 @@ public class ItemInHandRendererMixin
 			float swingProgress, ItemStack stack, float equippedProgress, PoseStack poseStack, MultiBufferSource buffer,
 			int combinedLight, CallbackInfo ci) {
 		if (hand == InteractionHand.MAIN_HAND && HamonZoomPunchState.isUsingZoomPunch(player)) {
+			ci.cancel();
+			return;
+		}
+		// Runs after every RenderHandEvent handler, so the S.Y.O. extra off arm is still drawn.
+		if (hand == InteractionHand.MAIN_HAND && !player.isScoping() && !player.isInvisible()
+				&& player == minecraft.getCameraEntity()
+				&& FirstPersonRender.HandVisibility.drawsBareMainArmForGloves(stack, player.getOffhandItem())) {
+			FirstPersonRender.renderGlovedMainArm(player, poseStack, buffer, combinedLight,
+					partialTicks, equippedProgress, swingProgress);
 			ci.cancel();
 			return;
 		}

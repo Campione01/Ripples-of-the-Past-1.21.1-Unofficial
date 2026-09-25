@@ -1,7 +1,7 @@
 {
   "parent": "jojo_ripples:jojo/buy_map",
   "display": {
-    "icon": { "item": "minecraft:filled_map" },
+    "icon": { "id": "jojo_ripples:slumbering_pillarman" },
     "title": { "translate": "advancements.jojo.pillarman_temple.title" },
     "description": { "translate": "advancements.jojo.pillarman_temple.description" },
     "frame": "task",

@@ -31,7 +31,11 @@ import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.playerpower.PlayerPower;
 import rotp.core.powersystem.standpower.StandPower;
+import rotp.core.powersystem.standpower.StandUtil;
 import rotp.core.powersystem.standpower.entity.StandEntity;
+import rotp.core.api.leap.LeapAccessPolicies;
+import rotp.core.api.leap.LeapSource;
+import rotp.core.init.ModStatusEffects;
 import rotp.core.util.functions.MathUtil;
 import rotp.core.impl.powers.hamon.HamonData;
 import rotp.core.impl.powers.pillarman.PillarmanData;
@@ -46,11 +50,13 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 
 import net.minecraft.ChatFormatting;
+import net.minecraft.client.AttackIndicatorStatus;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.LayeredDraw;
+import net.minecraft.client.gui.navigation.ScreenPosition;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.PauseScreen;
@@ -61,6 +67,8 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FastColor;
 import net.minecraft.util.Mth;
 import net.minecraft.util.StringUtil;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.neoforged.api.distmarker.Dist;
@@ -77,8 +85,19 @@ public class PowerHud {
 	public static AbilityHud abilityHUDInstance;
 
 	public static void triggerHamonNoEnergyFeedback() {
+		triggerHamonRedHighlight(4);
+	}
+
+	// 1.16 BarsRenderer triggerRedHighlight on the Hamon bar (mask cue uses 4 or 999999 cycles)
+	public static void triggerHamonRedHighlight(int cycles) {
 		if (abilityHUDInstance != null) {
-			abilityHUDInstance.hamonEnergy.triggerNoEnergyFeedback();
+			abilityHUDInstance.hamonEnergy.triggerNoEnergyFeedback(cycles);
+		}
+	}
+
+	public static void resetHamonRedHighlight() {
+		if (abilityHUDInstance != null) {
+			abilityHUDInstance.hamonEnergy.clearNoEnergyFeedback();
 		}
 	}
 
@@ -97,6 +116,8 @@ public class PowerHud {
 	public static void tickHamonNoEnergyFeedback() {
 		if (abilityHUDInstance != null) {
 			abilityHUDInstance.hamonEnergy.tickFeedback();
+			// same unpaused client tick drives the low stamina flash
+			abilityHUDInstance.staminaBar.tickDebuffHighlight();
 		}
 	}
 
@@ -192,9 +213,10 @@ public class PowerHud {
 		public PillarmanEnergy pillarmanEnergy = addElement(new PillarmanEnergy("energy_pillarman", 81, 28, Bars.HORIZONTAL_LENGTH + 8, Bars.HORIZONTAL_WIDTH));
 		public StandRange standRange = 			addElement(new StandRange("stand_range", 
 				(int) staminaBar.xOffsetL + staminaBar.getWidth() + 10, (int) staminaBar.yOffsetU, -1, -1));
-		public Finisher finisherBar = 			addElement(new Finisher("stand_finisher", 
+		public Finisher finisherBar = 			addElement(new Finisher("stand_finisher",
 				HudElement.SnappingH.CENTER, HudElement.SnappingV.CENTER, -16, -16, 32, 32));
-		
+		public Leap leapIcon = 					addElement(new Leap("leap", Leap.SIZE, Leap.SIZE));
+
 		@Override
 		public void render(GuiGraphics guiGraphics, DeltaTracker deltaTracker) {
 			Minecraft mc = Minecraft.getInstance();
@@ -508,6 +530,10 @@ public class PowerHud {
 		public static final GuiIcon VERTICAL_FULL = new GuiIcon(JojoMod.resLoc("textures/hud/stand_resolve_vertical_full.png"), 16, 32);
 
 		public static final int MAX_ACHIEVED_TINT = 0x66FFFFFF;
+		// Resolve level strip under the icon
+		private static final int LEVEL_STRIP_HEIGHT = 2;
+		private static final int LEVEL_EMPTY_COLOR = 0x99000000;
+		private static final int LEVEL_FILL_COLOR = 0xFFC6151F;
 
 		public Resolve(String name, int x0, int y0, int width, int height) {
 			super(name, x0, y0, width, height);
@@ -530,17 +556,27 @@ public class PowerHud {
 		
 		@Override
 		protected void initText() {
+			// first body line: the Resolve level, set in checkTooltip
 			this.tooltipText = new MultiLineScreenTooltip(
-					Component.translatable("ripples_hud." + name).withStyle(ChatFormatting.BLACK), 
-					Component.translatable("ripples_hud." + name + ".desc", 
+					Component.translatable("ripples_hud." + name).withStyle(ChatFormatting.BLACK),
+					Component.empty(),
+					Component.translatable("ripples_hud." + name + ".desc",
 							Component.translatable("ripples_hud." + name + ".desc1.regular"))
 					.withStyle(ChatFormatting.ITALIC, ChatFormatting.DARK_GRAY));
 			this.tooltipVampire = new MultiLineScreenTooltip(
-					Component.translatable("ripples_hud." + name).withStyle(ChatFormatting.BLACK), 
-					Component.translatable("ripples_hud." + name + ".desc", 
+					Component.translatable("ripples_hud." + name).withStyle(ChatFormatting.BLACK),
+					Component.empty(),
+					Component.translatable("ripples_hud." + name + ".desc",
 							Component.translatable("ripples_hud." + name + ".desc1.vamp"))
 					.withStyle(ChatFormatting.ITALIC, ChatFormatting.DARK_GRAY));
 			this.tooltip.set(this.tooltipText);
+		}
+
+		private static void setLevelLine(MultiLineScreenTooltip tooltip, Component levelLine) {
+			if (!tooltip.body.isEmpty() && !levelLine.equals(tooltip.body.get(0))) {
+				tooltip.body.set(0, levelLine);
+				tooltip.cachedTooltip = null;
+			}
 		}
 
 		@Override
@@ -594,11 +630,29 @@ public class PowerHud {
 				RenderSystem.disableBlend();
 			}
 			float fillWidth = resolveBarFillWidth(resolveRatio, width);
-			BlitFloat.blit(guiGraphics.pose(), mc, fullSprite.file, 
-					x, y, fillWidth, height, 0, 
-					0, 0, fillWidth, height, width, height, 
+			BlitFloat.blit(guiGraphics.pose(), mc, fullSprite.file,
+					x, y, fillWidth, height, 0,
+					0, 0, fillWidth, height, width, height,
 					BlitFloat.NO_TINT);
-			
+
+			// 1.16 filled the Resolve icon by level / max level; the icon here shows the meter, so the level is a strip under it
+			int maxLevel = standPower.getMaxResolveLevel();
+			if (maxLevel > 0) {
+				int stripY = y + height + 1;
+				guiGraphics.fill(x, stripY, x + width, stripY + LEVEL_STRIP_HEIGHT, LEVEL_EMPTY_COLOR);
+				int levelWidth = Math.round(width * StandUtil.resolveLevelFill(standPower));
+				if (levelWidth > 0) {
+					guiGraphics.fill(x, stripY, x + levelWidth, stripY + LEVEL_STRIP_HEIGHT, LEVEL_FILL_COLOR);
+				}
+				// 1 px gaps between levels
+				if (maxLevel > 1 && maxLevel * 3 <= width) {
+					for (int i = 1; i < maxLevel; i++) {
+						int gapX = x + width * i / maxLevel;
+						guiGraphics.fill(gapX, stripY, gapX + 1, stripY + LEVEL_STRIP_HEIGHT, LEVEL_EMPTY_COLOR);
+					}
+				}
+			}
+
 			if (resolveMode < 0) {
 				float multiplier = standPower.resolveCounter.getTotalBoostVisible(standPower.getUser());
 				if (multiplier > 1) {
@@ -622,6 +676,8 @@ public class PowerHud {
 			}
 			
 			MultiLineScreenTooltip tooltipText = (MultiLineScreenTooltip) this.tooltip.get();
+			setLevelLine(tooltipText, Component.translatable("ripples_hud.resolve_level",
+					standPower.getResolveLevel(), standPower.getMaxResolveLevel()).withStyle(ChatFormatting.DARK_GRAY));
 			// clamped to the effect's remaining duration, as the ring is
 			int resolveModeTimer = standPower.resolveCounter.getResolveModeTicksShown(standPower);
 			if (resolveModeTimer > 0) {
@@ -645,9 +701,27 @@ public class PowerHud {
 		public static final ResourceLocation BAR_HORIZONTAL_MINI_FILL = JojoMod.resLoc("textures/hud/bars/bar_horizontal_mini_stamina.png");
 		public static final ResourceLocation BAR_VERTICAL_FILL = JojoMod.resLoc("textures/hud/bars/bar_vertical_stamina.png");
 		public static final ResourceLocation BAR_VERTICAL_MINI_FILL = JojoMod.resLoc("textures/hud/bars/bar_vertical_mini_stamina.png");
+		private int debuffHighlightTicks;
 
 		public Stamina(String name, int x0, int y0, int width, int height) {
 			super(name, x0, y0, width, height);
+		}
+
+		// 1.16 StandPower client tick: red highlight while low stamina weakens the Stand, the last pulse runs out after
+		private void tickDebuffHighlight() {
+			if (StandUtil.showsStaminaDebuff(ClientPowerCache.getPower(PowerClass.STAND))) {
+				int cycles = 999999;
+				if (debuffHighlightTicks % 10 > 0) {
+					cycles--;
+				}
+				debuffHighlightTicks = debuffHighlightTicks % 10 + cycles * 10;
+			}
+			else if (debuffHighlightTicks > 10) {
+				debuffHighlightTicks %= 10;
+			}
+			if (debuffHighlightTicks > 0) {
+				debuffHighlightTicks--;
+			}
 		}
 
 		public Stamina(String name, SnappingH snappingHorizontal, SnappingV snappingVertical, 
@@ -692,6 +766,18 @@ public class PowerHud {
 			int y = getY();
 			float alpha = ResolveModeEffect.getResolveEffectLvl(Minecraft.getInstance().player) >= 0 ? 0.5f : 1;
 			Bars.renderHorizontalBar(guiGraphics.pose(), x, y, staminaRatio, BAR_HORIZONTAL_FILL, BlitFloat.NO_TINT, alpha);
+			if (debuffHighlightTicks > 0) {
+				// 1.16 BarsRenderer red highlight, under the scale
+				float tick = debuffHighlightTicks - ClientUtil.partialTick(deltaTracker, false);
+				float highlightAlpha = ClientUtil.getHighlightAlpha(tick, 10.0F, 8.0F,
+						tick > 5.0F ? 0.25F : 0.0F, 0.75F);
+				guiGraphics.fill(x + 1, y + 1, x + Bars.HORIZONTAL_LENGTH - 1,
+						y + Bars.HORIZONTAL_WIDTH - 1, ARGB.color(highlightAlpha * alpha, 0xFF0000));
+				RenderSystem.enableBlend();
+				RenderSystem.defaultBlendFunc();
+				BlitFloat.blit(guiGraphics.pose(), Minecraft.getInstance(), Bars.BAR_HORIZONTAL_SCALE,
+						x, y, Bars.HORIZONTAL_LENGTH, Bars.HORIZONTAL_WIDTH, 0.0F, BlitFloat.NO_TINT);
+			}
 			ICON.render(guiGraphics.pose(), x - 12, y - 6, ARGB.white(alpha));
 		}
 		
@@ -732,8 +818,7 @@ public class PowerHud {
 			super(name, x0, y0, width, height);
 		}
 
-		public void triggerNoEnergyFeedback() {
-			int cycles = 4;
+		public void triggerNoEnergyFeedback(int cycles) {
 			if (noEnergyHighlightTicks % 10 > 0) {
 				cycles--;
 			}
@@ -1034,15 +1119,9 @@ public class PowerHud {
 
 	
 	public static class Finisher extends HudElement {
-		public static final ResourceLocation[] BARS = {
-				JojoMod.resLoc("textures/hud/stand_finisher_1.png"),
-				JojoMod.resLoc("textures/hud/stand_finisher_2.png"),
-				JojoMod.resLoc("textures/hud/stand_finisher_3.png")
-		};
-		public static final ResourceLocation[] BARS_FULL = {
-				JojoMod.resLoc("textures/hud/stand_finisher_1_full.png"),
-				JojoMod.resLoc("textures/hud/stand_finisher_2_full.png")
-		};
+		public static final ResourceLocation[] BARS = FinisherRing.BARS;
+		public static final ResourceLocation[] BARS_FULL = FinisherRing.BARS_FULL;
+		public static final int HEAVY_FINISHER_COLOR = FinisherRing.HEAVY_FINISHER_COLOR;
 
 		public Finisher(String name, int x0, int y0, int width, int height) {
 			super(name, x0, y0, width, height);
@@ -1057,7 +1136,10 @@ public class PowerHud {
 		public boolean shouldRender() {
 			if (hud.forContainerMenu.isTrue()) return false;
 			StandEntity stand = ClientGlobals.playerStandEntity;
-			return stand != null && !ClientGlobals.isPlayerStandFullBodyUnsummoning();
+			// 1.16: only while the finisher mechanic is unlocked and the meter is not empty
+			return stand != null && !ClientGlobals.isPlayerStandFullBodyUnsummoning()
+					&& StandEntity.isFinisherMechanicUnlocked(stand.getUserPower())
+					&& stand.getFinisherMeter() > 0;
 		}
 		
 		@Override
@@ -1074,23 +1156,141 @@ public class PowerHud {
 			float height = getHeight();
 			float x = crosshairX - width / 4;
 			float y = crosshairY - height / 4;
-			int color = ARGB.white(0.5f);
+			// 1.16: the fill turns green once the heavy punch will be the finisher variation
+			boolean heavyVariation = stand.willHeavyFinisherVariationFire();
+			int color = FinisherRing.tint(heavyVariation);
 
 			int fullFinishers = Mth.floor(finisher);
 			if (fullFinishers > 0) {
-				BlitFloat.blit(guiGraphics.pose(), mc, BARS_FULL[Math.min(fullFinishers, BARS_FULL.length) - 1], 
-						x, y, width, height, 0, 
+				// the white ring drawn whole unless the heavy finisher will fire
+				BlitFloat.blit(guiGraphics.pose(), mc, FinisherRing.fullRing(fullFinishers, heavyVariation),
+						x, y, width, height, 0,
 						color);
 			}
-			
+
 			float finisherFill = Mth.frac(finisher);
-			BlitFloat.blitRadial(guiGraphics.pose(), mc, BARS[Math.min(fullFinishers, BARS.length - 1)], 
+			BlitFloat.blitRadial(guiGraphics.pose(), mc, FinisherRing.fillRing(fullFinishers),
 					x, y, width, height, 0, 
 					0, finisherFill, color);
 		}
 	}
-	
-	
+
+
+	/** 1.16 ActionsOverlayGui.renderLeapIcon: an icon beside the hotbar, filled as the leap cooldown runs out, dim while no leap is possible. */
+	public static class Leap extends HudElement {
+		public static final ResourceLocation TEXTURE = JojoMod.resLoc("textures/hud/leap.png");
+		public static final int SIZE = 18;
+		// 1.16 renderFilledIcon: rgb halved, alpha 0.75
+		private static final int TRANSLUCENT_TINT = 0xBF7F7F7F;
+
+		private record LeapState(int cooldown, int period, boolean canLeap, LeapSource source) {}
+
+		public Leap(String name, int width, int height) {
+			super(name, 0, 0, width, height);
+		}
+
+		// kept beside the vanilla hotbar, on the main arm's side
+		@Override
+		public void updateRectangle(int width, int height) {
+			Minecraft mc = Minecraft.getInstance();
+			int guiWidth = mc.getWindow().getGuiScaledWidth();
+			int guiHeight = mc.getWindow().getGuiScaledHeight();
+			boolean rightArm = mc.player == null || mc.player.getMainArm() == HumanoidArm.RIGHT;
+			boolean hotbarIndicator = mc.options != null && mc.options.attackIndicator().get() == AttackIndicatorStatus.HOTBAR;
+			int x = StandUtil.leapIconX(guiWidth, rightArm, hotbarIndicator);
+			int y = guiHeight - 20;
+			this.xOffsetL = x;
+			this.xOffsetR = guiWidth - x - width;
+			this.yOffsetU = y;
+			this.yOffsetD = guiHeight - y - height;
+			this.rectangle = new ScreenRectangle(new ScreenPosition(x, y), width, height);
+		}
+
+		// the power InputHandler.handleStandLeapInput leaps with: the Stand first, else the player power
+		private static LeapState getLeapState() {
+			StandPower standPower = ClientPowerCache.getPower(PowerClass.STAND);
+			PlayerPower playerPower = ClientPowerCache.getPower(PowerClass.PLAYER_POWER);
+			boolean standUnlocked = standPower != null && standPower.isLeapUnlocked();
+			boolean playerUnlocked = playerPower != null && playerPower.isLeapUnlocked();
+			if (standUnlocked) {
+				boolean standCanLeap = standPower.canLeap();
+				if (standCanLeap || !(playerUnlocked && playerPower.canLeap())) {
+					return new LeapState(standPower.getLeapCooldown(), standPower.getLeapCooldownPeriod(),
+							standCanLeap, LeapSource.STAND);
+				}
+			}
+			if (playerUnlocked) {
+				return new LeapState(playerPower.getLeapCooldown(), playerPower.getLeapCooldownPeriod(),
+						playerPower.canLeap(), LeapSource.PLAYER_POWER);
+			}
+			return null;
+		}
+
+		// 1.16 InputHandler.canPlayerLeap: not gliding, not slowed down, on the ground, the power can leap
+		private static boolean canLeapNow(Player player, LeapState state) {
+			if (!state.canLeap() || player.isFallFlying() || ModStatusEffects.isStunned(player)
+					|| !LeapAccessPolicies.allowsHud(player, state.source())) {
+				return false;
+			}
+			Entity vehicle = player.getVehicle();
+			boolean onGround = player.onGround() || vehicle != null && vehicle.onGround();
+			return onGround && walkSpeedMultiplier(player) >= 1;
+		}
+
+		// the walk speed multiplier InputHandler checks before a leap
+		private static float walkSpeedMultiplier(Player player) {
+			float multiplier = 1;
+			EntityActionInstance playerAction = LivingComponentAction.getCurEntityAction(player);
+			if (playerAction != null) {
+				multiplier *= playerAction.userWalkSpeed;
+			}
+			StandEntity stand = ClientGlobals.playerStandEntity;
+			if (stand != null) {
+				float standMultiplier = 1;
+				EntityActionInstance standAction = LivingComponentAction.getCurEntityAction(stand);
+				if (standAction != null) {
+					standMultiplier *= standAction.userWalkSpeed;
+				}
+				multiplier *= stand.getUserWalkSpeed(standMultiplier);
+			}
+			return multiplier;
+		}
+
+		@Override
+		public boolean shouldRender() {
+			if (hud.forContainerMenu.isTrue()) return false;
+			return getLeapState() != null;
+		}
+
+		@Override
+		public void renderElement(GuiGraphics guiGraphics, DeltaTracker deltaTracker) {
+			Minecraft mc = Minecraft.getInstance();
+			LeapState state = getLeapState();
+			if (state == null || mc.player == null) {
+				return;
+			}
+			int x = getX();
+			int y = getY();
+			float fill = StandUtil.leapIconFill(state.cooldown(), state.period());
+			boolean translucent = !canLeapNow(mc.player, state);
+			RenderSystem.enableBlend();
+			RenderSystem.defaultBlendFunc();
+			BlitFloat.blit(guiGraphics.pose(), mc, TEXTURE,
+					x, y, SIZE, SIZE, 0,
+					0, 0, SIZE, SIZE, SIZE * 2, SIZE,
+					BlitFloat.NO_TINT);
+			// filled from the bottom up
+			float px = SIZE * fill;
+			if (px > 0) {
+				BlitFloat.blit(guiGraphics.pose(), mc, TEXTURE,
+						x, y + SIZE - px, SIZE, px, 0,
+						SIZE, SIZE - px, SIZE, px, SIZE * 2, SIZE,
+						translucent ? TRANSLUCENT_TINT : BlitFloat.NO_TINT);
+			}
+		}
+	}
+
+
 	public static class StandRange extends HudElement {
 		private int distanceWidth = -1;
 		private int strengthWidth = -1;

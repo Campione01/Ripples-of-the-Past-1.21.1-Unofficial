@@ -160,7 +160,13 @@ public class UserStandEffects extends EntityCustomEffectsMap<StandEffectInstance
 
 	@ApiStatus.Internal
 	public void onStandUserLogout(ServerPlayer user) {
-		if (!user.server.isPublished()) return;
+		removeLogoutEffects(user.server.isPublished());
+	}
+
+	// 1.16: only LAN/dedicated servers drop effects on logout; single player keeps them saved.
+	@ApiStatus.Internal
+	public void removeLogoutEffects(boolean publishedServer) {
+		if (!publishedServer) return;
 
 		var it = effects.int2ObjectEntrySet().iterator();
 		while (it.hasNext()) {

@@ -1,5 +1,6 @@
 package rotp.core.impl.stands.goldexperience;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -26,9 +27,11 @@ import net.minecraft.world.item.ItemUtils;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.alchemy.PotionContents;
 import net.minecraft.world.item.component.CustomData;
+import net.minecraft.world.item.component.SuspiciousStewEffects;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.fml.util.ObfuscationReflectionHelper;
 import net.neoforged.neoforge.event.entity.living.BabyEntitySpawnEvent;
 import net.neoforged.neoforge.event.entity.living.LivingEntityUseItemEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
@@ -36,6 +39,8 @@ import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 @EventBusSubscriber(modid = JojoMod.MOD_ID)
 public final class GEProductEffectsEvents {
     public static final String MOD_ADDS_EFFECTS_TO_ITEM = "JojoItemUseEffects";
+    // private in MushroomCow; vanilla milking reads and clears it
+    private static final Field MOOSHROOM_STEW_EFFECTS = ObfuscationReflectionHelper.findField(MushroomCow.class, "stewEffects");
 
     private GEProductEffectsEvents() {}
 
@@ -69,9 +74,21 @@ public final class GEProductEffectsEvents {
             player.setItemInHand(event.getHand(), ItemUtils.createFilledResult(heldItem, player, milkBucket));
         }
         else {
-            ItemStack stew = withProductEffects(new ItemStack(Items.MUSHROOM_STEW), productEffects);
+            // 1.16: a flower-fed brown mooshroom still gives (and uses up) its suspicious stew
+            MushroomCow mooshroom = (MushroomCow) cow;
+            SuspiciousStewEffects stewEffects = getStewEffects(mooshroom);
+            ItemStack stew;
+            if (stewEffects != null) {
+                stew = new ItemStack(Items.SUSPICIOUS_STEW);
+                stew.set(DataComponents.SUSPICIOUS_STEW_EFFECTS, stewEffects);
+                setStewEffects(mooshroom, null);
+            }
+            else {
+                stew = new ItemStack(Items.MUSHROOM_STEW);
+            }
+            stew = withProductEffects(stew, productEffects);
             player.setItemInHand(event.getHand(), ItemUtils.createFilledResult(heldItem, player, stew, false));
-            cow.playSound(SoundEvents.MOOSHROOM_MILK, 1.0F, 1.0F);
+            cow.playSound(stewEffects != null ? SoundEvents.MOOSHROOM_MILK_SUSPICIOUSLY : SoundEvents.MOOSHROOM_MILK, 1.0F, 1.0F);
         }
 
         event.setCanceled(true);
@@ -103,6 +120,25 @@ public final class GEProductEffectsEvents {
         List<MobEffectInstance> merged = mergeProductEffects(effectsA, effectsB);
         if (!merged.isEmpty()) {
             GEProductEffectsState.get(child).setProductEffects(merged);
+        }
+    }
+
+    // null when the mooshroom has no pending flower effect
+    private static SuspiciousStewEffects getStewEffects(MushroomCow mooshroom) {
+        try {
+            return (SuspiciousStewEffects) MOOSHROOM_STEW_EFFECTS.get(mooshroom);
+        }
+        catch (IllegalAccessException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private static void setStewEffects(MushroomCow mooshroom, SuspiciousStewEffects stewEffects) {
+        try {
+            MOOSHROOM_STEW_EFFECTS.set(mooshroom, stewEffects);
+        }
+        catch (IllegalAccessException e) {
+            throw new IllegalStateException(e);
         }
     }
 

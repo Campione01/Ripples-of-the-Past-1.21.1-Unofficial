@@ -241,11 +241,7 @@ public class GoldExperienceToothLifeformAbility extends GoldExperienceUtilityAbi
                         GETransformationEntity.FollowTargetMode.AGGRO_TRACK, user);
 
         toothObject.discard();
-        if (!standPower.isUserCreative()) {
-            int cooldown = Math.max(ticks / 2, 1);
-            transformation.actionCooldown = cooldown;
-            standPower.setAbilityCooldown(CREATE_LIFEFORM_ABILITY, cooldown, cooldown);
-        }
+        // 1.16 left this cooldown commented out: a tooth lifeform costs no Create Lifeform cooldown
         level.addFreshEntity(transformation);
 
         GECreatedLifeformEffect createdLifeform = ModStandAbilities.EFFECT_GE_CREATED_LIFEFORM.get().create(level);

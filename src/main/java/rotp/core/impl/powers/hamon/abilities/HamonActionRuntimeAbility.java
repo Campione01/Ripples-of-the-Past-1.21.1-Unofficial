@@ -205,6 +205,15 @@ public class HamonActionRuntimeAbility extends EntityActionAbility {
 		if (skipsShoutWhileSneaking(user)) {
 			return;
 		}
+		SoundEvent shout = getHamonShout(hamon);
+		if (shout != null) {
+			JojoModUtil.sayVoiceLine(user, shout);
+		}
+	}
+
+	// 1.16 HamonAction.getShout: the character technique's line, else the default one
+	@Nullable
+	protected SoundEvent getHamonShout(HamonData hamon) {
 		Supplier<? extends SoundEvent> shoutSupplier = null;
 		String techniqueName = hamon.getCharacterTechniqueName();
 		if (!techniqueName.isEmpty()) {
@@ -213,12 +222,7 @@ public class HamonActionRuntimeAbility extends EntityActionAbility {
 		if (shoutSupplier == null) {
 			shoutSupplier = hamonShout;
 		}
-		if (shoutSupplier != null) {
-			SoundEvent shout = shoutSupplier.get();
-			if (shout != null) {
-				JojoModUtil.sayVoiceLine(user, shout);
-			}
-		}
+		return shoutSupplier != null ? shoutSupplier.get() : null;
 	}
 
 	protected int getHamonCooldown(Power<?> context, int ticksHeld) {

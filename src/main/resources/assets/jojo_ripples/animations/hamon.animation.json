@@ -6112,9 +6112,7 @@
 				}
 			},
 			"timeline": {
-				"0.0": "phase = WINDUP;",
-				"0.65": "phase = PERFORM;",
-				"1.0": "phase = RECOVERY;"
+				"0": "anim_speed = 2.25"
 			}
 		},
 		"sunlight_yellow_overdrive": {
@@ -7747,7 +7745,7 @@
 		"punch_barrage": {
 			"animation_length": 0.2,
 			"timeline": {
-				"0.0": "barrage = TWO_HANDED;"
+				"0.0": ["barrage = TWO_HANDED;", "arms_follow_pitch = 1"]
 			},
 			"bones": {
 				"body": {
@@ -7774,16 +7772,16 @@
 					"rotation": {
 						"0.1": {
 							"vector": [
-								0.0,
-								30.0,
+								"query.head_x_rotation",
+								"30.0+query.head_y_rotation",
 								0.0
 							],
 							"easing": "linear"
 						},
 						"0.2": {
 							"vector": [
-								0.0,
-								-30.0,
+								"query.head_x_rotation",
+								"-30.0+query.head_y_rotation",
 								0.0
 							],
 							"easing": "linear"
@@ -9034,8 +9032,8 @@
 					"rotation": {
 						"0.05": {
 							"vector": [
-								9.57631,
-								0.0,
+								"9.57631+query.head_x_rotation",
+								"query.head_y_rotation",
 								0.0
 							],
 							"easing": "linear"
@@ -9148,8 +9146,8 @@
 					"rotation": {
 						"0.05": {
 							"vector": [
-								9.57631,
-								0.0,
+								"9.57631+query.head_x_rotation",
+								"query.head_y_rotation",
 								0.0
 							],
 							"easing": "linear"
@@ -9262,8 +9260,8 @@
 					"rotation": {
 						"0.05": {
 							"vector": [
-								9.57631,
-								0.0,
+								"9.57631+query.head_x_rotation",
+								"query.head_y_rotation",
 								0.0
 							],
 							"easing": "linear"
@@ -9376,8 +9374,8 @@
 					"rotation": {
 						"0.05": {
 							"vector": [
-								9.57631,
-								0.0,
+								"9.57631+query.head_x_rotation",
+								"query.head_y_rotation",
 								0.0
 							],
 							"easing": "linear"
@@ -9798,6 +9796,9 @@
 						}
 					}
 				}
+			},
+			"timeline": {
+				"0": "anim_speed = 2"
 			}
 		},
 		"syo_barrage_start": {
@@ -32420,208 +32421,208 @@
 					"rotation": {
 						"0": {
 							"vector": [
-								0.0,
-								0.0,
+								"query.head_x_rotation",
+								"query.head_y_rotation",
 								0.0
 							],
 							"easing": "linear"
 						},
 						"0.05": {
 							"vector": [
-								-4.24505,
-								-0.01639,
+								"-4.24505+query.head_x_rotation",
+								"-0.01639+query.head_y_rotation",
 								4.83313
 							],
 							"easing": "linear"
 						},
 						"0.1": {
 							"vector": [
-								-4.25473,
-								-0.01577,
+								"-4.25473+query.head_x_rotation",
+								"-0.01577+query.head_y_rotation",
 								4.67944
 							],
 							"easing": "linear"
 						},
 						"0.15": {
 							"vector": [
-								-4.28377,
-								-0.01393,
+								"-4.28377+query.head_x_rotation",
+								"-0.01393+query.head_y_rotation",
 								4.21837
 							],
 							"easing": "linear"
 						},
 						"0.2": {
 							"vector": [
-								-4.33216,
-								-0.01085,
+								"-4.33216+query.head_x_rotation",
+								"-0.01085+query.head_y_rotation",
 								3.44993
 							],
 							"easing": "linear"
 						},
 						"0.25": {
 							"vector": [
-								-4.39992,
-								-0.00655,
+								"-4.39992+query.head_x_rotation",
+								"-0.00655+query.head_y_rotation",
 								2.37411
 							],
 							"easing": "linear"
 						},
 						"0.3": {
 							"vector": [
-								-4.48703,
-								-0.00102,
+								"-4.48703+query.head_x_rotation",
+								"-0.00102+query.head_y_rotation",
 								0.99092
 							],
 							"easing": "linear"
 						},
 						"0.35": {
 							"vector": [
-								-4.5935,
-								0.00575,
+								"-4.5935+query.head_x_rotation",
+								"0.00575+query.head_y_rotation",
 								-0.69966
 							],
 							"easing": "linear"
 						},
 						"0.4": {
 							"vector": [
-								-4.69997,
-								0.01251,
+								"-4.69997+query.head_x_rotation",
+								"0.01251+query.head_y_rotation",
 								-2.39023
 							],
 							"easing": "linear"
 						},
 						"0.45": {
 							"vector": [
-								-4.78708,
-								0.01804,
+								"-4.78708+query.head_x_rotation",
+								"0.01804+query.head_y_rotation",
 								-3.77342
 							],
 							"easing": "linear"
 						},
 						"0.5": {
 							"vector": [
-								-4.85484,
-								0.02235,
+								"-4.85484+query.head_x_rotation",
+								"0.02235+query.head_y_rotation",
 								-4.84924
 							],
 							"easing": "linear"
 						},
 						"0.55": {
 							"vector": [
-								-4.90323,
-								0.02542,
+								"-4.90323+query.head_x_rotation",
+								"0.02542+query.head_y_rotation",
 								-5.61769
 							],
 							"easing": "linear"
 						},
 						"0.6": {
 							"vector": [
-								-4.93227,
-								0.02726,
+								"-4.93227+query.head_x_rotation",
+								"0.02726+query.head_y_rotation",
 								-6.07875
 							],
 							"easing": "linear"
 						},
 						"0.65": {
 							"vector": [
-								-4.94195,
-								0.02788,
+								"-4.94195+query.head_x_rotation",
+								"0.02788+query.head_y_rotation",
 								-6.23244
 							],
 							"easing": "linear"
 						},
 						"0.7": {
 							"vector": [
-								-4.93227,
-								0.02726,
+								"-4.93227+query.head_x_rotation",
+								"0.02726+query.head_y_rotation",
 								-6.07875
 							],
 							"easing": "linear"
 						},
 						"0.75": {
 							"vector": [
-								-4.90323,
-								0.02542,
+								"-4.90323+query.head_x_rotation",
+								"0.02542+query.head_y_rotation",
 								-5.61769
 							],
 							"easing": "linear"
 						},
 						"0.8": {
 							"vector": [
-								-4.85484,
-								0.02235,
+								"-4.85484+query.head_x_rotation",
+								"0.02235+query.head_y_rotation",
 								-4.84924
 							],
 							"easing": "linear"
 						},
 						"0.85": {
 							"vector": [
-								-4.78708,
-								0.01804,
+								"-4.78708+query.head_x_rotation",
+								"0.01804+query.head_y_rotation",
 								-3.77342
 							],
 							"easing": "linear"
 						},
 						"0.9": {
 							"vector": [
-								-4.69997,
-								0.01251,
+								"-4.69997+query.head_x_rotation",
+								"0.01251+query.head_y_rotation",
 								-2.39023
 							],
 							"easing": "linear"
 						},
 						"0.95": {
 							"vector": [
-								-4.5935,
-								0.00575,
+								"-4.5935+query.head_x_rotation",
+								"0.00575+query.head_y_rotation",
 								-0.69966
 							],
 							"easing": "linear"
 						},
 						"1": {
 							"vector": [
-								-4.48703,
-								-0.00102,
+								"-4.48703+query.head_x_rotation",
+								"-0.00102+query.head_y_rotation",
 								0.99092
 							],
 							"easing": "linear"
 						},
 						"1.05": {
 							"vector": [
-								-4.39992,
-								-0.00655,
+								"-4.39992+query.head_x_rotation",
+								"-0.00655+query.head_y_rotation",
 								2.37411
 							],
 							"easing": "linear"
 						},
 						"1.1": {
 							"vector": [
-								-4.33216,
-								-0.01085,
+								"-4.33216+query.head_x_rotation",
+								"-0.01085+query.head_y_rotation",
 								3.44993
 							],
 							"easing": "linear"
 						},
 						"1.15": {
 							"vector": [
-								-4.28377,
-								-0.01393,
+								"-4.28377+query.head_x_rotation",
+								"-0.01393+query.head_y_rotation",
 								4.21837
 							],
 							"easing": "linear"
 						},
 						"1.2": {
 							"vector": [
-								-4.25473,
-								-0.01577,
+								"-4.25473+query.head_x_rotation",
+								"-0.01577+query.head_y_rotation",
 								4.67944
 							],
 							"easing": "linear"
 						},
 						"1.25": {
 							"vector": [
-								-4.24505,
-								-0.01639,
+								"-4.24505+query.head_x_rotation",
+								"-0.01639+query.head_y_rotation",
 								4.83313
 							],
 							"easing": "linear"
@@ -35601,208 +35602,208 @@
 					"rotation": {
 						"0": {
 							"vector": [
-								0.0,
-								0.0,
+								"query.head_x_rotation",
+								"query.head_y_rotation",
 								0.0
 							],
 							"easing": "linear"
 						},
 						"0.05": {
 							"vector": [
-								-4.24505,
-								-0.01639,
+								"-4.24505+query.head_x_rotation",
+								"-0.01639+query.head_y_rotation",
 								4.83313
 							],
 							"easing": "linear"
 						},
 						"0.1": {
 							"vector": [
-								-4.25473,
-								-0.01577,
+								"-4.25473+query.head_x_rotation",
+								"-0.01577+query.head_y_rotation",
 								4.67944
 							],
 							"easing": "linear"
 						},
 						"0.15": {
 							"vector": [
-								-4.28377,
-								-0.01393,
+								"-4.28377+query.head_x_rotation",
+								"-0.01393+query.head_y_rotation",
 								4.21837
 							],
 							"easing": "linear"
 						},
 						"0.2": {
 							"vector": [
-								-4.33216,
-								-0.01085,
+								"-4.33216+query.head_x_rotation",
+								"-0.01085+query.head_y_rotation",
 								3.44993
 							],
 							"easing": "linear"
 						},
 						"0.25": {
 							"vector": [
-								-4.39992,
-								-0.00655,
+								"-4.39992+query.head_x_rotation",
+								"-0.00655+query.head_y_rotation",
 								2.37411
 							],
 							"easing": "linear"
 						},
 						"0.3": {
 							"vector": [
-								-4.48703,
-								-0.00102,
+								"-4.48703+query.head_x_rotation",
+								"-0.00102+query.head_y_rotation",
 								0.99092
 							],
 							"easing": "linear"
 						},
 						"0.35": {
 							"vector": [
-								-4.5935,
-								0.00575,
+								"-4.5935+query.head_x_rotation",
+								"0.00575+query.head_y_rotation",
 								-0.69966
 							],
 							"easing": "linear"
 						},
 						"0.4": {
 							"vector": [
-								-4.69997,
-								0.01251,
+								"-4.69997+query.head_x_rotation",
+								"0.01251+query.head_y_rotation",
 								-2.39023
 							],
 							"easing": "linear"
 						},
 						"0.45": {
 							"vector": [
-								-4.78708,
-								0.01804,
+								"-4.78708+query.head_x_rotation",
+								"0.01804+query.head_y_rotation",
 								-3.77342
 							],
 							"easing": "linear"
 						},
 						"0.5": {
 							"vector": [
-								-4.85484,
-								0.02235,
+								"-4.85484+query.head_x_rotation",
+								"0.02235+query.head_y_rotation",
 								-4.84924
 							],
 							"easing": "linear"
 						},
 						"0.55": {
 							"vector": [
-								-4.90323,
-								0.02542,
+								"-4.90323+query.head_x_rotation",
+								"0.02542+query.head_y_rotation",
 								-5.61769
 							],
 							"easing": "linear"
 						},
 						"0.6": {
 							"vector": [
-								-4.93227,
-								0.02726,
+								"-4.93227+query.head_x_rotation",
+								"0.02726+query.head_y_rotation",
 								-6.07875
 							],
 							"easing": "linear"
 						},
 						"0.65": {
 							"vector": [
-								-4.94195,
-								0.02788,
+								"-4.94195+query.head_x_rotation",
+								"0.02788+query.head_y_rotation",
 								-6.23244
 							],
 							"easing": "linear"
 						},
 						"0.7": {
 							"vector": [
-								-4.93227,
-								0.02726,
+								"-4.93227+query.head_x_rotation",
+								"0.02726+query.head_y_rotation",
 								-6.07875
 							],
 							"easing": "linear"
 						},
 						"0.75": {
 							"vector": [
-								-4.90323,
-								0.02542,
+								"-4.90323+query.head_x_rotation",
+								"0.02542+query.head_y_rotation",
 								-5.61769
 							],
 							"easing": "linear"
 						},
 						"0.8": {
 							"vector": [
-								-4.85484,
-								0.02235,
+								"-4.85484+query.head_x_rotation",
+								"0.02235+query.head_y_rotation",
 								-4.84924
 							],
 							"easing": "linear"
 						},
 						"0.85": {
 							"vector": [
-								-4.78708,
-								0.01804,
+								"-4.78708+query.head_x_rotation",
+								"0.01804+query.head_y_rotation",
 								-3.77342
 							],
 							"easing": "linear"
 						},
 						"0.9": {
 							"vector": [
-								-4.69997,
-								0.01251,
+								"-4.69997+query.head_x_rotation",
+								"0.01251+query.head_y_rotation",
 								-2.39023
 							],
 							"easing": "linear"
 						},
 						"0.95": {
 							"vector": [
-								-4.5935,
-								0.00575,
+								"-4.5935+query.head_x_rotation",
+								"0.00575+query.head_y_rotation",
 								-0.69966
 							],
 							"easing": "linear"
 						},
 						"1": {
 							"vector": [
-								-4.48703,
-								-0.00102,
+								"-4.48703+query.head_x_rotation",
+								"-0.00102+query.head_y_rotation",
 								0.99092
 							],
 							"easing": "linear"
 						},
 						"1.05": {
 							"vector": [
-								-4.39992,
-								-0.00655,
+								"-4.39992+query.head_x_rotation",
+								"-0.00655+query.head_y_rotation",
 								2.37411
 							],
 							"easing": "linear"
 						},
 						"1.1": {
 							"vector": [
-								-4.33216,
-								-0.01085,
+								"-4.33216+query.head_x_rotation",
+								"-0.01085+query.head_y_rotation",
 								3.44993
 							],
 							"easing": "linear"
 						},
 						"1.15": {
 							"vector": [
-								-4.28377,
-								-0.01393,
+								"-4.28377+query.head_x_rotation",
+								"-0.01393+query.head_y_rotation",
 								4.21837
 							],
 							"easing": "linear"
 						},
 						"1.2": {
 							"vector": [
-								-4.25473,
-								-0.01577,
+								"-4.25473+query.head_x_rotation",
+								"-0.01577+query.head_y_rotation",
 								4.67944
 							],
 							"easing": "linear"
 						},
 						"1.25": {
 							"vector": [
-								-4.24505,
-								-0.01639,
+								"-4.24505+query.head_x_rotation",
+								"-0.01639+query.head_y_rotation",
 								4.83313
 							],
 							"easing": "linear"
@@ -38782,112 +38783,112 @@
 					"rotation": {
 						"0": {
 							"vector": [
-								0.0,
-								0.0,
+								"query.head_x_rotation",
+								"query.head_y_rotation",
 								0.0
 							],
 							"easing": "linear"
 						},
 						"0.05": {
 							"vector": [
-								-4.24505,
-								-0.01639,
+								"-4.24505+query.head_x_rotation",
+								"-0.01639+query.head_y_rotation",
 								4.83313
 							],
 							"easing": "linear"
 						},
 						"0.1": {
 							"vector": [
-								-4.37237,
-								0.28367,
+								"-4.37237+query.head_x_rotation",
+								"0.28367+query.head_y_rotation",
 								4.87164
 							],
 							"easing": "linear"
 						},
 						"0.15": {
 							"vector": [
-								-4.75431,
-								1.18385,
+								"-4.75431+query.head_x_rotation",
+								"1.18385+query.head_y_rotation",
 								4.98716
 							],
 							"easing": "linear"
 						},
 						"0.2": {
 							"vector": [
-								-5.39089,
-								2.68414,
+								"-5.39089+query.head_x_rotation",
+								"2.68414+query.head_y_rotation",
 								5.17971
 							],
 							"easing": "linear"
 						},
 						"0.25": {
 							"vector": [
-								-6.21844,
-								4.63452,
+								"-6.21844+query.head_x_rotation",
+								"4.63452+query.head_y_rotation",
 								5.43001
 							],
 							"easing": "linear"
 						},
 						"0.3": {
 							"vector": [
-								-6.85501,
-								6.13482,
+								"-6.85501+query.head_x_rotation",
+								"6.13482+query.head_y_rotation",
 								5.62256
 							],
 							"easing": "linear"
 						},
 						"0.35": {
 							"vector": [
-								-7.23696,
-								7.03499,
+								"-7.23696+query.head_x_rotation",
+								"7.03499+query.head_y_rotation",
 								5.73808
 							],
 							"easing": "linear"
 						},
 						"0.4": {
 							"vector": [
-								-7.36427,
-								7.33505,
+								"-7.36427+query.head_x_rotation",
+								"7.33505+query.head_y_rotation",
 								5.77659
 							],
 							"easing": "linear"
 						},
 						"0.45": {
 							"vector": [
-								-7.11474,
-								6.74693,
+								"-7.11474+query.head_x_rotation",
+								"6.74693+query.head_y_rotation",
 								5.70112
 							],
 							"easing": "linear"
 						},
 						"0.5": {
 							"vector": [
-								-6.36612,
-								4.98259,
+								"-6.36612+query.head_x_rotation",
+								"4.98259+query.head_y_rotation",
 								5.47468
 							],
 							"easing": "linear"
 						},
 						"0.55": {
 							"vector": [
-								-5.2432,
-								2.33607,
+								"-5.2432+query.head_x_rotation",
+								"2.33607+query.head_y_rotation",
 								5.13504
 							],
 							"easing": "linear"
 						},
 						"0.6": {
 							"vector": [
-								-4.49459,
-								0.57173,
+								"-4.49459+query.head_x_rotation",
+								"0.57173+query.head_y_rotation",
 								4.90861
 							],
 							"easing": "linear"
 						},
 						"0.65": {
 							"vector": [
-								-4.24505,
-								-0.01639,
+								"-4.24505+query.head_x_rotation",
+								"-0.01639+query.head_y_rotation",
 								4.83313
 							],
 							"easing": "linear"
@@ -40523,112 +40524,112 @@
 					"rotation": {
 						"0": {
 							"vector": [
-								0.0,
-								0.0,
+								"query.head_x_rotation",
+								"query.head_y_rotation",
 								0.0
 							],
 							"easing": "linear"
 						},
 						"0.05": {
 							"vector": [
-								-4.24505,
-								-0.01639,
+								"-4.24505+query.head_x_rotation",
+								"-0.01639+query.head_y_rotation",
 								4.83313
 							],
 							"easing": "linear"
 						},
 						"0.1": {
 							"vector": [
-								-4.16345,
-								-0.26279,
+								"-4.16345+query.head_x_rotation",
+								"-0.26279+query.head_y_rotation",
 								4.78799
 							],
 							"easing": "linear"
 						},
 						"0.15": {
 							"vector": [
-								-3.91864,
-								-1.00202,
+								"-3.91864+query.head_x_rotation",
+								"-1.00202+query.head_y_rotation",
 								4.65257
 							],
 							"easing": "linear"
 						},
 						"0.2": {
 							"vector": [
-								-3.51063,
-								-2.23405,
+								"-3.51063+query.head_x_rotation",
+								"-2.23405+query.head_y_rotation",
 								4.42688
 							],
 							"easing": "linear"
 						},
 						"0.25": {
 							"vector": [
-								-2.98022,
-								-3.8357,
+								"-2.98022+query.head_x_rotation",
+								"-3.8357+query.head_y_rotation",
 								4.13348
 							],
 							"easing": "linear"
 						},
 						"0.3": {
 							"vector": [
-								-2.5722,
-								-5.06774,
+								"-2.5722+query.head_x_rotation",
+								"-5.06774+query.head_y_rotation",
 								3.90778
 							],
 							"easing": "linear"
 						},
 						"0.35": {
 							"vector": [
-								-2.3274,
-								-5.80696,
+								"-2.3274+query.head_x_rotation",
+								"-5.80696+query.head_y_rotation",
 								3.77237
 							],
 							"easing": "linear"
 						},
 						"0.4": {
 							"vector": [
-								-2.2458,
-								-6.05337,
+								"-2.2458+query.head_x_rotation",
+								"-6.05337+query.head_y_rotation",
 								3.72723
 							],
 							"easing": "linear"
 						},
 						"0.45": {
 							"vector": [
-								-2.40574,
-								-5.57041,
+								"-2.40574+query.head_x_rotation",
+								"-5.57041+query.head_y_rotation",
 								3.8157
 							],
 							"easing": "linear"
 						},
 						"0.5": {
 							"vector": [
-								-2.88556,
-								-4.12153,
+								"-2.88556+query.head_x_rotation",
+								"-4.12153+query.head_y_rotation",
 								4.08112
 							],
 							"easing": "linear"
 						},
 						"0.55": {
 							"vector": [
-								-3.60529,
-								-1.94822,
+								"-3.60529+query.head_x_rotation",
+								"-1.94822+query.head_y_rotation",
 								4.47924
 							],
 							"easing": "linear"
 						},
 						"0.6": {
 							"vector": [
-								-4.08511,
-								-0.49934,
+								"-4.08511+query.head_x_rotation",
+								"-0.49934+query.head_y_rotation",
 								4.74466
 							],
 							"easing": "linear"
 						},
 						"0.65": {
 							"vector": [
-								-4.24505,
-								-0.01639,
+								"-4.24505+query.head_x_rotation",
+								"-0.01639+query.head_y_rotation",
 								4.83313
 							],
 							"easing": "linear"

@@ -1,5 +1,7 @@
 package rotp.core.impl.npc.rps;
 
+import java.util.UUID;
+
 import javax.annotation.Nullable;
 
 import rotp.core.ServerSavedData;
@@ -8,6 +10,7 @@ import rotp.core.network.s2c.RPSGameStatePacket;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.standpower.StandPower;
 
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.DifficultyInstance;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -74,6 +77,9 @@ public class RockPaperScissorsKidEntity extends PathfinderMob {
 			ServerSavedData data = ServerSavedData.get(serverPlayer.getServer());
 			RockPaperScissorsGame game = data.rpsPvpGames.get(serverPlayer.getUUID());
 			if (game == null || !game.opponentIsNpc() || !getUUID().equals(game.opponent()) || game.isMatchOver()) {
+				if (game != null && !game.opponentIsNpc()) {
+					leavePvpGame(data, serverPlayer);
+				}
 				data.rpsPvpGames.put(serverPlayer, getUUID(), true);
 				game = data.rpsPvpGames.get(serverPlayer.getUUID());
 				if (game != null) {
@@ -88,5 +94,17 @@ public class RockPaperScissorsKidEntity extends PathfinderMob {
 			data.setDirty();
 		}
 		return InteractionResult.sidedSuccess(level().isClientSide());
+	}
+
+	// a PvP match left open by death or relog is paused (1.16 keeps it apart from kid games)
+	// and its opponent is told, as the quit packet and the command do
+	private static void leavePvpGame(ServerSavedData data, ServerPlayer player) {
+		UUID opponent = data.rpsPvpGames.leave(player.getUUID());
+		if (opponent != null) {
+			ServerPlayer opponentPlayer = player.getServer().getPlayerList().getPlayer(opponent);
+			if (opponentPlayer != null) {
+				PacketDistributor.sendToPlayer(opponentPlayer, RPSGameStatePacket.leftGame());
+			}
+		}
 	}
 }

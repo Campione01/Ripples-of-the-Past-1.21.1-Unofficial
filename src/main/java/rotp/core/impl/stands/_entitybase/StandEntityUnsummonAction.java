@@ -29,6 +29,8 @@ public class StandEntityUnsummonAction extends SpecialEntityActionType {
 		return new StandUnsummonInstance(this);
 	}
 
+	public static final int MIN_TICKS_FOR_UNSUMMON_SOUND = 20;
+
 	public static class StandUnsummonInstance extends EntityActionInstance {
 		protected boolean playedSound = false;
 		private boolean startedUnsummoning = false;
@@ -118,9 +120,13 @@ public class StandEntityUnsummonAction extends SpecialEntityActionType {
 				if (!performer.level().isClientSide() && !playedSound) {
 					LivingEntity user = getPowerUser();
 					if (user != null) {
-						StandPower userPower = StandPower.get(user);
-						PacketDistributor.sendToPlayersTrackingEntityAndSelf(user, new StandEntitySoundPacket(standEntity,
-								userPower != null && userPower.hasPower() ? userPower.getPowerType().getUnsummonSound() : ModSoundEvents.STAND_UNSUMMON, 1, 1));
+						// 1.16: no unsummon sound for a Stand summoned under a second ago
+						if (standEntity.tickCount > MIN_TICKS_FOR_UNSUMMON_SOUND) {
+							StandPower userPower = StandPower.get(user);
+							PacketDistributor.sendToPlayersTrackingEntityAndSelf(user, new StandEntitySoundPacket(standEntity,
+									userPower != null && userPower.hasPower() ? userPower.getPowerType().getUnsummonSound() : ModSoundEvents.STAND_UNSUMMON, 1, 1));
+						}
+						// marked either way so it is not sent later in this unsummon
 						playedSound = true;
 					}
 				}

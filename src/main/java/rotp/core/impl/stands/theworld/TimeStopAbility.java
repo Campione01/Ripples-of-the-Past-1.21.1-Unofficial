@@ -14,6 +14,7 @@ import rotp.core.config.client.PlayerClientBroadcastedSettings;
 import rotp.core.core.JojoMod;
 import rotp.core.event.ModEventHooks;
 import rotp.core.JojoModConfig;
+import rotp.core.init.ModCriteriaTriggers;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModSoundEvents;
 import rotp.core.init.ModStatusEffects;
@@ -66,7 +67,8 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 	private static final int THE_WORLD_HOLD_TO_FIRE_TICKS = 30;
 	private static final int THE_WORLD_RESOLVE_HOLD_TO_FIRE_TICKS = 20;
 	private static final int TIME_STOP_SOUND_MIN_TICKS = 40;
-	private static final int TIME_STOP_OPENING_SETTLE_TICKS = 35;
+	// the user's TIME_STOP effect also covers this opening (time_stop_9 checks 180 + 35 ticks)
+	public static final int TIME_STOP_OPENING_SETTLE_TICKS = 35;
 	private static final int STAR_PLATINUM_RESOLVE_LEVEL_TO_UNLOCK = 4;
 	private static final int THE_WORLD_RESOLVE_LEVEL_TO_UNLOCK = 2;
 	// 1.16 core time stops had heldWalkSpeed(0); the owner's Batch907 boundary keeps the charge free to walk.
@@ -519,6 +521,7 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 			return false;
 		}
 		TimeStopLearning.markUsedTimeStopToday(power);
+		ModCriteriaTriggers.triggerTimeAbility(user, power);
 		if (!invadingStoppedTime) {
 			if (instance.totalTicks() >= TIME_STOP_SOUND_MIN_TICKS) {
 				TimeStopAudioDecision soundDecision =
@@ -603,7 +606,9 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 			if (getPhase() == ActionPhase.BUTTON_CHARGE) {
 				if (!level().isClientSide()) {
 					LivingEntity user = getPowerUser();
-					if (ability instanceof TimeStopAbility timeStop && user != null) {
+					// 1.16 stopHeldAction(true): a release that fails the recheck starts nothing, silently
+					if (ability instanceof TimeStopAbility timeStop && user != null
+							&& timeStop.canFireReleasedHold(this)) {
 						StandPower power = PowerClass.STAND.get(user);
 						String learningName = timeStop.getLearningAbilityName();
 						int maxTicks = TimeStopLearning.getSavedTimeStopTicks(power, learningName);

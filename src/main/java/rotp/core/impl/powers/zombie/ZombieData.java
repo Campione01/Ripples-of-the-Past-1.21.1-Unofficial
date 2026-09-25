@@ -1,7 +1,10 @@
 package rotp.core.impl.powers.zombie;
 
+import java.util.List;
+
 import javax.annotation.Nullable;
 
+import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.PowerData;
 import rotp.core.powersystem.PowerType;
@@ -24,10 +27,14 @@ import net.minecraft.world.entity.player.Player;
 public class ZombieData extends PlayerPowerData {
 	public static final float BASE_MAX_ENERGY = 1000.0F;
 	private static final int LAST_BLOOD_LEVEL_UNKNOWN = -999;
+	private static final List<Holder<MobEffect>> PASSIVE_EFFECTS = List.of(
+			MobEffects.HEALTH_BOOST, MobEffects.DAMAGE_BOOST, MobEffects.MOVEMENT_SPEED,
+			MobEffects.DIG_SPEED, MobEffects.JUMP, MobEffects.NIGHT_VISION);
 
 	private int lastBloodLevel = LAST_BLOOD_LEVEL_UNKNOWN;
 	private boolean disguised;
 	private float energy;
+	private boolean removingPassiveEffects;
 	
 	public ZombieData() {
 		super(ZombiePowerType.ZOMBIE.get());
@@ -221,23 +228,50 @@ public class ZombieData extends PlayerPowerData {
 	}
 
 	private void updateZombiePassiveEffects(LivingEntity user) {
-		int difficultyId = getDifficultyId(user);
-		int bloodLevel = bloodLevel(user);
-		refreshHiddenEffect(user, MobEffects.HEALTH_BOOST, difficultyId * 2);
-		refreshHiddenEffect(user, MobEffects.DAMAGE_BOOST, disguised ? -1 : bloodLevel - 5);
-		refreshHiddenEffect(user, MobEffects.MOVEMENT_SPEED, disguised ? -1 : bloodLevel - 5);
-		refreshHiddenEffect(user, MobEffects.DIG_SPEED, disguised ? -1 : bloodLevel - 5);
-		refreshHiddenEffect(user, MobEffects.JUMP, disguised ? -1 : bloodLevel - 5);
-		refreshHiddenEffect(user, MobEffects.NIGHT_VISION, 0);
+		for (Holder<MobEffect> effect : PASSIVE_EFFECTS) {
+			refreshHiddenEffect(user, effect, getPassiveEffectLevel(user, effect));
+		}
+	}
+
+	// 1.16 ZombiePowerType.getPassiveEffectLevel; -1 means no effect
+	private int getPassiveEffectLevel(LivingEntity user, Holder<MobEffect> effect) {
+		if (effect.is(MobEffects.HEALTH_BOOST)) {
+			return getDifficultyId(user) * 2;
+		}
+		if (effect.is(MobEffects.NIGHT_VISION)) {
+			return 0;
+		}
+		if (effect.is(MobEffects.DAMAGE_BOOST) || effect.is(MobEffects.MOVEMENT_SPEED)
+				|| effect.is(MobEffects.DIG_SPEED) || effect.is(MobEffects.JUMP)) {
+			return disguised ? -1 : bloodLevel(user) - 5;
+		}
+		return -1;
+	}
+
+	/**
+	 * 1.16 GameplayEventHandler.cancelPotionRemoval: milk, totems and effect clearing do not remove
+	 * a hidden passive effect the zombie power grants at its current level.
+	 */
+	public static boolean isKeptPassiveEffect(LivingEntity user, MobEffectInstance instance) {
+		if (instance.isVisible() || instance.showIcon()) {
+			return false;
+		}
+		ZombieData data = PlayerPower.getPowerData(user, ModPlayerPowers.ZOMBIE).orElse(null);
+		return data != null && !data.removingPassiveEffects
+				&& data.getPassiveEffectLevel(user, instance.getEffect()) == instance.getAmplifier();
 	}
 
 	private void removeZombiePassiveEffects(LivingEntity user) {
-		removeHiddenPassiveEffect(user, MobEffects.HEALTH_BOOST);
-		removeHiddenPassiveEffect(user, MobEffects.DAMAGE_BOOST);
-		removeHiddenPassiveEffect(user, MobEffects.MOVEMENT_SPEED);
-		removeHiddenPassiveEffect(user, MobEffects.DIG_SPEED);
-		removeHiddenPassiveEffect(user, MobEffects.JUMP);
-		removeHiddenPassiveEffect(user, MobEffects.NIGHT_VISION);
+		// Suspension still runs while this power is current, so let the removal through.
+		removingPassiveEffects = true;
+		try {
+			for (Holder<MobEffect> effect : PASSIVE_EFFECTS) {
+				removeHiddenPassiveEffect(user, effect);
+			}
+		}
+		finally {
+			removingPassiveEffects = false;
+		}
 	}
 
 	private static void refreshHiddenEffect(LivingEntity user, Holder<MobEffect> effect, int amplifier) {

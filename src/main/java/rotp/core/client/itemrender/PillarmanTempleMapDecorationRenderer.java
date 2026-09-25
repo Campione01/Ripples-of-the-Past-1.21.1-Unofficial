@@ -22,17 +22,26 @@ import net.neoforged.neoforge.client.gui.map.RegisterMapDecorationRenderersEvent
 @EventBusSubscriber(modid = JojoMod.MOD_ID, value = Dist.CLIENT)
 public final class PillarmanTempleMapDecorationRenderer {
     private static final ResourceLocation TEXTURE = JojoMod.resLoc("textures/map/pillarman_temple.png");
+    private static final ResourceLocation METEORITE_TEXTURE = JojoMod.resLoc("textures/map/meteorite.png");
 
     private PillarmanTempleMapDecorationRenderer() {}
 
     @SubscribeEvent
     public static void registerMapDecorationRenderer(RegisterMapDecorationRenderersEvent event) {
         event.register(ModMapDecorationTypes.PILLARMAN_TEMPLE.get(), PillarmanTempleMapDecorationRenderer::render);
+        event.register(ModMapDecorationTypes.METEORITE.get(),
+                (decoration, poseStack, bufferSource, mapData, decorationTextures, inItemFrame, packedLight, index) ->
+                        render(METEORITE_TEXTURE, decoration, poseStack, bufferSource, packedLight, index));
     }
 
     private static boolean render(MapDecoration decoration, PoseStack poseStack, MultiBufferSource bufferSource,
             MapItemSavedData mapData, MapDecorationTextureManager decorationTextures, boolean inItemFrame,
             int packedLight, int index) {
+        return render(TEXTURE, decoration, poseStack, bufferSource, packedLight, index);
+    }
+
+    private static boolean render(ResourceLocation texture, MapDecoration decoration, PoseStack poseStack,
+            MultiBufferSource bufferSource, int packedLight, int index) {
         poseStack.pushPose();
         poseStack.translate((float) decoration.x() / 2.0F + 64.0F, (float) decoration.y() / 2.0F + 64.0F, -0.02F);
         poseStack.mulPose(Axis.ZP.rotationDegrees((float) (decoration.rot() * 360) / 16.0F));
@@ -40,7 +49,7 @@ public final class PillarmanTempleMapDecorationRenderer {
         poseStack.translate(-0.125F, 0.125F, 0.0F);
 
         Matrix4f matrix = poseStack.last().pose();
-        VertexConsumer vertices = bufferSource.getBuffer(RenderType.text(TEXTURE));
+        VertexConsumer vertices = bufferSource.getBuffer(RenderType.text(texture));
         float z = (float) index * -0.001F;
         vertices.addVertex(matrix, -2.0F, 2.0F, z).setColor(-1).setUv(1.0F, 0.0F).setLight(packedLight);
         vertices.addVertex(matrix, 2.0F, 2.0F, z).setColor(-1).setUv(0.0F, 0.0F).setLight(packedLight);

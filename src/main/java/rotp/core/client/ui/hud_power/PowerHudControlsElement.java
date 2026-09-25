@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -111,10 +113,24 @@ public class PowerHudControlsElement extends HudElement {
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.player == null) return false;
 
-		ClientControlScheme controlScheme = input.getActiveControlScheme();
-		if (controlScheme == null) return false;
+		if (shownKeys(input).scheme() == null) return false;
 
 		return !hud.forContainerMenu.isFalse();
+	}
+
+	/** Which keys the element lists: the open HUD's, else the owned powers' off-HUD custom keys. */
+	public record ShownKeys<S>(@Nullable S scheme, boolean hudOpen) {
+		/** 1.16 updateHotkeyUi / hotbarIsRendered[2]: with no HUD open (currentMode null) the visible OUTSIDE_HUD / ALWAYS keys still draw. */
+		public static <S> ShownKeys<S> pick(@Nullable S active, Supplier<S> noHud, Predicate<S> hasKeys) {
+			if (active != null) return new ShownKeys<>(active, true);
+			S offHud = noHud.get();
+			return new ShownKeys<>(hasKeys.test(offHud) ? offHud : null, false);
+		}
+	}
+
+	private static ShownKeys<ClientControlScheme> shownKeys(InputHandler input) {
+		return ShownKeys.pick(input.getActiveControlScheme(), ClientControlScheme::noHudKeys,
+				scheme -> !scheme.getCurGroup().getBinds().isEmpty());
 	}
 
 	@Override
@@ -124,17 +140,25 @@ public class PowerHudControlsElement extends HudElement {
 		Minecraft mc = Minecraft.getInstance();
 		InputHandler input = InputHandler.getInstance();
 		Font font = mc.font;
-		ClientControlScheme controlScheme = input.getActiveControlScheme();
+		ShownKeys<ClientControlScheme> shown = shownKeys(input);
+		ClientControlScheme controlScheme = shown.scheme();
+		if (controlScheme == null) return;
 		float partialTick = ClientUtil.partialTick(deltaTracker, false);
 		StandSkin standSkin = StandSkinsLoader.getCurSkin();
 		int textColor = controlScheme.powerClassCosmetic == PowerClass.STAND && standSkin != null ? standSkin.getColor() : 0xFFFFFFFF;
 
 		this.prepare(hud, controlScheme, font, input.getCurModifier(), standSkin);
-		this.updateWarnings(mc.player);
+		// warnings stay tied to an open HUD
+		if (shown.hudOpen()) this.updateWarnings(mc.player);
 		// XXX (controls HUD) update size
 		this.renderControls(this.getX(), this.getY(), mc, guiGraphics, deltaTracker, font, textColor, partialTick);
 		int alpha = InputHandler.inputsDisabled ? 0x40FFFFFF : BlitFloat.NO_TINT;
 		this.renderWarnings(this.getX(), this.getY() + controlsHeight + 6, guiGraphics, font, alpha);
+		if (!shown.hudOpen()) {
+			// 1.16 getSelectedEnabledActions: no HUD open, nothing selected (AbilityHud#isAbilitySelected reads these)
+			binds.clear();
+			hotbars.clear();
+		}
 	}
 	
 	@Override

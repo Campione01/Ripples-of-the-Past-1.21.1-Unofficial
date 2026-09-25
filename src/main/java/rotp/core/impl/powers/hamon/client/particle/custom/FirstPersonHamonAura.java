@@ -6,11 +6,17 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Random;
+import java.util.Set;
+import java.util.function.Predicate;
+
+import javax.annotation.Nullable;
 
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 import rotp.core.client.firstperson.FirstPersonRender;
+import rotp.core.client.ui.hud_power.PowerHud;
+import rotp.core.client.ui.hud_power.PowerHud.AbilityHud;
 import rotp.core.client.util.functions.ClientUtil;
 import rotp.core.config.client.ClientModSettings;
 import rotp.core.core.JojoMod;
@@ -19,6 +25,8 @@ import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.item.AjaStoneItem;
 import rotp.core.item.GlovesItem;
 import rotp.core.item.OilItem;
+import rotp.core.powersystem.PowerClass;
+import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.playerpower.PlayerPower;
@@ -51,6 +59,7 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EquipmentSlot;
@@ -124,21 +133,16 @@ public class FirstPersonHamonAura {
 				|| player == null
 				|| mc.getCameraEntity() != player
 				|| player.isInvisible()
-				|| !event.getItemStack().isEmpty()
-				|| !player.getMainHandItem().isEmpty()
-				|| !player.getOffhandItem().isEmpty()
-				|| !ClientModSettings.getSettingsReadOnly().firstPersonHamonAura
-				|| FirstPersonRender.vanillaRendersBothMapArms(event)
-				|| !isSunlightYellowOverdrive(player)) {
+				|| FirstPersonRender.vanillaRendersBothMapArms(event)) {
+			return;
+		}
+		// 1.16 ClientEventHandler.onRenderHand: two-handed moves and wall climbing also draw the off hand.
+		if (!TwoHandedOffHand.shouldRender(player, FirstPersonHamonAura::isHudAbilitySelected)
+				&& !sunlightYellowAuraNeedsOffHand(event, player)) {
 			return;
 		}
 
-		HumanoidArm offHandSide = player.getMainArm().getOpposite();
-		if (!getInstance().hasDrawableParticles(
-				player.getOffhandItem(), offHandSide)) {
-			return;
-		}
-
+		// One guard for both reasons, so the off arm is drawn once.
 		renderingExtraSunlightYellowArm = true;
 		try {
 			FirstPersonRender.renderExtraPlayerArm(
@@ -146,6 +150,68 @@ public class FirstPersonHamonAura {
 		}
 		finally {
 			renderingExtraSunlightYellowArm = false;
+		}
+	}
+
+	private static boolean sunlightYellowAuraNeedsOffHand(RenderHandEvent event, LocalPlayer player) {
+		if (!event.getItemStack().isEmpty()
+				|| !player.getMainHandItem().isEmpty()
+				|| !player.getOffhandItem().isEmpty()
+				|| !ClientModSettings.getSettingsReadOnly().firstPersonHamonAura
+				|| !isSunlightYellowOverdrive(player)) {
+			return false;
+		}
+		HumanoidArm offHandSide = player.getMainArm().getOpposite();
+		return getInstance().hasDrawableParticles(
+				player.getOffhandItem(), offHandSide);
+	}
+
+	private static boolean isHudAbilitySelected(String abilityName) {
+		AbilityHud hud = PowerHud.abilityHUDInstance;
+		return hud != null && hud.isAbilitySelected(abilityName);
+	}
+
+	/**
+	 * 1.16 onRenderHand list of moves that show both bare hands (hamon overdrive barrages and wall climbing,
+	 * pillar man Erratic Blaze King and Divine Sandstorm). No client classes here, so gametests can load it.
+	 */
+	public static final class TwoHandedOffHand {
+		private static final ResourceLocation HAMON = JojoMod.resLoc("hamon");
+		private static final ResourceLocation PILLARMAN = JojoMod.resLoc("pillarman");
+		private static final Set<String> HAMON_ABILITIES = Set.of(
+				"overdrive_barrage", "sunlight_yellow_overdrive_barrage", "wall_climbing");
+		private static final Set<String> PILLARMAN_ABILITIES = Set.of(
+				"pillarman_erratic_blaze_king", "pillarman_divine_sandstorm");
+
+		private TwoHandedOffHand() {}
+
+		public static boolean isTwoHandedAbility(@Nullable AbilityId abilityId) {
+			if (abilityId == null || abilityId.powerClass() != PowerClass.PLAYER_POWER) {
+				return false;
+			}
+			return HAMON.equals(abilityId.powerTypeId())
+					&& HAMON_ABILITIES.contains(abilityId.nameInMoveset())
+					|| PILLARMAN.equals(abilityId.powerTypeId())
+					&& PILLARMAN_ABILITIES.contains(abilityId.nameInMoveset());
+		}
+
+		// 1.16: (both hands free && move selected) || wall climbing; the running move counts as selected.
+		public static boolean shouldRender(LivingEntity user, Predicate<String> hudSelected) {
+			HamonData hamon = PlayerPower.getPowerData(user, ModPlayerPowers.HAMON).orElse(null);
+			if (hamon != null && hamon.isWallClimbing()) {
+				return true;
+			}
+			if (!UtilFunctions.areHandsFree(user, InteractionHand.MAIN_HAND, InteractionHand.OFF_HAND)) {
+				return false;
+			}
+			EntityActionInstance action = LivingComponentAction.getCurEntityAction(user);
+			if (action != null && isTwoHandedAbility(action.ability.getAbilityId())) {
+				return true;
+			}
+			Set<String> selectable = hamon != null ? HAMON_ABILITIES
+					: PlayerPower.getPowerData(user, ModPlayerPowers.PILLAR_MAN).isPresent()
+							? PILLARMAN_ABILITIES : Set.of();
+			return selectable.stream().anyMatch(hudSelected);
 		}
 	}
 

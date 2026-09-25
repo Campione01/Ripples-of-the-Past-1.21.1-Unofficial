@@ -368,8 +368,27 @@ public final class HamonUtil {
 		}
 	}
 
+	/** 1.16 HamonUtil.hamonPerksOnDeath: keepHamonOnDeath skips the death perks unless the world is hardcore. */
+	public static boolean keepsHamonOnDeath(LivingEntity dead) {
+		return rotp.core.JojoModConfig.getCommonConfigInstance(false).keepHamonOnDeath.get()
+				&& !dead.level().getLevelData().isHardcore();
+	}
+
+	/** 1.16 HamonSkillElementTechniquePerk.isVisible: Deep Pass / Crimson Bubble are hidden while Hamon is kept on death. */
+	public static boolean isTechniquePerkShown(String skillName, boolean keepHamonOnDeath) {
+		if (ModHamonSkills.DEEP_PASS_DEF.name().equals(skillName)
+				|| ModHamonSkills.CRIMSON_BUBBLE_DEF.name().equals(skillName)) {
+			return !keepHamonOnDeath;
+		}
+		return true;
+	}
+
 	public static void hamonPerksOnDeath(LivingEntity dead) {
 		if (dead.level().isClientSide() || dead.isAlive() || dead.isRemoved()) {
+			return;
+		}
+		// 1.16: no death perks while Hamon is kept on death, outside hardcore
+		if (keepsHamonOnDeath(dead)) {
 			return;
 		}
 		PlayerPower.getPowerData(dead, ModPlayerPowers.HAMON).ifPresent(hamon -> {

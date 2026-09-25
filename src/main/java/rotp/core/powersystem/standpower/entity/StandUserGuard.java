@@ -179,9 +179,14 @@ public final class StandUserGuard {
 		if (user.invulnerableTime > 10 && !source.is(DamageTypeTags.BYPASSES_COOLDOWN)) {
 			event.addReductionModifier(DamageContainer.Reduction.INVULNERABILITY, (container, lastHurt) -> {
 				float amount = container.getNewDamage();
-				float left = cut.apply(Math.max(amount - lastHurt, 0));
+				float excess = Math.max(amount - lastHurt, 0);
+				float left = cut.apply(excess);
 				if (left <= 0 && onLanded != null) {
 					BLOCKED_WHOLE.add(container);
+				}
+				// Resolve counts the excess before the cut (guardCut)
+				if (excess - left > 0) {
+					GUARD_CUTS.merge(container, excess - left, Float::sum);
 				}
 				return amount - left;
 			});
@@ -221,16 +226,16 @@ public final class StandUserGuard {
 	}
 
 	/**
-	 * How much the guard took off this hit's amount. 1.16 counted Resolve (resolveOnHurtEvent, HIGHEST) before
-	 * blockDamage (HIGH) cut the hit, so ResolveCounter adds this back. A cut made inside the hurt cooldown is a
-	 * reduction the event amount never shows, so it is not counted here.
+	 * How much the guard took off this hit where it landed. 1.16 counted Resolve (resolveOnHurtEvent, HIGHEST) before
+	 * blockDamage (HIGH) cut the hit, so ResolveCounter adds this back. Inside the hurt cooldown it is the cut of the
+	 * excess over lastHurt.
 	 */
 	@ApiStatus.Internal
-	public static float guardCut(LivingIncomingDamageEvent event) {
+	public static float guardCut(DamageContainer container) {
 		if (GUARD_CUTS.isEmpty()) {
 			return 0;
 		}
-		Float cut = GUARD_CUTS.get(event.getContainer());
+		Float cut = GUARD_CUTS.get(container);
 		return cut != null ? cut : 0;
 	}
 

@@ -82,7 +82,7 @@ public final class PolaroidPhotoSourceSmokeTest {
 
 	private static void verifyServerIdOnLogin() {
 		requireInOrder(compact(source(PACKETS)),
-				"publicstaticfinalStringNETWORK_PROTOCOL_VERSION=\"7\";",
+				"publicstaticfinalStringNETWORK_PROTOCOL_VERSION=\"8\";",
 				"registerPacket(registrar,PayloadRegistrar::playToClient,newServerIdPacket.Handler("
 						+ "JojoMod.resLoc(\"serverid\")));");
 		requireInOrder(compact(source(HANDLER)),

@@ -1,5 +1,6 @@
 package rotp.core.mechanics;
 
+import rotp.core.client.sound.HamonSparksLoopSound;
 import rotp.core.init.ModParticles;
 
 import net.minecraft.server.level.ServerLevel;
@@ -25,6 +26,10 @@ public class HamonShockEffect extends StunEffect {
 			serverLevel.sendParticles(ModParticles.HAMON_SPARK.get(),
 					center.x, center.y, center.z, 1,
 					entity.getBbWidth() * 0.25D, entity.getBbHeight() * 0.25D, entity.getBbWidth() * 0.25D, 0.03D);
+		}
+		else if (entity.level().isClientSide()) {
+			// 1.16: a shocked entity crackles with Hamon sparks
+			HamonSparksLoopSound.playSparkSound(entity, entity.getBoundingBox().getCenter(), 1.0F, true);
 		}
 		return true;
 	}

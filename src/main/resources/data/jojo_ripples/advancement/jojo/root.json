@@ -1,7 +1,7 @@
 {
   "display": {
     "icon": {
-      "item": "jojo_ripples:meteoric_scrap"
+      "id": "jojo_ripples:debug_item"
     },
     "title": {
       "translate": "advancements.jojo.root.title"

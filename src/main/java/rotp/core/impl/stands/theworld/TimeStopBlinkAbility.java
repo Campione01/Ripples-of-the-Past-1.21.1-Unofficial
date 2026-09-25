@@ -6,6 +6,7 @@ import java.util.function.BiFunction;
 import javax.annotation.Nullable;
 
 import rotp.core.config.client.PlayerClientBroadcastedSettings;
+import rotp.core.init.ModCriteriaTriggers;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModSoundEvents;
 import rotp.core.init.power.ModStands;
@@ -216,6 +217,7 @@ public class TimeStopBlinkAbility extends Ability {
 						&& player.position().distanceToSqr(soundPos) < soundRadius * soundRadius);
 		TimeStopCooldowns.setTimeStopBlinkCooldowns(power, this, impliedTicks);
 		TimeStopLearning.markUsedTimeStopToday(power);
+		ModCriteriaTriggers.triggerTimeAbility(user, power);
 		return true;
 	}
 
@@ -231,6 +233,11 @@ public class TimeStopBlinkAbility extends Ability {
 		float staminaAfterBaseCost = power.getStamina() - effectiveTimeStopCost(power, getBlinkStaminaCost(power));
 		int affordableTicks = Mth.floor(staminaAfterBaseCost / tickingCost);
 		return Mth.clamp(affordableTicks, TimeStopLearning.MIN_TIME_STOP_TICKS, timeStopTicks);
+	}
+
+	/** 1.16 TimeStopInstant#getMaxImpliedTicks: the blink's reach at the user's stamina, at least 5 ticks. */
+	public int getMaxImpliedTicks(StandPower power) {
+		return getMaxImpliedTicks(power, TimeStopLearning.getLearningName(power, timeStopAbilityName));
 	}
 
 	private static float effectiveTimeStopCost(StandPower power, float amount) {

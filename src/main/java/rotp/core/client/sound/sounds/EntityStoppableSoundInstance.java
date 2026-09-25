@@ -1,6 +1,9 @@
 package rotp.core.client.sound.sounds;
 
 import java.util.function.BooleanSupplier;
+import java.util.function.DoubleSupplier;
+
+import javax.annotation.Nullable;
 
 import net.minecraft.client.resources.sounds.AbstractTickableSoundInstance;
 import net.minecraft.sounds.SoundEvent;
@@ -14,9 +17,8 @@ import net.minecraft.world.entity.Entity;
 public class EntityStoppableSoundInstance extends AbstractTickableSoundInstance {
 	protected Entity entity;
 	protected BooleanSupplier stopWhen;
-	private final float baseVolume;
-	private final int fadeOutTicks;
-	private int fadeOutTicksLeft = -1;
+	// Running volume (optional 0..1 factor, 1.16 HamonEnergySound: energy / max energy) and fade-out
+	private final StoppableSoundVolume volumeTracker;
 	public boolean ITS_FUCKING_STOPPED_ALREADY = false;
 
 	public EntityStoppableSoundInstance(SoundEvent soundEvent, SoundSource source, float volume, float pitch, Entity entity, long seed, BooleanSupplier stopWhen) {
@@ -28,9 +30,20 @@ public class EntityStoppableSoundInstance extends AbstractTickableSoundInstance 
 	}
 
 	public EntityStoppableSoundInstance(SoundEvent soundEvent, SoundSource source, float volume, float pitch, boolean looping, Entity entity, long seed, BooleanSupplier stopWhen, int fadeOutTicks) {
+		this(soundEvent, source, volume, pitch, looping, entity, seed, stopWhen, fadeOutTicks, null);
+	}
+
+	public EntityStoppableSoundInstance(SoundEvent soundEvent, SoundSource source, float volume, float pitch, boolean looping, Entity entity, long seed, BooleanSupplier stopWhen, int fadeOutTicks,
+			@Nullable DoubleSupplier volumeFactor) {
+		this(soundEvent, source, volume, pitch, looping, entity, seed, stopWhen, fadeOutTicks, 0.0F, volumeFactor);
+	}
+
+	// fadeOutStep above 0: after stopping, the volume drops by that much per tick instead of over fadeOutTicks
+	public EntityStoppableSoundInstance(SoundEvent soundEvent, SoundSource source, float volume, float pitch, boolean looping, Entity entity, long seed, BooleanSupplier stopWhen, int fadeOutTicks,
+			float fadeOutStep, @Nullable DoubleSupplier volumeFactor) {
 		super(soundEvent, source, RandomSource.create(seed));
-		this.volume = volume;
-		this.baseVolume = volume;
+		this.volumeTracker = new StoppableSoundVolume(volume, fadeOutTicks, fadeOutStep, volumeFactor);
+		this.volume = this.volumeTracker.volume();
 		this.pitch = pitch;
 		this.looping = looping;
 		this.entity = entity;
@@ -38,12 +51,17 @@ public class EntityStoppableSoundInstance extends AbstractTickableSoundInstance 
 		this.y = entity.getY();
 		this.z = entity.getZ();
 		this.stopWhen = stopWhen;
-		this.fadeOutTicks = Math.max(fadeOutTicks, 0);
 	}
 
 	@Override
 	public boolean canPlaySound() {
 		return !this.entity.isSilent();
+	}
+
+	// A scaled sound may start at 0 volume and swell later
+	@Override
+	public boolean canStartSilent() {
+		return volumeTracker.isScaled();
 	}
 
 	@Override
@@ -56,27 +74,11 @@ public class EntityStoppableSoundInstance extends AbstractTickableSoundInstance 
 		this.x = entity.getX();
 		this.y = entity.getY();
 		this.z = entity.getZ();
-		if (stopWhen.getAsBoolean()) {
-			if (fadeOutTicks > 0) {
-				if (fadeOutTicksLeft < 0) {
-					fadeOutTicksLeft = fadeOutTicks;
-				}
-				if (fadeOutTicksLeft <= 0) {
-					ITS_FUCKING_STOPPED_ALREADY = true;
-					this.stop();
-					return;
-				}
-				this.volume = baseVolume * (float) fadeOutTicksLeft / (float) fadeOutTicks;
-				fadeOutTicksLeft--;
-			}
-			else {
-				ITS_FUCKING_STOPPED_ALREADY = true;
-				this.stop();
-			}
-		}
-		else {
-			fadeOutTicksLeft = -1;
-			this.volume = baseVolume;
+		boolean keepPlaying = volumeTracker.tick(stopWhen.getAsBoolean());
+		this.volume = volumeTracker.volume();
+		if (!keepPlaying) {
+			ITS_FUCKING_STOPPED_ALREADY = true;
+			this.stop();
 		}
 	}
 

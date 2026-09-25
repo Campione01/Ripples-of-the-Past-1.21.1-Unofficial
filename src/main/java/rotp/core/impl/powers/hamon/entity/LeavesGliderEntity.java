@@ -12,7 +12,9 @@ import rotp.core.util.functions.MathUtil;
 import rotp.core.impl.powers.hamon.HamonData;
 import rotp.core.impl.powers.hamon.abilities.HamonAbilityHelpers;
 import rotp.core.impl.powers.hamon.client.GliderFlightSound;
+import rotp.core.network.c2s.ClLeavesGliderColorPacket;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -33,6 +35,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.FoliageColor;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -40,6 +43,7 @@ import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.entity.IEntityWithComplexSpawn;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 public class LeavesGliderEntity extends Entity implements IEntityWithComplexSpawn {
 	public static final float MAX_ENERGY = 200.0F;
@@ -59,6 +63,8 @@ public class LeavesGliderEntity extends Entity implements IEntityWithComplexSpaw
 	private static final EntityDataAccessor<Byte> HAMON_USERS_CHARGING = SynchedEntityData.defineId(LeavesGliderEntity.class, EntityDataSerializers.BYTE);
 
 	private BlockState leavesBlock = Blocks.OAK_LEAVES.defaultBlockState();
+	// RGB tint fixed at creation (1.16 "Color"); -1 = not set
+	private int foliageColor = -1;
 	private boolean inputLeft;
 	private boolean inputRight;
 	private float yRotDelta;
@@ -109,6 +115,43 @@ public class LeavesGliderEntity extends Entity implements IEntityWithComplexSpaw
 
 	public BlockState getLeavesBlock() {
 		return leavesBlock;
+	}
+
+	// 1.21 leaf colours are ARGB (negative); only -1 means unset, the rest is kept as RGB
+	public void setFoliageColor(int color) {
+		foliageColor = color == -1 ? -1 : color & 0xFFFFFF;
+	}
+
+	public int getFoliageColor() {
+		return foliageColor;
+	}
+
+	// Server fixes the tint once at the glider's current (spawn) position
+	public void resolveFoliageColor() {
+		if (foliageColor < 0 && !level().isClientSide()) {
+			setFoliageColor(serverFoliageColor(leavesBlock, level(), blockPosition()));
+		}
+	}
+
+	// 1.16 ClLeavesGliderColorPacket: the server keeps the first client-reported tint (RGB), then saves and sends it
+	public boolean acceptClientFoliageColor(int color) {
+		if (foliageColor >= 0 || level().isClientSide()) {
+			return false;
+		}
+		setFoliageColor(color & 0xFFFFFF);
+		return true;
+	}
+
+	// Server knows only the fixed vanilla leaf tints; -1 = the first client reports it (1.16 client BlockColors).
+	// Biome-tinted leaves stay -1: the foliage colormap is client-only, so a dedicated server reads 0 (black).
+	public static int serverFoliageColor(BlockState block, Level level, BlockPos pos) {
+		if (block.is(Blocks.BIRCH_LEAVES)) {
+			return FoliageColor.getBirchColor();
+		}
+		if (block.is(Blocks.SPRUCE_LEAVES)) {
+			return FoliageColor.getEvergreenColor();
+		}
+		return -1;
 	}
 
 	@Override
@@ -443,6 +486,9 @@ public class LeavesGliderEntity extends Entity implements IEntityWithComplexSpaw
 		if (nbt.contains("LeavesBlock")) {
 			setLeavesBlock(Block.stateById(nbt.getInt("LeavesBlock")));
 		}
+		if (nbt.contains("Color")) {
+			setFoliageColor(nbt.getInt("Color"));
+		}
 	}
 
 	@Override
@@ -451,18 +497,31 @@ public class LeavesGliderEntity extends Entity implements IEntityWithComplexSpaw
 		nbt.putFloat("Energy", getEnergy());
 		nbt.putFloat("Health", getHealth());
 		nbt.putInt("LeavesBlock", Block.getId(leavesBlock));
+		resolveFoliageColor();
+		if (foliageColor >= 0) {
+			nbt.putInt("Color", foliageColor);
+		}
 	}
 
 	@Override
 	public void writeSpawnData(RegistryFriendlyByteBuf buffer) {
 		buffer.writeFloat(getEnergy());
 		buffer.writeInt(Block.getId(leavesBlock));
+		resolveFoliageColor();
+		buffer.writeInt(foliageColor);
 	}
 
 	@Override
 	public void readSpawnData(RegistryFriendlyByteBuf additionalData) {
 		setEnergy(additionalData.readFloat());
 		setLeavesBlock(Block.stateById(additionalData.readInt()));
+		setFoliageColor(additionalData.readInt());
+		// 1.16: no tint on the server yet, so this client fixes it at the spawn position and reports it
+		if (foliageColor < 0 && level().isClientSide()) {
+			setFoliageColor(net.minecraft.client.Minecraft.getInstance().getBlockColors()
+					.getColor(leavesBlock, level(), blockPosition(), 0) & 0xFFFFFF);
+			PacketDistributor.sendToServer(new ClLeavesGliderColorPacket(getId(), foliageColor));
+		}
 	}
 
 	@Override

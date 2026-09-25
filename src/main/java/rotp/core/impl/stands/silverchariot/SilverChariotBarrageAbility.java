@@ -40,12 +40,9 @@ public class SilverChariotBarrageAbility extends StandEntityBarrageAbility {
 		if (standPower == null) {
 			return ConditionCheck.NEGATIVE;
 		}
-		LivingEntity user = standPower.getUser();
-		if (user != null) {
-			SilverChariotState state = SilverChariotState.get(user);
-			if (state != null && !state.hasRapier()) {
-				return ConditionCheck.createNegative("chariot_rapier");
-			}
+		// Client-aware: the HUD greys the move from the Stand's synced flag
+		if (!SilverChariotState.hasRapier(standPower)) {
+			return ConditionCheck.createNegative("chariot_rapier");
 		}
 		return ConditionCheck.POSITIVE;
 	}
@@ -92,14 +89,18 @@ public class SilverChariotBarrageAbility extends StandEntityBarrageAbility {
 		protected void hitEntity(ActionTarget target, Level level, StandEntity stand) {
 			Entity targetEntity = target.getMainEntity();
 			if (targetEntity != null) {
-				DamageSource dmgSource = makeBarrageDamageSource();
+				boolean resolve = isResolveBarrage(stand);
+				DamageSource dmgSource = makeBarrageDamageSource(stand, targetEntity);
 				float dmgAmount = StandStatFormulas.getBarrageHitDamage(stand.getAttackDamage(), stand.getPrecision()) * hitsThisTick;
 				if (targetEntity instanceof Skeleton) {
 					dmgAmount *= 0.75F;
 				}
-				standEntityAttack(stand, targetEntity, dmgSource, dmgAmount);
+				// 1.16 BarrageEntityPunch.doHit: a Resolve barrage keeps the target in the air
+				if (standEntityAttack(stand, targetEntity, dmgSource, dmgAmount) && resolve) {
+					pinResolveBarrageTarget(targetEntity);
+				}
 
-				stand.addFinisherMeter(0.005f * hitsThisTick);
+				addBarrageFinisher(stand, dmgSource);
 			}
 		}
 

@@ -70,6 +70,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.common.ItemAbilities;
 
 public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 	@Nullable private Holder<SoundEvent> heavyPunchImpactSound;
@@ -138,6 +139,20 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 
 	public static float calcExplosionDamage(StandEntity stand) {
 		return (float) stand.getAttackDamage() * 0.4f;
+	}
+
+	/**
+	 * 1.16 StandEntityPunch.doAttack + DamageUtil.disableShield: a disablesBlocking heavy hit that hurt a player
+	 * with a raised shield puts it on a 100-tick cooldown.
+	 */
+	public static void disableShieldOnHit(LivingEntity target, boolean hurt, float chance) {
+		if (hurt && target instanceof Player player && !player.level().isClientSide()
+				&& player.getUseItem().canPerformAction(ItemAbilities.SHIELD_BLOCK)
+				&& player.getRandom().nextFloat() < chance) {
+			player.getCooldowns().addCooldown(player.getUseItem().getItem(), 100);
+			player.stopUsingItem();
+			player.level().broadcastEntityEvent(player, (byte) 30);
+		}
 	}
 
 	@Override
@@ -315,6 +330,10 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 						.withImpactExplosion(Math.max(explRadius - 0.5f, 0), null, 0);
 					}
 				}
+			}
+			// 1.16 punched non-living entities too; knockback and wall impact need a LivingEntity
+			else if (targetEntity != null) {
+				standEntityAttack(stand, targetEntity, dmgSource, dmgAmount);
 			}
 		}
 
@@ -542,7 +561,8 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 		@Override
 		protected void hurtEntity(Entity entity, float damage, Vec3 knockback) {
 			if (attackerAsStand != null) {
-				EntityActionInstance.standEntityAttack(attackerAsStand, entity, damageSource, damage);
+				// 1.16 StandEntityHeavyAttack: the explosion used hurtTarget, no shield wear
+				EntityActionInstance.standEntityAttack(attackerAsStand, entity, damageSource, damage, false);
 
 				entity.setDeltaMovement(entity.getDeltaMovement().add(knockback));
 				if (entity instanceof Player player) {

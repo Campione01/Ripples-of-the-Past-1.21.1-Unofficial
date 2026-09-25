@@ -7,7 +7,8 @@ import java.nio.file.Path;
 /**
  * 1.16 cleared the Resolve value whenever a Stand was taken (StandPower.clear / putOutStand ->
  * ResolveCounter.onClearStandType): Boy II Man's third win and the legacy StandPowerTransitions.extract (the add-ons'
- * Whitesnake disc and Mobs With Powers removals) do too now. 1.16 /stand clear on a player without a Stand still
+ * Whitesnake disc and Mobs With Powers removals) and the legacy replace (the add-on evolutions, which ran clear() +
+ * give in 1.16) do too now. 1.16 /stand clear on a player without a Stand still
  * wiped the progression (commands.stand.remove.success.single.no_stand). StandLossResolveGameTests runs them.
  */
 public final class StandLossResolveSmokeTest {
@@ -28,6 +29,18 @@ public final class StandLossResolveSmokeTest {
 				"staticResultreplace(PowerAccesspower,ResourceLocationexpectedCurrent,StandInstancereplacement){");
 		check(legacy.contains("power.setStandInstance(Optional.empty());power.resetResolveValue();"),
 				"the legacy extract must take the Resolve value with the Stand");
+		// 1.16 evolutions ran clear() + give; a context replace (Tusk's act change) keeps the value
+		String replace = between(transitions, "staticResultreplace(PowerAccesspower,ResourceLocationexpectedCurrent,"
+				+ "StandInstancereplacement,@NullableTransitionContextcontext){",
+				"staticResultclear(PowerAccesspower,TransitionContextcontext){");
+		// the legacy-only branch right after the swap; it may hold other give resets (leap cooldown, R148-B22)
+		String legacyReplace = between(replace, "power.setStandInstance(Optional.of(committed));if(context==LEGACY_CONTEXT){",
+				"}returnResult.applied(Optional.of(previousSnapshot),Optional.of(committed));");
+		check(legacyReplace.contains("power.resetResolveValue();")
+				&& count(replace, "resetResolveValue(") == 1,
+				"the legacy replace must take the Resolve value with the old Stand, the context one must keep it");
+		check(legacyReplace.contains("power.resetLeapCooldown();") && count(replace, "resetLeapCooldown(") == 1,
+				"the legacy replace must zero the leap cooldown as 1.16 give did, the context one must keep it");
 		check(transitions.contains("defaultvoidresetResolveValue(){}")
 				&& transitions.contains("publicvoidresetResolveValue(){power.resolveCounter.resetResolveValue(power);}"),
 				"the power access no longer resets the Resolve value");
@@ -57,6 +70,14 @@ public final class StandLossResolveSmokeTest {
 		int end = text.indexOf(to, start + from.length());
 		check(end > start, "missing " + to + " after " + from);
 		return text.substring(start, end);
+	}
+
+	private static int count(String text, String token) {
+		int count = 0;
+		for (int at = text.indexOf(token); at >= 0; at = text.indexOf(token, at + token.length())) {
+			count++;
+		}
+		return count;
 	}
 
 	private static String compact(String source) {

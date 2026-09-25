@@ -14,6 +14,7 @@ import rotp.core.client.sound.ClientsideSoundsHelper;
 import rotp.core.client.sound.sounds.EntityStoppableSoundInstance;
 import rotp.core.init.ModEntityTypes;
 import rotp.core.init.ModSoundEvents;
+import rotp.core.init.ModStatusEffects;
 import rotp.core.init.power.ModStands;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.standpower.StandPower;
@@ -41,11 +42,14 @@ import net.minecraft.tags.ItemTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageTypes;
+import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.Enchantment;
@@ -76,10 +80,14 @@ public class AngeloRockEntity extends Entity implements IEntityWithComplexSpawn 
 	private final List<ItemStack> itemDrops = new ArrayList<>();
 	@Nullable private UUID targetUUID;
 	@Nullable private LivingEntity targetEntity;
+	// client copy of the forming target's id (1.16 sent it in the spawn data)
+	private int syncedTargetId = -1;
 	public boolean keepMobInside;
 	@Nullable private Mob mob;
 	private boolean useMobHurtSound;
 	private DamageSource lastAttack;
+	// 1.16 DropMode.NONE: a Creative break drops no blocks
+	private boolean dropBlocks = true;
 	private final TimerQueue responseSoundTimer = new TimerQueue(false);
 
 	public AngeloRockEntity(EntityType<? extends AngeloRockEntity> type, Level level) {
@@ -169,6 +177,12 @@ public class AngeloRockEntity extends Entity implements IEntityWithComplexSpawn 
 		return entityData.get(CREATION_COMPLETE);
 	}
 
+	// 1.16 returned true: crosshair targeting reaches interact() and hurt()
+	@Override
+	public boolean isPickable() {
+		return !isRemoved();
+	}
+
 	public void breakRock() {
 		if (!level().isClientSide()) {
 			entityData.set(DAMAGE, Float.MAX_VALUE);
@@ -212,17 +226,24 @@ public class AngeloRockEntity extends Entity implements IEntityWithComplexSpawn 
 		super.tick();
 		setDeltaMovement(Vec3.ZERO);
 		tickCreationAnim();
-		if (!level().isClientSide()) {
+		if (level().isClientSide()) {
+			if (!isFullyFormed() && syncedTargetId != -1
+					&& level().getEntity(syncedTargetId) instanceof LivingEntity clientTarget) {
+				holdFormingTarget(clientTarget);
+			}
+		}
+		else {
 			tickResponseTimers();
 			if (!isFullyFormed()) {
 				LivingEntity target = resolveTarget();
 				if (target != null && target.isAlive()) {
-					target.setDeltaMovement(Vec3.ZERO);
-					target.setPos(getX(), getY(), getZ());
+					holdFormingTarget(target);
 				}
 				if (creationAnimTicks <= 0) {
 					entityData.set(CREATION_COMPLETE, true);
 					if (target instanceof ServerPlayer player) {
+						// 1.16 cleared every effect before the player entered the rock
+						player.removeAllEffects();
 						LivingComponentPossession.setPossessionTarget(player, this, "angelo_rock");
 					}
 					else if (target != null) {
@@ -342,6 +363,31 @@ public class AngeloRockEntity extends Entity implements IEntityWithComplexSpawn 
 		this.entityData.set(DATA_ATTACH_POS_ID, Optional.ofNullable(pPos));
 	}
 
+	// 1.16 froze the victim in place, standing and without hurt or walk animation, on both sides
+	private void holdFormingTarget(LivingEntity target) {
+		double x = getX();
+		double y = getY();
+		double z = getZ();
+		boolean displaced = target.distanceToSqr(x, y, z) > 1.0E-6D;
+		target.hurtTime = 0;
+		target.deathTime = 0;
+		target.walkAnimation.setSpeed(0.0F);
+		target.walkAnimation.update(0.0F, 1.0F);
+		target.setDeltaMovement(Vec3.ZERO);
+		target.absMoveTo(x, y, z);
+		target.xOld = target.getX();
+		target.yOld = target.getY();
+		target.zOld = target.getZ();
+		target.setPose(Pose.STANDING);
+		if (!level().isClientSide()) {
+			target.addEffect(new MobEffectInstance(ModStatusEffects.IMMOBILIZE, 10, 0, false, false, true));
+			// a server-side setPos never reaches the victim's own client
+			if (displaced && target instanceof ServerPlayer player) {
+				player.teleportTo(x, y, z);
+			}
+		}
+	}
+
 	@Nullable
 	private LivingEntity resolveTarget() {
 		if (targetEntity != null && targetEntity.isAlive()) {
@@ -362,12 +408,14 @@ public class AngeloRockEntity extends Entity implements IEntityWithComplexSpawn 
 		if (level().isClientSide()) {
 			return false;
 		}
-		if (!(damageSource.getEntity() instanceof LivingEntity attacker)) {
+		// 1.16 only counted direct player melee ("player" damage)
+		if (!damageSource.is(DamageTypes.PLAYER_ATTACK) || !(damageSource.getEntity() instanceof LivingEntity attacker)) {
 			return false;
 		}
 
 		if (attacker instanceof Player player && player.getAbilities().instabuild) {
 			lastAttack = damageSource;
+			dropBlocks = false;
 			entityData.set(DAMAGE, Float.MAX_VALUE);
 			return true;
 		}
@@ -432,11 +480,11 @@ public class AngeloRockEntity extends Entity implements IEntityWithComplexSpawn 
 			boolean doDrops = level().getGameRules().getBoolean(GameRules.RULE_DOENTITYDROPS);
 			angeloRockBlocks.values().forEach(block ->
 					CrazyDRestoreTerrainAbility.rememberBrokenBlock(level(), block.pos, block.state, Optional.empty(), block.drops));
-			if (doDrops) {
-				Vec3 pos = position();
+			if (doDrops && dropBlocks) {
 				for (ItemStack stack : itemDrops) {
 					if (!stack.isEmpty()) {
-						spawnAtLocation(stack.copy(), (float) pos.y);
+						// the float is a y offset; 1.16 dropped at the rock's own position
+						spawnAtLocation(stack.copy(), 0.0F);
 					}
 				}
 			}
@@ -558,6 +606,8 @@ public class AngeloRockEntity extends Entity implements IEntityWithComplexSpawn 
 		for (PrevBlockInfo block : angeloRockBlocks.values()) {
 			PrevBlockInfo.STREAM_CODEC.encode(buf, block);
 		}
+		LivingEntity target = isFullyFormed() ? null : resolveTarget();
+		buf.writeInt(target != null ? target.getId() : -1);
 	}
 
 	@Override
@@ -569,5 +619,6 @@ public class AngeloRockEntity extends Entity implements IEntityWithComplexSpawn 
 			PrevBlockInfo block = PrevBlockInfo.STREAM_CODEC.decode(buf);
 			angeloRockBlocks.put(block.pos, block);
 		}
+		syncedTargetId = buf.readInt();
 	}
 }

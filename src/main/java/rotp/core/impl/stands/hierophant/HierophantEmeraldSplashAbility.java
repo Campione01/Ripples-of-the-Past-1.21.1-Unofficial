@@ -11,7 +11,6 @@ import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.ability.TrainableAbility;
-import rotp.core.powersystem.ability.condition.AvailableAbilities;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.entityaction.ActionAnimIdentifier;
 import rotp.core.powersystem.entityaction.ActionPhase;
@@ -105,17 +104,7 @@ public class HierophantEmeraldSplashAbility extends StandEntityAbility implement
 		return super.isAbilityAvailable(context);
 	}
 
-	@Override
-	public Ability replaceWithSubAbility(Power<?> context, AvailableAbilities abilities) {
-		if (!concentrated && isEmeraldSplashFullyTrained(context)) {
-			Ability concentratedSplash = abilities.getContextVariation("emerald_splash_concentrated");
-			if (concentratedSplash != null) {
-				return concentratedSplash;
-			}
-		}
-		return super.replaceWithSubAbility(context, abilities);
-	}
-
+	// no replaceWithSubAbility: the concentrated splash has its own wheel slot, LMB stays the normal splash
 	public static boolean isEmeraldSplashFullyTrained(Power<?> context) {
 		if (context instanceof StandPower standPower) {
 			if (standPower.isUserCreative()) {

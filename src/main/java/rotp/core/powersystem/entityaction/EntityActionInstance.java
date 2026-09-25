@@ -28,6 +28,7 @@ import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.AimingEntity;
 import rotp.core.subsystems.target.HitResultUtil;
 import rotp.core.util.functions.DamageUtil;
+import rotp.core.util.functions.MathUtil;
 import rotp.core.util.functions_network.NetworkUtil;
 import rotp.core.util.objects_mc.EntityResolver;
 import rotp.core.compat.v1_21_4.missingmethods._Vec3;
@@ -45,9 +46,13 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.Brain;
 import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.common.ItemAbilities;
+import net.neoforged.neoforge.event.EventHooks;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 // TODO (entity action) test the phase lengths stuff (with partial lengths and lengths < 1)
@@ -384,7 +389,14 @@ public class EntityActionInstance implements HeldInput {
 		return actionTargetSnapshot;
 	}
 	
+	// a punch's main target: a blocked hit wears the shield as in 1.16 StandEntityPunch.doHit
 	public static boolean standEntityAttack(StandEntity stand, Entity target, DamageSource dmgSource, float dmgAmount) {
+		return standEntityAttack(stand, target, dmgSource, dmgAmount, true);
+	}
+
+	// wearShield false: 1.16 sweep targets (doAttack) and the heavy punch explosion (hurtTarget) wore no shield
+	public static boolean standEntityAttack(StandEntity stand, Entity target, DamageSource dmgSource, float dmgAmount,
+			boolean wearShield) {
 		ServerLevel level = (ServerLevel) target.level();
 		boolean hurt = stand.hurtWithStandAttack(target, dmgSource, dmgAmount);
 		if (hurt) {
@@ -404,7 +416,28 @@ public class EntityActionInstance implements HeldInput {
 			}
             EnchantmentHelper.doPostAttackEffects(level, target, dmgSource);
 		}
+		else if (wearShield) {
+			wearBlockingShield(level, target, dmgAmount);
+		}
 		return hurt;
+	}
+
+	// 1.16 StandEntityPunch.doHit: a blocked Stand hit under 3 (vanilla wears none) still wears a player's shield
+	private static void wearBlockingShield(ServerLevel level, Entity target, float dmgAmount) {
+		if (dmgAmount < 3.0F && target instanceof Player player && player.isBlocking() && !player.hasInfiniteMaterials()) {
+			ItemStack shield = player.getUseItem();
+			if (shield.canPerformAction(ItemAbilities.SHIELD_BLOCK)) {
+				int wear = MathUtil.fractionRandomInc(dmgAmount * 0.5F);
+				if (wear > 0) {
+					InteractionHand hand = player.getUsedItemHand();
+					shield.hurtAndBreak(wear, level, player, item -> {
+						player.onEquippedItemBroken(item, LivingEntity.getSlotForHand(hand));
+						EventHooks.onPlayerDestroyItem(player, shield, hand);
+						player.stopUsingItem();
+					});
+				}
+			}
+		}
 	}
 	
 	public DamageSource makePunchDamageSource() {

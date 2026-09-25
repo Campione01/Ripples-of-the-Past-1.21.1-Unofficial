@@ -35,6 +35,8 @@ import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandInstance.StandPart;
 import rotp.core.powersystem.standpower.StandPower;
+import rotp.core.powersystem.standpower.StandUtil;
+import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.subsystems.timestop.TimeStopClientAwareness;
 import rotp.core.subsystems.timestop.TimeStopState;
 import rotp.core.util.functions.JojoModUtil;
@@ -414,7 +416,11 @@ public class Ability {
 		return ConditionCheck.POSITIVE;
 	}
 
-	private boolean isUserStoppedInTime(Power<?> context) {
+	/**
+	 * 1.16 Action.checkConditions: !user.canUpdate(), the user frozen in someone else's stopped time. Checked on
+	 * the press and, by EntityActionAbility#canFireReleasedHold, on a hold's release.
+	 */
+	boolean isUserStoppedInTime(Power<?> context) {
 		LivingEntity user = context != null ? context.getUser() : null;
 		if (user == null) {
 			return false;
@@ -435,6 +441,21 @@ public class Ability {
 	@ApiStatus.OverrideOnly
 	public ConditionCheck checkSpecificConditions(Power<?> context) {
 		return ConditionCheck.POSITIVE;
+	}
+
+	/**
+	 * 1.16 PowerBaseImpl.checkRequirements: an action whose performer is stunned cannot start, unless it ignoresPerformerStun.
+	 * The performer is the summoned Stand (1.16 StandAction.getPerformer), else the user.
+	 * Plain abilities call this from checkSpecificConditions; EntityActionAbility checks its own performer.
+	 */
+	public static ConditionCheck checkPerformerStun(Power<?> context) {
+		LivingEntity user = context != null ? context.getUser() : null;
+		if (user == null) {
+			return ConditionCheck.POSITIVE;
+		}
+		StandEntity stand = StandUtil.getSummonedStand(context);
+		LivingEntity performer = stand != null ? stand : user;
+		return ModStatusEffects.isStunned(performer) ? ConditionCheck.createNegative("stun") : ConditionCheck.POSITIVE;
 	}
 	
 	/**

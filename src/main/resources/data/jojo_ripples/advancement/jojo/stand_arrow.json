@@ -2,7 +2,7 @@
   "parent": "jojo_ripples:jojo/root",
   "display": {
     "icon": {
-      "item": "jojo_ripples:stand_arrow"
+      "id": "jojo_ripples:stand_arrow"
     },
     "title": {
       "translate": "advancements.jojo.stand_arrow.title"

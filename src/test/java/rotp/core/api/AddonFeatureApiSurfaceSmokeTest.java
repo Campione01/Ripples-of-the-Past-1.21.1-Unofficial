@@ -66,6 +66,18 @@ public final class AddonFeatureApiSurfaceSmokeTest {
 		requirePublic(tsPunch, "getStaminaCost");
 		requirePublic(tsPunch, "trainsTimeStop");
 
+		// Diego's 1.16 TS punch: its own clip, skip started from the blink reach
+		check(RotpAddonApi.supportsFeature(RotpAddonApi.FEATURE_TIME_STOP_PUNCH_DONOR_OPTIONS_V1),
+				"the TS punch donor options are not advertised");
+		String standPower = "rotp.core.powersystem.standpower.StandPower";
+		requirePublic(tsPunch, "setEntityAnim", String.class);
+		requirePublic(tsPunch, "setSkipCappedByBlinkImpliedTicks", boolean.class);
+		requirePublic(tsPunch, "skipCappedByBlinkImpliedTicks");
+		requirePublic(tsPunch, "setTimeSkipSoundHeardByAll", boolean.class);
+		requirePublic(tsPunch, "timeSkipSoundHeardByAll");
+		requirePublic(tsPunch, "getAffordableTimeSkipTicks", standPower);
+		requirePublic("rotp.core.impl.stands.theworld.TimeStopBlinkAbility", "getMaxImpliedTicks", standPower);
+
 		check(RotpAddonApi.supportsFeature(RotpAddonApi.FEATURE_TIME_STOP_HELD_WALK_SPEED_V1),
 				"the time stop's held walk speed is not advertised");
 		String timeStop = "rotp.core.impl.stands.theworld.TimeStopAbility";
@@ -86,6 +98,28 @@ public final class AddonFeatureApiSurfaceSmokeTest {
 		requirePublic(ability, "setPlaysVoiceLineOnSneak");
 		requireOverridable(ability, "playsVoiceLineOnSneak");
 		requirePublic(ability, "skipsShoutWhileSneaking", living);
+
+		// R148 add-on APIs: Stone Free / Ticket to Ride read the effect, The Lock / HD / KC the stun gate
+		check(RotpAddonApi.supportsFeature(RotpAddonApi.FEATURE_INTEGRATED_STAND_V1),
+				"the integrated Stand effect is not advertised");
+		requirePublicStaticField("rotp.core.init.ModStatusEffects", "INTEGRATED_STAND");
+		check(RotpAddonApi.supportsFeature(RotpAddonApi.FEATURE_ABILITY_PERFORMER_STUN_V1),
+				"the performer stun gate is not advertised");
+		Method stun = find(ability, "checkPerformerStun", power);
+		check(Modifier.isPublic(stun.getModifiers()) && Modifier.isStatic(stun.getModifiers()),
+				ability + "#checkPerformerStun must stay public static");
+	}
+
+	private static void requirePublicStaticField(String owner, String name) {
+		try {
+			Class<?> type = Class.forName(owner, false, AddonFeatureApiSurfaceSmokeTest.class.getClassLoader());
+			int modifiers = type.getDeclaredField(name).getModifiers();
+			check(Modifier.isPublic(modifiers) && Modifier.isStatic(modifiers),
+					owner + "#" + name + " must stay public static");
+		}
+		catch (ReflectiveOperationException e) {
+			throw new AssertionError("advertised add-on API is missing: " + owner + "#" + name, e);
+		}
 	}
 
 	private static void requirePublic(String owner, String name, Object... parameters) {

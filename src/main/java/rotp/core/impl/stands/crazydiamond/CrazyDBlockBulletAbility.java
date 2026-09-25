@@ -17,6 +17,7 @@ import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.entityaction.ActionAnimIdentifier;
+import rotp.core.powersystem.entityaction.ActionAnimIdentifier.ActionAnimIdHandsided;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
@@ -44,6 +45,7 @@ import net.minecraft.world.phys.Vec3;
 
 public class CrazyDBlockBulletAbility extends StandEntityAbility {
 	private static final ActionAnimIdentifier BLOCK_BULLET_ANIM = ActionAnimIdentifier.getOrCreate("block_bullet", false);
+	private static final ActionAnimIdHandsided BLOCK_BULLET_HANDED = new ActionAnimIdHandsided(BLOCK_BULLET_ANIM);
 	private static final float STAMINA_COST = 40F;
 	public static final float HOMING_STAMINA_COST_TICK = 2F;
 	private static final float SHOT_VELOCITY = 2.0F;
@@ -76,7 +78,13 @@ public class CrazyDBlockBulletAbility extends StandEntityAbility {
 
 	@Override
 	public ActionAnimIdentifier getEntityAnim(EntityActionInstance action) {
-		return BLOCK_BULLET_ANIM;
+		LivingEntity user = action.getPerformer() instanceof StandEntity stand ? stand.getUser() : action.getPerformer();
+		return blockBulletAnim(user != null ? user.getMainArm() : HumanoidArm.RIGHT);
+	}
+
+	// the clip is mirrored, so only its _left/_right keys exist; 1.16 raised the user's main-hand side arm
+	public static ActionAnimIdentifier blockBulletAnim(HumanoidArm userMainArm) {
+		return BLOCK_BULLET_HANDED.get(userMainArm);
 	}
 
 	private static double getBlockBulletStrength(Power<?> power) {

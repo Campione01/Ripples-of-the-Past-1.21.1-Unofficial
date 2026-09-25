@@ -1,6 +1,7 @@
 package rotp.core.impl.stands.theworld;
 
 import rotp.core.customobjects.DamageSourceModified;
+import rotp.core.init.ModCriteriaTriggers;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModSoundEvents;
 import rotp.core.network.s2c.TrDirectEntityPosPacket;
@@ -36,8 +37,11 @@ import rotp.core.impl.stands._entitybase.StandAbilityStamina;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 
+import net.minecraft.core.Holder;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
@@ -55,6 +59,9 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 	private static final int RESOLVE_LEVEL_TO_UNLOCK = 3;
 	private float staminaCost = STAMINA_COST;
 	private boolean trainsTimeStop = true;
+	private boolean skipCappedByBlinkImpliedTicks = false;
+	private boolean timeSkipSoundHeardByAll = false;
+	private ActionAnimIdentifier entityAnim = TS_PUNCH_ANIM;
 
 	public TheWorldTSPunchAbility(AbilityType<?> abilityType, AbilityId abilityId) {
 		super(abilityType, abilityId, TheWorldTSPunch::new);
@@ -89,6 +96,56 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 
 	public boolean trainsTimeStop() {
 		return trainsTimeStop;
+	}
+
+	/**
+	 * Diego's 1.16 THEWORLDTSHeavyAttack started its time skip from the blink's getMaxImpliedTicks (full blink
+	 * start reserved, at least 5 ticks); the core TS punch starts from the trained ticks.
+	 */
+	public TheWorldTSPunchAbility setSkipCappedByBlinkImpliedTicks(boolean skipCappedByBlinkImpliedTicks) {
+		this.skipCappedByBlinkImpliedTicks = skipCappedByBlinkImpliedTicks;
+		return this;
+	}
+
+	public boolean skipCappedByBlinkImpliedTicks() {
+		return skipCappedByBlinkImpliedTicks;
+	}
+
+	/**
+	 * Diego's 1.16 THEWORLDTSHeavyAttack played its blink to every player in range; the core TS punch gives
+	 * players who cannot see in stopped time the unrevealed sound instead.
+	 */
+	public TheWorldTSPunchAbility setTimeSkipSoundHeardByAll(boolean timeSkipSoundHeardByAll) {
+		this.timeSkipSoundHeardByAll = timeSkipSoundHeardByAll;
+		return this;
+	}
+
+	public boolean timeSkipSoundHeardByAll() {
+		return timeSkipSoundHeardByAll;
+	}
+
+	/** Time skip sound a listener within range hears. */
+	public static Holder<SoundEvent> getTimeSkipSound(ServerPlayer listener, boolean heardByAll) {
+		return heardByAll || TimeStopState.canPlayerSeeInStoppedTime(listener)
+				? ModSoundEvents.THE_WORLD_TIME_STOP_BLINK
+				: ModSoundEvents.THE_WORLD_TIME_STOP_UNREVEALED;
+	}
+
+	/** Ticks this TS punch's time skip can last at the user's stamina. */
+	public int getAffordableTimeSkipTicks(StandPower power) {
+		return TimeStopLearning.getAffordableTsPunchTimeStopTicks(power, skipCappedByBlinkImpliedTicks);
+	}
+
+	/**
+	 * Stand clip of an add-on TS punch (1.16 StandEntityAction.Builder#standPose; Diego's was
+	 * HEAVY_ATTACK_FINISHER, its "kick" clip). Null keeps "ts_punch".
+	 */
+	public TheWorldTSPunchAbility setEntityAnim(String animId) {
+		if (animId != null && animId.isBlank()) {
+			throw new IllegalArgumentException("TS punch clip id must not be blank");
+		}
+		this.entityAnim = animId != null ? ActionAnimIdentifier.getOrCreate(animId, false) : TS_PUNCH_ANIM;
+		return this;
 	}
 
 	@Override
@@ -171,7 +228,7 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 
 	@Override
 	public ActionAnimIdentifier getEntityAnim(EntityActionInstance action) {
-		return TS_PUNCH_ANIM;
+		return entityAnim;
 	}
 
 	static double getBlinkDistanceRatio(int timeStopTicks, int ticksForWindup, double ticksForDistance) {
@@ -210,8 +267,9 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 					stand.hurtMarked = true;
 					stand.summonLockTicks = 0;
 					boolean trainsTimeStop = !(ability instanceof TheWorldTSPunchAbility tsPunch) || tsPunch.trainsTimeStop;
+					TheWorldTSPunchAbility punchAbility = ability instanceof TheWorldTSPunchAbility tsPunchAbility ? tsPunchAbility : null;
 					ActionTarget target = blinkStandTowardTarget(stand, prevAction, getActionTargetSnapshot(stand.level()),
-							trainsTimeStop);
+							trainsTimeStop, punchAbility);
 					targetAfterBlink = setActionTargetSnapshot(target);
 					if (!target.isEmpty(stand.level())) {
 						standRotationTarget = target;
@@ -272,6 +330,7 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 					if (standPower != null) {
 						TimeStopLearning.markUsedTimeStopToday(standPower);
 					}
+					ModCriteriaTriggers.triggerTimeAbility(getPowerUser(), standPower);
 				}
 				if (target.getType() == TargetType.ENTITY) {
 					standRotationTarget = target;
@@ -306,6 +365,13 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 			}
 		}
 
+		@Override
+		protected void afterHeavyPunchHit(StandEntity stand, LivingEntity targetLiving, DamageSource dmgSource, float dmgAmount, boolean hurt) {
+			super.afterHeavyPunchHit(stand, targetLiving, dmgSource, dmgAmount, hurt);
+			// 1.16 TheWorldTSHeavyAttack disableBlocking(1.0F)
+			StandEntityHeavyPunchAbility.disableShieldOnHit(targetLiving, hurt, 1.0F);
+		}
+
 		private void disableTargetStandBlocking(StandEntity stand, Entity targetEntity) {
 			if (targetEntity instanceof StandEntity targetStand && stand.getRandom().nextFloat() < 1.0F) {
 				targetStand.breakStandBlocking(StandStatFormulas.getGuardBreakTicks(targetStand.getDurability()));
@@ -330,7 +396,7 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 		}
 
 		private static ActionTarget blinkStandTowardTarget(StandEntity stand, EntityActionInstance prevAction,
-				ActionTarget inputTarget, boolean trainsTimeStop) {
+				ActionTarget inputTarget, boolean trainsTimeStop, TheWorldTSPunchAbility punchAbility) {
 			LivingEntity user = stand.getUser();
 			if (user == null || !(stand.level() instanceof ServerLevel serverLevel)) {
 				return ActionTarget.EMPTY;
@@ -344,9 +410,9 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 			Vec3 blinkPos = calcBlinkPos(stand, aimingEntity, target);
 
 			StandPower standPower = StandPower.get(user);
-			int timeStopTicks = standPower != null
-					? TimeStopLearning.getAffordableTsPunchTimeStopTicks(standPower)
-					: TimeStopLearning.MIN_TIME_STOP_TICKS;
+			int timeStopTicks = standPower == null ? TimeStopLearning.MIN_TIME_STOP_TICKS
+					: punchAbility != null ? punchAbility.getAffordableTimeSkipTicks(standPower)
+					: TimeStopLearning.getAffordableTsPunchTimeStopTicks(standPower);
 			int ticksForWindup = 10 + (prevAction != null ? 20 : 0);
 			double speed = getDistancePerTick(stand);
 			if (Double.isFinite(speed) && speed > 0) {
@@ -379,7 +445,8 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 			stand.moveTo(blinkPos.x, blinkPos.y, blinkPos.z);
 
 			skipTicksForStandAndUser(standPower, stand, timeStopTicks);
-			playTimeSkipBlinkSound(serverLevel, stand, standPower);
+			playTimeSkipBlinkSound(serverLevel, stand, standPower,
+					punchAbility != null && punchAbility.timeSkipSoundHeardByAll);
 			if (standPower != null) {
 				TimeStopLearning.consumeTsPunchTimeStopStamina(standPower, timeStopTicks);
 				if (trainsTimeStop) {
@@ -389,7 +456,8 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 			return target;
 		}
 
-		private static void playTimeSkipBlinkSound(ServerLevel level, StandEntity stand, StandPower standPower) {
+		private static void playTimeSkipBlinkSound(ServerLevel level, StandEntity stand, StandPower standPower,
+				boolean heardByAll) {
 			Vec3 pos = stand.position();
 			if (standPower == null || standPower.getStandInstance().isEmpty()) {
 				level.playSound(null, pos.x, pos.y, pos.z, ModSoundEvents.THE_WORLD_TIME_STOP_BLINK.get(),
@@ -398,14 +466,15 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 			}
 
 			double soundRadius = 16.0D;
+			// each listener in range gets one of the two; heardByAll sends the blink to all
 			StandUtil.broadcastSoundWithCondition(level, pos, ModSoundEvents.THE_WORLD_TIME_STOP_BLINK,
 					false, standPower, SoundSource.AMBIENT, 1.0F, 1.0F,
-					player -> TimeStopState.canPlayerSeeInStoppedTime(player)
-							&& player.position().distanceToSqr(pos) < soundRadius * soundRadius);
+					player -> player.position().distanceToSqr(pos) < soundRadius * soundRadius
+							&& getTimeSkipSound(player, heardByAll) == ModSoundEvents.THE_WORLD_TIME_STOP_BLINK);
 			StandUtil.broadcastSoundWithCondition(level, pos, ModSoundEvents.THE_WORLD_TIME_STOP_UNREVEALED,
 					false, standPower, SoundSource.AMBIENT, 1.0F, 1.0F,
-					player -> !TimeStopState.canPlayerSeeInStoppedTime(player)
-							&& player.position().distanceToSqr(pos) < soundRadius * soundRadius);
+					player -> player.position().distanceToSqr(pos) < soundRadius * soundRadius
+							&& getTimeSkipSound(player, heardByAll) == ModSoundEvents.THE_WORLD_TIME_STOP_UNREVEALED);
 		}
 
 		private static ActionTarget rayTraceTsPunchTarget(StandEntity stand, LivingEntity aimingEntity) {

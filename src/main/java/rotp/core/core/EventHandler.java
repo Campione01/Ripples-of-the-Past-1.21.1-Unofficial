@@ -9,6 +9,7 @@ import rotp.core.init.ModSoundEvents;
 import rotp.core.init.ModStatusEffects;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.mechanics.HamonSpreadEffect;
+import rotp.core.mechanics.StunEffect;
 import rotp.core.mechanics.resolve.ResolveCounter;
 import rotp.core.mechanics.VampireSunBurnEffect;
 import rotp.core.mrpresident.CocoJumboTurtleEntity;
@@ -36,6 +37,7 @@ import rotp.core.impl.powers.hamon.ProjectileHamonChargeState;
 import rotp.core.impl.powers.hamon.abilities.HamonAbilityHelpers;
 import rotp.core.impl.powers.hamon.abilities.HamonPlantItemInfusionAbility;
 import rotp.core.impl.powers.vampirism.SunWeakness;
+import rotp.core.impl.powers.vampirism.VampirismData;
 import rotp.core.impl.powers.vampirism.VampirismUtil;
 import rotp.core.impl.powers.pillarman.PillarmanData;
 import rotp.core.impl.powers.pillarman.PillarmanMode;
@@ -49,14 +51,17 @@ import rotp.core.impl.powers.hamon.abilities.HamonSendoWaveKickAbility;
 import rotp.core.impl.powers.hamon.abilities.HamonSnakeMufflerAbility;
 import rotp.core.impl.powers.vampirism.abilities.VampirismFreezeAbility;
 import rotp.core.impl.powers.vampirism.entity.HungryZombieEntity;
+import rotp.core.impl.powers.zombie.ZombieData;
 import rotp.core.impl.stands.boyiiman.BoyIIManStandPartTakenEffect;
 import rotp.core.impl.stands.crazydiamond.AngeloRockEntity;
 import rotp.core.impl.stands.crazydiamond.CrazyDAngeloRockPunchEffect;
 import rotp.core.impl.stands.goldexperience.GECreatedLifeformEffect;
+import rotp.core.impl.stands.goldexperience.GoldExperienceLifeforms;
 import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.DamageTypeTags;
+import net.minecraft.tags.ItemTags;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -88,14 +93,30 @@ import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.core.Holder;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundSoundPacket;
+import net.minecraft.server.players.PlayerList;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.block.AbstractFurnaceBlock;
+import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity;
+import net.minecraft.world.scores.Team;
+import net.neoforged.neoforge.event.EventHooks;
+import net.neoforged.neoforge.event.PlayLevelSoundEvent;
+import rotp.core.mixin.stand.magiciansred.AbstractFurnaceBlockEntityLitAccessor;
+import rotp.core.powersystem.standpower.entity.StandEntity;
+import rotp.core.util.sound.MultiSoundEventResolver;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.attachment.AttachmentType;
+import net.neoforged.neoforge.common.util.TriState;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.ProjectileImpactEvent;
 import net.neoforged.neoforge.event.entity.item.ItemTossEvent;
 import net.neoforged.neoforge.event.entity.living.FinalizeSpawnEvent;
+import net.neoforged.neoforge.event.entity.living.LivingConversionEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
 import net.neoforged.neoforge.event.entity.living.LivingFallEvent;
@@ -105,17 +126,21 @@ import net.neoforged.neoforge.event.entity.living.LivingKnockBackEvent;
 import net.neoforged.neoforge.event.entity.living.LivingEntityUseItemEvent;
 import net.neoforged.neoforge.event.entity.living.MobEffectEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.entity.player.ItemEntityPickupEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerWakeUpEvent;
 import net.neoforged.neoforge.event.tick.EntityTickEvent;
 import net.neoforged.neoforge.event.tick.EntityTickEvent.Pre;
 import net.neoforged.neoforge.event.tick.LevelTickEvent;
+import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 @EventBusSubscriber(modid = JojoMod.MOD_ID)
 public class EventHandler {
 	private static boolean applyingOiledWeaponHamonDamage;
 
-	@SubscribeEvent
+	// 1.16 onMobSpawn ran at LOWEST, so it saw every other handler's spawn veto
+	@SubscribeEvent(priority = EventPriority.LOWEST)
 	public static void onFinalizeSpawn(FinalizeSpawnEvent event) {
 		CocoJumboTurtleEntity.onRegularTurtleSpawn(event);
 	}
@@ -219,11 +244,42 @@ public class EventHandler {
 		dead.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 200, 0, false, false, true));
 		PlayerPower.getPowerData(dead, ModPlayerPowers.HAMON).ifPresent(hamon -> {
 			hamon.markCheatDeathConsumed(dead);
-			if (hamon.characterIs(ModHamonSkills.CHARACTER_JOSEPH.get())) {
-				JojoModUtil.sayVoiceLine(dead, ModSoundEvents.JOSEPH_GIGGLE);
+			// 1.16: Joseph fakes a death message and only he hears the giggle (a voice line would be muted by the invisibility)
+			if (hamon.characterIs(ModHamonSkills.CHARACTER_JOSEPH.get()) && dead instanceof ServerPlayer joseph) {
+				sendMemeDeathMessage(joseph, event.getSource().getLocalizedDeathMessage(dead));
+				sendSoundToOnePlayer(joseph, ModSoundEvents.JOSEPH_GIGGLE, SoundSource.PLAYERS, 1.0F, 1.0F);
 			}
 		});
 		return true;
+	}
+
+	// broadcast like ServerPlayer.die, without the death screen packet
+	private static void sendMemeDeathMessage(ServerPlayer player, Component deathMessage) {
+		if (!player.level().getGameRules().getBoolean(GameRules.RULE_SHOWDEATHMESSAGES)) {
+			return;
+		}
+		PlayerList playerList = player.server.getPlayerList();
+		Team team = player.getTeam();
+		if (team == null || team.getDeathMessageVisibility() == Team.Visibility.ALWAYS) {
+			playerList.broadcastSystemMessage(deathMessage, false);
+		}
+		else if (team.getDeathMessageVisibility() == Team.Visibility.HIDE_FOR_OTHER_TEAMS) {
+			playerList.broadcastSystemToTeam(player, deathMessage);
+		}
+		else if (team.getDeathMessageVisibility() == Team.Visibility.HIDE_FOR_OWN_TEAM) {
+			playerList.broadcastSystemToAllExceptTeam(player, deathMessage);
+		}
+	}
+
+	private static void sendSoundToOnePlayer(ServerPlayer player, Holder<SoundEvent> sound,
+			SoundSource source, float volume, float pitch) {
+		PlayLevelSoundEvent.AtEntity soundEvent = EventHooks.onPlaySoundAtEntity(player, sound, source, volume, pitch);
+		if (soundEvent.isCanceled() || soundEvent.getSound() == null || player.connection == null) {
+			return;
+		}
+		player.connection.send(new ClientboundSoundPacket(MultiSoundEventResolver.resolve(soundEvent.getSound()),
+				soundEvent.getSource(), player.getX(), player.getY(), player.getZ(),
+				soundEvent.getNewVolume(), soundEvent.getNewPitch(), player.getRandom().nextLong()));
 	}
 
 	private static void chorusFruitTeleport(LivingEntity entity) {
@@ -306,6 +362,20 @@ public class EventHandler {
 		}
 	}
 
+	// 1.16 ShearsItemMixin: shearing a GE lifeform fails and hurts the shearer for 1
+	@SubscribeEvent(priority = EventPriority.HIGH)
+	public static void refuseShearingGoldExperienceLifeforms(PlayerInteractEvent.EntityInteract event) {
+		Player player = event.getEntity();
+		if (!GoldExperienceLifeforms.refusesShearing(player, event.getItemStack(), event.getTarget())) {
+			return;
+		}
+		if (!player.level().isClientSide()) {
+			player.hurt(player.damageSources().playerAttack(player), 1.0F);
+		}
+		event.setCanceled(true);
+		event.setCancellationResult(InteractionResult.SUCCESS);
+	}
+
 	private static boolean isTakenArmsEffectTargetingAttacker(BoyIIManStandPartTakenEffect effect, LivingEntity attackerLiving, StandPower attackerStand) {
 		if (!attackerLiving.getUUID().equals(effect.getTargetUUID()) || attackerStand.getPowerType() == null) {
 			return false;
@@ -362,6 +432,10 @@ public class EventHandler {
 				|| PillarmanUnnaturalAgilityAbility.onUserIncomingDamage(event)) {
 			event.setCanceled(true);
 		}
+		// 1.16 cancelDamageFromBlock: Hamon energy or a Hamon charge stops cactus and sweet berry bush damage
+		if (HamonProtectionAbility.cancelDamageFromBlock(event.getEntity(), event.getSource(), event.getAmount())) {
+			event.setCanceled(true);
+		}
 	}
 
 	@SubscribeEvent(priority = EventPriority.HIGH)
@@ -390,6 +464,8 @@ public class EventHandler {
 		Power<?> power = PowerClass.PLAYER_POWER.get(target);
 		if (power != null) {
 			float reduced = HamonProtectionAbility.reduceDamageAmount(power, target, dmgSource, event.getAmount());
+			// 1.16: with Protection off, a hit Rebuff Overdrive's charge did not counter gets the same cut
+			reduced = HamonRebuffOverdriveAbility.reduceDamageAmount(power, event, reduced);
 			if (reduced != event.getAmount()) {
 				event.setAmount(reduced);
 			}
@@ -437,6 +513,10 @@ public class EventHandler {
 		if (entity.level().isClientSide()) {
 			return;
 		}
+		// 1.16 onFoodEaten: an Enchanted Golden Apple under Weakness V starts the vampirism cure.
+		if (event.getItem().is(Items.ENCHANTED_GOLDEN_APPLE)) {
+			VampirismData.startCuringFromEnchantedGoldenApple(entity);
+		}
 		FoodProperties food = event.getItem().getFoodProperties(entity);
 		if (food == null) {
 			return;
@@ -445,6 +525,107 @@ public class EventHandler {
 			pillarman.addEnergy(entity, food.nutrition() * 10.0F);
 			pillarman.syncOnUpdate(entity);
 		});
+		// 1.16 onFoodEaten: a Zombie eating meat gains nutrition * 10 energy and heals nutrition HP.
+		// ItemTags.MEAT stands in for 1.16 Food.isMeat (same vanilla item set).
+		if (event.getItem().is(ItemTags.MEAT)) {
+			PlayerPower.getPowerData(entity, ModPlayerPowers.ZOMBIE).ifPresent(zombie -> {
+				zombie.addEnergy(entity, food.nutrition() * 10.0F);
+				entity.heal(food.nutrition());
+				zombie.syncOnUpdate(entity);
+			});
+		}
+	}
+
+	// 1.16 onWakeUp: sleeping through the night refills Stand stamina;
+	// waking up with the vampirism cure complete removes the power.
+	@SubscribeEvent
+	public static void onVampireCureWakeUp(PlayerWakeUpEvent event) {
+		Player sleeper = event.getEntity();
+		if (!sleeper.level().isClientSide()) {
+			// wakeImmediately/updateLevel false only when the night was skipped
+			if (!event.wakeImmediately() && !event.updateLevel()) {
+				StandPower.getOptional(sleeper).ifPresent(stand -> {
+					if (stand.hasPower()) {
+						stand.setStamina(stand.getMaxStamina());
+					}
+				});
+			}
+			VampirismData.finishCuringOnWakingUp(sleeper);
+		}
+	}
+
+	// 1.16 cancelPotionRemoval: hidden power passives survive milk, totems and effect clearing.
+	@SubscribeEvent(priority = EventPriority.HIGHEST)
+	public static void keepHiddenPowerPassiveEffect(MobEffectEvent.Remove event) {
+		LivingEntity entity = event.getEntity();
+		MobEffectInstance instance = event.getEffectInstance();
+		if (instance != null && !entity.level().isClientSide()
+				&& (VampirismData.isKeptPassiveEffect(entity, instance) || ZombieData.isKeptPassiveEffect(entity, instance))) {
+			event.setCanceled(true);
+		}
+	}
+
+	// 1.16 GameplayEventHandler stun rules: no sprinting, no interaction, no item pickup.
+	@SubscribeEvent
+	public static void stopSprintingInStun(PlayerTickEvent.Pre event) {
+		Player player = event.getEntity();
+		if (player.isSprinting() && ModStatusEffects.isStunned(player)) {
+			player.setSprinting(false);
+		}
+	}
+
+	private static void cancelStunnedInteraction(PlayerInteractEvent event,
+			java.util.function.Consumer<InteractionResult> setResult) {
+		if (ModStatusEffects.isStunned(event.getEntity())) {
+			((net.neoforged.bus.api.ICancellableEvent) event).setCanceled(true);
+			if (setResult != null) {
+				setResult.accept(InteractionResult.FAIL);
+			}
+		}
+	}
+
+	@SubscribeEvent(priority = EventPriority.HIGHEST)
+	public static void cancelStunnedRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
+		cancelStunnedInteraction(event, event::setCancellationResult);
+	}
+
+	@SubscribeEvent(priority = EventPriority.HIGHEST)
+	public static void cancelStunnedRightClickItem(PlayerInteractEvent.RightClickItem event) {
+		cancelStunnedInteraction(event, event::setCancellationResult);
+	}
+
+	@SubscribeEvent(priority = EventPriority.HIGHEST)
+	public static void cancelStunnedEntityInteract(PlayerInteractEvent.EntityInteract event) {
+		cancelStunnedInteraction(event, event::setCancellationResult);
+	}
+
+	@SubscribeEvent(priority = EventPriority.HIGHEST)
+	public static void cancelStunnedEntityInteractSpecific(PlayerInteractEvent.EntityInteractSpecific event) {
+		cancelStunnedInteraction(event, event::setCancellationResult);
+	}
+
+	@SubscribeEvent(priority = EventPriority.HIGHEST)
+	public static void cancelStunnedLeftClickBlock(PlayerInteractEvent.LeftClickBlock event) {
+		cancelStunnedInteraction(event, null);
+	}
+
+	@SubscribeEvent(priority = EventPriority.HIGHEST)
+	public static void cancelItemPickupInStun(ItemEntityPickupEvent.Pre event) {
+		if (ModStatusEffects.isStunned(event.getPlayer())) {
+			event.setCanPickup(TriState.FALSE);
+		}
+	}
+
+	// 1.16 releaseStun: a mob converted while stunned must not inherit the stun's NoAI.
+	// convertTo discards the old mob (clearing its effects) before this event, so check the discard marker too.
+	@SubscribeEvent(priority = EventPriority.LOWEST)
+	public static void releaseStunOnConversion(LivingConversionEvent.Post event) {
+		LivingEntity old = event.getEntity();
+		boolean wasStunned = ModStatusEffects.isStunned(old) || StunEffect.wasStunnedOnDiscard(old);
+		if (event.getOutcome() instanceof Mob converted && converted.isNoAi()
+				&& wasStunned && !ModStatusEffects.isStunned(converted)) {
+			converted.setNoAi(false);
+		}
 	}
 
 	@SubscribeEvent(priority = EventPriority.LOW, receiveCanceled = true)
@@ -472,6 +653,43 @@ public class EventHandler {
 		});
 	}
 
+	static final int MAGICIANS_RED_FURNACE_LIT_TICKS = 12000;
+
+	// 1.16 furnaceInteract: a summoned Magician's Red lights the furnace its user right-clicks; the GUI still opens
+	@SubscribeEvent(priority = EventPriority.LOWEST)
+	public static void onMagiciansRedFurnaceInteract(PlayerInteractEvent.RightClickBlock event) {
+		if (event.getHand() != InteractionHand.MAIN_HAND || event.getUseBlock().isFalse()) {
+			return;
+		}
+		Player player = event.getEntity();
+		if (player.isSpectator() || !(player.level() instanceof ServerLevel level)) {
+			return;
+		}
+		BlockPos pos = event.getHitVec().getBlockPos();
+		BlockState blockState = level.getBlockState(pos);
+		if (!(blockState.getBlock() instanceof AbstractFurnaceBlock)) {
+			return;
+		}
+		StandPower standPower = StandPower.get(player);
+		if (standPower == null || !standPower.hasPower()
+				|| standPower.getPowerType() != ModStands.MAGICIANS_RED.get()) {
+			return;
+		}
+		StandEntity magiciansRed = standPower.getSummonedStandEntity();
+		if (magiciansRed == null || !(level.getBlockEntity(pos) instanceof AbstractFurnaceBlockEntity furnace)) {
+			return;
+		}
+		AbstractFurnaceBlockEntityLitAccessor lit = (AbstractFurnaceBlockEntityLitAccessor) furnace;
+		if (lit.jojo_ripples$getLitTime() < MAGICIANS_RED_FURNACE_LIT_TICKS) {
+			lit.jojo_ripples$setLitTime(MAGICIANS_RED_FURNACE_LIT_TICKS);
+			lit.jojo_ripples$setLitDuration(MAGICIANS_RED_FURNACE_LIT_TICKS);
+			furnace.setChanged();
+			StandUtil.broadcastSound(level, magiciansRed.position(), ModSoundEvents.MAGICIANS_RED_FIRE_BLAST,
+					true, standPower, magiciansRed.getSoundSource(), 1.0F, 1.0F);
+			level.setBlock(pos, blockState.setValue(AbstractFurnaceBlock.LIT, true), 3);
+		}
+	}
+
 	@SubscribeEvent(priority = EventPriority.LOW, receiveCanceled = true)
 	public static void onHungryZombieLeash(PlayerInteractEvent.EntityInteract event) {
 		if (event.getTarget() instanceof HungryZombieEntity zombie
@@ -488,7 +706,8 @@ public class EventHandler {
 			return;
 		}
 		Player player = event.getEntity();
-		if (player.isSpectator() || player.level().isClientSide() || !(player.level() instanceof ServerLevel level)) {
+		if (player.isSpectator() || player.level().isClientSide() || !(player.level() instanceof ServerLevel level)
+				|| ModStatusEffects.isStunned(player)) {
 			return;
 		}
 		Entity target = event.getTarget();
@@ -742,6 +961,17 @@ public class EventHandler {
 		}
 	}
 
+	// 1.16 GameplayEventHandler.onPlayerLogout: stop the leaving user's Stand effects.
+	@SubscribeEvent
+	public static void onStandUserLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
+		if (event.getEntity() instanceof ServerPlayer player) {
+			StandPower standPower = StandPower.get(player);
+			if (standPower != null) {
+				standPower.userStandEffects.onStandUserLogout(player);
+			}
+		}
+	}
+
 	private static void handleTimeStopPlayerLogout(ServerPlayer player) {
 		var server = player.getServer();
 		if (server == null) {
@@ -776,6 +1006,25 @@ public class EventHandler {
 		ServerPlayer player = (ServerPlayer) event.getEntity();
 		syncAttachedData(player);
 		resendTimeStopState(player);
+	}
+
+	// 1.16 onGameModeChange: entering Creative clears both powers' ability cooldowns and the stun effects
+	@SubscribeEvent(priority = EventPriority.LOWEST)
+	public static void onGameModeChange(PlayerEvent.PlayerChangeGameModeEvent event) {
+		if (event.getNewGameMode() == net.minecraft.world.level.GameType.CREATIVE) {
+			Player player = event.getEntity();
+			PlayerPower playerPower = PlayerPower.get(player);
+			if (playerPower != null) {
+				playerPower.resetAbilityCooldowns();
+			}
+			StandPower standPower = StandPower.get(player);
+			if (standPower != null) {
+				standPower.resetAbilityCooldowns();
+			}
+			player.removeEffect(ModStatusEffects.IMMOBILIZE);
+			player.removeEffect(ModStatusEffects.STUN);
+			player.removeEffect(ModStatusEffects.HAMON_SHOCK);
+		}
 	}
 
 	public static void syncAttachedData(ServerPlayer player) {

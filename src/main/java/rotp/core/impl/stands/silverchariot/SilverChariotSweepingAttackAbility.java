@@ -50,7 +50,7 @@ public class SilverChariotSweepingAttackAbility extends StandEntityAbility {
 		if (!level.isClientSide() && performer instanceof StandEntity stand) {
 			action.phasesLength.put(ActionPhase.WINDUP, Math.max(StandStatFormulas.getHeavyAttackWindup(
 					stand.getAttackSpeed(), stand.getFinisherMeter()) - PERFORM_TICKS / 2, 1));
-			action.phasesLength.put(ActionPhase.RECOVERY, StandStatFormulas.getHeavyAttackRecovery(stand.getAttackSpeed(), stand.getFinisherMeter()));
+			// recovery is set in onActionSet from the finisher snapshot
 		}
 	}
 
@@ -67,16 +67,8 @@ public class SilverChariotSweepingAttackAbility extends StandEntityAbility {
 	}
 
 	private static boolean lacksRapier(Power<?> context) {
-		StandPower standPower = PowerClass.STAND.cast(context);
-		if (standPower == null) {
-			return false;
-		}
-		LivingEntity user = standPower.getUser();
-		if (user == null) {
-			return false;
-		}
-		SilverChariotState state = SilverChariotState.get(user);
-		return state != null && !state.hasRapier();
+		// Client-aware: the HUD greys the move from the Stand's synced flag
+		return !SilverChariotState.hasRapier(PowerClass.STAND.cast(context));
 	}
 
 	public static class SweepingStrike extends EntityActionInstance {
@@ -96,6 +88,7 @@ public class SilverChariotSweepingAttackAbility extends StandEntityAbility {
 				ActionTarget target = captureActionTargetFromAim(stand);
 				keepStandAimedAtTarget(target);
 				setStandFrontOffsetFromTarget(stand, target, minOffset, maxOffset);
+				SilverChariotDashAttackAbility.setHeavyFinisher(this, stand);
 			}
 			else {
 				keepStandAimedAtTarget();
@@ -187,7 +180,9 @@ public class SilverChariotSweepingAttackAbility extends StandEntityAbility {
 				DamageSource dmgSource = makePunchDamageSource();
 				((DamageSourceModified) dmgSource).jojo_ripples$modifyKnockback(1F, 1);
 				((DamageSourceModified) dmgSource).jojo_ripples$setStandInvulTicks(10);
-				standEntityAttack(stand, target, dmgSource, dmgAmount);
+				if (standEntityAttack(stand, target, dmgSource, dmgAmount)) {
+					SilverChariotDashAttackAbility.afterHeavyHit(stand, target);
+				}
 			}
 
 			level.addParticle(ParticleTypes.SWEEP_ATTACK,

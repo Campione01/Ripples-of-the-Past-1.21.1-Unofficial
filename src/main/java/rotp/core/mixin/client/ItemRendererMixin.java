@@ -10,12 +10,16 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import rotp.core.api.client.render.ItemMaterialTintPolicies;
 import rotp.core.client.render.item.InventoryItemHighlight;
 import rotp.core.impl.powers.hamon.client.particle.custom.FirstPersonHamonAura;
+import rotp.core.impl.stands.goldexperience.client.GEImbuedGlint;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.ItemRenderer;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.resources.model.BakedModel;
@@ -94,5 +98,42 @@ public class ItemRendererMixin {
 			ItemDisplayContext displayContext) {
 		return ItemMaterialTintPolicies.wrap(
 				original, itemStack, displayContext);
+	}
+
+	// GE-marked items swap the enchantment foil for the imbued-with-life glint (1.16 ItemRendererMixin).
+	@WrapOperation(
+			method = "render(Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/item/ItemDisplayContext;ZLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;IILnet/minecraft/client/resources/model/BakedModel;)V",
+			at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/entity/ItemRenderer;getFoilBufferDirect(Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/client/renderer/RenderType;ZZ)Lcom/mojang/blaze3d/vertex/VertexConsumer;"))
+	private VertexConsumer jojo_ripples$geGlintDirect(MultiBufferSource bufferSource, RenderType renderType,
+			boolean noEntity, boolean withGlint, Operation<VertexConsumer> original,
+			@Local(argsOnly = true) ItemStack itemStack, @Local(argsOnly = true) ItemDisplayContext displayContext,
+			@Local(argsOnly = true) PoseStack poseStack) {
+		if (GEImbuedGlint.isMarked(itemStack)) {
+			return GEImbuedGlint.foilBufferDirect(bufferSource, renderType, itemStack, displayContext, poseStack);
+		}
+		return original.call(bufferSource, renderType, noEntity, withGlint);
+	}
+
+	@WrapOperation(
+			method = "render(Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/item/ItemDisplayContext;ZLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;IILnet/minecraft/client/resources/model/BakedModel;)V",
+			at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/entity/ItemRenderer;getFoilBuffer(Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/client/renderer/RenderType;ZZ)Lcom/mojang/blaze3d/vertex/VertexConsumer;"))
+	private VertexConsumer jojo_ripples$geGlint(MultiBufferSource bufferSource, RenderType renderType,
+			boolean isItem, boolean glint, Operation<VertexConsumer> original,
+			@Local(argsOnly = true) ItemStack itemStack) {
+		if (GEImbuedGlint.isMarked(itemStack)) {
+			return GEImbuedGlint.foilBuffer(bufferSource, renderType);
+		}
+		return original.call(bufferSource, renderType, isItem, glint);
+	}
+
+	@WrapOperation(
+			method = "render(Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/item/ItemDisplayContext;ZLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;IILnet/minecraft/client/resources/model/BakedModel;)V",
+			at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/entity/ItemRenderer;getCompassFoilBuffer(Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/client/renderer/RenderType;Lcom/mojang/blaze3d/vertex/PoseStack$Pose;)Lcom/mojang/blaze3d/vertex/VertexConsumer;"))
+	private VertexConsumer jojo_ripples$geGlintCompass(MultiBufferSource bufferSource, RenderType renderType,
+			PoseStack.Pose pose, Operation<VertexConsumer> original, @Local(argsOnly = true) ItemStack itemStack) {
+		if (GEImbuedGlint.isMarked(itemStack)) {
+			return GEImbuedGlint.compassFoilBuffer(bufferSource, renderType, pose);
+		}
+		return original.call(bufferSource, renderType, pose);
 	}
 }

@@ -48,7 +48,8 @@ public class WalkmanVolumeWheel extends AbstractWidget {
 
 	@Override
 	protected void renderWidget(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-		guiGraphics.blit(WalkmanScreen.TEXTURE, getX(), getY(), isHoveredOrFocused() ? 229 : 245, 61 + (int) (value * FULL_WHEEL_LENGTH), width, height);
+		// highlight on mouse-over only; click focus must not keep it lit (1.16)
+		guiGraphics.blit(WalkmanScreen.TEXTURE, getX(), getY(), WalkmanScreenLayout.wheelTexX(isHovered()), 61 + (int) (value * FULL_WHEEL_LENGTH), width, height);
 	}
 
 	@Override

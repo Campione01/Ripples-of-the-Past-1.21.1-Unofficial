@@ -71,6 +71,10 @@ public final class ModCriteriaTriggers {
     public static final DeferredHolder<CriterionTrigger<?>, NoConditionsTrigger> COFFIN_SLEEP = TRIGGER_TYPES.register("coffin_sleep", NoConditionsTrigger::new);
     // 1.16 STAND_MAX, fired by ResolveAdvancements.onResolveLevelSet
     public static final DeferredHolder<CriterionTrigger<?>, NoConditionsTrigger> STAND_MAX = TRIGGER_TYPES.register("stand_max", NoConditionsTrigger::new);
+    // 1.16 VAMPIRISM_CURED, fired by VampirismData.finishCuringOnWakingUp
+    public static final DeferredHolder<CriterionTrigger<?>, NoConditionsTrigger> VAMPIRISM_CURED = TRIGGER_TYPES.register("cure_vampirism", NoConditionsTrigger::new);
+    // 1.16 jojo:action_perform on the time stop, blink and TS punch actions (time_ability advancement)
+    public static final DeferredHolder<CriterionTrigger<?>, TimeAbilityTrigger> TIME_ABILITY = TRIGGER_TYPES.register("time_ability", TimeAbilityTrigger::new);
 
     private ModCriteriaTriggers() {}
 
@@ -129,6 +133,29 @@ public final class ModCriteriaTriggers {
             public static final Codec<Instance> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                     EntityPredicate.ADVANCEMENT_CODEC.optionalFieldOf("player").forGetter(Instance::player)
             ).apply(instance, Instance::new));
+        }
+    }
+
+    /** Fired when a Stand time ability is used; "stand" narrows it to one Stand type. */
+    public static final class TimeAbilityTrigger extends SimpleCriterionTrigger<TimeAbilityTrigger.Instance> {
+        @Override
+        public Codec<Instance> codec() {
+            return Instance.CODEC;
+        }
+
+        public void trigger(ServerPlayer player, @Nullable ResourceLocation standType) {
+            trigger(player, instance -> instance.matches(standType));
+        }
+
+        public record Instance(Optional<ContextAwarePredicate> player, Optional<ResourceLocation> stand) implements SimpleInstance {
+            public static final Codec<Instance> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                    EntityPredicate.ADVANCEMENT_CODEC.optionalFieldOf("player").forGetter(Instance::player),
+                    ResourceLocation.CODEC.optionalFieldOf("stand").forGetter(Instance::stand)
+            ).apply(instance, Instance::new));
+
+            public boolean matches(@Nullable ResourceLocation standType) {
+                return stand.map(id -> id.equals(standType)).orElse(true);
+            }
         }
     }
 
@@ -498,6 +525,10 @@ public final class ModCriteriaTriggers {
         VAMPIRE_HAMON_DAMAGE_SCARF.get().trigger(player);
     }
 
+    public static void triggerVampirismCured(ServerPlayer player) {
+        VAMPIRISM_CURED.get().trigger(player);
+    }
+
     public static void triggerGetPowerIfPresent(ServerPlayer player) {
         StandPower stand = StandPower.get(player);
         if (stand != null && stand.hasPower()) {
@@ -571,9 +602,16 @@ public final class ModCriteriaTriggers {
         COFFIN_SLEEP.get().trigger(player);
     }
 
+    // players only, as 1.16 action_perform
+    public static void triggerTimeAbility(LivingEntity user, @Nullable StandPower power) {
+        if (user instanceof ServerPlayer player) {
+            TIME_ABILITY.get().trigger(player,
+                    power != null && power.getPowerType() != null ? power.getPowerType().getId() : null);
+        }
+    }
+
     @EventBusSubscriber(modid = JojoMod.MOD_ID)
     public static final class TriggerHooks {
-        private static final long AFK_TRIGGER_INTERVAL_MS = 30_000L;
 
         @SubscribeEvent
         public static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
@@ -590,7 +628,8 @@ public final class ModCriteriaTriggers {
             }
             if (event.getEntity() instanceof ServerPlayer player) {
                 long idleMs = net.minecraft.Util.getMillis() - player.getLastActionTime();
-                if (idleMs >= AFK_TRIGGER_INTERVAL_MS) {
+                // 1.16: menacing particles over an idle player every 60 ticks; the AFK advancement fires with them
+                if (rotp.core.network.s2c.TrAfkMenacingParticlePacket.tick(player, idleMs) != null) {
                     ModCriteriaTriggers.triggerAfk(player);
                 }
             }

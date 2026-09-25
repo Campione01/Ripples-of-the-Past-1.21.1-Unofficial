@@ -65,23 +65,8 @@ public class SilverChariotLightAttackAbility extends StandEntityPunchAbility {
 	}
 
 	private static boolean lacksRapier(Power<?> context) {
-		StandPower standPower = PowerClass.STAND.cast(context);
-		if (standPower == null) {
-			return false;
-		}
-		LivingEntity user = standPower.getUser();
-		if (user == null) {
-			return false;
-		}
-		if (user.level().isClientSide()) {
-			StandEntity stand = standPower.getSummonedStandEntity();
-			if (stand != null) {
-				// The user attachment is server-owned; equipment flags are synced with the Stand.
-				return !stand.isSilverChariotRapierVisible();
-			}
-		}
-		SilverChariotState state = SilverChariotState.get(user);
-		return state != null && !state.hasRapier();
+		// The user attachment is server-owned; the client reads the Stand's synced flag.
+		return !SilverChariotState.hasRapier(PowerClass.STAND.cast(context));
 	}
 
 	public static class SilverChariotLightAttack extends StandEntityPunchAbility.StandEntityPunch {

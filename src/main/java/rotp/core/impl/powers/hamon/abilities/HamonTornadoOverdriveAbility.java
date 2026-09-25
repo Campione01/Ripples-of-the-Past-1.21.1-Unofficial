@@ -22,7 +22,8 @@ public class HamonTornadoOverdriveAbility extends HamonActionRuntimeAbility {
 
 	public HamonTornadoOverdriveAbility(AbilityType<?> abilityType, AbilityId abilityId) {
 		super(abilityType, abilityId, TornadoOverdriveInstance::new);
-		setDefaultPhaseLength(ActionPhase.WINDUP, 12);
+		// 1.16 holdType: held ticks (fall reset, damage) start at the press, no windup.
+		setDefaultPhaseLength(ActionPhase.WINDUP, 0);
 		setDefaultPhaseLength(ActionPhase.PERFORM, 6);
 		setButtonHoldPhase(ActionPhase.PERFORM);
 		setDefaultPhaseLength(ActionPhase.RECOVERY, 5);

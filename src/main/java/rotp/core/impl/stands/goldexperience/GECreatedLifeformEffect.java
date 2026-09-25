@@ -120,6 +120,11 @@ public class GECreatedLifeformEffect extends StandEffectInstance {
                     return;
                 }
             }
+            else if (target instanceof LivingEntity living && living.isDeadOrDying()) {
+                // 1.16: keep the killed body as target so stop() turns it back into its source
+                remove();
+                return;
+            }
         }
         super.updateTarget(level);
         if (!level.isClientSide()) {

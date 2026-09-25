@@ -5,8 +5,10 @@ import java.util.stream.Collectors;
 
 import javax.annotation.Nullable;
 
+import rotp.core.core.JojoMod;
 import rotp.core.customobjects.explosion.CustomExplosion;
 import rotp.core.init.ModCustomExplosions;
+import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.impl.powers.hamon.abilities.HamonAbilityHelpers;
 import rotp.core.impl.powers.hamon.abilities.HamonAbilityHelpers.HamonAttackProperties;
 
@@ -19,6 +21,10 @@ import net.minecraft.world.level.Explosion;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.bus.api.EventPriority;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.level.ExplosionEvent;
 
 public class HamonBlastExplosion extends CustomExplosion {
 	private float hamonDamage;
@@ -72,5 +78,35 @@ public class HamonBlastExplosion extends CustomExplosion {
 	@Override
 	public ResourceLocation getExplosionType() {
 		return ModCustomExplosions.HAMON;
+	}
+
+	// 1.16 HamonUtil.hamonChargedCreeperBlast: a Hamon-charged exploder adds a Hamon blast of the same radius.
+	public static boolean chargedExploderBlast(Explosion explosion) {
+		if (explosion instanceof HamonBlastExplosion || explosion.level.isClientSide()) {
+			return false;
+		}
+		Entity exploder = explosion.getDirectSourceEntity();
+		// hasData first so plain explosions do not attach charge state to every exploder
+		if (exploder == null || !exploder.hasData(ModDataAttachmentTypes.HAMON_CHARGE)) {
+			return false;
+		}
+		HamonCharge charge = EntityHamonChargeState.get(exploder).getHamonCharge();
+		if (charge == null) {
+			return false;
+		}
+		Vec3 center = explosion.center();
+		HamonBlastExplosion blast = new HamonBlastExplosion(exploder.level(), exploder, null,
+				center.x, center.y, center.z, explosion.radius());
+		blast.setHamonDamage(charge.getDamage());
+		return CustomExplosion.explode(blast);
+	}
+
+	@EventBusSubscriber(modid = JojoMod.MOD_ID)
+	public static class Events {
+
+		@SubscribeEvent(priority = EventPriority.LOWEST)
+		public static void onExplosionDetonate(ExplosionEvent.Detonate event) {
+			chargedExploderBlast(event.getExplosion());
+		}
 	}
 }

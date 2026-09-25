@@ -270,6 +270,8 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 	 * 1.16 stopHeldAction(true): a released hold that no longer passes its checks ends without firing, and without
 	 * a message. The checks are those of {@link #checkHeldActionConditions}. The server decides; the client follows
 	 * the synced phase. Only release code that calls this rechecks; the core Stand releases do not.
+	 * Also, as 1.16 checkConditions did (!user.canUpdate()), a user frozen in someone else's stopped time cannot fire
+	 * the release unless the ability works in stopped time. Only here: 1.16 never ticked a frozen user's hold.
 	 */
 	public boolean canFireReleasedHold(EntityActionInstance action) {
 		LivingEntity user = action.getPowerUser();
@@ -277,7 +279,13 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 			return true;
 		}
 		Power<?> context = getUserPower(user);
-		return context == null || checkHeldActionConditions(action, context).isPositive();
+		if (context == null) {
+			return true;
+		}
+		if (!canBeUsedInStoppedTime(context) && isUserStoppedInTime(context)) {
+			return false;
+		}
+		return checkHeldActionConditions(action, context).isPositive();
 	}
 	
 	/**

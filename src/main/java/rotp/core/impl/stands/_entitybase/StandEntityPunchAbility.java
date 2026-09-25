@@ -43,6 +43,7 @@ import rotp.core.subsystems.target.AimingEntity;
 import rotp.core.subsystems.target.HitResultUtil;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
 import rotp.core.util.OOPMoment;
+import rotp.core.util.functions.JojoModUtil;
 import rotp.core.compat.v1_21_4.missingmethods._EntitySelector;
 
 import net.minecraft.core.BlockPos;
@@ -50,6 +51,7 @@ import net.minecraft.core.Holder;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
@@ -57,6 +59,7 @@ import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockState;
 
 public class StandEntityPunchAbility extends StandEntityAbility {
@@ -325,6 +328,13 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 					stand.addFinisherMeter(0.1f);
 				}
 			}
+			// 1.16 punched non-living entities too (boats, minecarts, item frames, end crystals)
+			else if (targetEntity != null) {
+				float dmgAmount = StandStatFormulas.getLightAttackDamage(stand.getAttackDamage());
+				if (standEntityAttack(stand, targetEntity, makePunchDamageSource(), dmgAmount)) {
+					stand.addFinisherMeter(0.1f);
+				}
+			}
 		}
 
 		@Nullable
@@ -369,11 +379,17 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		public static void hitBlockTarget(ActionTarget target, Level level, StandEntity stand, boolean dropBlock) {
 			BlockPos blockPos = target.getBlockPos();
 			BlockState blockState = level.getBlockState(blockPos);
+			// 1.16 StandEntity.breakBlock gate: protected blocks get no break, no cracks and no block sound
+			if (!canStandBreakBlock(level, blockPos, blockState, stand)) {
+				return;
+			}
 			
 			double standStrength = stand.getAttackDamage();
 			float blockDamage = (float) standStrength * StandStatFormulas.getBlockMiningEfficiency(standStrength) * 0.05f;
 			float blockHardness = stand.getBlockHardnessForStandBreak(blockState, level, blockPos);
 			if (blockHardness < 0) {
+				// 1.16 else branch: allowed but unbreakable for this Stand, hit sound only
+				playBlockHitSound(level, blockPos, blockState, stand);
 				return;
 			}
 			
@@ -405,6 +421,10 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 				if (!blocksAround.isEmpty()) {
 					Collections.shuffle(blocksAround);
 					for (BlockPosState block : blocksAround) {
+						// protected neighbours get no cracks
+						if (!canStandBreakBlock(level, block.blockPos, block.blockState, stand)) {
+							continue;
+						}
 						blockHardness = stand.getBlockHardnessForStandBreak(block.blockState, level, block.blockPos);
 						if (blockHardness < 0) {
 							continue;
@@ -420,6 +440,18 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			}
 		}
 		protected static record BlockPosState(BlockPos blockPos, BlockState blockState, int manhattanDist) {}
+		
+		/** Gamerule, block, LivingDestroyBlockEvent and spawn protection gate for Stand punch block breaking. */
+		public static boolean canStandBreakBlock(Level level, BlockPos blockPos, BlockState blockState, StandEntity stand) {
+			return level instanceof ServerLevel serverLevel && !blockState.isAir()
+					&& JojoModUtil.canEntityDestroy(serverLevel, blockPos, blockState, stand);
+		}
+		
+		public static void playBlockHitSound(Level level, BlockPos blockPos, BlockState blockState, StandEntity stand) {
+			SoundType blockSounds = blockState.getSoundType(level, blockPos, stand);
+			level.playSound(null, blockPos, blockSounds.getHitSound(), SoundSource.BLOCKS,
+					(blockSounds.getVolume() + 1.0F) / 8.0F, blockSounds.getPitch() * 0.5F);
+		}
 		
 		protected ActionTarget getPunchTarget(StandEntity stand) {
 			if (isGrabVariation()) {

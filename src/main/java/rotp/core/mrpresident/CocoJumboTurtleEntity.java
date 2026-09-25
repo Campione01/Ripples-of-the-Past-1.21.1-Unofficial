@@ -3,6 +3,7 @@ package rotp.core.mrpresident;
 import java.util.List;
 import java.util.function.Predicate;
 
+import rotp.core.JojoModConfig;
 import rotp.core.core.JojoMod;
 import rotp.core.init.ModEntityTypes;
 import rotp.core.init.ModCriteriaTriggers;
@@ -48,7 +49,9 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerLevelAccessor;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.living.FinalizeSpawnEvent;
+import net.neoforged.neoforge.event.entity.living.MobSpawnEvent;
 
 public class CocoJumboTurtleEntity extends Turtle {
 	private static final EntityDataAccessor<Boolean> HAS_KEY = SynchedEntityData.defineId(CocoJumboTurtleEntity.class, EntityDataSerializers.BOOLEAN);
@@ -391,11 +394,12 @@ public class CocoJumboTurtleEntity extends Turtle {
 	}
 
 	public static void onRegularTurtleSpawn(FinalizeSpawnEvent event) {
-		if (event.getEntity().getType() != EntityType.TURTLE) {
+		MobSpawnType spawnType = event.getSpawnType();
+		if (!canSpawnWithTurtle(event.getEntity().getType(), spawnType)) {
 			return;
 		}
-		MobSpawnType spawnType = event.getSpawnType();
-		if (spawnType != MobSpawnType.NATURAL && spawnType != MobSpawnType.CHUNK_GENERATION && spawnType != MobSpawnType.SPAWNER) {
+		// no extra turtle next to a turtle whose spawn was blocked
+		if (event.isSpawnCancelled()) {
 			return;
 		}
 		ServerLevelAccessor spawnLevel = event.getLevel();
@@ -418,12 +422,25 @@ public class CocoJumboTurtleEntity extends Turtle {
 			return;
 		}
 		extraTurtle.moveTo(event.getX(), event.getY(), event.getZ(), event.getEntity().getRandom().nextFloat() * 360.0F, 0.0F);
-		if (extraTurtle.checkSpawnRules(spawnLevel, spawnType) && extraTurtle.checkSpawnObstruction(spawnLevel)) {
+		// 1.16 ForgeHooks.canEntitySpawn: other mods may veto the extra turtle itself
+		MobSpawnEvent.PositionCheck positionCheck = new MobSpawnEvent.PositionCheck(extraTurtle, spawnLevel, spawnType, null);
+		NeoForge.EVENT_BUS.post(positionCheck);
+		if (positionCheck.getResult() != MobSpawnEvent.PositionCheck.Result.FAIL
+				&& extraTurtle.checkSpawnRules(spawnLevel, spawnType) && extraTurtle.checkSpawnObstruction(spawnLevel)) {
 			DifficultyInstance difficulty = event.getDifficulty();
 			SpawnGroupData spawnData = extraTurtle.finalizeSpawn(spawnLevel, difficulty, spawnType, null);
-			level.addFreshEntityWithPassengers(extraTurtle);
+			// 1.16: add through the event accessor (the WorldGenRegion at chunk generation, off the server thread)
+			spawnLevel.addFreshEntityWithPassengers(extraTurtle);
 			lastSpawnTime = spawnLevel.dayTime();
 		}
+	}
+
+	// 1.16 GameplayEventHandler.onMobSpawn: gated by the spawnCocoJumboTurtle config
+	public static boolean canSpawnWithTurtle(EntityType<?> spawnedType, MobSpawnType spawnType) {
+		if (spawnedType != EntityType.TURTLE || !JojoModConfig.getCommonConfigInstance(false).spawnCocoJumboTurtle.get()) {
+			return false;
+		}
+		return spawnType == MobSpawnType.NATURAL || spawnType == MobSpawnType.CHUNK_GENERATION || spawnType == MobSpawnType.SPAWNER;
 	}
 
 	private static float spawnChancePerTurtle(ServerPlayer player, MobSpawnType spawnType) {

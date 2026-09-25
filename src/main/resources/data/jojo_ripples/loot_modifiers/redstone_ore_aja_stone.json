@@ -2,8 +2,17 @@
   "type": "neoforge:add_table",
   "conditions": [
     {
-      "condition": "neoforge:loot_table_id",
-      "loot_table_id": "minecraft:blocks/redstone_ore"
+      "condition": "minecraft:any_of",
+      "terms": [
+        {
+          "condition": "neoforge:loot_table_id",
+          "loot_table_id": "minecraft:blocks/redstone_ore"
+        },
+        {
+          "condition": "neoforge:loot_table_id",
+          "loot_table_id": "minecraft:blocks/deepslate_redstone_ore"
+        }
+      ]
     },
     {
       "condition": "minecraft:inverted",
@@ -13,7 +22,7 @@
           "predicates": {
             "enchantments": [
               {
-                "enchantment": "minecraft:silk_touch",
+                "enchantments": "minecraft:silk_touch",
                 "levels": {
                   "min": 1
                 }

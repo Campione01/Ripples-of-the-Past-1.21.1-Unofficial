@@ -4,6 +4,7 @@ import java.util.UUID;
 
 import javax.annotation.Nullable;
 
+import rotp.core.JojoModConfig;
 import rotp.core.api.stand.StandVirusMobGiver;
 import rotp.core.api.stand.StandVirusMobGiverContext;
 import rotp.core.api.stand.StandVirusMobGivers;
@@ -16,6 +17,7 @@ import rotp.core.entityattachment.custom_effect.EntityCustomEffectType;
 import rotp.core.entityattachment.syncheddata.SynchedDataBuilder;
 import rotp.core.entityattachment.syncheddata.SyncedDataHolderExtended;
 import rotp.core.init.ModDamageTypes;
+import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModEntityCustomEffects;
 import rotp.core.init.ModStatusEffects;
 import rotp.core.powersystem.standpower.StandPower;
@@ -23,11 +25,13 @@ import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.util.functions.DamageUtil;
 
 import net.minecraft.core.Holder;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -36,6 +40,8 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.level.Level;
 
 public class StandVirusActualEffect extends EntityCustomEffect implements SyncedDataHolderExtended {
@@ -78,11 +84,76 @@ public class StandVirusActualEffect extends EntityCustomEffect implements Synced
 	}
 
 	public int getStandXpLevelsRequirement() {
-		return STAND_XP_LEVELS_REQUIREMENT;
+		return entity instanceof LivingEntity user
+				? getStandXpLevelsRequirement(user, standArrowItem)
+				: STAND_XP_LEVELS_REQUIREMENT;
+	}
+
+	// 1.16 StandArrowHandler: initial + stands got * increase - 2 per xp reduction level
+	public static int getStandXpLevelsRequirement(LivingEntity user, ItemStack arrowItem) {
+		JojoModConfig.Common config = JojoModConfig.getCommonConfigInstance(false);
+		int levels = config.standXpCostInitial.get()
+				+ getStandsGotFromArrow(user) * config.standXpCostIncrease.get();
+		int reduction = arrowEnchantmentLevel(user.level(), arrowItem, STAND_ARROW_XP_REDUCTION)
+				* XP_REDUCTION_PER_LEVEL;
+		return Math.max(levels - reduction, 0);
 	}
 
 	public static int getEffectDurationToApply() {
-		return (STAND_XP_LEVELS_REQUIREMENT + 1) * 20;
+		return (JojoModConfig.getCommonConfigInstance(false).standXpCostInitial.get() + 1) * 20;
+	}
+
+	// 1.16 StandVirusEffect: sized by the player's cost without the arrow's enchantment
+	public static int getEffectDurationToApply(LivingEntity user) {
+		return (getStandXpLevelsRequirement(user, ItemStack.EMPTY) + 1) * 20;
+	}
+
+	public static final ResourceKey<Enchantment> STAND_ARROW_XP_REDUCTION =
+			ResourceKey.create(Registries.ENCHANTMENT, JojoMod.resLoc("stand_arrow_xp_reduction"));
+	public static final ResourceKey<Enchantment> VIRUS_INHIBITION =
+			ResourceKey.create(Registries.ENCHANTMENT, JojoMod.resLoc("virus_inhibition"));
+	public static final int XP_REDUCTION_PER_LEVEL = 2;
+
+	public static int arrowEnchantmentLevel(@Nullable Level level, ItemStack arrowItem, ResourceKey<Enchantment> key) {
+		if (level == null || arrowItem == null || arrowItem.isEmpty()) {
+			return 0;
+		}
+		return level.registryAccess().registry(Registries.ENCHANTMENT)
+				.flatMap(registry -> registry.getHolder(key))
+				.map(holder -> EnchantmentHelper.getItemEnchantmentLevel(holder, arrowItem))
+				.orElse(0);
+	}
+
+	// 1.16 StandArrowHandler.standsGotFromArrow: kept on death, reset by Full Stand Clear and /stand remove
+	public static int getStandsGotFromArrow(LivingEntity user) {
+		return user.getExistingData(ModDataAttachmentTypes.STANDS_GOT_FROM_ARROW).orElse(0);
+	}
+
+	public static void onStandGivenByArrow(LivingEntity user) {
+		if (!user.level().isClientSide()) {
+			user.setData(ModDataAttachmentTypes.STANDS_GOT_FROM_ARROW, getStandsGotFromArrow(user) + 1);
+		}
+	}
+
+	public static void resetStandsGotFromArrow(LivingEntity user) {
+		user.removeData(ModDataAttachmentTypes.STANDS_GOT_FROM_ARROW);
+	}
+
+	public static final int MAX_VIRUS_INHIBITION = 3;
+
+	// 1.16 StandVirusEffect: a plain arrow applies level IV
+	public static int getEffectLevelToApply(int inhibition) {
+		return Math.max(MAX_VIRUS_INHIBITION - inhibition, 0);
+	}
+
+	// 1.16 StandVirusEffect.baseDamage
+	public static float baseDamage(int amplifier) {
+		return 1.5F + Math.max(0, amplifier) * 2.0F;
+	}
+
+	// 1.16 MobStandGiver.getSurviveChance
+	public static float mobSurvivalChance(int amplifier) {
+		return 1.0F - 0.15F * Math.max(0, amplifier);
 	}
 
 	public StandVirusActualEffect withArrowContext(@Nullable StandType standToGive, ItemStack arrowItem, @Nullable Entity arrowShooter) {
@@ -175,7 +246,7 @@ public class StandVirusActualEffect extends EntityCustomEffect implements Synced
 				return;
 			}
 
-			float damage = damageAmount();
+			float damage = damageAmount(amplifier);
 			boolean stopEffect = false;
 
 			if (entity instanceof Player player) {
@@ -197,15 +268,17 @@ public class StandVirusActualEffect extends EntityCustomEffect implements Synced
 				}
 			}
 			else if (entity.getHealth() <= damage) {
-				stopEffectOnGaveStand = giveStandFromVirus(entity);
+				stopEffectOnGaveStand = giveStandToMobFromVirus(entity, amplifier);
 				if (stopEffectOnGaveStand) {
 					damage = 0;
 				}
+				// resolved here, stop() must not roll again
+				mobGiverResolutionHandled = true;
 				stopEffect = true;
 			}
 
 			if (damage > 0) {
-				entity.hurt(DamageUtil.make(level, ModDamageTypes.STAND_ARROW_VIRUS), damage);
+				DamageUtil.hurtThroughInvulTicks(entity, DamageUtil.make(level, ModDamageTypes.STAND_ARROW_VIRUS), damage);
 			}
 			if (stopEffect || stopEffectOnGaveStand) {
 				entity.removeEffect(vanillaEffect);
@@ -214,8 +287,21 @@ public class StandVirusActualEffect extends EntityCustomEffect implements Synced
 		}
 	}
 
-	protected float damageAmount() {
-		return 1.5F;
+	protected float damageAmount(int amplifier) {
+		return baseDamage(amplifier);
+	}
+
+	// 1.16 MobStandGiver.giveStandFromVirus: survive roll before the grant
+	private boolean giveStandToMobFromVirus(LivingEntity entity, int amplifier) {
+		if (!mobMayGetStandFromVirus(entity)
+				|| entity.getRandom().nextFloat() > mobSurvivalChance(amplifier)) {
+			return false;
+		}
+		return giveStandFromVirus(entity);
+	}
+
+	private boolean mobMayGetStandFromVirus(LivingEntity entity) {
+		return standToGive != null || StandArrowItem.mobMayGetStand(entity);
 	}
 
 	private void tickMobGiver(
@@ -223,7 +309,7 @@ public class StandVirusActualEffect extends EntityCustomEffect implements Synced
 			Holder<MobEffect> vanillaEffect,
 			Match match,
 			int amplifier) {
-		float baseDamage = 1.5F + amplifier * 2.0F;
+		float baseDamage = baseDamage(amplifier);
 		boolean stopEffect = false;
 
 		if (entity.getHealth() > baseDamage) {
@@ -299,10 +385,24 @@ public class StandVirusActualEffect extends EntityCustomEffect implements Synced
 					livingEntity,
 					mobGiver.match(),
 					amplifier,
-					1.5F + amplifier * 2.0F);
+					baseDamage(amplifier));
 		}
 		else if (resolution.allowsCoreGrant()) {
-			giveStandFromVirus(livingEntity);
+			if (livingEntity instanceof Player) {
+				giveStandFromVirus(livingEntity);
+			}
+			else if (mobMayGetStandFromVirus(livingEntity)) {
+				int amplifier = Math.max(0, mobGiverAmplifier);
+				// 1.16: a failed survive roll deals the base damage instead
+				if (!giveStandToMobFromVirus(livingEntity, amplifier)) {
+					DamageUtil.hurtThroughInvulTicks(
+							livingEntity,
+							DamageUtil.make(
+									level,
+									ModDamageTypes.STAND_ARROW_VIRUS),
+							baseDamage(amplifier));
+				}
+			}
 		}
 	}
 
@@ -455,6 +555,9 @@ public class StandVirusActualEffect extends EntityCustomEffect implements Synced
 		boolean gaveStand = standToGive != null
 				? StandArrowItem.giveStand(level, entity, standToGive)
 				: StandArrowItem.giveStand(level, entity);
+		if (gaveStand) {
+			onStandGivenByArrow(entity);
+		}
 		if (gaveStand && standArrowShooterUUID != null && level instanceof ServerLevel serverLevel) {
 			Player shooterPlayer = serverLevel.getPlayerByUUID(standArrowShooterUUID);
 			if (shooterPlayer instanceof ServerPlayer shooter) {

@@ -28,6 +28,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.projectile.AbstractArrow;
+import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
@@ -170,6 +171,12 @@ public class KnifeEntity extends AbstractArrow {
 		Entity shooter = getOwner();
 		DamageSource damageSource = damageSources().arrow(this, shooter != null ? shooter : this);
 		int damage = Mth.ceil(Mth.clamp(getDeltaMovement().length() * getBaseDamage(), 0.0D, 2.147483647E9D));
+		int prevTargetFireTicks = target.getRemainingFireTicks();
+		// 1.16: a burning knife sets the target on fire, Endermen excepted
+		boolean dodge = target.getType() == EntityType.ENDERMAN;
+		if (isOnFire() && !dodge) {
+			target.igniteForSeconds(5.0F);
+		}
 		if (DamageUtil.hurtThroughInvulTicks(target, damageSource, damage)) {
 			if (target instanceof LivingEntity living) {
 				doPostHurtEffects(living);
@@ -177,6 +184,37 @@ public class KnifeEntity extends AbstractArrow {
 			playSound(getHitGroundSoundEvent(), 1.0F, 1.2F / (random.nextFloat() * 0.2F + 0.9F));
 			discard();
 		}
+		else {
+			// 1.16 failed hit: bounce back, drop once stalled
+			target.setRemainingFireTicks(prevTargetFireTicks);
+			setDeltaMovement(getDeltaMovement().scale(-0.1D));
+			setYRot(getYRot() + 180.0F);
+			yRotO += 180.0F;
+			if (!level().isClientSide() && getDeltaMovement().lengthSqr() < 1.0E-7D) {
+				if (pickup == AbstractArrow.Pickup.ALLOWED) {
+					spawnAtLocation(getPickupItem(), 0.1F);
+				}
+				discard();
+			}
+		}
+	}
+
+	// 1.16 isPickable: knives, stuck ones too, are hit by other projectiles
+	@Override
+	public boolean canBeHitByProjectile() {
+		return isAlive();
+	}
+
+	// 1.16: one thrower's projectiles do not hit each other
+	@Override
+	protected boolean canHitEntity(Entity target) {
+		return super.canHitEntity(target) && !(target instanceof Projectile projectile && hasSameOwner(projectile));
+	}
+
+	private boolean hasSameOwner(Projectile projectile) {
+		Entity owner = getOwner();
+		Entity otherOwner = projectile.getOwner();
+		return owner != null && otherOwner != null && owner.getUUID().equals(otherOwner.getUUID());
 	}
 
 	@Override

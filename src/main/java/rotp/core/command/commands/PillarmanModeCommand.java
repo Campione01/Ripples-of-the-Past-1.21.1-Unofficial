@@ -36,7 +36,8 @@ public class PillarmanModeCommand {
 	}
 
 	private static LiteralArgumentBuilder<CommandSourceStack> setCommand() {
-		return Commands.literal("set")
+		// Gate here: Brigadier keeps the first power_pillarman node's requires when merging.
+		return Commands.literal("set").requires(ctx -> ctx.hasPermission(2))
 				.then(Commands.literal("stage")
 						.then(Commands.argument("targets", EntityArgument.players())
 								.then(Commands.argument("stage", IntegerArgumentType.integer(1, PillarmanData.MAX_STAGE_LEVEL))

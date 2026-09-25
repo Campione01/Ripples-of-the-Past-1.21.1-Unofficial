@@ -4,6 +4,7 @@ import rotp.core.client.entityanim.RotpAnimDefinition;
 import rotp.core.client.entityanim.PreFrameEntityAnimCalc.LivingAnimState;
 import rotp.core.client.entityanim.barrage.BarrageSwings.BarrageSwing;
 import rotp.core.client.entityanim.molang.AnimMolangQuery.AnimMolangVariables;
+import rotp.core.client.entityanim.playerbend.ArmsFollowPitch;
 import rotp.core.client.util.functions.RGBUtil;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
@@ -11,6 +12,8 @@ import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.util.functions.MathUtil;
 import rotp.core.util.functions.UtilFunctions;
 import rotp.core.compat.v1_21_4.missingmethods.Model_1_21_2plus;
+import org.joml.Vector3f;
+
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
@@ -111,6 +114,12 @@ public class TwoHandedBarrageLoopSwing extends BarrageSwing {
 		float seconds = barrageAnim.getAnimTime(animState);
 		barrageAnim.animate(model, molangVariables, null, seconds, 1);
 		ModelPart arm = BarrageSwings.getNoXRotArm(model, side);
+		// 1.16 KosmXPlayerBarrageAnim: afterimage arms follow the look pitch as well
+		Vector3f armAngles = new Vector3f(arm.xRot, arm.yRot, arm.zRot);
+		ArmsFollowPitch.tiltArms(barrageAnim.instructionTimelines, xRot, armAngles, null);
+		arm.xRot = armAngles.x;
+		arm.yRot = armAngles.y;
+		arm.zRot = armAngles.z;
 		
 		arm.zRot += swingAmount * zRot;
 		

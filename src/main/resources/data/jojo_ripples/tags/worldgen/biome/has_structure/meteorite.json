@@ -1,0 +1,7 @@
+{
+  "replace": false,
+  "values": [
+    "#c:is_snowy",
+    "minecraft:frozen_river"
+  ]
+}

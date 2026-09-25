@@ -11,6 +11,7 @@ import java.util.Comparator;
 import java.util.List;
 
 import rotp.core.command.argument.StandArgument;
+import rotp.core.command.configpack.PlayerStandAssignmentConfig;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.powersystem.standpower.StandStats;
@@ -22,6 +23,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.brigadier.exceptions.Dynamic2CommandExceptionType;
 import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
 
 import net.minecraft.ChatFormatting;
@@ -29,12 +31,14 @@ import net.minecraft.SharedConstants;
 import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.packs.PackType;
 import net.minecraft.world.level.storage.LevelResource;
 
@@ -72,8 +76,117 @@ public final class JojoConfigCommand {
 										StandArgument.getStand(command, "stand"),
 										false))))
 				.then(Commands.literal("folder_link")
-						.executes(command -> showFolder(command.getSource()))));
+						.executes(command -> showFolder(command.getSource())))
+				// 1.16 ConfigPackCommand assign_stand
+				.then(Commands.literal("assign_stand")
+						.then(Commands.literal("add")
+								.then(Commands.argument("player", EntityArgument.player())
+										.then(Commands.argument("stand", StandArgument.stand(context))
+												.executes(command -> assignStand(command.getSource(),
+														EntityArgument.getPlayer(command, "player"),
+														StandArgument.getStand(command, "stand"))))))
+						.then(Commands.literal("remove")
+								.then(Commands.argument("player", EntityArgument.player())
+										.then(Commands.argument("stand", StandArgument.stand(context))
+												.executes(command -> removeAssignedStand(command.getSource(),
+														EntityArgument.getPlayer(command, "player"),
+														StandArgument.getStand(command, "stand"))))))
+						.then(Commands.literal("clear")
+								.then(Commands.argument("player", EntityArgument.player())
+										.executes(command -> clearAssignedStands(command.getSource(),
+												EntityArgument.getPlayer(command, "player")))))
+						.then(Commands.literal("clear_all")
+								.executes(command -> clearAllAssignedStands(command.getSource())))));
 		JojoCommandsCommand.addCommand(LITERAL);
+	}
+
+	private static final Dynamic2CommandExceptionType ASSIGN_FAILED_ADD = new Dynamic2CommandExceptionType(
+			(stand, player) -> Component.translatable("commands.jojoconfigpack.stand_assign.failed.add", stand, player));
+	private static final Dynamic2CommandExceptionType ASSIGN_FAILED_REMOVE = new Dynamic2CommandExceptionType(
+			(stand, player) -> Component.translatable("commands.jojoconfigpack.stand_assign.failed.remove", stand, player));
+	private static final DynamicCommandExceptionType ASSIGN_FAILED_CLEAR = new DynamicCommandExceptionType(
+			player -> Component.translatable("commands.jojoconfigpack.stand_assign.failed.clear", player));
+	private static final DynamicCommandExceptionType ASSIGN_FAILED_SAVE = new DynamicCommandExceptionType(
+			reason -> Component.translatable("commands.jojoconfigpack.stand_assign.failed.save", reason));
+
+	private static int assignStand(CommandSourceStack source, ServerPlayer player, StandType stand)
+			throws CommandSyntaxException {
+		if (!PlayerStandAssignmentConfig.addAssignedStand(player.getGameProfile(), stand.getId())) {
+			throw ASSIGN_FAILED_ADD.create(stand.name.get(), player.getDisplayName());
+		}
+		saveStandAssignments(source);
+		source.sendSuccess(() -> assignMessage(source, Component.translatable(
+				"commands.jojoconfigpack.stand_assign.added", stand.name.get(), player.getDisplayName())), true);
+		PlayerStandAssignmentConfig.syncToClient(player);
+		return 1;
+	}
+
+	private static int removeAssignedStand(CommandSourceStack source, ServerPlayer player, StandType stand)
+			throws CommandSyntaxException {
+		if (!PlayerStandAssignmentConfig.removeAssignedStand(player.getGameProfile(), stand.getId())) {
+			throw ASSIGN_FAILED_REMOVE.create(stand.name.get(), player.getDisplayName());
+		}
+		saveStandAssignments(source);
+		source.sendSuccess(() -> assignMessage(source, Component.translatable(
+				"commands.jojoconfigpack.stand_assign.removed", stand.name.get(), player.getDisplayName())), true);
+		PlayerStandAssignmentConfig.syncToClient(player);
+		return 1;
+	}
+
+	private static int clearAssignedStands(CommandSourceStack source, ServerPlayer player)
+			throws CommandSyntaxException {
+		if (!PlayerStandAssignmentConfig.clearAssignedStands(player.getGameProfile())) {
+			throw ASSIGN_FAILED_CLEAR.create(player.getDisplayName());
+		}
+		saveStandAssignments(source);
+		source.sendSuccess(() -> assignMessage(source, Component.translatable(
+				"commands.jojoconfigpack.stand_assign.cleared", player.getDisplayName())), true);
+		PlayerStandAssignmentConfig.syncToClient(player);
+		return 1;
+	}
+
+	private static int clearAllAssignedStands(CommandSourceStack source)
+			throws CommandSyntaxException {
+		PlayerStandAssignmentConfig.clearAll();
+		// 1.16 only cleared the loaded list; the file is emptied too so /reload keeps it cleared
+		saveStandAssignments(source);
+		source.sendSuccess(() -> assignMessage(source, Component.translatable(
+				"commands.jojoconfigpack.stand_assign.cleared_all")), true);
+		PlayerStandAssignmentConfig.syncToClients(source.getServer().getPlayerList().getPlayers());
+		return 1;
+	}
+
+	private static void saveStandAssignments(CommandSourceStack source)
+			throws CommandSyntaxException {
+		try {
+			Path packRoot = ensurePackBase(source.getServer());
+			writeJsonFile(PlayerStandAssignmentConfig.filePath(packRoot),
+					PlayerStandAssignmentConfig.toJson());
+		}
+		catch (Exception exception) {
+			JojoMod.getLogger().error("Couldn't save Stand assignments", exception);
+			String message = exception.getMessage();
+			throw ASSIGN_FAILED_SAVE.create(message != null ? message
+					: exception.getClass().getSimpleName());
+		}
+	}
+
+	// gray message that opens the assignment file's folder, as in 1.16
+	private static MutableComponent assignMessage(
+			CommandSourceStack source, MutableComponent message) {
+		message.withStyle(ChatFormatting.GRAY);
+		if (!source.getServer().isDedicatedServer()) {
+			Path folder = PlayerStandAssignmentConfig.filePath(packRoot(source.getServer())).getParent();
+			message.withStyle(style -> style
+					.withClickEvent(new ClickEvent(
+							ClickEvent.Action.OPEN_FILE, folder.toString()))
+					.withHoverEvent(new HoverEvent(
+							HoverEvent.Action.SHOW_TEXT,
+							Component.translatable(
+									"commands.jojoconfigpack.stand_assign.folder_link",
+									Component.literal("datapacks").withStyle(ChatFormatting.ITALIC)))));
+		}
+		return message;
 	}
 
 	private static int generateAll(CommandSourceStack source, boolean force)
@@ -155,13 +268,17 @@ public final class JojoConfigCommand {
 
 	private static Path ensurePackBase(MinecraftServer server)
 			throws IOException {
-		Path packRoot = server.getWorldPath(LevelResource.DATAPACK_DIR)
-				.resolve(PACK_NAME).toAbsolutePath().normalize();
+		Path packRoot = packRoot(server);
 		Files.createDirectories(packRoot);
 		int packFormat = SharedConstants.getCurrentVersion()
 				.getPackVersion(PackType.SERVER_DATA);
 		writeJsonFile(packRoot.resolve("pack.mcmeta"), packMetadata(packFormat));
 		return packRoot;
+	}
+
+	static Path packRoot(MinecraftServer server) {
+		return server.getWorldPath(LevelResource.DATAPACK_DIR)
+				.resolve(PACK_NAME).toAbsolutePath().normalize();
 	}
 
 	static JsonObject packMetadata(int packFormat) {

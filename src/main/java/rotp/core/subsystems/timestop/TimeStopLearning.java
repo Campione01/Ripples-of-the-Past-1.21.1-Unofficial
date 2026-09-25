@@ -234,7 +234,16 @@ public final class TimeStopLearning {
 	}
 
 	public static int getAffordableTsPunchTimeStopTicks(StandPower power) {
-		int timeStopTicks = getTimeStopTicks(power);
+		return getAffordableTsPunchTimeStopTicks(power, false);
+	}
+
+	/**
+	 * cappedByBlinkImpliedTicks: Diego's 1.16 THEWORLDTSHeavyAttack started from its blink's getMaxImpliedTicks
+	 * (full blink start reserved, at least 5 ticks) before the half-start clamp below.
+	 */
+	public static int getAffordableTsPunchTimeStopTicks(StandPower power, boolean cappedByBlinkImpliedTicks) {
+		TimeStopBlinkAbility blink = cappedByBlinkImpliedTicks ? getTsPunchBlink(power) : null;
+		int timeStopTicks = blink != null ? blink.getMaxImpliedTicks(power) : getTimeStopTicks(power);
 		if (StandUtil.standIgnoresStaminaDebuff(power)) {
 			return timeStopTicks;
 		}

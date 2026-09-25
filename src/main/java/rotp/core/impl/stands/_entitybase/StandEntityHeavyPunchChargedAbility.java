@@ -10,6 +10,7 @@ import rotp.core.powersystem.Power;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.ability.AbilityUsageGroup;
+import rotp.core.powersystem.ability.EntityActionAbility;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
@@ -66,6 +67,8 @@ public class StandEntityHeavyPunchChargedAbility extends StandEntityAbility {
 
 	public static class StandEntityChargedHeavy extends EntityActionInstance {
 		protected float buttonChargeRatio;
+		// the key went up during BUTTON_CHARGE (server state)
+		protected boolean releasedInCharge;
 
 		public StandEntityChargedHeavy(EntityActionType ability) {
 			super(ability);
@@ -75,15 +78,40 @@ public class StandEntityHeavyPunchChargedAbility extends StandEntityAbility {
 		public void onButtonStopHold() {
 			switch (getPhase()) {
 			case BUTTON_CHARGE -> {
+				// fires when the charge ends; checkNextPhase rechecks then
 				phasesLength.put(ActionPhase.WINDUP, 0F);
+				releasedInCharge = true;
 				syncPhaseChanges();
 			}
 			case WINDUP -> {
-				setPhaseStart(ActionPhase.PERFORM);
+				// 1.16 stopHeldAction(true): a release that fails the recheck fires nothing
+				if (releaseCheckPasses()) {
+					setPhaseStart(ActionPhase.PERFORM);
+				}
+				else {
+					forceStop();
+				}
 				syncPhaseChanges();
 			}
 			default -> {}
 			}
+		}
+
+		// Released during the charge: the key is up, so the per-tick held recheck no longer runs.
+		@Override
+		protected void checkNextPhase() {
+			if (releasedInCharge && phase == ActionPhase.BUTTON_CHARGE && getPhaseTick() >= curPhaseLength
+					&& !shouldHoldPhaseAtEnd() && !releaseCheckPasses()) {
+				forceStop();
+				syncPhaseChanges();
+				return;
+			}
+			super.checkNextPhase();
+		}
+
+		// server side; the client follows the synced phase
+		private boolean releaseCheckPasses() {
+			return !(ability instanceof EntityActionAbility entityAbility) || entityAbility.canFireReleasedHold(this);
 		}
 
 		@Override
@@ -96,11 +124,20 @@ public class StandEntityHeavyPunchChargedAbility extends StandEntityAbility {
 		@Override
 		public void actionPerformStart() {
 			if (performer instanceof StandEntity stand) {
-				setStandOffset(0, Math.max(stand.offsetFromUser.getRelativeOffset().z, 0) + 2,
-						StandOffsetFromUser.Rotations.HEAD_XY,
-						false);
-
 				Level level = performer.level();
+				// lock onto the target at perform time (the charge lets the user re-aim), like the heavy punch
+				ActionTarget aimed = capturePerformTarget(stand);
+				if (!aimed.isEmpty(level)) {
+					setStandFrontOffsetFromTarget(stand, aimed,
+							Math.min(0.5, stand.getEffectiveRange()), Math.min(2, stand.getMaxRange()));
+					keepStandAimedAtTarget(aimed);
+				}
+				else {
+					setStandOffset(0, Math.max(stand.offsetFromUser.getRelativeOffset().z, 0) + 2,
+							StandOffsetFromUser.Rotations.HEAD_XY,
+							false);
+				}
+
 				if (level.isClientSide() && ClientGlobals.canHearStand(stand)) {
 					ClientsideSoundsHelper.playNonVanillaClassSound(new EntityLingeringSoundInstance(ClientsideSoundsHelper.withStandSkin(
 							ModSoundEvents.STAND_PUNCH_HEAVY_SWING.get(), stand),
@@ -118,7 +155,7 @@ public class StandEntityHeavyPunchChargedAbility extends StandEntityAbility {
 		public void actionPerformEnd() {
 			Level level = level();
 			if (performer instanceof StandEntity stand) {
-				ActionTarget target = HitResultUtil.clipEntityLook(stand, entity -> StandEntityPunchAbility.canStandHit(stand, entity), 0);
+				ActionTarget target = getPerformTarget(stand);
 				if (!level.isClientSide()) {
 					StandPower standPower = StandPower.get(getPowerUser());
 
@@ -148,6 +185,30 @@ public class StandEntityHeavyPunchChargedAbility extends StandEntityAbility {
 					aimAs = AimingEntity.CAMERA_ENTITY;
 				}
 			}
+		}
+
+		// the synced crosshair target in the Stand's reach, else what the user looks at
+		protected ActionTarget capturePerformTarget(StandEntity stand) {
+			Level level = stand.level();
+			ActionTarget aimed = StandEntityPunchAbility.validatePunchTarget(stand, captureActionTargetFromAim(stand));
+			if (aimed.isEmpty(level) && !stand.isManuallyControlled()) {
+				aimed = StandEntityBarrageAbility.clipDirectionalBarrageTarget(stand, this, 1.0F);
+			}
+			return setActionTargetSnapshot(aimed);
+		}
+
+		// the perform-start target if still valid, else the user's view (a target between user and Stand),
+		// else the Stand's own look for the lunge reach
+		protected ActionTarget getPerformTarget(StandEntity stand) {
+			Level level = stand.level();
+			ActionTarget target = StandEntityPunchAbility.validatePunchTarget(stand, getActionTargetSnapshot(level));
+			if (target.isEmpty(level) && !stand.isManuallyControlled()) {
+				target = StandEntityBarrageAbility.clipDirectionalBarrageTarget(stand, this, 1.0F);
+			}
+			if (target.isEmpty(level)) {
+				target = HitResultUtil.clipEntityLook(stand, entity -> StandEntityPunchAbility.canStandHit(stand, entity), 0);
+			}
+			return target;
 		}
 
 		protected void hitEntity(ActionTarget target, Level level, StandEntity stand,

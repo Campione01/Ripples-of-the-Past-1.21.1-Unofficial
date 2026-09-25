@@ -2,6 +2,7 @@ package rotp.core.init;
 
 import rotp.core.core.JojoMod;
 import rotp.core.worldgen.structure.HamonTempleStructure;
+import rotp.core.worldgen.structure.MeteoriteStructure;
 import rotp.core.worldgen.structure.PillarmanTempleStructure;
 
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -17,9 +18,11 @@ public final class ModStructures {
 
     public static final DeferredHolder<StructureType<?>, StructureType<HamonTempleStructure>> HAMON_TEMPLE = STRUCTURE_TYPES.register("hamon_temple", () -> () -> HamonTempleStructure.CODEC);
     public static final DeferredHolder<StructureType<?>, StructureType<PillarmanTempleStructure>> PILLARMAN_TEMPLE = STRUCTURE_TYPES.register("pillarman_temple", () -> () -> PillarmanTempleStructure.CODEC);
+    public static final DeferredHolder<StructureType<?>, StructureType<MeteoriteStructure>> METEORITE = STRUCTURE_TYPES.register("meteorite", () -> () -> MeteoriteStructure.CODEC);
 
     public static final DeferredHolder<StructurePieceType, StructurePieceType.StructureTemplateType> HAMON_TEMPLE_PIECE = STRUCTURE_PIECES.register("hamon_temple_piece", () -> HamonTempleStructure.Piece::new);
     public static final DeferredHolder<StructurePieceType, StructurePieceType.StructureTemplateType> PILLARMAN_TEMPLE_PIECE = STRUCTURE_PIECES.register("pillarman_temple_piece", () -> PillarmanTempleStructure.Piece::new);
+    public static final DeferredHolder<StructurePieceType, StructurePieceType.StructureTemplateType> METEORITE_PIECE = STRUCTURE_PIECES.register("meteorite", () -> MeteoriteStructure.Piece::new);
 
     private ModStructures() {}
 

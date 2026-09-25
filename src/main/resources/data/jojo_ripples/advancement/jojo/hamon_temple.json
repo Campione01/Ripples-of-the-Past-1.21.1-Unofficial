@@ -1,7 +1,7 @@
 {
   "parent": "jojo_ripples:jojo/buy_map",
   "display": {
-    "icon": { "item": "minecraft:filled_map" },
+    "icon": { "id": "minecraft:orange_terracotta" },
     "title": { "translate": "advancements.jojo.hamon_temple.title" },
     "description": { "translate": "advancements.jojo.hamon_temple.description" },
     "frame": "task",

@@ -1,7 +1,7 @@
 {
   "parent": "jojo_ripples:jojo/root",
   "display": {
-    "icon": { "item": "minecraft:filled_map" },
+    "icon": { "id": "minecraft:filled_map", "components": { "minecraft:map_color": 7171001 } },
     "title": { "translate": "advancements.jojo.buy_map.title" },
     "description": { "translate": "advancements.jojo.buy_map.description" },
     "frame": "task",

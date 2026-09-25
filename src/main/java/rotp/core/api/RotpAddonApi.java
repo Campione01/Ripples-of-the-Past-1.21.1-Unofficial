@@ -168,7 +168,8 @@ public final class RotpAddonApi {
 	 * EntityActionAbility held-action rechecks and hit hooks: checkHeldActionConditions (each held tick and, through
 	 * canFireReleasedHold, before a released hold fires: power usable, performer alive and not stunned, the Stand
 	 * parts the action needs, then the ability's own checkHeldSpecificConditions; not the cooldown or a busy
-	 * performer), canFireReleasedHold, stopsOnHeavyAttack / onHitByHeavyAttack, setResetsAttackStrengthOnPerform.
+	 * performer), canFireReleasedHold (also false for a user frozen in someone else's stopped time, unless the
+	 * ability works in stopped time), stopsOnHeavyAttack / onHitByHeavyAttack, setResetsAttackStrengthOnPerform.
 	 */
 	public static final String FEATURE_ENTITY_ACTION_HOOKS_V1 =
 			"entity_action_hooks_v1";
@@ -202,6 +203,19 @@ public final class RotpAddonApi {
 	 */
 	public static final String FEATURE_ABILITY_SHOUTS_V1 =
 			"ability_shouts_v1";
+	/**
+	 * Per-add-on TS punch donor options: TheWorldTSPunchAbility#setEntityAnim (1.16 standPose) and
+	 * #setSkipCappedByBlinkImpliedTicks (the skip starts from TimeStopBlinkAbility#getMaxImpliedTicks) and
+	 * #setTimeSkipSoundHeardByAll (every player in range hears the blink, no unrevealed sound).
+	 */
+	public static final String FEATURE_TIME_STOP_PUNCH_DONOR_OPTIONS_V1 =
+			"time_stop_punch_donor_options_v1";
+	/** ModStatusEffects#INTEGRATED_STAND (1.16 INTEGRATED_STAND: the holder's own attacks can hurt Stands). */
+	public static final String FEATURE_INTEGRATED_STAND_V1 =
+			"integrated_stand_v1";
+	/** Ability#checkPerformerStun(Power): 1.16 checkRequirements' stunned-performer gate for plain abilities. */
+	public static final String FEATURE_ABILITY_PERFORMER_STUN_V1 =
+			"ability_performer_stun_v1";
 
 	public static final Set<String> FEATURES = Set.of(
 			FEATURE_ABILITY_RESOURCE_NAMESPACE_V1,
@@ -279,7 +293,10 @@ public final class RotpAddonApi {
 			FEATURE_TIME_STOP_BLINK_TARGET_POS_V1,
 			FEATURE_TIME_STOP_HELD_WALK_SPEED_V1,
 			FEATURE_ABILITY_REQUIRED_RESOLVE_LEVEL_V1,
-			FEATURE_ABILITY_SHOUTS_V1);
+			FEATURE_ABILITY_SHOUTS_V1,
+			FEATURE_TIME_STOP_PUNCH_DONOR_OPTIONS_V1,
+			FEATURE_INTEGRATED_STAND_V1,
+			FEATURE_ABILITY_PERFORMER_STUN_V1);
 
 	private RotpAddonApi() {}
 

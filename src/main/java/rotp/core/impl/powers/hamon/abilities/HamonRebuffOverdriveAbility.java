@@ -19,21 +19,32 @@ import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
+import rotp.core.util.functions.DamageUtil;
 import rotp.core.util.functions.JojoModUtil;
 import rotp.core.util.functions.UtilFunctions;
+import rotp.core.customobjects.DamageSourceModified;
+import rotp.core.init.ModDamageTypes;
 import rotp.core.impl.powers.hamon.HamonData;
 import rotp.core.impl.powers.hamon.ModHamonSkills;
+import rotp.core.powersystem.standpower.StandPower;
+import rotp.core.powersystem.standpower.StandUtil;
+import rotp.core.powersystem.standpower.entity.StandEntity;
+
+import javax.annotation.Nullable;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
+import net.neoforged.neoforge.common.damagesource.DamageContainer;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 
 public class HamonRebuffOverdriveAbility extends HamonActionRuntimeAbility {
@@ -108,8 +119,13 @@ public class HamonRebuffOverdriveAbility extends HamonActionRuntimeAbility {
 			rebuff.stopWithCooldown(COOLDOWN_TICKS);
 			return false;
 		}
-		Entity direct = event.getSource().getDirectEntity();
-		if (!(direct instanceof LivingEntity attacker)) {
+		DamageSource source = event.getSource();
+		LivingEntity attacker = DamageUtil.getMeleeAttacker(source);
+		boolean canCounterStand = isUsingHermitPurple(target);
+		// 1.16 cancelIncomingDamage: only a melee hit from the front, and a Stand's only with Hermit Purple out
+		if (attacker == null || !DamageUtil.isShieldBlockAngle(target, source) || !canCounterStand && isStandHit(source)) {
+			// 1.16 reduceDamage: any other hit while charging gets Hamon Protection's cut (see reduceDamageAmount)
+			rebuff.reduceDamageFor = event.getContainer();
 			return false;
 		}
 		if (!rebuff.isCounterTiming()) {
@@ -122,11 +138,47 @@ public class HamonRebuffOverdriveAbility extends HamonActionRuntimeAbility {
 			rebuff.stopWithCooldown(COOLDOWN_TICKS);
 			return false;
 		}
+		// 1.16: a Stand that passes its damage on to its user sends the counter to that user
+		if (canCounterStand && attacker instanceof StandEntity stand && stand.requiresUser()) {
+			LivingEntity standUser = StandUtil.getStandUser(stand);
+			if (standUser != null) {
+				attacker = standUser;
+			}
+		}
 		if (rebuff.counterAttack(attacker)) {
 			event.setCanceled(true);
 			return true;
 		}
 		return false;
+	}
+
+	/**
+	 * 1.16 HamonRebuffOverdrive.reduceDamageAmount: with Hamon Protection off, a hit the charge did not counter gets
+	 * Protection's cut. Called where Protection cuts the hit.
+	 */
+	public static float reduceDamageAmount(Power<?> power, LivingIncomingDamageEvent event, float amount) {
+		HamonRebuffOverdrive rebuff = getActiveRebuff(event.getEntity());
+		if (rebuff == null || rebuff.reduceDamageFor != event.getContainer()) {
+			return amount;
+		}
+		rebuff.reduceDamageFor = null;
+		if (HamonProtectionAbility.isProtectionEnabled(power)) {
+			return amount;
+		}
+		return HamonProtectionAbility.protectionCut(power, event.getEntity(), event.getSource(), amount);
+	}
+
+	// 1.16 IStandDamageSource: a Stand's own hit
+	private static boolean isStandHit(DamageSource source) {
+		return source.getDirectEntity() instanceof StandEntity || source.is(ModDamageTypes.STAND_ATTACK)
+				|| source instanceof DamageSourceModified modified && modified.jojo_ripples$standPower() != null;
+	}
+
+	// 1.16 isUsingHermitPurple: the user's Hermit Purple is out
+	private static boolean isUsingHermitPurple(LivingEntity user) {
+		StandPower stand = StandPower.get(user);
+		return stand != null && stand.hasPower() && stand.isSummoned()
+				&& "hermito_purple".equals(stand.getPowerType().getId().getPath());
 	}
 
 	private static HamonRebuffOverdrive getActiveRebuff(LivingEntity user) {
@@ -147,12 +199,17 @@ public class HamonRebuffOverdriveAbility extends HamonActionRuntimeAbility {
 		private boolean didAttack;
 		private boolean didSwing;
 		private boolean saidMistimedCounter;
+		// the hit the charge let through, for Hamon Protection's cut (server only)
+		@Nullable
+		private DamageContainer reduceDamageFor;
 
 		public HamonRebuffOverdrive(EntityActionType ability) { super(ability); }
 
 		@Override
 		public void onSetPhase(ActionPhase newPhase) {
 			super.onSetPhase(newPhase);
+			// 1.16 getWalkSpeed: the user stands still for the whole action
+			userWalkSpeed = 0.0F;
 			if (newPhase == ActionPhase.WINDUP && level().isClientSide()) {
 				LivingEntity user = getPowerUser();
 				if (user != null) {
@@ -188,6 +245,12 @@ public class HamonRebuffOverdriveAbility extends HamonActionRuntimeAbility {
 				if (isCounterTiming()) {
 					HamonSparksLoopSound.playSparkSound(user, user.position(), 1.0F);
 				}
+				return;
+			}
+			// 1.16 onWASDInput (every input tick): the action ended once it had struck or reached its recovery
+			if (didAttack || getPhase() == ActionPhase.RECOVERY) {
+				forceStop();
+				syncPhaseChanges();
 				return;
 			}
 			if (isInWindup()) {
@@ -289,27 +352,30 @@ public class HamonRebuffOverdriveAbility extends HamonActionRuntimeAbility {
 			}
 			float preEnergy = hamon.getEnergy();
 			float efficiency = hamon.getActionEfficiency(ENERGY_COST, true, ModHamonSkills.REBUFF_OVERDRIVE.get(), user);
-			if (efficiency <= 0.0F) {
-				return false;
-			}
 			float damage = (properCounter ? COUNTER_DAMAGE : NORMAL_DAMAGE) * efficiency;
-			boolean hurt = HamonAbilityHelpers.hamonHurt(target, user, damage);
-			if (!hurt) {
-				return false;
-			}
-			if (properCounter) {
-				level().playSound(null, target, ModSoundEvents.HAMON_REBUFF_PUNCH.get(),
-						target.getSoundSource(), 1.0F, 1.0F);
-				if (hamon.isSkillLearned(ModHamonSkills.HAMON_SHOCK.get())) {
-					target.addEffect(new MobEffectInstance(ModStatusEffects.HAMON_SHOCK, 50, 0, false, false, true));
+			// 1.16 punch: the Hamon part lands only on a target that takes it; the punch and the counter happen anyway
+			boolean hamonHit = efficiency > 0.0F && HamonAbilityHelpers.hamonHurt(target, user, damage);
+			if (hamonHit) {
+				if (properCounter) {
+					level().playSound(null, target, ModSoundEvents.HAMON_REBUFF_PUNCH.get(),
+							target.getSoundSource(), 1.0F, 1.0F);
+					if (hamon.isSkillLearned(ModHamonSkills.HAMON_SHOCK.get())) {
+						target.addEffect(new MobEffectInstance(ModStatusEffects.HAMON_SHOCK, 50, 0, false, false, true));
+					}
 				}
+				target.knockback(properCounter ? COUNTER_KNOCKBACK : NORMAL_KNOCKBACK,
+						user.getX() - target.getX(), user.getZ() - target.getZ());
 			}
-			target.knockback(properCounter ? COUNTER_KNOCKBACK : NORMAL_KNOCKBACK,
-					user.getX() - target.getX(), user.getZ() - target.getZ());
-			user.doHurtTarget(target);
+			// 1.16 doMeleeAttack: a player's own fist/weapon hit lands too, Hamon or not
+			HamonAbilityHelpers.doMeleeAttack(user, target);
 			user.swing(InteractionHand.MAIN_HAND, true);
-			hamon.consumeEnergy(ENERGY_COST, user);
-			hamon.hamonPointsFromAction(HamonData.HamonStat.STRENGTH, Math.min(ENERGY_COST, preEnergy) * efficiency);
+			if (user instanceof Player player) {
+				player.resetAttackStrengthTicker();
+			}
+			if (hamonHit) {
+				hamon.consumeEnergy(ENERGY_COST, user);
+				hamon.hamonPointsFromAction(HamonData.HamonStat.STRENGTH, Math.min(ENERGY_COST, preEnergy) * efficiency);
+			}
 			hamon.setAbilityCooldown(hamonAbility().name(), properCounter ? 0 : COOLDOWN_TICKS / 2, COOLDOWN_TICKS);
 			hamon.syncOnUpdate(user);
 			didAttack = true;

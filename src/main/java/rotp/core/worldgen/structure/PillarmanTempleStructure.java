@@ -1,7 +1,9 @@
 package rotp.core.worldgen.structure;
 
 import java.util.Optional;
+import java.util.function.IntBinaryOperator;
 
+import rotp.core.JojoModConfig;
 import rotp.core.core.JojoMod;
 import rotp.core.init.ModStructures;
 import com.mojang.serialization.MapCodec;
@@ -38,12 +40,39 @@ public class PillarmanTempleStructure extends Structure {
 
     @Override
     protected Optional<GenerationStub> findGenerationPoint(GenerationContext context) {
-        ChunkPos chunkPos = context.chunkPos();
-        int x = chunkPos.getMiddleBlockX();
-        int z = chunkPos.getMiddleBlockZ();
-        int y = context.chunkGenerator().getFirstOccupiedHeight(x, z, Heightmap.Types.WORLD_SURFACE_WG, context.heightAccessor(), context.randomState());
-        BlockPos origin = new BlockPos(x, y, z);
-        return Optional.of(new GenerationStub(origin, builder -> generatePieces(context.structureTemplateManager(), origin, builder, context.random())));
+        IntBinaryOperator surface = (x, z) -> context.chunkGenerator().getFirstOccupiedHeight(x, z,
+                Heightmap.Types.WORLD_SURFACE_WG, context.heightAccessor(), context.randomState());
+        return generationPoint(context, surface);
+    }
+
+    // Surface is injectable so gametests can use it on a flat world.
+    public static Optional<GenerationStub> generationPoint(GenerationContext context, IntBinaryOperator surface) {
+        // 1.16 "Structures Spawn" toggle (common config)
+        if (!JojoModConfig.getCommonConfigInstance(false).pillarManTempleSpawn.get()) {
+            return Optional.empty();
+        }
+        BlockPos origin = anchor(context.chunkPos(), surface);
+        // Biome is tested at the centre surface (1.16 used the surface biome), not at the sunk origin.
+        BlockPos probe = new BlockPos(origin.getX(), surface.applyAsInt(origin.getX(), origin.getZ()), origin.getZ());
+        return Optional.of(new GenerationStub(probe, builder -> generatePieces(context.structureTemplateManager(), origin, builder, context.random())));
+    }
+
+    // 1.16 anchor: chunk corner + 7, lowest surface over the footprint, sunk 3 blocks.
+    public static BlockPos anchor(ChunkPos chunkPos, IntBinaryOperator surfaceHeight) {
+        int centerX = chunkPos.getMinBlockX() + 7;
+        int centerZ = chunkPos.getMinBlockZ() + 7;
+        int minY = Integer.MAX_VALUE;
+        for (int x = centerX - 26; x < centerX + 30; x += 8) {
+            for (int z = centerZ - 26; z < centerZ + 30; z += 8) {
+                minY = Math.min(minY, surfaceHeight.applyAsInt(x, z));
+            }
+        }
+        return new BlockPos(centerX, minY - 3, centerZ);
+    }
+
+    // Every template the temple places (gametest checks they load).
+    public static java.util.List<ResourceLocation> templateIds() {
+        return java.util.List.of(BUILDING, STAIRWAY, CORRIDOR, BOSSROOM);
     }
 
     private static void generatePieces(StructureTemplateManager manager, BlockPos origin, StructurePiecesBuilder builder, RandomSource random) {

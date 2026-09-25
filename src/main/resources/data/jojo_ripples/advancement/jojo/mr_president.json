@@ -1,7 +1,7 @@
 {
   "parent": "jojo_ripples:jojo/coco_jumbo",
   "display": {
-    "icon": { "item": "jojo_ripples:coco_jumbo_shell" },
+    "icon": { "id": "jojo_ripples:coco_jumbo_shell" },
     "title": { "translate": "advancements.jojo.mr_president.title" },
     "description": { "translate": "advancements.jojo.mr_president.description" },
     "frame": "task",

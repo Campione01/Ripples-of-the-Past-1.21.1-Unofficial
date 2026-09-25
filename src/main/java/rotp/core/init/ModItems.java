@@ -42,6 +42,7 @@ import rotp.core.mechanics.standarrow.StandArrowShardItem;
 import rotp.core.mechanics.standdisc.StandDiscItem;
 import rotp.core.mrpresident.MrPresidentKeyItem;
 import rotp.core.powersystem.standpower.StandInstance;
+import rotp.core.powersystem.standpower.StandUtil;
 import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.StoryPart;
 import rotp.core.tmp.charactertest.CharacterTestItem;
@@ -75,6 +76,25 @@ public final class ModItems {
 	public static final DeferredItem<Item> CHARACTER_TEST = ITEMS.registerItem("character_test", CharacterTestItem::new, new Item.Properties());
 
 	public static final DeferredItem<Item> STAND_DISC = ITEMS.registerItem("stand_disc", StandDiscItem::new, new Item.Properties().stacksTo(1));
+	// 1.16 reusable versions (stack of 1, never used up)
+	public static final DeferredItem<StandRemoverItem>
+			STAND_REMOVER = ITEMS.registerItem(
+					"stand_remover",
+					props -> new StandRemoverItem(
+							props, StandRemoverItem.Mode.REMOVE, false),
+					new Item.Properties().stacksTo(1));
+	public static final DeferredItem<StandRemoverItem>
+			STAND_EJECT = ITEMS.registerItem(
+					"stand_eject",
+					props -> new StandRemoverItem(
+							props, StandRemoverItem.Mode.EJECT, false),
+					new Item.Properties().stacksTo(1));
+	public static final DeferredItem<StandRemoverItem>
+			STAND_FULL_CLEAR = ITEMS.registerItem(
+					"stand_full_clear",
+					props -> new StandRemoverItem(
+							props, StandRemoverItem.Mode.FULL_CLEAR, false),
+					new Item.Properties().stacksTo(1));
 	public static final DeferredItem<StandRemoverItem>
 			STAND_REMOVER_ONE_TIME = ITEMS.registerItem(
 					"stand_remover_one_time",
@@ -139,6 +159,9 @@ public final class ModItems {
 			() -> new SpawnEggItem(ModEntityTypes.HUNGRY_ZOMBIE.get(), 0x00AFAF, 0x9B9B9B, new Item.Properties()));
 	public static final DeferredItem<Item> HAMON_MASTER_SPAWN_EGG = ITEMS.register("hamon_master_spawn_egg",
 			() -> new SpawnEggItem(ModEntityTypes.HAMON_MASTER.get(), 0xF8D100, 0x542722, new Item.Properties()));
+	// 1.16 COCO_JUMBO_SPAWN_EGG, same colors
+	public static final DeferredItem<Item> COCO_JUMBO_SPAWN_EGG = ITEMS.register("coco_jumbo_spawn_egg",
+			() -> new SpawnEggItem(ModEntityTypes.COCO_JUMBO_TURTLE.get(), 0xE7E7E7, 0x00AFAF, new Item.Properties()));
 
 	public static final DeferredItem<Item> MANNEQUIN = ITEMS.registerItem("mannequin", props -> new MannequinItem(props, false), new Item.Properties().stacksTo(16));
 
@@ -185,8 +208,11 @@ public final class ModItems {
 				output.accept(STAND_ARROW_BEETLE.get());
 				output.accept(STAND_ARROW_METEORITE.get());
 				output.accept(STAND_ARROW_SHARD.get());
+				output.accept(STAND_REMOVER.get());
 				output.accept(STAND_REMOVER_ONE_TIME.get());
+				output.accept(STAND_EJECT.get());
 				output.accept(STAND_EJECT_ONE_TIME.get());
+				output.accept(STAND_FULL_CLEAR.get());
 				output.accept(STAND_FULL_CLEAR_ONE_TIME.get());
 				output.accept(METEORIC_IRON.get());
 				output.accept(METEORITE_CORE.get());
@@ -217,13 +243,20 @@ public final class ModItems {
 				output.accept(STONE_MASK.get());
 				output.accept(HUNGRY_ZOMBIE_SPAWN_EGG.get());
 				output.accept(HAMON_MASTER_SPAWN_EGG.get());
+				// 1.16 had these three in MAIN_TAB
+				output.accept(COCO_JUMBO_SPAWN_EGG.get());
+				output.accept(MR_PRESIDENT_KEY.get());
+				output.accept(MR_PRESIDENT_MASTER_KEY.get());
 
 				Stream<StandType> stands = StandType.getAllEnabledStands();
 				stands
 				.map(StandInstance::new)
 				.sorted(discsOrder(parameters.holders()))
-				.map(StandDiscItem::withStand)
-				.forEach(item -> output.accept(item, CreativeModeTab.TabVisibility.PARENT_AND_SEARCH_TABS));
+				// 1.16: banned Stands' discs stay in the search tab only
+				.forEach(stand -> output.accept(StandDiscItem.withStand(stand),
+						StandUtil.isStandBanned(stand.getStandType(), true)
+								? CreativeModeTab.TabVisibility.SEARCH_TAB_ONLY
+								: CreativeModeTab.TabVisibility.PARENT_AND_SEARCH_TABS));
 			}).build());
 
 	@SubscribeEvent(priority = EventPriority.LOW)

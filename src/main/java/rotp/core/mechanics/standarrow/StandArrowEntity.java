@@ -6,6 +6,7 @@ import java.util.Optional;
 
 import rotp.core.init.ModEntityTypes;
 import rotp.core.init.ModItems;
+import rotp.core.powersystem.standpower.StandUtil;
 
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.game.ClientboundGameEventPacket;
@@ -99,7 +100,12 @@ public class StandArrowEntity extends AbstractArrow {
     	Entity shooter = getOwner();
     	LivingEntity shooterLiving = shooter instanceof LivingEntity __ ? __ : null;
     	DamageSource damageSource = damageSources().arrow(this, shooter != null ? shooter : this);
-    	
+
+    	// 1.16 getBaseDamage: the arrow item's own Sharpness adds to the base damage (read before wearArrow)
+    	if (level instanceof ServerLevel serverLevel) {
+    		baseDamage = StandArrowItem.applyArrowItemDamageBonus(serverLevel, getPickupItem(), target, damageSource, baseDamage);
+    	}
+
     	if (getWeaponItem() != null && level instanceof ServerLevel serverLevel) {
     		baseDamage = EnchantmentHelper.modifyDamage(serverLevel, 
     				getWeaponItem(), target, damageSource, (float) baseDamage);
@@ -127,14 +133,27 @@ public class StandArrowEntity extends AbstractArrow {
     		damage = (int)Math.min((long)random.nextInt(damage / 2 + 2) + (long)damage, 2147483647L);
     	}
 
+    	// 1.16: Stand users and Stand-giver mobs take a quarter
+    	if (target instanceof LivingEntity livingTarget
+    			&& (StandUtil.isEntityStandUser(livingTarget) || StandArrowItem.isStandGiverMob(livingTarget))) {
+    		damage /= 4;
+    	}
+
     	if (shooterLiving != null) {
     		shooterLiving.setLastHurtMob(target);
     	}
+    	// 1.16 set dealtDamage here, before the hurt, even if it gets blocked
+    	loyaltyLogic.onEntityHit();
 
     	boolean dodge = target.getType() == EntityType.ENDERMAN;
     	int prevTargetFireTicks = target.getRemainingFireTicks();
     	if (this.isOnFire() && !dodge) {
     		target.igniteForSeconds(5.0F);
+    	}
+
+    	// 1.16: the shooter wears the arrow before the hit, even a blocked one
+    	if (shooterLiving != null && level instanceof ServerLevel serverLevel) {
+    		wearArrow(serverLevel, shooterLiving);
     	}
 
     	if (target.hurt(damageSource, (float)damage)) {
@@ -192,18 +211,26 @@ public class StandArrowEntity extends AbstractArrow {
     protected void doPostHurtEffects(LivingEntity target) {
     	super.doPostHurtEffects(target);
     	Level level = level();
-    	if (!level.isClientSide()) {
-    		ItemStack arrowItem = getPickupItem();
-    		if (target.isAlive()) {
-    			StandArrowItem.onPiercedByArrow(target, arrowItem, level, Optional.ofNullable(getOwner()));
+    	if (!level.isClientSide() && target.isAlive()) {
+    		Entity shooter = getOwner();
+    		StandArrowItem.onPiercedByArrow(target, getPickupItem(), level, Optional.ofNullable(shooter));
+    		// 1.16: a surviving target wears it once more; skipped once the arrow broke
+    		if (!isRemoved()) {
+    			wearArrow((ServerLevel) level, shooter instanceof LivingEntity shooterLiving ? shooterLiving : null);
     		}
-    		
-    		ServerLevel serverLevel = (ServerLevel) level;
-    		ItemStack arrowSaved = arrowItem.copy();
-    		arrowItem.hurtAndBreak(1, serverLevel, target, itemType -> {
-    			this.discard();
-    			StandArrowItem.onBreakArrow(serverLevel, null, null, getBoundingBox().getCenter(), itemType, arrowSaved);
-    		});
+    	}
+    }
+
+    // the shooter, not the target, decides the creative exemption (hasInfiniteMaterials)
+    private void wearArrow(ServerLevel serverLevel, @Nullable LivingEntity shooterLiving) {
+    	ItemStack arrowItem = getPickupItem();
+    	ItemStack arrowSaved = arrowItem.copy();
+    	arrowItem.hurtAndBreak(1, serverLevel, shooterLiving, itemType -> {
+    		this.discard();
+    		StandArrowItem.onBreakArrow(serverLevel, null, null, getBoundingBox().getCenter(), itemType, arrowSaved);
+    	});
+    	// a broken arrow keeps its last stack so the pierce still sees the real item
+    	if (!arrowItem.isEmpty()) {
     		setPickupItemStack(arrowItem);
     	}
     }

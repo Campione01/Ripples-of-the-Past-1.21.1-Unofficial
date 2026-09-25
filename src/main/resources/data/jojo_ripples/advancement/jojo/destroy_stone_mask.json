@@ -2,7 +2,7 @@
   "parent": "jojo_ripples:jojo/stone_mask",
   "display": {
     "icon": {
-      "item": "jojo_ripples:sledgehammer"
+      "id": "jojo_ripples:sledgehammer"
     },
     "title": {
       "translate": "advancements.jojo.destroy_stone_mask.title"

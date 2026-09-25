@@ -44,15 +44,11 @@ public class SilverChariotTakeOffArmorAbility extends NoPoseStandEntityAbility {
 		if (stand != null && stand.isArmsOnlyMode()) {
 			return ConditionCheck.NEGATIVE;
 		}
-		LivingEntity user = standPower.getUser();
-		if (user == null) {
+		if (standPower.getUser() == null) {
 			return ConditionCheck.NEGATIVE;
 		}
-		SilverChariotState state = SilverChariotState.get(user);
-		if (state == null) {
-			return ConditionCheck.NEGATIVE;
-		}
-		if (!state.hasArmor()) {
+		// Client-aware: the HUD greys the move from the Stand's synced flag
+		if (!SilverChariotState.hasArmor(standPower, stand)) {
 			return ConditionCheck.createNegative("chariot_armor");
 		}
 		return ConditionCheck.POSITIVE;
@@ -67,15 +63,11 @@ public class SilverChariotTakeOffArmorAbility extends NoPoseStandEntityAbility {
 		if (standEntity.isArmsOnlyMode()) {
 			return ConditionCheck.NEGATIVE;
 		}
-		LivingEntity user = standPower.getUser();
-		if (user == null) {
+		if (standPower.getUser() == null) {
 			return ConditionCheck.NEGATIVE;
 		}
-		SilverChariotState state = SilverChariotState.get(user);
-		if (state == null) {
-			return ConditionCheck.NEGATIVE;
-		}
-		return state.hasArmor() ? ConditionCheck.POSITIVE : ConditionCheck.createNegative("chariot_armor");
+		return SilverChariotState.hasArmor(standPower, standEntity)
+				? ConditionCheck.POSITIVE : ConditionCheck.createNegative("chariot_armor");
 	}
 
 	public static class TakeOffArmorStrike extends EntityActionInstance {

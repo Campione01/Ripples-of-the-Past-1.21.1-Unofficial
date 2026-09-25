@@ -52,16 +52,8 @@ public class SilverChariotRapierLaunchAbility extends StandEntityAbility {
 	}
 
 	private static boolean lacksRapier(Power<?> context) {
-		StandPower standPower = PowerClass.STAND.cast(context);
-		if (standPower == null) {
-			return false;
-		}
-		LivingEntity user = standPower.getUser();
-		if (user == null) {
-			return false;
-		}
-		SilverChariotState state = SilverChariotState.get(user);
-		return state != null && !state.hasRapier();
+		// Client-aware: the HUD greys the move from the Stand's synced flag
+		return !SilverChariotState.hasRapier(PowerClass.STAND.cast(context));
 	}
 
 	public static class RapierLaunchShot extends EntityActionInstance {

@@ -1,6 +1,7 @@
 package rotp.core.impl.stands._entitybase;
 
 import rotp.core.client.input.AbilityInputState;
+import rotp.core.core.JojoMod;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.AbilityId;
@@ -19,10 +20,13 @@ import rotp.core.powersystem.standpower.entity.StandEntityAbility.AutoSummonMode
 import rotp.core.powersystem.standpower.entity.StandOffsetFromUser;
 import rotp.core.subsystems.entity_grab.LivingComponentGrab;
 
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.phys.Vec3;
 
 public class StandEntityBlockAbility extends StandEntityAbility {
 	private static final ActionAnimIdentifier BLOCK_ANIM = ActionAnimIdentifier.getOrCreate("block", false);
+	private static final ActionAnimIdentifier NO_RAPIER_BLOCK_ANIM = ActionAnimIdentifier.getOrCreate("no_rapier_block", false);
+	private static final ResourceLocation SILVER_CHARIOT_ID = JojoMod.resLoc("silver_chariot");
 
 	public StandEntityBlockAbility(AbilityType<?> abilityType, AbilityId abilityId) {
 		super(abilityType, abilityId, StandEntityBlock::new);
@@ -34,7 +38,13 @@ public class StandEntityBlockAbility extends StandEntityAbility {
 
 	@Override
 	public ActionAnimIdentifier getEntityAnim(EntityActionInstance action) {
-		return BLOCK_ANIM;
+		return action.getPerformer() instanceof StandEntity stand ? blockAnim(stand) : BLOCK_ANIM;
+	}
+
+	// 1.16 Silver Chariot without its rapier fell back to the humanoid crossed-arms guard
+	public static ActionAnimIdentifier blockAnim(StandEntity stand) {
+		return SILVER_CHARIOT_ID.equals(stand.getStandType()) && !stand.isSilverChariotRapierVisible()
+				? NO_RAPIER_BLOCK_ANIM : BLOCK_ANIM;
 	}
 
 	@Override

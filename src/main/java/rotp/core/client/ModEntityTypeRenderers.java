@@ -29,6 +29,8 @@ import rotp.core.client.entityrender.stand.StandEntityRenderer;
 import rotp.core.client.layer.FrozenLayer;
 import rotp.core.client.layer.GlovesLayer;
 import rotp.core.client.layer.HamonBurnLayer;
+import rotp.core.client.layer.KnifeStuckLayer;
+import rotp.core.client.layer.MobStuckArrowLayer;
 import rotp.core.client.render.armor.model.BladeHatArmorModel;
 import rotp.core.client.render.armor.model.BreathControlMaskModel;
 import rotp.core.client.render.armor.model.SatiporojaScarfArmorModel;
@@ -93,6 +95,7 @@ import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.FireworkEntityRenderer;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
+import net.minecraft.client.renderer.entity.player.PlayerRenderer;
 import net.minecraft.client.renderer.entity.ThrownItemRenderer;
 import net.minecraft.client.resources.PlayerSkin;
 import net.minecraft.resources.ResourceLocation;
@@ -270,11 +273,17 @@ public class ModEntityTypeRenderers {
 				castToHumanoid(renderer).ifPresentOrElse(
 						ModEntityTypeRenderers::addHumanoidLayers,
 						() -> addNonHumanoidLivingLayers(livingRenderer));
+				// 1.16 ClientSetup: stuck arrows and knives on every non-player mob
+				livingRenderer.addLayer(new MobStuckArrowLayer<>(livingRenderer));
 			});
 		}
 		for (var playerRendererEntry : renderers.getSkinMap().entrySet()) {
 			var playerRenderer = playerRendererEntry.getValue();
 			boolean slim = playerRendererEntry.getKey() == PlayerSkin.Model.SLIM;
+			// 1.16 KnifeLayer: stuck knives on players
+			if (playerRenderer instanceof PlayerRenderer knifeTarget) {
+				knifeTarget.addLayer(new KnifeStuckLayer<>(knifeTarget));
+			}
 			castToLiving(playerRenderer).ifPresent(livingRenderer -> {
 				addLivingLayers(livingRenderer);
 				castToHumanoid(playerRenderer).ifPresent(humanoidRenderer -> {

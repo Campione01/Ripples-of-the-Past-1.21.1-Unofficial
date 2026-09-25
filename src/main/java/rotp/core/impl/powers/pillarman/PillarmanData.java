@@ -447,6 +447,15 @@ public class PillarmanData extends PlayerPowerData {
 		}
 	}
 
+	@Override
+	public void resetAbilityCooldowns(LivingEntity user) {
+		if (!abilityCooldowns.isEmpty() || !abilityCooldownTotals.isEmpty()) {
+			abilityCooldowns.clear();
+			abilityCooldownTotals.clear();
+			syncOnUpdate(user);
+		}
+	}
+
 	private static int clampStage(int stage) {
 		return Math.max(1, Math.min(MAX_STAGE_LEVEL, stage));
 	}

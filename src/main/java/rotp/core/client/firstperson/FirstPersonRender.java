@@ -1,5 +1,7 @@
 package rotp.core.client.firstperson;
 
+import javax.annotation.Nullable;
+
 import org.joml.Matrix4f;
 
 import rotp.core.api.client.render.FirstPersonStandRenderPolicies;
@@ -9,10 +11,15 @@ import rotp.core.client.entityrender.stand.HumanoidPart;
 import rotp.core.client.entityrender.stand.StandEntityRenderState;
 import rotp.core.client.entityrender.stand.StandEntityRenderer;
 import rotp.core.client.polaroid.PolaroidHelper;
+import rotp.core.impl.powers.hamon.HamonData;
 import rotp.core.init.ModItems;
+import rotp.core.init.power.ModPlayerPowers;
+import rotp.core.item.GlovesItem;
+import rotp.core.powersystem.playerpower.PlayerPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.subsystems.entity_possessionv2.LivingComponentPossession;
 import rotp.core.subsystems.entity_puppetcontrol.client.ClientEntityController;
+import rotp.core.util.functions.UtilFunctions;
 import com.google.common.base.MoreObjects;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -135,6 +142,41 @@ public class FirstPersonRender {
 				&& current.itemInHandRendererAccess
 						.jojo_ripples$vanillaRendersBothMapArms(
 								sourceEvent.getItemStack());
+	}
+
+	// 1.16 ClientEventHandler.onRenderHand: gloves hide the item model, so the bare main arm is drawn with its layers.
+	public static void renderGlovedMainArm(AbstractClientPlayer player, PoseStack poseStack, MultiBufferSource buffer,
+			int light, float partialTick, float equippedProgress, float swingProgress) {
+		poseStack.pushPose();
+		try {
+			renderEntityArm(getLivingRenderer(player), player, poseStack, buffer, light,
+					partialTick, equippedProgress, swingProgress, player.getMainArm());
+		}
+		finally {
+			poseStack.popPose();
+		}
+	}
+
+	/**
+	 * First-person hand rules from 1.16 ClientEventHandler (cancelHandRender, onRenderHand).
+	 * No client classes here, so gametests can load it.
+	 */
+	public static final class HandVisibility {
+		private HandVisibility() {}
+
+		// 1.16 cancelHandRender: a meditating Hamon user shows no hands.
+		public static boolean hidesHandsForMeditation(@Nullable Entity cameraEntity) {
+			return cameraEntity instanceof LivingEntity living
+					&& PlayerPower.getPowerData(living, ModPlayerPowers.HAMON)
+							.map(HamonData::isMeditating).orElse(false);
+		}
+
+		// Gloves in either hand and a free, non-empty main hand: draw the bare arm (empty hands are vanilla's).
+		public static boolean drawsBareMainArmForGloves(ItemStack mainHand, ItemStack offHand) {
+			return !mainHand.isEmpty()
+					&& (mainHand.getItem() instanceof GlovesItem || offHand.getItem() instanceof GlovesItem)
+					&& UtilFunctions.itemHandFree(mainHand);
+		}
 	}
 
 

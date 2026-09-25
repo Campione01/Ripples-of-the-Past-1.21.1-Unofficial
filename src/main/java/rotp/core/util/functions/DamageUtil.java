@@ -7,6 +7,7 @@ import javax.annotation.Nullable;
 
 import rotp.core.api.stand.StandDamageAuthorizers;
 import rotp.core.init.ModDamageTypes;
+import rotp.core.init.ModStatusEffects;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.mechanics.JojoDefinitions;
 import rotp.core.powersystem.playerpower.PlayerPower;
@@ -170,9 +171,40 @@ public class DamageUtil {
 		}
 	}
 
+	/** Stands and Stand-bound mobs: Stand damage, or an attacker with integrated_stand (1.16 re-sourcing). */
 	public static boolean canHurtStands(DamageSource dmgSource) {
+		return canHurtStandProjectiles(dmgSource)
+				|| hasIntegratedStand(dmgSource.getEntity());
+	}
+
+	/** 1.16 DamagingEntity: Stand projectiles take only Stand damage; integrated_stand does not apply to them. */
+	public static boolean canHurtStandProjectiles(DamageSource dmgSource) {
 		return dmgSource.is(ModDamageTypes.CAN_HURT_STANDS)
 				|| StandDamageAuthorizers.canHurtStand(dmgSource);
+	}
+
+	/** 1.16 GameplayEventHandler: an attacker with integrated_stand hits Stands with any of its attacks. */
+	public static boolean hasIntegratedStand(@Nullable Entity attacker) {
+		return attacker instanceof LivingEntity living
+				&& living.hasEffect(ModStatusEffects.INTEGRATED_STAND);
+	}
+
+	/** 1.16 DamageUtil.getMeleeAttacker: a living attacker that is also the direct entity. */
+	@Nullable
+	public static LivingEntity getMeleeAttacker(DamageSource dmgSource) {
+		Entity attacker = dmgSource.getEntity();
+		return attacker instanceof LivingEntity living && attacker == dmgSource.getDirectEntity() ? living : null;
+	}
+
+	/** 1.16 DamageUtil.isShieldBlockAngle: the hit comes from in front of the target (the vanilla shield test). */
+	public static boolean isShieldBlockAngle(LivingEntity target, DamageSource damageSource) {
+		Vec3 damagePos = damageSource.getSourcePosition();
+		if (damagePos == null) {
+			return false;
+		}
+		Vec3 vecToTarget = damagePos.vectorTo(target.position()).normalize();
+		vecToTarget = new Vec3(vecToTarget.x, 0, vecToTarget.z);
+		return vecToTarget.dot(target.getViewVector(1.0F)) < 0.0D;
 	}
 
 	public static boolean isImmuneToCold(Entity target) {

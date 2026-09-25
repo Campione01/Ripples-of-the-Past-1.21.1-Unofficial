@@ -219,6 +219,33 @@ public final class StandManualControlAdmissionGameTests {
 		helper.succeed();
 	}
 
+	// 1.16 StandUtil.setManualControl: an arms-only Stand cannot be taken over
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void armsOnlyStandRefusesManualControl(GameTestHelper helper) {
+		try (Fixture fixture = new Fixture(helper.getLevel())) {
+			fixture.initialize(helper, false);
+			helper.assertTrue(fixture.toggle.checkSpecificConditions(fixture.power).isPositive(),
+					"Full Stand failed the manual-control condition check");
+			fixture.stand.setArmsOnlyMode();
+			helper.assertTrue(fixture.stand.isArmsOnlyMode(), "Fixture did not enter arms-only mode");
+			helper.assertTrue(!fixture.toggle.checkSpecificConditions(fixture.power).isPositive(),
+					"Arms-only Stand passed the manual-control condition check");
+			fixture.toggle.onClick(helper.getLevel(), fixture.user, null);
+			assertControlPair(helper, fixture, false);
+			StandEntityManualControlToggle.on(helper.getLevel(), fixture.stand);
+			assertControlPair(helper, fixture, false);
+
+			// a full summon from arms lifts the refusal
+			fixture.stand.fullSummonFromArms();
+			helper.assertTrue(!fixture.stand.isArmsOnlyMode()
+					&& fixture.toggle.checkSpecificConditions(fixture.power).isPositive(),
+					"Full summon from arms did not restore manual-control eligibility");
+			fixture.toggle.onClick(helper.getLevel(), fixture.user, null);
+			assertControlPair(helper, fixture, true);
+		}
+		helper.succeed();
+	}
+
 	private static void assertUnsummonAction(GameTestHelper helper, StandEntity stand) {
 		var action = stand.getCurStandAction();
 		helper.assertTrue(action != null && action.ability == ModSpecialActions.STAND_UNSUMMON.get(),

@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
 
+import rotp.core.JojoModConfig;
 import rotp.core.core.JojoMod;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.powersystem.PowerClass;
@@ -30,6 +31,7 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.EventPriority;
+import net.neoforged.neoforge.common.ModConfigSpec;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.common.util.FakePlayerFactory;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
@@ -49,7 +51,11 @@ public final class HamonDeathTransferGameTests {
 		ServerPlayer recipient = createRecipient(helper, "HamonRecipient", 2.0D);
 		ServerPlayer farther = createRecipient(helper, "HamonFarther", 5.0D);
 		Pig respawnedDonor = null;
+		ModConfigSpec.BooleanValue keep = keepHamonConfig();
+		boolean previousKeep = keep.get();
 		try {
+			// death perks and the death clone's loss need keepHamonOnDeath off (1.16 default on)
+			keep.set(false);
 			HamonData source = grantHamon(helper, donor, 1000, 2000, ModHamonSkills.CHARACTER_ZEPPELI.get());
 			HamonData deadData = grantHamon(helper, deadRecipient, 10, 20, null);
 			HamonData spectatorData = grantHamon(helper, spectator, 10, 20, null);
@@ -87,6 +93,7 @@ public final class HamonDeathTransferGameTests {
 			helper.succeed();
 		}
 		finally {
+			keep.set(previousKeep);
 			donor.discard();
 			deadRecipient.discard();
 			spectator.discard();
@@ -109,7 +116,10 @@ public final class HamonDeathTransferGameTests {
 			}
 		};
 		NeoForge.EVENT_BUS.addListener(EventPriority.NORMAL, LivingDeathEvent.class, cancelDeath);
+		ModConfigSpec.BooleanValue keep = keepHamonConfig();
+		boolean previousKeep = keep.get();
 		try {
+			keep.set(false);
 			HamonData source = grantHamon(helper, donor, 1000, 2000, ModHamonSkills.CHARACTER_ZEPPELI.get());
 			HamonData received = grantHamon(helper, recipient, 100, 200, null);
 			donor.hurt(donor.damageSources().genericKill(), Float.MAX_VALUE);
@@ -125,6 +135,7 @@ public final class HamonDeathTransferGameTests {
 			helper.succeed();
 		}
 		finally {
+			keep.set(previousKeep);
 			NeoForge.EVENT_BUS.unregister(cancelDeath);
 			donor.discard();
 			recipient.discard();
@@ -138,7 +149,10 @@ public final class HamonDeathTransferGameTests {
 		ServerPlayer second = createRecipient(helper, "HamonBubbleTwo", 7.0D);
 		CrimsonBubbleEntity bubble = null;
 		ItemEntity heldItem = null;
+		ModConfigSpec.BooleanValue keep = keepHamonConfig();
+		boolean previousKeep = keep.get();
 		try {
+			keep.set(false);
 			HamonData source = grantHamon(helper, donor, 1000, 2000, ModHamonSkills.CHARACTER_CAESAR.get());
 			// Both learned perks must still choose the Caesar branch only.
 			helper.assertTrue(source.learnSkill(ModHamonSkills.DEEP_PASS.get()), "Could not grant second death perk");
@@ -177,6 +191,7 @@ public final class HamonDeathTransferGameTests {
 			helper.succeed();
 		}
 		finally {
+			keep.set(previousKeep);
 			if (bubble != null) {
 				bubble.discard();
 			}
@@ -229,6 +244,63 @@ public final class HamonDeathTransferGameTests {
 			bubble.discard();
 			item.discard();
 		}
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void keptHamonSurvivesDeathWithoutDeathPerks(GameTestHelper helper) {
+		Pig donor = createDonor(helper);
+		ServerPlayer recipient = createRecipient(helper, "HamonKept", 2.0D);
+		Pig respawnedDonor = null;
+		ModConfigSpec.BooleanValue keep = keepHamonConfig();
+		boolean previousKeep = keep.get();
+		try {
+			// 1.16 keepHamonOnDeath (default on): no Deep Pass, and the death clone keeps Hamon
+			helper.assertTrue(Boolean.TRUE.equals(keep.getDefault()), "keepHamonOnDeath does not default to true");
+			keep.set(true);
+			helper.assertTrue(!helper.getLevel().getLevelData().isHardcore(), "The test world is hardcore");
+			HamonData source = grantHamon(helper, donor, 1000, 2000, ModHamonSkills.CHARACTER_ZEPPELI.get());
+			HamonData received = grantHamon(helper, recipient, 100, 200, null);
+			kill(helper, donor);
+			assertPoints(helper, received, 100, 200, "Kept Hamon still passed on at death");
+			helper.assertTrue(!source.serializeNBT(helper.getLevel().registryAccess()).getBoolean("DeathPerksTriggered"),
+					"Kept Hamon still spent its death perk");
+
+			respawnedDonor = createDonor(helper);
+			PlayerPower newPower = PowerClass.PLAYER_POWER.attachGet(respawnedDonor);
+			PlayerPower.get(donor).onPlayerCloneData(newPower, true);
+			helper.assertTrue(newPower.hasPower() && newPower.getPowerType() == ModPlayerPowers.HAMON.get(),
+					"The death clone lost Hamon with keepHamonOnDeath on");
+			HamonData kept = PlayerPower.getPowerData(respawnedDonor, ModPlayerPowers.HAMON).orElse(null);
+			helper.assertTrue(kept != null, "The death clone has no Hamon data");
+			assertPoints(helper, kept, 1000, 2000, "Kept Hamon stats");
+			helper.succeed();
+		}
+		finally {
+			keep.set(previousKeep);
+			donor.discard();
+			recipient.discard();
+			if (respawnedDonor != null) {
+				respawnedDonor.discard();
+			}
+		}
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void deathPerkIconsHiddenWhileHamonIsKept(GameTestHelper helper) {
+		// 1.16 HamonSkillElementTechniquePerk.isVisible
+		for (String perk : List.of(ModHamonSkills.DEEP_PASS_DEF.name(), ModHamonSkills.CRIMSON_BUBBLE_DEF.name())) {
+			helper.assertTrue(!HamonUtil.isTechniquePerkShown(perk, true), perk + " shown while Hamon is kept on death");
+			helper.assertTrue(HamonUtil.isTechniquePerkShown(perk, false), perk + " hidden while Hamon is lost on death");
+		}
+		helper.assertTrue(HamonUtil.isTechniquePerkShown("natural_talent", true),
+				"Natural Talent hidden while Hamon is kept on death");
+		helper.succeed();
+	}
+
+	private static ModConfigSpec.BooleanValue keepHamonConfig() {
+		// Spec setters are memory-only; restore in finally and never save the user's config.
+		return JojoModConfig.COMMON_SPEC.getValues()
+				.get(List.of("Keep Powers After Death", "keepHamonOnDeath"));
 	}
 
 	private static Vec3 origin(GameTestHelper helper) {

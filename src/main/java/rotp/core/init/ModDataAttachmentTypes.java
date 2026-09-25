@@ -9,6 +9,7 @@ import rotp.core.adventure.npc.PowerUserMobEntity;
 import rotp.core.api.gravity.DirectionalGravityData;
 import rotp.core.core.JojoMod;
 import rotp.core.entityattachment.DataEventListeners;
+import rotp.core.entityattachment.PlayerOneTimeNotifications;
 import rotp.core.entityattachment.PlayerVoiceLineData;
 import rotp.core.entityattachment.custom_effect.EntityCustomEffect;
 import rotp.core.entityattachment.custom_effect.EntityCustomEffectsClass;
@@ -153,6 +154,14 @@ public final class ModDataAttachmentTypes {
 
 	public static final Supplier<AttachmentType<PlayerVoiceLineData>> PLAYER_VOICE_LINES = ATTACHMENT_TYPES.register("player_voice_lines",
 			() -> AttachmentType.builder(entity -> entity instanceof Player player ? new PlayerVoiceLineData(player) : null).build());
+
+	// 1.16 PlayerUtilCap notificationsSent
+	public static final Supplier<AttachmentType<PlayerOneTimeNotifications>> PLAYER_ONE_TIME_NOTIFICATIONS = ATTACHMENT_TYPES.register("player_one_time_notifications",
+			() -> AttachmentType.serializable(() -> new PlayerOneTimeNotifications()).copyOnDeath().build());
+
+	// 1.16 StandArrowHandler.standsGotFromArrow (Stand Arrow XP cost escalation)
+	public static final Supplier<AttachmentType<Integer>> STANDS_GOT_FROM_ARROW = ATTACHMENT_TYPES.register("stands_got_from_arrow",
+			() -> AttachmentType.builder(() -> 0).serialize(com.mojang.serialization.Codec.INT).copyOnDeath().build());
 
 
 	// Level

@@ -4,15 +4,15 @@ import java.util.List;
 import java.util.function.BiConsumer;
 
 import rotp.core.client.ClientGlobals;
+import rotp.core.client.ClientPowerCache;
 import rotp.core.client.standskin.StandSkin;
 import rotp.core.client.ui.marker.MarkerRenderer;
-import rotp.core.init.ModItemDataComponents;
+import rotp.core.powersystem.PowerClass;
 import rotp.core.subsystems.itemtracking.ItemTrackDebugMarker.ItemMarkerInstance;
 import com.mojang.blaze3d.vertex.PoseStack;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 
@@ -38,27 +38,19 @@ public class OriginalItemPosMarker extends MarkerRenderer {
 
 	@Override
 	protected void updatePositions(List<MarkerInstance> list, float partialTick) {
-		iterateHeldItemsOriginalPos((BlockPos blockPos, ItemStack item) -> list.add(new ItemMarkerInstance(blockMarkerPos(blockPos), false, item)));
+		// outlined: the item Crazy Diamond's block anchor would move (1.16)
+		OriginalItemPositions.forHeldItems(ClientPowerCache.getPower(PowerClass.STAND),
+				(blockPos, item, usedAsAnchor) -> list.add(new ItemMarkerInstance(blockMarkerPos(blockPos), usedAsAnchor, item)),
+				mc.player, ClientGlobals.playerStandEntity);
 	}
-	
+
 	public static void iterateHeldItemsOriginalPos(BiConsumer<BlockPos, ItemStack> action) {
 		 forEntityHeldItem(action, Minecraft.getInstance().player);
 		 forEntityHeldItem(action, ClientGlobals.playerStandEntity);
 	}
-	
+
 	public static void forEntityHeldItem(BiConsumer<BlockPos, ItemStack> action, LivingEntity entity) {
-		if (entity != null) {
-			for (InteractionHand hand : InteractionHand.values()) {
-				ItemStack item = entity.getItemInHand(hand);
-				if (!item.isEmpty()) {
-					OriginalItemPosComponent originalPos = item.get(ModItemDataComponents.ORIGINAL_POS);
-					if (originalPos != null && originalPos.matchesDimension(entity.level())) {
-						BlockPos blockPos = originalPos.blockPos();
-						action.accept(blockPos, item);
-					}
-				}
-			}
-		}
+		OriginalItemPositions.forHeldItems(null, (blockPos, item, usedAsAnchor) -> action.accept(blockPos, item), entity);
 	}
 
 }

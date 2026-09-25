@@ -15,6 +15,7 @@ public final class ModCustomStats {
 	public static final ResourceLocation VAMPIRE_ANIMALS_DRAINED = JojoMod.resLoc("vampire_animals_drained");
 	public static final ResourceLocation VAMPIRE_ZOMBIES_CREATED = JojoMod.resLoc("vampire_zombies_created");
 	public static final ResourceLocation VAMPIRE_ZOMBIES_SUMMONED = JojoMod.resLoc("vampire_zombies_summoned");
+	public static final ResourceLocation RPS_WON = JojoMod.resLoc("rps_won");
 
 	private ModCustomStats() {}
 
@@ -24,6 +25,7 @@ public final class ModCustomStats {
 			registerCustomStat(VAMPIRE_ANIMALS_DRAINED);
 			registerCustomStat(VAMPIRE_ZOMBIES_CREATED);
 			registerCustomStat(VAMPIRE_ZOMBIES_SUMMONED);
+			registerCustomStat(RPS_WON);
 		});
 	}
 

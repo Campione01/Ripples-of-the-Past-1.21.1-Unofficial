@@ -44,7 +44,7 @@ public class MrPresidentRoomStateOwner extends SavedData {
 	private static final String FILE_NAME = JojoMod.MOD_ID + "-mr_president_room_state";
 	private static final SavedData.Factory<MrPresidentRoomStateOwner> FACTORY =
 			new SavedData.Factory<>(MrPresidentRoomStateOwner::new, MrPresidentRoomStateOwner::load);
-	private static final ResourceLocation ROOM_TEMPLATE = JojoMod.resLoc("mr_president_room");
+	public static final ResourceLocation ROOM_TEMPLATE = JojoMod.resLoc("mr_president_room");
 	private static final double ROOM_INSIDE_Y = 200.0D;
 	private static final int ROOM_ENTER_X_OFFSET = 8;
 	private static final int ROOM_ENTER_Y_OFFSET = 6;
@@ -215,6 +215,9 @@ public class MrPresidentRoomStateOwner extends SavedData {
 		if (!generated) {
 			generated = ensureRoomGenerated(roomLevel, existing);
 		}
+		if (!generated) {
+			return false;
+		}
 		String roomLevelId = roomLevel.dimension().location().toString();
 		String returnLevelId = player.level().dimension().location().toString();
 		double returnX = player.getX();
@@ -261,6 +264,9 @@ public class MrPresidentRoomStateOwner extends SavedData {
 		boolean generated = existing.generated();
 		if (!generated) {
 			generated = ensureRoomGenerated(roomLevel, existing);
+		}
+		if (!generated) {
+			return false;
 		}
 		double[] inside = roomInsidePosFor(existing);
 		String roomLevelId = roomLevel.dimension().location().toString();
@@ -532,8 +538,17 @@ public class MrPresidentRoomStateOwner extends SavedData {
 	}
 
 	private static boolean ensureRoomGenerated(ServerLevel level, RoomRecord record) {
-		BlockPos lowerCorner = roomLowerCornerFor(record);
-		StructureTemplate template = level.getStructureManager().getOrCreate(ROOM_TEMPLATE);
+		return placeRoomTemplate(level, ROOM_TEMPLATE, roomLowerCornerFor(record));
+	}
+
+	// False (and nothing placed) when the template is missing or empty.
+	public static boolean placeRoomTemplate(ServerLevel level, ResourceLocation templateId, BlockPos lowerCorner) {
+		StructureTemplate template = level.getStructureManager().get(templateId).orElse(null);
+		if (template == null || template.getSize().getX() <= 0 || template.getSize().getY() <= 0 || template.getSize().getZ() <= 0) {
+			// Missing template: never place anyone in a room without the gem exit.
+			JojoMod.LOGGER.error("Mr. President room template {} is missing or empty; room entry refused", templateId);
+			return false;
+		}
 		StructurePlaceSettings settings = new StructurePlaceSettings()
 				.addProcessor(BlockIgnoreProcessor.STRUCTURE_AND_AIR);
 		return template.placeInWorld(level, lowerCorner, lowerCorner, settings, level.getRandom(), 2);

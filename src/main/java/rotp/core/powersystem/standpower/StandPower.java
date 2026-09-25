@@ -18,6 +18,7 @@ import rotp.core.JojoModLivingVariables;
 import rotp.core.api.leap.LeapAccessPolicies;
 import rotp.core.api.leap.LeapSource;
 import rotp.core.api.stand.StandLeapUnlockProviders;
+import rotp.core.command.commands.JojoControlsCommand;
 import rotp.core.config.client.PlayerClientBroadcastedSettings;
 import rotp.core.entityattachment.PostNbtReadEntityData;
 import rotp.core.init.ModCriteriaTriggers;
@@ -95,7 +96,9 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 	public UserStandEffects userStandEffects = new UserStandEffects(this);
 	public StandAwakening userStandAwakeningState = new StandAwakening();
 	public boolean healingDamageFromArrow = false;
-	
+	// 1.16 skippedProgression: saved as "Skipped", re-applied when a new non-Stand power is gained
+	private boolean skippedProgression = false;
+
 	public StandPower(LivingEntity user) {
 		super(user);
 		addPostNbtReadCallback(user); // to update the user's base attribute values after the attributes are read
@@ -190,8 +193,19 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 		
 		if (user != null && !user.level().isClientSide()) {
 			userStandEffects.onStandChanged(user);
+			if (oldStand == null && newStand != null) {
+				// 1.16 onNewPowerGiven: no leftover leap cooldown, half stamina
+				applyNewStandDefaults();
+			}
 			PacketDistributor.sendToPlayersTrackingEntityAndSelf(user, new TrPowerStandInstancePacket(user.getId(), this.standInstance));
+			if (user instanceof ServerPlayer holder) {
+				// server-wide taken count for standArrowMode
+				StandUtil.trackTakenStand(holder, newStand);
+			}
 			if (newStand != null && user instanceof ServerPlayer player) {
+				if (standChanged) {
+					JojoControlsCommand.sendPowerControlsHint(player);
+				}
 				ModCriteriaTriggers.triggerGetPower(player, this);
 			}
 		}
@@ -199,9 +213,14 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 		if (newStand == null) {
 			setStamina(0);
 		}
+		if (standChanged) {
+			// 1.16 clear() dropped the flag with the Stand
+			skippedProgression = false;
+		}
 		onSetPowerType(oldStand, newStand);
+		// 1.16 onNewPowerGiven: creative or the config skips at grant
 		if (standChanged && newStand != null && user != null && !user.level().isClientSide()
-				&& JojoModConfig.getCommonConfigInstance(false).skipStandProgression.get()) {
+				&& playerSkipsActionTraining(user)) {
 			skipProgression();
 		}
 	}
@@ -259,6 +278,10 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 		}
 		if (fullReset) {
 			clearFullStandProgressionState();
+			// 1.16 fullStandClear: standArrowHandler.clear() (item, /stand remove, API)
+			if (!user.level().isClientSide()) {
+				rotp.core.mechanics.standarrow.StandVirusActualEffect.resetStandsGotFromArrow(user);
+			}
 			if (user instanceof ServerPlayer player) {
 				PacketDistributor.sendToPlayer(
 						player, new StandFullClearPacket());
@@ -332,6 +355,7 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 	public void skipProgression() {
 		StandTypePersistentData data = getCurTypeData();
 		if (data != null) {
+			skippedProgression = true;
 			// 1.16 skipProgression set the level on the ResolveCounter directly, so no STAND_MAX
 			setResolveLevel(getMaxResolveLevel(), false);
 			if (!user.level().isClientSide()) {
@@ -356,8 +380,32 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 			}
 		}
 	}
-	
-	
+
+	public boolean wasProgressionSkipped() {
+		return skippedProgression;
+	}
+
+	/** 1.16 StandPower.playerSkipsActionTraining: creative players or the skipStandProgression config. */
+	public static boolean playerSkipsActionTraining(@Nullable LivingEntity user) {
+		return user != null && (user instanceof Player player && player.getAbilities().instabuild
+				|| JojoModConfig.getCommonConfigInstance(user.level().isClientSide()).skipStandProgression.get());
+	}
+
+	/**
+	 * 1.16 TypeSpecificData.onPowerGiven: a newly gained non-Stand power re-runs a skipped progression,
+	 * so power-type limits such as the Time Stop duration (9 s for vampires) rise to the new maximum.
+	 */
+	public static void reapplySkippedProgression(@Nullable LivingEntity user) {
+		if (user == null || user.level().isClientSide() || !playerSkipsActionTraining(user)) {
+			return;
+		}
+		StandPower stand = get(user);
+		if (stand != null && stand.hasPower() && stand.wasProgressionSkipped()) {
+			stand.skipProgression();
+		}
+	}
+
+
 	public boolean usesStamina() {
 		return hasPower() ? getPowerType().usesStamina(this) : false;
 	}
@@ -632,6 +680,25 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 		return leapCooldown;
 	}
 
+	/**
+	 * Called by StandPowerTransitions' legacy replace (1.16 clear + give); applies all of
+	 * {@link #applyNewStandDefaults()}, not only the leap cooldown.
+	 */
+	@ApiStatus.Internal
+	public void resetLeapCooldownForNewStand() {
+		applyNewStandDefaults();
+	}
+
+	/**
+	 * 1.16 onNewPowerGiven on the server: setLeapCooldown(getLeapCooldownPeriod()), which is 0 with no Stand
+	 * manifested, and setStamina(getMaxStamina() * 0.5F), also in Creative (max stamina is 0 without stamina use).
+	 */
+	@ApiStatus.Internal
+	public void applyNewStandDefaults() {
+		setLeapCooldown(getLeapCooldownPeriod());
+		setStamina(usesStamina() ? getMaxStamina() * 0.5F : 0);
+	}
+
 	public void setLeapCooldown(int cooldown) {
 		int newCooldown = Math.max(cooldown, 0);
 		boolean changed = this.leapCooldown != newCooldown;
@@ -864,6 +931,7 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 		newEntityData.resolveCounter.copyValues(this.resolveCounter, wasDeath);
 		newEntityData.userStandEffects.transferFrom(this.userStandEffects, newEntityData);
 		newEntityData.userStandAwakeningState = this.userStandAwakeningState;
+		newEntityData.skippedProgression = this.skippedProgression;
 	}
 
 	private void clearClonedStandData(StandPower newEntityData) {
@@ -880,6 +948,7 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 		newEntityData.userStandAwakeningState = new StandAwakening();
 		newEntityData.willSoulSpawn = false;
 		newEntityData.healingDamageFromArrow = false;
+		newEntityData.skippedProgression = false;
 	}
 	
 	
@@ -901,6 +970,7 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 		nbt.put("Effects", userStandEffects.serializeNBT(provider));
 		nbt.put("Awakening", userStandAwakeningState.serializeNBT());
 		nbt.putBoolean("HealFromArrow", healingDamageFromArrow);
+		nbt.putBoolean("Skipped", skippedProgression);
 		return nbt;
 	}
 
@@ -937,6 +1007,7 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 		NBTUtil.getCompoundOptional(nbt, "Effects").ifPresent(effectsNbt -> userStandEffects.deserializeNBT(provider, effectsNbt));
 		NBTUtil.getCompoundOptional(nbt, "Awakening").ifPresent(userStandAwakeningState::deserializeNBT);
 		healingDamageFromArrow = nbt.getBoolean("HealFromArrow");
+		skippedProgression = nbt.getBoolean("Skipped");
 	}
 	
 	/* unlike deserializeNBT, this is called after the entity attributes are read, 

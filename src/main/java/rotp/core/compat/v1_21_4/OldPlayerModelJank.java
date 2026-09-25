@@ -47,6 +47,8 @@ public class OldPlayerModelJank {
 			if (playerModel.leftPants != null) 
 				playerModel.leftPants.copyFrom(playerModel.leftLeg);
 		}
+		// vanilla setupAnim synced the hat before the anim pose moved the head
+		if (model.hat != null) model.hat.copyFrom(model.head);
 	}
 
 	public static void _renderOuterLayer(ModelPart modelPart, PoseStack poseStack, 

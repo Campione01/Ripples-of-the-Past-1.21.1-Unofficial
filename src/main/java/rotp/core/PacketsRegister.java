@@ -23,6 +23,7 @@ import rotp.core.network.c2s.ClPhotoSaveDataPacket;
 import rotp.core.network.c2s.ClRPSGameInputPacket;
 import rotp.core.network.c2s.ClRPSPickThoughtsPacket;
 import rotp.core.network.c2s.ClRemovePlayerSoulEntityPacket;
+import rotp.core.network.c2s.ClLeavesGliderColorPacket;
 import rotp.core.network.c2s.ClSetStandSkinPacket;
 import rotp.core.network.c2s.ClSoulRotationPacket;
 import rotp.core.network.c2s.ClWalkmanControlsPacket;
@@ -42,6 +43,7 @@ import rotp.core.network.s2c.RPSGameStatePacket;
 import rotp.core.network.s2c.RPSOpponentPickThoughtsPacket;
 import rotp.core.network.s2c.ResetSyncedCommonConfigPacket;
 import rotp.core.network.s2c.ServerIdPacket;
+import rotp.core.network.s2c.StandAssignmentDataPacket;
 import rotp.core.network.s2c.SoulSpawnPacket;
 import rotp.core.network.s2c.StandEntitySoundPacket;
 import rotp.core.network.s2c.StandFullClearPacket;
@@ -49,6 +51,9 @@ import rotp.core.network.s2c.StandSkinSoundPacket;
 import rotp.core.network.s2c.TrAbilityUsePacket;
 import rotp.core.network.s2c.TrAimTargetPacket;
 import rotp.core.network.s2c.TrBarrageHitSoundPacket;
+import rotp.core.network.s2c.TrEntitySpecialEffectPacket;
+import rotp.core.network.s2c.TrHamonParticlesPacket;
+import rotp.core.network.s2c.TrAfkMenacingParticlePacket;
 import rotp.core.network.s2c.TrDirectEntityDataPacket;
 import rotp.core.network.s2c.TrDirectEntityPosPacket;
 import rotp.core.network.s2c.TrDyingBodyTimerPacket;
@@ -131,7 +136,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 public class PacketsRegister {
 	// 6: resolveboost carries maxAchievedValue; the synced special_action registry has stand_entity_block
 	// 7: knockbackrestick (1.16 KnockbackResTickPacket), serverid (1.16 ServerIdPacket)
-	public static final String NETWORK_PROTOCOL_VERSION = "7";
+	public static final String NETWORK_PROTOCOL_VERSION = "8";
 
 	public static void register(RegisterPayloadHandlersEvent event) {
 		PayloadRegistrar registrar = event.registrar(NETWORK_PROTOCOL_VERSION);
@@ -167,6 +172,7 @@ public class PacketsRegister {
 		registerPacket(registrar, PayloadRegistrar::playToServer, new ClExtendedContainerClickPacket.Handler(JojoMod.resLoc("clslotclick")));
 		registerPacket(registrar, PayloadRegistrar::playToServer, new ClSoulRotationPacket.Handler(JojoMod.resLoc("clsoulrot")));
 		registerPacket(registrar, PayloadRegistrar::playToServer, new ClRemovePlayerSoulEntityPacket.Handler(JojoMod.resLoc("clsoulskip")));
+		registerPacket(registrar, PayloadRegistrar::playToServer, new ClLeavesGliderColorPacket.Handler(JojoMod.resLoc("clglidercolor")));
 		registerPacket(registrar, PayloadRegistrar::playToServer, new ClWalkmanControlsPacket.Handler(JojoMod.resLoc("clwalkman")));
 		registerPacket(registrar, PayloadRegistrar::playToServer, new ClPhotoAssignIdPacket.Handler(JojoMod.resLoc("clphotoid")));
 		registerPacket(registrar, PayloadRegistrar::playToServer, new ClPhotoSaveDataPacket.Handler(JojoMod.resLoc("clphotosave")));
@@ -217,6 +223,7 @@ public class PacketsRegister {
 		registerPacket(registrar, PayloadRegistrar::playToClient, new PhotoDataPacket.Handler(JojoMod.resLoc("photodata")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new PhotoForOtherPlayerPacket.Handler(JojoMod.resLoc("photoother")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new ServerIdPacket.Handler(JojoMod.resLoc("serverid")));
+		registerPacket(registrar, PayloadRegistrar::playToClient, new StandAssignmentDataPacket.Handler(JojoMod.resLoc("standassign")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new TrTimeStopInstancePacket.Handler(JojoMod.resLoc("trtimestopinstance")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new TrTimeStopPlayerStatePacket.Handler(JojoMod.resLoc("trtimestopplayerstate")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new TrRefreshMovementInTimeStopPacket.Handler(JojoMod.resLoc("trrefreshmovementintimestop")));
@@ -228,6 +235,9 @@ public class PacketsRegister {
 		registerPacket(registrar, PayloadRegistrar::playToClient, new StandSkinSoundPacket.Handler(JojoMod.resLoc("standsound")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new StandEntitySoundPacket.Handler(JojoMod.resLoc("standsound2")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new TrBarrageHitSoundPacket.Handler(JojoMod.resLoc("barragehitsound")));
+		registerPacket(registrar, PayloadRegistrar::playToClient, new TrEntitySpecialEffectPacket.Handler(JojoMod.resLoc("trspecialeffect")));
+		registerPacket(registrar, PayloadRegistrar::playToClient, new TrHamonParticlesPacket.Handler(JojoMod.resLoc("trhamonparticles")));
+		registerPacket(registrar, PayloadRegistrar::playToClient, new TrAfkMenacingParticlePacket.Handler(JojoMod.resLoc("trafkmenacing")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new RPSGameStatePacket.Handler(JojoMod.resLoc("rps_game_state")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new RPSOpponentPickThoughtsPacket.Handler(JojoMod.resLoc("rps_opponent_pick_thoughts")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new TrSyncStandOffsetPacket.Handler(JojoMod.resLoc("standoffset")));

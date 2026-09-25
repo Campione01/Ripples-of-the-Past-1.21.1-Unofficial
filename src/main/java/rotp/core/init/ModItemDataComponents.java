@@ -11,6 +11,7 @@ import rotp.core.mechanics.standarrow.StandArrowLore;
 import rotp.core.mechanics.standarrow.StandArrowShardLore;
 import rotp.core.mechanics.standdisc.StandWrittenOnDisc;
 import rotp.core.subsystems.itemtracking.OriginalItemPosComponent;
+import rotp.core.impl.stands.crazydiamond.CrazyDAnchorBlockState;
 import rotp.core.compat.v1_21_4.itemmodel.__ItemModelComponent;
 
 import net.minecraft.core.UUIDUtil;
@@ -54,6 +55,12 @@ public class ModItemDataComponents {
 			builder -> builder
 			.persistent(OriginalItemPosComponent.CODEC)
 			.networkSynchronized(OriginalItemPosComponent.STREAM_CODEC)
+			.cacheEncoding());
+
+	public static final Supplier<DataComponentType<CrazyDAnchorBlockState>> CD_ANCHOR_BLOCK_STATE = DATA_COMPONENT_TYPES.registerComponentType("cd_anchor_block_state",
+			builder -> builder
+			.persistent(CrazyDAnchorBlockState.CODEC)
+			.networkSynchronized(CrazyDAnchorBlockState.STREAM_CODEC)
 			.cacheEncoding());
 
 	public static final Supplier<DataComponentType<Integer>> ARROW_SHARD_VARIANT = DATA_COMPONENT_TYPES.registerComponentType("arrow_shard_variant", 

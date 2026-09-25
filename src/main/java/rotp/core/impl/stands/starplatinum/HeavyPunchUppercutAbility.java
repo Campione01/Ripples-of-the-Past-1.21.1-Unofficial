@@ -39,6 +39,8 @@ public class HeavyPunchUppercutAbility extends StandEntityHeavyPunchAbility {
 			if (hurt && targetLiving instanceof StandEntity targetStand) {
 				targetStand.breakStandBlocking(StandStatFormulas.getGuardBreakTicks(targetStand.getDurability()));
 			}
+			// 1.16 StarPlatinumUppercut disableBlocking(1.0F)
+			disableShieldOnHit(targetLiving, hurt, 1.0F);
 		}
 		
 	}

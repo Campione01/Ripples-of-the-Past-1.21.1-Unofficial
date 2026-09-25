@@ -5,6 +5,8 @@ import java.util.List;
 
 import javax.annotation.Nullable;
 
+import rotp.core.client.particle.CustomParticlesHelper;
+import rotp.core.client.sound.HamonSparksLoopSound;
 import rotp.core.customobjects.entity_projectile.ModdedProjectileEntity;
 import rotp.core.init.ModEntityTypes;
 import rotp.core.powersystem.playerpower.PlayerPower;
@@ -59,6 +61,16 @@ public class HamonCutterEntity extends ModdedProjectileEntity {
 
 	public int getColor() {
 		return color;
+	}
+
+	@Override
+	public void tick() {
+		super.tick();
+		// 1.16: the cutter crackles and sheds Hamon sparks in flight
+		if (level().isClientSide()) {
+			HamonSparksLoopSound.playSparkSound(this, position(), 0.25F);
+			CustomParticlesHelper.createHamonSparkParticles(this, position(), 1);
+		}
 	}
 
 	@Override

@@ -11,10 +11,12 @@ import java.util.stream.Stream;
 
 import org.jetbrains.annotations.Nullable;
 
+import rotp.core.JojoModConfig;
 import rotp.core.api.stand.StandVirusMobGivers;
 import rotp.core.client.ClientProxy;
 import rotp.core.client.standskin.StandSkin;
 import rotp.core.client.standskin.StandSkinsLoader;
+import rotp.core.command.configpack.PlayerStandAssignmentConfig;
 import rotp.core.init.ModCriteriaTriggers;
 import rotp.core.init.ModDamageTypes;
 import rotp.core.init.ModEntityTypes;
@@ -28,6 +30,7 @@ import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandAwakening.AwakeningStage;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.StandUtil;
+import rotp.core.powersystem.standpower.StandUtil.StandRandomPoolFilter;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.StoryPart;
@@ -48,6 +51,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
@@ -65,6 +69,7 @@ import net.minecraft.world.item.ProjectileItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
@@ -72,6 +77,7 @@ import net.minecraft.world.level.block.DispenserBlock;
 import net.minecraft.world.level.levelgen.structure.Structure;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.server.ServerLifecycleHooks;
 
 public class StandArrowItem extends Item implements ProjectileItem {
     // dur: 25 | 250; ench: 10 | 25
@@ -134,12 +140,18 @@ public class StandArrowItem extends Item implements ProjectileItem {
     		return null;
     	}
     	// TODO use StandAwakening#fatedFutureStands
-    	// TODO use a ServerDuplicateCounter
+    	// randomStandOrError applies standArrowMode (ServerDuplicateCounter.StandHolders)
     	return StandUtil.randomStandOrError(player, entity.getRandom()).left().orElse(null);
     }
 
     public static boolean mobMayGetStand(LivingEntity entity) {
     	return pickStandToGive(entity) != null;
+    }
+
+    // 1.16 StandVirusEffect.mobMayGetStand: registered mob givers only, never players
+    public static boolean isStandGiverMob(LivingEntity entity) {
+    	return entity.getType() == ModEntityTypes.COCO_JUMBO_TURTLE.get()
+    			|| StandVirusMobGivers.find(entity).isPresent();
     }
 
 
@@ -189,11 +201,16 @@ public class StandArrowItem extends Item implements ProjectileItem {
     		StandType standToGive = standOrError.left().orElse(null);
     		if (player.getAbilities().instabuild) {
     			boolean gaveStand = StandArrowItem.giveStand(level, livingEntity, standToGive);
+    			if (gaveStand) {
+    				// 1.16 giveStandFromArrow: creative Arrow Stands raise the cost too
+    				StandVirusActualEffect.onStandGivenByArrow(livingEntity);
+    			}
     			triggerArrowHitCriteria(arrowShooter, livingEntity, gaveStand);
     			return gaveStand;
     		}
     		return applyStandVirusFromArrow(livingEntity, arrowItem, arrowShooter, standToGive,
-    				StandVirusActualEffect.getEffectDurationToApply(), 0);
+    				// 1.16: sized by this player's rising cost, not the initial one
+    				StandVirusActualEffect.getEffectDurationToApply(player), arrowVirusLevel(arrowItem));
     	}
 
     	StandType standToGive = pickStandToGive(livingEntity);
@@ -205,11 +222,16 @@ public class StandArrowItem extends Item implements ProjectileItem {
                             arrowShooter,
                             null,
                             600,
-                            0,
+                            arrowVirusLevel(arrowItem),
                             match.owner()))
                     .orElse(false);
     	}
-    	return applyStandVirusFromArrow(livingEntity, arrowItem, arrowShooter, standToGive, 600, 0);
+    	return applyStandVirusFromArrow(livingEntity, arrowItem, arrowShooter, standToGive, 600, arrowVirusLevel(arrowItem));
+    }
+
+    // 1.16: level 3 minus Virus Inhibition; that enchantment is not ported yet
+    public static int arrowVirusLevel(ItemStack arrowItem) {
+    	return StandVirusActualEffect.getEffectLevelToApply(0);
     }
 
     private static boolean applyStandVirusFromArrow(LivingEntity entity, ItemStack arrowItem, Optional<Entity> arrowShooter,
@@ -348,6 +370,7 @@ public class StandArrowItem extends Item implements ProjectileItem {
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltipComponents, TooltipFlag tooltipFlag) {
     	addStandNamesToTooltip(tooltipComponents, context);
+    	addPoolModeToTooltip(tooltipComponents);
         super.appendHoverText(stack, context, tooltipComponents, tooltipFlag);
         tooltipComponents.add(CommonComponents.EMPTY);
 
@@ -394,12 +417,22 @@ public class StandArrowItem extends Item implements ProjectileItem {
     public static void addStandNamesToTooltip(List<Component> tooltipComponents, TooltipContext context) {
         Player player = ClientProxy.getClientPlayer();
         if (player != null) {
-            Stream<StandType> stands = StandArrowItem.getStandsForPlayer();
+            // client side: the server's synced ban list
+            Stream<StandType> stands = StandUtil.standsForPlayerArrow(true);
+            // 1.16: Stands outside the player's /jojoconfig assign_stand list are struck through
+            List<ResourceLocation> assigned = PlayerStandAssignmentConfig.getAssignedStands(player);
             stands.map(StandInstance::new)
             .sorted(discsOrder(context.registries()))
             .forEach(stand -> {
             	StandSkin defaultSkin = StandSkinsLoader.getInstance().getSkin(stand);
-            	Component standName = stand.getStandName(true).plainCopy().withStyle(ChatFormatting.GRAY);
+            	MutableComponent nameText = stand.getStandName(true).plainCopy();
+            	if (assigned != null && !assigned.contains(stand.getStandId())) {
+            		nameText.withStyle(ChatFormatting.STRIKETHROUGH, ChatFormatting.DARK_GRAY);
+            	}
+            	else {
+            		nameText.withStyle(ChatFormatting.GRAY);
+            	}
+            	Component standName = nameText;
             	if (defaultSkin != null) {
             		Holder<StoryPart> storyPart = defaultSkin.getStoryPart(context.registries());
             		if (storyPart != null) {
@@ -410,6 +443,33 @@ public class StandArrowItem extends Item implements ProjectileItem {
                 tooltipComponents.add(standName);
             });
         }
+    }
+
+    // 1.16: the least_taken / not_taken line, shown only on multiplayer
+    public static void addPoolModeToTooltip(List<Component> tooltipComponents) {
+        if (ClientProxy.getClientPlayer() == null) return;
+        // on the client this is the integrated server, or null when connected to a remote one
+        MinecraftServer integrated = ServerLifecycleHooks.getCurrentServer();
+        boolean onRemoteServer = notInSinglePlayer(integrated != null, integrated != null && integrated.isPublished());
+        String key = poolModeTooltipKey(JojoModConfig.getCommonConfigInstance(true).standArrowMode.get(), onRemoteServer);
+        if (key != null) {
+            tooltipComponents.add(Component.translatable(key).withStyle(ChatFormatting.GRAY));
+        }
+    }
+
+    // 1.16 !ClientUtil.isInSinglePlayer(): a LAN host counts as multiplayer
+    public static boolean notInSinglePlayer(boolean hasIntegratedServer, boolean publishedToLan) {
+        return !(hasIntegratedServer && !publishedToLan);
+    }
+
+    @Nullable
+    public static String poolModeTooltipKey(@Nullable StandRandomPoolFilter mode, boolean onRemoteServer) {
+        if (!onRemoteServer || mode == null) return null;
+        return switch (mode) {
+            case LEAST_TAKEN -> "jojo.arrow.least_taken_mode";
+            case NOT_TAKEN -> "jojo.arrow.not_taken_mode";
+            default -> null;
+        };
     }
 
     static Map<ResourceLocation, Optional<Component>> STRUCTURE_NAMES_CACHE = new HashMap<>();
@@ -433,7 +493,32 @@ public class StandArrowItem extends Item implements ProjectileItem {
     // this shit is impossible with purely data-driven enchantments
     @Override
     public boolean supportsEnchantment(ItemStack stack, Holder<Enchantment> enchantment) {
-    	return enchantment.is(Enchantments.LOYALTY) || super.supportsEnchantment(stack, enchantment);
+    	return isTableEnchantment(enchantment) || super.supportsEnchantment(stack, enchantment);
+    }
+
+    // 1.16 canApplyAtEnchantingTable: the table offers Loyalty and Sharpness
+    @Override
+    public boolean isPrimaryItemFor(ItemStack stack, Holder<Enchantment> enchantment) {
+    	return isTableEnchantment(enchantment) || super.isPrimaryItemFor(stack, enchantment);
+    }
+
+    private static boolean isTableEnchantment(Holder<Enchantment> enchantment) {
+    	return enchantment.is(Enchantments.LOYALTY) || enchantment.is(Enchantments.SHARPNESS);
+    }
+
+    // 1.16: repaired on an anvil with Meteoric Ingots
+    @Override
+    public boolean isValidRepairItem(ItemStack stack, ItemStack repairCandidate) {
+    	return repairCandidate.is(ModItems.METEORIC_INGOT.get());
+    }
+
+    /** 1.16 StandArrowEntity.getBaseDamage: the arrow item's own Sharpness adds to the base damage. */
+    public static double applyArrowItemDamageBonus(ServerLevel level, ItemStack arrowStack, Entity target,
+    		DamageSource damageSource, double baseDamage) {
+    	if (arrowStack.isEmpty()) {
+    		return baseDamage;
+    	}
+    	return EnchantmentHelper.modifyDamage(level, arrowStack, target, damageSource, (float) baseDamage);
     }
 
     public boolean isInfinite(ItemStack arrowStack, ItemStack weapon, LivingEntity shooter) {

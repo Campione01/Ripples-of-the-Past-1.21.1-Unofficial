@@ -66,6 +66,8 @@ public class TheWorldKickAbility extends StandEntityHeavyPunchAbility {
 				boolean hurt = standEntityAttack(stand, targetLiving, dmgSource, dmgAmount);
 
 				if (hurt) {
+					// 1.16 TheWorldKick disableBlocking(1.0F)
+					disableShieldOnHit(targetLiving, hurt, 1.0F);
 					sweepTargetsAroundKick(targetLiving, level, stand, dmgAmount * KICK_SWEEP_DAMAGE_FACTOR);
 
 					Entity knockedBack = targetEntity;
@@ -104,7 +106,8 @@ public class TheWorldKickAbility extends StandEntityHeavyPunchAbility {
 							&& entity != user
 							&& entity.isAlive()
 							&& stand.canAttackEntity(entity))) {
-				standEntityAttack(stand, target, makePunchDamageSource(), sweepDamage);
+				// 1.16 StandEntityPunch sweep targets went through doAttack, no shield wear
+				standEntityAttack(stand, target, makePunchDamageSource(), sweepDamage, false);
 			}
 		}
 	}

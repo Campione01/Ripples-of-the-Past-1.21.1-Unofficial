@@ -10,6 +10,8 @@ import rotp.core.powersystem.Power;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.ability.AbilityUsageGroup;
+import rotp.core.powersystem.ability.EntityActionAbility;
+import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
@@ -43,7 +45,15 @@ public class StandEntityGrabThrowAbility extends StandEntityAbility {
 		return super.isAbilityAvailable(context) && StandUtil.getStandGrabTarget(context) != null;
 	}
 
+	// Rechecked every held tick and on release: a lost grab target ends the hold without a throw.
+	@Override
+	protected ConditionCheck checkHeldSpecificConditions(EntityActionInstance action, Power<?> context) {
+		return StandUtil.getStandGrabTarget(context) != null ? ConditionCheck.POSITIVE : ConditionCheck.NEGATIVE;
+	}
+
 	public static class StandEntityGrabThrow extends EntityActionInstance {
+		// the key went up during BUTTON_CHARGE (server state)
+		private boolean releasedInCharge;
 
 		public StandEntityGrabThrow(EntityActionType ability) {
 			super(ability);
@@ -53,15 +63,40 @@ public class StandEntityGrabThrowAbility extends StandEntityAbility {
 		public void onButtonStopHold() {
 			switch (getPhase()) {
 				case BUTTON_CHARGE -> {
+					// throws when the charge ends; checkNextPhase rechecks then
 					phasesLength.put(ActionPhase.WINDUP, 0F);
+					releasedInCharge = true;
 					syncPhaseChanges();
 				}
 				case WINDUP -> {
-					setPhaseStart(ActionPhase.PERFORM);
+					// 1.16 stopHeldAction(true): a release that fails the recheck throws nothing
+					if (releaseCheckPasses()) {
+						setPhaseStart(ActionPhase.PERFORM);
+					}
+					else {
+						forceStop();
+					}
 					syncPhaseChanges();
 				}
 				default -> {}
 			}
+		}
+
+		// Released during the charge: the key is up, so the per-tick held recheck no longer runs.
+		@Override
+		protected void checkNextPhase() {
+			if (releasedInCharge && phase == ActionPhase.BUTTON_CHARGE && getPhaseTick() >= curPhaseLength
+					&& !shouldHoldPhaseAtEnd() && !releaseCheckPasses()) {
+				forceStop();
+				syncPhaseChanges();
+				return;
+			}
+			super.checkNextPhase();
+		}
+
+		// server side; the client follows the synced phase
+		private boolean releaseCheckPasses() {
+			return !(ability instanceof EntityActionAbility entityAbility) || entityAbility.canFireReleasedHold(this);
 		}
 
 		@Override

@@ -1,13 +1,18 @@
 package rotp.core.mechanics.resolve;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import javax.annotation.Nullable;
 
 import rotp.core.core.JojoMod;
 import rotp.core.JojoModConfig;
+import rotp.core.impl.powers.hamon.ModHamonSkills;
 import rotp.core.init.ModDamageTypes;
+import rotp.core.init.ModSoundEvents;
 import rotp.core.init.ModStatusEffects;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.powersystem.playerpower.PlayerPower;
@@ -15,6 +20,7 @@ import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.StandUtil;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.entity.StandUserGuard;
+import rotp.core.util.functions.JojoModUtil;
 import rotp.core.util.objects_java.DefaultedValue;
 import rotp.core.util.objects_java.Lerp;
 import rotp.core.util.objects_java.OptionalFloat;
@@ -22,12 +28,16 @@ import com.google.common.collect.BoundType;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.SortedMultiset;
 import com.google.common.collect.TreeMultiset;
+import com.mojang.authlib.GameProfile;
 
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.FloatTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.util.Mth;
@@ -39,9 +49,14 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.entity.player.ChatVisiblity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.scores.PlayerTeam;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.common.CommonHooks;
+import net.neoforged.neoforge.common.damagesource.DamageContainer;
 import net.neoforged.neoforge.event.ServerChatEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
@@ -679,10 +694,19 @@ public class ResolveCounter {
 	public static void onAttack(LivingIncomingDamageEvent event) {
 		LivingEntity target = event.getEntity();
 		DamageSource dmgSource = event.getSource();
-		// 1.16 resolveOnHurtEvent ran at HIGHEST, before a guarding Stand cut the hit on its user
-		float dmgAmount = event.getAmount() + StandUserGuard.guardCut(event);
-		
 		if (target.is(dmgSource.getEntity()) || !target.isAlive()) return;
+		/*
+		 * 1.16 resolveOnHurtEvent (LivingHurtEvent, HIGHEST) counted only a hit that landed: past a shield, and in the
+		 * hurt cooldown only its excess over lastHurt. actuallyHurt sets the ARMOR reduction at that point, and
+		 * getNewDamage() there is that amount. The guard's cut is added back, as 1.16 counted before it.
+		 */
+		event.addReductionModifier(DamageContainer.Reduction.ARMOR, (container, reduction) -> {
+			countHit(target, dmgSource, container.getNewDamage() + StandUserGuard.guardCut(container));
+			return reduction;
+		});
+	}
+
+	private static void countHit(LivingEntity target, DamageSource dmgSource, float dmgAmount) {
 		float points = dmgAmount;
 //		float points = Math.min(dmgAmount, target.getHealth());
 
@@ -828,11 +852,141 @@ public class ResolveCounter {
     
 	@SubscribeEvent(priority = EventPriority.LOW)
 	public static void onChatMessage(ServerChatEvent event) {
-		LivingEntity entity = event.getPlayer();
+		ServerPlayer entity = event.getPlayer();
+		// 1.16 GameplayEventHandler.messageAsStand: a remote-controlled Stand speaks instead of its user
+		boolean asStand = messageAsStand(event);
+		if (asStand) {
+			event.setCanceled(true);
+		}
+		// 1.16 GameplayEventHandler.onChatMessage: a nearby Joseph-technique user may call the line out first
+		for (ServerPlayer joseph : josephNextLineListeners(entity, asStand)) {
+			if (joseph.getRandom().nextFloat() < JOSEPH_NEXT_LINE_CHANCE) {
+				sayJosephNextLine(joseph, event.getRawText(), joseph.getRandom().nextInt(3) + 1);
+			}
+		}
 		StandPower stand = StandPower.get(entity);
 		if (stand != null) {
 			stand.resolveCounter.onChatMessage(stand, event.getRawText());
 		}
 	}
-	
+
+	public static final float JOSEPH_NEXT_LINE_CHANCE = 0.05F;
+	public static final double JOSEPH_NEXT_LINE_RANGE = 8.0D;
+
+	public static List<ServerPlayer> josephNextLineListeners(ServerPlayer sender) {
+		return josephNextLineListeners(sender, false);
+	}
+
+	// other players within 8 blocks with the Joseph technique and chat not hidden;
+	// a line spoken by a Stand only reaches those who can hear Stands
+	public static List<ServerPlayer> josephNextLineListeners(ServerPlayer sender, boolean asStand) {
+		AABB area = AABB.ofSize(sender.getBoundingBox().getCenter(),
+				JOSEPH_NEXT_LINE_RANGE * 2, JOSEPH_NEXT_LINE_RANGE * 2, JOSEPH_NEXT_LINE_RANGE * 2);
+		return sender.level().getEntitiesOfClass(ServerPlayer.class, area, player -> player != sender
+				&& player.getChatVisibility() != ChatVisiblity.HIDDEN
+				&& (!asStand || StandUtil.entityCanHearStands(player))
+				&& PlayerPower.getPowerData(player, ModPlayerPowers.HAMON)
+						.map(hamon -> hamon.characterIs(ModHamonSkills.CHARACTER_JOSEPH.get())).orElse(false));
+	}
+
+	// broadcasts "<joseph> Your next line is "..."" with the giggle; null if a chat listener cancelled it
+	@Nullable
+	public static Component sayJosephNextLine(ServerPlayer joseph, String rawText, int variant) {
+		return sayJosephNextLine(joseph, rawText, variant, joseph.server.getPlayerList().getPlayers());
+	}
+
+	@Nullable
+	public static Component sayJosephNextLine(ServerPlayer joseph, String rawText, int variant, Iterable<ServerPlayer> candidates) {
+		Component line = Component.translatable("jojo.chat.joseph.next_line." + variant, rawText);
+		// 1.16 ran the line through ForgeHooks.onServerChatEvent as the Joseph's own chat
+		Component filtered = CommonHooks.onServerChatSubmittedEvent(joseph, line.getString(), line);
+		if (filtered == null) {
+			return null;
+		}
+		Component message = Component.translatable("chat.type.text", joseph.getDisplayName(), filtered);
+		JojoModUtil.sayVoiceLine(joseph, ModSoundEvents.JOSEPH_GIGGLE);
+		// 1.16 sent it as CHAT: logged once, then only players with full chat get it ("Commands Only" does not)
+		joseph.server.sendSystemMessage(message);
+		for (ServerPlayer receiver : candidates) {
+			if (receiver.getChatVisibility() == ChatVisiblity.FULL) {
+				receiver.sendSystemMessage(message);
+			}
+		}
+		return message;
+	}
+
+	public static final double STAND_CHAT_RANGE = 16.0D;
+	public static final int STAND_CHAT_SPAM_LIMIT = 200;
+	private static final Map<UUID, long[]> STAND_CHAT_SPAM = new ConcurrentHashMap<>();
+
+	// 1.16 messageAsStand: false unless the sender is remote-controlling a summoned Stand
+	public static boolean messageAsStand(ServerChatEvent event) {
+		ServerPlayer sender = event.getPlayer();
+		StandPower power = StandPower.get(sender);
+		StandEntity stand = power != null ? power.getSummonedStandEntity() : null;
+		if (stand == null || !stand.isManuallyControlled()) {
+			return false;
+		}
+		MinecraftServer server = sender.server;
+		sendStandChat(sender, stand, event.getMessage(), server.getPlayerList().getPlayers());
+		// the cancelled chat skips vanilla's spam counter (1.16 PlayerUtilCap.onChatMsgBypassingSpamCheck)
+		GameProfile profile = sender.getGameProfile();
+		if (addStandChatSpamTicks(sender) > STAND_CHAT_SPAM_LIMIT
+				&& !server.getPlayerList().isOp(profile) && !server.isSingleplayerOwner(profile)) {
+			sender.connection.disconnect(Component.translatable("disconnect.spam"));
+		}
+		return true;
+	}
+
+	// "<Stand> text" to the listeners; the server log keeps the real sender
+	public static void sendStandChat(ServerPlayer sender, StandEntity stand, Component text, Iterable<ServerPlayer> candidates) {
+		Component line = Component.translatable("chat.type.text", stand.getDisplayName(), text);
+		Component revealLine = Component.translatable("chat.type.text", standNameWithUser(stand, sender), text);
+		sender.server.sendSystemMessage(Component.translatable("chat.type.text", sender.getDisplayName(), text));
+		for (ServerPlayer player : standChatListeners(sender, stand, candidates)) {
+			// ops (level 3+) see who the Stand's user is
+			player.sendSystemMessage(player.hasPermissions(3) ? revealLine : line);
+		}
+	}
+
+	// the sender, then same-dimension players within 16 blocks of the Stand who can hear Stands
+	// (anyone there if the Stand is visible to all); chat set to hide player messages gets nothing, as with CHAT in 1.16
+	public static List<ServerPlayer> standChatListeners(ServerPlayer sender, StandEntity stand, Iterable<ServerPlayer> candidates) {
+		List<ServerPlayer> listeners = new ArrayList<>();
+		if (sender.getChatVisibility() == ChatVisiblity.FULL) {
+			listeners.add(sender);
+		}
+		for (ServerPlayer player : candidates) {
+			if (player != sender && player.getChatVisibility() == ChatVisiblity.FULL
+					&& player.level().dimension() == sender.level().dimension()
+					&& player.position().distanceToSqr(stand.position()) < STAND_CHAT_RANGE * STAND_CHAT_RANGE
+					&& (StandUtil.entityCanHearStands(player) || stand.isVisibleForAll())) {
+				listeners.add(player);
+			}
+		}
+		return listeners;
+	}
+
+	// the Stand's team-formatted name; hovering shows "<Stand> (Stand User: <user>)", shift-click inserts the user's name
+	public static Component standNameWithUser(StandEntity stand, ServerPlayer user) {
+		return PlayerTeam.formatNameForTeam(stand.getTeam(), stand.getName()).withStyle(style -> style
+				.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_ENTITY,
+						new HoverEvent.EntityTooltipInfo(stand.getType(), stand.getUUID(),
+								Component.translatable("chat.stand_remote_reveal_name", stand.getName(), user.getName()))))
+				.withInsertion(user.getGameProfile().getName()));
+	}
+
+	// adds 20 spam ticks that decay by 1 per server tick, like vanilla's chat spam counter; returns the new count
+	public static int addStandChatSpamTicks(ServerPlayer sender) {
+		long now = sender.server.getTickCount();
+		long[] entry = STAND_CHAT_SPAM.computeIfAbsent(sender.getUUID(), id -> new long[] { 0L, now });
+		synchronized (entry) {
+			// a lower tick count means another server run: start over
+			long elapsed = now >= entry[1] ? now - entry[1] : Long.MAX_VALUE;
+			entry[0] = Math.max(0L, entry[0] - elapsed) + 20L;
+			entry[1] = now;
+			return (int) entry[0];
+		}
+	}
+
 }

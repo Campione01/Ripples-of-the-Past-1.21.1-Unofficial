@@ -31,8 +31,15 @@ public class AnimationLoader extends SimplePreparableReloadListener<Map<Resource
 	private static AnimationLoader instance;
 	private static final Map<ResourceLocation, ResourceLocation> ANIMATION_SET_ALIASES = Map.ofEntries(
 			Map.entry(JojoMod.resLoc("pillarman"), JojoMod.resLoc("pillar_man")),
-			Map.entry(JojoMod.resLoc("vampirism"), JojoMod.resLoc("vampire")));
-	
+			Map.entry(JojoMod.resLoc("vampirism"), JojoMod.resLoc("vampire")),
+			// 1.16 zombie claw swipe reused the vampire clip
+			Map.entry(JojoMod.resLoc("zombie"), JojoMod.resLoc("vampire")));
+
+	/** Animation file an action anim set id reads from (the id itself when not aliased). */
+	public static ResourceLocation animSetAlias(ResourceLocation geckoAnimFilePath) {
+		return ANIMATION_SET_ALIASES.getOrDefault(geckoAnimFilePath, geckoAnimFilePath);
+	}
+
 	@ApiStatus.Internal
 	public static void init(/*AddClientReloadListenersEvent*/RegisterClientReloadListenersEvent event) {
 		if (instance == null) {
@@ -56,7 +63,7 @@ public class AnimationLoader extends SimplePreparableReloadListener<Map<Resource
 		if (direct != null) {
 			return direct;
 		}
-		ResourceLocation aliasedPath = ANIMATION_SET_ALIASES.getOrDefault(geckoAnimFilePath, geckoAnimFilePath);
+		ResourceLocation aliasedPath = animSetAlias(geckoAnimFilePath);
 		return aliasedPath.equals(geckoAnimFilePath) ? null : anims.get(aliasedPath);
 	}
 	

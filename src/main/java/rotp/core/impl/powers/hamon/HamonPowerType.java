@@ -330,6 +330,12 @@ public class HamonPowerType extends PlayerPowerType<HamonData> {
 		return new HamonData();
 	}
 
+	// 1.16 HamonPowerType.keepOnDeath
+	@Override
+	public boolean keepOnDeath(PlayerPower power) {
+		return rotp.core.JojoModConfig.getCommonConfigInstance(false).keepHamonOnDeath.get();
+	}
+
 	@Override
 	public boolean isLeapUnlocked(PlayerPower power) {
 		return power != null && power.getCurTypeData(HAMON)
@@ -383,6 +389,12 @@ public class HamonPowerType extends PlayerPowerType<HamonData> {
 		return power.getCurTypeData(HAMON)
 				.map(hamon -> 1.0F + hamon.getBreathingLevel() * 0.01F)
 				.orElse(1.0F);
+	}
+
+	// 1.16 HamonPowerType.getTargetResolveMultiplier: hitting a Hamon user gives double Resolve.
+	@Override
+	public float getTargetResolveMultiplier(PlayerPower power, StandPower attackingStand) {
+		return 2.0F;
 	}
 
 	// 1.16 HamonPowerType.isReplaceableWith: Vampirism (the Stone Mask) may replace Hamon, nothing else.

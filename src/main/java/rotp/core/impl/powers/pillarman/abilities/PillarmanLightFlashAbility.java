@@ -1,5 +1,6 @@
 package rotp.core.impl.powers.pillarman.abilities;
 
+import rotp.core.client.particle.CustomParticlesHelper;
 import rotp.core.init.ModParticles;
 import rotp.core.init.ModSoundEvents;
 import rotp.core.init.ModStatusEffects;
@@ -12,7 +13,6 @@ import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.impl.powers.pillarman.PillarmanMode;
 
-import net.minecraft.client.Minecraft;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
@@ -39,11 +39,8 @@ public class PillarmanLightFlashAbility extends PillarmanActionAbility {
 		if (!user.level().isClientSide()) {
 			return;
 		}
-		int maxEmitterTicks = 19;
-		for (int i = maxEmitterTicks; i >= 0; i--) {
-			Minecraft.getInstance().particleEngine.createTrackingEmitter(
-					user, particle, Math.max(1, maxEmitterTicks - i));
-		}
+		// 1.16 PillarmanLightFlash: Hamon emitter at intensity 2 (19 emitters), silent
+		CustomParticlesHelper.createHamonSparkParticlesEmitter(user, 2.0F, 0.0F, particle);
 	}
 
 	public static class LightFlashInstance extends EntityActionInstance {

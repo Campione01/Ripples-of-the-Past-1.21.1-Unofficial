@@ -2,6 +2,7 @@ package rotp.core.gametest;
 
 import rotp.core.core.JojoMod;
 import rotp.core.customobjects.DamageSourceModified;
+import rotp.core.init.ModDamageTypes;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.mechanics.KnockbackCollisionImpact;
 import rotp.core.subsystems.timestop.TimeStopState;
@@ -307,6 +308,42 @@ public final class TimeStopKnockbackGameTests {
 			flying.discard();
 			idle.discard();
 			if (loaded != null) loaded.discard();
+			if (attacker != null) attacker.discard();
+		}
+		helper.succeed();
+	}
+
+	/**
+	 * 1.16 KnockbackCollisionImpact: an S.Y.O. punch's impact dealt its Hamon damage with no attacker too
+	 * (the attacker is not saved), from the flying entity.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void reloadedHamonImpactStillDealsHamonDamage(GameTestHelper helper) {
+		Cow flying = spawnOnFloor(helper, 1);
+		Cow hit = spawnOnFloor(helper, 2);
+		Mob attacker = EntityType.ZOMBIE.create(helper.getLevel());
+		try {
+			Vec3 motion = new Vec3(0.4, 0, 0);
+			HurtRefused armed = new HurtRefused(flying);
+			armed.onPunchSetKnockbackImpact(motion, attacker).hamonDamage(10, 0, null);
+			CompoundTag saved = armed.serializeNBT(helper.getLevel().registryAccess());
+			armed.reset();
+			// the flew-into hurt is refused, so only the Hamon part can hurt
+			HurtRefused impact = new HurtRefused(flying);
+			impact.deserializeNBT(helper.getLevel().registryAccess(), saved);
+			helper.assertTrue(impact.isActive() && impact.syoPunchBaseDamage == 10,
+					"The Hamon impact did not come back from NBT");
+			float health = hit.getHealth();
+			impact.collideWith(hit, motion);
+			DamageSource source = hit.getLastDamageSource();
+			helper.assertTrue(hit.getHealth() < health && source != null && source.is(ModDamageTypes.HAMON),
+					"A reloaded Hamon impact dealt no Hamon damage: " + (health - hit.getHealth()) + ", " + source);
+			helper.assertTrue(source.getDirectEntity() == flying && source.getEntity() == flying,
+					"The Hamon damage did not come from the flying entity: " + source.getDirectEntity() + ", " + source.getEntity());
+		}
+		finally {
+			flying.discard();
+			hit.discard();
 			if (attacker != null) attacker.discard();
 		}
 		helper.succeed();

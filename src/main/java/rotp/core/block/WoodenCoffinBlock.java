@@ -65,6 +65,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import net.neoforged.neoforge.event.entity.player.CanContinueSleepingEvent;
 import net.neoforged.neoforge.event.entity.player.CanPlayerSleepEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
@@ -235,6 +236,14 @@ public class WoodenCoffinBlock extends HorizontalDirectionalBlock {
 		return pos.map(blockPos -> level.getBlockState(blockPos).getBlock() instanceof WoodenCoffinBlock).orElse(false);
 	}
 
+	// 1.16 onLivingHurtStart: the sleeping spot is a coffin with its lid closed
+	public static boolean isSleepingInClosedCoffin(LivingEntity entity) {
+		return entity.getSleepingPos().map(blockPos -> {
+			BlockState state = entity.level().getBlockState(blockPos);
+			return state.getBlock() instanceof WoodenCoffinBlock && state.getValue(CLOSED);
+		}).orElse(false);
+	}
+
 	private static boolean isEntityVampire(LivingEntity entity) {
 		return PlayerPower.getPowerData(entity, ModPlayerPowers.VAMPIRISM).isPresent();
 	}
@@ -374,6 +383,14 @@ public class WoodenCoffinBlock extends HorizontalDirectionalBlock {
 			}
 			ServerLevel spawnLevel = player.getServer().getLevel(event.getSpawnLevel());
 			if (spawnLevel != null && isBlockCoffin(spawnLevel, Optional.of(spawnPos))) {
+				event.setCanceled(true);
+			}
+		}
+
+		// 1.16 onLivingHurtStart: a sleeper in a closed coffin takes no damage from any source, /kill and the void included
+		@SubscribeEvent(priority = EventPriority.HIGHEST)
+		public static void protectClosedCoffinSleeper(LivingIncomingDamageEvent event) {
+			if (isSleepingInClosedCoffin(event.getEntity())) {
 				event.setCanceled(true);
 			}
 		}

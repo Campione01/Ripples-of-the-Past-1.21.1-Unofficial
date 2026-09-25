@@ -5,6 +5,7 @@ import rotp.core.core.JojoMod;
 import rotp.core.mrpresident.client.CocoJumboClientDiscovery;
 import rotp.core.subsystems.entity_puppetcontrol.client.ClientEntityController;
 import rotp.core.impl.powers.hamon.client.HamonTrainingHudFeedback;
+import rotp.core.impl.stands.goldexperience.client.GoldExperienceLifeDetectorClient;
 
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
@@ -37,6 +38,7 @@ public class AdditionalHud {
 			}
 
 			CocoJumboClientDiscovery.renderCarriedSlot(guiGraphics, deltaTracker);
+			GoldExperienceLifeDetectorClient.renderHud(guiGraphics);
 
 			float partialTick = ClientUtil.partialTick(deltaTracker, true);
 			BottomLeftNotifications.render(guiGraphics, partialTick);

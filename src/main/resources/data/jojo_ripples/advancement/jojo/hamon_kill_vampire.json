@@ -2,7 +2,7 @@
   "parent": "jojo_ripples:jojo/get_hamon",
   "display": {
     "icon": {
-      "item": "minecraft:iron_sword"
+      "id": "minecraft:iron_sword"
     },
     "title": {
       "translate": "advancements.jojo.hamon_kill_vampire.title"

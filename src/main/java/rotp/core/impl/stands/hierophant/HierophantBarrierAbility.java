@@ -17,11 +17,13 @@ import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTargetAim;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
 import rotp.core.subsystems.target.HitResultUtil;
+import rotp.core.util.functions.AttributeUtil;
 
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 
@@ -46,21 +48,33 @@ public class HierophantBarrierAbility extends NoPoseStandEntityAbility {
 		}
 	}
 
-	private static ActionTarget getCurrentBlockTarget(LivingEntity powerUser, LivingEntity performer, Level level) {
+	// 1.16: the crosshair block, valid within 10 blocks of the performer (the summoned Stand)
+	public static ActionTarget getCurrentBlockTarget(LivingEntity powerUser, LivingEntity performer, Level level) {
+		LivingEntity rangeFrom = rangeOrigin(powerUser, performer);
 		ActionTarget target = getAimTarget(powerUser, level);
-		if (isValidBlockTarget(powerUser, target, level)) {
+		if (isValidBlockTarget(rangeFrom, target, level)) {
 			return target;
 		}
 		target = getAimTarget(performer, level);
-		if (isValidBlockTarget(performer, target, level)) {
+		if (isValidBlockTarget(rangeFrom, target, level)) {
 			return target;
 		}
-		target = raytraceBlockTarget(performer, level);
-		if (isValidBlockTarget(performer, target, level)) {
-			return target;
-		}
-		target = raytraceBlockTarget(powerUser, level);
-		return isValidBlockTarget(powerUser, target, level) ? target : ActionTarget.EMPTY;
+		// server-side crosshair: the camera entity's look, capped at the user's reach
+		target = raytraceBlockTarget(cameraEntity(powerUser, performer), userReach(powerUser), level);
+		return isValidBlockTarget(rangeFrom, target, level) ? target : ActionTarget.EMPTY;
+	}
+
+	private static LivingEntity rangeOrigin(LivingEntity powerUser, LivingEntity performer) {
+		return performer != null ? performer : powerUser;
+	}
+
+	// the Stand is the camera only while manually controlled
+	private static LivingEntity cameraEntity(LivingEntity powerUser, LivingEntity performer) {
+		return performer instanceof StandEntity stand && stand.isManuallyControlled() ? performer : powerUser;
+	}
+
+	private static double userReach(LivingEntity powerUser) {
+		return AttributeUtil.getValueOrDefault(powerUser, Attributes.BLOCK_INTERACTION_RANGE);
 	}
 
 	private static ActionTarget getAimTarget(LivingEntity entity, Level level) {
@@ -71,12 +85,12 @@ public class HierophantBarrierAbility extends NoPoseStandEntityAbility {
 		return aim != null ? aim.getTarget().resolveEntityId(level) : ActionTarget.EMPTY;
 	}
 
-	private static ActionTarget raytraceBlockTarget(LivingEntity entity, Level level) {
+	private static ActionTarget raytraceBlockTarget(LivingEntity entity, double range, Level level) {
 		if (entity == null) {
 			return ActionTarget.EMPTY;
 		}
 		ActionTarget target = HitResultUtil.clip(entity.getEyePosition(), entity.getLookAngle(),
-				BLOCK_TARGET_RANGE, BLOCK_TARGET_RANGE, level, HierophantBarrierAbility::ignoreEntityTarget, entity, 0);
+				range, range, level, HierophantBarrierAbility::ignoreEntityTarget, entity, 0);
 		return target.getType() == TargetType.BLOCK ? target : ActionTarget.EMPTY;
 	}
 
@@ -102,7 +116,8 @@ public class HierophantBarrierAbility extends NoPoseStandEntityAbility {
 			Level level = user != null ? user.level() : null;
 			LivingEntity performer = standPower.getSummonedStandEntity();
 			if (level != null) {
-				if (hasOutOfRangeBlockTarget(user, level) || hasOutOfRangeBlockTarget(performer, level)) {
+				LivingEntity rangeFrom = rangeOrigin(user, performer);
+				if (hasOutOfRangeBlockTarget(user, rangeFrom, level) || hasOutOfRangeBlockTarget(performer, rangeFrom, level)) {
 					return ConditionCheck.createNegative("target_too_far");
 				}
 				ActionTarget target = getCurrentBlockTarget(user, performer, level);
@@ -117,11 +132,11 @@ public class HierophantBarrierAbility extends NoPoseStandEntityAbility {
 		return ConditionCheck.POSITIVE;
 	}
 
-	private static boolean hasOutOfRangeBlockTarget(LivingEntity entity, Level level) {
-		ActionTarget target = getAimTarget(entity, level);
+	private static boolean hasOutOfRangeBlockTarget(LivingEntity aiming, LivingEntity rangeFrom, Level level) {
+		ActionTarget target = getAimTarget(aiming, level);
 		return target.getType() == TargetType.BLOCK
 				&& !target.isEmpty(level)
-				&& !isValidBlockTarget(entity, target, level);
+				&& !isValidBlockTarget(rangeFrom, target, level);
 	}
 
 	@Override

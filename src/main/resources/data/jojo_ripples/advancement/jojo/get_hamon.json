@@ -2,7 +2,7 @@
   "parent": "jojo_ripples:jojo/root",
   "display": {
     "icon": {
-      "item": "jojo_ripples:meteoric_scrap"
+      "id": "jojo_ripples:breath_control_mask"
     },
     "title": {
       "translate": "advancements.jojo.get_hamon.title"

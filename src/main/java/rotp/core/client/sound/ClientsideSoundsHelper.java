@@ -1,6 +1,9 @@
 package rotp.core.client.sound;
 
 import java.util.Optional;
+import java.util.function.DoubleSupplier;
+
+import javax.annotation.Nullable;
 
 import rotp.core.JojoModLivingVariables;
 import rotp.core.api.client.time.ClientRegionalTimeDilationPolicies;
@@ -76,9 +79,21 @@ public class ClientsideSoundsHelper {
 
 	public static void playLoopingActionSound(SoundEvent soundEvent, LivingEntity entity, EntityActionInstance action,
 			ActionPhase phase, float volume, float pitch, int fadeOutTicks) {
+		playLoopingActionSound(soundEvent, entity, action, phase, volume, pitch, fadeOutTicks, null);
+	}
+
+	// volumeFactor (0..1, read each tick) scales the volume while the action runs
+	public static void playLoopingActionSound(SoundEvent soundEvent, LivingEntity entity, EntityActionInstance action,
+			ActionPhase phase, float volume, float pitch, int fadeOutTicks, @Nullable DoubleSupplier volumeFactor) {
+		playLoopingActionSound(soundEvent, entity, action, phase, volume, pitch, fadeOutTicks, 0.0F, volumeFactor);
+	}
+
+	// fadeOutStep above 0: after the action the volume drops by that step per tick until silent (1.16 HamonEnergySound)
+	public static void playLoopingActionSound(SoundEvent soundEvent, LivingEntity entity, EntityActionInstance action,
+			ActionPhase phase, float volume, float pitch, int fadeOutTicks, float fadeOutStep, @Nullable DoubleSupplier volumeFactor) {
 		playNonVanillaClassSound(new EntityStoppableSoundInstance(soundEvent, entity.getSoundSource(), volume, pitch,
 				true, entity, entity.level().random.nextLong(),
-				() -> action.isOver() || action.getPhase() != phase, fadeOutTicks));
+				() -> action.isOver() || action.getPhase() != phase, fadeOutTicks, fadeOutStep, volumeFactor));
 	}
 
 

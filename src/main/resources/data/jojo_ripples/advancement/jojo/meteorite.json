@@ -1,8 +1,8 @@
 {
-  "parent": "jojo_ripples:jojo/root",
+  "parent": "jojo_ripples:jojo/buy_map",
   "display": {
     "icon": {
-      "item": "jojo_ripples:meteoric_scrap"
+      "id": "jojo_ripples:meteorite_core"
     },
     "title": {
       "translate": "advancements.jojo.meteorite.title"
@@ -16,16 +16,22 @@
     "hidden": false
   },
   "criteria": {
-    "obtain_meteoric_scrap": {
-      "trigger": "minecraft:inventory_changed",
+    "at_meteorite": {
+      "trigger": "minecraft:location",
       "conditions": {
-        "items": [
+        "player": [
           {
-            "items": "jojo_ripples:meteoric_scrap"
+            "condition": "minecraft:entity_properties",
+            "entity": "this",
+            "predicate": {
+              "location": {
+                "structures": "jojo_ripples:meteorite"
+              }
+            }
           }
         ]
       }
     }
   },
-  "requirements": [["obtain_meteoric_scrap"]]
+  "requirements": [["at_meteorite"]]
 }

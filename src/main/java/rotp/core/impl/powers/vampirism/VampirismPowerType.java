@@ -161,6 +161,16 @@ public class VampirismPowerType extends PlayerPowerType<VampirismData> {
 		return user != null ? Math.max((bloodLevel(user) - 4) * multiplier, 1) : 1.0F;
 	}
 
+	// 1.16 VampirismPowerType.getTargetResolveMultiplier: 2^(difficulty - 1), at least 1.
+	@Override
+	public float getTargetResolveMultiplier(PlayerPower power, StandPower attackingStand) {
+		LivingEntity user = power != null ? power.getUser() : null;
+		if (user != null) {
+			return (float) Math.pow(2, Math.max(user.level().getDifficulty().getId() - 1, 0));
+		}
+		return 1.0F;
+	}
+
 	private static void combat(Ability ability) {
 		ability.usageGroup = AbilityUsageGroup.COMBAT;
 	}

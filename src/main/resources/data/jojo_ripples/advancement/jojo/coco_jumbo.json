@@ -1,7 +1,7 @@
 {
   "parent": "jojo_ripples:jojo/stand_arrow",
   "display": {
-    "icon": { "item": "jojo_ripples:meteoric_scrap" },
+    "icon": { "id": "jojo_ripples:meteoric_scrap", "components": { "minecraft:custom_model_data": 22 } },
     "title": { "translate": "advancements.jojo.coco_jumbo.title" },
     "description": { "translate": "advancements.jojo.coco_jumbo.description" },
     "frame": "task",

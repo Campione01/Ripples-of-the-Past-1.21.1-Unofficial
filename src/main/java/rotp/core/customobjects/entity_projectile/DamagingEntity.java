@@ -415,7 +415,8 @@ public abstract class DamagingEntity extends Projectile implements IEntityWithCo
 
 	@Override
 	public boolean isInvulnerableTo(DamageSource source) {
-		if (standDamage() && !DamageUtil.canHurtStands(source)) {
+		// 1.16: only Stand damage; integrated_stand does not reach Stand projectiles
+		if (standDamage() && !DamageUtil.canHurtStandProjectiles(source)) {
 			return true;
 		}
 		return super.isInvulnerableTo(source);

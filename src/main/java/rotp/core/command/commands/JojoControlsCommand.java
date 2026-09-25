@@ -11,7 +11,9 @@ import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
+import rotp.core.entityattachment.PlayerOneTimeNotifications;
 
 public class JojoControlsCommand {
     public static final String LITERAL = "jojocontrols";
@@ -40,6 +42,21 @@ public class JojoControlsCommand {
                 .then(Commands.argument("page", IntegerArgumentType.integer(1, Integer.MAX_VALUE))
                         .executes(ctx -> writePage(IntegerArgumentType.getInteger(ctx, "page"), ctx))));
         JojoCommandsCommand.addCommand(LITERAL);
+    }
+
+    // 1.16 PowerBaseImpl.onNewPowerGiven: one-time tip linking to this command
+    public static boolean sendPowerControlsHint(ServerPlayer player) {
+        return PlayerOneTimeNotifications.send(player, PlayerOneTimeNotifications.POWER_CONTROLS, powerControlsHint());
+    }
+
+    public static MutableComponent powerControlsHint() {
+        String command = "/" + LITERAL;
+        return Component.translatable("jojo.chat.controls.message",
+                Component.literal(command).withStyle(style -> style
+                        .withColor(ChatFormatting.GREEN)
+                        .withClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, command))
+                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+                                Component.translatable("jojo.chat.controls.tooltip")))));
     }
 
     private static Component keybind(String key) {

@@ -4,7 +4,11 @@ import javax.annotation.Nullable;
 
 import rotp.core.customobjects.entity_projectile.ModdedProjectileEntity;
 import rotp.core.init.ModEntityTypes;
+import rotp.core.init.ModStatusEffects;
+import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
+import rotp.core.powersystem.playerpower.PlayerPower;
+import rotp.core.impl.powers.hamon.ModHamonSkills;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
 import rotp.core.impl.powers.hamon.abilities.HamonAbilityHelpers;
 import rotp.core.impl.powers.hamon.abilities.HamonBubbleBarrierAbility;
@@ -12,6 +16,7 @@ import rotp.core.impl.powers.hamon.abilities.HamonBubbleBarrierAbility;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
@@ -29,6 +34,16 @@ public class HamonBubbleBarrierEntity extends ModdedProjectileEntity {
 
 	public HamonBubbleBarrierEntity(Level level, LivingEntity shooter) {
 		super(ModEntityTypes.HAMON_BUBBLE_BARRIER.get(), shooter, level);
+		// 1.16: the trap lasts 100 ticks times the user's Bubble Barrier efficiency.
+		if (shooter != null) {
+			barrierMaxTicks = (int) (100F * PlayerPower.getPowerData(shooter, ModPlayerPowers.HAMON)
+					.map(hamon -> hamon.getActionEfficiency(0, true, ModHamonSkills.BUBBLE_BARRIER.get(), shooter))
+					.orElse(1F));
+		}
+	}
+
+	public int getBarrierMaxTicks() {
+		return barrierMaxTicks;
 	}
 
 	public HamonBubbleBarrierEntity(EntityType<? extends HamonBubbleBarrierEntity> type, Level level) {
@@ -54,10 +69,28 @@ public class HamonBubbleBarrierEntity extends ModdedProjectileEntity {
 			if (charging && !isHeldByOwnerCharge()) {
 				discard();
 			}
-			else if (barrier && barrierTicks++ >= barrierMaxTicks) {
+			// 1.16: the barrier pops on timeout or once its captive is out.
+			else if (barrier && (barrierTicks++ >= barrierMaxTicks || !isVehicle())) {
 				discard();
 			}
+			// 1.16: the captive takes a trickle of Hamon damage on 3 of every 5 ticks.
+			else if (barrier && tickCount % 5 % 2 == 0 && getFirstPassenger() instanceof LivingEntity captive) {
+				HamonAbilityHelpers.hamonHurt(captive, 0.002F, this, getOwner());
+			}
 		}
+	}
+
+	// 1.16 onRemovedFromWorld: removing the barrier frees its captive from the stun (before passengers are ejected).
+	@Override
+	public void remove(RemovalReason reason) {
+		if (!level().isClientSide()) {
+			for (Entity passenger : getPassengers()) {
+				if (passenger instanceof LivingEntity living) {
+					living.removeEffect(ModStatusEffects.STUN);
+				}
+			}
+		}
+		super.remove(reason);
 	}
 
 	private boolean isHeldByOwnerCharge() {
@@ -70,8 +103,8 @@ public class HamonBubbleBarrierEntity extends ModdedProjectileEntity {
 	@Override
 	protected boolean hurtTarget(Entity target, @Nullable LivingEntity owner) {
 		if (target instanceof LivingEntity living && owner != null) {
-			HamonAbilityHelpers.hamonHurt(living, owner, 0.1F);
-			return true;
+			// 1.16: no trap, stun or training unless the Hamon damage lands
+			return HamonAbilityHelpers.hamonHurt(living, owner, 0.1F);
 		}
 		return false;
 	}
@@ -80,10 +113,13 @@ public class HamonBubbleBarrierEntity extends ModdedProjectileEntity {
 	protected void afterEntityHit(EntityHitResult entityRayTraceResult, boolean entityHurt) {
 		if (entityHurt) {
 			Entity target = entityRayTraceResult.getEntity();
-			if (target instanceof LivingEntity && target.startRiding(this)) {
+			if (target instanceof LivingEntity living && target.startRiding(this)) {
 				barrier = true;
+				// 1.16: the captive is stunned for the whole trap.
+				living.addEffect(new MobEffectInstance(ModStatusEffects.STUN, barrierMaxTicks));
 				setDeltaMovement(new Vec3(0.0D, 0.05D, 0.0D));
 			}
+			HamonBubbleEntity.giveStrengthPointsForHit(getOwner());
 		}
 	}
 
@@ -107,7 +143,8 @@ public class HamonBubbleBarrierEntity extends ModdedProjectileEntity {
 
 	@Override
 	public int ticksLifespan() {
-		return barrier ? barrierMaxTicks : 100 + barrierMaxTicks;
+		// 1.16: a trapping barrier ends at tick 100 at the latest; barrierTicks caps the trap itself.
+		return barrier ? 100 : 100 + barrierMaxTicks;
 	}
 
 	@Override

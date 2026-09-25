@@ -187,21 +187,31 @@ public class CrazyDAnchorBlockAbility extends NoPoseStandEntityAbility {
 		                	ItemStack heldItem = anchor.item;
 		                	
 		                	BlockState blockStateToPlace = null;
+		                	int itemsToUse = 1;
+		                	boolean storedStateUsed = false;
 		                	if (heldItem.getItem() instanceof BlockItem blockItem) {
 		                		blockStateToPlace = blockItem.getBlock().defaultBlockState();
+		                		// state saved on the anchor first (1.16), only with the whole original drop
+		                		CrazyDAnchorBlockState storedState = heldItem.get(ModItemDataComponents.CD_ANCHOR_BLOCK_STATE);
+		                		if (storedState != null && !storedState.state().isAir() && heldItem.getCount() >= storedState.count()) {
+		                			blockStateToPlace = storedState.state();
+		                			itemsToUse = storedState.count();
+		                			storedStateUsed = true;
+		                		}
 		                	}
-		                	var brokenBlocks = BrokenBlocksChunkData.getExistingData(level, blockPos);
+		                	var brokenBlocks = storedStateUsed ? null : BrokenBlocksChunkData.getExistingData(level, blockPos);
 		                	if (brokenBlocks != null) {
 		                		PrevBlockInfo block = brokenBlocks.getBrokenBlockAt(blockPos);
 		                		if (block != null && block.drops.size() == 1 && ItemStack.matches(block.drops.get(0), heldItem)) {
 		                			blockStateToPlace = block.state;
+		                			itemsToUse = heldItem.getCount();
 		                		}
 		                	}
-		                	
+
 		                	boolean willRestore = blockStateToPlace == null || canReplaceBlock(level, blockPos, blockStateToPlace);
 
 		                	if (willRestore) {
-		                		heldItem.shrink(1);
+		                		heldItem.shrink(itemsToUse);
 		                		if (blockStateToPlace != null) {
 			                		if (!level.getBlockState(blockPos).isAir()) {
 			                			level.destroyBlock(blockPos, true);

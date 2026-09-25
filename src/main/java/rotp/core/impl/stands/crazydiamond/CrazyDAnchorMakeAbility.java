@@ -211,9 +211,14 @@ public class CrazyDAnchorMakeAbility extends StandEntityAbility {
 				ItemStack anchorItem = drops.isEmpty() ? ItemStack.EMPTY : drops.get(0);
 				if (!anchorItem.isEmpty()) {
 					addOriginalPos(anchorItem, blockPos, serverLevel);
-					ItemTracker itemTracker = ItemTracking.getItemTracking(level).startTracking(anchorItem, serverLevel);
-					if (itemTracker != null) {
-						itemTracker.context = "cd_anchor_block";
+					// keep the broken state on the anchor, as 1.16 did
+					anchorItem.set(ModItemDataComponents.CD_ANCHOR_BLOCK_STATE, new CrazyDAnchorBlockState(blockState, anchorItem.getCount()));
+					// stacked drops (double slab) stay one untracked anchor stack
+					if (anchorItem.getCount() == 1) {
+						ItemTracker itemTracker = ItemTracking.getItemTracking(level).startTracking(anchorItem, serverLevel);
+						if (itemTracker != null) {
+							itemTracker.context = "cd_anchor_block";
+						}
 					}
 				}
 

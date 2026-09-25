@@ -26,6 +26,9 @@ public final class ModEnchantments {
 
 	public static final TagKey<Item> GLOVES_ENCHANTABLE = TagKey.create(
 			Registries.ITEM, JojoMod.resLoc("enchantable/gloves"));
+	// 1.16 isAllowedOnBooks() == false: never rolled on a plain Book (table, enchant_with_levels)
+	public static final TagKey<Enchantment> NOT_ALLOWED_ON_BOOKS = TagKey.create(
+			Registries.ENCHANTMENT, JojoMod.resLoc("not_allowed_on_books"));
 
 	private ModEnchantments() {}
 

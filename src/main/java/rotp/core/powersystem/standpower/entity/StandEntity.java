@@ -20,6 +20,7 @@ import rotp.core.client.ClientProxy;
 import rotp.core.config.client.PlayerClientBroadcastedSettings;
 import rotp.core.core.JojoMod;
 import rotp.core.customobjects.DamageSourceModified;
+import rotp.core.entityattachment.PlayerOneTimeNotifications;
 import rotp.core.customobjects.EntityStandVisibility;
 import rotp.core.customobjects.EntityWithStandSkin;
 import rotp.core.customobjects.LivingReactToNewAction;
@@ -34,6 +35,7 @@ import rotp.core.init.ModStatusEffects;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.item.KnifeItem;
 import rotp.core.powersystem.ability.Ability;
+import rotp.core.powersystem.ability.AbilityUsageGroup;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.mechanics.resolve.ResolveCounter;
 import rotp.core.mechanics.resolve.ResolveModeEffect;
@@ -87,6 +89,7 @@ import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.core.Holder;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerEntity;
 import net.minecraft.server.level.ServerLevel;
@@ -98,7 +101,9 @@ import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.EntityType;
@@ -686,6 +691,37 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 	public void manualControlInput(Vec3 motionInput) {
 		this._manualControlInput = motionInput;
 	}
+
+	// 1.16 RHCPEntity.moveStandManually: a Stand with gravity walks under manual
+	// control (jump key jumps, sneak slows). Other Stands fly.
+	public boolean walksUnderManualControl() {
+		return false;
+	}
+
+	// Up/down part of manual input: flying Stands rise and sink, walking ones
+	// leave it to jumps and gravity.
+	public double manualControlVerticalInput(boolean jumping, boolean sneaking, double speed) {
+		if (walksUnderManualControl()) {
+			return 0;
+		}
+		double y = jumping ? speed : 0;
+		if (sneaking) {
+			y -= speed;
+		}
+		return y;
+	}
+
+	// 1.16 RHCPEntity: a sneaking walker moves at half speed.
+	public double manualControlHorizontalSpeed(double speed, boolean sneaking) {
+		return sneaking && walksUnderManualControl() ? speed * 0.5 : speed;
+	}
+
+	// A walking Stand jumps through LivingEntity.aiStep while the key is held.
+	public boolean manualControlJump(boolean jumping) {
+		boolean jump = jumping && walksUnderManualControl();
+		setJumping(jump);
+		return jump;
+	}
 	
 	protected void moveStandManualControl() {
 		LivingEntity user = getUser();
@@ -739,6 +775,7 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 				ownerDistanceAfterSuperBeforeClamp = distance;
 				maxMovementRange = range;
 			}
+			warnManualControlBeyondViewDistance(user, distanceToSqr(user));
 			if (distance > range) {
 				Vec3 standPos = bbDistance.posBB1();
 				Vec3 userPos = bbDistance.posBB2();
@@ -797,6 +834,37 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 
 	public double getMaxRangeForMovement(LivingEntity user) {
 		return getMaxRange();
+	}
+
+	// 1.16 StandEntity.move: one-time warning when manual control goes past the server view distance
+	public boolean warnManualControlBeyondViewDistance(LivingEntity user, double distanceSqr) {
+		if (user instanceof ServerPlayer player) {
+			var players = player.server.getPlayerList();
+			return warnManualControlBeyondViewDistance(user, distanceSqr, players.getViewDistance(), players.getSimulationDistance());
+		}
+		return false;
+	}
+
+	// Distances passed in: the gametest server never sets them on its PlayerList (both stay 0)
+	public boolean warnManualControlBeyondViewDistance(LivingEntity user, double distanceSqr, int viewDistance, int simulationDistance) {
+		if (!level().isClientSide() && isManuallyControlled() && distanceSqr > 728 && user instanceof ServerPlayer player) {
+			double dy = getY() - user.getY();
+			if (isBeyondManualControlViewDistance(distanceSqr - dy * dy, viewDistance, simulationDistance)) {
+				return PlayerOneTimeNotifications.send(player, PlayerOneTimeNotifications.HIGH_STAND_RANGE,
+						Component.translatable("jojo.chat.message.view_distance_stand"));
+			}
+		}
+		return false;
+	}
+
+	// 1.21 entities stop ticking past the simulation distance, so the lower limit applies
+	public static boolean isBeyondManualControlViewDistance(double horizontalDistSqr, int viewDistance, int simulationDistance) {
+		return isBeyondManualControlViewDistance(horizontalDistSqr, Math.min(viewDistance, simulationDistance));
+	}
+
+	public static boolean isBeyondManualControlViewDistance(double horizontalDistSqr, int viewDistance) {
+		int warningDistance = viewDistance * 16 - 4;
+		return horizontalDistSqr > warningDistance * warningDistance;
 	}
 
 	protected void moveWithoutCollision(Vec3 moveVec) {
@@ -1408,6 +1476,10 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 	}
 
 	protected double leapBaseStrength() {
+		// 1.16 SilverChariotEntity: the no-rapier damage cut does not weaken the leap
+		if (isSilverChariotStand()) {
+			return getAttributeBaseValue(Attributes.ATTACK_DAMAGE);
+		}
 		return getAttributeValue(Attributes.ATTACK_DAMAGE);
 	}
 
@@ -1458,6 +1530,20 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 			SilverChariotState state = SilverChariotState.get(user);
 			state.resetEquipmentForSummon();
 			applySilverChariotStateFlagsAndAttributes(true, true);
+		}
+		if (!level().isClientSide()) {
+			copySharedEffectsFromUser(user);
+		}
+	}
+
+	// 1.16 onStandSummonServerSide: a Stand summoned mid-stun is stunned too
+	public void copySharedEffectsFromUser(@Nullable LivingEntity user) {
+		if (user == null || user == this) return;
+		for (Holder<MobEffect> shared : ModStatusEffects.SHARED_EFFECTS_FROM_USER) {
+			MobEffectInstance userEffect = user.getEffect(shared);
+			if (userEffect != null) {
+				addEffect(new MobEffectInstance(userEffect));
+			}
 		}
 	}
 
@@ -1841,7 +1927,9 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 	public boolean isPickable() {
 		if (level().isClientSide()) {
 			Player clientPlayer = ClientProxy.getClientPlayer();
-			if (clientPlayer != null && this.is(ClientGlobals.playerStandEntity)) {
+			// 1.16: never the client player's own Stand, nor one this client cannot see
+			if (clientPlayer != null && (clientPlayer.is(getUser()) || this.is(ClientGlobals.playerStandEntity)
+					|| clientCantSeeThisStand())) {
 				return false;
 			}
 		}
@@ -1924,8 +2012,32 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		tryAutoBlock(dmgSource, blockableAngle);
 		boolean isBlocking = isStandBlocking() && blockableAngle;
 		dmgAmount = super.getDamageAfterMagicAbsorb(dmgSource, dmgAmount);
+		dmgAmount = userResistanceAbsorb(dmgSource, dmgAmount);
 		dmgAmount = standDamageResistance(dmgSource, dmgAmount, isBlocking);
 		this.damageContainers.peek().setNewDamage(dmgAmount);
+		return dmgAmount;
+	}
+
+	// 1.16 getDamageAfterMagicAbsorb: the user's Resistance also cuts the hits their Stand takes
+	protected float userResistanceAbsorb(DamageSource dmgSource, float dmgAmount) {
+		if (dmgSource.is(DamageTypeTags.BYPASSES_EFFECTS) || dmgSource.is(DamageTypeTags.BYPASSES_RESISTANCE)) {
+			return dmgAmount;
+		}
+		LivingEntity user = getUser();
+		if (user == null || user.is(this)) return dmgAmount;
+		MobEffectInstance resistance = user.getEffect(MobEffects.DAMAGE_RESISTANCE);
+		if (resistance == null) return dmgAmount;
+		float before = dmgAmount;
+		dmgAmount = Math.max(dmgAmount * (25 - (resistance.getAmplifier() + 1) * 5) / 25.0F, 0.0F);
+		float resisted = before - dmgAmount;
+		if (resisted > 0.0F && resisted < 3.4028235E37F) {
+			if (user instanceof ServerPlayer player) {
+				player.awardStat(Stats.DAMAGE_RESISTED, Math.round(resisted * 10.0F));
+			}
+			else if (dmgSource.getEntity() instanceof ServerPlayer attacker) {
+				attacker.awardStat(Stats.DAMAGE_DEALT_RESISTED, Math.round(resisted * 10.0F));
+			}
+		}
 		return dmgAmount;
 	}
 
@@ -2621,11 +2733,51 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 	protected static final float FINISHER_DECAY = 0.025F;
     
 	public float getFinisherMeter() {
+		// 1.16: the meter reads 0 until the finisher mechanic is unlocked
+		if (isFinisherMeterLocked()) {
+			return 0;
+		}
 		return entityData.get(FINISHER_VALUE);
 	}
-    
+
 	public float getFinisherMeter(float partialTick) {
+		if (isFinisherMeterLocked()) {
+			return 0;
+		}
 		return Mth.clamp(partialTick, lastTickFinisherVal, finisherVal);
+	}
+
+	private boolean isFinisherMeterLocked() {
+		StandPower power = getUserPower();
+		return power != null && !isFinisherMechanicUnlocked(power);
+	}
+
+	/** 1.16 StandUtil.isFinisherMechanicUnlocked: Resolve level 1+, or a finisher variation is unlocked. */
+	public static boolean isFinisherMechanicUnlocked(@Nullable StandPower power) {
+		return power != null && power.hasPower()
+				&& (power.getResolveLevel() >= 1 || isFinisherVariationUnlocked(power));
+	}
+
+	/**
+	 * 1.16 getStandFinisherPunch().isUnlocked: the Stand's finisher ability is unlocked.
+	 * Grab-mode finishers (port-only, no Resolve requirement) do not count.
+	 */
+	public static boolean isFinisherVariationUnlocked(@Nullable StandPower power) {
+		if (power == null || !power.hasPower()) {
+			return false;
+		}
+		for (Ability ability : power.getMoveset().abilities.values()) {
+			if (ability.isStandFinisherOf != null && ability.getAbilityUsageCategory() != AbilityUsageGroup.GRAB
+					&& ability.isAbilityUnlocked(power)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** 1.16 HUD: the heavy fill turned green once the heavy punch would become the finisher variation. */
+	public boolean willHeavyFinisherVariationFire() {
+		return willHeavyPunchBeFinisher() && isFinisherVariationUnlocked(getUserPower());
 	}
 	
 	public void setFinisherMeter(float value) {

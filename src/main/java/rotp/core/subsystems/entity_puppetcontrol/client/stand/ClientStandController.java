@@ -55,6 +55,8 @@ public class ClientStandController extends ClientEntityController {
 	@Override
 	public void onUnset() {
 		NeoForge.EVENT_BUS.unregister(this);
+		// Do not leave a walking Stand jumping once control ends.
+		((StandEntity) entityAsLiving).manualControlJump(false);
 		publishControllerBinding(false);
 	}
 
@@ -144,9 +146,10 @@ public class ClientStandController extends ClientEntityController {
 			input = jumping || sneaking || forward != 0 || strafe != 0;
 			if (input) {
 				movementSpeed = standEntity.getAttributeValue(Attributes.MOVEMENT_SPEED);
-				double y = jumping ? movementSpeed : 0;
+				// Walking Stands (1.16 RHCP) get no up/down input and sneak at half speed.
+				double y = stand.manualControlVerticalInput(jumping, sneaking, movementSpeed);
+				double horizontalSpeed = stand.manualControlHorizontalSpeed(movementSpeed, sneaking);
 				if (sneaking) {
-					y -= movementSpeed;
 					strafe *= 0.5;
 					forward *= 0.5;
 				}
@@ -162,7 +165,7 @@ public class ClientStandController extends ClientEntityController {
 				// Match original ROTP: settle for one tick when a new manual-move input starts.
 				if (previousInput) {
 					actionWalkSpeed = stand.getUserWalkSpeed(actionWalkSpeed);
-					motion = getAbsoluteMotion(new Vec3((double)strafe, y, (double)forward), movementSpeed, standEntity.getYRot())
+					motion = getAbsoluteMotion(new Vec3((double)strafe, y, (double)forward), horizontalSpeed, standEntity.getYRot())
 							.scale(actionWalkSpeed * manualMovementSpeed);
 				}
 			}
@@ -174,6 +177,7 @@ public class ClientStandController extends ClientEntityController {
 			actionWalkSpeed = curAction != null ? curAction.userWalkSpeed : 1;
 		}
 		prevTickInput = canStandMoveManually && input;
+		stand.manualControlJump(canStandMoveManually && jumping);
 		stand.manualControlInput(motion);
 		if (observing) {
 			LivingEntity user = stand.getUser();

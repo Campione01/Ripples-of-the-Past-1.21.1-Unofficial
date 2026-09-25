@@ -208,7 +208,6 @@ public class HamonSunlightYellowOverdriveBarrageAbility extends HamonActionRunti
 				if (hamonHurtThroughInvul(livingTarget, user, 15.0F * efficiency)) {
 					level.playSound(null, livingTarget, ModSoundEvents.HAMON_SYO_PUNCH.get(),
 							livingTarget.getSoundSource(), 1.0F, 1.0F);
-					sendYellowSparks(livingTarget, 18);
 					knockbackFinisher(user, livingTarget);
 					if (hamon != null && hamon.isSkillLearned(ModHamonSkills.HAMON_SPREAD.get())) {
 						HamonSpreadEffect.giveEffectTo(livingTarget, 200, 3);
@@ -233,7 +232,6 @@ public class HamonSunlightYellowOverdriveBarrageAbility extends HamonActionRunti
 					ModStatusEffects.IMMOBILIZE, 10, 0, false, false, false));
 			vanillaAttackPreservingInvulnerability(user, target);
 			if (hamonHurtThroughInvul(target, user, 0.1F)) {
-				sendYellowSparks(target, 1);
 				level.playSound(null, user, ModSoundEvents.HAMON_SYO_SWING.get(),
 						user.getSoundSource(), 0.35F, 1.0F);
 				if (target.getHealth() < 2.0F) {
@@ -256,11 +254,13 @@ public class HamonSunlightYellowOverdriveBarrageAbility extends HamonActionRunti
 			target.invulnerableTime = invulTicks;
 		}
 
-		private static boolean hamonHurtThroughInvul(LivingEntity target, LivingEntity user, float baseDamage) {
+		// 1.16 hamonParticle(HAMON_SPARK_YELLOW): one yellow hit emitter, no extra burst; public for gametests
+		public static boolean hamonHurtThroughInvul(LivingEntity target, LivingEntity user, float baseDamage) {
 			int invulTicks = target.invulnerableTime;
 			float lastHurt = target.lastHurt;
 			target.invulnerableTime = 0;
-			boolean hurt = HamonAbilityHelpers.hamonHurt(target, user, baseDamage);
+			boolean hurt = HamonAbilityHelpers.hamonHurt(target, baseDamage, user, user,
+					ModParticles.HAMON_SPARK_YELLOW.get());
 			target.invulnerableTime = invulTicks;
 			target.lastHurt = lastHurt;
 			return hurt;
@@ -302,14 +302,6 @@ public class HamonSunlightYellowOverdriveBarrageAbility extends HamonActionRunti
 		private static void knockbackFinisher(LivingEntity user, LivingEntity target) {
 			target.knockback(2.0D, user.getX() - target.getX(), user.getZ() - target.getZ());
 			target.hurtMarked = true;
-		}
-
-		private static void sendYellowSparks(LivingEntity target, int count) {
-			if (target.level() instanceof ServerLevel serverLevel) {
-				serverLevel.sendParticles(ModParticles.HAMON_SPARK_YELLOW.get(),
-						target.getX(), target.getY(0.5D), target.getZ(), count,
-						target.getBbWidth() * 0.25D, target.getBbHeight() * 0.25D, target.getBbWidth() * 0.25D, 0.05D);
-			}
 		}
 
 		ActionAnimIdentifier getAnimationForPhase() {

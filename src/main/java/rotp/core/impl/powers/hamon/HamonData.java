@@ -15,11 +15,13 @@ import java.util.Map;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.BooleanSupplier;
 
 import javax.annotation.Nullable;
 
 import rotp.core.JojoModConfig;
 import rotp.core.client.ClientProxy;
+import rotp.core.client.ui.hud_power.PowerHud;
 import rotp.core.client.particle.CustomParticlesHelper;
 import rotp.core.client.sound.HamonSparksLoopSound;
 import rotp.core.core.JojoMod;
@@ -33,6 +35,7 @@ import rotp.core.mixin.hamon.ServerPlayerGameModeAccessor;
 import rotp.core.network.NetworkPayloadValidation;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.PowerType;
+import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.playerpower.PlayerPower;
@@ -49,6 +52,8 @@ import rotp.core.impl.powers.hamon.abilities.HamonSunlightYellowOverdriveAbility
 import rotp.core.impl.powers.hamon.client.HamonTrainingHudFeedback;
 
 import io.netty.handler.codec.DecoderException;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.particles.ParticleOptions;
@@ -71,11 +76,22 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.fml.loading.FMLEnvironment;
+import net.neoforged.fml.util.thread.EffectiveSide;
 import net.neoforged.neoforge.common.NeoForgeMod;
+import net.neoforged.neoforge.common.util.BlockSnapshot;
+import net.neoforged.neoforge.event.EventHooks;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 public class HamonData extends PlayerPowerData {
@@ -99,8 +115,6 @@ public class HamonData extends PlayerPowerData {
 	private static final float ENERGY_STABILITY_USAGE_RATIO = 2.5F;
 	public static final float ALL_EXERCISES_EFFICIENCY_ADD_MULTIPLIER = 0.05F;
 	public static final float MAX_HAMON_STRENGTH_MULTIPLIER;
-	public static final int[] TECHNIQUE_SKILL_REQUIREMENTS = {20, 30, 40};
-	public static final boolean MIX_HAMON_TECHNIQUES = false;
 	private static final int BREATH_STABILITY_RECOVERY_INTERVAL = 20;
 	private static final int MEDITATION_INC_START = 40;
 	public static final int MAX_EXERCISES_NEEDED = 4;
@@ -151,6 +165,10 @@ public class HamonData extends PlayerPowerData {
 	private int meditationPoseTicks;
 	private int breathStabilityIncTicks;
 	private int ticksMaskWithNoHamonBreath;
+	// client only: the breath start already cleared the Hamon bar red pulse (1.16 playedEnergySound)
+	private boolean breathStartClearedHud;
+	// client only: the mask put a red pulse on the Hamon bar; full stability clears only that one
+	private boolean maskPulseOnHud;
 	private int ticksNoBreathStabilityInc;
 	private float prevBreathStability;
 	private int prevAir = 300;
@@ -203,6 +221,9 @@ public class HamonData extends PlayerPowerData {
 	private boolean satiporojaScarfGranted;
 	private HamonAuraColor auraColor = HamonAuraColor.ORANGE;
 	private String lastAuraAbility;
+	// Synced passive aura skills: trackers get no skill list (1.16 TrHamonAuraColorPacket)
+	private boolean trMetalSilverLearned;
+	private boolean trTurquoiseBlueLearned;
 
 	public HamonData() {
 		super(HamonPowerType.HAMON.get());
@@ -291,7 +312,7 @@ public class HamonData extends PlayerPowerData {
 		super.tick(userPower);
 		LivingEntity user = userPower.getUser();
 		tickHamonEnergy(user);
-		tickBreathStability(user);
+		tickBreathStability(user, userPower);
 		tickDoubleShift(user);
 		tickAbilityCooldowns();
 		if (user.level().isClientSide()) {
@@ -315,6 +336,7 @@ public class HamonData extends PlayerPowerData {
 		if (user instanceof Player player) {
 			tickBreathingTrainingDay(player);
 			tickExercises(player);
+			tickRopeTrapStringPlacing(player);
 		}
 		tickNewPlayerLearners(user);
 		tickCharacterTechniqueSideEffects(user);
@@ -323,6 +345,32 @@ public class HamonData extends PlayerPowerData {
 		flushStatFeedback(user);
 		postTickWaterWalking(user);
 		waterWalkingThisTick = false;
+	}
+
+	// 1.16 Rope Trap passive: sneaking on the ground lays string from the hotbar (slot 9 first) as tripwire.
+	private void tickRopeTrapStringPlacing(Player player) {
+		if (!isSkillLearned(ModHamonSkills.ROPE_TRAP.get()) || !player.onGround() || !player.isShiftKeyDown()) {
+			return;
+		}
+		Level level = player.level();
+		BlockPos pos = player.blockPosition();
+		if (!level.isEmptyBlock(pos)) {
+			return;
+		}
+		for (int i = 8; i >= 0; i--) {
+			ItemStack stack = player.getInventory().items.get(i);
+			if (!stack.isEmpty() && stack.is(Items.STRING)) {
+				BlockPlaceContext ctx = new BlockPlaceContext(player, InteractionHand.OFF_HAND, stack,
+						new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false));
+				BlockState state = Blocks.TRIPWIRE.getStateForPlacement(ctx);
+				if (state != null && !EventHooks.onBlockPlace(player,
+						BlockSnapshot.create(level.dimension(), level, pos.below()), Direction.UP)
+						&& level.setBlock(pos, state, 3) && !player.getAbilities().instabuild) {
+					stack.shrink(1);
+				}
+				break;
+			}
+		}
 	}
 
 	boolean tryTriggerDeathPerks() {
@@ -416,15 +464,25 @@ public class HamonData extends PlayerPowerData {
 				return lastColor;
 			}
 		}
-		if (isSkillLearned(ModHamonSkills.METAL_SILVER_OVERDRIVE.get())
-				&& HamonAbilityHelpers.isItemWeapon(user.getMainHandItem())) {
+		return passiveAuraColor(HamonAbilityHelpers.isItemWeapon(user.getMainHandItem()),
+				user.isEyeInFluid(FluidTags.WATER));
+	}
+
+	private HamonAuraColor passiveAuraColor(boolean holdingWeapon, boolean underwater) {
+		if ((trMetalSilverLearned || isSkillLearned(ModHamonSkills.METAL_SILVER_OVERDRIVE.get()))
+				&& holdingWeapon) {
 			return HamonAuraColor.SILVER;
 		}
-		if (isSkillLearned(ModHamonSkills.TURQUOISE_BLUE_OVERDRIVE.get())
-				&& user.isEyeInFluid(FluidTags.WATER)) {
+		if ((trTurquoiseBlueLearned || isSkillLearned(ModHamonSkills.TURQUOISE_BLUE_OVERDRIVE.get()))
+				&& underwater) {
 			return HamonAuraColor.BLUE;
 		}
 		return HamonAuraColor.ORANGE;
+	}
+
+	// Gametest hook: passive aura colour name as a client would draw it
+	public String passiveAuraColorName(boolean holdingWeapon, boolean underwater) {
+		return passiveAuraColor(holdingWeapon, underwater).name();
 	}
 
 	private static String getActionName(EntityActionInstance action) {
@@ -492,6 +550,10 @@ public class HamonData extends PlayerPowerData {
 				incExerciseTicks(Exercise.MEDITATION, 1.0F, clientSide);
 				breathStabilityIncTicks++;
 			}
+			// 1.16 updateBbHeight: shrink over the first ticks
+			if (meditationTicks <= MEDITATION_SHRINK_TICKS) {
+				user.refreshDimensions();
+			}
 			if (!clientSide) {
 				user.getFoodData().addExhaustion(-0.0025F);
 				if (user.tickCount % 200 == 0
@@ -545,6 +607,14 @@ public class HamonData extends PlayerPowerData {
 			return 0.0F;
 		}
 		ticksMaskWithNoHamonBreath = 0;
+		// 1.16 tickHamonBreath: starting to breathe clears the Hamon bar red pulse
+		if (user.level().isClientSide() && getEnergy() > 0.0F && !breathStartClearedHud) {
+			breathStartClearedHud = true;
+			if (user == ClientProxy.getClientPlayer()) {
+				maskPulseOnHud = false;
+				PowerHud.resetHamonRedHighlight();
+			}
+		}
 		updateNoEnergyDecayTicks(user);
 		float energyAdded = getMaxBreathStability() / getFullEnergyTicks();
 		addEnergy(energyAdded);
@@ -573,6 +643,7 @@ public class HamonData extends PlayerPowerData {
 		else {
 			ticksMaskWithNoHamonBreath = 0;
 		}
+		breathStartClearedHud = false;
 		if (hamonEnergy <= 0.0F) {
 			setHamonProtection(false);
 		}
@@ -585,7 +656,7 @@ public class HamonData extends PlayerPowerData {
 		}
 	}
 
-	private void tickBreathStability(LivingEntity user) {
+	private void tickBreathStability(LivingEntity user, Power<?> userPower) {
 		if (JojoDefinitions.isDyingBody(user)) {
 			breathStability = 0.0F;
 			prevBreathStability = 0.0F;
@@ -604,16 +675,28 @@ public class HamonData extends PlayerPowerData {
 			if (getBreathingLevel() < MAX_BREATHING_LEVEL) {
 				breathMaskHandicap = Mth.clamp((ticksCanBreatheWithMask - ticksMaskWithNoHamonBreath) / (ticksCanBreatheWithMask / 2.0F), -1.0F, 1.0F);
 			}
+			// 1.16: the local player's Hamon bar pulses red once the mask stops recovery
+			boolean maskHudCue = user.level().isClientSide() && user == ClientProxy.getClientPlayer();
+			int maskHighlightCycles = breathMaskHighlightCycles(breathMaskHandicap);
+			if (maskHudCue && maskHighlightCycles > 0) {
+				maskPulseOnHud = true;
+				PowerHud.triggerHamonRedHighlight(maskHighlightCycles);
+			}
 			if (breathMaskHandicap >= 0.0F) {
 				inc = maxStability / getFullBreathStabilityTicks() * breathMaskHandicap;
 			}
 			else {
 				inc = maxStability / 1200.0F * breathMaskHandicap;
 				float stabilityLowerCap = 0.2F;
-				if ((breathStability + inc) / maxStability < stabilityLowerCap) {
+				boolean stabilityReallyLow = (breathStability + inc) / maxStability < stabilityLowerCap;
+				if (stabilityReallyLow) {
 					inc = Mth.clamp(inc, stabilityLowerCap * maxStability - breathStability, 0.0F);
 				}
 				maskNoBreath = true;
+				if (maskHudCue && shouldPromptMaskHamonBreath(breathMaskHandicap, ticksMaskWithNoHamonBreath, ticksCanBreatheWithMask,
+						stabilityReallyLow, breathStability + inc, () -> isHamonBreathUsable(userPower))) {
+					ClientProxy.setOverlayMessage(Component.translatable("hamon.breath_control_mask.restore_stab"), false);
+				}
 			}
 		}
 		else {
@@ -637,8 +720,36 @@ public class HamonData extends PlayerPowerData {
 		if (!user.level().isClientSide() && (breathStability == 0.0F && beforeStability > 0.0F || air == 0 && prevAir > 0)) {
 			outOfBreath(user, maskNoBreath && air > 0);
 		}
+		// 1.16: full stability clears the mask pulse (kept off the 4-cycle no-energy pulse)
+		if (maskPulseOnHud && user.level().isClientSide() && user == ClientProxy.getClientPlayer()
+				&& breathStability >= getMaxBreathStability()) {
+			maskPulseOnHud = false;
+			PowerHud.resetHamonRedHighlight();
+		}
 		prevBreathStability = breathStability;
 		prevAir = air;
+	}
+
+	// 1.16 HamonData.tickBreathStability mask cue: red pulse cycles on the Hamon bar, 0 for none
+	public static int breathMaskHighlightCycles(float breathMaskHandicap) {
+		if (breathMaskHandicap < 0.0F) {
+			return 999999;
+		}
+		return breathMaskHandicap == 0.0F ? 4 : 0;
+	}
+
+	// 1.16 "breathe through the mask" prompt: stability drains, long past the limit or near the 20% floor
+	public static boolean shouldPromptMaskHamonBreath(float breathMaskHandicap, int ticksMaskNoBreath, float ticksCanBreatheWithMask,
+			boolean stabilityReallyLow, float stabilityAfterTick, BooleanSupplier hamonBreathUsable) {
+		return breathMaskHandicap < 0.0F
+				&& (ticksMaskNoBreath - ticksCanBreatheWithMask > 400.0F || stabilityReallyLow)
+				&& stabilityAfterTick > 0.0F
+				&& hamonBreathUsable.getAsBoolean();
+	}
+
+	public static boolean isHamonBreathUsable(@Nullable Power<?> userPower) {
+		Ability breath = userPower != null ? userPower.getAbility("hamon_breath") : null;
+		return breath != null && breath.checkConditions(userPower).isPositive();
 	}
 
 	private void updateNoEnergyDecayTicks(LivingEntity user) {
@@ -849,6 +960,15 @@ public class HamonData extends PlayerPowerData {
 		else {
 			abilityCooldowns.remove(abilityName);
 			abilityCooldownTotals.remove(abilityName);
+		}
+	}
+
+	@Override
+	public void resetAbilityCooldowns(LivingEntity user) {
+		if (!abilityCooldowns.isEmpty() || !abilityCooldownTotals.isEmpty()) {
+			abilityCooldowns.clear();
+			abilityCooldownTotals.clear();
+			syncOnUpdate(user);
 		}
 	}
 
@@ -1101,7 +1221,7 @@ public class HamonData extends PlayerPowerData {
 		}
 
 		HamonTechnique technique = getCharacterTechnique();
-		if (technique == null || !MIX_HAMON_TECHNIQUES && !technique.isTechniqueSkill(skillName)) {
+		if (technique == null || !mixHamonTechniques() && !technique.isTechniqueSkill(skillName)) {
 			return false;
 		}
 		int learnedTechniqueSkills = getLearnedTechniqueSkillCount();
@@ -1224,15 +1344,29 @@ public class HamonData extends PlayerPowerData {
 		return techniqueSlotsCount() > 0;
 	}
 
+	// 1.16 common config (techniqueSkillRequirements, mixHamonTechniques); the client reads the synced copy
+	public static List<? extends Integer> techniqueSkillRequirements() {
+		return JojoModConfig.getCommonConfigInstance(configClientSide()).techniqueSkillRequirements.get();
+	}
+
+	public static boolean mixHamonTechniques() {
+		return JojoModConfig.getCommonConfigInstance(configClientSide()).mixHamonTechniques.get();
+	}
+
+	private static boolean configClientSide() {
+		return !FMLEnvironment.dist.isDedicatedServer() && EffectiveSide.get().isClient();
+	}
+
 	public static int techniqueSlotsCount() {
-		return TECHNIQUE_SKILL_REQUIREMENTS.length;
+		return techniqueSkillRequirements().size();
 	}
 
 	public static int techniqueSkillRequirement(int slot) {
-		if (slot < 0 || slot >= TECHNIQUE_SKILL_REQUIREMENTS.length) {
+		List<? extends Integer> requirements = techniqueSkillRequirements();
+		if (slot < 0 || slot >= requirements.size()) {
 			return Integer.MAX_VALUE;
 		}
-		return TECHNIQUE_SKILL_REQUIREMENTS[slot];
+		return requirements.get(slot);
 	}
 
 	public boolean hasTechniqueLevel(int techniqueSkillSlot) {
@@ -1348,11 +1482,43 @@ public class HamonData extends PlayerPowerData {
 			if (isMeditating) {
 				user.yBodyRot = user.getYRot();
 			}
+			else {
+				user.refreshDimensions();
+			}
 		}
 	}
 
 	public boolean isMeditating() {
 		return isMeditating;
+	}
+
+	// 1.16 updateBbHeight / updateBoundingBox: meditation lowers the hitbox and eye height.
+	public static final int MEDITATION_SHRINK_TICKS = 35;
+	public static final float MEDITATION_SHRINK_PER_TICK = 0.0085F;
+
+	public float getMeditationHeightMultiplier() {
+		return isMeditating ? 1.0F - Math.min(meditationTicks, MEDITATION_SHRINK_TICKS) * MEDITATION_SHRINK_PER_TICK : 1.0F;
+	}
+
+	@net.neoforged.fml.common.EventBusSubscriber(modid = JojoMod.MOD_ID)
+	public static class MeditationSizeEvents {
+
+		@net.neoforged.bus.api.SubscribeEvent
+		public static void onEntitySize(net.neoforged.neoforge.event.entity.EntityEvent.Size event) {
+			if (!(event.getEntity() instanceof LivingEntity user)) {
+				return;
+			}
+			HamonData hamon = PlayerPower.getPowerData(user, HamonPowerType.HAMON).orElse(null);
+			float mult = hamon != null ? hamon.getMeditationHeightMultiplier() : 1.0F;
+			if (mult < 1.0F) {
+				net.minecraft.world.entity.EntityDimensions size = event.getNewSize();
+				float height = size.height() * mult;
+				// eye drops by the same amount as the top of the box
+				event.setNewSize(new net.minecraft.world.entity.EntityDimensions(size.width(), height,
+						size.eyeHeight() - (size.height() - height),
+						size.attachments().scale(1.0F, mult, 1.0F), size.fixed()));
+			}
+		}
 	}
 
 	public int getMeditationTicks() {
@@ -2192,6 +2358,9 @@ public class HamonData extends PlayerPowerData {
 		if (wallClimbYRotSet) {
 			buf.writeFloat(wallClimbYRot);
 		}
+		// sent to trackers too, for the passive aura colour
+		buf.writeBoolean(isSkillLearned(ModHamonSkills.METAL_SILVER_OVERDRIVE.get()));
+		buf.writeBoolean(isSkillLearned(ModHamonSkills.TURQUOISE_BLUE_OVERDRIVE.get()));
 	}
 
 	@Override
@@ -2245,6 +2414,8 @@ public class HamonData extends PlayerPowerData {
 		float newWallClimbSpeed = buf.readFloat();
 		boolean newWallClimbYRotSet = buf.readBoolean();
 		float newWallClimbYRot = newWallClimbYRotSet ? buf.readFloat() : 0.0F;
+		boolean newMetalSilverLearned = buf.readBoolean();
+		boolean newTurquoiseBlueLearned = buf.readBoolean();
 
 		applyBreathingLevelFromServer(newBreathingLevel);
 		hamonStrengthPoints = Mth.clamp(newStrengthPoints, 0, MAX_HAMON_POINTS);
@@ -2291,6 +2462,8 @@ public class HamonData extends PlayerPowerData {
 		wallClimbSpeed = newWallClimbSpeed;
 		wallClimbYRotSet = newWallClimbYRotSet;
 		wallClimbYRot = newWallClimbYRot;
+		trMetalSilverLearned = newMetalSilverLearned;
+		trTurquoiseBlueLearned = newTurquoiseBlueLearned;
 		applyTechniquePerks(false);
 	}
 

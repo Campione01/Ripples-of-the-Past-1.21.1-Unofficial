@@ -2,7 +2,12 @@
   "parent": "jojo_ripples:jojo/root",
   "display": {
     "icon": {
-      "item": "jojo_ripples:meteoric_scrap"
+      "id": "jojo_ripples:stone_mask",
+      "components": {
+        "minecraft:custom_data": {
+          "Activated": 1
+        }
+      }
     },
     "title": {
       "translate": "advancements.jojo.get_vampirism.title"

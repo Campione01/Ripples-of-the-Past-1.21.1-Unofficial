@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.OptionalInt;
+import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -21,6 +23,10 @@ import com.mojang.datafixers.util.Pair;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+
+import net.minecraft.world.entity.HumanoidArm;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 
 /**
  * Has some stuff specific to Stands, but it can be used for other entities as well.
@@ -52,6 +58,7 @@ public class AnimationSet {
 			Map.entry("grapple_entity", "grapple"),
 			Map.entry("light_attack", "attack"),
 			Map.entry("no_rapier_light_attack", "light_attack"),
+			Map.entry("no_rapier_block", "block"),
 			Map.entry("melee_barrage", "barrage"),
 			Map.entry("rapier_launch", "rangedAttack"),
 			Map.entry("sweeping_attack", "heavyPunch"),
@@ -68,6 +75,7 @@ public class AnimationSet {
 			Map.entry("overdrive_barrage", "punch_barrage"),
 			Map.entry("sunlight_yellow_overdrive_barrage", "syo_barrage_start"),
 			Map.entry("vampirism_claw_lacerate", "vampire_claws"),
+			Map.entry("zombie_claw_lacerate", "vampire_claws"),
 			Map.entry("pillarman_atmospheric_rift", "atmospheric_rift"),
 			Map.entry("pillarman_blade_barrage", "blade_barrage"),
 			Map.entry("pillarman_blade_dash_attack", "blade_dash"),
@@ -116,7 +124,50 @@ public class AnimationSet {
 		if (directAnim != null) {
 			return directAnim;
 		}
+		String handedName = mirroredBaseFallback(animId.name(), namedAnimations::containsKey);
+		if (handedName != null) {
+			return getNamedAnim(handedName, animId.index());
+		}
 		return getAliasedNamedAnim(animId.name(), animId.index());
+	}
+
+	/**
+	 * Mirroring replaces a clip's base key with its _left/_right keys, so an unsuffixed request
+	 * plays the right-hand variant (then the left one) instead of dropping to idle.
+	 */
+	@Nullable
+	public static String mirroredBaseFallback(String name, Predicate<String> hasKey) {
+		if (name.endsWith("_left") || name.endsWith("_right")) {
+			return null;
+		}
+		if (hasKey.test(name + "_right")) {
+			return name + "_right";
+		}
+		return hasKey.test(name + "_left") ? name + "_left" : null;
+	}
+
+	/**
+	 * 1.16 posed one-sided Stand actions (Crazy Diamond's repair reach) by the user's main arm: a base-name
+	 * request of a mirrored clip takes that side. Null when the base clip exists or that side is missing.
+	 */
+	@Nullable
+	public static String userSideKey(String name, HumanoidArm mainArm, Predicate<String> hasKey) {
+		if (hasKey.test(name) || name.endsWith("_left") || name.endsWith("_right")) {
+			return null;
+		}
+		String key = name + (mainArm == HumanoidArm.LEFT ? "_left" : "_right");
+		return hasKey.test(key) ? key : null;
+	}
+
+	/** Clips whose arms-only pose copied the user's own biped pose in 1.16 (CopyBipedUserPose). */
+	private static final Set<String> COPY_USER_POSE_ARMS_ONLY = Set.of(
+			"repair_item", "itemFix", "uncraft", "block_bullet", "blockBullet");
+
+	public static boolean copiesUserPoseInArmsOnly(String name) {
+		String base = name.endsWith("_left") ? name.substring(0, name.length() - "_left".length())
+				: name.endsWith("_right") ? name.substring(0, name.length() - "_right".length())
+				: name;
+		return COPY_USER_POSE_ARMS_ONLY.contains(base);
 	}
 
 	@Nullable
@@ -134,36 +185,48 @@ public class AnimationSet {
 
 	@Nullable
 	private RotpAnimDefinition getAliasedNamedAnim(String name, int index) {
-		return getAliasedNamedAnim(name, index, 0);
+		String key = aliasedKey(name, this::hasNamedAnim);
+		return key != null ? getNamedAnim(key, index) : null;
+	}
+
+	private boolean hasNamedAnim(String name) {
+		List<RotpAnimDefinition> anims = namedAnimations.get(name);
+		return anims != null && !anims.isEmpty();
+	}
+
+	/** First existing clip key down a name's legacy alias chain, or null. */
+	@Nullable
+	public static String aliasedKey(String name, Predicate<String> hasKey) {
+		return aliasedKey(name, hasKey, 0);
 	}
 
 	@Nullable
-	private RotpAnimDefinition getAliasedNamedAnim(String name, int index, int depth) {
+	private static String aliasedKey(String name, Predicate<String> hasKey, int depth) {
 		if (depth >= MAX_ALIAS_DEPTH) {
 			return null;
 		}
 		String indexedAlias = LEGACY_INDEXED_ANIM_ALIASES.get(name);
 		if (indexedAlias != null) {
-			RotpAnimDefinition anim = getNamedAnimOrAliased(indexedAlias, index, depth);
-			if (anim != null) {
-				return anim;
+			String key = keyOrAliased(indexedAlias, hasKey, depth);
+			if (key != null) {
+				return key;
 			}
 		}
 
 		String alias = LEGACY_ANIM_ALIASES.get(name);
 		if (alias != null) {
-			RotpAnimDefinition anim = getNamedAnimOrAliased(alias, index, depth);
-			if (anim != null) {
-				return anim;
+			String key = keyOrAliased(alias, hasKey, depth);
+			if (key != null) {
+				return key;
 			}
 		}
 
 		List<String> extraAliases = EXTRA_LEGACY_ANIM_ALIASES.get(name);
 		if (extraAliases != null) {
 			for (String extraAlias : extraAliases) {
-				RotpAnimDefinition anim = getNamedAnimOrAliased(extraAlias, index, depth);
-				if (anim != null) {
-					return anim;
+				String key = keyOrAliased(extraAlias, hasKey, depth);
+				if (key != null) {
+					return key;
 				}
 			}
 		}
@@ -171,9 +234,8 @@ public class AnimationSet {
 	}
 
 	@Nullable
-	private RotpAnimDefinition getNamedAnimOrAliased(String name, int index, int depth) {
-		RotpAnimDefinition anim = getNamedAnim(name, index);
-		return anim != null ? anim : getAliasedNamedAnim(name, index, depth + 1);
+	private static String keyOrAliased(String name, Predicate<String> hasKey, int depth) {
+		return hasKey.test(name) ? name : aliasedKey(name, hasKey, depth + 1);
 	}
 
 	@Nullable
@@ -234,6 +296,40 @@ public class AnimationSet {
 		RotpAnimDefinition resolvedBaseAnim = baseAnim;
 		return implicitHandMirrors.computeIfAbsent(resolvedBaseAnim, anim -> anim.copyWithAnim(
 				AnimationMirror.mirror(anim.boneAnimations, 0, Float.MAX_VALUE)));
+	}
+
+	/** Right-handed player clips 1.16 mirrored for a left-handed player (KosmXHandsideMirrorModifier). */
+	private static final Set<String> MAIN_ARM_MIRRORED_PLAYER_CLIPS = Set.of(
+			"hamon_beat", "sunlight_yellow_overdrive", "scarlet_overdrive",
+			"pillar_man_punch", "blade_slash", "blade_dash", "light_flash", "light_flash_decoy",
+			"vampire_claws");
+
+	/** Arm a performer's handed player clips follow; 1.16 only had these layers on players. */
+	public static HumanoidArm handedClipArm(@Nullable LivingEntity performer) {
+		return performer instanceof Player player ? player.getMainArm() : HumanoidArm.RIGHT;
+	}
+
+	/** Whether the clip a player action name resolves to plays mirrored for that main arm. */
+	public static boolean mirrorsForMainArm(String name, HumanoidArm mainArm, Predicate<String> hasKey) {
+		if (mainArm != HumanoidArm.LEFT) {
+			return false;
+		}
+		// same resolution order as getNamedAnim(ActionAnimIdentifier)
+		String key = hasKey.test(name) ? name
+				: mirroredBaseFallback(name, hasKey) != null ? null
+				: aliasedKey(name, hasKey);
+		return key != null && MAIN_ARM_MIRRORED_PLAYER_CLIPS.contains(key);
+	}
+
+	/** A player clip for the performer's main arm: the handed clips play mirrored for left-handed players. */
+	@Nullable
+	public RotpAnimDefinition getPlayerAnim(ActionAnimIdentifier animId, HumanoidArm mainArm) {
+		RotpAnimDefinition anim = getNamedAnim(animId);
+		if (anim == null || !mirrorsForMainArm(animId.name(), mainArm, this::hasNamedAnim)) {
+			return anim;
+		}
+		return implicitHandMirrors.computeIfAbsent(anim, base -> base.copyWithAnim(
+				AnimationMirror.mirror(base.boneAnimations, 0, Float.MAX_VALUE)));
 	}
 	
 	@Nullable

@@ -73,8 +73,14 @@ public final class KnockbackImpactParitySmokeTest {
 	private static void checkWhatItHits() {
 		String impact = code(IMPACT);
 		String collide = body(impact, "protectedbooleanonCollideWith(Entitytarget,LivingEntitytargetAsLiving,Vec3thisEntityMotion)", IMPACT);
-		check(collide.startsWith("if(targetAsLiving!=null&&syoPunchBaseDamage>0&&attacker!=null){"),
-				"only the Hamon part may be for living targets: 1.16 hurt any entity flown into");
+		// 1.16 dealHamonDamage(asLiving, dmg * 0.5f, entity, attacker): no attacker gate (none after a reload)
+		check(collide.startsWith("if(targetAsLiving!=null&&syoPunchBaseDamage>0){"
+				+ "HamonAbilityHelpers.hamonHurt(targetAsLiving,syoPunchBaseDamage*0.5F,"
+				+ "entity,attacker!=null?attacker:entity,hamonParticles);}"),
+				"only the Hamon part may be for living targets (1.16 hurt any entity flown into), and it needs no attacker:"
+				+ " 1.16 dealt it from the flying entity after a reload too, sparking in the punch's colour");
+		// 1.16 attack.hamonParticle: the colour rides the hit's emitter, no separate burst
+		check(!collide.contains("sendHamonParticles"), "the Hamon impact hit must not add a separate particle burst");
 		check(collide.contains("wholeSecondsOfFire(scarletOverdriveFireTicks),false);"
 				+ "if(targetAsLiving!=null){targetAsLiving.knockback((float)getKnockbackImpactStrength(),-thisEntityMotion.x,-thisEntityMotion.z);}"
 				+ "returnhurt;")
