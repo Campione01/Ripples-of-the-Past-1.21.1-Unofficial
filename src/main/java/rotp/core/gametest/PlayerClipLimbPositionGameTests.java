@@ -53,7 +53,7 @@ public final class PlayerClipLimbPositionGameTests {
 						keys++;
 						helper.assertTrue(dist(v, KOSMX_REST[i]) >= dist(v, new float[3]),
 								file + " " + clip.getKey() + " " + LIMBS[i] + " position at " + key.getKey()
-								+ " is an absolute KosmX value (" + v[0] + ", " + v[1] + ", " + v[2] + "), not an offset");
+								+ " is an absolute 1.16 pivot value (" + v[0] + ", " + v[1] + ", " + v[2] + "), not an offset");
 					}
 				}
 			}
