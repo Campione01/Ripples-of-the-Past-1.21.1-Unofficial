@@ -191,6 +191,8 @@ public class AllControlSchemes {
 	/** Refreshes every HUD hotbar from its edited layout. */
 	public static void applyLayouts(ClientControlScheme scheme) {
 		for (MoveGroup group : scheme.moveGroups.values()) {
+			// Hotbars OFF also drops the template LMB/RMB binds (MoveGroup#getBinds)
+			group.hotbarsEnabled = scheme.hotbarsEnabled;
 			for (Hotbar hotbar : group.hotbars) {
 				hotbar.applyLayout(scheme.hotbarsEnabled);
 			}

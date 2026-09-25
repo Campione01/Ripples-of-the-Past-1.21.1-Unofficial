@@ -43,7 +43,7 @@ public final class FrozenGrabThrowGameTests {
 
 	private FrozenGrabThrowGameTests() {}
 
-	@GameTest(template = "empty", timeoutTicks = 80)
+	@GameTest(template = "empty", timeoutTicks = 80, batch = GameTestBatches.TIME_STOP)
 	public static void frozenGrabRelocatesAnchorAndPlainReleaseClearsOldMomentum(GameTestHelper helper) {
 		for (boolean originalNoAi : new boolean[] {false, true}) {
 			try (Fixture f = new Fixture(helper, "anchor_" + originalNoAi)) {
@@ -74,7 +74,7 @@ public final class FrozenGrabThrowGameTests {
 		helper.succeed();
 	}
 
-	@GameTest(template = "empty", timeoutTicks = 80)
+	@GameTest(template = "empty", timeoutTicks = 80, batch = GameTestBatches.TIME_STOP)
 	public static void frozenThrowResumesOnceWithCollisionImpact(GameTestHelper helper) {
 		try (Fixture f = new Fixture(helper, "resume")) {
 			int stop = f.stop();
@@ -125,7 +125,7 @@ public final class FrozenGrabThrowGameTests {
 		helper.succeed();
 	}
 
-	@GameTest(template = "empty", timeoutTicks = 80)
+	@GameTest(template = "empty", timeoutTicks = 80, batch = GameTestBatches.TIME_STOP)
 	public static void regrabThenReleaseCancelsQueuedThrow(GameTestHelper helper) {
 		for (boolean releaseAgain : new boolean[] {false, true}) {
 			try (Fixture f = new Fixture(helper, "regrab_release_" + releaseAgain)) {
@@ -143,7 +143,7 @@ public final class FrozenGrabThrowGameTests {
 		helper.succeed();
 	}
 
-	@GameTest(template = "empty", timeoutTicks = 80)
+	@GameTest(template = "empty", timeoutTicks = 80, batch = GameTestBatches.TIME_STOP)
 	public static void regrabKeepsOnlyTheLatestThrow(GameTestHelper helper) {
 		try (Fixture f = new Fixture(helper, "regrab_throw")) {
 			int stop = f.stop();
@@ -160,7 +160,7 @@ public final class FrozenGrabThrowGameTests {
 		helper.succeed();
 	}
 
-	@GameTest(template = "empty", timeoutTicks = 80)
+	@GameTest(template = "empty", timeoutTicks = 80, batch = GameTestBatches.TIME_STOP)
 	public static void deadOrRemovedTargetDoesNotResumeQueuedThrow(GameTestHelper helper) {
 		for (boolean remove : new boolean[] {false, true}) {
 			try (Fixture f = new Fixture(helper, "invalid_" + remove)) {
@@ -178,7 +178,7 @@ public final class FrozenGrabThrowGameTests {
 		helper.succeed();
 	}
 
-	@GameTest(template = "empty", timeoutTicks = 80)
+	@GameTest(template = "empty", timeoutTicks = 80, batch = GameTestBatches.TIME_STOP)
 	public static void overlappingStopsDeferThrowUntilTheLastResume(GameTestHelper helper) {
 		try (Fixture f = new Fixture(helper, "overlap")) {
 			int first = f.stop();

@@ -692,6 +692,12 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		this._manualControlInput = motionInput;
 	}
 
+	// A server position sync (TrDirectEntityPosPacket) re-anchors manual
+	// control here; the old offset would pull the Stand back.
+	public void resetManualOffset() {
+		updateUserOffset(getUser());
+	}
+
 	// 1.16 RHCPEntity.moveStandManually: a Stand with gravity walks under manual
 	// control (jump key jumps, sneak slows). Other Stands fly.
 	public boolean walksUnderManualControl() {

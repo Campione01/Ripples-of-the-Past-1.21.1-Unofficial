@@ -2,8 +2,12 @@ package rotp.core.powersystem.standpower;
 
 import javax.annotation.Nullable;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.WeakHashMap;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
@@ -385,9 +389,40 @@ public class StandUtil {
 		if (standEntity.isSilent() || standEntity.level().isClientSide()) {
 			return;
 		}
+		if (!standEntity.isAddedToLevel()) {
+			// auto-summon starts the action before the Stand is added: nobody tracks it yet,
+			// so hold the sound until EntityStandType.finalizeStandSummonFromAction adds it
+			if (!standEntity.isRemoved()) {
+				List<PendingStandSound> pending = PENDING_STAND_SOUNDS.computeIfAbsent(standEntity, e -> new ArrayList<>());
+				if (pending.size() < MAX_PENDING_STAND_SOUNDS) {
+					pending.add(new PendingStandSound(sound, volume, pitch));
+				}
+			}
+			return;
+		}
 		sound = MultiSoundEventResolver.resolve(sound);
 		PacketDistributor.sendToPlayersTrackingEntityAndSelf(standEntity,
 				new StandEntitySoundPacket(standEntity, sound, volume, pitch));
+	}
+
+	private record PendingStandSound(Holder<SoundEvent> sound, float volume, float pitch) {}
+	private static final int MAX_PENDING_STAND_SOUNDS = 8;
+	// server side only; weak keys drop Stands that never joined a level
+	private static final Map<StandEntity, List<PendingStandSound>> PENDING_STAND_SOUNDS =
+			Collections.synchronizedMap(new WeakHashMap<>());
+
+	/** Sends the sounds held while the Stand was not in the level yet; drops them if it never got added. */
+	public static void flushPendingStandEntitySounds(StandEntity standEntity) {
+		if (standEntity.level().isClientSide()) {
+			return;
+		}
+		List<PendingStandSound> pending = PENDING_STAND_SOUNDS.remove(standEntity);
+		if (pending == null || !standEntity.isAddedToLevel() || standEntity.isRemoved()) {
+			return;
+		}
+		for (PendingStandSound sound : pending) {
+			playStandEntitySound(standEntity, sound.sound(), sound.volume(), sound.pitch());
+		}
 	}
 
 }

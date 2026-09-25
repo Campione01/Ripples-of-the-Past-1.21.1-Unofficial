@@ -167,7 +167,7 @@ public final class HeldConditionRecheckGameTests {
 
 	// 1.16 checkConditions refused a user frozen in someone else's stopped time (!canUpdate), and stopHeldAction(true)
 	// ran it on release: a charge released while frozen is dropped, and nothing fires when time resumes.
-	@GameTest(template = "empty", timeoutTicks = 80)
+	@GameTest(template = "empty", timeoutTicks = 80, batch = GameTestBatches.TIME_STOP)
 	public static void releaseWhileFrozenInStoppedTimeDropsCharge(GameTestHelper helper) {
 		TimeStopState timeStops = helper.getLevel().getData(ModDataAttachmentTypes.TIME_STOP.get());
 		try (HamonFixture f = new HamonFixture(helper, "HeldSyoFrozen", ModHamonSkills.SUNLIGHT_YELLOW_OVERDRIVE.get())) {
@@ -332,7 +332,7 @@ public final class HeldConditionRecheckGameTests {
 	}
 
 	// 1.16 stopHeldAction(true) rechecked before a released hold fired; the port's early time stop release too.
-	@GameTest(template = "empty", timeoutTicks = 80)
+	@GameTest(template = "empty", timeoutTicks = 80, batch = GameTestBatches.TIME_STOP)
 	public static void lostStandBodyStopsEarlyTimeStopRelease(GameTestHelper helper) {
 		TimeStopState timeStops = helper.getLevel().getData(ModDataAttachmentTypes.TIME_STOP.get());
 		try (StandFixture f = new StandFixture(helper, "HeldTimeStopBody", "star_platinum")) {

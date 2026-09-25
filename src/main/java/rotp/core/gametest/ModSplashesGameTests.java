@@ -23,7 +23,7 @@ import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
- * 1.16 ModSplashes: texts/splashes.txt lines (no blanks, no "//") replace the title splash
+ * 1.16 ModSplashes: texts/jojo_splashes.txt lines (no blanks, no "//") replace the title splash
  * with chance n/(420+n), never on Dec 24 or Jan 1, Halloween line 1/50 on Oct 31, @p = user name.
  */
 @GameTestHolder(JojoMod.MOD_ID)
@@ -33,7 +33,8 @@ public final class ModSplashesGameTests {
 
 	@GameTest(template = "empty", timeoutTicks = 20)
 	public static void splashFileKeepsThe116Lines(GameTestHelper helper) {
-		String path = "assets/" + JojoMod.MOD_ID + "/texts/splashes.txt";
+		String path = "assets/" + ModSplashes.LOCATION.getNamespace() + "/" + ModSplashes.LOCATION.getPath();
+		helper.assertTrue(JojoMod.MOD_ID.equals(ModSplashes.LOCATION.getNamespace()), "splash file must be in the mod namespace");
 		List<String> lines;
 		try (InputStream in = open(path)) {
 			helper.assertTrue(in != null, path + " is missing");
@@ -49,6 +50,24 @@ public final class ModSplashesGameTests {
 				"blank or commented lines were kept: " + lines);
 		helper.assertTrue(ModSplashes.parse(Stream.of("  a  ", "", "   ", "//b", "c")).equals(List.of("a", "c")),
 				"parse must trim and drop blank and // lines");
+		helper.succeed();
+	}
+
+	// NeoForgeSplashHooks adds every <namespace>:texts/splashes.txt to the vanilla pool unfiltered (blanks, "//", raw @p)
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void splashFileStaysOutOfTheVanillaPool(GameTestHelper helper) {
+		String vanillaPath = "texts/splashes.txt";
+		helper.assertTrue(!vanillaPath.equals(ModSplashes.LOCATION.getPath()),
+				"ModSplashes reads " + ModSplashes.LOCATION + ", a path NeoForge also merges into the vanilla splashes");
+		String ownPath = "assets/" + JojoMod.MOD_ID + "/" + ModSplashes.LOCATION.getPath();
+		String mergedPath = "assets/" + JojoMod.MOD_ID + "/" + vanillaPath;
+		try (InputStream own = open(ownPath); InputStream merged = open(mergedPath)) {
+			// same lookup finds the real file, so null below is a real absence
+			helper.assertTrue(own != null, ownPath + " is missing");
+			helper.assertTrue(merged == null, mergedPath + " ships, NeoForge would add its raw lines to the vanilla splashes");
+		} catch (IOException e) {
+			throw new GameTestAssertException("Could not read splash files: " + e);
+		}
 		helper.succeed();
 	}
 

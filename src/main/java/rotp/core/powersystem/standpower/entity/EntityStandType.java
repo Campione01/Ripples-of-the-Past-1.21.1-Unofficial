@@ -11,6 +11,7 @@ import rotp.core.network.s2c.TrSetStandEntityPacket;
 import rotp.core.powersystem.MovesetBuilder;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.StandStats;
+import rotp.core.powersystem.standpower.StandUtil;
 import rotp.core.powersystem.standpower.datapack.StandTypeClass;
 import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.entity_possessionv2.LivingComponentPossession;
@@ -303,11 +304,14 @@ public class EntityStandType extends StandType {
 			if (addToWorld) {
 				level.addFreshEntity(standEntity);
 				standEntity.playStandSummonSound();
+				// action sounds played before the auto-summoned Stand was added (1.16 phase standSound)
+				StandUtil.flushPendingStandEntitySounds(standEntity);
 				PacketDistributor.sendToPlayersTrackingEntityAndSelf(user, new TrSetStandEntityPacket(user.getId(), standEntity.getId()));
 				triggerFullSummonAdvancement(user, standEntity);
 			}
 			else {
 				forceUnsummon(user, standPower);
+				StandUtil.flushPendingStandEntitySounds(standEntity);
 			}
 		}
 	}

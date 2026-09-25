@@ -48,7 +48,10 @@ import net.neoforged.neoforge.common.util.TriState;
 public class ClientControlScheme {
 	public PowerClass<?> powerClassCosmetic;
 	@Nullable public PowerType powerType;
-	/** 1.16 ControlScheme#hotbarsEnabled: off leaves the HUD hotbars empty, custom keys still work. */
+	/**
+	 * 1.16 ControlScheme#hotbarsEnabled: off leaves the HUD hotbars empty and drops the template LMB/RMB
+	 * binds (1.16 attack/ability hotbars), so those clicks stay vanilla. Custom keys still work.
+	 */
 	public boolean hotbarsEnabled = true;
 	@ApiStatus.Internal public final Map<String, MoveGroup> moveGroups = new LinkedHashMap<>();
 	@ApiStatus.Internal protected MoveGroup curGroup;
@@ -61,7 +64,9 @@ public class ClientControlScheme {
 		
 		@ApiStatus.Internal public List<Bind> binds = new ArrayList<>();
 		@ApiStatus.Internal public List<Hotbar> hotbars = new ArrayList<>();
-		
+		/** The scheme's Hotbars setting, copied by AllControlSchemes#applyLayouts. */
+		public boolean hotbarsEnabled = true;
+
 		protected Map<ClientKey, InputsByKeyModifier> bindsMap = new TreeMap<>(Comparator.comparingInt(ClientKey::keyOrder));
 		
 		public MoveGroup(String internalName, Component name, ClientInputBind toggleHudKey) {
@@ -127,7 +132,7 @@ public class ClientControlScheme {
 		protected Map<ClientKey, InputsByKeyModifier> getBinds(boolean hudActive, boolean forHudDisplay) {
 			bindsMap.clear();
 			for (Bind bind : binds) {
-				if (bind.input != null && bind.listedIn(hudActive, forHudDisplay)) {
+				if (bind.input != null && bind.listedIn(hudActive, forHudDisplay, hotbarsEnabled)) {
 					addToMap(bind);
 				}
 			}
@@ -191,6 +196,8 @@ public class ClientControlScheme {
 		public OnKeyPress onKeyPress = OnKeyPress.PERFORM;
 		public KeyActiveType activeType = KeyActiveType.INSIDE_HUD;
 		public boolean visibleInHud = true;
+		/** Template bind on the mouse attack/use button (1.16 attack/ability hotbar keys). */
+		public boolean attackOrUseButton;
 
 		public Bind(ClientInputBind input, InputMethod inputMethod, AbilityControlsEntry ability) {
 			this.input = input;
@@ -210,6 +217,23 @@ public class ClientControlScheme {
 		/** In a group's key map: the HUD display list, or the keys that perform on press (input). */
 		public boolean listedIn(boolean hudActive, boolean forHudDisplay) {
 			return forHudDisplay ? shownInHud(hudActive) : performsWith(hudActive);
+		}
+
+		/** 1.16 Hotbars OFF emptied the LMB/RMB hotbars: the template binds there neither fire nor show. */
+		public boolean listedIn(boolean hudActive, boolean forHudDisplay, boolean hotbarsEnabled) {
+			if (!hotbarsEnabled && !custom && attackOrUseButton) return false;
+			return listedIn(hudActive, forHudDisplay);
+		}
+
+		/** LMB/RMB, or the vanilla attack/use mapping: the keys of 1.16's attack and ability hotbars. */
+		public static boolean isAttackOrUseButton(@Nullable InputBindTemplate template) {
+			if (template instanceof InputKey key) {
+				return key.device == InputKey.InputType.MOUSE && (key.keyCode == 0 || key.keyCode == 1);
+			}
+			if (template instanceof InputUseVanillaMapping mapping) {
+				return "key.attack".equals(mapping.keyMappingName) || "key.use".equals(mapping.keyMappingName);
+			}
+			return false;
 		}
 
 		public boolean customKeyMatches(ClientKey key, KeyModifier curModifier, boolean hudActive) {
@@ -628,7 +652,9 @@ public class ClientControlScheme {
 					InputMethod inputMethod = input.getFirst();
 					String abilityName = bind.getKey();
 					AbilityControlsEntry ability = new AbilityControlsEntry(powerClass, abilityName);
-					group.binds.add(new Bind(inputBind, inputMethod, ability));
+					Bind templateBind = new Bind(inputBind, inputMethod, ability);
+					templateBind.attackOrUseButton = Bind.isAttackOrUseButton(inputBindTemplate);
+					group.binds.add(templateBind);
 				}
 			}
 			for (SeparateBindTemplate bind :
@@ -638,8 +664,10 @@ public class ClientControlScheme {
 				if (inputBind != null) {
 					AbilityControlsEntry ability = new AbilityControlsEntry(
 							powerClass, bind.ability());
-					group.binds.add(new Bind(
-							inputBind, bind.inputMethod(), ability));
+					Bind templateBind = new Bind(
+							inputBind, bind.inputMethod(), ability);
+					templateBind.attackOrUseButton = Bind.isAttackOrUseButton(bind.input());
+					group.binds.add(templateBind);
 				}
 			}
 			

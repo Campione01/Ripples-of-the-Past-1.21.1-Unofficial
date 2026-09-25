@@ -2,6 +2,7 @@
   "values": [
     "jojo_ripples:gloves_damage",
     "jojo_ripples:gloves_speed",
-    "jojo_ripples:stand_arrow_xp_reduction"
+    "jojo_ripples:stand_arrow_xp_reduction",
+    "jojo_ripples:virus_inhibition"
   ]
 }

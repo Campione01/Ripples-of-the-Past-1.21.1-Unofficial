@@ -1,5 +1,6 @@
 package rotp.core.client.entityanim.barrage;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -13,6 +14,7 @@ import org.jetbrains.annotations.ApiStatus;
 
 import rotp.core.client.entityanim.RotpAnimDefinition;
 import rotp.core.client.entityanim.RotpAnimDefinition.TimelineKeys;
+import rotp.core.client.entityanim.playerbend.IPlayerBendModel;
 import rotp.core.client.entityrender.EntityActionRenderState;
 import rotp.core.client.entityrender.stand.HumanoidPart;
 import rotp.core.client.entityrender.stand.StandEntityModel;
@@ -20,6 +22,7 @@ import rotp.core.client.entityrender.stand.StandEntityRenderState;
 import rotp.core.client.rendertype.BarrageVertexConsumer;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.entity.StandStatFormulas;
+import rotp.core.compat.v1_21_4.missingmethods.Model_1_21_2plus;
 import rotp.core.compat.v1_21_4.renderstate.EntityRenderState;
 import rotp.core.compat.v1_21_4.renderstate.LivingEntityRenderState;
 import rotp.core.compat.v1_21_4.renderstate.RenderStateCrutches;
@@ -113,6 +116,93 @@ public class BarrageSwings {
 		}
 		finally {
 			restoreModelAfterBarrage(model, RenderStateCrutches.currentStandEntityRenderState);
+		}
+	}
+
+	/**
+	 * Afterimages of a humanoid (player or mob), drawn once with the entity's own model.
+	 * 1.16 (BarrageFistAfterimagesLayer) used a separate model copy, so the pose and visibility
+	 * that the later layers read (armor, held items) are put back, and the layers draw no afterimages.
+	 */
+	public static void renderHumanoidAfterimages(HumanoidModel<?> model,
+			PoseStack poseStack, VertexConsumer buffer,
+			int packedLight, int packedOverlay, int color) {
+		BarrageSwings swings = currentlyRendering;
+		if (swings == null) {
+			return;
+		}
+		// only the main body model draws them
+		currentlyRendering = null;
+		float xRot = RenderStateCrutches.currentEntityRenderState != null
+				? RenderStateCrutches.currentEntityRenderState.xRot : 0;
+		List<ModelPart> parts = humanoidStateParts(model);
+		float[] saved = saveModelState(parts);
+		try {
+			swings.renderLayerBarrage(model, poseStack, buffer, packedLight, packedOverlay, color, xRot);
+		}
+		finally {
+			loadModelState(parts, saved);
+		}
+	}
+
+	private static List<ModelPart> humanoidStateParts(HumanoidModel<?> model) {
+		List<ModelPart> parts = new ArrayList<>();
+		ModelPart root = ((Model_1_21_2plus) model).jojo_ripples$root();
+		if (root != null) {
+			root.getAllParts().forEach(parts::add);
+		}
+		else {
+			parts.addAll(List.of(model.head, model.hat, model.body,
+					model.rightArm, model.leftArm, model.rightLeg, model.leftLeg));
+		}
+		// the swing clip also poses the bend parts, which translateToHand reads
+		if (model instanceof IPlayerBendModel bends) {
+			for (ModelPart part : new ModelPart[] {
+					bends.jojo_ripples$animMainBody(), bends.jojo_ripples$animTorso(), bends.jojo_ripples$animTorsoBend(),
+					bends.jojo_ripples$animRightArmBend(), bends.jojo_ripples$animLeftArmBend(),
+					bends.jojo_ripples$animRightLegBend(), bends.jojo_ripples$animLeftLegBend(),
+					bends.jojo_ripples$animRightItem(), bends.jojo_ripples$animLeftItem(), bends.jojo_ripples$animCapeBend() }) {
+				if (part != null) {
+					parts.add(part);
+				}
+			}
+		}
+		return parts;
+	}
+
+	private static final int PART_STATE_SIZE = 10;
+
+	private static float[] saveModelState(List<ModelPart> parts) {
+		float[] state = new float[parts.size() * PART_STATE_SIZE];
+		int i = 0;
+		for (ModelPart part : parts) {
+			state[i++] = part.x;
+			state[i++] = part.y;
+			state[i++] = part.z;
+			state[i++] = part.xRot;
+			state[i++] = part.yRot;
+			state[i++] = part.zRot;
+			state[i++] = part.xScale;
+			state[i++] = part.yScale;
+			state[i++] = part.zScale;
+			state[i++] = part.visible ? 1 : 0;
+		}
+		return state;
+	}
+
+	private static void loadModelState(List<ModelPart> parts, float[] state) {
+		int i = 0;
+		for (ModelPart part : parts) {
+			part.x = state[i++];
+			part.y = state[i++];
+			part.z = state[i++];
+			part.xRot = state[i++];
+			part.yRot = state[i++];
+			part.zRot = state[i++];
+			part.xScale = state[i++];
+			part.yScale = state[i++];
+			part.zScale = state[i++];
+			part.visible = state[i++] != 0;
 		}
 	}
 

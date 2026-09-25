@@ -10,6 +10,7 @@ import rotp.core.init.ModStructures;
 import com.mojang.serialization.MapCodec;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.QuartPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.ChunkPos;
@@ -60,13 +61,23 @@ public class HamonTempleStructure extends Structure {
         if (!JojoModConfig.getCommonConfigInstance(false).hamonTempleSpawn.get()) {
             return Optional.empty();
         }
-        BlockPos origin = anchor(context.chunkPos(), surface);
-        if (origin == null) {
+        int centerX = context.chunkPos().getMinBlockX() + 7;
+        int centerZ = context.chunkPos().getMinBlockZ() + 7;
+        int centerY = surface.applyAsInt(centerX, centerZ);
+        // Cheap 90+ gate, then the biome, then the 49-sample footprint (1.16 order: biome before footprint).
+        if (centerY < 90 || !surfaceBiomeAllowed(context, centerX, centerY, centerZ)) {
             return Optional.empty();
         }
+        BlockPos origin = footprintAnchor(centerX, centerZ, surface);
         // Biome is tested at the centre surface (1.16 used the surface biome), not at the sunk origin.
-        BlockPos probe = new BlockPos(origin.getX(), surface.applyAsInt(origin.getX(), origin.getZ()), origin.getZ());
+        BlockPos probe = new BlockPos(centerX, centerY, centerZ);
         return Optional.of(new GenerationStub(probe, builder -> generatePieces(context.structureTemplateManager(), origin, builder, context.random())));
+    }
+
+    // Same test vanilla applies to the stub position afterwards.
+    private static boolean surfaceBiomeAllowed(GenerationContext context, int x, int y, int z) {
+        return context.validBiome().test(context.chunkGenerator().getBiomeSource().getNoiseBiome(
+                QuartPos.fromBlock(x), QuartPos.fromBlock(y), QuartPos.fromBlock(z), context.randomState().sampler()));
     }
 
     // 1.16 anchor: chunk corner + 7, null when that column is below 90, else the footprint
@@ -77,6 +88,10 @@ public class HamonTempleStructure extends Structure {
         if (surfaceHeight.applyAsInt(centerX, centerZ) < 90) {
             return null;
         }
+        return footprintAnchor(centerX, centerZ, surfaceHeight);
+    }
+
+    private static BlockPos footprintAnchor(int centerX, int centerZ, IntBinaryOperator surfaceHeight) {
         int minY = Integer.MAX_VALUE;
         for (int x = centerX - 24; x <= centerX + 24; x += 8) {
             for (int z = centerZ - 24; z <= centerZ + 24; z += 8) {

@@ -14,9 +14,13 @@ import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.util.functions.JojoModUtil;
 import rotp.core.impl.powers.hamon.HamonBlastExplosion;
 import rotp.core.impl.powers.hamon.abilities.HamonAbilityHelpers;
+import rotp.core.impl.powers.hamon.abilities.HamonBreathAbility;
 import rotp.core.impl.powers.vampirism.VampirismData;
 
+import javax.annotation.Nullable;
+
 import net.minecraft.sounds.SoundEvent;
+import net.minecraft.util.Mth;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
@@ -74,10 +78,17 @@ public class VampirismHamonSuicideAbility extends VampirismActionAbility {
 			if (newPhase == ActionPhase.WINDUP && level().isClientSide()) {
 				LivingEntity user = getPowerUser();
 				if (user != null) {
+					// 1.16 HamonEnergySound: follows the blood bar while held, then -0.1 per tick
 					ClientsideSoundsHelper.playLoopingActionSound(ModSoundEvents.HAMON_CONCENTRATION.get(), user,
-							this, ActionPhase.WINDUP, 1.0F, 1.0F);
+							this, ActionPhase.WINDUP, 1.0F, 1.0F, 0, HamonBreathAbility.BREATH_SOUND_FADE_STEP,
+							() -> bloodSoundVolume());
 				}
 			}
+		}
+
+		public float bloodSoundVolume() {
+			LivingEntity user = getPowerUser();
+			return VampirismHamonSuicideAbility.bloodSoundVolume(user != null ? getVampirismData(user, this) : null, user);
 		}
 
 		@Override
@@ -135,6 +146,14 @@ public class VampirismHamonSuicideAbility extends VampirismActionAbility {
 				forceStop();
 			}
 		}
+	}
+
+	// 1.16 HamonEnergySound for a vampire: blood / max blood (at least 1); 1 with no vampirism data
+	public static float bloodSoundVolume(@Nullable VampirismData data, @Nullable LivingEntity user) {
+		if (data == null || user == null) {
+			return 1.0F;
+		}
+		return Mth.clamp(data.getBloodLevel() / Math.max(data.getMaxBlood(user), 1.0F), 0.0F, 1.0F);
 	}
 
 	private static DeferredHolder<SoundEvent, SoundEvent> breathSound(String character) {

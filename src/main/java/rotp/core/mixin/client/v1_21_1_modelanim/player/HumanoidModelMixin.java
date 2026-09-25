@@ -11,6 +11,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import rotp.core.api.client.render.HumanoidModelPostSetup;
 import rotp.core.client.entityanim.IHumanoidAnimModel;
+import rotp.core.client.entityanim.barrage.BarrageSwings;
 import rotp.core.client.entityanim.playerbend.IPlayerBendModel;
 import rotp.core.client.entityanim.playerbend.IPlayerLimbBend;
 import rotp.core.client.entityanim.playerbend.PlayerModelBends;
@@ -213,6 +214,14 @@ public abstract class HumanoidModelMixin/* extends ModelMixinSuperclass*/ extend
 			PlayerModelBends.renderWithBends((HumanoidModel<?>) (Object) this, this, 
 					poseStack, buffer, 
 					packedLight, packedOverlay, color);
+			// the cancel skips the TAIL barrage hook: draw the afterimages here, in the torso frame of the bent arms
+			if (BarrageSwings.currentlyRendering != null) {
+				poseStack.pushPose();
+				PlayerModelBends.translateToAnimHand1((HumanoidModel<?>) (Object) this, this, HumanoidArm.RIGHT, poseStack);
+				BarrageSwings.renderHumanoidAfterimages((HumanoidModel<?>) (Object) this,
+						poseStack, buffer, packedLight, packedOverlay, color);
+				poseStack.popPose();
+			}
 			ci.cancel();
 		}
 	}

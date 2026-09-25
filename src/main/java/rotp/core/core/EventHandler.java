@@ -943,6 +943,11 @@ public class EventHandler {
 			Player newEntity = event.getEntity();
 			boolean wasDeath = event.isWasDeath();
 			data.onClone(newEntity, wasDeath);
+			// after the loop so the PlayerPower stamina factor is already cloned
+			StandPower newStandPower = StandPower.get(newEntity);
+			if (newStandPower != null) {
+				newStandPower.refillStaminaAfterClone();
+			}
 		}
 	}
 	

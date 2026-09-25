@@ -64,6 +64,7 @@ import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.AbstractArrow;
 import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.item.ArrowItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ProjectileItem;
 import net.minecraft.world.item.ItemStack;
@@ -76,10 +77,13 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.DispenserBlock;
 import net.minecraft.world.level.levelgen.structure.Structure;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.fml.loading.FMLEnvironment;
+import net.neoforged.fml.util.thread.EffectiveSide;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
 
-public class StandArrowItem extends Item implements ProjectileItem {
+// 1.16: an ArrowItem, so bows, crossbows and skeletons fire a StandArrowEntity
+public class StandArrowItem extends ArrowItem implements ProjectileItem {
     // dur: 25 | 250; ench: 10 | 25
     private final int enchantability = 20;
 
@@ -88,8 +92,11 @@ public class StandArrowItem extends Item implements ProjectileItem {
         DispenserBlock.registerProjectileBehavior(this);
     }
 
+    @Override
     public AbstractArrow createArrow(Level level, ItemStack ammo, LivingEntity shooter, @Nullable ItemStack weapon) {
-        return new StandArrowEntity(shooter, level, ammo, weapon);
+        // an empty weapon stack (stand throws) would make AbstractArrow throw: treat it as none
+        return new StandArrowEntity(shooter, level, ammo.copyWithCount(1),
+                weapon != null && !weapon.isEmpty() ? weapon : null);
     }
 
     @Override
@@ -101,7 +108,7 @@ public class StandArrowItem extends Item implements ProjectileItem {
 
     @Override
     public DispenseConfig createDispenseConfig() {
-    	return ProjectileItem.super.createDispenseConfig();
+    	return super.createDispenseConfig();
     }
     
     
@@ -210,7 +217,7 @@ public class StandArrowItem extends Item implements ProjectileItem {
     		}
     		return applyStandVirusFromArrow(livingEntity, arrowItem, arrowShooter, standToGive,
     				// 1.16: sized by this player's rising cost, not the initial one
-    				StandVirusActualEffect.getEffectDurationToApply(player), arrowVirusLevel(arrowItem));
+    				StandVirusActualEffect.getEffectDurationToApply(player), arrowVirusLevel(level, arrowItem));
     	}
 
     	StandType standToGive = pickStandToGive(livingEntity);
@@ -222,16 +229,17 @@ public class StandArrowItem extends Item implements ProjectileItem {
                             arrowShooter,
                             null,
                             600,
-                            arrowVirusLevel(arrowItem),
+                            arrowVirusLevel(level, arrowItem),
                             match.owner()))
                     .orElse(false);
     	}
-    	return applyStandVirusFromArrow(livingEntity, arrowItem, arrowShooter, standToGive, 600, arrowVirusLevel(arrowItem));
+    	return applyStandVirusFromArrow(livingEntity, arrowItem, arrowShooter, standToGive, 600, arrowVirusLevel(level, arrowItem));
     }
 
-    // 1.16: level 3 minus Virus Inhibition; that enchantment is not ported yet
-    public static int arrowVirusLevel(ItemStack arrowItem) {
-    	return StandVirusActualEffect.getEffectLevelToApply(0);
+    // 1.16: level 3 minus the Arrow's Virus Inhibition
+    public static int arrowVirusLevel(Level level, ItemStack arrowItem) {
+    	return StandVirusActualEffect.getEffectLevelToApply(StandVirusActualEffect.arrowEnchantmentLevel(
+    			level, arrowItem, StandVirusActualEffect.VIRUS_INHIBITION));
     }
 
     private static boolean applyStandVirusFromArrow(LivingEntity entity, ItemStack arrowItem, Optional<Entity> arrowShooter,
@@ -489,7 +497,13 @@ public class StandArrowItem extends Item implements ProjectileItem {
     public int getEnchantmentValue(ItemStack stack) {
         return enchantability;
     }
-    
+
+    // vanilla also needs MAX_DAMAGE; the unbreakable beetle arrow has none but is table-enchantable (1.16)
+    @Override
+    public boolean isEnchantable(ItemStack stack) {
+        return stack.getMaxStackSize() == 1;
+    }
+
     // this shit is impossible with purely data-driven enchantments
     @Override
     public boolean supportsEnchantment(ItemStack stack, Holder<Enchantment> enchantment) {
@@ -512,6 +526,17 @@ public class StandArrowItem extends Item implements ProjectileItem {
     	return repairCandidate.is(ModItems.METEORIC_INGOT.get());
     }
 
+    // 1.16 getMaxDamage: the crafted (meteorite) arrow uses the arrowDurability config;
+    // the registered durability(25) keeps MAX_DAMAGE so the stack stays damageable
+    @Override
+    public int getMaxDamage(ItemStack stack) {
+    	if (this == ModItems.STAND_ARROW_METEORITE.get()) {
+    		boolean clientSide = !FMLEnvironment.dist.isDedicatedServer() && EffectiveSide.get().isClient();
+    		return Math.max(1, JojoModConfig.getCommonConfigInstance(clientSide).arrowDurability.get());
+    	}
+    	return super.getMaxDamage(stack);
+    }
+
     /** 1.16 StandArrowEntity.getBaseDamage: the arrow item's own Sharpness adds to the base damage. */
     public static double applyArrowItemDamageBonus(ServerLevel level, ItemStack arrowStack, Entity target,
     		DamageSource damageSource, double baseDamage) {
@@ -521,6 +546,8 @@ public class StandArrowItem extends Item implements ProjectileItem {
     	return EnchantmentHelper.modifyDamage(level, arrowStack, target, damageSource, (float) baseDamage);
     }
 
+    // 1.16: Infinity never saves a Stand Arrow
+    @Override
     public boolean isInfinite(ItemStack arrowStack, ItemStack weapon, LivingEntity shooter) {
     	return false;
     }

@@ -1,0 +1,21 @@
+{
+  "anvil_cost": 4,
+  "description": {
+    "translate": "enchantment.jojo_ripples.virus_inhibition"
+  },
+  "max_cost": {
+    "base": 23,
+    "per_level_above_first": 7
+  },
+  "max_level": 3,
+  "min_cost": {
+    "base": 8,
+    "per_level_above_first": 7
+  },
+  "primary_items": "#jojo_ripples:enchantable/stand_arrow",
+  "slots": [
+    "mainhand"
+  ],
+  "supported_items": "#jojo_ripples:enchantable/stand_arrow",
+  "weight": 2
+}

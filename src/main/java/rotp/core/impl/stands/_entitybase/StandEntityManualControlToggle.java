@@ -1,5 +1,6 @@
 package rotp.core.impl.stands._entitybase;
 
+import rotp.core.api.stand.ManualControlBlockers;
 import rotp.core.client.ClientProxy;
 import rotp.core.client.input.InputHandler;
 import rotp.core.core.JojoMod;
@@ -53,8 +54,10 @@ public class StandEntityManualControlToggle extends Ability {
 		// 1.16 StandUtil.setManualControl silently refused arms-only Stands; grey the icon, no message
 		StandEntity stand = StandUtil.getSummonedStand(context);
 		LivingEntity user = context.getUser();
-		if (stand != null && user != null && stand.isArmsOnlyMode() && !stand.isManuallyControlled()
-				&& EntityComponentController.getControlTarget(user) != stand) {
+		if (stand != null && user != null && !stand.isManuallyControlled()
+				&& EntityComponentController.getControlTarget(user) != stand
+				// 1.16 add-on vetoes (Sticky Fingers headless user) also refused silently; exit stays allowed
+				&& (stand.isArmsOnlyMode() || ManualControlBlockers.isBlocked(user, stand))) {
 			return ConditionCheck.NEGATIVE;
 		}
 		return ConditionCheck.POSITIVE;
@@ -99,7 +102,7 @@ public class StandEntityManualControlToggle extends Ability {
 	public static void on(Level level, StandEntity stand) {
 		LivingEntity user = stand.getUser();
 		// 1.16 StandUtil.setManualControl: arms-only Stands cannot be taken over
-		if (user == null || stand.isArmsOnlyMode()) {
+		if (user == null || stand.isArmsOnlyMode() || ManualControlBlockers.isBlocked(user, stand)) {
 			return;
 		}
 		stand.setManuallyControlled(true);

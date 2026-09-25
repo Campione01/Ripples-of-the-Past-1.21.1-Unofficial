@@ -5,15 +5,18 @@ import javax.annotation.Nullable;
 import org.jetbrains.annotations.ApiStatus;
 
 import rotp.core.client.util.functions.ClientUtil;
+import rotp.core.subsystems.entity_puppetcontrol.StandManualInput;
 
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.player.Input;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 public abstract class ClientEntityController {
 	@Nullable protected static ClientEntityController instance;
@@ -69,6 +72,26 @@ public abstract class ClientEntityController {
 			if (instance != null) {
 				instance.tickPre();
 			}
+		}
+		syncManualShift(Minecraft.getInstance());
+	}
+
+	private static boolean manualShiftSent;
+
+	// clearInput drops the user's sneak (1.16 kept it), so the held Shift
+	// goes to the server on its own before this tick's key presses.
+	private static void syncManualShift(Minecraft mc) {
+		ClientPacketListener connection = mc.getConnection();
+		if (connection == null) {
+			manualShiftSent = false;
+			StandManualInput.setClientShift(false);
+			return;
+		}
+		boolean held = instance != null && mc.screen == null && mc.options.keyShift.isDown();
+		StandManualInput.setClientShift(held);
+		if (held != manualShiftSent && connection.hasChannel(StandManualInput.ShiftPacket.TYPE)) {
+			PacketDistributor.sendToServer(new StandManualInput.ShiftPacket(held));
+			manualShiftSent = held;
 		}
 	}
 

@@ -4,12 +4,15 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 
+import rotp.core.JojoModConfig;
 import rotp.core.core.JojoMod;
 import rotp.core.init.ModItems;
 import rotp.core.mechanics.standarrow.StandArrowEntity;
 
+import io.netty.buffer.Unpooled;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
@@ -20,13 +23,15 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.common.ModConfigSpec;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * 1.16 StandArrowEntity wear: onHitEntity called arrowItem.hurtAndBreak(1, shooter) before target.hurt, blocked or
  * not, and doPostHurtEffects added one more point when the target survived and the shooter was not creative. A
- * creative shooter was exempt; the target's game mode never mattered.
+ * creative shooter was exempt; the target's game mode never mattered. The crafted arrow's durability came from the
+ * arrowDurability config (1.16 StandArrowItem.getMaxDamage).
  */
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -121,6 +126,44 @@ public final class StandArrowWearGameTests {
 					"The broken arrow should keep its own item; got " + arrow.getPickupItem());
 		}
 		finally {
+			created.forEach(Entity::discard);
+		}
+		helper.succeed();
+	}
+
+	// config is set and restored inside this call, so other tests never see it
+	@GameTest(template = "empty", timeoutTicks = 40)
+	public static void meteoriteArrowDurabilityFollowsConfig(GameTestHelper helper) {
+		ModConfigSpec.ConfigValue<Integer> durability = JojoModConfig.COMMON_SPEC.getValues()
+				.get(List.of("Stand settings", "arrowDurability"));
+		int previous = durability.get();
+		List<Entity> created = new ArrayList<>();
+		try {
+			durability.set(40);
+			ItemStack stack = new ItemStack(ModItems.STAND_ARROW_METEORITE.get());
+			helper.assertTrue(stack.isDamageableItem() && stack.getMaxDamage() == 40,
+					"arrowDurability 40 must give the Meteorite Arrow 40 durability; got " + stack.getMaxDamage());
+			// the client draws the durability bar from its synced copy
+			RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), helper.getLevel().registryAccess());
+			new JojoModConfig.Common.SyncedValues(JojoModConfig.getCommonConfigInstance(false)).writeToBuf(buf);
+			JojoModConfig.applySyncedConfig(new JojoModConfig.Common.SyncedValues(buf));
+			int client = JojoModConfig.getCommonConfigInstance(true).arrowDurability.get();
+			helper.assertTrue(client == 40, "arrowDurability did not reach the client copy; got " + client);
+
+			// durability 3: 2 points already worn, the hit's point breaks the arrow
+			durability.set(3);
+			LivingEntity shooter = create(helper, EntityType.ZOMBIE, created);
+			LivingEntity cow = create(helper, EntityType.COW, created);
+			StandArrowEntity arrow = arrow(helper, shooter, 2, created);
+			AABB around = arrow.getBoundingBox().inflate(3.0);
+			hit(arrow, cow);
+			created.addAll(helper.getLevel().getEntitiesOfClass(ItemEntity.class, around,
+					item -> item.getItem().is(ModItems.STAND_ARROW_SHARD.get())));
+			helper.assertTrue(arrow.isRemoved(), "arrowDurability 3: the third worn point must break the arrow");
+		}
+		finally {
+			durability.set(previous);
+			JojoModConfig.resetSyncedConfig();
 			created.forEach(Entity::discard);
 		}
 		helper.succeed();

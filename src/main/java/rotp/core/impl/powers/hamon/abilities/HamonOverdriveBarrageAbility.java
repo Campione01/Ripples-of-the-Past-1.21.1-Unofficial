@@ -1,6 +1,5 @@
 package rotp.core.impl.powers.hamon.abilities;
 
-import rotp.core.init.ModParticles;
 import rotp.core.init.ModSoundEvents;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.ability.AbilityId;
@@ -63,7 +62,9 @@ public class HamonOverdriveBarrageAbility extends HamonActionRuntimeAbility {
 		}
 	}
 
-	private void hitEntity(Level level, LivingEntity user, LivingEntity target) {
+	// 1.16 dealHamonDamage(target, 0.1F, user, null, null): the hit's default emitter only, no extra burst.
+	// Public for the gametests.
+	public static void hitEntity(Level level, LivingEntity user, LivingEntity target) {
 		if (!JojoModUtil.canHarm(user, target)) {
 			return;
 		}
@@ -71,7 +72,6 @@ public class HamonOverdriveBarrageAbility extends HamonActionRuntimeAbility {
 		HamonAbilityHelpers.doMeleeAttack(user, target);
 		target.invulnerableTime = invulTicks;
 		if (HamonAbilityHelpers.hamonHurtThroughInvul(target, user, 0.1F)) {
-			HamonAbilityHelpers.sendHamonParticles(target, ModParticles.HAMON_SPARK.get(), 1);
 			level.playSound(null, user, ModSoundEvents.HAMON_SYO_SWING.get(),
 					user.getSoundSource(), 0.35F, 1.0F);
 		}

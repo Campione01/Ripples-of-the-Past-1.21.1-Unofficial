@@ -4,7 +4,9 @@ import java.lang.reflect.Method;
 import java.util.List;
 
 import rotp.core.core.JojoMod;
+import rotp.core.init.ModEntityTypes;
 import rotp.core.init.ModItems;
+import rotp.core.init.ModStatusEffects;
 import rotp.core.mechanics.standarrow.StandArrowEntity;
 
 import net.minecraft.core.Holder;
@@ -14,12 +16,17 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.tags.EnchantmentTags;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.AbstractArrow;
 import net.minecraft.world.inventory.AnvilMenu;
 import net.minecraft.world.inventory.ContainerLevelAccess;
+import net.minecraft.world.item.ArrowItem;
+import net.minecraft.world.item.CrossbowItem;
 import net.minecraft.world.item.EnchantedBookItem;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantment;
@@ -116,6 +123,88 @@ public final class StandArrowEnchantRepairGameTests {
 		helper.assertTrue(Math.abs(plainLost - 2.0F) < EPS, "A plain Stand Arrow deals 2; lost " + plainLost);
 		helper.assertTrue(Math.abs(sharpLost - 5.0F) < EPS, "1.16: a Sharpness V Stand Arrow deals 5; lost " + sharpLost);
 		helper.succeed();
+	}
+
+	// 1.16 StandArrowItem extends ArrowItem: a fully drawn bow fires a StandArrowEntity, not a vanilla Arrow
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void bowFiresStandArrowEntity(GameTestHelper helper) {
+		Player player = armedShooter(helper, new ItemStack(Items.BOW), new ItemStack(ModItems.STAND_ARROW.get()));
+		ItemStack bow = player.getMainHandItem();
+		// 20 ticks of draw: full power
+		bow.releaseUsing(helper.getLevel(), player, bow.getUseDuration(player) - 20);
+		checkFiredStandArrow(helper, player, ModItems.STAND_ARROW.get());
+		helper.succeed();
+	}
+
+	// same through a crossbow: a full charge loads the Stand Arrow, the next use fires it
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void crossbowFiresStandArrowEntity(GameTestHelper helper) {
+		Player player = armedShooter(helper, new ItemStack(Items.CROSSBOW), new ItemStack(ModItems.STAND_ARROW_METEORITE.get()));
+		ItemStack crossbow = player.getMainHandItem();
+		crossbow.releaseUsing(helper.getLevel(), player, 0);
+		helper.assertTrue(CrossbowItem.isCharged(crossbow), "The crossbow did not load the Stand Arrow");
+		crossbow.use(helper.getLevel(), player, InteractionHand.MAIN_HAND);
+		checkFiredStandArrow(helper, player, ModItems.STAND_ARROW_METEORITE.get());
+		helper.succeed();
+	}
+
+	// ArrowItem.createArrow callers without a weapon (add-on stand throws pass an empty stack) must not crash
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void standArrowCreateArrowWithoutWeapon(GameTestHelper helper) {
+		Player player = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
+		helper.assertTrue(ModItems.STAND_ARROW_BEETLE.get() instanceof ArrowItem, "1.16: the Stand Arrow is an ArrowItem");
+		ArrowItem item = (ArrowItem) ModItems.STAND_ARROW_BEETLE.get();
+		AbstractArrow arrow = item.createArrow(helper.getLevel(), new ItemStack(item), player, ItemStack.EMPTY);
+		helper.assertTrue(arrow instanceof StandArrowEntity && arrow.getWeaponItem() == null,
+				"An empty weapon stack must give a weaponless StandArrowEntity; got " + arrow);
+		arrow.discard();
+		helper.succeed();
+	}
+
+	// survival mock player holding the weapon, the Stand Arrow in the off hand
+	private static Player armedShooter(GameTestHelper helper, ItemStack weapon, ItemStack arrow) {
+		Player player = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
+		player.moveTo(helper.absoluteVec(new Vec3(1.5, 2.0, 1.5)));
+		player.setItemInHand(InteractionHand.MAIN_HAND, weapon);
+		player.setItemInHand(InteractionHand.OFF_HAND, arrow);
+		return player;
+	}
+
+	// exactly one StandArrowEntity spawned, the arrow was used up, and its hit pierces a turtle
+	private static void checkFiredStandArrow(GameTestHelper helper, Player player, Item arrowItem) {
+		List<AbstractArrow> fired = helper.getLevel().getEntitiesOfClass(AbstractArrow.class, player.getBoundingBox().inflate(4.0));
+		LivingEntity turtle = (LivingEntity) ModEntityTypes.COCO_JUMBO_TURTLE.get().create(helper.getLevel());
+		try {
+			helper.assertTrue(fired.size() == 1 && fired.get(0) instanceof StandArrowEntity,
+					"1.16: the weapon fires one StandArrowEntity, not a vanilla Arrow; got " + fired);
+			StandArrowEntity arrow = (StandArrowEntity) fired.get(0);
+			helper.assertTrue(arrow.getPickupItemStackOrigin().is(arrowItem),
+					"The fired arrow must carry the shot Stand Arrow; got " + arrow.getPickupItemStackOrigin());
+			helper.assertTrue(player.getOffhandItem().isEmpty(),
+					"1.16: a Stand Arrow is used up when fired; off hand still has " + player.getOffhandItem());
+			helper.assertTrue(turtle != null, "Could not create a Coco Jumbo turtle");
+			turtle.moveTo(helper.absoluteVec(new Vec3(1.5, 2.0, 3.5)));
+			hit(arrow, turtle);
+			helper.assertTrue(turtle.hasEffect(ModStatusEffects.STAND_VIRUS),
+					"1.16: a bow or crossbow Stand Arrow hit runs onPiercedByArrow (Stand virus on the turtle)");
+		}
+		finally {
+			fired.forEach(AbstractArrow::discard);
+			if (turtle != null) {
+				turtle.discard();
+			}
+		}
+	}
+
+	private static void hit(StandArrowEntity arrow, LivingEntity target) {
+		try {
+			Method onHit = StandArrowEntity.class.getDeclaredMethod("onHitEntity", EntityHitResult.class);
+			onHit.setAccessible(true);
+			onHit.invoke(arrow, new EntityHitResult(target));
+		}
+		catch (ReflectiveOperationException error) {
+			throw new IllegalStateException("Could not call StandArrowEntity.onHitEntity", error);
+		}
 	}
 
 	private static ItemStack anvil(Player player, ItemStack left, ItemStack right) {

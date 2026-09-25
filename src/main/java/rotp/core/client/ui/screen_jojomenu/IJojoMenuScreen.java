@@ -8,16 +8,16 @@ import rotp.core.client.ui.utils.BlitFloat;
 import rotp.core.client.ui.utils.tooltip.TooltipParams;
 import rotp.core.core.JojoMod;
 
-import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.client.sounds.SoundManager;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.util.FormattedCharSequence;
 
 public interface IJojoMenuScreen {
 	public static final int DEFAULT_WIDTH = 230;
@@ -83,7 +83,10 @@ public interface IJojoMenuScreen {
 		if (tab != null) {
 			Component name = tab.getName();
 			if (name != null) {
-				screen.setTooltipForNextRenderPass(((MutableComponent) name).withStyle(ChatFormatting.BLACK));
+				// 1.16 HamonScreen: tab name, then the tab's extra lines
+				Font font = screen.getMinecraft().font;
+				List<FormattedCharSequence> lines = JojoMenuTabTooltips.lines(name, tab.getTooltipExtraLines(), font::split);
+				screen.setTooltipForNextRenderPass(lines);
 				TooltipParams.set(TooltipParams.paperStyle());
 //				guiGraphics.renderTooltip(_Screen.getFont(screen), name, mouseX, mouseY);
 			}

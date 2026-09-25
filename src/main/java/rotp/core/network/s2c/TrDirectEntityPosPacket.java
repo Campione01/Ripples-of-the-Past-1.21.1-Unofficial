@@ -3,6 +3,7 @@ package rotp.core.network.s2c;
 import rotp.core.PacketsRegister;
 import rotp.core.client.ClientProxy;
 import rotp.core.compat.v1_21_4.missingmethods._Vec3;
+import rotp.core.powersystem.standpower.entity.StandEntity;
 
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
@@ -41,18 +42,26 @@ public record TrDirectEntityPosPacket(int entityId, Vec3 pos) implements CustomP
 		public void handle(TrDirectEntityPosPacket payload, IPayloadContext context) {
 			Entity entity = ClientProxy.getEntityById(payload.entityId);
 			if (entity != null) {
-				Vec3 pos = payload.pos;
-				entity.moveTo(pos.x, pos.y, pos.z);
-				entity.setPos(pos.x, pos.y, pos.z);
-				entity.xo = pos.x;
-				entity.yo = pos.y;
-				entity.zo = pos.z;
-				entity.xOld = pos.x;
-				entity.yOld = pos.y;
-				entity.zOld = pos.z;
+				applyPos(entity, payload.pos);
 			}
 		}
-		
+
+	}
+
+	public static void applyPos(Entity entity, Vec3 pos) {
+		entity.moveTo(pos.x, pos.y, pos.z);
+		entity.setPos(pos.x, pos.y, pos.z);
+		entity.xo = pos.x;
+		entity.yo = pos.y;
+		entity.zo = pos.z;
+		entity.xOld = pos.x;
+		entity.yOld = pos.y;
+		entity.zOld = pos.z;
+		// A manually controlled Stand moves by its offset from the user:
+		// re-anchor it, or the next tick pulls it back to the old spot.
+		if (entity instanceof StandEntity stand) {
+			stand.resetManualOffset();
+		}
 	}
 	
 	@Override

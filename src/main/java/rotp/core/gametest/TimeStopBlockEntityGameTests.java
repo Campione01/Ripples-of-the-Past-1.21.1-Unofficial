@@ -33,7 +33,7 @@ public final class TimeStopBlockEntityGameTests {
 
 	private TimeStopBlockEntityGameTests() {}
 
-	@GameTest(template = "empty", timeoutTicks = 40)
+	@GameTest(template = "empty", timeoutTicks = 40, batch = GameTestBatches.TIME_STOP)
 	public static void furnaceInStoppedChunkDoesNotCook(GameTestHelper helper) {
 		BlockPos relative = new BlockPos(1, 1, 1);
 		BlockPos pos = helper.absolutePos(relative);

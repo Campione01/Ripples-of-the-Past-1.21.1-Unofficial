@@ -45,7 +45,7 @@ public final class FrozenAttachmentsGameTests {
 
 	private FrozenAttachmentsGameTests() {}
 
-	@GameTest(template = "empty", timeoutTicks = 80)
+	@GameTest(template = "empty", timeoutTicks = 80, batch = GameTestBatches.TIME_STOP)
 	public static void armedKnockbackImpactSurvivesTimeStop(GameTestHelper helper) {
 		Mob target = spawn(helper, EntityType.COW);
 		Mob attacker = EntityType.ZOMBIE.create(helper.getLevel());
@@ -86,7 +86,7 @@ public final class FrozenAttachmentsGameTests {
 	 * The guard adds one case: a move check cached before the stop in the same tick (the key press that queued the punch
 	 * makes one) must not start the punch when the input attachment ticks ahead of Power.tick's cache reset.
 	 */
-	@GameTest(template = "empty", timeoutTicks = 80)
+	@GameTest(template = "empty", timeoutTicks = 80, batch = GameTestBatches.TIME_STOP)
 	public static void stoppedStandUserKeepsQueuedPunchUntilTimeResumes(GameTestHelper helper) {
 		Player user = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
 		TimeStopState state = helper.getLevel().getData(ModDataAttachmentTypes.TIME_STOP.get());

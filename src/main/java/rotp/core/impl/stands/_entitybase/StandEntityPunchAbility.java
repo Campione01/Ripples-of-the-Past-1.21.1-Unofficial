@@ -324,16 +324,15 @@ public class StandEntityPunchAbility extends StandEntityAbility {
                 DamageSource dmgSource = makePunchDamageSource();
 				((DamageSourceModified) dmgSource).jojo_ripples$modifyKnockback(stand.guardCounter(), 1);
 				float dmgAmount = StandStatFormulas.getLightAttackDamage(stand.getAttackDamage());
-				if (standEntityAttack(stand, targetLiving, dmgSource, dmgAmount)) {
-					stand.addFinisherMeter(0.1f);
-				}
+				standEntityAttack(stand, targetLiving, dmgSource, dmgAmount);
+				// 1.16 StandEntityPunch.doHit: added even when blocked or in i-frames
+				stand.addFinisherMeter(0.1f);
 			}
 			// 1.16 punched non-living entities too (boats, minecarts, item frames, end crystals)
 			else if (targetEntity != null) {
 				float dmgAmount = StandStatFormulas.getLightAttackDamage(stand.getAttackDamage());
-				if (standEntityAttack(stand, targetEntity, makePunchDamageSource(), dmgAmount)) {
-					stand.addFinisherMeter(0.1f);
-				}
+				standEntityAttack(stand, targetEntity, makePunchDamageSource(), dmgAmount);
+				stand.addFinisherMeter(0.1f);
 			}
 		}
 

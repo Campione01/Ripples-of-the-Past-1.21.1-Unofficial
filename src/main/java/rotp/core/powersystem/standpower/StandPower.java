@@ -18,6 +18,7 @@ import rotp.core.JojoModLivingVariables;
 import rotp.core.api.leap.LeapAccessPolicies;
 import rotp.core.api.leap.LeapSource;
 import rotp.core.api.stand.StandLeapUnlockProviders;
+import rotp.core.api.stand.StandStaminaModifiers;
 import rotp.core.command.commands.JojoControlsCommand;
 import rotp.core.config.client.PlayerClientBroadcastedSettings;
 import rotp.core.entityattachment.PostNbtReadEntityData;
@@ -418,7 +419,9 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 	}
 	
 	public float getMaxStamina() {
-		return hasPower() ? getPowerType().getMaxStamina(this) * getPlayerPowerStandMaxStaminaFactor() : 0;
+		// add-on factors on the final value (1.16 mixins at RETURN)
+		return hasPower() ? StandStaminaModifiers.applyToMaxStamina(this,
+				getPowerType().getMaxStamina(this) * getPlayerPowerStandMaxStaminaFactor()) : 0;
 	}
 	
 	public float getStaminaRatio() {
@@ -506,7 +509,8 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 				staminaRegen *= PlayerClientBroadcastedSettings.getTimeStopStaminaRegenMultiplier(this);
 			}
 		}
-		return staminaRegen * getPowerType().getStaminaDurabilityMultiplier(this);
+		return StandStaminaModifiers.applyToTickGain(this,
+				staminaRegen * getPowerType().getStaminaDurabilityMultiplier(this));
 	}
 
 	private boolean isUserInStoppedTime() {
@@ -922,7 +926,8 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 			return;
 		}
 		newEntityData.standInstance = copyStandInstance(this.standInstance);
-		newEntityData.staminaLerp = this.staminaLerp;
+		// own value, refilled after all powers are cloned (refillStaminaAfterClone)
+		newEntityData.staminaLerp = new Lerp.FloatValue();
 		newEntityData.leapCooldown = this.leapCooldown;
 		newEntityData.abilityCooldowns.clear();
 		newEntityData.abilityCooldowns.putAll(this.abilityCooldowns);
@@ -932,6 +937,16 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 		newEntityData.userStandEffects.transferFrom(this.userStandEffects, newEntityData);
 		newEntityData.userStandAwakeningState = this.userStandAwakeningState;
 		newEntityData.skippedProgression = this.skippedProgression;
+	}
+
+	/* 1.16 StandPower.keepPower: a kept Stand starts full after death or End return.
+	 * Called after every power is cloned, as max stamina uses the PlayerPower factor.
+	 */
+	@ApiStatus.Internal
+	public void refillStaminaAfterClone() {
+		if (hasPower()) {
+			staminaLerp.set(getMaxStamina(), false);
+		}
 	}
 
 	private void clearClonedStandData(StandPower newEntityData) {

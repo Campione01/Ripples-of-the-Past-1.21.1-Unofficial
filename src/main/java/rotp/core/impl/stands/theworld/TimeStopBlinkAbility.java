@@ -5,6 +5,7 @@ import java.util.function.BiFunction;
 
 import javax.annotation.Nullable;
 
+import rotp.core.api.timestop.TimeStopTicksModifiers;
 import rotp.core.config.client.PlayerClientBroadcastedSettings;
 import rotp.core.init.ModCriteriaTriggers;
 import rotp.core.init.ModDataAttachmentTypes;
@@ -171,6 +172,10 @@ public class TimeStopBlinkAbility extends Ability {
 		if (stand != null && LivingComponentAction.getCurEntityAction(stand) != null) {
 			return ConditionCheck.NEGATIVE;
 		}
+		// an add-on cut the reach to 0 (1.16 Grateful Dead aging): no blink, no stamina or cooldown
+		if (getMaxImpliedTicks(standPower) <= 0) {
+			return ConditionCheck.NEGATIVE;
+		}
 		ConditionCheck staminaCheck = StandAbilityStamina.check(context, effectiveTimeStopCost(standPower, getBlinkStaminaCost(standPower)));
 		if (!staminaCheck.isPositive()) {
 			return staminaCheck;
@@ -195,6 +200,9 @@ public class TimeStopBlinkAbility extends Ability {
 		// 1.16 TimeStopInstant read its base time stop's training for reach and per-tick cost
 		String learningName = TimeStopLearning.getLearningName(power, timeStopAbilityName);
 		int timeStopTicks = getMaxImpliedTicks(power, learningName);
+		if (timeStopTicks <= 0) {
+			return false;
+		}
 		double playerSpeed = getDistancePerTick(user);
 		double maxDistance = Math.min(playerSpeed * timeStopTicks, MAX_BLINK_DISTANCE);
 		ActionTarget target = rayTraceBlinkTarget(user, maxDistance);
@@ -222,6 +230,11 @@ public class TimeStopBlinkAbility extends Ability {
 	}
 
 	private int getMaxImpliedTicks(StandPower power, String learningName) {
+		// 1.16 add-ons rewrote the final value (Next Album TimeStopInstantAgingMixin at RETURN)
+		return TimeStopTicksModifiers.applyToBlink(power.getUser(), getStaminaCappedTicks(power, learningName));
+	}
+
+	private int getStaminaCappedTicks(StandPower power, String learningName) {
 		int timeStopTicks = TimeStopLearning.getTimeStopTicks(power, learningName);
 		if (StandUtil.standIgnoresStaminaDebuff(power)) {
 			return timeStopTicks;

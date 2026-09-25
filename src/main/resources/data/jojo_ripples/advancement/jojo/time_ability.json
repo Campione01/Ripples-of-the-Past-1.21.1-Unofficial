@@ -27,12 +27,19 @@
       "conditions": {
         "stand": "jojo_ripples:the_world"
       }
+    },
+    "diego_the_world": {
+      "trigger": "jojo_ripples:time_ability",
+      "conditions": {
+        "stand": "rotp_theworld:the_world"
+      }
     }
   },
   "requirements": [
     [
       "star_platinum",
-      "the_world"
+      "the_world",
+      "diego_the_world"
     ]
   ]
 }

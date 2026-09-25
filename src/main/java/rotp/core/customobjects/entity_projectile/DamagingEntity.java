@@ -12,6 +12,7 @@ import rotp.core.client.sound.ClientsideSoundsHelper;
 import rotp.core.customobjects.DamageSourceModified;
 import rotp.core.customobjects.EntityStandVisibility;
 import rotp.core.customobjects.EntityWithStandSkin;
+import rotp.core.impl.powers.vampirism.entity.HungryZombieEntity;
 import rotp.core.init.ModDamageTypes;
 import rotp.core.powersystem.playerpower.PlayerPower;
 import rotp.core.powersystem.standpower.StandPower;
@@ -35,11 +36,13 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.util.Mth;
+import net.minecraft.world.Difficulty;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageType;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.TamableAnimal;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
@@ -250,7 +253,8 @@ public abstract class DamagingEntity extends Projectile implements IEntityWithCo
 
 	@Override
 	protected boolean canHitEntity(Entity entity) {
-		if (super.canHitEntity(entity)) {
+		// 1.16 ProjectileEntity.canHitEntity skipped spectators itself
+		if (!entity.isSpectator() && super.canHitEntity(entity)) {
 			LivingEntity owner = getOwner();
 			if (owner == null) {
 				return true;
@@ -260,7 +264,7 @@ public abstract class DamagingEntity extends Projectile implements IEntityWithCo
 					return canHitOwner();
 				}
 				else {
-					return owner.canAttack((LivingEntity) entity);
+					return legacyOwnerCanAttack(owner, (LivingEntity) entity);
 				}
 			}
 			return !(checkPvpRules() && 
@@ -268,6 +272,33 @@ public abstract class DamagingEntity extends Projectile implements IEntityWithCo
 					owner instanceof Player player && entity instanceof Player targetPlayer && !player.canHarmPlayer(targetPlayer));
 		}
 		return false;
+	}
+
+	/*
+	 * 1.16 LivingEntity.canAttack was a plain true. The 1.21 base also refuses invulnerable mobs, Creative players
+	 * and every player on Peaceful; there the 1.16 projectile hit and hurt() refused the damage. So such targets
+	 * only keep the owner's own filter (Stand, hungry zombie, tamed pet).
+	 */
+	protected boolean legacyOwnerCanAttack(LivingEntity owner, LivingEntity target) {
+		if (owner.canAttack(target)) {
+			return true;
+		}
+		// Stand override has no vanilla super call; a target the base allows was refused by the override
+		if (owner instanceof StandEntity || !vanillaBaseRefuses(owner, target)) {
+			return false;
+		}
+		if (owner instanceof HungryZombieEntity zombie) {
+			return !zombie.isEntityOwner(target);
+		}
+		if (owner instanceof TamableAnimal tamable) {
+			return !tamable.isOwnedBy(target);
+		}
+		return true; // 1.16 LivingEntity.canAttack base
+	}
+
+	// 1.21 LivingEntity.canAttack base filter
+	private static boolean vanillaBaseRefuses(LivingEntity owner, LivingEntity target) {
+		return target instanceof Player && owner.level().getDifficulty() == Difficulty.PEACEFUL || !target.canBeSeenAsEnemy();
 	}
 
 	public boolean canHitOwner() {

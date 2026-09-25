@@ -191,6 +191,9 @@ public final class RotpAddonApi {
 	/** TimeStopBlinkAbility#setEntityTargetTeleportPos (1.16 TimeStopInstant#getEntityTargetTeleportPos). */
 	public static final String FEATURE_TIME_STOP_BLINK_TARGET_POS_V1 =
 			"time_stop_blink_target_pos_v1";
+	/** TimeStopTicksModifiers: add-ons shorten a blink's reach in ticks, 0 blocks it (1.16 Next Album aging mixin). */
+	public static final String FEATURE_TIME_STOP_TICKS_MODIFIERS_V1 =
+			"time_stop_ticks_modifiers_v1";
 	/** TimeStopAbility#setHeldWalkSpeed / #getHeldWalkSpeed (1.16 TimeStop.Builder#heldWalkSpeed; the core's stays 1). */
 	public static final String FEATURE_TIME_STOP_HELD_WALK_SPEED_V1 =
 			"time_stop_held_walk_speed_v1";
@@ -216,6 +219,9 @@ public final class RotpAddonApi {
 	/** Ability#checkPerformerStun(Power): 1.16 checkRequirements' stunned-performer gate for plain abilities. */
 	public static final String FEATURE_ABILITY_PERFORMER_STUN_V1 =
 			"ability_performer_stun_v1";
+	/** StandStaminaModifiers: add-on factors on any Stand user's max stamina and tick gain (1.16 D4C corpse mixins). */
+	public static final String FEATURE_STAND_STAMINA_MODIFIERS_V1 =
+			"stand_stamina_modifiers_v1";
 
 	public static final Set<String> FEATURES = Set.of(
 			FEATURE_ABILITY_RESOURCE_NAMESPACE_V1,
@@ -291,12 +297,14 @@ public final class RotpAddonApi {
 			FEATURE_STAND_USER_GUARD_V1,
 			FEATURE_TIME_STOP_PUNCH_TUNING_V1,
 			FEATURE_TIME_STOP_BLINK_TARGET_POS_V1,
+			FEATURE_TIME_STOP_TICKS_MODIFIERS_V1,
 			FEATURE_TIME_STOP_HELD_WALK_SPEED_V1,
 			FEATURE_ABILITY_REQUIRED_RESOLVE_LEVEL_V1,
 			FEATURE_ABILITY_SHOUTS_V1,
 			FEATURE_TIME_STOP_PUNCH_DONOR_OPTIONS_V1,
 			FEATURE_INTEGRATED_STAND_V1,
-			FEATURE_ABILITY_PERFORMER_STUN_V1);
+			FEATURE_ABILITY_PERFORMER_STUN_V1,
+			FEATURE_STAND_STAMINA_MODIFIERS_V1);
 
 	private RotpAddonApi() {}
 

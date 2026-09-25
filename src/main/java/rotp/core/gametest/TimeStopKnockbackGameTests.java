@@ -43,7 +43,7 @@ public final class TimeStopKnockbackGameTests {
 
 	private TimeStopKnockbackGameTests() {}
 
-	@GameTest(template = "empty", timeoutTicks = 80)
+	@GameTest(template = "empty", timeoutTicks = 80, batch = GameTestBatches.TIME_STOP)
 	public static void knockbackTakenInStoppedTimeFliesWhenTimeResumes(GameTestHelper helper) {
 		Cow target = spawnOnFloor(helper, 2);
 		Mob attacker = EntityType.ZOMBIE.create(helper.getLevel());
@@ -93,7 +93,7 @@ public final class TimeStopKnockbackGameTests {
 		helper.succeed();
 	}
 
-	@GameTest(template = "empty", timeoutTicks = 80)
+	@GameTest(template = "empty", timeoutTicks = 80, batch = GameTestBatches.TIME_STOP)
 	public static void uppercutInStoppedTimeKeepsItsAngle(GameTestHelper helper) {
 		Cow target = spawnOnFloor(helper, 2);
 		Mob attacker = EntityType.ZOMBIE.create(helper.getLevel());
@@ -189,7 +189,7 @@ public final class TimeStopKnockbackGameTests {
 	 * 1.16 DamageUtil.knockback3d (Scarlet and Turquoise Blue Overdrive, Divine Sandstorm): a knockback stacked on
 	 * a stopped target still got the 3D push on top of the stack.
 	 */
-	@GameTest(template = "empty", timeoutTicks = 80)
+	@GameTest(template = "empty", timeoutTicks = 80, batch = GameTestBatches.TIME_STOP)
 	public static void knockback3dOnAStoppedTargetStillAddsItsPush(GameTestHelper helper) {
 		Cow flowing = spawnOnFloor(helper, 1);
 		Cow target = spawnOnFloor(helper, 2);

@@ -3,6 +3,7 @@ package rotp.core.gametest;
 import java.util.List;
 
 import rotp.core.core.JojoMod;
+import rotp.core.init.ModBlocks;
 import rotp.core.init.ModItems;
 
 import net.minecraft.core.BlockPos;
@@ -76,6 +77,28 @@ public final class RedstoneOreAjaDropGameTests {
 			helper.assertTrue(has(rareFortune, aja) && has(rareFortune, superAja),
 					name + " ignored the Super Aja Fortune chances: " + rareFortune);
 		}
+		helper.succeed();
+	}
+
+	// 1.16 meteoric_ore.json: only silk touch drops the Meteorite Core, any other pick gives Meteoric Scrap
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void meteoriteCoreNeedsSilkTouch(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		Block core = ModBlocks.METEORITE_CORE.get();
+		Item coreItem = ModItems.METEORITE_CORE.get();
+		Item scrap = ModItems.METEORIC_SCRAP.get();
+		List<ItemStack> nonSilkPicks = List.of(new ItemStack(Items.IRON_PICKAXE),
+				enchantedPick(level, Enchantments.EFFICIENCY, 5),
+				enchantedPick(level, Enchantments.FORTUNE, 3),
+				enchantedPick(level, Enchantments.UNBREAKING, 3));
+		for (ItemStack pick : nonSilkPicks) {
+			List<ItemStack> drops = roll(helper, core, pick, 0F);
+			helper.assertTrue(has(drops, scrap) && !has(drops, coreItem),
+					"Meteorite Core with " + pick.getTagEnchantments() + " should drop only scrap: " + drops);
+		}
+		List<ItemStack> silk = roll(helper, core, enchantedPick(level, Enchantments.SILK_TOUCH, 1), 0F);
+		helper.assertTrue(has(silk, coreItem) && !has(silk, scrap),
+				"Meteorite Core with silk touch should drop itself: " + silk);
 		helper.succeed();
 	}
 

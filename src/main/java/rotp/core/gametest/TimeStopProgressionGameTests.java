@@ -106,7 +106,7 @@ public final class TimeStopProgressionGameTests {
 	 * (owner boundary: Stand variants are direct wheel entries). It shows exactly when the time stop does,
 	 * is refused in stopped time (TimeStopInstant), and the time stop key still resumes the user's own stop.
 	 */
-	@GameTest(template = "empty", timeoutTicks = 80)
+	@GameTest(template = "empty", timeoutTicks = 80, batch = GameTestBatches.TIME_STOP)
 	public static void timeStopBlinkHasItsOwnWheelSlot(GameTestHelper helper) {
 		assertBlinkSlot(helper, JojoMod.resLoc("the_world"));
 		assertBlinkSlot(helper, JojoMod.resLoc("star_platinum"));
@@ -200,7 +200,7 @@ public final class TimeStopProgressionGameTests {
 	 * 1.16 TimeResume: the first press leaves 11 ticks; the resume sound plays at 10, the forced resume line at 9,
 	 * and time resumes on the 11th tick. A second press, or a first one with 11 or fewer left, resumes at once.
 	 */
-	@GameTest(template = "empty", timeoutTicks = 80)
+	@GameTest(template = "empty", timeoutTicks = 80, batch = GameTestBatches.TIME_STOP)
 	public static void manualResumeKeepsTheOriginalElevenTicks(GameTestHelper helper) {
 		Player player = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
 		TimeStopState state = helper.getLevel().getData(ModDataAttachmentTypes.TIME_STOP.get());
@@ -321,7 +321,7 @@ public final class TimeStopProgressionGameTests {
 		helper.succeed();
 	}
 
-	@GameTest(template = "empty", timeoutTicks = 80)
+	@GameTest(template = "empty", timeoutTicks = 80, batch = GameTestBatches.TIME_STOP)
 	public static void timeStopTrainingPersistsAcrossSurvivalReload(
 			GameTestHelper helper) {
 		assertProgressionAndPersistence(

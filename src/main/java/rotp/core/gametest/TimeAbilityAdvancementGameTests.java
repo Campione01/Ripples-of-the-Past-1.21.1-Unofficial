@@ -1,6 +1,7 @@
 package rotp.core.gametest;
 
 import java.lang.reflect.Method;
+import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
 
@@ -44,6 +45,7 @@ import net.minecraft.network.Connection;
 import net.minecraft.network.PacketSendListener;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ClientInformation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -132,7 +134,32 @@ public final class TimeAbilityAdvancementGameTests {
 		}
 	}
 
+	// 1.16 Diego add-on: its time stop, blink and TS punch granted time_ability; here they fire rotp_theworld:the_world
 	@GameTest(template = "empty", timeoutTicks = 40)
+	public static void diegosTheWorldGrantsTimeAbility(GameTestHelper helper) {
+		AdvancementHolder timeAbility = advancement(helper, TIME_ABILITY);
+		helper.assertTrue(timeAbility.value().criteria().containsKey("diego_the_world"),
+				"time_ability lost its diego_the_world criterion, has " + timeAbility.value().criteria().keySet());
+		List<List<String>> requirements = timeAbility.value().requirements().requirements();
+		helper.assertTrue(requirements.size() == 1 && requirements.get(0).containsAll(
+				List.of("star_platinum", "the_world", "diego_the_world")),
+				"time_ability should need any one of SP / The World / Diego's The World, was " + requirements);
+		ServerPlayer diego = new TestPlayer(helper, "TimeAbilityDiego");
+		try {
+			// same path, other namespace: not Diego's Stand
+			ModCriteriaTriggers.TIME_ABILITY.get().trigger(diego, ResourceLocation.fromNamespaceAndPath("other_addon", "the_world"));
+			helper.assertTrue(!done(diego, timeAbility), "a the_world Stand from another namespace granted time_ability");
+			ModCriteriaTriggers.TIME_ABILITY.get().trigger(diego, ResourceLocation.fromNamespaceAndPath("rotp_theworld", "the_world"));
+			helper.assertTrue(done(diego, timeAbility),
+					"a Diego's The World time ability did not grant time_ability (1.16 action_perform the_world_time_stop)");
+			helper.succeed();
+		}
+		finally {
+			diego.getAdvancements().stopListening();
+		}
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 40, batch = GameTestBatches.TIME_STOP)
 	public static void onlyANineSecondTimeStopGrantsTimeStop9(GameTestHelper helper) {
 		AdvancementHolder timeAbility = advancement(helper, TIME_ABILITY);
 		AdvancementHolder timeStop9 = advancement(helper, TIME_STOP_9);

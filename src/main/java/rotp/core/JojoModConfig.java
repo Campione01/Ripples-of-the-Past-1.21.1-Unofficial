@@ -102,6 +102,7 @@ public class JojoModConfig {
 		public final ConfigValue<StandUtil.StandRandomPoolFilter> standArrowMode;
 		public final ConfigValue<Integer> standXpCostInitial;
 		public final ConfigValue<Integer> standXpCostIncrease;
+		public final ConfigValue<Integer> arrowDurability;
 
 		private Common(ModConfigSpec.Builder builder) {
 			builder.push("Keep Powers After Death");
@@ -178,6 +179,11 @@ public class JojoModConfig {
 					builder.comment("The increase of the cost for getting a Stand for each previous one the player has got before.")
 					.translation("jojo.config.standXpCostIncrease")
 					.defineInRange("standXpCostIncrease", 5, 0, 9999), 5);
+			// 1.16 arrowDurability; synced, the client draws the durability bar
+			arrowDurability = ConfigValue.fromSpec(
+					builder.comment("Durability of the Arrows crafted from meteoric ingots.")
+					.translation("jojo.config.arrowDurability")
+					.defineInRange("arrowDurability", 25, 1, Integer.MAX_VALUE), 25);
 
 			builder.push("Time Stop");
 			timeStopChunkRange = ConfigValue.fromSpec(
@@ -338,6 +344,7 @@ public class JojoModConfig {
 			standArrowMode = ConfigValue.synced(StandUtil.StandRandomPoolFilter.NONE);
 			standXpCostInitial = ConfigValue.synced(30);
 			standXpCostIncrease = ConfigValue.synced(5);
+			arrowDurability = ConfigValue.synced(25);
 		}
 
 		private static Common syncedDefaults() {
@@ -386,6 +393,7 @@ public class JojoModConfig {
 			endermenBeyondTimeSpace.set(values.endermenBeyondTimeSpace);
 			bannedStands.set(values.bannedStands);
 			standArrowMode.set(values.standArrowMode);
+			arrowDurability.set(values.arrowDurability);
 		}
 
 		private void resetSyncedValues() {
@@ -416,6 +424,7 @@ public class JojoModConfig {
 			endermenBeyondTimeSpace.clearCache();
 			bannedStands.clearCache();
 			standArrowMode.clearCache();
+			arrowDurability.clearCache();
 		}
 
 		public static class SyncedValues {
@@ -451,6 +460,7 @@ public class JojoModConfig {
 			private final List<String> bannedStands;
 			// the arrow tooltip names the pool mode on multiplayer
 			private final StandUtil.StandRandomPoolFilter standArrowMode;
+			private final int arrowDurability;
 
 			public SyncedValues(Common config) {
 				this.keepStandOnDeath = config.keepStandOnDeath.get();
@@ -484,6 +494,7 @@ public class JojoModConfig {
 						.limit(MAX_SYNCED_STAND_IDS)
 						.toList();
 				this.standArrowMode = config.standArrowMode.get();
+				this.arrowDurability = Math.max(1, config.arrowDurability.get());
 			}
 
 			public SyncedValues(RegistryFriendlyByteBuf buf) {
@@ -537,6 +548,7 @@ public class JojoModConfig {
 				this.bannedStands = List.copyOf(banned);
 				StandUtil.StandRandomPoolFilter[] poolFilters = StandUtil.StandRandomPoolFilter.values();
 				this.standArrowMode = poolFilters[Mth.clamp(buf.readVarInt(), 0, poolFilters.length - 1)];
+				this.arrowDurability = Math.max(1, buf.readVarInt());
 			}
 
 			public void writeToBuf(RegistryFriendlyByteBuf buf) {
@@ -582,6 +594,7 @@ public class JojoModConfig {
 					buf.writeUtf(id, MAX_STAND_ID_LENGTH);
 				}
 				buf.writeVarInt(standArrowMode.ordinal());
+				buf.writeVarInt(arrowDurability);
 			}
 
 			private static List<Double> readDoubleList(RegistryFriendlyByteBuf buf, List<Double> defaults,

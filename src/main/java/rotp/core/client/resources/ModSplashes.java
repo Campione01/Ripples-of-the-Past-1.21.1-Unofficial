@@ -27,7 +27,8 @@ import net.minecraft.util.profiling.ProfilerFiller;
  * No client classes here, so the rules can be checked on a test server.
  */
 public class ModSplashes extends SimplePreparableReloadListener<List<String>> {
-	public static final ResourceLocation LOCATION = JojoMod.resLoc("texts/splashes.txt");
+	// not texts/splashes.txt: NeoForge merges that path from every namespace into the vanilla pool unfiltered
+	public static final ResourceLocation LOCATION = JojoMod.resLoc("texts/jojo_splashes.txt");
 	public static final String HALLOWEEN_SPLASH = "\u30b4 \u30b4 \u30b4 \u30b4 \u30b4 \u30b4 \u30b4 \u30b4 \u30b4 \u30b4";
 	private static final Random RANDOM = new Random();
 	private final List<String> splashes = new ArrayList<>();

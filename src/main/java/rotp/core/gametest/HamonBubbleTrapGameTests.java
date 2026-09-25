@@ -219,8 +219,7 @@ public final class HamonBubbleTrapGameTests {
 		return hamon;
 	}
 
-	// 1.16 dealHamonDamage: a Hamon-charged target takes no Hamon damage. setInvulnerable would stop the hit itself
-	// (1.21 canAttack -> canBeSeenAsEnemy skips invulnerable mobs), so the charge lets the hit land without damage.
+	// 1.16 dealHamonDamage: a Hamon-charged target takes no Hamon damage, so the charge lets the hit land without damage.
 	private static void hamonImmune(GameTestHelper helper, Player owner, Pig pig) {
 		EntityHamonChargeState.get(pig).setHamonCharge(0.0F, 200, null, 0.0F);
 		helper.assertTrue(EntityHamonChargeState.get(pig).hasHamonCharge() && owner.canAttack(pig),

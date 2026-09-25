@@ -96,6 +96,7 @@ import rotp.core.subsystems.entity_possessionv2.TrPossessEntityPacket;
 import rotp.core.subsystems.entity_puppetcontrol.SetClientControllerPacket;
 import rotp.core.subsystems.entity_puppetcontrol.client.mob.ClControlledMobCommandPacket;
 import rotp.core.subsystems.entity_puppetcontrol.client.mob.ClMobControlMovementPacket;
+import rotp.core.subsystems.entity_puppetcontrol.StandManualInput;
 import rotp.core.subsystems.entity_puppetcontrol.client.stand.ClStandManualMovementPacket;
 import rotp.core.subsystems.movement_input_sync.ClPlayerMovementInputPacket;
 import rotp.core.subsystems.movement_input_sync.TrPlayerMovementInputPacket;
@@ -163,6 +164,7 @@ public class PacketsRegister {
 		registerPacket(registrar, PayloadRegistrar::playToServer, new ClSetStandSkinPacket.Handler(JojoMod.resLoc("clskin")));
 		registerPacket(registrar, PayloadRegistrar::playToServer, new ClBroadcastedModSettingsPacket.Handler(JojoMod.resLoc("clbroadcastedsettings")));
 		registerPacket(registrar, PayloadRegistrar::playToServer, new ClStandManualMovementPacket.Handler(JojoMod.resLoc("clstandmove")));
+		registerPacket(registrar, PayloadRegistrar::playToServer, new StandManualInput.ShiftPacket.Handler());
 		registerPacket(registrar, PayloadRegistrar::playToServer, new ClMobControlMovementPacket.Handler(JojoMod.resLoc("clmobctrlmove")));
 		registerPacket(registrar, PayloadRegistrar::playToServer, new ClControlledMobCommandPacket.Handler(JojoMod.resLoc("clmobitemslot")));
 		registerPacket(registrar, PayloadRegistrar::playToServer, new ClStandClickPacket.Handler(JojoMod.resLoc("clstandclick")));

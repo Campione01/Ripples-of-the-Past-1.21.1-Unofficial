@@ -4,6 +4,8 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.annotation.Nullable;
+
 import rotp.core.client.ClientPowerCache;
 import rotp.core.client.ClientProxy;
 import rotp.core.client.ClientTickHandler;
@@ -328,6 +330,12 @@ public class JojoMenuTabs {
 		public void renderIcon(GuiGraphics guiGraphics, int x, int y) {
 			renderHamonTechniqueIcon(guiGraphics, x, y);
 		}
+
+		// 1.16 HamonTechniqueTabGui.additionalTabNameTooltipInfo
+		@Override
+		public List<Component> getTooltipExtraLines() {
+			return JojoMenuTabTooltips.hamonTechniqueLines(clientHamonData());
+		}
 	}
 			.withName(Component.translatable("hamon.techniques.tab"))
 			.withScreen(tab -> new HamonSkillsScreen(Component.empty(), tab.getCategory(), tab, HamonSkillsScreen.View.TECHNIQUE));
@@ -354,17 +362,17 @@ public class JojoMenuTabs {
 	}
 
 	private static void renderHamonTechniqueIcon(GuiGraphics gui, int x, int y) {
-		Player player = Minecraft.getInstance().player;
-		HamonData data = player != null
-				? PlayerPower.getPowerData(player, ModPlayerPowers.HAMON).orElse(null)
-				: null;
-		if (data == null) {
-			return;
-		}
-		int learned = data.getLearnedTechniqueSkillCount();
-		if (learned < HamonData.techniqueSlotsCount() && data.hasTechniqueLevel(learned)) {
+		if (JojoMenuTabTooltips.canLearnNewTechniqueSkill(clientHamonData())) {
 			blitHamonIcon(gui, HAMON_WINDOW, x - 6, y - 3, 8, 8, 248, 206, 8, 8);
 		}
+	}
+
+	@Nullable
+	private static HamonData clientHamonData() {
+		Player player = Minecraft.getInstance().player;
+		return player != null
+				? PlayerPower.getPowerData(player, ModPlayerPowers.HAMON).orElse(null)
+				: null;
 	}
 
 	private static void blitHamonIcon(GuiGraphics gui, ResourceLocation texture,

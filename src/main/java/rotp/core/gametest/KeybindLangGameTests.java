@@ -68,6 +68,39 @@ public final class KeybindLangGameTests {
 		helper.succeed();
 	}
 
+	// R149 N6: jojo_ripples.screen.edit_hud_layout must not carry a "not yet implemented" marker in any locale
+	private static final String EDIT_HUD_LAYOUT = JojoMod.MOD_ID + ".screen.edit_hud_layout";
+	private static final String[] LOCALES = {
+		"en_us", "en_pt", "es_es", "es_ve", "it_it", "ja_jp", "lzh", "pt_br", "ru_ru", "uk_ua", "zh_cn", "zh_tw"
+	};
+	// locales R149 gave their own jojo_ripples.key.meditation translation for
+	private static final String[] MEDITATION_LOCALES = { "es_es", "es_ve", "ja_jp", "lzh" };
+
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void noEditHudLayoutNyi(GameTestHelper helper) {
+		List<String> nyi = new ArrayList<>();
+		for (String locale : LOCALES) {
+			String value = string(readLang(locale).get(EDIT_HUD_LAYOUT));
+			if (value != null && value.contains("(NYI)")) {
+				nyi.add(locale + " " + EDIT_HUD_LAYOUT + " = " + value);
+			}
+		}
+		helper.assertTrue(nyi.isEmpty(), "still marked (NYI): " + nyi);
+		helper.succeed();
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void meditationKeyTranslated(GameTestHelper helper) {
+		List<String> missing = new ArrayList<>();
+		for (String locale : MEDITATION_LOCALES) {
+			if (blank(readLang(locale).get(MEDITATION))) {
+				missing.add(locale + " " + MEDITATION);
+			}
+		}
+		helper.assertTrue(missing.isEmpty(), "untranslated: " + missing);
+		helper.succeed();
+	}
+
 	private static Set<String> keyNames() {
 		byte[] bytes;
 		try (InputStream in = open(KEYBINDS_CLASS)) {
