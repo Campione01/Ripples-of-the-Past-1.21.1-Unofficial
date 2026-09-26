@@ -103,6 +103,7 @@ public class JojoModConfig {
 		public final ConfigValue<Integer> standXpCostInitial;
 		public final ConfigValue<Integer> standXpCostIncrease;
 		public final ConfigValue<Integer> arrowDurability;
+		public final ConfigValue<Integer> arrowDurabilityBeetle;
 
 		private Common(ModConfigSpec.Builder builder) {
 			builder.push("Keep Powers After Death");
@@ -181,9 +182,13 @@ public class JojoModConfig {
 					.defineInRange("standXpCostIncrease", 5, 0, 9999), 5);
 			// 1.16 arrowDurability; synced, the client draws the durability bar
 			arrowDurability = ConfigValue.fromSpec(
-					builder.comment("Durability of the Arrows crafted from meteoric ingots.")
+					builder.comment("Durability of ordinary and crafted Stand Arrows.")
 					.translation("jojo.config.arrowDurability")
 					.defineInRange("arrowDurability", 25, 1, Integer.MAX_VALUE), 25);
+			arrowDurabilityBeetle = ConfigValue.fromSpec(
+					builder.comment("Durability of Beetle Arrows found in desert temples.")
+					.translation("jojo.config.arrowDurabilityBeetle")
+					.defineInRange("arrowDurabilityBeetle", 250, 1, Integer.MAX_VALUE), 250);
 
 			builder.push("Time Stop");
 			timeStopChunkRange = ConfigValue.fromSpec(
@@ -345,6 +350,7 @@ public class JojoModConfig {
 			standXpCostInitial = ConfigValue.synced(30);
 			standXpCostIncrease = ConfigValue.synced(5);
 			arrowDurability = ConfigValue.synced(25);
+			arrowDurabilityBeetle = ConfigValue.synced(250);
 		}
 
 		private static Common syncedDefaults() {
@@ -394,6 +400,7 @@ public class JojoModConfig {
 			bannedStands.set(values.bannedStands);
 			standArrowMode.set(values.standArrowMode);
 			arrowDurability.set(values.arrowDurability);
+			arrowDurabilityBeetle.set(values.arrowDurabilityBeetle);
 		}
 
 		private void resetSyncedValues() {
@@ -425,6 +432,7 @@ public class JojoModConfig {
 			bannedStands.clearCache();
 			standArrowMode.clearCache();
 			arrowDurability.clearCache();
+			arrowDurabilityBeetle.clearCache();
 		}
 
 		public static class SyncedValues {
@@ -461,6 +469,7 @@ public class JojoModConfig {
 			// the arrow tooltip names the pool mode on multiplayer
 			private final StandUtil.StandRandomPoolFilter standArrowMode;
 			private final int arrowDurability;
+			private final int arrowDurabilityBeetle;
 
 			public SyncedValues(Common config) {
 				this.keepStandOnDeath = config.keepStandOnDeath.get();
@@ -495,6 +504,7 @@ public class JojoModConfig {
 						.toList();
 				this.standArrowMode = config.standArrowMode.get();
 				this.arrowDurability = Math.max(1, config.arrowDurability.get());
+				this.arrowDurabilityBeetle = Math.max(1, config.arrowDurabilityBeetle.get());
 			}
 
 			public SyncedValues(RegistryFriendlyByteBuf buf) {
@@ -549,6 +559,7 @@ public class JojoModConfig {
 				StandUtil.StandRandomPoolFilter[] poolFilters = StandUtil.StandRandomPoolFilter.values();
 				this.standArrowMode = poolFilters[Mth.clamp(buf.readVarInt(), 0, poolFilters.length - 1)];
 				this.arrowDurability = Math.max(1, buf.readVarInt());
+				this.arrowDurabilityBeetle = Math.max(1, buf.readVarInt());
 			}
 
 			public void writeToBuf(RegistryFriendlyByteBuf buf) {
@@ -595,6 +606,7 @@ public class JojoModConfig {
 				}
 				buf.writeVarInt(standArrowMode.ordinal());
 				buf.writeVarInt(arrowDurability);
+				buf.writeVarInt(arrowDurabilityBeetle);
 			}
 
 			private static List<Double> readDoubleList(RegistryFriendlyByteBuf buf, List<Double> defaults,

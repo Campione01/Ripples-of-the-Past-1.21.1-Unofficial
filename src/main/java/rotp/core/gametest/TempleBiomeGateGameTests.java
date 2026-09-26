@@ -23,8 +23,7 @@ import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
- * Temples test the biome before the footprint scan (1.16 sampled the footprint only after the biome
- * allowed the start), so /locate and map trades pay one height sample per wrong-biome candidate.
+ * Search checks one centre column; the donor's footprint is sampled only while building pieces.
  */
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -64,14 +63,17 @@ public final class TempleBiomeGateGameTests {
 		Optional<Structure.GenerationStub> rejected = point.apply(context(helper, false), counting(calls, height));
 		helper.assertTrue(rejected.isEmpty(), label + ": generation point found in a biome the structure does not allow");
 		helper.assertTrue(calls.get() <= 1, label + ": wrong-biome candidate sampled the surface " + calls.get() + " times (max 1)");
-		// Control: valid biome runs the full footprint scan and probes the centre surface.
+		// Valid search candidates also defer the footprint until pieces are actually requested.
 		calls.set(0);
 		Optional<Structure.GenerationStub> accepted = point.apply(context(helper, true), counting(calls, height));
 		helper.assertTrue(accepted.isPresent(), label + ": control, no generation point in an allowed biome");
-		helper.assertTrue(calls.get() > 1, label + ": control, footprint was not sampled (" + calls.get() + " calls)");
+		helper.assertTrue(calls.get() == 1, label + ": search candidate sampled its footprint early (" + calls.get() + " calls)");
 		BlockPos probe = accepted.get().position();
 		helper.assertTrue(new BlockPos(CX, height, CZ).equals(probe),
 				label + ": biome probe at " + probe + ", expected the centre surface " + new BlockPos(CX, height, CZ));
+		accepted.get().getPiecesBuilder();
+		helper.assertTrue(calls.get() == 50,
+				label + ": generating pieces must sample the 49-column donor footprint once; got " + calls.get());
 	}
 
 	private static IntBinaryOperator counting(AtomicInteger calls, int height) {

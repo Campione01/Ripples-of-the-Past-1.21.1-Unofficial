@@ -498,7 +498,7 @@ public class StandArrowItem extends ArrowItem implements ProjectileItem {
         return enchantability;
     }
 
-    // vanilla also needs MAX_DAMAGE; the unbreakable beetle arrow has none but is table-enchantable (1.16)
+    // Preserve the arrow enchantment path independently of its configured wear limit.
     @Override
     public boolean isEnchantable(ItemStack stack) {
         return stack.getMaxStackSize() == 1;
@@ -526,15 +526,13 @@ public class StandArrowItem extends ArrowItem implements ProjectileItem {
     	return repairCandidate.is(ModItems.METEORIC_INGOT.get());
     }
 
-    // 1.16 getMaxDamage: the crafted (meteorite) arrow uses the arrowDurability config;
-    // the registered durability(25) keeps MAX_DAMAGE so the stack stays damageable
+    // Both non-beetle variants use the donor's ordinary-arrow setting.
     @Override
     public int getMaxDamage(ItemStack stack) {
-    	if (this == ModItems.STAND_ARROW_METEORITE.get()) {
-    		boolean clientSide = !FMLEnvironment.dist.isDedicatedServer() && EffectiveSide.get().isClient();
-    		return Math.max(1, JojoModConfig.getCommonConfigInstance(clientSide).arrowDurability.get());
-    	}
-    	return super.getMaxDamage(stack);
+        boolean clientSide = !FMLEnvironment.dist.isDedicatedServer() && EffectiveSide.get().isClient();
+        JojoModConfig.Common config = JojoModConfig.getCommonConfigInstance(clientSide);
+        return Math.max(1, this == ModItems.STAND_ARROW_BEETLE.get()
+                ? config.arrowDurabilityBeetle.get() : config.arrowDurability.get());
     }
 
     /** 1.16 StandArrowEntity.getBaseDamage: the arrow item's own Sharpness adds to the base damage. */

@@ -35,7 +35,9 @@ public final class NetworkProtocolNegotiationSmokeTest {
 				"the clientbound knockbackrestick payload needs core protocol v7 or later");
 		// R148 added clglidercolor, standassign, trspecialeffect, trhamonparticles and trafkmenacing
 		check(Integer.parseInt(PacketsRegister.NETWORK_PROTOCOL_VERSION) >= 8,
-				"the R148 payloads (leaves glider colour, Stand assignment, special effects, Hamon particles, AFK menacing) need core protocol v8 or later");
+				"R148's added payloads require protocol v8 or later");
+		check(Integer.parseInt(PacketsRegister.NETWORK_PROTOCOL_VERSION) >= 9,
+				"Beetle Arrow durability adds a synced config field and requires protocol v9 or later");
 
 		var matching = NetworkComponentNegotiator.validateComponent(
 				requiredComponent(PacketsRegister.NETWORK_PROTOCOL_VERSION),
@@ -43,6 +45,13 @@ public final class NetworkProtocolNegotiationSmokeTest {
 				"client");
 		check(matching.isEmpty(),
 				"matching current peers must negotiate the required play payload");
+
+		var noBeetleDurability = NetworkComponentNegotiator.validateComponent(
+				requiredComponent(PacketsRegister.NETWORK_PROTOCOL_VERSION),
+				requiredComponent("8"),
+				"client");
+		check(noBeetleDurability.isPresent() && !noBeetleDurability.get().success(),
+				"a v8 peer must fail before reading the longer synced config payload");
 
 		var noKnockbackResTick = NetworkComponentNegotiator.validateComponent(
 				requiredComponent(PacketsRegister.NETWORK_PROTOCOL_VERSION),

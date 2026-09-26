@@ -316,7 +316,8 @@ public class Ability {
 		if (standPower == null) {
 			return false;
 		}
-		if (standPower.isUserCreative()) {
+		if (StandPower.playerSkipsActionTraining(standPower.getUser())
+				|| standPower.wasProgressionSkipped()) {
 			return true;
 		}
 		LivingEntity user = standPower.getUser();

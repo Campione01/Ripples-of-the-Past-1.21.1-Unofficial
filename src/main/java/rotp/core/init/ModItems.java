@@ -170,9 +170,9 @@ public final class ModItems {
 	public static final DeferredItem<ClothesItem> CLOTHES_BASE_ITEM = ITEMS.registerItem("clothes", props -> new ClothesItem(props));
 
 	public static final DeferredItem<Item> STAND_ARROW = ITEMS.registerItem("stand_arrow", props -> new StandArrowItem(props), 
-			new Item.Properties().stacksTo(1).rarity(Rarity.RARE).durability(5));
+			new Item.Properties().stacksTo(1).rarity(Rarity.RARE).durability(25));
 	public static final DeferredItem<Item> STAND_ARROW_BEETLE = ITEMS.registerItem("stand_arrow_beetle", props -> new StandArrowItem(props), 
-			new Item.Properties().stacksTo(1).rarity(Rarity.EPIC));
+			new Item.Properties().stacksTo(1).rarity(Rarity.EPIC).durability(250));
 	public static final DeferredItem<Item> STAND_ARROW_METEORITE = ITEMS.registerItem("stand_arrow_meteorite", props -> new StandArrowItem(props), 
 			new Item.Properties().stacksTo(1).rarity(Rarity.UNCOMMON).durability(25));
 

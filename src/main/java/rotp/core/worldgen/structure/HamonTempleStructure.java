@@ -64,14 +64,14 @@ public class HamonTempleStructure extends Structure {
         int centerX = context.chunkPos().getMinBlockX() + 7;
         int centerZ = context.chunkPos().getMinBlockZ() + 7;
         int centerY = surface.applyAsInt(centerX, centerZ);
-        // Cheap 90+ gate, then the biome, then the 49-sample footprint (1.16 order: biome before footprint).
         if (centerY < 90 || !surfaceBiomeAllowed(context, centerX, centerY, centerZ)) {
             return Optional.empty();
         }
-        BlockPos origin = footprintAnchor(centerX, centerZ, surface);
         // Biome is tested at the centre surface (1.16 used the surface biome), not at the sunk origin.
         BlockPos probe = new BlockPos(centerX, centerY, centerZ);
-        return Optional.of(new GenerationStub(probe, builder -> generatePieces(context.structureTemplateManager(), origin, builder, context.random())));
+        // /locate checks the stub without building pieces; sample the footprint only when generating.
+        return Optional.of(new GenerationStub(probe, builder -> generatePieces(context.structureTemplateManager(),
+                footprintAnchor(centerX, centerZ, surface), builder, context.random())));
     }
 
     // Same test vanilla applies to the stub position afterwards.

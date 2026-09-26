@@ -55,15 +55,14 @@ public class PillarmanTempleStructure extends Structure {
         int centerX = context.chunkPos().getMinBlockX() + 7;
         int centerZ = context.chunkPos().getMinBlockZ() + 7;
         int centerY = surface.applyAsInt(centerX, centerZ);
-        // Biome first (1.16 sampled the footprint only after the biome allowed the start),
-        // so /locate and map trades pay one height sample per non-jungle candidate.
         if (!surfaceBiomeAllowed(context, centerX, centerY, centerZ)) {
             return Optional.empty();
         }
-        BlockPos origin = anchor(context.chunkPos(), surface);
         // Biome is tested at the centre surface (1.16 used the surface biome), not at the sunk origin.
         BlockPos probe = new BlockPos(centerX, centerY, centerZ);
-        return Optional.of(new GenerationStub(probe, builder -> generatePieces(context.structureTemplateManager(), origin, builder, context.random())));
+        // /locate checks the stub without building pieces; sample the footprint only when generating.
+        return Optional.of(new GenerationStub(probe, builder -> generatePieces(context.structureTemplateManager(),
+                anchor(context.chunkPos(), surface), builder, context.random())));
     }
 
     // Same test vanilla applies to the stub position afterwards.

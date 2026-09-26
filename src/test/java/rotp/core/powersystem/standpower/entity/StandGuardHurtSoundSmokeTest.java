@@ -58,7 +58,7 @@ public final class StandGuardHurtSoundSmokeTest {
 
 	private static void verifyClientPacket() {
 		requireInOrder(compact(source(PACKETS)),
-				"publicstaticfinalStringNETWORK_PROTOCOL_VERSION=\"8\";",
+				"publicstaticfinalStringNETWORK_PROTOCOL_VERSION=\"9\";",
 				"registerPacket(registrar,PayloadRegistrar::playToClient,newKnockbackResTickPacket.Handler("
 						+ "JojoMod.resLoc(\"knockbackrestick\")));");
 		requireInOrder(compact(source(PACKET)),

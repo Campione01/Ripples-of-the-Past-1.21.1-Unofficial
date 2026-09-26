@@ -27,8 +27,7 @@ import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
- * 1.16: the Beetle Stand Arrow is table-enchantable. The port keeps it unbreakable (no MAX_DAMAGE), so
- * StandArrowItem.isEnchantable must not require durability, or the enchanting table offers nothing for it.
+ * The donor Beetle Arrow has configurable durability and remains table-enchantable.
  */
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -41,8 +40,8 @@ public final class StandArrowBeetleEnchantGameTests {
 	@GameTest(template = "empty", timeoutTicks = 20)
 	public static void enchantingTableOffersEnchantmentsForBeetleArrow(GameTestHelper helper) {
 		ItemStack arrow = new ItemStack(ModItems.STAND_ARROW_BEETLE.get());
-		helper.assertTrue(!arrow.isDamageableItem(),
-				"Test premise: the port's beetle arrow is unbreakable (no durability); got max damage " + arrow.getMaxDamage());
+		helper.assertTrue(arrow.isDamageableItem() && arrow.getMaxDamage() > 0,
+				"The beetle arrow must retain its configured durability");
 		helper.assertTrue(arrow.isEnchantable(), "1.16: the beetle arrow must be enchantable at the table");
 
 		// real table menu: slotsChanged only fills offers when the stack is enchantable
