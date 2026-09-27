@@ -106,6 +106,30 @@ public final class HamonLegacyTorsoClipsGameTests {
 				clip + " " + bone + " Y at " + t + " s must retain the donor pivot offset");
 	}
 
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void rebuffLimbsKeepTheirOwnDonorPositions(GameTestHelper helper) {
+		JsonObject rebuff = bones(helper, animations(helper), "rebuff_overdrive");
+		limbPosition(helper, rebuff, "left_arm", 0.6F,
+				new float[] {5F, 1.7281799F, -0.7097781F}, new float[] {5F, 2F, 0F});
+		limbPosition(helper, rebuff, "right_arm", 0.9F,
+				new float[] {-5F, 1.1654758F, -2.1791182F}, new float[] {-5F, 2F, 0F});
+		limbPosition(helper, rebuff, "left_leg", 1.05F,
+				new float[] {1.896645F, 10.781157F, 0.07470138F}, new float[] {1.9F, 12F, -0.1F});
+		limbPosition(helper, rebuff, "right_leg", 1.15F,
+				new float[] {-1.5306004F, 9.368938F, 0.5756785F}, new float[] {-1.9F, 12F, -0.1F});
+		helper.succeed();
+	}
+
+	private static void limbPosition(GameTestHelper helper, JsonObject bones, String bone,
+			float time, float[] donorAbsolute, float[] rest) {
+		float[] loaded = sample(bones.getAsJsonObject(bone).getAsJsonObject("position"), time);
+		loaded[1] = -loaded[1];
+		for (int axis = 0; axis < 3; axis++) {
+			helper.assertTrue(Math.abs(loaded[axis] - (donorAbsolute[axis] - rest[axis])) < 0.00002F,
+					"rebuff_overdrive " + bone + " axis " + axis + " lost its own donor position at " + time);
+		}
+	}
+
 	private static void noUpperBodyTransform(GameTestHelper helper, String clip, JsonObject bones) {
 		JsonObject torso = bones.getAsJsonObject("torso");
 		if (torso == null) return;
