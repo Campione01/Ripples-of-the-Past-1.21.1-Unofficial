@@ -349,7 +349,6 @@ public class ClientControlScheme {
 			if (slotIndex >= 0 && slotIndex < 9) {
 				return slotIndex + 1;
 			}
-			if (slotIndex == 9) return 0;
 			return -1;
 		}
 	}
