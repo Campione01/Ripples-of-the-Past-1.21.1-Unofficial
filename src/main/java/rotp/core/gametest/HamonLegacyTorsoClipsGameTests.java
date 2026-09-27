@@ -72,6 +72,40 @@ public final class HamonLegacyTorsoClipsGameTests {
 		helper.succeed();
 	}
 
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void limbOffsetsKeepTheDonorModelYAxis(GameTestHelper helper) {
+
+		JsonObject anims = animations(helper);
+		JsonObject beat = bones(helper, anims, "hamon_beat");
+		// KosmX limb Y is an absolute model pivot; subtract rest and undo the JSON loader's Y flip.
+		limbY(helper, "hamon_beat", beat, "left_arm", 0.05F, 2.0087347F, 2F);
+		limbY(helper, "hamon_beat", beat, "left_arm", 0.5F, 2.635909F, 2F);
+		limbY(helper, "hamon_beat", beat, "left_arm", 1F, 3.1248474F, 2F);
+		limbY(helper, "hamon_beat", beat, "right_arm", 0.05F, 2.06074F, 2F);
+		limbY(helper, "hamon_beat", beat, "right_arm", 0.5F, 2.12064F, 2F);
+		limbY(helper, "hamon_beat", beat, "right_arm", 1F, 1.96405F, 2F);
+		limbY(helper, "hamon_beat", beat, "left_leg", 0.05F, 11.96755F, 12F);
+		limbY(helper, "hamon_beat", beat, "left_leg", 0.5F, 11.81932F, 12F);
+		limbY(helper, "hamon_beat", beat, "left_leg", 1F, 11.81932F, 12F);
+		limbY(helper, "hamon_beat", beat, "right_leg", 0.5F, 12.27592F, 12F);
+		limbY(helper, "hamon_beat", beat, "right_leg", 1F, 12.41794F, 12F);
+		JsonObject syo = bones(helper, anims, "sunlight_yellow_overdrive");
+		limbY(helper, "sunlight_yellow_overdrive", syo, "left_leg", 4.15F, 12.071976F, 12F);
+		for (float t : new float[] {4.25F, 4.4F, 4.55F}) {
+			limbY(helper, "sunlight_yellow_overdrive", syo, "left_leg", t, 12.182871F, 12F);
+		}
+		helper.succeed();
+	}
+
+	private static void limbY(GameTestHelper helper, String clip, JsonObject bones,
+			String bone, float t, float donorAbsoluteY, float restY) {
+		JsonObject part = bones.getAsJsonObject(bone);
+		helper.assertTrue(part != null && part.has("position"), clip + " lost " + bone + " position");
+		float loadedY = -sample(part.getAsJsonObject("position"), t)[1];
+		helper.assertTrue(Math.abs(loadedY - (donorAbsoluteY - restY)) < 0.00002F,
+				clip + " " + bone + " Y at " + t + " s must retain the donor pivot offset");
+	}
+
 	private static void noUpperBodyTransform(GameTestHelper helper, String clip, JsonObject bones) {
 		JsonObject torso = bones.getAsJsonObject("torso");
 		if (torso == null) return;
