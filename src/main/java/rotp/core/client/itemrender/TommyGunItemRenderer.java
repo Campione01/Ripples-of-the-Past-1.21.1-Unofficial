@@ -14,6 +14,7 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.ItemRenderer;
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.resources.ResourceLocation;
@@ -26,6 +27,11 @@ public class TommyGunItemRenderer extends CustomItemRenderer {
 
 	public TommyGunItemRenderer(Minecraft mc) {
 		super(mc, JojoMod.resLoc("tommy_gun"), JojoMod.resLoc("textures/item/tommy_gun.png"));
+	}
+
+	@Override
+	protected RenderType renderType(ResourceLocation texture) {
+		return RenderType.entityCutoutNoCull(texture);
 	}
 
 	@Override

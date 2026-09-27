@@ -27,12 +27,16 @@ import com.mojang.logging.LogUtils;
 import com.mojang.math.Axis;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.model.HumanoidModel;
+import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.client.resources.model.ModelResourceLocation;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.DyeColor;
@@ -67,7 +71,13 @@ public class CustomItemRenderers {
 		event.registerItem(new ItemRendererProvider(() -> standDiscRenderer), ModItems.STAND_DISC);
 		event.registerItem(new ItemRendererProvider(() -> clackersRenderer), ModItems.CLACKERS);
 		event.registerItem(new ItemRendererProvider(() -> roadRollerRenderer), ModItems.ROAD_ROLLER);
-		event.registerItem(new ItemRendererProvider(() -> tommyGunRenderer), ModItems.TOMMY_GUN);
+		event.registerItem(new ItemRendererProvider(() -> tommyGunRenderer) {
+			@Override
+			public HumanoidModel.ArmPose getArmPose(LivingEntity entity, InteractionHand hand, ItemStack stack) {
+				return entity instanceof AbstractClientPlayer player && !player.swinging
+						? HumanoidModel.ArmPose.CROSSBOW_HOLD : null;
+			}
+		}, ModItems.TOMMY_GUN);
 		event.registerItem(new ItemRendererProvider(() -> polaroidRenderer), ModItems.POLAROID);
 		event.registerItem(new ItemRendererProvider(() -> sewingMachineRenderer), ModItems.SEWING_MACHINE);
 		registerStoneMaskArmorExtensions(
