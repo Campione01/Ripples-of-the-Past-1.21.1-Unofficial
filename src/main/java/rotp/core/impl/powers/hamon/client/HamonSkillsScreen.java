@@ -195,12 +195,6 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 		if (view.stat != null && selectedSkill == null) {
 			renderGeneralHeader(gui, data, x, y);
 		}
-		else if (view.stat == null) {
-			String techniqueName = data.getCharacterTechniqueName();
-			Component selected = techniqueName.isEmpty() ? Component.literal("-") : Component.translatable("hamon.technique." + techniqueName);
-			gui.drawString(font, Component.translatable("jojo_ripples.hamon.technique.selected", selected),
-					x + 16, y + 31, TEXT_COLOR, false);
-		}
 
 		updateButtons(data, playerPower, player);
 		SkillNode hoveredNode = null;
@@ -208,15 +202,18 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 			// 1.16 HamonTechniqueTabGui.isLocked: the tab only shows the unlock level
 			selectedSkill = null;
 			renderTechniquesLocked(gui, data, x, y);
+			renderTechniqueHeader(gui, data, x, y, mouseX, mouseY);
 			renderTabTooltip(gui, this, mouseX, mouseY);
 			return;
 		}
+		TechniqueCard hoveredCard = null;
+		HamonSkillDefinition hoveredTechniqueSkill = null;
 		if (view == View.TECHNIQUE) {
 			List<TechniqueCard> cards = buildTechniqueCards();
 			listScrolling.setContentsHeight(cards.stream().mapToInt(card -> card.y + card.height).max().orElse(0));
-			TechniqueCard hoveredCard = getHoveredTechniqueCard(cards, mouseX, mouseY);
-			HamonSkillDefinition hoveredSkill = getHoveredTechniqueCardSkill(hoveredCard, mouseX, mouseY);
-			renderTechniqueCards(gui, cards, hoveredCard, hoveredSkill, data, playerPower, player, mouseX, mouseY);
+			hoveredCard = getHoveredTechniqueCard(cards, mouseX, mouseY);
+			hoveredTechniqueSkill = getHoveredTechniqueCardSkill(hoveredCard, mouseX, mouseY);
+			renderTechniqueCards(gui, cards, hoveredCard, data, playerPower, player);
 		}
 		else {
 			List<SkillNode> nodes = buildSkillNodes();
@@ -224,6 +221,10 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 			renderGeneralSkillTree(gui, nodes, hoveredNode, data, playerPower, player);
 		}
 		renderDetails(gui, data, playerPower, player, mouseX, mouseY);
+		if (view == View.TECHNIQUE) {
+			renderTechniqueHeader(gui, data, x, y, mouseX, mouseY);
+			renderTechniqueCardTooltip(gui, hoveredCard, hoveredTechniqueSkill, mouseX, mouseY);
+		}
 		renderGeneralGuidanceTooltips(gui, data, mouseX, mouseY, x, y);
 		if (hoveredNode != null) {
 			renderSkillNodeTooltip(gui, hoveredNode.skill, data, mouseX, mouseY);
@@ -232,6 +233,26 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 			renderBranchDescTooltip(gui, mouseX, mouseY);
 		}
 		renderTabTooltip(gui, this, mouseX, mouseY);
+	}
+
+	private void renderTechniqueHeader(GuiGraphics gui, HamonData data, int x, int y, int mouseX, int mouseY) {
+		String techniqueName = data.getCharacterTechniqueName();
+		Component selected = techniqueName.isEmpty() ? Component.literal("-") : Component.translatable("hamon.technique." + techniqueName);
+		Component header = Component.translatable("jojo_ripples.hamon.technique.selected", selected);
+		int headerWidth = DETAIL_X + DETAIL_WIDTH - LIST_X;
+		List<FormattedCharSequence> lines = font.split(header, headerWidth);
+		// Two lines fit between the tab title and the list without moving either.
+		if (lines.size() == 2) {
+			gui.drawString(font, lines.get(0), x + LIST_X, y + 28, TEXT_COLOR, false);
+			gui.drawString(font, lines.get(1), x + LIST_X, y + 38, TEXT_COLOR, false);
+		}
+		else {
+			gui.drawString(font, trimToWidth(header, headerWidth), x + LIST_X, y + 31, TEXT_COLOR, false);
+		}
+		if (lines.size() > 2 && mouseX >= x + LIST_X && mouseX < x + LIST_X + headerWidth
+				&& mouseY >= y + 28 && mouseY < y + LIST_Y) {
+			gui.renderTooltip(font, lines, mouseX, mouseY);
+		}
 	}
 
 	private void renderTechniquesLocked(GuiGraphics gui, HamonData data, int x, int y) {
@@ -576,8 +597,7 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 	}
 
 	private void renderTechniqueCards(GuiGraphics gui, List<TechniqueCard> cards,
-			@Nullable TechniqueCard hoveredCard, @Nullable HamonSkillDefinition hoveredSkill,
-			HamonData data, PlayerPower playerPower, Player player, int mouseX, int mouseY) {
+			@Nullable TechniqueCard hoveredCard, HamonData data, PlayerPower playerPower, Player player) {
 		int x = getWindowX(this) + LIST_X;
 		int y = getWindowY(this) + LIST_Y;
 		listScrolling.pushOffsetScissor(gui, y, x, x + LIST_WIDTH);
@@ -607,7 +627,10 @@ public class HamonSkillsScreen extends PlaceholderScreen {
 			}
 		}
 		listScrolling.pop(gui);
+	}
 
+	private void renderTechniqueCardTooltip(GuiGraphics gui, @Nullable TechniqueCard hoveredCard,
+			@Nullable HamonSkillDefinition hoveredSkill, int mouseX, int mouseY) {
 		if (hoveredSkill != null) {
 			gui.renderComponentTooltip(font, skillTooltip(hoveredSkill), mouseX, mouseY);
 		}
