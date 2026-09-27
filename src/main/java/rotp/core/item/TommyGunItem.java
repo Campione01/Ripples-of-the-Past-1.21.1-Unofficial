@@ -255,6 +255,11 @@ public class TommyGunItem extends Item {
 	}
 
 	@Override
+	public boolean shouldCauseReequipAnimation(ItemStack oldStack, ItemStack newStack, boolean slotChanged) {
+		return oldStack.getItem() != newStack.getItem();
+	}
+
+	@Override
 	public int getUseDuration(ItemStack stack, LivingEntity entity) {
 		return USE_DURATION;
 	}

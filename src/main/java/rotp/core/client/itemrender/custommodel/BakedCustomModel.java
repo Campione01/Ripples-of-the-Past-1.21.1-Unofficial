@@ -23,7 +23,7 @@ public class BakedCustomModel implements BakedModel {
 	}
 
 	public BakedCustomModel setCaptureEntity() {
-		captureEntityOverrides = new ISTERItemCaptureEntity();
+		captureEntityOverrides = new ISTERItemCaptureEntity(existingModel);
 		return this;
 	}
 
