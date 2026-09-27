@@ -248,7 +248,7 @@ public class JojoMenuTabs {
 	public static final Tab STAND_SKILLS = new Tab(CATEGORY_STAND)
 			.withName(Component.translatable(JojoMod.MOD_ID + ".menu.stand.skills"))
 			.withScreen(JojoMenuTabs::createStandSkillsScreen)
-			.withIcon(new GuiIcon(JojoMod.resLoc("textures/gui/stand_skills.png"), 16, 16));
+			.withIcon(new GuiIcon(ResourceLocation.withDefaultNamespace("textures/item/book.png"), 16, 16));
 	
 	public static final Tab STAND_SKINS = new Tab(CATEGORY_STAND) {
 		@Override
