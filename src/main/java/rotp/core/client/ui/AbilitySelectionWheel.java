@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.OptionalInt;
 
 import javax.annotation.Nullable;
+import org.joml.Vector2i;
+import org.joml.Vector2ic;
 
 import rotp.core.api.client.render.AbilitySelectionSurface;
 import rotp.core.api.client.render.AbilitySelectionVisualPolicies;
@@ -37,12 +39,22 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipPositioner;
+import net.minecraft.client.gui.screens.inventory.tooltip.DefaultTooltipPositioner;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
+import net.minecraft.util.FormattedCharSequence;
 public class AbilitySelectionWheel extends Screen implements ScreenLetsUseWASD {
 	protected static final ResourceLocation DEFAULT_TEXTURE = JojoMod.resLoc("textures/ability_wheel.png");
+	private static final int TOOLTIP_MARGIN = 4;
+	private static final ClientTooltipPositioner TOOLTIP_POSITIONER = (screenWidth, screenHeight, mouseX, mouseY, tooltipWidth, tooltipHeight) -> {
+		Vector2ic pos = DefaultTooltipPositioner.INSTANCE.positionTooltip(screenWidth, screenHeight, mouseX, mouseY, tooltipWidth, tooltipHeight);
+		return new Vector2i(
+				Mth.clamp(pos.x(), TOOLTIP_MARGIN, Math.max(TOOLTIP_MARGIN, screenWidth - tooltipWidth - TOOLTIP_MARGIN)),
+				Mth.clamp(pos.y(), TOOLTIP_MARGIN, Math.max(TOOLTIP_MARGIN, screenHeight - tooltipHeight - TOOLTIP_MARGIN)));
+	};
 	protected ResourceLocation texture;
 	public ClientControlScheme.Hotbar abilities;
 	protected StandSkin standSkin;
@@ -220,7 +232,11 @@ public class AbilitySelectionWheel extends Screen implements ScreenLetsUseWASD {
 		}
 		if (!abilityNames.isEmpty()) {
 			TooltipParams.set(TooltipParams.paperStyle());
-			guiGraphics.renderComponentTooltip(font, abilityNames, mouseX, mouseY);
+			List<FormattedCharSequence> tooltipLines = new ArrayList<>();
+			for (Component name : abilityNames) {
+				tooltipLines.addAll(font.split(name, Math.max(1, this.width - TOOLTIP_MARGIN * 2)));
+			}
+			guiGraphics.renderTooltip(font, tooltipLines, TOOLTIP_POSITIONER, mouseX, mouseY);
 		}
 	}
 
