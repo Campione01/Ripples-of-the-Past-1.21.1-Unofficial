@@ -7,6 +7,7 @@ import rotp.core.api.stand.StandManualMovementObservers;
 import rotp.core.api.stand.StandManualMovementObservers.LogicalSide;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
+import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.subsystems.entity_externalcontainer._stand.input.ClientStandItemInputs;
 import rotp.core.subsystems.entity_puppetcontrol.client.ClientEntityController;
@@ -34,7 +35,9 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.client.event.MovementInputUpdateEvent;
 import net.neoforged.neoforge.client.event.RenderBlockScreenEffectEvent;
+import net.neoforged.neoforge.client.event.RenderNameTagEvent;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.common.util.TriState;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 public class ClientStandController extends ClientEntityController {
@@ -101,6 +104,21 @@ public class ClientStandController extends ClientEntityController {
 	public void cancelBlockOverlayRender(RenderBlockScreenEffectEvent event) {
 		if (mc.player == event.getPlayer()) {
 			event.setCanceled(true);
+		}
+	}
+
+	@SubscribeEvent(priority = EventPriority.LOWEST)
+	public void suppressOwnerNameplate(RenderNameTagEvent event) {
+		if (mc.player != null && mc.player.isAlive() && !mc.player.isSpectator()
+				&& event.getEntity() == mc.player
+				&& getInstance() == this && mc.getCameraEntity() == entity
+				&& entity instanceof StandEntity stand
+				&& stand.isAlive() && !stand.isRemoved()
+				&& stand.level() == mc.level && stand.getUser() == mc.player
+				&& stand.isManuallyControlled()
+				&& StandPower.get(mc.player) != null
+				&& StandPower.get(mc.player).getSummonedStandEntity() == stand) {
+			event.setCanRender(TriState.FALSE);
 		}
 	}
 
