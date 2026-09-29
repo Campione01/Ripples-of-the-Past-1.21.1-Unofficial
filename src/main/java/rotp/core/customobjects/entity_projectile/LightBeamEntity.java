@@ -2,8 +2,11 @@ package rotp.core.customobjects.entity_projectile;
 
 import javax.annotation.Nullable;
 
+import rotp.core.block.WoodenCoffinBlock;
 import rotp.core.init.ModDamageTypes;
+import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.mechanics.JojoDefinitions;
+import rotp.core.powersystem.playerpower.PlayerPower;
 import rotp.core.util.functions.DamageUtil;
 
 import net.minecraft.core.BlockPos;
@@ -75,7 +78,11 @@ public class LightBeamEntity extends DamagingEntity {
 	protected boolean hurtTarget(Entity target, DamageSource dmgSource, float dmgAmount) {
 		if (!level().isClientSide()) {
 			target.igniteForSeconds((int) damage / 2);
-			if (target instanceof LivingEntity livingTarget && JojoDefinitions.isUndeadOrVampiric(livingTarget)) {
+			if (target instanceof LivingEntity livingTarget
+					&& JojoDefinitions.isUndeadOrVampiric(livingTarget)
+					&& !WoodenCoffinBlock.isSleepingInCoffin(livingTarget)
+					&& PlayerPower.getPowerData(livingTarget, ModPlayerPowers.PILLAR_MAN)
+							.map(data -> !data.isStoneFormEnabled()).orElse(true)) {
 				return target.hurt(dmgSource, dmgAmount);
 			}
 		}
