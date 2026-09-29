@@ -101,6 +101,7 @@ import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
@@ -1953,7 +1954,8 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		return user != null && (
 					user.isInvulnerableTo(/*level, */damageSource)
 					|| user instanceof Player player && player.getAbilities().invulnerable && !damageSource.is(DamageTypeTags.BYPASSES_INVULNERABILITY))
-				|| canOnlyHurtFromStands && !DamageUtil.canHurtStands(damageSource)
+				|| canOnlyHurtFromStands && !damageSource.is(DamageTypes.ON_FIRE)
+						&& !DamageUtil.canHurtStands(damageSource)
 				|| super.isInvulnerableTo(/*level, */damageSource);
 	}
 
