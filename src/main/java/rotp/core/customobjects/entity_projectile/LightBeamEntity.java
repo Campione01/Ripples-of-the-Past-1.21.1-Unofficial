@@ -2,14 +2,17 @@ package rotp.core.customobjects.entity_projectile;
 
 import javax.annotation.Nullable;
 
+import rotp.core.init.ModDamageTypes;
 import rotp.core.mechanics.JojoDefinitions;
 import rotp.core.util.functions.DamageUtil;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageType;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
@@ -98,6 +101,11 @@ public class LightBeamEntity extends DamagingEntity {
 	@Override
 	public boolean standDamage() {
 		return false;
+	}
+
+	@Override
+	protected ResourceKey<DamageType> getDamageTypeKey() {
+		return ModDamageTypes.ULTRAVIOLET;
 	}
 
 	@Override
