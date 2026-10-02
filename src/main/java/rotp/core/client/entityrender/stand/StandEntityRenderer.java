@@ -23,6 +23,7 @@ import rotp.core.client.standskin.StandSkinsLoader;
 import rotp.core.client.rendertype.ModRenderTypes;
 import rotp.core.client.util.functions.ClientUtil;
 import rotp.core.core.JojoMod;
+import rotp.core.init.ModSpecialActions;
 import rotp.core.powersystem.entityaction.ActionAnimIdentifier;
 import rotp.core.powersystem.standpower.client_screens.StandInfoScreen;
 import rotp.core.powersystem.standpower.entity.StandEntity;
@@ -335,6 +336,23 @@ public class StandEntityRenderer<
 	public RenderStateCrutches.Snapshot preRender(S renderState) {
 		return RenderStateCrutches.pushStand(renderState);
 	}
+
+	private boolean isOwnRecallInsideCamera(T entity, S renderState) {
+		Minecraft minecraft = Minecraft.getInstance();
+		var action = entity.getCurStandAction();
+		if (minecraft.player == null || !minecraft.options.getCameraType().isFirstPerson()
+				|| entity.getUser() != minecraft.player || minecraft.getCameraEntity() != minecraft.player
+				|| renderState.visualContext == null || !renderState.visualContext.ownStand()
+				|| action == null || action.ability != ModSpecialActions.STAND_UNSUMMON.get()
+				|| entityRenderDispatcher.camera == null) {
+			return false;
+		}
+		// The collider is narrower than the arms; include their span in this recall-only render envelope.
+		return entity.getBoundingBox().move(
+				renderState.x - entity.getX(), renderState.y - entity.getY(), renderState.z - entity.getZ())
+				.inflate(entity.getBbWidth() * 0.5D)
+				.contains(entityRenderDispatcher.camera.getPosition());
+	}
 	
 	public void postRender(RenderStateCrutches.Snapshot snapshot) {
 		RenderStateCrutches.restore(snapshot);
@@ -404,6 +422,9 @@ public class StandEntityRenderer<
 
 	private void render(T entity, S renderState, float entityYaw, float partialTicks, PoseStack poseStack,
 			MultiBufferSource bufferSource, int light, boolean displayFire) {
+		if (surfaceDiagnosticAfterimageDepth == 0 && isOwnRecallInsideCamera(entity, renderState)) {
+			return;
+		}
 		RenderStateCrutches.Snapshot crutchSnapshot = preRender(renderState);
 		Object previousSurfaceGroup = renderState.surfaceDrawGroup;
 		int previousSurfaceSequence = renderState.surfaceDrawSequence;
