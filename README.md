@@ -1,6 +1,6 @@
 # Ripples of the Past - Unofficial 1.21.1 Modified Port
 
-> 本仓库是由 Campione01 独立维护的非官方修改版源码仓库，不是 StandoByte 的官方发行版。
+> This is an unofficial modified source repository independently maintained by Campione01, not an official release by StandoByte.
 
 This is an independent, unofficial source repository for a modified NeoForge
 1.21.1 port of **Ripples of the Past**. It contains substantial code and assets
