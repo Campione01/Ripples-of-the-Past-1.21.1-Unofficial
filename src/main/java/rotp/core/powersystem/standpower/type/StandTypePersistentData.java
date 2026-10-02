@@ -198,8 +198,12 @@ public class StandTypePersistentData extends PowerData {
 					trainable.onMaxTraining(userPower);
 				}
 			}
-			syncToUser(userPower);
+			syncAbilityLearningProgressToUser(userPower);
 		}
+	}
+	
+	protected void syncAbilityLearningProgressToUser(StandPower userPower) {
+		syncToUser(userPower);
 	}
 	
 	public void addAbilityLearningProgressPoints(String abilityName, float points, float maxPoints, StandPower userPower) {
