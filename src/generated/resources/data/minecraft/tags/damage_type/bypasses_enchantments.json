@@ -4,6 +4,7 @@
     "jojo_ripples:stand_projectile",
     "jojo_ripples:stand_projectile_fire",
     "jojo_ripples:stand_explosion_fire",
-    "jojo_ripples:ultraviolet"
+    "jojo_ripples:ultraviolet",
+    "jojo_ripples:ultraviolet_entity"
   ]
 }

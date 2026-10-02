@@ -4,6 +4,7 @@ import java.util.List;
 
 import io.netty.buffer.Unpooled;
 import rotp.core.JojoModConfig;
+import rotp.core.core.JojoMod;
 import rotp.core.init.ModItems;
 import rotp.core.init.power.ModStands;
 import rotp.core.mechanics.standarrow.StandArrowEntity;
@@ -24,7 +25,7 @@ import net.neoforged.neoforge.common.ModConfigSpec;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-@GameTestHolder("rotp_owner_decisions")
+@GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class OwnerDecisionGameTests {
     private OwnerDecisionGameTests() {}
@@ -98,11 +99,6 @@ public final class OwnerDecisionGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 40)
-    public static void beetleEnchantingRemainsAvailable(GameTestHelper helper) {
-        StandArrowBeetleEnchantGameTests.enchantingTableOffersEnchantmentsForBeetleArrow(helper);
-    }
-
-    @GameTest(template = "empty", timeoutTicks = 40)
     public static void aboveCapResolveGatesRespectProgressionBypass(GameTestHelper helper) {
         ModConfigSpec.ConfigValue<Boolean> skip = JojoModConfig.COMMON_SPEC.getValues()
                 .get(List.of("Stand settings", "Stand Progression", "skipStandProgression"));
@@ -129,10 +125,12 @@ public final class OwnerDecisionGameTests {
                 skip.set(true);
                 helper.assertTrue(ability.getResolveUnlockConditionCheck(power).isPositive(), "Config must bypass");
                 skip.set(false);
+
+                power.skipProgression();
+                helper.assertTrue(ability.getResolveUnlockConditionCheck(power).isPositive(),
+                        "Persisted skipped progression must bypass Resolve " + level);
+                power.applySyncedProgressionSkipped(false);
             }
-            power.skipProgression();
-            helper.assertTrue(ability.getResolveUnlockConditionCheck(power).isPositive(),
-                    "Persisted skipped progression must keep its learned above-cap ability");
         }
         finally {
             if (ability != null) ability.resolveLevelToUnlock(oldLevel);

@@ -112,7 +112,7 @@ public class LightBeamEntity extends DamagingEntity {
 
 	@Override
 	protected ResourceKey<DamageType> getDamageTypeKey() {
-		return ModDamageTypes.ULTRAVIOLET;
+		return ModDamageTypes.ULTRAVIOLET_ENTITY;
 	}
 
 	@Override

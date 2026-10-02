@@ -156,6 +156,13 @@ public class ModDamageTypes {
 			DamageTypeTags.BYPASSES_EFFECTS,
 			Tags.DamageTypes.IS_ENVIRONMENT);
 
+	public static final ResourceKey<DamageType> ULTRAVIOLET_ENTITY = DAMAGE_TYPES.withTags(JojoMod.resLoc("ultraviolet_entity"),
+			DamageTypeTags.BYPASSES_ARMOR,
+			DamageTypeTags.BYPASSES_WOLF_ARMOR,
+			DamageTypeTags.BYPASSES_ENCHANTMENTS,
+			DamageTypeTags.BYPASSES_EFFECTS,
+			Tags.DamageTypes.IS_ENVIRONMENT);
+
 	public static final ResourceKey<DamageType> VAMPIRE_FREEZE = DAMAGE_TYPES.withTags(JojoMod.resLoc("vampire_freeze"),
 			DamageTypeTags.BYPASSES_ARMOR,
 			DamageTypeTags.BYPASSES_WOLF_ARMOR,

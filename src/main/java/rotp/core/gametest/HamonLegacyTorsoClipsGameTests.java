@@ -29,6 +29,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class HamonLegacyTorsoClipsGameTests {
+	private static final float RIGHT_LEG_REST_Z = 0.1F;
 	private HamonLegacyTorsoClipsGameTests() {}
 
 	@GameTest(template = "empty", timeoutTicks = 20)
@@ -116,7 +117,17 @@ public final class HamonLegacyTorsoClipsGameTests {
 		limbPosition(helper, rebuff, "left_leg", 1.05F,
 				new float[] {1.896645F, 10.781157F, 0.07470138F}, new float[] {1.9F, 12F, -0.1F});
 		limbPosition(helper, rebuff, "right_leg", 1.15F,
-				new float[] {-1.5306004F, 9.368938F, 0.5756785F}, new float[] {-1.9F, 12F, -0.1F});
+				new float[] {-1.5306004F, 9.368938F, 0.5756785F}, new float[] {-1.9F, 12F, RIGHT_LEG_REST_Z});
+		JsonObject positions = rebuff.getAsJsonObject("right_leg").getAsJsonObject("position");
+		float[] times = {0.75F, 0.8F, 0.85F, 1F, 1.15F, 1.4F};
+		float[] donorZ = {0.12618618F, 0.10862576F, 0.4129756F, 0.52831745F, 0.5756785F, 0.56721926F};
+		for (int i = 0; i < times.length; i++) {
+			helper.assertTrue(Math.abs(sample(positions, times[i])[2] - (donorZ[i] - RIGHT_LEG_REST_Z)) < 0.00002F,
+					"Rebuff right-leg Z must subtract its +0.1 donor rest at " + times[i]);
+		}
+		for (float component : sample(positions, 0F)) {
+			helper.assertTrue(component == 0F, "Rebuff's synthetic neutral position must stay zero");
+		}
 		helper.succeed();
 	}
 

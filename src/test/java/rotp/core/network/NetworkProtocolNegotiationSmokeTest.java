@@ -38,6 +38,8 @@ public final class NetworkProtocolNegotiationSmokeTest {
 				"R148's added payloads require protocol v8 or later");
 		check(Integer.parseInt(PacketsRegister.NETWORK_PROTOCOL_VERSION) >= 9,
 				"Beetle Arrow durability adds a synced config field and requires protocol v9 or later");
+		check(Integer.parseInt(PacketsRegister.NETWORK_PROTOCOL_VERSION) >= 10,
+				"owner progression snapshots require core protocol v10 or later");
 
 		var matching = NetworkComponentNegotiator.validateComponent(
 				requiredComponent(PacketsRegister.NETWORK_PROTOCOL_VERSION),
@@ -45,6 +47,13 @@ public final class NetworkProtocolNegotiationSmokeTest {
 				"client");
 		check(matching.isEmpty(),
 				"matching current peers must negotiate the required play payload");
+
+		var noSkippedProgression = NetworkComponentNegotiator.validateComponent(
+				requiredComponent(PacketsRegister.NETWORK_PROTOCOL_VERSION),
+				requiredComponent("9"),
+				"client");
+		check(noSkippedProgression.isPresent() && !noSkippedProgression.get().success(),
+				"a v9 peer must fail before play without the owner progression snapshot");
 
 		var noBeetleDurability = NetworkComponentNegotiator.validateComponent(
 				requiredComponent(PacketsRegister.NETWORK_PROTOCOL_VERSION),

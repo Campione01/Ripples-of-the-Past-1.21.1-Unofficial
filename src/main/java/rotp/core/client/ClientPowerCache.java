@@ -1,6 +1,7 @@
 package rotp.core.client;
 
 import javax.annotation.Nullable;
+import org.jetbrains.annotations.ApiStatus;
 
 import rotp.core.core.JojoMod;
 import rotp.core.powersystem.Power;
@@ -68,6 +69,13 @@ public class ClientPowerCache {
 	}
 	
 	public static AvailableAbilities getAvailableAbilities(PowerClass<?> powerClass) { return getAvailableAbilities(powerClass, null); }
+
+	@ApiStatus.Internal
+	public static void refreshPower(Power<?> power) {
+		int i = power.getPowerClass().ordinal();
+		powersCache[i] = power;
+		availableAbilitiesCache[i] = power.updateAvailableMoves();
+	}
 
 	private static Power<?>[] powersCache = new Power<?>[PowerClass.values().length];
 	private static AvailableAbilities[] availableAbilitiesCache = new AvailableAbilities[PowerClass.values().length];

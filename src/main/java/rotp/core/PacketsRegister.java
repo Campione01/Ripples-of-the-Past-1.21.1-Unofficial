@@ -45,6 +45,7 @@ import rotp.core.network.s2c.ResetSyncedCommonConfigPacket;
 import rotp.core.network.s2c.ServerIdPacket;
 import rotp.core.network.s2c.StandAssignmentDataPacket;
 import rotp.core.network.s2c.SoulSpawnPacket;
+import rotp.core.network.s2c.SkippedStandProgressionPacket;
 import rotp.core.network.s2c.StandEntitySoundPacket;
 import rotp.core.network.s2c.StandFullClearPacket;
 import rotp.core.network.s2c.StandSkinSoundPacket;
@@ -137,7 +138,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 public class PacketsRegister {
 	// 6: resolveboost carries maxAchievedValue; the synced special_action registry has stand_entity_block
 	// 7: knockbackrestick (1.16 KnockbackResTickPacket), serverid (1.16 ServerIdPacket)
-	public static final String NETWORK_PROTOCOL_VERSION = "9";
+	public static final String NETWORK_PROTOCOL_VERSION = "10";
 
 	public static void register(RegisterPayloadHandlersEvent event) {
 		PayloadRegistrar registrar = event.registrar(NETWORK_PROTOCOL_VERSION);
@@ -192,6 +193,7 @@ public class PacketsRegister {
 		registerPacket(registrar, PayloadRegistrar::playToClient, new StandExpPacket.Handler(JojoMod.resLoc("standxp")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new TrPowerStandInstancePacket.Handler(JojoMod.resLoc("standinst")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new StandFullClearPacket.Handler(JojoMod.resLoc("standfullclear")));
+		registerPacket(registrar, PayloadRegistrar::playToClient, new SkippedStandProgressionPacket.Handler(JojoMod.resLoc("standprogressionskipped")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new TrPowerTypePacket.Handler(JojoMod.resLoc("plpowertype")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new TrPowerDataPacket.Handler(JojoMod.resLoc("powerdata")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new TrPlayerPowerLeapCooldownPacket.Handler(JojoMod.resLoc("playerleapcd")));

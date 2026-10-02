@@ -32,6 +32,7 @@ import rotp.core.mechanics.resolve.ResolveCounter;
 import rotp.core.mechanics.resolve.ResolveModeEffect;
 import rotp.core.mechanics.standarrow.StandArrowItem;
 import rotp.core.network.s2c.SoulSpawnPacket;
+import rotp.core.network.s2c.SkippedStandProgressionPacket;
 import rotp.core.network.s2c.StandFullClearPacket;
 import rotp.core.network.s2c.StandEntitySoundPacket;
 import rotp.core.network.s2c.TrPowerStandInstancePacket;
@@ -217,12 +218,16 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 		if (standChanged) {
 			// 1.16 clear() dropped the flag with the Stand
 			skippedProgression = false;
+			cachedMovesThisTick = false;
 		}
 		onSetPowerType(oldStand, newStand);
 		// 1.16 onNewPowerGiven: creative or the config skips at grant
 		if (standChanged && newStand != null && user != null && !user.level().isClientSide()
 				&& playerSkipsActionTraining(user)) {
 			skipProgression();
+		}
+		else if (standChanged) {
+			syncSkippedProgression();
 		}
 	}
 
@@ -379,11 +384,25 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 				}
 				data.syncOnUpdate(user);
 			}
+			cachedMovesThisTick = false;
+			syncSkippedProgression();
 		}
 	}
 
 	public boolean wasProgressionSkipped() {
 		return skippedProgression;
+	}
+
+	@ApiStatus.Internal
+	public void applySyncedProgressionSkipped(boolean skipped) {
+		skippedProgression = skipped;
+		cachedMovesThisTick = false;
+		updateAvailableMoves();
+	}
+
+	private void syncSkippedProgression() {
+		serverPlayerUser.ifPresent(player -> PacketDistributor.sendToPlayer(
+				player, new SkippedStandProgressionPacket(skippedProgression)));
 	}
 
 	/** 1.16 StandPower.playerSkipsActionTraining: creative players or the skipStandProgression config. */
@@ -890,6 +909,7 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 		syncAbilityCooldownsTo(user);
 		tickSoulCheck();
 		PacketDistributor.sendToPlayer(user, SoulSpawnPacket.spawnFlag(willSoulSpawn));
+		PacketDistributor.sendToPlayer(user, new SkippedStandProgressionPacket(skippedProgression));
 	}
 
 	@Override

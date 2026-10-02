@@ -12,6 +12,7 @@ import rotp.core.network.c2s.AbilityInputFailureLogLimiterSmokeTest;
 import rotp.core.network.c2s.ServerboundPayloadContractSmokeTest;
 import rotp.core.network.s2c.ClientboundPayloadContractSmokeTest;
 import rotp.core.network.s2c.TrPowerDataPacketSmokeTest;
+import rotp.core.network.s2c.SkippedStandProgressionPacketSmokeTest;
 import rotp.core.powersystem.ability.input.AbilityInputTransactionSmokeTest;
 import rotp.core.powersystem.entityaction.ActionGenerationSequenceSmokeTest;
 import rotp.core.powersystem.entityaction.netcode.ClientEntityActionSyncQueueSmokeTest;
@@ -41,6 +42,7 @@ public final class NetworkPayloadSafetySmokeTest {
 		ServerboundPayloadContractSmokeTest.run();
 		ClientboundPayloadContractSmokeTest.run();
 		TrPowerDataPacketSmokeTest.run();
+		SkippedStandProgressionPacketSmokeTest.run();
 		MovementInputPayloadContractSmokeTest.run();
 		MobControlPayloadContractSmokeTest.run();
 		ExtendedContainerClickContractSmokeTest.run();
