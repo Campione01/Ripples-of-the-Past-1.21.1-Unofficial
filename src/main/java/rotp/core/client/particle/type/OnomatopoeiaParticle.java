@@ -67,7 +67,7 @@ public class OnomatopoeiaParticle extends TextureSheetParticle {
 		public Particle createParticle(SimpleParticleType type, ClientLevel level, double x, double y, double z, double xSpeed, double ySpeed, double zSpeed) {
 			OnomatopoeiaParticle particle = new OnomatopoeiaParticle(level, x, y, z, xSpeed, ySpeed, zSpeed);
 			particle.pickSprite(spriteSet);
-			particle.setLifetime(40);
+			particle.setLifetime(400);
 			return particle;
 		}
 	}
