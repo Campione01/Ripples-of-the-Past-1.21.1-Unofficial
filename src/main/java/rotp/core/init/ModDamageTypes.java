@@ -154,6 +154,7 @@ public class ModDamageTypes {
 			DamageTypeTags.BYPASSES_WOLF_ARMOR,
 			DamageTypeTags.BYPASSES_ENCHANTMENTS,
 			DamageTypeTags.BYPASSES_EFFECTS,
+			DamageTypeTags.NO_KNOCKBACK,
 			Tags.DamageTypes.IS_ENVIRONMENT);
 
 	public static final ResourceKey<DamageType> ULTRAVIOLET_ENTITY = DAMAGE_TYPES.withTags(JojoMod.resLoc("ultraviolet_entity"),
