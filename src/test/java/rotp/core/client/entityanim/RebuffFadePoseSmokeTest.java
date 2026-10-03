@@ -24,6 +24,7 @@ import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.LivingComponentAction.RebuffVisualTail;
 import rotp.core.powersystem.entityaction.LivingComponentAction.TransactionSnapshot;
 import rotp.core.util.objects_java.OptionalFloat;
+import rotp.core.impl.powers.hamon.client.particle.custom.HamonAuraBodyPositionSmokeTest;
 
 import net.minecraft.client.animation.AnimationChannel;
 import net.minecraft.client.model.geom.ModelPart;
@@ -47,7 +48,7 @@ public final class RebuffFadePoseSmokeTest {
 
 	public static void main(String[] args) {
 		run();
-		System.out.println("Rebuff fade pose smoke tests passed: eleven transform, Molang-clock, tail-math and snapshot checks");
+		System.out.println("Rebuff fade pose smoke tests passed: eleven transform, Molang-clock, tail-math and snapshot checks; nine aura-offset checks");
 	}
 
 	public static void run() {
@@ -63,6 +64,7 @@ public final class RebuffFadePoseSmokeTest {
 		verifyResetAndCoolPosesUseTheirOwnSampleTime();
 		verifyAnimationTimeIsThreadLocal();
 		verifyTransactionSnapshotConstructorsPreserveTail();
+		HamonAuraBodyPositionSmokeTest.run();
 	}
 
 	private static void verifyZeroWeightPreservesVanillaTransform() {

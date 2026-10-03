@@ -12,9 +12,12 @@ import rotp.core.init.ModItems;
 import rotp.core.init.ModParticles;
 import rotp.core.mechanics.standarrow.StandArrowItem;
 import rotp.core.mechanics.standarrow.StandArrowLore;
+import rotp.core.mixin.client.particle.LevelRendererParticleInvoker;
 import rotp.core.powersystem.standpower.StandUtil;
 import rotp.core.util.OOPMoment;
 
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.particle.Particle;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
@@ -80,7 +83,12 @@ public class SpawnArrowsInSusBlocks {
 					if (ClientTickHandler.tickCount % 3 == 0 && !ClientProxy.isClientPaused()) {
 						BlockPos blockPos = brushableBlockEntity.getBlockPos();
 						Vec3 particlePos = randomPointAroundBlock(blockPos, 1.25, 2);
-						level.addParticle(ModParticles.MENACING.get(), particlePos.x, particlePos.y, particlePos.z, 0, 0, 0);
+						Particle particle = ((LevelRendererParticleInvoker) Minecraft.getInstance().levelRenderer)
+								.jojo_ripples$addParticle(ModParticles.MENACING.get(), false,
+										particlePos.x, particlePos.y, particlePos.z, 0, 0, 0);
+						if (particle != null) {
+							particle.setLifetime(40);
+						}
 					}
 					return true;
 				}

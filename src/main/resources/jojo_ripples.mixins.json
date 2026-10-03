@@ -107,6 +107,7 @@
 	"debughelper.CodecErrorMessageMixin"
   ],
   "client": [
+	"client.particle.LevelRendererParticleInvoker",
 	"client.v1_21_4_stuff.Model_1_21_2plus_Mixin",
 	"client.entityglow.EntityGlowMixin",
 	"client.entityglow.MinecraftEntityGlowMixin",

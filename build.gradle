@@ -295,6 +295,15 @@ tasks.register('rebuffDonorCurveSmokeTest', JavaExec) {
     workingDir projectDir
 }
 
+tasks.register('suspiciousArrowParticleSmokeTest', JavaExec) {
+    group = 'verification'
+    description = 'Checks MENACING factory lifetime and brushable-arrow emission wiring.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
+    mainClass = 'rotp.core.adventure.SuspiciousArrowParticleSmokeTest'
+    workingDir projectDir
+}
+
 tasks.register('molangQueryThreadIsolationSmokeTest', JavaExec) {
     group = 'verification'
     description = 'Checks that reload-time and render-time Molang query contexts stay separate.'
@@ -485,6 +494,7 @@ tasks.register('standAuraFxIntegrationSmokeTest', JavaExec) {
 }
 
 tasks.named('check').configure {
+    dependsOn tasks.named('suspiciousArrowParticleSmokeTest')
     dependsOn tasks.named('rebuffFadePoseSmokeTest')
     dependsOn tasks.named('rebuffDonorCurveSmokeTest')
     dependsOn tasks.named('theWorldTsPunchSmokeTest')

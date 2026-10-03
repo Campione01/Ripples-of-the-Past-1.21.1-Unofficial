@@ -66,6 +66,11 @@ public class HamonAura3rdPersonParticle extends HamonAuraParticle {
 	
 	public static Vec3 getBodyPos(AbstractClientPlayer player, float partialTick) {
 		AnimFramePose pose = ((AnimatedEntity) player).jojo_ripples$getModelPose(AnimatedEntity.PoseType.FINAL);
+		float yRot = Mth.rotLerp(partialTick, player.yBodyRotO, player.yBodyRot);
+		return getBodyPos(pose, yRot);
+	}
+
+	static Vec3 getBodyPos(AnimFramePose pose, float bodyYaw) {
 		if (pose == null) {
 			return Vec3.ZERO;
 		}
@@ -78,11 +83,10 @@ public class HamonAura3rdPersonParticle extends HamonAuraParticle {
 			return Vec3.ZERO;
 		}
 		Vec3 modelOffset = new Vec3(
-				bodyOffset.x * MODEL_UNIT,
-				-bodyOffset.y * MODEL_UNIT,
-				-bodyOffset.z * MODEL_UNIT);
-		float yRot = Mth.rotLerp(partialTick, player.yBodyRotO, player.yBodyRot);
-		return modelOffset.yRot(-yRot * MathUtil.DEG_TO_RAD);
+				bodyOffset.x * MODEL_UNIT * pose.blendWeight,
+				-bodyOffset.y * MODEL_UNIT * pose.blendWeight,
+				-bodyOffset.z * MODEL_UNIT * pose.blendWeight);
+		return modelOffset.yRot(-bodyYaw * MathUtil.DEG_TO_RAD);
 	}
 
 	@Override
