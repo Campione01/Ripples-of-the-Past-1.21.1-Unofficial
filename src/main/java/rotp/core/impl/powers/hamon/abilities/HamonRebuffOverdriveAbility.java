@@ -196,6 +196,7 @@ public class HamonRebuffOverdriveAbility extends HamonActionRuntimeAbility {
 		public static final int COUNTER_TIMING_WINDOW = 7;
 		public static final int PERFORM_TICKS = 10;
 		public static final int RECOVERY_TICKS = 16;
+		@Nullable private ActionPhase clientFadePhase;
 		private boolean didAttack;
 		private boolean didSwing;
 		private boolean saidMistimedCounter;
@@ -208,6 +209,9 @@ public class HamonRebuffOverdriveAbility extends HamonActionRuntimeAbility {
 		@Override
 		public void onSetPhase(ActionPhase newPhase) {
 			super.onSetPhase(newPhase);
+			if (level().isClientSide() && newPhase != null) {
+				clientFadePhase = newPhase;
+			}
 			// 1.16 getWalkSpeed: the user stands still for the whole action
 			userWalkSpeed = 0.0F;
 			if (newPhase == ActionPhase.WINDUP && level().isClientSide()) {
@@ -217,6 +221,14 @@ public class HamonRebuffOverdriveAbility extends HamonActionRuntimeAbility {
 							ActionPhase.WINDUP, 1.0F, 1.0F);
 				}
 			}
+		}
+
+		@Nullable
+		public ActionPhase captureClientFadePhase() {
+			if (getPhase() != null) {
+				clientFadePhase = getPhase();
+			}
+			return clientFadePhase;
 		}
 
 		@Override

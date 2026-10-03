@@ -26,6 +26,8 @@ import rotp.core.powersystem.entityaction.ActionAnimIdentifier.ActionAnimIdHands
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
+import rotp.core.powersystem.entityaction.LivingComponentAction.RebuffVisualTail;
+import rotp.core.client.ClientTimeStopHandler;
 import rotp.core.powersystem.playerpower.PlayerPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.impl.powers.hamon.HamonData;
@@ -122,13 +124,24 @@ public class PreFrameEntityAnimCalc {
 		@Nullable HamonMasterEntity sittingHamonMaster = action == null && stand == null
 				&& living instanceof HamonMasterEntity master ? master : null;
 
-		LivingAnimState animVariables = LivingAnimState.reusedInstance;
-		if (action != null
+		boolean hasPrimaryPose = action != null
 				|| stand != null
 				|| persistentHamonPose != null
 				|| persistentStoneForm != null
 				|| addonPlayerAnimation != null
-				|| sittingHamonMaster != null) {
+				|| sittingHamonMaster != null;
+		RebuffVisualTail rebuffTail = null;
+		float rebuffPartialTick = partialTick;
+		if (actionComponent != null) {
+			if (hasPrimaryPose) actionComponent.clearClientRebuffTail();
+			else {
+				rebuffPartialTick = ClientTimeStopHandler.getConstantEntityPartialTick(living, partialTick);
+				rebuffTail = actionComponent.getClientRebuffTail(rebuffPartialTick);
+			}
+		}
+
+		LivingAnimState animVariables = LivingAnimState.reusedInstance;
+		if (hasPrimaryPose || rebuffTail != null) {
 			if (persistentHamonPose != null) {
 				animVariables.reset();
 				animVariables.animSet = ModPlayerPowers.HAMON.get().getId();
@@ -165,6 +178,14 @@ public class PreFrameEntityAnimCalc {
 									false);
 					animVariables.time =
 							addonPlayerAnimation.timeInTicks();
+				}
+				else if (rebuffTail != null) {
+					animVariables.animSet = rebuffTail.animSet();
+					animVariables.animId = rebuffTail.animId();
+					animVariables.time = rebuffTail.fullTick();
+					animVariables.actionPhase = rebuffTail.phase();
+					animVariables.phaseTime = rebuffTail.phaseTick();
+					animVariables.phaseCompletion = rebuffTail.phaseCompletion();
 				}
 			}
 
@@ -212,10 +233,17 @@ public class PreFrameEntityAnimCalc {
 			
 			if (anim != null) {
 				float timeSeconds = anim.getAnimTime(animVariables);
-				AnimMolangVariables molangVariables = AnimMolangVariables.extract(living, partialTick);
+				float tailElapsed = rebuffTail != null ? rebuffTail.elapsedTicks(living.tickCount, rebuffPartialTick) : 0;
+				if (rebuffTail != null) {
+					// 1.16 advances the old clip throughout its OUTCUBIC stop fade.
+					timeSeconds += anim.clock.elapsed(tailElapsed);
+				}
+				AnimMolangVariables molangVariables = AnimMolangVariables.extract(living,
+						rebuffTail != null ? rebuffPartialTick : partialTick);
 				float lookXRot = molangVariables.xRot;
 				pose = anim.calcAnimPose(molangVariables,
 						actionComponent != null ? actionComponent.clPrevPunchPose : null, timeSeconds, 1);
+				if (rebuffTail != null) pose.blendWeight = rebuffTail.blendWeight(tailElapsed);
 				if (stand == null) {
 					// 1.16 KosmXArmsRotationModifier: barrage arms follow the look pitch
 					AnimFramePose.ModelPartFrame leftArm = pose.getIfPresent("left_arm");
@@ -247,6 +275,9 @@ public class PreFrameEntityAnimCalc {
 						}
 					}
 				}
+			}
+			else if (rebuffTail != null) {
+				actionComponent.clearClientRebuffTail();
 			}
 		}
 		return pose;

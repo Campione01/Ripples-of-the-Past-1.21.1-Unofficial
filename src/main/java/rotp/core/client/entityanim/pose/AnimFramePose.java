@@ -6,14 +6,17 @@ import java.util.Map;
 import org.joml.Vector3f;
 
 import rotp.core.compat.v1_21_4.missingmethods._PartPose;
+import rotp.core.util.functions.MathUtil;
 
 import net.minecraft.client.animation.AnimationChannel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
+import net.minecraft.util.Mth;
 
 public class AnimFramePose {
 	protected Map<String, ModelPartFrame> modelPartCache = new HashMap<>();
 	public Map<String, ModelPartFrame> pose = new HashMap<>();
+	public float blendWeight = 1;
 	
 	/** The render thread's scratch pose. Any other thread calculates poses through its own instance. */
 	public static AnimFramePose reused = new AnimFramePose();
@@ -35,11 +38,13 @@ public class AnimFramePose {
 			obj.clear();
 		}
 		pose.clear();
+		blendWeight = 1;
 		return this;
 	}
 	
 	public void copyTo(AnimFramePose destPose) {
 		destPose.clear();
+		destPose.blendWeight = blendWeight;
 		for (var modelPartPose : this.pose.entrySet()) {
 			modelPartPose.getValue().copyTo(destPose.getForModelPart(modelPartPose.getKey()));
 		}
@@ -47,6 +52,7 @@ public class AnimFramePose {
 	
 	public AnimFramePose deepCopy() {
 		AnimFramePose copy = new AnimFramePose();
+		copy.blendWeight = blendWeight;
 		for (var modelPartEntry : pose.entrySet()) {
 			copy.pose.put(modelPartEntry.getKey(), modelPartEntry.getValue().deepCopy());
 		}
@@ -84,6 +90,27 @@ public class AnimFramePose {
 			modelPart.offsetScale(this.scaleOffset);
 		}
 		
+		public void apply(ModelPart modelPart, float blendWeight, boolean normalizeHeadYaw) {
+			if (!modelPart.visible || blendWeight <= 0) return;
+			if (blendWeight >= 1) {
+				apply(modelPart);
+				return;
+			}
+			// Vanilla setupAnim has already supplied the destination pose for this frame.
+			PartPose initialPose = modelPart.getInitialPose();
+			modelPart.xRot = Mth.lerp(blendWeight, modelPart.xRot, initialPose.xRot + rotationOffset.x());
+			modelPart.yRot = Mth.lerp(blendWeight,
+					normalizeHeadYaw ? MathUtil.wrapRadians(modelPart.yRot) : modelPart.yRot,
+					initialPose.yRot + rotationOffset.y());
+			modelPart.zRot = Mth.lerp(blendWeight, modelPart.zRot, initialPose.zRot + rotationOffset.z());
+			modelPart.x = Mth.lerp(blendWeight, modelPart.x, initialPose.x + positionOffset.x());
+			modelPart.y = Mth.lerp(blendWeight, modelPart.y, initialPose.y + positionOffset.y());
+			modelPart.z = Mth.lerp(blendWeight, modelPart.z, initialPose.z + positionOffset.z());
+			modelPart.xScale = Mth.lerp(blendWeight, modelPart.xScale, _PartPose.xScale(initialPose) + scaleOffset.x());
+			modelPart.yScale = Mth.lerp(blendWeight, modelPart.yScale, _PartPose.yScale(initialPose) + scaleOffset.y());
+			modelPart.zScale = Mth.lerp(blendWeight, modelPart.zScale, _PartPose.zScale(initialPose) + scaleOffset.z());
+		}
+
 		public void set(Vector3f value, AnimationChannel.Target target) {
 			if (target == AnimationChannel.Targets.ROTATION)		this.rotationOffset.set(value);
 			else if (target == AnimationChannel.Targets.POSITION)	this.positionOffset.set(value);

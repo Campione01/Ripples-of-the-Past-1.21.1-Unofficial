@@ -278,6 +278,23 @@ tasks.register('animPoseThreadIsolationSmokeTest', JavaExec) {
     mainClass = 'rotp.core.client.entityanim.AnimPoseThreadIsolationSmokeTest'
 }
 
+tasks.register('rebuffFadePoseSmokeTest', JavaExec) {
+    group = 'verification'
+    description = 'Checks Rebuff pose blending, pose reuse and visual-tail timing.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
+    mainClass = 'rotp.core.client.entityanim.RebuffFadePoseSmokeTest'
+}
+
+tasks.register('rebuffDonorCurveSmokeTest', JavaExec) {
+    group = 'verification'
+    description = 'Compares Rebuff scalar curves and phase timing with the 1.16.5 donor.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
+    mainClass = 'rotp.core.client.entityanim.RebuffDonorCurveSmokeTest'
+    workingDir projectDir
+}
+
 tasks.register('molangQueryThreadIsolationSmokeTest', JavaExec) {
     group = 'verification'
     description = 'Checks that reload-time and render-time Molang query contexts stay separate.'
@@ -468,6 +485,8 @@ tasks.register('standAuraFxIntegrationSmokeTest', JavaExec) {
 }
 
 tasks.named('check').configure {
+    dependsOn tasks.named('rebuffFadePoseSmokeTest')
+    dependsOn tasks.named('rebuffDonorCurveSmokeTest')
     dependsOn tasks.named('theWorldTsPunchSmokeTest')
     dependsOn tasks.named('clientSettingsSmokeTest')
     dependsOn tasks.named('addonApiSmokeTest')

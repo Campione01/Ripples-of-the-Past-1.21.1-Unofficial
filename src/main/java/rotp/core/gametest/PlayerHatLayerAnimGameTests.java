@@ -30,7 +30,7 @@ public final class PlayerHatLayerAnimGameTests {
 	private static final String MODEL_PART = "Lnet/minecraft/client/model/geom/ModelPart;";
 	private static final String COPY_FROM = "net/minecraft/client/model/geom/ModelPart.copyFrom(" + MODEL_PART + ")V";
 	private static final String ON_ANIMATE = JANK + "._onAnimate(Lnet/minecraft/client/model/HumanoidModel;)V";
-	private static final String FRAME_APPLY = "rotp/core/client/entityanim/pose/AnimFramePose$ModelPartFrame.apply(" + MODEL_PART + ")V";
+	private static final String FRAME_APPLY = "rotp/core/client/entityanim/pose/AnimFramePose$ModelPartFrame.apply(" + MODEL_PART + "FZ)V";
 
 	private static final int GETFIELD = 0xB4;
 	private static final int INVOKEVIRTUAL = 0xB6;

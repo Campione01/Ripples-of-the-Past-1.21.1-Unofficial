@@ -14,6 +14,7 @@ import rotp.core.entityattachment.SynchronizablePlayerData;
 import rotp.core.entityattachment.TickingEntityData;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModStatusEffects;
+import rotp.core.impl.powers.hamon.abilities.HamonRebuffOverdriveAbility.HamonRebuffOverdrive;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.entityaction.EntityActionInstance.InputLifecycleSnapshot;
@@ -25,8 +26,10 @@ import rotp.core.subsystems.target.ActionTargetAim;
 
 import net.minecraft.core.HolderLookup.Provider;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.neoforged.neoforge.attachment.AttachmentType;
@@ -49,6 +52,7 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 	public ActionComboStringTracker comboString = new ActionComboStringTracker();
 	
 	@Nullable public AnimFramePose clPrevPunchPose;
+	@Nullable private RebuffVisualTail clRebuffTail;
 	
 	// TODO move aim to a separate component
 	@Deprecated
@@ -66,6 +70,67 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 		return action;
 	}
 
+	@Nullable
+	public RebuffVisualTail getClientRebuffTail(float partialTick) {
+		if (!entity.level().isClientSide()) return null;
+		if (clRebuffTail != null) {
+			float age = clRebuffTail.elapsedTicks(entity.tickCount, partialTick);
+			if (action != null || !entity.isAlive() || entity.isRemoved() || entity.isSpectator()
+					|| !clRebuffTail.dimension().equals(entity.level().dimension().location())
+					|| age < 0 || age >= RebuffVisualTail.DURATION_TICKS) {
+				clRebuffTail = null;
+			}
+		}
+		return clRebuffTail;
+	}
+
+	public void clearClientRebuffTail() {
+		clRebuffTail = null;
+	}
+
+	@Nullable
+	private RebuffVisualTail captureRebuffTail(HamonRebuffOverdrive rebuff) {
+		ActionPhase phase = rebuff.captureClientFadePhase();
+		ResourceLocation animSet = rebuff.ability.getEntityAnimSet(entity);
+		ActionAnimIdentifier animId = rebuff.getEntityAnim();
+		if (phase == null || rebuff.getCurPhaseLength() <= 0 || animSet == null || animId == null) return null;
+		// Match extractAnim's phase clock even when forceStop has already erased its phase.
+		EntityActionInstance stopped = rebuff;
+		float subtractPartialTick = stopped.prevFramePhase == phase ? stopped.subtractFramePartialTick
+				: stopped.prevFramePhase == null ? stopped.phasePartialTick : 0;
+		float phaseTick = stopped.curPhaseTick - subtractPartialTick;
+		float phaseLength = Mth.ceil(stopped.getCurPhaseLength());
+		float fullTick = stopped.calcFullTicks(phase, stopped.getPhaseTick());
+		if (stopped.skippedWindupPhase != null) {
+			float skipped = stopped.skippedWindupPhase.getFloat(phase);
+			phaseTick -= skipped;
+			phaseLength -= skipped;
+			for (ActionPhase earlierPhase : ActionPhase.values()) {
+				fullTick -= stopped.skippedWindupPhase.getFloat(earlierPhase);
+				if (earlierPhase == phase) break;
+			}
+		}
+		if (phaseLength <= 0) return null;
+		return new RebuffVisualTail(entity.level().dimension().location(), entity.tickCount,
+				animSet, animId, phase, phaseTick, Math.min(phaseTick / phaseLength, 1), fullTick);
+	}
+
+	public record RebuffVisualTail(
+			ResourceLocation dimension, int startedTick,
+			ResourceLocation animSet, ActionAnimIdentifier animId,
+			ActionPhase phase, float phaseTick, float phaseCompletion, float fullTick) {
+		public static final int DURATION_TICKS = 10;
+
+		public float elapsedTicks(int entityTick, float partialTick) {
+			return entityTick - startedTick + Mth.clamp(partialTick, 0, 1);
+		}
+
+		public float blendWeight(float elapsedTicks) {
+			float remaining = 1 - Mth.clamp(elapsedTicks / DURATION_TICKS, 0, 1);
+			return remaining * remaining * remaining;
+		}
+	}
+
 	@ApiStatus.Internal
 	public long actionGeneration() {
 		return actionGeneration;
@@ -78,7 +143,8 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 				action != null ? action.captureInputLifecycle() : null,
 				actionIdCounter.get(),
 				actionGeneration,
-				lifecycleRemovalAttempts);
+				lifecycleRemovalAttempts,
+				entity.level().isClientSide() ? getClientRebuffTail(0) : null);
 	}
 
 	/** Restores the complete action lifecycle after an input transaction failed. */
@@ -94,6 +160,7 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 		if (!replacementInstalled && !removalAttempted) {
 			return;
 		}
+		clearClientRebuffTail();
 		EntityActionInstance failedAction = replacementInstalled ? action : null;
 		if (replacementInstalled) {
 			removeFailedActionCallback(failedAction, snapshot.action());
@@ -107,6 +174,12 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 		rebuildComboState(snapshot.action());
 
 		if (entity.level().isClientSide()) {
+			clRebuffTail = snapshot.rebuffVisualTail();
+			getClientRebuffTail(0);
+			if (snapshot.action() instanceof HamonRebuffOverdrive rebuff) {
+				// The restored phase bypasses onSetPhase; do not retain the failed phase for a later stop.
+				rebuff.captureClientFadePhase();
+			}
 			actionGeneration = snapshot.actionGeneration();
 			if (snapshot.action() != null) {
 				snapshot.action().setNetworkGeneration(actionGeneration);
@@ -138,6 +211,7 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 	/** Clears an action whose dependent network update failed partway through. */
 	@ApiStatus.Internal
 	public void clearFailedNetworkAction() {
+		clearClientRebuffTail();
 		EntityActionInstance failedAction = action;
 		removeFailedActionCallback(failedAction, null);
 		restoreActionReference(null);
@@ -234,6 +308,11 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 			action.standRotationTarget = action.standRotationTarget.resolveEntityId(entity.level());
 		}
 		
+		// Capture before the removal callback clears phase, but arm only after this transition commits.
+		EntityActionInstance stoppingAction = this.action;
+		RebuffVisualTail stoppedRebuff = entity.level().isClientSide() && action == null
+				&& stoppingAction instanceof HamonRebuffOverdrive rebuff ? captureRebuffTail(rebuff) : null;
+
 		// Action callbacks that may be overriden by specific abilities
 		
 		if (this.action != null) {
@@ -275,6 +354,10 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 			comboString.clear();
 		}
 		
+		if (entity.level().isClientSide() && this.action == null
+				&& prevAction == stoppingAction && prevAction instanceof HamonRebuffOverdrive) {
+			clRebuffTail = stoppedRebuff;
+		}
 		return action;
 	}
 	
@@ -284,6 +367,9 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 			boolean authoritativeClientState) {
 		if (action != null) {
 			action.performer = entity;
+			if (entity.level().isClientSide()) {
+				clearClientRebuffTail();
+			}
 			if (!entity.level().isClientSide()) {
 				action.id = actionIdCounter.incrementAndGet() & 127;
 			}
@@ -326,6 +412,9 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 	
 	@Override
 	public void tick() {
+		if (entity.level().isClientSide()) {
+			getClientRebuffTail(0);
+		}
 		if (action != null) {
 			if (entity instanceof StandEntity standEntity && standEntity.summonLockTicks > 0) {
 				return;
@@ -447,7 +536,14 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 			@Nullable InputLifecycleSnapshot lifecycle,
 			int actionIdCounter,
 			long actionGeneration,
-			long lifecycleRemovalAttempts) {}
+			long lifecycleRemovalAttempts,
+			@Nullable RebuffVisualTail rebuffVisualTail) {
+		public TransactionSnapshot(@Nullable EntityActionInstance action,
+				@Nullable InputLifecycleSnapshot lifecycle, int actionIdCounter,
+				long actionGeneration, long lifecycleRemovalAttempts) {
+			this(action, lifecycle, actionIdCounter, actionGeneration, lifecycleRemovalAttempts, null);
+		}
+	}
 
 
 	// TODO (entity action 2) nbt save/load

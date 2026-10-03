@@ -24,19 +24,27 @@ public class AnimMolangQuery implements ObjectValue {
 	/*
 	 * The Mocha scope holds this one instance, and two kinds of thread evaluate through it: the render
 	 * thread every frame, and resource-reload workers baking cool poses while the old models are still
-	 * being drawn. With the three properties shared, a worker's reset() and the render thread's
+	 * being drawn. With frame properties shared, a worker's reset() and the render thread's
 	 * fillContext() interleave both ways - the render thread can read a zeroed context for a frame, and
 	 * a baked cool pose can capture a live entity's head rotation and stay wrong until the next reload.
-	 * Each thread gets its own set instead; the scope, the engine and the property names are untouched.
+	 * Each thread owns its context while sharing the same engine and query namespace.
 	 */
 	private static final ThreadLocal<QueryContext> CONTEXT = ThreadLocal.withInitial(QueryContext::new);
 
 	public void fillContext(AnimMolangVariables variables) {
-		CONTEXT.get().set(variables.xRot, variables.yRot, variables.extendablePartLength);
+		fillContext(variables, 0);
+	}
+
+	public void fillContext(AnimMolangVariables variables, float animationTime) {
+		CONTEXT.get().set(variables.xRot, variables.yRot, variables.extendablePartLength, animationTime);
 	}
 
 	public void reset() {
-		CONTEXT.get().set(0, 0, 0);
+		reset(0);
+	}
+
+	public void reset(float animationTime) {
+		CONTEXT.get().set(0, 0, 0, animationTime);
 	}
 
 	@Override
@@ -46,6 +54,7 @@ public class AnimMolangQuery implements ObjectValue {
 			case "head_x_rotation": return context.head_x_rotation;
 			case "head_y_rotation": return context.head_y_rotation;
 			case "extendablePartLength": return context.extendablePartLength;
+			case "anim_time": return context.animationTime;
 		}
 		return null;
 	}
@@ -55,15 +64,17 @@ public class AnimMolangQuery implements ObjectValue {
 		ObjectProperty head_x_rotation;
 		ObjectProperty head_y_rotation;
 		ObjectProperty extendablePartLength;
+		ObjectProperty animationTime;
 
 		QueryContext() {
-			set(0, 0, 0);
+			set(0, 0, 0, 0);
 		}
 
-		void set(float xRot, float yRot, float extendablePartLength) {
+		void set(float xRot, float yRot, float extendablePartLength, float animationTime) {
 			this.head_x_rotation = ObjectProperty.property(Value.of(xRot), false);
 			this.head_y_rotation = ObjectProperty.property(Value.of(yRot), false);
 			this.extendablePartLength = ObjectProperty.property(Value.of(extendablePartLength), false);
+			this.animationTime = ObjectProperty.property(Value.of(animationTime), false);
 		}
 	}
 	
@@ -105,4 +116,3 @@ public class AnimMolangQuery implements ObjectValue {
 	}
 	
 }
-

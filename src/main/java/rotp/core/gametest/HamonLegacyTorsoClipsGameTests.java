@@ -8,6 +8,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import rotp.core.client.entityanim.molang.AnimMolangQuery;
+import rotp.core.client.entityanim.molang.KeyframesMolangEngine;
+import rotp.core.config.MolangValue;
+
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -299,15 +303,30 @@ public final class HamonLegacyTorsoClipsGameTests {
 	}
 
 	private static float[] vector(JsonElement key) {
+		return vector(key, 0);
+	}
+
+	private static float[] vector(JsonElement key, float time) {
 		JsonArray arr = key.isJsonArray() ? key.getAsJsonArray() : key.getAsJsonObject().getAsJsonArray("vector");
-		return new float[] {arr.get(0).getAsFloat(), arr.get(1).getAsFloat(), arr.get(2).getAsFloat()};
+		float[] result = new float[3];
+		KeyframesMolangEngine.init();
+		AnimMolangQuery.instance.reset(time);
+		try {
+			for (int i = 0; i < result.length; i++) {
+				result[i] = MolangValue.fromJson(arr.get(i), KeyframesMolangEngine.get()).getAsFloat();
+			}
+			return result;
+		}
+		finally {
+			AnimMolangQuery.instance.reset();
+		}
 	}
 
 	// linear lerp between keys; the sampled times are key times
 	private static float[] sample(JsonObject keys, float t) {
 		List<float[]> frames = new ArrayList<>();
 		for (Map.Entry<String, JsonElement> key : keys.entrySet()) {
-			float[] v = vector(key.getValue());
+			float[] v = vector(key.getValue(), t);
 			frames.add(new float[] {Float.parseFloat(key.getKey()), v[0], v[1], v[2]});
 		}
 		frames.sort((a, b) -> Float.compare(a[0], b[0]));

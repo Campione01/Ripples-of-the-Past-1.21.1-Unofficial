@@ -116,7 +116,7 @@ public class RotpAnimDefinition {
 	public AnimFramePose calcAnimPose(@Nullable AnimMolangVariables animVariables,
 			@Nullable AnimFramePose prevPunchPose, float seconds, float animSpeed,
 			AnimFramePose destPose, Vector3f lerpTarget) {
-		evaluateQueries(animVariables);
+		evaluateQueries(animVariables, seconds);
 		AnimFramePose frame = destPose.clear();
 
 		Map<String, List<IAnimationChannel>> anim = SmoothPunchComboAnimTransition.transition(boneAnimations, prevPunchPose);
@@ -140,7 +140,7 @@ public class RotpAnimDefinition {
 			ModelPart modelPart = getModelPart(modelPartName, model, humanoidModelCast, backportModelCast);
 			if (modelPart != null) {
 				HiddenModelPartsUtil.onAnimate(rotpModelCast, modelPart);
-				modelPartEntry.getValue().apply(modelPart);
+				modelPartEntry.getValue().apply(modelPart, frame.blendWeight, "head".equals(modelPartName));
 			}
 		}
 		
@@ -312,9 +312,9 @@ public class RotpAnimDefinition {
 	}
 	
 	
-	private void evaluateQueries(@Nullable AnimMolangVariables animVariables) {
-		if (animVariables != null) 	AnimMolangQuery.instance.fillContext(animVariables);
-		else						AnimMolangQuery.instance.reset();
+	private void evaluateQueries(@Nullable AnimMolangVariables animVariables, float seconds) {
+		if (animVariables != null) 	AnimMolangQuery.instance.fillContext(animVariables, seconds);
+		else						AnimMolangQuery.instance.reset(seconds);
 		queries.forEach(KeyframeQuery::evaluate);
 	}
 	
