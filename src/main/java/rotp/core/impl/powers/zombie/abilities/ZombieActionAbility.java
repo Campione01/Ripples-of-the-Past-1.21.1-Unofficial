@@ -13,6 +13,7 @@ import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.impl.powers.zombie.ZombieData;
 
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 
 public class ZombieActionAbility extends EntityActionAbility {
 	private final boolean blockedByDisguise;
@@ -39,7 +40,9 @@ public class ZombieActionAbility extends EntityActionAbility {
 		if (blockedByDisguise && zombie.isDisguiseEnabled()) {
 			return ConditionCheck.createNegative("disguise");
 		}
-		if (energyCost > 0.0F && !zombie.hasEnergy(energyCost)) {
+		if (energyCost > 0.0F
+				&& !(context.getUser() instanceof Player player && player.getAbilities().instabuild)
+				&& !zombie.hasEnergy(energyCost)) {
 			return ConditionCheck.createNegative("no_energy_zombie");
 		}
 		return ConditionCheck.POSITIVE;

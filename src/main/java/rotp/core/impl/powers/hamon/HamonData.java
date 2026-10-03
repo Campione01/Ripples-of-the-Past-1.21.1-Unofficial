@@ -2187,7 +2187,8 @@ public class HamonData extends PlayerPowerData {
 		if (!isHamonBreathingAction(user)) {
 			float energyCost = 10.0F * (wallClimbMoving ? 1.0F : 0.25F);
 			float points = Math.min(energyCost, getEnergy() * getActionEfficiency(energyCost, false, ModHamonSkills.WALL_CLIMBING.get(), user));
-			if (hasEnergy(energyCost, user)) {
+			boolean creative = user instanceof Player player && player.getAbilities().instabuild;
+			if (creative || hasEnergy(energyCost, user)) {
 				consumeEnergy(energyCost, user);
 				if (wallClimbMoving) {
 					hamonPointsFromAction(HamonStat.CONTROL, points);
