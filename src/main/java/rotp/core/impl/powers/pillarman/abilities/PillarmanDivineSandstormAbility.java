@@ -5,7 +5,9 @@ import rotp.core.init.ModSoundEvents;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
+import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.entityaction.ActionPhase;
+import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.impl.powers.pillarman.PillarmanDivineSandstormEntity;
 import rotp.core.impl.powers.pillarman.PillarmanMode;
@@ -24,6 +26,18 @@ public class PillarmanDivineSandstormAbility extends PillarmanActionAbility {
 		setDefaultPhaseLength(ActionPhase.BUTTON_CHARGE, 40);
 		setDefaultPhaseLength(ActionPhase.PERFORM, 999999);
 		setDefaultPhaseLength(ActionPhase.RECOVERY, 0);
+	}
+
+	@Override
+	public ConditionCheck checkSpecificConditions(Power<?> context) {
+		ConditionCheck check = super.checkSpecificConditions(context);
+		// The donor requires stored energy while held, even when Creative skips the debit.
+		if (check.isPositive() && context.getUser() != null
+				&& isSameAbilityAction(LivingComponentAction.getCurEntityAction(context.getUser()))
+				&& getPillarmanData(context).getEnergy() <= 0.0F) {
+			return ConditionCheck.createNegative("no_energy_pillarman");
+		}
+		return check;
 	}
 
 	protected PillarmanDivineSandstormEntity createSandstormWave(Level level, LivingEntity user) {
