@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import rotp.core.PacketsRegister;
 import rotp.core.network.s2c.KnockbackResTickPacket;
 
 import io.netty.buffer.Unpooled;
@@ -57,8 +58,10 @@ public final class StandGuardHurtSoundSmokeTest {
 	}
 
 	private static void verifyClientPacket() {
+		check(Integer.parseInt(PacketsRegister.NETWORK_PROTOCOL_VERSION) >= 7,
+				"the clientbound knockbackrestick payload needs core protocol v7 or later");
 		requireInOrder(compact(source(PACKETS)),
-				"publicstaticfinalStringNETWORK_PROTOCOL_VERSION=\"9\";",
+				"PayloadRegistrarregistrar=event.registrar(NETWORK_PROTOCOL_VERSION);",
 				"registerPacket(registrar,PayloadRegistrar::playToClient,newKnockbackResTickPacket.Handler("
 						+ "JojoMod.resLoc(\"knockbackrestick\")));");
 		requireInOrder(compact(source(PACKET)),

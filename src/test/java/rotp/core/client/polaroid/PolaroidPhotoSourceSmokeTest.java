@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.UUID;
 
+import rotp.core.PacketsRegister;
 import rotp.core.network.s2c.ServerIdPacket;
 
 import com.google.gson.JsonArray;
@@ -81,8 +82,10 @@ public final class PolaroidPhotoSourceSmokeTest {
 	}
 
 	private static void verifyServerIdOnLogin() {
+		check(Integer.parseInt(PacketsRegister.NETWORK_PROTOCOL_VERSION) >= 7,
+				"the clientbound serverid payload needs core protocol v7 or later");
 		requireInOrder(compact(source(PACKETS)),
-				"publicstaticfinalStringNETWORK_PROTOCOL_VERSION=\"9\";",
+				"PayloadRegistrarregistrar=event.registrar(NETWORK_PROTOCOL_VERSION);",
 				"registerPacket(registrar,PayloadRegistrar::playToClient,newServerIdPacket.Handler("
 						+ "JojoMod.resLoc(\"serverid\")));");
 		requireInOrder(compact(source(HANDLER)),
