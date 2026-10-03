@@ -59,7 +59,7 @@ public class VampirismActionAbility extends EntityActionAbility {
 		if (data.isAbilityOnCooldown(name())) {
 			return ConditionCheck.createNegative("cooldown");
 		}
-		if (bloodCostGate > 0.0F && !data.hasBlood(user, bloodCostGate)) {
+		if (!isCreative(context) && bloodCostGate > 0.0F && !data.hasBlood(user, bloodCostGate)) {
 			return ConditionCheck.NEGATIVE;
 		}
 		return ConditionCheck.POSITIVE;
@@ -104,7 +104,11 @@ public class VampirismActionAbility extends EntityActionAbility {
 			return true;
 		}
 		VampirismData data = getVampirismData(user);
-		return data != null && data.consumeBlood(user, amount);
+		if (data == null || user.level().isClientSide()) {
+			return false;
+		}
+		return user instanceof Player player && player.getAbilities().instabuild
+				|| data.consumeBlood(user, amount);
 	}
 
 	protected static void addBlood(LivingEntity user, float amount) {
