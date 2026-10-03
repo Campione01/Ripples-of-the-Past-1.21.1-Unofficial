@@ -7,7 +7,6 @@ import rotp.core.client.sound.HamonSparksLoopSound;
 import rotp.core.customobjects.entity_projectile.ModdedProjectileEntity;
 import rotp.core.init.ModEntityTypes;
 import rotp.core.powersystem.playerpower.PlayerPower;
-import rotp.core.subsystems.target.ActionTarget.TargetType;
 import rotp.core.impl.powers.hamon.HamonData;
 import rotp.core.impl.powers.hamon.HamonPowerType;
 import rotp.core.impl.powers.hamon.abilities.HamonAbilityHelpers;
@@ -21,7 +20,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
-import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 
 public class HamonBubbleCutterEntity extends ModdedProjectileEntity {
 	private boolean gliding;
@@ -81,13 +80,17 @@ public class HamonBubbleCutterEntity extends ModdedProjectileEntity {
 	}
 
 	@Override
-	protected void breakProjectile(TargetType targetType, HitResult hitTarget) {
-		if (gliding && targetType == TargetType.BLOCK && hitTarget instanceof BlockHitResult blockHit
-				&& blockHit.getDirection().getAxis() == Direction.Axis.Y) {
-			setDeltaMovement(getDeltaMovement().multiply(1.0D, 0.0D, 1.0D));
+	protected void onHitBlock(BlockHitResult blockHit) {
+		if (gliding && blockHit.getDirection().getAxis() == Direction.Axis.Y) {
+			// Gliding keeps the incoming speed and bypasses ordinary block-hit callbacks/destruction.
+			Vec3 movement = getDeltaMovement();
+			Vec3 horizontal = new Vec3(movement.x, 0.0D, movement.z);
+			double horizontalLengthSqr = horizontal.lengthSqr();
+			setDeltaMovement(horizontalLengthSqr > 0.0D
+					? horizontal.scale(Math.sqrt(movement.lengthSqr() / horizontalLengthSqr)) : Vec3.ZERO);
 			return;
 		}
-		super.breakProjectile(targetType, hitTarget);
+		super.onHitBlock(blockHit);
 	}
 
 	@Override
