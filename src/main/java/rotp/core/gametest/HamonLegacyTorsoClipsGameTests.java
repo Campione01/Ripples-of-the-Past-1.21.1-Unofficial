@@ -65,6 +65,102 @@ public final class HamonLegacyTorsoClipsGameTests {
 	}
 
 	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void hamonShockLimbRotationsUseDonorAngles(GameTestHelper helper) {
+		JsonObject shock = bones(helper, animations(helper), "hamon_shock");
+		// Donor ticks 1, 18 and 20: first key, perform-entry pose at 2x, last authored pose.
+		float[] times = {0.05F, 0.9F, 1F};
+		float[][] rightArm = {
+				{0.014131877F, -0.004614539F, 0.054952923F},
+				{-1.6549546F, 0.83808994F, 1.5523542F},
+				{-1.6528165F, 0.7534446F, 1.553883F}};
+		float[][] leftArm = {
+				{0.014732392F, 0.005301654F, -0.055803373F},
+				{-1.4697891F, -0.8390146F, -1.7069423F},
+				{-1.4818623F, -0.77603805F, -1.698214F}};
+		float[] rightLegPitch = {0.0039180415F, -0.18719684F, -0.0967175F};
+		float[] leftLegPitch = {-0.05217933F, -1.6850756F, -1.6325617F};
+		for (int i = 0; i < times.length; i++) {
+			limbRotation(helper, shock, "right_arm", times[i], rightArm[i][0], rightArm[i][1], rightArm[i][2]);
+			limbRotation(helper, shock, "left_arm", times[i], leftArm[i][0], leftArm[i][1], leftArm[i][2]);
+			limbRotation(helper, shock, "right_leg", times[i], rightLegPitch[i], 0F, 0F);
+			limbRotation(helper, shock, "left_leg", times[i], leftLegPitch[i], 0F, 0F);
+		}
+		helper.succeed();
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void hamonShockLimbPositionsAndBendsUseDonorFields(GameTestHelper helper) {
+		JsonObject shock = bones(helper, animations(helper), "hamon_shock");
+		float[] times = {0.05F, 0.9F, 1F};
+		float[][] rightArm = {
+				{-5.0323777F, 2.0016222F, 0.02936874F},
+				{-5.859202F, 0.69651794F, -1.6128781F},
+				{-5.859202F, 0.69651794F, -1.6128781F}};
+		float[][] leftArm = {
+				{5.0305576F, 2.0018673F, 0.029414179F},
+				{6.5764923F, 0.61661434F, -1.3835106F},
+				{6.5764923F, 0.61661434F, -1.3835106F}};
+		float[] rightRest = {-5F, 2F, 0F};
+		float[] leftRest = {5F, 2F, 0F};
+		float[] rightLegRest = {-1.9F, 12F, RIGHT_LEG_REST_Z};
+		float[] leftLegRest = {1.9F, 12F, -0.1F};
+		float[] rightArmBend = {-0.030290876F, -0.6381061F, -0.6381061F};
+		float[] leftArmBend = {-0.029863894F, -0.7521389F, -0.7521389F};
+		float[] rightLegBend = {0.0032560327F, 1.4956671F, 1.3222065F};
+		float[] leftLegBend = {0.0513011F, 1.3347887F, 1.2805724F};
+		for (int i = 0; i < times.length; i++) {
+			limbPosition(helper, "hamon_shock", shock, "right_arm", times[i], rightArm[i], rightRest);
+			limbPosition(helper, "hamon_shock", shock, "left_arm", times[i], leftArm[i], leftRest);
+			limbPosition(helper, "hamon_shock", shock, "right_leg", times[i], rightLegRest, rightLegRest);
+			limbPosition(helper, "hamon_shock", shock, "left_leg", times[i], leftLegRest, leftLegRest);
+			limbRotation(helper, shock, "right_arm_bend", times[i], rightArmBend[i], 0F, 0F);
+			limbRotation(helper, shock, "left_arm_bend", times[i], leftArmBend[i], 0F, 0F);
+			limbRotation(helper, shock, "right_leg_bend", times[i], rightLegBend[i], 0F, 0F);
+			limbRotation(helper, shock, "left_leg_bend", times[i], leftLegBend[i], 0F, 0F);
+		}
+		// Tick 16: the donor absolute Y 0.69651794 must become JSON offset +1.30348206, not yaw.
+		limbPosition(helper, "hamon_shock", shock, "right_arm", 0.8F, rightArm[1], rightRest);
+		helper.succeed();
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void hamonShockHeadAndPlaybackMetadataStayIntact(GameTestHelper helper) {
+		JsonObject anims = animations(helper);
+		JsonObject shock = bones(helper, anims, "hamon_shock");
+		JsonObject clip = anims.getAsJsonObject("hamon_shock");
+		helper.assertTrue(Math.abs(clip.get("animation_length").getAsFloat() - 5.05F) < 0.00001F,
+				"Hamon Shock must retain its donor 101-tick clip length");
+		helper.assertTrue(clip.getAsJsonObject("timeline").get("0").getAsString().replace(" ", "").equals("anim_speed=2"),
+				"Hamon Shock must retain the donor handler's 2x playback");
+		float[] times = {0.05F, 0.9F, 1F};
+		float[] pitch = {0.032028824F, -0.81768656F, -0.73876494F};
+		for (int i = 0; i < times.length; i++) {
+			limbRotation(helper, shock, "head", times[i], pitch[i], 0F, 0F);
+			// Every donor head position is neutral; omitting that zero channel is equivalent.
+			JsonObject position = shock.getAsJsonObject("head").getAsJsonObject("position");
+			if (position != null) {
+				for (float value : sample(position, times[i])) {
+					helper.assertTrue(Math.abs(value) < 0.00002F, "Hamon Shock head position must remain neutral");
+				}
+			}
+		}
+		helper.succeed();
+	}
+
+	private static void limbRotation(GameTestHelper helper, JsonObject bones, String bone,
+			float time, float pitch, float yaw, float roll) {
+		JsonObject part = bones.getAsJsonObject(bone);
+		helper.assertTrue(part != null && part.has("rotation"), "hamon_shock lost " + bone + " rotation");
+		float[] got = sample(part.getAsJsonObject("rotation"), time);
+		float[] radians = {pitch, yaw, roll};
+		for (int axis = 0; axis < 3; axis++) {
+			float want = (float) Math.toDegrees(radians[axis]);
+			helper.assertTrue(Math.abs(got[axis] - want) < 0.0001F,
+					"hamon_shock " + bone + " rotation axis " + axis + " at " + time + " must be " + want + ", got " + got[axis]);
+		}
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 20)
 	public static void hamonBeatLungeIsInBlocks(GameTestHelper helper) {
 		JsonObject beat = bones(helper, animations(helper), "hamon_beat");
 		// hamon_beat.json tick 12: turned right 85 deg, 0.54 block forward
@@ -133,11 +229,18 @@ public final class HamonLegacyTorsoClipsGameTests {
 
 	private static void limbPosition(GameTestHelper helper, JsonObject bones, String bone,
 			float time, float[] donorAbsolute, float[] rest) {
-		float[] loaded = sample(bones.getAsJsonObject(bone).getAsJsonObject("position"), time);
+		limbPosition(helper, "rebuff_overdrive", bones, bone, time, donorAbsolute, rest);
+	}
+
+	private static void limbPosition(GameTestHelper helper, String clip, JsonObject bones, String bone,
+			float time, float[] donorAbsolute, float[] rest) {
+		JsonObject part = bones.getAsJsonObject(bone);
+		helper.assertTrue(part != null && part.has("position"), clip + " lost " + bone + " position");
+		float[] loaded = sample(part.getAsJsonObject("position"), time);
 		loaded[1] = -loaded[1];
 		for (int axis = 0; axis < 3; axis++) {
 			helper.assertTrue(Math.abs(loaded[axis] - (donorAbsolute[axis] - rest[axis])) < 0.00002F,
-					"rebuff_overdrive " + bone + " axis " + axis + " lost its own donor position at " + time);
+					clip + " " + bone + " axis " + axis + " lost its own donor position at " + time);
 		}
 	}
 
