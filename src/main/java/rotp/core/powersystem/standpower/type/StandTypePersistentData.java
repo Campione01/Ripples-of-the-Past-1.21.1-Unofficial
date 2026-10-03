@@ -202,6 +202,11 @@ public class StandTypePersistentData extends PowerData {
 		}
 	}
 	
+	/**
+	 * Sends the owner snapshot after training values and callbacks have been updated.
+	 * Overrides may batch the snapshot, but must flush it on completion and before
+	 * their training state is removed. The default sends immediately.
+	 */
 	protected void syncAbilityLearningProgressToUser(StandPower userPower) {
 		syncToUser(userPower);
 	}
