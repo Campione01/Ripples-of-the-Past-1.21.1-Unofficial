@@ -1,10 +1,19 @@
 package rotp.core.gametest;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
+
+import javax.annotation.Nullable;
+
+import com.mojang.authlib.GameProfile;
+
+import io.netty.channel.embedded.EmbeddedChannel;
 
 import rotp.core.JojoModConfig;
 import rotp.core.core.JojoMod;
 import rotp.core.init.power.ModStands;
+import rotp.core.network.s2c.SkippedStandProgressionPacket;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.condition.AvailableAbilities;
@@ -12,15 +21,24 @@ import rotp.core.powersystem.standpower.StandPower;
 
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.network.Connection;
+import net.minecraft.network.PacketSendListener;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.GameType;
 import net.neoforged.neoforge.common.ModConfigSpec;
+import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
-// Exercises shared availability state; real client packet/HUD acceptance remains separate.
+// Exercises availability state and actual server sends; client receipt/HUD acceptance is separate.
 public final class SkippedStandProgressionSyncGameTests {
 	private SkippedStandProgressionSyncGameTests() {}
 
@@ -47,7 +65,7 @@ public final class SkippedStandProgressionSyncGameTests {
 				helper.assertTrue(!cached._inMoveset.containsKey("punch"), "Unskipped Survival must stay locked");
 				power.applySyncedProgressionSkipped(true);
 				helper.assertTrue(cached == power.updateAvailableMoves() && cached._inMoveset.containsKey("punch"),
-						"Owner snapshot must refresh the already-cached HUD/input availability object");
+						"Applying owner state must refresh the already-cached HUD/input availability object");
 				helper.assertTrue(power.getResolveLevel() == 4, "Sync must not change the normal Resolve cap");
 				power.getCurTypeData()._lockedAbilities.add("punch");
 				power.applySyncedProgressionSkipped(true);
@@ -91,7 +109,7 @@ public final class SkippedStandProgressionSyncGameTests {
 			keep.set(false);
 			power.onPlayerClone(lost, true);
 			StandPower lostPower = PowerClass.STAND.attachGet(lost);
-			helper.assertTrue(!lostPower.hasPower() && !lostPower.wasProgressionSkipped(), "Lost death clone must synchronize false");
+			helper.assertTrue(!lostPower.hasPower() && !lostPower.wasProgressionSkipped(), "Lost death clone must clear the stored flag");
 		}
 		finally {
 			keep.set(oldKeep);
@@ -101,5 +119,78 @@ public final class SkippedStandProgressionSyncGameTests {
 			lost.discard();
 		}
 		helper.succeed();
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 40)
+	public static void serverSendsProgressionOnSnapshotsAndStandChanges(GameTestHelper helper) {
+		ModConfigSpec.ConfigValue<Boolean> skip = JojoModConfig.COMMON_SPEC.getValues()
+				.get(List.of("Stand settings", "Stand Progression", "skipStandProgression"));
+		boolean oldSkip = skip.get();
+		CapturingPlayer player = new CapturingPlayer(helper.getLevel());
+		StandPower power = PowerClass.STAND.attachGet(player);
+		try {
+			skip.set(false);
+			player.setGameMode(GameType.SURVIVAL);
+			power.setStand(ModStands.THE_WORLD.get());
+			player.progressionPackets.clear();
+			power.syncToPlayer(player);
+			assertSent(helper, player, false, "unskipped owner snapshot");
+
+			power.skipProgression();
+			assertSent(helper, player, true, "skipProgression");
+			power.syncToPlayer(player);
+			assertSent(helper, player, true, "skipped owner snapshot");
+
+			power.setStand(ModStands.STAR_PLATINUM.get());
+			assertSent(helper, player, false, "Stand replacement");
+			power.skipProgression();
+			assertSent(helper, player, true, "skip after replacement");
+			power.setStand(null);
+			assertSent(helper, player, false, "Stand removal");
+		}
+		finally {
+			power.setStand(null);
+			skip.set(oldSkip);
+			player.getAdvancements().stopListening();
+			player.discard();
+			player.channel.finishAndReleaseAll();
+		}
+		helper.succeed();
+	}
+
+	private static void assertSent(GameTestHelper helper, CapturingPlayer player, boolean expected, String route) {
+		helper.assertTrue(player.progressionPackets.equals(List.of(expected)),
+				route + " must send exactly one skipped=" + expected + " payload, got " + player.progressionPackets);
+		player.progressionPackets.clear();
+	}
+
+	private static final class CapturingPlayer extends FakePlayer {
+		final List<Boolean> progressionPackets = new ArrayList<>();
+		final EmbeddedChannel channel;
+
+		CapturingPlayer(ServerLevel level) {
+			super(level, new GameProfile(UUID.randomUUID(), "progression-send-test"));
+			Connection network = new Connection(PacketFlow.SERVERBOUND);
+			channel = new EmbeddedChannel(network);
+			connection = new RecordingConnection(level, this, network);
+		}
+	}
+
+	private static final class RecordingConnection extends ServerGamePacketListenerImpl {
+		private final List<Boolean> sink;
+
+		RecordingConnection(ServerLevel level, CapturingPlayer player, Connection network) {
+			super(level.getServer(), network, player,
+					CommonListenerCookie.createInitial(player.getGameProfile(), false));
+			sink = player.progressionPackets;
+		}
+
+		@Override
+		public void send(Packet<?> packet, @Nullable PacketSendListener listener) {
+			if (sink != null && packet instanceof ClientboundCustomPayloadPacket custom
+					&& custom.payload() instanceof SkippedStandProgressionPacket state) {
+				sink.add(state.skipped());
+			}
+		}
 	}
 }
