@@ -1,5 +1,7 @@
 package rotp.core.impl.powers.pillarman;
 
+import java.util.Arrays;
+
 import rotp.core.init.ModBlocks;
 import rotp.core.init.ModEntityTypes;
 import rotp.core.init.ModParticles;
@@ -19,6 +21,7 @@ import net.minecraft.world.level.block.LiquidBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.event.EventHooks;
 
@@ -47,6 +50,16 @@ public class PillarmanVeinEntity extends PillarmanExtendingBodyPartEntity {
 	@Override
 	public boolean standDamage() {
 		return false;
+	}
+
+	@Override
+	protected HitResult[] rayTrace() {
+		HitResult[] hits = super.rayTrace();
+		// The donor selects entity hits instead of also applying a block side effect.
+		HitResult[] entityHits = Arrays.stream(hits)
+				.filter(hit -> hit.getType() == HitResult.Type.ENTITY)
+				.toArray(HitResult[]::new);
+		return entityHits.length > 0 ? entityHits : hits;
 	}
 
 	@Override
