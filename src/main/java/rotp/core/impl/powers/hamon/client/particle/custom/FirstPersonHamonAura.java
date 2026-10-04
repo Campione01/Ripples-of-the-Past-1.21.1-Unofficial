@@ -45,6 +45,7 @@ import com.google.common.collect.Queues;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.BufferUploader;
+import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -56,7 +57,9 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.particle.ParticleRenderType;
 import net.minecraft.client.particle.SpriteSet;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.resources.ResourceLocation;
@@ -424,7 +427,7 @@ public class FirstPersonHamonAura {
 
 				var mesh = buffer.build();
 				if (mesh != null) {
-					BufferUploader.drawWithShader(mesh);
+					drawParticleMesh(mesh);
 				}
 			}
 			finally {
@@ -448,7 +451,7 @@ public class FirstPersonHamonAura {
 				}
 				var mesh = sparkBuffer.build();
 				if (mesh != null) {
-					BufferUploader.drawWithShader(mesh);
+					drawParticleMesh(mesh);
 				}
 			}
 		}
@@ -457,7 +460,19 @@ public class FirstPersonHamonAura {
 		RenderSystem.disableBlend();
 	}
 
-	private static void renderParticle(IFirstPersonParticle particle, VertexConsumer buffer, PoseStack.Pose pose, 
+	private static void drawParticleMesh(MeshData mesh) {
+		// First-person draws bypass ParticleEngine's shader setup.
+		ShaderInstance previousShader = RenderSystem.getShader();
+		try {
+			RenderSystem.setShader(GameRenderer::getParticleShader);
+			BufferUploader.drawWithShader(mesh);
+		}
+		finally {
+			RenderSystem.setShader(() -> previousShader);
+		}
+	}
+
+	private static void renderParticle(IFirstPersonParticle particle, VertexConsumer buffer, PoseStack.Pose pose,
 			float x, float y, float z, float scale, int light, float partialTick, Quaternionf renderRot) {
 		Vector3f[] vertices = new Vector3f[] {
 				new Vector3f(-1.0F, -1.0F, 0.0F),

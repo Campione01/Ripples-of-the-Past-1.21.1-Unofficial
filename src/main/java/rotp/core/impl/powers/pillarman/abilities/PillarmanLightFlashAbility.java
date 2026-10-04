@@ -69,7 +69,7 @@ public class PillarmanLightFlashAbility extends PillarmanActionAbility {
 				LivingEntity user = getPowerUser();
 				if (user != null) {
 					for (int i = 0; i <= 24; i++) {
-						level().addParticle(ModParticles.LIGHT_SPARK.get(), user.getX(), user.getY() + 0.8D, user.getZ(),
+						level().addParticle(ModParticles.LIGHT_SPARK.get(), true, user.getX(), user.getY() + 0.8D, user.getZ(),
 								(user.getRandom().nextDouble() - 0.5D) / 4.0D,
 								(user.getRandom().nextDouble() - 0.5D) / 4.0D,
 								(user.getRandom().nextDouble() - 0.5D) / 4.0D);

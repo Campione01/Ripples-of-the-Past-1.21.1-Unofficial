@@ -2,6 +2,8 @@ package rotp.core.impl.powers.pillarman.abilities;
 
 import java.util.function.Function;
 
+import rotp.core.client.ClientProxy;
+import rotp.core.client.particle.CustomParticlesHelper;
 import rotp.core.init.ModParticles;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.PowerData;
@@ -204,7 +206,12 @@ abstract class PillarmanActionAbility extends EntityActionAbility {
 					(random.nextDouble() - 0.5D) * (user.getBbWidth() + 0.5D),
 					random.nextDouble() * (user.getBbHeight() * 0.5D),
 					(random.nextDouble() - 0.5D) * (user.getBbWidth() + 0.5D));
-			level.addParticle(particles, particlePos.x, particlePos.y, particlePos.z, 0.0D, 0.0D, 0.0D);
+			CustomParticlesHelper.createHamonAuraParticle(particles, user,
+					particlePos.x, particlePos.y, particlePos.z);
+		}
+		if (user == ClientProxy.getCameraEntity()) {
+			// The donor uses integer division, including zero hand particles for intensity below five.
+			CustomParticlesHelper.summonHamonAuraParticlesFirstPerson(particles, user, intensity / 5);
 		}
 	}
 

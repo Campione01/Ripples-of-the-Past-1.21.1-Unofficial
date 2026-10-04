@@ -53,7 +53,7 @@ public class PillarmanLightFlashDecoyAbility extends PillarmanActionAbility {
 			if (getPhase() == ActionPhase.BUTTON_CHARGE && level().isClientSide()) {
 				LivingEntity user = getPowerUser();
 				if (user != null) {
-					PillarmanWindCloakAbility.windEffect(user, ModParticles.HAMON_AURA_RAINBOW.get(), 10);
+					PillarmanActionAbility.auraEffect(user, ModParticles.HAMON_AURA_RAINBOW.get(), 10);
 				}
 			}
 		}

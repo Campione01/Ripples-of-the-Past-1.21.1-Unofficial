@@ -153,7 +153,7 @@ public class PillarmanPowerType extends PlayerPowerType<PillarmanData> {
 						.makeMovesetGroup("moveset_group.pillarman.heat", new InputUseVanillaMapping("jojo_ripples.key.non_stand_mode"))
 							.bind("pillarman_erratic_blaze_king", InputMethod.CLICK, InputKey.LMB)
 							.bind("pillarman_giant_carthwheel_prison", InputMethod.HOLD, InputKey.LMB)
-							.bind("pillarman_self_detonation", InputMethod.HOLD, InputKey.LMB)
+							.bind("pillarman_self_detonation", InputMethod.HOLD, InputKey.LMB.withModifier(InputKey.Modifier.SHIFT))
 						.makeMovesetGroup("moveset_group.pillarman.light", new InputUseVanillaMapping("jojo_ripples.key.non_stand_mode"))
 							.bind("pillarman_light_flash", InputMethod.HOLD, InputKey.RMB)
 							.bind("pillarman_light_flash_decoy", InputMethod.HOLD, InputKey.RMB.withModifier(InputKey.Modifier.SHIFT))
