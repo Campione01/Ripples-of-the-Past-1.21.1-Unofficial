@@ -115,7 +115,11 @@ public class HGStringEntity extends OwnerBoundProjectileEntity {
 		}
 		setRot(owner.getYRot(), owner.getXRot());
 		double nextDistance = retracting ? distance - retractSpeed() * speedFactor : distance + movementSpeed() * speedFactor;
-		if (retracting && nextDistance <= 0.0D) {
+		// Complete the donor's final outward step before switching to retraction.
+		if (!retracting && tickCount >= forwardTicks()) {
+			setRetracting(true);
+		}
+		if (isRetracting() && nextDistance <= 0.0D) {
 			if (!level().isClientSide()) {
 				discard();
 			}
@@ -204,9 +208,6 @@ public class HGStringEntity extends OwnerBoundProjectileEntity {
 	@Override
 	public void tick() {
 		resolveAttachedEntity();
-		if (!isAttachedToAnEntity() && !isRetracting() && tickCount >= forwardTicks()) {
-			setRetracting(true);
-		}
 		super.tick();
 		if (!isAlive()) {
 			return;
@@ -280,7 +281,7 @@ public class HGStringEntity extends OwnerBoundProjectileEntity {
 	}
 
 	private void updateAttachedPosition(LivingEntity target) {
-		setPos(target.getX(), target.getY(0.75D), target.getZ());
+		setPos(target.getX(), target.getY(0.5D), target.getZ());
 	}
 
 	@Override
