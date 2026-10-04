@@ -90,7 +90,7 @@ public final class PillarmanVeinCollisionGameTests {
 
     private record Ray(long time, int age, Vec3 root, Vec3 tip, Vec3 delta, double distance,
             boolean retracting, BlockHitResult collider, BlockHitResult outline,
-            boolean pane, boolean targetHit, boolean targetAlive, AABB targetBox,
+            boolean pane, boolean targetHit, boolean targetCandidate, boolean targetAlive, AABB targetBox,
             BlockPos placement, BlockState stateBefore, int priorBlockImpacts) {}
 
     private record Impact(String type, Vec3 position, BlockPos block, UUID target, boolean canceled) {}
@@ -167,7 +167,7 @@ public final class PillarmanVeinCollisionGameTests {
                     .setValue(BlockStateProperties.EAST, true).setValue(BlockStateProperties.WEST, true);
             for (int px = x + 6; px <= x + 10; px++) {
                 for (int py = y; py <= y + 2; py++) {
-                    BlockPos pos = new BlockPos(px, py, z + 6);
+                    BlockPos pos = new BlockPos(px, py, z + 7);
                     panes.add(pos);
                     level.setBlockAndUpdate(pos, pane);
                 }
@@ -195,7 +195,8 @@ public final class PillarmanVeinCollisionGameTests {
                 helper.assertTrue(target != null, "Could not create the living vein target");
                 target.setNoAi(true);
                 target.setNoGravity(true);
-                target.setPos(x + 8.5D, y, z + 7.55D);
+                // Test entity-first selection after the donor's initial offset delta has converged.
+                target.setPos(x + 8.5D, y, z + 8.30D);
                 helper.assertTrue(level.addFreshEntity(target) && target.isAlive() && !target.isInvulnerable(),
                         "Vein target is not an ordinary living entity");
             }
@@ -203,7 +204,7 @@ public final class PillarmanVeinCollisionGameTests {
             registerObservers();
             log("setup chunk=" + chunk + " player=" + player.getUUID() + " pos=" + playerPosition
                     + " target=" + (target == null ? "none" : target.getUUID() + " " + target.getBoundingBox())
-                    + " paneZ=" + (z + 6) + " savedBlocks=" + original.size());
+                    + " paneZ=" + (z + 7) + " savedBlocks=" + original.size());
         }
 
         private void registerObservers() {
@@ -281,11 +282,13 @@ public final class PillarmanVeinCollisionGameTests {
             boolean hitsPane = collider.getType() == HitResult.Type.BLOCK && panes.contains(collider.getBlockPos());
             AABB targetBox = target == null ? null : target.getBoundingBox().inflate(target.getPickRadius() + vein.getBbWidth() / 2.0D);
             boolean targetHit = targetBox != null && (targetBox.contains(root) || targetBox.clip(root, end).isPresent());
+            boolean targetCandidate = target != null && vein.getBoundingBox().expandTowards(root.subtract(end))
+                    .inflate(1.0D).intersects(target.getBoundingBox());
             BlockPos placement = hitsPane ? collider.getBlockPos().relative(collider.getDirection()).immutable() : null;
             CompoundTag nbt = vein.saveWithoutId(new CompoundTag());
             return new Ray(level.getGameTime(), vein.tickCount, root, tip, delta, nbt.getDouble("Distance"),
                     nbt.getBoolean("IsRetracting"), collider, outline, hitsPane, targetHit,
-                    target != null && target.isAlive(), targetBox, placement,
+                    targetCandidate, target != null && target.isAlive(), targetBox, placement,
                     placement == null ? Blocks.AIR.defaultBlockState() : level.getBlockState(placement), tracked.blockImpacts);
         }
 
@@ -352,7 +355,7 @@ public final class PillarmanVeinCollisionGameTests {
                             && v.vein.getOwner() == player), "Unexpected vein type or owner");
             for (Contact contact : contacts) {
                 Ray ray = contact.before;
-                helper.assertTrue(ray.age >= 2 && ray.priorBlockImpacts == 0 && !ray.retracting,
+                helper.assertTrue(ray.age >= 3 && ray.priorBlockImpacts == 0 && !ray.retracting,
                         "Vein reached the pane after an earlier block hit or retraction: " + contact.vein);
                 helper.assertTrue(ray.outline.getType() == HitResult.Type.BLOCK
                                 && ray.outline.getBlockPos().equals(ray.collider.getBlockPos())
@@ -361,7 +364,7 @@ public final class PillarmanVeinCollisionGameTests {
                         "Vein collider/outline do not independently select the same owned pane");
                 helper.assertTrue(contact.impacts.stream().noneMatch(Impact::canceled), "Vein impact was canceled");
                 if (withTarget) {
-                    helper.assertTrue(ray.targetHit && ray.targetAlive,
+                    helper.assertTrue(ray.targetHit && ray.targetCandidate && ray.targetAlive,
                             "Mixed fixture ray did not independently intersect the living target: " + contact.vein);
                     helper.assertTrue(contact.impacts.stream().anyMatch(hit -> target.getUUID().equals(hit.target)),
                             "Geometrically intersected target had no real vein impact: " + contact.vein);
@@ -392,7 +395,8 @@ public final class PillarmanVeinCollisionGameTests {
                     + " preRoot=" + ray.root + " preTip=" + ray.tip + " preDelta=" + ray.delta
                     + " preDistance=" + ray.distance + " preRetracting=" + ray.retracting
                     + " pane=" + ray.collider.getBlockPos() + " face=" + ray.collider.getDirection()
-                    + " targetBox=" + ray.targetBox + " targetHit=" + ray.targetHit + " priorBlockImpacts=" + ray.priorBlockImpacts
+                    + " targetBox=" + ray.targetBox + " targetHit=" + ray.targetHit + " targetCandidate=" + ray.targetCandidate
+                    + " priorBlockImpacts=" + ray.priorBlockImpacts
                     + " cell=" + ray.placement + " before=" + ray.stateBefore + " after=" + contact.stateAfter
                     + " postTip=" + contact.tipAfter + " postDistance=" + contact.distanceAfter
                     + " postRetracting=" + contact.retractingAfter + " impacts=" + contact.impacts);

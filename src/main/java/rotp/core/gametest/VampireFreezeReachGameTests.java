@@ -268,7 +268,17 @@ public final class VampireFreezeReachGameTests {
                             && !user.isOnFire() && !target.isOnFire() && target.isAlive() && !DamageUtil.isImmuneToCold(target)
                             && !level.canSeeSky(BlockPos.containing(user.getEyePosition()))
                             && ability.checkMainModLogicConditions(power).isPositive()
-                            && ability.checkSpecificConditions(power).isPositive(), "Freeze eligibility changed during the fixture");
+                            && ability.checkSpecificConditions(power).isPositive(),
+                    "Freeze eligibility changed during the fixture: full=" + data.isVampireAtFullPower()
+                            + " curing=" + data.getCuringStage(user) + " blood=" + blood()
+                            + " emptyHand=" + user.getMainHandItem().isEmpty() + " creative=" + user.isCreative()
+                            + " instabuild=" + user.getAbilities().instabuild + " userFire=" + user.isOnFire()
+                            + " targetFire=" + target.isOnFire() + " targetAlive=" + target.isAlive()
+                            + " coldImmune=" + DamageUtil.isImmuneToCold(target)
+                            + " sky=" + level.canSeeSky(BlockPos.containing(user.getEyePosition()))
+                            + " main=" + ability.checkMainModLogicConditions(power)
+                            + " specific=" + ability.checkSpecificConditions(power)
+                            + " warmTicks=" + userTicks + "/" + targetTicks);
         }
 
         private Vec3 donorAimPoint() {

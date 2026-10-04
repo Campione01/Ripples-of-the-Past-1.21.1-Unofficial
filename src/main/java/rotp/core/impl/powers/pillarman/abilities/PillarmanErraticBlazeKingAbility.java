@@ -27,7 +27,7 @@ public class PillarmanErraticBlazeKingAbility extends PillarmanActionAbility {
 			double offsetX, double offsetY, double offsetZ) {
 		PillarmanVeinEntity vein = new PillarmanVeinEntity(level, user, xRotDelta, yRotDelta, offsetX, offsetY, offsetZ);
 		vein.setLifeSpan(25);
-		vein.setShootingPosOf(user);
+		// Keep the donor's constructor-eye tip until the first natural movement applies the authored offsets.
 		level.addFreshEntity(vein);
 	}
 
