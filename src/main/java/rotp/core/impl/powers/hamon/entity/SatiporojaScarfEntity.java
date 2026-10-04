@@ -1,5 +1,7 @@
 package rotp.core.impl.powers.hamon.entity;
 
+import java.util.Arrays;
+
 import rotp.core.init.ModEntityTypes;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.powersystem.playerpower.PlayerPower;
@@ -15,6 +17,7 @@ import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 public class SatiporojaScarfEntity extends PillarmanExtendingBodyPartEntity {
@@ -31,6 +34,16 @@ public class SatiporojaScarfEntity extends PillarmanExtendingBodyPartEntity {
 
 	public SatiporojaScarfEntity(EntityType<? extends SatiporojaScarfEntity> type, Level level) {
 		super(type, level);
+	}
+
+	@Override
+	protected HitResult[] rayTrace() {
+		HitResult[] hits = super.rayTrace();
+		// Donor entity selection suppresses block effects even when the later damage is refused.
+		HitResult[] entityHits = Arrays.stream(hits)
+				.filter(hit -> hit.getType() == HitResult.Type.ENTITY)
+				.toArray(HitResult[]::new);
+		return entityHits.length > 0 ? entityHits : hits;
 	}
 
 	private void initYRotOffset() {
