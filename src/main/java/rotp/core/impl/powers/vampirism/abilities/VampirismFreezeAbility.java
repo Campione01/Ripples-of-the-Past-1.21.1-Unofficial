@@ -33,9 +33,11 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.LiquidBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.CollisionContext;
 import net.neoforged.neoforge.common.util.BlockSnapshot;
 import net.neoforged.neoforge.event.EventHooks;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
@@ -150,7 +152,7 @@ public class VampirismFreezeAbility extends VampirismActionAbility {
 			if (target.getType() == TargetType.ENTITY) {
 				Entity entityTarget = target.resolveEntityId(level).getEntity();
 				if (entityTarget instanceof LivingEntity targetLiving && !targetLiving.isOnFire()
-						&& user.distanceToSqr(targetLiving) <= MAX_RANGE_SQ_ENTITY_TARGET) {
+						&& isWithinFreezeReach(user, targetLiving)) {
 					freezeTarget(user, targetLiving);
 				}
 			}
@@ -171,6 +173,23 @@ public class VampirismFreezeAbility extends VampirismActionAbility {
 		private static double randomOffset(float width) {
 			return (Math.random() - 0.5D) * width;
 		}
+	}
+
+	private static boolean isWithinFreezeReach(LivingEntity user, LivingEntity target) {
+		Vec3 eye = user.getEyePosition(1.0F);
+		AABB box = target.getBoundingBox();
+		double distance = 0.0D;
+		if (!box.contains(eye)) {
+			// Donor reach follows the target surface at the user's proportional eye height.
+			double eyeFraction = user.getBbHeight() == 0.0F ? 0.0D : user.getEyeHeight() / user.getBbHeight();
+			Vec3 targetPoint = new Vec3(Mth.lerp(0.5D, box.minX, box.maxX),
+					Mth.lerp(eyeFraction, box.minY, box.maxY), Mth.lerp(0.5D, box.minZ, box.maxZ));
+			distance = box.clip(eye, targetPoint)
+					.map(hit -> eye.distanceTo(hit) - user.getBbWidth() * 0.5D)
+					.orElse(Double.POSITIVE_INFINITY);
+		}
+		double rangeSquared = user.hasLineOfSight(target) ? MAX_RANGE_SQ_ENTITY_TARGET : MAX_RANGE_SQ_ENTITY_TARGET / 4.0D;
+		return distance * distance <= rangeSquared;
 	}
 
 	private static void freezeTarget(LivingEntity user, LivingEntity targetLiving) {
@@ -247,7 +266,7 @@ public class VampirismFreezeAbility extends VampirismActionAbility {
 		BlockState blockState = level.getBlockState(blockPos);
 		boolean isFullWater = blockState.is(Blocks.WATER) && blockState.getValue(LiquidBlock.LEVEL) == 0;
 		if (isFullWater && ICE.canSurvive(level, blockPos)
-				&& level.noCollision(ICE.getCollisionShape(level, blockPos).bounds().move(blockPos))
+				&& level.isUnobstructed(ICE, blockPos, CollisionContext.empty())
 				&& !EventHooks.onBlockPlace(vampireEntity,
 						BlockSnapshot.create(level.dimension(), level, blockPos), Direction.UP)) {
 			level.setBlockAndUpdate(blockPos, ICE);
