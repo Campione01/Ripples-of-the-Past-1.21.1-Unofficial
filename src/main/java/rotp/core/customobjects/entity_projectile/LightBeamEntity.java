@@ -48,9 +48,6 @@ public class LightBeamEntity extends DamagingEntity {
 		LivingEntity shooter = getOwner();
 		if (shooter != null) {
 			target = rayTrace()[0];
-			if (target.getType() != HitResult.Type.MISS) {
-				this.length = (float) Math.sqrt(position().distanceToSqr(target.getLocation()));
-			}
 		}
 	}
 
@@ -60,9 +57,8 @@ public class LightBeamEntity extends DamagingEntity {
 		Vec3 end = getEndPoint();
 		BlockHitResult blockHit = level().clip(new ClipContext(start, end,
 				ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, this));
-		Vec3 clipEnd = blockHit.getType() == HitResult.Type.MISS ? end : blockHit.getLocation();
-		AABB searchBox = getBoundingBox().expandTowards(clipEnd.subtract(start)).inflate(1.0D);
-		EntityHitResult entityHit = ProjectileUtil.getEntityHitResult(level(), this, start, clipEnd, searchBox, this::canHitEntity);
+		AABB searchBox = getBoundingBox().expandTowards(end.subtract(start)).inflate(1.0D);
+		EntityHitResult entityHit = ProjectileUtil.getEntityHitResult(level(), this, start, end, searchBox, this::canHitEntity);
 		return new HitResult[] { entityHit != null ? entityHit : blockHit };
 	}
 
