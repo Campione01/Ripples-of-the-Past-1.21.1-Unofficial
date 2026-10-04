@@ -77,7 +77,7 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 			float age = clRebuffTail.elapsedTicks(entity.tickCount, partialTick);
 			if (action != null || !entity.isAlive() || entity.isRemoved() || entity.isSpectator()
 					|| !clRebuffTail.dimension().equals(entity.level().dimension().location())
-					|| age < 0 || age >= RebuffVisualTail.DURATION_TICKS) {
+					|| RebuffTailLifecycle.isExpired(age)) {
 				clRebuffTail = null;
 			}
 		}
@@ -96,23 +96,12 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 		if (phase == null || rebuff.getCurPhaseLength() <= 0 || animSet == null || animId == null) return null;
 		// Match extractAnim's phase clock even when forceStop has already erased its phase.
 		EntityActionInstance stopped = rebuff;
-		float subtractPartialTick = stopped.prevFramePhase == phase ? stopped.subtractFramePartialTick
-				: stopped.prevFramePhase == null ? stopped.phasePartialTick : 0;
-		float phaseTick = stopped.curPhaseTick - subtractPartialTick;
-		float phaseLength = Mth.ceil(stopped.getCurPhaseLength());
-		float fullTick = stopped.calcFullTicks(phase, stopped.getPhaseTick());
-		if (stopped.skippedWindupPhase != null) {
-			float skipped = stopped.skippedWindupPhase.getFloat(phase);
-			phaseTick -= skipped;
-			phaseLength -= skipped;
-			for (ActionPhase earlierPhase : ActionPhase.values()) {
-				fullTick -= stopped.skippedWindupPhase.getFloat(earlierPhase);
-				if (earlierPhase == phase) break;
-			}
-		}
-		if (phaseLength <= 0) return null;
+		RebuffTailLifecycle.CapturedTime captured = RebuffTailLifecycle.captureTime(phase, stopped.prevFramePhase,
+				stopped.subtractFramePartialTick, stopped.phasePartialTick, stopped.curPhaseTick,
+				stopped.getCurPhaseLength(), stopped.calcFullTicks(phase, stopped.getPhaseTick()), stopped.skippedWindupPhase);
+		if (captured == null) return null;
 		return new RebuffVisualTail(entity.level().dimension().location(), entity.tickCount,
-				animSet, animId, phase, phaseTick, Math.min(phaseTick / phaseLength, 1), fullTick);
+				animSet, animId, phase, captured.phaseTick(), captured.phaseCompletion(), captured.fullTick());
 	}
 
 	public record RebuffVisualTail(
@@ -354,8 +343,8 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 			comboString.clear();
 		}
 		
-		if (entity.level().isClientSide() && this.action == null
-				&& prevAction == stoppingAction && prevAction instanceof HamonRebuffOverdrive) {
+		if (RebuffTailLifecycle.shouldArm(entity.level().isClientSide(), this.action == null,
+				prevAction == stoppingAction, prevAction instanceof HamonRebuffOverdrive)) {
 			clRebuffTail = stoppedRebuff;
 		}
 		return action;
