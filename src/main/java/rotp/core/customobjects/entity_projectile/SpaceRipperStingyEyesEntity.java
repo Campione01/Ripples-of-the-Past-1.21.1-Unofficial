@@ -36,6 +36,8 @@ public class SpaceRipperStingyEyesEntity extends ModdedProjectileEntity {
 			SpaceRipperStingyEyesEntity.class, EntityDataSerializers.FLOAT);
 	private static final EntityDataAccessor<Boolean> BOUND_TO_OWNER = SynchedEntityData.defineId(
 			SpaceRipperStingyEyesEntity.class, EntityDataSerializers.BOOLEAN);
+	private static final EntityDataAccessor<Boolean> RETRACTING = SynchedEntityData.defineId(
+			SpaceRipperStingyEyesEntity.class, EntityDataSerializers.BOOLEAN);
 
 	private boolean rightEye;
 	@Nullable
@@ -79,7 +81,14 @@ public class SpaceRipperStingyEyesEntity extends ModdedProjectileEntity {
 
 			setRot(owner.getYRot(), owner.getXRot());
 			Vec3 origin = ownerPosition(1.0F);
-			float length = getLength() + movementSpeed() * (float) getSpeedFactor();
+			boolean retracting = entityData.get(RETRACTING);
+			float length = getLength() + (retracting ? -movementSpeed() : movementSpeed()) * (float) getSpeedFactor();
+			if (retracting && length <= 0.0F) {
+				if (!level().isClientSide()) {
+					discard();
+				}
+				return;
+			}
 			setLength(length);
 			Vec3 next = origin.add(Vec3.directionFromRotation(owner.getXRot(), owner.getYRot()).scale(length));
 			setDeltaMovement(next.subtract(position()));
@@ -204,8 +213,19 @@ public class SpaceRipperStingyEyesEntity extends ModdedProjectileEntity {
 			}
 		}
 
+		// Entity selection suppresses block effects before damage acceptance is known.
+		if (hits.stream().anyMatch(hit -> hit.getType() == HitResult.Type.ENTITY)) {
+			hits.removeIf(hit -> hit.getType() != HitResult.Type.ENTITY);
+		}
 		hits.sort(Comparator.comparingDouble(hit -> hit.getLocation().distanceToSqr(start)));
 		return hits.toArray(HitResult[]::new);
+	}
+
+	@Override
+	protected void afterBlockHit(BlockHitResult blockHit, boolean blockDestroyed) {
+		if (!blockDestroyed) {
+			entityData.set(RETRACTING, true);
+		}
 	}
 
 	@Override
@@ -260,6 +280,7 @@ public class SpaceRipperStingyEyesEntity extends ModdedProjectileEntity {
 		super.defineSynchedData(builder);
 		builder.define(LENGTH, 0.0F);
 		builder.define(BOUND_TO_OWNER, true);
+		builder.define(RETRACTING, false);
 	}
 
 	@Override
@@ -268,6 +289,7 @@ public class SpaceRipperStingyEyesEntity extends ModdedProjectileEntity {
 		nbt.putFloat("Length", getLength());
 		nbt.putBoolean("IsRightEye", rightEye);
 		nbt.putBoolean("BoundToOwner", isBoundToOwner());
+		nbt.putBoolean("IsRetracting", entityData.get(RETRACTING));
 		if (detachedOriginPos != null) {
 			nbt.putDouble("DetachedOriginX", detachedOriginPos.x);
 			nbt.putDouble("DetachedOriginY", detachedOriginPos.y);
@@ -281,6 +303,7 @@ public class SpaceRipperStingyEyesEntity extends ModdedProjectileEntity {
 		setLength(nbt.getFloat("Length"));
 		rightEye = nbt.getBoolean("IsRightEye");
 		setBoundToOwner(!nbt.contains("BoundToOwner") || nbt.getBoolean("BoundToOwner"));
+		entityData.set(RETRACTING, nbt.getBoolean("IsRetracting"));
 		if (nbt.contains("DetachedOriginX")) {
 			detachedOriginPos = new Vec3(
 					nbt.getDouble("DetachedOriginX"),
@@ -295,6 +318,7 @@ public class SpaceRipperStingyEyesEntity extends ModdedProjectileEntity {
 		buffer.writeBoolean(rightEye);
 		buffer.writeFloat(getLength());
 		buffer.writeBoolean(isBoundToOwner());
+		buffer.writeBoolean(entityData.get(RETRACTING));
 	}
 
 	@Override
@@ -303,5 +327,6 @@ public class SpaceRipperStingyEyesEntity extends ModdedProjectileEntity {
 		rightEye = additionalData.readBoolean();
 		setLength(additionalData.readFloat());
 		setBoundToOwner(additionalData.readBoolean());
+		entityData.set(RETRACTING, additionalData.readBoolean());
 	}
 }

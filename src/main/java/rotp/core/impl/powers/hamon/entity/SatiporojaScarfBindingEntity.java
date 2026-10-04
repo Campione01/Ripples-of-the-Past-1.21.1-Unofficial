@@ -1,5 +1,7 @@
 package rotp.core.impl.powers.hamon.entity;
 
+import java.util.Arrays;
+
 import rotp.core.init.ModEntityTypes;
 import rotp.core.init.ModItems;
 import rotp.core.impl.powers.hamon.abilities.HamonAbilityHelpers;
@@ -10,6 +12,7 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 public class SatiporojaScarfBindingEntity extends PillarmanExtendingBodyPartEntity {
@@ -37,6 +40,15 @@ public class SatiporojaScarfBindingEntity extends PillarmanExtendingBodyPartEnti
 	}
 
 	@Override
+	protected HitResult[] rayTrace() {
+		HitResult[] hits = super.rayTrace();
+		HitResult[] entityHits = Arrays.stream(hits)
+				.filter(hit -> hit.getType() == HitResult.Type.ENTITY)
+				.toArray(HitResult[]::new);
+		return entityHits.length > 0 ? entityHits : hits;
+	}
+
+	@Override
 	protected Vec3 getNextOriginOffset() {
 		return Vec3.ZERO;
 	}
@@ -49,7 +61,7 @@ public class SatiporojaScarfBindingEntity extends PillarmanExtendingBodyPartEnti
 	@Override
 	protected boolean hurtTarget(Entity target, LivingEntity owner) {
 		return target instanceof LivingEntity living && owner != null
-				&& HamonAbilityHelpers.hamonHurt(living, owner, 0.003F);
+				&& HamonAbilityHelpers.hamonHurt(living, 0.003F, this, owner);
 	}
 
 	@Override
