@@ -64,7 +64,7 @@ public class PillarmanRibsBladesAbility extends PillarmanActionAbility {
 			PillarmanRibEntity rib = new PillarmanRibEntity(user, level);
 			rib.setRibProperties(xRotDelta, yRotDelta, offsetX, offsetY);
 			rib.setLifeSpan(21);
-			rib.setShootingPosOf(user);
+			// Preserve the donor's constructor-eye tip until the first natural movement.
 			level.addFreshEntity(rib);
 		}
 

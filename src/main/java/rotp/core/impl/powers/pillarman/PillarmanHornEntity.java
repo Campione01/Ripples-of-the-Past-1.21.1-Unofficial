@@ -1,10 +1,13 @@
 package rotp.core.impl.powers.pillarman;
 
+import java.util.Arrays;
+
 import rotp.core.init.ModEntityTypes;
 
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 public class PillarmanHornEntity extends PillarmanExtendingBodyPartEntity {
@@ -16,6 +19,16 @@ public class PillarmanHornEntity extends PillarmanExtendingBodyPartEntity {
 
 	public PillarmanHornEntity(EntityType<? extends PillarmanHornEntity> entityType, Level level) {
 		super(entityType, level);
+	}
+
+	@Override
+	protected HitResult[] rayTrace() {
+		HitResult[] hits = super.rayTrace();
+		// Donor entity selection suppresses block effects even when the later damage is refused.
+		HitResult[] entityHits = Arrays.stream(hits)
+				.filter(hit -> hit.getType() == HitResult.Type.ENTITY)
+				.toArray(HitResult[]::new);
+		return entityHits.length > 0 ? entityHits : hits;
 	}
 
 	@Override
