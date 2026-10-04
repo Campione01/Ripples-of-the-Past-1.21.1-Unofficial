@@ -141,8 +141,7 @@ public class ClackersEntity extends ModdedProjectileEntity {
 		boolean projectileAttack = target.hurt(getDamageSource(owner), (float) (getDeltaMovement().length() * 2.0D));
 		boolean hamonAttack = false;
 		if (target instanceof LivingEntity livingTarget && owner != null && hamonDmg > 0.0F) {
-			HamonAbilityHelpers.hamonHurt(livingTarget, owner, hamonDmg);
-			hamonAttack = true;
+			hamonAttack = HamonAbilityHelpers.hamonHurt(livingTarget, hamonDmg, this, owner);
 		}
 		boolean hitTarget = projectileAttack || hamonAttack;
 		if (!level().isClientSide() && hitTarget) {
