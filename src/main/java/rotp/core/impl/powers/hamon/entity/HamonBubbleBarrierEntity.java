@@ -104,7 +104,7 @@ public class HamonBubbleBarrierEntity extends ModdedProjectileEntity {
 	protected boolean hurtTarget(Entity target, @Nullable LivingEntity owner) {
 		if (target instanceof LivingEntity living && owner != null) {
 			// 1.16: no trap, stun or training unless the Hamon damage lands
-			return HamonAbilityHelpers.hamonHurt(living, owner, 0.1F);
+			return HamonAbilityHelpers.hamonHurt(living, 0.1F, this, owner);
 		}
 		return false;
 	}

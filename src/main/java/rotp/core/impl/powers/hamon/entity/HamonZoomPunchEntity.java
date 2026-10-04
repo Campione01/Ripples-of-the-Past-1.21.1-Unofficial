@@ -170,7 +170,7 @@ public class HamonZoomPunchEntity extends OwnerBoundProjectileEntity {
 				return false;
 			}
 
-			boolean dealtHamonDamage = HamonAbilityHelpers.hamonHurt(livingTarget, owner, hamonDamage * efficiency);
+			boolean dealtHamonDamage = HamonAbilityHelpers.hamonHurt(livingTarget, hamonDamage * efficiency, this, owner);
 			if (hasEnergy && dealtHamonDamage) {
 				hamon.hamonPointsFromAction(HamonData.HamonStat.STRENGTH, Math.min(hamonDamageCost, energyBefore) * efficiency);
 			}
