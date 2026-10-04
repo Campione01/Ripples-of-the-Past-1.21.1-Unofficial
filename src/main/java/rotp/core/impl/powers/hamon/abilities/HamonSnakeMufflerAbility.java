@@ -58,6 +58,7 @@ public class HamonSnakeMufflerAbility extends Ability {
 			SnakeMufflerEntity snakeMuffler = new SnakeMufflerEntity(target.level(), target);
 			snakeMuffler.setEntityToJumpOver(attacker);
 			target.level().addFreshEntity(snakeMuffler);
+			snakeMuffler.attachToBlockPos(target.blockPosition());
 			hamon.syncOnUpdate(playerTarget);
 			return true;
 		}).orElse(false);

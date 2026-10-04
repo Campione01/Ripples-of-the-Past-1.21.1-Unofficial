@@ -7,8 +7,12 @@ import javax.annotation.Nullable;
 import rotp.core.init.ModEntityTypes;
 import rotp.core.impl.powers.pillarman.PillarmanExtendingBodyPartEntity;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -17,6 +21,15 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
 public class SnakeMufflerEntity extends PillarmanExtendingBodyPartEntity {
+	// Separate integer coordinates avoid the packed BlockPos serializer's height range.
+	private static final EntityDataAccessor<Boolean> HAS_BLOCK_ANCHOR = SynchedEntityData.defineId(
+			SnakeMufflerEntity.class, EntityDataSerializers.BOOLEAN);
+	private static final EntityDataAccessor<Integer> BLOCK_ANCHOR_X = SynchedEntityData.defineId(
+			SnakeMufflerEntity.class, EntityDataSerializers.INT);
+	private static final EntityDataAccessor<Integer> BLOCK_ANCHOR_Y = SynchedEntityData.defineId(
+			SnakeMufflerEntity.class, EntityDataSerializers.INT);
+	private static final EntityDataAccessor<Integer> BLOCK_ANCHOR_Z = SynchedEntityData.defineId(
+			SnakeMufflerEntity.class, EntityDataSerializers.INT);
 	@Nullable private Entity entityToJumpOver;
 	@Nullable private UUID targetId;
 
@@ -26,6 +39,33 @@ public class SnakeMufflerEntity extends PillarmanExtendingBodyPartEntity {
 
 	public SnakeMufflerEntity(EntityType<? extends SnakeMufflerEntity> entityType, Level level) {
 		super(entityType, level);
+	}
+
+	@Override
+	protected void defineSynchedData(SynchedEntityData.Builder builder) {
+		super.defineSynchedData(builder);
+		builder.define(HAS_BLOCK_ANCHOR, false);
+		builder.define(BLOCK_ANCHOR_X, 0);
+		builder.define(BLOCK_ANCHOR_Y, 0);
+		builder.define(BLOCK_ANCHOR_Z, 0);
+	}
+
+	public void attachToBlockPos(BlockPos pos) {
+		entityData.set(BLOCK_ANCHOR_X, pos.getX());
+		entityData.set(BLOCK_ANCHOR_Y, pos.getY());
+		entityData.set(BLOCK_ANCHOR_Z, pos.getZ());
+		entityData.set(HAS_BLOCK_ANCHOR, true);
+	}
+
+	@Override
+	protected boolean moveBoundToOwner() {
+		if (getOwner() != null && entityData.get(HAS_BLOCK_ANCHOR)) {
+			// Donor block attachment changes position without deriving a new movement delta.
+			setPos(entityData.get(BLOCK_ANCHOR_X) + 0.5D, entityData.get(BLOCK_ANCHOR_Y) + 0.5D,
+					entityData.get(BLOCK_ANCHOR_Z) + 0.5D);
+			return true;
+		}
+		return super.moveBoundToOwner();
 	}
 
 	public void setEntityToJumpOver(@Nullable Entity entity) {
@@ -102,6 +142,10 @@ public class SnakeMufflerEntity extends PillarmanExtendingBodyPartEntity {
 		if (targetId != null) {
 			nbt.putUUID("TargetEntity", targetId);
 		}
+		if (entityData.get(HAS_BLOCK_ANCHOR)) {
+			nbt.putIntArray("AttachedBlock", new int[] { entityData.get(BLOCK_ANCHOR_X),
+					entityData.get(BLOCK_ANCHOR_Y), entityData.get(BLOCK_ANCHOR_Z) });
+		}
 	}
 
 	@Override
@@ -109,6 +153,11 @@ public class SnakeMufflerEntity extends PillarmanExtendingBodyPartEntity {
 		super.readAdditionalSaveData(nbt);
 		if (nbt.hasUUID("TargetEntity")) {
 			targetId = nbt.getUUID("TargetEntity");
+		}
+		entityData.set(HAS_BLOCK_ANCHOR, false);
+		int[] anchor = nbt.getIntArray("AttachedBlock");
+		if (anchor.length == 3) {
+			attachToBlockPos(new BlockPos(anchor[0], anchor[1], anchor[2]));
 		}
 	}
 

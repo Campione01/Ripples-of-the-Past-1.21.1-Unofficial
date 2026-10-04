@@ -79,7 +79,7 @@ public class SatiporojaScarfEntity extends PillarmanExtendingBodyPartEntity {
 	@Override
 	protected boolean hurtTarget(Entity target, LivingEntity owner) {
 		return target instanceof LivingEntity living && owner != null
-				&& HamonAbilityHelpers.hamonHurt(living, owner, 0.6F);
+				&& HamonAbilityHelpers.hamonHurt(living, 0.6F, this, owner);
 	}
 
 	@Override
