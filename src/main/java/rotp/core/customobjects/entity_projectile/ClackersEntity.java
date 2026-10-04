@@ -14,6 +14,10 @@ import rotp.core.impl.powers.hamon.HamonPowerType;
 import rotp.core.impl.powers.hamon.abilities.HamonAbilityHelpers;
 
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Entity.RemovalReason;
@@ -31,11 +35,12 @@ import net.minecraft.world.phys.Vec3;
 
 public class ClackersEntity extends ModdedProjectileEntity {
 	private static final double RETARGET_RANGE = 2.5D;
+	private static final EntityDataAccessor<Boolean> IN_GROUND = SynchedEntityData.defineId(ClackersEntity.class, EntityDataSerializers.BOOLEAN);
 
 	private float hamonDmg;
 	private float hamonEnergySpent;
 	private boolean boomerangHit;
-	private boolean inGround;
+	private boolean clientBlockHit;
 	private boolean creativeOnlyPickup;
 	private ItemStack pickupItem = ItemStack.EMPTY;
 
@@ -61,12 +66,69 @@ public class ClackersEntity extends ModdedProjectileEntity {
 	}
 
 	public boolean isInGround() {
-		return inGround;
+		return entityData.get(IN_GROUND);
+	}
+
+	@Override
+	protected void defineSynchedData(SynchedEntityData.Builder builder) {
+		super.defineSynchedData(builder);
+		builder.define(IN_GROUND, false);
+	}
+
+	@Override
+	protected Vec3 getOwnerRelativeOffset() {
+		return new Vec3(0.0D, -(double) 0.1F, 0.0D);
+	}
+
+	@Override
+	protected boolean hasGravity() {
+		return true;
+	}
+
+	@Override
+	public void shootFromRotation(Entity shooter, float xRot, float yRot, float yAxisRotOffset, float velocity, float inaccuracy) {
+		super.shootFromRotation(shooter, xRot, yRot, yAxisRotOffset, velocity, inaccuracy);
+		Vec3 ownerMovement = shooter.getDeltaMovement();
+		setDeltaMovement(getDeltaMovement().add(ownerMovement.x,
+				shooter.onGround() ? 0.0D : ownerMovement.y, ownerMovement.z));
+	}
+
+	@Override
+	protected void moveProjectile() {
+		if (isInGround() || clientBlockHit) {
+			clientBlockHit = false;
+			setDeltaMovement(Vec3.ZERO);
+			return;
+		}
+		// The donor Arrow moves with incoming velocity, then applies drag followed by gravity.
+		Vec3 movement = getDeltaMovement();
+		Vec3 nextPosition = position().add(movement);
+		rotateTowardsMovement(0.25F);
+		float inertia = 0.99F;
+		if (isInWater()) {
+			for (int i = 0; i < 4; i++) {
+				level().addParticle(ParticleTypes.BUBBLE,
+						nextPosition.x - movement.x * 0.25D,
+						nextPosition.y - movement.y * 0.25D,
+						nextPosition.z - movement.z * 0.25D,
+						movement.x, movement.y, movement.z);
+			}
+			inertia = 0.6F;
+		}
+		Vec3 nextMovement = movement.scale(inertia);
+		if (!isNoGravity() && !noPhysics) {
+			nextMovement = nextMovement.add(0.0D, -(double) 0.05F, 0.0D);
+		}
+		setDeltaMovement(nextMovement);
+		xo = xOld = getX();
+		yo = yOld = getY();
+		zo = zOld = getZ();
+		setPos(nextPosition.x, nextPosition.y, nextPosition.z);
 	}
 
 	@Override
 	public void tick() {
-		if (inGround) {
+		if (isInGround()) {
 			super.tick();
 			setDeltaMovement(Vec3.ZERO);
 			return;
@@ -117,13 +179,17 @@ public class ClackersEntity extends ModdedProjectileEntity {
 
 	@Override
 	protected void onHitBlock(BlockHitResult result) {
+		setPos(result.getLocation());
+		setDeltaMovement(Vec3.ZERO);
 		if (!level().isClientSide()) {
-			setPos(result.getLocation());
-			setDeltaMovement(Vec3.ZERO);
 			setNoGravity(false);
-			inGround = true;
+			entityData.set(IN_GROUND, true);
 			level().playSound(null, getX(), getY(), getZ(),
 					ModSoundEvents.CLACKERS.get(), SoundSource.NEUTRAL, 0.5F, 0.9F + random.nextFloat() * 0.2F);
+		}
+		else {
+			// A predicted hit must not latch the server-owned landing state.
+			clientBlockHit = true;
 		}
 	}
 
@@ -186,7 +252,7 @@ public class ClackersEntity extends ModdedProjectileEntity {
 			return;
 		}
 		Entity owner = getOwner();
-		boolean canTryPickup = inGround || owner == null || player.is(owner) && leftOwner;
+		boolean canTryPickup = isInGround() || owner == null || player.is(owner) && leftOwner;
 		if (!canTryPickup || creativeOnlyPickup && !player.getAbilities().instabuild) {
 			return;
 		}
@@ -257,7 +323,7 @@ public class ClackersEntity extends ModdedProjectileEntity {
 		nbt.putFloat("HamonDamage", hamonDmg);
 		nbt.putFloat("HamonSpent", hamonEnergySpent);
 		nbt.putBoolean("BoomerangHit", boomerangHit);
-		nbt.putBoolean("InGround", inGround);
+		nbt.putBoolean("InGround", isInGround());
 		nbt.putBoolean("CreativeOnlyPickup", creativeOnlyPickup);
 		if (!pickupItem.isEmpty()) {
 			nbt.put("PickupItem", pickupItem.save(registryAccess()));
@@ -270,7 +336,7 @@ public class ClackersEntity extends ModdedProjectileEntity {
 		hamonDmg = nbt.getFloat("HamonDamage");
 		hamonEnergySpent = nbt.getFloat("HamonSpent");
 		boomerangHit = nbt.getBoolean("BoomerangHit");
-		inGround = nbt.getBoolean("InGround");
+		entityData.set(IN_GROUND, nbt.getBoolean("InGround"));
 		creativeOnlyPickup = nbt.getBoolean("CreativeOnlyPickup");
 		if (nbt.contains("PickupItem")) {
 			pickupItem = ItemStack.parseOptional(registryAccess(), nbt.getCompound("PickupItem"));

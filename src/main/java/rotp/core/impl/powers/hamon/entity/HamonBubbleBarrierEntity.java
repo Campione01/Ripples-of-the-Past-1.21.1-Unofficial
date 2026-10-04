@@ -167,6 +167,24 @@ public class HamonBubbleBarrierEntity extends ModdedProjectileEntity {
 	}
 
 	@Override
+	protected void positionRider(Entity passenger, MoveFunction callback) {
+		if (hasPassenger(passenger)) {
+			callback.accept(passenger, getX(),
+					getY() + (getBbHeight() - passenger.getBbHeight()) * 0.5D, getZ());
+		}
+	}
+
+	@Override
+	public Vec3 getPassengerRidingPosition(Entity passenger) {
+		return position().add(0.0D, getBbHeight() * 0.5D, 0.0D);
+	}
+
+	@Override
+	public boolean shouldRiderSit() {
+		return false;
+	}
+
+	@Override
 	protected void addAdditionalSaveData(CompoundTag nbt) {
 		super.addAdditionalSaveData(nbt);
 		nbt.putBoolean("Barrier", barrier);
