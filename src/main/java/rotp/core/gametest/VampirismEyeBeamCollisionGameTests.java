@@ -84,12 +84,21 @@ public final class VampirismEyeBeamCollisionGameTests {
         start(helper, true, true);
     }
 
+    @GameTest(template = "empty", skyAccess = true, batch = "srse_latched_retraction", timeoutTicks = 120)
+    public static void bothEyeBeamsKeepRetractingAfterTheBlockLeavesTheirRay(GameTestHelper helper) {
+        start(helper, true, false, true);
+    }
+
     private static void start(GameTestHelper helper, boolean wall) {
         start(helper, wall, false);
     }
 
     private static void start(GameTestHelper helper, boolean wall, boolean target) {
-        Fixture fixture = new Fixture(helper, wall, target);
+        start(helper, wall, target, false);
+    }
+
+    private static void start(GameTestHelper helper, boolean wall, boolean target, boolean lateWall) {
+        Fixture fixture = new Fixture(helper, wall, target, lateWall);
         helper.testInfo.addListener(fixture);
         try {
             fixture.setUp();
@@ -103,7 +112,8 @@ public final class VampirismEyeBeamCollisionGameTests {
 
     private record Frame(long time, int age, Vec3 root, Vec3 tip, Vec3 delta, float length,
             boolean bound, boolean removed, BlockHitResult collider, BlockHitResult outline,
-            int candidates, int intersections, boolean targetCandidate, AABB targetBox, Vec3 targetClip, float targetHealth) {}
+            int candidates, int intersections, boolean targetCandidate, AABB targetBox, Vec3 targetClip, float targetHealth,
+            boolean retracting) {}
     private record Impact(HitResult.Type type, BlockPos block, UUID entity, boolean canceled) {}
     private record Attempt(float amount, UUID direct, UUID cause, boolean canceled) {}
     private record Step(Frame before, Frame after, List<Impact> impacts, List<Attempt> attempts) {}
@@ -129,6 +139,7 @@ public final class VampirismEyeBeamCollisionGameTests {
         private final ServerLevel level;
         private final boolean withWall;
         private final boolean withTarget;
+        private final boolean lateWall;
         private final Map<BlockPos, BlockState> original = new LinkedHashMap<>();
         private final Map<BlockPos, BlockState> wall = new LinkedHashMap<>();
         private final Map<UUID, Tracked> beams = new LinkedHashMap<>();
@@ -154,11 +165,12 @@ public final class VampirismEyeBeamCollisionGameTests {
         private float speed;
         private String lastShadeDiagnostic;
 
-        Fixture(GameTestHelper helper, boolean withWall, boolean withTarget) {
+        Fixture(GameTestHelper helper, boolean withWall, boolean withTarget, boolean lateWall) {
             this.helper = helper;
             level = helper.getLevel();
             this.withWall = withWall;
             this.withTarget = withTarget;
+            this.lateWall = lateWall;
         }
 
         private void setUp() {
@@ -182,8 +194,17 @@ public final class VampirismEyeBeamCollisionGameTests {
                 ownBlock(pos, Blocks.STONE.defaultBlockState());
             }
             if (withWall) {
+                double rootZ = z + 4.5D;
+                int wallZ = lateWall ? (int) Math.ceil(rootZ + 3.0D * speed + EPSILON) : z + 5;
+                if (lateWall) {
+                    double distance = wallZ - rootZ;
+                    helper.assertTrue(distance > 3.0D * speed && distance <= 4.0D * speed,
+                            "Late SRSE wall cannot produce the declared age-four contact");
+                    log("late-wall rootZ=" + rootZ + " wallFront=" + wallZ + " distance=" + distance
+                            + " speed=" + speed + " requiredInterval=(" + (3.0D * speed) + "," + (4.0D * speed) + "]");
+                }
                 for (int px = x + 7; px <= x + 9; px++) {
-                    BlockPos pos = new BlockPos(px, y + 1, z + 5);
+                    BlockPos pos = new BlockPos(px, y + 1, wallZ);
                     ownBlock(pos, Blocks.BEDROCK.defaultBlockState());
                     wall.put(pos, level.getBlockState(pos));
                 }
@@ -380,7 +401,7 @@ public final class VampirismEyeBeamCollisionGameTests {
                     level.clip(new ClipContext(root, end, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, beam)),
                     level.clip(new ClipContext(root, end, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, beam)),
                     candidates.size(), intersections, target != null && candidates.contains(target), targetBox, targetClip,
-                    target == null ? 0 : target.getHealth());
+                    target == null ? 0 : target.getHealth(), beam.saveWithoutId(new CompoundTag()).getBoolean("IsRetracting"));
         }
 
         private float blood() { return VampirismState.get(user).blood().current(); }
@@ -432,7 +453,8 @@ public final class VampirismEyeBeamCollisionGameTests {
                     AbilityInput.keyRelease(KEY, user);
                     log("release chargeTicks=" + (userTicks - pressedAt) + " blood=" + blood());
                 }
-                boolean ready = beams.size() == 2 && (withWall ? beams.values().stream().allMatch(t -> t.contact != null)
+                boolean ready = beams.size() == 2 && (lateWall ? beams.values().stream().allMatch(t -> t.beam.isRemoved())
+                        : withWall ? beams.values().stream().allMatch(t -> t.contact != null)
                         : beams.values().stream().allMatch(t -> t.steps.size() >= 3));
                 if (ready) {
                     validate();
@@ -453,6 +475,10 @@ public final class VampirismEyeBeamCollisionGameTests {
             helper.assertTrue(beams.values().stream().filter(t -> t.right).count() == 1
                             && beams.values().stream().filter(t -> !t.right).count() == 1 && drops.isEmpty(),
                     "SRSE did not emit exactly one beam per eye without drops");
+            if (lateWall) {
+                validateLatchedRetraction();
+                return;
+            }
             for (Tracked tracked : beams.values()) {
                 helper.assertTrue(tracked.steps.stream().allMatch(s -> (withTarget || s.before.candidates == 0 && s.before.intersections == 0)
                                 && s.impacts.stream().noneMatch(i -> i.canceled || !withTarget && i.type == HitResult.Type.ENTITY)),
@@ -519,6 +545,70 @@ public final class VampirismEyeBeamCollisionGameTests {
             log("result scope=" + (withTarget ? "mixed-refused-entity-only" : withWall ? "first-block-retraction-removal" : "empty-three-step-extension"));
         }
 
+        private void validateLatchedRetraction() {
+            for (Tracked tracked : beams.values()) {
+                helper.assertTrue(tracked.steps.size() == 6 && tracked.contact != null
+                                && tracked.beam.getRemovalReason() == Entity.RemovalReason.DISCARDED,
+                        "Late SRSE case did not observe six natural steps and a contact");
+                for (int i = 0; i < tracked.steps.size(); i++) {
+                    Step step = tracked.steps.get(i);
+                    helper.assertTrue(step.before.age == i + 1 && step.after.age == i + 1
+                                    && step.before.bound && step.after.bound && !step.before.removed
+                                    && step.before.candidates == 0 && step.before.intersections == 0
+                                    && step.after.candidates == 0 && step.after.intersections == 0
+                                    && step.attempts.isEmpty() && step.impacts.stream().noneMatch(Impact::canceled),
+                            "Late SRSE age/owner/candidate/impact premise failed; age=" + step.before.age);
+                    if (i < 3) {
+                        helper.assertTrue(step.impacts.isEmpty() && step.before.collider.getType() == HitResult.Type.MISS
+                                        && step.before.outline.getType() == HitResult.Type.MISS && !step.before.retracting
+                                        && !step.after.retracting && !step.after.removed
+                                        && Math.abs(step.after.length - (i + 1) * speed) < EPSILON
+                                        && near(step.after.tip, step.after.root.add(0, 0, (i + 1) * (double) speed))
+                                        && near(step.after.delta, new Vec3(0, 0, speed)),
+                                "Late SRSE first three extensions were not unobstructed");
+                    }
+                }
+                Step hit = tracked.steps.get(3);
+                BlockPos pos = hit.before.collider.getBlockPos();
+                helper.assertTrue(tracked.contact == hit && hit.before.collider.getType() == HitResult.Type.BLOCK
+                                && hit.before.outline.getType() == HitResult.Type.BLOCK && wall.containsKey(pos)
+                                && pos.equals(hit.before.outline.getBlockPos())
+                                && hit.before.collider.getDirection() == hit.before.outline.getDirection()
+                                && near(hit.before.collider.getLocation(), hit.before.outline.getLocation())
+                                && wall.get(pos).getDestroySpeed(level, pos) < 0
+                                && pos.getZ() - hit.before.root.z > 3.0D * speed
+                                && pos.getZ() - hit.before.root.z <= 4.0D * speed
+                                && Math.abs(hit.before.length - 3.0F * speed) < EPSILON
+                                && near(hit.before.delta, new Vec3(0, 0, speed)) && !hit.before.retracting
+                                && hit.impacts.size() == 1 && hit.impacts.get(0).type == HitResult.Type.BLOCK
+                                && pos.equals(hit.impacts.get(0).block), "Late SRSE first contact was not the one owned age-four block hit");
+                helper.assertTrue(hit.after.retracting && !hit.after.removed && Math.abs(hit.after.length - 2.0F * speed) < EPSILON
+                                && near(hit.after.tip, hit.after.root.add(0, 0, 2.0D * speed))
+                                && near(hit.after.delta, new Vec3(0, 0, -speed)),
+                        "Late SRSE contact did not take the first negative movement step");
+                Step miss = tracked.steps.get(4);
+                helper.assertTrue(miss.before.collider.getType() == HitResult.Type.MISS && miss.before.outline.getType() == HitResult.Type.MISS
+                                && miss.impacts.isEmpty() && miss.before.retracting && miss.after.retracting && !miss.after.removed
+                                && Math.abs(miss.before.length - 2.0F * speed) < EPSILON
+                                && Math.abs(miss.after.length - speed) < EPSILON
+                                && near(miss.before.delta, new Vec3(0, 0, -speed)) && near(miss.after.delta, new Vec3(0, 0, -speed))
+                                && near(miss.after.tip, miss.after.root.add(0, 0, speed)),
+                        "SRSE retraction did not stay latched through the following MISS and second negative step");
+                Step terminal = tracked.steps.get(5);
+                helper.assertTrue(terminal.before.collider.getType() == HitResult.Type.MISS
+                                && terminal.before.outline.getType() == HitResult.Type.MISS && terminal.impacts.isEmpty()
+                                && terminal.before.retracting && terminal.after.retracting
+                                && Math.abs(terminal.before.length - speed) < EPSILON && terminal.after.removed
+                                && terminal.after.age < 20 && tracked.steps.stream().mapToInt(step -> step.impacts.size()).sum() == 1,
+                        "Latched SRSE did not naturally discard after its final zero-length calculation");
+                log("late-result uuid=" + tracked.beam.getUUID() + " firstContact=4 negativeSteps=2 missLatch=true removedAge=6"
+                        + " retainedLength=" + terminal.after.length + " blood=" + blood() + " phaseTick=" + action.getPhaseTick());
+            }
+            helper.assertTrue(wall.entrySet().stream().allMatch(e -> level.getBlockState(e.getKey()).equals(e.getValue())),
+                    "Late SRSE wall changed during retraction");
+            log("result scope=latched-two-negative-steps-and-natural-removal eyes=2 wallUnchanged=true");
+        }
+
         private void observe(Runnable observation) {
             if (closed || observerFailure != null) return;
             try { observation.run(); }
@@ -529,7 +619,7 @@ public final class VampirismEyeBeamCollisionGameTests {
         }
 
         private static boolean near(Vec3 a, Vec3 b) { return a.distanceToSqr(b) < EPSILON * EPSILON; }
-        private void log(String message) { JojoMod.LOGGER.info("SRSE-BLOCK {} {}", withTarget ? "mixed-refused" : withWall ? "wall" : "empty", message); }
+        private void log(String message) { JojoMod.LOGGER.info("SRSE-BLOCK {} {}", lateWall ? "late-wall" : withTarget ? "mixed-refused" : withWall ? "wall" : "empty", message); }
 
         @Override
         public void close() {
