@@ -48,6 +48,9 @@ public class PillarmanUnnaturalAgilityAbility extends PillarmanActionAbility {
 		if (!canEvadeIncomingDamage(target, attacker)) {
 			return false;
 		}
+		if (attacker instanceof ModdedProjectileEntity) {
+			return true;
+		}
 		RandomSource random = target.getRandom();
 		if (action.ability instanceof PillarmanUnnaturalAgilityAbility
 				&& attacker instanceof LivingEntity attackerLiving
