@@ -113,8 +113,8 @@ public class HamonTurquoiseBlueOverdriveEntity extends ModdedProjectileEntity {
 	@Override
 	protected boolean hurtTarget(Entity target, @Nullable LivingEntity owner) {
 		return owner != null && target instanceof LivingEntity livingTarget
-				&& HamonAbilityHelpers.hamonHurtWithParticles(livingTarget, owner,
-						getDamageAmount(), ModParticles.HAMON_SPARK_BLUE.get(), 8);
+				&& HamonAbilityHelpers.hamonHurt(livingTarget, getDamageAmount(),
+						this, owner, ModParticles.HAMON_SPARK_BLUE.get());
 	}
 
 	@Override
