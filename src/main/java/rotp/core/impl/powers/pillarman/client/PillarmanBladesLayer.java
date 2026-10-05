@@ -1,6 +1,7 @@
 package rotp.core.impl.powers.pillarman.client;
 
 import rotp.core.client.firstperson.FirstPersonModelLayer;
+import rotp.core.client.entityanim.playerbend.IPlayerLimbBend;
 import rotp.core.client.util.functions.ClientUtil;
 import rotp.core.core.JojoMod;
 import rotp.core.powersystem.playerpower.PlayerPower;
@@ -10,9 +11,11 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
 import net.minecraft.client.model.HumanoidModel;
+import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
+import net.minecraft.client.renderer.entity.ItemRenderer;
 import net.minecraft.client.renderer.entity.RenderLayerParent;
 import net.minecraft.client.renderer.entity.layers.RenderLayer;
 import net.minecraft.client.renderer.texture.OverlayTexture;
@@ -27,6 +30,9 @@ public class PillarmanBladesLayer<T extends LivingEntity, M extends HumanoidMode
 	public PillarmanBladesLayer(RenderLayerParent<T, M> renderer, PillarmanBladesModel<T> bladesModel) {
 		super(renderer);
 		this.bladesModel = bladesModel;
+		// Each rigid blade follows the animated hand, without inheriting skin deformation.
+		((IPlayerLimbBend) (Object) bladesModel.bladeRight).jojo_ripples$setBendBone(null, false);
+		((IPlayerLimbBend) (Object) bladesModel.bladeLeft).jojo_ripples$setBendBone(null, false);
 	}
 
 	@Override
@@ -38,14 +44,31 @@ public class PillarmanBladesLayer<T extends LivingEntity, M extends HumanoidMode
 		}
 
 		poseStack.pushPose();
-		if (getParentModel().young) {
-			poseStack.translate(0.0D, 0.75D, 0.0D);
-			poseStack.scale(0.5F, 0.5F, 0.5F);
+		try {
+			if (getParentModel().young) {
+				poseStack.translate(0.0D, 0.75D, 0.0D);
+				poseStack.scale(0.5F, 0.5F, 0.5F);
+			}
+			VertexConsumer vertexBuilder = ItemRenderer.getFoilBufferDirect(bufferSource,
+					RenderType.entityCutoutNoCull(TEXTURE), false, true);
+			renderSide(HumanoidArm.LEFT, poseStack, vertexBuilder);
+			renderSide(HumanoidArm.RIGHT, poseStack, vertexBuilder);
 		}
-		getParentModel().copyPropertiesTo(bladesModel);
-		VertexConsumer vertexBuilder = bufferSource.getBuffer(RenderType.entityCutoutNoCull(TEXTURE));
-		bladesModel.renderToBuffer(poseStack, vertexBuilder, ClientUtil.MAX_LIGHT, OverlayTexture.NO_OVERLAY);
-		poseStack.popPose();
+		finally {
+			poseStack.popPose();
+		}
+	}
+
+	private void renderSide(HumanoidArm side, PoseStack poseStack, VertexConsumer vertexBuilder) {
+		ModelPart blade = side == HumanoidArm.LEFT ? bladesModel.bladeLeft : bladesModel.bladeRight;
+		poseStack.pushPose();
+		try {
+			getParentModel().translateToHand(side, poseStack);
+			blade.render(poseStack, vertexBuilder, ClientUtil.MAX_LIGHT, OverlayTexture.NO_OVERLAY);
+		}
+		finally {
+			poseStack.popPose();
+		}
 	}
 
 	private static boolean getBladesVisible(LivingEntity entity) {

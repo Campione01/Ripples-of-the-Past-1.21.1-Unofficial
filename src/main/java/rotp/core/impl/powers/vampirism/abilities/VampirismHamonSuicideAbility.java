@@ -44,6 +44,11 @@ public class VampirismHamonSuicideAbility extends VampirismActionAbility {
 	}
 
 	@Override
+	public boolean isActionHeld(EntityActionInstance action) {
+		return action.getPhase() == ActionPhase.WINDUP || super.isActionHeld(action);
+	}
+
+	@Override
 	protected boolean requiresVampireFullPower() {
 		return false;
 	}
