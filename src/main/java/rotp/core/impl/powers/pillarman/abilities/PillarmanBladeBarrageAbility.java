@@ -69,9 +69,7 @@ public class PillarmanBladeBarrageAbility extends PillarmanActionAbility {
 			return false;
 		}
 		if (attacker instanceof ModdedProjectileEntity projectile) {
-			if (!projectile.canBeEvaded(target) || projectile.standDamage()) {
-				return false;
-			}
+			return projectile.canBeEvaded(target) && !projectile.standDamage();
 		}
 		if (attacker instanceof Projectile
 				&& (attacker.getDeltaMovement().lengthSqr() < 1.0E-6D
