@@ -80,11 +80,10 @@ public class HamonCutterEntity extends ModdedProjectileEntity {
 
 	@Override
 	protected boolean hurtTarget(Entity target, @Nullable LivingEntity owner) {
-		if (target instanceof LivingEntity living && owner != null) {
-			HamonAbilityHelpers.hamonHurt(living, owner, getBaseDamage());
-			return true;
-		}
-		return false;
+		boolean projectileAttack = super.hurtTarget(target, owner);
+		boolean hamonAttack = target instanceof LivingEntity living
+				&& HamonAbilityHelpers.hamonHurt(living, 0.075F, this, owner);
+		return projectileAttack || hamonAttack;
 	}
 
 	@Override
