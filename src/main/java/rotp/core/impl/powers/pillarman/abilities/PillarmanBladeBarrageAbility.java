@@ -1,5 +1,6 @@
 package rotp.core.impl.powers.pillarman.abilities;
 
+import rotp.core.customobjects.entity_projectile.IProjectileEvasion;
 import rotp.core.customobjects.entity_projectile.ModdedProjectileEntity;
 import rotp.core.init.ModSoundEvents;
 import rotp.core.powersystem.Power;
@@ -68,7 +69,7 @@ public class PillarmanBladeBarrageAbility extends PillarmanActionAbility {
 				|| action.getPhase() != ActionPhase.PERFORM) {
 			return false;
 		}
-		if (attacker instanceof ModdedProjectileEntity projectile) {
+		if (attacker instanceof IProjectileEvasion projectile) {
 			return projectile.canBeEvaded(target) && !projectile.standDamage();
 		}
 		if (attacker instanceof Projectile

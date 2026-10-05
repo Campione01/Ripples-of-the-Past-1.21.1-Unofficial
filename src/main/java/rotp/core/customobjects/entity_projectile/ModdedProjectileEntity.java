@@ -25,7 +25,7 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.network.PacketDistributor;
 
-public abstract class ModdedProjectileEntity extends DamagingEntity {
+public abstract class ModdedProjectileEntity extends DamagingEntity implements IProjectileEvasion {
 	protected static final EntityDataAccessor<Boolean> IS_DEFLECTED = SynchedEntityData.defineId(ModdedProjectileEntity.class, EntityDataSerializers.BOOLEAN);
 	protected int ownerId = -1;
 

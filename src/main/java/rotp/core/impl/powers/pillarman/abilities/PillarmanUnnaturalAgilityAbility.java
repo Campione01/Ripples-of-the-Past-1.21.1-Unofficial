@@ -1,6 +1,6 @@
 package rotp.core.impl.powers.pillarman.abilities;
 
-import rotp.core.customobjects.entity_projectile.ModdedProjectileEntity;
+import rotp.core.customobjects.entity_projectile.IProjectileEvasion;
 import rotp.core.init.ModSoundEvents;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
@@ -48,7 +48,7 @@ public class PillarmanUnnaturalAgilityAbility extends PillarmanActionAbility {
 		if (!canEvadeIncomingDamage(target, attacker)) {
 			return false;
 		}
-		if (attacker instanceof ModdedProjectileEntity) {
+		if (attacker instanceof Projectile && attacker instanceof IProjectileEvasion) {
 			return true;
 		}
 		RandomSource random = target.getRandom();
@@ -73,7 +73,7 @@ public class PillarmanUnnaturalAgilityAbility extends PillarmanActionAbility {
 		if (attacker instanceof StandEntity && !StandUtil.entityCanSeeStands(target)) {
 			return false;
 		}
-		if (attacker instanceof ModdedProjectileEntity projectile) {
+		if (attacker instanceof Projectile && attacker instanceof IProjectileEvasion projectile) {
 			return projectile.canBeEvaded(target) && (!projectile.standDamage() || StandUtil.entityCanSeeStands(target));
 		}
 		return attacker instanceof LivingEntity || attacker instanceof Projectile;
