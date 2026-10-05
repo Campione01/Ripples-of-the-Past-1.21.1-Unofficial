@@ -72,7 +72,8 @@ public class VampirismDarkAuraAbility extends VampirismActionAbility {
 			int difficulty = level.getDifficulty().getId();
 			int range = 16 * difficulty - 8;
 			int amplifier = Math.max(0, (int) Math.floor((difficulty - 1) * 1.5F));
-			AABB area = user.getBoundingBox().inflate(range);
+			var center = user.getBoundingBox().getCenter();
+			AABB area = new AABB(center, center).inflate(range);
 			for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, area,
 					entity -> entity != user && entity.isAlive())) {
 				if (target instanceof StandEntity stand && stand.getUser() == user) {
