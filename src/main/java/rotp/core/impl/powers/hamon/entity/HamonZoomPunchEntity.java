@@ -3,9 +3,9 @@ package rotp.core.impl.powers.hamon.entity;
 import javax.annotation.Nullable;
 
 import rotp.core.customobjects.entity_projectile.OwnerBoundProjectileEntity;
+import rotp.core.client.particle.CustomParticlesHelper;
 import rotp.core.client.sound.HamonSparksLoopSound;
 import rotp.core.init.ModEntityTypes;
-import rotp.core.init.ModParticles;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.powersystem.playerpower.PlayerPower;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
@@ -229,10 +229,7 @@ public class HamonZoomPunchEntity extends OwnerBoundProjectileEntity {
 			setOwnerZoomPunch(true);
 			Vec3 pos = position();
 			HamonSparksLoopSound.playSparkSound(this, pos, 0.25F);
-			level().addParticle(ModParticles.HAMON_SPARK.get(), pos.x, pos.y, pos.z,
-					(random.nextDouble() - 0.5D) * 0.05D,
-					(random.nextDouble() - 0.5D) * 0.05D,
-					(random.nextDouble() - 0.5D) * 0.05D);
+			CustomParticlesHelper.createHamonSparkParticles(this, pos, 1);
 		}
 	}
 
@@ -276,11 +273,14 @@ public class HamonZoomPunchEntity extends OwnerBoundProjectileEntity {
 			nextDistance += movementSpeed() * speedFactor;
 		}
 		updateMotionFlags();
-		return nextDistance;
+		return (float) nextDistance;
 	}
 
 	private void updateMotionFlags() {
-		int forwardTicks = Math.max(1, lifeSpan / 2);
+		float moveSpeed = movementSpeed();
+		// Keep the donor's float rounding before truncating the turnaround tick.
+		float maxDistance = moveSpeed * moveSpeed * lifeSpan / (moveSpeed + moveSpeed);
+		int forwardTicks = Math.max(1, (int) ((double) maxDistance / moveSpeed));
 		if (isMovingForward() && tickCount >= forwardTicks) {
 			setMovingForward(false);
 		}
