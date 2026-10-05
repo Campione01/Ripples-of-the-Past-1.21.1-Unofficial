@@ -1,15 +1,14 @@
 package rotp.core.impl.powers.hamon.entity;
 
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
 import javax.annotation.Nullable;
 
+import rotp.core.JojoModLivingVariables;
 import rotp.core.customobjects.DamageSourceModified;
 import rotp.core.client.ClientProxy;
 import rotp.core.client.particle.CustomParticlesHelper;
@@ -62,7 +61,6 @@ public class HamonSendoOverdriveEntity extends Entity implements IEntityWithComp
 	private final List<Wave> waves = new LinkedList<>();
 	private int tickLifeSpan;
 	public float damage;
-	private final Map<UUID, Integer> otherWaveHitCooldown = new HashMap<>();
 
 	public HamonSendoOverdriveEntity(Level level, LivingEntity user, Direction.Axis axis) {
 		this(ModEntityTypes.SENDO_HAMON_OVERDRIVE.get(), level);
@@ -122,7 +120,6 @@ public class HamonSendoOverdriveEntity extends Entity implements IEntityWithComp
 	public void tick() {
 		if (tickCount <= tickLifeSpan) {
 			super.tick();
-			tickOtherWaveCooldowns();
 			if (tickCount % WAVE_ADD_TICK == 0 && addedWaves++ < wavesToAdd) {
 				if (level().isClientSide()) {
 					spawnClientSparks();
@@ -156,11 +153,6 @@ public class HamonSendoOverdriveEntity extends Entity implements IEntityWithComp
 		else if (!level().isClientSide()) {
 			discard();
 		}
-	}
-
-	private void tickOtherWaveCooldowns() {
-		otherWaveHitCooldown.entrySet().removeIf(entry -> entry.getValue() <= 1);
-		otherWaveHitCooldown.replaceAll((uuid, ticks) -> ticks - 1);
 	}
 
 	private void playWaveSound() {
@@ -274,12 +266,7 @@ public class HamonSendoOverdriveEntity extends Entity implements IEntityWithComp
 	}
 
 	private boolean tryOtherWaveHitCooldown(LivingEntity target) {
-		UUID uuid = target.getUUID();
-		if (otherWaveHitCooldown.getOrDefault(uuid, 0) > 0) {
-			return false;
-		}
-		otherWaveHitCooldown.put(uuid, WAVE_ADD_TICK);
-		return true;
+		return JojoModLivingVariables.get(target).tryHurtFromSendoOverdrive(this, WAVE_ADD_TICK);
 	}
 
 	private boolean dealHamonDamage(LivingEntity target) {

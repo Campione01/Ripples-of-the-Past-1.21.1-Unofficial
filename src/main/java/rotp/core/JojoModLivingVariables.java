@@ -7,6 +7,7 @@ import rotp.core.entityattachment.SynchronizablePlayerData;
 import rotp.core.entityattachment.TickingEntityData;
 import rotp.core.core.JojoMod;
 import rotp.core.init.ModDataAttachmentTypes;
+import rotp.core.impl.powers.hamon.entity.HamonSendoOverdriveEntity;
 import rotp.core.network.s2c.TrDyingBodyTimerPacket;
 import rotp.core.subsystems.timestop.TimeStopState;
 
@@ -45,6 +46,8 @@ public class JojoModLivingVariables implements INBTSerializable<CompoundTag>, Ti
 	public boolean foundAnArrow;
 	public int findMoreArrowsTimer = -1;
 	public int knivesThrewTicks;
+	@Nullable private HamonSendoOverdriveEntity hurtFromSendoOverdrive;
+	private int sendoOverdriveWaveTicks;
 	
 	public JojoModLivingVariables(LivingEntity entity) {
 		this.entity = entity;
@@ -60,11 +63,23 @@ public class JojoModLivingVariables implements INBTSerializable<CompoundTag>, Ti
 		if (TimeStopState.shouldFreezeOnServer(entity)) {
 			return;
 		}
+		if (!entity.level().isClientSide() && sendoOverdriveWaveTicks > 0 && --sendoOverdriveWaveTicks == 0) {
+			hurtFromSendoOverdrive = null;
+		}
 		bleedingParticlesPos = null;
 		if (knivesThrewTicks > 0) {
 			knivesThrewTicks--;
 		}
 		tickDyingBody();
+	}
+
+	public boolean tryHurtFromSendoOverdrive(HamonSendoOverdriveEntity overdrive, int otherWavesImmuneTicks) {
+		boolean canBeHurt = hurtFromSendoOverdrive == null || hurtFromSendoOverdrive == overdrive;
+		if (canBeHurt) {
+			hurtFromSendoOverdrive = overdrive;
+			sendoOverdriveWaveTicks = otherWavesImmuneTicks;
+		}
+		return canBeHurt;
 	}
 
 	public boolean isDyingBody() {
