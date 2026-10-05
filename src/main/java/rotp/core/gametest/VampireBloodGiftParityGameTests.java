@@ -85,7 +85,8 @@ public final class VampireBloodGiftParityGameTests {
     }
 
     private enum Scenario {
-        SURFACE(2.4D, 350.0F), NEAR(1.5D, 350.0F), UNDERFUNDED(1.5D, 50.0F), OCCLUDED(1.8D, 350.0F);
+        SURFACE(2.4D, 350.0F), NEAR(1.5D, 350.0F), UNDERFUNDED(1.5D, 50.0F), OCCLUDED(1.8D, 350.0F),
+        RELEASE_59(1.5D, 350.0F), COMMIT_60(1.5D, 350.0F);
         final double separation;
         final float initialBlood;
         Scenario(double separation, float initialBlood) {
@@ -94,7 +95,17 @@ public final class VampireBloodGiftParityGameTests {
         }
     }
 
-    private enum Stage { HUMAN_READY, GRANT_SETTLE, ACTIVE, REJECTED }
+    @GameTest(template = "empty", skyAccess = true, batch = "vampire_gift_release59", timeoutTicks = 200)
+    public static void releaseAfter59NaturalWindupTicksDoesNotConvert(GameTestHelper helper) {
+        start(helper, Scenario.RELEASE_59);
+    }
+
+    @GameTest(template = "empty", skyAccess = true, batch = "vampire_gift_commit60", timeoutTicks = 200)
+    public static void giftCommitsOn60thNaturalWindupTickBeforeRelease(GameTestHelper helper) {
+        start(helper, Scenario.COMMIT_60);
+    }
+
+    private enum Stage { HUMAN_READY, GRANT_SETTLE, ACTIVE, REJECTED, BOUNDARY_SETTLE }
 
     private record Geometry(double originDistance, double donorDistance, Vec3 eye, AABB recipientBox,
             Vec3 lookHit, boolean visible, boolean clearLookRay) {}
@@ -173,6 +184,9 @@ public final class VampireBloodGiftParityGameTests {
         private boolean pressed;
         private boolean wallPlaced;
         private boolean closed;
+        private int boundaryWindupPosts;
+        private int boundarySettlePosts;
+        private long boundaryInputGeneration;
 
         Fixture(GameTestHelper helper, Scenario scenario) {
             this.helper = helper;
@@ -318,6 +332,10 @@ public final class VampireBloodGiftParityGameTests {
                         + " residual=" + residual + " payments=" + payments + " HP=" + before.giverHealth + "->" + after.giverHealth
                         + " recipient=" + before.recipientType + "/" + before.recipientHealth + "->" + after.recipientType + "/" + after.recipientHealth);
                 before = null;
+                if (isBoundaryCase()) {
+                    observeBoundary(sample);
+                    return;
+                }
                 if (sample.stage == Stage.ACTIVE && sample.blocked) {
                     oracle(sample.after.recipientType == null && sample.measuredPayments == 0,
                             "occluded recipient caused continued Gift payment/conversion; surface=" + sample.before.geometry.donorDistance);
@@ -467,6 +485,12 @@ public final class VampireBloodGiftParityGameTests {
                             && gift.ability == ability && gift == LivingComponentAction.getCurEntityAction(giver),
                     "registered Gift HOLD did not install its concrete action");
             action = (EntityActionInstance) input.action;
+            if (isBoundaryCase()) {
+                boundaryInputGeneration = input.generation;
+                premise(boundaryInputGeneration > 0 && action.getPhaseTick() == 0.0F
+                                && AbilityInput.isHeldByKey(giver, action),
+                        "boundary entry lacks actual zero-skip held generation");
+            }
             Snapshot entryAfter = snapshot();
             premise(entryAfter.phase == ActionPhase.WINDUP && action.getCurPhaseLength() == 60.0F
                             && entryAfter.recipientType == null && entryAfter.giverHealth == 20.0F,
@@ -485,6 +509,71 @@ public final class VampireBloodGiftParityGameTests {
             premise(false, "unclassified resource measurement " + interval + " residual=" + residual
                     + "; do not infer a charge-count regression from unknown debit");
             return -1;
+        }
+
+        private boolean isBoundaryCase() {
+            return scenario == Scenario.RELEASE_59 || scenario == Scenario.COMMIT_60;
+        }
+
+        private void observeBoundary(TickSample sample) {
+            if (sample.stage == Stage.ACTIVE) {
+                int counter = boundaryWindupPosts++;
+                int limit = scenario == Scenario.RELEASE_59 ? 59 : 60;
+                oracle(counter < limit && sample.before.actionInstalled && sample.before.phase == ActionPhase.WINDUP
+                                && sample.before.phaseTick == counter && !sample.blocked,
+                        "boundary lost ordered owned WINDUP counter=" + counter + " sample=" + sample);
+                int expectedPayment = counter < 59 ? 1 : 0;
+                oracle(sample.measuredPayments == expectedPayment
+                                && Math.abs(sample.residualDebit - expectedPayment * 5.0D) <= EPS,
+                        "boundary payment placement differs at counter=" + counter);
+                if (boundaryWindupPosts < limit || scenario == Scenario.RELEASE_59) {
+                    oracle(sample.after.recipientType == null && sample.after.recipientHealth == 6.0F
+                                    && sample.after.giverHealth == 20.0F && donations.isEmpty()
+                                    && sample.after.phase == ActionPhase.WINDUP
+                                    && sample.after.phaseTick == boundaryWindupPosts && sample.after.actionInstalled,
+                            "Gift converted, donated or ended before completion boundary=" + boundaryWindupPosts);
+                }
+                if (boundaryWindupPosts == limit) {
+                    log("boundary reached=" + limit + " generation=" + boundaryInputGeneration
+                            + " donations=" + donations.size() + " snapshot=" + sample.after);
+                    if (scenario == Scenario.COMMIT_60) {
+                        oracle(recipientPower.getPowerType() == ModPlayerPowers.VAMPIRISM.get()
+                                        && sample.after.recipientWeak && sample.after.recipientHealth > 6.0F
+                                        && sample.after.giverHealth == 10.0F && donations.size() == 1
+                                        && donations.get(0).applied != null && donations.get(0).applied == 10.0F,
+                                "60th qualified WINDUP Post has no same-tick conversion/donation; " + sample.after);
+                    }
+                    float bloodBeforeRelease = blood();
+                    int donationsBeforeRelease = donations.size();
+                    long releasedGeneration = AbilityInput.keyReleaseAndGetGeneration(KEY, giver);
+                    oracle(releasedGeneration == boundaryInputGeneration && !AbilityInput.isHeldByKey(giver, action)
+                                    && action.isOver() && blood() == bloodBeforeRelease
+                                    && donations.size() == donationsBeforeRelease
+                                    && giver.getHealth() == sample.after.giverHealth
+                                    && recipient.getHealth() == sample.after.recipientHealth
+                                    && recipientPower.getPowerType() == (scenario == Scenario.COMMIT_60
+                                            ? ModPlayerPowers.VAMPIRISM.get() : null),
+                            "boundary release changed result/resources or released the wrong generation");
+                    stage = Stage.BOUNDARY_SETTLE;
+                    log("boundary released=" + releasedGeneration + " settleRequired=2");
+                }
+            }
+            else if (sample.stage == Stage.BOUNDARY_SETTLE) {
+                oracle(sample.measuredPayments == 0 && Math.abs(sample.residualDebit) <= EPS
+                                && action.isOver() && !sample.after.actionInstalled && sample.after.phase == null
+                                && !AbilityInput.isHeldByKey(giver, action),
+                        "released boundary produced another Gift debit/action during settling");
+                if (scenario == Scenario.RELEASE_59) {
+                    oracle(sample.after.recipientType == null && sample.after.recipientHealth == 6.0F
+                                    && sample.after.giverHealth == 20.0F && donations.isEmpty(),
+                            "release59 converted or donated during settling");
+                }
+                else oracle(recipientPower.getPowerType() == ModPlayerPowers.VAMPIRISM.get()
+                                && sample.after.recipientWeak && sample.after.giverHealth == 10.0F
+                                && donations.size() == 1,
+                        "commit60 release lost or repeated the result during settling");
+                boundarySettlePosts++;
+            }
         }
 
         private void insertOwnedStone() {
@@ -556,7 +645,7 @@ public final class VampireBloodGiftParityGameTests {
                         oracle(false, "qualified funded Gift ended without conversion; lastSample=" + lastSample());
                     }
                 }
-                if (terminalSamples >= 3) {
+                if (isBoundaryCase() ? boundarySettlePosts >= 2 : terminalSamples >= 3) {
                     validateOutcome();
                     close();
                     helper.succeed();
@@ -580,7 +669,7 @@ public final class VampireBloodGiftParityGameTests {
             Snapshot last = lastSample().after;
             premise(last.giverAge > initial.giverAge && last.recipientAge > initial.recipientAge,
                     "ledger lacks natural age progress for both owned actors");
-            if (scenario == Scenario.UNDERFUNDED || scenario == Scenario.OCCLUDED) {
+            if (scenario == Scenario.UNDERFUNDED || scenario == Scenario.OCCLUDED || scenario == Scenario.RELEASE_59) {
                 oracle(recipientPower.getPowerType() == null && recipient.getHealth() == 6.0F
                                 && giver.getHealth() == 20.0F && donations.isEmpty()
                                 && LivingComponentAction.getCurEntityAction(giver) == null,
@@ -607,6 +696,15 @@ public final class VampireBloodGiftParityGameTests {
             double corrected = ledger.stream().filter(sample -> sample.stage != Stage.GRANT_SETTLE)
                     .mapToDouble(TickSample::residualDebit).sum();
             if (scenario == Scenario.NEAR) validateNearPaymentTimeline(corrected + entryDebit);
+            if (isBoundaryCase()) {
+                oracle(boundaryWindupPosts == (scenario == Scenario.RELEASE_59 ? 59 : 60)
+                                && boundarySettlePosts == 2 && entryPayments == 0 && entryDebit == 0.0D
+                                && naturalPaymentCount == 59 && Math.abs(corrected + entryDebit - 295.0D) <= EPS,
+                        "boundary ledger lacks exact observed posts, zero entry or nominal295");
+                if (scenario == Scenario.COMMIT_60) validateNearPaymentTimeline(corrected + entryDebit);
+                log("BOUNDARY_VERIFIED windupPosts=" + boundaryWindupPosts + " settlePosts=" + boundarySettlePosts
+                        + " generation=" + boundaryInputGeneration + " donations=" + donations.size());
+            }
             log("RESULT qualifiedOutcome=true measuredNaturalPayments=" + naturalPaymentCount + " measuredEntryPayments=" + entryPayments
                     + " measuredNominalGiftDebit=" + (corrected + entryDebit) + " passiveControl=" + controlDebits
                     + " charge59vs60=" + (scenario == Scenario.NEAR ? "NEAR_TIMELINE_VERIFIED" : "MEASUREMENT_ONLY") + " actualFirstCounter="

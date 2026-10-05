@@ -128,6 +128,13 @@ public class VampirismBloodGiftAbility extends VampirismActionAbility {
 					|| getPhaseTick() < HOLD_TO_FIRE_TICKS - 1 && !consumeBlood(user, HOLD_BLOOD_COST_PER_TICK)) {
 				forceStop();
 				syncPhaseChanges();
+				return;
+			}
+			if (getPhaseTick() + 1 >= HOLD_TO_FIRE_TICKS) {
+				float partialTick = Mth.clamp(Mth.frac(getPhaseTick()), 0.0F, 0.9999F);
+				setPhaseStart(ActionPhase.PERFORM);
+				setPartialTick(partialTick);
+				syncPhaseChanges();
 			}
 		}
 
