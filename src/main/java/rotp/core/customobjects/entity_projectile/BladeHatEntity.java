@@ -213,7 +213,7 @@ public class BladeHatEntity extends AbstractArrow implements IEntityWithComplexS
 
 	@Override
 	public void playerTouch(Player player) {
-		if (!level().isClientSide() && player.is(getOwner()) && leftOwner && tryPickup(player)) {
+		if (!level().isClientSide() && (getOwner() == null || player.is(getOwner())) && leftOwner && tryPickup(player)) {
 			player.take(this, 1);
 			discard();
 			return;
