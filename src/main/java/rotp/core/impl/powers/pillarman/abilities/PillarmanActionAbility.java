@@ -4,7 +4,7 @@ import java.util.function.Function;
 
 import rotp.core.client.ClientProxy;
 import rotp.core.client.particle.CustomParticlesHelper;
-import rotp.core.init.ModParticles;
+import rotp.core.network.s2c.TrPillarmanParticlesPacket;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.PowerData;
 import rotp.core.powersystem.ability.AbilityId;
@@ -187,11 +187,8 @@ abstract class PillarmanActionAbility extends EntityActionAbility {
 	}
 
 	protected static void sparkEffect(Entity target, int count) {
-		if (target.level() instanceof ServerLevel level) {
-			double width = Math.max(target.getBbWidth() * 0.25D, 0.1D);
-			double height = Math.max(target.getBbHeight() * 0.25D, 0.1D);
-			level.sendParticles(ModParticles.LIGHT_SPARK.get(), target.getX(), target.getY(0.5D), target.getZ(),
-					count, width, height, width, 0.05D);
+		if (target.level() instanceof ServerLevel) {
+			TrPillarmanParticlesPacket.send(target, new TrPillarmanParticlesPacket(target.getId(), count));
 		}
 	}
 

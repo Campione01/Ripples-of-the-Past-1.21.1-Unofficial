@@ -54,6 +54,7 @@ import rotp.core.network.s2c.TrAimTargetPacket;
 import rotp.core.network.s2c.TrBarrageHitSoundPacket;
 import rotp.core.network.s2c.TrEntitySpecialEffectPacket;
 import rotp.core.network.s2c.TrHamonParticlesPacket;
+import rotp.core.network.s2c.TrPillarmanParticlesPacket;
 import rotp.core.network.s2c.TrAfkMenacingParticlePacket;
 import rotp.core.network.s2c.TrDirectEntityDataPacket;
 import rotp.core.network.s2c.TrDirectEntityPosPacket;
@@ -241,6 +242,7 @@ public class PacketsRegister {
 		registerPacket(registrar, PayloadRegistrar::playToClient, new TrBarrageHitSoundPacket.Handler(JojoMod.resLoc("barragehitsound")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new TrEntitySpecialEffectPacket.Handler(JojoMod.resLoc("trspecialeffect")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new TrHamonParticlesPacket.Handler(JojoMod.resLoc("trhamonparticles")));
+		registerPacket(registrar, PayloadRegistrar::playToClient, new TrPillarmanParticlesPacket.Handler(JojoMod.resLoc("trpillarmanparticles")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new TrAfkMenacingParticlePacket.Handler(JojoMod.resLoc("trafkmenacing")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new RPSGameStatePacket.Handler(JojoMod.resLoc("rps_game_state")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new RPSOpponentPickThoughtsPacket.Handler(JojoMod.resLoc("rps_opponent_pick_thoughts")));
