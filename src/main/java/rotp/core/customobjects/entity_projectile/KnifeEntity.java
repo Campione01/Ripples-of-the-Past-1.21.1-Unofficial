@@ -170,7 +170,7 @@ public class KnifeEntity extends AbstractArrow {
 		Entity target = result.getEntity();
 		Entity shooter = getOwner();
 		DamageSource damageSource = damageSources().arrow(this, shooter != null ? shooter : this);
-		int damage = Mth.ceil(Mth.clamp(getDeltaMovement().length() * getBaseDamage(), 0.0D, 2.147483647E9D));
+		float damage = (float) Mth.clamp(getDeltaMovement().length() * getBaseDamage(), 0.0D, 2.147483647E9D);
 		int prevTargetFireTicks = target.getRemainingFireTicks();
 		// 1.16: a burning knife sets the target on fire, Endermen excepted
 		boolean dodge = target.getType() == EntityType.ENDERMAN;

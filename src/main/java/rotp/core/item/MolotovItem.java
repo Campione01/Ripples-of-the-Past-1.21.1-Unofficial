@@ -32,6 +32,7 @@ import net.minecraft.world.level.block.TorchBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.phys.Vec3;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.core.BlockPos;
 import net.minecraft.stats.Stats;
@@ -78,6 +79,20 @@ public class MolotovItem extends Item implements ProjectileItem {
 		ItemStack projectileStack = stack.copy();
 		projectileStack.setCount(1);
 		return new MolotovEntity(level, pos.x(), pos.y(), pos.z(), projectileStack);
+	}
+
+	@Override
+	public DispenseConfig createDispenseConfig() {
+		return DispenseConfig.builder()
+				.positionFunction((source, direction) -> DispenserBlock.getDispensePosition(source, 0.7D, Vec3.ZERO))
+				.power(1.1F * 1.25F)
+				.uncertainty(6.0F * 0.5F)
+				.build();
+	}
+
+	@Override
+	public void shoot(Projectile projectile, double x, double y, double z, float velocity, float inaccuracy) {
+		projectile.shoot(x, (float) y + 0.1F, z, velocity, inaccuracy);
 	}
 
 	public static boolean useFire(Player player, Level level) {

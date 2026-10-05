@@ -30,9 +30,11 @@ import net.minecraft.world.item.component.ItemAttributeModifiers;
 import net.minecraft.world.item.component.Tool;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.entity.projectile.AbstractArrow;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.DispenserBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.ItemAbilities;
 import net.neoforged.neoforge.common.ItemAbility;
 
@@ -95,7 +97,21 @@ public class KnifeItem extends Item implements ProjectileItem {
 	public Projectile asProjectile(Level level, Position pos, ItemStack stack, Direction direction) {
 		ItemStack projectileStack = stack.copy();
 		projectileStack.setCount(1);
-		return new KnifeEntity(level, pos.x(), pos.y(), pos.z(), projectileStack);
+		KnifeEntity knife = new KnifeEntity(level, pos.x(), pos.y(), pos.z(), projectileStack);
+		knife.pickup = AbstractArrow.Pickup.ALLOWED;
+		return knife;
+	}
+
+	@Override
+	public DispenseConfig createDispenseConfig() {
+		return DispenseConfig.builder()
+				.positionFunction((source, direction) -> DispenserBlock.getDispensePosition(source, 0.7D, Vec3.ZERO))
+				.build();
+	}
+
+	@Override
+	public void shoot(Projectile projectile, double x, double y, double z, float velocity, float inaccuracy) {
+		projectile.shoot(x, (float) y + 0.1F, z, velocity, inaccuracy);
 	}
 
 	@Override

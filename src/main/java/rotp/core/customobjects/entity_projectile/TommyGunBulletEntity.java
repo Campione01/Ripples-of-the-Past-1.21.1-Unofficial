@@ -47,11 +47,6 @@ public class TommyGunBulletEntity extends ModdedProjectileEntity {
 	}
 
 	@Override
-	protected boolean constVelocity() {
-		return false;
-	}
-
-	@Override
 	public int ticksLifespan() {
 		return 40;
 	}
