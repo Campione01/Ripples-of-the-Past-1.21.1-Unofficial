@@ -27,6 +27,7 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.AbstractArrow;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.item.ItemStack;
@@ -52,6 +53,9 @@ public class KnifeEntity extends AbstractArrow {
 	public KnifeEntity(Level level, LivingEntity owner, ItemStack pickupItemStack) {
 		super(ModEntityTypes.KNIFE.get(), owner.getX(), owner.getEyeY() - 0.1F, owner.getZ(), level, pickupItemStack, null);
 		setOwner(owner);
+		if (owner instanceof Player player && player.getAbilities().instabuild) {
+			pickup = AbstractArrow.Pickup.CREATIVE_ONLY;
+		}
 	}
 
 	public KnifeEntity(Level level, double x, double y, double z, ItemStack pickupItemStack) {

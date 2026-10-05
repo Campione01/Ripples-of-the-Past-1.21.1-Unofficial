@@ -38,6 +38,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipPositioner;
 import net.minecraft.client.gui.screens.inventory.tooltip.DefaultTooltipPositioner;
@@ -55,6 +56,60 @@ public class AbilitySelectionWheel extends Screen implements ScreenLetsUseWASD {
 				Mth.clamp(pos.x(), TOOLTIP_MARGIN, Math.max(TOOLTIP_MARGIN, screenWidth - tooltipWidth - TOOLTIP_MARGIN)),
 				Mth.clamp(pos.y(), TOOLTIP_MARGIN, Math.max(TOOLTIP_MARGIN, screenHeight - tooltipHeight - TOOLTIP_MARGIN)));
 	};
+
+	private static Vector2ic positionTooltip(int screenWidth, int screenHeight,
+			int mouseX, int mouseY, int tooltipWidth, int tooltipHeight,
+			List<ScreenRectangle> occupied) {
+		Vector2ic preferred = TOOLTIP_POSITIONER.positionTooltip(
+				screenWidth, screenHeight, mouseX, mouseY, tooltipWidth, tooltipHeight);
+		if (tooltipFits(preferred.x(), preferred.y(), tooltipWidth, tooltipHeight,
+				screenWidth, screenHeight, occupied)) {
+			return preferred;
+		}
+		int maxX = screenWidth - tooltipWidth - TOOLTIP_MARGIN;
+		int maxY = screenHeight - tooltipHeight - TOOLTIP_MARGIN;
+		if (maxX < TOOLTIP_MARGIN || maxY < TOOLTIP_MARGIN) return preferred;
+
+		List<Integer> xs = new ArrayList<>(List.of(preferred.x(), TOOLTIP_MARGIN, maxX));
+		List<Integer> ys = new ArrayList<>(List.of(preferred.y(), TOOLTIP_MARGIN, maxY));
+		// A nearest clear position lies at the preferred coordinate or a label edge.
+		for (ScreenRectangle bounds : occupied) {
+			xs.add(bounds.left() - tooltipWidth - TOOLTIP_MARGIN);
+			xs.add(bounds.right() + TOOLTIP_MARGIN);
+			ys.add(bounds.top() - tooltipHeight - TOOLTIP_MARGIN);
+			ys.add(bounds.bottom() + TOOLTIP_MARGIN);
+		}
+		Vector2ic best = preferred;
+		long bestDistance = Long.MAX_VALUE;
+		for (int x : xs) {
+			if (x < TOOLTIP_MARGIN || x > maxX) continue;
+			for (int y : ys) {
+				if (y < TOOLTIP_MARGIN || y > maxY
+						|| !tooltipFits(x, y, tooltipWidth, tooltipHeight,
+								screenWidth, screenHeight, occupied)) continue;
+				long dx = (long) x - preferred.x();
+				long dy = (long) y - preferred.y();
+				long distance = dx * dx + dy * dy;
+				if (distance < bestDistance) {
+					best = new Vector2i(x, y);
+					bestDistance = distance;
+				}
+			}
+		}
+		// No clear placement: keep the full tooltip and labels at the legacy position.
+		return best;
+	}
+
+	private static boolean tooltipFits(int x, int y, int tooltipWidth, int tooltipHeight,
+			int screenWidth, int screenHeight, List<ScreenRectangle> occupied) {
+		// Vanilla's three-pixel padding plus its one-pixel outer edge.
+		ScreenRectangle tooltip = new ScreenRectangle(x - TOOLTIP_MARGIN, y - TOOLTIP_MARGIN,
+				tooltipWidth + TOOLTIP_MARGIN * 2, tooltipHeight + TOOLTIP_MARGIN * 2);
+		return tooltip.left() >= 0 && tooltip.top() >= 0
+				&& tooltip.right() <= screenWidth && tooltip.bottom() <= screenHeight
+				&& occupied.stream().noneMatch(tooltip::overlaps);
+	}
+
 	protected ResourceLocation texture;
 	public ClientControlScheme.Hotbar abilities;
 	protected StandSkin standSkin;
@@ -152,6 +207,7 @@ public class AbilitySelectionWheel extends Screen implements ScreenLetsUseWASD {
 		}
 		
 		AbilityIconSprites abilityIconSprites = StandSkinsLoader.getInstance().abilityIcons;
+		List<ScreenRectangle> tooltipObstacles = new ArrayList<>();
 		for (int i = 0; i < n; i++) {
 			HotbarSlot slot = abilities.slots.get(i);
 			AbilityConditionCheck ability = slot.showAbility();
@@ -194,6 +250,9 @@ public class AbilitySelectionWheel extends Screen implements ScreenLetsUseWASD {
 				int iconColor = ability.conditionCheck.isPositive() ? BlitFloat.NO_TINT : 0xFF606060;
 				BlitFloat.blit(pose, minecraft, abilitySprite, 
 						iconPos[0] - iconWidth / 2, iconPos[1] - iconHeight / 2, iconWidth, iconHeight, 0, iconColor);
+				tooltipObstacles.add(new ScreenRectangle(
+						iconPos[0] - (int) iconWidth / 2, iconPos[1] - (int) iconHeight / 2,
+						(int) iconWidth, (int) iconHeight));
 			}
 			
 
@@ -201,7 +260,12 @@ public class AbilitySelectionWheel extends Screen implements ScreenLetsUseWASD {
 				int numberKey = HotbarSlot.numberKey(slot.index);
 				if (numberKey != -1) {
 					int[] digitPos = posAtSector(i, n, 90);
-					guiGraphics.drawCenteredString(minecraft.font, String.valueOf(numberKey), 
+					String digit = String.valueOf(numberKey);
+					int digitWidth = minecraft.font.width(digit);
+					tooltipObstacles.add(new ScreenRectangle(
+							digitPos[0] - digitWidth / 2, digitPos[1] - minecraft.font.lineHeight / 2,
+							digitWidth + 1, minecraft.font.lineHeight + 1));
+					guiGraphics.drawCenteredString(minecraft.font, digit,
 							digitPos[0], digitPos[1] - minecraft.font.lineHeight / 2, textColor);
 					RenderSystem.enableBlend();
 					RenderSystem.defaultBlendFunc();
@@ -236,7 +300,11 @@ public class AbilitySelectionWheel extends Screen implements ScreenLetsUseWASD {
 			for (Component name : abilityNames) {
 				tooltipLines.addAll(font.split(name, Math.max(1, this.width - TOOLTIP_MARGIN * 2)));
 			}
-			guiGraphics.renderTooltip(font, tooltipLines, TOOLTIP_POSITIONER, mouseX, mouseY);
+			ClientTooltipPositioner positioner = (viewportWidth, viewportHeight,
+					anchorX, anchorY, tooltipWidth, tooltipHeight) -> positionTooltip(
+							viewportWidth, viewportHeight, anchorX, anchorY,
+							tooltipWidth, tooltipHeight, tooltipObstacles);
+			guiGraphics.renderTooltip(font, tooltipLines, positioner, mouseX, mouseY);
 		}
 	}
 
