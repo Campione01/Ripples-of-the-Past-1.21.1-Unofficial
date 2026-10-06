@@ -14,7 +14,9 @@ import rotp.core.impl.powers.hamon.HamonPowerType;
 import rotp.core.impl.powers.hamon.abilities.HamonAbilityHelpers;
 
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtUtils;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
@@ -27,6 +29,7 @@ import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
@@ -41,6 +44,8 @@ public class ClackersEntity extends ModdedProjectileEntity {
 	private float hamonEnergySpent;
 	private boolean boomerangHit;
 	private boolean clientBlockHit;
+	@Nullable
+	private BlockState lastSupportState;
 	private boolean creativeOnlyPickup;
 	private ItemStack pickupItem = ItemStack.EMPTY;
 
@@ -130,7 +135,17 @@ public class ClackersEntity extends ModdedProjectileEntity {
 	public void tick() {
 		if (isInGround()) {
 			super.tick();
-			setDeltaMovement(Vec3.ZERO);
+			if (!level().isClientSide() && !isRemoved() && isInGround() && !noPhysics
+					&& lastSupportState != level().getBlockState(blockPosition())
+					&& level().noCollision(new AABB(position(), position()).inflate(0.06D))) {
+				entityData.set(IN_GROUND, false);
+				Vec3 movement = getDeltaMovement();
+				setDeltaMovement(movement.multiply((double) (random.nextFloat() * 0.2F),
+						(double) (random.nextFloat() * 0.2F), (double) (random.nextFloat() * 0.2F)));
+			}
+			else {
+				setDeltaMovement(Vec3.ZERO);
+			}
 			return;
 		}
 		super.tick();
@@ -178,6 +193,7 @@ public class ClackersEntity extends ModdedProjectileEntity {
 
 	@Override
 	protected void onHitBlock(BlockHitResult result) {
+		lastSupportState = level().getBlockState(result.getBlockPos());
 		setPos(result.getLocation());
 		setDeltaMovement(Vec3.ZERO);
 		if (!level().isClientSide()) {
@@ -328,6 +344,9 @@ public class ClackersEntity extends ModdedProjectileEntity {
 		nbt.putFloat("HamonSpent", hamonEnergySpent);
 		nbt.putBoolean("BoomerangHit", boomerangHit);
 		nbt.putBoolean("InGround", isInGround());
+		if (lastSupportState != null) {
+			nbt.put("inBlockState", NbtUtils.writeBlockState(lastSupportState));
+		}
 		nbt.putBoolean("CreativeOnlyPickup", creativeOnlyPickup);
 		if (!pickupItem.isEmpty()) {
 			nbt.put("PickupItem", pickupItem.save(registryAccess()));
@@ -341,6 +360,9 @@ public class ClackersEntity extends ModdedProjectileEntity {
 		hamonEnergySpent = nbt.getFloat("HamonSpent");
 		boomerangHit = nbt.getBoolean("BoomerangHit");
 		entityData.set(IN_GROUND, nbt.getBoolean("InGround"));
+		lastSupportState = nbt.contains("inBlockState", 10)
+				? NbtUtils.readBlockState(level().holderLookup(Registries.BLOCK), nbt.getCompound("inBlockState"))
+				: null;
 		creativeOnlyPickup = nbt.getBoolean("CreativeOnlyPickup");
 		if (nbt.contains("PickupItem")) {
 			pickupItem = ItemStack.parseOptional(registryAccess(), nbt.getCompound("PickupItem"));
