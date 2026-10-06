@@ -313,7 +313,7 @@ public class HungryZombieEntity extends Zombie {
 		@Override
 		public boolean canUse() {
 			LivingEntity owner = zombie.getOwner();
-			if (owner == null || zombie.distanceToSqr(owner) < startDistance * startDistance) {
+			if (owner == null || owner.isSpectator() || zombie.distanceToSqr(owner) < startDistance * startDistance) {
 				return false;
 			}
 			this.owner = owner;
@@ -347,7 +347,9 @@ public class HungryZombieEntity extends Zombie {
 			zombie.getLookControl().setLookAt(owner, 10.0F, zombie.getMaxHeadXRot());
 			if (--timeToRecalcPath <= 0) {
 				timeToRecalcPath = adjustedTickDelay(10);
-				navigation.moveTo(owner, speed);
+				if (!zombie.isLeashed() && !zombie.isPassenger() && !zombie.farFromOwner(12.0D)) {
+					navigation.moveTo(owner, speed);
+				}
 			}
 		}
 	}
@@ -367,7 +369,7 @@ public class HungryZombieEntity extends Zombie {
 		@Override
 		public boolean canUse() {
 			LivingEntity owner = zombie.getOwner();
-			if (owner == null) {
+			if (owner == null || zombie.farFromOwner(12.0D)) {
 				return false;
 			}
 			ownerLastHurtBy = owner.getLastHurtByMob();
@@ -404,7 +406,7 @@ public class HungryZombieEntity extends Zombie {
 		@Override
 		public boolean canUse() {
 			LivingEntity owner = zombie.getOwner();
-			if (owner == null) {
+			if (owner == null || zombie.farFromOwner(12.0D)) {
 				return false;
 			}
 			ownerLastHurt = owner.getLastHurtMob();

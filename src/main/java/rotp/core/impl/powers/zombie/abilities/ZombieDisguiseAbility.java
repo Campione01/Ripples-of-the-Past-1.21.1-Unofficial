@@ -47,7 +47,11 @@ public class ZombieDisguiseAbility extends ZombieActionAbility {
 		}
 
 		@Override
-		public void actionPerformStart() {
+		public void onSetPhase(ActionPhase newPhase) {
+			// Lifecycle rebinding replays the current phase; only a real phase edge toggles.
+			if (newPhase != ActionPhase.PERFORM || getPhase() == ActionPhase.PERFORM) {
+				return;
+			}
 			LivingEntity user = getPowerUser();
 			if (user == null || level().isClientSide()) {
 				return;
