@@ -297,6 +297,11 @@ public class ClackersEntity extends ModdedProjectileEntity {
 	}
 
 	@Override
+	protected boolean shouldExpire(@Nullable Entity owner) {
+		return creativeOnlyPickup && super.shouldExpire(owner);
+	}
+
+	@Override
 	public int ticksLifespan() {
 		return 1200;
 	}
