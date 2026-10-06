@@ -192,6 +192,14 @@ public class LeavesGliderEntity extends Entity implements IEntityWithComplexSpaw
 		if (isFlying() && isControlledByLocalInstance()) {
 			updateRotationDelta();
 			setYRot(getYRot() + yRotDelta);
+			if (level().isClientSide() && isVehicle()) {
+				for (Entity passenger : getPassengers()) {
+					passenger.setYRot(passenger.getYRot() + yRotDelta);
+					if (passenger instanceof LivingEntity living) {
+						living.yBodyRot += yRotDelta;
+					}
+				}
+			}
 			setXRot(0.0F);
 
 			Vec3 horizontal = getDeltaMovement().multiply(1.0D, 0.0D, 1.0D);
