@@ -20,6 +20,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.DifficultyInstance;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
@@ -411,8 +412,10 @@ public class HungryZombieEntity extends Zombie {
 			}
 			ownerLastHurt = owner.getLastHurtMob();
 			int ownerTimestamp = owner.getLastHurtMobTimestamp();
+			DamageSource victimSource = ownerLastHurt != null ? ownerLastHurt.getLastDamageSource() : null;
 			return ownerTimestamp != timestamp
 					&& ownerLastHurt != null
+					&& (victimSource == null || victimSource.getMsgId().startsWith("bloodDrain"))
 					&& canAttack(ownerLastHurt, TargetingConditions.DEFAULT)
 					&& zombie.wantsToAttack(ownerLastHurt, owner);
 		}

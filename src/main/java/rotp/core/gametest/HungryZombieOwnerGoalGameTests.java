@@ -21,9 +21,9 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.ExperienceOrb;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.ai.goal.WrappedGoal;
@@ -39,11 +39,15 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDropsEvent;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import net.neoforged.neoforge.event.tick.EntityTickEvent;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
@@ -51,8 +55,10 @@ import rotp.core.core.JojoMod;
 import rotp.core.impl.powers.vampirism.VampirismData;
 import rotp.core.impl.powers.vampirism.VampirismPowerType;
 import rotp.core.impl.powers.vampirism.VampirismState;
+import rotp.core.impl.powers.vampirism.abilities.VampirismBloodDrainAbility;
 import rotp.core.impl.powers.vampirism.abilities.VampirismZombieSummonAbility;
 import rotp.core.impl.powers.vampirism.entity.HungryZombieEntity;
+import rotp.core.init.ModDamageTypes;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModEntityTypes;
 import rotp.core.init.power.ModPlayerPowers;
@@ -63,6 +69,7 @@ import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.ability.input.AbilityInput;
 import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
 import rotp.core.powersystem.entityaction.ActionPhase;
+import rotp.core.powersystem.entityaction.EntityActionInputState.HeldInputEntry;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.playerpower.PlayerPower;
@@ -96,7 +103,7 @@ public final class HungryZombieOwnerGoalGameTests {
     }
 
     private static final class Fixture implements AutoCloseable, GameTestListener {
-        private static final short KEY = 61;
+        private static final short KEY = 61, DRAIN_KEY = 62;
         private final GameTestHelper helper;
         private final ServerLevel level;
         private final Lane lane;
@@ -108,6 +115,16 @@ public final class HungryZombieOwnerGoalGameTests {
         private PlayerPower power;
         private Ability summon;
         private EntityActionInstance summonAction;
+        private VampirismBloodDrainAbility drain;
+        private EntityActionInstance drainAction;
+        private HeldInputEntry drainInput;
+        private Cow controlTarget;
+        private DamageSource controlDrainSource;
+        private Float controlDrainApplied;
+        private float controlHealthAfterMelee, controlDrainHealthAfter;
+        private int controlMemoryStamp;
+        private long controlTime, drainGeneration;
+        private boolean controlPending, controlInjected;
         private HungryZombieEntity zombie;
         private PathNavigation navigation;
         private WrappedGoal follow, attackMove, ownerHurt, ownerAttack;
@@ -176,6 +193,9 @@ public final class HungryZombieOwnerGoalGameTests {
             summon = power.getAbility("vampirism_zombie_summon");
             premise(summon instanceof VampirismZombieSummonAbility
                     && summon.abilityType == VampirismPowerType.VAMPIRE_ZOMBIE_SUMMON.get(), "actual registered summon type");
+            var foundDrain = power.getAbility("vampirism_blood_drain");
+            premise(foundDrain instanceof VampirismBloodDrainAbility && foundDrain.abilityType == VampirismPowerType.VAMPIRE_BLOOD_DRAIN.get(),
+                    "actual registered control Drain type"); drain = (VampirismBloodDrainAbility) foundDrain;
             LivingComponentAction.getComponent(owner).entityAim.setTarget(ActionTarget.EMPTY);
             near = new Vec3(x + 10.5, floorY, z + 10.5);
             far = new Vec3(x + 14.5, floorY, z + 14.5);
@@ -194,35 +214,71 @@ public final class HungryZombieOwnerGoalGameTests {
         private void observeEvents() {
             Consumer<EntityTickEvent.Pre> pre = event -> observe(() -> {
                 if (event.getEntity() == owner || event.getEntity() == zombie) premise(!event.isCanceled(), "owned natural tick canceled");
+                if (event.getEntity() == zombie && controlPending && controlInjected)
+                    premise(false, "fresh zombie tick interleaved before fully returned control source");
             });
             Consumer<EntityTickEvent.Post> opening = event -> observe(() -> {
-                if (event.getEntity() == owner) { premise(!bracket, "nested owner Post"); bracket = true; bracketTime = level.getGameTime(); }
+                if (event.getEntity() == owner) {
+                    premise(!bracket, "nested owner Post"); bracket = true; bracketTime = level.getGameTime();
+                    if (controlPending) {
+                        state(); premise(!controlInjected && controlTarget == cow && !ownerAttack.isRunning() && zombie.getTarget() == null,
+                                "fresh natural target history before allowed-source preparation");
+                        controlInjected = true; controlTime = level.getGameTime();
+                        melee(controlTarget); controlMemoryStamp = owner.getLastHurtMobTimestamp(); controlHealthAfterMelee = controlTarget.getHealth();
+                        pressControlDrain();
+                    }
+                }
             });
-            Consumer<EntityJoinLevelEvent> join = event -> observe(() -> {
-                if (event.getLevel() == level && combatTarget != null
-                        && (event.getEntity() instanceof ItemEntity || event.getEntity() instanceof ExperienceOrb)
-                        && combatTarget.getBoundingBox().inflate(2).contains(event.getEntity().position())) owned.add(event.getEntity());
-                if (event.getLevel() != level || event.getEntity().getType() != ModEntityTypes.HUNGRY_ZOMBIE.get()
-                        || !pressed || !bracket) return;
-                owned.add(event.getEntity());
-                premise(event.getEntity().getClass() == HungryZombieEntity.class && !event.isCanceled(), "unexpected emitted concrete class/join");
-                HungryZombieEntity result = (HungryZombieEntity) event.getEntity(); emitted.add(result);
-                CompoundTag tag = result.saveWithoutId(new CompoundTag());
-                premise(emitted.size() <= expectedCount && result.tickCount == 0 && result.getOwner() == owner
-                        && result.position().distanceTo(owner.position()) < 1E-5
-                        && tag.hasUUID("Owner") && tag.getUUID("Owner").equals(owner.getUUID()) && tag.getBoolean("AbilitySummon")
-                        && summonAction == LivingComponentAction.getCurEntityAction(owner) && summonAction.ability == summon
-                        && summonAction.getPhase() == ActionPhase.PERFORM && summonAction.getPhaseTick() < 1
-                        && level.getGameTime() == bracketTime, "not the real fresh owned PERFORM emission");
-                log("emission uuid=" + result.getUUID() + " owner=" + tag.getUUID("Owner") + " feet=" + result.position());
+            Consumer<EntityJoinLevelEvent> join = event -> {
+                if (closed || event.getLevel() != level) return;
+                if (owner == null || !(event.getEntity() instanceof HungryZombieEntity result) || !result.isEntityOwner(owner)) return;
+                owned.add(result); emitted.add(result);
+                observe(() -> {
+                    premise(event.getEntity().getType() == ModEntityTypes.HUNGRY_ZOMBIE.get() && pressed && bracket,
+                            "unexpected owned emitter/type/window");
+                    premise(event.getEntity().getClass() == HungryZombieEntity.class && !event.isCanceled(), "unexpected emitted concrete class/join");
+                    CompoundTag tag = result.saveWithoutId(new CompoundTag());
+                    premise(emitted.size() <= expectedCount && result.tickCount == 0 && result.getOwner() == owner
+                            && result.position().distanceTo(owner.position()) < 1E-5
+                            && tag.hasUUID("Owner") && tag.getUUID("Owner").equals(owner.getUUID()) && tag.getBoolean("AbilitySummon")
+                            && summonAction == LivingComponentAction.getCurEntityAction(owner) && summonAction.ability == summon
+                            && summonAction.getPhase() == ActionPhase.PERFORM && summonAction.getPhaseTick() < 1
+                            && level.getGameTime() == bracketTime, "not the real fresh owned PERFORM emission");
+                    log("emission uuid=" + result.getUUID() + " owner=" + tag.getUUID("Owner") + " feet=" + result.position());
+                });
+            };
+            Consumer<LivingDropsEvent> drops = event -> {
+                if (!closed && event.getEntity() instanceof Cow && owned.contains(event.getEntity()))
+                    for (ItemEntity drop : event.getDrops()) owned.add(drop);
+            };
+            Consumer<LivingIncomingDamageEvent> incoming = event -> observe(() -> {
+                if (!controlPending || !controlInjected || event.getEntity() != controlTarget || !event.getSource().is(ModDamageTypes.BLOOD_DRAIN)) return;
+                premise(bracket && !event.isCanceled() && event.getSource().getEntity() == owner && event.getSource().getDirectEntity() == owner
+                        && controlDrainSource == null && drainHeld() == drainInput && LivingComponentAction.getCurEntityAction(owner) == drainAction
+                        && drainAction.ability == drain && drainAction.getPhase() == ActionPhase.PERFORM && drainAction.getPhaseTick() < 1
+                        && level.getGameTime() == controlTime, "first actual registered control Drain incoming receipt");
+                controlDrainSource = event.getSource();
+            });
+            Consumer<LivingDamageEvent.Post> damage = event -> observe(() -> {
+                if (!controlPending || event.getEntity() != controlTarget || event.getSource() != controlDrainSource) return;
+                premise(controlDrainApplied == null && event.getNewDamage() > 0F && controlTarget.getHealth() < controlHealthAfterMelee,
+                        "actual control Drain damage/HP receipt");
+                controlDrainApplied = event.getNewDamage(); controlDrainHealthAfter = controlTarget.getHealth();
             });
             Consumer<EntityTickEvent.Post> closing = event -> observe(() -> {
-                if (event.getEntity() == owner) { premise(bracket && bracketTime == level.getGameTime(), "owner Post bracket"); ownerPosts++; bracket = false; }
+                if (event.getEntity() == owner) {
+                    premise(bracket && bracketTime == level.getGameTime(), "owner Post bracket");
+                    if (controlPending && controlInjected) finishControlDrain();
+                    ownerPosts++; bracket = false;
+                }
                 if (event.getEntity() == zombie) zombiePosts++;
             });
             add(pre, EntityTickEvent.Pre.class, EventPriority.LOWEST, true);
             add(opening, EntityTickEvent.Post.class, EventPriority.HIGHEST, false);
             add(join, EntityJoinLevelEvent.class, EventPriority.LOWEST, true);
+            add(drops, LivingDropsEvent.class, EventPriority.LOWEST, true);
+            add(incoming, LivingIncomingDamageEvent.class, EventPriority.LOWEST, true);
+            add(damage, LivingDamageEvent.Post.class, EventPriority.LOWEST, false);
             add(closing, EntityTickEvent.Post.class, EventPriority.LOWEST, false);
         }
 
@@ -274,7 +330,48 @@ public final class HungryZombieOwnerGoalGameTests {
             premise(target.isAlive() && target.getHealth() < health && owner.getLastHurtMob() == target
                     && owner.getLastHurtMobTimestamp() > old, "actual public melee did not produce fresh owner memory");
             log("public-melee target=" + target.getUUID() + " health=" + health + "->" + target.getHealth()
-                    + " ownerTimestamp=" + owner.getLastHurtMobTimestamp() + " C-admission-policy-only=true");
+                    + " ownerTimestamp=" + owner.getLastHurtMobTimestamp() + " genuine-owner-memory-prime=true");
+        }
+        private HeldInputEntry drainHeld() {
+            return owner.getExistingData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT).map(input -> input.heldKeys.get(DRAIN_KEY)).orElse(null);
+        }
+        private void armAllowedTarget(Cow target, Phase next) {
+            premise(!controlPending && drainHeld() == null && LivingComponentAction.getCurEntityAction(owner) == null, "fresh allowed-source control input");
+            controlTarget = target; controlDrainSource = null; controlDrainApplied = null;
+            controlPending = true; controlInjected = false; begin(next);
+        }
+        private void pressControlDrain() {
+            premise(bracket && !owner.isSpectator() && owner.getMainHandItem().isEmpty() && owner.getOffhandItem().isEmpty()
+                    && controlTarget.isAlive() && owner.distanceToSqr(controlTarget) < 4D && owner.hasLineOfSight(controlTarget)
+                    && LivingComponentAction.getCurEntityAction(owner) == null, "physical registered control Drain preparation");
+            Vec3 hit = controlTarget.getBoundingBox().getCenter(); Vec3 direction = hit.subtract(owner.getEyePosition());
+            owner.setYRot((float) -Math.toDegrees(Math.atan2(direction.x, direction.z)));
+            owner.setXRot((float) -Math.toDegrees(Math.atan2(direction.y, direction.horizontalDistance())));
+            owner.setYHeadRot(owner.getYRot()); owner.yBodyRot = owner.getYRot();
+            LivingComponentAction.getComponent(owner).entityAim.setTarget(ActionTarget.fromVanilla(new EntityHitResult(controlTarget, hit)));
+            AvailableAbilities available = new AvailableAbilities(); available.update(power, power.getMoveset());
+            premise(AbilityInput.withConditionCheck(available.getContextVariationContainer(drain), owner, InputMethod.HOLD), "registered control Drain HOLD admission");
+            drainInput = AbilityInput.keyPress(DRAIN_KEY, drain, owner, null, InputMethod.HOLD, 0F, BufferingState.clickOnly(), drain.getAbilityId());
+            premise(drainInput != null && drainInput.action instanceof VampirismBloodDrainAbility.BloodDrainInstance, "actual registered control Drain action");
+            drainAction = (EntityActionInstance) drainInput.action; drainGeneration = drainInput.generation;
+            premise(drainGeneration > 0 && drainHeld() == drainInput && drainAction == LivingComponentAction.getCurEntityAction(owner)
+                    && drainAction.ability == drain && drainAction.getPhase() == ActionPhase.PERFORM && drainAction.getPhaseTick() < 1,
+                    "production-initialized control PERFORM, without phase forcing");
+        }
+        private void finishControlDrain() {
+            premise(controlTarget.isAlive() && controlDrainSource != null && controlDrainApplied != null && controlDrainApplied > 0F
+                    && controlDrainHealthAfter < controlHealthAfterMelee && controlTarget.getLastDamageSource() == controlDrainSource
+                    && controlDrainSource.is(ModDamageTypes.BLOOD_DRAIN) && controlDrainSource.getMsgId().startsWith("bloodDrain")
+                    && controlDrainSource.getEntity() == owner && controlDrainSource.getDirectEntity() == owner
+                    && owner.getLastHurtMob() == controlTarget && owner.getLastHurtMobTimestamp() == controlMemoryStamp
+                    && level.getGameTime() == controlTime && drainHeld() == drainInput
+                    && LivingComponentAction.getCurEntityAction(owner) == drainAction && drainAction.getPhase() == ActionPhase.PERFORM,
+                    "fully returned genuine eligible source before fresh natural target decision");
+            premise(AbilityInput.keyReleaseAndGetGeneration(DRAIN_KEY, owner) == drainGeneration && drainHeld() == null && drainAction.isOver(),
+                    "exact control Drain generation release");
+            log("ALLOWED-SOURCE target=" + controlTarget.getUUID() + " world=" + controlTime + " memory=" + controlMemoryStamp
+                    + " applied=" + controlDrainApplied + " HP=" + controlHealthAfterMelee + "->" + controlDrainHealthAfter);
+            controlPending = false; controlInjected = false;
         }
         private void attachPassenger() {
             boat = EntityType.BOAT.create(level); premise(boat != null, "owned Boat creation"); owned.add(boat);
@@ -321,12 +418,16 @@ public final class HungryZombieOwnerGoalGameTests {
                 state();
                 if (zombie.tickCount == lastAge) { again(); return; }
                 lastAge = zombie.tickCount;
+                if (controlPending) {
+                    premise(helper.getTick() - phaseStart < 45, "finite phase qualification watchdog " + phase);
+                    again(); return;
+                }
                 switch (phase) {
                     case NEAR_PATH -> {
                         premise(nearDistance() && !zombie.farFromOwner(12), "near 10..12 cache/geometry");
                         if (follow.isRunning() && navigation.getPath() != null && owner.blockPosition().equals(navigation.getTargetPos())) {
                             nearReceipt = true; log("NEAR-POSITIVE uuid=" + zombie.getUUID() + " age=" + zombie.tickCount + " posts=" + zombiePosts + " nav=" + navigation.getTargetPos());
-                            if (targetLane()) { cow = makeCow(); melee(cow); begin(Phase.NEAR_TARGET); }
+                            if (targetLane()) { cow = makeCow(); armAllowedTarget(cow, Phase.NEAR_TARGET); }
                             else { moveOwner(zombie.position().add(0.5, 0, 0.5)); begin(Phase.NEAR_STOP); }
                         }
                     }
@@ -339,12 +440,12 @@ public final class HungryZombieOwnerGoalGameTests {
                                 moveOwner(near); begin(Phase.NEGATIVE); break;
                             }
                             if (lane == Lane.PASSENGER) ownerLeadControl();
-                            cow = makeCow(); melee(cow); begin(Phase.NEAR_TARGET);
+                            cow = makeCow(); armAllowedTarget(cow, Phase.NEAR_TARGET);
                         }
                     }
                     case NEAR_TARGET -> {
                         WrappedGoal selected = ownerAttack;
-                        if (selected.isRunning() && attackMove.isRunning() && zombie.getTarget() == cow && !follow.isRunning()) {
+                        if (selected.isRunning() && attackMove.isRunning() && !navigation.isDone() && zombie.getTarget() == cow && !follow.isRunning()) {
                             premise(!targetLane() || zombie.distanceToSqr(owner) <= 144D && !zombie.farFromOwner(12), "owner-event within12 admission control");
                             nearTargetReceipt = true; log("ACTUAL-MOVE-BLOCKER cow=" + cow.getUUID() + " ownerGoal=" + selected.getGoal().getClass().getSimpleName()
                                     + " distSq=" + zombie.distanceToSqr(owner) + " cachedFar=" + zombie.farFromOwner(12));
@@ -379,7 +480,7 @@ public final class HungryZombieOwnerGoalGameTests {
                     case OLD_TARGET_STOP -> {
                         premise(zombie.distanceToSqr(owner) > 144D && zombie.farFromOwner(12), "far cache expired before fresh event");
                         if (zombie.getTarget() == null && !ownerHurt.isRunning() && !ownerAttack.isRunning() && !attackMove.isRunning()) {
-                            cow = makeCow(); melee(cow); begin(Phase.NEGATIVE);
+                            cow = makeCow(); armAllowedTarget(cow, Phase.NEGATIVE);
                         }
                     }
                     case NEGATIVE -> {
@@ -390,6 +491,9 @@ public final class HungryZombieOwnerGoalGameTests {
                         premise(lane != Lane.PASSENGER || zombie.isPassenger() && zombie.getVehicle() == boat && zombie.getNavigation() == navigation, "negative passenger changed");
                         if (targetLane()) {
                             premise(cow.isAlive() && (zombie.getTarget() == null || zombie.getTarget() == cow), "unrelated target admission");
+                            premise(controlTarget == cow && cow.getLastDamageSource() == controlDrainSource && controlDrainSource != null
+                                    && controlDrainSource.is(ModDamageTypes.BLOOD_DRAIN) && controlDrainSource.getMsgId().startsWith("bloodDrain")
+                                    && level.getGameTime() - controlTime < 40, "far oracle lacks fresh eligible victim source");
                             WrappedGoal selected = ownerAttack;
                             log("NEW-TARGET age=" + zombie.tickCount + " cachedFar=true running=" + selected.isRunning() + " target=" + (zombie.getTarget() == null ? "none" : zombie.getTarget().getUUID()));
                             oracle(!selected.isRunning() && zombie.getTarget() != cow, "fresh far owner-event target was admitted");
@@ -430,6 +534,7 @@ public final class HungryZombieOwnerGoalGameTests {
             for (Object listener : listeners) cleanup(() -> NeoForge.EVENT_BUS.unregister(listener), failures);
             listeners.clear();
             cleanup(() -> { if (pressed) AbilityInput.keyRelease(KEY, owner); }, failures);
+            cleanup(() -> { if (owner != null) AbilityInput.keyRelease(DRAIN_KEY, owner); }, failures);
             cleanup(() -> { if (zombie != null) { if (zombie.isLeashed()) zombie.dropLeash(true, false); zombie.stopRiding(); } }, failures);
             cleanup(() -> { if (owner != null && owner.getExistingData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT)
                     .map(input -> !input.heldKeys.isEmpty()).orElse(false)) throw new IllegalStateException("owned held input remains"); }, failures);

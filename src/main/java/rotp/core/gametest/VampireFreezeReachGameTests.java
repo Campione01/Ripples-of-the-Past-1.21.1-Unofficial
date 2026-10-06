@@ -147,6 +147,8 @@ public final class VampireFreezeReachGameTests {
         private RuntimeException observerFailure;
         private int userTicks;
         private int targetTicks;
+        private BlockPos occluderBase;
+        private boolean prepared;
         private boolean pressed;
         private boolean closed;
 
@@ -318,7 +320,8 @@ public final class VampireFreezeReachGameTests {
             }
         }
 
-        private void press() {
+        private void prepareSelection() {
+            helper.assertTrue(!prepared, "Freeze selection was already prepared");
             Vec3 direction = donorAimPoint().subtract(user.getEyePosition());
             user.setYRot((float) Math.toDegrees(Math.atan2(-direction.x, direction.z)));
             user.setXRot((float) -Math.toDegrees(Math.atan2(direction.y, direction.horizontalDistance())));
@@ -329,7 +332,8 @@ public final class VampireFreezeReachGameTests {
             LivingComponentAction.getComponent(user).entityAim.setTarget(ActionTarget.fromVanilla(new EntityHitResult(target, geometry.aimHit)));
             if (scenario.occluded) {
                 // Retain a real visible selection, then obstruct it before the server validates held reach.
-                BlockPos wall = user.blockPosition().south();
+                occluderBase = user.blockPosition().south();
+                BlockPos wall = occluderBase;
                 putBlock(wall, Blocks.GLASS_PANE.defaultBlockState());
                 putBlock(wall.above(), Blocks.GLASS_PANE.defaultBlockState());
                 for (BlockPos pos : List.of(wall, wall.above())) {
@@ -339,6 +343,22 @@ public final class VampireFreezeReachGameTests {
                 }
                 geometry = geometry();
             }
+            requireReach(geometry);
+            prepared = true;
+        }
+
+        private boolean shadeReady() {
+            helper.assertTrue(blocks.size() == (scenario.occluded ? 38 : 36)
+                            && blocks.keySet().stream().allMatch(pos -> level.getBlockState(pos).equals(
+                                    occluderBase != null && (pos.equals(occluderBase) || pos.equals(occluderBase.above()))
+                                            ? Blocks.GLASS_PANE.defaultBlockState() : Blocks.STONE.defaultBlockState())),
+                    "Owned Freeze floor/roof/occluder cells changed before input: " + blocks.size());
+            return !level.canSeeSky(BlockPos.containing(user.getEyePosition()));
+        }
+
+        private void press() {
+            helper.assertTrue(prepared, "Freeze selection is not prepared");
+            Geometry geometry = geometry();
             requireReach(geometry);
             requireEligible();
             helper.assertTrue(Math.abs(geometry.originDistance - scenario.separation) < 1.0E-4D && !target.hasEffect(ModStatusEffects.FREEZE),
@@ -363,8 +383,17 @@ public final class VampireFreezeReachGameTests {
             if (closed) return;
             try {
                 if (observerFailure != null) throw observerFailure;
-                helper.assertTrue(helper.getTick() < 45, "Freeze watchdog ticks=" + userTicks + "/" + targetTicks + " samples=" + samples.size());
-                if (!pressed && userTicks >= 2 && targetTicks >= 2) press();
+                helper.assertTrue(helper.getTick() < 45,
+                        (prepared && !pressed ? "Freeze shade readiness deadline" : "Freeze watchdog")
+                                + " ticks=" + userTicks + "/" + targetTicks + " samples=" + samples.size()
+                                + " sky=" + level.canSeeSky(BlockPos.containing(user.getEyePosition())));
+                if (!pressed && userTicks >= 2 && targetTicks >= 2) {
+                    if (!prepared) prepareSelection();
+                    if (shadeReady()) press();
+                    else log("shade-wait ticks=" + userTicks + "/" + targetTicks + " eye=" + user.getEyePosition()
+                            + " sky=" + level.canSeeSky(BlockPos.containing(user.getEyePosition())) + " ownedBlocks=" + blocks.size()
+                            + " blood=" + blood() + " userFire=" + user.isOnFire() + " targetFire=" + target.isOnFire());
+                }
                 if (samples.size() == 3) {
                     validate();
                     close();

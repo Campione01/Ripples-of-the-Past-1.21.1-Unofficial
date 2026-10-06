@@ -23,6 +23,9 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.gametest.framework.GameTestInfo;
+import net.minecraft.gametest.framework.GameTestListener;
+import net.minecraft.gametest.framework.GameTestRunner;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.entity.EntityType;
@@ -33,6 +36,7 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.PlayLevelSoundEvent;
+import net.neoforged.neoforge.event.tick.EntityTickEvent;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -51,9 +55,14 @@ public final class StandGuardHurtSoundGameTests {
 
 	@GameTest(template = "empty", timeoutTicks = 80)
 	public static void blockedHitMakesNoHurtSound(GameTestHelper helper) {
-		Fixture f = new Fixture(helper);
-		HurtSounds sounds = new HurtSounds(helper, f.user);
+		BlockedHitTick nextTick = new BlockedHitTick(helper);
+		helper.testInfo.addListener(nextTick);
 		try {
+			Fixture f = new Fixture(helper);
+			nextTick.fixture = f;
+			HurtSounds sounds = new HurtSounds(helper, f.user);
+			nextTick.sounds = sounds;
+			sounds.listen();
 			f.holdGuard();
 			float durability = (float) f.stand.getDurability();
 			float before = f.user.getHealth();
@@ -62,27 +71,131 @@ public final class StandGuardHurtSoundGameTests {
 			helper.assertTrue(NoKnockbackOnBlocking.cancelHurtSound(f.user) && !NoKnockbackOnBlocking.cancelHurtSound(f.stand),
 					"The blocked hit must silence the user for a tick, and never the Stand");
 			helper.assertTrue(sounds.count == 0, "1.16 cancelHurtSound: the blocked user cried out " + sounds.count + " time(s)");
+			nextTick.arm();
 		}
-		catch (RuntimeException | AssertionError error) {
-			sounds.close();
-			f.close();
+		catch (RuntimeException | Error error) {
+			nextTick.closeAfterFailure(error);
 			throw error;
 		}
-		// the user's next tick ends it; a hit from behind then cries out as ever
-		helper.runAfterDelay(2, () -> {
+	}
+
+	private static final class BlockedHitTick implements GameTestListener {
+		final GameTestHelper helper;
+		final Consumer<EntityTickEvent.Pre> listener = this::onPre;
+		Fixture fixture;
+		HurtSounds sounds;
+		boolean armed, received, closed;
+		int armedAge = -1, receiptAge = -1, lastPreAge = -1, canceledPres;
+		long armedTime = -1, receiptTime = -1, lastPreTime = -1;
+		Throwable observerFailure;
+
+		BlockedHitTick(GameTestHelper helper) { this.helper = helper; }
+
+		void arm() {
+			armedAge = fixture.user.tickCount;
+			armedTime = helper.getLevel().getGameTime();
+			NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, true, EntityTickEvent.Pre.class, listener);
+			armed = true;
+		}
+
+		void onPre(EntityTickEvent.Pre event) {
+			if (closed || !armed || received || event.getEntity() != fixture.user
+					|| event.getEntity().level() != helper.getLevel()) return;
 			try {
-				helper.assertTrue(!NoKnockbackOnBlocking.hasOneTickKbRes(f.user), "The one-tick resistance outlived the tick");
+				lastPreAge = fixture.user.tickCount;
+				lastPreTime = helper.getLevel().getGameTime();
+				if (event.isCanceled()) { canceledPres++; return; }
+				received = true;
+				receiptAge = lastPreAge;
+				receiptTime = lastPreTime;
+				// NORMAL production cleanup has run; qualify this first tick, never a later one.
+				boolean resistance = NoKnockbackOnBlocking.hasOneTickKbRes(fixture.user);
+				JojoMod.getLogger().info("GUARD-HURT-SOUND first-user-pre {} cleared={}", diagnostics(), !resistance);
+				helper.assertTrue(!resistance,
+						"The one-tick resistance outlived the tick: " + diagnostics());
+			}
+			catch (RuntimeException | Error error) { observerFailure = error; }
+			try { helper.runAfterDelay(0, this::finish); }
+			catch (RuntimeException | Error error) {
+				if (observerFailure != null && observerFailure != error) error.addSuppressed(observerFailure);
+				closeAfterFailure(error);
+				helper.testInfo.fail(error);
+			}
+		}
+
+		void finish() {
+			if (closed) return;
+			try {
+				throwFailure(observerFailure);
+				Fixture f = fixture;
 				f.resetUser();
 				f.face();
 				f.user.hurt(helper.getLevel().damageSources().mobAttack(f.zombieAt(0, -3)), 2);
 				helper.assertTrue(sounds.count == 1, "An unblocked hit must make one hurt sound: " + sounds.count);
+				close();
+				helper.succeed();
 			}
-			finally {
-				sounds.close();
-				f.close();
+			catch (RuntimeException | Error error) {
+				closeAfterFailure(error);
+				helper.testInfo.fail(error);
 			}
-			helper.succeed();
-		});
+		}
+
+		String diagnostics() {
+			return "user=" + (fixture == null ? "uncreated" : fixture.user.getUUID())
+					+ " level=" + helper.getLevel().dimension().location() + " armedAge=" + armedAge
+					+ " armedTime=" + armedTime + " receiptAge=" + receiptAge + " receiptTime=" + receiptTime
+					+ " canceledPres=" + canceledPres + " lastPreAge=" + lastPreAge + " lastPreTime=" + lastPreTime;
+		}
+
+		void close() {
+			if (closed) return;
+			closed = true;
+			Throwable failure = cleanup(null, () -> NeoForge.EVENT_BUS.unregister(listener));
+			if (sounds != null) failure = cleanup(failure, sounds::close);
+			if (fixture != null) failure = cleanup(failure, fixture::close);
+			throwFailure(failure);
+		}
+
+		void closeAfterFailure(Throwable error) {
+			try { close(); }
+			catch (RuntimeException | Error cleanupError) {
+				if (cleanupError != error) error.addSuppressed(cleanupError);
+			}
+		}
+
+		@Override public void testStructureLoaded(GameTestInfo test) {}
+		@Override public void testPassed(GameTestInfo test, GameTestRunner runner) {
+			if (test != helper.testInfo) return;
+			try { close(); } catch (RuntimeException | Error error) { test.fail(error); }
+		}
+		@Override public void testFailed(GameTestInfo test, GameTestRunner runner) {
+			if (test != helper.testInfo) return;
+			JojoMod.getLogger().error("GUARD-HURT-SOUND failure {}", diagnostics());
+			Throwable error = test.getError();
+			if (error != null) closeAfterFailure(error);
+			else try { close(); } catch (RuntimeException | Error cleanupError) { test.fail(cleanupError); }
+		}
+		@Override public void testAddedForRerun(GameTestInfo oldTest, GameTestInfo newTest, GameTestRunner runner) {
+			if (oldTest != helper.testInfo) return;
+			Throwable error = oldTest.getError();
+			if (error != null) closeAfterFailure(error);
+			else try { close(); } catch (RuntimeException | Error cleanupError) { oldTest.fail(cleanupError); }
+		}
+	}
+
+	private static Throwable cleanup(Throwable failure, Runnable operation) {
+		try { operation.run(); }
+		catch (RuntimeException | Error error) {
+			if (failure == null) return error;
+			if (failure != error) failure.addSuppressed(error);
+		}
+		return failure;
+	}
+
+	private static void throwFailure(Throwable error) {
+		if (error instanceof RuntimeException failure) throw failure;
+		if (error instanceof Error failure) throw failure;
 	}
 
 	@GameTest(template = "empty", timeoutTicks = 80)
@@ -138,6 +251,9 @@ public final class StandGuardHurtSoundGameTests {
 					count++;
 				}
 			};
+		}
+
+		void listen() {
 			NeoForge.EVENT_BUS.addListener(EventPriority.HIGHEST, PlayLevelSoundEvent.AtPosition.class, listener);
 		}
 
@@ -153,27 +269,37 @@ public final class StandGuardHurtSoundGameTests {
 		final StandPower power;
 		final StandEntity stand;
 		final Vec3 pos;
+		boolean closed;
 
 		Fixture(GameTestHelper helper) {
 			this.helper = helper;
 			user = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
-			pos = Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(2, 2, 2)));
-			user.moveTo(pos.x, pos.y, pos.z, 0, 0);
-			user.setYHeadRot(0);
-			user.getAbilities().invulnerable = false;
-			helper.assertTrue(helper.getLevel().addFreshEntity(user), "Could not add the Stand user");
-			type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("star_platinum"));
-			helper.assertTrue(type != null, "Missing registered Star Platinum");
-			power = PowerClass.STAND.attachGet(user);
-			helper.assertTrue(StandPowerTransitions.insert(power, new StandInstance(type)).status()
-					== StandPowerTransitions.Status.APPLIED, "Could not grant Star Platinum");
-			helper.assertTrue(type.summon(user, power), "Could not summon Star Platinum");
-			stand = power.getSummonedStandEntity();
-			helper.assertTrue(stand != null, "The summoned Stand is missing");
-			power.setStamina(power.getMaxStamina());
-			LivingComponentAction.getComponent(stand).setAction(null, user, SyncType.NO_SYNC);
-			face();
-			resetUser();
+			try {
+				pos = Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(2, 2, 2)));
+				user.moveTo(pos.x, pos.y, pos.z, 0, 0);
+				user.setYHeadRot(0);
+				user.getAbilities().invulnerable = false;
+				helper.assertTrue(helper.getLevel().addFreshEntity(user), "Could not add the Stand user");
+				type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("star_platinum"));
+				helper.assertTrue(type != null, "Missing registered Star Platinum");
+				power = PowerClass.STAND.attachGet(user);
+				helper.assertTrue(StandPowerTransitions.insert(power, new StandInstance(type)).status()
+						== StandPowerTransitions.Status.APPLIED, "Could not grant Star Platinum");
+				helper.assertTrue(type.summon(user, power), "Could not summon Star Platinum");
+				stand = power.getSummonedStandEntity();
+				helper.assertTrue(stand != null, "The summoned Stand is missing");
+				power.setStamina(power.getMaxStamina());
+				LivingComponentAction.getComponent(stand).setAction(null, user, SyncType.NO_SYNC);
+				face();
+				resetUser();
+			}
+			catch (RuntimeException | Error error) {
+				try { close(); }
+				catch (RuntimeException | Error cleanupError) {
+					if (cleanupError != error) error.addSuppressed(cleanupError);
+				}
+				throw error;
+			}
 		}
 
 		// half a block in front of the user, facing south as the user does
@@ -217,10 +343,13 @@ public final class StandGuardHurtSoundGameTests {
 		}
 
 		void close() {
-			if (power.isSummoned()) {
-				type.forceUnsummon(user, power);
-			}
-			user.discard();
+			if (closed) return;
+			closed = true;
+			Throwable failure = cleanup(null, () -> {
+				if (power != null && type != null && power.isSummoned()) type.forceUnsummon(user, power);
+			});
+			failure = cleanup(failure, user::discard);
+			throwFailure(failure);
 		}
 	}
 }
