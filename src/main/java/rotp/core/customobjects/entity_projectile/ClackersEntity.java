@@ -47,6 +47,7 @@ public class ClackersEntity extends ModdedProjectileEntity {
 	@Nullable
 	private BlockState lastSupportState;
 	private boolean creativeOnlyPickup;
+	private int life;
 	private ItemStack pickupItem = ItemStack.EMPTY;
 
 	public ClackersEntity(EntityType<? extends ClackersEntity> type, Level level) {
@@ -88,6 +89,18 @@ public class ClackersEntity extends ModdedProjectileEntity {
 	@Override
 	protected boolean hasGravity() {
 		return true;
+	}
+
+	@Override
+	public void shoot(double x, double y, double z, float velocity, float inaccuracy) {
+		super.shoot(x, y, z, velocity, inaccuracy);
+		life = 0;
+	}
+
+	@Override
+	public void lerpMotion(double x, double y, double z) {
+		super.lerpMotion(x, y, z);
+		life = 0;
 	}
 
 	@Override
@@ -142,9 +155,15 @@ public class ClackersEntity extends ModdedProjectileEntity {
 				Vec3 movement = getDeltaMovement();
 				setDeltaMovement(movement.multiply((double) (random.nextFloat() * 0.2F),
 						(double) (random.nextFloat() * 0.2F), (double) (random.nextFloat() * 0.2F)));
+				life = 0;
 			}
 			else {
 				setDeltaMovement(Vec3.ZERO);
+				if (!level().isClientSide() && !isRemoved() && isInGround() && !noPhysics
+						&& creativeOnlyPickup && ++life >= 1200) {
+					discard();
+					return;
+				}
 			}
 			return;
 		}
@@ -314,7 +333,7 @@ public class ClackersEntity extends ModdedProjectileEntity {
 
 	@Override
 	protected boolean shouldExpire(@Nullable Entity owner) {
-		return creativeOnlyPickup && super.shouldExpire(owner);
+		return false;
 	}
 
 	@Override
@@ -340,6 +359,7 @@ public class ClackersEntity extends ModdedProjectileEntity {
 	@Override
 	protected void addAdditionalSaveData(CompoundTag nbt) {
 		super.addAdditionalSaveData(nbt);
+		nbt.putShort("life", (short) life);
 		nbt.putFloat("HamonDamage", hamonDmg);
 		nbt.putFloat("HamonSpent", hamonEnergySpent);
 		nbt.putBoolean("BoomerangHit", boomerangHit);
@@ -356,6 +376,7 @@ public class ClackersEntity extends ModdedProjectileEntity {
 	@Override
 	protected void readAdditionalSaveData(CompoundTag nbt) {
 		super.readAdditionalSaveData(nbt);
+		life = nbt.contains("life", 99) ? nbt.getShort("life") : 0;
 		hamonDmg = nbt.getFloat("HamonDamage");
 		hamonEnergySpent = nbt.getFloat("HamonSpent");
 		boomerangHit = nbt.getBoolean("BoomerangHit");
