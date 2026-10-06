@@ -383,11 +383,13 @@ public class LeavesGliderEntity extends Entity implements IEntityWithComplexSpaw
 	}
 
 	private void liftFromGround(Entity passenger) {
-		if (!onGround()) {
-			return;
+		Vec3 downward = new Vec3(0.0D, -1.0D, 0.0D);
+		double groundGap = -Entity.collideBoundingBox(this, downward, getBoundingBox(), level(),
+				level().getEntityCollisions(this, getBoundingBox().expandTowards(downward))).y;
+		if (groundGap < 1.0D) {
+			float liftUp = 1.0F - (float) groundGap;
+			move(MoverType.SELF, new Vec3(0.0D, passenger.getBbHeight() + liftUp, 0.0D));
 		}
-		double lift = passenger.getBbHeight() + 1.0D;
-		move(MoverType.SELF, new Vec3(0.0D, lift, 0.0D));
 	}
 
 	private void updateBbHeight() {
