@@ -1220,7 +1220,8 @@ public class InputHandler {
 		Player player = event.getEntity();
 		Input input = event.getInput();
 		// 1.16 ControllerStand.onInputUpdate: a stunned player's own movement keys do nothing
-		if ((mc.getCameraEntity() == player || mc.getCameraEntity() == null) && ModStatusEffects.isStunned(player)) {
+		boolean movementSuppressed = (mc.getCameraEntity() == player || mc.getCameraEntity() == null) && ModStatusEffects.isStunned(player);
+		if (movementSuppressed) {
 			input.forwardImpulse = 0;
 			input.leftImpulse = 0;
 			input.jumping = false;
@@ -1248,7 +1249,7 @@ public class InputHandler {
 			return;
 		}
 		if (player.getVehicle() instanceof LeavesGliderEntity glider) {
-			glider.setInput(input.leftImpulse > 0.0F, input.leftImpulse < 0.0F);
+			glider.setInput(input.left && !movementSuppressed, input.right && !movementSuppressed);
 		}
 		
 		if (movementMultiplier != 1) {

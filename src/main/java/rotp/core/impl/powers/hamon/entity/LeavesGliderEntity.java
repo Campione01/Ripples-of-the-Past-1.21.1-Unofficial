@@ -190,46 +190,43 @@ public class LeavesGliderEntity extends Entity implements IEntityWithComplexSpaw
 
 	private void moveGlider() {
 		if (isFlying() && isControlledByLocalInstance()) {
-			updateRotationDelta();
-			setYRot(getYRot() + yRotDelta);
+			Vec3 horizontal = getDeltaMovement().multiply(1.0D, 0.0D, 1.0D);
 			if (level().isClientSide() && isVehicle()) {
+				updateRotationDelta();
+				setYRot(getYRot() + yRotDelta);
 				for (Entity passenger : getPassengers()) {
 					passenger.setYRot(passenger.getYRot() + yRotDelta);
 					if (passenger instanceof LivingEntity living) {
 						living.yBodyRot += yRotDelta;
 					}
 				}
+				horizontal = Vec3.directionFromRotation(0.0F, getYRot()).scale(horizontal.length());
 			}
-			setXRot(0.0F);
-
-			Vec3 horizontal = getDeltaMovement().multiply(1.0D, 0.0D, 1.0D);
-			if (horizontal.lengthSqr() < 0.25D) {
-				horizontal = horizontal.add(Vec3.directionFromRotation(0.0F, getYRot()).scale(0.05D));
-			}
-			double gravity = GRAVITY * (1 + getPassengers().size());
-			setDeltaMovement(horizontal.x, getDeltaMovement().y + gravity, horizontal.z);
-			move(MoverType.SELF, getDeltaMovement());
-		}
-		else {
-			Vec3 motion = getDeltaMovement();
-			setDeltaMovement(motion.x * 0.95D, Math.max(motion.y - 0.02D, -0.35D), motion.z * 0.95D);
+			double gravity = isNoGravity() ? 0.0D : GRAVITY * (1 + getPassengers().size());
+			Vec3 movement = horizontal.normalize().scale(Math.min(horizontal.length() + 0.01D, 0.5D));
+			setDeltaMovement(movement.x, Math.max(getDeltaMovement().y, 0.0D) + gravity, movement.z);
 			move(MoverType.SELF, getDeltaMovement());
 		}
 	}
 
 	private void updateRotationDelta() {
 		float delta = 3.5F - getPassengers().size() * 0.5F;
-		if (inputLeft && !inputRight) {
-			yRotDelta -= delta;
+		if (!inputLeft && !inputRight) {
+			if (yRotDelta > 0.0F) {
+				yRotDelta = Math.max(yRotDelta - delta * 0.05F, 0.0F);
+			}
+			else if (yRotDelta < 0.0F) {
+				yRotDelta = Math.min(yRotDelta + delta * 0.05F, 0.0F);
+			}
 		}
-		else if (!inputLeft && inputRight) {
-			yRotDelta += delta;
-		}
-		else if (yRotDelta > 0.0F) {
-			yRotDelta = Math.max(yRotDelta - delta * 0.05F, 0.0F);
-		}
-		else if (yRotDelta < 0.0F) {
-			yRotDelta = Math.min(yRotDelta + delta * 0.05F, 0.0F);
+		else {
+			yRotDelta = 0.0F;
+			if (inputLeft) {
+				yRotDelta -= delta;
+			}
+			if (inputRight) {
+				yRotDelta += delta;
+			}
 		}
 	}
 

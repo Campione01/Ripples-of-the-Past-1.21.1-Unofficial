@@ -132,16 +132,16 @@ public final class VampirismHamonSuicideDeathGameTests {
             BlockPos template = helper.absolutePos(BlockPos.ZERO);
             chunk = new ChunkPos(template);
             int x = chunk.getMinBlockX(), z = chunk.getMinBlockZ(), y = template.getY() + 32;
-            room = new AABB(x + 3, y - 1, z + 3, x + 14, y + 4, z + 14);
+            room = new AABB(x, y - 1, z, x + 16, y + 4, z + 16);
             premise(room.minY >= level.getMinBuildHeight() && room.maxY < level.getMaxBuildHeight()
                     && level.getEntities((Entity) null, room).isEmpty(), "owned room unavailable");
             for (BlockPos pos : BlockPos.betweenClosed(BlockPos.containing(room.minX, room.minY, room.minZ),
-                    BlockPos.containing(room.maxX, room.maxY, room.maxZ))) {
+                    BlockPos.containing(Math.nextDown(room.maxX), Math.nextDown(room.maxY), Math.nextDown(room.maxZ)))) {
                 premise(level.isEmptyBlock(pos) && level.getFluidState(pos).isEmpty(), "owned room obstructed");
             }
-            for (int dx = 3; dx <= 13; dx++) for (int dz = 3; dz <= 13; dz++) {
+            for (int dx = 0; dx < 16; dx++) for (int dz = 0; dz < 16; dz++) {
                 putBlock(new BlockPos(x + dx, y + 3, z + dz));
-                if (dx >= 4 && dx <= 12 && dz >= 4 && dz <= 12) putBlock(new BlockPos(x + dx, y - 1, z + dz));
+                putBlock(new BlockPos(x + dx, y - 1, z + dz));
             }
             user = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
             GameType.SURVIVAL.updatePlayerAbilities(user.getAbilities());
@@ -310,9 +310,31 @@ public final class VampirismHamonSuicideDeathGameTests {
             BlockPos min = BlockPos.containing(box.minX, box.minY, box.minZ);
             BlockPos max = BlockPos.containing(box.maxX, box.maxY, box.maxZ);
             BlockPos sun = BlockPos.containing(user.getX(), Math.round(user.getY(1D)), user.getZ());
-            premise(box.minX >= room.minX && box.maxX <= room.maxX && box.minY >= room.minY && box.maxY <= room.maxY
-                    && box.minZ >= room.minZ && box.maxZ <= room.maxZ && new ChunkPos(min).equals(chunk) && new ChunkPos(max).equals(chunk)
-                    && level.isPositionEntityTicking(min) && level.isPositionEntityTicking(max), "actor left the naturally ticking room");
+            try {
+                premise(box.minX >= room.minX && box.maxX <= room.maxX && box.minY >= room.minY && box.maxY <= room.maxY
+                        && box.minZ >= room.minZ && box.maxZ <= room.maxZ && new ChunkPos(min).equals(chunk) && new ChunkPos(max).equals(chunk)
+                        && level.isPositionEntityTicking(min) && level.isPositionEntityTicking(max), "actor left the naturally ticking room");
+            }
+            catch (RuntimeException | Error failure) {
+                try {
+                    log("room-predicate-failure sample=post-assert-read"
+                            + " minX=" + (box.minX >= room.minX) + " maxX=" + (box.maxX <= room.maxX)
+                            + " minY=" + (box.minY >= room.minY) + " maxY=" + (box.maxY <= room.maxY)
+                            + " minZ=" + (box.minZ >= room.minZ) + " maxZ=" + (box.maxZ <= room.maxZ)
+                            + " minChunkMatch=" + new ChunkPos(min).equals(chunk) + " maxChunkMatch=" + new ChunkPos(max).equals(chunk)
+                            + " minTicking=" + level.isPositionEntityTicking(min) + " maxTicking=" + level.isPositionEntityTicking(max)
+                            + " age=" + user.tickCount + " time=" + level.getGameTime() + " posts=" + posts
+                            + " stage=" + (data == null ? "human" : pressed ? "held" : "converted")
+                            + " phase=" + (action == null ? "none" : action.getPhase() + "/" + action.getPhaseTick())
+                            + " alive=" + user.isAlive() + " removed=" + user.isRemoved() + " health=" + user.getHealth()
+                            + " deathPostObserved=" + deathPostObserved + " pos=" + user.position() + " delta=" + user.getDeltaMovement()
+                            + " onGround=" + user.onGround() + " noGravity=" + user.isNoGravity() + " box=" + box + " room=" + room
+                            + " minCorner=" + min + " maxCorner=" + max + " expectedChunk=" + chunk
+                            + " actualChunks=" + new ChunkPos(min) + "/" + new ChunkPos(max));
+                }
+                catch (RuntimeException | Error diagnosticFailure) { failure.addSuppressed(diagnosticFailure); }
+                throw failure;
+            }
             if (data != null) premise(!level.canSeeSky(sun), "converted actor lost verified shade");
             premise(!user.isCreative() && !user.isSpectator() && !user.isInvulnerable() && !user.getAbilities().invulnerable
                     && !user.getAbilities().instabuild && !user.isNoGravity() && user.getArmorValue() == 0
