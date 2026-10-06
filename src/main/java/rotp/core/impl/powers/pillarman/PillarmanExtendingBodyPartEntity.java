@@ -40,6 +40,8 @@ public abstract class PillarmanExtendingBodyPartEntity extends OwnerBoundProject
 			PillarmanExtendingBodyPartEntity.class, EntityDataSerializers.INT);
 
 	private int lifeSpan = 1;
+	@Nullable
+	private LivingEntity attachedEntity;
 
 	protected PillarmanExtendingBodyPartEntity(EntityType<? extends PillarmanExtendingBodyPartEntity> type,
 			LivingEntity shooter, Level level) {
@@ -256,6 +258,7 @@ public abstract class PillarmanExtendingBodyPartEntity extends OwnerBoundProject
 
 	public void attachToEntity(LivingEntity boundTarget) {
 		entityData.set(ENTITY_ATTACHED_TO, boundTarget.getId());
+		attachedEntity = boundTarget;
 	}
 
 	@Nullable
@@ -264,8 +267,22 @@ public abstract class PillarmanExtendingBodyPartEntity extends OwnerBoundProject
 		if (id < 0) {
 			return null;
 		}
-		Entity entity = level().getEntity(id);
-		return entity instanceof LivingEntity living ? living : null;
+		if (attachedEntity == null) {
+			Entity entity = level().getEntity(id);
+			if (entity instanceof LivingEntity living) {
+				attachedEntity = living;
+			}
+		}
+		// Donor attachments keep their endpoint after the target leaves the level.
+		return attachedEntity;
+	}
+
+	@Override
+	public void onSyncedDataUpdated(EntityDataAccessor<?> key) {
+		super.onSyncedDataUpdated(key);
+		if (ENTITY_ATTACHED_TO.equals(key)) {
+			attachedEntity = null;
+		}
 	}
 
 	public boolean isAttachedToAnEntity() {
@@ -343,6 +360,7 @@ public abstract class PillarmanExtendingBodyPartEntity extends OwnerBoundProject
 	@Override
 	protected void readAdditionalSaveData(CompoundTag nbt) {
 		super.readAdditionalSaveData(nbt);
+		attachedEntity = null;
 		entityData.set(ENTITY_ATTACHED_TO, nbt.getInt("AttachedEntity"));
 		setDistance(nbt.getDouble("Distance"));
 		setIsMovingForward(nbt.getBoolean("IsMovingForward"));
