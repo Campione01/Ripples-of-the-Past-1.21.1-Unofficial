@@ -22,6 +22,11 @@ public class ZombieDisguiseAbility extends ZombieActionAbility {
 	}
 
 	@Override
+	public boolean isActionHeld(EntityActionInstance action) {
+		return action.getPhase() == ActionPhase.WINDUP || super.isActionHeld(action);
+	}
+
+	@Override
 	protected float getWindupHoldToFireIndicatorLength() {
 		return HOLD_TO_FIRE_TICKS;
 	}
