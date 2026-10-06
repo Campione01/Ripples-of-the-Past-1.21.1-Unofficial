@@ -9,6 +9,7 @@ import java.util.function.Consumer;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
+import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.gametest.framework.GameTestInfo;
 import net.minecraft.gametest.framework.GameTestListener;
@@ -37,6 +38,7 @@ import rotp.core.impl.powers.pillarman.PillarmanPowerType;
 import rotp.core.impl.powers.pillarman.PillarmanVeinEntity;
 import rotp.core.impl.powers.pillarman.abilities.PillarmanErraticBlazeKingAbility;
 import rotp.core.impl.powers.pillarman.abilities.PillarmanGiantCarthwheelPrisonAbility;
+import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModEntityTypes;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.powersystem.PowerClass;
@@ -276,11 +278,49 @@ public final class PillarmanVeinStartupGameTests {
                     vein.position(), vein.getDeltaMovement(), nbt.getDouble("Distance"), nbt.getBoolean("IsRetracting"), vein.isRemoved());
         }
 
+        private String admissionFailureDetails() {
+            BlockPos position = user.blockPosition();
+            Vec3 eye = user.getEyePosition();
+            BlockPos eyeBlock = BlockPos.containing(eye);
+            float energy = data.getEnergy();
+            var input = user.getExistingData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT);
+            var held = input.map(state -> state.heldKeys.get(KEY)).orElse(null);
+            List<String> roofStates = roof.keySet().stream().map(pos -> {
+                ChunkPos chunkPos = new ChunkPos(pos);
+                var chunk = level.getChunkSource().getChunkForLighting(chunkPos.x, chunkPos.z);
+                return pos + "=" + (chunk == null ? "UNAVAILABLE" : chunk.getBlockState(pos));
+            }).toList();
+            return " [R750 route=" + route + " ticks=" + userTicks + " actorAge=" + user.tickCount
+                    + " worldTime=" + level.getGameTime() + " ticking=" + level.isPositionEntityTicking(position)
+                    + " creative=" + user.isCreative() + " instabuild=" + user.getAbilities().instabuild
+                    + " stone=" + data.isStoneFormEnabled() + " energy=" + energy + " cost=" + route.energyCost
+                    + " energyEligible=" + (energy >= route.energyCost) + " fire=" + user.isOnFire()
+                    + " eyeSky=" + level.canSeeSky(eyeBlock) + " eye=" + eye + " eyeBlock=" + eyeBlock
+                    + " pressed=" + pressed + " inputAttached=" + input.isPresent() + " keyPresent=" + (held != null)
+                    + " keyGeneration=" + (held == null ? 0L : held.generation)
+                    + " keyAction=" + (held == null || held.action == null ? "none" : held.action.getClass().getSimpleName())
+                    + " roof=" + roofStates + "]";
+        }
+
         private void press() {
-            helper.assertTrue(level.isPositionEntityTicking(user.blockPosition()) && !user.isCreative()
-                            && !user.getAbilities().instabuild && !data.isStoneFormEnabled() && data.getEnergy() >= route.energyCost
-                            && !user.isOnFire() && !level.canSeeSky(BlockPos.containing(user.getEyePosition())),
-                    "Vein player is not eligible, shaded and naturally ticking");
+            try {
+                helper.assertTrue(level.isPositionEntityTicking(user.blockPosition()) && !user.isCreative()
+                                && !user.getAbilities().instabuild && !data.isStoneFormEnabled() && data.getEnergy() >= route.energyCost
+                                && !user.isOnFire() && !level.canSeeSky(BlockPos.containing(user.getEyePosition())),
+                        "Vein player is not eligible, shaded and naturally ticking");
+            }
+            catch (GameTestAssertException failure) {
+                GameTestAssertException detailed;
+                try {
+                    detailed = new GameTestAssertException(failure.getMessage() + admissionFailureDetails());
+                }
+                catch (RuntimeException | Error diagnosticFailure) {
+                    failure.addSuppressed(diagnosticFailure);
+                    throw failure;
+                }
+                detailed.initCause(failure);
+                throw detailed;
+            }
             AvailableAbilities available = new AvailableAbilities();
             available.update(power, power.getMoveset());
             helper.assertTrue(AbilityInput.withConditionCheck(available.getContextVariationContainer(ability), user, route.input),
