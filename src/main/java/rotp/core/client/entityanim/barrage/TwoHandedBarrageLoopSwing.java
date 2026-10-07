@@ -5,6 +5,7 @@ import rotp.core.client.entityanim.PreFrameEntityAnimCalc.LivingAnimState;
 import rotp.core.client.entityanim.barrage.BarrageSwings.BarrageSwing;
 import rotp.core.client.entityanim.molang.AnimMolangQuery.AnimMolangVariables;
 import rotp.core.client.entityanim.playerbend.ArmsFollowPitch;
+import rotp.core.client.entityanim.playerbend.IPlayerBendModel;
 import rotp.core.client.util.functions.RGBUtil;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
@@ -111,7 +112,10 @@ public class TwoHandedBarrageLoopSwing extends BarrageSwing {
 		animState.phaseCompletion = -1;
 		AnimMolangVariables molangVariables = AnimMolangVariables.set(xRot, 0, 0);
 		
-		float seconds = barrageAnim.getAnimTime(animState);
+		// 1.16 KosmXPlayerBarrageAnim.poseModel: the arm shows the clip tick of its own swing
+		float seconds = barrageAnim.clock.pingPong
+				? barrageAnim.clock.afterimageSeconds(loopCompletion, side == HumanoidArm.RIGHT)
+				: barrageAnim.getAnimTime(animState);
 		barrageAnim.animate(model, molangVariables, null, seconds, 1);
 		ModelPart arm = BarrageSwings.getNoXRotArm(model, side);
 		// 1.16 KosmXPlayerBarrageAnim: afterimage arms follow the look pitch as well
@@ -122,6 +126,11 @@ public class TwoHandedBarrageLoopSwing extends BarrageSwing {
 		arm.zRot = armAngles.z;
 		
 		arm.zRot += swingAmount * zRot;
+		
+		// a Stand model turns its arms with its own body bone; the player's body bone is outside the model
+		if (model instanceof IPlayerBendModel bends) {
+			poseStack.mulPose(AfterimageBodyTwist.takeSwing(bends.jojo_ripples$animMainBody().yRot));
+		}
 		
 		// XXX (barrage anim) some layers are not translucent (armor, clothes, mannequin model, etc.)
 		color = RGBUtil.scaleAlpha(color, 0.75F);

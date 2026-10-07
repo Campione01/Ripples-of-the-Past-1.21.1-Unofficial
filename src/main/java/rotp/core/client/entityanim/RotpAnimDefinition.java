@@ -332,21 +332,33 @@ public class RotpAnimDefinition {
 	public static final class ClipClock {
 		/** Timeline key for the playback speed, e.g. "0": "anim_speed = 1.75". */
 		public static final String SPEED_KEY = "anim_speed";
+		/**
+		 * Timeline key of a loop section ("loopBack" to the clip's end) that plays forwards and then back,
+		 * e.g. "0": ["loopBack = 0.1", "loop_ping_pong = 1"]: 1.16 KosmXPlayerBarrageAnim.
+		 */
+		public static final String PING_PONG_KEY = "loop_ping_pong";
 
 		public final float speed;
 		public final float lengthInSeconds;
 		public final OptionalFloat loopBackTo;
+		public final boolean pingPong;
 
 		public ClipClock(float speed, float lengthInSeconds, OptionalFloat loopBackTo) {
+			this(speed, lengthInSeconds, loopBackTo, false);
+		}
+
+		public ClipClock(float speed, float lengthInSeconds, OptionalFloat loopBackTo, boolean pingPong) {
 			this.speed = speed > 0 ? speed : 1;
 			this.lengthInSeconds = lengthInSeconds;
 			this.loopBackTo = loopBackTo;
+			this.pingPong = pingPong && loopBackTo.isPresent();
 		}
 
 		public static ClipClock of(float lengthInSeconds, OptionalFloat loopBackTo, @Nullable AnimInstructionTimelines timelines) {
 			// no key -> 0 -> speed 1
 			float speed = timelines != null ? (float) timelines.getNumericTimelineVal(SPEED_KEY, 0) : 1;
-			return new ClipClock(speed, lengthInSeconds, loopBackTo);
+			boolean pingPong = timelines != null && timelines.getNumericTimelineVal(PING_PONG_KEY, 0) != 0;
+			return new ClipClock(speed, lengthInSeconds, loopBackTo, pingPong);
 		}
 
 		/** Clip seconds played after this many ticks, without looping. */
@@ -356,6 +368,9 @@ public class RotpAnimDefinition {
 
 		/** Clip seconds shown after this many ticks; looping clips wrap in clip seconds. */
 		public float seconds(float ticks) {
+			if (pingPong) {
+				return pingPongTick(ticks * speed) / 20f;
+			}
 			float time = elapsed(ticks);
 			if (loopBackTo.isPresent()) {
 				float loopBack = loopBackTo.getAsFloat();
@@ -365,6 +380,33 @@ public class RotpAnimDefinition {
 				}
 			}
 			return time;
+		}
+
+		/**
+		 * 1.16 KosmXPlayerBarrageAnim.tick and getPlayerAnimatorLoopTick: after the lead-in the loop section runs
+		 * forwards with partial ticks, then back in whole-tick steps (ticks 2+pt, 3+pt, 4, 3, 2 for a 2 to 4 section).
+		 */
+		private float pingPongTick(float clipTicks) {
+			int returnTick = Math.round(loopBackTo.getAsFloat() * 20);
+			int endTick = Math.round(lengthInSeconds * 20);
+			int tick = (int) Math.floor(clipTicks);
+			float partialTick = clipTicks - tick;
+			if (tick > returnTick) {
+				tick = returnTick + (tick - returnTick) % Math.max((endTick - returnTick) * 2 + 1, 1);
+			}
+			return tick >= endTick ? endTick * 2 - tick : tick + partialTick;
+		}
+
+		/**
+		 * Clip seconds of a barrage afterimage arm this far through its swing (0 to 1): across the loop section,
+		 * the right arm from its end (1.16 KosmXPlayerBarrageAnim.getBarrageEffectLoopingTick).
+		 */
+		public float afterimageSeconds(float swingCompletion, boolean rightArm) {
+			float from = loopBackTo.isPresent() ? loopBackTo.getAsFloat() : 0;
+			if (rightArm) {
+				swingCompletion = 1 - swingCompletion;
+			}
+			return from + (lengthInSeconds - from) * swingCompletion;
 		}
 	}
 	

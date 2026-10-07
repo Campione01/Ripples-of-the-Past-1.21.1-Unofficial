@@ -379,12 +379,13 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 			return ModSoundEvents.STAND_PUNCH_BARRAGE_SWING.get();
 		}
 
+		// 1.16 StandEntityMeleeBarrage.clTtickSwingSound
 		protected float getBarrageSwingVolume(StandEntity stand) {
-			return 1.0F;
+			return 0.25F;
 		}
 
 		protected float getBarrageSwingPitch(StandEntity stand) {
-			return 1.0F;
+			return 1.8F - (float) stand.getAttackDamage() * 0.05F + stand.getRandom().nextFloat() * 0.2F;
 		}
 
 		@Nullable

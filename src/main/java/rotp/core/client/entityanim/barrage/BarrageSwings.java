@@ -45,8 +45,10 @@ public class BarrageSwings {
 	@ApiStatus.Internal public String barrageType;
 	@ApiStatus.Internal public AddBarrageSwing addSwingFunction;
 	
-	public float barragePrecision = 12;
-	public float barrageSwingsPerSecond = 80;
+	// a Stand sets both from its stats; the defaults are the player's (1.16 KosmXPlayerBarrageAfterimagesAnim:
+	// maxSwingOffset 0.625 = 1 - 15 / 40, swingsToAdd 3 a tick)
+	public float barragePrecision = 15;
+	public float barrageSwingsPerSecond = 60;
 	
 	protected float lastTicks = -1;
 
@@ -137,10 +139,16 @@ public class BarrageSwings {
 				? RenderStateCrutches.currentEntityRenderState.xRot : 0;
 		List<ModelPart> parts = humanoidStateParts(model);
 		float[] saved = saveModelState(parts);
+		poseStack.pushPose();
+		// read before the swings pose the model: each of them overwrites the body bone
+		if (model instanceof IPlayerBendModel bends) {
+			poseStack.mulPose(AfterimageBodyTwist.leaveCurrent(bends.jojo_ripples$animMainBody().yRot));
+		}
 		try {
 			swings.renderLayerBarrage(model, poseStack, buffer, packedLight, packedOverlay, color, xRot);
 		}
 		finally {
+			poseStack.popPose();
 			loadModelState(parts, saved);
 		}
 	}
