@@ -480,6 +480,12 @@ public class HamonData extends PlayerPowerData {
 		return HamonAuraColor.ORANGE;
 	}
 
+	// 1.16 HamonAction.afterClick -> setLastUsedAction: the aura takes the colour of the technique used last.
+	// For a technique that is over within a tick, which the aura tick may never see running.
+	public void setLastAuraAbility(@Nullable String abilityName) {
+		lastAuraAbility = abilityName;
+	}
+
 	// Gametest hook: passive aura colour name as a client would draw it
 	public String passiveAuraColorName(boolean holdingWeapon, boolean underwater) {
 		return passiveAuraColor(holdingWeapon, underwater).name();

@@ -304,9 +304,7 @@ public class HamonPowerType extends PlayerPowerType<HamonData> {
 							.bind("rebuff_overdrive", InputMethod.CLICK, InputKey.RMB)
 							.makeHotbar(0, USE_SPECIAL, SWITCH_SPECIAL)
 							.addToHotbar("scarlet_overdrive", 0, InputMethod.HOLD)
-							.addToHotbar("metal_silver_overdrive", 0, InputMethod.CLICK)
-							.addHotbarSlotVariation("hamon_beat", "metal_silver_overdrive", InputKey.Modifier.SHIFT, InputMethod.CLICK)
-							.addToHotbar("metal_silver_overdrive_weapon", 0, InputMethod.CLICK)
+							// 1.16 unlocks(action, false): no slot for Metal Silver Overdrive, Overdrive turns into it
 							.addToHotbar("overdrive_barrage", 0, InputMethod.HOLD)
 							.addHotbarSlotVariation("sunlight_yellow_overdrive_barrage", "overdrive_barrage", InputKey.Modifier.SHIFT, InputMethod.HOLD)
 							.addToHotbar("hamon_cutter", 0, InputMethod.CLICK)

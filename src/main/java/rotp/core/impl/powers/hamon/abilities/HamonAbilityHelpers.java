@@ -334,6 +334,15 @@ public final class HamonAbilityHelpers {
 		}
 	}
 
+	// 1.16 Action.withUserPunch: with the technique, the player's client also made its own vanilla attack on the
+	// crosshair entity (InputHandler.mcPlayerAttack), which the server took within vanilla reach. A mob user never did.
+	public static void doUserPunch(LivingEntity user, Entity target) {
+		if (user instanceof Player player && !player.level().isClientSide() && target != player
+				&& player.canInteractWithEntity(target, 1.0D)) {
+			player.attack(target);
+		}
+	}
+
 	public static float hamonDamageAmount(LivingEntity target, float baseDamage) {
 		if (hasSatiporojaScarf(target)) {
 			if (PlayerPower.getPowerData(target, ModPlayerPowers.HAMON).isPresent()) {
