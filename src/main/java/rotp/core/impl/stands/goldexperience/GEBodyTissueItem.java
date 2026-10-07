@@ -45,7 +45,7 @@ public class GEBodyTissueItem extends Item {
                     item.shrink(1);
                 }
             }
-            return InteractionResultHolder.sidedSuccess(item, level.isClientSide());
+            return InteractionResultHolder.consume(item);
         }
         else {
             if (!level.isClientSide()) {

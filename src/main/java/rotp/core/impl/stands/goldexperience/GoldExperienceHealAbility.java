@@ -17,6 +17,7 @@ import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.StandUtil;
 import rotp.core.powersystem.standpower.entity.NoPoseStandEntityAbility;
+import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.subsystems.soul.SoulEntity;
 import rotp.core.util.functions.JojoModUtil;
 import rotp.core.util.functions.StatusEffectUtil;
@@ -259,8 +260,11 @@ public class GoldExperienceHealAbility extends NoPoseStandEntityAbility {
 		if (offHandItem.isEmpty() || !GoldExperienceCreateLifeformAbility.canGiveLifeTo(offHandItem)) {
 			return false;
 		}
-		if (offHandItem.getItem() instanceof BucketItem bucketItem && user instanceof Player player) {
-			bucketItem.checkExtraContent(player, user.level(), offHandItem, user.blockPosition());
+		if (offHandItem.getItem() instanceof BucketItem bucketItem) {
+			StandEntity standEntity = StandUtil.getSummonedStand(user);
+			LivingEntity controlled = standEntity != null && standEntity.isManuallyControlled() ? standEntity : user;
+			bucketItem.checkExtraContent(user instanceof Player player ? player : null, user.level(), offHandItem,
+					controlled.blockPosition());
 		}
 		if (!(user instanceof Player player && player.getAbilities().instabuild)) {
 			offHandItem.shrink(1);
@@ -399,9 +403,10 @@ public class GoldExperienceHealAbility extends NoPoseStandEntityAbility {
 	}
 
 	private static void playHealSound(LivingEntity target, StandPower standPower) {
-		if (!(target.level() instanceof ServerLevel serverLevel) || standPower == null) {
+		if (!(target.level() instanceof ServerLevel serverLevel)) {
 			return;
 		}
+		// a null power (body tissue without creator data) still plays the sound, without a Stand skin
 		StandUtil.broadcastSound(serverLevel, target.position(),
 				BuiltInRegistries.SOUND_EVENT.wrapAsHolder(ModSoundEvents.GOLD_EXPERIENCE_HEAL.get()),
 				true, standPower, SoundSource.AMBIENT,
