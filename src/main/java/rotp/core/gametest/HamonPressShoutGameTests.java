@@ -116,7 +116,7 @@ public final class HamonPressShoutGameTests {
 			f.stop();
 
 			// breaths in a row at 0 energy: all said, as 1.16 used voiceLineDelay 0.
-			// The power and the action tick in either order (class-keyed ticking map), so both orders are run:
+			// DataEventListeners ticks the action before the power, as 1.16 did; the other order is run too:
 			// with the power first, a breath tick adds energy before the action's first perform tick.
 			for (int breaths = 1; breaths <= 4; breaths++) {
 				boolean powerFirst = breaths > 2;

@@ -373,21 +373,21 @@ public final class VampirismEyeBeamShotBudgetGameTests {
             // The index of the tick that ended the shot: 20 for a full shot, 3 when the fourth tick cannot pay.
             int lastTick = exhausted ? 3 : 20;
             int paid = exhausted ? lastTick : lastTick + 1;
-            // The power data and the action tick in no fixed order within the owner's tick, so the cooldown set by the
-            // ending tick may or may not have run for that tick when it is read here.
-            int cooldown = 50 * lastTick / 20;
+            // 1.16 PlayerUtilCap.tick ran the continuous action before NonStandPower.tick ran tickCooldown, so the
+            // cooldown set by the ending tick has already run for that tick when it is read here.
+            int cooldown = 50 * lastTick / 20 - 1;
             String measured = "beamsAtRelease=" + beamsAtRelease + " chargeCost=" + chargeCost + " releaseCost=" + releaseCost
                     + " paidTicks=" + paidTicks + " actionTicks=" + actionTicks + " shotCost=" + shotCost
                     + " bloodAtEnd=" + bloodAtEnd + " boundMoves=" + boundMoves + " detachAge=" + detachAge
                     + " detachedAtEye=" + straight + " cooldownLeft=" + cooldownAtEnd;
             String donor = "beamsAtRelease=2 chargeCost=0 releaseCost=20 paidTicks=" + paid + " actionTicks=" + (lastTick + 1)
                     + " shotCost=" + (20 + paid * 20) + (exhausted ? " bloodAtEnd=0" : "") + " boundMoves=" + (lastTick + 1)
-                    + " detachAge=" + (lastTick + 1) + " detachedAtEye=true cooldownLeft=" + cooldown + " or " + (cooldown - 1);
+                    + " detachAge=" + (lastTick + 1) + " detachedAtEye=true cooldownLeft=" + cooldown;
             log("measured " + measured + " passive=" + passive + " shotDeltas=" + shotDeltas + " beams=" + beamReport);
             boolean matches = beamsAtRelease == 2 && Math.abs(chargeCost) < 0.01F && Math.abs(releaseCost - TICK_COST) < 0.01F
                     && paidTicks == paid && actionTicks == lastTick + 1 && (!exhausted || bloodAtEnd == 0.0F)
                     && boundMoves == lastTick + 1 && detachAge == lastTick + 1 && straight
-                    && (cooldownAtEnd == cooldown || cooldownAtEnd == cooldown - 1);
+                    && cooldownAtEnd == cooldown;
             helper.assertTrue(matches, "Space Ripper Stingy Eyes " + (exhausted ? "shot that runs out of blood" : "full shot")
                     + ": " + measured + ", 1.16: " + donor);
         }

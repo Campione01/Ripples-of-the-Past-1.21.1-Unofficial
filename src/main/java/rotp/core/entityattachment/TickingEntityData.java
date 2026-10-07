@@ -8,7 +8,8 @@ public interface TickingEntityData {
 	/**
 	 * Only ticks after the data is initialized (usually by calling {@link Entity#getData(net.neoforged.neoforge.attachment.AttachmentType)}).<br>
 	 * If you need it to tick from the very moment the entity is created, initialize the attachment in something like a EntityEvent.EntityConstructing event handler.<br>
-	 * If it, for example, just holds some kind of an integer timer that only ticks when you set it to a positive value, you're good.
+	 * If it, for example, just holds some kind of an integer timer that only ticks when you set it to a positive value, you're good.<br>
+	 * The data of one entity ticks in a fixed order: the mod's own data first (EntityDataOrder), then any other data by class name.
 	 */
 	void tick();
 	

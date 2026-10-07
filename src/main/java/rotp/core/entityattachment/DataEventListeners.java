@@ -1,9 +1,9 @@
 package rotp.core.entityattachment;
 
 import java.util.ArrayList;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 import org.jetbrains.annotations.ApiStatus;
 
@@ -12,11 +12,12 @@ import net.minecraft.world.entity.player.Player;
 import net.neoforged.neoforge.attachment.IAttachmentHolder;
 
 public class DataEventListeners {
-	private Map<Class<?>, SynchronizableEntityData> entityDataSync = new IdentityHashMap<>(12);
-	private Map<Class<?>, SynchronizablePlayerData> playerDataSync = new IdentityHashMap<>(12);
+	// Sorted maps: a map hashed on the data class visited the data in an order that changed with every JVM run.
+	private Map<Class<?>, SynchronizableEntityData> entityDataSync = new TreeMap<>(EntityDataOrder.SYNC_ORDER);
+	private Map<Class<?>, SynchronizablePlayerData> playerDataSync = new TreeMap<>(EntityDataOrder.SYNC_ORDER);
 	private List<TickingEntityData> pendingAddToTick = new ArrayList<>(2);
-	private Map<Class<?>, TickingEntityData> ticking = new IdentityHashMap<>(12);
-	private Map<Class<?>, PostNbtReadEntityData> postNbtCallback = new IdentityHashMap<>(12);
+	private Map<Class<?>, TickingEntityData> ticking = new TreeMap<>(EntityDataOrder.TICK_ORDER);
+	private Map<Class<?>, PostNbtReadEntityData> postNbtCallback = new TreeMap<>(EntityDataOrder.SYNC_ORDER);
 	
 	public DataEventListeners(IAttachmentHolder entity) {}
 	

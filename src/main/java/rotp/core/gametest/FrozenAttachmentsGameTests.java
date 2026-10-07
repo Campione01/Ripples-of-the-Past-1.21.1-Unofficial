@@ -116,7 +116,7 @@ public final class FrozenAttachmentsGameTests {
 					&& stand.getCurStandAction() == null, "The idle Stand's punch is not usable before the stop");
 
 			stopTime(helper, state, stop, user);
-			// first stopped tick, the input attachment ahead of Power.tick (DataEventListeners ticks in identity-hash order)
+			// first stopped tick, the input attachment ticked directly, ahead of Power.tick (DataEventListeners ticks the powers first)
 			helper.assertTrue(state.interruptTickEarly(user), "A stopped user was allowed to tick");
 			input.tick();
 			helper.assertTrue(buffered(input) != null && stand.getCurStandAction() == null,
