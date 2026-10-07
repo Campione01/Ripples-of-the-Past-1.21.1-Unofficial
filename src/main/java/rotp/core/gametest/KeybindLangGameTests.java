@@ -101,6 +101,32 @@ public final class KeybindLangGameTests {
 		helper.succeed();
 	}
 
+	/**
+	 * 1.16 values of the locales that had their own: pt_br jojo.screen.edit_hud_layout, zh_tw
+	 * jojo.screen.edit_hud_layout and jojo.key.meditation. 1.16 uk_ua had no edit_hud_layout entry, so it
+	 * shows the en_us text through the language fallback.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void editControlsAndMeditationKeep116Translations(GameTestHelper helper) {
+		JsonObject ptBr = readLang("pt_br");
+		JsonObject zhTw = readLang("zh_tw");
+		JsonObject ukUa = readLang("uk_ua");
+		List<String> wrong = new ArrayList<>();
+		expect(wrong, "pt_br", ptBr, EDIT_HUD_LAYOUT, "Editar Layout das Hotbars");
+		expect(wrong, "zh_tw", zhTw, EDIT_HUD_LAYOUT, "編輯快捷欄佈局");
+		expect(wrong, "zh_tw", zhTw, MEDITATION, "波紋冥想快捷鍵");
+		expect(wrong, "uk_ua", ukUa, EDIT_HUD_LAYOUT, null);
+		helper.assertTrue(wrong.isEmpty(), "not the 1.16 text: " + wrong);
+		helper.succeed();
+	}
+
+	private static void expect(List<String> wrong, String locale, JsonObject lang, String key, String expected) {
+		String value = string(lang.get(key));
+		if (expected == null ? lang.has(key) : !expected.equals(value)) {
+			wrong.add(locale + " " + key + " = " + value + " (1.16: " + (expected != null ? expected : "no entry") + ")");
+		}
+	}
+
 	private static Set<String> keyNames() {
 		byte[] bytes;
 		try (InputStream in = open(KEYBINDS_CLASS)) {

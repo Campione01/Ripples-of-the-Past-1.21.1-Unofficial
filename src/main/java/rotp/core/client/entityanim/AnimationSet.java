@@ -1,5 +1,6 @@
 package rotp.core.client.entityanim;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
@@ -236,6 +237,41 @@ public class AnimationSet {
 	@Nullable
 	private static String keyOrAliased(String name, Predicate<String> hasKey, int depth) {
 		return hasKey.test(name) ? name : aliasedKey(name, hasKey, depth + 1);
+	}
+
+	private static final String STAND_TYPE_REGISTRY_PREFIX = "stand_";
+	private static final String HEAVY_PUNCH_CLIP = "heavy_punch";
+
+	/**
+	 * First clip name with a clip among the fallbacks of a Stand action whose own moveset name has none, or null:
+	 * the name without the Stand's prefix, then the ability type's registry path. A finisher that still has no
+	 * clip takes the heavy punch, the pose 1.16 HumanoidStandModel gave HEAVY_ATTACK_FINISHER by default.
+	 */
+	@Nullable
+	public static String portedActionClipName(
+			String name,
+			@Nullable String standTypePath,
+			@Nullable String abilityTypePath,
+			boolean finisher,
+			Predicate<String> hasClip) {
+		List<String> candidates = new ArrayList<>(3);
+		if (standTypePath != null && name.startsWith(standTypePath + "_")) {
+			candidates.add(name.substring(standTypePath.length() + 1));
+		}
+		if (abilityTypePath != null) {
+			candidates.add(abilityTypePath);
+			// the core attack types are registered as stand_punch/stand_barrage/...; 1.16 played their clips
+			// (punch, barrage, heavy_punch, ...) whatever the add-on named the action
+			if (abilityTypePath.startsWith(STAND_TYPE_REGISTRY_PREFIX)) {
+				candidates.add(abilityTypePath.substring(STAND_TYPE_REGISTRY_PREFIX.length()));
+			}
+		}
+		for (String candidate : candidates) {
+			if (!candidate.isEmpty() && !candidate.equals(name) && hasClip.test(candidate)) {
+				return candidate;
+			}
+		}
+		return finisher && !HEAVY_PUNCH_CLIP.equals(name) && hasClip.test(HEAVY_PUNCH_CLIP) ? HEAVY_PUNCH_CLIP : null;
 	}
 
 	@Nullable

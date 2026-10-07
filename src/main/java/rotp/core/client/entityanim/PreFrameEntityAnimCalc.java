@@ -1,8 +1,5 @@
 package rotp.core.client.entityanim;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import javax.annotation.Nullable;
 
 import rotp.core.api.client.animation.AddonPlayerAnimations;
@@ -388,34 +385,19 @@ public class PreFrameEntityAnimCalc {
 				|| !(action.ability instanceof Ability ability)) {
 			return animId;
 		}
-		List<String> candidates = new ArrayList<>(3);
-		String name = animId.name();
 		ResourceLocation standType = stand.getStandType();
-		if (standType != null && name.startsWith(standType.getPath() + "_")) {
-			candidates.add(name.substring(standType.getPath().length() + 1));
-		}
-		if (ability.abilityType != null && ability.abilityType.registryKey != null) {
-			String registryPath = ability.abilityType.registryKey.getPath();
-			candidates.add(registryPath);
-			// the core attack types are registered as stand_punch/stand_barrage/...; 1.16 played their clips
-			// (punch, barrage, heavy_punch, ...) whatever the add-on named the action
-			if (registryPath.startsWith(STAND_TYPE_REGISTRY_PREFIX)) {
-				candidates.add(registryPath.substring(STAND_TYPE_REGISTRY_PREFIX.length()));
-			}
-		}
-		for (String candidate : candidates) {
-			if (candidate.isEmpty() || candidate.equals(name)) {
-				continue;
-			}
-			ActionAnimIdentifier fallback = ActionAnimIdentifier.getOrCreate(candidate, animId.index(), animId.isIdle());
-			if (lookupStandAnim(skin, fallback, armsOnly, implicitHandMirror) != null) {
-				return fallback;
-			}
-		}
-		return animId;
+		String clip = AnimationSet.portedActionClipName(
+				animId.name(),
+				standType != null ? standType.getPath() : null,
+				ability.abilityType != null && ability.abilityType.registryKey != null
+						? ability.abilityType.registryKey.getPath() : null,
+				ability.isStandFinisherOf != null,
+				candidate -> lookupStandAnim(skin,
+						ActionAnimIdentifier.getOrCreate(candidate, animId.index(), animId.isIdle()),
+						armsOnly, implicitHandMirror) != null);
+		return clip != null ? ActionAnimIdentifier.getOrCreate(clip, animId.index(), animId.isIdle()) : animId;
 	}
 
-	private static final String STAND_TYPE_REGISTRY_PREFIX = "stand_";
 	/** Generic humanoid clips for the core Stand actions (punch, barrage, heavy punches, block, grab...). */
 	private static final ResourceLocation DEFAULT_STAND_ANIMS = JojoMod.resLoc("stand_default");
 
