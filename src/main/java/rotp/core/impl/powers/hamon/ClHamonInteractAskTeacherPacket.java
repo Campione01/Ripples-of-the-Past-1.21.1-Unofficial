@@ -50,7 +50,8 @@ public record ClHamonInteractAskTeacherPacket(int entityId) implements CustomPac
 				return;
 			}
 			PlayerPower playerPower = PlayerPower.get(player);
-			if (playerPower == null || playerPower.hasPower()) {
+			// 1.16 InputHandler asked whenever canGetPower(HAMON): no power, or one Hamon may replace.
+			if (playerPower == null || !playerPower.canGetPower(ModPlayerPowers.HAMON.get())) {
 				return;
 			}
 			PlayerPower.getPowerData(teacher, ModPlayerPowers.HAMON).ifPresent(teacherHamon ->

@@ -60,7 +60,8 @@ public class HamonDetectorAbility extends HamonActionRuntimeAbility {
 		if (!(ticksHeld < 160 || ticksHeld % 20 == 0)) {
 			return;
 		}
-		float tickEnergyCost = getHeldTickEnergyCost(context, ticksHeld);
+		// 1.16 getHeldTickEnergyCost(power): the configured cost in every game mode, a Creative user's included.
+		float tickEnergyCost = getConfiguredHeldTickEnergyCost();
 		double controlRatio = (double) hamon.getHamonControlLevel() / (double) HamonData.MAX_STAT_LEVEL
 				* hamon.getActionEfficiency(tickEnergyCost, false, ModHamonSkills.DETECTOR.get(), user);
 		double radius = ticksHeld * (controlRatio * 0.8D + 0.2D);

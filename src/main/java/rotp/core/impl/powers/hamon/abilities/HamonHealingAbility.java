@@ -59,7 +59,8 @@ public class HamonHealingAbility extends HamonActionRuntimeAbility {
 
 	@Override
 	protected void onHeldTick(HamonHeldActionInstance action, LivingEntity user, Power<?> context, HamonData hamon, int ticksHeld) {
-		float tickEnergyCost = getHeldTickEnergyCost(context, ticksHeld);
+		// 1.16 getHeldTickEnergyCost(power): the configured cost in every game mode, a Creative user's included.
+		float tickEnergyCost = getConfiguredHeldTickEnergyCost();
 		float hamonControl = hamon.getHamonControlLevel() / (float) HamonData.MAX_STAT_LEVEL;
 		float hamonEfficiency = hamon.getActionEfficiency(tickEnergyCost, false, ModHamonSkills.HEALING.get(), user);
 		LivingEntity entityToHeal = selectEntityToHeal(user, hamon);

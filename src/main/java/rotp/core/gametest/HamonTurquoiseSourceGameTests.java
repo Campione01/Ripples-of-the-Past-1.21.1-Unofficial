@@ -132,7 +132,8 @@ public final class HamonTurquoiseSourceGameTests {
         private int targetTicks;
         private int inputUserTicks;
         private int completedWaveTicks;
-        private float maxObservedWindupTick;
+        private boolean sawWindup;
+        private boolean waveJoinedOnFirstActionTick;
         private float radius;
         private float baseDamage;
         private float basePoints;
@@ -231,8 +232,10 @@ public final class HamonTurquoiseSourceGameTests {
                     EntityActionInstance action = LivingComponentAction.getCurEntityAction(user);
                     premise(action instanceof HamonTurquoiseBlueOverdriveAbility.TurquoiseBlueOverdriveInstance
                             && action.ability == ability && action.getPhase() == ActionPhase.PERFORM
-                            && userTicks > inputUserTicks && maxObservedWindupTick >= 9F,
-                            "wave lacks its natural registered windup/PERFORM route");
+                            && userTicks == inputUserTicks && !sawWindup,
+                            "1.16 spawned the wave on the click: it must join on the user's first tick after the press"
+                                    + " (userPostsSinceInput=" + (userTicks - inputUserTicks) + ", sawWindup=" + sawWindup + ")");
+                    waveJoinedOnFirstActionTick = true;
                     CompoundTag nbt = wave.saveWithoutId(new CompoundTag());
                     radius = nbt.getFloat("Radius");
                     baseDamage = nbt.getFloat("Damage");
@@ -241,7 +244,7 @@ public final class HamonTurquoiseSourceGameTests {
                     Vec3 expectedCenter = user.getEyePosition(1F).add(0, -0.3D, 0);
                     Vec3 expectedPosition = expectedCenter.add(0, -radius, 0);
                     log("join uuid=" + wave.getUUID() + " owner=" + user.getUUID() + " userPostsSinceInput="
-                            + (userTicks - inputUserTicks) + " maxWindupTick=" + maxObservedWindupTick
+                            + (userTicks - inputUserTicks) + " sawWindup=" + sawWindup
                             + " radius=" + radius + " baseDamage=" + baseDamage + " points=" + basePoints
                             + " duration=" + duration + " position=" + wave.position() + " motion=" + wave.getDeltaMovement()
                             + " box=" + wave.getBoundingBox() + " targetBox=" + target.getBoundingBox());
@@ -307,7 +310,7 @@ public final class HamonTurquoiseSourceGameTests {
                     if (inputPressed && wave == null) {
                         EntityActionInstance action = LivingComponentAction.getCurEntityAction(user);
                         if (action != null && action.ability == ability && action.getPhase() == ActionPhase.WINDUP) {
-                            maxObservedWindupTick = Math.max(maxObservedWindupTick, action.getPhaseTick());
+                            sawWindup = true;
                             log("windup userTicks=" + userTicks + " phaseTick=" + action.getPhaseTick());
                         }
                     }
@@ -380,9 +383,14 @@ public final class HamonTurquoiseSourceGameTests {
             var held = AbilityInput.keyPress(INPUT_KEY, ability, user, null, InputMethod.CLICK, 0,
                     BufferingState.clickOnly(), ability.getAbilityId());
             premise(held != null && held.action instanceof HamonTurquoiseBlueOverdriveAbility.TurquoiseBlueOverdriveInstance shot
-                    && shot.ability == ability && shot == LivingComponentAction.getCurEntityAction(user)
-                    && shot.getPhase() == ActionPhase.WINDUP && shot.phasesLength.getFloat(ActionPhase.WINDUP) == 10F,
-                    "CLICK did not install its registered ten-tick windup");
+                    && shot.ability == ability && shot == LivingComponentAction.getCurEntityAction(user),
+                    "CLICK did not start the registered Turquoise action");
+            EntityActionInstance clicked = LivingComponentAction.getCurEntityAction(user);
+            // 1.16 ModHamonActions (:60-62) gave it no hold and no windup: the click performs at once.
+            helper.assertTrue(clicked.getPhase() == ActionPhase.PERFORM && clicked.getPhaseTick() == 0F
+                    && clicked.phasesLength.getFloat(ActionPhase.WINDUP) == 0F,
+                    "1.16 Turquoise Blue Overdrive performs on the click, with no windup: phase=" + clicked.getPhase()
+                            + ", windup=" + clicked.phasesLength.getFloat(ActionPhase.WINDUP));
             log("input ability=" + ability.getAbilityId() + " userTicks=" + userTicks + " targetTicks=" + targetTicks
                     + " energy=" + hamon.getEnergy() + " points=" + inputPoints + " userWet=" + user.isInWaterOrBubble()
                     + " targetWet=" + target.isInWaterOrBubble());
@@ -404,6 +412,8 @@ public final class HamonTurquoiseSourceGameTests {
                     + " trainingSinceInput=" + (contact.points - inputPoints)
                     + " pointsGiven=" + contact.pointsGiven + " blueEmitter=" + blueEmitter
                     + " canceled=" + contact.canceled + " premises=valid");
+            helper.assertTrue(waveJoinedOnFirstActionTick && !sawWindup,
+                    "1.16 Turquoise Blue Overdrive spawned its wave on the click, not after a windup");
             if (cancelDamage) {
                 helper.assertTrue(contact.canceled && Math.abs(healthLoss) < EPS && Math.abs(trainingDelta) < EPS
                         && !contact.pointsGiven && contact.emitter == null,

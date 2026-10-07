@@ -19,10 +19,8 @@ public class HamonTurquoiseBlueOverdriveAbility extends HamonActionRuntimeAbilit
 	private static final float ENERGY_COST = 1000.0F;
 
 	public HamonTurquoiseBlueOverdriveAbility(AbilityType<?> abilityType, AbilityId abilityId) {
+		// 1.16 had no hold and no phases: the click performs at once, so the default phases stay.
 		super(abilityType, abilityId, TurquoiseBlueOverdriveInstance::new);
-		setDefaultPhaseLength(ActionPhase.WINDUP, 10);
-		setDefaultPhaseLength(ActionPhase.PERFORM, 6);
-		setDefaultPhaseLength(ActionPhase.RECOVERY, 4);
 	}
 
 	@Override

@@ -227,7 +227,7 @@ public class VanillaKeybinds {
 			PacketDistributor.sendToServer(new ClHamonInteractTeachPacket(learner.getId()));
 			return true;
 		}
-		if (!playerPower.hasPower() && target instanceof LivingEntity teacher
+		if (playerPower.canGetPower(ModPlayerPowers.HAMON.get()) && target instanceof LivingEntity teacher
 				&& PlayerPower.getPowerData(teacher, ModPlayerPowers.HAMON).isPresent()) {
 			PacketDistributor.sendToServer(new ClHamonInteractAskTeacherPacket(teacher.getId()));
 			return true;
