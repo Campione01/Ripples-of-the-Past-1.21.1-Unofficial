@@ -12,7 +12,6 @@ import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.FieldInsnNode;
 import org.objectweb.asm.tree.IincInsnNode;
-import org.objectweb.asm.tree.IntInsnNode;
 import org.objectweb.asm.tree.InvokeDynamicInsnNode;
 import org.objectweb.asm.tree.JumpInsnNode;
 import org.objectweb.asm.tree.LdcInsnNode;
@@ -34,7 +33,10 @@ import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-/** Wire execution and compiled wiring only; client bytes are never loaded or invoked. */
+/**
+ * Codec, registration and client-handler wiring; client bytes are never loaded or invoked.
+ * The producers are exercised by PillarmanBladeHitGameTests.
+ */
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class PillarmanHitSparkPacketGameTests {
@@ -47,9 +49,6 @@ public final class PillarmanHitSparkPacketGameTests {
     private static final String LEVEL = "net/minecraft/world/level/Level";
     private static final String PAYLOAD = "net/minecraft/network/protocol/common/custom/CustomPacketPayload";
     private static final String REGISTRAR = "net/neoforged/neoforge/network/registration/PayloadRegistrar";
-    private static final String ABILITIES = "rotp/core/impl/powers/pillarman/abilities/";
-    private static final String ACTION = ABILITIES + "PillarmanActionAbility";
-    private static final String SPARK_DESC = "(L" + ENTITY + ";I)V";
     private static final String CLIENT_DESC = "(L" + PACKET + ";)V";
     private static final String ID = "trpillarmanparticles";
 
@@ -168,71 +167,6 @@ public final class PillarmanHitSparkPacketGameTests {
     }
 
     @GameTest(template = "empty", batch = "r709_pillarman_spark", timeoutTicks = 20)
-    public static void sparkProducerUsesPassedTargetOnceAndTracksSelf(GameTestHelper helper) {
-        Cursor c = new Cursor(executable(method(read(ACTION), "sparkEffect", SPARK_DESC)), "producer");
-        c.var(Opcodes.ALOAD, 0);
-        c.call(Opcodes.INVOKEVIRTUAL, ENTITY, "level", "()L" + LEVEL + ";");
-        c.type(Opcodes.INSTANCEOF, "net/minecraft/server/level/ServerLevel");
-        JumpInsnNode serverOnly = c.jump(Opcodes.IFEQ);
-        c.var(Opcodes.ALOAD, 0);
-        c.type(Opcodes.NEW, PACKET);
-        c.op(Opcodes.DUP);
-        c.var(Opcodes.ALOAD, 0);
-        c.call(Opcodes.INVOKEVIRTUAL, ENTITY, "getId", "()I");
-        c.var(Opcodes.ILOAD, 1);
-        c.call(Opcodes.INVOKESPECIAL, PACKET, "<init>", "(II)V");
-        c.call(Opcodes.INVOKESTATIC, PACKET, "send", "(L" + ENTITY + ";L" + PACKET + ";)V");
-        require(target(serverOnly) == c.peek(), "client-level branch skips the complete producer");
-        c.op(Opcodes.RETURN);
-        c.end();
-
-        c = new Cursor(executable(method(read(PACKET), "send", "(L" + ENTITY + ";L" + PACKET + ";)V")), "tracking send");
-        c.var(Opcodes.ALOAD, 0);
-        c.var(Opcodes.ALOAD, 1);
-        c.op(Opcodes.ICONST_0);
-        c.type(Opcodes.ANEWARRAY, PAYLOAD);
-        c.call(Opcodes.INVOKESTATIC, "net/neoforged/neoforge/network/PacketDistributor",
-                "sendToPlayersTrackingEntityAndSelf", "(L" + ENTITY + ";L" + PAYLOAD + ";[L" + PAYLOAD + ";)V");
-        c.op(Opcodes.RETURN);
-        c.end();
-        helper.succeed();
-    }
-
-    @GameTest(template = "empty", batch = "r709_pillarman_spark", timeoutTicks = 20)
-    public static void sparkFourCallersKeepTargetQuantityAndSuccessGates(GameTestHelper helper) {
-        String slash = ABILITIES + "PillarmanBladeSlashAbility";
-        String dash = ABILITIES + "PillarmanBladeDashAttackAbility";
-        String barrage = ABILITIES + "PillarmanBladeBarrageAbility";
-        ClassNode slashBody = read(slash + "$BladeSlashInstance");
-        ClassNode dashBody = read(dash + "$BladeDashInstance");
-        ClassNode barrageBody = read(barrage + "$BladeBarrageInstance");
-        ClassNode defenseBody = read(barrage);
-        noSpark(read(slash));
-        noSpark(read(dash));
-        MethodNode slashHit = method(slashBody, "hitTarget", "(L" + LIVING + ";L" + LEVEL + ";)V");
-        MethodNode dashHit = method(dashBody, "hitTargets", "(L" + LIVING + ";L" + LEVEL + ";)V");
-        MethodNode barrageHit = method(barrageBody, "hitEntity", "(L" + LEVEL + ";L" + LIVING + ";L" + LIVING + ";)V");
-        MethodNode defense = method(defenseBody, "onUserIncomingDamage",
-                "(Lnet/neoforged/neoforge/event/entity/living/LivingIncomingDamageEvent;)Z");
-        MethodInsnNode s = caller(slashBody, slashHit, slash, 4, 9);
-        skipsSpark(slashHit, only(slashHit, LIVING, "hurt"), Opcodes.IFEQ, s);
-        s = caller(dashBody, dashHit, dash, 4, 60);
-        skipsSpark(dashHit, only(dashHit, "java/util/Set", "add"), Opcodes.IFEQ, s);
-        skipsSpark(dashHit, only(dashHit, dashBody.name, "dealPhysicalDamage"), Opcodes.IFEQ, s);
-        s = caller(barrageBody, barrageHit, barrage, 2, 12);
-        skipsSpark(barrageHit, only(barrageHit, "rotp/core/util/functions/DamageUtil", "hurtThroughInvulTicks"), Opcodes.IFEQ, s);
-        s = caller(defenseBody, defense, barrage, 2, 12);
-        MethodInsnNode onGround = only(defense, ENTITY, "onGround");
-        Cursor ground = new Cursor(List.of(previous(onGround)), "projectile ground receiver");
-        ground.var(Opcodes.ALOAD, 2);
-        skipsSpark(defense, onGround, Opcodes.IFNE, s);
-        MethodInsnNode direct = only(defense, "net/minecraft/world/damagesource/DamageSource", "getDirectEntity");
-        Cursor source = new Cursor(List.of(next(direct)), "actual direct attacking entity");
-        source.var(Opcodes.ASTORE, 2);
-        helper.succeed();
-    }
-
-    @GameTest(template = "empty", batch = "r709_pillarman_spark", timeoutTicks = 20)
     public static void sparkClientBytesUseInclusiveForcedOneShotDonorArguments(GameTestHelper helper) {
         Cursor c = new Cursor(executable(method(read(CLIENT), "handle", CLIENT_DESC)), "client request shape");
         c.var(Opcodes.ALOAD, 0);
@@ -293,35 +227,6 @@ public final class PillarmanHitSparkPacketGameTests {
         helper.succeed();
     }
 
-    private static MethodInsnNode caller(ClassNode owner, MethodNode method, String leaf, int slot, int quantity) {
-        int count = 0;
-        for (MethodNode m : owner.methods) { count += calls(m, null, "sparkEffect").size(); }
-        require(count == 1, "one spark consumer in " + owner.name);
-        MethodInsnNode spark = only(method, null, "sparkEffect");
-        require(spark.getOpcode() == Opcodes.INVOKESTATIC && spark.desc.equals(SPARK_DESC)
-                && (spark.owner.equals(ACTION) || spark.owner.equals(leaf) || spark.owner.equals(owner.name)),
-                "actual shared spark binding: " + owner.name);
-        AbstractInsnNode amount = previous(spark);
-        require(amount instanceof IntInsnNode i && i.getOpcode() == Opcodes.BIPUSH && i.operand == quantity,
-                "unchanged spark quantity " + quantity);
-        new Cursor(List.of(previous(amount)), "passed consumer target").var(Opcodes.ALOAD, slot);
-        return spark;
-    }
-
-    private static void skipsSpark(MethodNode method, MethodInsnNode gate, int opcode, MethodInsnNode spark) {
-        AbstractInsnNode branch = next(gate);
-        require(branch instanceof JumpInsnNode j && j.getOpcode() == opcode
-                && method.instructions.indexOf(gate) < method.instructions.indexOf(spark)
-                && method.instructions.indexOf(target(j)) > method.instructions.indexOf(spark),
-                "failed " + gate.name + " skips spark in " + method.name);
-    }
-
-    private static void noSpark(ClassNode owner) {
-        for (MethodNode method : owner.methods) {
-            require(calls(method, null, "sparkEffect").isEmpty(), "no additional spark consumer in " + owner.name);
-        }
-    }
-
     private static List<MethodInsnNode> calls(MethodNode method, String owner, String name) {
         List<MethodInsnNode> result = new ArrayList<>();
         for (AbstractInsnNode insn : method.instructions) {
@@ -366,12 +271,6 @@ public final class PillarmanHitSparkPacketGameTests {
         List<AbstractInsnNode> result = new ArrayList<>();
         for (AbstractInsnNode insn : method.instructions) { if (insn.getOpcode() >= 0) { result.add(insn); } }
         return result;
-    }
-
-    private static AbstractInsnNode previous(AbstractInsnNode insn) {
-        do { insn = insn.getPrevious(); } while (insn != null && insn.getOpcode() < 0);
-        require(insn != null, "executable predecessor");
-        return insn;
     }
 
     private static AbstractInsnNode next(AbstractInsnNode insn) {

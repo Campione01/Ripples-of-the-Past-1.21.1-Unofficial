@@ -158,6 +158,13 @@ public class PillarmanBladeDashAttackAbility extends PillarmanActionAbility {
 					-Mth.cos(knockbackYRot * MathUtil.DEG_TO_RAD));
 		}
 
+		// 1.16 picks the side knockback from the server's own body yaw, which lags behind the look yaw.
+		// The client keeps the shared alignment, so the pose does not change.
+		@Override
+		protected boolean alignsBodyYawToLook() {
+			return level().isClientSide();
+		}
+
 		@Override
 		public void onButtonStopHold() {
 			if (getPhase() == ActionPhase.BUTTON_CHARGE) {

@@ -362,7 +362,9 @@ public final class PillarmanRibAttachmentLifecycleGameTests {
             Vec3 projection = rootByLook.add(Vec3.directionFromRotation(user.getXRot() + tag.getFloat("XRotOffset"),
                     user.getYRot() + tag.getFloat("YRotOffset")).scale(distance));
             return new Frame(level.getGameTime(), rib.tickCount, rib.position(), root, end, projection, center(),
-                    level.getEntity(target.getId()) == target, rib.isAttachedToAnEntity(), tag.getInt("AttachedEntity"), rib.ticksLifespan(),
+                    level.getEntity(target.getId()) == target, rib.isAttachedToAnEntity(),
+                    tag.hasUUID("AttachedEntity") && tag.getUUID("AttachedEntity").equals(target.getUUID()) ? target.getId() : -1,
+                    rib.ticksLifespan(),
                     rib.isRemoved(), rib.getEntityAttachedTo() == target, query, candidate, clip, clear, target.getHealth());
         }
 

@@ -794,7 +794,9 @@ public class EntityActionInstance implements HeldInput {
 	
 	@ApiStatus.Internal
 	protected void _onTick() {
-		performer.yBodyRot = performer.getYRot();
+		if (alignsBodyYawToLook()) {
+			performer.yBodyRot = performer.getYRot();
+		}
 		actionTick();
 		if (phase == ActionPhase.PERFORM) {
 			if (getPhaseTick() < 1) {
@@ -807,6 +809,14 @@ public class EntityActionInstance implements HeldInput {
 		}
 	}
 	
+	/**
+	 * Whether the action tick turns the performer's body to its look yaw before the action runs.
+	 * An action whose 1.16 logic reads the body yaw the vanilla tick left opts out.
+	 */
+	protected boolean alignsBodyYawToLook() {
+		return true;
+	}
+
 	// 1.16 Action.onPerform: an action that swings the hand without the user's own punch resets a player's attack strength.
 	private void resetAttackStrengthOnPerform() {
 		if (ability instanceof EntityActionAbility entityAbility && entityAbility.resetsAttackStrengthOnPerform()

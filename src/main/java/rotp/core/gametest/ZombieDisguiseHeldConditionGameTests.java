@@ -339,6 +339,10 @@ public final class ZombieDisguiseHeldConditionGameTests {
                 if (++settleRows >= 2) done = true;
             }
         }
+        private static boolean savedAttachmentIs(PillarmanRibEntity rib, Entity expected) {
+            CompoundTag tag = rib.saveWithoutId(new CompoundTag());
+            return tag.hasUUID("AttachedEntity") && tag.getUUID("AttachedEntity").equals(expected.getUUID());
+        }
         private void qualifyStun(PillarmanRibEntity rib) {
             if (produced) return;
             Rib tracked = ribs.get(rib.getUUID());
@@ -346,7 +350,7 @@ public final class ZombieDisguiseHeldConditionGameTests {
             if (!hit) return;
             premise(ribs.size() == 8 && volleyAction == ribAction
                     && tracked.impacts.stream().anyMatch(event -> !event.isCanceled() && event.getRayTraceResult() instanceof EntityHitResult result
-                    && result.getEntity() == user) && rib.isAttachedToAnEntity() && rib.saveWithoutId(new CompoundTag()).getInt("AttachedEntity") == user.getId()
+                    && result.getEntity() == user) && rib.isAttachedToAnEntity() && savedAttachmentIs(rib, user)
                     && user.isAlive() && user.hasEffect(ModStatusEffects.STUN) && user.getEffect(ModStatusEffects.STUN).getDuration() > 0,
                     "accepted natural rib hit did not produce attachment/STUN");
             produced = true; log("STUN-PRODUCED naturalRib=" + rib.getUUID() + " target=" + user.getUUID() + " duration=" + user.getEffect(ModStatusEffects.STUN).getDuration());

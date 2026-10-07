@@ -350,7 +350,10 @@ public abstract class PillarmanExtendingBodyPartEntity extends OwnerBoundProject
 	@Override
 	protected void addAdditionalSaveData(CompoundTag nbt) {
 		super.addAdditionalSaveData(nbt);
-		nbt.putInt("AttachedEntity", entityData.get(ENTITY_ATTACHED_TO));
+		// The donor writes the target's UUID and never reads it back: a reloaded part is unattached.
+		if (attachedEntity != null) {
+			nbt.putUUID("AttachedEntity", attachedEntity.getUUID());
+		}
 		nbt.putDouble("Distance", getDistance());
 		nbt.putBoolean("IsMovingForward", isMovingForward());
 		nbt.putBoolean("IsRetracting", isRetracting());
@@ -360,8 +363,6 @@ public abstract class PillarmanExtendingBodyPartEntity extends OwnerBoundProject
 	@Override
 	protected void readAdditionalSaveData(CompoundTag nbt) {
 		super.readAdditionalSaveData(nbt);
-		attachedEntity = null;
-		entityData.set(ENTITY_ATTACHED_TO, nbt.getInt("AttachedEntity"));
 		setDistance(nbt.getDouble("Distance"));
 		setIsMovingForward(nbt.getBoolean("IsMovingForward"));
 		setIsRetracting(nbt.getBoolean("IsRetracting"));
