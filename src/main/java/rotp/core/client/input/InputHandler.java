@@ -627,7 +627,12 @@ public class InputHandler {
 				@Nullable BaseAndActiveAbility heldAbility = input.heldAbility.curActiveAbility != null ? input.heldAbility : null;
 				@Nullable BaseAndActiveAbility clickAbility = input.clickAbility.curActiveAbility != null ? input.clickAbility : null;
 				
-				cancelVanilla |= heldAbility != null || clickAbility != null;
+				cancelVanilla |= shouldCancelVanillaForAbilityPress(
+						key.equals(ClientKey.fromVanillaKeybind(mc.options.keyAttack)),
+						controlScheme.powerClassCosmetic == PowerClass.STAND,
+						heldAbility != null,
+						clickAbility != null,
+						clickAbility != null && clickAbility.curActiveAbility.conditionCheck.isPositive());
 				HeldKeyTimer heldKeyTimer = new HeldKeyTimer(key, cancelVanilla, keyModifier);
 				
 				int ambiguity = 0;
@@ -697,6 +702,24 @@ public class InputHandler {
 			}
 		}
 		return cancelVanilla;
+	}
+
+	// 1.16 handleMouseClickPowerHud cancelled the vanilla click only when the action went off, so a refused click
+	// ability left the player's own punch or mining alone. Kept to the attack key of the non-Stand schemes.
+	@ApiStatus.Internal
+	public static boolean shouldCancelVanillaForAbilityPress(
+			boolean attackKey,
+			boolean standScheme,
+			boolean holdAbilityResolved,
+			boolean clickAbilityResolved,
+			boolean clickAbilityUsable) {
+		if (holdAbilityResolved) {
+			return true;
+		}
+		if (!clickAbilityResolved) {
+			return false;
+		}
+		return clickAbilityUsable || !attackKey || standScheme;
 	}
 
 	private static boolean isGuardClickAmbiguity(@Nullable BaseAndActiveAbility heldAbility, @Nullable BaseAndActiveAbility clickAbility) {
