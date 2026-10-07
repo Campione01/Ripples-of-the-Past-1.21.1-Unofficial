@@ -153,15 +153,109 @@ public final class HamonLegacyTorsoClipsGameTests {
 
 	private static void limbRotation(GameTestHelper helper, JsonObject bones, String bone,
 			float time, float pitch, float yaw, float roll) {
+		limbRotation(helper, "hamon_shock", bones, bone, time, pitch, yaw, roll);
+	}
+
+	private static void limbRotation(GameTestHelper helper, String clip, JsonObject bones, String bone,
+			float time, float pitch, float yaw, float roll) {
 		JsonObject part = bones.getAsJsonObject(bone);
-		helper.assertTrue(part != null && part.has("rotation"), "hamon_shock lost " + bone + " rotation");
+		helper.assertTrue(part != null && part.has("rotation"), clip + " lost " + bone + " rotation");
 		float[] got = sample(part.getAsJsonObject("rotation"), time);
 		float[] radians = {pitch, yaw, roll};
 		for (int axis = 0; axis < 3; axis++) {
 			float want = (float) Math.toDegrees(radians[axis]);
 			helper.assertTrue(Math.abs(got[axis] - want) < 0.0001F,
-					"hamon_shock " + bone + " rotation axis " + axis + " at " + time + " must be " + want + ", got " + got[axis]);
+					clip + " " + bone + " rotation axis " + axis + " at " + time + " must be " + want + ", got " + got[axis]);
 		}
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void wallClimbSwaysTheWholeBodyLike116(GameTestHelper helper) {
+		JsonObject anims = animations(helper);
+		// wall_climb_up.json and wall_climb_down.json ticks 1 and 13
+		for (String clip : new String[] {"wall_climb_up", "wall_climb_down"}) {
+			JsonObject bones = bones(helper, anims, clip);
+			noUpperBodyTransform(helper, clip, bones);
+			rot(helper, clip, bones, 0.05F, 0.010925154F, -0.08726646F, -0.087945916F);
+			rot(helper, clip, bones, 0.65F, 0.010925154F, 0.08726646F, 0.08726646F);
+		}
+		// wall_climb_left.json tick 6, wall_climb_right.json tick 5
+		JsonObject left = bones(helper, anims, "wall_climb_left");
+		noUpperBodyTransform(helper, "wall_climb_left", left);
+		rot(helper, "wall_climb_left", left, 0.3F, 0.028378442F, 0.10471976F, -0.087945916F);
+		JsonObject right = bones(helper, anims, "wall_climb_right");
+		noUpperBodyTransform(helper, "wall_climb_right", right);
+		rot(helper, "wall_climb_right", right, 0.25F, 0.02883244F, -0.28348503F, -0.09126254F);
+		// wall_climb_down keys its torso bend on its last tick only; once the clip loops the library holds that key
+		for (String clip : new String[] {"wall_climb_up", "wall_climb_down", "wall_climb_left", "wall_climb_right"}) {
+			JsonObject bones = bones(helper, anims, clip);
+			limbRotation(helper, clip, bones, "torso_bend", 0.05F, 0.07635871F, 0F, 0F);
+			limbRotation(helper, clip, bones, "torso_bend", 0.65F, 0.07635871F, 0F, 0F);
+		}
+		helper.succeed();
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void barrageClipsTurnTheWholeBodyLike116(GameTestHelper helper) {
+		JsonObject anims = animations(helper);
+		JsonObject punch = bones(helper, anims, "punch_barrage");
+		// punch_barrage.json ticks 2 and 4: the body turns left while the right arm punches; head and legs counter-turn
+		rot(helper, "punch_barrage", punch, 0.1F, 0F, 0.5235988F, 0F);
+		rot(helper, "punch_barrage", punch, 0.2F, 0F, -0.5235988F, 0F);
+		limbRotation(helper, "punch_barrage", punch, "right_leg", 0.1F, 0.5235988F, 0.52359867F, 0.1308997F);
+		limbRotation(helper, "punch_barrage", punch, "left_leg", 0.2F, -0.2617994F, -0.5235988F, -0.1308997F);
+		// syo_barrage_start.json tick 2
+		JsonObject start = bones(helper, anims, "syo_barrage_start");
+		rot(helper, "syo_barrage_start", start, 0.1F, -0.17453292F, -0.08726646F, -0.08726646F);
+		rot(helper, "syo_barrage_start", start, 5F, -0.17453292F, -0.08726646F, -0.08726646F);
+		// syo_barrage_finisher.json ticks 2, 6 and 10; the last key is held to the clip's end tick 20
+		JsonObject finisher = bones(helper, anims, "syo_barrage_finisher");
+		rot(helper, "syo_barrage_finisher", finisher, 0.1F, 0F, 0.5235988F, 0F);
+		rot(helper, "syo_barrage_finisher", finisher, 0.3F, 0F, 2.3561945F, 0F);
+		rot(helper, "syo_barrage_finisher", finisher, 0.5F, 0F, 2.5726154F, 0F);
+		rot(helper, "syo_barrage_finisher", finisher, 1F, 0F, 2.5726154F, 0F);
+		limbRotation(helper, "syo_barrage_finisher", finisher, "torso_bend", 0.3F, 0.18325958F, 0F, 0F);
+		limbRotation(helper, "syo_barrage_finisher", finisher, "torso_bend", 0.5F, 0.29408783F, 0F, 0F);
+		limbRotation(helper, "syo_barrage_finisher", finisher, "torso_bend", 1F, 0.23300146F, 0F, 0F);
+		helper.succeed();
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void barrageClipsUseDonorLimbAnglesAndBends(GameTestHelper helper) {
+		JsonObject anims = animations(helper);
+		// punch_barrage.json ticks 2 and 4: the drawn-back arm is bent at the elbow
+		JsonObject punch = bones(helper, anims, "punch_barrage");
+		limbRotation(helper, "punch_barrage", punch, "right_arm_bend", 0.1F, 0F, 0F, 0F);
+		limbRotation(helper, "punch_barrage", punch, "right_arm_bend", 0.2F, -2.3561945F, 0F, 0F);
+		limbRotation(helper, "punch_barrage", punch, "left_arm_bend", 0.1F, -2.3527036F, 0F, 0F);
+		limbRotation(helper, "punch_barrage", punch, "left_arm_bend", 0.2F, 0F, 0F, 0F);
+		limbRotation(helper, "punch_barrage", punch, "right_leg_bend", 0.2F, 0.5235988F, 0F, 0F);
+		limbRotation(helper, "punch_barrage", punch, "left_leg_bend", 0.1F, 0.2617994F, 0F, 0F);
+		// syo_barrage_start.json tick 2 (its only keys); tick 1 is halfway in from the rest pose
+		JsonObject start = bones(helper, anims, "syo_barrage_start");
+		limbRotation(helper, "syo_barrage_start", start, "head", 0.1F, -0.17453292F, 0F, 0.08726646F);
+		limbRotation(helper, "syo_barrage_start", start, "right_arm", 0.1F, -0.8028487F, -0.34501165F, 0.18473181F);
+		limbRotation(helper, "syo_barrage_start", start, "left_arm", 0.1F, -0.5235988F, 1.0471976F, -0.91629785F);
+		limbRotation(helper, "syo_barrage_start", start, "right_leg", 0.1F, -0.95637333F, 0.38491595F, 0.045810096F);
+		limbRotation(helper, "syo_barrage_start", start, "left_leg", 0.1F, -0.25884798F, -0.2855724F, -0.25303441F);
+		limbRotation(helper, "syo_barrage_start", start, "left_leg", 5F, -0.25884798F, -0.2855724F, -0.25303441F);
+		limbRotation(helper, "syo_barrage_start", start, "right_arm_bend", 0.1F, -1.8325957F, 0F, 0F);
+		limbRotation(helper, "syo_barrage_start", start, "left_arm_bend", 0.1F, -1.0471976F, 0F, 0F);
+		limbRotation(helper, "syo_barrage_start", start, "right_leg_bend", 0.1F, 0.91629785F, 0F, 0F);
+		limbRotation(helper, "syo_barrage_start", start, "left_leg_bend", 0.1F, 0.52938718F, 0F, 0F);
+		limbRotation(helper, "syo_barrage_start", start, "right_leg", 0.05F, -0.95637333F / 2, 0.38491595F / 2, 0.045810096F / 2);
+		// syo_barrage_finisher.json ticks 6 (arms) and 10 (legs)
+		JsonObject finisher = bones(helper, anims, "syo_barrage_finisher");
+		limbRotation(helper, "syo_barrage_finisher", finisher, "right_arm", 0.3F, -1.6581796F, -0.28412476F, 1.0415549F);
+		limbRotation(helper, "syo_barrage_finisher", finisher, "left_arm", 0.3F, -0.0755691F, 0.8608312F, -0.112791225F);
+		limbRotation(helper, "syo_barrage_finisher", finisher, "right_arm_bend", 0.3F, -0.82517594F, 0F, 0F);
+		limbRotation(helper, "syo_barrage_finisher", finisher, "left_arm_bend", 0.3F, -1.0978122F, 0F, 0F);
+		limbRotation(helper, "syo_barrage_finisher", finisher, "right_leg", 0.5F, 0.57293636F, 1.161509F, 0.17469648F);
+		limbRotation(helper, "syo_barrage_finisher", finisher, "left_leg", 0.5F, -0.5598573F, 1.1606095F, -0.11931681F);
+		limbRotation(helper, "syo_barrage_finisher", finisher, "left_leg", 1F, -0.5598573F, 1.1606095F, -0.11931681F);
+		limbRotation(helper, "syo_barrage_finisher", finisher, "right_leg_bend", 0.5F, 0.1308997F, 0F, 0F);
+		limbRotation(helper, "syo_barrage_finisher", finisher, "left_leg_bend", 0.5F, 0.2617994F, 0F, 0F);
+		helper.succeed();
 	}
 
 	@GameTest(template = "empty", timeoutTicks = 20)

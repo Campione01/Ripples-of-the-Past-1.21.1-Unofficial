@@ -1,5 +1,6 @@
 package rotp.core.impl.powers.hamon.abilities;
 
+import rotp.core.client.entityanim.PreFrameEntityAnimCalc.LivingAnimState;
 import rotp.core.init.ModParticles;
 import rotp.core.init.ModStatusEffects;
 import rotp.core.powersystem.ability.AbilityId;
@@ -82,7 +83,8 @@ public class HamonSunlightYellowOverdriveBarrageAbility extends HamonActionRunti
 	@Override
 	public ActionAnimIdentifier getEntityAnim(EntityActionInstance action) {
 		if (action instanceof SYOverdriveBarrageInstance syoBarrage) {
-			return syoBarrage.getAnimationForPhase();
+			// 1.16 never stopped the finisher clip when the action ended: its end pose stays through the recovery
+			return syoBarrage.getPhase() == ActionPhase.RECOVERY ? SYO_BARRAGE_FINISHER_ANIM : syoBarrage.getAnimationForPhase();
 		}
 		return super.getEntityAnim(action);
 	}
@@ -110,6 +112,17 @@ public class HamonSunlightYellowOverdriveBarrageAbility extends HamonActionRunti
 				syncPhaseChanges();
 			}
 			super._onTick();
+		}
+
+		// 1.16 setFinisherAnim replaced the layer's clip, so the finisher played from its first tick.
+		@Override
+		public void extractAnim(LivingAnimState animVariables, LivingEntity performer, float partialTick) {
+			super.extractAnim(animVariables, performer, partialTick);
+			if (animVariables.animId == SYO_BARRAGE_FINISHER_ANIM) {
+				animVariables.time = getPhase() == ActionPhase.RECOVERY
+						? FINISHING_PUNCH_DURATION + Math.max(animVariables.phaseTime, 0.0F)
+						: Math.max(animVariables.phaseTime - MAX_BARRAGE_DURATION, 0.0F);
+			}
 		}
 
 		@Override

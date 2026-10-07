@@ -295,6 +295,15 @@ tasks.register('rebuffDonorCurveSmokeTest', JavaExec) {
     workingDir projectDir
 }
 
+tasks.register('legacyBodyClipSmokeTest', JavaExec) {
+    group = 'verification'
+    description = 'Parses the converted Hamon and Pillar Man player clips and checks their whole-body keys against the 1.16.5 donor.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
+    mainClass = 'rotp.core.client.entityanim.LegacyBodyClipSmokeTest'
+    workingDir projectDir
+}
+
 tasks.register('rebuffLifecycleSmokeTest', JavaExec) {
     group = 'verification'
     description = 'Checks Rebuff tail lifecycle decisions, capture timing and production call-site bindings.'
@@ -506,6 +515,7 @@ tasks.named('check').configure {
     dependsOn tasks.named('suspiciousArrowParticleSmokeTest')
     dependsOn tasks.named('rebuffFadePoseSmokeTest')
     dependsOn tasks.named('rebuffDonorCurveSmokeTest')
+    dependsOn tasks.named('legacyBodyClipSmokeTest')
     dependsOn tasks.named('rebuffLifecycleSmokeTest')
     dependsOn tasks.named('theWorldTsPunchSmokeTest')
     dependsOn tasks.named('clientSettingsSmokeTest')
