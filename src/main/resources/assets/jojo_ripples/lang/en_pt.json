@@ -491,7 +491,7 @@
   "jojo.message.action_condition.cooldown": "Ability is on cooldown",
   "jojo.message.action_condition.no_energy_pillarman": "You are exhausted",
   "jojo.message.action_condition.stone_form": "You cannot use it in stone form",
-  "jojo.message.action_condition.peaceful": "This ability cannot be used on Peaceful difficulty",
+  "jojo.message.action_condition.peaceful": "Monsters can't hurt anyone on Peaceful difficulty",
   "jojo.message.action_condition.chariot_rapier": "Silver Chariot is missing the rapier",
   "jojo.message.action_condition.chariot_armor": "Silver Chariot already has no armor",
   "jojo.message.action_condition.no_stand_part.main_body": "You do not control the Stand's main body",

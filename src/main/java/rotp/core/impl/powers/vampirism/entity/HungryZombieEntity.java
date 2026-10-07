@@ -65,7 +65,8 @@ public class HungryZombieEntity extends Zombie {
 
 	public HungryZombieEntity(EntityType<? extends HungryZombieEntity> type, Level level) {
 		super(type, level);
-		xpReward = Math.round(xpReward * 1.5F);
+		// 1.16: xpReward *= 1.5 on the int field, 5 -> 7
+		xpReward = (int) (xpReward * 1.5);
 	}
 
 	public void setSummonedFromAbility() {
@@ -238,11 +239,11 @@ public class HungryZombieEntity extends Zombie {
 
 	@Override
 	public boolean killedEntity(ServerLevel level, LivingEntity dead) {
-		boolean result = super.killedEntity(level, dead);
+		// 1.16 killed() did not call super: no vanilla Zombie Villager conversion, and the death loot always dropped
 		if (level.getDifficulty() != Difficulty.EASY) {
 			createZombie(level, getOwner(), dead, isPersistenceRequired());
 		}
-		return result;
+		return true;
 	}
 
 	public static boolean createZombie(ServerLevel level, @Nullable LivingEntity owner, LivingEntity dead, boolean makePersistent) {
