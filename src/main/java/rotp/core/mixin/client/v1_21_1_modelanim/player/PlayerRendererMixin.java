@@ -113,6 +113,7 @@ public abstract class PlayerRendererMixin extends LivingEntityRenderer<AbstractC
 		}
 		finally {
 			if (tornadoOverdrive) {
+				TornadoOverdriveEffectLayer.endBodyRotation(player);
 				poseStack.popPose();
 			}
 			if (stoneFormOuterLayer != null) {

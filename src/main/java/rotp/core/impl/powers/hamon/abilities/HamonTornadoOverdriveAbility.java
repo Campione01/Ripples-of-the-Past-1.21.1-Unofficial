@@ -48,7 +48,7 @@ public class HamonTornadoOverdriveAbility extends HamonActionRuntimeAbility {
 				}
 			}
 			if (gavePoints) {
-				hamon.hamonPointsFromAction(HamonData.HamonStat.STRENGTH, getHeldTickEnergyCost(context, ticksHeld));
+				hamon.hamonPointsFromAction(HamonData.HamonStat.STRENGTH, getConfiguredHeldTickEnergyCost());
 				hamon.syncOnUpdate(user);
 			}
 		}

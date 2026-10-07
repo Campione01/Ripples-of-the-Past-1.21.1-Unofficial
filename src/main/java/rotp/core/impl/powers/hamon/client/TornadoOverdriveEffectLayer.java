@@ -1,5 +1,6 @@
 package rotp.core.impl.powers.hamon.client;
 
+import rotp.core.core.JojoMod;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
@@ -22,10 +23,17 @@ import net.minecraft.client.renderer.entity.layers.RenderLayer;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.LivingEntity;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.EventPriority;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.client.event.RenderNameTagEvent;
 
 public class TornadoOverdriveEffectLayer<T extends LivingEntity, M extends HumanoidModel<T>> extends RenderLayer<T, M> {
 	private static final ResourceLocation TEXTURE = ResourceLocation.parse("minecraft:textures/entity/trident_riptide.png");
 	private final ModelPart box;
+	private static LivingEntity rotatedBody;
+	private static float rotatedBodyAngle;
 
 	public TornadoOverdriveEffectLayer(RenderLayerParent<T, M> renderer) {
 		super(renderer);
@@ -64,7 +72,28 @@ public class TornadoOverdriveEffectLayer<T extends LivingEntity, M extends Human
 
 	public static void rotateBody(PoseStack poseStack, LivingEntity entity, float partialTick) {
 		// Entity age keeps advancing while the held action's phase timer stays at its endpoint.
-		poseStack.mulPose(Axis.YP.rotation((entity.tickCount + partialTick) * 2.0F % ((float) Math.PI * 2.0F)));
+		float angle = (entity.tickCount + partialTick) * 2.0F % ((float) Math.PI * 2.0F);
+		poseStack.mulPose(Axis.YP.rotation(angle));
+		rotatedBody = entity;
+		rotatedBodyAngle = angle;
+	}
+
+	public static void endBodyRotation(LivingEntity entity) {
+		if (rotatedBody == entity) {
+			rotatedBody = null;
+		}
+	}
+
+	// 1.16 ClientEventHandler.onRenderNameplate: the name tag is drawn on the spun pose, so it is turned back.
+	@EventBusSubscriber(modid = JojoMod.MOD_ID, value = Dist.CLIENT)
+	public static class NameTagEvents {
+
+		@SubscribeEvent(priority = EventPriority.HIGHEST)
+		public static void counterRotateNameTag(RenderNameTagEvent event) {
+			if (rotatedBody != null && event.getEntity() == rotatedBody) {
+				event.getPoseStack().mulPose(Axis.YP.rotation(-rotatedBodyAngle));
+			}
+		}
 	}
 
 	private static LayerDefinition createLayer() {

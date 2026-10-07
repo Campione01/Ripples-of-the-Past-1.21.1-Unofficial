@@ -239,6 +239,12 @@ public class HamonActionRuntimeAbility extends EntityActionAbility {
 		return heldTickEnergyCost;
 	}
 
+	// 1.16 NonStandAction.getHeldTickEnergyCost: the configured cost in every game mode, which is what a held
+	// technique's stat points are counted from. Only the drain is skipped for a Creative user.
+	protected float getConfiguredHeldTickEnergyCost() {
+		return heldTickEnergyCost;
+	}
+
 	protected boolean isHamonHoldToFire() {
 		return hamonHoldToFireTicks > 0;
 	}

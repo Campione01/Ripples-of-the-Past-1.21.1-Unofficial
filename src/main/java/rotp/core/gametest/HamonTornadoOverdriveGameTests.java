@@ -20,6 +20,7 @@ import rotp.core.impl.powers.hamon.ModHamonSkills;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.animal.Pig;
 import net.minecraft.world.entity.player.Player;
@@ -64,6 +65,32 @@ public final class HamonTornadoOverdriveGameTests {
 		}
 	}
 
+	/**
+	 * 1.16 awarded Strength points with getHeldTickEnergyCost(power), the configured 75 in every game mode: only
+	 * the energy drain was skipped for a Creative user (NonStandPowerType.consumeEnergy).
+	 */
+	@GameTest(template = "empty", timeoutTicks = 40)
+	public static void tornadoHitGivesCreativeUserTheSurvivalStrengthPoints(GameTestHelper helper) {
+		float survivalGain;
+		try (Fixture f = new Fixture(helper)) {
+			survivalGain = f.strengthGainFromOneHitTick();
+			helper.assertTrue(f.hamon.getEnergy() < f.hamon.getMaxEnergy(),
+					"a Survival Tornado Overdrive tick cost no energy");
+		}
+		helper.assertTrue(survivalGain > 0.0F,
+				"a Survival Tornado Overdrive hit gave no Strength progress: " + survivalGain);
+		try (Fixture f = new Fixture(helper)) {
+			f.user.getAbilities().instabuild = true;
+			float creativeGain = f.strengthGainFromOneHitTick();
+			helper.assertTrue(creativeGain == survivalGain,
+					"a Creative Tornado Overdrive hit must give the Survival Strength progress " + survivalGain
+							+ ", got " + creativeGain);
+			helper.assertTrue(f.hamon.getEnergy() == f.hamon.getMaxEnergy(),
+					"a Creative Tornado Overdrive tick drained energy: " + f.hamon.getEnergy());
+		}
+		helper.succeed();
+	}
+
 	private static final class Fixture implements AutoCloseable {
 		private final GameTestHelper helper;
 		private final Player user;
@@ -97,6 +124,23 @@ public final class HamonTornadoOverdriveGameTests {
 			EntityActionInputState input = user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get());
 			input.heldKeys.put(KEY, new HeldInputEntry(KEY, 1L, PowerClass.PLAYER_POWER, action));
 			return action;
+		}
+
+		// Whole points plus the saved fraction of the next one.
+		private float strengthProgress() {
+			CompoundTag nbt = hamon.serializeNBT(helper.getLevel().registryAccess());
+			return nbt.getInt("StrengthPoints") + nbt.getFloat("PointsIncFrac");
+		}
+
+		private float strengthGainFromOneHitTick() {
+			Pig pig = helper.spawnWithNoFreeWill(EntityType.PIG, new BlockPos(3, 2, 2));
+			float healthBefore = pig.getHealth();
+			float progressBefore = strengthProgress();
+			start();
+			tick(1);
+			helper.assertTrue(pig.getHealth() < healthBefore, "the held Tornado Overdrive tick hurt nothing");
+			pig.discard();
+			return strengthProgress() - progressBefore;
 		}
 
 		private void tick(int count) {
