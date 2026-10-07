@@ -29,6 +29,7 @@ import rotp.core.subsystems.itemtracking.ItemTracker;
 import rotp.core.subsystems.itemtracking.ItemTracking;
 import rotp.core.subsystems.itemtracking.KnownItemState;
 import rotp.core.subsystems.target.ActionTarget;
+import rotp.core.subsystems.target.ActionTargetRange;
 import rotp.core.subsystems.target.HitResultUtil;
 import rotp.core.util.functions.JojoModUtil;
 import rotp.core.util.mc.entitysubtype.EntitySubtype;
@@ -519,11 +520,10 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceUtilityAb
     private static ActionTarget findLifeformTarget(Level level, LivingEntity aiming) {
         ActionTarget syncedTarget = getSyncedLookTarget(level, aiming);
         if (!syncedTarget.isEmpty(level)
-                && HitResultUtil.isTargetWithinRange(syncedTarget, aiming, level,
-                        SOURCE_BLOCK_TARGET_RANGE, SOURCE_ENTITY_TARGET_RANGE)) {
+                && isWithinSourceRange(level, syncedTarget, aiming)) {
             return syncedTarget;
         }
-        return HitResultUtil.clip(
+        ActionTarget clipped = HitResultUtil.clip(
                 aiming.getEyePosition(),
                 aiming.getLookAngle(),
                 SOURCE_BLOCK_TARGET_RANGE,
@@ -532,6 +532,7 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceUtilityAb
                 GoldExperienceCreateLifeformAbility::isConvertibleEntitySource,
                 aiming,
                 SOURCE_TARGET_PRECISION);
+        return clipped.isEmpty(level) || isWithinSourceRange(level, clipped, aiming) ? clipped : ActionTarget.EMPTY;
     }
 
     private static ActionTarget getSyncedLookTarget(Level level, LivingEntity aiming) {
@@ -543,11 +544,17 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceUtilityAb
         return target != null ? target.resolveEntityId(level) : ActionTarget.EMPTY;
     }
 
+    // 1.16 Action.checkRangeAndTarget: from the Stand while it is out, an entity less without a line of sight
+    private static boolean isWithinSourceRange(Level level, ActionTarget target, LivingEntity aiming) {
+        return ActionTargetRange.isTargetWithinRange(ActionTargetRange.standPerformer(aiming), target, level,
+                SOURCE_ENTITY_TARGET_RANGE * SOURCE_ENTITY_TARGET_RANGE,
+                SOURCE_BLOCK_TARGET_RANGE * SOURCE_BLOCK_TARGET_RANGE);
+    }
+
     private static boolean isSyncedLifeformTargetTooFar(Level level, LivingEntity aiming) {
         ActionTarget syncedTarget = getSyncedLookTarget(level, aiming);
         return !syncedTarget.isEmpty(level)
-                && !HitResultUtil.isTargetWithinRange(syncedTarget, aiming, level,
-                        SOURCE_BLOCK_TARGET_RANGE, SOURCE_ENTITY_TARGET_RANGE);
+                && !isWithinSourceRange(level, syncedTarget, aiming);
     }
 
 	private static boolean isConvertibleEntitySource(Entity entity) {

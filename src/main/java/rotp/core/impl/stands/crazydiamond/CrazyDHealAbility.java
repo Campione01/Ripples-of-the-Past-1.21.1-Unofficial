@@ -40,6 +40,7 @@ import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.entity.StandEntityAbility;
 import rotp.core.powersystem.standpower.entity.StandEntityAbility.AutoSummonMode;
 import rotp.core.subsystems.target.ActionTarget;
+import rotp.core.subsystems.target.ActionTargetRange;
 import rotp.core.subsystems.target.ActionTargetAim;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
 import rotp.core.subsystems.target.AimingEntity;
@@ -92,7 +93,7 @@ public class CrazyDHealAbility extends StandEntityAbility {
 		Level level = user.level();
 		ActionTarget aimedTarget = getAimedTarget(user, level);
 		if (aimedTarget.getType() == TargetType.ENTITY
-				&& !HitResultUtil.isTargetWithinRange(aimedTarget, user, level, ENTITY_TARGET_RANGE, ENTITY_TARGET_RANGE)) {
+				&& !ActionTargetRange.isTargetWithinRange(ActionTargetRange.standPerformer(user), aimedTarget, level)) {
 			return ConditionCheck.createNegative("target_too_far");
 		}
 		ActionTarget target = getCurrentEntityTarget(user, level);
@@ -148,7 +149,7 @@ public class CrazyDHealAbility extends StandEntityAbility {
 				CrazyDHealAbility::canHealEntityTarget,
 				user,
 				0);
-		return target.getType() == TargetType.ENTITY ? target : ActionTarget.EMPTY;
+		return isValidHealEntityTarget(user, target, level) ? target : ActionTarget.EMPTY;
 	}
 
 	private static ActionTarget getAimedTarget(LivingEntity user, Level level) {
@@ -173,7 +174,9 @@ public class CrazyDHealAbility extends StandEntityAbility {
 		Entity targetEntity = target.getEntity();
 		return targetEntity != null
 				&& canHealEntityTarget(targetEntity)
-				&& targetEntity.getBoundingBox().distanceToSqr(user.getEyePosition()) <= ENTITY_TARGET_RANGE * ENTITY_TARGET_RANGE;
+				// 1.16 Action.checkRangeAndTarget: from the Stand while it is out, less without a line of sight
+				&& ActionTargetRange.isEntityWithinRange(ActionTargetRange.standPerformer(user), targetEntity,
+						ActionTargetRange.DEFAULT_ENTITY_RANGE_SQ);
 	}
 
 	@Override

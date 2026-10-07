@@ -19,6 +19,7 @@ import rotp.core.powersystem.standpower.StandUtil;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.entity.NoPoseStandEntityAbility;
 import rotp.core.subsystems.target.ActionTarget;
+import rotp.core.subsystems.target.ActionTargetRange;
 import rotp.core.subsystems.target.HitResultUtil;
 import rotp.core.util.reflection.CommonReflection;
 import rotp.core.impl.stands._entitybase.StandAbilityStamina;
@@ -137,7 +138,7 @@ public class GoldExperienceEntityLifeshotAbility extends NoPoseStandEntityAbilit
     private static LivingEntity getLifeShotTarget(LivingEntity user, Level level) {
         ActionTarget syncedTarget = getSyncedLookTarget(user, level);
         if (!syncedTarget.isEmpty(level)
-                && HitResultUtil.isTargetWithinRange(syncedTarget, user, level, REACH, REACH)) {
+                && isWithinLifeShotRange(syncedTarget, user, level)) {
             Entity syncedEntity = syncedTarget.getMainEntity();
             return syncedEntity instanceof LivingEntity living && living != user ? living : null;
         }
@@ -163,11 +164,17 @@ public class GoldExperienceEntityLifeshotAbility extends NoPoseStandEntityAbilit
         return target != null ? target.resolveEntityId(level) : ActionTarget.EMPTY;
     }
 
+    // 1.16 Action.checkRangeAndTarget: from the Stand while it is out, less without a line of sight
+    private static boolean isWithinLifeShotRange(ActionTarget target, LivingEntity user, Level level) {
+        return ActionTargetRange.isTargetWithinRange(ActionTargetRange.standPerformer(user), target, level,
+                REACH * REACH, REACH * REACH);
+    }
+
     private static boolean isSyncedLifeShotTargetTooFar(LivingEntity user, Level level) {
         ActionTarget syncedTarget = getSyncedLookTarget(user, level);
         return !syncedTarget.isEmpty(level)
                 && syncedTarget.getType() == ActionTarget.TargetType.ENTITY
-                && !HitResultUtil.isTargetWithinRange(syncedTarget, user, level, REACH, REACH);
+                && !isWithinLifeShotRange(syncedTarget, user, level);
     }
 
     public static boolean applyLifeShotTo(LivingEntity target, LivingEntity user) {

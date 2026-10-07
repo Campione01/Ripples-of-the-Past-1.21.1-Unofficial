@@ -3,6 +3,7 @@ package rotp.core.customobjects;
 import javax.annotation.Nullable;
 
 import rotp.core.core.JojoMod;
+import rotp.core.init.ModDamageTypes;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandUserGuard;
 import rotp.core.util.functions.AttributeUtil;
@@ -59,6 +60,9 @@ public interface DamageSourceModified {
 	public static void _onKnockbackEvent(LivingKnockBackEvent event) {
 		if (currentKnockbackSource(event.getEntity()) instanceof DamageSourceModified kbModifier) {
 			event.setStrength((event.getStrength() + kbModifier.jojo_ripples$addKnockback()) * kbModifier.jojo_ripples$knockbackMultiplier());
+			if (isSourcelessHurtKnockback(event, (DamageSource) kbModifier)) {
+				event.setStrength(0);
+			}
 			float yRotDeg = kbModifier.jojo_ripples$knockbackYRotDeg();
 			if (yRotDeg != 0) {
 				double ratioX = event.getRatioX();
@@ -70,6 +74,17 @@ public interface DamageSourceModified {
 				event.setRatioZ(ratioX * sin + ratioZ * cos);
 			}
 		}
+	}
+
+	/**
+	 * 1.16 hurt() knocked back only from source.getEntity(). 1.21 hurt() also calls knockback(0.4, 0, 0) for a hit
+	 * with no entity and no position, which then picks a random direction; that call is taken out for the damage
+	 * types in jojo_ripples:no_sourceless_knockback. Vanilla keeps its own such types in minecraft:no_knockback.
+	 */
+	private static boolean isSourcelessHurtKnockback(LivingKnockBackEvent event, DamageSource source) {
+		return event.getOriginalRatioX() == 0 && event.getOriginalRatioZ() == 0
+				&& source.getEntity() == null && source.getDirectEntity() == null && source.getSourcePosition() == null
+				&& source.is(ModDamageTypes.NO_SOURCELESS_KNOCKBACK);
 	}
 
 	@SubscribeEvent(priority = EventPriority.LOWEST)

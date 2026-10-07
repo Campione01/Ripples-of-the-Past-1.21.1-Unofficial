@@ -1,0 +1,14 @@
+{
+  "values": [
+    "jojo_ripples:stand_attack",
+    "jojo_ripples:stand_projectile",
+    "jojo_ripples:stand_projectile_fire",
+    "jojo_ripples:stand_explosion_fire",
+    "jojo_ripples:projectile",
+    "jojo_ripples:projectile_fire",
+    "jojo_ripples:entity_flew_into",
+    "jojo_ripples:hamon",
+    "jojo_ripples:ultraviolet_entity",
+    "jojo_ripples:pillar_man_absorption"
+  ]
+}

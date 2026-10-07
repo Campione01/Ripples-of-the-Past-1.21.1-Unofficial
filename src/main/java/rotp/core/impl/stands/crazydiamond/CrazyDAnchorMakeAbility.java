@@ -26,6 +26,7 @@ import rotp.core.subsystems.itemtracking.ItemTracker;
 import rotp.core.subsystems.itemtracking.ItemTracking;
 import rotp.core.subsystems.itemtracking.OriginalItemPosComponent;
 import rotp.core.subsystems.target.ActionTarget;
+import rotp.core.subsystems.target.ActionTargetRange;
 import rotp.core.subsystems.target.AimingEntity;
 import rotp.core.subsystems.target.HitResultUtil;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
@@ -76,8 +77,7 @@ public class CrazyDAnchorMakeAbility extends StandEntityAbility {
 		LivingEntity aimingEntity = getAnchorAimingEntity(user);
 		ActionTarget aimedTarget = getSyncedLookTarget(aimingEntity);
 		if (!aimedTarget.isEmpty(aimingEntity.level())
-				&& !HitResultUtil.isTargetWithinRange(aimedTarget, aimingEntity, aimingEntity.level(),
-						BLOCK_TARGET_RANGE, BLOCK_TARGET_RANGE)) {
+				&& !isWithinAnchorRange(user, aimingEntity, aimedTarget)) {
 			return ConditionCheck.createNegative("target_too_far");
 		}
 		ActionTarget target = findAnchorMakeTarget(user);
@@ -117,14 +117,25 @@ public class CrazyDAnchorMakeAbility extends StandEntityAbility {
 		StandEntity stand = standPower != null ? standPower.getSummonedStandEntity() : null;
 		ActionTarget syncedTarget = getSyncedLookTarget(aimingEntity);
 		if (!syncedTarget.isEmpty(aimingEntity.level())
-				&& HitResultUtil.isTargetWithinRange(syncedTarget, aimingEntity, aimingEntity.level(),
-						BLOCK_TARGET_RANGE, BLOCK_TARGET_RANGE)) {
+				&& isWithinAnchorRange(user, aimingEntity, syncedTarget)) {
 			return syncedTarget;
 		}
-		return HitResultUtil.clip(aimingEntity.getEyePosition(), aimingEntity.getLookAngle(),
+		ActionTarget clipped = HitResultUtil.clip(aimingEntity.getEyePosition(), aimingEntity.getLookAngle(),
 				BLOCK_TARGET_RANGE, BLOCK_TARGET_RANGE, aimingEntity.level(),
 				entity -> stand != null ? StandEntityPunchAbility.canStandHit(stand, entity) : StandEntityAbility.canPickEntityForAiming(entity),
 				aimingEntity, 0);
+		return clipped.getType() != TargetType.BLOCK || isWithinAnchorRange(user, aimingEntity, clipped)
+				? clipped : ActionTarget.EMPTY;
+	}
+
+	// 1.16 Action.checkRangeAndTarget: a block is measured from the performer, the Stand while it is out
+	private static boolean isWithinAnchorRange(LivingEntity user, LivingEntity aimingEntity, ActionTarget target) {
+		if (target.getType() == TargetType.BLOCK) {
+			return ActionTargetRange.isBlockWithinRange(ActionTargetRange.standPerformer(user), aimingEntity.level(),
+					target.getBlockPos(), ActionTargetRange.DEFAULT_BLOCK_RANGE_SQ);
+		}
+		return HitResultUtil.isTargetWithinRange(target, aimingEntity, aimingEntity.level(),
+				BLOCK_TARGET_RANGE, BLOCK_TARGET_RANGE);
 	}
 
 	private static LivingEntity getAnchorAimingEntity(LivingEntity user) {

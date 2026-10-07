@@ -36,6 +36,7 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import net.neoforged.neoforge.event.entity.living.LivingKnockBackEvent;
 import net.neoforged.neoforge.event.tick.EntityTickEvent;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
@@ -137,6 +138,7 @@ public final class VampireFreezeReachGameTests {
         private final List<Object> listeners = new ArrayList<>();
         private final List<Sample> samples = new ArrayList<>();
         private final List<Attempt> attempts = new ArrayList<>();
+        private final List<String> knockbacks = new ArrayList<>();
         private Player user;
         private Cow target;
         private PlayerPower power;
@@ -262,6 +264,14 @@ public final class VampireFreezeReachGameTests {
             NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, true, LivingIncomingDamageEvent.class, damage);
             listeners.add(post);
             NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, EntityTickEvent.Post.class, post);
+            Consumer<LivingKnockBackEvent> knockback = event -> observe(() -> {
+                if (event.getEntity() == target && !event.isCanceled() && event.getStrength() > 0.0F) {
+                    knockbacks.add("[strength=" + event.getOriginalStrength() + "->" + event.getStrength() + " ratio="
+                            + event.getRatioX() + "," + event.getRatioZ() + "]");
+                }
+            });
+            listeners.add(knockback);
+            NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, true, LivingKnockBackEvent.class, knockback);
         }
 
         private void requireEligible() {
@@ -424,6 +434,11 @@ public final class VampireFreezeReachGameTests {
                 helper.assertTrue(samples.stream().anyMatch(s -> s.health < s.before.health && s.freezeDuration > 0),
                         "Visible donor-range Cow was not damaged and frozen: origin=" + first.before.geometry.originDistance
                                 + " surface=" + first.before.geometry.donorDistance + " hp=" + first.before.health + "->" + last.health);
+                // 1.16 DamageUtil.knockbackReduction: cold damage has knockback factor 0
+                double separation = user.position().distanceTo(target.position());
+                helper.assertTrue(knockbacks.isEmpty() && Math.abs(separation - scenario.separation) < 1.0E-4D,
+                        "Freeze pushed the Cow, 1.16 cold damage never knocked back: knockback=" + knockbacks
+                                + " separation=" + scenario.separation + "->" + separation);
             }
             else {
                 helper.assertTrue(damage.isEmpty() && samples.stream().allMatch(s -> s.health == s.before.health && s.freezeDuration == 0),

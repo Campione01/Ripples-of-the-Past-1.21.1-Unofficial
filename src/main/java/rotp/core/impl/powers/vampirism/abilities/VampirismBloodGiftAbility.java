@@ -62,7 +62,9 @@ public class VampirismBloodGiftAbility extends VampirismActionAbility {
 		// the free hand (Action.checkHeldItems), then VampirismBloodGift.checkSpecificConditions.
 		Player target = getGiftTarget(user);
 		if (target == null) {
-			return ConditionCheck.createNegative("player_target");
+			// 1.16 Action.checkRangeAndTarget checks the range before checkTarget asks for a player
+			return ConditionCheck.createNegative(ActionTargetRange.isEntityTargetOutOfRange(user, getAimTarget(user.level(), user), MAX_RANGE_SQ_ENTITY_TARGET)
+					? "target_too_far" : "player_target");
 		}
 		PlayerPower targetPower = PlayerPower.get(target);
 		if (targetPower == null) {

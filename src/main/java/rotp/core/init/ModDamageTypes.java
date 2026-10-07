@@ -25,12 +25,19 @@ public class ModDamageTypes {
 			ResourceLocation.fromNamespaceAndPath("jojo_ripples", "armor_break_cooldown"));
 	public static final TagKey<DamageType> ADDS_RESOLVE = TagKey.create(Registries.DAMAGE_TYPE, 
 			ResourceLocation.fromNamespaceAndPath("jojo_ripples", "adds_resolve"));
+	/**
+	 * 1.16 hurt() knocked back only from an attacker. A hit of these types with no entity and no position behind it
+	 * does not knock back (DamageSourceModified); add-on damage types dealt both ways belong here too.
+	 */
+	public static final TagKey<DamageType> NO_SOURCELESS_KNOCKBACK = TagKey.create(Registries.DAMAGE_TYPE,
+			JojoMod.resLoc("no_sourceless_knockback"));
 	
 	// To future Stando: when you add/change damage types, don't forger to run Data_ROTP.
 	// It *is* annoying but not *as* annoying as filling out each tag manually.
 
 	public static final ResourceKey<DamageType> STAND_ATTACK = DAMAGE_TYPES.withTags(JojoMod.resLoc("stand_attack"),
 			CAN_HURT_STANDS,
+			NO_SOURCELESS_KNOCKBACK,
 			ARMOR_BREAK_COOLDOWN,
 			ADDS_RESOLVE,
 			DamageTypeTags.BYPASSES_COOLDOWN,
@@ -41,6 +48,7 @@ public class ModDamageTypes {
 
 	public static final ResourceKey<DamageType> STAND_PROJECTILE = DAMAGE_TYPES.withTags(JojoMod.resLoc("stand_projectile"),
 			CAN_HURT_STANDS,
+			NO_SOURCELESS_KNOCKBACK,
 			ARMOR_BREAK_COOLDOWN,
 			ADDS_RESOLVE,
 			DamageTypeTags.IS_PROJECTILE,
@@ -52,6 +60,7 @@ public class ModDamageTypes {
 
 	public static final ResourceKey<DamageType> STAND_PROJECTILE_FIRE = DAMAGE_TYPES.withTags(JojoMod.resLoc("stand_projectile_fire"),
 			CAN_HURT_STANDS,
+			NO_SOURCELESS_KNOCKBACK,
 			ARMOR_BREAK_COOLDOWN,
 			ADDS_RESOLVE,
 			DamageTypeTags.IS_PROJECTILE,
@@ -64,6 +73,7 @@ public class ModDamageTypes {
 
 	public static final ResourceKey<DamageType> STAND_EXPLOSION_FIRE = DAMAGE_TYPES.withTags(JojoMod.resLoc("stand_explosion_fire"),
 			CAN_HURT_STANDS,
+			NO_SOURCELESS_KNOCKBACK,
 			ARMOR_BREAK_COOLDOWN,
 			ADDS_RESOLVE,
 			DamageTypeTags.IS_EXPLOSION,
@@ -76,6 +86,7 @@ public class ModDamageTypes {
 
 	public static final ResourceKey<DamageType> MOD_PROJECTILE = DAMAGE_TYPES.withTags(JojoMod.resLoc("projectile"),
 			ARMOR_BREAK_COOLDOWN,
+			NO_SOURCELESS_KNOCKBACK,
 			DamageTypeTags.IS_PROJECTILE,
 			DamageTypeTags.BYPASSES_COOLDOWN,
 			DamageTypeTags.ALWAYS_HURTS_ENDER_DRAGONS,
@@ -84,6 +95,7 @@ public class ModDamageTypes {
 
 	public static final ResourceKey<DamageType> MOD_PROJECTILE_FIRE = DAMAGE_TYPES.withTags(JojoMod.resLoc("projectile_fire"),
 			ARMOR_BREAK_COOLDOWN,
+			NO_SOURCELESS_KNOCKBACK,
 			DamageTypeTags.IS_PROJECTILE,
 			DamageTypeTags.IS_FIRE,
 			DamageTypeTags.BYPASSES_COOLDOWN,
@@ -102,6 +114,7 @@ public class ModDamageTypes {
 	
 	public static final ResourceKey<DamageType> ENTITY_FLEW_INTO = DAMAGE_TYPES.withTags(JojoMod.resLoc("entity_flew_into"), 
 			ADDS_RESOLVE,
+			NO_SOURCELESS_KNOCKBACK,
 			DamageTypeTags.BYPASSES_ARMOR,
 			DamageTypeTags.BYPASSES_WOLF_ARMOR,
 			DamageTypeTags.PANIC_CAUSES,
@@ -110,12 +123,14 @@ public class ModDamageTypes {
 	public static final ResourceKey<DamageType> ROAD_ROLLER = DAMAGE_TYPES.withTags(JojoMod.resLoc("road_roller"),
 			DamageTypeTags.BYPASSES_ARMOR,
 			DamageTypeTags.BYPASSES_WOLF_ARMOR,
+			DamageTypeTags.NO_KNOCKBACK,
 			DamageTypeTags.PANIC_CAUSES,
 			Tags.DamageTypes.IS_PHYSICAL);
 
 	public static final ResourceKey<DamageType> EYE_OF_ENDER_SHARDS = DAMAGE_TYPES.withTags(JojoMod.resLoc("eye_of_ender_shards"),
 			DamageTypeTags.BYPASSES_ARMOR,
 			DamageTypeTags.BYPASSES_WOLF_ARMOR,
+			DamageTypeTags.NO_KNOCKBACK,
 			Tags.DamageTypes.IS_PHYSICAL);
 
 	public static final ResourceKey<DamageType> BLEED_OUT_DEATH = DAMAGE_TYPES.withTags(JojoMod.resLoc("bleeding"),
@@ -132,19 +147,24 @@ public class ModDamageTypes {
 	public static final ResourceKey<DamageType> STONE_MASK = DAMAGE_TYPES.withTags(JojoMod.resLoc("stone_mask"),
 			DamageTypeTags.BYPASSES_ARMOR,
 			DamageTypeTags.BYPASSES_WOLF_ARMOR,
+			DamageTypeTags.NO_KNOCKBACK,
 			Tags.DamageTypes.IS_ENVIRONMENT);
 
-	public static final ResourceKey<DamageType> CURED_VAMPIRE_BLOOD = DAMAGE_TYPES.withTags(JojoMod.resLoc("cured_vampire_blood"));
+	public static final ResourceKey<DamageType> CURED_VAMPIRE_BLOOD = DAMAGE_TYPES.withTags(JojoMod.resLoc("cured_vampire_blood"),
+			DamageTypeTags.NO_KNOCKBACK);
 
 	public static final ResourceKey<DamageType> BLOOD_DRAIN = DAMAGE_TYPES.withTags(JojoMod.resLoc("blood_drain"),
 			DamageTypeTags.BYPASSES_ARMOR,
-			DamageTypeTags.BYPASSES_WOLF_ARMOR);
+			DamageTypeTags.BYPASSES_WOLF_ARMOR,
+			DamageTypeTags.NO_KNOCKBACK);
 
 	public static final ResourceKey<DamageType> BLOOD_GIFT = DAMAGE_TYPES.withTags(JojoMod.resLoc("blood_gift"),
 			DamageTypeTags.BYPASSES_ARMOR,
-			DamageTypeTags.BYPASSES_WOLF_ARMOR);
+			DamageTypeTags.BYPASSES_WOLF_ARMOR,
+			DamageTypeTags.NO_KNOCKBACK);
 
 	public static final ResourceKey<DamageType> HAMON = DAMAGE_TYPES.withTags(JojoMod.resLoc("hamon"),
+			NO_SOURCELESS_KNOCKBACK,
 			DamageTypeTags.BYPASSES_ARMOR,
 			DamageTypeTags.BYPASSES_WOLF_ARMOR,
 			DamageTypeTags.BYPASSES_COOLDOWN);
@@ -158,6 +178,7 @@ public class ModDamageTypes {
 			Tags.DamageTypes.IS_ENVIRONMENT);
 
 	public static final ResourceKey<DamageType> ULTRAVIOLET_ENTITY = DAMAGE_TYPES.withTags(JojoMod.resLoc("ultraviolet_entity"),
+			NO_SOURCELESS_KNOCKBACK,
 			DamageTypeTags.BYPASSES_ARMOR,
 			DamageTypeTags.BYPASSES_WOLF_ARMOR,
 			DamageTypeTags.BYPASSES_ENCHANTMENTS,
@@ -167,9 +188,11 @@ public class ModDamageTypes {
 	public static final ResourceKey<DamageType> VAMPIRE_FREEZE = DAMAGE_TYPES.withTags(JojoMod.resLoc("vampire_freeze"),
 			DamageTypeTags.BYPASSES_ARMOR,
 			DamageTypeTags.BYPASSES_WOLF_ARMOR,
-			DamageTypeTags.IS_FREEZING);
+			DamageTypeTags.IS_FREEZING,
+			DamageTypeTags.NO_KNOCKBACK);
 
 	public static final ResourceKey<DamageType> PILLAR_MAN_ABSORPTION = DAMAGE_TYPES.withTags(JojoMod.resLoc("pillar_man_absorption"),
+			NO_SOURCELESS_KNOCKBACK,
 			DamageTypeTags.PANIC_CAUSES,
 			Tags.DamageTypes.IS_PHYSICAL);
 
@@ -213,11 +236,13 @@ public class ModDamageTypes {
 	// Angelo rock deaths (1.16 "rockBroken" / "rockRespawn": bypassArmor + bypassInvul)
 	public static final ResourceKey<DamageType> ROCK_BROKEN = DAMAGE_TYPES.withTags(JojoMod.resLoc("rock_broken"),
 			DamageTypeTags.BYPASSES_ARMOR,
-			DamageTypeTags.BYPASSES_INVULNERABILITY);
+			DamageTypeTags.BYPASSES_INVULNERABILITY,
+			DamageTypeTags.NO_KNOCKBACK);
 
 	public static final ResourceKey<DamageType> ROCK_RESPAWN = DAMAGE_TYPES.withTags(JojoMod.resLoc("rock_respawn"),
 			DamageTypeTags.BYPASSES_ARMOR,
-			DamageTypeTags.BYPASSES_INVULNERABILITY);
+			DamageTypeTags.BYPASSES_INVULNERABILITY,
+			DamageTypeTags.NO_KNOCKBACK);
 
 	static {
 		DAMAGE_TYPES.addToTag(CAN_HURT_STANDS, ResourceLocation.fromNamespaceAndPath("jojowor", "stand"), false);

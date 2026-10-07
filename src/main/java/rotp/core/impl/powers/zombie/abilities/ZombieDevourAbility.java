@@ -53,9 +53,12 @@ public class ZombieDevourAbility extends ZombieActionAbility {
 		if (!check.isPositive()) {
 			return check;
 		}
-		LivingEntity target = getDevourTarget(context.getUser());
+		LivingEntity user = context.getUser();
+		LivingEntity target = getDevourTarget(user);
 		if (target == null) {
-			return ConditionCheck.NEGATIVE;
+			// 1.16 Action.checkRangeAndTarget; a running hold only pauses (actionTick)
+			return ActionTargetRange.isEntityTargetOutOfRange(user, getAimTarget(user.level(), user), MAX_RANGE_SQ_ENTITY_TARGET)
+					? ConditionCheck.createNegative("target_too_far") : ConditionCheck.NEGATIVE;
 		}
 		if (!JojoDefinitions.canBleed(target) || JojoDefinitions.isUndeadOrVampiric(target)) {
 			return ConditionCheck.createNegative("blood");

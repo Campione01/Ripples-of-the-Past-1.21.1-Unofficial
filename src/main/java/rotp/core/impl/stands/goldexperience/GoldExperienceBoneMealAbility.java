@@ -17,6 +17,7 @@ import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.entity.NoPoseStandEntityAbility;
 import rotp.core.powersystem.standpower.entity.StandEntityAbility.AutoSummonMode;
 import rotp.core.subsystems.target.ActionTarget;
+import rotp.core.subsystems.target.ActionTargetRange;
 import rotp.core.subsystems.target.HitResultUtil;
 import rotp.core.impl.stands._entitybase.StandAbilityStamina;
 
@@ -92,10 +93,10 @@ public class GoldExperienceBoneMealAbility extends NoPoseStandEntityAbility {
         LivingEntity aimingEntity = aiming != null ? aiming : user;
         ActionTarget syncedTarget = getSyncedLookTarget(level, aimingEntity);
         if (!syncedTarget.isEmpty(level)
-                && HitResultUtil.isTargetWithinRange(syncedTarget, aimingEntity, level, TARGET_RANGE, TARGET_RANGE)) {
+                && isWithinBoneMealRange(level, syncedTarget, user, aiming)) {
             return syncedTarget;
         }
-        return HitResultUtil.clip(
+        ActionTarget clipped = HitResultUtil.clip(
                 aimingEntity.getEyePosition(),
                 aimingEntity.getLookAngle(),
                 TARGET_RANGE,
@@ -104,6 +105,16 @@ public class GoldExperienceBoneMealAbility extends NoPoseStandEntityAbility {
                 entity -> entity instanceof AgeableMob animal && animal.isBaby(),
                 aimingEntity,
                 0);
+        return clipped.isEmpty(level) || isWithinBoneMealRange(level, clipped, user, aiming) ? clipped : ActionTarget.EMPTY;
+    }
+
+    // 1.16: the press takes Action.checkRangeAndTarget from the performer; standPerform re-aims within 64 blocks
+    private static boolean isWithinBoneMealRange(Level level, ActionTarget target, LivingEntity user,
+            @Nullable LivingEntity aiming) {
+        if (aiming != null) {
+            return HitResultUtil.isTargetWithinRange(target, aiming, level, TARGET_RANGE, TARGET_RANGE);
+        }
+        return ActionTargetRange.isTargetWithinRange(ActionTargetRange.standPerformer(user), target, level);
     }
 
     private static ActionTarget getSyncedLookTarget(Level level, LivingEntity aimingEntity) {
@@ -118,7 +129,7 @@ public class GoldExperienceBoneMealAbility extends NoPoseStandEntityAbility {
     private static boolean isSyncedBoneMealTargetTooFar(Level level, LivingEntity aimingEntity) {
         ActionTarget syncedTarget = getSyncedLookTarget(level, aimingEntity);
         return !syncedTarget.isEmpty(level)
-                && !HitResultUtil.isTargetWithinRange(syncedTarget, aimingEntity, level, TARGET_RANGE, TARGET_RANGE);
+                && !ActionTargetRange.isTargetWithinRange(ActionTargetRange.standPerformer(aimingEntity), syncedTarget, level);
     }
 
     private static boolean applyOriginalBonemealEffect(Level level, BlockPos pos, Direction face) {

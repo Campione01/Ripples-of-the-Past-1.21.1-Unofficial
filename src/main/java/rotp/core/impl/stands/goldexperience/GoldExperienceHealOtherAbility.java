@@ -17,6 +17,7 @@ import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.NoPoseStandEntityAbility;
 import rotp.core.subsystems.target.ActionTarget;
+import rotp.core.subsystems.target.ActionTargetRange;
 import rotp.core.subsystems.target.HitResultUtil;
 import rotp.core.impl.stands._entitybase.StandAbilityStamina;
 
@@ -198,7 +199,7 @@ public class GoldExperienceHealOtherAbility extends NoPoseStandEntityAbility {
             LivingEntity user, Level level) {
         ActionTarget syncedTarget = getSyncedLookTarget(user, level);
         if (!syncedTarget.isEmpty(level)
-                && HitResultUtil.isTargetWithinRange(syncedTarget, user, level, TARGET_REACH, TARGET_REACH)) {
+                && isWithinHealRange(syncedTarget, user, level)) {
             Entity syncedEntity = syncedTarget.getMainEntity();
             return resolveHealingTarget(syncedEntity, user);
         }
@@ -244,17 +245,23 @@ public class GoldExperienceHealOtherAbility extends NoPoseStandEntityAbility {
         return target != null ? target.resolveEntityId(level) : ActionTarget.EMPTY;
     }
 
+    // 1.16 Action.checkRangeAndTarget: from the Stand while it is out, less without a line of sight
+    private static boolean isWithinHealRange(ActionTarget target, LivingEntity user, Level level) {
+        return ActionTargetRange.isTargetWithinRange(ActionTargetRange.standPerformer(user), target, level,
+                TARGET_REACH * TARGET_REACH, TARGET_REACH * TARGET_REACH);
+    }
+
     private static boolean isSyncedHealTargetTooFar(LivingEntity user, Level level) {
         ActionTarget syncedTarget = getSyncedLookTarget(user, level);
         return !syncedTarget.isEmpty(level)
                 && syncedTarget.getType() == ActionTarget.TargetType.ENTITY
-                && !HitResultUtil.isTargetWithinRange(syncedTarget, user, level, TARGET_REACH, TARGET_REACH);
+                && !isWithinHealRange(syncedTarget, user, level);
     }
 
     private static boolean hasBlockingSyncedEntityTarget(LivingEntity user, Level level) {
         ActionTarget syncedTarget = getSyncedLookTarget(user, level);
         if (syncedTarget.isEmpty(level) || syncedTarget.getType() != ActionTarget.TargetType.ENTITY
-                || !HitResultUtil.isTargetWithinRange(syncedTarget, user, level, TARGET_REACH, TARGET_REACH)) {
+                || !isWithinHealRange(syncedTarget, user, level)) {
             return false;
         }
         Entity syncedEntity = syncedTarget.getMainEntity();

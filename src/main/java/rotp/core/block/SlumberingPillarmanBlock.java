@@ -30,7 +30,6 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
-import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
@@ -139,7 +138,7 @@ public class SlumberingPillarmanBlock extends HorizontalDirectionalBlock impleme
 		if (level.isClientSide() || level.getDifficulty() == Difficulty.PEACEFUL || !(entity instanceof LivingEntity livingEntity)) {
 			return;
 		}
-		var damageSource = DamageUtil.make(level, ModDamageTypes.PILLAR_MAN_ABSORPTION, Vec3.atCenterOf(pos));
+		var damageSource = DamageUtil.make(level, ModDamageTypes.PILLAR_MAN_ABSORPTION);
 		if (HamonProtectionAbility.preventBlockDamage(livingEntity, damageSource, DAMAGE_AMOUNT)) {
 			return;
 		}

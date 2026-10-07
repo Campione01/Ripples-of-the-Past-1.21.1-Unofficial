@@ -35,6 +35,7 @@ import net.neoforged.bus.api.EventPriority;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import net.neoforged.neoforge.event.entity.living.LivingKnockBackEvent;
 import net.neoforged.neoforge.event.tick.EntityTickEvent;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
@@ -159,6 +160,7 @@ public final class VampireBloodGiftParityGameTests {
         private final List<TickSample> ledger = new ArrayList<>();
         private final List<Double> controlDebits = new ArrayList<>();
         private final List<Donation> donations = new ArrayList<>();
+        private final List<String> giverKnockbacks = new ArrayList<>();
         private Player giver;
         private Player recipient;
         private PlayerPower power;
@@ -352,6 +354,13 @@ public final class VampireBloodGiftParityGameTests {
                     terminalSamples++;
                 }
             });
+            Consumer<LivingKnockBackEvent> knockback = event -> observe(() -> {
+                if (event.getEntity() == giver && !event.isCanceled() && event.getStrength() > 0.0F) {
+                    giverKnockbacks.add("[strength=" + event.getOriginalStrength() + "->" + event.getStrength() + " ratio="
+                            + event.getRatioX() + "," + event.getRatioZ() + "]");
+                }
+            });
+            addListener(knockback, LivingKnockBackEvent.class, true);
             addListener(pre, EntityTickEvent.Pre.class, true);
             addListener(incoming, LivingIncomingDamageEvent.class, true);
             listeners.add(damagePost);
@@ -689,6 +698,8 @@ public final class VampireBloodGiftParityGameTests {
                                 && Math.abs(donation.beforeHealth - donation.afterHealth - 10.0F) < 1.0E-4F
                                 && donation.direct == null && donation.cause == null && giver.getHealth() == 10.0F,
                         "actual10HP unattributed donation is absent or differs from the ordinary profile");
+                oracle(giverKnockbacks.isEmpty(),
+                        "the donation pushed the giver, 1.16 blood_gift has no attacker and no knockback: " + giverKnockbacks);
                 oracle(action.isOver() && LivingComponentAction.getCurEntityAction(giver) == null,
                         "completed Gift action did not naturally end/clear");
                 oracle(naturalPaymentCount + entryPayments > 0, "Survival conversion had no measured paid interval");

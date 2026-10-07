@@ -15,6 +15,7 @@ import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.subsystems.target.AimingEntity;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTargetAim;
+import rotp.core.subsystems.target.ActionTargetRange;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
 import rotp.core.subsystems.target.HitResultUtil;
 import rotp.core.util.functions.AttributeUtil;
@@ -25,11 +26,8 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.phys.AABB;
 
 public class HierophantBarrierAbility extends NoPoseStandEntityAbility {
-	private static final double BLOCK_TARGET_RANGE = 10.0D;
-
 	public HierophantBarrierAbility(AbilityType<?> abilityType, AbilityId abilityId) {
 		super(abilityType, abilityId, BarrierDrop::new);
 		partsRequired(StandPart.MAIN_BODY);
@@ -94,11 +92,13 @@ public class HierophantBarrierAbility extends NoPoseStandEntityAbility {
 		return target.getType() == TargetType.BLOCK ? target : ActionTarget.EMPTY;
 	}
 
+	// 1.16 Action.checkRangeAndTarget: the distance to the block's shape, as JojoModUtil.getDistance measures it
 	private static boolean isValidBlockTarget(LivingEntity entity, ActionTarget target, Level level) {
 		if (entity == null || target.getType() != TargetType.BLOCK || target.isEmpty(level)) {
 			return false;
 		}
-		return new AABB(target.getBlockPos()).distanceToSqr(entity.getEyePosition()) <= BLOCK_TARGET_RANGE * BLOCK_TARGET_RANGE;
+		return ActionTargetRange.isBlockWithinRange(entity, level, target.getBlockPos(),
+				ActionTargetRange.DEFAULT_BLOCK_RANGE_SQ);
 	}
 
 	private static boolean ignoreEntityTarget(Entity entity) {

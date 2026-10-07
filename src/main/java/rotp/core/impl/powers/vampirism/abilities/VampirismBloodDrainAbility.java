@@ -61,9 +61,12 @@ public class VampirismBloodDrainAbility extends VampirismActionAbility {
 		if (!check.isPositive()) {
 			return check;
 		}
-		LivingEntity target = getDrainTarget(context.getUser());
+		LivingEntity user = context.getUser();
+		LivingEntity target = getDrainTarget(user);
 		if (target == null) {
-			return ConditionCheck.NEGATIVE;
+			// 1.16 Action.checkRangeAndTarget; a running hold only pauses (actionTick)
+			return ActionTargetRange.isEntityTargetOutOfRange(user, getAimTarget(user.level(), user), MAX_RANGE_SQ_ENTITY_TARGET)
+					? ConditionCheck.createNegative("target_too_far") : ConditionCheck.NEGATIVE;
 		}
 		if (!canDrainBloodFrom(target)) {
 			return ConditionCheck.createNegative("blood");
@@ -199,7 +202,7 @@ public class VampirismBloodDrainAbility extends VampirismActionAbility {
 			if (data != null && data.isBeingCured() && data.getCuringStage(user) >= 3) {
 				float selfDamage = Math.min(modifier * 0.5F, Math.max(user.getHealth() - 1.0F, 0.0F));
 				if (selfDamage > 0.0F) {
-					user.hurt(DamageUtil.make(level, ModDamageTypes.CURED_VAMPIRE_BLOOD, user), selfDamage);
+					hurtWithCuredVampireBlood(user, selfDamage);
 				}
 			}
 			if (target.isDeadOrDying() && level instanceof ServerLevel serverLevel) {
@@ -217,6 +220,11 @@ public class VampirismBloodDrainAbility extends VampirismActionAbility {
 				}
 			}
 		}
+	}
+
+	// 1.16 new DamageSource("curedVampireBlood"): with the user as its entity the hit would stop the held drain
+	public static boolean hurtWithCuredVampireBlood(LivingEntity user, float amount) {
+		return user.hurt(DamageUtil.make(user.level(), ModDamageTypes.CURED_VAMPIRE_BLOOD), amount);
 	}
 
 	private static boolean isHuman(LivingEntity target) {

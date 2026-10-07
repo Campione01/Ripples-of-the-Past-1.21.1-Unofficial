@@ -1,7 +1,10 @@
 package rotp.core.gametest;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
@@ -22,6 +25,9 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.bus.api.EventPriority;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.entity.living.LivingKnockBackEvent;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import rotp.core.core.JojoMod;
@@ -51,6 +57,8 @@ import rotp.core.subsystems.target.ActionTarget;
 /**
  * 1.16 ZombieDevour and PillarmanAbsorption have getMaxRangeSqEntityTarget() == 4 under Action.checkRangeAndTarget:
  * eye to target box surface less half the user's width, the squared range quartered without a line of sight.
+ * Neither drain knocked its victim back: bloodDrain had knockback factor 0 (DamageUtil.knockbackReduction) and
+ * PillarmanAbsorption.absorb dealt its damage without an attacker.
  */
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -158,6 +166,8 @@ public final class DevourAbsorptionReachGameTests {
         private final Kind kind;
         private final Scene scene;
         private final Map<BlockPos, BlockState> blocks = new LinkedHashMap<>();
+        private final List<String> knockbacks = new ArrayList<>();
+        private Consumer<LivingKnockBackEvent> knockbackListener;
         private Vec3 origin;
         private Player user;
         private Cow target;
@@ -227,6 +237,13 @@ public final class DevourAbsorptionReachGameTests {
             premise(level.addFreshEntity(target) && target.isAlive() && !target.isInvulnerable()
                             && target.getBbWidth() == 0.9F && target.getHealth() == target.getMaxHealth(),
                     "cow is not a fresh vulnerable adult");
+            knockbackListener = event -> {
+                if (event.getEntity() == target && !event.isCanceled() && event.getStrength() > 0.0F) {
+                    knockbacks.add("[strength=" + event.getOriginalStrength() + "->" + event.getStrength() + " ratio="
+                            + event.getRatioX() + "," + event.getRatioZ() + "]");
+                }
+            };
+            NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, true, LivingKnockBackEvent.class, knockbackListener);
         }
 
         private void exercise() {
@@ -295,6 +312,10 @@ public final class DevourAbsorptionReachGameTests {
                                 && source.is(kind.damageType) && source.getEntity() == user,
                         kind + " " + scene + " drained with the wrong hit: health=" + healthBefore + "->" + healthAfter
                                 + " source=" + source);
+                Vec3 speed = target.getDeltaMovement();
+                helper.assertTrue(knockbacks.isEmpty() && speed.x == 0.0D && speed.z == 0.0D,
+                        kind + " " + scene + " pushed its victim, 1.16 drained without knockback: knockback=" + knockbacks
+                                + " speed=" + speed);
             }
             EntityActionInstance after = component.getAction();
             helper.assertTrue(after == action && !after.isOver() && after.getPhase() == ActionPhase.PERFORM
@@ -303,6 +324,7 @@ public final class DevourAbsorptionReachGameTests {
         }
 
         private void close() {
+            if (knockbackListener != null) NeoForge.EVENT_BUS.unregister(knockbackListener);
             try {
                 if (user != null) {
                     if (held != null) AbilityInput.keyRelease(KEY, user);
