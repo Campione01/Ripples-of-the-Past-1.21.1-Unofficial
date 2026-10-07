@@ -104,6 +104,9 @@
 	
 	"EntityMixinSuperclass",
 	
+	"gametest.StructureUtilsMixin",
+	"gametest.GameTestInfoMixin",
+	
 	"debughelper.CodecErrorMessageMixin"
   ],
   "client": [

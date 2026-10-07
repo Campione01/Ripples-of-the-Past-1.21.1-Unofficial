@@ -519,6 +519,15 @@ tasks.register('standAuraFxIntegrationSmokeTest', JavaExec) {
     systemProperty 'standAuraProjectDir', project.projectDir.absolutePath
 }
 
+// check starts every smoke test at once, each in a JVM of its own. By default a JVM commits 1/64 of the machine's
+// memory as its first heap, and on a busy machine some of them could not start at all ("The paging file is too
+// small for this operation to complete").
+tasks.withType(JavaExec).configureEach {
+    if (name.endsWith('SmokeTest')) {
+        minHeapSize = '64m'
+    }
+}
+
 tasks.named('check').configure {
     dependsOn tasks.named('suspiciousArrowParticleSmokeTest')
     dependsOn tasks.named('rebuffFadePoseSmokeTest')
