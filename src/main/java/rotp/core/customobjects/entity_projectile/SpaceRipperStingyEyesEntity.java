@@ -9,6 +9,7 @@ import javax.annotation.Nullable;
 
 import rotp.core.init.ModEntityTypes;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
+import rotp.core.subsystems.timestop.TimeStopState;
 import rotp.core.util.functions.DamageUtil;
 
 import net.minecraft.nbt.CompoundTag;
@@ -79,12 +80,21 @@ public class SpaceRipperStingyEyesEntity extends ModdedProjectileEntity {
 		if (!isBoundToOwner() || level().isClientSide()) {
 			return;
 		}
-		if (lastTickGameTime == level().getGameTime()) {
+		// Stopped in time, the beam makes no move this tick to wait for.
+		if (lastTickGameTime == level().getGameTime() || TimeStopState.shouldFreezeOnServer(this)) {
 			detach();
 		}
 		else {
 			detachAfterMove = true;
 		}
+	}
+
+	/**
+	 * 1.16 OwnerBoundProjectileEntity.canUpdate: a beam bound to its owner is stopped in time exactly when that owner is.
+	 */
+	@Nullable
+	public LivingEntity getOwnerBoundTo() {
+		return isBoundToOwner() ? getOwner() : null;
 	}
 
 	@Override

@@ -32,6 +32,7 @@ import rotp.core.core.JojoMod;
 import rotp.core.customobjects.DamageSourceModified;
 import rotp.core.customobjects.entity_projectile.KnifeEntity;
 import rotp.core.customobjects.entity_projectile.OwnerBoundProjectileEntity;
+import rotp.core.customobjects.entity_projectile.SpaceRipperStingyEyesEntity;
 import rotp.core.event.ModEventHooks;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModSoundEvents;
@@ -303,7 +304,17 @@ public class TimeStopState {
         if (!isFreezable(entity)) {
             return false;
         }
+        LivingEntity boundOwner = ownerBoundTo(entity);
+        if (boundOwner != null) {
+            return shouldFreeze(boundOwner);
+        }
         return isTimeStopped(entity) && !canEntityMoveInStoppedTime(entity);
+    }
+
+    // 1.16 OwnerBoundProjectileEntity.canUpdate: bound to its owner, the projectile updates exactly when the owner does.
+    @Nullable
+    private static LivingEntity ownerBoundTo(Entity entity) {
+        return entity instanceof SpaceRipperStingyEyesEntity eyeBeam ? eyeBeam.getOwnerBoundTo() : null;
     }
 
     /**
@@ -318,10 +329,14 @@ public class TimeStopState {
     }
 
     public static boolean shouldFreezeClientEntity(Entity entity) {
-        if (entity == null || entity.isRemoved() || !isTimeStoppedClientEntity(entity)) {
+        if (entity == null || entity.isRemoved()) {
             return false;
         }
-        return !canEntityMoveInStoppedTimeClient(entity);
+        LivingEntity boundOwner = ownerBoundTo(entity);
+        if (boundOwner != null) {
+            return shouldFreezeClientEntity(boundOwner);
+        }
+        return isTimeStoppedClientEntity(entity) && !canEntityMoveInStoppedTimeClient(entity);
     }
 
     private static boolean isTimeStoppedClientEntity(Entity entity) {

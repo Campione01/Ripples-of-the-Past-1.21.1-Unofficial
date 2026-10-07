@@ -3,6 +3,7 @@ package rotp.core.client;
 import rotp.core.JojoModConfig;
 import rotp.core.customobjects.entity_projectile.KnifeEntity;
 import rotp.core.customobjects.entity_projectile.OwnerBoundProjectileEntity;
+import rotp.core.customobjects.entity_projectile.SpaceRipperStingyEyesEntity;
 import rotp.core.client.shader.ModShaders;
 import rotp.core.init.ModStatusEffects;
 import rotp.core.mixin.client.timestop.MinecraftTimeStopAccessor;
@@ -189,7 +190,14 @@ public final class ClientTimeStopHandler {
 	}
 
 	public static boolean isEntityVisuallyFrozen(Entity entity) {
-		if (entity == null || entity.isRemoved() || !isTimeStopped(entity)) {
+		if (entity == null || entity.isRemoved()) {
+			return false;
+		}
+		// 1.16 OwnerBoundProjectileEntity.canUpdate: a bound eye beam is stopped exactly when its owner is
+		if (entity instanceof SpaceRipperStingyEyesEntity eyeBeam && eyeBeam.getOwnerBoundTo() != null) {
+			return isEntityVisuallyFrozen(eyeBeam.getOwnerBoundTo());
+		}
+		if (!isTimeStopped(entity)) {
 			return false;
 		}
 		Minecraft mc = Minecraft.getInstance();
