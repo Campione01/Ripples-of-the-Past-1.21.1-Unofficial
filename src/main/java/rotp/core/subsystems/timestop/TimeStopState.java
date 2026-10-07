@@ -287,6 +287,15 @@ public class TimeStopState {
     @Nullable
     private LivingEntity getLivingEntityById(int entityId) {
         Entity entity = level.getEntity(entityId);
+        if (entity == null && entityId >= 0) {
+            // 1.16 TimeStopInstance held its user: a player keeps the same entity (and id) in another
+            // dimension, so the stop goes on and settles on them. Other entities get a new id there.
+            for (ServerLevel otherLevel : level.getServer().getAllLevels()) {
+                if (otherLevel != level && otherLevel.getEntity(entityId) instanceof Player player) {
+                    return player;
+                }
+            }
+        }
         return entity instanceof LivingEntity living ? living : null;
     }
 

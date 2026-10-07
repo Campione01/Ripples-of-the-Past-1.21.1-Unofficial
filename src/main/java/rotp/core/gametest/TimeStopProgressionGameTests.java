@@ -2,12 +2,16 @@ package rotp.core.gametest;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
+
+import com.mojang.authlib.GameProfile;
 
 import rotp.core.api.power.PowerSkillUnlocks;
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.init.ModDataAttachmentTypes;
+import rotp.core.init.ModStatusEffects;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.init.power.ModStandAbilities;
 import rotp.core.powersystem.PowerClass;
@@ -34,12 +38,17 @@ import rotp.core.impl.stands.theworld.TimeStopBlinkAbility;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -350,6 +359,85 @@ public final class TimeStopProgressionGameTests {
 				TimeStopLearning.PILLARMAN_MAX_TIME_STOP_TICKS
 						+ TimeStopLearning.PILLARMAN_STAGE_TIME_STOP_BONUS_TICKS * 2,
 				"stage-three Pillar Man");
+		helper.succeed();
+	}
+
+	/**
+	 * 1.16 TimeStopInstance held its user: a player who leaves the dimension keeps the stop running behind them,
+	 * and its end still settles the cooldown, the training and the TIME_STOP effect on that player.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 80, batch = GameTestBatches.TIME_STOP)
+	public static void timeStopSettlesOnUserWhoLeftTheDimension(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		ServerLevel otherLevel = level.getServer().getLevel(
+				level.dimension() == Level.NETHER ? Level.OVERWORLD : Level.NETHER);
+		helper.assertTrue(otherLevel != null && otherLevel != level,
+				"Dimension change test needs a second server dimension");
+		int stopTicks = 20;
+		int ticksBeforeLeaving = 5;
+		int instanceId = 1_000_003;
+		FakePlayer player = new FakePlayer(level, new GameProfile(UUID.randomUUID(), "TimeStopDimension"));
+		try {
+			Vec3 origin = helper.absoluteVec(new Vec3(0.5D, 1.0D, 0.5D));
+			player.moveTo(origin.x, origin.y, origin.z);
+			helper.assertTrue(level.addFreshEntity(player), "Could not add the dimension change test player");
+			StandPower power = grantTimeStopStand(helper, player, JojoMod.resLoc("star_platinum"));
+			power.setResolveLevel(power.getMaxResolveLevel());
+			power.getCurTypeData().setAbilityLearningProgressPoints(TimeStopLearning.TIME_STOP, 0.0F,
+					TimeStopLearning.getMaxTrainingPoints(power), power);
+			helper.assertTrue(!power.isUserCreative() && power.isAbilityUnlocked(TimeStopLearning.TIME_STOP)
+					&& power.getAbilityCooldown(TimeStopLearning.TIME_STOP) == 0
+					&& power.getAbilityCooldown("time_stop_blink") == 0,
+					"Dimension change fixture needs a Survival user with an unlocked, ready time stop");
+
+			// a state of its own: only the calls below tick it
+			TimeStopState state = new TimeStopState(level);
+			player.addEffect(new MobEffectInstance(ModStatusEffects.TIME_STOP, stopTicks, 0, false, false, true));
+			helper.assertTrue(player.hasEffect(ModStatusEffects.TIME_STOP), "The user did not take the TIME_STOP effect");
+			helper.assertTrue(state.tryPutInstance(new TimeStopState.Instance(instanceId, stopTicks, stopTicks,
+					new ChunkPos(player.blockPosition()), 1, player.getId(), "time_stop_dimension_gametest",
+					Optional.empty(), Optional.empty(), player.getId(), player.getId(), false, false, 0.0F, 0, false)),
+					"Could not start the dimension change test stop");
+			for (int tick = 0; tick < ticksBeforeLeaving; tick++) {
+				state.tickLifecycle();
+			}
+			helper.assertTrue(state.getInstance(instanceId).filter(active -> active.ticksPassed() == ticksBeforeLeaving)
+					.isPresent(), "The stop ended before its user left the dimension");
+
+			// The server side of ServerPlayer.changeDimension; its client packets need a real connection
+			// (PlayerList.sendLevelInfo reads the network channel a FakePlayer does not have).
+			level.removePlayerImmediately(player, Entity.RemovalReason.CHANGED_DIMENSION);
+			player.revive();
+			player.setServerLevel(otherLevel);
+			otherLevel.addDuringTeleport(player);
+			helper.assertTrue(player.level() == otherLevel && !player.isRemoved()
+					&& level.getEntity(player.getId()) == null && otherLevel.getEntity(player.getId()) == player
+					&& PowerClass.STAND.get(player) == power,
+					"The user did not move to the other dimension as the same entity");
+
+			int ticksRun = ticksBeforeLeaving;
+			while (ticksRun < stopTicks && state.getInstance(instanceId).isPresent()) {
+				state.tickLifecycle();
+				ticksRun++;
+			}
+			float points = power.getCurTypeData().getAbilityLearningProgressPoints(TimeStopLearning.TIME_STOP);
+			// 1.16: 3 cooldown ticks per stopped tick, a sixth of that on the blink, 0.25 points per tick
+			helper.assertTrue(ticksRun == stopTicks && state.getInstance(instanceId).isEmpty()
+					&& power.getAbilityCooldown(TimeStopLearning.TIME_STOP) == 60
+					&& power.getAbilityCooldown("time_stop_blink") == 10
+					&& Math.abs(points - 5.0F) <= 0.0001F
+					&& !player.hasEffect(ModStatusEffects.TIME_STOP),
+					"A 20-tick stop whose user left the dimension after 5 ticks: ranTicks=" + ticksRun
+							+ " stillRunning=" + state.getInstance(instanceId).isPresent()
+							+ " timeStopCooldown=" + power.getAbilityCooldown(TimeStopLearning.TIME_STOP)
+							+ " blinkCooldown=" + power.getAbilityCooldown("time_stop_blink")
+							+ " trainingPoints=" + points
+							+ " timeStopEffectLeft=" + player.hasEffect(ModStatusEffects.TIME_STOP)
+							+ ", 1.16 ran all 20 ticks and settled 60 / 10 cooldown, 5.0 points and no effect");
+		}
+		finally {
+			player.discard();
+		}
 		helper.succeed();
 	}
 
