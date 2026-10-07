@@ -132,6 +132,11 @@ public class VampirismBloodGiftAbility extends VampirismActionAbility {
 			}
 			if (user == null || !canContinueWindup(user)
 					|| getPhaseTick() < HOLD_TO_FIRE_TICKS - 1 && !consumeBlood(user, HOLD_BLOOD_COST_PER_TICK)) {
+				// 1.16 holdToFire is not hold-only: a target out of range on a held tick stops the hold with its message
+				if (user != null && ability instanceof VampirismBloodGiftAbility giftAbility
+						&& ActionTargetRange.isEntityTargetOutOfRange(user, getAimTarget(level(), user), MAX_RANGE_SQ_ENTITY_TARGET)) {
+					ConditionCheck.sendActionFailedMessage(giftAbility, ConditionCheck.createNegative("target_too_far"), user);
+				}
 				forceStop();
 				syncPhaseChanges();
 				return;

@@ -212,6 +212,9 @@ public class GoldExperienceHealOtherAbility extends NoPoseStandEntityAbility {
                 entity -> resolveHealingTarget(entity, user) != null,
                 user,
                 0.0D);
+        if (!isWithinHealRange(target, user, level)) {
+            return null;
+        }
         Entity entity = target.getEntity();
         return resolveHealingTarget(entity, user);
     }

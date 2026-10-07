@@ -18,6 +18,10 @@ import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.condition.AvailableAbilities;
 import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.ability.input.AbilityInput;
+import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
+import rotp.core.powersystem.entityaction.ActionPhase;
+import rotp.core.powersystem.entityaction.EntityActionInputState.HeldInputEntry;
+import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.netcode.SyncType;
 import rotp.core.powersystem.playerpower.PlayerPower;
@@ -56,6 +60,7 @@ public final class TargetTooFarMessageGameTests {
 	private static final String PLAYER_TARGET = "jojo.message.action_condition.player_target";
 	private static final double NEAR = 1.5D;
 	private static final double FAR = 3.4D;
+	private static final short KEY = 79;
 
 	private TargetTooFarMessageGameTests() {}
 
@@ -114,6 +119,39 @@ public final class TargetTooFarMessageGameTests {
 			helper.assertTrue(!admitted && fixture.keys().equals(List.of(TOO_FAR)),
 					"Blood Gift press on a cow out of range: admitted=" + admitted + " messages=" + fixture.keys()
 							+ " expected the single message " + TOO_FAR);
+		}
+		helper.succeed();
+	}
+
+	// 1.16 Blood Gift is holdToFire(60, false), not hold-only: PowerBaseImpl.tickHeldAction checks the range on every
+	// held tick, and a recipient out of range stops the hold and sends target_too_far.
+	@GameTest(template = "empty", batch = BATCH)
+	public static void bloodGiftRecipientLeavingRangeDuringTheHoldEndsItWithTargetTooFar(GameTestHelper helper) {
+		try (Fixture fixture = Fixture.open(helper, Kind.BLOOD_GIFT)) {
+			Player recipient = fixture.recipient(NEAR);
+			EntityActionInstance action = fixture.holdSomeTicks(recipient);
+			fixture.move(recipient, FAR);
+			fixture.component.tick();
+			boolean ended = fixture.component.getAction() != action || action.isOver();
+			helper.assertTrue(ended && fixture.keys().equals(List.of(TOO_FAR))
+					&& PlayerPower.get(recipient).getPowerType() != ModPlayerPowers.VAMPIRISM.get(),
+					"Blood Gift hold with the recipient moved out of range: ended=" + ended + " messages=" + fixture.keys()
+							+ " expected the hold to end with the single message " + TOO_FAR);
+		}
+		helper.succeed();
+	}
+
+	@GameTest(template = "empty", batch = BATCH)
+	public static void bloodGiftHoldEndedByAHealedRecipientInRangeDoesNotSayTargetTooFar(GameTestHelper helper) {
+		try (Fixture fixture = Fixture.open(helper, Kind.BLOOD_GIFT)) {
+			Player recipient = fixture.recipient(NEAR);
+			EntityActionInstance action = fixture.holdSomeTicks(recipient);
+			recipient.setHealth(recipient.getMaxHealth());
+			fixture.component.tick();
+			boolean ended = fixture.component.getAction() != action || action.isOver();
+			helper.assertTrue(ended && !fixture.keys().contains(TOO_FAR),
+					"Blood Gift hold with the recipient in range healed above 6: ended=" + ended + " messages=" + fixture.keys()
+							+ " expected the hold to end without " + TOO_FAR);
 		}
 		helper.succeed();
 	}
@@ -187,6 +225,7 @@ public final class TargetTooFarMessageGameTests {
 		private Ability ability;
 		private LivingComponentAction component;
 		private Vec3 origin;
+		private boolean held;
 
 		private Fixture(GameTestHelper helper) {
 			this.helper = helper;
@@ -284,6 +323,26 @@ public final class TargetTooFarMessageGameTests {
 			return AbilityInput.withConditionCheck(available.getContextVariationContainer(ability), user, InputMethod.HOLD);
 		}
 
+		// an admitted HOLD on the target, run for some ticks of its windup without a message
+		private EntityActionInstance holdSomeTicks(LivingEntity target) {
+			aim(target);
+			helper.assertTrue(press() && keys().isEmpty(), "TOO-FAR premise: the hold is not admitted on the target in range: " + keys());
+			HeldInputEntry entry = AbilityInput.keyPress(KEY, ability, user, null, InputMethod.HOLD,
+					0.0F, BufferingState.clickOnly(), ability.getAbilityId());
+			held = true;
+			EntityActionInstance action = component.getAction();
+			helper.assertTrue(entry != null && action != null && entry.action == action,
+					"TOO-FAR premise: the admitted HOLD did not start its action");
+			for (int tick = 0; tick < 5; tick++) {
+				component.tick();
+			}
+			helper.assertTrue(component.getAction() == action && !action.isOver() && action.getPhase() == ActionPhase.WINDUP
+					&& keys().isEmpty(),
+					"TOO-FAR premise: the hold did not stay in its windup for 5 ticks: phase=" + action.getPhase() + " over="
+							+ action.isOver() + " messages=" + keys());
+			return action;
+		}
+
 		private List<String> keys() {
 			return user.actionBar.stream()
 					.map(message -> message.getContents() instanceof TranslatableContents contents
@@ -294,6 +353,7 @@ public final class TargetTooFarMessageGameTests {
 		@Override
 		public void close() {
 			try {
+				if (held) AbilityInput.keyRelease(KEY, user);
 				if (component != null) {
 					component.entityAim.setTarget(ActionTarget.EMPTY);
 					component.setAction(null, user, SyncType.NO_SYNC);

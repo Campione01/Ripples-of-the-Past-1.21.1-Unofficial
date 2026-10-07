@@ -308,10 +308,17 @@ public final class DevourAbsorptionReachGameTests {
                             + " expected=" + scene.reached + " " + geometry);
             if (drained) {
                 DamageSource source = target.getLastDamageSource();
+                // 1.16 bloodDrain is an EntityDamageSource of the zombie; pillarManAbsorption is dealt with no attacker
+                boolean donorOrigin = source != null && (kind == Kind.DEVOUR ? source.getEntity() == user
+                        : source.getEntity() == null && source.getDirectEntity() == null
+                                && source.getSourcePosition() == null && target.getLastHurtByMob() == null);
                 helper.assertTrue(Math.abs(healthBefore - healthAfter - 2.0F) < 1.0E-5F && source != null
-                                && source.is(kind.damageType) && source.getEntity() == user,
+                                && source.is(kind.damageType) && donorOrigin,
                         kind + " " + scene + " drained with the wrong hit: health=" + healthBefore + "->" + healthAfter
-                                + " source=" + source);
+                                + " source=" + source + " attacker=" + (source != null ? source.getEntity() : null)
+                                + " direct=" + (source != null ? source.getDirectEntity() : null)
+                                + " position=" + (source != null ? source.getSourcePosition() : null)
+                                + " lastHurtByMob=" + target.getLastHurtByMob());
                 Vec3 speed = target.getDeltaMovement();
                 helper.assertTrue(knockbacks.isEmpty() && speed.x == 0.0D && speed.z == 0.0D,
                         kind + " " + scene + " pushed its victim, 1.16 drained without knockback: knockback=" + knockbacks

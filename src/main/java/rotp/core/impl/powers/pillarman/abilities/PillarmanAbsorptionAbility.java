@@ -1,7 +1,6 @@
 package rotp.core.impl.powers.pillarman.abilities;
 
 import rotp.core.client.sound.ClientsideSoundsHelper;
-import rotp.core.customobjects.DamageSourceModified;
 import rotp.core.JojoModConfig;
 import rotp.core.init.ModDamageTypes;
 import rotp.core.init.ModSoundEvents;
@@ -77,13 +76,12 @@ public class PillarmanAbsorptionAbility extends PillarmanActionAbility {
 		if (level.isClientSide()) {
 			return false;
 		}
-		DamageSource damageSource = DamageUtil.make(level, ModDamageTypes.PILLAR_MAN_ABSORPTION, attacker, attacker);
-		// 1.16 dealt the damage itself without an attacker, so it never knocked the victim back
-		((DamageSourceModified) damageSource).jojo_ripples$modifyKnockback(0.0F, 0.0F);
-		if (HamonProtectionAbility.preventBlockDamage(target, damageSource, absorbDamage)) {
+		// 1.16 names the absorber only for the Hamon check and deals the damage itself without an attacker
+		if (HamonProtectionAbility.preventBlockDamage(target,
+				DamageUtil.make(level, ModDamageTypes.PILLAR_MAN_ABSORPTION, attacker, attacker), absorbDamage)) {
 			return false;
 		}
-		return dealAbsorptionDamage(target, absorbDamage, damageSource);
+		return dealAbsorptionDamage(target, absorbDamage, DamageUtil.make(level, ModDamageTypes.PILLAR_MAN_ABSORPTION));
 	}
 
 	public static boolean dealAbsorptionDamage(LivingEntity target, float absorbDamage, DamageSource damageSource) {

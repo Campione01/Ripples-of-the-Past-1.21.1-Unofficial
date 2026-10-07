@@ -10,16 +10,21 @@ import com.mojang.authlib.GameProfile;
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
+import rotp.core.impl.stands.goldexperience.GETransformationEntity;
+import rotp.core.impl.stands.goldexperience.GoldExperienceLifeformState;
 import rotp.core.impl.stands.hierophant.HGBarrierEntity;
 import rotp.core.impl.stands.hierophant.HierophantBarrierAbility;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
+import rotp.core.powersystem.ability.condition.AvailableAbilities;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.ability.input.AbilityInput;
 import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
 import rotp.core.powersystem.entityaction.EntityActionInputState.HeldInputEntry;
+import rotp.core.init.ModStatusEffects;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
+import rotp.core.powersystem.entityaction.netcode.SyncType;
 import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
@@ -36,9 +41,12 @@ import net.minecraft.gametest.framework.GameTestListener;
 import net.minecraft.gametest.framework.GameTestRunner;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.animal.Cow;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
@@ -61,6 +69,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 public final class StandTargetRangeGameTests {
 	private static final String BATCH = "stand_target_range";
 	private static final String TOO_FAR = "jojo.message.action_condition.target_too_far";
+	private static final String GE_MATERIAL = "jojo.message.action_condition.ge_lifeform_material";
 	private static final short KEY = 23;
 
 	private StandTargetRangeGameTests() {}
@@ -96,6 +105,16 @@ public final class StandTargetRangeGameTests {
 	}
 
 	@GameTest(template = "empty", batch = BATCH)
+	public static void goldExperienceHealOtherServerRayDoesNotReachAnEntityFarFromTheStand(GameTestHelper helper) {
+		serverRayEntityFarFromTheStand(helper, Kind.GE_HEAL_OTHER);
+	}
+
+	@GameTest(template = "empty", batch = BATCH)
+	public static void goldExperienceLifeshotServerRayDoesNotReachAnEntityFarFromTheStand(GameTestHelper helper) {
+		serverRayEntityFarFromTheStand(helper, Kind.GE_LIFESHOT);
+	}
+
+	@GameTest(template = "empty", batch = BATCH)
 	public static void crazyDiamondAnchorReachesABlockNearTheDistantStand(GameTestHelper helper) {
 		blockNearTheStand(helper, Kind.CD_ANCHOR);
 	}
@@ -112,7 +131,51 @@ public final class StandTargetRangeGameTests {
 
 	@GameTest(template = "empty", batch = BATCH)
 	public static void goldExperienceCreateLifeformDoesNotReachABlockFarFromTheStand(GameTestHelper helper) {
-		blockFarFromTheStand(helper, Kind.GE_CREATE_LIFEFORM);
+		// 1.16 GoldExperienceCreateLifeform has TargetRequirement.NONE: PowerBaseImpl.checkTarget drops a target out of
+		// range and carries on, so the action falls back to the off-hand item instead of refusing with target_too_far.
+		try (Fixture fixture = Fixture.open(helper, Kind.GE_CREATE_LIFEFORM)) {
+			Cow seen = fixture.cow(-3.0D);
+			GoldExperienceLifeformState.get(fixture.user).learnLifeformsForEntity(seen, fixture.level);
+			seen.discard();
+			fixture.power.setStamina(fixture.power.getMaxStamina());
+			BlockPos pos = fixture.block(BlockPos.containing(fixture.origin.x, fixture.origin.y + 1.0D, fixture.origin.z + 4.0D));
+			fixture.aim(new ActionTarget(pos, Direction.NORTH));
+			fixture.stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z + 1.0D, 0.0F, 0.0F);
+			String near = fixture.refusal();
+			fixture.stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z - 14.0D, 0.0F, 0.0F);
+			double fromUser = Math.sqrt(new AABB(pos).distanceToSqr(fixture.user.getEyePosition()));
+			double fromStand = Math.sqrt(new AABB(pos).distanceToSqr(fixture.stand.getEyePosition()));
+			helper.assertTrue(fromUser < 5.0D && fromStand > 11.0D && "accepted".equals(near)
+					&& fixture.user.getOffhandItem().isEmpty()
+					&& GoldExperienceLifeformState.get(fixture.user).selectedLifeformSubtype(fixture.level).isPresent(),
+					"STAND-RANGE premise: the block is not near the user only, was not accepted as the source with the Stand"
+							+ " beside it, or the user has an off-hand item or no lifeform to create: fromUser=" + fromUser
+							+ " fromStand=" + fromStand + " standBeside=" + near);
+
+			String emptyHand = fixture.refusal();
+			helper.assertTrue(GE_MATERIAL.equals(emptyHand), "GE_CREATE_LIFEFORM on a block " + fromStand
+					+ " blocks from the Stand with an empty off hand: answered " + emptyHand
+					+ "; 1.16 drops the target out of range and asks for a material with " + GE_MATERIAL);
+
+			fixture.user.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.IRON_INGOT, 2));
+			String withItem = fixture.refusal();
+			helper.assertTrue("accepted".equals(withItem), "GE_CREATE_LIFEFORM on a block " + fromStand
+					+ " blocks from the Stand with iron ingots in the off hand: answered " + withItem
+					+ "; 1.16 drops the target out of range and creates the lifeform from the off-hand item");
+
+			boolean admitted = fixture.admitted();
+			if (admitted) fixture.press();
+			List<GETransformationEntity> created = fixture.level.getEntitiesOfClass(GETransformationEntity.class, fixture.space);
+			double fromUserToCreated = created.isEmpty() ? -1.0D : created.get(0).position().distanceTo(fixture.user.position());
+			helper.assertTrue(admitted && created.size() == 1 && fromUserToCreated < 3.0D
+					&& fixture.user.getOffhandItem().is(Items.IRON_INGOT) && fixture.user.getOffhandItem().getCount() == 1
+					&& fixture.level.getBlockState(pos).is(Blocks.STONE),
+					"GE_CREATE_LIFEFORM press with the aimed block " + fromStand + " blocks from the Stand: admitted=" + admitted
+							+ " transformations=" + created.size() + " fromUser=" + fromUserToCreated + " offHand="
+							+ fixture.user.getOffhandItem() + " block=" + fixture.level.getBlockState(pos)
+							+ "; 1.16 turns one off-hand item into the lifeform in front of the user and leaves the block");
+		}
+		helper.succeed();
 	}
 
 	@GameTest(template = "empty", batch = BATCH)
@@ -278,6 +341,34 @@ public final class StandTargetRangeGameTests {
 		helper.succeed();
 	}
 
+	// Nothing under the synced crosshair, so the server's own ray from the user's eyes picks the entity 5 blocks ahead.
+	// The 1.16 range rule holds for that pick too: with the Stand 14 blocks behind its user the entity is out of reach.
+	private static void serverRayEntityFarFromTheStand(GameTestHelper helper, Kind kind) {
+		try (Fixture fixture = Fixture.open(helper, kind)) {
+			Cow cow = fixture.cow(5.0D);
+			// the user's look ray runs at eye height, above a cow standing on the user's level
+			cow.moveTo(fixture.origin.x, fixture.origin.y + 0.6D, fixture.origin.z + 5.0D, 180.0F, 0.0F);
+			fixture.aim(ActionTarget.EMPTY);
+			fixture.stand.moveTo(fixture.origin.x + 1.5D, fixture.origin.y, fixture.origin.z, 0.0F, 0.0F);
+			String near = fixture.refusal(kind, cow);
+			boolean nearUsed = fixture.usedOn(kind, cow);
+			fixture.stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z - 14.0D, 0.0F, 0.0F);
+			double fromUser = Math.sqrt(cow.getBoundingBox().distanceToSqr(fixture.user.getEyePosition()));
+			double fromStand = Math.sqrt(cow.getBoundingBox().distanceToSqr(fixture.stand.getEyePosition()));
+			helper.assertTrue(fromUser > 3.0D && fromUser < 8.0D && fromStand > 9.0D && "accepted".equals(near) && nearUsed,
+					"STAND-RANGE premise: the cow is not 3 to 8 blocks ahead of the user and out of the Stand's range, or the"
+							+ " same press with the Stand beside its user did not reach it: fromUser=" + fromUser + " fromStand="
+							+ fromStand + " standBeside=" + near + " usedOnTheCow=" + nearUsed);
+			String far = fixture.refusal(kind, cow);
+			boolean farUsed = fixture.usedOn(kind, cow);
+			helper.assertTrue(!farUsed && (kind != Kind.GE_LIFESHOT || "none".equals(far)), kind + " with nothing under the"
+					+ " crosshair and an entity " + fromUser + " blocks ahead of the user, " + fromStand + " from the Stand:"
+					+ " answered " + far + " usedOnTheEntity=" + farUsed + "; 1.16 measures from the Stand, so the entity is"
+					+ " out of reach");
+		}
+		helper.succeed();
+	}
+
 	// the Stand stands 12 blocks from its user and the block 3 blocks beyond it
 	private static void blockNearTheStand(GameTestHelper helper, Kind kind) {
 		try (Fixture fixture = Fixture.open(helper, kind)) {
@@ -405,6 +496,46 @@ public final class StandTargetRangeGameTests {
 					ability.getAbilityId());
 		}
 
+		// the ability's answer for a wounded cow, with the material and stamina its use needs
+		private String refusal(Kind kind, Cow wounded) {
+			prepare(wounded);
+			return refusal();
+		}
+
+		private void prepare(Cow wounded) {
+			wounded.setHealth(4.0F);
+			wounded.removeAllEffects();
+			user.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.IRON_INGOT, 8));
+			power.setStamina(power.getMaxStamina());
+		}
+
+		// a real press run to its end: whether it spent the healing material (Heal Other), or overloaded the cow or
+		// spent the shot's stamina (Lifeshot)
+		private boolean usedOn(Kind kind, Cow wounded) {
+			prepare(wounded);
+			stand.summonLockTicks = 0;
+			LivingComponentAction standActions = LivingComponentAction.getComponent(stand);
+			LivingComponentAction userActions = LivingComponentAction.getComponent(user);
+			press();
+			for (int tick = 0; tick < 30; tick++) {
+				standActions.tick();
+				userActions.tick();
+			}
+			AbilityInput.keyRelease(KEY, user);
+			standActions.setAction(null, user, SyncType.NO_SYNC);
+			userActions.setAction(null, user, SyncType.NO_SYNC);
+			return kind == Kind.GE_LIFESHOT
+					? wounded.hasEffect(ModStatusEffects.SENSORY_OVERLOAD) || power.getStamina() < power.getMaxStamina()
+					: user.getOffhandItem().getCount() < 8;
+		}
+
+		// the server side of the condition check a key press goes through before it is admitted
+		private boolean admitted() {
+			AvailableAbilities available = new AvailableAbilities();
+			available.update(power, power.getMoveset());
+			return AbilityInput.withConditionCheck(available.getContextVariationContainer(ability), user, InputMethod.CLICK);
+		}
+
 		// the message key the ability refuses the press with; "none" for a silent refusal, "accepted" otherwise
 		private String refusal() {
 			ConditionCheck check = ability.checkSpecificConditions(power);
@@ -439,6 +570,9 @@ public final class StandTargetRangeGameTests {
 						level.setBlockAndUpdate(block.getKey(), block.getValue());
 					}
 					if (cow != null) cow.discard();
+					if (space != null) {
+						level.getEntitiesOfClass(GETransformationEntity.class, space).forEach(Entity::discard);
+					}
 					if (user != null) user.discard();
 				}
 			}

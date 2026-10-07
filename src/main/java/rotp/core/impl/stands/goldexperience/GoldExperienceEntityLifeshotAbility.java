@@ -151,6 +151,9 @@ public class GoldExperienceEntityLifeshotAbility extends NoPoseStandEntityAbilit
                 entity -> entity instanceof LivingEntity && entity != user,
                 user,
                 0);
+        if (!isWithinLifeShotRange(target, user, level)) {
+            return null;
+        }
         Entity entity = target.getMainEntity();
         return entity instanceof LivingEntity living ? living : null;
     }

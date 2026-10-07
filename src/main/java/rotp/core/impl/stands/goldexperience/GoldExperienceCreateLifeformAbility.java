@@ -113,9 +113,7 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceUtilityAb
         }
 
         LivingEntity aimingEntity = getControlledEntity(user, standPower);
-        if (isSyncedLifeformTargetTooFar(user.level(), aimingEntity)) {
-            return ConditionCheck.createNegative("target_too_far");
-        }
+        // 1.16 TargetRequirement.NONE: a target out of range is dropped (PowerBaseImpl.checkTarget), not refused
         ActionTarget aimTarget = findLifeformTarget(user.level(), aimingEntity);
         LifeformSource targetSource = targetedSource(user.level(), user, aimTarget);
         if (targetSource != null) {
@@ -549,12 +547,6 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceUtilityAb
         return ActionTargetRange.isTargetWithinRange(ActionTargetRange.standPerformer(aiming), target, level,
                 SOURCE_ENTITY_TARGET_RANGE * SOURCE_ENTITY_TARGET_RANGE,
                 SOURCE_BLOCK_TARGET_RANGE * SOURCE_BLOCK_TARGET_RANGE);
-    }
-
-    private static boolean isSyncedLifeformTargetTooFar(Level level, LivingEntity aiming) {
-        ActionTarget syncedTarget = getSyncedLookTarget(level, aiming);
-        return !syncedTarget.isEmpty(level)
-                && !isWithinSourceRange(level, syncedTarget, aiming);
     }
 
 	private static boolean isConvertibleEntitySource(Entity entity) {
