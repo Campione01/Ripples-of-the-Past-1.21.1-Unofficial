@@ -137,9 +137,6 @@ public abstract class ModdedProjectileEntity extends DamagingEntity implements I
 			}
 			setDeltaMovement(movementVec.scale(inertia));
 		}
-		else {
-			rotateTowardsMovement(0.25f);
-		}
 
 		xo = x;
 		yo = y;

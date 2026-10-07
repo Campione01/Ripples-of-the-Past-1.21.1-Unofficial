@@ -199,6 +199,10 @@ public class ClackersEntity extends ModdedProjectileEntity {
 
 	@Override
 	protected boolean hurtTarget(Entity target, @Nullable LivingEntity owner) {
+		// 1.16 ItemProjectileEntity.onHitEntity: set before the hit, even a refused one
+		if (owner != null) {
+			owner.setLastHurtMob(target);
+		}
 		boolean projectileAttack = target.hurt(getDamageSource(owner), (float) (getDeltaMovement().length() * 2.0D));
 		boolean hamonAttack = false;
 		if (target instanceof LivingEntity livingTarget && owner != null && hamonDmg > 0.0F) {

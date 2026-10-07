@@ -253,11 +253,11 @@ public abstract class DamagingEntity extends Projectile implements IEntityWithCo
 	protected void afterEntityHit(EntityHitResult entityRayTraceResult, boolean entityHurt) {}
 
 	// 1.16 hurt() knocked back away from source.getEntity(); 1.21 follows the projectile's motion, which for a
-	// swinging or retracting Hamon projectile points sideways or back at its owner.
+	// swinging, retracting, curving or deflected projectile points sideways or back at its owner.
 	@Override
 	public DoubleDoubleImmutablePair calculateHorizontalHurtKnockbackDirection(LivingEntity target, DamageSource source) {
 		Entity attacker = source.getEntity();
-		if (attacker != null && source.is(ModDamageTypes.HAMON)) {
+		if (attacker != null) {
 			return DoubleDoubleImmutablePair.of(target.getX() - attacker.getX(), target.getZ() - attacker.getZ());
 		}
 		return super.calculateHorizontalHurtKnockbackDirection(target, source);

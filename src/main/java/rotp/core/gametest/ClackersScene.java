@@ -303,6 +303,13 @@ final class ClackersScene implements GameTestListener {
         return cow;
     }
 
+    /** Adds any other entity; the scene removes it again when it closes. */
+    <T extends Entity> T add(T entity) {
+        owned.add(entity);
+        check(level.addFreshEntity(entity), "could not add " + entity);
+        return entity;
+    }
+
     /** Queues the registered use, twenty natural use ticks and the item's own release for every player. */
     void throwClackers(Player... players) {
         await("the throwers ticking", () -> {

@@ -72,6 +72,11 @@
 	"block.PressurePlateBlockSignalMixin",
 	"block.WeightedPressurePlateBlockSignalMixin",
 	"block.BlockEntitySoftLandingMixin",
+	"block.ButtonBlockClackersMixin",
+	"block.TargetBlockClackersMixin",
+	"clackers.ShulkerClackersMixin",
+	"clackers.DragonSittingPhaseClackersMixin",
+	"clackers.ArmorStandClackersMixin",
 	
 	"KnockbackEntityCollision",
 	"ProjectileHighSpeedSync",
