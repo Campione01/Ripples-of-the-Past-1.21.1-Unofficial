@@ -31,10 +31,10 @@ public class LeavesGliderModel extends HierarchicalModel<LeavesGliderEntity> {
                 .addBox(-20.0F, -0.5F, -4.11F, 40.0F, 1.0F, 24.0F, new CubeDeformation(-0.375F)),
                 PartPose.ZERO);
 
-        glider.addOrReplaceChild("front_left", CubeListBuilder.create().texOffs(0, 0)
+        glider.addOrReplaceChild("front_left", CubeListBuilder.create().texOffs(0, 25)
                 .addBox(-0.375F, -0.5F, -0.375F, 26.0F, 1.0F, 16.0F, new CubeDeformation(-0.375F)),
                 PartPose.offsetAndRotation(0.0F, 0.0F, -19.625F, 0.0F, -0.6806F, 0.0F));
-        glider.addOrReplaceChild("front_right", CubeListBuilder.create().texOffs(0, 0)
+        glider.addOrReplaceChild("front_right", CubeListBuilder.create().texOffs(0, 42)
                 .addBox(-25.625F, -0.5F, -0.375F, 26.0F, 1.0F, 16.0F, new CubeDeformation(-0.375F)),
                 PartPose.offsetAndRotation(0.0F, 0.0F, -19.625F, 0.0F, 0.6806F, 0.0F));
 

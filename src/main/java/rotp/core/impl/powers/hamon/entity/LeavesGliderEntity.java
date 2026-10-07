@@ -69,6 +69,12 @@ public class LeavesGliderEntity extends Entity implements IEntityWithComplexSpaw
 	private boolean inputRight;
 	private float yRotDelta;
 	private float passengersHeight;
+	private int lerpSteps;
+	private double lerpX;
+	private double lerpY;
+	private double lerpZ;
+	private double lerpYRot;
+	private double lerpXRot;
 	private float prevHealth = MAX_HEALTH;
 
 	public LeavesGliderEntity(Level level) {
@@ -157,6 +163,7 @@ public class LeavesGliderEntity extends Entity implements IEntityWithComplexSpaw
 	@Override
 	public void tick() {
 		super.tick();
+		tickLerp();
 		if (!level().isClientSide()) {
 			updateFlying();
 		}
@@ -175,6 +182,53 @@ public class LeavesGliderEntity extends Entity implements IEntityWithComplexSpaw
 		}
 		else if (getEnergy() > 0.0F) {
 			tickClientChargingFeedback();
+		}
+	}
+
+	// 1.16 lerpTo: every update restarts ten steps, whatever step count the packet asks for
+	@Override
+	public void lerpTo(double x, double y, double z, float yRot, float xRot, int steps) {
+		lerpX = x;
+		lerpY = y;
+		lerpZ = z;
+		lerpYRot = yRot;
+		lerpXRot = xRot;
+		lerpSteps = 10;
+	}
+
+	@Override
+	public double lerpTargetX() {
+		return lerpSteps > 0 ? lerpX : getX();
+	}
+
+	@Override
+	public double lerpTargetY() {
+		return lerpSteps > 0 ? lerpY : getY();
+	}
+
+	@Override
+	public double lerpTargetZ() {
+		return lerpSteps > 0 ? lerpZ : getZ();
+	}
+
+	@Override
+	public float lerpTargetXRot() {
+		return lerpSteps > 0 ? (float) lerpXRot : getXRot();
+	}
+
+	@Override
+	public float lerpTargetYRot() {
+		return lerpSteps > 0 ? (float) lerpYRot : getYRot();
+	}
+
+	private void tickLerp() {
+		if (isControlledByLocalInstance()) {
+			lerpSteps = 0;
+			syncPacketPositionCodec(getX(), getY(), getZ());
+		}
+		if (lerpSteps > 0) {
+			lerpPositionAndRotationStep(lerpSteps, lerpX, lerpY, lerpZ, lerpYRot, lerpXRot);
+			lerpSteps--;
 		}
 	}
 
@@ -210,7 +264,12 @@ public class LeavesGliderEntity extends Entity implements IEntityWithComplexSpaw
 	}
 
 	private void updateRotationDelta() {
-		float delta = 3.5F - getPassengers().size() * 0.5F;
+		yRotDelta = nextRotationDelta(yRotDelta, inputLeft, inputRight, getPassengers().size());
+	}
+
+	// 1.16 updateRotationDelta: held keys set a fixed turn rate, release damps it by 5% of that rate per tick
+	public static float nextRotationDelta(float yRotDelta, boolean inputLeft, boolean inputRight, int passengers) {
+		float delta = 3.5F - passengers * 0.5F;
 		if (!inputLeft && !inputRight) {
 			if (yRotDelta > 0.0F) {
 				yRotDelta = Math.max(yRotDelta - delta * 0.05F, 0.0F);
@@ -228,6 +287,7 @@ public class LeavesGliderEntity extends Entity implements IEntityWithComplexSpaw
 				yRotDelta += delta;
 			}
 		}
+		return yRotDelta;
 	}
 
 	public void setInput(boolean left, boolean right) {
@@ -378,6 +438,10 @@ public class LeavesGliderEntity extends Entity implements IEntityWithComplexSpaw
 			setDeltaMovement(gliderRotVec.scale(Math.max(riderMovement.dot(gliderRotVec), 0.05D)));
 		}
 		super.addPassenger(passenger);
+		if (isControlledByLocalInstance() && lerpSteps > 0) {
+			lerpSteps = 0;
+			absMoveTo(lerpX, lerpY, lerpZ, (float) lerpYRot, (float) lerpXRot);
+		}
 		updateBbHeight();
 	}
 
@@ -402,6 +466,12 @@ public class LeavesGliderEntity extends Entity implements IEntityWithComplexSpaw
 				? (float) getPassengers().stream().max(Comparator.comparingDouble(Entity::getBbHeight)).get().getBbHeight()
 				: 0.0F;
 		refreshDimensions();
+	}
+
+	// 1.16 grows the box upward from the feet; the 1.21 relocation would drop a ticked glider by half the rider's height
+	@Override
+	public boolean fudgePositionAfterSizeChange(EntityDimensions oldDimensions) {
+		return false;
 	}
 
 	@Override
