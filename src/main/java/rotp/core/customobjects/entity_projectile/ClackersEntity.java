@@ -24,8 +24,11 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.protocol.game.ClientboundTakeItemEntityPacket;
 import net.minecraft.network.syncher.SynchedEntityData;
-import net.minecraft.sounds.SoundSource;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Entity.RemovalReason;
@@ -245,6 +248,11 @@ public class ClackersEntity extends ModdedProjectileEntity {
 	@Override
 	protected void afterEntityHit(EntityHitResult result, boolean entityHurt) {
 		if (entityHurt) {
+			// an Enderman that teleported away leaves the Clackers flying on
+			if (result.getEntity().getType() == EntityType.ENDERMAN) {
+				return;
+			}
+			playImpactSound(SoundEvents.ARROW_HIT);
 			changeMovementAfterHit();
 			return;
 		}
@@ -271,12 +279,20 @@ public class ClackersEntity extends ModdedProjectileEntity {
 		if (!level().isClientSide()) {
 			setNoGravity(false);
 			entityData.set(IN_GROUND, true);
-			level().playSound(null, getX(), getY(), getZ(),
-					ModSoundEvents.CLACKERS.get(), SoundSource.NEUTRAL, 0.5F, 0.9F + random.nextFloat() * 0.2F);
+			// 1.16 ItemProjectileEntity.onHit: the break sound of the block, in place of the arrow's own
+			playImpactSound(lastSupportState.getSoundType(level(), result.getBlockPos(), this).getBreakSound());
 		}
 		else {
 			// A predicted hit must not latch the server-owned landing state.
 			clientBlockHit = true;
+		}
+	}
+
+	// 1.16 AbstractArrow hit sound, sent as Entity.playSound did
+	private void playImpactSound(SoundEvent sound) {
+		if (!isSilent()) {
+			level().playSound(null, getX(), getY(), getZ(), sound, getSoundSource(),
+					1.0F, 1.2F / (random.nextFloat() * 0.2F + 0.9F));
 		}
 	}
 
@@ -363,7 +379,8 @@ public class ClackersEntity extends ModdedProjectileEntity {
 		if (pickup == AbstractArrow.Pickup.ALLOWED && !player.addItem(getPickupItem())) {
 			return;
 		}
-		player.take(this, 1);
+		// LivingEntity.take sends the collect packet for items, arrows and orbs only; the 1.16 Clackers were arrows
+		((ServerLevel) level()).getChunkSource().broadcast(this, new ClientboundTakeItemEntityPacket(getId(), player.getId(), 1));
 		if (ownPickup && boomerangHit) {
 			JojoModUtil.sayVoiceLine(player, ModSoundEvents.JOSEPH_CLACKER_BOOMERANG);
 		}

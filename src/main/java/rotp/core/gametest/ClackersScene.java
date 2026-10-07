@@ -212,7 +212,8 @@ final class ClackersScene implements GameTestListener {
         });
     }
 
-    private <T extends Event> void listen(Class<T> type, Consumer<T> listener) {
+    /** Registers a listener that is removed again when the scene closes. */
+    <T extends Event> void listen(Class<T> type, Consumer<T> listener) {
         Consumer<T> guarded = event -> {
             if (closed || observerFailure != null) return;
             try {

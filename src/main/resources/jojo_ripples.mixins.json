@@ -77,6 +77,9 @@
 	"clackers.ShulkerClackersMixin",
 	"clackers.DragonSittingPhaseClackersMixin",
 	"clackers.ArmorStandClackersMixin",
+	"clackers.WitherBossClackersMixin",
+	"clackers.MinecartTNTClackersMixin",
+	"clackers.EnderManClackersMixin",
 	
 	"KnockbackEntityCollision",
 	"ProjectileHighSpeedSync",
