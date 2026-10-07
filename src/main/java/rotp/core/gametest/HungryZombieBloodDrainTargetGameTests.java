@@ -26,12 +26,14 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.Goal;
+import net.minecraft.world.entity.ai.goal.RandomStrollGoal;
 import net.minecraft.world.entity.ai.goal.WrappedGoal;
 import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
@@ -77,13 +79,13 @@ import rotp.core.subsystems.target.ActionTarget;
 public final class HungryZombieBloodDrainTargetGameTests {
     private HungryZombieBloodDrainTargetGameTests() {}
 
-    @GameTest(template = "empty", batch = "hungry_zombie_non_drain_source", timeoutTicks = 180)
+    @GameTest(template = "empty", batch = "hungry_zombie_non_drain_source", timeoutTicks = 280)
     public static void freshNonDrainVictimSourceDoesNotAdmitOwnerTarget(GameTestHelper helper) { start(helper, Lane.MELEE); }
 
-    @GameTest(template = "empty", batch = "hungry_zombie_registered_drain_source", timeoutTicks = 180)
+    @GameTest(template = "empty", batch = "hungry_zombie_registered_drain_source", timeoutTicks = 280)
     public static void actualRegisteredDrainOnThePrimedVictimAdmitsOwnerTarget(GameTestHelper helper) { start(helper, Lane.DRAIN); }
 
-    @GameTest(template = "empty", batch = "hungry_zombie_expired_victim_source", timeoutTicks = 180)
+    @GameTest(template = "empty", batch = "hungry_zombie_expired_victim_source", timeoutTicks = 280)
     public static void naturallyExpiredVictimSourceAdmitsTheUnconsumedOwnerEvent(GameTestHelper helper) { start(helper, Lane.EXPIRED); }
 
     private enum Lane { MELEE, DRAIN, EXPIRED }
@@ -113,6 +115,8 @@ public final class HungryZombieBloodDrainTargetGameTests {
 
     private static final class Fixture implements AutoCloseable, GameTestListener {
         private static final short SUMMON_KEY = 67, DRAIN_KEY = 68;
+        private static final int LIGHT_WAIT_TICKS = 100;
+        private long readyTick;
         private final GameTestHelper helper;
         private final ServerLevel level;
         private final Lane lane;
@@ -145,8 +149,35 @@ public final class HungryZombieBloodDrainTargetGameTests {
         private boolean sourceReady, expired, completed, closed;
 
         Fixture(GameTestHelper helper, Lane lane) { this.helper = helper; level = helper.getLevel(); this.lane = lane; }
-        private void premise(boolean value, String message) { helper.assertTrue(value, "HZ-SOURCE-PREMISE " + message); }
-        private void oracle(boolean value, String message) { helper.assertTrue(value, "HZ-SOURCE-ORACLE " + message); }
+        private void premise(boolean value, String message) { if (!value) helper.fail("HZ-SOURCE-PREMISE " + message + " | " + dump()); }
+        private void oracle(boolean value, String message) { if (!value) helper.fail("HZ-SOURCE-ORACLE " + message + " | " + dump()); }
+        // What a failed check saw, so that a failure in a later run explains itself.
+        private String dump() {
+            StringBuilder out = new StringBuilder("tick=" + helper.getTick() + " lane=" + lane + " phase=" + phase
+                    + " sincePhase=" + (helper.getTick() - phaseStart) + " ownerPosts=" + ownerPosts + " zombiePosts=" + zombiePosts
+                    + " settled=" + settled + " observations=" + observations + " decisions=" + decisions
+                    + " meleeDone=" + meleeDone + " drainPressed=" + drainPressed + " sourceReady=" + sourceReady);
+            if (owner != null) out.append(" owner=").append(owner.position()).append(" ownerAlive=").append(owner.isAlive())
+                    .append(" ownerOnFire=").append(owner.isOnFire()).append(" ownerMemory=").append(owner.getLastHurtMobTimestamp());
+            for (HungryZombieEntity each : emitted) out.append(' ').append(describe(each, each == zombie ? "subject" : "other"));
+            if (victim != null) out.append(" victim=").append(victim.position()).append(" victimAlive=").append(victim.isAlive())
+                    .append(" victimHealth=").append(victim.getHealth())
+                    .append(" victimSource=").append(victim.getLastDamageSource() == null ? "null" : victim.getLastDamageSource().getMsgId());
+            return out.toString();
+        }
+        private String describe(HungryZombieEntity each, String role) {
+            List<String> goals = new ArrayList<>();
+            for (WrappedGoal goal : each.goalSelector.getAvailableGoals()) if (goal.isRunning()) goals.add(goal.getGoal().getClass().getSimpleName());
+            for (WrappedGoal goal : each.targetSelector.getAvailableGoals()) if (goal.isRunning()) goals.add(goal.getGoal().getClass().getSimpleName());
+            return "zombie[" + role + " age=" + each.tickCount + " pos=" + each.position() + " motion=" + each.getDeltaMovement()
+                    + " alive=" + each.isAlive() + " removed=" + each.getRemovalReason() + " health=" + each.getHealth()
+                    + " onFire=" + each.isOnFire() + " baby=" + each.isBaby() + " noAi=" + each.isNoAi() + " noGravity=" + each.isNoGravity()
+                    + " passenger=" + each.isPassenger() + " leashed=" + each.isLeashed() + " onGround=" + each.onGround()
+                    + " ownerResolved=" + (owner != null && each.getOwner() == owner) + " ownerUuid=" + (owner != null && each.isEntityOwner(owner))
+                    + " distSq=" + (owner == null ? "n/a" : String.valueOf(each.distanceToSqr(owner))) + " cachedFar12=" + each.farFromOwner(12D)
+                    + " target=" + (each.getTarget() == null ? "none" : each.getTarget().getType().toShortString() + "@" + each.getTarget().position())
+                    + " navDone=" + each.getNavigation().isDone() + " goals=" + goals + "]";
+        }
         private void log(String message) { JojoMod.LOGGER.info("HZ-SOURCE {} {}", lane, message); }
         private void begin(Phase next) { phase = next; phaseStart = helper.getTick(); settled = 0; }
         private void observe(Runnable operation) {
@@ -155,6 +186,24 @@ public final class HungryZombieBloodDrainTargetGameTests {
         }
         private <T extends net.neoforged.bus.api.Event> void add(Consumer<T> listener, Class<T> type, EventPriority priority, boolean canceled) {
             listeners.add(listener); NeoForge.EVENT_BUS.addListener(priority, canceled, type, listener);
+        }
+
+        // An idle zombie starts a random stroll on one goal update in 60. It ranks below the goals these tests examine,
+        // so it cannot block or admit any of them, but it walked the zombie out of the distances the phases prepare.
+        private static void withoutRandomStroll(HungryZombieEntity each) {
+            List<Goal> strolls = new ArrayList<>();
+            for (WrappedGoal goal : each.goalSelector.getAvailableGoals()) if (goal.getGoal() instanceof RandomStrollGoal) strolls.add(goal.getGoal());
+            strolls.forEach(each.goalSelector::removeGoal);
+        }
+        // The light engine darkens the room some ticks after its roof is placed. Until then a zombie in it still reads
+        // full sky light and, by day, catches fire on about one tick in 25.
+        private int brightestSkyLight() {
+            int brightest = 0;
+            for (int ix = 1; ix <= 14; ix++) for (int iz = 1; iz <= 14; iz++) for (int h = 0; h < 4; h++) {
+                brightest = Math.max(brightest, level.getBrightness(LightLayer.SKY,
+                        new BlockPos(chunk.getMinBlockX() + ix, (int) floorY + h, chunk.getMinBlockZ() + iz)));
+            }
+            return brightest;
         }
 
         private void setUp() {
@@ -255,6 +304,7 @@ public final class HungryZombieBloodDrainTargetGameTests {
                 if (owner != null && entity instanceof HungryZombieEntity result && result.isEntityOwner(owner)) {
                     owned.add(result); if (!emitted.contains(result)) emitted.add(result);
                     if (zombie == null) zombie = result;
+                    withoutRandomStroll(result);
                     observe(() -> {
                         premise(summonPressed && ownerBracket && entity.getType() == ModEntityTypes.HUNGRY_ZOMBIE.get()
                                 && entity.getClass() == HungryZombieEntity.class && !event.isCanceled(), "not the owned concrete production emission");
@@ -485,13 +535,17 @@ public final class HungryZombieBloodDrainTargetGameTests {
             try {
                 if (observerFailure instanceof RuntimeException error) throw error;
                 if (observerFailure instanceof Error error) throw error;
-                premise(helper.getTick() < 150, "finite production/actor/source watchdog");
                 if (completed) { log("RESULT qualified=true observations=" + observations + " naturalDecisions=" + decisions + " native=false"); close(); helper.succeed(); return; }
                 state();
-                if (phase == Phase.OWNER_READY && ownerPosts >= 3) {
+                if (phase == Phase.OWNER_READY) {
+                    int skyLight = brightestSkyLight();
+                    premise(helper.getTick() < LIGHT_WAIT_TICKS, "room sky light did not settle, brightest=" + skyLight);
+                    if (ownerPosts < 3 || skyLight != 0) { helper.runAfterDelay(1, this::poll); return; }
+                    readyTick = helper.getTick();
                     if (lane == Lane.EXPIRED) { victim = createVictim(); begin(Phase.ARM); }
                     else pressSummon();
                 }
+                premise(helper.getTick() - readyTick < 150, "finite production/actor/source watchdog");
                 if (phase == Phase.SETTLE && settled >= 2 && LivingComponentAction.getCurEntityAction(owner) == null) {
                     freshZombie(); premise(nearCache(), "settled near owner cache"); victim = createVictim(); begin(Phase.ARM);
                 }

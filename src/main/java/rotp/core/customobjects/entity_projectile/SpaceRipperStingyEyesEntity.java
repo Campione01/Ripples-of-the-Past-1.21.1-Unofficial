@@ -42,6 +42,8 @@ public class SpaceRipperStingyEyesEntity extends ModdedProjectileEntity {
 	private boolean rightEye;
 	@Nullable
 	private Vec3 detachedOriginPos;
+	private boolean detachAfterMove;
+	private long lastTickGameTime = Long.MIN_VALUE;
 
 	public SpaceRipperStingyEyesEntity(Level level, LivingEntity owner, boolean rightEye) {
 		super(ModEntityTypes.SPACE_RIPPER_STINGY_EYES.get(), owner, level);
@@ -56,6 +58,7 @@ public class SpaceRipperStingyEyesEntity extends ModdedProjectileEntity {
 
 	@Override
 	public void tick() {
+		lastTickGameTime = level().getGameTime();
 		super.tick();
 		if (!isAlive()) {
 			return;
@@ -63,8 +66,24 @@ public class SpaceRipperStingyEyesEntity extends ModdedProjectileEntity {
 		if (!isBoundToOwner() && detachedOriginPos != null) {
 			detachedOriginPos = detachedOriginPos.add(position().subtract(xOld, yOld, zOld));
 		}
-		if (tickCount > 20) {
+		if (tickCount > 20 || detachAfterMove) {
 			detach();
+		}
+	}
+
+	/**
+	 * 1.16 ticked the beams in the level before the player whose action detaches them, so a beam was detached after
+	 * the bound move of that tick. Here the owner's action ticks first: the detach waits for this tick's move.
+	 */
+	public void detachAfterThisTicksMove() {
+		if (!isBoundToOwner() || level().isClientSide()) {
+			return;
+		}
+		if (lastTickGameTime == level().getGameTime()) {
+			detach();
+		}
+		else {
+			detachAfterMove = true;
 		}
 	}
 

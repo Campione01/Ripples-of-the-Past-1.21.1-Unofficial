@@ -1,6 +1,8 @@
 package rotp.core.impl.powers.vampirism.abilities;
 
 import rotp.core.customobjects.entity_projectile.SpaceRipperStingyEyesEntity;
+import rotp.core.impl.powers.vampirism.VampirismData;
+import rotp.core.impl.powers.vampirism.VampirismState;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.entityaction.ActionPhase;
@@ -16,7 +18,7 @@ public class VampirismSpaceRipperStingyEyesAbility extends VampirismActionAbilit
 	public VampirismSpaceRipperStingyEyesAbility(AbilityType<?> abilityType, AbilityId abilityId) {
 		super(abilityType, abilityId, 1, 20.0F, SpaceRipperInstance::new);
 		setDefaultPhaseLength(ActionPhase.WINDUP, HOLD_TO_FIRE_TICKS);
-		setDefaultPhaseLength(ActionPhase.PERFORM, 20);
+		setDefaultPhaseLength(ActionPhase.PERFORM, SpaceRipperInstance.TICK_DURATION + 1);
 		setDefaultPhaseLength(ActionPhase.RECOVERY, 0);
 		setIgnoresPerformerStun();
 	}
@@ -29,7 +31,9 @@ public class VampirismSpaceRipperStingyEyesAbility extends VampirismActionAbilit
 	public static class SpaceRipperInstance extends EntityActionInstance {
 		private static final int TICK_DURATION = 20;
 		private static final int MAX_COOLDOWN = 50;
+		private static final float TICK_BLOOD_COST = 20.0F;
 		private final SpaceRipperStingyEyesEntity[] lasers = new SpaceRipperStingyEyesEntity[2];
+		private boolean lasersAdded;
 		private int ticksFired;
 
 		public SpaceRipperInstance(EntityActionType ability) {
@@ -47,39 +51,58 @@ public class VampirismSpaceRipperStingyEyesAbility extends VampirismActionAbilit
 			return getPhase() == ActionPhase.WINDUP;
 		}
 
+		// Only a PERFORM phase that did not come from the key release still has no beams here.
 		@Override
 		public void actionPerformStart() {
+			addLasers();
+		}
+
+		// 1.16 onStart
+		private void addLasers() {
 			Level level = level();
-			if (level.isClientSide()) {
-				return;
-			}
 			LivingEntity user = getPowerUser();
-			if (user == null) {
+			if (level.isClientSide() || user == null || lasersAdded) {
 				return;
 			}
+			lasersAdded = true;
 			lasers[0] = new SpaceRipperStingyEyesEntity(level, user, true);
 			lasers[1] = new SpaceRipperStingyEyesEntity(level, user, false);
 			level.addFreshEntity(lasers[0]);
 			level.addFreshEntity(lasers[1]);
 		}
 
+		// 1.16 playerTick ran with tick = 0..TICK_DURATION: every one of those ticks took the cost, the last one ended the shot.
 		@Override
 		public void actionTick() {
 			if (getPhase() != ActionPhase.PERFORM || level().isClientSide()) {
 				return;
 			}
 			LivingEntity user = getPowerUser();
-			if (user == null || !consumeBlood(user, 20.0F)) {
-				detachLasers();
+			boolean paid = user != null && consumeBlood(user, TICK_BLOOD_COST);
+			if (!paid && user != null) {
+				emptyBlood(user);
+			}
+			if (ticksFired >= TICK_DURATION || !paid) {
+				// 1.16 ticked the beams before the player, so they were detached after this tick's bound move.
+				for (int i = 0; i < lasers.length; i++) {
+					if (lasers[i] != null && lasers[i].isAlive()) {
+						lasers[i].detachAfterThisTicksMove();
+					}
+					lasers[i] = null;
+				}
 				setCooldown(user);
 				forceStop();
 				return;
 			}
 			ticksFired++;
-			if (ticksFired >= TICK_DURATION) {
-				detachLasers();
-				setCooldown(user);
-				forceStop();
+		}
+
+		private static void emptyBlood(LivingEntity user) {
+			VampirismData data = getVampirismData(user);
+			if (data != null) {
+				VampirismState.get(user).blood().setCurrent(0.0F);
+				data.setBloodLevel(0.0F);
+				data.syncOnUpdate(user);
 			}
 		}
 
@@ -96,14 +119,30 @@ public class VampirismSpaceRipperStingyEyesAbility extends VampirismActionAbilit
 		@Override
 		public void onButtonStopHold() {
 			if (getPhase() == ActionPhase.WINDUP) {
-				if (getPhaseTick() >= getCurPhaseLength()) {
+				if (getPhaseTick() >= getCurPhaseLength() && canPayForRelease()) {
 					setPhaseStart(ActionPhase.PERFORM);
+					// 1.16 NonStandAction.onPerform: perform() added the beams, then the action's cost was taken once.
+					addLasers();
+					LivingEntity user = getPowerUser();
+					if (user != null && !level().isClientSide()) {
+						consumeBlood(user, TICK_BLOOD_COST);
+					}
 				}
 				else {
 					forceStop();
 				}
 				syncPhaseChanges();
 			}
+		}
+
+		// 1.16 PowerBaseImpl.stopHeldAction fired only when the requirements, the action's cost among them, still held.
+		private boolean canPayForRelease() {
+			if (level().isClientSide()) {
+				return true;
+			}
+			LivingEntity user = getPowerUser();
+			VampirismData data = getVampirismData(user);
+			return user != null && (isUserCreative() || data != null && data.hasBlood(user, TICK_BLOOD_COST));
 		}
 
 		private void detachLasers() {

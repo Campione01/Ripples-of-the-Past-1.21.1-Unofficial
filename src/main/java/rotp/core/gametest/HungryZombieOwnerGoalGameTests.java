@@ -26,6 +26,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.Goal;
+import net.minecraft.world.entity.ai.goal.RandomStrollGoal;
 import net.minecraft.world.entity.ai.goal.WrappedGoal;
 import net.minecraft.world.entity.ai.navigation.PathNavigation;
 import net.minecraft.world.entity.animal.Cow;
@@ -36,6 +37,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
@@ -80,16 +82,16 @@ import rotp.core.subsystems.target.ActionTarget;
 public final class HungryZombieOwnerGoalGameTests {
     private HungryZombieOwnerGoalGameTests() {}
 
-    @GameTest(template = "empty", batch = "hungry_zombie_follow_far", timeoutTicks = 160)
+    @GameTest(template = "empty", batch = "hungry_zombie_follow_far", timeoutTicks = 260)
     public static void summonedZombieDoesNotStartFreshFarOwnerNavigation(GameTestHelper helper) { start(helper, Lane.FAR_FOLLOW); }
 
-    @GameTest(template = "empty", batch = "hungry_zombie_follow_spectator", timeoutTicks = 160)
+    @GameTest(template = "empty", batch = "hungry_zombie_follow_spectator", timeoutTicks = 260)
     public static void summonedZombieDoesNotAdmitNewSpectatorOwnerFollow(GameTestHelper helper) { start(helper, Lane.SPECTATOR); }
 
-    @GameTest(template = "empty", batch = "hungry_zombie_follow_passenger", timeoutTicks = 160)
+    @GameTest(template = "empty", batch = "hungry_zombie_follow_passenger", timeoutTicks = 260)
     public static void summonedPassengerDoesNotRequestFreshOwnerNavigation(GameTestHelper helper) { start(helper, Lane.PASSENGER); }
 
-    @GameTest(template = "empty", batch = "hungry_zombie_owner_melee_far", timeoutTicks = 160)
+    @GameTest(template = "empty", batch = "hungry_zombie_owner_melee_far", timeoutTicks = 260)
     public static void summonedZombieDoesNotAdmitFreshFarOwnerMeleeTarget(GameTestHelper helper) { start(helper, Lane.OWNER_ATTACK); }
 
     private enum Lane { FAR_FOLLOW, SPECTATOR, PASSENGER, OWNER_ATTACK }
@@ -104,6 +106,8 @@ public final class HungryZombieOwnerGoalGameTests {
 
     private static final class Fixture implements AutoCloseable, GameTestListener {
         private static final short KEY = 61, DRAIN_KEY = 62;
+        private static final int LIGHT_WAIT_TICKS = 100;
+        private long pressTick;
         private final GameTestHelper helper;
         private final ServerLevel level;
         private final Lane lane;
@@ -142,8 +146,34 @@ public final class HungryZombieOwnerGoalGameTests {
         private Throwable observerFailure;
 
         Fixture(GameTestHelper helper, Lane lane) { this.helper = helper; this.level = helper.getLevel(); this.lane = lane; }
-        private void premise(boolean value, String message) { helper.assertTrue(value, "HZ-GUARD-PREMISE " + message); }
-        private void oracle(boolean value, String message) { helper.assertTrue(value, "HZ-GUARD-ORACLE " + message); }
+        private void premise(boolean value, String message) { if (!value) helper.fail("HZ-GUARD-PREMISE " + message + " | " + dump()); }
+        private void oracle(boolean value, String message) { if (!value) helper.fail("HZ-GUARD-ORACLE " + message + " | " + dump()); }
+        // What a failed check saw, so that a failure in a later run explains itself.
+        private String dump() {
+            StringBuilder out = new StringBuilder("tick=" + helper.getTick() + " lane=" + lane + " phase=" + phase
+                    + " sincePhase=" + (helper.getTick() - phaseStart) + " ownerPosts=" + ownerPosts + " zombiePosts=" + zombiePosts
+                    + " settled=" + settled + " observations=" + observations + " controlPending=" + controlPending);
+            if (owner != null) out.append(" owner=").append(owner.position()).append(" ownerAlive=").append(owner.isAlive())
+                    .append(" spectator=").append(owner.isSpectator());
+            for (HungryZombieEntity each : emitted) out.append(' ').append(describe(each, each == zombie ? "subject" : "other"));
+            if (cow != null) out.append(" cow=").append(cow.position()).append(" cowAlive=").append(cow.isAlive()).append(" cowHealth=").append(cow.getHealth());
+            if (boat != null) out.append(" boat=").append(boat.position()).append(" boatRemoved=").append(boat.isRemoved());
+            return out.toString();
+        }
+        private String describe(HungryZombieEntity each, String role) {
+            List<String> goals = new ArrayList<>();
+            for (WrappedGoal goal : each.goalSelector.getAvailableGoals()) if (goal.isRunning()) goals.add(goal.getGoal().getClass().getSimpleName());
+            for (WrappedGoal goal : each.targetSelector.getAvailableGoals()) if (goal.isRunning()) goals.add(goal.getGoal().getClass().getSimpleName());
+            PathNavigation nav = each.getNavigation();
+            return "zombie[" + role + " age=" + each.tickCount + " pos=" + each.position() + " motion=" + each.getDeltaMovement()
+                    + " alive=" + each.isAlive() + " removed=" + each.getRemovalReason() + " health=" + each.getHealth()
+                    + " onFire=" + each.isOnFire() + " baby=" + each.isBaby() + " noAi=" + each.isNoAi() + " passenger=" + each.isPassenger()
+                    + " leashed=" + each.isLeashed() + " onGround=" + each.onGround()
+                    + " ownerResolved=" + (owner != null && each.getOwner() == owner)
+                    + " distSq=" + (owner == null ? "n/a" : String.valueOf(each.distanceToSqr(owner))) + " cachedFar12=" + each.farFromOwner(12)
+                    + " target=" + (each.getTarget() == null ? "none" : each.getTarget().getType().toShortString() + "@" + each.getTarget().position())
+                    + " navDone=" + nav.isDone() + " navTarget=" + nav.getTargetPos() + " goals=" + goals + "]";
+        }
         private void log(String message) { JojoMod.LOGGER.info("HZ-GUARD {} {}", lane, message); }
         private boolean targetLane() { return lane == Lane.OWNER_ATTACK; }
 
@@ -233,6 +263,7 @@ public final class HungryZombieOwnerGoalGameTests {
                 if (closed || event.getLevel() != level) return;
                 if (owner == null || !(event.getEntity() instanceof HungryZombieEntity result) || !result.isEntityOwner(owner)) return;
                 owned.add(result); emitted.add(result);
+                withoutRandomStroll(result);
                 observe(() -> {
                     premise(event.getEntity().getType() == ModEntityTypes.HUNGRY_ZOMBIE.get() && pressed && bracket,
                             "unexpected owned emitter/type/window");
@@ -282,6 +313,23 @@ public final class HungryZombieOwnerGoalGameTests {
             add(closing, EntityTickEvent.Post.class, EventPriority.LOWEST, false);
         }
 
+        // An idle zombie starts a random stroll on one goal update in 60. It ranks below every goal these tests examine,
+        // so it cannot block or admit any of them, but it walked the zombie out of the distances the phases prepare.
+        private static void withoutRandomStroll(HungryZombieEntity each) {
+            List<Goal> strolls = new ArrayList<>();
+            for (WrappedGoal goal : each.goalSelector.getAvailableGoals()) if (goal.getGoal() instanceof RandomStrollGoal) strolls.add(goal.getGoal());
+            strolls.forEach(each.goalSelector::removeGoal);
+        }
+        // The light engine darkens the room some ticks after its roof is placed. Until then a zombie in it still reads
+        // full sky light and, by day, catches fire on about one tick in 25.
+        private int brightestSkyLight() {
+            int brightest = 0;
+            for (int ix = 1; ix <= 14; ix++) for (int iz = 1; iz <= 14; iz++) for (int h = 0; h < 4; h++) {
+                brightest = Math.max(brightest, level.getBrightness(LightLayer.SKY,
+                        new BlockPos(chunk.getMinBlockX() + ix, (int) floorY + h, chunk.getMinBlockZ() + iz)));
+            }
+            return brightest;
+        }
         private WrappedGoal goal(Iterable<WrappedGoal> goals, String name) {
             List<WrappedGoal> matches = new ArrayList<>();
             for (WrappedGoal goal : goals) if (goal.getGoal().getClass().getSimpleName().equals(name)) matches.add(goal);
@@ -298,6 +346,7 @@ public final class HungryZombieOwnerGoalGameTests {
             premise(entry != null && entry.action instanceof VampirismZombieSummonAbility.ZombieSummonInstance, "actual summon action");
             summonAction = (EntityActionInstance) entry.action; generation = entry.generation;
             premise(generation > 0 && summonAction == LivingComponentAction.getCurEntityAction(owner), "owned input/action identity");
+            phaseStart = helper.getTick();
         }
         private void begin(Phase next) { phase = next; phaseStart = helper.getTick(); settled = 0; observations = 0; }
         private void moveOwner(Vec3 position) { owner.moveTo(position.x, position.y, position.z, owner.getYRot(), owner.getXRot()); }
@@ -400,8 +449,13 @@ public final class HungryZombieOwnerGoalGameTests {
             try {
                 if (observerFailure instanceof RuntimeException error) throw error;
                 if (observerFailure instanceof Error error) throw error;
-                premise(helper.getTick() < 130, "finite natural AI watchdog");
-                if (!pressed) { if (ownerPosts >= 3) press(); again(); return; }
+                if (!pressed) {
+                    int skyLight = brightestSkyLight();
+                    premise(helper.getTick() < LIGHT_WAIT_TICKS, "room sky light did not settle, brightest=" + skyLight);
+                    if (ownerPosts >= 3 && skyLight == 0) { pressTick = helper.getTick(); press(); }
+                    again(); return;
+                }
+                premise(helper.getTick() - pressTick < 130, "finite natural AI watchdog");
                 if (phase == Phase.SUMMON) {
                     if (emitted.size() == expectedCount) {
                         premise(AbilityInput.keyReleaseAndGetGeneration(KEY, owner) == generation, "summon generation release");
