@@ -60,7 +60,8 @@ public class VampirismActionAbility extends EntityActionAbility {
 			return ConditionCheck.createNegative("cooldown");
 		}
 		if (!isCreative(context) && bloodCostGate > 0.0F && !data.hasBlood(user, bloodCostGate)) {
-			return ConditionCheck.NEGATIVE;
+			// 1.16 NonStandAction.checkEnergy
+			return ConditionCheck.createNegative("no_energy_vampirism");
 		}
 		return ConditionCheck.POSITIVE;
 	}

@@ -14,6 +14,7 @@ import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.playerpower.PlayerPower;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
+import rotp.core.subsystems.target.ActionTargetRange;
 import rotp.core.util.functions.DamageUtil;
 import rotp.core.util.functions.UtilFunctions;
 import rotp.core.impl.powers.hamon.abilities.HamonProtectionAbility;
@@ -32,6 +33,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
 
 public class PillarmanAbsorptionAbility extends PillarmanActionAbility {
+	private static final double MAX_RANGE_SQ_ENTITY_TARGET = 4.0D;
 
 	public PillarmanAbsorptionAbility(AbilityType<?> abilityType, AbilityId abilityId) {
 		super(abilityType, abilityId, 2, PillarmanMode.NONE, true, 0.0F, AbsorptionInstance::new);
@@ -111,7 +113,8 @@ public class PillarmanAbsorptionAbility extends PillarmanActionAbility {
 		}
 		ActionTarget target = aim.getTarget().resolveEntityId(level);
 		if (target.getType() == TargetType.ENTITY && target.getMainEntity() instanceof LivingEntity livingTarget
-				&& livingTarget != user && livingTarget.isAlive() && user.distanceToSqr(livingTarget) <= 4.0D) {
+				&& livingTarget != user && livingTarget.isAlive()
+				&& ActionTargetRange.isEntityWithinRange(user, livingTarget, MAX_RANGE_SQ_ENTITY_TARGET)) {
 			return livingTarget;
 		}
 		return null;

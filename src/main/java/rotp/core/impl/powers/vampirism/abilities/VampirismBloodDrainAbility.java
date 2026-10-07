@@ -21,6 +21,7 @@ import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.playerpower.PlayerPower;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
+import rotp.core.subsystems.target.ActionTargetRange;
 import rotp.core.util.functions.DamageUtil;
 import rotp.core.impl.powers.vampirism.VampirismData;
 import rotp.core.impl.powers.vampirism.entity.HungryZombieEntity;
@@ -28,7 +29,6 @@ import rotp.core.impl.powers.vampirism.entity.HungryZombieEntity;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.stats.Stats;
-import net.minecraft.util.Mth;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
@@ -38,8 +38,6 @@ import net.minecraft.world.entity.monster.AbstractIllager;
 import net.minecraft.world.entity.npc.Npc;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.Vec3;
 
 public class VampirismBloodDrainAbility extends VampirismActionAbility {
 	private static final double MAX_RANGE_SQ_ENTITY_TARGET = 4.0D;
@@ -166,28 +164,11 @@ public class VampirismBloodDrainAbility extends VampirismActionAbility {
 		if (target.getType() == TargetType.ENTITY) {
 			Entity entity = target.getMainEntity();
 			if (entity instanceof LivingEntity livingTarget && livingTarget.isAlive()
-					&& isWithinDrainReach(user, livingTarget)) {
+					&& ActionTargetRange.isEntityWithinRange(user, livingTarget, MAX_RANGE_SQ_ENTITY_TARGET)) {
 				return livingTarget;
 			}
 		}
 		return null;
-	}
-
-	private static boolean isWithinDrainReach(LivingEntity user, LivingEntity target) {
-		Vec3 eye = user.getEyePosition(1.0F);
-		AABB box = target.getBoundingBox();
-		double distance = 0.0D;
-		if (!box.contains(eye)) {
-			// Donor reach follows the target surface at the user's proportional eye height.
-			double eyeFraction = user.getBbHeight() == 0.0F ? 0.0D : user.getEyeHeight() / user.getBbHeight();
-			Vec3 targetPoint = new Vec3(Mth.lerp(0.5D, box.minX, box.maxX),
-					Mth.lerp(eyeFraction, box.minY, box.maxY), Mth.lerp(0.5D, box.minZ, box.maxZ));
-			distance = box.clip(eye, targetPoint)
-					.map(hit -> eye.distanceTo(hit) - user.getBbWidth() * 0.5D)
-					.orElse(Double.POSITIVE_INFINITY);
-		}
-		double rangeSquared = user.hasLineOfSight(target) ? MAX_RANGE_SQ_ENTITY_TARGET : MAX_RANGE_SQ_ENTITY_TARGET / 4.0D;
-		return distance * distance <= rangeSquared;
 	}
 
 	private static ActionTarget getAimTarget(Level level, LivingEntity user) {

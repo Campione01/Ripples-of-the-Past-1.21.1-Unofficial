@@ -227,7 +227,7 @@ public final class VampirismHamonSuicideDeathGameTests {
                         + " canceled=" + event.isCanceled() + " state=" + snapshot());
                 premise(pressed && componentActive && pending == null && before != null && before.alive
                         && LivingComponentAction.getCurEntityAction(user) == action && action.getPhase() == ActionPhase.WINDUP
-                        && (int) action.getPhaseTick() % 10 == 5 && source.is(ModDamageTypes.HAMON)
+                        && ((int) action.getPhaseTick() + 1) % 10 == 5 && source.is(ModDamageTypes.HAMON)
                         && source.getDirectEntity() == user && source.getEntity() == user
                         && event.getOriginalAmount() > 0 && !event.isCanceled(), "damage is not the uncanceled intrinsic self-Hamon pulse");
                 pending = new Attempt(source, event, user.getHealth(), action.getPhaseTick());

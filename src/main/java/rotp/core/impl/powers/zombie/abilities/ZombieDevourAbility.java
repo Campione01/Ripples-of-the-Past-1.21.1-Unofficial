@@ -18,6 +18,7 @@ import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.playerpower.PlayerPower;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
+import rotp.core.subsystems.target.ActionTargetRange;
 import rotp.core.impl.powers.vampirism.VampirismUtil;
 import rotp.core.impl.powers.vampirism.abilities.VampirismBloodDrainAbility;
 import rotp.core.impl.powers.vampirism.entity.HungryZombieEntity;
@@ -156,7 +157,7 @@ public class ZombieDevourAbility extends ZombieActionAbility {
 		if (target.getType() == TargetType.ENTITY) {
 			Entity entity = target.getMainEntity();
 			if (entity instanceof LivingEntity livingTarget && livingTarget.isAlive()
-					&& user.distanceToSqr(livingTarget) <= MAX_RANGE_SQ_ENTITY_TARGET) {
+					&& ActionTargetRange.isEntityWithinRange(user, livingTarget, MAX_RANGE_SQ_ENTITY_TARGET)) {
 				return livingTarget;
 			}
 		}

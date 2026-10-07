@@ -114,10 +114,20 @@ public class VampirismHamonSuicideAbility extends VampirismActionAbility {
 					JojoModUtil.sayVoiceLine(user, breath.get());
 				}
 			}
-			if (tick % 10 == 5) {
+			// 1.16 PowerBaseImpl.tickHeldAction counted the held ticks from one and fired inside the last of them,
+			// without a holdTick on that tick.
+			int heldTicks = Mth.floor(getPhaseTick()) + 1;
+			if (heldTicks >= HOLD_TO_FIRE_TICKS) {
+				float partialTick = Mth.clamp(Mth.frac(getPhaseTick()), 0.0F, 0.9999F);
+				setPhaseStart(ActionPhase.PERFORM);
+				setPartialTick(partialTick);
+				syncPhaseChanges();
+				return;
+			}
+			if (heldTicks % 10 == 5) {
 				HamonAbilityHelpers.hamonHurt(user, 4.0F, user, user);
 			}
-			if (tick == 30) {
+			if (heldTicks == 30) {
 				user.addEffect(new MobEffectInstance(ModStatusEffects.HAMON_SPREAD, 100, 1, false, true));
 			}
 		}

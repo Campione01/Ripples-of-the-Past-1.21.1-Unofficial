@@ -13,6 +13,7 @@ import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.playerpower.PlayerPower;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
+import rotp.core.subsystems.target.ActionTargetRange;
 import rotp.core.util.functions.DamageUtil;
 import rotp.core.util.functions.JojoModUtil;
 import rotp.core.impl.powers.vampirism.VampirismData;
@@ -23,8 +24,6 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.Vec3;
 
 public class VampirismBloodGiftAbility extends VampirismActionAbility {
 	private static final int HOLD_TO_FIRE_TICKS = 60;
@@ -32,7 +31,8 @@ public class VampirismBloodGiftAbility extends VampirismActionAbility {
 	private static final double MAX_RANGE_SQ_ENTITY_TARGET = 4.0D;
 
 	public VampirismBloodGiftAbility(AbilityType<?> abilityType, AbilityId abilityId) {
-		super(abilityType, abilityId, 3, HOLD_BLOOD_COST_PER_TICK, BloodGiftInstance::new);
+		// No shared blood gate: the whole remaining charge is checked here, after the target.
+		super(abilityType, abilityId, 3, 0.0F, BloodGiftInstance::new);
 		setDefaultPhaseLength(ActionPhase.WINDUP, HOLD_TO_FIRE_TICKS);
 		setDefaultPhaseLength(ActionPhase.PERFORM, 1);
 		setDefaultPhaseLength(ActionPhase.RECOVERY, 0);
@@ -58,18 +58,8 @@ public class VampirismBloodGiftAbility extends VampirismActionAbility {
 		if (user == null) {
 			return ConditionCheck.NEGATIVE;
 		}
-		if (!hasRemainingChargeBlood(context, 0)) {
-			return ConditionCheck.NEGATIVE;
-		}
-		if (user.level().getDifficulty() == Difficulty.PEACEFUL) {
-			return ConditionCheck.createNegative("peaceful");
-		}
-		if (!user.getMainHandItem().isEmpty()) {
-			return ConditionCheck.createNegative("hand");
-		}
-		if (user.getHealth() <= 10.0F) {
-			return ConditionCheck.createNegative("user_too_low_health");
-		}
+		// 1.16 PowerBaseImpl.checkRequirements order: the target, the blood (NonStandAction.checkEnergy),
+		// the free hand (Action.checkHeldItems), then VampirismBloodGift.checkSpecificConditions.
 		Player target = getGiftTarget(user);
 		if (target == null) {
 			return ConditionCheck.createNegative("player_target");
@@ -86,6 +76,18 @@ public class VampirismBloodGiftAbility extends VampirismActionAbility {
 		}
 		if (target.getHealth() > 6.0F) {
 			return ConditionCheck.createNegative("target_too_many_health");
+		}
+		if (!hasRemainingChargeBlood(context, 0)) {
+			return ConditionCheck.createNegative("no_energy_vampirism");
+		}
+		if (!user.getMainHandItem().isEmpty()) {
+			return ConditionCheck.createNegative("hand");
+		}
+		if (user.level().getDifficulty() == Difficulty.PEACEFUL) {
+			return ConditionCheck.createNegative("peaceful");
+		}
+		if (user.getHealth() <= 10.0F) {
+			return ConditionCheck.createNegative("user_too_low_health");
 		}
 		return ConditionCheck.POSITIVE;
 	}
@@ -115,7 +117,9 @@ public class VampirismBloodGiftAbility extends VampirismActionAbility {
 				ConditionCheck check = context != null ? giftAbility.checkMainModLogicConditions(context) : ConditionCheck.POSITIVE;
 				int heldTicks = Math.min(Mth.floor(getPhaseTick()) + 1, HOLD_TO_FIRE_TICKS);
 				if (check.isPositive() && !giftAbility.hasRemainingChargeBlood(context, heldTicks)) {
-					check = ConditionCheck.NEGATIVE;
+					// 1.16 checked the target before the blood, so a lost recipient is not reported as hunger.
+					check = context != null && hasGiftableTarget(user)
+							? ConditionCheck.createNegative("no_energy_vampirism") : ConditionCheck.NEGATIVE;
 				}
 				if (!check.isPositive()) {
 					ConditionCheck.sendActionFailedMessage(giftAbility, check, user);
@@ -186,6 +190,10 @@ public class VampirismBloodGiftAbility extends VampirismActionAbility {
 				|| user.getHealth() <= 10.0F) {
 			return false;
 		}
+		return hasGiftableTarget(user);
+	}
+
+	private static boolean hasGiftableTarget(LivingEntity user) {
 		Player target = getGiftTarget(user);
 		if (target == null || target.getHealth() > 6.0F) {
 			return false;
@@ -198,27 +206,12 @@ public class VampirismBloodGiftAbility extends VampirismActionAbility {
 		ActionTarget target = getAimTarget(user.level(), user);
 		if (target.getType() == TargetType.ENTITY) {
 			Entity entity = target.getMainEntity();
-			if (entity instanceof Player player && isWithinGiftReach(user, player)) {
+			if (entity instanceof Player player
+					&& ActionTargetRange.isEntityWithinRange(user, player, MAX_RANGE_SQ_ENTITY_TARGET)) {
 				return player;
 			}
 		}
 		return null;
-	}
-
-	private static boolean isWithinGiftReach(LivingEntity user, LivingEntity target) {
-		Vec3 eye = user.getEyePosition(1.0F);
-		AABB box = target.getBoundingBox();
-		double distance = 0.0D;
-		if (!box.contains(eye)) {
-			double eyeFraction = user.getBbHeight() == 0.0F ? 0.0D : user.getEyeHeight() / user.getBbHeight();
-			Vec3 targetPoint = new Vec3(Mth.lerp(0.5D, box.minX, box.maxX),
-					Mth.lerp(eyeFraction, box.minY, box.maxY), Mth.lerp(0.5D, box.minZ, box.maxZ));
-			distance = box.clip(eye, targetPoint)
-					.map(hit -> eye.distanceTo(hit) - user.getBbWidth() * 0.5D)
-					.orElse(Double.POSITIVE_INFINITY);
-		}
-		double rangeSquared = user.hasLineOfSight(target) ? MAX_RANGE_SQ_ENTITY_TARGET : MAX_RANGE_SQ_ENTITY_TARGET / 4.0D;
-		return distance * distance <= rangeSquared;
 	}
 
 	private static ActionTarget getAimTarget(Level level, LivingEntity user) {
