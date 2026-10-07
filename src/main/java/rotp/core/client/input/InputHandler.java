@@ -1447,6 +1447,25 @@ public class InputHandler {
 		}
 	}
 
+	// 1.16 cancelClickInput: no vanilla click of any kind while meditating. Runs before the other click listeners;
+	// ability presses come from the raw key events and still reach the server.
+	@SubscribeEvent(priority = EventPriority.HIGHEST)
+	public void cancelVanillaClickInMeditation(InteractionKeyMappingTriggered event) {
+		cancelVanillaClickWhileMeditating(event, mc.player != null
+				&& PlayerPower.getPowerData(mc.player, ModPlayerPowers.HAMON)
+				.map(HamonData::isMeditating).orElse(false));
+	}
+
+	@ApiStatus.Internal
+	public static boolean cancelVanillaClickWhileMeditating(InteractionKeyMappingTriggered event, boolean meditating) {
+		if (!meditating) {
+			return false;
+		}
+		event.setCanceled(true);
+		event.setSwingHand(false);
+		return true;
+	}
+
 	// 1.16 ZERO_SENSITIVITY: the camera does not turn while stunned (0.6 * s + 0.2 == 0).
 	private static final double STUNNED_MOUSE_SENSITIVITY = -1.0 / 3.0;
 
