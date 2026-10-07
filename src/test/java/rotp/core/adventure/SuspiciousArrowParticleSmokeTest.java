@@ -26,6 +26,8 @@ public final class SuspiciousArrowParticleSmokeTest {
 		Particle afk = new OnomatopoeiaParticle.GoFactory(sprites)
 				.createParticle(null, null, 0, 0, 0, 0, 0, 0);
 		check(afk.getLifetime() == 400, "AFK MENACING default remains 400 ticks");
+		check(afk instanceof OnomatopoeiaParticle glyph && glyph.getAfkOwner() == null,
+				"factory glyphs carry no AFK owner, so commands, blocks and entity emitters stay visible");
 		Particle doParticle = new OnomatopoeiaParticle.DoFactory(sprites)
 				.createParticle(null, null, 0, 0, 0, 0, 0, 0);
 		check(doParticle.getLifetime() == 40, "DO particle remains 40 ticks");

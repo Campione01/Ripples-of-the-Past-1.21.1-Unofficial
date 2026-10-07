@@ -199,6 +199,8 @@
   "jojo_ripples.config.client.resolveShaders.tooltip": "在处于意志buff中时使用着色器.",
   "jojo_ripples.config.client.menacingParticles": "\"ゴゴゴゴゴ\" 粒子",
   "jojo_ripples.config.client.menacingParticles.tooltip": "使玩家在静止的情况下时漂浮ゴゴゴゴゴ粒子",
+  "jojo_ripples.config.client.ownAfkMenacingFirstPerson": "第一人称显示自己的\"ゴゴゴゴゴ\"粒子",
+  "jojo_ripples.config.client.ownAfkMenacingFirstPerson.tooltip": "在第一人称视角下显示自己挂机时产生的ゴゴゴゴゴ粒子。不影响其他玩家的粒子和第三人称视角。关闭\"ゴゴゴゴゴ\"粒子时此选项无效。",
   "jojo_ripples.config.client.timeStopAnimation": "时间停止动画",
   "jojo_ripples.config.client.timeStopAnimation.tooltip": "当时停时间为5秒或更长时，启用时间停止开始时的视觉效果",
   "jojo_ripples.config.client.standSide": "替身侧位",

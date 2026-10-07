@@ -49,6 +49,7 @@ public class ClientModSettings {
 		public StandAuraSettings standAura = new StandAuraSettings();
 
 		public boolean menacingParticles = true;
+		public boolean ownAfkMenacingFirstPerson = true;
 		public boolean characterVoiceLines = true;
 		public boolean toggleLmbHotbar = false;
 		public boolean toggleRmbHotbar = false;

@@ -101,6 +101,15 @@ public class ClientModSettingsScreen extends Screen {
 		};
 		addRenderableWidget(menacingParticles.createButton(calcButtonX(i), calcButtonY(i++) + yOffset, 150, 20, this, i));
 
+		BooleanSetting ownAfkMenacingFirstPerson = new BooleanSetting(settings, 
+				Component.translatable("jojo_ripples.config.client.ownAfkMenacingFirstPerson"), 
+				Component.translatable("jojo_ripples.config.client.ownAfkMenacingFirstPerson.tooltip")
+				) {
+			@Override public Boolean get() { return settingsValues.ownAfkMenacingFirstPerson; }
+			@Override public void set(Boolean value) { settingsValues.ownAfkMenacingFirstPerson = value; }
+		};
+		addRenderableWidget(ownAfkMenacingFirstPerson.createButton(calcButtonX(i), calcButtonY(i++) + yOffset, 150, 20, this, i));
+
 		
 		// HUD settings
 		

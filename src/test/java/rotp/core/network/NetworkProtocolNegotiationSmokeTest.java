@@ -6,6 +6,7 @@ import java.util.Optional;
 import rotp.core.PacketsRegister;
 import rotp.core.mechanics.resolve.ResolveBoostsPacket;
 import rotp.core.network.s2c.KnockbackResTickPacket;
+import rotp.core.network.s2c.TrAfkMenacingParticlePacket;
 
 import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.resources.ResourceLocation;
@@ -40,6 +41,12 @@ public final class NetworkProtocolNegotiationSmokeTest {
 				"Beetle Arrow durability adds a synced config field and requires protocol v9 or later");
 		check(Integer.parseInt(PacketsRegister.NETWORK_PROTOCOL_VERSION) >= 10,
 				"owner progression snapshots require core protocol v10 or later");
+		// a v10 peer would read trafkmenacing without its owner field and leave the rest of the payload unread
+		check(Arrays.stream(TrAfkMenacingParticlePacket.class.getRecordComponents())
+				.anyMatch(component -> component.getName().equals("owner")),
+				"trafkmenacing lost its owner; recheck the protocol version");
+		check(Integer.parseInt(PacketsRegister.NETWORK_PROTOCOL_VERSION) >= 11,
+				"the owner-tagged trafkmenacing payload requires core protocol v11 or later");
 
 		var matching = NetworkComponentNegotiator.validateComponent(
 				requiredComponent(PacketsRegister.NETWORK_PROTOCOL_VERSION),
@@ -47,6 +54,13 @@ public final class NetworkProtocolNegotiationSmokeTest {
 				"client");
 		check(matching.isEmpty(),
 				"matching current peers must negotiate the required play payload");
+
+		var noAfkOwner = NetworkComponentNegotiator.validateComponent(
+				requiredComponent(PacketsRegister.NETWORK_PROTOCOL_VERSION),
+				requiredComponent("10"),
+				"client");
+		check(noAfkOwner.isPresent() && !noAfkOwner.get().success(),
+				"a v10 peer must fail before reading the longer trafkmenacing payload");
 
 		var noSkippedProgression = NetworkComponentNegotiator.validateComponent(
 				requiredComponent(PacketsRegister.NETWORK_PROTOCOL_VERSION),

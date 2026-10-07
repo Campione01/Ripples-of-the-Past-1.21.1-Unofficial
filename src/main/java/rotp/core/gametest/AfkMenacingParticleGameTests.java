@@ -139,6 +139,15 @@ public final class AfkMenacingParticleGameTests {
 				TrAfkMenacingParticlePacket decoded = handler.decode(buf);
 				helper.assertTrue(side.equals(decoded) && buf.readableBytes() == 0,
 						"Menacing packet round trip changed it: " + side + " -> " + decoded);
+				helper.assertTrue(player.getUUID().equals(side.owner()) && player.getUUID().equals(decoded.owner()),
+						"Menacing packet lost the idle player as its owner: sent " + side.owner() + ", read " + decoded.owner());
+
+				TrAfkMenacingParticlePacket unknown = new TrAfkMenacingParticlePacket(1.5, 70.25, -8.0, 0.001F, 0.002F, 0.003F);
+				helper.assertTrue(unknown.owner() == null, "The six-number constructor should leave the owner unknown");
+				handler.encode(unknown, buf);
+				TrAfkMenacingParticlePacket decodedUnknown = handler.decode(buf);
+				helper.assertTrue(unknown.equals(decodedUnknown) && decodedUnknown.owner() == null && buf.readableBytes() == 0,
+						"Ownerless menacing packet round trip changed it: " + unknown + " -> " + decodedUnknown);
 			}
 			finally {
 				buf.release();
@@ -159,6 +168,57 @@ public final class AfkMenacingParticleGameTests {
 		settings.menacingParticles = false;
 		helper.assertFalse(TrAfkMenacingParticlePacket.shown(settings),
 				"Menacing particles shown with the client setting off");
+		// the first-person option never brings glyphs back while the master setting is off
+		settings.ownAfkMenacingFirstPerson = true;
+		helper.assertFalse(TrAfkMenacingParticlePacket.shown(settings),
+				"Own first-person option overrode the master menacing setting");
+		settings.ownAfkMenacingFirstPerson = false;
+		helper.assertFalse(TrAfkMenacingParticlePacket.shown(settings),
+				"Menacing particles shown with both client settings off");
+		settings.menacingParticles = true;
+		helper.assertTrue(TrAfkMenacingParticlePacket.shown(settings),
+				"Own first-person option stopped the glyphs of every player from spawning");
+		helper.succeed();
+	}
+
+	// owner decision 2026-10-07: a client option hides only the local player's own AFK glyphs, only in its own first person
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void afkMenacingParticleOwnFirstPersonOption(GameTestHelper helper) {
+		UUID self = UUID.randomUUID();
+		UUID other = UUID.randomUUID();
+		ClientModSettings.Settings settings = new ClientModSettings.Settings();
+		helper.assertTrue(settings.ownAfkMenacingFirstPerson,
+				"Own AFK glyphs in first person should be on by default (the 1.16 look)");
+		helper.assertFalse(TrAfkMenacingParticlePacket.hiddenInOwnFirstPerson(settings, self, self, self, true, false),
+				"Own AFK glyph hidden in first person with the option on");
+
+		settings.ownAfkMenacingFirstPerson = false;
+		helper.assertTrue(TrAfkMenacingParticlePacket.hiddenInOwnFirstPerson(settings, self, self, self, true, false),
+				"Own AFK glyph still drawn in own first person with the option off");
+		helper.assertFalse(TrAfkMenacingParticlePacket.hiddenInOwnFirstPerson(settings, other, self, self, true, false),
+				"Another player's AFK glyph hidden by the own first-person option");
+		helper.assertFalse(TrAfkMenacingParticlePacket.hiddenInOwnFirstPerson(settings, null, self, self, true, false),
+				"A glyph of unknown owner (command, block, entity emitter) hidden by the own first-person option");
+		helper.assertFalse(TrAfkMenacingParticlePacket.hiddenInOwnFirstPerson(settings, self, self, self, false, false),
+				"Own AFK glyph hidden in third person");
+		helper.assertFalse(TrAfkMenacingParticlePacket.hiddenInOwnFirstPerson(settings, self, self, self, false, true),
+				"Own AFK glyph hidden in a detached third-person camera");
+		helper.assertFalse(TrAfkMenacingParticlePacket.hiddenInOwnFirstPerson(settings, self, self, self, true, true),
+				"Own AFK glyph hidden under a detached camera");
+		helper.assertFalse(TrAfkMenacingParticlePacket.hiddenInOwnFirstPerson(settings, self, self, other, true, false),
+				"Own AFK glyph hidden while the camera sits in another entity");
+		helper.assertFalse(TrAfkMenacingParticlePacket.hiddenInOwnFirstPerson(settings, self, self, null, true, false),
+				"Own AFK glyph hidden without a camera entity");
+		helper.assertFalse(TrAfkMenacingParticlePacket.hiddenInOwnFirstPerson(settings, other, self, other, true, false),
+				"A spectated player's AFK glyph hidden by the spectator's own first-person option");
+		helper.assertFalse(TrAfkMenacingParticlePacket.hiddenInOwnFirstPerson(settings, self, null, self, true, false),
+				"AFK glyph hidden without a local player");
+
+		// independent of the master setting: master off drops the packet earlier, this rule does not change
+		settings.menacingParticles = false;
+		helper.assertTrue(TrAfkMenacingParticlePacket.hiddenInOwnFirstPerson(settings, self, self, self, true, false)
+				&& !TrAfkMenacingParticlePacket.shown(settings),
+				"Master off should show nothing whatever the own first-person option says");
 		helper.succeed();
 	}
 }

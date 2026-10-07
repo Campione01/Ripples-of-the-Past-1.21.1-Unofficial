@@ -29,6 +29,7 @@ public final class ClientModSettingsSmokeTest {
 			invalidCompactHotbarValueKeepsOtherSettings();
 			attackTargetLockDefaultsAndPersistsWithoutChangingMarker();
 			invalidAttackTargetLockKeepsOtherSettings();
+			ownAfkMenacingFirstPersonDefaultsOnAndPersistsApartFromMaster();
 			rotp.core.client.ui.hud_power.CompactStandHotbarWindowSmokeTest.run();
 			savedJsonAssertionsRejectNestedSameNameKeys();
 			savedJsonAssertionsRejectBroadcastedOwner();
@@ -269,6 +270,39 @@ public final class ClientModSettingsSmokeTest {
 					"invalid target lock falls back to disabled");
 			assertBooleanEquals(true, ClientModSettings.getSettingsReadOnly().standAimMarker,
 					"invalid target lock leaves marker settings unchanged");
+		});
+	}
+
+	private static void ownAfkMenacingFirstPersonDefaultsOnAndPersistsApartFromMaster() throws Exception {
+		withSettingsFile("{\"menacingParticles\":true,\"standTransparency\":20}", settingsFile -> {
+			ClientModSettings.init(settingsFile.toFile());
+			assertBooleanEquals(true, ClientModSettings.getSettingsReadOnly().ownAfkMenacingFirstPerson,
+					"a settings file from before the option shows own AFK glyphs in first person");
+			ClientModSettings.edit(settings -> settings.ownAfkMenacingFirstPerson = false, false);
+			GSON.parseTopLevelObject(Files.readString(settingsFile), "own AFK glyph option saved")
+					.assertPrimitiveBooleanEquals("ownAfkMenacingFirstPerson", false, "own AFK glyph option saved");
+			resetInstance();
+			ClientModSettings.init(settingsFile.toFile());
+			assertBooleanEquals(false, ClientModSettings.getSettingsReadOnly().ownAfkMenacingFirstPerson,
+					"own AFK glyph option survives reload");
+			assertBooleanEquals(true, ClientModSettings.getSettingsReadOnly().menacingParticles,
+					"own AFK glyph option leaves the master menacing setting on");
+			assertFloatEquals(20, ClientModSettings.getSettingsReadOnly().standTransparency,
+					"own AFK glyph option preserves unrelated settings");
+			ClientModSettings.edit(settings -> settings.menacingParticles = false, false);
+			resetInstance();
+			ClientModSettings.init(settingsFile.toFile());
+			assertBooleanEquals(false, ClientModSettings.getSettingsReadOnly().menacingParticles,
+					"master menacing setting persists off");
+			assertBooleanEquals(false, ClientModSettings.getSettingsReadOnly().ownAfkMenacingFirstPerson,
+					"master menacing setting does not reset the own AFK glyph option");
+		});
+		withSettingsFile("", settingsFile -> {
+			ClientModSettings.init(settingsFile.toFile());
+			assertBooleanEquals(true, ClientModSettings.getSettingsReadOnly().ownAfkMenacingFirstPerson,
+					"own AFK glyphs in first person default to on");
+			GSON.parseTopLevelObject(Files.readString(settingsFile), "own AFK glyph option default")
+					.assertPrimitiveBooleanEquals("ownAfkMenacingFirstPerson", true, "own AFK glyph option default");
 		});
 	}
 

@@ -1,5 +1,16 @@
 package rotp.core.client.particle.type;
 
+import java.util.UUID;
+
+import javax.annotation.Nullable;
+
+import com.mojang.blaze3d.vertex.VertexConsumer;
+
+import rotp.core.config.client.ClientModSettings;
+import rotp.core.network.s2c.TrAfkMenacingParticlePacket;
+
+import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleProvider;
@@ -8,11 +19,13 @@ import net.minecraft.client.particle.SpriteSet;
 import net.minecraft.client.particle.TextureSheetParticle;
 import net.minecraft.core.particles.SimpleParticleType;
 import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
 
 public class OnomatopoeiaParticle extends TextureSheetParticle {
 	private double offsetX;
 	private double offsetY;
 	private double offsetZ;
+	@Nullable private UUID afkOwner;
 
 	protected OnomatopoeiaParticle(ClientLevel level, double posX, double posY, double posZ) {
 		this(level, posX, posY, posZ, 0.0D, 0.0D, 0.0D);
@@ -29,6 +42,32 @@ public class OnomatopoeiaParticle extends TextureSheetParticle {
 		xd = xSpeed;
 		yd = ySpeed;
 		zd = zSpeed;
+	}
+
+	/** Marks the glyph of an idle player (TrAfkMenacingParticlePacket); other glyphs stay untagged. */
+	public void setAfkOwner(@Nullable UUID afkOwner) {
+		this.afkOwner = afkOwner;
+	}
+
+	@Nullable
+	public UUID getAfkOwner() {
+		return afkOwner;
+	}
+
+	// skips only the draw: the glyph keeps ticking and shows again once the view changes
+	@Override
+	public void render(VertexConsumer buffer, Camera camera, float partialTicks) {
+		if (afkOwner != null) {
+			Minecraft mc = Minecraft.getInstance();
+			Entity cameraEntity = camera.getEntity();
+			if (TrAfkMenacingParticlePacket.hiddenInOwnFirstPerson(ClientModSettings.getSettingsReadOnly(), afkOwner,
+					mc.player != null ? mc.player.getUUID() : null,
+					cameraEntity != null ? cameraEntity.getUUID() : null,
+					mc.options.getCameraType().isFirstPerson(), camera.isDetached())) {
+				return;
+			}
+		}
+		super.render(buffer, camera, partialTicks);
 	}
 
 	@Override

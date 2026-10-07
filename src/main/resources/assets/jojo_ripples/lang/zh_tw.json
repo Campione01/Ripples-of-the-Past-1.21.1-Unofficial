@@ -183,6 +183,8 @@
   "jojo_ripples.config.client.resolveShaders.tooltip": "在覺悟期間啟用特殊著色器。",
   "jojo_ripples.config.client.menacingParticles": "「ゴゴゴゴゴ」 粒子",
   "jojo_ripples.config.client.menacingParticles.tooltip": "使玩家在靜止的情況下時漂浮ゴゴゴゴゴ粒子",
+  "jojo_ripples.config.client.ownAfkMenacingFirstPerson": "第一人稱顯示自己的「ゴゴゴゴゴ」粒子",
+  "jojo_ripples.config.client.ownAfkMenacingFirstPerson.tooltip": "在第一人稱視角下顯示自己掛機時產生的ゴゴゴゴゴ粒子。不影響其他玩家的粒子和第三人稱視角。關閉「ゴゴゴゴゴ」粒子時此選項無效。",
   "jojo_ripples.config.client.timeStopAnimation": "時停動畫",
   "jojo_ripples.config.client.timeStopAnimation.tooltip": "當持續時間為5秒或更長時，啟用時間停止或開始時的視覺效果",
   "jojo_ripples.config.client.standSide": "替身位置",
