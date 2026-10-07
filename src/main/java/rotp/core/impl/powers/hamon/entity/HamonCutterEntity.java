@@ -16,6 +16,8 @@ import rotp.core.impl.powers.hamon.abilities.HamonAbilityHelpers;
 
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.util.Mth;
 import net.minecraft.world.effect.MobEffect;
@@ -31,6 +33,8 @@ import net.minecraft.world.phys.Vec3;
 
 public class HamonCutterEntity extends ModdedProjectileEntity {
 	private static final Vec3 MOUTH_POS_OFFSET = new Vec3(0.0D, -0.1D, 0.0D);
+	// 1.16 passes the integer division 3 / 16
+	private static final double INSTANT_EFFECT_DOSE = 0.0D;
 	private final List<MobEffectInstance> potionEffects = new ArrayList<>();
 	private int color = -1;
 	private float hamonStatPoints;
@@ -93,7 +97,7 @@ public class HamonCutterEntity extends ModdedProjectileEntity {
 				for (MobEffectInstance effectInstance : potionEffects) {
 					MobEffect effect = effectInstance.getEffect().value();
 					if (effect.isInstantenous()) {
-						effect.applyInstantenousEffect(this, getOwner(), target, effectInstance.getAmplifier(), 3.0D / 16.0D);
+						effect.applyInstantenousEffect(this, getOwner(), target, effectInstance.getAmplifier(), INSTANT_EFFECT_DOSE);
 					}
 					else {
 						target.addEffect(new MobEffectInstance(effectInstance.getEffect(),
@@ -143,6 +147,13 @@ public class HamonCutterEntity extends ModdedProjectileEntity {
 		super.addAdditionalSaveData(nbt);
 		nbt.putInt("Color", color);
 		nbt.putFloat("HamonStatPoints", hamonStatPoints);
+		if (!potionEffects.isEmpty()) {
+			ListTag effects = new ListTag();
+			for (MobEffectInstance effect : potionEffects) {
+				effects.add(effect.save());
+			}
+			nbt.put("PotionEffects", effects);
+		}
 	}
 
 	@Override
@@ -150,6 +161,14 @@ public class HamonCutterEntity extends ModdedProjectileEntity {
 		super.readAdditionalSaveData(nbt);
 		color = nbt.getInt("Color");
 		hamonStatPoints = nbt.getFloat("HamonStatPoints");
+		potionEffects.clear();
+		ListTag effects = nbt.getList("PotionEffects", Tag.TAG_COMPOUND);
+		for (int i = 0; i < effects.size(); i++) {
+			MobEffectInstance effect = MobEffectInstance.load(effects.getCompound(i));
+			if (effect != null) {
+				potionEffects.add(effect);
+			}
+		}
 	}
 
 	@Override

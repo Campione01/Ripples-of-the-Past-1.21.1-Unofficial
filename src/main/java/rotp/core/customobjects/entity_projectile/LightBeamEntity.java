@@ -1,5 +1,7 @@
 package rotp.core.customobjects.entity_projectile;
 
+import java.util.Optional;
+
 import javax.annotation.Nullable;
 
 import rotp.core.block.WoodenCoffinBlock;
@@ -19,7 +21,6 @@ import net.minecraft.world.damagesource.DamageType;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseFireBlock;
@@ -51,15 +52,41 @@ public class LightBeamEntity extends DamagingEntity {
 		}
 	}
 
+	// 1.16 JojoModUtil.rayTrace(this, length, e -> e != getOwner()): from the beam's own eye, the nearest pickable
+	// entity anywhere on the ray by its box and pick radius, else the first block outline
 	@Override
 	protected HitResult[] rayTrace() {
-		Vec3 start = position();
-		Vec3 end = getEndPoint();
-		BlockHitResult blockHit = level().clip(new ClipContext(start, end,
-				ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, this));
-		AABB searchBox = getBoundingBox().expandTowards(end.subtract(start)).inflate(1.0D);
-		EntityHitResult entityHit = ProjectileUtil.getEntityHitResult(level(), this, start, end, searchBox, this::canHitEntity);
-		return new HitResult[] { entityHit != null ? entityHit : blockHit };
+		Vec3 start = getEyePosition();
+		Vec3 ray = getLookAngle().scale(length);
+		Vec3 end = start.add(ray);
+		LivingEntity owner = getOwner();
+		double maxDistanceSqr = ray.lengthSqr();
+		EntityHitResult entityHit = null;
+		double entityDistanceSqr = Double.MAX_VALUE;
+		for (Entity candidate : level().getEntities(this, getBoundingBox().expandTowards(ray).inflate(1.0D),
+				entity -> !entity.isSpectator() && entity.isPickable() && entity != owner)) {
+			AABB box = candidate.getBoundingBox().inflate(candidate.getPickRadius());
+			Optional<Vec3> clip = box.clip(start, end);
+			double distanceSqr;
+			if (box.contains(start)) {
+				distanceSqr = 0.0D;
+			}
+			else if (clip.isPresent() && start.distanceToSqr(clip.get()) < maxDistanceSqr) {
+				distanceSqr = start.distanceToSqr(clip.get());
+			}
+			else {
+				continue;
+			}
+			if (distanceSqr < entityDistanceSqr) {
+				entityDistanceSqr = distanceSqr;
+				entityHit = new EntityHitResult(candidate, clip.orElse(start));
+			}
+		}
+		if (entityHit != null) {
+			return new HitResult[] { entityHit };
+		}
+		return new HitResult[] { level().clip(new ClipContext(start, end,
+				ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, this)) };
 	}
 
 	@Override

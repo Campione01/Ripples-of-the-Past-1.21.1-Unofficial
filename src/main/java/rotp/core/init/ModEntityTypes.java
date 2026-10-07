@@ -292,7 +292,7 @@ public final class ModEntityTypes {
 			EntityType.Builder.<LightBeamEntity>of(LightBeamEntity::new, MobCategory.MISC)
 			.noSummon()
 			.noSave()
-			.sized(0.25F, 0.25F)
+			.sized(0.125F, 0.125F)
 			.clientTrackingRange(16)
 			.updateInterval(1)
 			.build(createIDFor(key)));

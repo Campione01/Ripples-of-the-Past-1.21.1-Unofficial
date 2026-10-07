@@ -20,12 +20,16 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySelector;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.common.CommonHooks;
+import net.neoforged.neoforge.event.entity.living.LivingKnockBackEvent;
 
 public class HamonCharge {
+	private static final float CHARGE_KNOCKBACK = 0.75F;
 	private float damage;
 	private final int chargeTicksInitial;
 	private int chargeTicks;
@@ -129,7 +133,8 @@ public class HamonCharge {
 				: chargedEntity != null ? user : null;
 		var source = HamonAbilityHelpers.hamonDamageSource(target.level(), chargedEntity, causingEntity);
 		if (source instanceof DamageSourceModified modified) {
-			modified.jojo_ripples$modifyKnockback(0.0F, 1.0F);
+			// 1.16 hurt() knocked back only from a source entity; 1.21 pushes in a random direction without one
+			modified.jojo_ripples$modifyKnockback(0.0F, chargedEntity != null ? 1.0F : 0.0F);
 		}
 		return HamonAbilityHelpers.hamonHurtWithAmount(target, amount, source,
 				HamonAttackProperties.NO_SOURCE_ENTITY_HAMON_MULTIPLIER);
@@ -154,10 +159,25 @@ public class HamonCharge {
 	}
 
 	private void knockbackFromCharge(LivingEntity target, Vec3 chargePos) {
-		Vec3 knockback = new Vec3(chargePos.x - target.getX(), 0.0D, chargePos.z - target.getZ());
-		if (knockback.lengthSqr() > 1.0E-7D) {
-			Vec3 normalized = knockback.normalize();
-			target.knockback(0.75F, normalized.x, normalized.z);
+		Vec3 direction = new Vec3(chargePos.x - target.getX(), 0.0D, chargePos.z - target.getZ()).normalize();
+		if (direction.lengthSqr() > 0.0D) {
+			target.knockback(CHARGE_KNOCKBACK, direction.x, direction.z);
+			return;
+		}
+		// 1.16 knockback with the zero direction of a target on the charge: the speed halves and a grounded target
+		// hops; 1.21 knockback would pick a random direction instead.
+		LivingKnockBackEvent event = CommonHooks.onLivingKnockBack(target, CHARGE_KNOCKBACK, 0.0D, 0.0D);
+		if (event.isCanceled()) {
+			return;
+		}
+		double strength = event.getStrength() * (1.0D - target.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE));
+		if (strength > 0.0D) {
+			target.hasImpulse = true;
+			Vec3 speed = target.getDeltaMovement();
+			Vec3 push = new Vec3(event.getRatioX(), 0.0D, event.getRatioZ()).normalize().scale(strength);
+			target.setDeltaMovement(speed.x / 2.0D - push.x,
+					target.onGround() ? Math.min(0.4D, speed.y / 2.0D + strength) : speed.y,
+					speed.z / 2.0D - push.z);
 		}
 	}
 
