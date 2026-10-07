@@ -26,7 +26,9 @@ public final class AutoGuardMarkerSmokeTest {
 			"src/main/java/rotp/core/powersystem/entityaction/type/EntityActionType.java";
 	private static final String AUTO_BLOCK_ACTION =
 			"src/main/java/rotp/core/impl/stands/_entitybase/StandEntityAutoBlockAction.java";
-	private static final String SPECIAL_ACTIONS = "src/main/java/rotp/core/init/ModSpecialActions.java";
+	private static final String BLOCK_ABILITY =
+			"src/main/java/rotp/core/impl/stands/_entitybase/StandEntityBlockAbility.java";
+	private static final String SPECIAL_ACTIONS ="src/main/java/rotp/core/init/ModSpecialActions.java";
 
 	private AutoGuardMarkerSmokeTest() {}
 
@@ -86,12 +88,19 @@ public final class AutoGuardMarkerSmokeTest {
 				"tryAutoBlock(dmgSource,blockableAngle);booleanisBlocking=isStandBlocking()&&blockableAngle;",
 				"@NullableprivateEntityActionInstanceautoGuardAction;",
 				"privatebooleantryAutoBlock(DamageSourcedmgSource,booleanblockableAngle){",
+				// marked before setAction: StandEntityBlock.onActionSet asks isAutoGuarding to leave the Stand in place
 				"action.phasesLength.put(ActionPhase.PERFORM,5F);action.setStartingPhase();"
-						+ "standAction.setAction(action,user,SyncType.TRACKING_AND_SELF);"
-						+ "autoGuardAction=action;returntrue;}returnfalse;}",
+						+ "autoGuardAction=action;"
+						+ "standAction.setAction(action,user,SyncType.TRACKING_AND_SELF);returntrue;}returnfalse;}",
 				"publicbooleanisAutoGuarding(){EntityActionInstancecurAction=getCurStandAction();"
 						+ "returncurAction!=null&&curAction==autoGuardAction;}");
 		check(occurrences(source, "autoGuardAction=") == 1, "only tryAutoBlock may mark the auto-guard");
+		// 1.16 BLOCK_STAND_ENTITY.getOffsetFromUser returned null; the 0.3 front offset is the held guard's alone.
+		requireInOrder(compact(source(BLOCK_ABILITY)),
+				"publicvoidonActionSet(EntityActionInstanceprevAction){"
+						+ "if(performerinstanceofStandEntitystandEntity&&!standEntity.level().isClientSide()"
+						+ "&&!standEntity.isAutoGuarding()){"
+						+ "setStandOffset(newVec3(0,standEntity.Y_OFFSET,0.3),StandOffsetFromUser.Rotations.HEAD,false);}}");
 	}
 
 	private static void requireInOrder(String text, String... tokens) {

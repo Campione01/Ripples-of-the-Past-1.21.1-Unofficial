@@ -14,7 +14,8 @@ import net.minecraft.world.entity.LivingEntity;
 /**
  * 1.16 ModStandsInit.BLOCK_STAND_ENTITY ("stand_entity_block"): the plain guard StandEntity.actuallyHurt put an
  * idle Stand into for 5 ticks when a hit came from the front, whether or not the Stand had a block of its own.
- * It is not in any moveset, so the Stand keeps its place (1.16 returned no offset) and only the pose changes.
+ * It is not in any moveset, so the Stand keeps its place (1.16 returned no offset) and only the pose changes;
+ * a Stand's own guard started as the auto-guard keeps its place the same way (StandEntityBlock.onActionSet).
  */
 public class StandEntityAutoBlockAction extends SpecialEntityActionType {
 	public static final ResourceLocation ID = JojoMod.resLoc("stand_entity_block");

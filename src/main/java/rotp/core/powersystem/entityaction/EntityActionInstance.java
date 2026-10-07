@@ -307,6 +307,12 @@ public class EntityActionInstance implements HeldInput {
 		}
 	}
 
+	// The offset this action sends to clients with itself, null when it leaves the Stand where it is.
+	@Nullable
+	public Vec3 getSyncedStandOffset() {
+		return standOffsetSync;
+	}
+
 	public boolean setStandFrontOffsetFromAim(StandEntity standEntity, double minOffset, double maxOffset) {
 		ActionTarget target = ActionTarget.EMPTY;
 		var aim = LivingComponentAction.getAim(standEntity);

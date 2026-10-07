@@ -84,7 +84,10 @@ public class StandEntityBlockAbility extends StandEntityAbility {
 
 		@Override
 		public void onActionSet(EntityActionInstance prevAction) {
-			if (performer instanceof StandEntity standEntity) {
+			// 1.16 BLOCK_STAND_ENTITY.getOffsetFromUser returned null: an auto-guard leaves the Stand where it is.
+			// A client cannot tell the two guards apart, so it takes the offset the server sends with the action.
+			if (performer instanceof StandEntity standEntity && !standEntity.level().isClientSide()
+					&& !standEntity.isAutoGuarding()) {
 				setStandOffset(new Vec3(0, standEntity.Y_OFFSET, 0.3), StandOffsetFromUser.Rotations.HEAD, false);
 			}
 		}

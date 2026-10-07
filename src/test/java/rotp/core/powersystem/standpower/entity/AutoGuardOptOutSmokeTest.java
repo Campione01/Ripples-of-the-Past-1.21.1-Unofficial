@@ -53,7 +53,7 @@ public final class AutoGuardOptOutSmokeTest {
 						+ "LivingEntityuser=getUser();",
 				"guard=userPower!=null?getUnlockedGuardInOtherSlot(userPower):null;",
 				"guardinstanceofEntityActionTypeownGuard?ownGuard:StandEntityAutoBlockAction.get();",
-				"autoGuardAction=action;returntrue;}returnfalse;}");
+				"autoGuardAction=action;standAction.setAction(action,user,SyncType.TRACKING_AND_SELF);returntrue;}returnfalse;}");
 		// Only the auto-guard asks: isStandBlocking and standDamageResistance still honour a held guard.
 		check(occurrences(stand, "autoGuardsOnHit()") == 2,
 				"only tryAutoBlock may ask autoGuardsOnHit");

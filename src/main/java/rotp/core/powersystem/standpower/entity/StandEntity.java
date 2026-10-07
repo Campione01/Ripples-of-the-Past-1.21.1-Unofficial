@@ -2096,8 +2096,9 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 			guardActionType.initActionFromConfig(action, level(), user, this);
 			action.phasesLength.put(ActionPhase.PERFORM, 5F);
 			action.setStartingPhase();
-			standAction.setAction(action, user, SyncType.TRACKING_AND_SELF);
+			// marked before it starts: the guard's onActionSet asks isAutoGuarding
 			autoGuardAction = action;
+			standAction.setAction(action, user, SyncType.TRACKING_AND_SELF);
 			return true;
 		}
 		return false;

@@ -6,6 +6,7 @@ import rotp.core.core.JojoRegistries;
 import rotp.core.impl.stands._entitybase.StandEntityAutoBlockAction;
 import rotp.core.init.ModDamageTypes;
 import rotp.core.powersystem.ability.Ability;
+import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.netcode.SyncType;
@@ -14,6 +15,7 @@ import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
+import rotp.core.powersystem.standpower.entity.StandOffsetFromUser;
 import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.util.functions.DamageUtil;
 import rotp.core.util.functions.JojoModUtil;
@@ -76,6 +78,72 @@ public final class StandAutoGuardGameTests {
 			fixture.close();
 		}
 		helper.succeed();
+	}
+
+	// 1.16 BLOCK_STAND_ENTITY.getOffsetFromUser returned null: the auto-guard changed the pose, not the Stand's place.
+	// The 0.3 front offset belongs to the guard the user holds (StandEntityBlock.standOffsetFromUser(0, 0.3)).
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void autoGuardKeepsTheStandAtItsIdleOffset(GameTestHelper helper) {
+		Fixture fixture = new Fixture(helper);
+		boolean scheduled = false;
+		try {
+			Ability ownGuard = fixture.power.getAbility("guard");
+			fixture.power.getCurTypeData()._lockedAbilities.remove("guard");
+			helper.assertTrue(ownGuard instanceof EntityActionType && fixture.power.isAbilityUnlocked("guard"),
+					"Star Platinum's guard is missing or locked");
+			StandEntity stand = fixture.stand;
+			Vec3 idleOffset = stand.offsetFromUser.idleOffset;
+			helper.assertTrue(stand.offsetFromUser.isIdle(), "The idle Stand is not at its idle offset");
+
+			fixture.hitFrom(0, 2);
+			EntityActionInstance auto = stand.getCurStandAction();
+			helper.assertTrue(auto != null && auto.ability == ownGuard && stand.isAutoGuarding()
+					&& stand.isCurrentAttackBlocked(), "The Stand's own guard did not auto-guard the hit: " + auto);
+			helper.assertTrue(stand.offsetFromUser.isIdle(),
+					"The auto-guard moved the Stand off its idle offset " + idleOffset + " to "
+							+ stand.offsetFromUser.getRelativeOffset() + " on " + stand.offsetFromUser.getRotations());
+			helper.assertTrue(auto.getSyncedStandOffset() == null,
+					"The auto-guard sends clients a Stand offset: " + auto.getSyncedStandOffset());
+			helper.assertTrue(auto.userWalkSpeed == 0.3F, "The auto-guard lost the 0.3 walk speed: " + auto.userWalkSpeed);
+
+			scheduled = true;
+			helper.runAfterDelay(2, () -> {
+				try {
+					helper.assertTrue(stand.getCurStandAction() == auto && stand.isAutoGuarding(),
+							"The 5-tick auto-guard ended early: " + stand.getCurStandAction());
+					// the user faces +Z: the idle spot is 0.75 behind, the held guard's spot is 0.3 in front
+					double front = stand.getZ() - fixture.user.getZ();
+					helper.assertTrue(front < -0.5, "The auto-guarding Stand did not stay behind its user: " + front);
+
+					// control: the same guard held by the user still steps in front and tells clients so
+					EntityActionType guardType = (EntityActionType) ownGuard;
+					EntityActionInstance held = guardType.createActionObj();
+					guardType.initActionFromConfig(held, helper.getLevel(), fixture.user, stand);
+					held.phasesLength.put(ActionPhase.BUTTON_CHARGE, 0F);
+					held.phasesLength.put(ActionPhase.WINDUP, 0F);
+					held.phasesLength.put(ActionPhase.PERFORM, 40F);
+					held.setStartingPhase();
+					LivingComponentAction.getComponent(stand).setAction(held, fixture.user, SyncType.NO_SYNC);
+					Vec3 heldOffset = new Vec3(0, stand.Y_OFFSET, 0.3);
+					helper.assertTrue(stand.getCurStandAction() == held && !stand.isAutoGuarding(),
+							"The held guard did not take over from the auto-guard");
+					helper.assertTrue(heldOffset.equals(stand.offsetFromUser.getRelativeOffset())
+							&& stand.offsetFromUser.getRotations() == StandOffsetFromUser.Rotations.HEAD,
+							"A held guard must put the Stand 0.3 in front: " + stand.offsetFromUser.getRelativeOffset());
+					helper.assertTrue(heldOffset.equals(held.getSyncedStandOffset()),
+							"A held guard must send its offset to clients: " + held.getSyncedStandOffset());
+				}
+				finally {
+					fixture.close();
+				}
+				helper.succeed();
+			});
+		}
+		finally {
+			if (!scheduled) {
+				fixture.close();
+			}
+		}
 	}
 
 	@GameTest(template = "empty", timeoutTicks = 80)
