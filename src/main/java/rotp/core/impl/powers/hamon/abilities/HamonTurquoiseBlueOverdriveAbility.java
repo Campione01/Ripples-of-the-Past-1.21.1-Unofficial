@@ -5,6 +5,7 @@ import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.entityaction.ActionPhase;
+import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.util.functions.UtilFunctions;
 import rotp.core.impl.powers.hamon.HamonData;
@@ -47,6 +48,17 @@ public class HamonTurquoiseBlueOverdriveAbility extends HamonActionRuntimeAbilit
 		private float preRuntimeControlRatio;
 
 		public TurquoiseBlueOverdriveInstance(EntityActionType ability) { super(ability); }
+
+		// 1.16 HamonAction.afterClick: the aura takes the colour of the technique used last.
+		@Override
+		public void onActionSet(EntityActionInstance prevAction) {
+			LivingEntity user = getPowerUser();
+			HamonActionRuntimeAbility turquoise = hamonAbility();
+			HamonData hamon = user != null && turquoise != null ? turquoise.getHamonData(turquoise.getUserPower(user)) : null;
+			if (hamon != null) {
+				hamon.setLastAuraAbility(turquoise.name());
+			}
+		}
 
 		@Override
 		protected void _onTick() {

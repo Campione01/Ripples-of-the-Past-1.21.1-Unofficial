@@ -141,6 +141,13 @@ public class HamonSendoWaveKickAbility extends HamonActionRuntimeAbility {
 			super._onTick();
 		}
 
+		// 1.16 picks the side knockback from the server's own body yaw, which lags behind the look yaw.
+		// The client keeps the shared alignment, so the pose does not change.
+		@Override
+		protected boolean alignsBodyYawToLook() {
+			return level().isClientSide();
+		}
+
 		private void captureHamonPointsEnergy() {
 			if (capturedHamonPointsEnergy || getPhase() != ActionPhase.PERFORM || getPhaseTick() >= 1
 					|| level().isClientSide()) {

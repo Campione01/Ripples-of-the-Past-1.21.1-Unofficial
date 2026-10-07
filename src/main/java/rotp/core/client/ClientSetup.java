@@ -10,6 +10,7 @@ import rotp.core.config.client.ClientModSettings;
 import rotp.core.core.JojoMod;
 import rotp.core.init.ModBlocks;
 import rotp.core.subsystems.entity_puppetcontrol.client.stand.StandHudElements;
+import rotp.core.impl.powers.hamon.client.SyoFinisherClipTailAnimation;
 import rotp.core.impl.powers.hamon.client.particle.custom.FirstPersonHamonAura;
 
 import net.minecraft.client.Minecraft;
@@ -36,6 +37,7 @@ public class ClientSetup {
 	public static void onClientSetup0(FMLClientSetupEvent event) {
 		AbilitySelectionVisualCorePolicies.register();
 		StandAuraFxClient.register();
+		SyoFinisherClipTailAnimation.register();
 		JojoMenuTabs.initDefaults();
 	}
 

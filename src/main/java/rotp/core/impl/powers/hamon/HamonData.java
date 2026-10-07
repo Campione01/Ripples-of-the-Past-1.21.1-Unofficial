@@ -491,6 +491,33 @@ public class HamonData extends PlayerPowerData {
 		return passiveAuraColor(holdingWeapon, underwater).name();
 	}
 
+	// Gametest hook: the colour the client's aura tick picks for this user now
+	public String auraColorNameThisTick(LivingEntity user) {
+		return getThisTickAuraColor(user, getActionName(LivingComponentAction.getCurEntityAction(user))).name();
+	}
+
+	// 1.16 KosmXSYOBHandler.setFinisherAnim: nothing stopped syo_barrage_finisher when its action ended, so the clip
+	// ran on to its end tick (syo_barrage_finisher.json endTick). The action shows it up to its own end; this is the rest.
+	public static final float SYO_FINISHER_CLIP_END_TICK = 20.0F;
+	private int syoFinisherTailStartTick = -1;
+	private float syoFinisherTailClipTick;
+
+	public void startSyoFinisherClipTail(LivingEntity user, float clipTick) {
+		boolean clipLeft = clipTick >= 0.0F && clipTick < SYO_FINISHER_CLIP_END_TICK;
+		syoFinisherTailStartTick = clipLeft ? user.tickCount : -1;
+		syoFinisherTailClipTick = clipTick;
+	}
+
+	/** @return the tick of the finisher clip that plays on after its action, or -1 when there is none */
+	public float getSyoFinisherTailClipTick(LivingEntity user, float partialTick) {
+		if (syoFinisherTailStartTick < 0) {
+			return -1.0F;
+		}
+		float elapsed = user.tickCount - syoFinisherTailStartTick + partialTick;
+		float clipTick = syoFinisherTailClipTick + elapsed;
+		return elapsed >= 0.0F && clipTick < SYO_FINISHER_CLIP_END_TICK ? clipTick : -1.0F;
+	}
+
 	private static String getActionName(EntityActionInstance action) {
 		return action != null && action.ability != null && action.ability.getAbilityId() != null
 				? action.ability.getAbilityId().nameInMoveset()

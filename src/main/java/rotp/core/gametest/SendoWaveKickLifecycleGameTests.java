@@ -1,8 +1,12 @@
 package rotp.core.gametest;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 import rotp.core.core.JojoMod;
+import rotp.core.util.functions.MathUtil;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
@@ -19,13 +23,17 @@ import com.mojang.authlib.GameProfile;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.bus.api.EventPriority;
+import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.common.util.FakePlayerFactory;
+import net.neoforged.neoforge.event.entity.living.LivingKnockBackEvent;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -181,6 +189,66 @@ public final class SendoWaveKickLifecycleGameTests {
 				helper.succeed();
 			}
 			finally {
+				target.discard();
+			}
+		}
+	}
+
+	/**
+	 * 1.16 HamonSendoWaveKick (:146-152) picks the side of the knockback from user.yBodyRot. The vanilla tick leaves
+	 * the body of a standing player up to 50 degrees behind its look yaw, and 1.16 did not turn it in the action tick.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void kickSideKnockbackFollowsBodyYawNotLookYaw(GameTestHelper helper) {
+		assertSideKnockback(helper, 0.0F, "SendoSideAligned");
+		assertSideKnockback(helper, 45.0F, "SendoSideLateLook");
+		helper.succeed();
+	}
+
+	private static void assertSideKnockback(GameTestHelper helper, float lookYaw, String name) {
+		try (Fixture f = new Fixture(helper, name)) {
+			Cow target = EntityType.COW.create(helper.getLevel());
+			helper.assertTrue(target != null, "Could not create kick target");
+			List<double[]> sidePushes = new ArrayList<>();
+			Consumer<LivingKnockBackEvent> listener = event -> {
+				if (event.getEntity() == target && event.getOriginalStrength() == 0.75F) {
+					sidePushes.add(new double[] { event.getOriginalRatioX(), event.getOriginalRatioZ() });
+				}
+			};
+			NeoForge.EVENT_BUS.addListener(EventPriority.HIGHEST, true, LivingKnockBackEvent.class, listener);
+			try {
+				// 22 degrees to the left of the body, between the body yaw 0 and the look yaw 45
+				Vec3 toTarget = new Vec3(-0.45D, 0.0D, 1.11D);
+				Vec3 targetPos = f.user.position().add(toTarget);
+				target.setPos(targetPos.x, targetPos.y, targetPos.z);
+				target.setNoAi(true);
+				target.setNoGravity(true);
+				helper.assertTrue(helper.getLevel().addFreshEntity(target), "Could not add kick target");
+				f.user.setYRot(lookYaw);
+				f.user.setYHeadRot(lookYaw);
+				f.user.yBodyRot = 0.0F;
+				float bodyYaw = f.user.yBodyRot;
+				f.start();
+				f.tick(1);
+				String state = "look yaw " + lookYaw + ", body yaw " + bodyYaw;
+				helper.assertTrue(sidePushes.size() == 1, "Fixture: the kick pushes its target sideways once (" + state + "), got "
+						+ sidePushes.size());
+				float bearing = MathUtil.yRotDegFromVec(toTarget);
+				boolean leftOfBody = Mth.wrapDegrees(bodyYaw - bearing) < 0.0F;
+				boolean leftOfLook = Mth.wrapDegrees(lookYaw - bearing) < 0.0F;
+				helper.assertTrue((lookYaw == bodyYaw) == (leftOfBody == leftOfLook),
+						"Fixture: the target stands between the body yaw and the look yaw only when they differ (" + state + ")");
+				float knockbackYaw = (float) Mth.atan2(sidePushes.get(0)[0], -sidePushes.get(0)[1]) * MathUtil.RAD_TO_DEG;
+				// +60..90 for "left", -60..-90 otherwise
+				float side = Mth.wrapDegrees(knockbackYaw - (float) -Mth.atan2(toTarget.x, toTarget.z) * MathUtil.RAD_TO_DEG);
+				helper.assertTrue(Math.abs(side) >= 59.9F && Math.abs(side) <= 90.1F,
+						"Fixture: the side knockback angle is 60..90 degrees, got " + side);
+				helper.assertTrue((side > 0.0F) == leftOfBody,
+						"Sendo Wave Kick knocks its target to the side it is on relative to the user's body yaw (1.16.5), but the"
+								+ " side angle was " + side + " with " + state + ", target bearing " + bearing);
+			}
+			finally {
+				NeoForge.EVENT_BUS.unregister(listener);
 				target.discard();
 			}
 		}

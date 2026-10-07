@@ -125,7 +125,7 @@ public class TwoHandedBarrageLoopSwing extends BarrageSwing {
 		arm.yRot = armAngles.y;
 		arm.zRot = armAngles.z;
 		
-		arm.zRot += swingAmount * zRot;
+		arm.zRot += AfterimageArmRoll.of(model instanceof IPlayerBendModel, swingAmount, zRot);
 		
 		// a Stand model turns its arms with its own body bone; the player's body bone is outside the model
 		if (model instanceof IPlayerBendModel bends) {

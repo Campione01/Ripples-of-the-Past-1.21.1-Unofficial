@@ -92,6 +92,7 @@ public class HamonSunlightYellowOverdriveBarrageAbility extends HamonActionRunti
 	public static class SYOverdriveBarrageInstance extends HamonActionRuntimeAbility.HamonRuntimeActionInstance {
 		private int ticksHeld;
 		private boolean finishingPunch;
+		private ActionPhase lastPhase;
 
 		public SYOverdriveBarrageInstance(EntityActionType ability) { super(ability); }
 
@@ -132,10 +133,35 @@ public class HamonSunlightYellowOverdriveBarrageAbility extends HamonActionRunti
 		@Override
 		public void onSetPhase(ActionPhase newPhase) {
 			super.onSetPhase(newPhase);
+			lastPhase = newPhase;
 			// 1.16 Instance.getWalkSpeed: the user stands still through the barrage and its finisher.
 			if (newPhase == ActionPhase.PERFORM) {
 				userWalkSpeed = 0.0F;
 			}
+		}
+
+		// 1.16 never stopped the finisher clip when the action ended: the rest of it plays on (HamonData holds it,
+		// the ended action has no pose of its own).
+		@Override
+		public void onActionCleared(EntityActionInstance newAction) {
+			super.onActionCleared(newAction);
+			LivingEntity user = getPowerUser();
+			HamonActionRuntimeAbility hamonAbility = hamonAbility();
+			HamonData hamon = user != null && hamonAbility != null ? hamonAbility.getHamonData(hamonAbility.getUserPower(user)) : null;
+			if (hamon != null) {
+				hamon.startSyoFinisherClipTail(user, finisherClipTick());
+			}
+		}
+
+		// The finisher clip tick at the action's last phase tick (an ended action has no phase), -1 before the finisher.
+		private float finisherClipTick() {
+			if (lastPhase == ActionPhase.RECOVERY) {
+				return FINISHING_PUNCH_DURATION + getPhaseTick();
+			}
+			if (lastPhase == ActionPhase.PERFORM && (finishingPunch || getPhaseTick() >= MAX_BARRAGE_DURATION)) {
+				return getPhaseTick() - MAX_BARRAGE_DURATION;
+			}
+			return -1.0F;
 		}
 
 		@Override

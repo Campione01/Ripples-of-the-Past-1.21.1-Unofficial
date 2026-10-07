@@ -1,5 +1,6 @@
 package rotp.core.gametest;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -29,12 +30,14 @@ import net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket;
 import net.minecraft.network.protocol.game.ClientboundBundlePacket;
 import net.minecraft.server.level.ChunkMap;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.CommonListenerCookie;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.AbstractArrow;
@@ -88,6 +91,12 @@ public final class PillarmanBladeHitGameTests {
         start(helper, Case.SLASH_REFUSED);
     }
 
+    // 1.16 PillarmanUtil.sparkEffect: sendToClientsTrackingAndSelf, so a hit player sees the sparks on himself
+    @GameTest(template = "empty", skyAccess = true, batch = "blade_hit_slash_player", timeoutTicks = 140)
+    public static void bladeSlashHitSendsItsSparksToTheHitPlayerToo(GameTestHelper helper) {
+        start(helper, Case.SLASH_PLAYER);
+    }
+
     @GameTest(template = "empty", skyAccess = true, batch = "blade_hit_barrage", timeoutTicks = 140)
     public static void bladeBarrageSendsTwelveSparksPerLandedHit(GameTestHelper helper) {
         start(helper, Case.BARRAGE);
@@ -111,6 +120,7 @@ public final class PillarmanBladeHitGameTests {
     private enum Case {
         SLASH("pillarman_blade_slash", InputMethod.CLICK),
         SLASH_REFUSED("pillarman_blade_slash", InputMethod.CLICK),
+        SLASH_PLAYER("pillarman_blade_slash", InputMethod.CLICK),
         BARRAGE("pillarman_blade_barrage", InputMethod.HOLD),
         DASH("pillarman_blade_dash_attack", InputMethod.HOLD),
         DASH_LATE_LOOK("pillarman_blade_dash_attack", InputMethod.HOLD),
@@ -151,7 +161,9 @@ public final class PillarmanBladeHitGameTests {
         private final Map<ChunkMap.TrackedEntity, Watcher> watched = new LinkedHashMap<>();
         private final List<Object> listeners = new ArrayList<>();
         private Player user;
-        private Mob target, bystander;
+        private LivingEntity target;
+        private Mob bystander;
+        private HitPlayer hitPlayer;
         private Watcher targetWatcher, bystanderWatcher;
         private PlayerPower power;
         private PillarmanData data;
@@ -194,6 +206,13 @@ public final class PillarmanBladeHitGameTests {
                 // The head-level barrier keeps the leaping user in place; the pig stands under it, 22 degrees off the user's facing.
                 target = mob(EntityType.PIG, new Vec3(x - 0.45D, y, userZ + 1.11D));
                 bystander = mob(EntityType.PIG, new Vec3(x, y, userZ - 2.2D));
+            }
+            else if (testCase == Case.SLASH_PLAYER) {
+                hitPlayer = new HitPlayer(level, "blade-hit-player");
+                owned.add(hitPlayer);
+                hitPlayer.moveTo(x, y, minZ + 7.2D, 0, 0);
+                target = hitPlayer;
+                bystander = mob(EntityType.IRON_GOLEM, new Vec3(x, y, minZ + 10.2D));
             }
             else {
                 target = mob(EntityType.IRON_GOLEM, new Vec3(x, y, minZ + 7.2D));
@@ -273,7 +292,8 @@ public final class PillarmanBladeHitGameTests {
         }
 
         private void aim() {
-            boolean aimed = testCase == Case.SLASH || testCase == Case.SLASH_REFUSED || testCase == Case.BARRAGE;
+            boolean aimed = testCase == Case.SLASH || testCase == Case.SLASH_REFUSED || testCase == Case.SLASH_PLAYER
+                    || testCase == Case.BARRAGE;
             LivingComponentAction.getComponent(user).entityAim.setTarget(aimed ? new ActionTarget(target) : ActionTarget.EMPTY);
         }
 
@@ -316,6 +336,15 @@ public final class PillarmanBladeHitGameTests {
                         oracle(targetWatcher.sparks.isEmpty(),
                                 "A Blade Slash refused by its target sends no sparks, but the target's tracker got " + targetWatcher.sparks);
                     }
+                }
+                case SLASH_PLAYER -> {
+                    if (settlePosts < 1) return false;
+                    premise(hits == 1, "the slash landed once on the player, hits=" + hits);
+                    TrPillarmanParticlesPacket sparks = new TrPillarmanParticlesPacket(target.getId(), 9);
+                    premise(targetWatcher.sparks.equals(List.of(sparks)), "the hit player's tracker got " + targetWatcher.sparks);
+                    oracle(hitPlayer.sparks.equals(List.of(sparks)),
+                            "A player hit by a Blade Slash gets the 9-spark packet for himself on his own connection (1.16.5"
+                                    + " sendToClientsTrackingAndSelf), but he got " + hitPlayer.sparks);
                 }
                 case BARRAGE -> {
                     if (!released) { if (heldPosts >= 6) release(); return false; }
@@ -474,17 +503,46 @@ public final class PillarmanBladeHitGameTests {
 
         Watcher(ServerLevel level, String name) {
             super(level, new GameProfile(UUID.randomUUID(), name));
-            this.connection = new RecordingConnection(level, this);
+            this.connection = new RecordingConnection(level, this, sparks);
+        }
+    }
+
+    /** FakePlayer takes no damage and no player's attack; this one takes the real hit and records its own connection. */
+    private static final class HitPlayer extends FakePlayer {
+        final List<TrPillarmanParticlesPacket> sparks = new ArrayList<>();
+
+        HitPlayer(ServerLevel level, String name) {
+            super(level, new GameProfile(UUID.randomUUID(), name));
+            this.connection = new RecordingConnection(level, this, sparks);
+            try {
+                // a real player loses this join protection in its connection tick, which a FakePlayer does not have
+                Field spawnProtection = ServerPlayer.class.getDeclaredField("spawnInvulnerableTime");
+                spawnProtection.setAccessible(true);
+                spawnProtection.setInt(this, 0);
+            }
+            catch (ReflectiveOperationException error) {
+                throw new AssertionError("Could not reach ServerPlayer.spawnInvulnerableTime", error);
+            }
+        }
+
+        @Override
+        public boolean isInvulnerableTo(DamageSource source) {
+            return false;
+        }
+
+        @Override
+        public boolean canHarmPlayer(Player other) {
+            return true;
         }
     }
 
     private static final class RecordingConnection extends ServerGamePacketListenerImpl {
         private final List<TrPillarmanParticlesPacket> sink;
 
-        RecordingConnection(ServerLevel level, Watcher player) {
+        RecordingConnection(ServerLevel level, ServerPlayer player, List<TrPillarmanParticlesPacket> sink) {
             super(level.getServer(), openConnection(), player,
                     CommonListenerCookie.createInitial(player.getGameProfile(), false));
-            this.sink = player.sparks;
+            this.sink = sink;
         }
 
         private static Connection openConnection() {
