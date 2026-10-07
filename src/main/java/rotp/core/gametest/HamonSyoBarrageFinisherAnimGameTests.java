@@ -26,7 +26,8 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 /**
  * 1.16 S.Y.O. Barrage: the finishing punch replaced the layer's clip (KosmXSYOBHandler.setFinisherAnim), so
  * syo_barrage_finisher played from its first tick, and nothing stopped it when the action ended 10 ticks
- * later: its held end pose stayed. The port samples a clip at the time the action hands over.
+ * later: its held end pose stayed. The barrage clip before it was a fresh KosmXPlayerBarrageAnim, started when the
+ * charge was released. The port samples a clip at the time the action hands over.
  */
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -62,6 +63,18 @@ public final class HamonSyoBarrageFinisherAnimGameTests {
 			action.extractAnim(anim, user, 0.0F);
 			helper.assertTrue("punch_barrage".equals(anim.animId.name()),
 					"the barrage loop must play punch_barrage, got " + anim.animId.name());
+			// 1.16 createContinuousActionInstance started a fresh KosmXPlayerBarrageAnim (clip tick 0) when the barrage began
+			float barrageStart = action.getPhaseTick();
+			helper.assertTrue(Math.abs(anim.time - barrageStart) < 0.01F && anim.time < 2.0F,
+					"the barrage clip must start at its first tick when the barrage starts, got clip tick " + anim.time
+					+ " at barrage tick " + barrageStart);
+			tick(user, component, 3);
+			action.extractAnim(anim, user, 0.5F);
+			helper.assertTrue("punch_barrage".equals(anim.animId.name())
+					&& Math.abs(anim.time - (action.getPhaseTick() + 0.5F)) < 0.01F
+					&& Math.abs(action.getPhaseTick() - barrageStart - 3.0F) < 0.01F,
+					"3 ticks into the barrage its clip must be 3 ticks further, got clip tick " + anim.time
+					+ " at barrage tick " + action.getPhaseTick());
 
 			tickUntil(helper, user, component, action, MAX_BARRAGE_DURATION + 5,
 					() -> "syo_barrage_finisher".equals(action.getEntityAnim().name()), "the finishing punch never started");

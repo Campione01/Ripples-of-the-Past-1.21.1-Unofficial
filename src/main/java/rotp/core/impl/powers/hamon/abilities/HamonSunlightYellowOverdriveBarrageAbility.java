@@ -123,6 +123,10 @@ public class HamonSunlightYellowOverdriveBarrageAbility extends HamonActionRunti
 						? FINISHING_PUNCH_DURATION + Math.max(animVariables.phaseTime, 0.0F)
 						: Math.max(animVariables.phaseTime - MAX_BARRAGE_DURATION, 0.0F);
 			}
+			// 1.16 createContinuousActionInstance started a fresh barrage clip when the charge was released
+			else if (animVariables.animId == SYO_BARRAGE_LOOP_ANIM) {
+				animVariables.time = Math.max(animVariables.phaseTime, 0.0F);
+			}
 		}
 
 		@Override
