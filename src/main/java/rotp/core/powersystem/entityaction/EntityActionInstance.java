@@ -394,11 +394,19 @@ public class EntityActionInstance implements HeldInput {
 		return standEntityAttack(stand, target, dmgSource, dmgAmount, true);
 	}
 
-	// wearShield false: 1.16 sweep targets (doAttack) and the heavy punch explosion (hurtTarget) wore no shield
+	// mainTarget false: 1.16 sweep targets (doAttack) and the heavy punch explosion (hurtTarget) wore no shield
+	// and bypassed StandEntity.attackEntity, which records the last-hurt mob
 	public static boolean standEntityAttack(StandEntity stand, Entity target, DamageSource dmgSource, float dmgAmount,
-			boolean wearShield) {
+			boolean mainTarget) {
 		ServerLevel level = (ServerLevel) target.level();
 		boolean hurt = stand.hurtWithStandAttack(target, dmgSource, dmgAmount);
+		if (hurt && mainTarget && !stand.isManuallyControlled()) {
+			stand.setLastHurtMob(target);
+			LivingEntity standUser = stand.getUser();
+			if (standUser != null) {
+				standUser.setLastHurtMob(target);
+			}
+		}
 		if (hurt) {
 			if (target instanceof LivingEntity targetLiving) {
 				LivingEntity user = stand.getUser();
@@ -416,7 +424,7 @@ public class EntityActionInstance implements HeldInput {
 			}
             EnchantmentHelper.doPostAttackEffects(level, target, dmgSource);
 		}
-		else if (wearShield) {
+		else if (mainTarget) {
 			wearBlockingShield(level, target, dmgAmount);
 		}
 		return hurt;

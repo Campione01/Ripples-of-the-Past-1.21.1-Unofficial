@@ -82,19 +82,31 @@ public class SpawnArrowsInSusBlocks {
 						&& level != null && ClientProxy.getClientWorld() == level && !brushableBlockEntity.isRemoved()) {
 					if (ClientTickHandler.tickCount % 3 == 0 && !ClientProxy.isClientPaused()) {
 						BlockPos blockPos = brushableBlockEntity.getBlockPos();
-						Vec3 particlePos = randomPointAroundBlock(blockPos, 1.25, 2);
-						Particle particle = ((LevelRendererParticleInvoker) Minecraft.getInstance().levelRenderer)
-								.jojo_ripples$addParticle(ModParticles.MENACING.get(), false,
-										particlePos.x, particlePos.y, particlePos.z, 0, 0, 0);
-						if (particle != null) {
-							particle.setLifetime(40);
-						}
+						emitArrowParticle(blockPos, (x, y, z) -> ((LevelRendererParticleInvoker) Minecraft.getInstance().levelRenderer)
+								.jojo_ripples$addParticle(ModParticles.MENACING.get(), false, x, y, z, 0, 0, 0));
 					}
 					return true;
 				}
 				return false;
 			});
 		}
+	}
+	
+	@FunctionalInterface
+	interface ArrowParticleSpawner {
+		@Nullable
+		Particle spawn(double x, double y, double z);
+	}
+
+	// The filtered spawn may return nothing; the 40-tick lifetime goes to the particle it returned and no other.
+	@Nullable
+	static Particle emitArrowParticle(BlockPos blockPos, ArrowParticleSpawner spawner) {
+		Vec3 particlePos = randomPointAroundBlock(blockPos, 1.25, 2);
+		Particle particle = spawner.spawn(particlePos.x, particlePos.y, particlePos.z);
+		if (particle != null) {
+			particle.setLifetime(40);
+		}
+		return particle;
 	}
 	
 	public static Vec3 randomPointAroundBlock(BlockPos pos, double radiusMin, double radiusMax) {

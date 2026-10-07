@@ -152,7 +152,7 @@ public class PlayerClientBroadcastedSettings implements SynchronizablePlayerData
 	}
 
 	public static Optional<PlayerClientBroadcastedSettings> getPlayerSettings(Player player) {
-		if (player.isLocalPlayer()) {
+		if (player.level().isClientSide() && player.isLocalPlayer()) {
 			return Optional.of(ClientModSettings.getSettingsReadOnly().broadcasted);
 		}
 		if (!player.level().isClientSide()) {

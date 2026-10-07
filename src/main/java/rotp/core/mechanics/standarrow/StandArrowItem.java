@@ -45,6 +45,8 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
 import net.minecraft.core.Position;
+import net.minecraft.core.component.DataComponentType;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.locale.Language;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
@@ -68,6 +70,7 @@ import net.minecraft.world.item.ArrowItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ProjectileItem;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Rarity;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
@@ -92,6 +95,22 @@ public class StandArrowItem extends ArrowItem implements ProjectileItem {
         DispenserBlock.registerProjectileBehavior(this);
     }
 
+    public static Item.Properties properties(Rarity rarity, int durability) {
+        return new UnstackableProperties().stacksTo(1).rarity(rarity).durability(durability);
+    }
+
+    /**
+     * An item with durability cannot stack: Item's constructor rejects it. Other mods widen the stack limit of every
+     * ArrowItem on the way into that constructor, so the Stand Arrows' limit stays 1 whatever is set afterwards.
+     */
+    private static final class UnstackableProperties extends Item.Properties {
+        @Override
+        @SuppressWarnings("unchecked")
+        public <T> Item.Properties component(DataComponentType<T> component, T value) {
+            return super.component(component, component == DataComponents.MAX_STACK_SIZE ? (T) Integer.valueOf(1) : value);
+        }
+    }
+
     @Override
     public AbstractArrow createArrow(Level level, ItemStack ammo, LivingEntity shooter, @Nullable ItemStack weapon) {
         // an empty weapon stack (stand throws) would make AbstractArrow throw: treat it as none
@@ -106,11 +125,19 @@ public class StandArrowItem extends ArrowItem implements ProjectileItem {
         return arrow;
     }
 
+    // 1.16 ProjectileDispenseBehavior: no vertical offset at the dispenser's mouth, and a +0.1 upward launch bias
     @Override
     public DispenseConfig createDispenseConfig() {
-    	return super.createDispenseConfig();
+    	return DispenseConfig.builder()
+    			.positionFunction((source, direction) -> DispenserBlock.getDispensePosition(source, 0.7D, Vec3.ZERO))
+    			.build();
     }
-    
+
+    @Override
+    public void shoot(Projectile projectile, double x, double y, double z, float velocity, float inaccuracy) {
+    	projectile.shoot(x, (float) y + 0.1F, z, velocity, inaccuracy);
+    }
+
     
     public static boolean giveStand(Level level, LivingEntity entity) {
         if (!level.isClientSide()) {

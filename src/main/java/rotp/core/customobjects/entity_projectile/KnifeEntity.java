@@ -145,6 +145,8 @@ public class KnifeEntity extends AbstractArrow {
 			return;
 		}
 		super.onHitBlock(result);
+		// 1.16 ItemProjectileEntity.onHit: no pickup delay after landing
+		shakeTime = 0;
 	}
 
 	private boolean cutSoftBlock(BlockPos blockPos) {
@@ -173,6 +175,10 @@ public class KnifeEntity extends AbstractArrow {
 
 		Entity target = result.getEntity();
 		Entity shooter = getOwner();
+		// 1.16 ItemProjectileEntity.onHitEntity: set before the hit, even a failed one
+		if (shooter instanceof LivingEntity livingShooter) {
+			livingShooter.setLastHurtMob(target);
+		}
 		DamageSource damageSource = damageSources().arrow(this, shooter != null ? shooter : this);
 		float damage = (float) Mth.clamp(getDeltaMovement().length() * getBaseDamage(), 0.0D, 2.147483647E9D);
 		int prevTargetFireTicks = target.getRemainingFireTicks();

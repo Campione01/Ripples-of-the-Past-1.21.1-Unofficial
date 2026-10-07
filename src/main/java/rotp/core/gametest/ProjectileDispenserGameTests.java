@@ -37,7 +37,6 @@ import net.neoforged.neoforge.event.tick.EntityTickEvent;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import rotp.core.core.JojoMod;
-import rotp.core.customobjects.entity_projectile.KnifeEntity;
 import rotp.core.init.ModEntityTypes;
 import rotp.core.init.ModItems;
 
@@ -51,16 +50,24 @@ public final class ProjectileDispenserGameTests {
 
     @GameTest(template = "empty", skyAccess = true, batch = "knife_dispenser_origin", timeoutTicks = 80)
     public static void registeredKnifeDispenserKeepsDonorOriginAndPickup(GameTestHelper helper) {
-        start(helper, false);
+        start(helper, Kind.KNIFE);
     }
 
     @GameTest(template = "empty", skyAccess = true, batch = "molotov_dispenser_origin", timeoutTicks = 80)
     public static void registeredMolotovDispenserKeepsDonorOriginAndConfiguration(GameTestHelper helper) {
-        start(helper, true);
+        start(helper, Kind.MOLOTOV);
     }
 
-    private static void start(GameTestHelper helper, boolean molotov) {
-        Fixture fixture = new Fixture(helper, molotov);
+    // 1.16 StandArrowItem registered the same ProjectileDispenseBehavior as the knife
+    @GameTest(template = "empty", skyAccess = true, batch = "stand_arrow_dispenser_origin", timeoutTicks = 80)
+    public static void registeredStandArrowDispenserKeepsDonorOriginAndLaunch(GameTestHelper helper) {
+        start(helper, Kind.STAND_ARROW);
+    }
+
+    private enum Kind { KNIFE, MOLOTOV, STAND_ARROW }
+
+    private static void start(GameTestHelper helper, Kind kind) {
+        Fixture fixture = new Fixture(helper, kind);
         helper.testInfo.addListener(fixture);
         try {
             fixture.setUp();
@@ -78,6 +85,7 @@ public final class ProjectileDispenserGameTests {
     private static final class Fixture implements AutoCloseable, GameTestListener {
         private final GameTestHelper helper;
         private final ServerLevel level;
+        private final Kind kind;
         private final boolean molotov;
         private final Map<BlockPos, BlockState> original = new LinkedHashMap<>();
         private final List<Object> listeners = new ArrayList<>();
@@ -100,11 +108,13 @@ public final class ProjectileDispenserGameTests {
         private boolean powered;
         private boolean closed;
         private int impacts;
+        private int stocked;
 
-        Fixture(GameTestHelper helper, boolean molotov) {
+        Fixture(GameTestHelper helper, Kind kind) {
             this.helper = helper;
             level = helper.getLevel();
-            this.molotov = molotov;
+            this.kind = kind;
+            this.molotov = kind == Kind.MOLOTOV;
         }
 
         private void setUp() {
@@ -133,17 +143,27 @@ public final class ProjectileDispenserGameTests {
             helper.assertTrue(level.getBlockEntity(dispenserPos) instanceof DispenserBlockEntity,
                     "Dispenser block entity is missing");
             dispenser = (DispenserBlockEntity) level.getBlockEntity(dispenserPos);
-            item = molotov ? ModItems.MOLOTOV.get() : ModItems.KNIFE.get();
-            projectileType = molotov ? ModEntityTypes.MOLOTOV.get() : ModEntityTypes.KNIFE.get();
+            item = switch (kind) {
+                case MOLOTOV -> ModItems.MOLOTOV.get();
+                case STAND_ARROW -> ModItems.STAND_ARROW.get();
+                default -> ModItems.KNIFE.get();
+            };
+            projectileType = switch (kind) {
+                case MOLOTOV -> ModEntityTypes.MOLOTOV.get();
+                case STAND_ARROW -> ModEntityTypes.STAND_ARROW.get();
+                default -> ModEntityTypes.KNIFE.get();
+            };
             helper.assertTrue(item instanceof ProjectileItem, "Registered item lacks its dispenser contract");
             config = ((ProjectileItem) item).createDispenseConfig();
-            dispenser.setItem(0, new ItemStack(item, 2));
+            // the Stand Arrow does not stack
+            stocked = Math.min(2, new ItemStack(item).getMaxStackSize());
+            dispenser.setItem(0, new ItemStack(item, stocked));
             dispenser.setChanged();
             helper.assertTrue(!level.hasNeighborSignal(dispenserPos) && !level.hasNeighborSignal(dispenserPos.above()),
                     "Dispenser was powered before the owned activation");
             registerObservers();
             log("setup dispenser=" + dispenserPos + " facing=" + FACING + " item=" + item
-                    + " count=2 configPower=" + config.power() + " configUncertainty=" + config.uncertainty()
+                    + " count=" + stocked + " configPower=" + config.power() + " configUncertainty=" + config.uncertainty()
                     + " expectedPower=" + expectedPower() + " expectedUncertainty=" + expectedUncertainty());
         }
 
@@ -158,7 +178,7 @@ public final class ProjectileDispenserGameTests {
                                     && level.getGameTime() - poweredAt >= 4, "Projectile did not come from one scheduled redstone activation");
                     projectile = created;
                     join = frame();
-                    pickup = created instanceof KnifeEntity knife ? knife.pickup : null;
+                    pickup = created instanceof AbstractArrow arrow ? arrow.pickup : null;
                     log("join uuid=" + created.getUUID() + " state=" + join + " owner=" + created.getOwner()
                             + " pickup=" + pickup + " inventoryAtJoin=" + dispenser.getItem(0).getCount()
                             + " donorOrigin=" + expectedOrigin() + " originError=" + join.position.distanceTo(expectedOrigin())
@@ -247,7 +267,8 @@ public final class ProjectileDispenserGameTests {
                             && !projectile.isRemoved() && impacts == 0 && drops.isEmpty()
                             && level.getBlockEntity(dispenserPos) == dispenser && level.hasNeighborSignal(dispenserPos)
                             && level.getBlockState(dispenserPos).getValue(DispenserBlock.TRIGGERED)
-                            && dispenser.getItem(0).is(item) && dispenser.getItem(0).getCount() == 1,
+                            && (stocked == 1 ? dispenser.getItem(0).isEmpty()
+                                    : dispenser.getItem(0).is(item) && dispenser.getItem(0).getCount() == stocked - 1),
                     "Natural dispenser activation/type/consumption/empty-flight controls failed");
             for (int slot = 1; slot < dispenser.getContainerSize(); slot++) {
                 helper.assertTrue(dispenser.getItem(slot).isEmpty(), "Dispenser acquired unexpected inventory contents");
@@ -264,7 +285,11 @@ public final class ProjectileDispenserGameTests {
                 previous = step.after;
             }
             // Report all caller outcomes before the first donor assertion can stop the case.
-            log("controls valid=true joins=1 remaining=1 scheduledDelay=" + (join.time - poweredAt)
+            Vec3 launch = unspreadLaunch();
+            Vec3 donorLaunch = new Vec3(FACING.getStepX(), (float) FACING.getStepY() + 0.1F, FACING.getStepZ())
+                    .normalize().scale(config.power());
+            log("controls valid=true joins=1 remaining=" + (stocked - 1) + " unspreadLaunch=" + launch
+                    + " donorUnspreadLaunch=" + donorLaunch + " scheduledDelay=" + (join.time - poweredAt)
                     + " flightSteps=" + steps.size() + " origin=" + join.position + " expectedOrigin=" + expectedOrigin()
                     + " error=" + join.position.distanceTo(expectedOrigin()) + " pickup=" + pickup
                     + " configPower=" + config.power() + " expectedPower=" + expectedPower()
@@ -274,7 +299,17 @@ public final class ProjectileDispenserGameTests {
                     + join.position.distanceTo(expectedOrigin()));
             helper.assertTrue(config.power() == expectedPower() && config.uncertainty() == expectedUncertainty(),
                     "Registered projectile dispenser configuration differs from donor");
-            if (!molotov) helper.assertTrue(pickup == AbstractArrow.Pickup.ALLOWED, "Dispenser knife no longer allows pickup");
+            helper.assertTrue(launch.distanceTo(donorLaunch) < 1.0E-4D,
+                    "Registered dispenser lost the donor +0.1 launch bias; launch=" + launch + " donor=" + donorLaunch);
+            if (!molotov) helper.assertTrue(pickup == AbstractArrow.Pickup.ALLOWED, "Dispenser " + kind + " no longer allows pickup");
+        }
+
+        // the item's own dispenser shoot hook without random spread, on a projectile that never joins the level
+        private Vec3 unspreadLaunch() {
+            ProjectileItem projectileItem = (ProjectileItem) item;
+            Projectile probe = projectileItem.asProjectile(level, expectedOrigin(), new ItemStack(item), FACING);
+            projectileItem.shoot(probe, FACING.getStepX(), FACING.getStepY(), FACING.getStepZ(), config.power(), 0.0F);
+            return probe.getDeltaMovement();
         }
 
         private void observe(Runnable observation) {
@@ -287,7 +322,7 @@ public final class ProjectileDispenserGameTests {
         }
 
         private static boolean near(Vec3 a, Vec3 b) { return a.distanceToSqr(b) < EPSILON * EPSILON; }
-        private void log(String message) { JojoMod.LOGGER.info("PROJECTILE-DISPENSER {} {}", molotov ? "molotov" : "knife", message); }
+        private void log(String message) { JojoMod.LOGGER.info("PROJECTILE-DISPENSER {} {}", kind.name().toLowerCase(java.util.Locale.ROOT), message); }
 
         @Override
         public void close() {

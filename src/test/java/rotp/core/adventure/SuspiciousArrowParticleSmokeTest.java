@@ -2,12 +2,15 @@ package rotp.core.adventure;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 import com.google.gson.JsonParser;
 
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.SpriteSet;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.core.BlockPos;
 import net.minecraft.util.RandomSource;
 import rotp.core.client.particle.type.OnomatopoeiaParticle;
 
@@ -29,8 +32,7 @@ public final class SuspiciousArrowParticleSmokeTest {
 		String arrow = Files.readString(Path.of("src/main/java/rotp/core/adventure/SpawnArrowsInSusBlocks.java"));
 		String body = arrow.substring(arrow.indexOf("public static void onItemSynchedToClient("),
 				arrow.indexOf("public static Vec3 randomPointAroundBlock("));
-		check(body.contains("particle.setLifetime(40)") && body.contains("if (particle != null)"),
-				"brushable-arrow emitter overrides only its returned particle");
+		arrowEmitterOverridesOnlyItsReturnedParticle(sprites);
 		check(body.contains(".jojo_ripples$addParticle(ModParticles.MENACING.get(), false,")
 				&& !body.contains("particleEngine") && !body.contains("level.addParticle("),
 				"brushable-arrow spawn keeps vanilla distance and particle-setting filters");
@@ -46,7 +48,35 @@ public final class SuspiciousArrowParticleSmokeTest {
 				.getAsJsonObject().getAsJsonArray("client");
 		check(mixins.asList().stream().anyMatch(e -> e.getAsString().equals("client.particle.LevelRendererParticleInvoker")),
 				"particle invoker is wired on the client");
-		System.out.println("Suspicious-arrow particle smoke tests passed: two factories and six emitter/filter wiring checks");
+		System.out.println("Suspicious-arrow particle smoke tests passed: two factories, the emitter's lifetime override"
+				+ " and five emitter/filter wiring checks");
+	}
+
+	// runs the production emitter step with a stand-in for the filtered spawn
+	private static void arrowEmitterOverridesOnlyItsReturnedParticle(SpriteSet sprites) {
+		OnomatopoeiaParticle.GoFactory factory = new OnomatopoeiaParticle.GoFactory(sprites);
+		Particle spawned = factory.createParticle(null, null, 0, 0, 0, 0, 0, 0);
+		Particle bystander = factory.createParticle(null, null, 0, 0, 0, 0, 0, 0);
+		BlockPos block = new BlockPos(10, 64, -7);
+		List<double[]> calls = new ArrayList<>();
+		Particle returned = SpawnArrowsInSusBlocks.emitArrowParticle(block, (x, y, z) -> {
+			calls.add(new double[] { x, y, z });
+			return spawned;
+		});
+		check(returned == spawned && spawned.getLifetime() == 40, "brushable-arrow emitter gives its returned particle 40 ticks");
+		check(bystander.getLifetime() == 400, "brushable-arrow emitter leaves other MENACING particles at 400 ticks");
+		check(calls.size() == 1, "brushable-arrow emitter spawns once per emission");
+		double[] at = calls.get(0);
+		// randomPointAroundBlock(blockPos, 1.25, 2): within 1 block of the centre on every axis
+		check(Math.abs(at[0] - 10.5) <= 1.0 && Math.abs(at[1] - 64.5) <= 1.0 && Math.abs(at[2] + 6.5) <= 1.0,
+				"brushable-arrow emitter spawns around its block");
+		int[] filtered = { 0 };
+		Particle none = SpawnArrowsInSusBlocks.emitArrowParticle(block, (x, y, z) -> {
+			filtered[0]++;
+			return null;
+		});
+		check(none == null && filtered[0] == 1 && spawned.getLifetime() == 40 && bystander.getLifetime() == 400,
+				"a filtered spawn changes no particle");
 	}
 
 	private static void check(boolean condition, String message) {
