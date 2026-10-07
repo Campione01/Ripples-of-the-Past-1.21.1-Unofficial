@@ -14,6 +14,7 @@ import rotp.core.subsystems.timestop.TimeStopState;
 import rotp.core.util.functions.DamageUtil;
 import rotp.core.impl.stands.goldexperience.GEStuckObjectsState;
 
+import it.unimi.dsi.fastutil.doubles.DoubleDoubleImmutablePair;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -207,6 +208,16 @@ public class KnifeEntity extends AbstractArrow {
 				discard();
 			}
 		}
+	}
+
+	// 1.16 hurt() knocked back away from source.getEntity(), the thrower; 1.21 follows the projectile's motion
+	@Override
+	public DoubleDoubleImmutablePair calculateHorizontalHurtKnockbackDirection(LivingEntity target, DamageSource source) {
+		Entity attacker = source.getEntity();
+		if (attacker != null) {
+			return DoubleDoubleImmutablePair.of(target.getX() - attacker.getX(), target.getZ() - attacker.getZ());
+		}
+		return super.calculateHorizontalHurtKnockbackDirection(target, source);
 	}
 
 	// 1.16 isPickable: knives, stuck ones too, are hit by other projectiles

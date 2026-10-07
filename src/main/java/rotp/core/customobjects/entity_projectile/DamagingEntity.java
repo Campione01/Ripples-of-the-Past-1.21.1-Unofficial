@@ -231,6 +231,10 @@ public abstract class DamagingEntity extends Projectile implements IEntityWithCo
 			DamageSourceModified knockback = (DamageSourceModified) damageSource;
 			knockback.jojo_ripples$modifyKnockback(0, knockbackMultiplier);
 		}
+		// 1.16: no owner means source.getEntity() == null, and hurt() only knocked back from that entity
+		if (owner == null) {
+			((DamageSourceModified) damageSource).jojo_ripples$modifyKnockback(0, 0);
+		}
 
 		return damageSource;
 	}

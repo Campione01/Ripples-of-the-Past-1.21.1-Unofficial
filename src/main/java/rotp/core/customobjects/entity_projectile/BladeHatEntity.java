@@ -5,6 +5,7 @@ import rotp.core.init.ModEntityTypes;
 import rotp.core.init.ModItems;
 import rotp.core.init.ModSoundEvents;
 
+import it.unimi.dsi.fastutil.doubles.DoubleDoubleImmutablePair;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -173,6 +174,16 @@ public class BladeHatEntity extends AbstractArrow implements IEntityWithComplexS
 				changeMovementAfterHit();
 			}
 		}
+	}
+
+	// 1.16 hurt() knocked back away from source.getEntity(), the thrower; 1.21 follows the projectile's motion
+	@Override
+	public DoubleDoubleImmutablePair calculateHorizontalHurtKnockbackDirection(LivingEntity target, DamageSource source) {
+		Entity attacker = source.getEntity();
+		if (attacker != null) {
+			return DoubleDoubleImmutablePair.of(target.getX() - attacker.getX(), target.getZ() - attacker.getZ());
+		}
+		return super.calculateHorizontalHurtKnockbackDirection(target, source);
 	}
 
 	@Override

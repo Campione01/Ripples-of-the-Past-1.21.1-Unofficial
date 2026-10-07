@@ -56,7 +56,7 @@ public class CrazyDEyeOfEnderInsideEntity extends EyeOfEnder {
 			else {
 				if (isVehicle()) {
 					getPassengers().forEach(passenger -> DamageUtil.hurtThroughInvulTicks(passenger,
-							DamageUtil.make(level(), ModDamageTypes.EYE_OF_ENDER_SHARDS, this, this), 2.0F));
+							DamageUtil.make(level(), ModDamageTypes.EYE_OF_ENDER_SHARDS), 2.0F));
 				}
 				playSound(SoundEvents.ENDER_EYE_DEATH, 1.0F, 1.0F);
 				level().levelEvent(2003, blockPosition(), 0);

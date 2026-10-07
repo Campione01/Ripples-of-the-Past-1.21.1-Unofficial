@@ -11,9 +11,12 @@ import com.mojang.authlib.GameProfile;
 
 import rotp.core.core.JojoMod;
 import rotp.core.customobjects.RoadRollerEntity;
+import rotp.core.customobjects.entity_projectile.ModdedProjectileEntity;
+import rotp.core.customobjects.entity_projectile.TommyGunBulletEntity;
 import rotp.core.impl.powers.vampirism.abilities.VampirismBloodDrainAbility;
 import rotp.core.impl.stands.crazydiamond.AngeloRockEntity;
 import rotp.core.impl.stands.crazydiamond.CrazyDEyeOfEnderInsideEntity;
+import rotp.core.impl.stands.hierophant.HGEmeraldEntity;
 import rotp.core.init.ModBlocks;
 import rotp.core.init.ModDamageTypes;
 import rotp.core.init.ModDataAttachmentTypes;
@@ -315,6 +318,47 @@ public final class AttackerlessKnockbackGameTests {
 			eye.tick();
 			probe.requireHitsOf(ModDamageTypes.EYE_OF_ENDER_SHARDS);
 			helper.assertTrue(eye.isRemoved() && victim.getVehicle() == null, "premise: the Eye of Ender did not break");
+			DamageSource source = probe.hits.get(0);
+			helper.assertTrue(source.getEntity() == null && source.getDirectEntity() == null
+					&& source.getSourcePosition() == null,
+					"1.16 eyeOfEnderShards is a plain damage source with no attacker and no position: attacker="
+							+ source.getEntity() + " direct=" + source.getDirectEntity() + " position="
+							+ source.getSourcePosition());
+			return probe;
+		});
+	}
+
+	@GameTest(template = "empty", batch = "attackerless_knockback_ownerless_bullet")
+	public static void ownerlessBulletDoesNotKnockBack(GameTestHelper helper) {
+		ownerlessProjectile(helper, "A bullet with no shooter", ModDamageTypes.MOD_PROJECTILE,
+				new TommyGunBulletEntity(ModEntityTypes.TOMMY_GUN_BULLET.get(), helper.getLevel()));
+	}
+
+	@GameTest(template = "empty", batch = "attackerless_knockback_ownerless_stand_projectile")
+	public static void ownerlessStandProjectileDoesNotKnockBack(GameTestHelper helper) {
+		ownerlessProjectile(helper, "A Stand projectile with no owner", ModDamageTypes.STAND_PROJECTILE,
+				new HGEmeraldEntity(ModEntityTypes.HG_EMERALD.get(), helper.getLevel()));
+	}
+
+	// 1.16 IndirectEntityDamageSource(projectile, null): getEntity() is null, so hurt() did not knock back
+	private static void ownerlessProjectile(GameTestHelper helper, String site, ResourceKey<DamageType> type,
+			ModdedProjectileEntity projectile) {
+		play(helper, site, true, scene -> {
+			Cow victim = scene.cow(helper.absoluteVec(VICTIM));
+			Vec3 centre = victim.getBoundingBox().getCenter();
+			projectile.setPos(centre.x - 1.0D, centre.y, centre.z);
+			projectile.setDeltaMovement(0.8D, 0.0D, 0.0D);
+			helper.assertTrue(projectile.getOwner() == null && scene.level.addFreshEntity(projectile),
+					"premise: could not add the ownerless projectile");
+			scene.entities.add(projectile);
+			Probe probe = scene.probe(victim);
+			projectile.tickCount = 0;
+			projectile.tick();
+			probe.requireHitsOf(type);
+			DamageSource source = probe.hits.get(0);
+			helper.assertTrue(probe.hits.size() == 1 && source.getEntity() == null && source.getDirectEntity() == projectile,
+					"premise: the hit is not one hit of the projectile alone: hits=" + probe.hits.size() + " attacker="
+							+ source.getEntity() + " direct=" + source.getDirectEntity());
 			return probe;
 		});
 	}
