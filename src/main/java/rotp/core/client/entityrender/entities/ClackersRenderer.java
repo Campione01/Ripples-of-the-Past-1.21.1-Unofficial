@@ -11,5 +11,7 @@ public class ClackersRenderer extends SimpleEntityRenderer<ClackersEntity, Clack
 		super(context);
 		initTexture(JojoMod.resLoc("textures/entity/projectiles/clackers.png"), false);
 		initModel(new ClackersModel(context.bakeLayer(ModEntityTypeRenderers.CLACKERS)));
+		// 1.16 SimpleEntityRenderer draws the model at the entity position; its main pivot is already mid-box
+		offsetModelByEntityHeight(false);
 	}
 }

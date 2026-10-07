@@ -249,6 +249,7 @@ public final class ModEntityTypes {
 	public static final DeferredHolder<EntityType<?>, EntityType<ClackersEntity>> CLACKERS = ENTITY_TYPES.register("clackers", key ->
 			EntityType.Builder.<ClackersEntity>of(ClackersEntity::new, MobCategory.MISC)
 			.sized(0.5F, 0.5F)
+			.eyeHeight(0.13F) // 1.16 AbstractArrow
 			.updateInterval(20)
 			.build(createIDFor(key)));
 
