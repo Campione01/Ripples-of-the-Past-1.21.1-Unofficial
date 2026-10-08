@@ -14,24 +14,36 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.gametest.framework.GameTestInfo;
 import net.minecraft.gametest.framework.GameTestListener;
 import net.minecraft.gametest.framework.GameTestRunner;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.monster.EnderMan;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.Arrow;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.bus.api.Event;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.EntityTeleportEvent;
+import net.neoforged.neoforge.event.entity.ProjectileImpactEvent;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import rotp.core.core.JojoMod;
+import rotp.core.impl.powers.hamon.ProjectileHamonChargeState;
 import rotp.core.impl.powers.hamon.abilities.HamonAbilityHelpers;
 import rotp.core.impl.powers.hamon.entity.HamonBubbleEntity;
+import rotp.core.init.ModDamageTypes;
 
 /**
  * 1.16.5 DamageUtil.dealHamonDamage built an IndirectEntityDamageSource whenever it got both a direct and an
@@ -101,6 +113,61 @@ public final class HamonIndirectSourceEndermanGameTests {
         }
     }
 
+    @GameTest(template = "empty", skyAccess = true, batch = "hamon_indirect_enderman_charged_arrow", timeoutTicks = 120)
+    public static void endermanDodgesTheHamonChargeOfAnArrowWithAShooter(GameTestHelper helper) {
+        chargedArrow(helper, "charged-arrow", false);
+    }
+
+    // 1.16 add-on charges (ProjectileUltimateHamonChargeCap) dealt the plain DamageUtil.HAMON, which no Enderman dodges
+    @GameTest(template = "empty", skyAccess = true, batch = "hamon_plain_source_charged_arrow", timeoutTicks = 120)
+    public static void endermanTakesAReloadedArrowChargeWithThePlainHamonSource(GameTestHelper helper) {
+        chargedArrow(helper, "plain-charged-arrow", true);
+    }
+
+    private static void chargedArrow(GameTestHelper helper, String name, boolean plainSource) {
+        Scene scene = new Scene(helper, name);
+        helper.testInfo.addListener(scene);
+        try {
+            scene.build();
+            Cow shooter = scene.cow(scene.point(10.5D, 0.0D, 4.5D));
+            scene.reset();
+            Vec3 from = scene.point(8.5D, 1.5D, 5.5D);
+            Arrow shot = new Arrow(scene.level, from.x, from.y, from.z, new ItemStack(Items.ARROW), null);
+            shot.setOwner(shooter);
+            shot.shoot(0.0D, 0.0D, 1.0D, 1.0F, 0.0F);
+            scene.add(shot);
+            // the charge as HamonUtil.tryChargeProjectile and the add-ons set it
+            ProjectileHamonChargeState charge = ProjectileHamonChargeState.get(shot);
+            charge.setInfiniteChargeTime();
+            charge.setMultiplyWithUserStrength(true);
+            charge.setBaseDmg(1.5F);
+            if (plainSource) {
+                charge.setPlainHamonSource(true);
+            }
+            Arrow arrow = plainSource ? scene.reload(shot) : shot;
+            scene.check(arrow.getOwner() == shooter && ProjectileHamonChargeState.get(arrow).hasHamonCharge(),
+                    "fixture: the arrow lost its shooter or its Hamon charge");
+            List<DamageSource> hamonHits = new ArrayList<>();
+            boolean[] impact = new boolean[1];
+            scene.listen(ProjectileImpactEvent.class, event -> {
+                if (event.getProjectile() == arrow && event.getRayTraceResult() instanceof EntityHitResult hit
+                        && hit.getEntity() == scene.enderman) {
+                    impact[0] = true;
+                }
+            });
+            scene.listen(LivingIncomingDamageEvent.class, event -> {
+                if (event.getEntity() == scene.enderman && event.getSource().is(ModDamageTypes.HAMON)) {
+                    hamonHits.add(event.getSource());
+                }
+            });
+            helper.runAfterDelay(1, () -> scene.pollArrow(arrow, impact, hamonHits, plainSource, 100));
+        }
+        catch (RuntimeException | Error error) {
+            scene.close();
+            throw error;
+        }
+    }
+
     private static final class Scene implements GameTestListener {
         private final GameTestHelper helper;
         final ServerLevel level;
@@ -110,6 +177,7 @@ public final class HamonIndirectSourceEndermanGameTests {
         private final int z;
         private final Map<BlockPos, BlockState> originals = new LinkedHashMap<>();
         private final List<Entity> owned = new ArrayList<>();
+        private final List<Object> listeners = new ArrayList<>();
         private Consumer<EntityTeleportEvent.EnderEntity> redirect;
         private EnderMan enderman;
         private Vec3 start;
@@ -177,6 +245,21 @@ public final class HamonIndirectSourceEndermanGameTests {
             return entity;
         }
 
+        <T extends Event> void listen(Class<T> type, Consumer<T> listener) {
+            listeners.add(listener);
+            NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, false, type, listener);
+        }
+
+        /** Saves the arrow as a chunk would, removes it and loads the saved data into a fresh arrow. */
+        Arrow reload(Arrow arrow) {
+            CompoundTag saved = new CompoundTag();
+            check(arrow.save(saved), "fixture: the arrow could not be saved");
+            arrow.discard();
+            Entity loaded = EntityType.loadEntityRecursive(saved, level, entity -> entity);
+            check(loaded instanceof Arrow && loaded != arrow, "fixture: the saved arrow did not load back");
+            return add((Arrow) loaded);
+        }
+
         void reset() {
             enderman.teleportTo(start.x, start.y, start.z);
             enderman.setHealth(enderman.getMaxHealth());
@@ -227,9 +310,39 @@ public final class HamonIndirectSourceEndermanGameTests {
             }
         }
 
+        void pollArrow(Arrow arrow, boolean[] impact, List<DamageSource> hamonHits, boolean plainSource, int deadline) {
+            if (closed) return;
+            try {
+                if (impact[0]) {
+                    String seen = "Hamon hits " + hamonHits.size() + ", " + state(true);
+                    if (plainSource) {
+                        check(hamonHits.size() == 1 && hamonHits.get(0).getDirectEntity() == null
+                                && hamonHits.get(0).getEntity() == null && damaged(),
+                                "a charge with the plain Hamon source has no source entity and hurts an Enderman, also after a reload; " + seen);
+                    }
+                    else {
+                        check(hamonHits.isEmpty() && dodged(),
+                                "1.16: an Enderman dodges the Hamon charge of an arrow that has a shooter; " + seen);
+                    }
+                    close();
+                    helper.succeed();
+                    return;
+                }
+                check(!arrow.isRemoved() && helper.getTick() < deadline,
+                        "fixture: the arrow never reached the Enderman; arrow at " + arrow.position() + ", removed " + arrow.isRemoved());
+                helper.runAfterDelay(1, () -> pollArrow(arrow, impact, hamonHits, plainSource, deadline));
+            }
+            catch (RuntimeException | Error error) {
+                close();
+                throw error;
+            }
+        }
+
         void close() {
             if (closed) return;
             closed = true;
+            for (Object listener : listeners) NeoForge.EVENT_BUS.unregister(listener);
+            listeners.clear();
             if (redirect != null) NeoForge.EVENT_BUS.unregister(redirect);
             for (Entity entity : owned) if (!entity.isRemoved()) entity.discard();
             originals.forEach(level::setBlockAndUpdate);

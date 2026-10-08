@@ -1,9 +1,12 @@
 package rotp.core.gametest;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
 
 import rotp.core.core.JojoMod;
 import rotp.core.customobjects.entity_projectile.ModdedProjectileEntity;
+import rotp.core.init.ModEntityTypes;
 import rotp.core.init.ModStatusEffects;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.powersystem.PowerClass;
@@ -11,13 +14,18 @@ import rotp.core.powersystem.playerpower.PlayerPower;
 import rotp.core.impl.powers.hamon.EntityHamonChargeState;
 import rotp.core.impl.powers.hamon.HamonData;
 import rotp.core.impl.powers.hamon.ModHamonSkills;
+import rotp.core.impl.powers.hamon.abilities.HamonAbilityHelpers;
 import rotp.core.impl.powers.hamon.entity.HamonBubbleBarrierEntity;
 import rotp.core.impl.powers.hamon.entity.HamonBubbleEntity;
+import rotp.core.impl.powers.hamon.entity.HamonTurquoiseBlueOverdriveEntity;
 import com.mojang.authlib.GameProfile;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -198,6 +206,82 @@ public final class HamonBubbleTrapGameTests {
 		}
 		finally {
 			cleanup(control, barrier, pig, owner);
+		}
+	}
+
+	// 1.16 hurtTarget passed a null owner on to dealHamonDamage: a projectile whose owner is gone (logged out, unloaded)
+	// still deals its Hamon hit, as a hit of the projectile alone.
+	@GameTest(template = "empty", timeoutTicks = 40)
+	public static void ownerlessBubbleStillDealsItsHamonHit(GameTestHelper helper) {
+		Pig pig = target(helper);
+		HamonBubbleEntity bubble = ModEntityTypes.HAMON_BUBBLE.get().create(helper.getLevel());
+		try {
+			float health = pig.getHealth();
+			launchAt(helper, bubble, pig, 0);
+			helper.assertTrue(bubble.getOwner() == null && bubble.isRemoved(),
+					"setup: the bubble without an owner should reach the pig: removed=" + bubble.isRemoved());
+			float expected = 0.3F * HamonAbilityHelpers.hamonDamageMultiplier(pig) * HamonAbilityHelpers.configHamonDamageMultiplier();
+			helper.assertTrue(expected > 0.0F && Math.abs(health - pig.getHealth() - expected) < 1.0E-4F,
+					"1.16: a Hamon bubble without an owner still deals its Hamon hit: health " + health + " -> " + pig.getHealth()
+							+ ", expected a loss of " + expected);
+			helper.succeed();
+		}
+		finally {
+			cleanup(bubble, pig);
+		}
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 40)
+	public static void ownerlessBarrierStillTrapsItsTarget(GameTestHelper helper) {
+		Pig pig = target(helper);
+		HamonBubbleBarrierEntity barrier = ModEntityTypes.HAMON_BUBBLE_BARRIER.get().create(helper.getLevel());
+		try {
+			float health = pig.getHealth();
+			launchAt(helper, barrier, pig, 0);
+			helper.assertTrue(barrier.getOwner() == null && barrier.isAlive(), "setup: the barrier without an owner should still exist");
+			helper.assertTrue(pig.getHealth() < health && pig.getVehicle() == barrier && pig.hasEffect(ModStatusEffects.STUN),
+					"1.16: a Bubble Barrier without an owner still deals its Hamon hit and traps the target: health " + health
+							+ " -> " + pig.getHealth() + ", " + state(pig, barrier));
+			helper.succeed();
+		}
+		finally {
+			cleanup(barrier, pig);
+		}
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 40)
+	public static void ownerlessTurquoiseWaveStillDealsItsHamonHit(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		Pig pig = target(helper);
+		pig.setNoAi(true);
+		HamonTurquoiseBlueOverdriveEntity wave = ModEntityTypes.TURQUOISE_BLUE_OVERDRIVE.get().create(level);
+		Map<BlockPos, BlockState> original = new LinkedHashMap<>();
+		try {
+			// the wave only acts in water, on targets in water; nothing else ticks before the blocks are put back
+			BlockPos feet = pig.blockPosition();
+			for (BlockPos pos : BlockPos.betweenClosed(feet.offset(-1, -1, -1), feet.offset(1, 2, 1))) {
+				original.put(pos.immutable(), level.getBlockState(pos));
+				level.setBlock(pos, Blocks.WATER.defaultBlockState(), 2);
+			}
+			pig.tick();
+			Vec3 center = pig.getBoundingBox().getCenter();
+			wave.setRadius(0.75F).setDamage(5.0F).setDuration(40);
+			wave.setPos(center.x, center.y - 0.75D, center.z);
+			helper.assertTrue(level.addFreshEntity(wave), "Could not add the wave");
+			float health = pig.getHealth();
+			wave.tick();
+			helper.assertTrue(wave.getOwner() == null && !wave.isRemoved() && wave.isInWaterOrBubble() && pig.isInWaterOrBubble(),
+					"setup: the wave without an owner and the pig should be in water: wave removed=" + wave.isRemoved()
+							+ ", wave wet=" + wave.isInWaterOrBubble() + ", pig wet=" + pig.isInWaterOrBubble());
+			float expected = 5.0F * HamonAbilityHelpers.hamonDamageMultiplier(pig) * HamonAbilityHelpers.configHamonDamageMultiplier();
+			helper.assertTrue(expected > 0.0F && Math.abs(health - pig.getHealth() - expected) < 1.0E-4F,
+					"1.16: a Turquoise Blue Overdrive wave without an owner still deals its Hamon hit: health " + health + " -> "
+							+ pig.getHealth() + ", expected a loss of " + expected);
+			helper.succeed();
+		}
+		finally {
+			cleanup(wave, pig);
+			original.forEach((pos, state) -> level.setBlock(pos, state, 2));
 		}
 	}
 

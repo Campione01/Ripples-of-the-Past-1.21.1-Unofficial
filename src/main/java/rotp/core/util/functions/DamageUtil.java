@@ -71,6 +71,34 @@ public class DamageUtil {
 		return new DamageSource(type, directEntity, causingEntity, sourcePosition);
 	}
 
+	/**
+	 * A plain 1.16 hurt for a damage type that skips the hurt cooldown here (minecraft:bypasses_cooldown, as the mod's
+	 * projectile types): inside the target's cooldown the hit is refused, or cut to its excess over the last hit, and
+	 * the cooldown is not restarted. The same rule as OwnerBoundProjectileEntity.hurtTarget.
+	 */
+	public static boolean hurtRespectingCooldown(Entity target, DamageSource source, float amount) {
+		if (!source.is(DamageTypeTags.BYPASSES_COOLDOWN) || !(target instanceof LivingEntity living)) {
+			return target.hurt(source, amount);
+		}
+		float lastHurt = living.lastHurt;
+		if (living.invulnerableTime > 10) {
+			if (amount <= lastHurt) {
+				return false;
+			}
+			int cooldown = living.invulnerableTime;
+			boolean hurt = target.hurt(source, amount - lastHurt);
+			living.invulnerableTime = cooldown;
+			living.lastHurt = hurt ? amount : lastHurt;
+			return hurt;
+		}
+		boolean hurt = target.hurt(source, amount);
+		// 1.16 stored the amount before any reduction, 1.21 stores it after LivingIncomingDamageEvent
+		if (hurt && living.lastHurt < amount) {
+			living.lastHurt = amount;
+		}
+		return hurt;
+	}
+
 	public static boolean dealDamageAndSetOnFire(Entity entity, Predicate<Entity> hurtEntity, int fireTicks, boolean canSetStandOnFire) {
 		int prevFireTicks = entity.getRemainingFireTicks();
 		if (fireTicks <= 0 || fireTicks <= prevFireTicks) {

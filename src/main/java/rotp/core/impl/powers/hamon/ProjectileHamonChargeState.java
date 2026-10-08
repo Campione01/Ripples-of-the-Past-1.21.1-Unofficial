@@ -44,6 +44,7 @@ public class ProjectileHamonChargeState implements TickingEntityData, Synchroniz
 	private boolean hasCharge;
 	private boolean multiplyWithUserStrength;
 	private float spentEnergy;
+	private boolean plainHamonSource;
 
 	public ProjectileHamonChargeState(Projectile projectile) {
 		this.projectile = projectile;
@@ -70,6 +71,11 @@ public class ProjectileHamonChargeState implements TickingEntityData, Synchroniz
 
 	public void setMultiplyWithUserStrength(boolean multiplyWithUserStrength) {
 		this.multiplyWithUserStrength = multiplyWithUserStrength;
+	}
+
+	// The damage is dealt with no source entities, as 1.16 DamageUtil.HAMON: for charges that are not a Hamon user's.
+	public void setPlainHamonSource(boolean plainHamonSource) {
+		this.plainHamonSource = plainHamonSource;
 	}
 
 	public boolean hasHamonCharge() {
@@ -179,7 +185,9 @@ public class ProjectileHamonChargeState implements TickingEntityData, Synchroniz
 		if (damageAmount <= 0.0F) {
 			return false;
 		}
-		var source = HamonAbilityHelpers.hamonDamageSource(livingTarget.level(), projectile, owner);
+		var source = plainHamonSource
+				? HamonAbilityHelpers.hamonDamageSource(livingTarget.level(), null, null)
+				: HamonAbilityHelpers.hamonDamageSource(livingTarget.level(), projectile, owner);
 		if (source instanceof DamageSourceModified modified) {
 			modified.jojo_ripples$modifyKnockback(0.0F, 1.0F);
 		}
@@ -235,6 +243,9 @@ public class ProjectileHamonChargeState implements TickingEntityData, Synchroniz
 			tag.putInt("ChargeTicks", maxChargeTicks);
 			tag.putFloat("SpentEnergy", spentEnergy);
 			tag.putBoolean("MultiplyWithUserStrength", multiplyWithUserStrength);
+			if (plainHamonSource) {
+				tag.putBoolean("PlainHamonSource", true);
+			}
 		}
 		return tag;
 	}
@@ -246,6 +257,7 @@ public class ProjectileHamonChargeState implements TickingEntityData, Synchroniz
 		this.maxChargeTicks = tag.getInt("ChargeTicks");
 		this.spentEnergy = tag.getFloat("SpentEnergy");
 		this.multiplyWithUserStrength = tag.getBoolean("MultiplyWithUserStrength");
+		this.plainHamonSource = tag.getBoolean("PlainHamonSource");
 		this.hasCharge = tag.getBoolean("HasCharge")
 				|| hamonBaseDmg > 0.0F && (!chargeWearsOff() || tickCount <= maxChargeTicks);
 	}

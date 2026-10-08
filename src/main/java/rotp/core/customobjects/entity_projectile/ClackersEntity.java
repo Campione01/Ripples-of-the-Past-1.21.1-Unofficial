@@ -12,6 +12,7 @@ import rotp.core.powersystem.playerpower.PlayerPower;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
 import rotp.core.subsystems.target.HitResultUtil;
+import rotp.core.util.functions.DamageUtil;
 import rotp.core.util.functions.JojoModUtil;
 import rotp.core.impl.powers.hamon.HamonData;
 import rotp.core.impl.powers.hamon.HamonPowerType;
@@ -211,11 +212,15 @@ public class ClackersEntity extends ModdedProjectileEntity {
 		if (isOnFire() && target.getType() != EntityType.ENDERMAN) {
 			target.igniteForSeconds(5);
 		}
-		boolean projectileAttack = target.hurt(getDamageSource(owner), (float) (getDeltaMovement().length() * 2.0D));
+		// 1.16 ItemProjectileEntity.hurtTarget: a plain arrow hurt, which the target's hurt cooldown refuses or cuts;
+		// without a thrower the Clackers were its attacker, the one the target is knocked away from
+		DamageSource physical = owner != null ? getDamageSource(owner) : DamageUtil.make(level(), getDamageTypeKey(), this, this);
+		boolean projectileAttack = DamageUtil.hurtRespectingCooldown(target, physical, (float) (getDeltaMovement().length() * 2.0D));
 		boolean hamonAttack = false;
-		// 1.16 dealHamonDamage with no thrower: a hit of the Clackers alone
-		if (target instanceof LivingEntity livingTarget && hamonDmg > 0.0F) {
-			hamonAttack = HamonAbilityHelpers.hamonHurt(livingTarget, hamonDmg, this, owner);
+		// 1.16 dealHamonDamage: with no thrower a hit of the Clackers alone, and Clackers with no Hamon damage left
+		// still dealt a hit of zero
+		if (target instanceof LivingEntity livingTarget) {
+			hamonAttack = HamonAbilityHelpers.hamonHurtAllowingZero(livingTarget, hamonDmg, this, owner);
 		}
 		boolean hitTarget = projectileAttack || hamonAttack;
 		if (!hitTarget) {

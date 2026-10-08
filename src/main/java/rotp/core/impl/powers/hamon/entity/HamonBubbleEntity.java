@@ -43,8 +43,8 @@ public class HamonBubbleEntity extends ModdedProjectileEntity {
 
 	@Override
 	protected boolean hurtTarget(Entity target, @Nullable LivingEntity owner) {
-		if (target instanceof LivingEntity living && owner != null) {
-			// 1.16: hit effects only follow Hamon damage that lands
+		if (target instanceof LivingEntity living) {
+			// 1.16: hit effects only follow Hamon damage that lands; with no owner it is a hit of the bubble alone
 			return HamonAbilityHelpers.hamonHurt(living, getBaseDamage(), this, owner);
 		}
 		return false;

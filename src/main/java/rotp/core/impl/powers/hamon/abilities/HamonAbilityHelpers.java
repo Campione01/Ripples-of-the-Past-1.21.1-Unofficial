@@ -136,6 +136,18 @@ public final class HamonAbilityHelpers {
 				hamonDamageSource(target.level(), directEntity, causingEntity), sparkParticle);
 	}
 
+	// 1.16 DamageUtil.dealHamonDamage did not look at the amount: a hit of zero still went to hurt(), which a mob
+	// accepts (hurt animation, knockback, true) and a player refuses. hamonHurt refuses it for every target.
+	public static boolean hamonHurtAllowingZero(LivingEntity target, float baseDamage,
+			@Nullable Entity directEntity, @Nullable Entity causingEntity) {
+		if (targetHasHamonDamageImmunity(target)
+				|| hasSatiporojaScarf(target) && PlayerPower.getPowerData(target, ModPlayerPowers.HAMON).isPresent()) {
+			return false;
+		}
+		return hamonHurtWithAmountAndSparks(target, Math.max(hamonDamageAmount(target, baseDamage), 0.0F),
+				hamonDamageSource(target.level(), directEntity, causingEntity), null);
+	}
+
 	public static DamageSource hamonDamageSource(Level level, @Nullable Entity directEntity, @Nullable Entity causingEntity) {
 		return DamageUtil.make(level, ModDamageTypes.HAMON, directEntity, causingEntity);
 	}
