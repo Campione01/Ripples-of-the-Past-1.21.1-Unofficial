@@ -546,6 +546,14 @@ tasks.withType(JavaExec).configureEach {
     }
 }
 
+// A game test server that hangs fails its task instead of blocking the build: -ProtpGameTestTimeoutMinutes=N.
+tasks.withType(JavaExec).configureEach {
+    if (name ==~ /run.*GameTest.*/) {
+        timeout = java.time.Duration.ofMinutes(
+                (providers.gradleProperty('rotpGameTestTimeoutMinutes').orNull ?: '10') as long)
+    }
+}
+
 tasks.named('check').configure {
     dependsOn tasks.named('suspiciousArrowParticleSmokeTest')
     dependsOn tasks.named('rebuffFadePoseSmokeTest')
