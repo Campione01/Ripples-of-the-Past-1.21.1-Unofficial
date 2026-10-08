@@ -4,7 +4,9 @@ import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.init.ModDamageTypes;
+import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModItems;
+import rotp.core.init.ModSoundEvents;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
@@ -40,7 +42,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 /**
  * 1.16 HamonRebuffOverdrive: the user stands still (getWalkSpeed 0); only a melee hit from the front is countered, a
  * Stand's only with Hermit Purple out; any other hit while charging gets Hamon Protection's cut even with Protection
- * off; the client stopped the action once it had struck or reached its recovery (onWASDInput).
+ * off; the client stopped the action once it reached its recovery (onWASDInput; didAttack was never set on a client).
  * The user faces south (+Z); the attacker stands 1.5 blocks in front of or behind it.
  */
 @GameTestHolder(JojoMod.MOD_ID)
@@ -65,8 +67,46 @@ public final class HamonRebuffOverdriveGameTests {
 			helper.assertTrue(f.fistHitLanded(), "1.16 landed the user's fist after the Hamon: last hit=" + attacker.getLastDamageSource());
 			helper.assertTrue(action.getPhase() == ActionPhase.PERFORM, "The counter did not start the attack: " + action.getPhase());
 			helper.assertTrue(action.userWalkSpeed == 0.0F, "1.16 kept the user still while striking: walk speed=" + action.userWalkSpeed);
+			// 1.16 doCounterAttack: Joseph's line, on the 200 tick repeat guard
+			helper.assertTrue(!f.user.getData(ModDataAttachmentTypes.PLAYER_VOICE_LINES.get())
+					.checkNotRepeatingVoiceLine(ModSoundEvents.JOSEPH_REBUFF_OVERDRIVE, 200),
+					"1.16 said the Rebuff Overdrive line on a counter");
+			// 1.16 onWASDInput ran on the client, which never learned didAttack: the strike ran its 10 ticks, taking no
+			// damage, and the action ended when its recovery would start
+			f.tick(HamonRebuffOverdrive.PERFORM_TICKS - 1);
+			helper.assertTrue(f.component.getAction() == action && action.getPhase() == ActionPhase.PERFORM
+					&& action.userWalkSpeed == 0.0F,
+					"1.16 kept striking for 10 ticks after the counter: running=" + (f.component.getAction() == action)
+					+ " phase=" + action.getPhase() + " walk speed=" + action.userWalkSpeed);
+			f.user.invulnerableTime = 0;
+			f.user.hurt(helper.getLevel().damageSources().playerAttack(attacker), 4.0F);
+			helper.assertTrue(f.user.getHealth() == before, "1.16 took no damage while striking: health " + f.user.getHealth() + " of " + before);
 			f.tick(1);
-			helper.assertTrue(f.component.getAction() != action || action.isOver(), "1.16 ended Rebuff Overdrive once it had struck");
+			helper.assertTrue(f.component.getAction() == action && !action.isOver(),
+					"1.16 ended Rebuff Overdrive on the tick after its 10 striking ticks, not sooner");
+			f.tick(1);
+			helper.assertTrue(f.component.getAction() != action || action.isOver(),
+					"1.16 ended Rebuff Overdrive when the recovery would start");
+			helper.succeed();
+		}
+	}
+
+	// 1.16 playerTick + onWASDInput: 14 ticks of charge, 10 of strike, and the client ended the action on the next
+	// tick, the one that would start the recovery, whether or not anything was hit
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void whiffEndsWhenTheRecoveryWouldStart(GameTestHelper helper) {
+		try (Fixture f = new Fixture(helper)) {
+			EntityActionInstance action = f.start();
+			f.tick(HamonRebuffOverdrive.WINDUP_TICKS);
+			helper.assertTrue(f.component.getAction() == action && action.getPhase() == ActionPhase.PERFORM,
+					"1.16 struck after 14 ticks of charge: phase=" + action.getPhase());
+			f.tick(HamonRebuffOverdrive.PERFORM_TICKS);
+			helper.assertTrue(f.component.getAction() == action && !action.isOver() && action.userWalkSpeed == 0.0F,
+					"1.16 kept the user still for the 24 ticks of charge and strike: running="
+					+ (f.component.getAction() == action) + " over=" + action.isOver() + " walk speed=" + action.userWalkSpeed);
+			f.tick(1);
+			helper.assertTrue(f.component.getAction() != action || action.isOver(),
+					"1.16 ended a Rebuff Overdrive that hit nothing on its 25th tick, with no 16 tick recovery");
 			helper.succeed();
 		}
 	}

@@ -330,6 +330,7 @@ public class HamonData extends PlayerPowerData {
 		if (user.isAlive()) {
 			deathPerksTriggered = false;
 		}
+		tickRememberedAuraTechnique(getActionName(LivingComponentAction.getCurEntityAction(user)));
 		tickAirSupply(user);
 		setTrainingTicks(trainingTicks + 1);
 		giveBreathingTrainingBuffs(user);
@@ -451,6 +452,18 @@ public class HamonData extends PlayerPowerData {
 	}
 
 	private HamonAuraColor getThisTickAuraColor(LivingEntity user, String actionName) {
+		HamonAuraColor techniqueColor = tickRememberedAuraTechnique(actionName);
+		if (techniqueColor != null) {
+			return techniqueColor;
+		}
+		return passiveAuraColor(HamonAbilityHelpers.isItemWeapon(user.getMainHandItem()),
+				user.isEyeInFluid(FluidTags.WATER));
+	}
+
+	// Runs on the server too: the remembered technique goes to trackers with the tracking sync (toBuf), and it has
+	// to be forgotten there at energy 0 as on the clients.
+	@Nullable
+	private HamonAuraColor tickRememberedAuraTechnique(String actionName) {
 		HamonAuraColor actionColor = HamonAuraColor.fromAction(actionName);
 		if (actionColor != null) {
 			lastAuraAbility = actionName;
@@ -458,15 +471,9 @@ public class HamonData extends PlayerPowerData {
 		}
 		if (getEnergy() <= 0.0F) {
 			lastAuraAbility = null;
+			return null;
 		}
-		else {
-			HamonAuraColor lastColor = HamonAuraColor.fromLastUsed(lastAuraAbility);
-			if (lastColor != null) {
-				return lastColor;
-			}
-		}
-		return passiveAuraColor(HamonAbilityHelpers.isItemWeapon(user.getMainHandItem()),
-				user.isEyeInFluid(FluidTags.WATER));
+		return HamonAuraColor.fromLastUsed(lastAuraAbility);
 	}
 
 	private HamonAuraColor passiveAuraColor(boolean holdingWeapon, boolean underwater) {
@@ -2410,6 +2417,13 @@ public class HamonData extends PlayerPowerData {
 		// sent to trackers too, for the passive aura colour
 		buf.writeBoolean(isSkillLearned(ModHamonSkills.METAL_SILVER_OVERDRIVE.get()));
 		buf.writeBoolean(isSkillLearned(ModHamonSkills.TURQUOISE_BLUE_OVERDRIVE.get()));
+		// 1.16 TrHamonAuraColorPacket: trackers see no Hamon Protection toggle, which also replaces the remembered technique
+		if (isSentToTracking) {
+			buf.writeBoolean(lastAuraAbility != null);
+			if (lastAuraAbility != null) {
+				buf.writeUtf(lastAuraAbility, MAX_ABILITY_NAME_LENGTH);
+			}
+		}
 	}
 
 	@Override
@@ -2465,6 +2479,9 @@ public class HamonData extends PlayerPowerData {
 		float newWallClimbYRot = newWallClimbYRotSet ? buf.readFloat() : 0.0F;
 		boolean newMetalSilverLearned = buf.readBoolean();
 		boolean newTurquoiseBlueLearned = buf.readBoolean();
+		String newLastAuraAbility = isSentToTracking && buf.readBoolean()
+				? buf.readUtf(MAX_ABILITY_NAME_LENGTH)
+				: null;
 
 		applyBreathingLevelFromServer(newBreathingLevel);
 		hamonStrengthPoints = Mth.clamp(newStrengthPoints, 0, MAX_HAMON_POINTS);
@@ -2513,6 +2530,9 @@ public class HamonData extends PlayerPowerData {
 		wallClimbYRot = newWallClimbYRot;
 		trMetalSilverLearned = newMetalSilverLearned;
 		trTurquoiseBlueLearned = newTurquoiseBlueLearned;
+		if (isSentToTracking) {
+			lastAuraAbility = newLastAuraAbility;
+		}
 		applyTechniquePerks(false);
 	}
 

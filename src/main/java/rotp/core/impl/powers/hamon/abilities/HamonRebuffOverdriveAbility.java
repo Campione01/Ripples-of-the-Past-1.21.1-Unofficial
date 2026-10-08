@@ -259,8 +259,9 @@ public class HamonRebuffOverdriveAbility extends HamonActionRuntimeAbility {
 				}
 				return;
 			}
-			// 1.16 onWASDInput (every input tick): the action ended once it had struck or reached its recovery
-			if (didAttack || getPhase() == ActionPhase.RECOVERY) {
+			// 1.16 onWASDInput (every input tick, on the client): the action ended once it reached its recovery.
+			// Its didAttack test never held there, the flag was only set on the server, so a strike ran its 10 ticks.
+			if (getPhase() == ActionPhase.RECOVERY) {
 				forceStop();
 				syncPhaseChanges();
 				return;
@@ -326,7 +327,8 @@ public class HamonRebuffOverdriveAbility extends HamonActionRuntimeAbility {
 			if (!saidMistimedCounter) {
 				LivingEntity user = getPowerUser();
 				if (user != null && !level().isClientSide()) {
-					JojoModUtil.sayVoiceLine(user, ModSoundEvents.JOSEPH_OH_NO);
+					// 1.16: no repeat delay, and it cuts off a line that is still playing
+					JojoModUtil.sayVoiceLine(user, ModSoundEvents.JOSEPH_OH_NO, 1.0F, 1.0F, 0, true);
 				}
 				saidMistimedCounter = true;
 			}

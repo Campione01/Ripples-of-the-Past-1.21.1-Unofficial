@@ -140,7 +140,8 @@ public class PacketsRegister {
 	// 6: resolveboost carries maxAchievedValue; the synced special_action registry has stand_entity_block
 	// 7: knockbackrestick (1.16 KnockbackResTickPacket), serverid (1.16 ServerIdPacket)
 	// 11: trafkmenacing carries the idle player's UUID
-	public static final String NETWORK_PROTOCOL_VERSION = "11";
+	// 12: the Hamon tracking sync carries the technique the aura remembers
+	public static final String NETWORK_PROTOCOL_VERSION = "12";
 
 	public static void register(RegisterPayloadHandlersEvent event) {
 		PayloadRegistrar registrar = event.registrar(NETWORK_PROTOCOL_VERSION);

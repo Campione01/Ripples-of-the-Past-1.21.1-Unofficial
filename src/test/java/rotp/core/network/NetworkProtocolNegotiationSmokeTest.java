@@ -47,6 +47,9 @@ public final class NetworkProtocolNegotiationSmokeTest {
 				"trafkmenacing lost its owner; recheck the protocol version");
 		check(Integer.parseInt(PacketsRegister.NETWORK_PROTOCOL_VERSION) >= 11,
 				"the owner-tagged trafkmenacing payload requires core protocol v11 or later");
+		// a v11 peer would stop reading a tracked Hamon user's data before the remembered aura technique
+		check(Integer.parseInt(PacketsRegister.NETWORK_PROTOCOL_VERSION) >= 12,
+				"the Hamon tracking sync's remembered aura technique requires core protocol v12 or later");
 
 		var matching = NetworkComponentNegotiator.validateComponent(
 				requiredComponent(PacketsRegister.NETWORK_PROTOCOL_VERSION),
