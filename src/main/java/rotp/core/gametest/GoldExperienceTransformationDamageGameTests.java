@@ -94,7 +94,7 @@ public final class GoldExperienceTransformationDamageGameTests {
 		ServerLevel level = helper.getLevel();
 		GETransformationEntity transformation = ModEntityTypes.GE_LIFEFORM_TRANSFORMATION.get().create(level);
 		helper.assertTrue(transformation != null, "Could not create the transformation");
-		Vec3 pos = helper.absoluteVec(new Vec3(1.5, 2.0, 1.5));
+		Vec3 pos = helper.absoluteVec(new Vec3(0.5, 2.0, 0.5));
 		transformation.moveTo(pos.x, pos.y, pos.z, 0.0F, 0.0F);
 		transformation.withSourceItem(new ItemStack(Items.APPLE)).withTransformationTarget(lifeform).withDuration(duration);
 		helper.assertTrue(level.addFreshEntity(transformation), "Could not add the transformation");
