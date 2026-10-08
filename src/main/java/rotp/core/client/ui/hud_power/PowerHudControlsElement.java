@@ -763,9 +763,12 @@ public class PowerHudControlsElement extends HudElement {
 
 
 
+	/** 1.16 ActionsOverlayGui: brightness 0.2 and alpha 0.5 for an action that cannot be used. */
+	public static final int UNUSABLE_ICON_TINT = 0x80333333;
+
 	public static int abilityColor(int color, AbilityConditionCheck ability) {
 		if (!ability.conditionCheck.isPositive()) {
-			color = ARGB32.multiply(color, 0xFF606060);
+			color = ARGB32.multiply(color, UNUSABLE_ICON_TINT);
 		}
 		return color;
 	}

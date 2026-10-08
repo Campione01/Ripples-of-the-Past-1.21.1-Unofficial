@@ -18,6 +18,7 @@ import rotp.core.client.input.controlscheme.ClientControlScheme.HotbarSlot;
 import rotp.core.client.standskin.StandSkin;
 import rotp.core.client.standskin.StandSkinsLoader;
 import rotp.core.client.standskin.sprites.AbilityIconSprites;
+import rotp.core.client.ui.hud_power.PowerHudControlsElement;
 import rotp.core.client.ui.utils.BlitFloat;
 import rotp.core.client.ui.utils.tooltip.TooltipParams;
 import rotp.core.client.util.ClientCursorUtil;
@@ -247,7 +248,7 @@ public class AbilitySelectionWheel extends Screen implements ScreenLetsUseWASD {
 				int[] iconPos = posAtSector(i, n, 75);
 				float iconWidth = 16;
 				float iconHeight = 16;
-				int iconColor = ability.conditionCheck.isPositive() ? BlitFloat.NO_TINT : 0xFF606060;
+				int iconColor = PowerHudControlsElement.abilityColor(BlitFloat.NO_TINT, ability);
 				BlitFloat.blit(pose, minecraft, abilitySprite, 
 						iconPos[0] - iconWidth / 2, iconPos[1] - iconHeight / 2, iconWidth, iconHeight, 0, iconColor);
 				tooltipObstacles.add(new ScreenRectangle(
