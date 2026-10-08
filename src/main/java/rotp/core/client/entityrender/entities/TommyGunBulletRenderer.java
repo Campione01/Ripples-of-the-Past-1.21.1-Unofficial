@@ -13,16 +13,17 @@ import com.mojang.math.Axis;
 
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 public class TommyGunBulletRenderer extends EntityRenderer<TommyGunBulletEntity> {
 	private static final ResourceLocation TRAIL_TEX = JojoMod.resLoc("textures/entity/projectiles/bullet_trace.png");
 	private static final double MAX_TRAIL_LEN = 4.0D;
-	private static final float V1 = 0.015625F;
 	private static final float BEAM_WIDTH = 0.015F;
 	private static final double BULLET_U = 0.015625D;
 
@@ -33,6 +34,13 @@ public class TommyGunBulletRenderer extends EntityRenderer<TommyGunBulletEntity>
 	@Override
 	public ResourceLocation getTextureLocation(TommyGunBulletEntity entity) {
 		return TRAIL_TEX;
+	}
+
+	// 1.16: the trail stays drawn after the bullet's own box has left the screen
+	@Override
+	public boolean shouldRender(TommyGunBulletEntity entity, Frustum frustum, double camX, double camY, double camZ) {
+		return super.shouldRender(entity, frustum, camX, camY, camZ)
+				|| entity.initialPos != null && frustum.isVisible(new AABB(entity.initialPos, entity.position()));
 	}
 
 	@Override
@@ -95,42 +103,16 @@ public class TommyGunBulletRenderer extends EntityRenderer<TommyGunBulletEntity>
 		poseStack.mulPose(Axis.YP.rotationDegrees(-90.0F - yRot));
 		poseStack.mulPose(Axis.ZP.rotationDegrees(-xRot));
 		poseStack.scale(1.0F, BEAM_WIDTH, BEAM_WIDTH);
-		float length = (float) trailSegmentVec.length();
-		if (first) {
-			renderFront(poseStack, vertexBuilder);
-		}
-		for (int i = 0; i < 4; i++) {
-			poseStack.mulPose(Axis.XP.rotationDegrees(90.0F));
-			renderSide(poseStack, vertexBuilder, length, u0, u1);
-		}
+		PoseStack.Pose pose = poseStack.last();
+		// 1.16 lit every trail vertex as world-up, so the normal is not turned by the segment's pose
+		TommyGunTrailShell.emit((float) trailSegmentVec.length(), u0, u1, first, (x, y, z, u, v) ->
+				vertexBuilder.addVertex(pose.pose(), x, y, z)
+						.setColor(0xFFFFFFFF)
+						.setUv(u, v)
+						.setOverlay(OverlayTexture.NO_OVERLAY)
+						.setLight(ClientUtil.MAX_LIGHT)
+						.setNormal(0.0F, 1.0F, 0.0F));
 		poseStack.popPose();
 		poseStack.translate(trailSegmentVec.x, trailSegmentVec.y, trailSegmentVec.z);
-	}
-
-	private static void renderSide(PoseStack poseStack, VertexConsumer vertexBuilder, float length, float u0, float u1) {
-		vertex(poseStack, vertexBuilder, 0.0F, -1.0F, 0.0F, u1, 0.0F);
-		vertex(poseStack, vertexBuilder, length, -1.0F, 0.0F, u0, 0.0F);
-		vertex(poseStack, vertexBuilder, length, 1.0F, 0.0F, u0, V1);
-		vertex(poseStack, vertexBuilder, 0.0F, 1.0F, 0.0F, u1, V1);
-	}
-
-	private static void renderFront(PoseStack poseStack, VertexConsumer vertexBuilder) {
-		poseStack.pushPose();
-		poseStack.mulPose(Axis.YP.rotationDegrees(90.0F));
-		vertex(poseStack, vertexBuilder, -1.0F, -1.0F, 0.0F, V1, V1);
-		vertex(poseStack, vertexBuilder, 1.0F, -1.0F, 0.0F, 0.0F, V1);
-		vertex(poseStack, vertexBuilder, 1.0F, 1.0F, 0.0F, 0.0F, V1 * 2.0F);
-		vertex(poseStack, vertexBuilder, -1.0F, 1.0F, 0.0F, V1, V1 * 2.0F);
-		poseStack.popPose();
-	}
-
-	private static void vertex(PoseStack poseStack, VertexConsumer vertexBuilder, float x, float y, float z, float u, float v) {
-		PoseStack.Pose pose = poseStack.last();
-		vertexBuilder.addVertex(pose.pose(), x, y, z)
-				.setColor(0xFFFFFFFF)
-				.setUv(u, v)
-				.setOverlay(OverlayTexture.NO_OVERLAY)
-				.setLight(ClientUtil.MAX_LIGHT)
-				.setNormal(pose, 0.0F, 1.0F, 0.0F);
 	}
 }

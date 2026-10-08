@@ -185,7 +185,7 @@ public abstract class DamagingEntity extends Projectile implements IEntityWithCo
 			LivingEntity owner = getOwner();
 			boolean entityHurt = hurtTarget(target, owner);
 			int prevTargetFireTimer = target.getRemainingFireTicks();
-			if (isOnFire()) {
+			if (ignitesTargetAfterHit()) {
 				target.igniteForSeconds(5);
 			}
 			if (entityHurt) {
@@ -211,6 +211,10 @@ public abstract class DamagingEntity extends Projectile implements IEntityWithCo
 
 	protected boolean checkPvpRules() {
 		return true;
+	}
+
+	protected boolean ignitesTargetAfterHit() {
+		return isOnFire();
 	}
 
 	protected boolean hurtTarget(Entity target, @Nullable LivingEntity owner) {

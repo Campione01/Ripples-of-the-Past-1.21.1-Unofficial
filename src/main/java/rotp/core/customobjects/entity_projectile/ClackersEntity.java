@@ -206,12 +206,21 @@ public class ClackersEntity extends ModdedProjectileEntity {
 		if (owner != null) {
 			owner.setLastHurtMob(target);
 		}
+		// 1.16 ItemProjectileEntity.onHitEntity: lit before the hit, except an Enderman, which dodges
+		int prevTargetFireTimer = target.getRemainingFireTicks();
+		if (isOnFire() && target.getType() != EntityType.ENDERMAN) {
+			target.igniteForSeconds(5);
+		}
 		boolean projectileAttack = target.hurt(getDamageSource(owner), (float) (getDeltaMovement().length() * 2.0D));
 		boolean hamonAttack = false;
-		if (target instanceof LivingEntity livingTarget && owner != null && hamonDmg > 0.0F) {
+		// 1.16 dealHamonDamage with no thrower: a hit of the Clackers alone
+		if (target instanceof LivingEntity livingTarget && hamonDmg > 0.0F) {
 			hamonAttack = HamonAbilityHelpers.hamonHurt(livingTarget, hamonDmg, this, owner);
 		}
 		boolean hitTarget = projectileAttack || hamonAttack;
+		if (!hitTarget) {
+			target.setRemainingFireTicks(prevTargetFireTimer);
+		}
 		if (!level().isClientSide() && hitTarget) {
 			LivingEntity shooter = getOwner();
 			if (shooter != null && hamonEnergySpent > 0.0F) {
@@ -223,6 +232,11 @@ public class ClackersEntity extends ModdedProjectileEntity {
 			boomerangHit = true;
 		}
 		return hitTarget;
+	}
+
+	@Override
+	protected boolean ignitesTargetAfterHit() {
+		return false;
 	}
 
 	@Override
