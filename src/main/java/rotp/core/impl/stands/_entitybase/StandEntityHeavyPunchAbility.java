@@ -202,6 +202,13 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 			}
 		}
 
+		// 1.16 StandEntityAction.getUserWalkSpeed: the builder default 0.5, and 1 in recovery
+		@Override
+		public void onSetPhase(ActionPhase newPhase) {
+			super.onSetPhase(newPhase);
+			userWalkSpeed = newPhase == null || newPhase == ActionPhase.RECOVERY ? 1.0F : 0.5F;
+		}
+
 		@Override
 		public void actionTick() {
 			Level level = performer.level();

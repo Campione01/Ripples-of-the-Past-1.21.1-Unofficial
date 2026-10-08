@@ -149,9 +149,10 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 		if (!isCurrentlyInStoppedTime(user) && hasUncancellableStandAction(power)) {
 			return ConditionCheck.NEGATIVE;
 		}
-		return hasEnoughTimeStopStamina(power)
-				? ConditionCheck.POSITIVE
-				: ConditionCheck.createNegative("no_stamina");
+		// 1.16 had no stamina gate here: a start the bar cannot pay empties it and the stop ends on its first tick
+		return isTimeStopStartDenied(power)
+				? ConditionCheck.createNegative("no_stamina")
+				: ConditionCheck.POSITIVE;
 	}
 
 	@Override
@@ -355,18 +356,11 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 		return false;
 	}
 
-	private boolean hasEnoughTimeStopStamina(StandPower power) {
+	private boolean isTimeStopStartDenied(StandPower power) {
 		float defaultCost = TimeStopLearning.getTimeStopStaminaCost(
 				power, getLearningAbilityName(), TimeStopLearning.MIN_RELEASE_TIME_STOP_TICKS);
-		TimeStopStartupCostDecision decision =
-				TimeStopBehaviorPolicies.resolveStartupCost(
-						power, abilityId, null, defaultCost);
-		return !decision.isDenied()
-				&& (power.isUserCreative()
-						|| power.getStamina()
-								>= effectiveTimeStopStaminaCost(
-										power,
-										decision.resolve(defaultCost)));
+		return TimeStopBehaviorPolicies.resolveStartupCost(
+				power, abilityId, null, defaultCost).isDenied();
 	}
 
 	private static float effectiveTimeStopStaminaCost(StandPower power, float amount) {
@@ -492,13 +486,16 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 		float timeStopStaminaCost = effectiveTimeStopStaminaCost(
 				power, startupCost.resolve(defaultStaminaCost));
 		float staminaBefore = power.getStamina();
-		if (!power.consumeStamina(timeStopStaminaCost, false)) {
-			ConditionCheck.sendActionFailedMessage(
-					this, ConditionCheck.createNegative("no_stamina"), user);
-			return false;
-		}
+		// 1.16 StandAction.consumeStamina ignored the result: a start the bar cannot pay empties it and still begins
+		boolean startPaid = power.consumeStamina(timeStopStaminaCost, false);
 		// what the start really took (0 with infinite stamina); the early-resume refund is a share of it
 		float chargedStartCost = Math.max(staminaBefore - power.getStamina(), 0.0F);
+		if (!startPaid) {
+			// 1.16 ended an unpaid stop on its first tick with the bar at 0: no opening to wait out, nothing to refund
+			chargedStartCost = 0.0F;
+			instance = instance.withStartupDelay(0);
+			startEvent.setInstance(instance);
+		}
 		int startupDelay = Math.max(-instance.ticksPassed(), 0);
 		int statusDuration = (int) Math.min(
 				(long) instance.ticksLeft() + startupDelay,

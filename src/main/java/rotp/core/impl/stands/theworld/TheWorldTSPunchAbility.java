@@ -278,6 +278,13 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 			}
 		}
 
+		// 1.16 the_world_ts_punch: standUserWalkSpeed(1.0F)
+		@Override
+		public void onSetPhase(ActionPhase newPhase) {
+			super.onSetPhase(newPhase);
+			userWalkSpeed = 1.0F;
+		}
+
 		@Override
 		public void onActionCleared(EntityActionInstance newAction) {
 			if (performer instanceof StandEntity stand) {
