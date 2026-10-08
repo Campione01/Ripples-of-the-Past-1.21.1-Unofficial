@@ -94,7 +94,6 @@ public final class ModEntityTypes {
 		event.put(MANNEQUIN.get(), ArmorStand.createAttributes().build());
 		event.put(COCO_JUMBO_TURTLE.get(), CocoJumboTurtleEntity.createAttributes().build());
 		event.put(RPS_KID.get(), RockPaperScissorsKidEntity.createAttributes().build());
-		event.put(GE_LIFEFORM_TRANSFORMATION.get(), rotp.core.impl.stands.goldexperience.GETransformationEntity.createAttributes().build());
 		event.put(HUNGRY_ZOMBIE.get(), HungryZombieEntity.createAttributes().build());
 		event.put(HAMON_MASTER.get(), HamonMasterEntity.createAttributes().build());
 	}

@@ -39,10 +39,7 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MoverType;
-import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.entity.Pose;
-import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
-import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.Container;
@@ -61,7 +58,7 @@ import net.neoforged.neoforge.common.util.BlockSnapshot;
 import net.neoforged.neoforge.entity.IEntityWithComplexSpawn;
 import net.neoforged.neoforge.event.EventHooks;
 
-public class GETransformationEntity extends PathfinderMob implements IEntityWithComplexSpawn {
+public class GETransformationEntity extends Entity implements IEntityWithComplexSpawn {
     private static final int TURN_BACK_TICKS = 10;
     private static final EntityDataAccessor<Boolean> DATA_TURNING_BACK = SynchedEntityData.defineId(GETransformationEntity.class,
             EntityDataSerializers.BOOLEAN);
@@ -184,8 +181,8 @@ public class GETransformationEntity extends PathfinderMob implements IEntityWith
     }
 
     @Override
-    public EntityDimensions getDefaultDimensions(Pose pose) {
-        EntityDimensions dimensions = super.getDefaultDimensions(pose);
+    public EntityDimensions getDimensions(Pose pose) {
+        EntityDimensions dimensions = super.getDimensions(pose);
         float progressTime = getTfProgressTime(0.0F);
         float renderAsItemTime = getRenderAsItemTime();
         if (progressTime < renderAsItemTime) {
@@ -277,13 +274,13 @@ public class GETransformationEntity extends PathfinderMob implements IEntityWith
             tickHost();
         }
         if (!isRemoved()) {
+            tickMovement();
             refreshDimensions();
         }
         super.tick();
     }
 
-    @Override
-    public void travel(Vec3 travelVector) {
+    private void tickMovement() {
         double fluidHeight = getEyeHeight() - 0.11111111D;
         Vec3 deltaMovement = getDeltaMovement();
         if (isInWater() && getFluidHeight(FluidTags.WATER) > fluidHeight) {
@@ -712,16 +709,8 @@ public class GETransformationEntity extends PathfinderMob implements IEntityWith
         }
     }
 
-    public static AttributeSupplier.Builder createAttributes() {
-        return PathfinderMob.createMobAttributes()
-                .add(Attributes.MAX_HEALTH, 8.0)
-                .add(Attributes.MOVEMENT_SPEED, 0.25)
-                .add(Attributes.FOLLOW_RANGE, 16.0);
-    }
-
     @Override
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
-        super.defineSynchedData(builder);
         builder.define(DATA_TURNING_BACK, false);
     }
 
@@ -899,7 +888,6 @@ public class GETransformationEntity extends PathfinderMob implements IEntityWith
 
     @Override
     public void addAdditionalSaveData(CompoundTag nbt) {
-        super.addAdditionalSaveData(nbt);
         nbt.putInt("GEAge", tickCount);
         nbt.putInt("GEDuration", duration);
         nbt.putFloat("GERenderAsItemTime", renderAsItemTime);
@@ -943,7 +931,6 @@ public class GETransformationEntity extends PathfinderMob implements IEntityWith
 
     @Override
     public void readAdditionalSaveData(CompoundTag nbt) {
-        super.readAdditionalSaveData(nbt);
         tickCount = nbt.getInt("GEAge");
         duration = nbt.getInt("GEDuration");
         renderAsItemTime = nbt.contains("GERenderAsItemTime", Tag.TAG_FLOAT)
