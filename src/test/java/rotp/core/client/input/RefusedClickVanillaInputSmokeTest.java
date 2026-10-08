@@ -4,35 +4,53 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import rotp.core.powersystem.ability.condition.ConditionCheck;
+import rotp.core.powersystem.ability.controls.InputMethod;
+
 /**
- * 1.16 InputHandler.handleMouseClickPowerHud: the vanilla click is cancelled only when the action went off, so a
- * refused click ability (no energy, no target, a missing skill) leaves the player's own left click alone.
+ * 1.16 InputHandler.handleMouseClickPowerHud and handleCustomKeybind: the vanilla input is cancelled only when the
+ * action went off, on every key and for every power, so a refused ability (no energy, no target, a cooldown, a
+ * missing skill) leaves the player's own click alone. A hold action that does not start is refused the same way.
  */
 public final class RefusedClickVanillaInputSmokeTest {
 	private RefusedClickVanillaInputSmokeTest() {}
 
 	public static void main(String[] args) {
-		// attackKey, standScheme, holdAbilityResolved, clickAbilityResolved, clickAbilityUsable
-		check(!InputHandler.shouldCancelVanillaForAbilityPress(true, false, false, true, false),
-				"a refused click ability on the attack key of a non-Stand HUD must let the vanilla left click through");
-		check(InputHandler.shouldCancelVanillaForAbilityPress(true, false, false, true, true),
-				"a click ability that goes off on the attack key must cancel the vanilla left click");
-		check(InputHandler.shouldCancelVanillaForAbilityPress(true, false, true, true, false),
-				"a hold ability on the attack key must keep the key even when the click ability is refused");
-		check(InputHandler.shouldCancelVanillaForAbilityPress(true, false, true, false, false),
-				"a hold ability alone on the attack key must cancel the vanilla left click");
-		check(!InputHandler.shouldCancelVanillaForAbilityPress(true, false, false, false, false),
-				"an attack key without any ability must stay vanilla");
-		check(!InputHandler.shouldCancelVanillaForAbilityPress(false, false, false, false, false)
-				&& !InputHandler.shouldCancelVanillaForAbilityPress(true, true, false, false, false)
-				&& !InputHandler.shouldCancelVanillaForAbilityPress(false, true, false, false, false),
-				"a key without any ability must stay vanilla on every key and scheme");
-		check(InputHandler.shouldCancelVanillaForAbilityPress(false, false, false, true, false),
-				"a refused click ability on a key other than the attack key must keep cancelling the key (out of scope)");
-		check(InputHandler.shouldCancelVanillaForAbilityPress(true, true, false, true, false),
-				"a refused click ability in a Stand scheme must keep cancelling the attack key (out of scope)");
-		check(InputHandler.shouldCancelVanillaForAbilityPress(false, true, false, true, false),
-				"a refused click ability in a Stand scheme must keep cancelling other keys (out of scope)");
+		ConditionCheck usable = ConditionCheck.POSITIVE;
+		ConditionCheck refused = ConditionCheck.NEGATIVE;
+		ConditionCheck keepsHolding = ConditionCheck.NEGATIVE_CONTINUE_HOLD;
+
+		// hold ability on the key, click ability on the key (null: none bound)
+		check(!InputHandler.shouldCancelVanillaForAbilityPress(null, refused),
+				"a refused click ability must let the vanilla input of its key through");
+		check(InputHandler.shouldCancelVanillaForAbilityPress(null, usable),
+				"a click ability that goes off must cancel the vanilla input of its key");
+		check(!InputHandler.shouldCancelVanillaForAbilityPress(refused, null),
+				"a hold ability whose start is refused must let the vanilla input of its key through");
+		check(InputHandler.shouldCancelVanillaForAbilityPress(usable, null),
+				"a hold ability that starts must cancel the vanilla input of its key");
+		check(InputHandler.shouldCancelVanillaForAbilityPress(keepsHolding, null),
+				"a hold ability that starts without a valid target yet must cancel the vanilla input of its key");
+		check(!InputHandler.shouldCancelVanillaForAbilityPress(null, keepsHolding),
+				"a click ability has no hold to continue: a refused one must let the vanilla input through");
+		check(!InputHandler.shouldCancelVanillaForAbilityPress(refused, refused),
+				"a key whose hold and click abilities are both refused must stay vanilla");
+		check(InputHandler.shouldCancelVanillaForAbilityPress(usable, refused),
+				"a hold ability that starts must keep the key even when the click ability is refused");
+		check(InputHandler.shouldCancelVanillaForAbilityPress(refused, usable),
+				"a click ability that can go off must keep the key even when the hold ability is refused");
+		check(!InputHandler.shouldCancelVanillaForAbilityPress(null, null),
+				"a key without any ability must stay vanilla");
+
+		check(InputHandler.abilityPressGoesOff(usable, InputMethod.CLICK)
+				&& InputHandler.abilityPressGoesOff(usable, InputMethod.HOLD)
+				&& InputHandler.abilityPressGoesOff(keepsHolding, InputMethod.HOLD)
+				&& !InputHandler.abilityPressGoesOff(keepsHolding, InputMethod.CLICK)
+				&& !InputHandler.abilityPressGoesOff(refused, InputMethod.CLICK)
+				&& !InputHandler.abilityPressGoesOff(refused, InputMethod.HOLD)
+				&& !InputHandler.abilityPressGoesOff(null, InputMethod.CLICK)
+				&& !InputHandler.abilityPressGoesOff(null, InputMethod.HOLD),
+				"an ability press goes off when its check is positive, or for a hold when the hold may continue");
 
 		Path root = Path.of(System.getProperty("user.dir"));
 		String inputHandler = read(root.resolve(
@@ -40,18 +58,27 @@ public final class RefusedClickVanillaInputSmokeTest {
 		int inputMethod = inputHandler.indexOf("public boolean input(ClientKey key, int inputType, int modifiers)");
 		int resolved = inputHandler.indexOf("getInputAbilitiesOnClick(controlScheme, key, keyModifier)", inputMethod);
 		int decision = inputHandler.indexOf("cancelVanilla |= shouldCancelVanillaForAbilityPress(", resolved);
-		int attackKey = inputHandler.indexOf(
-				"key.equals(ClientKey.fromVanillaKeybind(mc.options.keyAttack))", decision);
-		int standScheme = inputHandler.indexOf("controlScheme.powerClassCosmetic == PowerClass.STAND", attackKey);
-		int usable = inputHandler.indexOf(
-				"clickAbility != null && clickAbility.curActiveAbility.conditionCheck.isPositive()", standScheme);
-		int timer = inputHandler.indexOf("new HeldKeyTimer(key, cancelVanilla, keyModifier)", usable);
-		check(inputMethod >= 0 && resolved > inputMethod && decision > resolved && attackKey > decision
-				&& standScheme > attackKey && usable > standScheme && timer > usable,
-				"InputHandler.input must take the vanilla cancel of an ability press from the refused-click rule"
-				+ " before it stores the held key");
+		int hold = inputHandler.indexOf(
+				"heldAbility != null ? heldAbility.curActiveAbility.conditionCheck : null,", decision);
+		int click = inputHandler.indexOf(
+				"clickAbility != null ? clickAbility.curActiveAbility.conditionCheck : null);", hold);
+		int timer = inputHandler.indexOf("new HeldKeyTimer(key, cancelVanilla, keyModifier)", click);
+		check(inputMethod >= 0 && resolved > inputMethod && decision > resolved && hold > decision
+				&& click > hold && timer > click,
+				"InputHandler.input must take the vanilla cancel of an ability press from the client checks of the"
+				+ " hold and click abilities before it stores the held key");
+		String decisionCall = inputHandler.substring(decision, timer);
+		check(!decisionCall.contains("keyAttack") && !decisionCall.contains("keyUse")
+				&& !decisionCall.contains("PowerClass.STAND"),
+				"the refused-press rule must not depend on the key or on the power class of the control scheme");
 		check(!inputHandler.contains("cancelVanilla |= heldAbility != null || clickAbility != null"),
 				"InputHandler.input still cancels the vanilla click for every bound ability");
+
+		int send = inputHandler.indexOf("private void doClickInput(InputEventType type, ClientKey key,");
+		int sendEnd = inputHandler.indexOf("private void doReleaseInput(short keyId)", send);
+		check(send >= 0 && sendEnd > send
+				&& inputHandler.substring(send, sendEnd).contains("if (abilityPressGoesOff(conditionCheck, inputMethod)) {"),
+				"the local start of an ability press and the vanilla cancel must use the same went-off rule");
 
 		System.out.println("Refused click vanilla input smoke test passed");
 	}

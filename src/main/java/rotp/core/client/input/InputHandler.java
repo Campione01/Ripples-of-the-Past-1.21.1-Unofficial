@@ -628,11 +628,8 @@ public class InputHandler {
 				@Nullable BaseAndActiveAbility clickAbility = input.clickAbility.curActiveAbility != null ? input.clickAbility : null;
 				
 				cancelVanilla |= shouldCancelVanillaForAbilityPress(
-						key.equals(ClientKey.fromVanillaKeybind(mc.options.keyAttack)),
-						controlScheme.powerClassCosmetic == PowerClass.STAND,
-						heldAbility != null,
-						clickAbility != null,
-						clickAbility != null && clickAbility.curActiveAbility.conditionCheck.isPositive());
+						heldAbility != null ? heldAbility.curActiveAbility.conditionCheck : null,
+						clickAbility != null ? clickAbility.curActiveAbility.conditionCheck : null);
 				HeldKeyTimer heldKeyTimer = new HeldKeyTimer(key, cancelVanilla, keyModifier);
 				
 				int ambiguity = 0;
@@ -704,22 +701,20 @@ public class InputHandler {
 		return cancelVanilla;
 	}
 
-	// 1.16 handleMouseClickPowerHud cancelled the vanilla click only when the action went off, so a refused click
-	// ability left the player's own punch or mining alone. Kept to the attack key of the non-Stand schemes.
+	// 1.16 handleMouseClickPowerHud and handleCustomKeybind cancelled the vanilla input only when the action went off,
+	// on every key and for every power; a refused press left the player's own click alone.
 	@ApiStatus.Internal
 	public static boolean shouldCancelVanillaForAbilityPress(
-			boolean attackKey,
-			boolean standScheme,
-			boolean holdAbilityResolved,
-			boolean clickAbilityResolved,
-			boolean clickAbilityUsable) {
-		if (holdAbilityResolved) {
-			return true;
-		}
-		if (!clickAbilityResolved) {
-			return false;
-		}
-		return clickAbilityUsable || !attackKey || standScheme;
+			@Nullable ConditionCheck holdAbility,
+			@Nullable ConditionCheck clickAbility) {
+		return abilityPressGoesOff(holdAbility, InputMethod.HOLD)
+				|| abilityPressGoesOff(clickAbility, InputMethod.CLICK);
+	}
+
+	@ApiStatus.Internal
+	public static boolean abilityPressGoesOff(@Nullable ConditionCheck conditionCheck, InputMethod inputMethod) {
+		return conditionCheck != null
+				&& (conditionCheck.isPositive() || inputMethod == InputMethod.HOLD && conditionCheck.shouldContinueHold());
 	}
 
 	private static boolean isGuardClickAmbiguity(@Nullable BaseAndActiveAbility heldAbility, @Nullable BaseAndActiveAbility clickAbility) {
@@ -767,7 +762,7 @@ public class InputHandler {
 
 		ConditionCheck conditionCheck = abilityResolved.conditionCheck;
 		InputMethod inputMethod = type.inputMethod;
-		if (conditionCheck.isPositive() || inputMethod == InputMethod.HOLD && conditionCheck.shouldContinueHold()) {
+		if (abilityPressGoesOff(conditionCheck, inputMethod)) {
 			BufferingState bufferingState = BufferingState.clickCanBuffer();
 			Ability ability = abilityResolved.ability;
 			lastActionKey = key;
