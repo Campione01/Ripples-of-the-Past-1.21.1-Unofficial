@@ -50,6 +50,7 @@ public class HamonProtectionAbility extends Ability {
 
 	@Override
 	public void onClick(Level level, LivingEntity user, FriendlyByteBuf extraClientInput) {
+		HamonData.setLastAuraAbility(user, this);
 		if (level.isClientSide()) {
 			return;
 		}

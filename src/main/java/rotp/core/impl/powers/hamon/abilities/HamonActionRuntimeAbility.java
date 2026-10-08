@@ -377,12 +377,32 @@ public class HamonActionRuntimeAbility extends EntityActionAbility {
 		return context != null && context.getUser() instanceof Player player && player.getAbilities().instabuild;
 	}
 
+	// 1.16 HamonAction.changesAuraColor: whether using the technique replaces the one the aura remembers.
+	protected boolean changesAuraColor() {
+		return true;
+	}
+
 	public static class HamonRuntimeActionInstance extends EntityActionInstance {
 		private boolean runtimeApplied;
 		private boolean pressShoutPlayed;
 
 		public HamonRuntimeActionInstance(EntityActionType ability) {
 			super(ability);
+		}
+
+		// 1.16 HamonAction.afterClick: an accepted technique becomes the one the aura takes its colour from.
+		// Here rather than in onActionSet, which the techniques override.
+		@Override
+		public void _onActionStarted(@Nullable EntityActionInstance prevAction) {
+			HamonActionRuntimeAbility technique = hamonAbility();
+			LivingEntity user = getPowerUser();
+			if (technique != null && user != null && technique.changesAuraColor()) {
+				HamonData hamon = technique.getHamonData(technique.getUserPower(user));
+				if (hamon != null) {
+					hamon.setLastAuraAbility(technique.name());
+				}
+			}
+			super._onActionStarted(prevAction);
 		}
 
 		@Override

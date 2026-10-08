@@ -79,7 +79,7 @@
 	"clackers.ArmorStandClackersMixin",
 	"clackers.WitherBossClackersMixin",
 	"clackers.MinecartTNTClackersMixin",
-	"clackers.EnderManClackersMixin",
+	"hamon.EnderManIndirectHamonMixin",
 	
 	"KnockbackEntityCollision",
 	"ProjectileHighSpeedSync",

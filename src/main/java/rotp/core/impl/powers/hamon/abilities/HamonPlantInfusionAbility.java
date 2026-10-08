@@ -59,6 +59,7 @@ public class HamonPlantInfusionAbility extends HamonActionRuntimeAbility {
 			LivingEntity user = getPowerUser();
 			if (user != null) {
 				captureActionTargetFromAim(user);
+				HamonData.setLastAuraAbility(user, this);
 			}
 		}
 

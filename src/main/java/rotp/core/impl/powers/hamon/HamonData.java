@@ -30,6 +30,7 @@ import rotp.core.init.ModItems;
 import rotp.core.init.ModParticles;
 import rotp.core.init.ModSoundEvents;
 import rotp.core.init.ModStatusEffects;
+import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.mechanics.JojoDefinitions;
 import rotp.core.mixin.hamon.ServerPlayerGameModeAccessor;
 import rotp.core.network.NetworkPayloadValidation;
@@ -459,7 +460,7 @@ public class HamonData extends PlayerPowerData {
 			lastAuraAbility = null;
 		}
 		else {
-			HamonAuraColor lastColor = HamonAuraColor.fromAction(lastAuraAbility);
+			HamonAuraColor lastColor = HamonAuraColor.fromLastUsed(lastAuraAbility);
 			if (lastColor != null) {
 				return lastColor;
 			}
@@ -480,10 +481,19 @@ public class HamonData extends PlayerPowerData {
 		return HamonAuraColor.ORANGE;
 	}
 
-	// 1.16 HamonAction.afterClick -> setLastUsedAction: the aura takes the colour of the technique used last.
-	// For a technique that is over within a tick, which the aura tick may never see running.
+	// 1.16 HamonAction.afterClick -> setLastUsedAction: the aura takes the colour of the technique used last,
+	// and the passive colour when that technique has none.
 	public void setLastAuraAbility(@Nullable String abilityName) {
 		lastAuraAbility = abilityName;
+	}
+
+	// For the Hamon techniques that are no HamonRuntimeActionInstance, which records its own start.
+	public static void setLastAuraAbility(LivingEntity user, Ability technique) {
+		PlayerPower.getPowerData(user, ModPlayerPowers.HAMON).ifPresent(hamon -> hamon.setLastAuraAbility(technique.name()));
+	}
+
+	public static void setLastAuraAbility(LivingEntity user, EntityActionInstance technique) {
+		PlayerPower.getPowerData(user, ModPlayerPowers.HAMON).ifPresent(hamon -> hamon.setLastAuraAbility(getActionName(technique)));
 	}
 
 	// Gametest hook: passive aura colour name as a client would draw it
@@ -548,6 +558,11 @@ public class HamonData extends PlayerPowerData {
 				}
 			}
 			return null;
+		}
+
+		// 1.16 getThisTickAuraColor: the S.Y.O. Barrage is yellow only while it runs, not as the technique used last
+		private static HamonAuraColor fromLastUsed(String ability) {
+			return "sunlight_yellow_overdrive_barrage".equals(ability) ? null : fromAction(ability);
 		}
 
 		private ParticleOptions particleType() {

@@ -142,11 +142,6 @@ public class HamonOverdriveAbility extends HamonActionRuntimeAbility {
 				return;
 			}
 			captureActionTargetFromAim(user);
-			// 1.16 HamonAction.afterClick: the aura takes the colour of the technique used last.
-			HamonData hamon = overdrive.getHamonData(overdrive.getUserPower(user));
-			if (hamon != null) {
-				hamon.setLastAuraAbility(overdrive.name());
-			}
 		}
 
 		@Override

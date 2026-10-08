@@ -2,8 +2,10 @@ package rotp.core.impl.powers.hamon.entity;
 
 import javax.annotation.Nullable;
 
+import rotp.core.client.particle.CustomParticlesHelper;
 import rotp.core.customobjects.entity_projectile.ModdedProjectileEntity;
 import rotp.core.init.ModEntityTypes;
+import rotp.core.init.ModSoundEvents;
 import rotp.core.init.ModStatusEffects;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
@@ -16,6 +18,7 @@ import rotp.core.impl.powers.hamon.abilities.HamonBubbleBarrierAbility;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -77,6 +80,15 @@ public class HamonBubbleBarrierEntity extends ModdedProjectileEntity {
 			else if (barrier && tickCount % 5 % 2 == 0 && getFirstPassenger() instanceof LivingEntity captive) {
 				HamonAbilityHelpers.hamonHurt(captive, 0.002F, this, getOwner());
 			}
+		}
+		else {
+			// 1.16 HamonBubbleBarrierEntity.tick: on every client tick one spark on the bubble's surface, with the
+			// spark sound at 0.2 (HamonUtil.emitHamonSparkParticles at intensity 0.1).
+			Vec3 sparkPos = Vec3.directionFromRotation(random.nextFloat() * 360F, random.nextFloat() * 360F)
+					.scale(getBbWidth() / 2).add(getX(), getY(0.5D), getZ());
+			CustomParticlesHelper.createHamonSparkParticles(null, sparkPos, 1);
+			level().playLocalSound(sparkPos.x, sparkPos.y, sparkPos.z, ModSoundEvents.HAMON_SPARK.get(), SoundSource.AMBIENT,
+					0.2F, 1.0F + (level().random.nextFloat() - 0.5F) * 0.15F, false);
 		}
 	}
 

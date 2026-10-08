@@ -43,6 +43,11 @@ public class HamonBreathAbility extends HamonActionRuntimeAbility {
 		return user.getAirSupply() >= user.getMaxAirSupply() ? ConditionCheck.POSITIVE : ConditionCheck.createNegative("no_air");
 	}
 
+	@Override
+	protected boolean changesAuraColor() {
+		return false;
+	}
+
 	// 1.16 HamonBreath.checkSpecificConditions ran on every held tick too: losing air ends the breath.
 	@Override
 	protected ConditionCheck checkHeldSpecificConditions(EntityActionInstance action, Power<?> context) {

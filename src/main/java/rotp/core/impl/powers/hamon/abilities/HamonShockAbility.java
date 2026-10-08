@@ -89,6 +89,7 @@ public class HamonShockAbility extends EntityActionAbility {
 			LivingEntity user = getPowerUser();
 			if (user != null) {
 				captureActionTargetFromAim(user);
+				HamonData.setLastAuraAbility(user, this);
 			}
 		}
 
