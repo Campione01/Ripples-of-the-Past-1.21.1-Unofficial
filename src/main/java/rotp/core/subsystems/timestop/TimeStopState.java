@@ -367,6 +367,10 @@ public class TimeStopState {
         if (entity instanceof SoulEntity soul && soul.getOriginEntity() != null) {
             return canEntityMoveInStoppedTimeClient(soul.getOriginEntity());
         }
+        // 1.16 updateEntityTimeStop in the client world: canPlayerMoveInStoppedTime(player, false), the game mode rule
+        if (entity instanceof Player player && gameModeIgnoresTimeStop(player)) {
+            return true;
+        }
         if (JojoModConfig.getCommonConfigInstance(entity.level().isClientSide()).endermenBeyondTimeSpace.get()
                 && ModInteractionUtil.isEntityEnderman(entity)) {
             return true;
@@ -1330,7 +1334,7 @@ public class TimeStopState {
                 || TimeStopAwarenessProviders.resolve(player).canMove();
     }
 
-    private static boolean gameModeIgnoresTimeStop(ServerPlayer player) {
+    public static boolean gameModeIgnoresTimeStop(Player player) {
         return JojoModUtil.getActualGameModeWhilePossessing(player)
                 .map(gameMode -> gameMode == GameType.CREATIVE || gameMode == GameType.SPECTATOR)
                 .orElseGet(() -> player.isCreative() || player.isSpectator());

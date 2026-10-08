@@ -21,6 +21,7 @@ import net.minecraft.client.resources.sounds.SoundInstance;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.ChunkPos;
 
 public final class ClientTimeStopHandler {
@@ -221,6 +222,9 @@ public final class ClientTimeStopHandler {
 			}
 			LivingEntity owner = ownerBound.getOwner();
 			return owner == null || isEntityVisuallyFrozen(owner);
+		}
+		if (entity instanceof Player player && TimeStopState.gameModeIgnoresTimeStop(player)) {
+			return false;
 		}
 		if (JojoModConfig.getCommonConfigInstance(entity.level().isClientSide()).endermenBeyondTimeSpace.get()
 				&& ModInteractionUtil.isEntityEnderman(entity)) {
