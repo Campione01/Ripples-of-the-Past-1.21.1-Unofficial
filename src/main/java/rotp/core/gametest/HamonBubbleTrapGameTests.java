@@ -26,6 +26,7 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -209,8 +210,8 @@ public final class HamonBubbleTrapGameTests {
 		}
 	}
 
-	// 1.16 hurtTarget passed a null owner on to dealHamonDamage: a projectile whose owner is gone (logged out, unloaded)
-	// still deals its Hamon hit, as a hit of the projectile alone.
+	// 1.16 hurtTarget passed a null owner on to dealHamonDamage: a projectile that has no owner (summoned, or reloaded
+	// while its owner is away) still deals its Hamon hit, as a hit of the projectile alone.
 	@GameTest(template = "empty", timeoutTicks = 40)
 	public static void ownerlessBubbleStillDealsItsHamonHit(GameTestHelper helper) {
 		Pig pig = target(helper);
@@ -231,21 +232,72 @@ public final class HamonBubbleTrapGameTests {
 		}
 	}
 
+	// 1.16 dealHamonDamage(target, amount, projectile, null) built EntityDamageSource(projectile): the projectile is
+	// the attacker too, so hurt() knocks the target away from the projectile's position, not along its flight.
 	@GameTest(template = "empty", timeoutTicks = 40)
-	public static void ownerlessBarrierStillTrapsItsTarget(GameTestHelper helper) {
+	public static void ownerlessBubbleKnocksItsTargetAwayFromItself(GameTestHelper helper) {
 		Pig pig = target(helper);
-		HamonBubbleBarrierEntity barrier = ModEntityTypes.HAMON_BUBBLE_BARRIER.get().create(helper.getLevel());
+		HamonBubbleEntity bubble = ModEntityTypes.HAMON_BUBBLE.get().create(helper.getLevel());
 		try {
+			Vec3 center = pig.getBoundingBox().getCenter();
+			Vec3 from = new Vec3(center.x - 0.5D, center.y, center.z - 1.0D);
+			bubble.setPos(from.x, from.y, from.z);
+			bubble.setDeltaMovement(0.0D, 0.0D, 0.8D);
+			helper.assertTrue(helper.getLevel().addFreshEntity(bubble), "Could not add the bubble");
+			pig.setDeltaMovement(Vec3.ZERO);
 			float health = pig.getHealth();
-			launchAt(helper, barrier, pig, 0);
-			helper.assertTrue(barrier.getOwner() == null && barrier.isAlive(), "setup: the barrier without an owner should still exist");
-			helper.assertTrue(pig.getHealth() < health && pig.getVehicle() == barrier && pig.hasEffect(ModStatusEffects.STUN),
-					"1.16: a Bubble Barrier without an owner still deals its Hamon hit and traps the target: health " + health
-							+ " -> " + pig.getHealth() + ", " + state(pig, barrier));
+			bubble.tickCount = 0;
+			bubble.tick();
+			DamageSource source = pig.getLastDamageSource();
+			helper.assertTrue(bubble.getOwner() == null && pig.getHealth() < health && source != null
+					&& source.getDirectEntity() == bubble,
+					"setup: the bubble without an owner should hit the pig from its side: health " + health + " -> "
+							+ pig.getHealth() + ", last source " + source);
+			double dx = pig.getX() - from.x;
+			double dz = pig.getZ() - from.z;
+			double length = Math.sqrt(dx * dx + dz * dz);
+			Vec3 speed = pig.getDeltaMovement();
+			helper.assertTrue(source.getEntity() == bubble && Math.abs(speed.x - 0.4D * dx / length) < 1.0E-3D
+					&& Math.abs(speed.z - 0.4D * dz / length) < 1.0E-3D,
+					"1.16: the Hamon hit of a bubble without an owner names the bubble as attacker and knocks the target away"
+							+ " from the bubble: attacker " + source.getEntity() + ", speed x=" + speed.x + " z=" + speed.z
+							+ ", expected x=" + 0.4D * dx / length + " z=" + 0.4D * dz / length);
 			helper.succeed();
 		}
 		finally {
-			cleanup(barrier, pig);
+			cleanup(bubble, pig);
+		}
+	}
+
+	// 1.16 HamonBubbleBarrierEntity.tick removed a barrier whose transient power was null (a summoned or reloaded one)
+	// on its first server tick, after that tick's hit, and its trap length was 0.
+	@GameTest(template = "empty", timeoutTicks = 40)
+	public static void ownerlessBarrierHitsOnceAndIsRemovedOnItsFirstTick(GameTestHelper helper) {
+		Pig pig = target(helper);
+		HamonBubbleBarrierEntity barrier = ModEntityTypes.HAMON_BUBBLE_BARRIER.get().create(helper.getLevel());
+		HamonBubbleBarrierEntity idle = ModEntityTypes.HAMON_BUBBLE_BARRIER.get().create(helper.getLevel());
+		try {
+			float health = pig.getHealth();
+			launchAt(helper, barrier, pig, 0);
+			float expected = 0.1F * HamonAbilityHelpers.hamonDamageMultiplier(pig) * HamonAbilityHelpers.configHamonDamageMultiplier();
+			helper.assertTrue(barrier.getOwner() == null && expected > 0.0F && Math.abs(health - pig.getHealth() - expected) < 1.0E-4F,
+					"1.16: a Bubble Barrier without an owner still deals its Hamon hit: health " + health + " -> " + pig.getHealth()
+							+ ", expected a loss of " + expected);
+			helper.assertTrue(barrier.isRemoved() && pig.getVehicle() == null && !pig.hasEffect(ModStatusEffects.STUN),
+					"1.16: a Bubble Barrier without an owner is removed on its first tick and leaves no trap or stun: "
+							+ state(pig, barrier));
+
+			// It goes on its first tick with nothing to hit as well.
+			Vec3 center = pig.getBoundingBox().getCenter();
+			idle.setPos(center.x, center.y + 3.0D, center.z);
+			helper.assertTrue(helper.getLevel().addFreshEntity(idle), "Could not add the idle barrier");
+			idle.tick();
+			helper.assertTrue(idle.isRemoved(),
+					"1.16: a Bubble Barrier without an owner is removed on its first tick when it hits nothing: " + state(pig, idle));
+			helper.succeed();
+		}
+		finally {
+			cleanup(idle, barrier, pig);
 		}
 	}
 

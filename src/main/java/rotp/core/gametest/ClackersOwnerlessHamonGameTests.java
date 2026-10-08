@@ -56,9 +56,10 @@ public final class ClackersOwnerlessHamonGameTests {
                 scene.check(hamon.size() == 1, "1.16: Clackers without a thrower deal their Hamon damage as well; Hamon hits: "
                         + hamon.size() + ", all hits: " + hits.stream().map(hit -> hit.source().typeHolder().getRegisteredName()).toList());
                 Hit hit = hamon.get(0);
-                scene.check(hit.source().getDirectEntity() == shot && hit.source().getEntity() == null
+                // 1.16 EntityDamageSource(clackers): the Clackers are the direct entity and the attacker
+                scene.check(hit.source().getDirectEntity() == shot && hit.source().getEntity() == shot
                         && Math.abs(hit.amount() - expected) < 1.0E-5F,
-                        "1.16: the Hamon hit comes from the Clackers alone; direct " + hit.source().getDirectEntity() + ", attacker "
+                        "1.16: the Hamon hit comes from the Clackers alone, which are its attacker too; direct " + hit.source().getDirectEntity() + ", attacker "
                                 + hit.source().getEntity() + ", amount " + hit.amount() + " (expected " + expected + ")");
                 float health = 100.0F - physical.get(0).amount() - expected;
                 scene.check(Math.abs(cow.getHealth() - health) < 1.0E-4F, "the target lost " + (100.0F - cow.getHealth())

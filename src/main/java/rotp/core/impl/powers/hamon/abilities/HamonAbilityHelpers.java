@@ -148,8 +148,10 @@ public final class HamonAbilityHelpers {
 				hamonDamageSource(target.level(), directEntity, causingEntity), null);
 	}
 
+	// 1.16 dealHamonDamage built EntityDamageSource(direct) for a direct entity without an indirect one, and its
+	// getEntity() is that direct entity: it is the attacker hurt() knocks the target away from.
 	public static DamageSource hamonDamageSource(Level level, @Nullable Entity directEntity, @Nullable Entity causingEntity) {
-		return DamageUtil.make(level, ModDamageTypes.HAMON, directEntity, causingEntity);
+		return DamageUtil.make(level, ModDamageTypes.HAMON, directEntity, causingEntity != null ? causingEntity : directEntity);
 	}
 
 	public static boolean hamonHurtWithSource(LivingEntity target, float baseDamage, DamageSource source) {

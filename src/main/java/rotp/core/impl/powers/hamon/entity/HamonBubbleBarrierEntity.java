@@ -68,8 +68,13 @@ public class HamonBubbleBarrierEntity extends ModdedProjectileEntity {
 	public void tick() {
 		super.tick();
 		if (!level().isClientSide()) {
+			// 1.16 HamonBubbleBarrierEntity.tick removed a barrier without its transient power (summoned, or reloaded)
+			// on its first tick, after that tick's hit; here that is a barrier without an owner.
+			if (getOwner() == null) {
+				discard();
+			}
 			// 1.16 HamonBubbleBarrierEntity.tick: a barrier whose hold ended before it fired is removed.
-			if (charging && !isHeldByOwnerCharge()) {
+			else if (charging && !isHeldByOwnerCharge()) {
 				discard();
 			}
 			// 1.16: the barrier pops on timeout or once its captive is out.
