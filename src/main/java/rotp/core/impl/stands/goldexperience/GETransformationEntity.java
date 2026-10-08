@@ -631,6 +631,9 @@ public class GETransformationEntity extends PathfinderMob implements IEntityWith
         if (sourceEntity == null) {
             return false;
         }
+        if (sourceEntity instanceof ItemEntity itemEntity) {
+            itemEntity.setNoPickUpDelay();
+        }
         copyStatus(currentEntity, sourceEntity);
         sourceEntity.moveTo(currentEntity.getX(), currentEntity.getY(), currentEntity.getZ(),
                 currentEntity.getYRot(), currentEntity.getXRot());

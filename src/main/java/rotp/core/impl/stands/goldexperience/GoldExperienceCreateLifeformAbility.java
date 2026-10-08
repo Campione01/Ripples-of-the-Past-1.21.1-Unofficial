@@ -32,7 +32,6 @@ import rotp.core.subsystems.itemtracking.ItemTracking;
 import rotp.core.subsystems.itemtracking.KnownItemState;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTargetRange;
-import rotp.core.subsystems.target.HitResultUtil;
 import rotp.core.util.functions.JojoModUtil;
 import rotp.core.util.mc.entitysubtype.EntitySubtype;
 import rotp.core.impl.powers.hamon.HamonUtil;
@@ -86,7 +85,6 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceUtilityAb
     public static final int MAX_CREATED_LIFEFORMS = 16;
     private static final double SOURCE_ENTITY_TARGET_RANGE = 8.0D;
     private static final double SOURCE_BLOCK_TARGET_RANGE = 10.0D;
-    private static final double SOURCE_TARGET_PRECISION = 0.0D;
     private static final ResourceLocation ENCH_TABLE_ID = ResourceLocation.fromNamespaceAndPath("minecraft", "enchanting_table");
     static final String CREATE_LIFEFORM_ABILITY_NAME = "create_lifeform";
 
@@ -116,7 +114,7 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceUtilityAb
         }
 
         Level level = user.level();
-        ActionTarget aimTarget = findLifeformTarget(level, getControlledEntity(user, standPower));
+        ActionTarget aimTarget = findLifeformTarget(level, user, standPower);
         if (aimTarget.getType() == ActionTarget.TargetType.ENTITY) {
             return sourceConditions(context);
         }
@@ -177,7 +175,7 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceUtilityAb
         // 1.16 perform: the marked item, the targeted entity, the off-hand item, then the targeted block
         LifeformSource source = markedItemSource(serverLevel, standPower, user, markedItemTrackerInput);
         if (source == null) {
-            ActionTarget target = findLifeformTarget(level, performer);
+            ActionTarget target = findLifeformTarget(level, user, standPower);
             if (target.getType() == ActionTarget.TargetType.ENTITY) {
                 source = targetedSource(level, user, target);
             }
@@ -340,12 +338,10 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceUtilityAb
         return switch (target.getType()) {
             case ENTITY -> {
                 Entity entity = target.getMainEntity();
-                if (entity instanceof ItemEntity itemEntity && canGiveLifeTo(itemEntity.getItem())) {
-                    ItemStack sourceItem = transformedInventorySourceItem(itemEntity.getItem());
-                    Entity projectileSource = sourceEntityFromInventoryItem(level, user, sourceItem);
-                    CompoundTag sourceEntityNbt = projectileSource != null ? saveSourceEntity(projectileSource) : null;
-                    ItemStack sourceEntityItemView = projectileSource != null ? sourceItem.copy() : ItemStack.EMPTY;
-                    yield new LifeformSource(SourceType.ITEM_ENTITY, sourceItem, null, null, sourceEntityNbt, sourceEntityItemView,
+                if (entity instanceof ItemEntity itemEntity && isDroppedItemSource(itemEntity)) {
+                    // 1.16 mobFromEntity: the item entity itself, with its whole stack, is the source
+                    yield new LifeformSource(SourceType.ITEM_ENTITY, ItemStack.EMPTY, null, null,
+                            saveSourceEntity(itemEntity), itemEntity.getItem().copy(),
                             null, itemEntity, null, null, itemEntityThrowerFollowTarget(itemEntity), null);
                 }
                 if (isConvertibleEntitySource(entity)) {
@@ -509,24 +505,19 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceUtilityAb
     // 1.16 PowerBaseImpl.checkTarget: on every use the item entity on the look ray replaces what is under the
     // crosshair (overrideVanillaMouseTarget), and only then come the range and the action's own checkTarget.
     // A target that fails either is no target (TargetRequirement.NONE); nothing else is picked in its place.
-    private static ActionTarget findLifeformTarget(Level level, LivingEntity aiming) {
+    private static ActionTarget findLifeformTarget(Level level, LivingEntity user, StandPower standPower) {
+        LivingEntity aiming = getControlledEntity(user, standPower);
+        ActionTarget crosshair = getSyncedLookTarget(level, user, standPower, aiming);
+        if (crosshair.getType() == ActionTarget.TargetType.ENTITY && crosshair.isEmpty(level)) {
+            // 1.16 checkTarget: an aimed entity the server cannot find empties the target, the item-ray hit with it
+            return ActionTarget.EMPTY;
+        }
         ActionTarget target = clipItemEntity(level, aiming);
         if (target.isEmpty(level)) {
-            target = getSyncedLookTarget(level, aiming);
+            target = crosshair;
         }
-        if (target.isEmpty(level)) {
-            // nothing under the crosshair: the port's own, longer pick
-            target = HitResultUtil.clip(
-                    aiming.getEyePosition(),
-                    aiming.getLookAngle(),
-                    SOURCE_BLOCK_TARGET_RANGE,
-                    SOURCE_ENTITY_TARGET_RANGE,
-                    level,
-                    GoldExperienceCreateLifeformAbility::isConvertibleEntitySource,
-                    aiming,
-                    SOURCE_TARGET_PRECISION);
-        }
-        return !target.isEmpty(level) && isWithinSourceRange(level, target, aiming) && isSourceTarget(level, target)
+        return !target.isEmpty(level) && isWithinSourceRange(level, target, aiming)
+                && isSourceTarget(level, target, standPower.isUserCreative())
                 ? target : ActionTarget.EMPTY;
     }
 
@@ -552,33 +543,52 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceUtilityAb
         return nearest != null ? new ActionTarget(nearest) : ActionTarget.EMPTY;
     }
 
-    // 1.16 GoldExperienceCreateLifeform.checkTarget, with the port's own answers for a dropped fish bucket (accepted)
-    // and for a Creative user's unbreakable block (refused)
-    private static boolean isSourceTarget(Level level, ActionTarget target) {
+    // 1.16 GoldExperienceCreateLifeform.checkTarget
+    private static boolean isSourceTarget(Level level, ActionTarget target, boolean userCreative) {
         return switch (target.getType()) {
             case ENTITY -> {
                 Entity entity = target.getMainEntity();
                 yield entity instanceof ItemEntity itemEntity
-                        ? canGiveLifeTo(itemEntity.getItem())
+                        ? isDroppedItemSource(itemEntity)
                         : isConvertibleEntitySource(entity);
             }
             case BLOCK -> JojoModUtil.breakingBlocksEnabled(level)
-                    && level.getBlockState(target.getBlockPos()).getDestroySpeed(level, target.getBlockPos()) >= 0;
+                    && (userCreative
+                            || level.getBlockState(target.getBlockPos()).getDestroySpeed(level, target.getBlockPos()) >= 0);
             default -> false;
         };
     }
 
-    private static ActionTarget getSyncedLookTarget(Level level, LivingEntity aiming) {
-        // The user's aim only goes from its client to the server, so its own client reads the aim it sends.
-        if (level.isClientSide() && aiming == ClientProxy.getClientPlayer()) {
-            return ClientsideAim.playerAim.getTarget().resolveEntityId(level);
+    // 1.16 checkTarget asks isItemLivingMatter of a dropped item, without canGiveLifeTo's fish bucket exception
+    private static boolean isDroppedItemSource(ItemEntity itemEntity) {
+        ItemStack item = itemEntity.getItem();
+        return !item.isEmpty() && !isItemLivingMatter(item);
+    }
+
+    // 1.16 has no server-side pick. The target is the one its client sends: the vanilla pick, or the Stand's
+    // precision ray when that missed and the Stand is out (EntityStandType.clientHitResult). Here these are the
+    // user's and the Stand's synced aim. An entity target that does not resolve is returned as it is.
+    private static ActionTarget getSyncedLookTarget(Level level, LivingEntity user, StandPower standPower,
+            LivingEntity aiming) {
+        // The aims only go from the user's client to the server, so that client reads the aims it sends.
+        boolean ownClient = level.isClientSide() && user == ClientProxy.getClientPlayer();
+        ActionTarget target = ownClient
+                ? (aiming == user ? ClientsideAim.playerAim : ClientsideAim.standAim).getTarget()
+                : getAimTarget(aiming);
+        if (target.getType() == ActionTarget.TargetType.EMPTY && aiming == user) {
+            StandEntity stand = standPower.getSummonedStandEntity();
+            if (stand != null) {
+                target = ownClient ? ClientsideAim.standAim.getTarget() : getAimTarget(stand);
+            }
         }
+        target.resolveEntityId(level);
+        return target;
+    }
+
+    private static ActionTarget getAimTarget(LivingEntity aiming) {
         var aim = LivingComponentAction.getAim(aiming);
-        if (aim == null) {
-            return ActionTarget.EMPTY;
-        }
-        ActionTarget target = aim.getTarget();
-        return target != null ? target.resolveEntityId(level) : ActionTarget.EMPTY;
+        ActionTarget target = aim != null ? aim.getTarget() : null;
+        return target != null ? target : ActionTarget.EMPTY;
     }
 
     // 1.16 Action.checkRangeAndTarget: from the Stand while it is out, an entity less without a line of sight
@@ -665,9 +675,14 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceUtilityAb
         return JojoModUtil.breakingBlocksEnabled(level)
                 && !blockState.isAir()
                 && (!blockState.hasBlockEntity() || isUsableBlockEntitySource(level, blockPos))
-                && blockState.getDestroySpeed(level, blockPos) >= 0
+                && (isCreative(user) || blockState.getDestroySpeed(level, blockPos) >= 0)
                 && !isBlockLiving(blockState)
                 && (!(level instanceof ServerLevel serverLevel) || JojoModUtil.canEntityDestroy(serverLevel, blockPos, blockState, user));
+    }
+
+    // StandPower.isUserCreative
+    private static boolean isCreative(LivingEntity user) {
+        return user instanceof Player player && player.getAbilities().instabuild;
     }
 
     private static boolean isUsableBlockEntitySource(Level level, BlockPos blockPos) {
@@ -816,8 +831,7 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceUtilityAb
                 }
                 case ITEM_ENTITY -> sourceItemEntity != null
                         && sourceItemEntity.isAlive()
-                        && !sourceItemEntity.getItem().isEmpty()
-                        && canGiveLifeTo(sourceItemEntity.getItem());
+                        && isDroppedItemSource(sourceItemEntity);
                 case ENTITY -> sourceEntity != null
                         && sourceEntity.isAlive()
                         && isConvertibleEntitySource(sourceEntity);
@@ -844,21 +858,10 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceUtilityAb
             return switch (type) {
                 case OFFHAND_ITEM -> GoldExperienceHealAbility.spendHealingMaterial(user);
                 case ITEM_ENTITY -> {
-                    if (sourceItemEntity == null) {
+                    if (sourceItemEntity == null || !sourceItemEntity.isAlive() || !isDroppedItemSource(sourceItemEntity)) {
                         yield false;
                     }
-                    ItemStack stack = sourceItemEntity.getItem();
-                    if (stack.isEmpty() || !canGiveLifeTo(stack)) {
-                        yield false;
-                    }
-                    checkBucketExtraContent(level, user, stack, sourceItemEntity.blockPosition());
-                    stack.shrink(1);
-                    if (stack.isEmpty()) {
-                        sourceItemEntity.discard();
-                    }
-                    else {
-                        sourceItemEntity.setItem(stack);
-                    }
+                    sourceItemEntity.discard();
                     yield true;
                 }
                 case ENTITY -> {

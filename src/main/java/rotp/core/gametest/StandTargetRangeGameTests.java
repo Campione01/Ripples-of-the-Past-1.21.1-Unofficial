@@ -8,6 +8,8 @@ import java.util.UUID;
 
 import com.mojang.authlib.GameProfile;
 
+import io.netty.buffer.Unpooled;
+
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
@@ -43,6 +45,7 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.gametest.framework.GameTestInfo;
 import net.minecraft.gametest.framework.GameTestListener;
 import net.minecraft.gametest.framework.GameTestRunner;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
@@ -200,19 +203,19 @@ public final class StandTargetRangeGameTests {
 			fixture.power.setStamina(fixture.power.getMaxStamina());
 			BlockPos pos = fixture.block(BlockPos.containing(fixture.origin.x, fixture.origin.y + 1.0D, fixture.origin.z + 5.0D));
 			fixture.stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z + 14.0D, 0.0F, 0.0F);
-			fixture.aim(ActionTarget.EMPTY);
-			String nothingSynced = fixture.refusal();
+			fixture.aim(new ActionTarget(pos, Direction.NORTH));
+			String blockAimed = fixture.refusal();
 			Cow cow = fixture.cow(3.0D);
 			fixture.aim(new ActionTarget(cow));
 			boolean cowInRange = ActionTargetRange.isEntityWithinRange(fixture.stand, cow, 64.0D);
 			boolean blockInRange = ActionTargetRange.isBlockWithinRange(fixture.stand, fixture.level, pos, 100.0D);
-			helper.assertTrue(!cowInRange && blockInRange && "accepted".equals(nothingSynced)
+			helper.assertTrue(!cowInRange && blockInRange && "accepted".equals(blockAimed)
 					&& fixture.user.getOffhandItem().isEmpty()
 					&& GoldExperienceLifeformState.get(fixture.user).selectedLifeformSubtype(fixture.level).isPresent(),
 					"STAND-RANGE premise: the cow is not out of the Stand's 8 blocks with the block behind it inside the Stand's"
-							+ " 10, the block was not accepted as the source with nothing under the crosshair, or the user has an"
+							+ " 10, the block was not accepted as the source with the crosshair on it, or the user has an"
 							+ " off-hand item or no lifeform to create: cowInRange=" + cowInRange + " blockInRange=" + blockInRange
-							+ " nothingSynced=" + nothingSynced);
+							+ " blockAimed=" + blockAimed);
 
 			String emptyHand = fixture.refusal();
 			helper.assertTrue(GE_MATERIAL.equals(emptyHand), "GE_CREATE_LIFEFORM on an entity out of the Stand's range with a"
@@ -269,11 +272,25 @@ public final class StandTargetRangeGameTests {
 			double fromItemToCreated = created.isEmpty() ? -1.0D : created.get(0).position().distanceTo(itemPos);
 			int left = dropped.isAlive() ? dropped.getItem().getCount() : 0;
 			helper.assertTrue(admitted && created.size() == 1 && fromItemToCreated >= 0.0D && fromItemToCreated < 0.5D
-					&& left == 2 && fixture.user.getOffhandItem().getCount() == 2 && cow.isAlive(),
-					"GE_CREATE_LIFEFORM press on an entity out of the Stand's range with an item entity on the look ray inside"
-							+ " it: admitted=" + admitted + " transformations=" + created.size() + " fromItem=" + fromItemToCreated
-							+ " itemsLeft=" + left + " offHand=" + fixture.user.getOffhandItem() + " cowAlive=" + cow.isAlive()
-							+ "; 1.16 turns one item of the item entity into the lifeform where it lies and leaves the off hand");
+					&& left == 0 && fixture.user.getOffhandItem().getCount() == 2 && cow.isAlive(),
+					"GE_CREATE_LIFEFORM press on an entity out of the Stand's range with an item entity of 3 gold ingots on the"
+							+ " look ray inside it: admitted=" + admitted + " transformations=" + created.size() + " fromItem="
+							+ fromItemToCreated + " itemsLeft=" + left + " offHand=" + fixture.user.getOffhandItem()
+							+ " cowAlive=" + cow.isAlive() + "; 1.16 mobFromEntity takes the whole item entity as the source"
+							+ " where it lies and leaves the off hand");
+
+			// 1.16 keeps a clone of the item entity and puts it back whole when the lifeform is reverted
+			GETransformationEntity transformation = created.get(0);
+			transformation.turnBackIntoSource(fixture.user);
+			for (int tick = 0; tick < 20 && transformation.isAlive(); tick++) {
+				transformation.tick();
+			}
+			List<ItemEntity> restored = fixture.level.getEntitiesOfClass(ItemEntity.class, fixture.space, Entity::isAlive);
+			helper.assertTrue(!transformation.isAlive() && restored.size() == 1 && restored.get(0).getItem().is(Items.GOLD_INGOT)
+					&& restored.get(0).getItem().getCount() == 3,
+					"GE_CREATE_LIFEFORM reverted after taking an item entity of 3 gold ingots: transformationLeft="
+							+ transformation.isAlive() + " item entities=" + restored.stream().map(ItemEntity::getItem).toList()
+							+ "; 1.16 restores the item entity with its whole stack");
 		}
 		finally {
 			if (dropped != null) dropped.discard();
@@ -588,6 +605,160 @@ public final class StandTargetRangeGameTests {
 							+ fixture.user.getOffhandItem() + " saplingsLeft=" + left + " block="
 							+ fixture.level.getBlockState(pos) + "; 1.16 turns one off-hand item into the lifeform in front of"
 							+ " the user and leaves the saplings and the block");
+		}
+		helper.succeed();
+	}
+
+	// 1.16 checkTarget asks HamonUtil.isItemLivingMatter of a dropped item, without the fish bucket exception that
+	// canGiveLifeTo makes for the off hand: a dropped fish bucket is no target, a fish bucket in the off hand is a source.
+	@GameTest(template = "empty", batch = BATCH)
+	public static void goldExperienceCreateLifeformTreatsADroppedFishBucketAsNoTarget(GameTestHelper helper) {
+		try (Fixture fixture = Fixture.open(helper, Kind.GE_CREATE_LIFEFORM)) {
+			fixture.meetACow();
+			fixture.stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z + 1.0D, 0.0F, 0.0F);
+			fixture.aim(ActionTarget.EMPTY);
+			fixture.user.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.COD_BUCKET));
+			String inOffHand = fixture.refusal();
+			fixture.user.setItemInHand(InteractionHand.OFF_HAND, ItemStack.EMPTY);
+			ItemEntity dropped = fixture.item(2.5D, new ItemStack(Items.COD_BUCKET));
+			boolean itemInRange = ActionTargetRange.isEntityWithinRange(fixture.stand, dropped, 64.0D);
+			helper.assertTrue("accepted".equals(inOffHand) && itemInRange,
+					"STAND-RANGE premise: a cod bucket in the off hand is not accepted as the source, or the item entity is out"
+							+ " of the Stand's 8 blocks: inOffHand=" + inOffHand + " itemInRange=" + itemInRange);
+
+			String emptyHand = fixture.refusal();
+			helper.assertTrue(GE_MATERIAL.equals(emptyHand), "GE_CREATE_LIFEFORM on a dropped cod bucket on the look ray with"
+					+ " an empty off hand: answered " + emptyHand + "; 1.16 checkTarget refuses an item entity of living"
+					+ " matter, fish buckets included, and asks for a material with " + GE_MATERIAL);
+
+			fixture.user.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.IRON_INGOT, 2));
+			boolean admitted = fixture.admitted();
+			if (admitted) fixture.press();
+			List<GETransformationEntity> created = fixture.created();
+			double fromUserToCreated = created.isEmpty() ? -1.0D : created.get(0).position().distanceTo(fixture.user.position());
+			helper.assertTrue(admitted && created.size() == 1 && fromUserToCreated >= 0.0D && fromUserToCreated < 3.0D
+					&& fixture.user.getOffhandItem().is(Items.IRON_INGOT) && fixture.user.getOffhandItem().getCount() == 1
+					&& dropped.isAlive() && dropped.getItem().is(Items.COD_BUCKET),
+					"GE_CREATE_LIFEFORM press with a dropped cod bucket on the look ray and iron ingots in the off hand:"
+							+ " admitted=" + admitted + " transformations=" + created.size() + " fromUser=" + fromUserToCreated
+							+ " offHand=" + fixture.user.getOffhandItem() + " bucketLeft=" + dropped.isAlive()
+							+ "; 1.16 turns one off-hand item into the lifeform in front of the user and leaves the bucket");
+		}
+		helper.succeed();
+	}
+
+	// 1.16 checkTarget refuses an unbreakable block only when the user is not in Creative (!power.isUserCreative()).
+	@GameTest(template = "empty", batch = BATCH)
+	public static void goldExperienceCreateLifeformTakesAnUnbreakableBlockInCreative(GameTestHelper helper) {
+		try (Fixture fixture = Fixture.open(helper, Kind.GE_CREATE_LIFEFORM)) {
+			fixture.meetACow();
+			fixture.stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z + 1.0D, 0.0F, 0.0F);
+			BlockPos pos = fixture.block(BlockPos.containing(fixture.origin.x, fixture.origin.y + 1.0D, fixture.origin.z + 4.0D),
+					Blocks.BEDROCK.defaultBlockState());
+			fixture.aim(new ActionTarget(pos, Direction.NORTH));
+			String survival = fixture.refusal();
+			fixture.user.setGameMode(GameType.CREATIVE);
+			helper.assertTrue(GE_MATERIAL.equals(survival) && fixture.power.isUserCreative()
+					&& fixture.user.getOffhandItem().isEmpty(),
+					"STAND-RANGE premise: bedrock was not refused in Survival, the user did not become Creative, or the user"
+							+ " has an off-hand item: survival=" + survival + " creative=" + fixture.power.isUserCreative());
+
+			String creative = fixture.refusal();
+			boolean admitted = fixture.admitted();
+			if (admitted) fixture.press();
+			List<GETransformationEntity> created = fixture.created();
+			double fromBlock = created.isEmpty() ? -1.0D : created.get(0).position().distanceTo(Vec3.atBottomCenterOf(pos));
+			helper.assertTrue("accepted".equals(creative) && admitted && created.size() == 1 && fromBlock >= 0.0D
+					&& fromBlock < 0.5D && fixture.level.getBlockState(pos).isAir(),
+					"GE_CREATE_LIFEFORM on bedrock in range by a Creative user with an empty off hand: answered " + creative
+							+ " admitted=" + admitted + " transformations=" + created.size() + " fromBlock=" + fromBlock
+							+ " block=" + fixture.level.getBlockState(pos) + "; 1.16 checks the hardness only for a user who is"
+							+ " not in Creative and turns the block into the lifeform");
+		}
+		helper.succeed();
+	}
+
+	// 1.16 has no server-side pick: the target is what the client sends, its vanilla pick or, when that missed and the
+	// Stand is out, the Stand's precision ray (EntityStandType.clientHitResult). The port syncs both as the user's and
+	// the Stand's aim. A block ahead of the user that neither of them names is not a target.
+	@GameTest(template = "empty", batch = BATCH)
+	public static void goldExperienceCreateLifeformTakesNoBlockTheClientDidNotAim(GameTestHelper helper) {
+		try (Fixture fixture = Fixture.open(helper, Kind.GE_CREATE_LIFEFORM)) {
+			fixture.meetACow();
+			fixture.stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z + 1.0D, 0.0F, 0.0F);
+			BlockPos pos = fixture.block(BlockPos.containing(fixture.origin.x, fixture.origin.y + 1.0D, fixture.origin.z + 8.0D));
+			fixture.aim(new ActionTarget(pos, Direction.NORTH));
+			String aimed = fixture.refusal();
+			fixture.aim(ActionTarget.EMPTY);
+			fixture.standAim(ActionTarget.EMPTY);
+			double fromEyes = Math.sqrt(new AABB(pos).distanceToSqr(fixture.user.getEyePosition()));
+			boolean blockInRange = ActionTargetRange.isBlockWithinRange(fixture.stand, fixture.level, pos, 100.0D);
+			helper.assertTrue("accepted".equals(aimed) && fromEyes > 7.0D && fromEyes < 8.0D && blockInRange
+					&& fixture.user.getOffhandItem().isEmpty(),
+					"STAND-RANGE premise: the block is not straight ahead of the user between 7 and 8 blocks and within the"
+							+ " Stand's 10, was not accepted with the crosshair on it, or the user has an off-hand item: aimed="
+							+ aimed + " fromEyes=" + fromEyes + " blockInRange=" + blockInRange);
+
+			String nothingAimed = fixture.refusal();
+			helper.assertTrue(GE_MATERIAL.equals(nothingAimed), "GE_CREATE_LIFEFORM with nothing under the user's or the"
+					+ " Stand's synced crosshair and a usable block " + fromEyes + " blocks ahead: answered " + nothingAimed
+					+ "; 1.16 has no target the client did not send and asks for a material with " + GE_MATERIAL);
+
+			fixture.standAim(new ActionTarget(pos, Direction.NORTH));
+			String standAimed = fixture.refusal();
+			boolean admitted = fixture.admitted();
+			if (admitted) fixture.press();
+			List<GETransformationEntity> created = fixture.created();
+			double fromBlock = created.isEmpty() ? -1.0D : created.get(0).position().distanceTo(Vec3.atBottomCenterOf(pos));
+			helper.assertTrue("accepted".equals(standAimed) && admitted && created.size() == 1 && fromBlock >= 0.0D
+					&& fromBlock < 0.5D && fixture.level.getBlockState(pos).isAir(),
+					"GE_CREATE_LIFEFORM with nothing under the user's crosshair and the block under the Stand's synced"
+							+ " precision aim: answered " + standAimed + " admitted=" + admitted + " transformations="
+							+ created.size() + " fromBlock=" + fromBlock + " block=" + fixture.level.getBlockState(pos)
+							+ "; 1.16 takes the Stand's precision ray target when the vanilla pick missed");
+		}
+		helper.succeed();
+	}
+
+	// 1.16 PowerBaseImpl.checkTarget: when the entity the client aimed at cannot be found on the server, the target is
+	// emptied after overrideVanillaMouseTarget ran, so the item entity on the look ray is dropped with it.
+	@GameTest(template = "empty", batch = BATCH)
+	public static void goldExperienceCreateLifeformDropsTheItemRayHitWhenTheAimedEntityIsGone(GameTestHelper helper) {
+		try (Fixture fixture = Fixture.open(helper, Kind.GE_CREATE_LIFEFORM)) {
+			fixture.meetACow();
+			fixture.stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z + 1.0D, 0.0F, 0.0F);
+			ItemEntity dropped = fixture.item(2.5D, new ItemStack(Items.GOLD_INGOT));
+			fixture.aim(ActionTarget.EMPTY);
+			String itemOnly = fixture.refusal();
+			Cow cow = fixture.cow(4.0D);
+			FriendlyByteBuf sent = new FriendlyByteBuf(Unpooled.buffer());
+			ActionTarget.STREAM_CODEC_UNRESOLVED_ENTITY_ID.encode(sent, new ActionTarget(cow));
+			cow.discard();
+			ActionTarget gone = ActionTarget.STREAM_CODEC_UNRESOLVED_ENTITY_ID.decode(sent);
+			fixture.aim(gone);
+			helper.assertTrue("accepted".equals(itemOnly) && gone.getType() == TargetType.ENTITY && gone.isEmpty(fixture.level)
+					&& fixture.user.getOffhandItem().isEmpty(),
+					"STAND-RANGE premise: the item entity on the look ray alone was not accepted as the source, the aimed"
+							+ " entity still resolves on the server, or the user has an off-hand item: itemOnly=" + itemOnly
+							+ " aimed=" + gone.getType() + " resolves=" + !gone.isEmpty(fixture.level));
+
+			String emptyHand = fixture.refusal();
+			helper.assertTrue(GE_MATERIAL.equals(emptyHand), "GE_CREATE_LIFEFORM with an item entity on the look ray while the"
+					+ " entity the client aimed at is gone on the server, empty off hand: answered " + emptyHand
+					+ "; 1.16 empties the target, item-ray hit included, and asks for a material with " + GE_MATERIAL);
+
+			fixture.user.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.IRON_INGOT, 2));
+			boolean admitted = fixture.admitted();
+			if (admitted) fixture.press();
+			List<GETransformationEntity> created = fixture.created();
+			double fromUserToCreated = created.isEmpty() ? -1.0D : created.get(0).position().distanceTo(fixture.user.position());
+			helper.assertTrue(admitted && created.size() == 1 && fromUserToCreated >= 0.0D && fromUserToCreated < 3.0D
+					&& fixture.user.getOffhandItem().is(Items.IRON_INGOT) && fixture.user.getOffhandItem().getCount() == 1
+					&& dropped.isAlive(),
+					"GE_CREATE_LIFEFORM press in that scene with iron ingots in the off hand: admitted=" + admitted
+							+ " transformations=" + created.size() + " fromUser=" + fromUserToCreated + " offHand="
+							+ fixture.user.getOffhandItem() + " itemEntityLeft=" + dropped.isAlive()
+							+ "; 1.16 turns one off-hand item into the lifeform in front of the user and leaves the item entity");
 		}
 		helper.succeed();
 	}
@@ -1009,6 +1180,11 @@ public final class StandTargetRangeGameTests {
 			LivingComponentAction.getComponent(user).entityAim.setTarget(target);
 		}
 
+		// what the client syncs as the Stand's aim (ClAimTargetPacket STAND): its precision ray from the user's eyes
+		private void standAim(ActionTarget target) {
+			LivingComponentAction.getComponent(stand).entityAim.setTarget(target);
+		}
+
 		// the server side of an admitted key press: the ability starts its action on the Stand
 		private HeldInputEntry press() {
 			pressed = true;
@@ -1093,6 +1269,7 @@ public final class StandTargetRangeGameTests {
 					extras.forEach(Entity::discard);
 					if (space != null) {
 						level.getEntitiesOfClass(GETransformationEntity.class, space).forEach(Entity::discard);
+						level.getEntitiesOfClass(ItemEntity.class, space).forEach(Entity::discard);
 					}
 					if (user != null) user.discard();
 				}
