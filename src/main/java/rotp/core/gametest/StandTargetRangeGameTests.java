@@ -31,6 +31,7 @@ import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
+import rotp.core.subsystems.target.ActionTargetRange;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -45,6 +46,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.animal.Cow;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ChunkPos;
@@ -174,6 +176,98 @@ public final class StandTargetRangeGameTests {
 							+ " transformations=" + created.size() + " fromUser=" + fromUserToCreated + " offHand="
 							+ fixture.user.getOffhandItem() + " block=" + fixture.level.getBlockState(pos)
 							+ "; 1.16 turns one off-hand item into the lifeform in front of the user and leaves the block");
+		}
+		helper.succeed();
+	}
+
+	// 1.16 PowerBaseImpl.checkTarget: the entity under the crosshair that is out of the Stand's range becomes no target.
+	// Nothing picks the block behind it instead, even though that block is within the Stand's 10 blocks.
+	@GameTest(template = "empty", batch = BATCH)
+	public static void goldExperienceCreateLifeformDoesNotTakeTheBlockBehindAnEntityFarFromTheStand(GameTestHelper helper) {
+		try (Fixture fixture = Fixture.open(helper, Kind.GE_CREATE_LIFEFORM)) {
+			Cow seen = fixture.cow(-3.0D);
+			GoldExperienceLifeformState.get(fixture.user).learnLifeformsForEntity(seen, fixture.level);
+			seen.discard();
+			fixture.power.setStamina(fixture.power.getMaxStamina());
+			BlockPos pos = fixture.block(BlockPos.containing(fixture.origin.x, fixture.origin.y + 1.0D, fixture.origin.z + 5.0D));
+			fixture.stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z + 14.0D, 0.0F, 0.0F);
+			fixture.aim(ActionTarget.EMPTY);
+			String nothingSynced = fixture.refusal();
+			Cow cow = fixture.cow(3.0D);
+			fixture.aim(new ActionTarget(cow));
+			boolean cowInRange = ActionTargetRange.isEntityWithinRange(fixture.stand, cow, 64.0D);
+			boolean blockInRange = ActionTargetRange.isBlockWithinRange(fixture.stand, fixture.level, pos, 100.0D);
+			helper.assertTrue(!cowInRange && blockInRange && "accepted".equals(nothingSynced)
+					&& fixture.user.getOffhandItem().isEmpty()
+					&& GoldExperienceLifeformState.get(fixture.user).selectedLifeformSubtype(fixture.level).isPresent(),
+					"STAND-RANGE premise: the cow is not out of the Stand's 8 blocks with the block behind it inside the Stand's"
+							+ " 10, the block was not accepted as the source with nothing under the crosshair, or the user has an"
+							+ " off-hand item or no lifeform to create: cowInRange=" + cowInRange + " blockInRange=" + blockInRange
+							+ " nothingSynced=" + nothingSynced);
+
+			String emptyHand = fixture.refusal();
+			helper.assertTrue(GE_MATERIAL.equals(emptyHand), "GE_CREATE_LIFEFORM on an entity out of the Stand's range with a"
+					+ " usable block behind it and an empty off hand: answered " + emptyHand
+					+ "; 1.16 drops the target out of range, picks no other one and asks for a material with " + GE_MATERIAL);
+
+			fixture.user.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.IRON_INGOT, 2));
+			boolean admitted = fixture.admitted();
+			if (admitted) fixture.press();
+			List<GETransformationEntity> created = fixture.level.getEntitiesOfClass(GETransformationEntity.class, fixture.space);
+			double fromUserToCreated = created.isEmpty() ? -1.0D : created.get(0).position().distanceTo(fixture.user.position());
+			helper.assertTrue(admitted && created.size() == 1 && fromUserToCreated < 3.0D
+					&& fixture.user.getOffhandItem().is(Items.IRON_INGOT) && fixture.user.getOffhandItem().getCount() == 1
+					&& fixture.level.getBlockState(pos).is(Blocks.STONE) && cow.isAlive(),
+					"GE_CREATE_LIFEFORM press on an entity out of the Stand's range with a usable block behind it: admitted="
+							+ admitted + " transformations=" + created.size() + " fromUser=" + fromUserToCreated + " offHand="
+							+ fixture.user.getOffhandItem() + " block=" + fixture.level.getBlockState(pos) + " cowAlive="
+							+ cow.isAlive() + "; 1.16 turns one off-hand item into the lifeform in front of the user and leaves"
+							+ " the block and the entity");
+		}
+		helper.succeed();
+	}
+
+	// 1.16 GoldExperienceCreateLifeform.overrideVanillaMouseTarget: an item entity on the look ray replaces the target
+	// under the crosshair before the range is checked, so it is still the source when that target was out of range.
+	@GameTest(template = "empty", batch = BATCH)
+	public static void goldExperienceCreateLifeformTakesAnItemEntityOnTheRayWhenTheAimedEntityIsFarFromTheStand(
+			GameTestHelper helper) {
+		ItemEntity dropped = null;
+		try (Fixture fixture = Fixture.open(helper, Kind.GE_CREATE_LIFEFORM)) {
+			Cow seen = fixture.cow(-3.0D);
+			GoldExperienceLifeformState.get(fixture.user).learnLifeformsForEntity(seen, fixture.level);
+			seen.discard();
+			fixture.power.setStamina(fixture.power.getMaxStamina());
+			fixture.stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z + 13.0D, 0.0F, 0.0F);
+			Cow cow = fixture.cow(2.5D);
+			fixture.aim(new ActionTarget(cow));
+			dropped = new ItemEntity(fixture.level, fixture.origin.x, fixture.user.getEyeY() - 0.125D, fixture.origin.z + 6.0D,
+					new ItemStack(Items.GOLD_INGOT, 3), 0.0D, 0.0D, 0.0D);
+			dropped.setNoGravity(true);
+			helper.assertTrue(fixture.level.addFreshEntity(dropped), "STAND-RANGE premise: could not add the item entity");
+			fixture.user.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.IRON_INGOT, 2));
+			boolean cowInRange = ActionTargetRange.isEntityWithinRange(fixture.stand, cow, 64.0D);
+			boolean itemInRange = ActionTargetRange.isEntityWithinRange(fixture.stand, dropped, 64.0D);
+			helper.assertTrue(!cowInRange && itemInRange
+					&& GoldExperienceLifeformState.get(fixture.user).selectedLifeformSubtype(fixture.level).isPresent(),
+					"STAND-RANGE premise: the cow is not out of the Stand's 8 blocks with the item entity inside them, or the"
+							+ " user has no lifeform to create: cowInRange=" + cowInRange + " itemInRange=" + itemInRange);
+
+			Vec3 itemPos = dropped.position();
+			boolean admitted = fixture.admitted();
+			if (admitted) fixture.press();
+			List<GETransformationEntity> created = fixture.level.getEntitiesOfClass(GETransformationEntity.class, fixture.space);
+			double fromItemToCreated = created.isEmpty() ? -1.0D : created.get(0).position().distanceTo(itemPos);
+			int left = dropped.isAlive() ? dropped.getItem().getCount() : 0;
+			helper.assertTrue(admitted && created.size() == 1 && fromItemToCreated >= 0.0D && fromItemToCreated < 0.5D
+					&& left == 2 && fixture.user.getOffhandItem().getCount() == 2 && cow.isAlive(),
+					"GE_CREATE_LIFEFORM press on an entity out of the Stand's range with an item entity on the look ray inside"
+							+ " it: admitted=" + admitted + " transformations=" + created.size() + " fromItem=" + fromItemToCreated
+							+ " itemsLeft=" + left + " offHand=" + fixture.user.getOffhandItem() + " cowAlive=" + cow.isAlive()
+							+ "; 1.16 turns one item of the item entity into the lifeform where it lies and leaves the off hand");
+		}
+		finally {
+			if (dropped != null) dropped.discard();
 		}
 		helper.succeed();
 	}

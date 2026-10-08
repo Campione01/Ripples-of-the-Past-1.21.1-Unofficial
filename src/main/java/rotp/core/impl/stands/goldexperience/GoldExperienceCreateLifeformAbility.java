@@ -517,19 +517,24 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceUtilityAb
 
     private static ActionTarget findLifeformTarget(Level level, LivingEntity aiming) {
         ActionTarget syncedTarget = getSyncedLookTarget(level, aiming);
-        if (!syncedTarget.isEmpty(level)
-                && isWithinSourceRange(level, syncedTarget, aiming)) {
+        boolean synced = !syncedTarget.isEmpty(level);
+        if (synced && isWithinSourceRange(level, syncedTarget, aiming)) {
             return syncedTarget;
         }
+        // 1.16 overrideVanillaMouseTarget replaces the target under the crosshair with an item entity only; a target
+        // dropped for range (PowerBaseImpl.checkTarget) is never replaced by a block or another entity behind it
         ActionTarget clipped = HitResultUtil.clip(
                 aiming.getEyePosition(),
                 aiming.getLookAngle(),
                 SOURCE_BLOCK_TARGET_RANGE,
                 SOURCE_ENTITY_TARGET_RANGE,
                 level,
-                GoldExperienceCreateLifeformAbility::isConvertibleEntitySource,
+                synced ? entity -> entity instanceof ItemEntity : GoldExperienceCreateLifeformAbility::isConvertibleEntitySource,
                 aiming,
                 SOURCE_TARGET_PRECISION);
+        if (synced && clipped.getType() != ActionTarget.TargetType.ENTITY) {
+            return ActionTarget.EMPTY;
+        }
         return clipped.isEmpty(level) || isWithinSourceRange(level, clipped, aiming) ? clipped : ActionTarget.EMPTY;
     }
 
