@@ -33,12 +33,16 @@ public final class EntityTypeIcon {
     }
 
     public static void renderIcon(EntitySubtype<?> entityType, PoseStack poseStack, float x, float y) {
+        renderIcon(entityType, poseStack, x, y, BlitFloat.NO_TINT);
+    }
+
+    public static void renderIcon(EntitySubtype<?> entityType, PoseStack poseStack, float x, float y, int color) {
         ResourceLocation icon = getIcon(entityType);
         if (icon != UNKNOWN) {
-            BlitFloat.blit(poseStack, Minecraft.getInstance(), icon, x, y, 16, 16, 0, BlitFloat.NO_TINT);
+            BlitFloat.blit(poseStack, Minecraft.getInstance(), icon, x, y, 16, 16, 0, color);
         }
         else {
-            renderFallbackLetters(entityType.getDescription(), poseStack, x, y);
+            renderFallbackLetters(entityType.getDescription(), poseStack, x, y, color);
         }
     }
 
@@ -100,7 +104,7 @@ public final class EntityTypeIcon {
         }
     }
 
-    private static void renderFallbackLetters(Component name, PoseStack poseStack, float x, float y) {
+    private static void renderFallbackLetters(Component name, PoseStack poseStack, float x, float y, int color) {
         Font font = Minecraft.getInstance().font;
         String string = name.getString();
         if (string.isEmpty()) {
@@ -125,7 +129,7 @@ public final class EntityTypeIcon {
         RenderSystem.disableDepthTest();
         MultiBufferSource.BufferSource buffer = Minecraft.getInstance().renderBuffers().bufferSource();
         font.drawInBatch(letters, x + (16 - width) / 2.0F, y + (16 - font.lineHeight + 1) / 2.0F,
-                0xFFFFFFFF, false, poseStack.last().pose(), buffer, Font.DisplayMode.NORMAL, 0, 0x00F000F0);
+                color, false, poseStack.last().pose(), buffer, Font.DisplayMode.NORMAL, 0, 0x00F000F0);
         buffer.endBatch();
         RenderSystem.enableDepthTest();
         RenderSystem.enableBlend();

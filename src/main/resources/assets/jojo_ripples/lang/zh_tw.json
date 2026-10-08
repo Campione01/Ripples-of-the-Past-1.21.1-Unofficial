@@ -783,6 +783,7 @@
   "jojo_ripples.skill.create_lifeform.desc": "Imbue matter with life using the currently selected organism template.",
   "jojo_ripples.skill.create_lifeform.controls": "Special ability",
   "jojo_ripples.ability.create_lifeform": "Create Lifeform",
+  "jojo_ripples.ability.create_lifeform.param": "創造 %s",
   "jojo_ripples.skill.mark_item": "Mark Item",
   "jojo_ripples.skill.mark_item.desc": "Mark an item as the current life-creation target.",
   "jojo_ripples.skill.mark_item.controls": "Special ability",

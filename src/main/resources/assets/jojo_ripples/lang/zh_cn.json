@@ -867,6 +867,7 @@
   "jojo_ripples.skill.create_lifeform.desc": "使用当前选中的生物模板，将物质赋予生命。",
   "jojo_ripples.skill.create_lifeform.controls": "特殊能力",
   "jojo_ripples.ability.create_lifeform": "创造生命",
+  "jojo_ripples.ability.create_lifeform.param": "创造：%s",
   "jojo_ripples.skill.mark_item": "标记物品",
   "jojo_ripples.skill.mark_item.desc": "将一个物品标记为当前创造生命的目标。",
   "jojo_ripples.skill.mark_item.controls": "特殊能力",

@@ -1,6 +1,7 @@
 package rotp.core.impl.stands.goldexperience;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -16,6 +17,7 @@ import rotp.core.init.ModItems;
 import rotp.core.init.ModSoundEvents;
 import rotp.core.init.power.ModStandAbilities;
 import rotp.core.init.power.ModStands;
+import rotp.core.mechanics.resolve.ResolveCounter;
 import rotp.core.mrpresident.CocoJumboTurtleEntity;
 import rotp.core.mrpresident.MrPresidentRoomStateOwner;
 import rotp.core.modcompat.ModInteractionUtil;
@@ -32,6 +34,7 @@ import rotp.core.subsystems.itemtracking.ItemTracking;
 import rotp.core.subsystems.itemtracking.KnownItemState;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTargetRange;
+import rotp.core.subsystems.target.HitResultUtil;
 import rotp.core.util.functions.JojoModUtil;
 import rotp.core.util.mc.entitysubtype.EntitySubtype;
 import rotp.core.impl.powers.hamon.HamonUtil;
@@ -51,11 +54,14 @@ import net.minecraft.tags.BlockTags;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
 import net.minecraft.world.entity.item.PrimedTnt;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.projectile.AbstractArrow;
 import net.minecraft.world.entity.projectile.Arrow;
+import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.projectile.ThrownEnderpearl;
 import net.minecraft.world.entity.projectile.ThrownPotion;
 import net.minecraft.world.entity.vehicle.Boat;
@@ -79,7 +85,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.Tags;
 
-public class GoldExperienceCreateLifeformAbility extends GoldExperienceUtilityAbility {
+public class GoldExperienceCreateLifeformAbility extends GoldExperienceChosenLifeformAbility {
     private static final int MAX_LIFEFORM_ID_LENGTH = 256;
     private static final float STAMINA_COST_TICK = 0.2F;
     public static final int MAX_CREATED_LIFEFORMS = 16;
@@ -388,6 +394,10 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceUtilityAb
         if (stuckProjectileSource != null) {
             return stuckProjectileSource;
         }
+        LifeformSource entitySource = markedEntitySource(serverLevel, itemTracker);
+        if (entitySource != null) {
+            return entitySource;
+        }
         return itemBackedSource(SourceType.MARKED_ITEM, itemTracker.getItem(), serverLevel, user, itemTracker,
                 markedItemEntityThrowerFollowTarget(serverLevel, itemTracker));
     }
@@ -407,6 +417,28 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceUtilityAb
         ItemStack sourceEntityItemView = projectileSource != null ? sourceItem.copy() : ItemStack.EMPTY;
         return new LifeformSource(type, sourceItem, null, null, sourceEntityNbt, sourceEntityItemView,
                 null, null, null, markedItemTracker, followTarget, null);
+    }
+
+    // 1.16 perform, ENTITY_IS_ITEM: mobFromEntity takes the entity the marked item is (a dropped item, a thrown
+    // knife), whole, like a targeted entity
+    @Nullable
+    private static LifeformSource markedEntitySource(Level level, ItemTracker itemTracker) {
+        if (itemTracker.getItemState() != KnownItemState.ENTITY_IS_ITEM) {
+            return null;
+        }
+        Entity entity = itemTracker.getAtEntity(level);
+        if (entity == null || !entity.isAlive()) {
+            return null;
+        }
+        CompoundTag entityNbt = saveSourceEntity(entity);
+        if (!entityNbt.contains("id")) {
+            return null;
+        }
+        ItemStack itemView = itemTracker.getItem().copy();
+        ItemTracker.clearTrackingFromItem(itemView);
+        return new LifeformSource(SourceType.MARKED_ENTITY, ItemStack.EMPTY, null, null, entityNbt, itemView,
+                null, null, entity, itemTracker,
+                entity instanceof ItemEntity itemEntity ? itemEntityThrowerFollowTarget(itemEntity) : null, null);
     }
 
     @Nullable
@@ -508,10 +540,6 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceUtilityAb
     private static ActionTarget findLifeformTarget(Level level, LivingEntity user, StandPower standPower) {
         LivingEntity aiming = getControlledEntity(user, standPower);
         ActionTarget crosshair = getSyncedLookTarget(level, user, standPower, aiming);
-        if (crosshair.getType() == ActionTarget.TargetType.ENTITY && crosshair.isEmpty(level)) {
-            // 1.16 checkTarget: an aimed entity the server cannot find empties the target, the item-ray hit with it
-            return ActionTarget.EMPTY;
-        }
         ActionTarget target = clipItemEntity(level, aiming);
         if (target.isEmpty(level)) {
             target = crosshair;
@@ -565,9 +593,10 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceUtilityAb
         return !item.isEmpty() && !isItemLivingMatter(item);
     }
 
-    // 1.16 has no server-side pick. The target is the one its client sends: the vanilla pick, or the Stand's
-    // precision ray when that missed and the Stand is out (EntityStandType.clientHitResult). Here these are the
-    // user's and the Stand's synced aim. An entity target that does not resolve is returned as it is.
+    // 1.16 has no server-side pick of its own. The target is the one its client sends: the vanilla pick, or the
+    // Stand's precision ray when that missed and the Stand is out (EntityStandType.clientHitResult). The vanilla pick
+    // is the user's synced aim. The precision ray is cast here, on either side, from the same eyes and with the same
+    // reach, because the Stand's own synced aim only reaches the Stand's 2.5 blocks.
     private static ActionTarget getSyncedLookTarget(Level level, LivingEntity user, StandPower standPower,
             LivingEntity aiming) {
         // The aims only go from the user's client to the server, so that client reads the aims it sends.
@@ -578,11 +607,61 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceUtilityAb
         if (target.getType() == ActionTarget.TargetType.EMPTY && aiming == user) {
             StandEntity stand = standPower.getSummonedStandEntity();
             if (stand != null) {
-                target = ownClient ? ClientsideAim.standAim.getTarget() : getAimTarget(stand);
+                target = precisionRayTarget(user, stand);
             }
         }
         target.resolveEntityId(level);
         return target;
+    }
+
+    // 1.16 StandEntity.precisionRayTrace(cameraEntity): every pickable entity on the ray within reach, blocks not in
+    // the way, else the block; of several entities a player or Stand comes first, then a hostile mob, then the rest.
+    private static ActionTarget precisionRayTarget(LivingEntity user, StandEntity stand) {
+        List<ActionTarget> targets = HitResultUtil.clipMultipleTargets(user, precisionRayReach(user, stand),
+                entity -> entity != stand && entity.isAlive()
+                        && !(entity instanceof Projectile projectile && projectile.getOwner() == stand),
+                0.0D, stand.getPrecision());
+        if (targets.isEmpty()) {
+            return ActionTarget.EMPTY;
+        }
+        if (targets.size() == 1) {
+            return targets.get(0);
+        }
+        ActionTarget[] closestWithPriority = new ActionTarget[4];
+        int priority = 3;
+        for (ActionTarget target : targets) {
+            Entity entity = target.getEntity();
+            if (entity instanceof LivingEntity) {
+                if (entity instanceof Player || entity instanceof StandEntity) {
+                    priority = 0;
+                }
+                else if (ResolveCounter.attackingTargetGivesResolve(entity)) {
+                    priority = 1;
+                }
+            }
+            else if (entity != null) {
+                priority = 2;
+            }
+            if (closestWithPriority[priority] == null) {
+                closestWithPriority[priority] = target;
+            }
+        }
+        for (ActionTarget target : closestWithPriority) {
+            if (target != null) {
+                return target;
+            }
+        }
+        return targets.get(0);
+    }
+
+    // 1.16 StandEntity.getAimDistance: the aiming user's REACH_DISTANCE, 5 for a player in either game mode. The
+    // 1.21 attribute is the Survival pick range, half a block less, and gets that half block back in Creative.
+    private static double precisionRayReach(LivingEntity user, StandEntity stand) {
+        AttributeInstance reach = user.getAttribute(Attributes.BLOCK_INTERACTION_RANGE);
+        if (reach == null) {
+            return stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE);
+        }
+        return reach.getValue() + (isCreative(user) ? 0.0D : 0.5D);
     }
 
     private static ActionTarget getAimTarget(LivingEntity aiming) {
@@ -715,10 +794,22 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceUtilityAb
     private static void placeTransformationEntity(GETransformationEntity transformation, Entity createdEntity,
             LifeformSource source, LivingEntity performer, LivingEntity user) {
         Vec3 pos = source.spawnPos(performer, user, createdEntity);
-        transformation.moveTo(pos.x, pos.y, pos.z, performer.getYRot(), 0.0F);
-        createdEntity.moveTo(pos.x, pos.y, pos.z, performer.getYRot(), 0.0F);
+        // 1.16 mobFromEntity: an entity that is taken whole hands on its rotation, fire and motion
+        Entity taken = source.takenEntity();
+        float yaw = taken != null ? taken.getYRot() : performer.getYRot();
+        float pitch = taken != null ? taken.getXRot() : 0.0F;
+        transformation.moveTo(pos.x, pos.y, pos.z, yaw, pitch);
+        createdEntity.moveTo(pos.x, pos.y, pos.z, yaw, pitch);
         if (createdEntity instanceof LivingEntity livingCreated) {
             livingCreated.setYHeadRot(livingCreated.getYRot());
+        }
+        if (taken != null) {
+            if (taken.isOnFire()) {
+                transformation.igniteForSeconds((taken.getRemainingFireTicks() + 19) / 20);
+            }
+            if (!(taken instanceof AbstractArrow arrow && arrow.inGround)) {
+                transformation.setDeltaMovement(taken.getDeltaMovement());
+            }
         }
     }
 
@@ -810,6 +901,7 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceUtilityAb
         OFFHAND_ITEM,
         ITEM_ENTITY,
         MARKED_ITEM,
+        MARKED_ENTITY,
         ENTITY,
         STUCK_ARROW,
         STUCK_KNIFE,
@@ -847,6 +939,12 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceUtilityAb
                         && markedItemTracker.getItem() != null
                         && !markedItemTracker.getItem().isEmpty()
                         && canGiveLifeTo(markedItemTracker.getItem());
+                case MARKED_ENTITY -> sourceEntity != null
+                        && sourceEntity.isAlive()
+                        && level instanceof ServerLevel serverLevel
+                        && markedItemTracker != null
+                        && markedItemTracker.checkItemIsThere(serverLevel)
+                        && isValidMarkedItem(markedItemTracker);
                 case BLOCK -> sourceBlockPos != null
                         && sourceBlock != null
                         && level.getBlockState(sourceBlockPos).is(sourceBlock.getBlock())
@@ -886,12 +984,24 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceUtilityAb
                     ItemStack consumed = markedItemTracker.clearAndCopyItem(serverLevel);
                     yield consumed != null && !consumed.isEmpty() && canGiveLifeTo(consumed);
                 }
+                case MARKED_ENTITY -> {
+                    if (!canStillConsume(level, user)) {
+                        yield false;
+                    }
+                    sourceEntity.discard();
+                    yield true;
+                }
                 case BLOCK -> sourceBlockPos != null
                         && sourceBlock != null
                         && isUsableBlockSource(level, user, sourceBlockPos, level.getBlockState(sourceBlockPos))
                         && GEContainerDropGuard.removeBlockKeepingContainerItems(level, sourceBlockPos,
                                 level.getBlockEntity(sourceBlockPos));
             };
+        }
+
+        @Nullable
+        Entity takenEntity() {
+            return sourceItemEntity != null ? sourceItemEntity : sourceEntity;
         }
 
         Vec3 spawnPos(LivingEntity performer, LivingEntity user, Entity createdEntity) {
