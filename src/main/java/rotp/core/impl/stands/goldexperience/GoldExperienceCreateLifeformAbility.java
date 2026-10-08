@@ -6,6 +6,8 @@ import java.util.UUID;
 
 import javax.annotation.Nullable;
 
+import rotp.core.client.ClientProxy;
+import rotp.core.client.input.ClientsideAim;
 import rotp.core.customobjects.entity_projectile.KnifeEntity;
 import rotp.core.customobjects.RoadRollerEntity;
 import rotp.core.core.JojoMod;
@@ -74,6 +76,7 @@ import net.minecraft.world.level.block.SnowyDirtBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.Tags;
 
@@ -112,30 +115,27 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceUtilityAb
             return sourceConditions(context);
         }
 
-        LivingEntity aimingEntity = getControlledEntity(user, standPower);
-        // 1.16 TargetRequirement.NONE: a target out of range is dropped (PowerBaseImpl.checkTarget), not refused
-        ActionTarget aimTarget = findLifeformTarget(user.level(), aimingEntity);
-        LifeformSource targetSource = targetedSource(user.level(), user, aimTarget);
-        if (targetSource != null) {
+        Level level = user.level();
+        ActionTarget aimTarget = findLifeformTarget(level, getControlledEntity(user, standPower));
+        if (aimTarget.getType() == ActionTarget.TargetType.ENTITY) {
             return sourceConditions(context);
         }
-        ConditionCheck invalidEntityTarget = invalidEntityTargetCondition(aimTarget);
-        if (!invalidEntityTarget.isPositive()) {
-            return invalidEntityTarget;
-        }
 
+        // 1.16 checkSpecificConditions: without a targeted entity, the off-hand item or the targeted block must fit
         ItemStack offHandItem = user.getOffhandItem();
-        if (!offHandItem.isEmpty() && canGiveLifeTo(offHandItem)) {
-            return sourceConditions(context);
+        boolean hasAnItem = !offHandItem.isEmpty();
+        boolean hasABlock = aimTarget.getType() == ActionTarget.TargetType.BLOCK;
+        if (!hasAnItem && !hasABlock) {
+            return ConditionCheck.createNegative(JojoModUtil.breakingBlocksEnabled(level)
+                    ? "ge_lifeform_material" : "ge_lifeform_material_only_item");
         }
-
-        if (aimTarget.getType() == ActionTarget.TargetType.BLOCK) {
-            return ConditionCheck.createNegative("ge_lifeform_material_block");
+        boolean itemFits = hasAnItem && canGiveLifeTo(offHandItem);
+        boolean blockFits = hasABlock && isUsableBlockSource(level, user, aimTarget.getBlockPos(),
+                level.getBlockState(aimTarget.getBlockPos()));
+        if (!itemFits && !blockFits) {
+            return ConditionCheck.createNegative(hasAnItem ? "ge_lifeform_material_item" : "ge_lifeform_material_block");
         }
-        if (offHandItem.isEmpty()) {
-            return ConditionCheck.createNegative("ge_lifeform_material");
-        }
-        return ConditionCheck.createNegative("ge_lifeform_material_item");
+        return sourceConditions(context);
     }
 
     private ConditionCheck sourceConditions(Power<?> context) {
@@ -174,17 +174,19 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceUtilityAb
         UUID markedItemTrackerInput = input.markedItemTrackerId();
 
         LivingEntity performer = getControlledEntity(user, standPower);
+        // 1.16 perform: the marked item, the targeted entity, the off-hand item, then the targeted block
         LifeformSource source = markedItemSource(serverLevel, standPower, user, markedItemTrackerInput);
-        ActionTarget target = ActionTarget.EMPTY;
         if (source == null) {
-            target = findLifeformTarget(level, performer);
-            source = targetedSource(level, user, target);
-        }
-        if (source == null && target.getType() == ActionTarget.TargetType.ENTITY) {
-            return;
-        }
-        if (source == null) {
-            source = offhandSource(level, user);
+            ActionTarget target = findLifeformTarget(level, performer);
+            if (target.getType() == ActionTarget.TargetType.ENTITY) {
+                source = targetedSource(level, user, target);
+            }
+            if (source == null) {
+                source = offhandSource(level, user);
+            }
+            if (source == null && target.getType() == ActionTarget.TargetType.BLOCK) {
+                source = targetedSource(level, user, target);
+            }
         }
         if (source == null) {
             return;
@@ -366,17 +368,6 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceUtilityAb
         };
     }
 
-    private static ConditionCheck invalidEntityTargetCondition(ActionTarget target) {
-        if (target.getType() != ActionTarget.TargetType.ENTITY) {
-            return ConditionCheck.POSITIVE;
-        }
-        Entity entity = target.getMainEntity();
-        if (entity instanceof ItemEntity itemEntity && !canGiveLifeTo(itemEntity.getItem())) {
-            return ConditionCheck.createNegative("ge_lifeform_material_item");
-        }
-        return ConditionCheck.NEGATIVE;
-    }
-
     @Nullable
     private static LifeformSource offhandSource(Level level, LivingEntity user) {
         ItemStack offHandItem = user.getOffhandItem();
@@ -515,30 +506,73 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceUtilityAb
                 && canGiveLifeTo(itemTracker.getItem());
     }
 
+    // 1.16 PowerBaseImpl.checkTarget: on every use the item entity on the look ray replaces what is under the
+    // crosshair (overrideVanillaMouseTarget), and only then come the range and the action's own checkTarget.
+    // A target that fails either is no target (TargetRequirement.NONE); nothing else is picked in its place.
     private static ActionTarget findLifeformTarget(Level level, LivingEntity aiming) {
-        ActionTarget syncedTarget = getSyncedLookTarget(level, aiming);
-        boolean synced = !syncedTarget.isEmpty(level);
-        if (synced && isWithinSourceRange(level, syncedTarget, aiming)) {
-            return syncedTarget;
+        ActionTarget target = clipItemEntity(level, aiming);
+        if (target.isEmpty(level)) {
+            target = getSyncedLookTarget(level, aiming);
         }
-        // 1.16 overrideVanillaMouseTarget replaces the target under the crosshair with an item entity only; a target
-        // dropped for range (PowerBaseImpl.checkTarget) is never replaced by a block or another entity behind it
-        ActionTarget clipped = HitResultUtil.clip(
-                aiming.getEyePosition(),
-                aiming.getLookAngle(),
-                SOURCE_BLOCK_TARGET_RANGE,
-                SOURCE_ENTITY_TARGET_RANGE,
-                level,
-                synced ? entity -> entity instanceof ItemEntity : GoldExperienceCreateLifeformAbility::isConvertibleEntitySource,
-                aiming,
-                SOURCE_TARGET_PRECISION);
-        if (synced && clipped.getType() != ActionTarget.TargetType.ENTITY) {
-            return ActionTarget.EMPTY;
+        if (target.isEmpty(level)) {
+            // nothing under the crosshair: the port's own, longer pick
+            target = HitResultUtil.clip(
+                    aiming.getEyePosition(),
+                    aiming.getLookAngle(),
+                    SOURCE_BLOCK_TARGET_RANGE,
+                    SOURCE_ENTITY_TARGET_RANGE,
+                    level,
+                    GoldExperienceCreateLifeformAbility::isConvertibleEntitySource,
+                    aiming,
+                    SOURCE_TARGET_PRECISION);
         }
-        return clipped.isEmpty(level) || isWithinSourceRange(level, clipped, aiming) ? clipped : ActionTarget.EMPTY;
+        return !target.isEmpty(level) && isWithinSourceRange(level, target, aiming) && isSourceTarget(level, target)
+                ? target : ActionTarget.EMPTY;
+    }
+
+    // 1.16 overrideVanillaMouseTarget: JojoModUtil.rayTraceMultipleEntities over the block range with checkPickable
+    // off. Its entity pass ignores blocks, so an item entity behind one is picked too; out of the performer's sight
+    // the range rule then leaves it a quarter of the squared entity range.
+    private static ActionTarget clipItemEntity(Level level, LivingEntity aiming) {
+        Vec3 from = aiming.getEyePosition();
+        Vec3 ray = aiming.getLookAngle().scale(SOURCE_BLOCK_TARGET_RANGE);
+        Vec3 to = from.add(ray);
+        ItemEntity nearest = null;
+        double nearestDistSqr = SOURCE_BLOCK_TARGET_RANGE * SOURCE_BLOCK_TARGET_RANGE;
+        for (ItemEntity item : level.getEntitiesOfClass(ItemEntity.class,
+                aiming.getBoundingBox().expandTowards(ray).inflate(1.0D))) {
+            AABB box = item.getBoundingBox().inflate(item.getPickRadius());
+            double distSqr = box.contains(from) ? 0.0D
+                    : box.clip(from, to).map(from::distanceToSqr).orElse(Double.MAX_VALUE);
+            if (distSqr < nearestDistSqr) {
+                nearest = item;
+                nearestDistSqr = distSqr;
+            }
+        }
+        return nearest != null ? new ActionTarget(nearest) : ActionTarget.EMPTY;
+    }
+
+    // 1.16 GoldExperienceCreateLifeform.checkTarget, with the port's own answers for a dropped fish bucket (accepted)
+    // and for a Creative user's unbreakable block (refused)
+    private static boolean isSourceTarget(Level level, ActionTarget target) {
+        return switch (target.getType()) {
+            case ENTITY -> {
+                Entity entity = target.getMainEntity();
+                yield entity instanceof ItemEntity itemEntity
+                        ? canGiveLifeTo(itemEntity.getItem())
+                        : isConvertibleEntitySource(entity);
+            }
+            case BLOCK -> JojoModUtil.breakingBlocksEnabled(level)
+                    && level.getBlockState(target.getBlockPos()).getDestroySpeed(level, target.getBlockPos()) >= 0;
+            default -> false;
+        };
     }
 
     private static ActionTarget getSyncedLookTarget(Level level, LivingEntity aiming) {
+        // The user's aim only goes from its client to the server, so its own client reads the aim it sends.
+        if (level.isClientSide() && aiming == ClientProxy.getClientPlayer()) {
+            return ClientsideAim.playerAim.getTarget().resolveEntityId(level);
+        }
         var aim = LivingComponentAction.getAim(aiming);
         if (aim == null) {
             return ActionTarget.EMPTY;
@@ -555,8 +589,7 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceUtilityAb
     }
 
 	private static boolean isConvertibleEntitySource(Entity entity) {
-		return entity instanceof ItemEntity
-				|| entity instanceof PrimedTnt
+		return entity instanceof PrimedTnt
 				|| entity instanceof EndCrystal
 				|| entity instanceof Boat
 				|| entity instanceof RoadRollerEntity;
