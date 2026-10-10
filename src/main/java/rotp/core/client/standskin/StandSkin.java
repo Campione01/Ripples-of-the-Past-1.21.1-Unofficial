@@ -54,7 +54,7 @@ public class StandSkin {
 	protected Map<ResourceLocation, AnimationSet> animations = new HashMap<>();
 	protected AnimationSet standEntityAnims;
 	protected float[] renderScale;
-	private boolean surfaceTranslucency;
+	private boolean surfaceTranslucency = true;
 	
 	protected Map<ResourceLocation, WeighedSoundEvents> soundEvents = new HashMap<>();
 	protected Map<ResourceLocation, ResourceLocation> existingSounds = new HashMap<>();
@@ -110,6 +110,14 @@ public class StandSkin {
 
 	public boolean usesSurfaceTranslucency() {
 		return surfaceTranslucency;
+	}
+
+	/**
+	 * A translucent Stand draws only its nearest surface, or its inner faces show through the outer ones.
+	 * A skin that needs the layered look says "surface_translucency": false.
+	 */
+	public static boolean surfaceTranslucencyFrom(com.google.gson.JsonObject skinInfo) {
+		return !skinInfo.has("surface_translucency") || skinInfo.get("surface_translucency").getAsBoolean();
 	}
 	
 	protected void withSoundEvents(Map<ResourceLocation, WeighedSoundEvents> soundEvents) {

@@ -309,7 +309,7 @@ public class StandSkinsLoader implements PreparableReloadListener {
 		private ResourceLocation standId;
 		private OptionalInt uiColor = OptionalInt.empty();
 		private float[] scale;
-		private boolean surfaceTranslucency;
+		private boolean surfaceTranslucency = true;
 		private Optional<ResourceLocation> storyPart = Optional.empty();
 		private Map<ResourceLocation, LayerDefinition> models;
 		private Map<ResourceLocation, AnimationSet.Builder> animations;
@@ -353,9 +353,7 @@ public class StandSkinsLoader implements PreparableReloadListener {
 	
 	private void loadSkinInfo(JsonObject skinInfoJson, StandSkinResourceBuilder builder, Logger logger) {
 		ResourceLocation.CODEC.decode(JsonOps.INSTANCE, skinInfoJson.get("stand_type")).ifSuccess(res -> builder.standId = res.getFirst());
-		if (skinInfoJson.has("surface_translucency")) {
-			builder.surfaceTranslucency = skinInfoJson.get("surface_translucency").getAsBoolean();
-		}
+		builder.surfaceTranslucency = StandSkin.surfaceTranslucencyFrom(skinInfoJson);
 		if (skinInfoJson.has("color")) {
 			builder.uiColor = OptionalInt.of(0xff000000 | JSONUtil.parseColor(skinInfoJson.get("color")));
 		}

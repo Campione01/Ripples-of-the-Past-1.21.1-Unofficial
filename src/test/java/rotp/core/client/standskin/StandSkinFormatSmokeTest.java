@@ -26,6 +26,18 @@ public final class StandSkinFormatSmokeTest {
 		// a Stand with no skin at all reaches the icon fallback with a null skin (Stand info screen); it drew
 		// nothing and crashed the client instead
 		StandSkinsScreen.renderSkinIcon(null, null, 0, 0, 16);
+
+		// a translucent Stand without the nearest-surface pass shows its inner faces (owner report of 2026-10-10):
+		// every skin gets the pass unless its skin.json refuses it
+		com.google.gson.JsonObject info = new com.google.gson.JsonObject();
+		check(StandSkin.surfaceTranslucencyFrom(info),
+				"a skin that says nothing must use nearest-surface translucency");
+		info.addProperty("surface_translucency", false);
+		check(!StandSkin.surfaceTranslucencyFrom(info),
+				"a skin must be able to refuse nearest-surface translucency");
+		info.addProperty("surface_translucency", true);
+		check(StandSkin.surfaceTranslucencyFrom(info),
+				"an explicit opt-in must stay on");
 	}
 
 	private static void check(boolean condition, String message) {
