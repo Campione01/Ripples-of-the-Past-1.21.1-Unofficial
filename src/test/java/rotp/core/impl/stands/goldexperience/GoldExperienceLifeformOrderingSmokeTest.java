@@ -10,6 +10,18 @@ import java.util.Random;
 import java.util.stream.IntStream;
 
 import rotp.core.client.ui.screen_jojomenu.GoldExperienceLifeformLayout;
+import rotp.core.impl.stands.goldexperience.client.GELifeformModelParts;
+
+import net.minecraft.client.model.ChickenModel;
+import net.minecraft.client.model.CowModel;
+import net.minecraft.client.model.EntityModel;
+import net.minecraft.client.model.HumanoidModel;
+import net.minecraft.client.model.VillagerModel;
+import net.minecraft.client.model.ZombieModel;
+import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.model.geom.builders.CubeDeformation;
+import net.minecraft.client.model.geom.builders.LayerDefinition;
+import net.minecraft.world.entity.monster.Zombie;
 
 public final class GoldExperienceLifeformOrderingSmokeTest {
     private GoldExperienceLifeformOrderingSmokeTest() {}
@@ -19,6 +31,31 @@ public final class GoldExperienceLifeformOrderingSmokeTest {
         verifyKeysAreSnapshottedOnce();
         verifyPickerLayout();
         verifyEntityIconResources();
+        verifyGrowthAnimationFindsVanillaModelParts();
+    }
+
+    // The growth animation moves the parts of the grown lifeform's model. A vanilla 1.21.1 model has no root handle
+    // (only Stand and humanoid models are given one), so the parts must be found from the model itself.
+    private static void verifyGrowthAnimationFindsVanillaModelParts() {
+        ModelPart cowRoot = CowModel.createBodyLayer().bakeRoot();
+        ModelPart chickenRoot = ChickenModel.createBodyLayer().bakeRoot();
+        ModelPart villagerRoot = LayerDefinition.create(VillagerModel.createBodyModel(), 64, 64).bakeRoot();
+        ModelPart zombieRoot = LayerDefinition.create(HumanoidModel.createMesh(CubeDeformation.NONE, 0.0F), 64, 64).bakeRoot();
+        verifyAllPartsFound("cow", new CowModel<>(cowRoot), cowRoot, 5);
+        verifyAllPartsFound("chicken", new ChickenModel<>(chickenRoot), chickenRoot, 5);
+        verifyAllPartsFound("villager", new VillagerModel<>(villagerRoot), villagerRoot, 5);
+        verifyAllPartsFound("zombie", new ZombieModel<Zombie>(zombieRoot), zombieRoot, 5);
+    }
+
+    private static void verifyAllPartsFound(String name, EntityModel<?> model, ModelPart root, int atLeast) {
+        List<ModelPart> found = GELifeformModelParts.collect(model);
+        List<ModelPart> expected = root.getAllParts().filter(part -> part != root).toList();
+        check(expected.size() >= atLeast, name + " fixture has only " + expected.size() + " parts");
+        for (ModelPart part : expected) {
+            check(found.stream().anyMatch(candidate -> candidate == part),
+                    name + " model: the growth animation cannot reach a part (" + found.size() + " of " + expected.size()
+                            + " found)");
+        }
     }
 
     // The 1.16 core shipped these head icons for EntityTypeIcon (lifeform marker,

@@ -115,10 +115,7 @@ public class MRRedBindRenderer extends EntityRenderer<MRRedBindEntity> {
 		}
 
 		poseStack.pushPose();
-		Vec3 originRelativeToEntity = originPos.subtract(entityPos);
-		poseStack.translate(originRelativeToEntity.x, originRelativeToEntity.y, originRelativeToEntity.z);
-		poseStack.mulPose(Axis.YP.rotationDegrees(MathUtil.yRotDegFromVec(extentVec)));
-		poseStack.mulPose(Axis.XP.rotationDegrees(MathUtil.xRotDegFromVec(extentVec)));
+		MRRedBindFrame.apply(poseStack, extentVec);
 		RenderType renderType = alpha > 0.0F
 				? ModRenderTypes.standTranslucent(InventoryMenu.BLOCK_ATLAS)
 				: buffer instanceof OutlineBufferSource ? RenderType.outline(InventoryMenu.BLOCK_ATLAS) : null;

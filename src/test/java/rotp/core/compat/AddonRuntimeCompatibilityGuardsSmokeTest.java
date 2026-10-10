@@ -6,7 +6,9 @@ import java.nio.file.Path;
 
 import rotp.core.client.entityrender.entities.RoadRollerGroundAlignmentSmokeTest;
 import rotp.core.client.entityrender.entities.TommyGunTrailShellSmokeTest;
+import rotp.core.impl.powers.hamon.client.HamonExtendingFrameSmokeTest;
 import rotp.core.impl.stands._entitybase.StandLightPunchCompatibilitySmokeTest;
+import rotp.core.impl.stands.magiciansred.client.MRRedBindFrameSmokeTest;
 
 public final class AddonRuntimeCompatibilityGuardsSmokeTest {
 	private AddonRuntimeCompatibilityGuardsSmokeTest() {}
@@ -15,6 +17,8 @@ public final class AddonRuntimeCompatibilityGuardsSmokeTest {
 		StandLightPunchCompatibilitySmokeTest.run();
 		RoadRollerGroundAlignmentSmokeTest.run();
 		TommyGunTrailShellSmokeTest.run();
+		HamonExtendingFrameSmokeTest.run();
+		MRRedBindFrameSmokeTest.run();
 
 		Path root = Path.of(System.getProperty("user.dir"));
 		Path main = root.resolve("src/main/java");

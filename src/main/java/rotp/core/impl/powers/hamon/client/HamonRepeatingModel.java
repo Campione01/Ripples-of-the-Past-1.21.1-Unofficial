@@ -4,20 +4,15 @@ import javax.annotation.Nullable;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.math.Axis;
 
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 
 public abstract class HamonRepeatingModel {
     private float length;
-    private float yRotation;
-    private float xRotation;
 
-    public void setup(float length, float yRotation, float xRotation) {
+    public void setup(float length) {
         this.length = length;
-        this.yRotation = yRotation;
-        this.xRotation = xRotation;
     }
 
     @Nullable
@@ -31,8 +26,6 @@ public abstract class HamonRepeatingModel {
 
     public void renderToBuffer(PoseStack poseStack, VertexConsumer vertexBuilder, int packedLight, int color) {
         poseStack.pushPose();
-        poseStack.mulPose(Axis.YP.rotationDegrees(yRotation));
-        poseStack.mulPose(Axis.XP.rotationDegrees(xRotation));
 
         float modelLength = length;
         ModelPart mainPart = getMainPart();

@@ -1,6 +1,5 @@
 package rotp.core.impl.powers.hamon.client;
 
-import rotp.core.util.functions.MathUtil;
 import rotp.core.impl.powers.pillarman.PillarmanExtendingBodyPartEntity;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -43,9 +42,8 @@ public class HamonExtendingRenderer<T extends PillarmanExtendingBodyPartEntity, 
                     packedLight = entityRenderDispatcher.getPackedLightCoords(owner, partialTick);
                 }
                 poseStack.pushPose();
-                Vec3 originRelativeToEntity = originPos.subtract(entityPos);
-                poseStack.translate(originRelativeToEntity.x, originRelativeToEntity.y, originRelativeToEntity.z);
-                model.setup(length, MathUtil.yRotDegFromVec(extentVec), MathUtil.xRotDegFromVec(extentVec));
+                HamonExtendingFrame.apply(poseStack, extentVec);
+                model.setup(length);
                 VertexConsumer vertexBuilder = buffer.getBuffer(RenderType.entityTranslucent(getTextureLocation(entity)));
                 model.renderToBuffer(poseStack, vertexBuilder, packedLight, 0xFFFFFFFF);
                 poseStack.popPose();

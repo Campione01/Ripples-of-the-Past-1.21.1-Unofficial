@@ -154,6 +154,10 @@ public abstract class DamagingEntity extends Projectile implements IEntityWithCo
 	@Override
 	public void lerpMotion(double x, double y, double z) {
 		this.setDeltaMovement(x, y, z);
+		// a standing projectile (the Aja stone beam) has no direction in its motion; the spawn packet's rotation stays
+		if (x == 0.0D && y == 0.0D && z == 0.0D) {
+			return;
+		}
 		if (this.xRotO == 0.0F && this.yRotO == 0.0F) {
 			double d0 = Math.sqrt(x * x + z * z);
 			// literally the same vanilla shit but the angles are rotated IN THE DIRECTION OF THE MOVEMENT INSTEAD OF BEING FUCKING INVERTED

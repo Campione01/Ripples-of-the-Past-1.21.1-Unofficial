@@ -2,16 +2,17 @@ package rotp.core.impl.stands.goldexperience.client;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import javax.annotation.Nullable;
 
 import rotp.core.core.JojoMod;
-import rotp.core.compat.v1_21_4.missingmethods.Model_1_21_2plus;
 import rotp.core.client.rendertype.CustomRenderType;
 import rotp.core.impl.stands.crazydiamond.client.CrazyDBlockBulletRenderer;
 import rotp.core.impl.stands.goldexperience.GETransformationEntity;
@@ -127,7 +128,8 @@ public class GETransformationRenderer<T extends GETransformationEntity> extends 
             T transformationEntity, LivingEntityRenderer renderer, float yRotation, float partialTick,
             PoseStack poseStack, MultiBufferSource buffer, int packedLight, float progress) {
         M targetModel = (M) renderer.getModel();
-        if (!(targetModel instanceof Model_1_21_2plus modelPlus)) {
+        // decided before any pose change: the full renderer sets up the upright flip and the body turn itself
+        if (!hasModelParts(targetModel)) {
             renderScaledEntity(living, progress, yRotation, partialTick, poseStack, buffer, packedLight);
             return;
         }
@@ -151,6 +153,7 @@ public class GETransformationRenderer<T extends GETransformationEntity> extends 
 
             poseStack.mulPose(com.mojang.math.Axis.YP.rotationDegrees(180.0F - yBodyRotation));
             poseStack.scale(-1.0F, -1.0F, 1.0F);
+            applyRendererScale(renderer, living, poseStack, partialTick);
             poseStack.scale(progress, progress, progress);
             poseStack.translate(0.0D, -1.501D, 0.0D);
 
@@ -161,11 +164,7 @@ public class GETransformationRenderer<T extends GETransformationEntity> extends 
             RenderType renderType = texture != null ? targetModel.renderType(texture) : null;
             if (renderType != null) {
                 this.shadowRadius = 0.15F * progress;
-                ModelStateEntry modelState = getModelState(targetModel, modelPlus);
-                if (modelState == null) {
-                    renderScaledEntity(living, progress, yRotation, partialTick, poseStack, buffer, packedLight);
-                    return;
-                }
+                ModelStateEntry modelState = getModelState(targetModel);
                 modelState.saveState();
                 try {
                     modelState.lerp(progress);
@@ -280,21 +279,60 @@ public class GETransformationRenderer<T extends GETransformationEntity> extends 
 
     private static final Map<ResourceLocation, TextureScale> TEXTURE_SCALE_CACHE = new HashMap<>();
 
-    @Nullable
-    private ModelStateEntry getModelState(EntityModel<?> model, Model_1_21_2plus modelPlus) {
-        Collection<ModelPart> modelParts = modelPlus.jojo_ripples$allParts();
-        if (modelParts == null || modelParts.isEmpty()) {
-            Class<?> modelClass = model.getClass();
-            if (!MISSING_MODEL_PARTS_LOG.containsKey(modelClass)) {
-                MISSING_MODEL_PARTS_LOG.put(modelClass, Boolean.TRUE);
-                JojoMod.getLogger().warn(
-                        "Gold Experience lifeform transformation renderer could not access model parts for {}; falling back to scaled entity rendering.",
-                        modelClass.getName());
-            }
-            return null;
+    private static boolean hasModelParts(EntityModel<?> model) {
+        if (MODEL_PARTS_CACHE.containsKey(model)) {
+            return true;
         }
-        return MODEL_PARTS_CACHE.computeIfAbsent(model, ignored -> new ModelStateEntry(modelParts));
+        if (!GELifeformModelParts.collect(model).isEmpty()) {
+            return true;
+        }
+        Class<?> modelClass = model.getClass();
+        if (!MISSING_MODEL_PARTS_LOG.containsKey(modelClass)) {
+            MISSING_MODEL_PARTS_LOG.put(modelClass, Boolean.TRUE);
+            JojoMod.getLogger().warn(
+                    "Gold Experience lifeform transformation renderer could not access model parts for {}; falling back to scaled entity rendering.",
+                    modelClass.getName());
+        }
+        return false;
     }
+
+    private ModelStateEntry getModelState(EntityModel<?> model) {
+        return MODEL_PARTS_CACHE.computeIfAbsent(model, ignored -> new ModelStateEntry(GELifeformModelParts.collect(model)));
+    }
+
+    // 1.16.5 called LivingRenderer.scale here (villager and baby size, slime size, ...); it is protected in 1.21.1
+    @SuppressWarnings("rawtypes")
+    private static void applyRendererScale(LivingEntityRenderer renderer, LivingEntity living, PoseStack poseStack,
+            float partialTick) {
+        Optional<Method> hook = SCALE_HOOKS.computeIfAbsent(renderer.getClass(), GETransformationRenderer::findScaleHook);
+        if (hook.isEmpty()) {
+            return;
+        }
+        try {
+            hook.get().invoke(renderer, living, poseStack, partialTick);
+        }
+        catch (ReflectiveOperationException | RuntimeException e) {
+            SCALE_HOOKS.put(renderer.getClass(), Optional.empty());
+            JojoMod.getLogger().warn("Gold Experience lifeform transformation renderer could not apply the scale of {}",
+                    renderer.getClass().getName(), e);
+        }
+    }
+
+    private static Optional<Method> findScaleHook(Class<?> rendererClass) {
+        for (Class<?> type = rendererClass; type != null && type != EntityRenderer.class; type = type.getSuperclass()) {
+            try {
+                Method method = type.getDeclaredMethod("scale", LivingEntity.class, PoseStack.class, float.class);
+                if (method.trySetAccessible()) {
+                    return Optional.of(method);
+                }
+            }
+            catch (NoSuchMethodException ignored) {
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static final Map<Class<?>, Optional<Method>> SCALE_HOOKS = new IdentityHashMap<>();
 
     private static final Map<EntityModel<?>, ModelStateEntry> MODEL_PARTS_CACHE = new IdentityHashMap<>();
     private static final Map<Class<?>, Boolean> MISSING_MODEL_PARTS_LOG = new IdentityHashMap<>();
