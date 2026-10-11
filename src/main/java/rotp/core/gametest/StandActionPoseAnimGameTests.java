@@ -144,10 +144,14 @@ public final class StandActionPoseAnimGameTests {
 			helper.assertTrue(clip != null, "silver_chariot no_rapier_block clip is missing");
 			JsonObject bones = clip.getAsJsonObject("bones");
 			helper.assertTrue(!bones.has("rapier")
-					&& vec(bones, "left_arm").toString().equals("[-90,0,45]")
-					&& vec(bones, "right_arm").toString().equals("[-90,0,-45]")
-					&& vec(bones, "left_arm_bend").get(2).getAsFloat() == 60
-					&& vec(bones, "right_arm_bend").get(2).getAsFloat() == -60,
+					&& vec(bones, "left_arm").toString().equals("[\"-90 + math.max(-60, math.min(60, query.head_x_rotation)) / 2\","
+							+ "\"math.max(-60, math.min(60, query.head_x_rotation)) / 4\","
+							+ "\"-45 + math.abs(math.max(-60, math.min(60, query.head_x_rotation))) / 4\"]")
+					&& vec(bones, "right_arm").toString().equals("[\"-90 + math.max(-60, math.min(60, query.head_x_rotation)) / 2\","
+							+ "\"math.max(-60, math.min(60, query.head_x_rotation)) / -4\","
+							+ "\"45 - math.abs(math.max(-60, math.min(60, query.head_x_rotation))) / 4\"]")
+					&& vec(bones, "left_arm_bend").get(2).getAsFloat() == 90
+					&& vec(bones, "right_arm_bend").get(2).getAsFloat() == -90,
 					"no_rapier_block is not the humanoid crossed-arms guard");
 			helper.assertTrue(anims.getAsJsonObject("block").getAsJsonObject("bones").has("rapier"),
 					"The rapier guard clip lost its rapier pose");

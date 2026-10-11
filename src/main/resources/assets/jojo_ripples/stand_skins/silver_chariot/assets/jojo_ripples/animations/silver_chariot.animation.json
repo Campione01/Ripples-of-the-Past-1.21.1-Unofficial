@@ -871,18 +871,18 @@
         "left_arm": {
           "rotation": {
             "vector": [
-              -90,
-              0,
-              45
+              "-90 + math.max(-60, math.min(60, query.head_x_rotation)) / 2",
+              "math.max(-60, math.min(60, query.head_x_rotation)) / 4",
+              "-45 + math.abs(math.max(-60, math.min(60, query.head_x_rotation))) / 4"
             ]
           }
         },
         "left_arm_bend": {
           "rotation": {
             "vector": [
-              0,
-              0,
-              60
+              -90,
+              -30,
+              90
             ]
           }
         },
@@ -898,18 +898,18 @@
         "right_arm": {
           "rotation": {
             "vector": [
-              -90,
-              0,
-              -45
+              "-90 + math.max(-60, math.min(60, query.head_x_rotation)) / 2",
+              "math.max(-60, math.min(60, query.head_x_rotation)) / -4",
+              "45 - math.abs(math.max(-60, math.min(60, query.head_x_rotation))) / 4"
             ]
           }
         },
         "right_arm_bend": {
           "rotation": {
             "vector": [
-              0,
-              0,
-              -60
+              -90,
+              30,
+              -90
             ]
           }
         },

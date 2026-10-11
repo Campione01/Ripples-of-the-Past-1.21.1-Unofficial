@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
@@ -122,7 +124,73 @@ public final class HierophantGreenGuardPoseSmokeTest {
 		// Reuse the parsed clip and scratch with a reversed pitch; queries must stay live.
 		animation.calcAnimPose(AnimMolangVariables.set(-30, 0, 0), null, 0.25F, 1, pose, scratch);
 		rotation(pose, "left_arm", -105, -7.5F, -37.5F, "live pitch reversal");
-		System.out.println("Hierophant Green guard pose passed: nine donor pitch samples on parsed and baked HG bones, mirrored X/Y/Z, clamp endpoints, combined arm and forearm axis, roll and hand tip against the donor and against the default guard at level look, live pitch reversal and unchanged hold/head channels");
+		List<AssertionError> failures = new ArrayList<>();
+		for (String stand : new String[] { "stand_default", "crazy_diamond", "magicians_red", "silver_chariot" }) {
+			try {
+				verifyLegacyGuard(stand);
+				System.out.println("Legacy guard composed pose passed: " + stand);
+			} catch (AssertionError failure) {
+				System.out.println("Legacy guard composed pose FAILED: " + stand + ": " + failure.getMessage());
+				failures.add(failure);
+			}
+		}
+		if (!failures.isEmpty()) {
+			throw new AssertionError(failures.size() + " legacy guard clips differ from the donor", failures.getFirst());
+		}
+		System.out.println("Legacy guard pose passed: HG reference plus four clips on their baked geometry, nine donor pitch samples, mirrored axes, clamp endpoints, composed forearm axis/roll/hand tip and live pitch reversal");
+	}
+
+	private static void verifyLegacyGuard(String stand) throws IOException {
+		boolean fallback = "stand_default".equals(stand);
+		String skin = fallback ? "hierophant_green" : stand;
+		String base = "/assets/jojo_ripples/stand_skins/" + skin + "/assets/jojo_ripples/";
+		String asset = fallback ? DEFAULT_ASSET : base + "animations/" + skin + ".animation.json";
+		String clipName = "silver_chariot".equals(stand) ? "no_rapier_block" : "block";
+		RotpAnimDefinition animation;
+		try (InputStream in = HierophantGreenGuardPoseSmokeTest.class.getResourceAsStream(asset)) {
+			check(in != null, "Missing animation " + asset);
+			JsonObject clip = JsonParser.parseReader(new InputStreamReader(in, StandardCharsets.UTF_8))
+					.getAsJsonObject().getAsJsonObject("animations").getAsJsonObject(clipName);
+			check(clip != null, "Missing " + stand + " " + clipName);
+			animation = ParseGeckoAnims.parseAnim(clip);
+		}
+		ModelPart torso;
+		try (InputStream in = HierophantGreenGuardPoseSmokeTest.class.getResourceAsStream(base + "geo/" + skin + ".geo.json")) {
+			check(in != null, "Missing geometry for " + skin);
+			ModelPart root = GeckoModelFormat.parseGeckoModel(
+					JsonParser.parseReader(new InputStreamReader(in, StandardCharsets.UTF_8))).bakeRoot();
+			torso = root.getChild("stand_pos").getChild("body_rot").getChild("body")
+					.getChild("torso").getChild("torso_bend");
+		}
+		ModelPart leftParent = torso.getChild("left_arm_xrot");
+		ModelPart rightParent = torso.getChild("right_arm_xrot");
+		check(leftParent.x > 0 && rightParent.x < 0, stand + " baked arm sides differ from the donor");
+		ModelPart left = leftParent.getChild("left_arm");
+		ModelPart right = rightParent.getChild("right_arm");
+		ModelPart leftBend = left.getChild("left_arm_bend");
+		ModelPart rightBend = right.getChild("right_arm_bend");
+		check(leftBend.x == 0 && leftBend.y == ELBOW && leftBend.z == 0
+				&& rightBend.x == 0 && rightBend.y == ELBOW && rightBend.z == 0,
+				stand + " baked elbows differ from the donor");
+		AnimFramePose pose = new AnimFramePose();
+		Vector3f scratch = new Vector3f();
+		for (float[] sample : SAMPLES) {
+			animation.calcAnimPose(AnimMolangVariables.set(sample[0], 37, 0), null,
+					animation.lengthInSeconds, 1, pose, scratch);
+			applied(pose, "left_arm_xrot", leftParent, 0, 0, 0, stand);
+			applied(pose, "right_arm_xrot", rightParent, 0, 0, 0, stand);
+			String context = stand + " head pitch " + sample[0];
+			samePose(forearm(pose, "left_arm", left, leftBend),
+					donorForearm(sample[1], sample[2], sample[3], LEFT_FOREARM), context + " left");
+			samePose(forearm(pose, "right_arm", right, rightBend),
+					donorForearm(sample[1], -sample[2], -sample[3], RIGHT_FOREARM), context + " right");
+		}
+		animation.calcAnimPose(AnimMolangVariables.set(-30, 0, 0), null,
+				animation.lengthInSeconds, 1, pose, scratch);
+		samePose(forearm(pose, "left_arm", left, leftBend),
+				donorForearm(-105, -7.5F, -37.5F, LEFT_FOREARM), stand + " live pitch reversal left");
+		samePose(forearm(pose, "right_arm", right, rightBend),
+				donorForearm(-105, 7.5F, 37.5F, RIGHT_FOREARM), stand + " live pitch reversal right");
 	}
 
 	/** Forearm axis, side axis and hand tip (model pixels from the shoulder) through the baked parts. */
