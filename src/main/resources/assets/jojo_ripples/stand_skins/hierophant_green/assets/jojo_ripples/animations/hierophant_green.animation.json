@@ -824,9 +824,9 @@
         "left_arm_bend": {
           "rotation": {
             "vector": [
-              0,
-              0,
-              60
+              -90,
+              -30,
+              90
             ]
           }
         },
@@ -851,9 +851,9 @@
         "right_arm_bend": {
           "rotation": {
             "vector": [
-              0,
-              0,
-              -60
+              -90,
+              30,
+              -90
             ]
           }
         },
