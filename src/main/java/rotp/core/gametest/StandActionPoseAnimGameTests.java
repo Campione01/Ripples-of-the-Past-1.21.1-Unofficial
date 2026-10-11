@@ -57,6 +57,31 @@ public final class StandActionPoseAnimGameTests {
 			"stand_skins/crazy_diamond/assets/jojo_ripples/animations/crazy_diamond.animation.json";
 	private static final String SC_ANIMS =
 			"stand_skins/silver_chariot/assets/jojo_ripples/animations/silver_chariot.animation.json";
+	private static final String HG_ANIMS =
+			"stand_skins/hierophant_green/assets/jojo_ripples/animations/hierophant_green.animation.json";
+
+	@GameTest(template = "empty", timeoutTicks = 40)
+	public static void hierophantGreenGuardUsesPitchAwareBlockClip(GameTestHelper helper) {
+		try (Fixture f = new Fixture(helper, "hierophant_green", "HGGuardPitch")) {
+			f.summon();
+			ActionAnimIdentifier got = f.anim("guard");
+			helper.assertTrue("block".equals(got.name()),
+					"Hierophant Green guard did not select block" + f.state(got));
+			JsonObject clip = readJson(helper, HG_ANIMS).getAsJsonObject("animations").getAsJsonObject("block");
+			helper.assertTrue(clip != null, "Hierophant Green block clip is missing");
+			JsonObject bones = clip.getAsJsonObject("bones");
+			for (String arm : new String[] { "left_arm", "right_arm" }) {
+				JsonArray rotation = vec(bones, arm);
+				for (int axis = 0; axis < 3; axis++) {
+					String expression = rotation.get(axis).getAsString();
+					helper.assertTrue(expression.contains("query.head_x_rotation")
+							&& expression.contains("-60") && expression.contains("60"),
+							"block " + arm + " axis " + axis + " lost clamped donor pitch follow");
+				}
+			}
+			helper.succeed();
+		}
+	}
 
 	@GameTest(template = "empty", timeoutTicks = 40)
 	public static void crazyDiamondBlockBulletRequestsUserHandClip(GameTestHelper helper) {

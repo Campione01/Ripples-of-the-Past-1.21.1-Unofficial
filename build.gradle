@@ -286,6 +286,14 @@ tasks.register('rebuffFadePoseSmokeTest', JavaExec) {
     mainClass = 'rotp.core.client.entityanim.RebuffFadePoseSmokeTest'
 }
 
+tasks.register('hierophantGreenGuardPoseSmokeTest', JavaExec) {
+    group = 'verification'
+    description = 'Checks Hierophant Green guard pitch against the donor on parsed and baked model bones.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
+    mainClass = 'rotp.core.client.entityanim.HierophantGreenGuardPoseSmokeTest'
+}
+
 tasks.register('rebuffDonorCurveSmokeTest', JavaExec) {
     group = 'verification'
     description = 'Compares Rebuff scalar curves and phase timing with the 1.16.5 donor.'
@@ -566,6 +574,7 @@ tasks.withType(JavaExec).configureEach {
 tasks.named('check').configure {
     dependsOn tasks.named('suspiciousArrowParticleSmokeTest')
     dependsOn tasks.named('rebuffFadePoseSmokeTest')
+    dependsOn tasks.named('hierophantGreenGuardPoseSmokeTest')
     dependsOn tasks.named('rebuffDonorCurveSmokeTest')
     dependsOn tasks.named('legacyBodyClipSmokeTest')
     dependsOn tasks.named('rebuffLifecycleSmokeTest')
