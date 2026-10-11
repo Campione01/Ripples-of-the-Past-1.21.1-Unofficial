@@ -3,6 +3,8 @@ package rotp.core.gametest;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.HexFormat;
+import java.security.MessageDigest;
 import java.util.function.Consumer;
 
 import rotp.core.api.power.PowerSkillUnlocks;
@@ -34,7 +36,13 @@ import rotp.core.subsystems.timestop.TimeStopState;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
+import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.gametest.framework.GameTestInfo;
+import net.minecraft.gametest.framework.GameTestListener;
+import net.minecraft.gametest.framework.GameTestRunner;
+import net.minecraft.gametest.framework.RetryOptions;
+import net.minecraft.gametest.framework.TestFunction;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
@@ -42,6 +50,7 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.block.Rotation;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.tick.LevelTickEvent;
@@ -108,6 +117,99 @@ public final class CreativeTimeStopDurationGameTests {
         assertCallerBudgets(helper, "the_world", true);
     }
 
+    @GameTest(template = "empty", timeoutTicks = 100, batch = GameTestBatches.TIME_STOP)
+    public static void frameworkFailureReleasesTheOwnedTimeStopScene(GameTestHelper helper) {
+        Scene[] owned = new Scene[1];
+        StandEntity[] performer = new StandEntity[1];
+        boolean[] observed = new boolean[1];
+        String marker = "S04-05 deterministic nested framework failure";
+        GameTestInfo outer = helper.testInfo;
+        var structure = outer.getStructureBlockEntity();
+        String outerName = outer.getTestName();
+        TestFunction function = new TestFunction(GameTestBatches.TIME_STOP, "s04_owned_failure_probe",
+                outer.getStructureName(), Rotation.NONE, 80, 0, false, inner -> {
+                    Scene scene = new Scene(inner, "star_platinum", 100, true, false);
+                    owned[0] = scene;
+                    scene.setUp();
+                    scene.press();
+                    performer[0] = (StandEntity) scene.action.getPerformer();
+                    inner.runAfterDelay(50, () -> {
+                        inner.assertTrue(scene.started != null && scene.state.getInstance(scene.player.getId()).isPresent()
+                                && scene.player.hasEffect(ModStatusEffects.TIME_STOP), "S04-05 failure probe never reached live PERFORM");
+                        throw new GameTestAssertException(marker);
+                    });
+                });
+        GameTestInfo probe = new GameTestInfo(function, Rotation.NONE, helper.getLevel(), RetryOptions.noRetries());
+        try {
+            // Bind an already-loaded structure; never place, clear or register a nested runner.
+            var position = GameTestInfo.class.getDeclaredMethod("setStructureBlockPos", BlockPos.class);
+            position.setAccessible(true);
+            position.invoke(probe, outer.getStructureBlockPos());
+            var block = GameTestInfo.class.getDeclaredField("structureBlockEntity");
+            block.setAccessible(true);
+            block.set(probe, structure);
+            var placed = GameTestInfo.class.getDeclaredField("placedStructure");
+            placed.setAccessible(true);
+            placed.setBoolean(probe, true);
+            probe.startExecution(0);
+        }
+        catch (ReflectiveOperationException error) {
+            throw new IllegalStateException("S04-05 cannot bind the native failure probe", error);
+        }
+        helper.onEachTick(() -> {
+            if (observed[0]) return;
+            try {
+                probe.tick(null);
+                helper.assertTrue(outer.getStructureBlockEntity() == structure && outer.getTestName().equals(outerName)
+                        && !outer.isDone(), "S04-05 nested probe reset its outer test");
+                if (!probe.isDone()) return;
+                Scene scene = owned[0];
+                observed[0] = true;
+                JojoMod.getLogger().info("S04-05 FRAMEWORK-FAILURE expected=" + marker.equals(probe.getError().getMessage())
+                        + " closed=" + scene.closed + " listeners=" + scene.listeners.size()
+                        + " playerRemoved=" + scene.player.isRemoved() + " standRemoved=" + performer[0].isRemoved()
+                        + " instanceLeft=" + scene.state.getInstance(scene.player.getId()).isPresent());
+                helper.assertTrue(probe.hasFailed() && marker.equals(probe.getError().getMessage())
+                                && scene.closed && scene.listeners.isEmpty() && scene.player.isRemoved()
+                                && performer[0].isRemoved() && scene.state.getInstance(scene.player.getId()).isEmpty()
+                                && !scene.player.hasEffect(ModStatusEffects.TIME_STOP)
+                                && !scene.player.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get()).heldKeys.containsKey(KEY)
+                                && LivingComponentAction.getCurEntityAction(performer[0]) == null,
+                        "S04-05 framework failure did not release the owned Scene");
+                int stoppedNativeTicks = scene.nativeTicks;
+                helper.runAfterDelay(1, () -> {
+                    helper.assertTrue(scene.nativeTicks == stoppedNativeTicks,
+                            "S04-05 ended scene kept observing native level ticks");
+                    helper.succeed();
+                });
+            }
+            catch (RuntimeException | Error error) {
+                observed[0] = true;
+                if (owned[0] != null) owned[0].close();
+                throw error;
+            }
+        });
+    }
+
+    private static void requireNativeClassIdentity(GameTestHelper helper) {
+        for (Class<?> type : new Class<?>[] {TimeStopLearning.class, TimeStopAbility.class}) {
+            String resource = "/" + type.getName().replace('.', '/') + ".class";
+            try (var input = type.getResourceAsStream(resource)) {
+                helper.assertTrue(input != null, "S04-05 cannot read loaded native class resource " + type.getName());
+                String sha = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(input.readAllBytes()));
+                var origin = type.getProtectionDomain().getCodeSource();
+                String expected = System.getProperty("rotp.s04.expected." + type.getSimpleName());
+                JojoMod.getLogger().info("S04-05 LOADED class=" + type.getName() + " source="
+                        + (origin != null ? origin.getLocation() : "unknown") + " resourceSha256=" + sha);
+                helper.assertTrue(expected == null || expected.equals(sha) && origin != null,
+                        "S04-05 loaded native class does not match the private runtime receipt: " + type.getName());
+            }
+            catch (Exception error) {
+                throw new IllegalStateException("S04-05 native class identity failed", error);
+            }
+        }
+    }
+
     private static void startCast(GameTestHelper helper, String stand, int savedTicks, boolean partial) {
         Scene scene = new Scene(helper, stand, savedTicks, true, partial);
         try {
@@ -165,7 +267,7 @@ public final class CreativeTimeStopDurationGameTests {
         helper.succeed();
     }
 
-    private static final class Scene {
+    private static final class Scene implements GameTestListener {
         private final GameTestHelper helper;
         private final ServerLevel level;
         private final String stand;
@@ -199,9 +301,11 @@ public final class CreativeTimeStopDurationGameTests {
             this.savedTicks = savedTicks;
             this.creative = creative;
             this.partial = partial;
+            helper.testInfo.addListener(this);
         }
 
         private void setUp() {
+            requireNativeClassIdentity(helper);
             player = GameTestPlayers.makeServerMockPlayer(helper, creative ? GameType.CREATIVE : GameType.SURVIVAL);
             player.getAbilities().instabuild = creative;
             player.setNoGravity(true);
@@ -361,5 +465,17 @@ public final class CreativeTimeStopDurationGameTests {
                 player.discard();
             }
         }
+
+        @Override
+        public void testStructureLoaded(GameTestInfo test) {}
+
+        @Override
+        public void testPassed(GameTestInfo test, GameTestRunner runner) { close(); }
+
+        @Override
+        public void testFailed(GameTestInfo test, GameTestRunner runner) { close(); }
+
+        @Override
+        public void testAddedForRerun(GameTestInfo oldTest, GameTestInfo newTest, GameTestRunner runner) { close(); }
     }
 }
