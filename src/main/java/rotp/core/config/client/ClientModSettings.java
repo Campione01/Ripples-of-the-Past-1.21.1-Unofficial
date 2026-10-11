@@ -23,6 +23,8 @@ import com.mojang.logging.LogUtils;
 public class ClientModSettings {
 
 	public static class Settings {
+		private static final float DEFAULT_STAND_TRANSPARENCY = 25.0F;
+
 		public float standStatsTranslucency = 0.75F;
 		public boolean standStatsInvertBnW = false;
 //		public ChooseLifeformScreen.ViewMode viewModeGE = null;
@@ -42,8 +44,8 @@ public class ClientModSettings {
 		public boolean standMotionTilt = true;
 		public boolean poseOnLmbRmb = true;
 		public boolean standAimMarker = false;
-		public float standTransparency = 50.0F;
-		public float standOthersTransparency = 50.0F;
+		public float standTransparency = DEFAULT_STAND_TRANSPARENCY;
+		public float standOthersTransparency = DEFAULT_STAND_TRANSPARENCY;
 		public boolean classicStandObstruction = true;
 		public boolean standOutline = true;
 		public StandAuraSettings standAura = new StandAuraSettings();
@@ -72,7 +74,7 @@ public class ClientModSettings {
 
 		private static float clampTransparency(float transparency) {
 			if (!Float.isFinite(transparency)) {
-				return 50.0F;
+				return DEFAULT_STAND_TRANSPARENCY;
 			}
 			return Math.max(0.0F, Math.min(100.0F, transparency));
 		}

@@ -13,6 +13,8 @@ public final class ClientModSettingsSmokeTest {
 
 	public static void main(String[] args) throws Exception {
 		try {
+			missingSettingsFileWritesSeventyFivePercentOpaqueDefaults();
+			loadPreservesExistingTransparencyAcrossSaveAndReload();
 			loadKeepsDefaultSettingsWhenFileIsEmpty();
 			loadMigratesOfficialLegacyDisplaySettings();
 			loadMigratesClassicLegacyDisplaySettings();
@@ -40,13 +42,52 @@ public final class ClientModSettingsSmokeTest {
 		}
 	}
 
+	private static void missingSettingsFileWritesSeventyFivePercentOpaqueDefaults() throws Exception {
+		withSettingsFile("", settingsFile -> {
+			Files.delete(settingsFile);
+			ClientModSettings.init(settingsFile.toFile());
+			assertStandDisplaySettings(ClientModSettings.getSettingsReadOnly(), 25.0F, 25.0F, true, true, false,
+					"missing settings file");
+			assertSavedSettingsJson(settingsFile, 25.0F, 25.0F, true, true, false, "missing settings file");
+			assertFloatEquals(0.75F, ClientModSettings.getSettingsReadOnly().standStatsTranslucency,
+					"new body defaults preserve the stats panel default");
+			resetInstance();
+			ClientModSettings.init(settingsFile.toFile());
+			assertStandDisplaySettings(ClientModSettings.getSettingsReadOnly(), 25.0F, 25.0F, true, true, false,
+					"new defaults survive reload");
+		});
+	}
+
+	private static void loadPreservesExistingTransparencyAcrossSaveAndReload() throws Exception {
+		for (float[] values : new float[][] {{28.0F, 27.0F}, {50.0F, 50.0F}, {0.0F, 100.0F}}) {
+			withSettingsFile("{\"standTransparency\":" + values[0] + ",\"standOthersTransparency\":" + values[1]
+					+ ",\"standStatsTranslucency\":0.35}", settingsFile -> {
+				String originalJson = Files.readString(settingsFile);
+				ClientModSettings.init(settingsFile.toFile());
+				assertStandDisplaySettings(ClientModSettings.getSettingsReadOnly(), values[0], values[1],
+						true, true, false, "existing settings");
+				if (!originalJson.equals(Files.readString(settingsFile))) {
+					throw new AssertionError("Loading valid existing settings must not rewrite their file");
+				}
+				ClientModSettings.getInstance().save();
+				assertSavedSettingsJson(settingsFile, values[0], values[1], true, true, false, "existing settings");
+				resetInstance();
+				ClientModSettings.init(settingsFile.toFile());
+				assertStandDisplaySettings(ClientModSettings.getSettingsReadOnly(), values[0], values[1],
+						true, true, false, "existing settings survive reload");
+				assertFloatEquals(0.35F, ClientModSettings.getSettingsReadOnly().standStatsTranslucency,
+						"existing stats panel value survives save and reload");
+			});
+		}
+	}
+
 	private static void loadKeepsDefaultSettingsWhenFileIsEmpty() throws Exception {
 		withSettingsFile("", settingsFile -> {
 			ClientModSettings.init(settingsFile.toFile());
 
-			assertStandDisplaySettings(ClientModSettings.getSettingsReadOnly(), 50.0F, 50.0F, true, true, false,
+			assertStandDisplaySettings(ClientModSettings.getSettingsReadOnly(), 25.0F, 25.0F, true, true, false,
 					"empty settings file");
-			assertSavedSettingsJson(settingsFile, 50.0F, 50.0F, true, true, false, "empty settings file");
+			assertSavedSettingsJson(settingsFile, 25.0F, 25.0F, true, true, false, "empty settings file");
 		});
 	}
 
@@ -112,10 +153,10 @@ public final class ClientModSettingsSmokeTest {
 				""", settingsFile -> {
 			ClientModSettings.init(settingsFile.toFile());
 
-			assertStandDisplaySettings(ClientModSettings.getSettingsReadOnly(), 50.0F, 50.0F, true, false, true,
+			assertStandDisplaySettings(ClientModSettings.getSettingsReadOnly(), 25.0F, 25.0F, true, false, true,
 					"invalid new keys block legacy fallback");
 			ClientModSettings.getInstance().save();
-			assertSavedSettingsJson(settingsFile, 50.0F, 50.0F, true, false, true, "invalid new keys block legacy fallback");
+			assertSavedSettingsJson(settingsFile, 25.0F, 25.0F, true, false, true, "invalid new keys block legacy fallback");
 		});
 	}
 
@@ -138,10 +179,10 @@ public final class ClientModSettingsSmokeTest {
 				""", settingsFile -> {
 			ClientModSettings.init(settingsFile.toFile());
 
-			assertStandDisplaySettings(ClientModSettings.getSettingsReadOnly(), 50.0F, 25.0F, true, true, true,
+			assertStandDisplaySettings(ClientModSettings.getSettingsReadOnly(), 25.0F, 25.0F, true, true, true,
 					"nonfinite transparency defaults");
 			ClientModSettings.getInstance().save();
-			assertSavedSettingsJson(settingsFile, 50.0F, 25.0F, true, true, true, "nonfinite transparency defaults");
+			assertSavedSettingsJson(settingsFile, 25.0F, 25.0F, true, true, true, "nonfinite transparency defaults");
 		});
 	}
 
@@ -165,10 +206,10 @@ public final class ClientModSettingsSmokeTest {
 				""", settingsFile -> {
 			ClientModSettings.init(settingsFile.toFile());
 
-			assertStandDisplaySettings(ClientModSettings.getSettingsReadOnly(), 50.0F, 50.0F, true, false, true,
+			assertStandDisplaySettings(ClientModSettings.getSettingsReadOnly(), 25.0F, 25.0F, true, false, true,
 					"invalid stand display fields preserve unrelated settings");
 			ClientModSettings.getInstance().save();
-			assertSavedSettingsJson(settingsFile, 50.0F, 50.0F, true, false, true,
+			assertSavedSettingsJson(settingsFile, 25.0F, 25.0F, true, false, true,
 					"invalid stand display fields preserve unrelated settings");
 		});
 	}
@@ -179,10 +220,10 @@ public final class ClientModSettingsSmokeTest {
 				""", settingsFile -> {
 			ClientModSettings.init(settingsFile.toFile());
 
-			assertStandDisplaySettings(ClientModSettings.getSettingsReadOnly(), 51.0F, 50.0F, true, true, true,
+			assertStandDisplaySettings(ClientModSettings.getSettingsReadOnly(), 51.0F, 25.0F, true, true, true,
 					"unknown legacy mode defaults to classic");
 			ClientModSettings.getInstance().save();
-			assertSavedSettingsJson(settingsFile, 51.0F, 50.0F, true, true, true,
+			assertSavedSettingsJson(settingsFile, 51.0F, 25.0F, true, true, true,
 					"unknown legacy mode defaults to classic");
 		});
 	}
