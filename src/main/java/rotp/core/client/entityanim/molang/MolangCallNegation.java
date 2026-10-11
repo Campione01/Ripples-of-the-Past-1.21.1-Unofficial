@@ -93,7 +93,8 @@ final class MolangCallNegation {
     private static int callOperandEnd(List<Token> tokens, int[] ends, int start) {
         int end;
         if (tokens.get(start).kind() == TokenKind.IDENTIFIER) end = start;
-        else if (tokens.get(start).kind() == TokenKind.LPAREN) end = ends[start];
+        else if (tokens.get(start).kind() == TokenKind.LPAREN
+                || tokens.get(start).kind() == TokenKind.LBRACE) end = ends[start];
         else return -1;
         boolean call = false;
         // Wrap the entire postfix operand, not the surrounding arithmetic or an explicitly negated callee.

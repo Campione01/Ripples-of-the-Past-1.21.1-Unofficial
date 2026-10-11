@@ -46,6 +46,16 @@ public final class MolangUnaryNegationSmokeTest {
                 new Sample("false ? 4 : -math.max(2,3)", -3),
                 new Sample("return -math.max(2,3) + 5", 2),
                 new Sample("t.value = -math.max(2,3); return t.value", -3),
+                new Sample("-{t.value=7}(); return t.value", 7),
+                new Sample("t.calls=0; -{t.calls=t.calls+1}(); return t.calls", 1),
+                new Sample("t.calls=0; --{t.calls=t.calls+1}(); return t.calls", 1),
+                new Sample("-({t.value=7}()); return t.value", 7),
+                new Sample("-({t.value=7})(); return t.value", 7),
+                new Sample("(-{t.value=7})(); return t.value", 0),
+                new Sample("-{t.value=7}; return t.value", 0),
+                new Sample("5 - {t.value=7}(); return t.value", 7),
+                new Sample("2 * -{t.value=7}() + 3; return t.value", 7),
+                new Sample("math.max(-{t.value=7}(),2); return t.value", 7),
                 new Sample("-fixture.factory()()", -7),
                 new Sample("-fixture.methods.next()", -7),
                 new Sample("-fixture.methods.factory()()", -7),
@@ -74,13 +84,21 @@ public final class MolangUnaryNegationSmokeTest {
         run("unsupported syntax contracts", () -> verifyUnsupportedSyntax(engine));
         run("malformed expression contracts", MolangUnaryNegationSmokeTest::verifyMalformed);
         run("reader I/O contracts", MolangUnaryNegationSmokeTest::verifyReaderFailures);
+        run("native direct syntax coordinates", () -> verifyNativeDiagnostics(true));
+        run("native callback syntax coordinates", () -> verifyNativeDiagnostics(false));
+        for (ReaderMode mode : ReaderMode.values()) {
+            run("early syntax before late I/O: " + mode, () -> verifyReaderPrecedence(mode, true));
+            run("I/O before invented EOF syntax: " + mode, () -> verifyReaderPrecedence(mode, false));
+        }
+        run("successful Reader order and ownership", MolangUnaryNegationSmokeTest::verifySuccessfulReaders);
+        run("scope invocation and explicit-callee controls", MolangUnaryNegationSmokeTest::verifyScopeInvocations);
         run("one invocation per evaluation", MolangUnaryNegationSmokeTest::verifyInvocationCount);
         run("live HG query", MolangUnaryNegationSmokeTest::verifyLiveQuery);
         run("shared prepared calls with thread-local queries", MolangUnaryNegationSmokeTest::verifyThreadIsolation);
         if (!FAILURES.isEmpty()) {
             throw new AssertionError("Molang unary negation failures (" + FAILURES.size() + "): " + FAILURES);
         }
-        System.out.println("Molang unary negation passed: " + checks + " evaluated checks");
+        System.out.println("Molang unary negation passed: " + checks + " checks");
     }
 
     private static MochaEngine<Object> fixtureEngine() {
@@ -198,6 +216,138 @@ public final class MolangUnaryNegationSmokeTest {
         check(calls.get() == 2, "a call was duplicated or cached");
     }
 
+    private static void verifyScopeInvocations() throws IOException {
+        AtomicInteger calls = new AtomicInteger();
+        MochaEngine<?> engine = MochaEngineWithoutJavassist.createStandard();
+        engine.scope().set("counted", (Function<Object>) (context, arguments) -> {
+            calls.incrementAndGet();
+            return Value.of(7);
+        });
+        String source = "-{counted()}()";
+        MochaFunction string = engine.prepareEval(source);
+        MochaFunction reader = engine.prepareEval(new StringReader(source));
+        check(calls.get() == 0, "scope preparation ran the body");
+        near(string.evaluate(), 0, "scope result is zero, not the body result");
+        check(calls.get() == 1, "scope body must run once, got " + calls.get());
+        near(reader.evaluate(), 0, "Reader scope result");
+        check(calls.get() == 2, "Reader scope body must run once");
+        near(string.evaluate(), 0, "reused scope result");
+        check(calls.get() == 3, "reused scope duplicated or cached its body");
+        for (String control : List.of("(-{counted()})()", "-{counted()}")) {
+            check(control.equals(MolangCallNegation.normalize(control)), "explicit/uncalled scope was rewritten");
+            near(engine.eval(control), 0, "explicit/uncalled scope result");
+            check(calls.get() == 3, "explicit/uncalled scope body ran");
+        }
+    }
+
+    private static void verifyNativeDiagnostics(boolean direct) throws IOException {
+        for (String source : List.of("-math.max(2,3) nonsense", "-math.max(2,3)\n nonsense",
+                "fixture.unicode('\uD83D\uDE00') + -math.max(2,3) nonsense",
+                "(-math.max(2,3)) nonsense", "-{t.value=7}() nonsense")) {
+            ErrorPoint expected;
+            try {
+                MolangParser.parser(new StringReader(source)).parseAll();
+                throw new AssertionError("native oracle accepted malformed source");
+            }
+            catch (ParseException error) {
+                expected = ErrorPoint.of(error);
+            }
+            List<ErrorPoint> callbacks = new ArrayList<>();
+            MochaEngine<?> engine = MochaEngineWithoutJavassist.createStandard()
+                    .handleParseExceptions(error -> callbacks.add(ErrorPoint.of(error)));
+            if (direct) {
+                try {
+                    engine.parse(source);
+                    throw new AssertionError("direct parse accepted malformed source");
+                }
+                catch (ParseException error) {
+                    check(expected.equals(ErrorPoint.of(error)), "native direct coordinates: expected "
+                            + expected + ", got " + ErrorPoint.of(error));
+                }
+                check(callbacks.isEmpty(), "direct parse unexpectedly called the fallback handler");
+            }
+            else {
+                near(engine.eval(source), 0, "balanced malformed String fallback");
+                near(engine.eval(new StringReader(source)), 0, "balanced malformed Reader fallback");
+                near(engine.prepareEval(source).evaluate(), 0, "balanced malformed prepared String fallback");
+                near(engine.prepareEval(new StringReader(source)).evaluate(), 0, "balanced malformed prepared Reader fallback");
+                near(MolangValue.fromJson(new JsonPrimitive(source), engine).getAsDouble(), 0, "balanced malformed JSON fallback");
+                check(callbacks.size() == 5, "balanced malformed callback count");
+                for (ErrorPoint point : callbacks) {
+                    check(expected.equals(point), "native callback coordinates: expected " + expected + ", got " + point);
+                }
+            }
+        }
+    }
+
+    private static void verifyReaderPrecedence(ReaderMode mode, boolean syntaxFirst) throws IOException {
+        String source = syntaxFirst ? "math.2 tail that must not be drained" : "math.";
+        TrackingReader nativeReader = new TrackingReader(source, true);
+        ErrorPoint nativeSyntax = null;
+        IOException nativeIo = null;
+        try {
+            MolangParser.parser(nativeReader).parseAll();
+            throw new AssertionError("native faulting Reader unexpectedly succeeded");
+        }
+        catch (ParseException error) { nativeSyntax = ErrorPoint.of(error); }
+        catch (IOException error) { nativeIo = error; }
+        check(syntaxFirst == (nativeSyntax != null), "native oracle did not have the required failure ordering");
+        List<ErrorPoint> callbacks = new ArrayList<>();
+        MochaEngine<?> engine = MochaEngineWithoutJavassist.createStandard()
+                .handleParseExceptions(error -> callbacks.add(ErrorPoint.of(error)));
+        TrackingReader actual = new TrackingReader(source, true);
+        if (mode == ReaderMode.PARSE) {
+            try {
+                engine.parse(actual);
+                throw new AssertionError("faulting Reader parse unexpectedly succeeded");
+            }
+            catch (ParseException error) {
+                check(nativeSyntax != null && nativeSyntax.equals(ErrorPoint.of(error)), "direct Reader syntax changed");
+            }
+            catch (IOException error) {
+                check(nativeIo != null && error == actual.failure, "later Reader I/O displaced native syntax");
+            }
+            check(callbacks.isEmpty(), "direct Reader parse called the fallback handler");
+        }
+        else {
+            try {
+                double result = mode == ReaderMode.EVAL ? engine.eval(actual) : engine.prepareEval(actual).evaluate();
+                check(nativeSyntax != null, "Reader I/O was swallowed as invented EOF syntax");
+                near(result, 0, "native Reader syntax fallback");
+                check(callbacks.equals(List.of(nativeSyntax)), "Reader syntax callback coordinates/count changed");
+            }
+            catch (UncheckedIOException error) {
+                check(nativeIo != null && error.getCause() == actual.failure,
+                        "later Reader I/O displaced native syntax instead of returning zero");
+                check(callbacks.isEmpty(), "native I/O called the parse-error handler");
+            }
+        }
+        check(actual.index == nativeReader.index && actual.reads == nativeReader.reads
+                && actual.arrayReads == nativeReader.arrayReads, "native Reader consumption/order changed: expected "
+                + nativeReader.state() + ", got " + actual.state());
+        check(!actual.closed && !nativeReader.closed, "parser took ownership of the supplied Reader");
+        if (syntaxFirst) check(actual.read() == nativeReader.read(), "unconsumed Reader tail changed");
+        actual.close();
+        check(actual.closed, "caller could not close its Reader");
+    }
+
+    private static void verifySuccessfulReaders() throws IOException {
+        for (String source : List.of("-math.max(2,3)", "5 - math.max(2,3)", "")) {
+            TrackingReader original = new TrackingReader(source, false);
+            var baseline = MolangParser.parser(original).parseAll();
+            TrackingReader actual = new TrackingReader(source, false);
+            MochaEngine<?> engine = MochaEngineWithoutJavassist.createStandard();
+            var parsed = engine.parse(actual);
+            near(engine.eval(parsed), source.isEmpty() ? 0 : source.startsWith("-") ? -3 : 2, "successful recorded Reader");
+            if (!source.startsWith("-")) check(parsed.equals(baseline), "unchanged source AST differs from native parser");
+            check(actual.index == original.index && actual.reads == original.reads
+                    && actual.arrayReads == original.arrayReads, "successful Reader was reread/drained differently");
+            check(!actual.closed && !original.closed, "successful parse closed the caller's Reader");
+            actual.close();
+            check(actual.closed, "successful Reader ownership did not stay with caller");
+        }
+    }
+
     private static void verifyLiveQuery() {
         KeyframesMolangEngine.init();
         MochaEngine<?> engine = KeyframesMolangEngine.get();
@@ -284,5 +434,43 @@ public final class MolangUnaryNegationSmokeTest {
     }
 
     private record Sample(String source, double expected) {}
+    private record ErrorPoint(String message, int index, int line, int column) {
+        static ErrorPoint of(ParseException error) {
+            return new ErrorPoint(error.getMessage(), error.cursor().index(), error.cursor().line(), error.cursor().column());
+        }
+    }
+    private enum ReaderMode { PARSE, EVAL, PREPARE }
+    private static final class TrackingReader extends Reader {
+        private final String source;
+        private final boolean faultAtEnd;
+        private final IOException failure = new IOException("fixture late Reader failure");
+        private int index;
+        private int reads;
+        private int arrayReads;
+        private boolean closed;
+
+        private TrackingReader(String source, boolean faultAtEnd) {
+            this.source = source;
+            this.faultAtEnd = faultAtEnd;
+        }
+        @Override public int read() throws IOException {
+            reads++;
+            if (index == source.length()) {
+                if (faultAtEnd) throw failure;
+                return -1;
+            }
+            return source.charAt(index++);
+        }
+        @Override public int read(char[] target, int offset, int length) throws IOException {
+            arrayReads++;
+            if (length == 0) return 0;
+            int value = read();
+            if (value < 0) return -1;
+            target[offset] = (char) value;
+            return 1;
+        }
+        @Override public void close() { closed = true; }
+        private String state() { return "index=" + index + ", reads=" + reads + ", arrayReads=" + arrayReads; }
+    }
     private interface CheckedRunnable { void run() throws Exception; }
 }

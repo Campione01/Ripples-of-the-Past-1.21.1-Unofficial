@@ -32,7 +32,6 @@ package rotp.core.client.entityanim.molang;
 
 import java.io.IOException;
 import java.io.Reader;
-import java.io.StringWriter;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.function.Consumer;
@@ -211,9 +210,41 @@ public class MochaEngineWithoutJavassist<T> implements MochaEngine<T> {
 
     @Override
     public @NotNull List<Expression> parse(final @NotNull Reader reader) throws IOException {
-        StringWriter source = new StringWriter();
-        reader.transferTo(source);
-        return MolangParser.parser(MolangCallNegation.normalize(source.toString())).parseAll();
+        RecordingReader recorded = new RecordingReader(reader);
+        // Let the native parser preserve original error coordinates and syntax-versus-I/O ordering.
+        List<Expression> original = MolangParser.parser(recorded).parseAll();
+        String source = recorded.source.toString();
+        String normalized = MolangCallNegation.normalize(source);
+        return source.equals(normalized) ? original : MolangParser.parser(normalized).parseAll();
+    }
+
+    private static final class RecordingReader extends Reader {
+        private final Reader delegate;
+        private final StringBuilder source = new StringBuilder();
+
+        private RecordingReader(Reader delegate) {
+            super(delegate);
+            this.delegate = delegate;
+        }
+
+        @Override
+        public int read() throws IOException {
+            int value = delegate.read();
+            if (value >= 0) source.append((char) value);
+            return value;
+        }
+
+        @Override
+        public int read(char[] target, int offset, int length) throws IOException {
+            int count = delegate.read(target, offset, length);
+            if (count > 0) source.append(target, offset, count);
+            return count;
+        }
+
+        @Override
+        public void close() {
+            // The caller retains ownership of the supplied Reader.
+        }
     }
 
     @Override
