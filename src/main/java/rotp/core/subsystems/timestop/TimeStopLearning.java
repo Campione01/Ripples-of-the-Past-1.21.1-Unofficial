@@ -75,9 +75,6 @@ public final class TimeStopLearning {
 
 	/** 1.16 TimeStop.getTimeStopTicks(power, action): each time stop lasts as long as its own training. */
 	public static int getTimeStopTicks(StandPower power, String learningName) {
-		if (isCreativeTimeStopTemplate(power)) {
-			return CREATIVE_TIME_STOP_TICKS;
-		}
 		return getSavedTimeStopTicks(power, learningName);
 	}
 

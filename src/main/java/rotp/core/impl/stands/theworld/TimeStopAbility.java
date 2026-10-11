@@ -286,20 +286,13 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 		StandPower power = PowerClass.STAND.cast(context);
 		float seconds = (float) TimeStopLearning.getSavedTimeStopTicks(power, getLearningAbilityName()) / 20F;
 		String secondsString = String.format(Locale.ROOT, "%.2f", seconds);
-		boolean creativeTemplate = TimeStopLearning.isCreativeTimeStopTemplate(power);
 		if (power != null && power.getPowerType() == ModStands.STAR_PLATINUM.get()) {
-			return Component.translatable(creativeTemplate
-					? "jojo_ripples.ability.star_platinum_time_stop.creative"
-					: "jojo_ripples.ability.star_platinum_time_stop", secondsString);
+			return Component.translatable("jojo_ripples.ability.star_platinum_time_stop", secondsString);
 		}
 		if (power != null && power.getPowerType() == ModStands.THE_WORLD.get()) {
-			return Component.translatable(creativeTemplate
-					? "jojo_ripples.ability.the_world_time_stop.creative"
-					: "jojo_ripples.ability.the_world_time_stop", secondsString);
+			return Component.translatable("jojo_ripples.ability.the_world_time_stop", secondsString);
 		}
-		return Component.translatable(creativeTemplate
-				? "jojo_ripples.ability.time_stop.creative"
-				: "jojo_ripples.ability.time_stop", secondsString);
+		return Component.translatable("jojo_ripples.ability.time_stop", secondsString);
 	}
 
 	private float getHoldToFireTicks(LivingEntity user) {

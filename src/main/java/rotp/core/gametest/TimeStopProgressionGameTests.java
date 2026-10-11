@@ -626,8 +626,8 @@ public final class TimeStopProgressionGameTests {
 					standId + " creative transition training");
 			helper.assertTrue(
 					TimeStopLearning.getTimeStopTicks(power)
-							== TimeStopLearning.CREATIVE_TIME_STOP_TICKS,
-					standId + " creative template duration was not applied");
+							== savedTicks,
+					standId + " creative mode changed the learned duration");
 			helper.assertTrue(
 					TimeStopLearning.getSavedTimeStopTicks(power) == savedTicks,
 					standId + " creative mode changed saved training duration");
