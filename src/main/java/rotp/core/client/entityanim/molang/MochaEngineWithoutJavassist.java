@@ -32,6 +32,7 @@ package rotp.core.client.entityanim.molang;
 
 import java.io.IOException;
 import java.io.Reader;
+import java.io.StringWriter;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.function.Consumer;
@@ -210,7 +211,9 @@ public class MochaEngineWithoutJavassist<T> implements MochaEngine<T> {
 
     @Override
     public @NotNull List<Expression> parse(final @NotNull Reader reader) throws IOException {
-        return MolangParser.parser(reader).parseAll();
+        StringWriter source = new StringWriter();
+        reader.transferTo(source);
+        return MolangParser.parser(MolangCallNegation.normalize(source.toString())).parseAll();
     }
 
     @Override
