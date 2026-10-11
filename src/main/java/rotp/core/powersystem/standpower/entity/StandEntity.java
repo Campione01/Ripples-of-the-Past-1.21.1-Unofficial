@@ -12,6 +12,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import rotp.core.JojoModLivingVariables;
+import rotp.core.JojoModConfig;
 import rotp.core.api.stand.StandManualMovementObservers;
 import rotp.core.api.stand.StandManualMovementObservers.LogicalSide;
 import rotp.core.api.stand.StandManualMovementObservers.MovePath;
@@ -1695,33 +1696,41 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 	}
 
 	public boolean hurtWithStandAttack(Entity target, DamageSource dmgSource, float dmgAmount) {
+		float damageMultiplier = JojoModConfig.getCommonConfigInstance(false).standDamageMultiplier.get().floatValue();
 		if (target instanceof LivingEntity targetLiving) {
 			float finalDamage = applyStandInvulDamage(targetLiving, dmgAmount);
 			if (finalDamage <= 0) {
 				return false;
 			}
+			float scaledDamage = finalDamage * damageMultiplier;
+			if (dmgSource instanceof DamageSourceModified modified && modified.jojo_ripples$isNonLethal()) {
+				scaledDamage = Math.min(scaledDamage, Math.max(targetLiving.getHealth() - 0.0001F, 0.0F));
+			}
+			// Keep raw Stand invulnerability bookkeeping separate from the actual hurt amount.
+			final float actualDamage = scaledDamage;
 			boolean hurt;
 			if (isMagiciansRedStand()) {
-				hurt = DamageUtil.dealDamageAndSetOnFire(target, entity -> DamageUtil.hurtThroughInvulTicks(entity, dmgSource, finalDamage), MAGICIANS_RED_STAND_ATTACK_FIRE_TICKS, true);
+				hurt = DamageUtil.dealDamageAndSetOnFire(target, entity -> DamageUtil.hurtThroughInvulTicks(entity, dmgSource, actualDamage), MAGICIANS_RED_STAND_ATTACK_FIRE_TICKS, true);
 			}
 			else if (isSilverChariotStand() && isSilverChariotRapierVisible() && isSilverChariotRapierOnFire()) {
-				hurt = DamageUtil.dealDamageAndSetOnFire(target, entity -> DamageUtil.hurtThroughInvulTicks(entity, dmgSource, finalDamage), 80, true);
+				hurt = DamageUtil.dealDamageAndSetOnFire(target, entity -> DamageUtil.hurtThroughInvulTicks(entity, dmgSource, actualDamage), 80, true);
 			}
 			else {
-				hurt = DamageUtil.hurtThroughInvulTicks(target, dmgSource, finalDamage);
+				hurt = DamageUtil.hurtThroughInvulTicks(target, dmgSource, actualDamage);
 			}
 			if (hurt) {
 				setStandInvulAfterHit(targetLiving, dmgSource, finalDamage);
 			}
 			return hurt;
 		}
+		float actualDamage = dmgAmount * damageMultiplier;
 		if (isMagiciansRedStand()) {
-			return DamageUtil.dealDamageAndSetOnFire(target, entity -> DamageUtil.hurtThroughInvulTicks(entity, dmgSource, dmgAmount), MAGICIANS_RED_STAND_ATTACK_FIRE_TICKS, true);
+			return DamageUtil.dealDamageAndSetOnFire(target, entity -> DamageUtil.hurtThroughInvulTicks(entity, dmgSource, actualDamage), MAGICIANS_RED_STAND_ATTACK_FIRE_TICKS, true);
 		}
 		if (isSilverChariotStand() && isSilverChariotRapierVisible() && isSilverChariotRapierOnFire()) {
-			return DamageUtil.dealDamageAndSetOnFire(target, entity -> DamageUtil.hurtThroughInvulTicks(entity, dmgSource, dmgAmount), 80, true);
+			return DamageUtil.dealDamageAndSetOnFire(target, entity -> DamageUtil.hurtThroughInvulTicks(entity, dmgSource, actualDamage), 80, true);
 		}
-		return DamageUtil.hurtThroughInvulTicks(target, dmgSource, dmgAmount);
+		return DamageUtil.hurtThroughInvulTicks(target, dmgSource, actualDamage);
 	}
 
 	public float getBlockHardnessForStandBreak(BlockState blockState, Level level, BlockPos blockPos) {

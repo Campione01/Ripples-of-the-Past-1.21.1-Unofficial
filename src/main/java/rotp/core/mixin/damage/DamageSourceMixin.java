@@ -28,6 +28,7 @@ public class DamageSourceMixin implements DamageSourceModified {
 	private int jojo_ripples$standInvulTicks = 0;
 	private int jojo_ripples$barrageHits = 0;
 	private StandPower jojo_ripples$standPower = null;
+	private boolean jojo_ripples$nonLethal = false;
 	
 	@Override
 	public void jojo_ripples$modifyKnockback(float add, float multiply) {
@@ -119,6 +120,16 @@ public class DamageSourceMixin implements DamageSourceModified {
 	@Override
 	public StandPower jojo_ripples$standPower() {
 		return jojo_ripples$standPower;
+	}
+
+	@Override
+	public void jojo_ripples$setNonLethal(boolean nonLethal) {
+		this.jojo_ripples$nonLethal = nonLethal;
+	}
+
+	@Override
+	public boolean jojo_ripples$isNonLethal() {
+		return jojo_ripples$nonLethal;
 	}
 
 	// 1.16 StandEntityDamageSource.scalesWithDifficulty: a hit whose direct attacker is a non-player mob (the Stand)

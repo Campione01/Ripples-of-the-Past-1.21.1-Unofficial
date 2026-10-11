@@ -308,7 +308,9 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 			Entity targetEntity = target.getMainEntity();
 			if (targetEntity instanceof LivingEntity targetLiving) {
 				addKnockback(dmgSource);
-				if (getPunchModifiers().stream().anyMatch(modifier -> modifier.makesAttackNonLethal(targetLiving))) {
+				boolean nonLethal = getPunchModifiers().stream().anyMatch(modifier -> modifier.makesAttackNonLethal(targetLiving));
+				if (nonLethal) {
+					((DamageSourceModified) dmgSource).jojo_ripples$setNonLethal(true);
 					dmgAmount = Math.min(dmgAmount, Math.max(targetLiving.getHealth() - 0.0001F, 0.0F));
 				}
 				float healthBeforeHit = targetLiving.getHealth();

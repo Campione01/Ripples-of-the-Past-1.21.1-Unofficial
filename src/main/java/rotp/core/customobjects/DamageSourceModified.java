@@ -41,6 +41,8 @@ public interface DamageSourceModified {
 	int jojo_ripples$standInvulTicks();
 	int jojo_ripples$barrageHitsCount();
 	StandPower jojo_ripples$standPower();
+	default void jojo_ripples$setNonLethal(boolean nonLethal) {}
+	default boolean jojo_ripples$isNonLethal() { return false; }
 	
 	
 	/**
