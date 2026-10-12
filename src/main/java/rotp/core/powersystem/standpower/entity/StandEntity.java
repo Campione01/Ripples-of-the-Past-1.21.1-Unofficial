@@ -1754,6 +1754,12 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		return hardness;
 	}
 
+	/** Reads the pre-hurt Stand immunity without updating its raw damage history. */
+	public static boolean isStandAttackInvulnerable(LivingEntity target) {
+		StandAttackInvulState state = STAND_ATTACK_INVUL.get(target);
+		return state != null && state.expiresAtTick > target.tickCount;
+	}
+
 	private static float applyStandInvulDamage(LivingEntity target, float damage) {
 		StandAttackInvulState state = STAND_ATTACK_INVUL.get(target);
 		if (state != null && state.expiresAtTick > target.tickCount) {
