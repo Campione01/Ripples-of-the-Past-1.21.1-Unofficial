@@ -28,9 +28,11 @@ public final class TimeStopPunchTuningSmokeTest {
 		// The World's own TS punch: 1.16 DEFAULT_STAMINA_COST, trains its time stop
 		require(tsPunch, "privatestaticfinalfloatSTAMINA_COST=50F;");
 		require(tsPunch, "privatefloatstaminaCost=STAMINA_COST;privatebooleantrainsTimeStop=true;");
-		require(tsPunch, "returncheck.isPositive()?StandAbilityStamina.check(context,staminaCost):check;");
-		require(tsPunch, "floatstaminaCost=abilityinstanceofTheWorldTSPunchAbilitytsPunch?tsPunch.staminaCost:STAMINA_COST;"
-				+ "if(getPowerUser()==null||!StandAbilityStamina.consumeOrMessage(ability,standPower,getPowerUser(),staminaCost)){");
+		require(tsPunch, "returnsuper.checkSpecificConditions(context);");
+		check(tsPunch.contains("floatstaminaCost=abilityinstanceofTheWorldTSPunchAbilitytsPunch?tsPunch.staminaCost:STAMINA_COST;"
+				+ "if(standPower==null||getPowerUser()==null){")
+				&& tsPunch.contains("ModCriteriaTriggers.triggerTimeAbility(getPowerUser(),standPower);standPower.consumeStamina(staminaCost);"),
+				"the TS punch must retain its owner/power guard and charge the ability's configured cost after its strike");
 		require(tsPunch, "booleantrainsTimeStop=!(abilityinstanceofTheWorldTSPunchAbilitytsPunch)||tsPunch.trainsTimeStop;");
 		require(tsPunch, "TimeStopLearning.consumeTsPunchTimeStopStamina(standPower,timeStopTicks);"
 				+ "if(trainsTimeStop){TimeStopLearning.onTsPunchTimeSkip(standPower,timeStopTicks);}");
