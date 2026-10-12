@@ -1,7 +1,11 @@
 package rotp.core.impl.stands.starplatinum;
 
 import rotp.core.customobjects.entity_projectile.OwnerBoundProjectileEntity;
+import rotp.core.impl.stands.starplatinum.StarFingerAbility.StarFingerInstance;
 import rotp.core.init.ModEntityTypes;
+import rotp.core.powersystem.entityaction.ActionPhase;
+import rotp.core.powersystem.standpower.entity.StandEntity;
+import rotp.core.subsystems.target.ActionTarget.TargetType;
 
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -9,6 +13,8 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 public class SPStarFingerEntity extends OwnerBoundProjectileEntity {
@@ -71,6 +77,33 @@ public class SPStarFingerEntity extends OwnerBoundProjectileEntity {
 	}
 
 	@Override
+	protected void breakProjectile(TargetType targetType, HitResult hitTarget) {
+		// The donor's owner-bound finger survives impacts until retraction finishes.
+	}
+
+	@Override
+	protected void afterBlockHit(BlockHitResult hitTarget, boolean blockDestroyed) {
+		if (!blockDestroyed && !retracting) {
+			movingForward = false;
+			retracting = true;
+			StarFingerInstance action = activeStarFingerAction();
+			if (action != null) {
+				action.extendableOBB().forceRetract(level(), action.getPerformer(), action.id);
+			}
+		}
+	}
+
+	private StarFingerInstance activeStarFingerAction() {
+		if (getOwner() instanceof StandEntity stand
+				&& stand.getCurStandAction() instanceof StarFingerInstance action
+				&& action.getPhase() == ActionPhase.PERFORM && action.extendableOBB() != null
+				&& action.networkGeneration() > 0L) {
+			return action;
+		}
+		return null;
+	}
+
+	@Override
 	protected void moveProjectile() {
 		Entity owner = getOwner();
 		if (!(owner instanceof LivingEntity livingOwner)) {
@@ -108,6 +141,14 @@ public class SPStarFingerEntity extends OwnerBoundProjectileEntity {
 	}
 
 	private Vec3 getNextOriginOffset(LivingEntity owner) {
+		int retractMark = Math.max(1, (int) (maxDistance() / movementSpeed())) + timeAtFullLength();
+		if (level().isClientSide() && !retracting && tickCount < retractMark) {
+			StarFingerInstance action = activeStarFingerAction();
+			if (action != null && action.extendableOBB().isRetracting()) {
+				movingForward = false;
+				retracting = true;
+			}
+		}
 		double nextDistance = updateDistance();
 		updateMotionFlags();
 		if (retracting && nextDistance <= 0) {
