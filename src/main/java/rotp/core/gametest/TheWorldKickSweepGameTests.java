@@ -350,7 +350,7 @@ public final class TheWorldKickSweepGameTests {
                 suite.check(near(boat.getDamage(), 150 * spec.multiplier) && boat.isRemoved() == (spec.multiplier > 0), "vanilla boat actual damage=" + boat.getDamage() + " removed=" + boat.isRemoved());
                 suite.check(boat.getHurtTime() > 0 && sources.containsKey(boat), "nonliving actual hurt invoked even at M0");
                 source(primary, "nonliving primary");
-                log("OPEN-FACET B-S13-03 " + spec.id() + " nonlivingVelocity=" + boat.getDeltaMovement() + "; no extra/tail pulse closure");
+                log("PULSE-FACET B-S13-03 " + spec.id() + " nonlivingVelocity=" + boat.getDeltaMovement() + "; exact physics belongs to CoreDetachedHeavyPulseGameTests");
             }
             else if (spec.kind == Kind.IMMUNE_PRIMARY || spec.kind == Kind.IMMUNE_GUARD_PRIMARY) {
                 suite.check(primaryImmuneBeforeTick && StandEntity.isStandAttackInvulnerable((LivingEntity) primary)
@@ -416,10 +416,11 @@ public final class TheWorldKickSweepGameTests {
 
         void source(Entity target, String label) {
             DamageSource source = sources.get(target);
+            boolean grab = spec.kind == Kind.GRAB;
             boolean properties = source instanceof DamageSourceModified modified && modified.jojo_ripples$standPower() == caster.power
-                    && modified.jojo_ripples$standInvulTicks() == 10 && near(modified.jojo_ripples$knockbackYRotDeg(), 60)
-                    && near(modified.jojo_ripples$addKnockback(), 3.5) && modified.jojo_ripples$breaksStandGuard();
-            suite.check(properties, label + " owning power/invul10/Y60/extra3.5/raw-admitted guard properties");
+                    && modified.jojo_ripples$standInvulTicks() == 10 && near(modified.jojo_ripples$knockbackYRotDeg(), grab ? 60 : 0)
+                    && near(modified.jojo_ripples$addKnockback(), grab ? 3.5 : 0) && modified.jojo_ripples$breaksStandGuard();
+            suite.check(properties, label + " owning power/invul10/native fields/grab compatibility/raw-admitted guard properties");
         }
 
         boolean immune() { return spec.kind == Kind.IMMUNE_PRIMARY || spec.kind == Kind.IMMUNE_GUARD_PRIMARY || spec.kind == Kind.IMMUNE_SECONDARY; }

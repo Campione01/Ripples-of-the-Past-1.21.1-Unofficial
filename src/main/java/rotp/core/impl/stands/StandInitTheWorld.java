@@ -47,12 +47,14 @@ public class StandInitTheWorld {
 				})
 				.addAbility("heavy_punch", ModStandAbilities.TW_HEAVY_PUNCH, punch -> {
 					punch.setDefaultPhaseLength(ActionPhase.PERFORM, 1);
+					punch.detachedPunchKnockback();
 				})
 				.addAbility("heavy_charged", ModStandAbilities.HEAVY_CHARGED)
 				.addAbility("kick", ModStandAbilities.TW_KICK, kick -> {
 					kick.initIsFinisher("heavy_punch");
 					kick.resolveLevelToUnlock(1);
 					kick.setDefaultPhaseLength(ActionPhase.PERFORM, 1);
+					kick.detachedPunchKnockback();
 				})
 				.addAbility("grab", ModStandAbilities.GRAB)
 				.addAbility("grab_throw", ModStandAbilities.GRAB_THROW)

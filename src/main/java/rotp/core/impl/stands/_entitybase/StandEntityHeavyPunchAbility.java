@@ -44,6 +44,7 @@ import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.AimingEntity;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
 import rotp.core.util.functions.JojoModUtil;
+import rotp.core.util.functions.MathUtil;
 import rotp.core.util.functions_network.StreamCodecs;
 import rotp.core.impl.stands.crazydiamond.CrazyDBlockBulletAbility;
 import rotp.core.impl.stands.crazydiamond.brokenblocks.BrokenBlocksChunkData;
@@ -62,6 +63,7 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Explosion;
@@ -76,6 +78,7 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 	@Nullable private Holder<SoundEvent> heavyPunchImpactSound;
 	@Nullable private Holder<SoundEvent> heavyPunchCrySound;
 	@Nullable private Holder<SoundEvent> heavyPunchPerformSound;
+	private boolean detachedPunchKnockback;
 
 	public StandEntityHeavyPunchAbility(AbilityType<?> abilityType, AbilityId abilityId) {
 		super(abilityType, abilityId, StandEntityHeavyPunch::new);
@@ -104,6 +107,11 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 
 	public StandEntityHeavyPunchAbility initIsGrabVariation() {
 		usageGroup = AbilityUsageGroup.GRAB;
+		return this;
+	}
+
+	public StandEntityHeavyPunchAbility detachedPunchKnockback() {
+		detachedPunchKnockback = true;
 		return this;
 	}
 
@@ -307,14 +315,18 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 				DamageSource dmgSource, float dmgAmount, float explRadius) {
 			Entity targetEntity = target.getMainEntity();
 			if (targetEntity instanceof LivingEntity targetLiving) {
-				addKnockback(dmgSource);
+				if (!usesDetachedPunchKnockback()) {
+					addKnockback(dmgSource);
+				}
 				boolean nonLethal = getPunchModifiers().stream().anyMatch(modifier -> modifier.makesAttackNonLethal(targetLiving));
 				if (nonLethal) {
 					((DamageSourceModified) dmgSource).jojo_ripples$setNonLethal(true);
 					dmgAmount = Math.min(dmgAmount, Math.max(targetLiving.getHealth() - 0.0001F, 0.0F));
 				}
 				float healthBeforeHit = targetLiving.getHealth();
-				boolean hurt = standEntityAttack(stand, targetLiving, dmgSource, dmgAmount);
+				boolean hurt = usesDetachedPunchKnockback()
+						? attemptHeavyPunch(stand, targetLiving, targetEntity, dmgSource, dmgAmount, true)
+						: standEntityAttack(stand, targetLiving, dmgSource, dmgAmount);
 				lastDamageDealtToLiving = hurt ? Math.max(healthBeforeHit - targetLiving.getHealth(), 0) : 0;
 				afterHeavyPunchHit(stand, targetLiving, dmgSource, dmgAmount, hurt);
 
@@ -340,9 +352,93 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 					}
 				}
 			}
-			// 1.16 punched non-living entities too; knockback and wall impact need a LivingEntity
+			// Only living primaries register wall impact; an admitted non-living punch still gets its donor tail.
 			else if (targetEntity != null) {
-				standEntityAttack(stand, targetEntity, dmgSource, dmgAmount);
+				if (usesDetachedPunchKnockback()) {
+					attemptHeavyPunch(stand, targetEntity, targetEntity, dmgSource, dmgAmount, true);
+				}
+				else {
+					standEntityAttack(stand, targetEntity, dmgSource, dmgAmount);
+				}
+			}
+		}
+
+		protected boolean usesDetachedPunchKnockback() {
+			return ability instanceof StandEntityHeavyPunchAbility heavy && heavy.detachedPunchKnockback;
+		}
+
+		protected boolean attemptHeavyPunch(StandEntity stand, Entity target, Entity primaryTarget,
+				DamageSource source, float rawDamage, boolean mainTarget) {
+			addKnockback(source);
+			if (!usesDetachedPunchKnockback()) {
+				return standEntityAttack(stand, target, source, rawDamage, mainTarget);
+			}
+			DamageSourceModified modified = (DamageSourceModified) source;
+			float halfAdditional = Math.max(modified.jojo_ripples$addKnockback(), 0) * 0.5F;
+			float xRot = modified.jojo_ripples$knockbackXRotDeg();
+			float yRot = modified.jojo_ripples$knockbackYRotDeg();
+			modified.jojo_ripples$modifyKnockback(0, modified.jojo_ripples$knockbackMultiplier());
+			modified.jojo_ripples$knockbackXRot(0);
+			modified.jojo_ripples$knockbackYRot(0);
+			modified.jojo_ripples$setKnockbackXRotAppliedStrength(0);
+
+			// Read admission before the one virtual hurt call; its Stand raw-history gate is mutating.
+			boolean admitted = rawDamage > 0 && stand.canAttackEntity(target)
+					&& (!(target instanceof LivingEntity living) || !StandEntity.isStandAttackInvulnerable(living));
+			boolean hurt = standEntityAttack(stand, target, source, rawDamage, mainTarget);
+			if (admitted) {
+				if (target instanceof LivingEntity living) {
+					if (hurt) {
+						applyDetachedPunchKnockback(stand, target, living, halfAdditional, xRot, yRot);
+					}
+					afterDetachedPunchHurt(stand, living, source, rawDamage, hurt);
+				}
+				// 1.16 uses the primary position here, including a Kick's secondary attempts.
+				applyDetachedPunchKnockback(stand, primaryTarget, target, halfAdditional, xRot, yRot);
+			}
+			return hurt;
+		}
+
+		protected void afterDetachedPunchHurt(StandEntity stand, LivingEntity target,
+				DamageSource source, float rawDamage, boolean hurt) {
+		}
+
+		private static void applyDetachedPunchKnockback(StandEntity stand, Entity directionTarget, Entity target,
+				float strength, float xRot, float yRot) {
+			if (strength <= 0) {
+				return;
+			}
+			Vec3 toTarget = directionTarget.position().subtract(stand.position());
+			float yaw = (float) -Mth.atan2(toTarget.x, toTarget.z) * MathUtil.RAD_TO_DEG + yRot;
+			float radians = MathUtil.DEG_TO_RAD;
+			if (target instanceof LivingEntity living) {
+				if (Math.abs(xRot) < 90) {
+					living.knockback(strength * Mth.cos(xRot * radians), Mth.sin(yaw * radians), -Mth.cos(yaw * radians));
+				}
+				if (xRot != 0) {
+					applyDetachedUpwardKnockback(living, -strength * Mth.sin(xRot * radians));
+				}
+			}
+			else {
+				Vec3 velocity = new Vec3(0, 0, strength);
+				if (xRot != 0) {
+					velocity = velocity.xRot(-xRot * radians);
+				}
+				target.setDeltaMovement(velocity.yRot(-yaw * radians));
+			}
+		}
+
+		private static void applyDetachedUpwardKnockback(LivingEntity target, float strength) {
+			strength *= 1.0F - (float) target.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE);
+			if (strength != 0) {
+				target.setDeltaMovement(target.getDeltaMovement().add(0, strength, 0));
+				target.hurtMarked = true;
+			}
+			if (target instanceof StandEntity stand) {
+				LivingEntity user = stand.getUser();
+				if (user != null && !user.is(target)) {
+					applyDetachedUpwardKnockback(user, strength);
+				}
 			}
 		}
 

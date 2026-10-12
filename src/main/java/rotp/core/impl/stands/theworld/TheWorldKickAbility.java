@@ -66,7 +66,7 @@ public class TheWorldKickAbility extends StandEntityHeavyPunchAbility {
 			if (targetEntity == null) {
 				return;
 			}
-			if (!(targetEntity instanceof LivingEntity)) {
+			if (!(targetEntity instanceof LivingEntity) && !usesDetachedPunchKnockback()) {
 				addKnockback(dmgSource);
 			}
 			super.hitEntity(target, level, stand, dmgSource, dmgAmount, explRadius);
@@ -76,6 +76,13 @@ public class TheWorldKickAbility extends StandEntityHeavyPunchAbility {
 
 		@Override
 		protected void afterHeavyPunchHit(StandEntity stand, LivingEntity targetLiving, DamageSource dmgSource, float dmgAmount, boolean hurt) {
+			if (!usesDetachedPunchKnockback()) {
+				disableShieldOnHit(targetLiving, hurt, 1.0F);
+			}
+		}
+
+		@Override
+		protected void afterDetachedPunchHurt(StandEntity stand, LivingEntity targetLiving, DamageSource dmgSource, float dmgAmount, boolean hurt) {
 			disableShieldOnHit(targetLiving, hurt, 1.0F);
 		}
 
@@ -94,9 +101,10 @@ public class TheWorldKickAbility extends StandEntityHeavyPunchAbility {
 				// 1.16 StandEntityPunch sweep targets went through doAttack, no shield wear
 				DamageSource sweepSource = makePunchDamageSource();
 				((DamageSourceModified) sweepSource).jojo_ripples$setStandInvulTicks(10);
-				addKnockback(sweepSource);
-				boolean hurt = standEntityAttack(stand, target, sweepSource, sweepDamage, false);
-				disableShieldOnHit(target, hurt, 1.0F);
+				boolean hurt = attemptHeavyPunch(stand, target, primaryTarget, sweepSource, sweepDamage, false);
+				if (!usesDetachedPunchKnockback()) {
+					disableShieldOnHit(target, hurt, 1.0F);
+				}
 			}
 		}
 

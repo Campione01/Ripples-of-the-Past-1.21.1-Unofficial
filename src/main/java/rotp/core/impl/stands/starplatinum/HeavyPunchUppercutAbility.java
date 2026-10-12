@@ -37,6 +37,13 @@ public class HeavyPunchUppercutAbility extends StandEntityHeavyPunchAbility {
 		@Override
 		protected void afterHeavyPunchHit(StandEntity stand, LivingEntity targetLiving, DamageSource dmgSource, float dmgAmount, boolean hurt) {
 			// 1.16 StarPlatinumUppercut disableBlocking(1.0F)
+			if (!usesDetachedPunchKnockback()) {
+				disableShieldOnHit(targetLiving, hurt, 1.0F);
+			}
+		}
+
+		@Override
+		protected void afterDetachedPunchHurt(StandEntity stand, LivingEntity targetLiving, DamageSource dmgSource, float dmgAmount, boolean hurt) {
 			disableShieldOnHit(targetLiving, hurt, 1.0F);
 		}
 		
