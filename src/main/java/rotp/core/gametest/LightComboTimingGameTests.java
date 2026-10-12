@@ -356,7 +356,9 @@ public final class LightComboTimingGameTests {
                         && prefix.phasesLength.getFloat(ActionPhase.WINDUP) == 5, "registered TS-punch retains separate type/WINDUP5 routing");
                 watch = null; stage = 1;
             }
-            else if (stage == 1 && prefix.getPhase() == ActionPhase.RECOVERY) { stage = 2; beginLight("punch", 1, 0); }
+            else if (stage == 1 && prefix.isOver() && stand.getCurStandAction() == null) {
+                stage = 2; beginLight("punch", 1, 0);
+            }
         }
         void beginLight(String selected, int windup, float skip) {
             EntityActionInstance previous = stand.getCurStandAction();

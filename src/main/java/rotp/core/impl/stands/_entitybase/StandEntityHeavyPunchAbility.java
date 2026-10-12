@@ -199,15 +199,21 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 				if (isGrabVariation() && stand.offsetFromUser.grabIdleOffset != null) {
 					stand.offsetFromUser.setOffset(stand.offsetFromUser.grabIdleOffset, StandOffsetFromUser.Rotations.HEAD);
 				}
-				if (!level.isClientSide()) {
-					stand.setHeavyPunchFinisher();
-				}
-				finisherValue = stand.getLastHeavyFinisherValue();
-				phasesLength.put(ActionPhase.RECOVERY, StandStatFormulas.getHeavyAttackRecovery(stand.getAttackSpeed(), finisherValue));
-				if (!level.isClientSide()) {
-					stand.addFinisherMeter(-0.51F, 0);
+				if (usesHeavyFinisherSetup()) {
+					if (!level.isClientSide()) {
+						stand.setHeavyPunchFinisher();
+					}
+					finisherValue = stand.getLastHeavyFinisherValue();
+					phasesLength.put(ActionPhase.RECOVERY, StandStatFormulas.getHeavyAttackRecovery(stand.getAttackSpeed(), finisherValue));
+					if (!level.isClientSide()) {
+						stand.addFinisherMeter(-0.51F, 0);
+					}
 				}
 			}
+		}
+
+		protected boolean usesHeavyFinisherSetup() {
+			return true;
 		}
 
 		// 1.16 StandEntityAction.getUserWalkSpeed: the builder default 0.5, and 1 in recovery

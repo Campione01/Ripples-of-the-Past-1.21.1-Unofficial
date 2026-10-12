@@ -33,7 +33,6 @@ import rotp.core.subsystems.timestop.TimeStopLearning;
 import rotp.core.subsystems.timestop.TimeStopState;
 import rotp.core.util.functions.CollisionHelper;
 import rotp.core.util.functions.JojoModUtil;
-import rotp.core.impl.stands._entitybase.StandAbilityStamina;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 
@@ -67,7 +66,7 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 		super(abilityType, abilityId, TheWorldTSPunch::new);
 		usageGroup = AbilityUsageGroup.COMBAT;
 		setDefaultPhaseLength(ActionPhase.WINDUP, 5);
-		setDefaultPhaseLength(ActionPhase.PERFORM, 6);
+		setDefaultPhaseLength(ActionPhase.PERFORM, 1);
 		setDefaultPhaseLength(ActionPhase.RECOVERY, 12);
 		noFinisherBarDecay = true;
 		partsRequired(StandPart.MAIN_BODY, StandPart.ARMS);
@@ -186,8 +185,7 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 			}
 		}
 
-		ConditionCheck check = super.checkSpecificConditions(context);
-		return check.isPositive() ? StandAbilityStamina.check(context, staminaCost) : check;
+		return super.checkSpecificConditions(context);
 	}
 
 	@Override
@@ -200,10 +198,20 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 			return ConditionCheck.NEGATIVE;
 		}
 		EntityActionInstance curAction = LivingComponentAction.getComponent(standEntity).getAction();
-		if (curAction != null && !curAction.canBeCancelledInto(this)) {
+		if (!canStartDuring(curAction)) {
 			return ConditionCheck.NEGATIVE;
 		}
 		return ConditionCheck.POSITIVE;
+	}
+
+	private boolean canStartDuring(EntityActionInstance current) {
+		return current == null || current.ability != this
+				&& (current.canBeCancelledInto(this) || current.getPhase() == ActionPhase.RECOVERY);
+	}
+
+	@Override
+	public boolean shouldBufferInput(LivingComponentAction performerAction) {
+		return !canStartDuring(performerAction.getAction());
 	}
 
 	@Override
@@ -252,6 +260,11 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 
 		public TheWorldTSPunch(EntityActionType ability) {
 			super(ability);
+		}
+
+		@Override
+		protected boolean usesHeavyFinisherSetup() {
+			return false;
 		}
 
 		@Override
@@ -308,8 +321,7 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 				if (!level.isClientSide()) {
 					StandPower standPower = StandPower.get(getPowerUser());
 					float staminaCost = ability instanceof TheWorldTSPunchAbility tsPunch ? tsPunch.staminaCost : STAMINA_COST;
-					if (getPowerUser() == null
-							|| !StandAbilityStamina.consumeOrMessage(ability, standPower, getPowerUser(), staminaCost)) {
+					if (standPower == null || getPowerUser() == null) {
 						return;
 					}
 
@@ -338,6 +350,8 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 						TimeStopLearning.markUsedTimeStopToday(standPower);
 					}
 					ModCriteriaTriggers.triggerTimeAbility(getPowerUser(), standPower);
+					// The donor task charges after the strike, even when the blink exhausted stamina.
+					standPower.consumeStamina(staminaCost);
 				}
 				if (target.getType() == TargetType.ENTITY) {
 					standRotationTarget = target;

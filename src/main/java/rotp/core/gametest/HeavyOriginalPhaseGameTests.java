@@ -304,7 +304,7 @@ public final class HeavyOriginalPhaseGameTests {
             float speed = (float) caster.stand.getAttackSpeed();
             expectedWindup = heavyWindup(speed, meterAtPress);
             expectedRecovery = heavyRecovery(speed, meterAtPress);
-            expectedPerform = spec.family.original() ? 1 : 6;
+            expectedPerform = spec.family.original() || spec.family == Family.TS_PUNCH ? 1 : 6;
             String name = spec.family == Family.CHARGED ? "heavy_charged" : spec.family == Family.TS_PUNCH ? "ts_punch" : "heavy_punch";
             InputMethod method = spec.family == Family.CHARGED ? InputMethod.HOLD : InputMethod.CLICK;
             Press input = press(name, method, ATTACK, spec.clickDelay, false);
@@ -331,7 +331,12 @@ public final class HeavyOriginalPhaseGameTests {
             }
             else {
                 if (spec.family == Family.TS_PUNCH) expectedWindup = 5;
-                check(action instanceof StandEntityHeavyPunch heavy && near(heavy.finisherValue, meterAtPress)
+                if (spec.family == Family.TS_PUNCH) {
+                    expectedRecovery = heavyRecovery(speed, 0);
+                    check(action instanceof StandEntityHeavyPunch heavy && near(heavy.finisherValue, 0)
+                            && near(caster.stand.getFinisherMeter(), meterAtPress), "TS punch keeps the meter and uses zero finisher recovery");
+                }
+                else check(action instanceof StandEntityHeavyPunch heavy && near(heavy.finisherValue, meterAtPress)
                         && near(caster.stand.getFinisherMeter(), Math.max(meterAtPress - 0.51F, 0)), "native finisher snapshot and single0.51 debit");
             }
             expectedSkip = Math.min(spec.clickDelay, Math.max(expectedWindup - 1, 0));
