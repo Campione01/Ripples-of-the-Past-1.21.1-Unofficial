@@ -111,6 +111,7 @@ public class StarFingerAbility extends StandEntityAbility {
 
         @Override
         public void onSetPhase(ActionPhase newPhase) {
+            userWalkSpeed = newPhase == null || newPhase == ActionPhase.RECOVERY ? 1F : 0.5F;
             Level level = level();
             if (newPhase == ActionPhase.PERFORM){
                 if (level.isClientSide() && performer instanceof StandEntity stand) {
