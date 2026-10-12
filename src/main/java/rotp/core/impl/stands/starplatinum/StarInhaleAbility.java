@@ -68,6 +68,10 @@ public class StarInhaleAbility extends StandEntityAbility {
 
     public static class InhaleAbilityInstance extends EntityActionInstance {
     	private boolean cooldownSet;
+        private ActionPhase lastActivePhase;
+        private boolean cooldownSetOnClear;
+        private int cooldownBeforeClear;
+        private int cooldownTotalBeforeClear;
 
         public InhaleAbilityInstance(EntityActionType ability) {
             super(ability);
@@ -78,7 +82,35 @@ public class StarInhaleAbility extends StandEntityAbility {
         @Override
         public void onActionSet(@Nullable EntityActionInstance prevAction) {
             super.onActionSet(prevAction);
+            if (getPhase() != null) {
+                lastActivePhase = getPhase();
+            }
+            // Input rollback reinstalls this same action after its removal callback ran.
+            if (cooldownSetOnClear && !level().isClientSide()) {
+                cooldownSetOnClear = false;
+                cooldownSet = false;
+                LivingEntity user = getPowerUser();
+                StandPower standPower = user != null ? StandPower.get(user) : null;
+                if (standPower != null && ability instanceof StarInhaleAbility inhaleAbility) {
+                    standPower.setAbilityCooldown(inhaleAbility.name(), cooldownBeforeClear, cooldownTotalBeforeClear);
+                }
+            }
             setStandOffset(0, -0.25, StandOffsetFromUser.Rotations.BODY, false);
+        }
+
+        @Override
+        public void onActionCleared(@Nullable EntityActionInstance newAction) {
+            super.onActionCleared(newAction);
+            if (!cooldownSet && !level().isClientSide()) {
+                LivingEntity user = getPowerUser();
+                StandPower standPower = user != null ? StandPower.get(user) : null;
+                if (standPower != null && ability instanceof StarInhaleAbility inhaleAbility) {
+                    cooldownBeforeClear = standPower.getAbilityCooldown(inhaleAbility.name());
+                    cooldownTotalBeforeClear = standPower.getAbilityCooldownTotal(inhaleAbility.name());
+                    cooldownSetOnClear = true;
+                    setCooldownFromHeldTicks();
+                }
+            }
         }
 
         @Override
@@ -163,7 +195,9 @@ public class StarInhaleAbility extends StandEntityAbility {
         	LivingEntity user = getPowerUser();
         	StandPower standPower = user != null ? StandPower.get(user) : null;
         	if (standPower != null && ability instanceof StarInhaleAbility inhaleAbility) {
-        		int ticksHeld = Mth.floor(Math.min(getFullTicksPassed(), INHALE_HOLD_DURATION_MAX));
+                float ticksPassed = getPhase() != null ? getFullTicksPassed()
+                        : lastActivePhase != null ? calcFullTicks(lastActivePhase, getPhaseTick()) : 0;
+                int ticksHeld = Mth.floor(Math.min(ticksPassed, INHALE_HOLD_DURATION_MAX));
         		inhaleAbility.setCooldownOnUse(standPower, ticksHeld);
         		cooldownSet = true;
         	}
@@ -174,6 +208,9 @@ public class StarInhaleAbility extends StandEntityAbility {
             super.onSetPhase(newPhase);
             if (newPhase == ActionPhase.RECOVERY) {
             	setCooldownFromHeldTicks();
+            }
+            if (newPhase != null) {
+                lastActivePhase = newPhase;
             }
             Level level = level();
             if (!level.isClientSide()) {
