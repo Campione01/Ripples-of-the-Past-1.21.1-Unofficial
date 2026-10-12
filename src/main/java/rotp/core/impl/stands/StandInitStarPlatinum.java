@@ -37,15 +37,19 @@ public class StandInitStarPlatinum {
 				.addHumanoidStandStuff()
 
 				.addAbility("punch", ModStandAbilities.PUNCH, punch -> {
+					punch.detachedLightCounterKnockback();
 					punch.punchImpactSound(ModSoundEvents.STAR_PLATINUM_PUNCH_LIGHT).standCrySound(ModSoundEvents.STAR_PLATINUM_ORA);
 				})
 				.addAbility("punch2", ModStandAbilities.PUNCH, punch -> {
+					punch.detachedLightCounterKnockback();
 					punch.punchImpactSound(ModSoundEvents.STAR_PLATINUM_PUNCH_LIGHT).standCrySound(ModSoundEvents.STAR_PLATINUM_ORA);
 				})
 				.addAbility("punch3", ModStandAbilities.PUNCH, punch -> {
+					punch.detachedLightCounterKnockback();
 					punch.punchImpactSound(ModSoundEvents.STAR_PLATINUM_PUNCH_LIGHT).standCrySound(ModSoundEvents.STAR_PLATINUM_ORA);
 				})
 				.addAbility("punch4", ModStandAbilities.PUNCH, punch -> {
+					punch.detachedLightCounterKnockback();
 					punch.punchImpactSound(ModSoundEvents.STAR_PLATINUM_PUNCH_LIGHT).standCrySound(ModSoundEvents.STAR_PLATINUM_ORA);
 					punch.setDefaultPhaseLength(ActionPhase.WINDUP, 5);
 				})

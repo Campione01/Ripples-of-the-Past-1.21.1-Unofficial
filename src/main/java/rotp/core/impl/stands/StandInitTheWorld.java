@@ -37,9 +37,11 @@ public class StandInitTheWorld {
 				.addHumanoidStandStuff()
 
 				.addAbility("punch", ModStandAbilities.PUNCH, punch -> {
+					punch.detachedLightCounterKnockback();
 					punch.punchImpactSound(ModSoundEvents.THE_WORLD_PUNCH_LIGHT).standCrySound(ModSoundEvents.DIO_MUDA);
 				})
 				.addAbility("punch2", ModStandAbilities.PUNCH, punch -> {
+					punch.detachedLightCounterKnockback();
 					punch.punchImpactSound(ModSoundEvents.THE_WORLD_PUNCH_LIGHT).standCrySound(ModSoundEvents.DIO_MUDA);
 				})
 				.addAbility("barrage", ModStandAbilities.TW_BARRAGE, barrage -> {

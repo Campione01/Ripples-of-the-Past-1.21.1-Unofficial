@@ -53,6 +53,7 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
@@ -62,10 +63,12 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
 
 public class StandEntityPunchAbility extends StandEntityAbility {
 	@Nullable private Holder<SoundEvent> punchImpactSound;
 	@Nullable private Holder<SoundEvent> standCrySound;
+	private boolean detachedLightCounterKnockback;
 
 	public StandEntityPunchAbility(AbilityType<?> abilityType, AbilityId abilityId) {
 		this(abilityType, abilityId, StandEntityPunch::new);
@@ -90,6 +93,11 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 
 	public StandEntityPunchAbility standCrySound(Holder<SoundEvent> standCrySound) {
 		this.standCrySound = standCrySound;
+		return this;
+	}
+
+	public StandEntityPunchAbility detachedLightCounterKnockback() {
+		detachedLightCounterKnockback = true;
 		return this;
 	}
 
@@ -321,6 +329,25 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		
 		protected void hitEntity(ActionTarget target, Level level, StandEntity stand) {
 			Entity targetEntity = target.getMainEntity();
+			if (targetEntity != null && ability instanceof StandEntityPunchAbility punch
+					&& punch.detachedLightCounterKnockback) {
+				DamageSource source = makePunchDamageSource();
+				float damage = StandStatFormulas.getLightAttackDamage(stand.getAttackDamage());
+				float halfCounter = Math.max(stand.guardCounter(), 0) * 0.5F;
+				((DamageSourceModified) source).jojo_ripples$modifyKnockback(0, 1);
+				// Capture raw admission before the one virtual hurt mutates Stand immunity history.
+				boolean admitted = damage > 0 && stand.canAttackEntity(targetEntity)
+						&& (!(targetEntity instanceof LivingEntity living) || !StandEntity.isStandAttackInvulnerable(living));
+				boolean hurt = standEntityAttack(stand, targetEntity, source, damage);
+				if (admitted) {
+					if (hurt && targetEntity instanceof LivingEntity) {
+						applyCounterKnockback(stand, targetEntity, halfCounter);
+					}
+					applyCounterKnockback(stand, targetEntity, halfCounter);
+				}
+				stand.addFinisherMeter(0.1F);
+				return;
+			}
 			if (targetEntity instanceof LivingEntity targetLiving) {
                 DamageSource dmgSource = makePunchDamageSource();
 				((DamageSourceModified) dmgSource).jojo_ripples$modifyKnockback(stand.guardCounter(), 1);
@@ -334,6 +361,19 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 				float dmgAmount = StandStatFormulas.getLightAttackDamage(stand.getAttackDamage());
 				standEntityAttack(stand, targetEntity, makePunchDamageSource(), dmgAmount);
 				stand.addFinisherMeter(0.1f);
+			}
+		}
+
+		private static void applyCounterKnockback(StandEntity stand, Entity target, float strength) {
+			if (strength <= 0) return;
+			Vec3 toTarget = target.position().subtract(stand.position());
+			float yaw = (float) -Mth.atan2(toTarget.x, toTarget.z) * Mth.RAD_TO_DEG;
+			float radians = yaw * Mth.DEG_TO_RAD;
+			if (target instanceof LivingEntity living) {
+				living.knockback(strength, Mth.sin(radians), -Mth.cos(radians));
+			}
+			else {
+				target.setDeltaMovement(new Vec3(0, 0, strength).yRot(-radians));
 			}
 		}
 
