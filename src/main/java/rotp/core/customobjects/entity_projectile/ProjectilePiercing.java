@@ -55,7 +55,7 @@ public class ProjectilePiercing {
 			for (Tag element : list) {
 				UUID uuid = NbtUtils.loadUUID(element);
 				if (uuid != null) {
-					piercing.piercingIgnoreEntityIds.add(null);
+					piercing.piercingIgnoreEntityIds.add(uuid);
 				}
 			}
 			return piercing;
