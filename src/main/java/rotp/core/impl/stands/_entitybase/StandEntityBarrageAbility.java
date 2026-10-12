@@ -508,7 +508,8 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 			}
 			
 			float blockHardnessForStand = stand.getBlockHardnessForStandBreak(blockState, level, blockPos);
-			if (blockHardnessForStand >= 0 && canBreakBarrageBlock(stand.getAttackDamage(), blockState, level, blockPos)) {
+			boolean rapier = JojoMod.resLoc("silver_chariot").equals(stand.getStandType()) && stand.isSilverChariotRapierVisible();
+			if (blockHardnessForStand >= 0 && (rapier || canBreakBarrageBlock(stand.getAttackDamage(), blockState, level, blockPos))) {
 				level.destroyBlock(blockPos, !isUserCreative(), stand);
 			}
 			
