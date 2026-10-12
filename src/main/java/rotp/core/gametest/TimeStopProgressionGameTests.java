@@ -211,8 +211,13 @@ public final class TimeStopProgressionGameTests {
 	 */
 	@GameTest(template = "empty", timeoutTicks = 80, batch = GameTestBatches.TIME_STOP)
 	public static void manualResumeKeepsTheOriginalElevenTicks(GameTestHelper helper) {
+		assertManualResumeKeepsTheOriginalElevenTicks(helper);
+		helper.succeed();
+	}
+
+	static void assertManualResumeKeepsTheOriginalElevenTicks(GameTestHelper helper) {
 		Player player = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
-		TimeStopState state = helper.getLevel().getData(ModDataAttachmentTypes.TIME_STOP.get());
+		TimeStopState state = new TimeStopState(helper.getLevel());
 		int stopId = player.getId();
 		try {
 			Vec3 origin = helper.absoluteVec(new Vec3(0.5D, 1.0D, 0.5D));
@@ -256,7 +261,6 @@ public final class TimeStopProgressionGameTests {
 			state.removeInstance(stopId);
 			player.discard();
 		}
-		helper.succeed();
 	}
 
 	private static void startOwnStop(GameTestHelper helper, TimeStopState state, Player player, ChunkPos chunk, int ticks) {

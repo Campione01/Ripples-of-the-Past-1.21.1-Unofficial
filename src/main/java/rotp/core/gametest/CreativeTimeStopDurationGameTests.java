@@ -117,6 +117,11 @@ public final class CreativeTimeStopDurationGameTests {
         assertCallerBudgets(helper, "the_world", true);
     }
 
+    @GameTest(template = "empty", timeoutTicks = 140, batch = GameTestBatches.TIME_STOP)
+    public static void manualResumeFixtureDoesNotAdvanceNativeCreativeTimeStop(GameTestHelper helper) {
+        startCast(helper, "the_world", 5, false, true);
+    }
+
     @GameTest(template = "empty", timeoutTicks = 100, batch = GameTestBatches.TIME_STOP)
     public static void frameworkFailureReleasesTheOwnedTimeStopScene(GameTestHelper helper) {
         Scene[] owned = new Scene[1];
@@ -192,7 +197,11 @@ public final class CreativeTimeStopDurationGameTests {
     }
 
     private static void requireNativeClassIdentity(GameTestHelper helper) {
-        for (Class<?> type : new Class<?>[] {TimeStopLearning.class, TimeStopAbility.class}) {
+        requireNativeClassIdentity(helper, TimeStopLearning.class, TimeStopAbility.class);
+    }
+
+    private static void requireNativeClassIdentity(GameTestHelper helper, Class<?>... types) {
+        for (Class<?> type : types) {
             String resource = "/" + type.getName().replace('.', '/') + ".class";
             try (var input = type.getResourceAsStream(resource)) {
                 helper.assertTrue(input != null, "S04-05 cannot read loaded native class resource " + type.getName());
@@ -211,7 +220,13 @@ public final class CreativeTimeStopDurationGameTests {
     }
 
     private static void startCast(GameTestHelper helper, String stand, int savedTicks, boolean partial) {
+        startCast(helper, stand, savedTicks, partial, false);
+    }
+
+    private static void startCast(GameTestHelper helper, String stand, int savedTicks, boolean partial,
+            boolean manualResumeOverlap) {
         Scene scene = new Scene(helper, stand, savedTicks, true, partial);
+        scene.manualResumeOverlap = manualResumeOverlap;
         try {
             scene.setUp();
             scene.press();
@@ -291,6 +306,9 @@ public final class CreativeTimeStopDurationGameTests {
         private int removalTick = -1;
         private int effectDurationAtStart;
         private float staminaAtStart;
+        private boolean manualResumeOverlap;
+        private boolean manualResumeBodyInvoked;
+        private int manualResumeClockAdvance = -1;
         private boolean released;
         private boolean closed;
 
@@ -404,6 +422,9 @@ public final class CreativeTimeStopDurationGameTests {
                             "S04-05 native action never performed: " + describe());
                     return;
                 }
+                if (manualResumeOverlap && !manualResumeBodyInvoked) {
+                    invokeOriginalManualResumeBody();
+                }
                 int duration = partial ? Mth.ceil(savedTicks / 2.0F) : savedTicks;
                 int elapsed = nativeTicks - startTick;
                 if (elapsed < OPENING_TICKS + duration) {
@@ -427,7 +448,8 @@ public final class CreativeTimeStopDurationGameTests {
                                 && !state.isTimeStopped(started.centerPos())
                                 && !player.hasEffect(ModStatusEffects.TIME_STOP)
                                 && !power.isAbilityOnCooldown(TimeStopLearning.TIME_STOP)
-                                && !power.isAbilityOnCooldown(TimeStopCooldowns.TIME_STOP_BLINK),
+                                && !power.isAbilityOnCooldown(TimeStopCooldowns.TIME_STOP_BLINK)
+                                && (!manualResumeOverlap || manualResumeBodyInvoked && manualResumeClockAdvance == 0),
                         "S04-05 real Creative cast must expire after saved duration + 35: " + describe());
                 close();
                 helper.succeed();
@@ -438,6 +460,25 @@ public final class CreativeTimeStopDurationGameTests {
             }
         }
 
+        private void invokeOriginalManualResumeBody() {
+            requireNativeClassIdentity(helper, TimeStopProgressionGameTests.class, CreativeTimeStopDurationGameTests.class);
+            TimeStopState.Instance before = state.getInstance(player.getId()).orElse(null);
+            int nativeBefore = nativeTicks;
+            long gameTimeBefore = level.getGameTime();
+            helper.assertTrue(before != null && nativeTicks - startTick <= 1,
+                    "S04-05 overlap did not begin at the live native cast's start: " + describe());
+            manualResumeBodyInvoked = true;
+            TimeStopProgressionGameTests.assertManualResumeKeepsTheOriginalElevenTicks(helper);
+            TimeStopState.Instance after = state.getInstance(player.getId()).orElse(null);
+            helper.assertTrue(after != null, "S04-05 original manual-resume body removed the foreign cast");
+            manualResumeClockAdvance = after.ticksPassed() - before.ticksPassed();
+            JojoMod.getLogger().info("S04-05 OVERLAP nativeBefore=" + nativeBefore + " nativeAfter=" + nativeTicks
+                    + " gameTimeBefore=" + gameTimeBefore + " gameTimeAfter=" + level.getGameTime()
+                    + " foreignClockAdvance=" + manualResumeClockAdvance + " before=" + before + " after=" + after);
+            helper.assertTrue(nativeTicks == nativeBefore && level.getGameTime() == gameTimeBefore,
+                    "S04-05 synchronous manual-resume body advanced the native level clock");
+        }
+
         private String describe() {
             TimeStopState.Instance current = state != null && player != null
                     ? state.getInstance(player.getId()).orElse(null) : null;
@@ -445,7 +486,8 @@ public final class CreativeTimeStopDurationGameTests {
                     + " nativeTicks=" + nativeTicks + " press=" + pressTick + " start=" + startTick
                     + " removal=" + removalTick + " phaseAtStart=" + phaseAtStart
                     + " initialTotal=" + (started != null ? started.totalTicks() : -1)
-                    + " initialEffect=" + effectDurationAtStart + " current=" + current + " reason=" + removalReason;
+                    + " initialEffect=" + effectDurationAtStart + " current=" + current + " reason=" + removalReason
+                    + (manualResumeOverlap ? " manualResumeClockAdvance=" + manualResumeClockAdvance : "");
         }
 
         private void close() {
