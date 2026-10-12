@@ -2,6 +2,7 @@ package rotp.core.impl.stands._entitybase;
 
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.WeakHashMap;
 import java.util.function.Function;
 
@@ -315,7 +316,12 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 				return;
 			}
 			Vec3 previous = getSyncedStandOffset();
-			setStandFrontOffsetFromTarget(stand, target, Math.min(0.5, stand.getEffectiveRange()), Math.min(1.5, stand.getEffectiveRange()));
+			ActionTarget offsetTarget = target;
+			if (target.getType() == ActionTarget.TargetType.ENTITY && target.getClipPos().isPresent()
+					&& StandEntityPunchAbility.shouldRetainPunchTarget(stand, ability)) {
+				offsetTarget = target.copy().resolveEntityId(stand.level()).withClipPos(Optional.empty());
+			}
+			setStandFrontOffsetFromTarget(stand, offsetTarget, Math.min(0.5, stand.getEffectiveRange()), Math.min(1.5, stand.getEffectiveRange()));
 			if (!Objects.equals(previous, getSyncedStandOffset())) {
 				stand.offsetFromUser.syncToTracking();
 			}

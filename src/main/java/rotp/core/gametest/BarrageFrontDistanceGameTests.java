@@ -12,6 +12,7 @@ import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility;
 import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility.StandEntityBarrage;
+import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModEntityAttributes;
 import rotp.core.powersystem.PowerClass;
@@ -25,8 +26,10 @@ import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
+import rotp.core.powersystem.standpower.entity.StandEntityAbility;
 import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.target.ActionTarget;
+import rotp.core.subsystems.target.HitResultUtil;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.AfterBatch;
@@ -54,7 +57,8 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 public final class BarrageFrontDistanceGameTests {
     private static final short KEY = 118;
     private static Suite active;
-    private enum Kind { LOCKED, DIRECTIONAL, CLEAR, CLAMPS, LIMITED, RECOVERY, ARMS, MANUAL, GRAB }
+    private enum Kind { LOCKED, DIRECTIONAL, CLEAR, CLAMPS, LIMITED, RECOVERY, ARMS, MANUAL, GRAB,
+        LOCKED_CLIPPED, RECOVERY_CLIPPED }
 
     private BarrageFrontDistanceGameTests() {}
 
@@ -152,6 +156,7 @@ public final class BarrageFrontDistanceGameTests {
         Vec3 initialOffset;
         Vec3 initialRelative;
         Vec3 manualPosition;
+        Vec3 retainedClip;
         float healthBeforeOutside;
         float healthBeforeRecovery;
         int nativeTicks;
@@ -196,7 +201,16 @@ public final class BarrageFrontDistanceGameTests {
             user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get()).standAttackTargetLock = kind != Kind.DIRECTIONAL;
             target = cow(1.2);
             if (kind == Kind.GRAB) stand.getData(ModDataAttachmentTypes.LIVING_GRAB.get()).setGrabTarget(target);
-            LivingComponentAction.getComponent(stand).entityAim.setTarget(new ActionTarget(target));
+            ActionTarget aimed = new ActionTarget(target);
+            if (clippedRetention()) {
+                aimed = HitResultUtil.clip(user.getEyePosition(1), user.getViewVector(1),
+                        stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE), stand.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE),
+                        level, entity -> StandEntityAbility.canDefaultTargetEntityForAiming(stand, entity), user, 0);
+                premise(aimed.getMainEntity() == target && aimed.getClipPos().isPresent(), "real clip factory selected the cow with a surface point");
+                retainedClip = aimed.getClipPos().get();
+                premise(near(retainedClip.z - user.getZ(), 0.75), "native initial cow surface geometry=" + retainedClip);
+            }
+            LivingComponentAction.getComponent(stand).entityAim.setTarget(aimed);
             Ability base = power.getAbility("barrage");
             var selected = power.updateAvailableMoves().getContextVariationContainer(base);
             premise(selected != null && AbilityInput.withConditionCheck(selected, user, InputMethod.HOLD), "real hold admission");
@@ -204,26 +218,29 @@ public final class BarrageFrontDistanceGameTests {
             var held = AbilityInput.keyPress(KEY, selected.ability, user, null, InputMethod.HOLD, 0, buffering, base.getAbilityId());
             premise(buffering.isActionSuccess && held != null && held.action instanceof StandEntityBarrage, "registered held barrage");
             action = (StandEntityBarrage) held.action;
+            if (clippedRetention()) premise(StandEntityPunchAbility.shouldRetainPunchTarget(stand, action.ability)
+                    && !StandEntityBarrageAbility.isDirectionalBarrage(stand, action), "real retained-target mode");
             if (kind == Kind.GRAB) premise(action.ability.getAbilityUsageCategory() == AbilityUsageGroup.GRAB, "real grab variation selected");
             initialOffset = action.getSyncedStandOffset();
             initialRelative = stand.offsetFromUser.getRelativeOffset();
             log("START " + kind + " action=" + action.id + " ability=" + selected.ability.name()
                     + " offset=" + initialOffset + " range=" + stand.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE)
-                    + " effective=" + stand.getEffectiveRange() + " max=" + stand.getMaxRange());
+                    + " effective=" + stand.getEffectiveRange() + " max=" + stand.getMaxRange() + " initialClip=" + retainedClip);
         }
 
         void post() {
             if (done || closed) return;
             premise(stand.getCurStandAction() == action && (action.getPhase() == ActionPhase.PERFORM
-                    || kind == Kind.RECOVERY && action.getPhase() == ActionPhase.RECOVERY),
+                    || recovery() && action.getPhase() == ActionPhase.RECOVERY),
                     "same native action before its duration cap");
             nativeTicks++;
             if (nativeTicks == 1) {
                 if (specialPosition()) suite.check(Objects.equals(action.getSyncedStandOffset(), initialOffset), "initial specialized offset unchanged");
                 else assertOffset(0.5, "initial lower clamp");
+                if (clippedRetention()) assertCombatClip("initial combat clip preserved");
                 manualPosition = stand.position();
                 target.moveTo(origin.x, origin.y + 0.4, origin.z + 2.8, 0, 0);
-                if (kind == Kind.RECOVERY) {
+                if (recovery()) {
                     healthBeforeRecovery = target.getHealth();
                     AbilityInput.keyRelease(KEY, user);
                     premise(action.getPhase() == ActionPhase.RECOVERY, "real release entered recovery");
@@ -239,7 +256,8 @@ public final class BarrageFrontDistanceGameTests {
                 }
                 premise(action.punchedTarget != null && action.punchedTarget.getMainEntity() == target,
                         "moved target is still legal and selected");
-                if (kind == Kind.RECOVERY) {
+                if (clippedRetention()) assertCombatClip("retained combat clip survives moving target");
+                if (recovery()) {
                     assertOffset(1.35, "recovery follows the current target without attacking");
                     suite.check(target.getHealth() == healthBeforeRecovery, "recovery has no extra hit");
                     done = true;
@@ -257,7 +275,7 @@ public final class BarrageFrontDistanceGameTests {
                     premise(near(clipZ, 2.35), "cow surface geometry actual=" + clipZ);
                     assertOffset(0.9, "directional surface point, not center distance");
                 }
-                else assertOffset(1.35, "locked no-clip target moved out");
+                else assertOffset(1.35, clippedRetention() ? "retained clipped target uses current entity position" : "locked no-clip target moved out");
                 if (kind == Kind.CLEAR) {
                     target.discard();
                     LivingComponentAction.getComponent(stand).entityAim.setTarget(ActionTarget.EMPTY);
@@ -279,7 +297,11 @@ public final class BarrageFrontDistanceGameTests {
                     premise(target.chunkPosition().equals(user.chunkPosition()) && level.getEntity(target.getId()) == target,
                             "outside-range target remains present in the same loaded chunk");
                 }
-                else { assertOffset(0.5, "owner approached the stationary target"); done = true; }
+                else {
+                    assertOffset(0.5, "owner approached the stationary target");
+                    if (clippedRetention()) assertCombatClip("original combat clip survives owner movement");
+                    done = true;
+                }
             }
             if (nativeTicks == 10) {
                 if (kind == Kind.CLEAR) {
@@ -297,6 +319,16 @@ public final class BarrageFrontDistanceGameTests {
         }
 
         boolean specialPosition() { return kind == Kind.ARMS || kind == Kind.MANUAL || kind == Kind.GRAB; }
+
+        boolean clippedRetention() { return kind == Kind.LOCKED_CLIPPED || kind == Kind.RECOVERY_CLIPPED; }
+
+        boolean recovery() { return kind == Kind.RECOVERY || kind == Kind.RECOVERY_CLIPPED; }
+
+        void assertCombatClip(String detail) {
+            ActionTarget combat = action.punchedTarget;
+            suite.check(combat != null && combat.getMainEntity() == target && combat.getClipPos().isPresent()
+                    && combat.getClipPos().get().equals(retainedClip), detail + " actual=" + (combat != null ? combat.getClipPos() : null));
+        }
 
         void assertOffset(double expected, String detail) {
             Vec3 synced = action.getSyncedStandOffset();
@@ -341,5 +373,5 @@ public final class BarrageFrontDistanceGameTests {
         catch (Exception error) { throw new IllegalStateException("Could not bind native class " + type.getName(), error); }
     }
 
-    private static void log(String message) { JojoMod.getLogger().info("B-S11-04 " + message); }
+    private static void log(String message) { JojoMod.getLogger().info("B-S11-04-R1 " + message); }
 }
