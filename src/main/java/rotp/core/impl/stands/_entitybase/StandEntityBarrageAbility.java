@@ -34,7 +34,7 @@ import rotp.core.powersystem.standpower.entity.StandEntityAbility;
 import rotp.core.powersystem.standpower.entity.StandEntityAbility.AutoSummonMode;
 import rotp.core.powersystem.standpower.entity.StandLinkDamageSource;
 import rotp.core.powersystem.standpower.entity.StandStatFormulas;
-import rotp.core.subsystems.ServerBlockDestroyTracker;
+import rotp.core.powersystem.standpower.entity.StandStatFormulas.BlockMiningTier;
 import rotp.core.subsystems.entity_grab.LivingComponentGrab;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.AimingEntity;
@@ -49,6 +49,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Tiers;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockState;
@@ -191,6 +192,15 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 	}
 	
 	public static class StandEntityBarrage extends EntityActionInstance {
+		private static final BlockMiningTier[] BARRAGE_HARVEST_TIERS = {
+				BlockMiningTier.EMPTY_ARMS,
+				new BlockMiningTier.VanillaTierWrapper(Tiers.WOOD),
+				new BlockMiningTier.VanillaTierWrapper(Tiers.STONE),
+				new BlockMiningTier.VanillaTierWrapper(Tiers.IRON),
+				new BlockMiningTier.VanillaTierWrapper(Tiers.DIAMOND),
+				new BlockMiningTier.VanillaTierWrapper(Tiers.NETHERITE),
+				BlockMiningTier.ANY_BLOCK
+		};
 		public int hitsThisTick;
 		private boolean delayedHit;
 		private int delayedHits;
@@ -476,20 +486,9 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 				return;
 			}
 			
-			double standStrength = stand.getAttackDamage();
-			double standSpeed = stand.getAttackSpeed();
-			
 			float blockHardnessForStand = stand.getBlockHardnessForStandBreak(blockState, level, blockPos);
-			if (blockHardnessForStand >= 0) {
-				float standEfficiency = StandStatFormulas.getBarrageBlockMiningEfficiency(standStrength, standSpeed);
-				float destroyProgress = standEfficiency / (blockHardnessForStand * 100);
-				
-				boolean breakBlock = blockHardnessForStand == 0 || ServerBlockDestroyTracker.addBlockDestroyProgress((ServerLevel) level, stand, 
-						blockPos, blockState, destroyProgress).progressNew >= 1;
-				if (breakBlock) {
-					boolean dropBlock = !isUserCreative();
-					level.destroyBlock(blockPos, dropBlock, stand);
-				}
+			if (blockHardnessForStand >= 0 && canBreakBarrageBlock(stand.getAttackDamage(), blockState, level, blockPos)) {
+				level.destroyBlock(blockPos, !isUserCreative(), stand);
 			}
 			
 			if (blockHardnessForStand != 0) {
@@ -499,6 +498,19 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 							(blockSounds.getVolume() + 1.0F) / 8.0F, blockSounds.getPitch() * 0.5F);
 				}
 			}
+		}
+
+		private static boolean canBreakBarrageBlock(double strength, BlockState blockState, Level level, BlockPos pos) {
+			float hardness = blockState.getDestroySpeed(level, pos);
+			if (!blockState.requiresCorrectToolForDrops()) {
+				hardness *= 0.6F;
+			}
+			if (hardness < 0 || !(hardness < Math.exp(strength / 4))) {
+				return false;
+			}
+			// 1.16 harvestLevel < (int) strength / 4: each four strength unlocks the next legacy tool tier.
+			int harvestTier = Mth.clamp((int) strength / 4, 0, BARRAGE_HARVEST_TIERS.length - 1);
+			return BARRAGE_HARVEST_TIERS[harvestTier].canMine(blockState);
 		}
 
 	}
