@@ -319,6 +319,7 @@ public final class PillarmanVeinStartupGameTests {
                     throw failure;
                 }
                 detailed.initCause(failure);
+                log(detailed.getMessage());
                 throw detailed;
             }
             AvailableAbilities available = new AvailableAbilities();
