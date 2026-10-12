@@ -95,7 +95,7 @@ public class StarInhaleAbility extends StandEntityAbility {
                     standPower.setAbilityCooldown(inhaleAbility.name(), cooldownBeforeClear, cooldownTotalBeforeClear);
                 }
             }
-            setStandOffset(0, -0.25, StandOffsetFromUser.Rotations.BODY, false);
+            setStandOffset(0, -0.25, StandOffsetFromUser.Rotations.HEAD, false);
         }
 
         @Override

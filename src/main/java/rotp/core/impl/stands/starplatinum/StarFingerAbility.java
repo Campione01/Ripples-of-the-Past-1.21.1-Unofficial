@@ -70,7 +70,7 @@ public class StarFingerAbility extends StandEntityAbility {
         @Override
         public void onActionSet(@Nullable EntityActionInstance prevAction) {
             super.onActionSet(prevAction);
-            setStandOffset(0, 0.5, StandOffsetFromUser.Rotations.BODY, false);
+            setStandOffset(0, 0.5, StandOffsetFromUser.Rotations.HEAD, false);
             OrientedBoundingBox obb = new OrientedBoundingBox(new Vec3(0, 1.35, 0), 0.125d, 0.125d, 0.8d, getPerformer().getYRot(), getPerformer().getXRot());
             this.starFingerBB = new ExtendableOBB(obb, 0.3F, 0.9F, (int) phasesLength.getFloat(ActionPhase.PERFORM), 4, new Vec3(0, 1.35, 0));
         }

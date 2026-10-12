@@ -33,7 +33,7 @@ public class StarPlatinumZoomAbility extends NoPoseStandEntityAbility {
 
 		@Override
 		public void onActionSet(@Nullable EntityActionInstance prevAction) {
-			setStandOffset(new Vec3(-0.25, -0.3, -0.25), StandOffsetFromUser.Rotations.BODY, false);
+			setStandOffset(new Vec3(-0.25, -0.3, -0.25), StandOffsetFromUser.Rotations.HEAD, false);
 			if (level().isClientSide() && performer instanceof StandEntity stand) {
 				StarPlatinumZoomClient.startZooming(stand);
 				StarPlatinumZoomClient.playZoomLoop(stand, this);
