@@ -1702,6 +1702,10 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 			if (finalDamage <= 0) {
 				return false;
 			}
+			if (targetLiving instanceof StandEntity targetStand && dmgSource instanceof DamageSourceModified modified
+					&& modified.jojo_ripples$breaksStandGuard()) {
+				targetStand.breakStandBlocking(StandStatFormulas.getGuardBreakTicks(targetStand.getDurability()));
+			}
 			float scaledDamage = finalDamage * damageMultiplier;
 			if (dmgSource instanceof DamageSourceModified modified && modified.jojo_ripples$isNonLethal()) {
 				scaledDamage = Math.min(scaledDamage, Math.max(targetLiving.getHealth() - 0.0001F, 0.0F));

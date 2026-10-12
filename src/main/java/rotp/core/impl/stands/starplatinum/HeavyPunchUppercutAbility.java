@@ -5,7 +5,6 @@ import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.entity.StandEntity;
-import rotp.core.powersystem.standpower.entity.StandStatFormulas;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility;
 
 import net.minecraft.world.damagesource.DamageSource;
@@ -32,13 +31,11 @@ public class HeavyPunchUppercutAbility extends StandEntityHeavyPunchAbility {
 			float uppercutKnockback = 0.5F + strength / 16 * stand.getLastHeavyFinisherValue();
 			knockback.jojo_ripples$modifyKnockback(uppercutKnockback, 1);
 			knockback.jojo_ripples$knockbackXRot(-60F);
+			knockback.jojo_ripples$setBreakStandGuard(true);
 		}
 		
 		@Override
 		protected void afterHeavyPunchHit(StandEntity stand, LivingEntity targetLiving, DamageSource dmgSource, float dmgAmount, boolean hurt) {
-			if (hurt && targetLiving instanceof StandEntity targetStand) {
-				targetStand.breakStandBlocking(StandStatFormulas.getGuardBreakTicks(targetStand.getDurability()));
-			}
 			// 1.16 StarPlatinumUppercut disableBlocking(1.0F)
 			disableShieldOnHit(targetLiving, hurt, 1.0F);
 		}

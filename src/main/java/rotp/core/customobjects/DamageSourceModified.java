@@ -43,6 +43,8 @@ public interface DamageSourceModified {
 	StandPower jojo_ripples$standPower();
 	default void jojo_ripples$setNonLethal(boolean nonLethal) {}
 	default boolean jojo_ripples$isNonLethal() { return false; }
+	default void jojo_ripples$setBreakStandGuard(boolean breakGuard) {}
+	default boolean jojo_ripples$breaksStandGuard() { return false; }
 	
 	
 	/**
