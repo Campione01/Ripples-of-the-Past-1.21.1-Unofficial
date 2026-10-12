@@ -1,6 +1,7 @@
 package rotp.core.impl.stands._entitybase;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.WeakHashMap;
 import java.util.function.Function;
 
@@ -246,6 +247,9 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 			Level level = performer.level();
 			if (performer instanceof StandEntity stand) {
 				StandEntityPunchAbility.releaseUnlockedPunchTarget(stand, this);
+				if (getPhase() != ActionPhase.PERFORM && canRefreshFrontOffset(stand)) {
+					refreshFrontOffset(stand, getPunchTarget(stand));
+				}
 			}
 			
 			if (getPhase() == ActionPhase.PERFORM && performer instanceof StandEntity stand) {
@@ -260,6 +264,7 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 					return;
 				}
 				ActionTarget target = getPunchTarget(stand);
+				refreshFrontOffset(stand, target);
 				if (target.isEmpty(level)) {
 					standRotationTarget = null;
 					aimAs = AimingEntity.CAMERA_ENTITY;
@@ -297,6 +302,22 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 				if (standPower != null && (!directional || level.isClientSide())) {
 					standPower.consumeStamina(4, true);
 				}
+			}
+		}
+
+		private boolean canRefreshFrontOffset(StandEntity stand) {
+			return !stand.level().isClientSide() && stand.isFollowingUser() && !stand.isArmsOnlyMode()
+					&& !isGrabVariation() && LivingComponentGrab.getEntityGrabbedBy(stand) == null;
+		}
+
+		private void refreshFrontOffset(StandEntity stand, ActionTarget target) {
+			if (!canRefreshFrontOffset(stand)) {
+				return;
+			}
+			Vec3 previous = getSyncedStandOffset();
+			setStandFrontOffsetFromTarget(stand, target, Math.min(0.5, stand.getEffectiveRange()), Math.min(1.5, stand.getEffectiveRange()));
+			if (!Objects.equals(previous, getSyncedStandOffset())) {
+				stand.offsetFromUser.syncToTracking();
 			}
 		}
 		
