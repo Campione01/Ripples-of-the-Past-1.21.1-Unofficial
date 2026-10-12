@@ -13,6 +13,7 @@ import rotp.core.client.sound.ClientsideSoundsHelper;
 import rotp.core.client.sound.sounds.EntityLingeringSoundInstance;
 import rotp.core.customobjects.DamageSourceModified;
 import rotp.core.init.ModSoundEvents;
+import rotp.core.init.power.ModStandAbilities;
 import rotp.core.powersystem.Moveset;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.PowerClass;
@@ -137,7 +138,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			}
 			action.phasesLength.put(ActionPhase.WINDUP, StandStatFormulas.getLightAttackWindup(
 					stand.getAttackSpeed(), stand.getFinisherMeter(), stand.guardCounter(), 
-					stand.getCurStandAction() == null || stand.getCurStandAction().ability != this));
+					isFirstPunch(stand)));
 			float lightRecovery = StandStatFormulas.getLightAttackRecovery(stand.getAttackSpeed(), stand.getFinisherMeter());
 			action.phasesLength.put(ActionPhase.PERFORM, lightRecovery);
 			action.phasesLength.put(ActionPhase.RECOVERY, lightRecovery * (stand.isArmsOnlyMode() ? 2 : 4));
@@ -585,6 +586,37 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	
 	// 
 	
+	private boolean isFirstPunch(StandEntity stand) {
+		EntityActionInstance previous = stand.getCurStandAction();
+		if (previous == null) return true;
+		if (previous.ability == this) return false;
+		StandPower power = stand.getUserPower();
+		return previous.isOver() || power == null || !isSameLightComboFamily(power.getMoveset(), this, previous.ability);
+	}
+
+	private static boolean isSameLightComboFamily(Moveset moveset, EntityActionType first, EntityActionType second) {
+		if (!(first instanceof Ability firstAbility) || !(second instanceof Ability secondAbility)
+				|| first.getAbilityUsageCategory() != AbilityUsageGroup.COMBAT || second.getAbilityUsageCategory() != AbilityUsageGroup.COMBAT
+				|| firstAbility.abilityType != ModStandAbilities.PUNCH.get() || secondAbility.abilityType != ModStandAbilities.PUNCH.get()) {
+			return false;
+		}
+		for (Ability root : moveset.abilities.values()) {
+			String name = root.name();
+			if (root.isSubAbility || root.usageGroup != AbilityUsageGroup.COMBAT || root.abilityType != ModStandAbilities.PUNCH.get()
+					|| name == null || moveset.getAbility(name) != root) continue;
+			boolean firstMember = false;
+			boolean secondMember = false;
+			for (String memberName : getComboPunchNames(moveset, name)) {
+				Ability member = moveset.getAbility(memberName);
+				if (member != root && !member.isSubAbility) continue;
+				firstMember |= member == firstAbility;
+				secondMember |= member == secondAbility;
+			}
+			if (firstMember && secondMember) return true;
+		}
+		return false;
+	}
+
 	@Nullable
 	protected Ability getComboPunch(StandPower standPower) {
 		if (standPower == null) return null;
@@ -602,19 +634,11 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		// end it early. The second loop does capture size once, which would make a re-entrant clear fatal too; no
 		// isAbilityAvailable override reaches back into this method today, but a local list means neither hazard
 		// can return.
-		List<String> punchNamesBuffer = new ArrayList<>();
 		String baseName = this.name();
 		if (baseName == null) {
 			return null;
 		}
-		punchNamesBuffer.add(baseName);
-		for (int i = 2; ; i++) {
-			String comboPunchName = baseName + i;
-			if (moveset.getAbility(comboPunchName) != null) {
-				punchNamesBuffer.add(comboPunchName);
-			}
-			else break;
-		}
+		List<String> punchNamesBuffer = getComboPunchNames(moveset, baseName);
 		
 		int startFromPunch = 0;
 		if (standEntity != null) {
@@ -641,6 +665,17 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		}
 		
 		return null;
+	}
+
+	private static List<String> getComboPunchNames(Moveset moveset, String baseName) {
+		List<String> names = new ArrayList<>();
+		names.add(baseName);
+		for (int i = 2; ; i++) {
+			String name = baseName + i;
+			if (moveset.getAbility(name) == null) break;
+			names.add(name);
+		}
+		return names;
 	}
 
 }
