@@ -166,7 +166,7 @@ public final class TimeStopBlinkInputSmokeTest {
 
 		String blink = read(root.resolve("impl/stands/theworld/TimeStopBlinkAbility.java"));
 		check(!blink.contains("TimeStopLearning.getTimeStopBlinkStaminaCost(power)")
-				&& count(blink, "getBlinkStaminaCost(") >= 4
+				&& count(blink, "getBlinkStaminaCost(") >= 3
 				&& count(blink, "getBlinkStaminaCostTicking(") >= 3,
 				"the blink must charge its own base time stop's costs everywhere");
 		check(between(blink, "public ConditionCheck getUnlockConditionCheck(", "public boolean isAbilityAvailable(")

@@ -28,11 +28,11 @@ import rotp.core.powersystem.standpower.StandUtil;
 import rotp.core.powersystem.standpower.StandInstance.StandPart;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.subsystems.target.ActionTarget;
+import rotp.core.subsystems.target.ActionTargetRange;
 import rotp.core.subsystems.target.HitResultUtil;
 import rotp.core.subsystems.timestop.TimeStopCooldowns;
 import rotp.core.subsystems.timestop.TimeStopLearning;
 import rotp.core.subsystems.timestop.TimeStopState;
-import rotp.core.impl.stands._entitybase.StandAbilityStamina;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
@@ -176,10 +176,6 @@ public class TimeStopBlinkAbility extends Ability {
 		if (getMaxImpliedTicks(standPower) <= 0) {
 			return ConditionCheck.NEGATIVE;
 		}
-		ConditionCheck staminaCheck = StandAbilityStamina.check(context, effectiveTimeStopCost(standPower, getBlinkStaminaCost(standPower)));
-		if (!staminaCheck.isPositive()) {
-			return staminaCheck;
-		}
 		return super.checkSpecificConditions(context);
 	}
 
@@ -199,18 +195,23 @@ public class TimeStopBlinkAbility extends Ability {
 	private boolean performBlink(ServerLevel serverLevel, LivingEntity user, StandPower power) {
 		// 1.16 TimeStopInstant read its base time stop's training for reach and per-tick cost
 		String learningName = TimeStopLearning.getLearningName(power, timeStopAbilityName);
+		float baseCost = effectiveTimeStopCost(power, getBlinkStaminaCost(power));
+		float staminaBeforeCost = power.getStamina();
+		power.consumeStamina(baseCost);
 		int timeStopTicks = getMaxImpliedTicks(power, learningName);
 		if (timeStopTicks <= 0) {
+			// A modifier can read the paid stamina; retain the port's no-charge refusal.
+			power.setStamina(staminaBeforeCost);
 			return false;
 		}
 		double playerSpeed = getDistancePerTick(user);
 		double maxDistance = Math.min(playerSpeed * timeStopTicks, MAX_BLINK_DISTANCE);
-		ActionTarget target = rayTraceBlinkTarget(user, maxDistance);
+		ActionTarget target = getClickedBlinkTarget(user);
+		if (target.isEmpty(serverLevel)) {
+			target = rayTraceBlinkTarget(user, maxDistance);
+		}
 		Vec3 blinkPos = calcBlinkPos(serverLevel, user, target, maxDistance);
 		int impliedTicks = getImpliedTicks(user, blinkPos, playerSpeed, timeStopTicks);
-		if (!StandAbilityStamina.consumeOrMessage(this, power, user, effectiveTimeStopCost(power, getBlinkStaminaCost(power)))) {
-			return false;
-		}
 		power.consumeStamina(effectiveTimeStopCost(power, impliedTicks * getBlinkStaminaCostTicking(power, learningName)));
 		Vec3 soundPos = user.position();
 		// 1.16 set the yaw toward the target from blinkPos before teleporting
@@ -276,6 +277,23 @@ public class TimeStopBlinkAbility extends Ability {
 
 	private static double getDistancePerTick(LivingEntity entity) {
 		return entity.getAttributeValue(Attributes.MOVEMENT_SPEED) * 2.1585;
+	}
+
+	private static ActionTarget getClickedBlinkTarget(LivingEntity user) {
+		ActionTarget target = LivingComponentAction.getComponent(user).entityAim.getTarget().copy().resolveEntityId(user.level());
+		if (target.getType() == ActionTarget.TargetType.ENTITY) {
+			Entity entity = target.getEntity();
+			if (entity == null || entity == user || entity.level() != user.level() || entity.isRemoved()
+					|| entity.isSpectator() || !entity.isPickable()
+					|| entity instanceof StandEntity stand && stand.getUser() == user) {
+				return ActionTarget.EMPTY;
+			}
+		}
+		else if (target.getType() == ActionTarget.TargetType.BLOCK && !user.level().hasChunkAt(target.getBlockPos())) {
+			return ActionTarget.EMPTY;
+		}
+		return ActionTargetRange.isTargetWithinRange(ActionTargetRange.standPerformer(user), target, user.level())
+				? target : ActionTarget.EMPTY;
 	}
 
 	private static ActionTarget rayTraceBlinkTarget(LivingEntity user, double maxDistance) {
