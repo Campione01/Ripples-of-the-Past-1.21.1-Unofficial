@@ -492,6 +492,7 @@ public final class CreativeTimeStopDurationGameTests {
                     + " playerAge=" + (player != null ? player.tickCount : -1)
                     + " performer=" + (performer != null ? performer.getId() + "/" + performer.position()
                             + "/age" + performer.tickCount + "/alive" + performer.isAlive() : "null")
+                    + " entityTicking=" + (performer != null && level.isPositionEntityTicking(performer.blockPosition()))
                     + " actionPhase=" + (action != null ? action.getPhase() + "/" + action.getPhaseTick() + "/over" + action.isOver() : "null")
                     + " liveSame=" + (liveAction == action) + " live=" + (liveAction != null ? liveAction.getPhase() : "null")
                     + (manualResumeOverlap ? " manualResumeClockAdvance=" + manualResumeClockAdvance : "");
