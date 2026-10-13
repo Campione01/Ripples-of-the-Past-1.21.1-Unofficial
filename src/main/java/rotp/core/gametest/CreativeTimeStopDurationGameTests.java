@@ -53,6 +53,7 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Rotation;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.entity.EntityLeaveLevelEvent;
 import net.neoforged.neoforge.event.tick.LevelTickEvent;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
@@ -377,14 +378,24 @@ public final class CreativeTimeStopDurationGameTests {
                     JojoMod.getLogger().info("S04-05 REMOVED " + describe());
                 }
             };
+            Consumer<EntityLeaveLevelEvent> left = event -> {
+                if (!closed && action != null && event.getEntity() == action.getPerformer()) {
+                    JojoMod.getLogger().info("S04-05 UNEXPECTED-PERFORMER-LEAVE " + describe()
+                            + " removal=" + event.getEntity().getRemovalReason() + " frames="
+                            + StackWalker.getInstance().walk(frames -> frames.limit(12)
+                                    .map(StackWalker.StackFrame::toString).toList()));
+                }
+            };
             listeners.add(isolate);
             listeners.add(countNative);
             listeners.add(added);
             listeners.add(ended);
+            listeners.add(left);
             NeoForge.EVENT_BUS.addListener(TimeStopLifecycleEvent.PreStart.class, isolate);
             NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, false, LevelTickEvent.Pre.class, countNative);
             NeoForge.EVENT_BUS.addListener(TimeStopLifecycleEvent.Added.class, added);
             NeoForge.EVENT_BUS.addListener(TimeStopLifecycleEvent.Removed.class, ended);
+            NeoForge.EVENT_BUS.addListener(EntityLeaveLevelEvent.class, left);
         }
 
         private boolean owns(TimeStopLifecycleEvent event) {
