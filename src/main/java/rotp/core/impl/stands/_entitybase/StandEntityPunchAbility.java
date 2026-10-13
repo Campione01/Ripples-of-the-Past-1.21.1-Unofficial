@@ -69,6 +69,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	@Nullable private Holder<SoundEvent> punchImpactSound;
 	@Nullable private Holder<SoundEvent> standCrySound;
 	private boolean detachedLightCounterKnockback;
+	private boolean laterPhaseEntryTiming;
 
 	public StandEntityPunchAbility(AbilityType<?> abilityType, AbilityId abilityId) {
 		this(abilityType, abilityId, StandEntityPunch::new);
@@ -98,6 +99,11 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 
 	public StandEntityPunchAbility detachedLightCounterKnockback() {
 		detachedLightCounterKnockback = true;
+		return this;
+	}
+
+	public StandEntityPunchAbility laterPhaseEntryTiming() {
+		laterPhaseEntryTiming = true;
 		return this;
 	}
 
@@ -194,6 +200,35 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 
 		public StandEntityPunch(EntityActionType ability) {
 			super(ability);
+		}
+
+		private boolean samplesLaterPhaseEntry(ActionPhase newPhase) {
+			return phase != null && phase != newPhase
+					&& (newPhase == ActionPhase.PERFORM || newPhase == ActionPhase.RECOVERY)
+					&& performer instanceof StandEntity && !performer.level().isClientSide()
+					&& getClass() == StandEntityPunch.class && !isGrabVariation()
+					&& ability instanceof StandEntityPunchAbility punch && punch.laterPhaseEntryTiming;
+		}
+
+		@Override
+		public void setPhase(ActionPhase newPhase, int tick) {
+			boolean samplesEntry = samplesLaterPhaseEntry(newPhase);
+			float previousLength = samplesEntry ? phasesLength.getFloat(newPhase) : 0;
+			super.setPhase(newPhase, tick);
+			// Publish the assigned phase/time, including a phase skipped by the base transition.
+			if (samplesEntry && Float.compare(previousLength, phasesLength.getFloat(newPhase)) != 0) {
+				syncPhaseChanges();
+			}
+		}
+
+		@Override
+		public void onSetPhase(ActionPhase newPhase) {
+			super.onSetPhase(newPhase);
+			if (samplesLaterPhaseEntry(newPhase) && performer instanceof StandEntity stand) {
+				int length = StandStatFormulas.getLightAttackRecovery(stand.getAttackSpeed(), stand.getFinisherMeter());
+				phasesLength.put(newPhase, newPhase == ActionPhase.RECOVERY
+						? length * (stand.isArmsOnlyMode() ? 2 : 4) : length);
+			}
 		}
 		
 		@Override
