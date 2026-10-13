@@ -329,9 +329,9 @@ public final class CreativeTimeStopDurationGameTests {
             player.getAbilities().instabuild = creative;
             player.setNoGravity(true);
             player.noPhysics = true;
-            ChunkPos cell = new ChunkPos(helper.absolutePos(BlockPos.ZERO));
-            player.moveTo(cell.getMiddleBlockX() + 0.5, helper.absolutePos(new BlockPos(0, 2, 0)).getY(),
-                    cell.getMiddleBlockZ() + 0.5, 0, 0);
+            // A neighbouring test's success removes non-players in its bounds; keep the performer in this cell.
+            BlockPos cell = helper.absolutePos(new BlockPos(0, 2, 0));
+            player.moveTo(cell.getX() + 0.5, cell.getY(), cell.getZ() + 0.5, 0, 0);
             helper.assertTrue(level.addFreshEntity(player), "S04-05 could not add logical-server player");
             power = PowerClass.STAND.attachGet(player);
             StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc(stand));
