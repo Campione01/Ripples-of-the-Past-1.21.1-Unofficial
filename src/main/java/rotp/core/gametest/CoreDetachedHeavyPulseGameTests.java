@@ -672,7 +672,17 @@ public final class CoreDetachedHeavyPulseGameTests {
                         "actual registered plain RMB CLICK binding");
             }
             var selected = actor.power.updateAvailableMoves().getContextVariationContainer(base);
-            premise(selected != null && AbilityInput.withConditionCheck(selected, actor.user, InputMethod.CLICK), "native CLICK admission " + name);
+            boolean admitted = selected != null && AbilityInput.withConditionCheck(selected, actor.user, InputMethod.CLICK);
+            var time = level.getData(ModDataAttachmentTypes.TIME_STOP.get());
+            log("ADMISSION " + spec.id() + " admitted=" + admitted + " selected="
+                    + (selected != null ? selected.ability.name() : "null") + " warning="
+                    + (selected != null ? selected.conditionCheck.getWarning() : "null")
+                    + " user=" + actor.user.getId() + "/" + actor.user.position() + " stand=" + actor.stand.getId()
+                    + "/" + actor.stand.position() + " ages=" + actor.user.tickCount + "/" + actor.stand.tickCount
+                    + " frozen=" + time.shouldFreeze(actor.user) + "/" + time.shouldFreeze(actor.stand)
+                    + " melee=" + actor.stand.canAttackMelee() + " covering=" + time.getLongestInstanceIn(actor.stand.chunkPosition())
+                    + " stamina=" + actor.power.getStamina() + " M=" + suite.multiplier.get());
+            premise(admitted, "native CLICK admission " + name);
             BufferingState buffer = BufferingState.clickOnly();
             var held = AbilityInput.keyPress(key, selected.ability, actor.user, null, InputMethod.CLICK, 0, buffer, base.getAbilityId());
             premise(buffer.isActionSuccess, "native keyPress succeeded " + name);
