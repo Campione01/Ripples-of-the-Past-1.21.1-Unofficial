@@ -56,7 +56,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class TimeStopBlinkParityGameTests {
-    private static final String BATCH = "time_stop_blink_parity";
+    private static final String BATCH = GameTestBatches.TIME_STOP;
     private static final short INPUT = 171;
     private static final PowerSkillUnlocks.Owner UNLOCKS = PowerSkillUnlocks.register(
             JojoMod.resLoc("time_stop_blink_parity_gametest"));
