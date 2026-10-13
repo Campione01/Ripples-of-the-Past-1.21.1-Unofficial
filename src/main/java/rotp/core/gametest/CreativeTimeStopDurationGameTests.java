@@ -482,11 +482,18 @@ public final class CreativeTimeStopDurationGameTests {
         private String describe() {
             TimeStopState.Instance current = state != null && player != null
                     ? state.getInstance(player.getId()).orElse(null) : null;
+            var performer = action != null ? action.getPerformer() : null;
+            var liveAction = performer != null ? LivingComponentAction.getCurEntityAction(performer) : null;
             return "stand=" + stand + " saved=" + savedTicks + " partial=" + partial + " creative=" + creative
                     + " nativeTicks=" + nativeTicks + " press=" + pressTick + " start=" + startTick
                     + " removal=" + removalTick + " phaseAtStart=" + phaseAtStart
                     + " initialTotal=" + (started != null ? started.totalTicks() : -1)
                     + " initialEffect=" + effectDurationAtStart + " current=" + current + " reason=" + removalReason
+                    + " playerAge=" + (player != null ? player.tickCount : -1)
+                    + " performer=" + (performer != null ? performer.getId() + "/" + performer.position()
+                            + "/age" + performer.tickCount + "/alive" + performer.isAlive() : "null")
+                    + " actionPhase=" + (action != null ? action.getPhase() + "/" + action.getPhaseTick() + "/over" + action.isOver() : "null")
+                    + " liveSame=" + (liveAction == action) + " live=" + (liveAction != null ? liveAction.getPhase() : "null")
                     + (manualResumeOverlap ? " manualResumeClockAdvance=" + manualResumeClockAdvance : "");
         }
 
