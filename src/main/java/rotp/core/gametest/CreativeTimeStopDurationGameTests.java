@@ -382,7 +382,7 @@ public final class CreativeTimeStopDurationGameTests {
                 if (!closed && action != null && event.getEntity() == action.getPerformer()) {
                     JojoMod.getLogger().info("S04-05 UNEXPECTED-PERFORMER-LEAVE " + describe()
                             + " removal=" + event.getEntity().getRemovalReason() + " frames="
-                            + StackWalker.getInstance().walk(frames -> frames.limit(12)
+                            + StackWalker.getInstance().walk(frames -> frames.limit(24)
                                     .map(StackWalker.StackFrame::toString).toList()));
                 }
             };
