@@ -79,6 +79,7 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 	@Nullable private Holder<SoundEvent> heavyPunchCrySound;
 	@Nullable private Holder<SoundEvent> heavyPunchPerformSound;
 	private boolean detachedPunchKnockback;
+	private boolean recoveryPhaseEntryTiming;
 
 	public StandEntityHeavyPunchAbility(AbilityType<?> abilityType, AbilityId abilityId) {
 		super(abilityType, abilityId, StandEntityHeavyPunch::new);
@@ -112,6 +113,11 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 
 	public StandEntityHeavyPunchAbility detachedPunchKnockback() {
 		detachedPunchKnockback = true;
+		return this;
+	}
+
+	public StandEntityHeavyPunchAbility recoveryPhaseEntryTiming() {
+		recoveryPhaseEntryTiming = true;
 		return this;
 	}
 
@@ -216,11 +222,31 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 			return true;
 		}
 
+		private boolean samplesRecoveryPhaseEntry(ActionPhase newPhase) {
+			return newPhase == ActionPhase.RECOVERY && phase != null && phase != newPhase
+					&& performer instanceof StandEntity && !performer.level().isClientSide()
+					&& getClass() == StandEntityHeavyPunch.class && !isGrabVariation() && usesHeavyFinisherSetup()
+					&& ability instanceof StandEntityHeavyPunchAbility heavy && heavy.recoveryPhaseEntryTiming;
+		}
+
+		@Override
+		public void setPhase(ActionPhase newPhase, int tick) {
+			boolean samplesEntry = samplesRecoveryPhaseEntry(newPhase);
+			float previousLength = samplesEntry ? phasesLength.getFloat(newPhase) : 0;
+			super.setPhase(newPhase, tick);
+			if (samplesEntry && Float.compare(previousLength, phasesLength.getFloat(newPhase)) != 0) {
+				syncPhaseChanges();
+			}
+		}
+
 		// 1.16 StandEntityAction.getUserWalkSpeed: the builder default 0.5, and 1 in recovery
 		@Override
 		public void onSetPhase(ActionPhase newPhase) {
 			super.onSetPhase(newPhase);
 			userWalkSpeed = newPhase == null || newPhase == ActionPhase.RECOVERY ? 1.0F : 0.5F;
+			if (samplesRecoveryPhaseEntry(newPhase) && performer instanceof StandEntity stand) {
+				phasesLength.put(newPhase, StandStatFormulas.getHeavyAttackRecovery(stand.getAttackSpeed(), finisherValue));
+			}
 		}
 
 		@Override
