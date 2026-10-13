@@ -155,7 +155,7 @@ public final class CoreDetachedHeavyPulseGameTests {
 
     private CoreDetachedHeavyPulseGameTests() {}
 
-    @GameTest(template = "empty", timeoutTicks = 4000, batch = "r769_core_detached_heavy_pulses")
+    @GameTest(template = "empty", timeoutTicks = 4000, batch = GameTestBatches.TIME_STOP)
     public static void registeredRmbSeparatesNativeExtraAndAdmittedTail(GameTestHelper helper) {
         Suite suite = new Suite(helper);
         try {
@@ -167,7 +167,7 @@ public final class CoreDetachedHeavyPulseGameTests {
         catch (RuntimeException | Error error) { suite.close(); throw error; }
     }
 
-    @AfterBatch(batch = "r769_core_detached_heavy_pulses")
+    @AfterBatch(batch = GameTestBatches.TIME_STOP)
     public static void releaseDetachedHeavyBatch(ServerLevel level) {
         if (active != null) active.close();
         log("BATCH-CLEANUP released=" + (active == null));
