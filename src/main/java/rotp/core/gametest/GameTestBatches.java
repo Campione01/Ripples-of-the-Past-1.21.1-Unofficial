@@ -9,13 +9,17 @@ final class GameTestBatches {
 	 * need their user, action or target to tick in normal time run in this batch, which starts no time stop.
 	 * The default (unnamed) batch is time-stop-free: every test that puts a TimeStopState instance or starts
 	 * TimeStopAbility (via tryPutInstance, startTimeStopAfterHold or new TimeStopState.Instance) must instead
-	 * carry batch = GameTestBatches.TIME_STOP, so it cannot freeze a neighbour cell in the default batch.
+	 * carry batch = GameTestBatches.TIME_STOP or its specifically pinned isolated batch, so it cannot freeze a
+	 * neighbour cell in the default batch.
 	 * GameTestBatchSourcePinGameTests checks this rule.
 	 */
 	static final String NO_TIME_STOP = "jojo_ripples_no_time_stop";
 
 	/** Batch for tests that put a TimeStopState instance or start TimeStopAbility; keeps them off the default batch. */
 	static final String TIME_STOP = "jojo_ripples_time_stop";
+
+	/** The heavy-pulse suite needs normal-time inputs between its own stopped-target cases. */
+	static final String DETACHED_HEAVY_TIME_STOP = "jojo_ripples_detached_heavy_time_stop";
 
 	private GameTestBatches() {}
 }

@@ -24,7 +24,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * GameTestBatches: a gametest that puts a TimeStopState instance or starts TimeStopAbility must run in the TIME_STOP
- * batch, so its stop cannot freeze a neighbour cell of the default batch. This pin reads the gametest sources, marks
+ * batch (or its exact isolated batch), so its stop cannot freeze a neighbour cell of the default batch. This pin reads the gametest sources, marks
  * every method that starts a time stop (directly, through a helper of its own file, or through a qualified helper of
  * another gametest file) and checks the compiled @GameTest batch of every marked test.
  */
@@ -62,7 +62,7 @@ public final class GameTestBatchSourcePinGameTests {
 		helper.succeed();
 	}
 
-	/** Empty when the detector still works and every gametest that starts a time stop carries the TIME_STOP batch. */
+	/** Empty when the detector still works and every time-stop starter carries its exact required stopped batch. */
 	static List<String> problems() {
 		List<String> problems = new ArrayList<>();
 		Path dir = sourceDir();
@@ -105,8 +105,12 @@ public final class GameTestBatchSourcePinGameTests {
 					continue;
 				}
 				tests++;
-				if (!GameTestBatches.TIME_STOP.equals(test.batch())) {
-					wrongBatch.add(file.getKey() + "." + method.getName() + " (batch " + test.batch() + ")");
+				String requiredBatch = type == CoreDetachedHeavyPulseGameTests.class
+						&& method.getName().equals("registeredRmbSeparatesNativeExtraAndAdmittedTail")
+						? GameTestBatches.DETACHED_HEAVY_TIME_STOP : GameTestBatches.TIME_STOP;
+				if (!requiredBatch.equals(test.batch())) {
+					wrongBatch.add(file.getKey() + "." + method.getName() + " (batch " + test.batch()
+							+ ", required " + requiredBatch + ")");
 				}
 			}
 		}
@@ -114,7 +118,7 @@ public final class GameTestBatchSourcePinGameTests {
 			problems.add("only " + tests + " time-stop gametests were found");
 		}
 		if (!wrongBatch.isEmpty()) {
-			problems.add("these gametests start a time stop without batch = GameTestBatches.TIME_STOP: " + wrongBatch);
+			problems.add("these gametests start a time stop outside their exact required stopped batch: " + wrongBatch);
 		}
 		return problems;
 	}
