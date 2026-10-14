@@ -80,8 +80,7 @@ public class CrazyDRepairItemAbility extends StandEntityAbility implements Train
 			return ConditionCheck.createNegative("no_repair");
 		}
 		
-		ConditionCheck check = super.checkSpecificConditions(context);
-		return check.isPositive() ? StandAbilityStamina.check(context, REPAIR_STAMINA_COST_TICK) : check;
+		return super.checkSpecificConditions(context);
 	}
 
 	@Override
@@ -151,10 +150,8 @@ public class CrazyDRepairItemAbility extends StandEntityAbility implements Train
 						syncPhaseChanges();
 						return;
 					}
-					if (!consumeRepairStaminaTick(user)) {
-						startRecovery();
-						return;
-					}
+					// 1.16 StandEntityTask paid each perform tick and ignored the result: an empty bar stays at 0
+					consumeRepairStaminaTick(user);
 					ItemRepairResult result = repairTick(user, stand, itemToRepair, curPhaseTick);
 					if (result.previousStateLearnPoints > 0) {
 						StandPower userPower = stand.getUserPower();
@@ -246,10 +243,11 @@ public class CrazyDRepairItemAbility extends StandEntityAbility implements Train
 		return entity != null ? entity.getOffhandItem() : ItemStack.EMPTY;
 	}
 
-	public static boolean consumeRepairStaminaTick(LivingEntity user) {
+	public static void consumeRepairStaminaTick(LivingEntity user) {
 		StandPower standPower = user != null ? StandPower.get(user) : null;
-		return standPower != null && standPower.consumeStamina(
-				StandAbilityStamina.effectiveCost(standPower, REPAIR_STAMINA_COST_TICK), true);
+		if (standPower != null) {
+			standPower.consumeStamina(StandAbilityStamina.effectiveCost(standPower, REPAIR_STAMINA_COST_TICK), true);
+		}
 	}
 
 	public static boolean canBeRepaired(ItemStack itemStack) {

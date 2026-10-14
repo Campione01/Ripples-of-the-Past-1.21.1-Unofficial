@@ -52,8 +52,7 @@ public class CrazyDLeaveObjectPunchInput extends Ability {
 		if (!hasCompatibleHeavyPunch(standPower)) {
 			return ConditionCheck.NEGATIVE;
 		}
-		ConditionCheck check = super.checkSpecificConditions(context);
-		return check.isPositive() ? StandAbilityStamina.check(context, STAMINA_COST) : check;
+		return super.checkSpecificConditions(context);
 	}
 	
 	@Override
@@ -66,9 +65,8 @@ public class CrazyDLeaveObjectPunchInput extends Ability {
 
 			if (curAction instanceof StandEntityHeavyPunch punch
 					&& punch.getPunchModifiers().isEmpty()) {
-				if (!StandAbilityStamina.consumeOrMessage(this, standPower, user, STAMINA_COST)) {
-					return;
-				}
+				// 1.16 StandAction.onPerform paid the follow-up's cost on the click and ignored the result
+				StandAbilityStamina.consume(this, standPower, STAMINA_COST, false);
 				StandEffectInstance punchEffect = ModStandAbilities.EFFECT_CD_PUNCH_LEAVE_OBJECT.get().create(level);
 				standPower.userStandEffects.addEffect(punchEffect);
 			}

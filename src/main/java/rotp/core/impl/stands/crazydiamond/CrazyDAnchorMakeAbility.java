@@ -94,8 +94,7 @@ public class CrazyDAnchorMakeAbility extends StandEntityAbility {
 		if (stand != null && !StandStatFormulas.isBlockBreakable(stand.getAttackDamage(), blockState, user.level(), blockPos)) {
 			return ConditionCheck.createNegative("stand_cant_break_block");
 		}
-		ConditionCheck check = super.checkSpecificConditions(context);
-		return check.isPositive() ? StandAbilityStamina.check(context, STAMINA_COST) : check;
+		return super.checkSpecificConditions(context);
 	}
 
 	@Override
@@ -208,9 +207,8 @@ public class CrazyDAnchorMakeAbility extends StandEntityAbility {
 			}
 
 			StandPower standPower = StandPower.get(user);
-			if (!StandAbilityStamina.consumeOrMessage(ability, standPower, user, STAMINA_COST)) {
-				return;
-			}
+			// 1.16 StandEntityTask paid once the Stand could break the block, ignoring the result
+			StandAbilityStamina.consume(ability, standPower, STAMINA_COST, false);
 
 			if (JojoModUtil.breakingBlocksEnabled(level)) {
 				if (!JojoModUtil.canEntityDestroy(serverLevel, blockPos, blockState, stand)) {

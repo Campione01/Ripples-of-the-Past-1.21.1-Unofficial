@@ -23,7 +23,6 @@ import rotp.core.powersystem.standpower.entity.StandEntityAbility.AutoSummonMode
 import rotp.core.util.functions.ItemUtil;
 import rotp.core.util.functions_network.NetworkUtil;
 import rotp.core.util.objects_mc.ContainerSlotInput;
-import rotp.core.impl.stands._entitybase.StandAbilityStamina;
 import rotp.core.impl.stands.crazydiamond.CrazyDRepairItemAbility.ItemRepairResult;
 
 import net.minecraft.client.Minecraft;
@@ -81,8 +80,7 @@ public class CrazyDUncraftItemAbility extends StandEntityAbility {
 			}
 		}
 
-		ConditionCheck check = super.checkSpecificConditions(context);
-		return check.isPositive() ? StandAbilityStamina.check(context, CrazyDRepairItemAbility.REPAIR_STAMINA_COST_TICK) : check;
+		return super.checkSpecificConditions(context);
 	}
 
 	@Override
@@ -135,10 +133,8 @@ public class CrazyDUncraftItemAbility extends StandEntityAbility {
 				syncPhaseChanges();
 				return;
 			}
-			if (!CrazyDRepairItemAbility.consumeRepairStaminaTick(user)) {
-				startRecovery();
-				return;
-			}
+			// 1.16 StandEntityTask paid each perform tick and ignored the result: an empty bar stays at 0
+			CrazyDRepairItemAbility.consumeRepairStaminaTick(user);
 
 			int tick = curPhaseTick;
 			ItemRepairResult repairProgress = CrazyDRepairItemAbility.repairTick(user, stand, targetStack, tick, false);

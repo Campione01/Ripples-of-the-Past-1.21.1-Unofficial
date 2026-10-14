@@ -49,8 +49,7 @@ public class CrazyDMisshapingPunchInput extends Ability {
 		if (standPower == null || !hasCompatibleFinisherPunch(standPower)) {
 			return ConditionCheck.NEGATIVE;
 		}
-		ConditionCheck check = super.checkSpecificConditions(context);
-		return check.isPositive() ? StandAbilityStamina.check(context, STAMINA_COST) : check;
+		return super.checkSpecificConditions(context);
 	}
 	
 	@Override
@@ -63,9 +62,8 @@ public class CrazyDMisshapingPunchInput extends Ability {
 			if (curAction instanceof StandEntityHeavyPunch punch
 					&& stand.getLastHeavyFinisherValue() >= 1
 					&& punch.getPunchModifiers().isEmpty()) {
-				if (!StandAbilityStamina.consumeOrMessage(this, standPower, user, STAMINA_COST)) {
-					return;
-				}
+				// 1.16 StandAction.onPerform paid the follow-up's cost on the click and ignored the result
+				StandAbilityStamina.consume(this, standPower, STAMINA_COST, false);
 				if (punch instanceof CrazyDiamondHeavyPunch cdPunch) {
 					cdPunch.updateMisshapingTargetPart(stand, user);
 				}

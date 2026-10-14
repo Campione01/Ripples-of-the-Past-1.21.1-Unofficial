@@ -111,7 +111,7 @@ public class CrazyDHealAbility extends StandEntityAbility {
 		if (!canHealEntityTarget(targetEntity)) {
 			return ConditionCheck.createNegative("heal_target");
 		}
-		return StandAbilityStamina.check(context, HEAL_STAMINA_COST_TICK);
+		return check;
 	}
 
 	@Override
@@ -238,9 +238,9 @@ public class CrazyDHealAbility extends StandEntityAbility {
 			return HEAL_STAMINA_COST_TICK;
 		}
 
-		protected boolean consumeStaminaTick(StandEntity standEntity) {
+		protected void consumeStaminaTick(StandEntity standEntity) {
 			StandPower standPower = standEntity != null ? standEntity.getUserPower() : null;
-			return StandAbilityStamina.consume(ability, standPower, staminaCostTick(), true);
+			StandAbilityStamina.consume(ability, standPower, staminaCostTick(), true);
 		}
 
 		@Override
@@ -253,10 +253,8 @@ public class CrazyDHealAbility extends StandEntityAbility {
 			
 			HealResult.Synched curHealing;
 			if (!level.isClientSide()) {
-				if (!consumeStaminaTick(standEntity)) {
-					startRecovery();
-					return;
-				}
+				// 1.16 StandEntityTask paid each perform tick and ignored the result: an empty bar stays at 0
+				consumeStaminaTick(standEntity);
 				ActionTarget target = getActionTarget(level);
 				HealResult healResult = restoreTarget(target, standEntity);
 				curHealing = healResult.synched;

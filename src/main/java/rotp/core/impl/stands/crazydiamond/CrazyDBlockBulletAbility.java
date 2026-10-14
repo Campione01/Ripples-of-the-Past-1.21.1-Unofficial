@@ -72,8 +72,7 @@ public class CrazyDBlockBulletAbility extends StandEntityAbility {
 		if (!hardMaterial(blockState)) {
 			return ConditionCheck.createNegative("item_hard_material");
 		}
-		ConditionCheck check = super.checkSpecificConditions(power);
-		return check.isPositive() ? StandAbilityStamina.check(power, STAMINA_COST) : check;
+		return super.checkSpecificConditions(power);
 	}
 
 	@Override
@@ -143,10 +142,7 @@ public class CrazyDBlockBulletAbility extends StandEntityAbility {
 				if (block == null) return;
 
 				StandPower standPower = StandPower.get(user);
-				if (!StandAbilityStamina.consumeOrMessage(ability, standPower, user, STAMINA_COST)) {
-					return;
-				}
-				
+
 				CrazyDBlockBulletEntity bullet = new CrazyDBlockBulletEntity(performer, level);
 				bullet.setShootingPosOf(user);
 				bullet.setBlock(block);
@@ -168,6 +164,8 @@ public class CrazyDBlockBulletAbility extends StandEntityAbility {
 					item.shrink(1);
 				}
 				bullet.homingStaminaCost = HOMING_STAMINA_COST_TICK;
+				// 1.16 StandEntityTask paid after the shot and ignored the result: a short bar just drops to 0
+				StandAbilityStamina.consume(ability, standPower, STAMINA_COST, false);
 			}
 		}
 		

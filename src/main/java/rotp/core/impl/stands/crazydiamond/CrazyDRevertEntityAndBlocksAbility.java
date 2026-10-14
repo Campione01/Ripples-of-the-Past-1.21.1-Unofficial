@@ -23,7 +23,6 @@ import rotp.core.powersystem.standpower.entity.StandEntityAbility;
 import rotp.core.powersystem.standpower.entity.StandEntityAbility.AutoSummonMode;
 import rotp.core.util.reflection.CommonReflection;
 import rotp.core.util.functions.ItemUtil;
-import rotp.core.impl.stands._entitybase.StandAbilityStamina;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
@@ -93,8 +92,7 @@ public class CrazyDRevertEntityAndBlocksAbility extends StandEntityAbility {
 	}
 
 	private ConditionCheck checkRevertStateStartConditions(Power<?> context) {
-		ConditionCheck check = super.checkSpecificConditions(context);
-		return check.isPositive() ? StandAbilityStamina.check(context, CrazyDRepairItemAbility.REPAIR_STAMINA_COST_TICK) : check;
+		return super.checkSpecificConditions(context);
 	}
 
 	@Override

@@ -61,7 +61,6 @@ import rotp.core.impl.stands.crazydiamond.brokenblocks.CDBlocksRestoredPacket;
 import rotp.core.impl.stands.crazydiamond.brokenblocks.EntityMadeFromBlock;
 import rotp.core.impl.stands.crazydiamond.brokenblocks.EntityMadeFromBlock.EntityReference;
 import rotp.core.impl.stands.crazydiamond.brokenblocks.PrevBlockInfo;
-import rotp.core.impl.stands._entitybase.StandAbilityStamina;
 
 import it.unimi.dsi.fastutil.ints.IntArraySet;
 import it.unimi.dsi.fastutil.ints.IntSet;
@@ -140,10 +139,6 @@ public class CrazyDRestoreTerrainAbility extends NoPoseStandEntityAbility {
 							cameraEntity.getEyePosition(1.0F), eyePosI, restorationDistManhattan(hasResolveEffect), 
 							hasResolveEffect, onlyAimedAt)).isEmpty()) {
 				return ConditionCheck.NEGATIVE_CONTINUE_HOLD;
-			}
-			ConditionCheck staminaCheck = StandAbilityStamina.check(context, RESTORE_TERRAIN_STAMINA_COST_PER_BLOCK);
-			if (!staminaCheck.isPositive()) {
-				return staminaCheck;
 			}
 		}
 		return super.checkSpecificConditions(context);
@@ -236,18 +231,10 @@ public class CrazyDRestoreTerrainAbility extends NoPoseStandEntityAbility {
 				Vec3 eyePosD = cameraEntity.getEyePosition(1.0F);
 				float staminaPerBlock = RESTORE_TERRAIN_STAMINA_COST_PER_BLOCK;
 				
-				int blocksToRestore;
-				if (resolveEffect) blocksToRestore = 64;
-				else {
-					blocksToRestore = blocksPerTick((StandEntity) standEntity);
-					if (staminaPerBlock > 0) {
-						blocksToRestore = Math.min(blocksToRestore, Mth.floor(staminaPerBlock * userPower.getStamina()));
-					}
-					if (blocksToRestore <= 0) {
-						startRecovery();
-						return;
-					}
-				}
+				// 1.16 CrazyDiamondRestoreTerrain.standTickPerform: the bar limits the blocks per tick (by its own
+				// formula, cost per block times stamina); an empty bar restores nothing but the hold goes on
+				int blocksToRestore = resolveEffect ? 64
+						: Math.min(blocksPerTick((StandEntity) standEntity), (int) (staminaPerBlock * userPower.getStamina()));
 				boolean onlyAimedAt = user.isShiftKeyDown();
 				
 				Collection<BlockToFix<?>> blocks = getFixableBlocksInRange(serverLevel, user, eyePos, manhattanRange,

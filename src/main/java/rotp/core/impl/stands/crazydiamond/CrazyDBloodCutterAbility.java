@@ -46,8 +46,7 @@ public class CrazyDBloodCutterAbility extends StandEntityAbility {
 				&& !(user instanceof Player player && player.getAbilities().invulnerable)) {
 			return ConditionCheck.createNegative("full_health");
 		}
-		ConditionCheck check = super.checkSpecificConditions(power);
-		return check.isPositive() ? StandAbilityStamina.check(power, STAMINA_COST) : check;
+		return super.checkSpecificConditions(power);
 	}
 
 	@Override
@@ -83,18 +82,16 @@ public class CrazyDBloodCutterAbility extends StandEntityAbility {
 			if (!level.isClientSide()) {
 				LivingEntity user = getPowerUser();
 				if (user == null) return;
-				StandPower standPower = StandPower.get(user);
-				if (!StandAbilityStamina.consumeOrMessage(ability, standPower, user, STAMINA_COST)) {
-					return;
-				}
 				CrazyDBloodCutterEntity cutter = new CrazyDBloodCutterEntity(user, level);
 				cutter.setShootingPosOf(user);
-				
+
 				float inaccuracy = performer instanceof StandEntity stand
 						? StandStatFormulas.projectileInaccuracyScaling(stand.getPrecision(), SHOT_INACCURACY)
 						: SHOT_INACCURACY;
 				cutter.shootFromRotation(user, SHOT_VELOCITY, inaccuracy);
 				addProjectileWithStandStats(cutter);
+				// 1.16 StandEntityTask paid after the shot and ignored the result: a short bar just drops to 0
+				StandAbilityStamina.consume(ability, StandPower.get(user), STAMINA_COST, false);
 			}
 		}
 		

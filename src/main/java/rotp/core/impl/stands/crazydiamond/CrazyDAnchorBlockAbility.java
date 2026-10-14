@@ -60,8 +60,7 @@ public class CrazyDAnchorBlockAbility extends NoPoseStandEntityAbility {
 		if (anchor == null) {
 			return ConditionCheck.createNegative("item_block_origin");
 		}
-		ConditionCheck check = super.checkSpecificConditions(context);
-		return check.isPositive() ? StandAbilityStamina.check(context, STAMINA_COST_TICK) : check;
+		return super.checkSpecificConditions(context);
 	}
 
 	@Override
@@ -168,11 +167,8 @@ public class CrazyDAnchorBlockAbility extends NoPoseStandEntityAbility {
 			if (!level.isClientSide()) {
 				StandPower standPower = StandPower.get(user);
 				if (standPower != null) {
-					if (!StandAbilityStamina.consume(ability, standPower, STAMINA_COST_TICK, true)) {
-						setPhaseStart(ActionPhase.RECOVERY);
-						syncPhaseChanges();
-						return;
-					}
+					// 1.16 StandEntityTask paid each perform tick and ignored the result: an empty bar stays at 0
+					StandAbilityStamina.consume(ability, standPower, STAMINA_COST_TICK, true);
 					FoundAnchor anchor = getItemToUseAsAnchor(standPower);
 					if (anchor != null) {
 						Entity entity = entityToMove(anchor.entity);
