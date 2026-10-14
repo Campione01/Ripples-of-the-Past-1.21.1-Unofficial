@@ -149,6 +149,10 @@ public class Ability {
 		return this;
 	}
 
+	public boolean isPartRequired(StandPart part) {
+		return partsRequired.contains(part);
+	}
+
 	public Ability noResolveUnlock() {
 		return resolveLevelToUnlock(-1);
 	}
