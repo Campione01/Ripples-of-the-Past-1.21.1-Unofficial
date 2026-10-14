@@ -190,6 +190,11 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 		public float finisherValue;
 		public boolean playedSwingSound;
 		public boolean playedStandCrySound;
+		/**
+		 * Server: whether the entity hit of this heavy punch makes its impact sound (1.16 IPunch.playImpactSound: the
+		 * hit landed, or the target is not living). Null when a hitEntity override did not say: the sound plays.
+		 */
+		@Nullable protected Boolean impactSoundDue;
 
 		public StandEntityHeavyPunch(EntityActionType ability) {
 			super(ability);
@@ -326,10 +331,11 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 					StandPower standPower = StandPower.get(getPowerUser());
 					playHeavyPunchPerformSound(stand);
 
-					if (StandEntityPunchAbility.playHitSound(target, level)) {
-						Holder<SoundEvent> impactSound = getHeavyPunchImpactSound(target);
-						StandUtil.broadcastSound((ServerLevel) level, target.getCenterPos(), 
-								impactSound, true, standPower,
+					boolean entityTarget = target.getType() == TargetType.ENTITY;
+					Vec3 impactSoundPos = target.isEmpty(level) ? null : target.getCenterPos();
+					if (target.getType() == TargetType.BLOCK && StandEntityPunchAbility.playHitSound(target, level)) {
+						StandUtil.broadcastSound((ServerLevel) level, impactSoundPos, 
+								getHeavyPunchImpactSound(target), true, standPower,
 								stand.getSoundSource(), 1, 1);
 					}
 					DamageSource dmgSource = makePunchDamageSource();
@@ -339,6 +345,7 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 
 					lastDamageDealtToLiving = 0;
 					boolean deflectedTarget = StandEntityPunchAbility.deflectSilverChariotProjectiles(stand, target);
+					impactSoundDue = null;
 					switch (target.getType()) {
 						case ENTITY -> {
 							if (!deflectedTarget) {
@@ -347,6 +354,12 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 						}
 						case BLOCK -> hitBlock(target, level, stand, dmgSource, dmgAmount, explRadius);
 						default -> {}
+					}
+					// 1.16 StandEntity.attackTarget: an entity's impact sound comes after the hit, if it landed
+					if (entityTarget && impactSoundPos != null && (impactSoundDue == null || impactSoundDue)) {
+						StandUtil.broadcastSound((ServerLevel) level, impactSoundPos, 
+								getHeavyPunchImpactSound(target), true, standPower,
+								stand.getSoundSource(), 1, 1);
 					}
 
 					punchedTarget = target;
@@ -405,6 +418,7 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 					}
 				}
 			}
+			impactSoundDue = hurt || !(targetEntity instanceof LivingEntity);
 			if (hurt) {
 				Entity knockedBack = targetEntity;
 				if (targetEntity instanceof StandEntity targetStand) {

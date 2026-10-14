@@ -218,6 +218,11 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		protected boolean playedStandCrySound;
 		protected InteractionHand punchingHand = InteractionHand.MAIN_HAND;
 		protected boolean handedAnimation;
+		/**
+		 * Server: whether the entity hit of this punch makes its impact sound (1.16 IPunch.playImpactSound: the hit
+		 * landed, or the target is not living). Null when a hitEntity override did not say: the sound plays.
+		 */
+		@Nullable protected Boolean impactSoundDue;
 
 		public StandEntityPunch(EntityActionType ability) {
 			super(ability);
@@ -345,14 +350,18 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 					StandPower standPower = StandPower.get(getPowerUser());
 					
 					Holder<SoundEvent> impactSound = getPunchImpactSound(target);
-					if (impactSound != null && playHitSound(target, level)) {
-						StandUtil.broadcastSound((ServerLevel) level, target.getCenterPos(), 
+					boolean entityTarget = target.getType() == TargetType.ENTITY;
+					boolean playImpactSound = impactSound != null && playHitSound(target, level);
+					Vec3 impactSoundPos = playImpactSound ? target.getCenterPos() : null;
+					if (playImpactSound && !entityTarget) {
+						StandUtil.broadcastSound((ServerLevel) level, impactSoundPos, 
 								impactSound, true, standPower, 
 								stand.getSoundSource(), 1, 1);
 					}
 					
 					stand.addFinisherMeter(0.1f);
 					boolean deflectedTarget = deflectSilverChariotProjectiles(stand, target);
+					impactSoundDue = null;
 					switch (target.getType()) {
 						case ENTITY -> {
 							if (!deflectedTarget) {
@@ -361,6 +370,12 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 						}
 						case BLOCK -> hitBlock(target, level, stand);
 						default -> {}
+					}
+					// 1.16 StandEntity.attackTarget: an entity's impact sound comes after the hit, if it landed
+					if (playImpactSound && entityTarget && (impactSoundDue == null || impactSoundDue)) {
+						StandUtil.broadcastSound((ServerLevel) level, impactSoundPos, 
+								impactSound, true, standPower, 
+								stand.getSoundSource(), 1, 1);
 					}
 
 					punchedTarget = target;
@@ -396,6 +411,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 				boolean admitted = damage > 0 && stand.canAttackEntity(targetEntity)
 						&& (!(targetEntity instanceof LivingEntity living) || !StandEntity.isStandAttackInvulnerable(living));
 				boolean hurt = standEntityAttack(stand, targetEntity, source, damage);
+				impactSoundDue = hurt || !(targetEntity instanceof LivingEntity);
 				if (admitted) {
 					if (hurt && targetEntity instanceof LivingEntity) {
 						applyCounterKnockback(stand, targetEntity, halfCounter);
@@ -409,7 +425,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
                 DamageSource dmgSource = makePunchDamageSource();
 				((DamageSourceModified) dmgSource).jojo_ripples$modifyKnockback(stand.guardCounter(), 1);
 				float dmgAmount = StandStatFormulas.getLightAttackDamage(stand.getAttackDamage());
-				standEntityAttack(stand, targetLiving, dmgSource, dmgAmount);
+				impactSoundDue = standEntityAttack(stand, targetLiving, dmgSource, dmgAmount);
 				// 1.16 StandEntityPunch.doHit: added even when blocked or in i-frames
 				stand.addFinisherMeter(0.1f);
 			}
@@ -417,6 +433,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			else if (targetEntity != null) {
 				float dmgAmount = StandStatFormulas.getLightAttackDamage(stand.getAttackDamage());
 				standEntityAttack(stand, targetEntity, makePunchDamageSource(), dmgAmount);
+				impactSoundDue = true;
 				stand.addFinisherMeter(0.1f);
 			}
 		}

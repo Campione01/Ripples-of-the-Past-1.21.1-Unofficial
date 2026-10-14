@@ -218,6 +218,11 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 		private int delayedHits;
 		// server: the RECOVERY length the base rule set; an ability that puts its own length keeps it
 		private float recoveryByBaseRule = Float.NaN;
+		/**
+		 * Server: whether this tick's entity hit makes its impact sound (1.16 playPunchImpactSound: the hit landed,
+		 * the target is not living, or a barrage clash parried it). Null when a hitEntity override did not say: it plays.
+		 */
+		@Nullable protected Boolean impactSoundDue;
 
 		public StandEntityBarrage(EntityActionType ability) {
 			super(ability);
@@ -332,9 +337,12 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 					}
 				}
 				else if (hitsThisTick > 0) {
-					tickBarrageSound(stand, target);
+					boolean entityTarget = target.getType() == ActionTarget.TargetType.ENTITY;
+					boolean playSound = StandEntityPunchAbility.playHitSound(target, level);
+					Vec3 soundPos = playSound ? target.getCenterPos() : null;
 					
 					boolean deflectedTarget = StandEntityPunchAbility.deflectSilverChariotProjectiles(stand, target);
+					impactSoundDue = null;
 					switch (target.getType()) {
 						case ENTITY -> {
 							if (!deflectedTarget) {
@@ -344,6 +352,11 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 						case BLOCK -> hitBlock(target, level, stand);
 						default -> {}
 					}
+					// 1.16 StandEntityMeleeBarrage.playPunchImpactSound: sent after the hit, for an entity only if it landed
+					if (entityTarget && impactSoundDue != null && !impactSoundDue) {
+						playSound = false;
+					}
+					TrBarrageHitSoundPacket.send(stand, playSound, getBarrageHitSound(), soundPos);
 					punchedTarget = target;
 				}
 				if (standPower != null && (!directional || level.isClientSide())) {
@@ -396,12 +409,6 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 			return cancellingAbility instanceof StandEntityHeavyPunchAbility;
 		}
 
-		protected void tickBarrageSound(StandEntity stand, ActionTarget target) {
-			boolean playSound = StandEntityPunchAbility.playHitSound(target, stand.level());
-			TrBarrageHitSoundPacket.send(stand, playSound, getBarrageHitSound(),
-					playSound ? target.getCenterPos() : null);
-		}
-		
 		protected int getHitsThisTick(Level level, StandEntity stand) {
 			int hitsThisTick = 0;
 			int hitsPerSecond = StandStatFormulas.getBarrageHitsPerSecond(stand.getAttackSpeed());
@@ -517,9 +524,14 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 				boolean resolve = isResolveBarrage(stand);
 				DamageSource dmgSource = makeBarrageDamageSource(stand, targetEntity);
 				float dmgAmount = StandStatFormulas.getBarrageHitDamage(stand.getAttackDamage(), stand.getPrecision()) * hitsThisTick;
-				if (standEntityAttack(stand, targetEntity, dmgSource, dmgAmount) && resolve) {
+				boolean hurt = standEntityAttack(stand, targetEntity, dmgSource, dmgAmount);
+				if (hurt && resolve) {
 					pinResolveBarrageTarget(targetEntity);
 				}
+				// a barrage clash parry took punches out of this tick's source (1.16 playPunchSound = true)
+				boolean parried = dmgSource instanceof DamageSourceModified modified
+						&& modified.jojo_ripples$barrageHitsCount() < hitsThisTick;
+				impactSoundDue = hurt || parried || !(targetEntity instanceof LivingEntity);
 
 				addBarrageFinisher(stand, dmgSource);
 			}
