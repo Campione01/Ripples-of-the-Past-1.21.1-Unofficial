@@ -7,7 +7,9 @@ import java.util.function.Consumer;
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
+import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility.StandEntityHeavyPunch;
+import rotp.core.impl.stands._entitybase.StandEntityPunchAbility.StandEntityPunch;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModEntityAttributes;
 import rotp.core.powersystem.PowerClass;
@@ -52,6 +54,30 @@ public final class StandAimReachGameTests {
 	private StandAimReachGameTests() {}
 
 	@GameTest(template = "empty", timeoutTicks = 60, batch = BATCH)
+	public static void firstPunchFromIdleReachesTheDonorDistance(GameTestHelper helper) {
+		Scene scene = new Scene(helper, GameType.SURVIVAL, false, 16);
+		Cow cow = scene.cow(0, 4.2);
+		scene.user.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, cow.getBoundingBox().getCenter());
+		helper.assertTrue(cow.getBoundingBox().distanceToSqr(scene.user.getEyePosition()) > 3.5 * 3.5,
+				"Fixture: the cow is not past the vanilla and idle Stand aims");
+		float health = cow.getHealth();
+		scene.run(tick -> {
+			if (tick == 3) {
+				scene.clearAims();
+				EntityActionInstance action = scene.press("punch", InputMethod.CLICK);
+				helper.assertTrue(action instanceof StandEntityPunch, "The punch input started " + action);
+			}
+			else if (tick > 3 && cow.getHealth() < health) {
+				return true;
+			}
+			else if (tick > 25) {
+				helper.fail("The first punch from idle whiffed at a cow 4.2 blocks away, which 1.16 reached");
+			}
+			return false;
+		});
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 60, batch = BATCH)
 	public static void heavyWindupFollowsARetreatingTarget(GameTestHelper helper) {
 		Scene scene = new Scene(helper, GameType.CREATIVE, true, 8);
 		Cow cow = scene.cow(0, 2.6);
@@ -71,6 +97,29 @@ public final class StandAimReachGameTests {
 				helper.assertTrue(action[0].getPhase() == ActionPhase.WINDUP, "Fixture: the windup ended early");
 				scene.assertOffset(action[0], 2.0, "after the target stepped back (upper clamp 2)");
 				return true;
+			}
+			return false;
+		});
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 60, batch = BATCH)
+	public static void defaultBarrageAimsWithUserReachAndPrecision(GameTestHelper helper) {
+		Scene scene = new Scene(helper, GameType.CREATIVE, false, 16);
+		// off the crosshair and past the old 2.5-block eye ray, inside the moved Stand's reach
+		Cow cow = scene.cow(0.5, 3.4);
+		float health = cow.getHealth();
+		scene.run(tick -> {
+			if (tick == 3) {
+				scene.clearAims();
+				EntityActionInstance action = scene.press("barrage", InputMethod.HOLD);
+				helper.assertTrue(StandEntityBarrageAbility.isDirectionalBarrage(scene.stand, action),
+						"Fixture: the default barrage is not the unlocked directional one");
+			}
+			else if (tick > 3 && cow.getHealth() < health) {
+				return true;
+			}
+			else if (tick > 30) {
+				helper.fail("The default barrage missed a cow 3.4 blocks ahead and 0.5 off the crosshair, which 1.16 hit");
 			}
 			return false;
 		});

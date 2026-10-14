@@ -77,8 +77,9 @@ public final class BarrageTargetLifecycleGameTests {
 					"Summoned Star Platinum entity is missing");
 			stand.moveTo(userPos.x, userPos.y, userPos.z);
 			defeated = spawnCow(helper, userPos.add(0.0D, 0.0D, 1.0D));
+			// beyond the 1.9 blocks around the user that Star Platinum's precision boxes cover from the eyes
 			replacement = spawnCow(
-					helper, userPos.add(0.75D, 0.0D, 1.25D));
+					helper, userPos.add(0.75D, 0.0D, 2.2D));
 
 			LivingComponentAction standAction =
 					LivingComponentAction.getComponent(stand);
@@ -102,6 +103,8 @@ public final class BarrageTargetLifecycleGameTests {
 							stand, defeated),
 					"Default Stand aim still accepts a defeated entity");
 			standAction.entityAim.setTarget(ActionTarget.EMPTY);
+			// the user's own precision ray (1.16 aimWithThisOrUser) would find the replacement straight ahead
+			lookAt(user, user.getEyePosition().add(0, 2, -3));
 			standAction.tick();
 			helper.assertTrue(action.standRotationTarget == null
 					&& action.aimAs == AimingEntity.CAMERA_ENTITY,
@@ -197,6 +200,8 @@ public final class BarrageTargetLifecycleGameTests {
 			boolean directional = !locked && "barrage".equals(abilityName);
 			if (directional) {
 				user.getAbilities().instabuild = true;
+				// the strict crosshair rule, with Star Platinum's wide precision boxes switched off by sneaking
+				user.setShiftKeyDown(true);
 			}
 			helper.assertTrue(StandPowerTransitions.insert(power, new StandInstance(standType)).status()
 					== StandPowerTransitions.Status.APPLIED, "Could not grant Star Platinum");
@@ -204,8 +209,9 @@ public final class BarrageTargetLifecycleGameTests {
 			StandEntity stand = power.getSummonedStandEntity();
 			helper.assertTrue(stand != null, "Summoned Stand is missing");
 			stand.moveTo(userPos.x, userPos.y, userPos.z);
-			initial = spawnCow(helper, userPos.add(0.0D, 0.0D, 1.0D));
-			current = spawnCow(helper, userPos.add(directional ? 1.4D : 0.75D, 0.0D, 1.25D));
+			// beyond the 1.9 blocks around the user that Star Platinum's precision boxes cover from the eyes
+			initial = spawnCow(helper, userPos.add(0.0D, 0.0D, 2.0D));
+			current = spawnCow(helper, userPos.add(directional ? 1.4D : 0.75D, 0.0D, 2.3D));
 			if (directional) {
 				lookAt(user, initial.getBoundingBox().getCenter());
 			}
@@ -251,9 +257,8 @@ public final class BarrageTargetLifecycleGameTests {
 				}
 				component.entityAim.setTarget(ActionTarget.EMPTY);
 				LivingComponentAction.getComponent(user).entityAim.setTarget(ActionTarget.EMPTY);
-				if (directional) {
-					lookAt(user, user.getEyePosition().add(0, 2, -3));
-				}
+				// empty space for the crosshair and for the user's own precision ray (1.16 aimWithThisOrUser)
+				lookAt(user, user.getEyePosition().add(0, 2, -3));
 				ActionTarget emptyAim = directional
 						? StandEntityBarrageAbility.clipDirectionalBarrageTarget(stand, action, 1.0F)
 						: StandEntityPunchAbility.getFreshPunchTarget(stand, new ActionTarget(initial));

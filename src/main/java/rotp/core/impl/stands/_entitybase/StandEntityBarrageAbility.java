@@ -179,11 +179,14 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 		if (user == null || !(action.ability instanceof StandEntityAbility ability)) {
 			return ActionTarget.EMPTY;
 		}
+		// 1.16 StandEntity.punch aimed with the user's reach and the Stand's precision, then checked the Stand's own
+		// reach; blocks still stop the ray (the owner's strict crosshair barrage)
+		double reach = StandEntityPunchAbility.userAimReach(user, stand);
 		ActionTarget target = HitResultUtil.clip(user.getEyePosition(partialTick), user.getViewVector(partialTick),
-				stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE),
-				stand.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE), stand.level(),
+				reach, reach, stand.level(),
 				entity -> ability.canTargetEntityForAiming(stand, entity)
-						&& StandEntityPunchAbility.canStandHit(stand, entity), user, 0);
+						&& StandEntityPunchAbility.canStandHit(stand, entity), user,
+				user.isShiftKeyDown() ? 0 : stand.getPrecision());
 		return StandEntityPunchAbility.validatePunchTarget(stand, target);
 	}
 	

@@ -75,6 +75,8 @@ public final class DirectionalBarrageGameTests {
 	@GameTest(template = "empty", timeoutTicks = 80)
 	public static void directionalBarrageSweepsWithoutRetainingTargets(GameTestHelper helper) {
 		try (Fixture f = new Fixture(helper, "sweep", true)) {
+			// the sweep and retention rule, with Star Platinum's wide precision boxes switched off by sneaking
+			f.user.setShiftKeyDown(true);
 			Cow first = f.cow(0, 0, 2);
 			Cow second = f.cow(1.9, 0, 1.5);
 			Cow side = f.cow(-1.7, 0, 1.6);

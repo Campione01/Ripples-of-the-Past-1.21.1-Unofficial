@@ -13,6 +13,7 @@ import rotp.core.client.sound.ClientsideSoundsHelper;
 import rotp.core.client.sound.sounds.EntityLingeringSoundInstance;
 import rotp.core.customobjects.DamageSourceModified;
 import rotp.core.init.ModSoundEvents;
+import rotp.core.mechanics.resolve.ResolveCounter;
 import rotp.core.init.power.ModStandAbilities;
 import rotp.core.powersystem.Moveset;
 import rotp.core.powersystem.Power;
@@ -59,13 +60,18 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Tiers;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.CollisionContext;
 
 public class StandEntityPunchAbility extends StandEntityAbility {
 	private static final ResourceLocation SILVER_CHARIOT_ID = JojoMod.resLoc("silver_chariot");
@@ -629,7 +635,57 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			}
 		}
 
+		// 1.16 StandEntity.aimWithThisOrUser: the synced aims are short (the idle Stand aim reaches 2.5 blocks from
+		// the eyes, the vanilla pick 3), so the user's own precision ray decides, checked against the Stand's reach
+		if (user != null && !stand.isManuallyControlled()) {
+			target = validatePunchTarget(stand, userPrecisionRayTarget(stand, user));
+			if (!target.isEmpty(level)) {
+				return target;
+			}
+		}
+
 		return ActionTarget.EMPTY;
+	}
+
+	/**
+	 * 1.16 StandEntity.precisionRayTrace(user, getAimDistance(user)): the user's reach, the Stand's precision hitboxes,
+	 * and of several entities a player or Stand first, then a hostile mob, then the rest; else the block. Blocks still
+	 * stop the ray, as in every other port aim, until the owner rules on aiming through walls; sneaking switches the
+	 * precision hitboxes off, as it does for the port's client aim.
+	 */
+	public static ActionTarget userPrecisionRayTarget(StandEntity stand, LivingEntity user) {
+		Level level = stand.level();
+		double reach = userAimReach(user, stand);
+		Vec3 eyes = user.getEyePosition();
+		Vec3 look = user.getViewVector(1.0F);
+		BlockHitResult blockHit = HitResultUtil.clipBlocks(new ClipContext(eyes, eyes.add(look.scale(reach)),
+				ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, CollisionContext.of(user)), level);
+		double wallSqr = blockHit.getType() == HitResult.Type.MISS ? Double.MAX_VALUE : eyes.distanceToSqr(blockHit.getLocation());
+		ActionTarget[] byPriority = new ActionTarget[3];
+		for (ActionTarget target : HitResultUtil.clipMultipleEntities(eyes, look, reach, level, user,
+				entity -> entity != stand && canStandHit(stand, entity), 0, user.isShiftKeyDown() ? 0 : stand.getPrecision())) {
+			if (target.getClipPos().map(clip -> eyes.distanceToSqr(clip) > wallSqr).orElse(false)) {
+				continue;
+			}
+			Entity entity = target.getMainEntity();
+			int priority = entity instanceof Player || entity instanceof StandEntity ? 0
+					: entity instanceof LivingEntity && ResolveCounter.attackingTargetGivesResolve(entity) ? 1 : 2;
+			if (byPriority[priority] == null) {
+				byPriority[priority] = target;
+			}
+		}
+		for (ActionTarget target : byPriority) {
+			if (target != null) {
+				return target;
+			}
+		}
+		return ActionTarget.fromVanilla(blockHit);
+	}
+
+	/** 1.16 StandEntity.getAimDistance: the user's REACH_DISTANCE, 5 in either game mode, half a block over the 1.21 attribute. */
+	public static double userAimReach(LivingEntity user, StandEntity stand) {
+		AttributeInstance reach = user.getAttribute(Attributes.BLOCK_INTERACTION_RANGE);
+		return reach != null ? reach.getValue() + 0.5D : stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE);
 	}
 	
 	public static boolean canStandHit(StandEntity stand, Entity target) {
