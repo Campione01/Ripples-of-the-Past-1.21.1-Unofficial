@@ -2,10 +2,8 @@ package rotp.core.impl.stands.goldexperience;
 
 import rotp.core.powersystem.standpower.StandInstance.StandPart;
 
-import rotp.core.powersystem.Power;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
-import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
@@ -28,12 +26,6 @@ public class GoldExperienceLifeDetectorAbility extends NoPoseStandEntityAbility 
 		standAutoSummonMode(AutoSummonMode.OFF_ARM);
 	}
 
-	@Override
-	public ConditionCheck checkSpecificConditions(Power<?> context) {
-		ConditionCheck check = super.checkSpecificConditions(context);
-		return check.isPositive() ? StandAbilityStamina.check(context, STAMINA_COST_TICK) : check;
-	}
-
 	public static class LifeDetectorScan extends EntityActionInstance {
 
 		public LifeDetectorScan(EntityActionType ability) {
@@ -53,10 +45,8 @@ public class GoldExperienceLifeDetectorAbility extends NoPoseStandEntityAbility 
 			if (user == null) {
 				return;
 			}
-			StandPower standPower = StandPower.get(user);
-			if (!StandAbilityStamina.consume(ability, standPower, STAMINA_COST_TICK, true)) {
-				startRecovery();
-			}
+			// 1.16 StandEntityTask paid each perform tick and ignored the result: an empty bar stays at 0
+			StandAbilityStamina.consume(ability, StandPower.get(user), STAMINA_COST_TICK, true);
 		}
 
 		@Override

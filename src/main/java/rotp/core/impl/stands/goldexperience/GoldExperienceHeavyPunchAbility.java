@@ -12,7 +12,6 @@ import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.StandUtil;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.subsystems.target.ActionTarget;
-import rotp.core.impl.stands._entitybase.StandAbilityStamina;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 
@@ -150,14 +149,13 @@ public class GoldExperienceHeavyPunchAbility extends StandEntityHeavyPunchAbilit
                 return false;
             }
             LivingEntity user = getPowerUser();
-            StandPower standPower = user != null ? StandPower.get(user) : null;
             LivingEntity target = getLifeshotTarget();
-            if (user == null || standPower == null || target == null) {
+            if (user == null || target == null) {
                 return false;
             }
             lifeshotApplied = true;
-            return StandAbilityStamina.consumeOrMessage(ability, standPower, user, GoldExperienceEntityLifeshotAbility.STAMINA_COST)
-                    && GoldExperienceEntityLifeshotAbility.applyLifeShotTo(target, user);
+            // the follow-up's cost was paid on its click (GoldExperienceEntityLifeshotAbility.onKeyPress)
+            return GoldExperienceEntityLifeshotAbility.applyLifeShotTo(target, user);
         }
 
         private boolean tryTransformQueuedTooth(boolean requireRecoveryEnd) {

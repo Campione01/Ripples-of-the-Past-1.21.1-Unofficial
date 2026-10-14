@@ -56,8 +56,7 @@ public class GoldExperienceBoneMealAbility extends NoPoseStandEntityAbility {
         if (!isValidBoneMealTarget(user.level(), user, null)) {
             return ConditionCheck.NEGATIVE;
         }
-        ConditionCheck check = super.checkSpecificConditions(context);
-        return check.isPositive() ? StandAbilityStamina.check(context, STAMINA_COST) : check;
+        return super.checkSpecificConditions(context);
     }
     
     @Override
@@ -178,19 +177,12 @@ public class GoldExperienceBoneMealAbility extends NoPoseStandEntityAbility {
             if (!target.isEmpty(level)) {
                 standRotationTarget = target;
             }
-            StandPower standPower = StandPower.get(user);
-            if (!StandAbilityStamina.canPay(standPower, STAMINA_COST)) {
-                StandAbilityStamina.consumeOrMessage(ability, standPower, user, STAMINA_COST);
-                return;
-            }
-            boolean success = switch (target.getType()) {
+            switch (target.getType()) {
                 case ENTITY -> {
                     if (target.getMainEntity() instanceof AgeableMob animal && animal.isBaby()) {
                         int age = animal.getAge();
                         animal.ageUp((int) ((-age / 20) * 0.2F), true);
-                        yield true;
                     }
-                    yield false;
                 }
                 case BLOCK -> {
                     BlockPos pos = target.getBlockPos();
@@ -203,16 +195,14 @@ public class GoldExperienceBoneMealAbility extends NoPoseStandEntityAbility {
                         }
                     }
                     if (!grown) {
-                        grown = applyOriginalBonemealEffect(level, pos, target.getFace());
+                        applyOriginalBonemealEffect(level, pos, target.getFace());
                     }
-                    yield grown;
                 }
-                default -> false;
-            };
-
-            if (success) {
-                StandAbilityStamina.consumeOrMessage(ability, standPower, user, STAMINA_COST);
+                default -> {}
             }
+
+            // 1.16 StandEntityTask paid after the perform, whatever it grew, and ignored the result
+            StandAbilityStamina.consume(ability, StandPower.get(user), STAMINA_COST, false);
         }
     }
 }

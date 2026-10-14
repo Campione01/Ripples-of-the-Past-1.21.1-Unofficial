@@ -42,8 +42,7 @@ public class GoldExperienceHealingItemAbility extends NoPoseStandEntityAbility {
                 return materialCheck;
             }
         }
-        ConditionCheck check = super.checkSpecificConditions(context);
-        return check.isPositive() ? StandAbilityStamina.check(context, STAMINA_COST) : check;
+        return super.checkSpecificConditions(context);
     }
 
     public static class HealingItemAction extends EntityActionInstance {
@@ -63,14 +62,7 @@ public class GoldExperienceHealingItemAbility extends NoPoseStandEntityAbility {
             }
 
             StandPower standPower = StandPower.get(user);
-            if (!StandAbilityStamina.canPay(standPower, STAMINA_COST)) {
-                StandAbilityStamina.consumeOrMessage(ability, standPower, user, STAMINA_COST);
-                return;
-            }
             if (!GoldExperienceHealAbility.spendHealingMaterial(user)) {
-                return;
-            }
-            if (!StandAbilityStamina.consumeOrMessage(ability, standPower, user, STAMINA_COST)) {
                 return;
             }
 
@@ -81,6 +73,8 @@ public class GoldExperienceHealingItemAbility extends NoPoseStandEntityAbility {
                     BuiltInRegistries.SOUND_EVENT.wrapAsHolder(ModSoundEvents.GOLD_EXPERIENCE_LIFE_START.get()),
                     true, standPower, SoundSource.AMBIENT,
                     1.0F, 0.95F + user.getRandom().nextFloat() * 0.1F);
+            // 1.16 StandEntityTask paid after the tissue was made and ignored the result: a short bar just drops to 0
+            StandAbilityStamina.consume(ability, standPower, STAMINA_COST, false);
         }
     }
 }

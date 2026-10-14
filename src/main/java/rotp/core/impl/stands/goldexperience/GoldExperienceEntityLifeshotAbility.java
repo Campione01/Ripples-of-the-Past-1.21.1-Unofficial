@@ -67,8 +67,7 @@ public class GoldExperienceEntityLifeshotAbility extends NoPoseStandEntityAbilit
             if (!targetCheck.isPositive()) {
                 return targetCheck;
             }
-            ConditionCheck check = super.checkSpecificConditions(context);
-            return check.isPositive() ? StandAbilityStamina.check(context, STAMINA_COST) : check;
+            return super.checkSpecificConditions(context);
         }
 
         LivingEntity user = context.getUser();
@@ -86,8 +85,7 @@ public class GoldExperienceEntityLifeshotAbility extends NoPoseStandEntityAbilit
         if (!targetCheck.isPositive()) {
             return targetCheck;
         }
-        ConditionCheck check = super.checkSpecificConditions(context);
-        return check.isPositive() ? StandAbilityStamina.check(context, STAMINA_COST) : check;
+        return super.checkSpecificConditions(context);
     }
 
     @Override
@@ -102,11 +100,9 @@ public class GoldExperienceEntityLifeshotAbility extends NoPoseStandEntityAbilit
                     ConditionCheck.sendActionFailedMessage(this, targetCheck, user);
                     return null;
                 }
-                if (!StandAbilityStamina.canPay(standPower, STAMINA_COST)) {
-                    StandAbilityStamina.consumeOrMessage((Ability) this, standPower, user, STAMINA_COST);
-                    return null;
-                }
                 if (punch.queueLifeshot()) {
+                    // 1.16 StandAction.onPerform paid the follow-up's cost on the click and ignored the result
+                    StandAbilityStamina.consume((Ability) this, standPower, STAMINA_COST, false);
                     bufferingState.setActionSuccess();
                 }
             }
@@ -227,14 +223,9 @@ public class GoldExperienceEntityLifeshotAbility extends NoPoseStandEntityAbilit
 			if (target == null) {
 				return;
 			}
-			StandPower standPower = StandPower.get(user);
-			if (!StandAbilityStamina.canPay(standPower, STAMINA_COST)) {
-				StandAbilityStamina.consumeOrMessage(ability, standPower, user, STAMINA_COST);
-				return;
-			}
-			if (applyLifeShotTo(target, user)) {
-				StandAbilityStamina.consumeOrMessage(ability, standPower, user, STAMINA_COST);
-			}
+			applyLifeShotTo(target, user);
+			// 1.16 paid the Life Shot's cost whatever it did to the target and ignored the result
+			StandAbilityStamina.consume(ability, StandPower.get(user), STAMINA_COST, false);
 		}
 
 	}

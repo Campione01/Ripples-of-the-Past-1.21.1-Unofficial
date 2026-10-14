@@ -98,8 +98,7 @@ public class GoldExperienceHealAbility extends NoPoseStandEntityAbility {
 				}
 			}
 		}
-		ConditionCheck check = super.checkSpecificConditions(context);
-		return check.isPositive() ? StandAbilityStamina.check(context, STAMINA_COST) : check;
+		return super.checkSpecificConditions(context);
 	}
 
 	public static class HealAction extends EntityActionInstance {
@@ -130,21 +129,17 @@ public class GoldExperienceHealAbility extends NoPoseStandEntityAbility {
 				return;
 			}
 			StandPower standPower = StandPower.get(user);
-			if (!StandAbilityStamina.canPay(standPower, STAMINA_COST)) {
-				StandAbilityStamina.consumeOrMessage(ability, standPower, user, STAMINA_COST);
-				return;
-			}
 			if (stuckProjectiles) {
-				if (GoldExperienceHealAbility.applyGoldExperienceStuckProjectileHeal(target, standPower)) {
-					StandAbilityStamina.consumeOrMessage(ability, standPower, user, STAMINA_COST);
+				GoldExperienceHealAbility.applyGoldExperienceStuckProjectileHeal(target, standPower);
+			}
+			else {
+				if (!GoldExperienceHealAbility.spendHealingMaterial(user)) {
+					return;
 				}
-				return;
+				GoldExperienceHealAbility.applyGoldExperienceHeal(target, standPower);
 			}
-			if (!GoldExperienceHealAbility.spendHealingMaterial(user)) {
-				return;
-			}
-			GoldExperienceHealAbility.applyGoldExperienceHeal(target, standPower);
-			StandAbilityStamina.consumeOrMessage(ability, standPower, user, STAMINA_COST);
+			// 1.16 StandEntityTask paid after the heal and ignored the result: a short bar just drops to 0
+			StandAbilityStamina.consume(ability, standPower, STAMINA_COST, false);
 		}
 	}
 
