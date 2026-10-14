@@ -167,9 +167,11 @@ public class AbilityInput {
 						}
 						switch (inputMethod) {
 							case CLICK -> actionInputBuffer.bufferClickInput(
-									baseAbilityForBuffering, extraInputForBuffer);
+									baseAbilityForBuffering, extraInputForBuffer,
+									keyId, inputGeneration);
 							case HOLD -> heldInputObj = actionInputBuffer.bufferHeldInput(
-									baseAbilityForBuffering, extraInputForBuffer);
+									baseAbilityForBuffering, extraInputForBuffer,
+									keyId, inputGeneration);
 						}
 					}
 					action = heldInputObj;

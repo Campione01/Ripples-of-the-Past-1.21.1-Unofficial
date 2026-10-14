@@ -104,10 +104,8 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 		action.setStartedByClick(inputMethod == InputMethod.CLICK);
 		
 		LivingComponentAction actionComponent = LivingComponentAction.getComponent(performer);
-		// A paused action (performer frozen in stopped time) does not advance, so it must not hold back new input.
-		boolean toBuffer = action.ability.shouldBufferInput(actionComponent)
-				&& !actionComponent.isActionPausedInStoppedTime();
-		
+		boolean toBuffer = holdsBackInput(action.ability, actionComponent);
+
 		HeldInput actionOrQueue = null;
 		if (toBuffer) {
 			if (bufferingState.canBuffer()) {
@@ -123,8 +121,23 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 		}
 		return actionOrQueue;
 	}
-	
-	
+
+	/**
+	 * Whether a buffered press of this ability would still be buffered now, as {@link #setOrBufferAction} decides:
+	 * the performer's current action holds it back. The input buffer waits instead of replaying it.
+	 */
+	@ApiStatus.Internal
+	public boolean wouldBufferInput(LivingEntity user) {
+		LivingEntity performer = user != null ? getPerformer(user) : null;
+		return performer != null && holdsBackInput(this, LivingComponentAction.getComponent(performer));
+	}
+
+	private static boolean holdsBackInput(EntityActionType ability, LivingComponentAction performerAction) {
+		// A paused action (performer frozen in stopped time) does not advance, so it must not hold back new input.
+		return ability.shouldBufferInput(performerAction) && !performerAction.isActionPausedInStoppedTime();
+	}
+
+
 	/**
 	 * Is used to initialize some EntityActionInstance values, 
 	 * that are either configurable (stuff like phases length), 
