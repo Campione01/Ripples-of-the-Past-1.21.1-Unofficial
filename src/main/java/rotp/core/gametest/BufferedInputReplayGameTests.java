@@ -48,6 +48,7 @@ import net.minecraft.server.level.ChunkMap;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.network.CommonListenerCookie;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.AABB;
@@ -61,7 +62,9 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 /**
  * 1.16 StandEntity.checkInputBuffer clicked a queued action again (PowerBaseImpl.clickAction) once its Stand could
  * take it, and performAction set the action's cooldown. A Star Finger pressed while Star Platinum is busy starts later
- * with its cooldown, the key press event and the press sent to tracking players; a refused replay starts nothing.
+ * with its cooldown; the press reaches key press listeners once, and once more marked as a replay just before it
+ * starts, so a listener that refuses presses still refuses it; tracking players get the press once, when it starts.
+ * A replay that is refused, by a listener or by its own checks, starts nothing and is dropped.
  */
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -74,9 +77,10 @@ public final class BufferedInputReplayGameTests {
 	public static void bufferedStarFingerStartsWithItsCooldownEventAndTrackingPress(GameTestHelper helper) {
 		Scene scene = new Scene(helper);
 		List<Ability> pressed = new ArrayList<>();
+		List<Ability> replays = new ArrayList<>();
 		Consumer<RipplesAbilityKeyPressEvent> listener = event -> {
 			if (event.getEntity() == scene.user) {
-				pressed.add(event.getAbility());
+				(event.isBufferedReplay() ? replays : pressed).add(event.getAbility());
 			}
 		};
 		NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, RipplesAbilityKeyPressEvent.class, listener);
@@ -86,19 +90,23 @@ public final class BufferedInputReplayGameTests {
 			int cooldown = starFinger.getCooldown(scene.power, -1);
 			helper.assertTrue(cooldown == 80, "fixture: Star Finger's Survival cooldown is not 20 + 60 ticks: " + cooldown);
 
+			scene.watchUser();
 			BufferingState press = scene.press(starFinger);
 			helper.assertTrue(press.shouldBuffer && !press.isActionSuccess && scene.stand.getCurStandAction() == scene.blocker,
 					"fixture: the press was not buffered behind the running action");
-			helper.assertTrue(scene.power.getAbilityCooldown("star_finger") == 0 && pressed.size() == 1,
-					"fixture: a buffered press set a cooldown or fired " + pressed.size() + " key press events");
+			helper.assertTrue(scene.power.getAbilityCooldown("star_finger") == 0 && pressed.size() == 1 && replays.isEmpty(),
+					"fixture: a buffered press set a cooldown or fired " + pressed + " / " + replays + " key press events");
+			helper.assertTrue(scene.watcher.presses == 0,
+					"a press the server holds back reaches tracking players only when it starts, got "
+							+ scene.watcher.presses + " at the press");
 
-			scene.watchUser();
 			for (int i = 0; i < 3; i++) {
 				scene.input.tick();
 			}
-			helper.assertTrue(scene.stand.getCurStandAction() == scene.blocker && pressed.size() == 1 && scene.watcher.presses == 0,
+			helper.assertTrue(scene.stand.getCurStandAction() == scene.blocker && pressed.size() == 1 && replays.isEmpty()
+							&& scene.watcher.presses == 0,
 					"while Star Platinum stays busy the buffered press waits: action=" + scene.stand.getCurStandAction()
-							+ " events=" + pressed.size() + " tracking presses=" + scene.watcher.presses);
+							+ " events=" + pressed + " / " + replays + " tracking presses=" + scene.watcher.presses);
 
 			LivingComponentAction.getComponent(scene.stand).setAction(null, scene.user, SyncType.NO_SYNC);
 			scene.input.tick();
@@ -107,10 +115,11 @@ public final class BufferedInputReplayGameTests {
 			helper.assertTrue(scene.power.getAbilityCooldown("star_finger") == cooldown,
 					"1.16 performAction: the replayed Star Finger starts its " + cooldown + "-tick cooldown, got "
 							+ scene.power.getAbilityCooldown("star_finger"));
-			helper.assertTrue(pressed.size() == 2 && pressed.get(1) == starFinger,
-					"the replay that starts fires the key press event once: " + pressed);
+			helper.assertTrue(pressed.size() == 1 && replays.size() == 1 && replays.get(0) == starFinger,
+					"the press reaches key press listeners once, and once more as a replay before it starts: "
+							+ pressed + " / " + replays);
 			helper.assertTrue(scene.watcher.presses == 1,
-					"the replay that starts reaches tracking players once: " + scene.watcher.presses);
+					"the press reaches tracking players once, when it starts: " + scene.watcher.presses);
 
 			// the moves (and their condition checks) are cached per tick: ask again on the next one
 			helper.runAfterDelay(1, () -> {
@@ -118,8 +127,9 @@ public final class BufferedInputReplayGameTests {
 					AbilityConditionCheck again = scene.power.updateAvailableMoves().getContextVariationContainer(starFinger);
 					helper.assertTrue(again != null && !AbilityInput.withConditionCheck(again, scene.user, InputMethod.CLICK),
 							"a second Star Finger right after the replay must be refused by its cooldown");
-					helper.assertTrue(pressed.size() == 2 && scene.watcher.presses == 1,
-							"the replay ran twice: events=" + pressed.size() + " tracking presses=" + scene.watcher.presses);
+					helper.assertTrue(pressed.size() == 1 && replays.size() == 1 && scene.watcher.presses == 1,
+							"the replay ran twice: events=" + pressed + " / " + replays + " tracking presses="
+									+ scene.watcher.presses);
 				}
 				finally {
 					NeoForge.EVENT_BUS.unregister(listener);
@@ -141,8 +151,9 @@ public final class BufferedInputReplayGameTests {
 		boolean[] refuse = new boolean[1];
 		int[] refused = new int[1];
 		Consumer<RipplesAbilityKeyPressEvent> listener = event -> {
+			// as Heavens Door's forgotten Stand: it refuses every press, whether or not it is a replay
 			if (refuse[0] && event.getEntity() == scene.user) {
-				refused[0]++;
+				refused[0] += event.isBufferedReplay() ? 1 : 100;
 				event.setCanceled(true);
 			}
 		};
@@ -158,10 +169,56 @@ public final class BufferedInputReplayGameTests {
 			LivingComponentAction.getComponent(scene.stand).setAction(null, scene.user, SyncType.NO_SYNC);
 			scene.input.tick();
 			scene.input.tick();
-			helper.assertTrue(refused[0] == 1, "the replay asks the key press event once and drops the refused press: " + refused[0]);
+			helper.assertTrue(refused[0] == 1,
+					"the replay asks the key press listeners once, as a replay, and drops the refused press: " + refused[0]);
 			helper.assertTrue(scene.stand.getCurStandAction() == null && scene.power.getAbilityCooldown("star_finger") == 0,
 					"a refused replay started " + scene.stand.getCurStandAction() + " or set the cooldown "
 							+ scene.power.getAbilityCooldown("star_finger"));
+		}
+		finally {
+			NeoForge.EVENT_BUS.unregister(listener);
+			scene.close();
+		}
+		helper.succeed();
+	}
+
+	/**
+	 * A replay its own checks refuse (here a punch whose Stand can no longer reach anything) is dropped, as a refused
+	 * press is, instead of being asked again every tick; it does not start later on its own either.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 40)
+	public static void bufferedPressRefusedByItsOwnChecksIsDropped(GameTestHelper helper) {
+		Scene scene = new Scene(helper);
+		int[] replays = new int[1];
+		Consumer<RipplesAbilityKeyPressEvent> listener = event -> {
+			if (event.getEntity() == scene.user && event.isBufferedReplay()) {
+				replays[0]++;
+			}
+		};
+		NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, RipplesAbilityKeyPressEvent.class, listener);
+		try {
+			scene.start();
+			Ability punch = scene.power.getAbility("punch");
+			BufferingState press = scene.press(punch);
+			helper.assertTrue(press.shouldBuffer && !press.isActionSuccess, "fixture: the punch was not buffered");
+
+			var reach = scene.stand.getAttribute(Attributes.ENTITY_INTERACTION_RANGE);
+			double baseReach = reach.getBaseValue();
+			reach.setBaseValue(0);
+			helper.assertTrue(!scene.stand.canAttackMelee(), "fixture: the Stand can still punch");
+			LivingComponentAction.getComponent(scene.stand).setAction(null, scene.user, SyncType.NO_SYNC);
+			for (int i = 0; i < 3; i++) {
+				scene.input.tick();
+			}
+			helper.assertTrue(replays[0] == 1 && scene.stand.getCurStandAction() == null,
+					"a replay refused by its own checks is dropped, not asked again every tick: replays=" + replays[0]
+							+ " action=" + scene.stand.getCurStandAction());
+
+			reach.setBaseValue(baseReach);
+			scene.input.tick();
+			helper.assertTrue(replays[0] == 1 && scene.stand.getCurStandAction() == null,
+					"the dropped punch started later on its own: replays=" + replays[0] + " action="
+							+ scene.stand.getCurStandAction());
 		}
 		finally {
 			NeoForge.EVENT_BUS.unregister(listener);

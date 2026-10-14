@@ -4,7 +4,6 @@ import java.util.Iterator;
 
 import org.jetbrains.annotations.ApiStatus;
 
-import rotp.core.event.ModEventHooks;
 import rotp.core.event.RipplesAbilityKeyPressEvent;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.network.NetworkPayloadValidation;
@@ -23,6 +22,7 @@ import io.netty.buffer.Unpooled;
 import javax.annotation.Nullable;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.entity.LivingEntity;
+import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 public class ActionInputBuffer {
@@ -77,6 +77,13 @@ public class ActionInputBuffer {
 			obj.isAlreadyBuffered = true;
 			return obj;
 		}
+
+		// a replay: shouldBuffer then tells a press still held back from one refused
+		static BufferingState replay() {
+			BufferingState obj = buffered();
+			obj.canBuffer = true;
+			return obj;
+		}
 		
 		public boolean canBuffer() {
 			return canBuffer;
@@ -120,16 +127,17 @@ public class ActionInputBuffer {
 
 	/**
 	 * 1.16 replayed a queued action through clickAction, as a new click: its conditions, its cooldown on perform
-	 * (PowerBaseImpl.performAction) and its sync. Here the replay gets what AbilityInput.keyPress gives a press that
-	 * starts: the key press event (which may cancel or replace it), the cooldown and the press sent to tracking players.
+	 * (PowerBaseImpl.performAction) and its sync. Here the replay is asked to the key press listeners again, marked
+	 * as a replay (a listener may still cancel or replace it), and a press that starts gets its cooldown and reaches
+	 * tracking players, which AbilityInput.keyPress left to this moment. A replay its own checks refuse is dropped.
 	 */
 	private void replay(EntityActionInputState userInput, BufferedInputEntry replaying, Ability ability) {
 		LivingEntity user = userInput.user;
-		BufferingState bufferingState = BufferingState.buffered();
+		BufferingState bufferingState = BufferingState.replay();
 		FriendlyByteBuf replayInput = null;
 		try {
-			RipplesAbilityKeyPressEvent event = ModEventHooks.onAbilityKeyPress(
-					user, ability, replaying.inputMethod, 0);
+			RipplesAbilityKeyPressEvent event = NeoForge.EVENT_BUS.post(new RipplesAbilityKeyPressEvent(
+					user, ability, replaying.inputMethod, 0, true));
 			ability = event.ability;
 			if (ability == null) {
 				throw new IllegalStateException(
@@ -163,6 +171,9 @@ public class ActionInputBuffer {
 				}
 				rebindHeldKey(userInput, replaying, newAction);
 				sendReplayToTracking(userInput, replaying, ability);
+			}
+			else if (!bufferingState.shouldBuffer) {
+				rebindHeldKey(userInput, replaying, newAction);
 			}
 		}
 		catch (RuntimeException error) {

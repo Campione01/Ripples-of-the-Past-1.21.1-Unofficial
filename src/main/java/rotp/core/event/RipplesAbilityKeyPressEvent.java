@@ -16,6 +16,10 @@ import net.neoforged.neoforge.event.entity.living.LivingEvent;
  * This event is {@link ICancellableEvent}.<br>
  * If this event is canceled, the ability is not used.<br>
  * <br>
+ * A press the server held back (buffered behind a running action) is asked once more right before it starts, with
+ * {@link #isBufferedReplay()} true, so a listener that refuses presses refuses it then too. A listener that reacts to
+ * each press (counting or showing it) skips those: every press is also fired once as itself.<br>
+ * <br>
  * This event is fired on the {@link NeoForge#EVENT_BUS}.
  **/
 public class RipplesAbilityKeyPressEvent extends LivingEvent implements ICancellableEvent {
@@ -23,14 +27,26 @@ public class RipplesAbilityKeyPressEvent extends LivingEvent implements ICancell
 	public final InputMethod inputMethod;
 	public float clickHoldResolveTime;
 	public HeldInput newHeldInput;
-	
-	public RipplesAbilityKeyPressEvent(LivingEntity user, Ability ability, 
+	private final boolean bufferedReplay;
+
+	public RipplesAbilityKeyPressEvent(LivingEntity user, Ability ability,
 			InputMethod inputMethod, float clickHoldResolveTime) {
+		this(user, ability, inputMethod, clickHoldResolveTime, false);
+	}
+
+	public RipplesAbilityKeyPressEvent(LivingEntity user, Ability ability,
+			InputMethod inputMethod, float clickHoldResolveTime, boolean bufferedReplay) {
 		super(user);
 		this.ability = ability;
 		this.inputMethod = inputMethod;
 		this.clickHoldResolveTime = clickHoldResolveTime;
 		this.newHeldInput = null;
+		this.bufferedReplay = bufferedReplay;
+	}
+
+	/** Whether this asks again about a press already fired once, which the server held back until now. */
+	public boolean isBufferedReplay() {
+		return bufferedReplay;
 	}
 	
 	public Power<?> getPower() {

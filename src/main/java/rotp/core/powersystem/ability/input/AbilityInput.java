@@ -151,6 +151,7 @@ public class AbilityInput {
 			}
 			transaction.captureCooldown(ability);
 			HeldInput action;
+			boolean buffered = false;
 			if (event.isCanceled()) {
 				action = event.newHeldInput;
 			}
@@ -173,6 +174,7 @@ public class AbilityInput {
 									baseAbilityForBuffering, extraInputForBuffer,
 									keyId, inputGeneration);
 						}
+						buffered = true;
 					}
 					action = heldInputObj;
 				}
@@ -199,7 +201,8 @@ public class AbilityInput {
 					ability.setCooldownOnUse(power);
 				}
 			}
-			if (!level.isClientSide()) {
+			// a buffered press reaches tracking players once, when ActionInputBuffer replays it and it starts
+			if (!level.isClientSide() && !buffered) {
 				transaction.replayAttempted = true;
 				PacketDistributor.sendToPlayersTrackingEntity(
 						user,
