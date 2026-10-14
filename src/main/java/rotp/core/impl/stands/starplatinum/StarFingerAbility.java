@@ -64,7 +64,10 @@ public class StarFingerAbility extends StandEntityAbility {
             super.onActionSet(prevAction);
             setStandOffset(0, 0.5, StandOffsetFromUser.Rotations.HEAD, false);
             OrientedBoundingBox obb = new OrientedBoundingBox(new Vec3(0, 1.35, 0), 0.125d, 0.125d, 0.8d, getPerformer().getYRot(), getPerformer().getXRot());
-            this.starFingerBB = new ExtendableOBB(obb, 0.3F, 0.9F, (int) phasesLength.getFloat(ActionPhase.PERFORM), 4, new Vec3(0, 1.35, 0));
+            // drawn as far as the finger entity reaches: its speeds are scaled by the Stand's speed too
+            float speedFactor = getPerformer() instanceof StandEntity stand ? (float) (stand.getAttackSpeed() / 8) : 1F;
+            this.starFingerBB = new ExtendableOBB(obb, 0.3F * speedFactor, 0.9F * speedFactor,
+                    (int) phasesLength.getFloat(ActionPhase.PERFORM), 4, new Vec3(0, 1.35, 0));
         }
 
         @Override

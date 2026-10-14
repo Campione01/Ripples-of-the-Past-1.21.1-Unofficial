@@ -111,6 +111,61 @@ public final class StarFingerStartGameTests {
 		});
 	}
 
+	@GameTest(template = "empty", timeoutTicks = 60)
+	public static void drawnStarFingerFollowsTheStandSpeed(GameTestHelper helper) {
+		Scene scene = new Scene(helper);
+		double[] speedFactor = {-1};
+		List<Float> lengths = new ArrayList<>();
+		Consumer<EntityJoinLevelEvent> spawn = event -> {
+			if (event.getEntity() instanceof SPStarFingerEntity finger && finger.getOwner() == scene.stand) {
+				speedFactor[0] = finger.getSpeedFactor();
+			}
+		};
+		Consumer<EntityTickEvent.Post> standTick = event -> {
+			if (event.getEntity() == scene.stand && scene.stand.getCurStandAction() instanceof StarFingerInstance action
+					&& action.getPhase() == ActionPhase.PERFORM && action.extendableOBB().isMovingForward()) {
+				lengths.add(action.extendableOBB().getLength());
+			}
+		};
+		NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, EntityJoinLevelEvent.class, spawn);
+		NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, EntityTickEvent.Post.class, standTick);
+		Runnable close = () -> {
+			NeoForge.EVENT_BUS.unregister(spawn);
+			NeoForge.EVENT_BUS.unregister(standTick);
+			scene.close();
+		};
+		try {
+			scene.start();
+			AbilityConditionCheck selected = scene.select();
+			helper.assertTrue(AbilityInput.withConditionCheck(selected, scene.user, InputMethod.CLICK),
+					"fixture: Star Finger press not admitted");
+			BufferingState press = BufferingState.clickOnly();
+			AbilityInput.keyPress(KEY, selected.ability, scene.user, null, InputMethod.CLICK, 0, press,
+					selected.ability.getAbilityId());
+			helper.assertTrue(press.isActionSuccess, "fixture: Star Finger did not start");
+		}
+		catch (RuntimeException | Error failure) {
+			close.run();
+			throw failure;
+		}
+		helper.runAfterDelay(5, () -> {
+			try {
+				helper.assertTrue(speedFactor[0] > 1.5, "fixture: Star Platinum's finger is not sped up by its Stand speed: "
+						+ speedFactor[0]);
+				helper.assertTrue(lengths.size() >= 3, "fixture: too few forward ticks " + lengths);
+				float growth = lengths.get(2) - lengths.get(1);
+				double expected = 0.3 * 5.5 * speedFactor[0];
+				helper.assertTrue(Math.abs(growth - expected) < 0.01,
+						"the drawn finger must grow like the finger the Stand's speed sends out: " + growth
+								+ " per tick, expected " + expected + " lengths=" + lengths);
+			}
+			finally {
+				close.run();
+			}
+			helper.succeed();
+		});
+	}
+
 	private static final class Scene {
 		final GameTestHelper helper;
 		final ServerLevel level;
@@ -143,10 +198,11 @@ public final class StarFingerStartGameTests {
 			stand.summonLockTicks = 0;
 			stand.gradualSummonWeaknessTicks = 0;
 			stand.setXRot(-90);
+			// full stamina first: the Stand's strength multipliers read it
+			power.setStamina(power.getMaxStamina());
 			user.getAttribute(ModEntityAttributes.STAND_SPEED).setBaseValue(16);
 			StandEntity.updateStandStatAttributes(stand, user);
 			stand.updateStrengthMultipliers();
-			power.setStamina(power.getMaxStamina());
 		}
 
 		AbilityConditionCheck select() {
