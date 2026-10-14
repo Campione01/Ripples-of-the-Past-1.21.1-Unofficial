@@ -84,6 +84,21 @@ public class ModDamageTypes {
 			DamageTypeTags.PANIC_CAUSES,
 			Tags.DamageTypes.IS_PHYSICAL);
 
+	/**
+	 * 1.16 StandEntityHeavyAttack.explosionDmgSource: the Stand's own source flagged as an explosion, so Blast
+	 * Protection and a guarding user's explosion rule apply to the heavy punch's block blast.
+	 */
+	public static final ResourceKey<DamageType> STAND_EXPLOSION = DAMAGE_TYPES.withTags(JojoMod.resLoc("stand_explosion"),
+			CAN_HURT_STANDS,
+			NO_SOURCELESS_KNOCKBACK,
+			ARMOR_BREAK_COOLDOWN,
+			ADDS_RESOLVE,
+			DamageTypeTags.IS_EXPLOSION,
+			DamageTypeTags.BYPASSES_COOLDOWN,
+			DamageTypeTags.ALWAYS_HURTS_ENDER_DRAGONS,
+			DamageTypeTags.PANIC_CAUSES,
+			Tags.DamageTypes.IS_PHYSICAL);
+
 	public static final ResourceKey<DamageType> MOD_PROJECTILE = DAMAGE_TYPES.withTags(JojoMod.resLoc("projectile"),
 			ARMOR_BREAK_COOLDOWN,
 			NO_SOURCELESS_KNOCKBACK,

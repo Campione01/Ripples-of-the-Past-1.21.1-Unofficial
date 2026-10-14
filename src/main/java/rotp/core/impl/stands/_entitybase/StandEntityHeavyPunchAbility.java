@@ -17,6 +17,7 @@ import rotp.core.customobjects.DamageSourceModified;
 import rotp.core.customobjects.entity_projectile.BlockShardEntity;
 import rotp.core.customobjects.explosion.CustomExplosion;
 import rotp.core.init.ModCustomExplosions;
+import rotp.core.init.ModDamageTypes;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModSoundEvents;
 import rotp.core.mechanics.KnockbackCollisionImpact;
@@ -563,8 +564,7 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 			// 1.16 HeavyPunchBlockInstance.doHit: the plain block punch (StandEntity.breakBlock) comes before the blast
 			StandEntityPunchAbility.StandEntityPunch.breakStandBlock(level, blockPos, stand, !isUserCreative());
 			Vec3 pos = Vec3.atCenterOf(blockPos).add(Vec3.atLowerCornerOf(face.getNormal()).scale(0.6));
-			// 1.16 explosionDmgSource: a fresh Stand source, without the punch's Stand invulnerability ticks
-			DamageSource aoeDmgSource = makePunchDamageSource();
+			DamageSource aoeDmgSource = makeBlastDamageSource();
 			float aoeDmg = calcExplosionDamage(stand);
 			HeavyPunchExplosion explosion = new HeavyPunchExplosion(level, stand, 
 					new ActionTarget(blockPos, face), stand.getLookAngle(), 
@@ -575,6 +575,18 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 					.aoeDamage(aoeDmg)
 					.createBlockShards(stand.getAttackDamage(), stand.getPrecision());
 			CustomExplosion.explode(explosion);
+		}
+
+		/**
+		 * 1.16 StandEntityHeavyAttack.explosionDmgSource: a fresh source of the Stand's power flagged as an explosion,
+		 * without the punch's Stand invulnerability ticks.
+		 */
+		protected DamageSource makeBlastDamageSource() {
+			DamageSource dmgSource = new DamageSource(DamageUtil.type(performer.level(), ModDamageTypes.STAND_EXPLOSION), performer);
+			if (dmgSource instanceof DamageSourceModified modified) {
+				modified.jojo_ripples$setStandPower(StandPower.get(getPowerUser()));
+			}
+			return dmgSource;
 		}
 
 		@Override

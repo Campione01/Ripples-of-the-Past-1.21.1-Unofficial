@@ -31,6 +31,9 @@ import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.util.functions.DamageUtil;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.AfterBatch;
 import net.minecraft.gametest.framework.BeforeBatch;
@@ -41,10 +44,15 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -154,6 +162,41 @@ public final class HeavyPunchBlockHitGameTests {
 					"The heavy punch blast left its victim immune to Stand attacks; 1.16 hurtTarget set none");
 			helper.assertTrue(primedHitWhileImmune[0] && primed.getHealth() < health[1],
 					"The heavy punch blast skipped a cow still immune after a punch; 1.16 hurtTarget ignored that immunity");
+		});
+	}
+
+	// 1.16 explosionDmgSource: the blast is the Stand's own source flagged as an explosion, so Blast Protection cuts it
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH)
+	public static void heavyPunchBlastIsAStandExplosion(GameTestHelper helper) {
+		Scene scene = new Scene(helper, "star_platinum", 16, false);
+		Cow protectedCow = scene.cow(1.6);
+		Cow bareCow = scene.cow(-1.6);
+		Holder<Enchantment> blastProtection = scene.level().registryAccess().lookupOrThrow(Registries.ENCHANTMENT)
+				.getOrThrow(Enchantments.BLAST_PROTECTION);
+		ItemStack enchanted = new ItemStack(Items.LEATHER_HELMET);
+		enchanted.enchant(blastProtection, 4);
+		protectedCow.setItemSlot(EquipmentSlot.HEAD, enchanted);
+		bareCow.setItemSlot(EquipmentSlot.HEAD, new ItemStack(Items.LEATHER_HELMET));
+		DamageSource[] blast = new DamageSource[1];
+		Consumer<LivingIncomingDamageEvent> incoming = event -> {
+			if (event.getEntity() == bareCow && event.getSource().getDirectEntity() == scene.stand) {
+				blast[0] = event.getSource();
+			}
+		};
+		NeoForge.EVENT_BUS.addListener(EventPriority.HIGHEST, LivingIncomingDamageEvent.class, incoming);
+		scene.cleanup.add(() -> NeoForge.EVENT_BUS.unregister(incoming));
+		float[] health = new float[2];
+		scene.afterPress = () -> { health[0] = protectedCow.getHealth(); health[1] = bareCow.getHealth(); };
+		scene.run(s -> {
+			helper.assertTrue(blast[0] != null && blast[0].is(DamageTypeTags.IS_EXPLOSION)
+					&& blast[0] instanceof DamageSourceModified modified
+					&& modified.jojo_ripples$standPower() == scene.power && modified.jojo_ripples$standInvulTicks() == 0,
+					"1.16 hurt with the Stand's own source flagged as an explosion, without Stand invulnerability ticks: "
+							+ (blast[0] != null ? blast[0].typeHolder().getRegisteredName() : null));
+			float protectedLoss = health[0] - protectedCow.getHealth();
+			float bareLoss = health[1] - bareCow.getHealth();
+			helper.assertTrue(bareLoss > 0 && protectedLoss < bareLoss - 0.5F,
+					"Blast Protection IV did not cut the heavy punch blast: " + protectedLoss + " against " + bareLoss);
 		});
 	}
 
