@@ -324,8 +324,11 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 						return;
 					}
 
-					if (StandEntityPunchAbility.playHitSound(target, level)) {
-						StandUtil.broadcastSound((ServerLevel) level, target.getCenterPos(),
+					boolean entityTarget = target.getType() == TargetType.ENTITY;
+					Vec3 impactSoundPos = target.isEmpty(level) ? null : target.getCenterPos();
+					// 1.16 HeavyPunchBlockInstance.playImpactSound: a block always sounds, whatever its hardness
+					if (target.getType() == TargetType.BLOCK && impactSoundPos != null) {
+						StandUtil.broadcastSound((ServerLevel) level, impactSoundPos,
 								ModSoundEvents.THE_WORLD_PUNCH_HEAVY, true, standPower,
 								stand.getSoundSource(), 1, 1);
 					}
@@ -334,6 +337,7 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 					float explRadius = StandEntityHeavyPunchAbility.calcExplosionRadius(stand);
 
 					boolean deflectedTarget = StandEntityPunchAbility.deflectSilverChariotProjectiles(stand, target);
+					impactSoundDue = null;
 					switch (target.getType()) {
 						case ENTITY -> {
 							if (!deflectedTarget) {
@@ -342,6 +346,12 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 						}
 						case BLOCK -> hitBlock(target, level, stand, dmgSource, dmgAmount, explRadius);
 						default -> {}
+					}
+					// 1.16 StandEntity.attackTarget: an entity's impact sound comes after the hit, if it landed
+					if (entityTarget && impactSoundPos != null && (impactSoundDue == null || impactSoundDue)) {
+						StandUtil.broadcastSound((ServerLevel) level, impactSoundPos,
+								ModSoundEvents.THE_WORLD_PUNCH_HEAVY, true, standPower,
+								stand.getSoundSource(), 1, 1);
 					}
 
 					punchedTarget = target;
