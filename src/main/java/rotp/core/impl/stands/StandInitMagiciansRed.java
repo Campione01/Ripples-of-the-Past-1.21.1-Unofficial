@@ -43,6 +43,7 @@ public class StandInitMagiciansRed {
 					punch.heavyPunchImpactSound(ModSoundEvents.MAGICIANS_RED_PUNCH_HEAVY);
 					punch.setDefaultPhaseLength(ActionPhase.PERFORM, 1);
 					punch.detachedPunchKnockback();
+					punch.recoveryPhaseEntryTiming();
 				})
 				.addAbility("heavy_charged", ModStandAbilities.HEAVY_CHARGED)
 				.addAbility("kick", ModStandAbilities.MR_KICK, kick -> {
@@ -50,6 +51,7 @@ public class StandInitMagiciansRed {
 					kick.resolveLevelToUnlock(1);
 					kick.setDefaultPhaseLength(ActionPhase.PERFORM, 1);
 					kick.detachedPunchKnockback();
+					kick.recoveryPhaseEntryTiming();
 				})
 				.addAbility("guard", ModStandAbilities.GUARD)
 				.addAbility("flame_burst", ModStandAbilities.MR_FLAME_BURST)

@@ -58,6 +58,7 @@ public class StandInitCrazyDiamond {
 					punch.heavyPunchImpactSound(ModSoundEvents.CRAZY_DIAMOND_PUNCH_HEAVY).heavyPunchCrySound(ModSoundEvents.CRAZY_DIAMOND_DORA_LONG);
 					punch.setDefaultPhaseLength(ActionPhase.PERFORM, 1);
 					punch.detachedPunchKnockback();
+					punch.recoveryPhaseEntryTiming();
 				})
 				.addAbility("heavy_charged", ModStandAbilities.HEAVY_CHARGED)
 				.addAbility("finisher", ModStandAbilities.HEAVY_PUNCH, punch -> {
@@ -66,6 +67,7 @@ public class StandInitCrazyDiamond {
 					punch.resolveLevelToUnlock(1);
 					punch.setDefaultPhaseLength(ActionPhase.PERFORM, 1);
 					punch.detachedPunchKnockback();
+					punch.recoveryPhaseEntryTiming();
 				})
 				.addAbility("grab", ModStandAbilities.GRAB)
 				.addAbility("grab_throw", ModStandAbilities.GRAB_THROW)

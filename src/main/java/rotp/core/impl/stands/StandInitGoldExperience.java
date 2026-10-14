@@ -52,6 +52,7 @@ public class StandInitGoldExperience {
 					.heavyPunchPerformSound(ModSoundEvents.GOLD_EXPERIENCE_PUNCH_HEAVY_EXTRA);
 					punch.setDefaultPhaseLength(ActionPhase.PERFORM, 1);
 					punch.detachedPunchKnockback();
+					punch.recoveryPhaseEntryTiming();
 				})
 				.addAbility("heavy_charged", ModStandAbilities.HEAVY_CHARGED)
 				.addAbility("guard", ModStandAbilities.GUARD)
@@ -80,6 +81,7 @@ public class StandInitGoldExperience {
 					punch.resolveLevelToUnlock(1);
 					punch.setDefaultPhaseLength(ActionPhase.PERFORM, 1);
 					punch.detachedPunchKnockback();
+					punch.recoveryPhaseEntryTiming();
 				})
 				.addAbility("tooth_lifeform", ModStandAbilities.GE_TOOTH_LIFEFORM)
 				.addAbility("revert_lifeform", ModStandAbilities.GE_REVERT_LIFEFORM)

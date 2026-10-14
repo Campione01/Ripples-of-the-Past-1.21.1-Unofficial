@@ -40,7 +40,7 @@ public final class SPHeavyRecoveryEntryGameTests {
     private static final class Suite extends PhaseEntryGameTestSupport.Suite {
         Suite(GameTestHelper helper) {
             super(helper, SUBJECT, List.of("sp_cold_followup", "sp_warm_followup", "sp_stable",
-                    "sp_expiring_resolve", "sp_uppercut", "tw_heavy", "tw_kick", "cd_default"));
+                    "sp_expiring_resolve", "sp_uppercut", "tw_heavy", "tw_kick"));
         }
         @Override PhaseEntryGameTestSupport.Scene create(String id) { return new Scene(this, id); }
     }
@@ -56,14 +56,11 @@ public final class SPHeavyRecoveryEntryGameTests {
         Scene(Suite suite, String id) { super(suite, id); }
         boolean followup() { return id.endsWith("followup"); }
         boolean cold() { return id.equals("sp_cold_followup"); }
-        boolean expires() { return id.equals("sp_expiring_resolve") || finisher() || id.equals("tw_heavy") || id.equals("cd_default"); }
+        boolean expires() { return id.equals("sp_expiring_resolve") || finisher() || id.equals("tw_heavy"); }
         boolean finisher() { return id.equals("sp_uppercut") || id.equals("tw_kick"); }
-        // the subclasses with the heavy finisher setup (The World's heavy and kick, the uppercut) opt in as well;
-        // Crazy Diamond stays the default-off control
-        boolean selected() { return !id.equals("cd_default"); }
 
         @Override void prepare() {
-            actor(id.startsWith("tw_") ? "the_world" : id.equals("cd_default") ? "crazy_diamond" : "star_platinum", 1, false);
+            actor(id.startsWith("tw_") ? "the_world" : "star_platinum", 1, false);
             cow();
             power.setStamina(350);
             if (followup() || finisher()) {
@@ -133,10 +130,10 @@ public final class SPHeavyRecoveryEntryGameTests {
                 recoverySpeed = stand.getAttackSpeed();
                 float expected = StandStatFormulas.getHeavyAttackRecovery(recoverySpeed, savedFinisher);
                 recoveryLength = action.getCurPhaseLength();
-                check(PhaseEntryGameTestSupport.near(recoveryLength, selected() ? expected : cachedRecovery),
+                check(PhaseEntryGameTestSupport.near(recoveryLength, expected),
                         "RECOVERY speed=" + recoverySpeed + " actionSaved=" + savedFinisher + " currentMeter=" + stand.getFinisherMeter()
                                 + " globalLast=" + stand.getLastHeavyFinisherValue() + " cached=" + cachedRecovery
-                                + " expected=" + (selected() ? expected : cachedRecovery) + " actual=" + recoveryLength);
+                                + " expected=" + expected + " actual=" + recoveryLength);
                 check(PhaseEntryGameTestSupport.near(action.finisherValue, savedFinisher), "Action finisher was neither resnapshotted nor consumed twice");
                 check(PhaseEntryGameTestSupport.near(initialStamina - power.getStamina(), 50), "One impact debit before RECOVERY; no forced multiplier refresh");
                 ownDebitSeen = true;
@@ -148,7 +145,7 @@ public final class SPHeavyRecoveryEntryGameTests {
                 }
                 if (expires()) premise(!user.hasEffect(ModStatusEffects.RESOLVE) && recoverySpeed < initialSpeed,
                         "Resolve expired naturally during WINDUP before RECOVERY");
-                // 1.16 kept the builder's 1-tick perform for every one of these heavies, Crazy Diamond's included.
+                // 1.16 kept the builder's 1-tick perform for every one of these heavies.
                 check(PhaseEntryGameTestSupport.near(action.phasesLength.getFloat(ActionPhase.PERFORM), 1),
                         "Configured 1-tick PERFORM length");
             }
