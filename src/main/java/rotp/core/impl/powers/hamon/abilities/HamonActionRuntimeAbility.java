@@ -135,7 +135,8 @@ public class HamonActionRuntimeAbility extends EntityActionAbility {
 			return ConditionCheck.NEGATIVE;
 		}
 		if (hamon.isAbilityOnCooldown(name())) {
-			return ConditionCheck.createNegative("cooldown");
+			// 1.16 PowerBaseImpl.checkRequirements: a move on cooldown is refused without a message
+			return ConditionCheck.NEGATIVE;
 		}
 		if (!hasHamonEnergy(context, hamon)) {
 			return ConditionCheck.createNegative("no_energy_hamon");

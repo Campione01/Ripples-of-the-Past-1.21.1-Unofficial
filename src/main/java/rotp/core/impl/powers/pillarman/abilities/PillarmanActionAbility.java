@@ -79,7 +79,8 @@ abstract class PillarmanActionAbility extends EntityActionAbility {
 			return ConditionCheck.createNegative("stone_form");
 		}
 		if (data.isAbilityOnCooldown(name())) {
-			return ConditionCheck.createNegative("cooldown");
+			// 1.16 PowerBaseImpl.checkRequirements: a move on cooldown is refused without a message
+			return ConditionCheck.NEGATIVE;
 		}
 		if (!hasEnergy(context)) {
 			return ConditionCheck.createNegative("no_energy_pillarman");
