@@ -3,10 +3,13 @@ package rotp.core.impl.stands.starplatinum.client;
 import rotp.core.client.sound.ClientsideSoundsHelper;
 import rotp.core.client.sound.sounds.EntityStoppableSoundInstance;
 import rotp.core.core.JojoMod;
+import rotp.core.impl.stands.starplatinum.StarPlatinumZoomAbility;
 import rotp.core.init.ModSoundEvents;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.standpower.entity.StandEntity;
+
+import javax.annotation.Nullable;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.LivingEntity;
@@ -21,16 +24,21 @@ import net.neoforged.neoforge.client.event.ViewportEvent;
 @EventBusSubscriber(modid = JojoMod.MOD_ID, value = Dist.CLIENT)
 public final class StarPlatinumZoomClient {
 	private static boolean zooming;
+	@Nullable private static StandEntity zoomingStand;
 	private static double zoomModifier = 1;
 
 	private StarPlatinumZoomClient() {}
 
 	private static void setZooming(boolean zooming) {
 		StarPlatinumZoomClient.zooming = zooming;
+		if (!zooming) {
+			zoomingStand = null;
+		}
 	}
 
 	public static void startZooming(StandEntity stand) {
 		if (isLocalUser(stand)) {
+			zoomingStand = stand;
 			setZooming(true);
 		}
 	}
@@ -45,10 +53,8 @@ public final class StarPlatinumZoomClient {
 		return zooming;
 	}
 
+	// 1.16 played it at the Stand for every client the held action reached, its user's and the players around
 	public static void playZoomLoop(StandEntity stand, EntityActionInstance action) {
-		if (!isLocalUser(stand)) {
-			return;
-		}
 		Level level = stand.level();
 		ClientsideSoundsHelper.playNonVanillaClassSound(new EntityStoppableSoundInstance(ClientsideSoundsHelper.withStandSkin(
 				ModSoundEvents.STAR_PLATINUM_ZOOM.get(), stand), 
@@ -93,6 +99,11 @@ public final class StarPlatinumZoomClient {
 		if (mc.level == null || mc.player == null) {
 			setZooming(false);
 			zoomModifier = 1;
+		}
+		// 1.16 stopped the zoom with the held action; a Stand removed with its action still on it never clears it
+		else if (zooming && (zoomingStand == null || zoomingStand.level() != mc.level
+				|| !StarPlatinumZoomAbility.isZoomRunningOn(zoomingStand))) {
+			setZooming(false);
 		}
 	}
 }

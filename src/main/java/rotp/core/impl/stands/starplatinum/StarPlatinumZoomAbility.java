@@ -25,6 +25,15 @@ public class StarPlatinumZoomAbility extends NoPoseStandEntityAbility {
 		partsRequired(StandPart.MAIN_BODY);
 	}
 
+	/**
+	 * Whether a Zoom still runs on this Stand. A Stand force-unsummoned mid-zoom (a portal, spectator mode, a lost
+	 * power) is removed with its action left in place, so its removal ends the zoom as well.
+	 */
+	public static boolean isZoomRunningOn(@Nullable StandEntity stand) {
+		return stand != null && !stand.isRemoved()
+				&& stand.getCurStandAction() instanceof StarPlatinumZoom zoom && !zoom.isOver();
+	}
+
 	public static class StarPlatinumZoom extends EntityActionInstance {
 
 		public StarPlatinumZoom(EntityActionType ability) {
