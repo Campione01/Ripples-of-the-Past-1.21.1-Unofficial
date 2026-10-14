@@ -1696,7 +1696,8 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 	}
 
 	public boolean hurtWithStandAttack(Entity target, DamageSource dmgSource, float dmgAmount) {
-		float damageMultiplier = JojoModConfig.getCommonConfigInstance(false).standDamageMultiplier.get().floatValue();
+		float damageMultiplier = dmgSource instanceof DamageSourceModified fixed && fixed.jojo_ripples$isFixedDamage()
+				? 1.0F : JojoModConfig.getCommonConfigInstance(false).standDamageMultiplier.get().floatValue();
 		if (target instanceof LivingEntity targetLiving) {
 			float finalDamage = applyStandInvulDamage(targetLiving, dmgAmount);
 			if (finalDamage <= 0) {

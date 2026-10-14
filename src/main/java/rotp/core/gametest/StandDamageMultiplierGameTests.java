@@ -99,7 +99,7 @@ public final class StandDamageMultiplierGameTests {
     private StandDamageMultiplierGameTests() {}
 
     private enum Kind { HEAVY, LIGHT, BARRAGE, CHARGED, GRAB, KICK, SPLASH,
-        ANGELO, ARMORED, CHEAT, PROJECTILE, CALLER, BOAT, REFUSAL, TRANSPORT, INVUL, SHIELD, LINK }
+        ANGELO, ARMORED, CHEAT, PROJECTILE, CALLER, BOAT, REFUSAL, TRANSPORT, INVUL, SHIELD, LINK, FIXED, FIXED_BOAT }
     private record Spec(String id, Kind kind, String stand, double multiplier, boolean cheat, boolean fiery) {}
 
     @GameTest(template = "empty", timeoutTicks = 1800, batch = "stand_damage_multiplier")
@@ -153,6 +153,12 @@ public final class StandDamageMultiplierGameTests {
                 cases.add(new Spec("caller-refusal-" + stand + "-M" + m, Kind.REFUSAL, stand, m, false, fiery));
             }
             cases.add(new Spec("native-source-transport-" + stand, Kind.TRANSPORT, stand, 2, false, fiery));
+        }
+        // Add-on hits whose 1.16 originals hurt directly carry the fixed-damage flag: M does not scale them.
+        for (double m : new double[] {0, 2}) {
+            cases.add(new Spec("caller-fixed-star_platinum-M" + m, Kind.FIXED, "star_platinum", m, false, false));
+            cases.add(new Spec("caller-fixed-magicians_red-M" + m, Kind.FIXED, "magicians_red", m, false, false));
+            cases.add(new Spec("caller-fixed-boat-M" + m, Kind.FIXED_BOAT, "star_platinum", m, false, false));
         }
         return cases;
     }
@@ -339,7 +345,7 @@ public final class StandDamageMultiplierGameTests {
                     player.setAbsorptionAmount(2);
                 }
             }
-            else if (spec.kind == Kind.BOAT) {
+            else if (spec.kind == Kind.BOAT || spec.kind == Kind.FIXED_BOAT) {
                 Boat boat = EntityType.BOAT.create(level);
                 premise(boat != null, "boat creation");
                 own(boat); boat.setNoGravity(true); boat.moveTo(origin.x, origin.y, origin.z + 1.7, 0, 0);
@@ -372,7 +378,12 @@ public final class StandDamageMultiplierGameTests {
                 if (spec.kind == Kind.SHIELD && age < 7) return;
                 started = true;
                 switch (spec.kind) {
-                    case CALLER, BOAT -> { caller(caster, target, source(caster, 0), 1); finishCaller(); return; }
+                    case CALLER, BOAT -> { caller(caster, target, source(caster, 0), 1); finishCaller(spec.multiplier); return; }
+                    case FIXED, FIXED_BOAT -> {
+                        DamageSource fixed = source(caster, 0);
+                        ((DamageSourceModified) fixed).jojo_ripples$setFixedDamage(true);
+                        caller(caster, target, fixed, 1); finishCaller(1); return;
+                    }
                     case REFUSAL -> {
                         boolean hurt = caster.stand.hurtWithStandAttack(target, source(caster, 0), 1);
                         check(!hurt && hits.isEmpty() && ((LivingEntity) target).getHealth() == initialHealth,
@@ -586,11 +597,11 @@ public final class StandDamageMultiplierGameTests {
             log("CALLER " + spec.id + " result=" + result + " amount=" + amount + " target=" + hit.getId());
         }
 
-        void finishCaller() {
-            if (target instanceof Boat boat) check(near(boat.getDamage(), 10 * spec.multiplier), "boat damage=" + boat.getDamage());
+        void finishCaller(double factor) {
+            if (target instanceof Boat boat) check(near(boat.getDamage(), 10 * factor), "boat damage=" + boat.getDamage());
             else {
-                check(!hits.isEmpty() && near(hits.get(0).amount, spec.multiplier), "caller actual=" + (hits.isEmpty() ? "missing" : hits.get(0).amount));
-                check(near(initialHealth - ((LivingEntity) target).getHealth(), spec.multiplier), "caller health loss=" + (initialHealth - ((LivingEntity) target).getHealth()));
+                check(!hits.isEmpty() && near(hits.get(0).amount, factor), "caller actual=" + (hits.isEmpty() ? "missing" : hits.get(0).amount));
+                check(near(initialHealth - ((LivingEntity) target).getHealth(), factor), "caller health loss=" + (initialHealth - ((LivingEntity) target).getHealth()));
             }
             if (!spec.stand.equals("star_platinum")) check(target.getRemainingFireTicks() == (spec.fiery ? 80 : 200), "fire path retains duration at M=" + spec.multiplier);
             done = true;

@@ -45,7 +45,13 @@ public interface DamageSourceModified {
 	default boolean jojo_ripples$isNonLethal() { return false; }
 	default void jojo_ripples$setBreakStandGuard(boolean breakGuard) {}
 	default boolean jojo_ripples$breaksStandGuard() { return false; }
-	
+	/**
+	 * A Stand hit whose 1.16 original dealt its damage directly (target.hurt), so the server's Stand damage
+	 * multiplier does not scale it in StandEntity#hurtWithStandAttack.
+	 */
+	default void jojo_ripples$setFixedDamage(boolean fixedDamage) {}
+	default boolean jojo_ripples$isFixedDamage() { return false; }
+
 	
 	/**
 	 * The hit whose knockback changes apply to the target's knockback now: the one it is taking, or null outside a
