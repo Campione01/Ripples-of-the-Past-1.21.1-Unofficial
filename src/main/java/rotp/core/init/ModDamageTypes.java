@@ -108,12 +108,12 @@ public class ModDamageTypes {
 			DamageTypeTags.PANIC_CAUSES,
 			Tags.DamageTypes.IS_PHYSICAL);
 
+	// The Molotov's direct hit. 1.16 dealt it as a plain hurt, so it stays out of minecraft:bypasses_cooldown.
 	public static final ResourceKey<DamageType> MOD_PROJECTILE_FIRE = DAMAGE_TYPES.withTags(JojoMod.resLoc("projectile_fire"),
 			ARMOR_BREAK_COOLDOWN,
 			NO_SOURCELESS_KNOCKBACK,
 			DamageTypeTags.IS_PROJECTILE,
 			DamageTypeTags.IS_FIRE,
-			DamageTypeTags.BYPASSES_COOLDOWN,
 			DamageTypeTags.ALWAYS_HURTS_ENDER_DRAGONS,
 			DamageTypeTags.PANIC_CAUSES,
 			Tags.DamageTypes.IS_PHYSICAL);
