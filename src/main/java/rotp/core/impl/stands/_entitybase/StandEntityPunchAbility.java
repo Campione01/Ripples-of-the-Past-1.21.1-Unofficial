@@ -7,7 +7,6 @@ import java.util.function.Predicate;
 
 import javax.annotation.Nullable;
 
-import rotp.core.core.JojoMod;
 import rotp.core.client.ClientGlobals;
 import rotp.core.config.client.PlayerClientBroadcastedSettings;
 import rotp.core.client.sound.ClientsideSoundsHelper;
@@ -73,7 +72,6 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
 public class StandEntityPunchAbility extends StandEntityAbility {
-	private static final ResourceLocation SILVER_CHARIOT_ID = JojoMod.resLoc("silver_chariot");
 	// ServerPlayer.CREATIVE_BLOCK_INTERACTION_RANGE_MODIFIER
 	private static final ResourceLocation CREATIVE_BLOCK_RANGE = ResourceLocation.withDefaultNamespace("creative_mode_block_range");
 	// 1.16 harvest levels by (int) strength / 4. Level 0 covered every pickaxe, axe and shovel block, so below
@@ -521,13 +519,13 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			return false;
 		}
 
-		/** 1.16 StandEntity.canBreakBlock; Silver Chariot's visible rapier has its own rule instead (SilverChariotEntity). */
+		/** 1.16 StandEntity.canBreakBlock; a Stand with a rule of its own (Silver Chariot's visible rapier) uses that instead. */
 		public static boolean canStandBreakBlockByStrength(StandEntity stand, BlockState blockState, Level level, BlockPos blockPos) {
 			if (stand.getBlockHardnessForStandBreak(blockState, level, blockPos) < 0) {
 				return false;
 			}
-			boolean rapier = SILVER_CHARIOT_ID.equals(stand.getStandType()) && stand.isSilverChariotRapierVisible();
-			return rapier || isBlockBreakableByStrength(stand.getAttackDamage(), blockState, level, blockPos);
+			return stand.replacesStandBreakStrengthRule(blockState, level, blockPos)
+					|| isBlockBreakableByStrength(stand.getAttackDamage(), blockState, level, blockPos);
 		}
 
 		/**

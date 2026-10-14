@@ -13,6 +13,7 @@ import rotp.core.core.JojoRegistries;
 import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 import rotp.core.init.ModEntityAttributes;
+import rotp.core.init.ModEntityTypes;
 import rotp.core.init.ModGamerules;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
@@ -35,6 +36,8 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -44,6 +47,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.ShulkerBoxBlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.EventPriority;
@@ -117,6 +121,43 @@ public final class StandBlockBreakRuleGameTests {
 			f.assertShulkerDropped("barrage");
 		}
 		helper.succeed();
+	}
+
+	// A Stand whose own block rule replaces the strength rule (1.16 RHCP unpowered broke soft blocks whatever its strength)
+	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH)
+	public static void aStandsOwnBlockRuleReplacesTheStrengthRule(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		BlockPos pos = helper.absolutePos(BLOCK);
+		BlockState old = level.getBlockState(pos);
+		try {
+			level.setBlockAndUpdate(pos, Blocks.DIRT.defaultBlockState());
+			BlockState dirt = level.getBlockState(pos);
+			StandEntity plain = new StandEntity(ModEntityTypes.STAR_PLATINUM_STAND.get(), level);
+			StandEntity ownRule = new OwnBlockRuleStand(ModEntityTypes.STAR_PLATINUM_STAND.get(), level);
+			plain.getAttribute(Attributes.ATTACK_DAMAGE).setBaseValue(2);
+			ownRule.getAttribute(Attributes.ATTACK_DAMAGE).setBaseValue(2);
+			helper.assertTrue(plain.getAttackDamage() < 4 && ownRule.getAttackDamage() < 4,
+					"Fixture: strength " + plain.getAttackDamage() + " passes the 1.16 harvest level of dirt");
+			helper.assertTrue(!StandEntityPunchAbility.StandEntityPunch.canStandBreakBlockByStrength(plain, dirt, level, pos),
+					"Fixture: a Stand under strength 4 broke dirt by the strength rule");
+			helper.assertTrue(StandEntityPunchAbility.StandEntityPunch.canStandBreakBlockByStrength(ownRule, dirt, level, pos),
+					"A Stand with its own block rule was still held to the strength rule");
+		}
+		finally {
+			level.setBlockAndUpdate(pos, old);
+		}
+		helper.succeed();
+	}
+
+	private static final class OwnBlockRuleStand extends StandEntity {
+		OwnBlockRuleStand(EntityType<? extends StandEntity> type, Level level) {
+			super(type, level);
+		}
+
+		@Override
+		public boolean replacesStandBreakStrengthRule(BlockState blockState, Level level, BlockPos blockPos) {
+			return true;
+		}
 	}
 
 	private static Method barrageHitBlock() {

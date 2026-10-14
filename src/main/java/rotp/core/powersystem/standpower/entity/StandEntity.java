@@ -1746,6 +1746,15 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		return StandStatFormulas.getBlockHardness(getAttackDamage(), blockState, level, blockPos);
 	}
 
+	/**
+	 * Whether this Stand's own block rule replaces the 1.16 strength rule (an override of 1.16 StandEntity.canBreakBlock):
+	 * the Stand then breaks any block getBlockHardnessForStandBreak gives a hardness of 0 or more. Silver Chariot's
+	 * visible rapier has such a rule (1.16 SilverChariotEntity.canBreakBlock).
+	 */
+	public boolean replacesStandBreakStrengthRule(BlockState blockState, Level level, BlockPos blockPos) {
+		return isSilverChariotStand() && isSilverChariotRapierVisible();
+	}
+
 	private static boolean canSilverChariotRapierBreakBlock(BlockState blockState, Level level, BlockPos blockPos) {
 		float blockHardness = getSilverChariotRapierBreakHardness(blockState, level, blockPos);
 		return blockHardness >= 0 && blockHardness <= 1.0F && SILVER_CHARIOT_RAPIER_HARVEST_TIER.canMine(blockState);
