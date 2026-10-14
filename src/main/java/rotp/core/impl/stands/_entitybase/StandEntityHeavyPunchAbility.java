@@ -346,6 +346,7 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 		protected void hitEntity(ActionTarget target, Level level, StandEntity stand, 
 				DamageSource dmgSource, float dmgAmount, float explRadius) {
 			Entity targetEntity = target.getMainEntity();
+			boolean hurt = false;
 			if (targetEntity instanceof LivingEntity targetLiving) {
 				if (!usesDetachedPunchKnockback()) {
 					addKnockback(dmgSource);
@@ -356,41 +357,40 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 					dmgAmount = Math.min(dmgAmount, Math.max(targetLiving.getHealth() - 0.0001F, 0.0F));
 				}
 				float healthBeforeHit = targetLiving.getHealth();
-				boolean hurt = usesDetachedPunchKnockback()
+				hurt = usesDetachedPunchKnockback()
 						? attemptHeavyPunch(stand, targetLiving, targetEntity, dmgSource, dmgAmount, true)
 						: standEntityAttack(stand, targetLiving, dmgSource, dmgAmount);
 				lastDamageDealtToLiving = hurt ? Math.max(healthBeforeHit - targetLiving.getHealth(), 0) : 0;
 				afterHeavyPunchHit(stand, targetLiving, dmgSource, dmgAmount, hurt);
 
 				if (hurt) {
-					Entity knockedBack = targetEntity;
-					
 					// 1.16 HeavyPunchInstance.afterAttack: a Stand action that stops on a heavy attack (a barrage) goes into recovery.
 					EntityActionAbility.onHitByHeavyAttack(targetLiving);
-					
-					if (targetEntity instanceof StandEntity targetStand) {
-						LivingEntity standUser = targetStand.getUser();
-						if (standUser != null) {
-							knockedBack = standUser;
-						}
-					}
-
-					Entity _knockedBack = knockedBack;
-					KnockbackCollisionImpact kbImpact = KnockbackCollisionImpact.getHandler(_knockedBack);
-					if (kbImpact != null) {
-						kbImpact
-						.onPunchSetKnockbackImpact(_knockedBack.getDeltaMovement(), stand)
-						.withImpactExplosion(Math.max(explRadius - 0.5f, 0), null, 0);
-					}
 				}
 			}
-			// Only living primaries register wall impact; an admitted non-living punch still gets its donor tail.
 			else if (targetEntity != null) {
 				if (usesDetachedPunchKnockback()) {
-					attemptHeavyPunch(stand, targetEntity, targetEntity, dmgSource, dmgAmount, true);
+					hurt = attemptHeavyPunch(stand, targetEntity, targetEntity, dmgSource, dmgAmount, true);
 				}
 				else {
-					standEntityAttack(stand, targetEntity, dmgSource, dmgAmount);
+					hurt = standEntityAttack(stand, targetEntity, dmgSource, dmgAmount);
+				}
+			}
+			if (hurt) {
+				Entity knockedBack = targetEntity;
+				if (targetEntity instanceof StandEntity targetStand) {
+					LivingEntity standUser = targetStand.getUser();
+					if (standUser != null) {
+						knockedBack = standUser;
+					}
+				}
+
+				Entity _knockedBack = knockedBack;
+				KnockbackCollisionImpact kbImpact = KnockbackCollisionImpact.getHandler(_knockedBack);
+				if (kbImpact != null) {
+					kbImpact
+					.onPunchSetKnockbackImpact(_knockedBack.getDeltaMovement(), stand)
+					.withImpactExplosion(Math.max(explRadius - 0.5f, 0), null, 0);
 				}
 			}
 		}
