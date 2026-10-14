@@ -334,6 +334,32 @@ public final class TimeStopProgressionGameTests {
 		helper.succeed();
 	}
 
+	/** 1.16 TimeStopInstance.onRemoved and TheWorldTSHeavyAttack trained the time stop with no Creative check. */
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void creativeTimeStopUseStillTrains(GameTestHelper helper) {
+		Player player = helper.makeMockPlayer(GameType.SURVIVAL);
+		try {
+			helper.assertTrue(helper.getLevel().addFreshEntity(player),
+					"Could not add Creative training test player");
+			StandPower power = grantTimeStopStand(helper, player, JojoMod.resLoc("the_world"));
+			power.getCurTypeData().setAbilityLearningProgressPoints(
+					TimeStopLearning.TIME_STOP, 10.0F,
+					TimeStopLearning.getMaxTrainingPoints(power), power);
+			player.getAbilities().instabuild = true;
+			helper.assertTrue(power.isUserCreative(), "The Creative fixture is not Creative");
+			TimeStopLearning.onTimeStopEnded(power, 20);
+			assertPoints(helper, power, 12.0F, "a 20-tick Creative time stop (0.1 per tick)");
+			TimeStopLearning.onTsPunchTimeSkip(power, 15);
+			assertPoints(helper, power, 13.0F, "a 15-tick Creative TS punch skip (1.5 truncated)");
+			helper.assertTrue(TimeStopLearning.getTimeStopTicks(power) == 18,
+					"A Creative full charge must follow the grown training: " + TimeStopLearning.getTimeStopTicks(power));
+		}
+		finally {
+			player.discard();
+		}
+		helper.succeed();
+	}
+
 	@GameTest(template = "empty", timeoutTicks = 80, batch = GameTestBatches.TIME_STOP)
 	public static void timeStopTrainingPersistsAcrossSurvivalReload(
 			GameTestHelper helper) {

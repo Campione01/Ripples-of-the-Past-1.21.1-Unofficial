@@ -319,8 +319,7 @@ public final class TimeStopLearning {
 	}
 
 	private static void addTimeStopLearning(StandPower standPower, String learningName, float points) {
-		if (isCreativeTimeStopTemplate(standPower)
-				|| standPower == null || !standPower.hasPower() || standPower.getCurTypeData() == null
+		if (standPower == null || !standPower.hasPower() || standPower.getCurTypeData() == null
 				|| standPower.getCurTypeData().getAbilityLearningProgressPoints(learningName) < 0.0F) {
 			return;
 		}
