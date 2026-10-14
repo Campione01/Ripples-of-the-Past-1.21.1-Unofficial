@@ -274,6 +274,8 @@ public final class TheWorldTSPunchParityGameTests {
         float staminaBeforePerform;
         float staminaAtDamage = Float.NaN;
         float recovery;
+        float entryRecovery = Float.NaN;
+        double performSpeed = Double.NaN;
         float expectedPerform;
         int worldTicks;
         int standNativeTicks;
@@ -446,6 +448,8 @@ public final class TheWorldTSPunchParityGameTests {
             if (beforePhase == ActionPhase.PERFORM) {
                 performFrames++;
                 if (beforePhaseTick < 1) staminaBeforePerform = caster.power.getStamina();
+                // the Stand's speed through this tick, whose PERFORM ends in RECOVERY
+                performSpeed = caster.stand.getAttackSpeed();
             }
             if (beforePhase == ActionPhase.RECOVERY) recoveryFrames++;
         }
@@ -487,7 +491,10 @@ public final class TheWorldTSPunchParityGameTests {
                         check(action.getPhase() == ActionPhase.RECOVERY, "F4 strike ends directly in recovery on this native tick");
                     }
                 }
-                if (recoveryFrame < 0 && action.getPhase() == ActionPhase.RECOVERY) recoveryFrame = standNativeTicks;
+                if (recoveryFrame < 0 && action.getPhase() == ActionPhase.RECOVERY) {
+                    recoveryFrame = standNativeTicks;
+                    entryRecovery = action.phasesLength.getFloat(ActionPhase.RECOVERY);
+                }
                 log("FRAME " + spec.id() + " native=" + standNativeTicks + " before=" + beforePhase + ":" + beforePhaseTick
                         + " after=" + action.getPhase() + ":" + action.getPhaseTick() + " W/P/R=" + windupFrames + "/" + performFrames + "/" + recoveryFrames);
             }
@@ -552,6 +559,14 @@ public final class TheWorldTSPunchParityGameTests {
         void verifyLifetime() {
             // 1.16 StandEntityTask.moveToPhase: the ordinary heavy's RECOVERY is the length set at RECOVERY entry
             if (spec.kind == Kind.HEAVY_CONTROL) recovery = action.phasesLength.getFloat(ActionPhase.RECOVERY);
+            // 1.16 TheWorldTSHeavyAttack.getStandRecoveryTicks, read by StandEntityTask as the RECOVERY starts: finisher 0 at
+            // the Stand's speed of that moment, which the blink's stamina cost can lower after the press
+            if (action instanceof TheWorldTSPunch) {
+                check(near(entryRecovery, StandStatFormulas.getHeavyAttackRecovery(performSpeed, 0)),
+                        "TS RECOVERY read as it starts, finisher 0: speed " + performSpeed + ", press-time reading " + recovery
+                                + ", entry reading " + entryRecovery);
+                recovery = entryRecovery;
+            }
             check(stampSeen && stampTransitions == 1 && incomingCalls == (spec.empty ? 0 : 1), "one actual callback/attempt and hit-or-miss count=" + incomingCalls);
             check(performFrames == (int) Math.ceil(expectedPerform) && recoveryFrames == (int) recovery,
                     "native PERFORM/RECOVERY counts=" + performFrames + "/" + recoveryFrames);

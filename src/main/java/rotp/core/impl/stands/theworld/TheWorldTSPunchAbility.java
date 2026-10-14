@@ -257,6 +257,7 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 		private ActionTarget targetAfterBlink = ActionTarget.EMPTY;
 		private boolean gravityOverridden;
 		private boolean previousNoGravity;
+		private boolean recoveryReread;
 
 		public TheWorldTSPunch(EntityActionType ability) {
 			super(ability);
@@ -290,11 +291,28 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 			}
 		}
 
+		@Override
+		public void setPhase(ActionPhase newPhase, int tick) {
+			super.setPhase(newPhase, tick);
+			if (recoveryReread) {
+				recoveryReread = false;
+				syncPhaseChanges();
+			}
+		}
+
 		// 1.16 the_world_ts_punch: standUserWalkSpeed(1.0F)
 		@Override
 		public void onSetPhase(ActionPhase newPhase) {
 			super.onSetPhase(newPhase);
 			userWalkSpeed = 1.0F;
+			// 1.16 TheWorldTSHeavyAttack.getStandRecoveryTicks, read by StandEntityTask as the recovery starts: finisher 0
+			// at the Stand's attack speed of that moment
+			if (newPhase == ActionPhase.RECOVERY && phase != null && phase != newPhase
+					&& performer instanceof StandEntity stand && !stand.level().isClientSide()) {
+				float before = phasesLength.getFloat(ActionPhase.RECOVERY);
+				phasesLength.put(ActionPhase.RECOVERY, StandStatFormulas.getHeavyAttackRecovery(stand.getAttackSpeed(), 0));
+				recoveryReread = Float.compare(before, phasesLength.getFloat(ActionPhase.RECOVERY)) != 0;
+			}
 		}
 
 		@Override
