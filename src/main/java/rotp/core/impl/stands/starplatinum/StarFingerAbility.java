@@ -5,6 +5,7 @@ import org.jetbrains.annotations.Nullable;
 import rotp.core.client.ClientGlobals;
 import rotp.core.client.sound.ClientsideSoundsHelper;
 import rotp.core.init.ModSoundEvents;
+import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.entityaction.ActionAnimIdentifier;
@@ -43,15 +44,6 @@ public class StarFingerAbility extends StandEntityAbility {
 		return STAR_FINGER_ANIM;
 	}
 
-	@Override
-	public void initActionFromConfig(EntityActionInstance action, Level level,
-			LivingEntity powerUser, LivingEntity performer) {
-		super.initActionFromConfig(action, level, powerUser, performer);
-		if (!level.isClientSide() && powerUser != null) {
-			sayShout(powerUser, ModSoundEvents.JOTARO_STAR_FINGER);
-		}
-	}
-
     public static class StarFingerInstance extends EntityActionInstance implements ActionOBB {
         public StarFingerInstance(EntityActionType ability) {
             super(ability);
@@ -62,6 +54,11 @@ public class StarFingerAbility extends StandEntityAbility {
         @Override
         public void onActionSet(@Nullable EntityActionInstance prevAction) {
             super.onActionSet(prevAction);
+            LivingEntity powerUser = getPowerUser();
+            if (!level().isClientSide() && powerUser != null) {
+                // 1.16 said the line when the action started, not for a press that was only queued
+                Ability.sayShoutOf(ability, powerUser, ModSoundEvents.JOTARO_STAR_FINGER);
+            }
             setStandOffset(0, 0.5, StandOffsetFromUser.Rotations.HEAD, false);
             OrientedBoundingBox obb = new OrientedBoundingBox(new Vec3(0, 1.35, 0), 0.125d, 0.125d, 0.8d, getPerformer().getYRot(), getPerformer().getXRot());
             // drawn as far as the finger entity reaches: its speeds are scaled by the Stand's speed too

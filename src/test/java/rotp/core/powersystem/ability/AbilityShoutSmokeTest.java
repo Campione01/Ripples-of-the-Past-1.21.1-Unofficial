@@ -31,7 +31,8 @@ public final class AbilityShoutSmokeTest {
 
 		// the shouts that 1.16 said through Action#playVoiceLine and that skip a sneaking user
 		require(source("impl/stands/theworld/TimeStopAbility.java"), "sayShout(user,voiceLine);");
-		require(source("impl/stands/starplatinum/StarFingerAbility.java"), "sayShout(powerUser,ModSoundEvents.JOTARO_STAR_FINGER);");
+		require(source("impl/stands/starplatinum/StarFingerAbility.java"),
+				"Ability.sayShoutOf(ability,powerUser,ModSoundEvents.JOTARO_STAR_FINGER);");
 		require(source("impl/stands/hierophant/HierophantEmeraldSplashAbility.java"),
 				"Ability.sayShoutOf(ability,user,ModSoundEvents.KAKYOIN_EMERALD_SPLASH);");
 		String chariot = compact(source("impl/stands/silverchariot/SilverChariotBarrageAbility.java"));

@@ -166,6 +166,52 @@ public final class StarFingerStartGameTests {
 		});
 	}
 
+	@GameTest(template = "empty", timeoutTicks = 40)
+	public static void bufferedStarFingerShoutsOnlyWhenItStarts(GameTestHelper helper) {
+		Scene scene = new Scene(helper);
+		int[] shouts = new int[1];
+		Consumer<PlayLevelSoundEvent.AtPosition> shout = event -> {
+			if (scene.user != null && event.getLevel() == scene.level && event.getSound() != null
+					&& event.getSound().value() == ModSoundEvents.JOTARO_STAR_FINGER.get()
+					&& event.getPosition().distanceToSqr(scene.user.position()) < 0.01) {
+				shouts[0]++;
+			}
+		};
+		NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, PlayLevelSoundEvent.AtPosition.class, shout);
+		try {
+			scene.start();
+			Ability heavy = scene.power.getAbility("heavy_punch");
+			helper.assertTrue(heavy instanceof EntityActionType, "Star Platinum's heavy punch is missing");
+			EntityActionInstance blocker = new EntityActionInstance((EntityActionType) heavy);
+			blocker.phasesLength.put(ActionPhase.PERFORM, 200F);
+			blocker.setStartingPhase();
+			LivingComponentAction.getComponent(scene.stand).setAction(blocker, scene.user, SyncType.NO_SYNC);
+
+			AbilityConditionCheck selected = scene.select();
+			helper.assertTrue(AbilityInput.withConditionCheck(selected, scene.user, InputMethod.CLICK),
+					"fixture: Star Finger press not admitted");
+			BufferingState press = BufferingState.clickCanBuffer();
+			AbilityInput.keyPress(KEY, selected.ability, scene.user, null, InputMethod.CLICK, 0, press,
+					selected.ability.getAbilityId());
+			helper.assertTrue(press.shouldBuffer && !press.isActionSuccess, "fixture: the press was not buffered");
+			EntityActionInputState input = scene.user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get());
+			input.tick();
+			helper.assertTrue(shouts[0] == 0, "1.16 said nothing for a queued press: 'Star Finger!' was heard "
+					+ shouts[0] + " time(s) before the action started");
+
+			LivingComponentAction.getComponent(scene.stand).setAction(null, scene.user, SyncType.NO_SYNC);
+			input.tick();
+			helper.assertTrue(scene.stand.getCurStandAction() instanceof StarFingerInstance,
+					"fixture: the buffered Star Finger did not start");
+			helper.assertTrue(shouts[0] == 1, "the shout plays once when Star Finger starts, heard " + shouts[0]);
+		}
+		finally {
+			NeoForge.EVENT_BUS.unregister(shout);
+			scene.close();
+		}
+		helper.succeed();
+	}
+
 	private static final class Scene {
 		final GameTestHelper helper;
 		final ServerLevel level;
