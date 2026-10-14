@@ -395,7 +395,8 @@ public class Ability {
 		if (context instanceof StandPower standPower
 				&& !PlayerClientBroadcastedSettings.isNoStandAbilityCooldownEnabled(standPower)
 				&& standPower.isAbilityOnCooldown(name())) {
-			return ConditionCheck.createNegative("cooldown");
+			// 1.16 PowerBaseImpl.checkRequirements refused an action on cooldown without a message
+			return ConditionCheck.NEGATIVE;
 		}
 		return ConditionCheck.POSITIVE;
 	}
