@@ -23,6 +23,8 @@ import rotp.core.powersystem.ability.input.AbilityInput;
 import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
+import rotp.core.powersystem.entityaction.netcode.SyncType;
+import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
@@ -38,6 +40,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.AfterBatch;
 import net.minecraft.gametest.framework.BeforeBatch;
 import net.minecraft.gametest.framework.GameTest;
+import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundSource;
@@ -155,6 +158,36 @@ public final class HeavyPunchBlockHitGameTests {
 			helper.assertTrue(scene.impactSounds == 1, "A heavy punch on a slime block (hardness 0) played "
 					+ scene.impactSounds + " heavy impact sounds; 1.16 played one");
 		});
+	}
+
+	// a getPunchTarget override (an add-on's blink punch) can hand over a block target that is already air
+	@GameTest(template = "empty", timeoutTicks = 40, batch = BATCH)
+	public static void heavyPunchOnABlockAlreadyGoneDoesNotThrow(GameTestHelper helper) {
+		Scene scene = new Scene(helper, "star_platinum", 16, false, Blocks.AIR.defaultBlockState());
+		try {
+			StandEntityHeavyPunch action = new StandEntityHeavyPunch((EntityActionType) scene.power.getAbility("heavy_punch")) {
+				@Override
+				protected ActionTarget getPunchTarget(StandEntity stand) {
+					return new ActionTarget(scene.block, Direction.NORTH);
+				}
+			};
+			LivingComponentAction.getComponent(scene.stand).setAction(action, scene.user, SyncType.NO_SYNC);
+			try {
+				action.actionPerformStart();
+			}
+			catch (RuntimeException e) {
+				throw new GameTestAssertException("A heavy punch on a block target already gone threw " + e);
+			}
+			helper.assertTrue(action.punchedTarget != null && action.punchedTarget.getType() == ActionTarget.TargetType.BLOCK,
+					"The heavy punch did not finish its block hit: " + action.punchedTarget);
+			helper.assertTrue(scene.impactSounds == 0,
+					"A heavy punch on air played " + scene.impactSounds + " heavy impact sounds");
+		}
+		finally {
+			LivingComponentAction.getComponent(scene.stand).setAction(null, scene.user, SyncType.NO_SYNC);
+			scene.close();
+		}
+		helper.succeed();
 	}
 
 	@GameTest(template = "empty", timeoutTicks = 80, batch = IMMUNITY_BATCH)
