@@ -360,6 +360,53 @@ public final class TimeStopProgressionGameTests {
 		helper.succeed();
 	}
 
+	/**
+	 * 1.16 StandPower.unlockAction: an action unlocked while its user skips training (Creative) starts fully trained.
+	 * Survival users below the Resolve gates switch to Creative, where the gates no longer hold.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void skillsUnlockedInCreativeStartFullyTrained(GameTestHelper helper) {
+		Player jotaro = helper.makeMockPlayer(GameType.SURVIVAL);
+		Player avdol = helper.makeMockPlayer(GameType.SURVIVAL);
+		try {
+			StandPower starPlatinum = grantStandWithoutUnlocks(helper, jotaro, JojoMod.resLoc("star_platinum"));
+			helper.assertTrue(!starPlatinum.getCurTypeData().isSkillUnlocked(TimeStopLearning.TIME_STOP)
+					&& starPlatinum.getResolveLevel() == 0,
+					"fixture: a Survival Star Platinum at Resolve 0 already has its time stop");
+			jotaro.getAbilities().instabuild = true;
+			starPlatinum.getCurTypeData().unlockOriginalResolveSkills(starPlatinum);
+			helper.assertTrue(starPlatinum.getCurTypeData().isSkillUnlocked(TimeStopLearning.TIME_STOP),
+					"Creative did not unlock Star Platinum's time stop");
+			helper.assertTrue(TimeStopLearning.getSavedTimeStopTicks(starPlatinum)
+					== TimeStopLearning.HUMAN_MAX_TIME_STOP_TICKS,
+					"A time stop unlocked in Creative must last the full 5 s, not "
+							+ TimeStopLearning.getSavedTimeStopTicks(starPlatinum) + " ticks");
+
+			StandPower magiciansRed = grantStandWithoutUnlocks(helper, avdol, JojoMod.resLoc("magicians_red"));
+			helper.assertTrue(!magiciansRed.getCurTypeData().isSkillUnlocked("crossfire_hurricane"),
+					"fixture: a Survival Magician's Red at Resolve 0 already has Crossfire Hurricane");
+			avdol.getAbilities().instabuild = true;
+			magiciansRed.getCurTypeData().unlockOriginalResolveSkills(magiciansRed);
+			float points = magiciansRed.getCurTypeData().getAbilityLearningProgressPoints("crossfire_hurricane");
+			helper.assertTrue(points >= 1.0F,
+					"Every trainable ability unlocked in Creative starts fully trained: Crossfire Hurricane has " + points);
+		}
+		finally {
+			jotaro.discard();
+			avdol.discard();
+		}
+		helper.succeed();
+	}
+
+	private static StandPower grantStandWithoutUnlocks(GameTestHelper helper, Player player, ResourceLocation standId) {
+		StandType standType = JojoRegistries.DEFAULT_STANDS_REG.get(standId);
+		helper.assertTrue(standType != null, "Missing Stand type " + standId);
+		StandPower power = PowerClass.STAND.attachGet(player);
+		helper.assertTrue(StandPowerTransitions.insert(power, new StandInstance(standType)).status()
+				== StandPowerTransitions.Status.APPLIED, "Could not grant " + standId);
+		return power;
+	}
+
 	@GameTest(template = "empty", timeoutTicks = 80, batch = GameTestBatches.TIME_STOP)
 	public static void timeStopTrainingPersistsAcrossSurvivalReload(
 			GameTestHelper helper) {

@@ -3,6 +3,7 @@ package rotp.core.powersystem.standpower.type;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -144,6 +145,8 @@ public class StandTypePersistentData extends PowerData {
 			return false;
 		}
 		boolean changed = false;
+		boolean fullyTrained = StandPower.playerSkipsActionTraining(standPower.getUser())
+				|| standPower.wasProgressionSkipped();
 		for (UnlockableSkill skill : getAllSkills().values()) {
 			if (!(skill instanceof StandUnlockableSkill standSkill)
 					|| skill.hidden
@@ -151,9 +154,31 @@ public class StandTypePersistentData extends PowerData {
 					|| !canUnlockByOriginalResolve(standPower, standSkill)) {
 				continue;
 			}
-			changed |= _setSkillUnlocked(skill, true, false);
+			if (_setSkillUnlocked(skill, true, false)) {
+				changed = true;
+				if (fullyTrained) {
+					giveFullTraining(standPower, skill);
+				}
+			}
 		}
 		return changed;
+	}
+
+	// 1.16 StandPower.unlockAction: an action unlocked while its user skips training starts fully trained.
+	private void giveFullTraining(StandPower standPower, UnlockableSkill skill) {
+		Set<String> abilityNames = new LinkedHashSet<>(skill.unlocksAbilities);
+		abilityNames.add(skill.skillName);
+		for (String abilityName : abilityNames) {
+			if (standPower.getMoveset().getAbility(abilityName) instanceof TrainableAbility trainable
+					&& trainable.getLearningAbilityName() != null) {
+				String learningName = trainable.getLearningAbilityName();
+				float points = getAbilityLearningProgressPoints(learningName);
+				float maxTraining = trainable.getMaxTrainingPoints(standPower);
+				if (points >= 0.0F && points < maxTraining) {
+					setAbilityLearningProgressPoints(learningName, maxTraining, maxTraining, standPower);
+				}
+			}
+		}
 	}
 
 	private boolean canUnlockByOriginalResolve(StandPower standPower, StandUnlockableSkill skill) {
