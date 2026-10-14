@@ -109,6 +109,10 @@ public class StandBearingShotAbility extends StandEntityAbility {
 				Level level = level();
 				if (level instanceof ServerLevel serverLevel) {
 					ItemStack itemStack = performer.getMainHandItem();
+					// The Stand's hand can be emptied or swapped during the hold (Stand item keys).
+					if (!canShoot(itemStack)) {
+						return;
+					}
 					level.playSound(null, performer.getX(), performer.getY(), performer.getZ(),
 							ModSoundEvents.BEARING_SHOT.get(), SoundSource.NEUTRAL, 0.5F, 1.0F);
 					StandCallbackWhenShooting.shootProjectileWithStandStats(ThrownNuggetBearingEntity::new,
