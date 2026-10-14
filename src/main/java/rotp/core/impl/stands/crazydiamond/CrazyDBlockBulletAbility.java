@@ -139,9 +139,13 @@ public class CrazyDBlockBulletAbility extends StandEntityAbility {
 				if (user == null) return;
 				ItemStack item = user.getOffhandItem();
 				Block block = !item.isEmpty() && item.getItem() instanceof BlockItem blockItem ? blockItem.getBlock() : null;
-				if (block == null) return;
-
 				StandPower standPower = StandPower.get(user);
+				if (block == null) {
+					// 1.16 standPerform shot nothing once the block was swapped out, but StandEntityTask still paid
+					StandAbilityStamina.consume(ability, standPower, STAMINA_COST, false);
+					StandAbilityStamina.consume(ability, standPower, HOMING_STAMINA_COST_TICK, true);
+					return;
+				}
 
 				CrazyDBlockBulletEntity bullet = new CrazyDBlockBulletEntity(performer, level);
 				bullet.setShootingPosOf(user);

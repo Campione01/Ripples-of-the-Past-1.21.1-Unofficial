@@ -76,6 +76,31 @@ public final class CrazyDiamondStaminaTickGameTests {
 		});
 	}
 
+	// 1.16 CrazyDiamondBlockBullet.standPerform shot nothing without a block in the off hand, but the task still paid
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void blockBulletWhoseBlockIsSwappedOutStillPays(GameTestHelper helper) {
+		scene(helper, (user, power, stand, standAction) -> {
+			user.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.DIRT, 4));
+			power.setStamina(power.getMaxStamina());
+			setBooked(power, 0.0F);
+			standAction.setAction(null, user, SyncType.NO_SYNC);
+			EntityActionInstance shot = ((EntityActionAbility) power.getAbility("block_bullet"))
+					.initActionOnAbilityUse(helper.getLevel(), user, stand, null);
+			standAction.setAction(shot, user, SyncType.NO_SYNC);
+			standAction.tick();
+			helper.assertTrue(shot.getPhase() == ActionPhase.WINDUP, "setup: the Block Bullet is not winding up: " + shot.getPhase());
+			user.setItemInHand(InteractionHand.OFF_HAND, ItemStack.EMPTY);
+			for (int tick = 0; tick < 40 && shot.getPhase() != ActionPhase.RECOVERY && !shot.isOver(); tick++) {
+				standAction.tick();
+			}
+			helper.assertTrue(shot.getPhase() == ActionPhase.RECOVERY || shot.isOver(),
+					"setup: the Block Bullet did not get through PERFORM: " + shot.getPhase());
+			helper.assertTrue(near(power.getStamina(), power.getMaxStamina() - 40.0F) && near(booked(power), -2.0F),
+					"1.16 paid 40 and 2 for the perform tick though the off-hand block was swapped out: bar "
+							+ power.getStamina() + " of " + power.getMaxStamina() + ", booked for the next tick " + booked(power));
+		});
+	}
+
 	@GameTest(template = "empty", timeoutTicks = 100)
 	public static void healWithoutAnEntityTargetPaysNoTickButRevertDoes(GameTestHelper helper) {
 		scene(helper, (user, power, stand, standAction) -> {
