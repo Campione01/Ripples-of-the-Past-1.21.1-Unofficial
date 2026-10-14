@@ -347,6 +347,8 @@ public final class TimeStopProgressionGameTests {
 					TimeStopLearning.getMaxTrainingPoints(power), power);
 			player.getAbilities().instabuild = true;
 			helper.assertTrue(power.isUserCreative(), "The Creative fixture is not Creative");
+			helper.assertTrue(TimeStopLearning.getMaxTimeStopTicks(power) == TimeStopLearning.HUMAN_MAX_TIME_STOP_TICKS,
+					"The public Creative maximum must be the normal one, not " + TimeStopLearning.getMaxTimeStopTicks(power));
 			TimeStopLearning.onTimeStopEnded(power, 20);
 			assertPoints(helper, power, 12.0F, "a 20-tick Creative time stop (0.1 per tick)");
 			TimeStopLearning.onTsPunchTimeSkip(power, 15);

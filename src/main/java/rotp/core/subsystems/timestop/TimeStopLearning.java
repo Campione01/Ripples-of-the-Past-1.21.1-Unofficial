@@ -124,10 +124,8 @@ public final class TimeStopLearning {
 		return getNormalMaxTimeStopTicks(power) - MIN_TIME_STOP_TICKS;
 	}
 
+	/** 1.16 TimeStop.getMaxTimeStopTicks: Creative has no maximum of its own, its full charge lasts the training. */
 	public static int getMaxTimeStopTicks(StandPower power) {
-		if (isCreativeTimeStopTemplate(power)) {
-			return CREATIVE_TIME_STOP_TICKS;
-		}
 		return getNormalMaxTimeStopTicks(power);
 	}
 
