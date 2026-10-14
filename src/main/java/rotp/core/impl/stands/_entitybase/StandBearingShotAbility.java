@@ -7,6 +7,7 @@ import rotp.core.powersystem.Power;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.ability.AbilityUsageGroup;
+import rotp.core.powersystem.ability.EntityActionAbility;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
@@ -109,8 +110,9 @@ public class StandBearingShotAbility extends StandEntityAbility {
 				Level level = level();
 				if (level instanceof ServerLevel serverLevel) {
 					ItemStack itemStack = performer.getMainHandItem();
-					// The Stand's hand can be emptied or swapped during the hold (Stand item keys).
-					if (!canShoot(itemStack)) {
+					// The Stand's hand can be emptied or swapped during the hold (Stand item keys). 1.16 stopHeldAction(true)
+					// also fired nothing for a stunned Stand or a user frozen in someone else's stopped time.
+					if (!canShoot(itemStack) || !((EntityActionAbility) ability).canFireReleasedHold(this)) {
 						return;
 					}
 					level.playSound(null, performer.getX(), performer.getY(), performer.getZ(),
@@ -118,7 +120,8 @@ public class StandBearingShotAbility extends StandEntityAbility {
 					StandCallbackWhenShooting.shootProjectileWithStandStats(ThrownNuggetBearingEntity::new,
 							serverLevel, itemStack, performer, stand, 0, ThrownNuggetBearingEntity.shotVelocity(itemStack), 1.0F);
 
-					itemStack.consume(1, performer);
+					// a Creative user keeps the nugget, as 1.16 Stand item use did (!abilities.instabuild)
+					itemStack.consume(1, getPowerUser());
 					StandPower.get(getPowerUser()).consumeStamina(10);
 				}
 			}
