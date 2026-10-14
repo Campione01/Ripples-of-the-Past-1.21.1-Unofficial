@@ -549,6 +549,8 @@ public final class TheWorldTSPunchParityGameTests {
         }
 
         void verifyLifetime() {
+            // 1.16 StandEntityTask.moveToPhase: the ordinary heavy's RECOVERY is the length set at RECOVERY entry
+            if (spec.kind == Kind.HEAVY_CONTROL) recovery = action.phasesLength.getFloat(ActionPhase.RECOVERY);
             check(stampSeen && stampTransitions == 1 && incomingCalls == (spec.empty ? 0 : 1), "one actual callback/attempt and hit-or-miss count=" + incomingCalls);
             check(performFrames == (int) Math.ceil(expectedPerform) && recoveryFrames == (int) recovery,
                     "native PERFORM/RECOVERY counts=" + performFrames + "/" + recoveryFrames);

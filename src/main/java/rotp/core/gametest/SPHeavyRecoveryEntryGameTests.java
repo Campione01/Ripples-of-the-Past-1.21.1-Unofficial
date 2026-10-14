@@ -6,6 +6,8 @@ import rotp.core.api.power.PowerSkillUnlocks;
 import rotp.core.core.JojoMod;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility.StandEntityHeavyPunch;
 import rotp.core.impl.stands.starplatinum.HeavyPunchUppercutAbility.Uppercut;
+import rotp.core.impl.stands.theworld.TheWorldHeavyPunchAbility.TheWorldHeavyPunch;
+import rotp.core.impl.stands.theworld.TheWorldKickAbility.TheWorldKick;
 import rotp.core.init.ModStatusEffects;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
@@ -38,7 +40,7 @@ public final class SPHeavyRecoveryEntryGameTests {
     private static final class Suite extends PhaseEntryGameTestSupport.Suite {
         Suite(GameTestHelper helper) {
             super(helper, SUBJECT, List.of("sp_cold_followup", "sp_warm_followup", "sp_stable",
-                    "sp_expiring_resolve", "sp_uppercut_default", "tw_default", "cd_default"));
+                    "sp_expiring_resolve", "sp_uppercut", "tw_heavy", "tw_kick", "cd_default"));
         }
         @Override PhaseEntryGameTestSupport.Scene create(String id) { return new Scene(this, id); }
     }
@@ -54,15 +56,18 @@ public final class SPHeavyRecoveryEntryGameTests {
         Scene(Suite suite, String id) { super(suite, id); }
         boolean followup() { return id.endsWith("followup"); }
         boolean cold() { return id.equals("sp_cold_followup"); }
-        boolean expires() { return id.equals("sp_expiring_resolve") || id.endsWith("default"); }
-        boolean selectedSP() { return id.startsWith("sp_") && !id.equals("sp_uppercut_default"); }
+        boolean expires() { return id.equals("sp_expiring_resolve") || finisher() || id.equals("tw_heavy") || id.equals("cd_default"); }
+        boolean finisher() { return id.equals("sp_uppercut") || id.equals("tw_kick"); }
+        // the subclasses with the heavy finisher setup (The World's heavy and kick, the uppercut) opt in as well;
+        // Crazy Diamond stays the default-off control
+        boolean selected() { return !id.equals("cd_default"); }
 
         @Override void prepare() {
-            actor(id.equals("tw_default") ? "the_world" : id.equals("cd_default") ? "crazy_diamond" : "star_platinum", 1, false);
+            actor(id.startsWith("tw_") ? "the_world" : id.equals("cd_default") ? "crazy_diamond" : "star_platinum", 1, false);
             cow();
             power.setStamina(350);
-            if (followup() || id.equals("sp_uppercut_default")) {
-                var result = UNLOCKS.forceUnlock(power, "uppercut");
+            if (followup() || finisher()) {
+                var result = UNLOCKS.forceUnlock(power, id.equals("tw_kick") ? "kick" : "uppercut");
                 premise(result == PowerSkillUnlocks.Result.UNLOCKED || result == PowerSkillUnlocks.Result.ALREADY_UNLOCKED,
                         "Owner-scoped declared uppercut skill prepared; ability Resolve/admission still checked");
             }
@@ -101,7 +106,7 @@ public final class SPHeavyRecoveryEntryGameTests {
                             + " saved=" + ((StandEntityHeavyPunch) predecessor).finisherValue + " current=" + stand.getFinisherMeter());
                     started = true; return;
                 }
-                stand.setFinisherMeter(id.equals("sp_uppercut_default") ? 1 : 0.3F);
+                stand.setFinisherMeter(finisher() ? 1 : 0.3F);
                 var press = press("heavy_punch", PhaseEntryGameTestSupport.ATTACK, false, 0);
                 premise(press.success(), "Registered heavy input success");
                 capture(press.action());
@@ -128,10 +133,10 @@ public final class SPHeavyRecoveryEntryGameTests {
                 recoverySpeed = stand.getAttackSpeed();
                 float expected = StandStatFormulas.getHeavyAttackRecovery(recoverySpeed, savedFinisher);
                 recoveryLength = action.getCurPhaseLength();
-                check(PhaseEntryGameTestSupport.near(recoveryLength, selectedSP() ? expected : cachedRecovery),
+                check(PhaseEntryGameTestSupport.near(recoveryLength, selected() ? expected : cachedRecovery),
                         "RECOVERY speed=" + recoverySpeed + " actionSaved=" + savedFinisher + " currentMeter=" + stand.getFinisherMeter()
                                 + " globalLast=" + stand.getLastHeavyFinisherValue() + " cached=" + cachedRecovery
-                                + " expected=" + (selectedSP() ? expected : cachedRecovery) + " actual=" + recoveryLength);
+                                + " expected=" + (selected() ? expected : cachedRecovery) + " actual=" + recoveryLength);
                 check(PhaseEntryGameTestSupport.near(action.finisherValue, savedFinisher), "Action finisher was neither resnapshotted nor consumed twice");
                 check(PhaseEntryGameTestSupport.near(initialStamina - power.getStamina(), 50), "One impact debit before RECOVERY; no forced multiplier refresh");
                 ownDebitSeen = true;
@@ -157,9 +162,11 @@ public final class SPHeavyRecoveryEntryGameTests {
         void capture(EntityActionInstance installed) {
             premise(installed instanceof StandEntityHeavyPunch, "Registered heavy action type");
             action = (StandEntityHeavyPunch) installed;
-            if (selectedSP()) premise(action.getClass() == StandEntityHeavyPunch.class
+            if (id.startsWith("sp_") && !finisher()) premise(action.getClass() == StandEntityHeavyPunch.class
                     && ((rotp.core.powersystem.ability.Ability) action.ability).name().equals("heavy_punch"), "Exact SP ordinary-heavy role, not uppercut/grab/charged");
-            if (id.equals("sp_uppercut_default")) premise(action instanceof Uppercut, "Actual uppercut default-off control");
+            if (id.equals("sp_uppercut")) premise(action instanceof Uppercut, "Actual uppercut finisher");
+            if (id.equals("tw_heavy")) premise(action instanceof TheWorldHeavyPunch, "Actual The World heavy punch");
+            if (id.equals("tw_kick")) premise(action instanceof TheWorldKick, "Actual The World kick finisher");
             initialSpeed = stand.getAttackSpeed(); savedFinisher = action.finisherValue; initialStamina = power.getStamina();
             cachedRecovery = StandStatFormulas.getHeavyAttackRecovery(initialSpeed, savedFinisher);
             check(PhaseEntryGameTestSupport.near(action.phasesLength.getFloat(ActionPhase.RECOVERY), cachedRecovery),

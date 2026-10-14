@@ -38,10 +38,12 @@ public class StandInitTheWorld {
 
 				.addAbility("punch", ModStandAbilities.PUNCH, punch -> {
 					punch.detachedLightCounterKnockback();
+					punch.laterPhaseEntryTiming();
 					punch.punchImpactSound(ModSoundEvents.THE_WORLD_PUNCH_LIGHT).standCrySound(ModSoundEvents.DIO_MUDA);
 				})
 				.addAbility("punch2", ModStandAbilities.PUNCH, punch -> {
 					punch.detachedLightCounterKnockback();
+					punch.laterPhaseEntryTiming();
 					punch.punchImpactSound(ModSoundEvents.THE_WORLD_PUNCH_LIGHT).standCrySound(ModSoundEvents.DIO_MUDA);
 				})
 				.addAbility("barrage", ModStandAbilities.TW_BARRAGE, barrage -> {
@@ -50,6 +52,7 @@ public class StandInitTheWorld {
 				.addAbility("heavy_punch", ModStandAbilities.TW_HEAVY_PUNCH, punch -> {
 					punch.setDefaultPhaseLength(ActionPhase.PERFORM, 1);
 					punch.detachedPunchKnockback();
+					punch.recoveryPhaseEntryTiming();
 				})
 				.addAbility("heavy_charged", ModStandAbilities.HEAVY_CHARGED)
 				.addAbility("kick", ModStandAbilities.TW_KICK, kick -> {
@@ -57,6 +60,7 @@ public class StandInitTheWorld {
 					kick.resolveLevelToUnlock(1);
 					kick.setDefaultPhaseLength(ActionPhase.PERFORM, 1);
 					kick.detachedPunchKnockback();
+					kick.recoveryPhaseEntryTiming();
 				})
 				.addAbility("grab", ModStandAbilities.GRAB)
 				.addAbility("grab_throw", ModStandAbilities.GRAB_THROW)

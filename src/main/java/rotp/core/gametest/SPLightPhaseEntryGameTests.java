@@ -35,7 +35,7 @@ public final class SPLightPhaseEntryGameTests {
     private static final class Suite extends PhaseEntryGameTestSupport.Suite {
         Suite(GameTestHelper helper) {
             super(helper, SUBJECT, List.of("sp_punch_hit", "sp_punch2_hit", "sp_punch3_hit", "sp_punch4_hit",
-                    "sp_whiff", "sp_arms", "sp_stable", "sp_expiring_resolve", "tw_default", "cd_default"));
+                    "sp_whiff", "sp_arms", "sp_stable", "sp_expiring_resolve", "tw_punch_hit", "tw_punch2_hit", "cd_default"));
         }
         @Override PhaseEntryGameTestSupport.Scene create(String id) { return new Scene(this, id); }
     }
@@ -50,17 +50,18 @@ public final class SPLightPhaseEntryGameTests {
         int readyTicks;
 
         Scene(Suite suite, String id) { super(suite, id); }
-        boolean selectedSP() { return id.startsWith("sp_"); }
+        // The World's punch and punch2 opt in as Star Platinum's do; Crazy Diamond stays the default-off control
+        boolean selected() { return id.startsWith("sp_") || id.startsWith("tw_"); }
         boolean expiry() { return id.equals("sp_expiring_resolve"); }
         String member() {
-            if (id.startsWith("sp_punch2")) return "punch2";
+            if (id.startsWith("sp_punch2") || id.startsWith("tw_punch2")) return "punch2";
             if (id.startsWith("sp_punch3")) return "punch3";
             if (id.startsWith("sp_punch4")) return "punch4";
             return "punch";
         }
 
         @Override void prepare() {
-            actor(id.equals("tw_default") ? "the_world" : id.equals("cd_default") ? "crazy_diamond" : "star_platinum",
+            actor(id.startsWith("tw_") ? "the_world" : id.equals("cd_default") ? "crazy_diamond" : "star_platinum",
                     1, id.equals("sp_arms"));
             if (!id.equals("sp_whiff")) cow();
             power.setStamina(id.equals("sp_stable") ? power.getMaxStamina() * 0.8F : 300);
@@ -109,9 +110,9 @@ public final class SPLightPhaseEntryGameTests {
                 expectedPerform = StandStatFormulas.getLightAttackRecovery(performSpeed, meterAtPerform);
                 performLength = action.getCurPhaseLength();
                 float cached = StandStatFormulas.getLightAttackRecovery(initialSpeed, initialMeter);
-                check(PhaseEntryGameTestSupport.near(action.getCurPhaseLength(), selectedSP() ? expectedPerform : cached),
+                check(PhaseEntryGameTestSupport.near(action.getCurPhaseLength(), selected() ? expectedPerform : cached),
                         "PERFORM entry speed=" + performSpeed + " meter=" + meterAtPerform + " cached=" + cached
-                                + " expected=" + (selectedSP() ? expectedPerform : cached) + " actual=" + action.getCurPhaseLength());
+                                + " expected=" + (selected() ? expectedPerform : cached) + " actual=" + action.getCurPhaseLength());
                 if (expiry()) {
                     premise(!user.hasEffect(ModStatusEffects.RESOLVE) && performSpeed < initialSpeed, "Natural Resolve expiration changed speed before PERFORM");
                     premise(expectedPerform != cached, "Expiring-Resolve duration oracle must distinguish entry from admission");
@@ -130,12 +131,12 @@ public final class SPLightPhaseEntryGameTests {
                 float cached = StandStatFormulas.getLightAttackRecovery(initialSpeed, initialMeter)
                         * (stand.isArmsOnlyMode() ? 2 : 4);
                 recoveryLength = action.getCurPhaseLength();
-                check(PhaseEntryGameTestSupport.near(recoveryLength, selectedSP() ? expectedRecovery : cached),
+                check(PhaseEntryGameTestSupport.near(recoveryLength, selected() ? expectedRecovery : cached),
                         "RECOVERY entry speed=" + recoverySpeed + " meter=" + stand.getFinisherMeter() + " arms=" + stand.isArmsOnlyMode()
-                                + " cached=" + cached + " expected=" + (selectedSP() ? expectedRecovery : cached) + " actual=" + recoveryLength);
+                                + " cached=" + cached + " expected=" + (selected() ? expectedRecovery : cached) + " actual=" + recoveryLength);
                 check(PhaseEntryGameTestSupport.near(stand.getFinisherMeter(), initialMeter + (target == null ? 0.1 : 0.2)),
                         "Registered hit/whiff current finisher=" + stand.getFinisherMeter());
-                if (selectedSP() && !id.equals("sp_stable"))
+                if (selected() && !id.equals("sp_stable"))
                     premise(expectedRecovery != cached, "Changed-resource/meter recovery oracle distinguishes cache");
                 if (id.equals("sp_stable")) check(expectedRecovery == cached, "Stable-speed control retains duration");
             }

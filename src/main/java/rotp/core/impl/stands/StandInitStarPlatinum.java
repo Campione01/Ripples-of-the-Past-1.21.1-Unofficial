@@ -75,6 +75,7 @@ public class StandInitStarPlatinum {
 					punch.resolveLevelToUnlock(1);
 					punch.setDefaultPhaseLength(ActionPhase.PERFORM, 1);
 					punch.detachedPunchKnockback();
+					punch.recoveryPhaseEntryTiming();
 				})
 				.addAbility("grab", ModStandAbilities.GRAB)
 				.addAbility("grab_throw", ModStandAbilities.GRAB_THROW)

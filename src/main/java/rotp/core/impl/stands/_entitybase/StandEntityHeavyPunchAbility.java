@@ -230,7 +230,7 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 		private boolean samplesRecoveryPhaseEntry(ActionPhase newPhase) {
 			return newPhase == ActionPhase.RECOVERY && phase != null && phase != newPhase
 					&& performer instanceof StandEntity && !performer.level().isClientSide()
-					&& getClass() == StandEntityHeavyPunch.class && !isGrabVariation() && usesHeavyFinisherSetup()
+					&& !isGrabVariation() && usesHeavyFinisherSetup()
 					&& ability instanceof StandEntityHeavyPunchAbility heavy && heavy.recoveryPhaseEntryTiming;
 		}
 
