@@ -1,7 +1,6 @@
 package rotp.core.impl.stands.goldexperience;
 
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -17,7 +16,6 @@ import rotp.core.init.ModItems;
 import rotp.core.init.ModSoundEvents;
 import rotp.core.init.power.ModStandAbilities;
 import rotp.core.init.power.ModStands;
-import rotp.core.mechanics.resolve.ResolveCounter;
 import rotp.core.mrpresident.CocoJumboTurtleEntity;
 import rotp.core.mrpresident.MrPresidentRoomStateOwner;
 import rotp.core.modcompat.ModInteractionUtil;
@@ -34,7 +32,7 @@ import rotp.core.subsystems.itemtracking.ItemTracking;
 import rotp.core.subsystems.itemtracking.KnownItemState;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTargetRange;
-import rotp.core.subsystems.target.HitResultUtil;
+import rotp.core.subsystems.target.StandPrecisionRay;
 import rotp.core.util.functions.JojoModUtil;
 import rotp.core.util.mc.entitysubtype.EntitySubtype;
 import rotp.core.impl.powers.hamon.HamonUtil;
@@ -54,14 +52,11 @@ import net.minecraft.tags.BlockTags;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.ai.attributes.AttributeInstance;
-import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
 import net.minecraft.world.entity.item.PrimedTnt;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.projectile.AbstractArrow;
 import net.minecraft.world.entity.projectile.Arrow;
-import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.projectile.ThrownEnderpearl;
 import net.minecraft.world.entity.projectile.ThrownPotion;
 import net.minecraft.world.entity.vehicle.Boat;
@@ -607,61 +602,11 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceChosenLif
         if (target.getType() == ActionTarget.TargetType.EMPTY && aiming == user) {
             StandEntity stand = standPower.getSummonedStandEntity();
             if (stand != null) {
-                target = precisionRayTarget(user, stand);
+                target = StandPrecisionRay.trace(user, stand);
             }
         }
         target.resolveEntityId(level);
         return target;
-    }
-
-    // 1.16 StandEntity.precisionRayTrace(cameraEntity): every pickable entity on the ray within reach, blocks not in
-    // the way, else the block; of several entities a player or Stand comes first, then a hostile mob, then the rest.
-    private static ActionTarget precisionRayTarget(LivingEntity user, StandEntity stand) {
-        List<ActionTarget> targets = HitResultUtil.clipMultipleTargets(user, precisionRayReach(user, stand),
-                entity -> entity != stand && entity.isAlive()
-                        && !(entity instanceof Projectile projectile && projectile.getOwner() == stand),
-                0.0D, stand.getPrecision());
-        if (targets.isEmpty()) {
-            return ActionTarget.EMPTY;
-        }
-        if (targets.size() == 1) {
-            return targets.get(0);
-        }
-        ActionTarget[] closestWithPriority = new ActionTarget[4];
-        int priority = 3;
-        for (ActionTarget target : targets) {
-            Entity entity = target.getEntity();
-            if (entity instanceof LivingEntity) {
-                if (entity instanceof Player || entity instanceof StandEntity) {
-                    priority = 0;
-                }
-                else if (ResolveCounter.attackingTargetGivesResolve(entity)) {
-                    priority = 1;
-                }
-            }
-            else if (entity != null) {
-                priority = 2;
-            }
-            if (closestWithPriority[priority] == null) {
-                closestWithPriority[priority] = target;
-            }
-        }
-        for (ActionTarget target : closestWithPriority) {
-            if (target != null) {
-                return target;
-            }
-        }
-        return targets.get(0);
-    }
-
-    // 1.16 StandEntity.getAimDistance: the aiming user's REACH_DISTANCE, 5 for a player in either game mode. The
-    // 1.21 attribute is the Survival pick range, half a block less, and gets that half block back in Creative.
-    private static double precisionRayReach(LivingEntity user, StandEntity stand) {
-        AttributeInstance reach = user.getAttribute(Attributes.BLOCK_INTERACTION_RANGE);
-        if (reach == null) {
-            return stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE);
-        }
-        return reach.getValue() + (isCreative(user) ? 0.0D : 0.5D);
     }
 
     private static ActionTarget getAimTarget(LivingEntity aiming) {

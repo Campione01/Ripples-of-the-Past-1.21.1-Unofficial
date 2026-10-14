@@ -1,6 +1,8 @@
 package rotp.core.impl.stands.theworld;
 
+import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.function.BiFunction;
 
 import javax.annotation.Nullable;
@@ -29,7 +31,7 @@ import rotp.core.powersystem.standpower.StandInstance.StandPart;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTargetRange;
-import rotp.core.subsystems.target.HitResultUtil;
+import rotp.core.subsystems.target.StandPrecisionRay;
 import rotp.core.subsystems.timestop.TimeStopCooldowns;
 import rotp.core.subsystems.timestop.TimeStopLearning;
 import rotp.core.subsystems.timestop.TimeStopState;
@@ -37,6 +39,7 @@ import rotp.core.subsystems.timestop.TimeStopState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.server.level.ChunkMap;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
@@ -206,7 +209,7 @@ public class TimeStopBlinkAbility extends Ability {
 		}
 		double playerSpeed = getDistancePerTick(user);
 		double maxDistance = Math.min(playerSpeed * timeStopTicks, MAX_BLINK_DISTANCE);
-		ActionTarget target = getClickedBlinkTarget(user);
+		ActionTarget target = getClickedBlinkTarget(user, power);
 		if (target.isEmpty(serverLevel)) {
 			target = rayTraceBlinkTarget(user, maxDistance);
 		}
@@ -279,8 +282,13 @@ public class TimeStopBlinkAbility extends Ability {
 		return entity.getAttributeValue(Attributes.MOVEMENT_SPEED) * 2.1585;
 	}
 
-	private static ActionTarget getClickedBlinkTarget(LivingEntity user) {
+	private static ActionTarget getClickedBlinkTarget(LivingEntity user, StandPower power) {
 		ActionTarget target = LivingComponentAction.getComponent(user).entityAim.getTarget().copy().resolveEntityId(user.level());
+		// 1.16 EntityStandType.clientHitResult: with the Stand out, a vanilla miss became the Stand's precision ray
+		StandEntity summoned = power.getSummonedStandEntity();
+		if (target.getType() == ActionTarget.TargetType.EMPTY && summoned != null) {
+			target = StandPrecisionRay.trace(user, summoned, StandPrecisionRay.reach(user, summoned), 0.0D, true, true);
+		}
 		if (target.getType() == ActionTarget.TargetType.ENTITY) {
 			Entity entity = target.getEntity();
 			if (entity == null || entity == user || entity.level() != user.level() || entity.isRemoved()
@@ -296,11 +304,11 @@ public class TimeStopBlinkAbility extends Ability {
 				? target : ActionTarget.EMPTY;
 	}
 
+	// 1.16 JojoModUtil.rayTrace: the nearest pickable living entity on the look ray, else the block by its outline
 	private static ActionTarget rayTraceBlinkTarget(LivingEntity user, double maxDistance) {
-		return HitResultUtil.clip(user.getEyePosition(), user.getLookAngle(),
-				maxDistance, maxDistance, user.level(),
-				entity -> entity != user && canBlinkTarget(user, entity),
-				user, 0);
+		List<ActionTarget> targets = StandPrecisionRay.clipTargetsBeforeWalls(user, maxDistance,
+				entity -> canBlinkTarget(user, entity), 0.0D, 0.0D);
+		return targets.isEmpty() ? ActionTarget.EMPTY : targets.get(0);
 	}
 
 	private static boolean canBlinkTarget(LivingEntity user, Entity entity) {
@@ -436,9 +444,24 @@ public class TimeStopBlinkAbility extends Ability {
 		}
 	}
 
+	// 1.16 TrNoMotionLerpPacket: only players who cannot see in stopped time lose the teleport's short slide
 	private static void syncNoLerpPosition(LivingEntity entity, Vec3 pos) {
-		if (!entity.level().isClientSide()) {
-			PacketDistributor.sendToPlayersTrackingEntityAndSelf(entity, new TrDirectEntityPosPacket(entity.getId(), pos));
+		if (!(entity.level() instanceof ServerLevel serverLevel)) {
+			return;
+		}
+		TrDirectEntityPosPacket packet = new TrDirectEntityPosPacket(entity.getId(), pos);
+		List<ServerPlayer> receivers = new ArrayList<>();
+		ChunkMap.TrackedEntity tracked = serverLevel.getChunkSource().chunkMap.entityMap.get(entity.getId());
+		if (tracked != null) {
+			tracked.seenBy.forEach(connection -> receivers.add(connection.getPlayer()));
+		}
+		if (entity instanceof ServerPlayer self && !receivers.contains(self)) {
+			receivers.add(self);
+		}
+		for (ServerPlayer player : receivers) {
+			if (!TimeStopState.canPlayerSeeInStoppedTime(player)) {
+				PacketDistributor.sendToPlayer(player, packet);
+			}
 		}
 	}
 
