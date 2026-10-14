@@ -555,7 +555,9 @@ public final class StandDamageMultiplierGameTests {
             check(deaths.isEmpty() && !immediate.bodyDead && !afterSync.bodyDead && !immediate.userDead && !afterSync.userDead
                     && immediate.bodyHp > 0 && afterSync.bodyHp > 0 && immediate.userHp > 0 && afterSync.userHp > 0,
                     "Angelo life immediate=" + immediate + " after=" + afterSync + " deaths=" + deaths);
-            if (spec.cheat) check(immediate.cheat && afterSync.cheat, "nonlethal must preserve Cheat Death");
+            // 1.16 used Cheat Death up here (cheatDeath ran before the non-lethal cancel); the port keeps its older
+            // pre-armor non-lethal cap, which never lets the hit reach death: an accepted difference, not parity.
+            if (spec.cheat) check(immediate.cheat && afterSync.cheat, "the port's kept pre-armor non-lethal behaviour leaves Cheat Death unused");
             if (m == 0) check(near(immediate.bodyHp, 4) && near(immediate.userHp, 4), "M0 keeps body/user HP4");
         }
 
