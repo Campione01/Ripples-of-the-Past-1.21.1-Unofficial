@@ -602,6 +602,9 @@ public final class CoreDetachedHeavyPulseGameTests {
             }
             if (spec.kind == Kind.SHIELD_FRONT) suite.check(!hurt.result && ((Player) target).isBlocking()
                     && !((Player) target).getCooldowns().isOnCooldown(Items.SHIELD), "blocked shield gets tail only, remains raised");
+            // 1.16 DamageUtil.upwardsKnockback never marked the target, so a blocking player's own client stays put
+            if (spec.kind == Kind.SHIELD_FRONT) suite.check(!target.hurtMarked,
+                    "blocked hit marked the shield player for a motion update; its own client would be launched");
             if (spec.kind == Kind.LETHAL) suite.check(hurt.result && !target.isAlive() && detached.size() == 2, "lethal hurt does not suppress admitted tail");
             if (spec.kind == Kind.TOTEM) suite.check(hurt.result && target.isAlive() && ((Player) target).getOffhandItem().isEmpty()
                     && detached.size() == 2, "actual consumed totem does not suppress admitted tail");

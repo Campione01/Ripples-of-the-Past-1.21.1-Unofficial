@@ -425,12 +425,12 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 			if (admitted) {
 				if (target instanceof LivingEntity living) {
 					if (hurt) {
-						applyDetachedPunchKnockback(stand, target, living, halfAdditional, xRot, yRot);
+						applyDetachedPunchKnockback(stand, target, living, halfAdditional, xRot, yRot, true);
 					}
 					afterDetachedPunchHurt(stand, living, source, rawDamage, hurt);
 				}
 				// 1.16 uses the primary position here, including a Kick's secondary attempts.
-				applyDetachedPunchKnockback(stand, primaryTarget, target, halfAdditional, xRot, yRot);
+				applyDetachedPunchKnockback(stand, primaryTarget, target, halfAdditional, xRot, yRot, hurt);
 			}
 			return hurt;
 		}
@@ -440,7 +440,7 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 		}
 
 		private static void applyDetachedPunchKnockback(StandEntity stand, Entity directionTarget, Entity target,
-				float strength, float xRot, float yRot) {
+				float strength, float xRot, float yRot, boolean hurt) {
 			if (strength <= 0) {
 				return;
 			}
@@ -452,7 +452,7 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 					living.knockback(strength * Mth.cos(xRot * radians), Mth.sin(yaw * radians), -Mth.cos(yaw * radians));
 				}
 				if (xRot != 0) {
-					applyDetachedUpwardKnockback(living, -strength * Mth.sin(xRot * radians));
+					applyDetachedUpwardKnockback(living, -strength * Mth.sin(xRot * radians), hurt);
 				}
 			}
 			else {
@@ -464,16 +464,20 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 			}
 		}
 
-		private static void applyDetachedUpwardKnockback(LivingEntity target, float strength) {
+		// 1.16 DamageUtil.upwardsKnockback never marked the target: only a hit that landed (and so marked it in its
+		// hurt) sends the push to a player's own client, not one blocked by a shield
+		private static void applyDetachedUpwardKnockback(LivingEntity target, float strength, boolean hurt) {
 			strength *= 1.0F - (float) target.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE);
 			if (strength != 0) {
 				target.setDeltaMovement(target.getDeltaMovement().add(0, strength, 0));
-				target.hurtMarked = true;
+				if (hurt) {
+					target.hurtMarked = true;
+				}
 			}
 			if (target instanceof StandEntity stand) {
 				LivingEntity user = stand.getUser();
 				if (user != null && !user.is(target)) {
-					applyDetachedUpwardKnockback(user, strength);
+					applyDetachedUpwardKnockback(user, strength, hurt);
 				}
 			}
 		}
