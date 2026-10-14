@@ -9,6 +9,7 @@ import rotp.core.api.power.PowerSkillUnlocks;
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
+import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 import rotp.core.impl.stands.theworld.TheWorldTSPunchAbility;
 import rotp.core.impl.stands.theworld.TheWorldTSPunchAbility.TheWorldTSPunch;
 import rotp.core.powersystem.PowerClass;
@@ -137,6 +138,46 @@ public final class TheWorldTSPunchAimGameTests {
 							"1.16 StandEntity.punch aimed again when the target had gone: the mob in reach kept "
 									+ second.getHealth() + "/" + secondHealth + ", the gone one " + first.getHealth()
 									+ "/" + firstHealth + ", struck " + action.punchedTarget.getType());
+				}
+				finally {
+					scene.close();
+				}
+				helper.succeed();
+			});
+		}
+		catch (RuntimeException | Error failure) {
+			scene.close();
+			throw failure;
+		}
+	}
+
+	// 1.16 TheWorldTSHeavyAttack.standPerform aimed again through StandEntity.aimWithThisOrUser: the precision ray, not
+	// the owner's strict crosshair, which covers only the default barrage and the ordinary punches
+	@GameTest(template = "empty", timeoutTicks = 40)
+	public static void tsPunchFreshAimTakesAMobBesideTheCrosshair(GameTestHelper helper) {
+		Scene scene = new Scene(helper, 0);
+		try {
+			Cow first = scene.mob(EntityType.COW.create(scene.level), scene.start.add(0, 0.5, 4));
+			EntityActionInstance action = scene.press();
+			helper.assertTrue(blinkTarget(action) == first, "fixture: the punch did not go for the cow ahead: " + describe(action));
+			first.moveTo(first.getX(), first.getY(), first.getZ() + 30, 0, 0);
+			Cow beside = scene.mob(EntityType.COW.create(scene.level),
+					new Vec3(scene.start.x + 1.0, scene.start.y + 0.5, scene.stand.getZ() + 1));
+			Vec3 eyes = scene.user.getEyePosition();
+			helper.assertTrue(beside.getBoundingBox().clip(eyes, eyes.add(scene.user.getViewVector(1).scale(5))).isEmpty(),
+					"fixture: the cow is on the crosshair");
+			helper.assertTrue(StandEntityPunchAbility.userPrecisionRayTarget(scene.stand, scene.user).getMainEntity() == beside,
+					"fixture: the precision ray does not take the cow beside the crosshair");
+			float firstHealth = first.getHealth();
+			float besideHealth = beside.getHealth();
+			helper.runAfterDelay(12, () -> {
+				try {
+					helper.assertTrue(action.punchedTarget != null,
+							"fixture: the time-stop punch did not strike: " + action.getPhase());
+					helper.assertTrue(beside.getHealth() < besideHealth && first.getHealth() == firstHealth,
+							"1.16 aimed the time-stop punch again with the precision ray when its target had gone: the cow"
+									+ " beside the crosshair kept " + beside.getHealth() + "/" + besideHealth + ", struck "
+									+ action.punchedTarget.getType());
 				}
 				finally {
 					scene.close();

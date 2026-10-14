@@ -426,8 +426,20 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 			ActionTarget target = strikeTarget(stand, targetAfterBlink);
 			if (target.isEmpty(stand.level())) {
 				// 1.16 StandEntity.punch: a target the strike cannot reach is replaced by a fresh aim
-				target = strikeTarget(stand, super.getPunchTarget(stand));
+				target = strikeTarget(stand, freshAim(stand));
 			}
+			return target;
+		}
+
+		// 1.16 aimWithThisOrUser: the precision ray, walls blocking; the owner's strict crosshair is for the ordinary punches
+		private ActionTarget freshAim(StandEntity stand) {
+			if (isGrabVariation()) {
+				return super.getPunchTarget(stand);
+			}
+			ActionTarget target = StandEntityPunchAbility.getFreshPunchTarget(
+					stand, getActionTargetSnapshot(stand.level()),
+					StandEntityPunchAbility.shouldRetainPunchTarget(stand, ability), true);
+			setActionTargetSnapshot(target);
 			return target;
 		}
 
