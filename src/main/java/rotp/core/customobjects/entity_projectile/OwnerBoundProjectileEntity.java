@@ -6,9 +6,9 @@ import java.util.List;
 import java.util.Optional;
 
 import rotp.core.client.ClientProxy;
+import rotp.core.util.functions.DamageUtil;
 
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
@@ -170,27 +170,8 @@ public abstract class OwnerBoundProjectileEntity extends ModdedProjectileEntity 
 
 	@Override
 	protected boolean hurtTarget(Entity target, DamageSource dmgSource, float dmgAmount) {
-		if (shouldHurtThroughInvulTicks() || !dmgSource.is(DamageTypeTags.BYPASSES_COOLDOWN)
-				|| !(target instanceof LivingEntity living)) {
-			return super.hurtTarget(target, dmgSource, dmgAmount);
-		}
-		float lastHurt = living.lastHurt;
-		if (living.invulnerableTime > 10) {
-			if (dmgAmount <= lastHurt) {
-				return false;
-			}
-			int cooldown = living.invulnerableTime;
-			boolean hurt = super.hurtTarget(target, dmgSource, dmgAmount - lastHurt);
-			living.invulnerableTime = cooldown;
-			living.lastHurt = hurt ? dmgAmount : lastHurt;
-			return hurt;
-		}
-		boolean hurt = super.hurtTarget(target, dmgSource, dmgAmount);
-		// 1.16 stored the amount before any reduction, 1.21 stores it after LivingIncomingDamageEvent
-		if (hurt && living.lastHurt < dmgAmount) {
-			living.lastHurt = dmgAmount;
-		}
-		return hurt;
+		return shouldHurtThroughInvulTicks() ? super.hurtTarget(target, dmgSource, dmgAmount)
+				: DamageUtil.hurtRespectingCooldown(target, dmgSource, dmgAmount);
 	}
 
 	@Override

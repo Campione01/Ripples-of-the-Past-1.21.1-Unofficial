@@ -124,10 +124,11 @@ public class DamageUtil {
 	}
 
 	/**
-	 * @deprecated Turns out, there is now a vanilla damage type tag for it now (minecraft:bypasses_cooldown). 
-	 * Though tags are a bit inconvenient because you have to keep them in mind when making attacks, but eh, probably better for compatibility.
+	 * 1.16 DamageUtil.hurtThroughInvulTicks: the hit ignores the target's hurt cooldown and leaves it as it was, so the
+	 * target's invulnerableTime and lastHurt are put back afterwards. The minecraft:bypasses_cooldown tag is not a
+	 * replacement: a plain hurt with that tag also gets through the cooldown, but starts a new 20-tick cooldown and
+	 * stores its amount as the last hit, which cuts or refuses the next ordinary hit.
 	 */
-	@Deprecated
 	public static boolean hurtThroughInvulTicks(Entity target, DamageSource dmgSource, float dmgAmount) {
 		if (target.level().isClientSide()) return false;
 		

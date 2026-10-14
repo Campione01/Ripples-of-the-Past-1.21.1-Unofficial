@@ -303,7 +303,22 @@ public class MRCrossfireHurricaneEntity extends ModdedProjectileEntity {
 
 		@Override
 		protected void hurtEntity(Entity entity, float damage, Vec3 knockbackVec) {
-			super.hurtEntity(entity, damage, knockbackVec);
+			// 1.16: the small blast's source bypassed the hurt cooldown in LivingAttackEvent through hurtThroughInvulTicks,
+			// so a target already in its cooldown keeps it and its last hit
+			if (sourceProjectile != null && sourceProjectile.special && entity.invulnerableTime > 0) {
+				int invulTime = entity.invulnerableTime;
+				LivingEntity living = entity instanceof LivingEntity livingEntity ? livingEntity : null;
+				float lastHurt = living != null ? living.lastHurt : 0;
+				entity.invulnerableTime = 0;
+				super.hurtEntity(entity, damage, knockbackVec);
+				entity.invulnerableTime = invulTime;
+				if (living != null) {
+					living.lastHurt = lastHurt;
+				}
+			}
+			else {
+				super.hurtEntity(entity, damage, knockbackVec);
+			}
 
 			LivingEntity magiciansRed = sourceProjectile != null ? sourceProjectile.getOwner() : null;
 			if (!entity.is(magiciansRed)) {

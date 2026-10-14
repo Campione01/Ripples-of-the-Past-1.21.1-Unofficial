@@ -226,7 +226,7 @@ public abstract class DamagingEntity extends Projectile implements IEntityWithCo
 	}
 
 	protected boolean hurtTarget(Entity target, DamageSource dmgSource, float dmgAmount) {
-		return target.hurt(dmgSource, dmgAmount);
+		return DamageUtil.hurtThroughInvulTicks(target, dmgSource, dmgAmount);
 	}
 
 	protected DamageSource getDamageSource(LivingEntity owner) {
