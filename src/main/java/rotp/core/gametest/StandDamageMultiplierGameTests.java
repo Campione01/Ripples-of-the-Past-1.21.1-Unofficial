@@ -132,6 +132,8 @@ public final class StandDamageMultiplierGameTests {
             cases.add(new Spec("native-angelo-SC-M" + m, Kind.ANGELO, "crazy_diamond", m, false, false));
             cases.add(new Spec("native-emerald-M" + m, Kind.PROJECTILE, "hierophant_green", m, false, false));
         }
+        // Below 1, 1.16 scaled the whole raw hit and capped the non-lethal Angelo hit only at death.
+        cases.add(new Spec("native-angelo-SC-M0.5", Kind.ANGELO, "crazy_diamond", 0.5, false, false));
         for (Kind kind : new Kind[] {Kind.LIGHT, Kind.BARRAGE, Kind.CHARGED, Kind.GRAB, Kind.KICK, Kind.SPLASH}) {
             for (double m : new double[] {1, 2}) {
                 cases.add(new Spec("native-" + kind + "-M" + m, kind, kind == Kind.KICK ? "the_world" : "star_platinum", m, false, false));
@@ -493,7 +495,7 @@ public final class StandDamageMultiplierGameTests {
                     }
                     case CHARGED -> Math.max((float) caster.stand.getAttackDamage(), 1) * 1.5F;
                     case SPLASH -> (float) caster.stand.getAttackDamage() * 0.4F;
-                    case ANGELO, ARMORED, TRANSPORT -> Math.min(Math.max((float) caster.stand.getAttackDamage(), 1), Math.max(initialHealth - EPSILON, 0));
+                    case ANGELO, ARMORED, TRANSPORT -> Math.max((float) caster.stand.getAttackDamage(), 1);
                     case PROJECTILE, CALLER, BOAT -> 1;
                     case SHIELD -> 2;
                     default -> Math.max((float) caster.stand.getAttackDamage(), 1);
@@ -526,7 +528,7 @@ public final class StandDamageMultiplierGameTests {
             if (victimActor == null || !isAngelo() || action == null || action.punchedTarget == null) return;
             if (entity == caster.stand && immediate == null) {
                 if (captured == null) {
-                    raw = Math.min(Math.max((float) caster.stand.getAttackDamage(), 1), initialHealth - EPSILON);
+                    raw = Math.max((float) caster.stand.getAttackDamage(), 1);
                     pendingAtHit = angelo != null && angelo.getTarget() == userTarget() && angelo.preventTargetDeath()
                             && UserStandEffects.getEffectsTargetedBy(userTarget(), ModStandAbilities.EFFECT_CD_PUNCH_ANGELO_ROCK.get()).anyMatch(effect -> effect == angelo);
                     hitBodyAge = victimActor.stand.tickCount;
