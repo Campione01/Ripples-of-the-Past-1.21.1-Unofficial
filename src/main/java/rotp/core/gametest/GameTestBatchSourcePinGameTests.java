@@ -68,6 +68,8 @@ public final class GameTestBatchSourcePinGameTests {
 			GameTestBatches.HELD_TIME_STOP_EYE_BEAM,
 			"VampirismEyeBeamTimeStopGameTests.stoppedOwnersShotAndBoundBeamsWaitForTimeToResume",
 			GameTestBatches.HELD_TIME_STOP_EYE_BEAM);
+	// An ISOLATED test removes its held stop when it fails or times out too: a GameTestListener on its test info.
+	private static final String CLEANS_UP_ON_FAILURE = "testInfo.addListener(";
 	// Detector self-check for the held stops: one that is held in place, one that is moved far away.
 	private static final String MUST_HOLD_IN_PLACE = "TheWorldHeavyShoutAndImpactGameTests.frozenBoatHurtByHeavyPunchSoundsOnTimeResume";
 	private static final String MUST_MOVE_AWAY = "TimeStopLowStaminaGameTests.lowStaminaTimeStopStartsEmptiesTheBarAndEndsOnItsFirstTick";
@@ -121,10 +123,19 @@ public final class GameTestBatchSourcePinGameTests {
 		if (!marks(deferring, MUST_MOVE_AWAY) || !marks(movingAway, MUST_MOVE_AWAY)) {
 			problems.add("the moved-stop detector lost " + MUST_MOVE_AWAY);
 		}
+		Map<String, Set<String>> cleaningUp = reaching(sources.bodies(), (file, body) -> body.contains(CLEANS_UP_ON_FAILURE));
+		List<String> noCleanup = new ArrayList<>();
 		for (String isolated : ISOLATED.keySet()) {
 			if (!marks(starting, isolated)) {
 				problems.add("the time-stop detector lost the isolated " + isolated);
 			}
+			if (!marks(cleaningUp, isolated)) {
+				noCleanup.add(isolated);
+			}
+		}
+		if (!noCleanup.isEmpty()) {
+			problems.add("these gametests hold a time stop over their cells and register no GameTestListener to remove it"
+					+ " when they fail or time out, so it freezes the next batch: " + noCleanup);
 		}
 		ClassLoader loader = GameTestBatchSourcePinGameTests.class.getClassLoader();
 		List<String> wrongBatch = new ArrayList<>();

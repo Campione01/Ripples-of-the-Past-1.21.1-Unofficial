@@ -36,6 +36,9 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.gametest.framework.GameTestInfo;
+import net.minecraft.gametest.framework.GameTestListener;
+import net.minecraft.gametest.framework.GameTestRunner;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -125,11 +128,21 @@ public final class TheWorldHeavyShoutAndImpactGameTests {
 		helper.assertTrue(level.addFreshEntity(boat), "Could not add the boat");
 		int stopId = caster.user.getId();
 		NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, PlayLevelSoundEvent.AtPosition.class, listener);
+		boolean[] cleaned = {false};
 		Runnable cleanup = () -> {
+			if (cleaned[0]) return;
+			cleaned[0] = true;
 			NeoForge.EVENT_BUS.unregister(listener);
 			stop.removeInstance(stopId);
 			close(caster, owned);
 		};
+		// a punch that never lands times the test out: its stop and scene must not outlive it into the next batch
+		helper.testInfo.addListener(new GameTestListener() {
+			@Override public void testStructureLoaded(GameTestInfo test) {}
+			@Override public void testPassed(GameTestInfo test, GameTestRunner runner) { cleanup.run(); }
+			@Override public void testFailed(GameTestInfo test, GameTestRunner runner) { cleanup.run(); }
+			@Override public void testAddedForRerun(GameTestInfo oldTest, GameTestInfo newTest, GameTestRunner runner) { cleanup.run(); }
+		});
 		EntityActionInstance[] heavy = new EntityActionInstance[1];
 		try {
 			unlock(helper, caster, "time_stop");

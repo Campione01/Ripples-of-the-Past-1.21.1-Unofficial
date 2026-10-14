@@ -187,6 +187,7 @@ public final class CoreDetachedHeavyPulseGameTests {
     @GameTest(template = "empty", timeoutTicks = 5000, batch = GameTestBatches.DETACHED_HEAVY_TIME_STOP)
     public static void registeredRmbSeparatesNativeExtraAndAdmittedTail(GameTestHelper helper) {
         Suite suite = new Suite(helper);
+        helper.testInfo.addListener(suite);
         try {
             log("IDENTITY heavy=" + sha(StandEntityHeavyPunch.class) + " uppercut=" + sha(Uppercut.class)
                     + " world=" + sha(TheWorldHeavyPunch.class) + " kick=" + sha(TheWorldKick.class) + " ts=" + sha(TheWorldTSPunch.class)
@@ -251,7 +252,7 @@ public final class CoreDetachedHeavyPulseGameTests {
 
         Suite(GameTestHelper helper) {
             helper.assertTrue(active == null, "Overlapping detached pulse suites");
-            this.helper = helper; oldMultiplier = multiplier.get(); active = this; helper.testInfo.addListener(this);
+            this.helper = helper; oldMultiplier = multiplier.get(); active = this;
         }
 
         void listen() {
