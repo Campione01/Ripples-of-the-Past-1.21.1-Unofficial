@@ -377,7 +377,18 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 					hurt = attemptHeavyPunch(stand, targetEntity, targetEntity, dmgSource, dmgAmount, true);
 				}
 				else {
+					// 1.16 StandEntityPunch.knockbackTarget: every heavy punch sets an admitted non-living target's
+					// motion, with the subclass's additional knockback and angles, before the wall impact is armed
+					addKnockback(dmgSource);
+					DamageSourceModified knockback = (DamageSourceModified) dmgSource;
+					float halfAdditional = Math.max(knockback.jojo_ripples$addKnockback(), 0) * 0.5F;
+					float xRot = knockback.jojo_ripples$knockbackXRotDeg();
+					float yRot = knockback.jojo_ripples$knockbackYRotDeg();
+					boolean admitted = dmgAmount > 0 && stand.canAttackEntity(targetEntity);
 					hurt = standEntityAttack(stand, targetEntity, dmgSource, dmgAmount);
+					if (admitted) {
+						applyDetachedPunchKnockback(stand, targetEntity, targetEntity, halfAdditional, xRot, yRot, hurt);
+					}
 				}
 			}
 			if (hurt) {

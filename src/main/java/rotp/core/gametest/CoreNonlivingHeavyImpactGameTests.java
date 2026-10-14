@@ -92,7 +92,9 @@ public final class CoreNonlivingHeavyImpactGameTests {
 
     private enum Kind {
         BOAT_WALL, BOAT_M0, BOAT_REFUSED, LIVING_WALL, LIVING_CANCELED,
-        BOAT_REMOVED, BOAT_NO_WALL, BOAT_RULE_OFF, BOAT_EXPLOSION_CANCELED, KICK_SECONDARY;
+        BOAT_REMOVED, BOAT_NO_WALL, BOAT_RULE_OFF, BOAT_EXPLOSION_CANCELED, KICK_SECONDARY,
+        // Crazy Diamond's heavy keeps ordinary (non-detached) knockback: 1.16 knockbackTarget still pushed the boat
+        CD_BOAT_WALL;
         boolean living() { return this == LIVING_WALL || this == LIVING_CANCELED; }
         boolean refused() { return this == BOAT_REFUSED || this == LIVING_CANCELED; }
         boolean wall() { return this != BOAT_NO_WALL && this != BOAT_REMOVED; }
@@ -315,7 +317,7 @@ public final class CoreNonlivingHeavyImpactGameTests {
             if (kind.wall()) for (int x = -2; x <= 2; x++) for (int y = 0; y <= 2; y++) {
                 BlockPos pos = set(origin.add(x, y, 2.5), Blocks.GLASS.defaultBlockState()); wall.add(pos);
             }
-            actor(kind == Kind.KICK_SECONDARY ? "the_world" : "star_platinum");
+            actor(kind == Kind.KICK_SECONDARY ? "the_world" : kind == Kind.CD_BOAT_WALL ? "crazy_diamond" : "star_platinum");
             if (kind.living()) {
                 Cow cow = EntityType.COW.create(level); suite.premise(cow != null, "native cow created");
                 cow.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(0);
@@ -353,7 +355,7 @@ public final class CoreNonlivingHeavyImpactGameTests {
             suite.premise(type != null && StandPowerTransitions.insert(power, new StandInstance(type)).status() == StandPowerTransitions.Status.APPLIED, "public registry Stand grant");
             power.setResolveLevel(2); suite.premise(type.summon(user, power), "actual native summon");
             StandEntity original = power.getSummonedStandEntity(); suite.premise(original != null, "native summon result"); original.discard();
-            stand = new ObservedAttackerStand(this, name.equals("the_world")); stand.withStandType(type);
+            stand = new ObservedAttackerStand(this, name); stand.withStandType(type);
             power.setSummonedStand(stand); stand.copySharedEffectsFromUser(user);
             ((EntityStandType) type).finalizeStandSummonFromAction(user, power, stand, true);
             suite.premise(stand.getUser() == user && power.getSummonedStandEntity() == stand && stand.isAddedToLevel(), "public summon/finalize installs passive helper observer");
@@ -814,8 +816,12 @@ public final class CoreNonlivingHeavyImpactGameTests {
 
     private static final class ObservedAttackerStand extends StandEntity {
         final Scene scene;
-        ObservedAttackerStand(Scene scene, boolean world) {
-            super(world ? ModEntityTypes.THE_WORLD_STAND.get() : ModEntityTypes.STAR_PLATINUM_STAND.get(), scene.level); this.scene = scene;
+        ObservedAttackerStand(Scene scene, String name) {
+            super(switch (name) {
+                case "the_world" -> ModEntityTypes.THE_WORLD_STAND.get();
+                case "crazy_diamond" -> ModEntityTypes.CRAZY_DIAMOND_STAND.get();
+                default -> ModEntityTypes.STAR_PLATINUM_STAND.get();
+            }, scene.level); this.scene = scene;
         }
         @Override public boolean hurtWithStandAttack(Entity target, DamageSource source, float raw) {
             float boatBefore = target instanceof Boat boat ? boat.getDamage() : 0;
