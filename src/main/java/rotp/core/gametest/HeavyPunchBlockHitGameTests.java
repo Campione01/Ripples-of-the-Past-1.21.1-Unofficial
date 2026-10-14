@@ -15,6 +15,7 @@ import rotp.core.impl.stands.theworld.TheWorldKickAbility.TheWorldKick;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModEntityAttributes;
 import rotp.core.init.ModGamerules;
+import rotp.core.init.ModSoundEvents;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.controls.InputMethod;
@@ -114,6 +115,16 @@ public final class HeavyPunchBlockHitGameTests {
 		});
 	}
 
+	// 1.16 HeavyPunchBlockInstance.playImpactSound returned true: the heavy impact sounds on any block
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH)
+	public static void heavyPunchOnAZeroHardnessBlockPlaysItsImpact(GameTestHelper helper) {
+		new Scene(helper, "star_platinum", 16, false, Blocks.SLIME_BLOCK.defaultBlockState()).run(scene -> {
+			helper.assertTrue(scene.level().getBlockState(scene.block).isAir(), "Fixture: the slime block still stands");
+			helper.assertTrue(scene.impactSounds == 1, "A heavy punch on a slime block (hardness 0) played "
+					+ scene.impactSounds + " heavy impact sounds; 1.16 played one");
+		});
+	}
+
 	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH)
 	public static void heavyPunchBlastLeavesNoStandImmunity(GameTestHelper helper) {
 		Scene scene = new Scene(helper, "star_platinum", 16, false);
@@ -162,10 +173,15 @@ public final class HeavyPunchBlockHitGameTests {
 		Runnable afterPress = () -> {};
 		EntityActionInstance action;
 		int hitSounds;
+		int impactSounds;
 		int ticks;
 		boolean finished;
 
 		Scene(GameTestHelper helper, String standId, double strength, boolean kick) {
+			this(helper, standId, strength, kick, Blocks.OBSIDIAN.defaultBlockState());
+		}
+
+		Scene(GameTestHelper helper, String standId, double strength, boolean kick, BlockState struck) {
 			this.helper = helper;
 			this.kick = kick;
 			origin = Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(1, 2, 1)));
@@ -201,12 +217,17 @@ public final class HeavyPunchBlockHitGameTests {
 			user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get()).standAttackTargetLock = true;
 			block = BlockPos.containing(origin.add(0, 1, 2));
 			oldBlock = level().getBlockState(block);
-			level().setBlock(block, Blocks.OBSIDIAN.defaultBlockState(), Block.UPDATE_CLIENTS);
+			level().setBlock(block, struck, Block.UPDATE_CLIENTS);
 			Vec3 centre = Vec3.atCenterOf(block);
 			Consumer<PlayLevelSoundEvent.AtPosition> sounds = event -> {
 				if (event.getLevel() == level() && event.getSource() == SoundSource.BLOCKS
 						&& event.getPosition().distanceToSqr(centre) < 0.01) {
 					hitSounds++;
+				}
+				if (event.getLevel() == level() && event.getSound() != null
+						&& event.getSound().value() == ModSoundEvents.STAR_PLATINUM_PUNCH_HEAVY.get()
+						&& event.getPosition().distanceToSqr(centre) < 0.01) {
+					impactSounds++;
 				}
 			};
 			NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, PlayLevelSoundEvent.AtPosition.class, sounds);

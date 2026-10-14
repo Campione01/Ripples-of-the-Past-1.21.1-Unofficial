@@ -333,7 +333,8 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 
 					boolean entityTarget = target.getType() == TargetType.ENTITY;
 					Vec3 impactSoundPos = target.isEmpty(level) ? null : target.getCenterPos();
-					if (target.getType() == TargetType.BLOCK && StandEntityPunchAbility.playHitSound(target, level)) {
+					// 1.16 HeavyPunchBlockInstance.playImpactSound: a block always sounds, whatever its hardness
+					if (target.getType() == TargetType.BLOCK) {
 						StandUtil.broadcastSound((ServerLevel) level, impactSoundPos, 
 								getHeavyPunchImpactSound(target), true, standPower,
 								stand.getSoundSource(), 1, 1);
