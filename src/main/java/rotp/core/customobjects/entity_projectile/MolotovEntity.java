@@ -77,7 +77,8 @@ public class MolotovEntity extends ThrowableItemProjectile {
 		super.onHitEntity(result);
 		if (!level().isClientSide()) {
 			Entity entity = result.getEntity();
-			entity.hurt(molotovDamageSource(), 2.0F);
+			// 1.16 dealt a plain IN_FIRE hurt here, which the target's hurt cooldown refused or cut
+			DamageUtil.hurtRespectingCooldown(entity, molotovDamageSource(), 2.0F);
 			entity.igniteForSeconds(10.0F);
 			setBlocksOnFire(blockPosition(), 2);
 			setEntitiesOnFire(blockPosition(), 2.0D);
