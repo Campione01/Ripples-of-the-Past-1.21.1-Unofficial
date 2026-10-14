@@ -383,7 +383,7 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 		LivingEntity user = event.getEntity();
 		DamageSource dmgSource = event.getSource();
 		if (user.level().isClientSide() || dmgSource.getDirectEntity() == null
-				|| damageBeforeArmor(event) <= 0 || DamageSourceModified.isCountered(dmgSource)) {
+				|| damageBeforeArmor(event) <= 0 || DamageSourceModified.isCountered(dmgSource, user)) {
 			return;
 		}
 		float dmgAmount = event.getNewDamage();

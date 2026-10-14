@@ -812,7 +812,7 @@ public class ResolveCounter {
     public static void resolveOnTakingDamage(LivingDamageEvent.Pre event) {
     	// 1.16 LivingDamageEvent never fired for a hit the Stand's guard took whole (blockDamage cancelled it) or a
     	// counter cancelled at LivingHurtEvent
-    	if (StandUserGuard.blockedWhole(event.getContainer()) || DamageSourceModified.isCountered(event.getSource())) {
+    	if (StandUserGuard.blockedWhole(event.getContainer()) || DamageSourceModified.isCountered(event.getSource(), event.getEntity())) {
     		return;
     	}
     	LivingEntity target = event.getEntity();

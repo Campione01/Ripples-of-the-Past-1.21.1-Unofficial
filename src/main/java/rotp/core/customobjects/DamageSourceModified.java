@@ -11,6 +11,7 @@ import rotp.core.util.functions.MathUtil;
 
 import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.phys.Vec3;
@@ -52,15 +53,17 @@ public interface DamageSourceModified {
 	default void jojo_ripples$setFixedDamage(boolean fixedDamage) {}
 	default boolean jojo_ripples$isFixedDamage() { return false; }
 	/**
-	 * A hit a counter (C-Moon's gravity counter) brought to nothing at LivingDamageEvent.Pre, set by that counter. The
-	 * 1.16 counter cancelled the hit at LivingHurtEvent, so it never reached the user's Resolve bookkeeping
-	 * (ResolveCounter#resolveOnTakingDamage) nor stopped a held action (EntityActionAbility#onUserGettingAttacked).
+	 * The target on which a counter (C-Moon's gravity counter) brought this hit to nothing at LivingDamageEvent.Pre,
+	 * set by that counter. The 1.16 counter cancelled the hit at LivingHurtEvent, so it never reached that target's
+	 * Resolve bookkeeping (ResolveCounter#resolveOnTakingDamage) nor stopped its held action
+	 * (EntityActionAbility#onUserGettingAttacked). Only that target: vanilla hurts every target of a sweep and every
+	 * victim of an explosion with one source, and 1.16 cancelled the hit for the countering target alone.
 	 */
-	default void jojo_ripples$setCountered(boolean countered) {}
-	default boolean jojo_ripples$isCountered() { return false; }
+	default void jojo_ripples$setCounteredTarget(@Nullable Entity target) {}
+	default boolean jojo_ripples$isCounteredOn(Entity target) { return false; }
 
-	public static boolean isCountered(DamageSource dmgSource) {
-		return dmgSource instanceof DamageSourceModified modified && modified.jojo_ripples$isCountered();
+	public static boolean isCountered(DamageSource dmgSource, Entity target) {
+		return dmgSource instanceof DamageSourceModified modified && modified.jojo_ripples$isCounteredOn(target);
 	}
 
 	

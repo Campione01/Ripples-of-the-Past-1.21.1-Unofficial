@@ -27,6 +27,7 @@ import rotp.core.subsystems.target.ActionTarget;
 
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -45,7 +46,9 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * 1.16 C-Moon's gravity counter cancelled the hit at LivingHurtEvent, so LivingDamageEvent never fired for it: the
  * user's Resolve bookkeeping (ResolveCounter.onGettingAttacked) and the held action stop
  * (PowerBaseImpl.onUserGettingAttacked) did not see it. The port's counter zeroes the hit at LivingDamageEvent.Pre
- * (HIGH) and marks its source countered; a hit zeroed there without the mark still reaches both, as the controls show.
+ * (HIGH) and marks its source countered on its own target; a hit zeroed there without the mark still reaches both, as
+ * the controls show. Vanilla hurts every target of a sweep or an explosion with one source; 1.16 cancelled the hit for
+ * the countering target only, so another target of the same source still records it and still drops its hold.
  */
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -85,6 +88,100 @@ public final class CounteredHitGameTests {
 		}
 		finally {
 			counter.close();
+			if (attacker != null) attacker.discard();
+			user.discard();
+		}
+		helper.succeed();
+	}
+
+	@GameTest(template = "empty")
+	public static void anotherTargetOfACounteredSourceRecordsResolve(GameTestHelper helper) {
+		Player user = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
+		Cow countering = EntityType.COW.create(helper.getLevel());
+		Pig attacker = EntityType.PIG.create(helper.getLevel());
+		Counter counter = new Counter(countering);
+		try {
+			place(helper, user, new Vec3(1.5, 2, 1.5), 0.0F);
+			helper.assertTrue(countering != null && attacker != null, "fixture: no countering cow or attacker");
+			countering.setNoAi(true);
+			place(helper, countering, new Vec3(3.5, 2, 1.5), 90.0F);
+			attacker.setNoAi(true);
+			place(helper, attacker, new Vec3(1.5, 2, 3.5), 180.0F);
+			StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("magicians_red"));
+			StandPower power = PowerClass.STAND.attachGet(user);
+			helper.assertTrue(type != null && StandPowerTransitions.insert(power, new StandInstance(type)).status()
+					== StandPowerTransitions.Status.APPLIED && power.usesResolve(), "fixture: Magician's Red with Resolve not granted");
+			ResolveCounter resolve = power.resolveCounter;
+
+			// one source for both, as a sword sweep or a blast
+			DamageSource sweep = user.damageSources().mobAttack(attacker);
+			counter.hit(sweep, true);
+			helper.assertTrue(DamageSourceModified.isCountered(sweep, countering), "fixture: the counter did not mark its hit");
+			user.invulnerableTime = 0;
+			user.hurt(sweep, HIT);
+			helper.assertTrue(resolve.hpOnGettingAttacked.isPresent(),
+					"1.16 cancelled the hit for the countering target only, but the user hurt by the same source after it"
+							+ " recorded no Resolve bookkeeping");
+		}
+		finally {
+			counter.close();
+			if (countering != null) countering.discard();
+			if (attacker != null) attacker.discard();
+			user.discard();
+		}
+		helper.succeed();
+	}
+
+	@GameTest(template = "empty")
+	public static void anotherTargetOfACounteredSourceDropsItsHold(GameTestHelper helper) {
+		Player user = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
+		Cow prey = EntityType.COW.create(helper.getLevel());
+		Cow countering = EntityType.COW.create(helper.getLevel());
+		Pig attacker = EntityType.PIG.create(helper.getLevel());
+		Counter counter = new Counter(countering);
+		LivingComponentAction component = LivingComponentAction.getComponent(user);
+		boolean held = false;
+		try {
+			place(helper, user, new Vec3(1.5, 2, 1.5), 0.0F);
+			helper.assertTrue(prey != null && countering != null && attacker != null, "fixture: no prey, countering cow or attacker");
+			prey.setNoAi(true);
+			place(helper, prey, new Vec3(1.5, 2, 3.0), 180.0F);
+			countering.setNoAi(true);
+			place(helper, countering, new Vec3(0.5, 2, 3.5), 180.0F);
+			attacker.setNoAi(true);
+			place(helper, attacker, new Vec3(3.5, 2, 1.5), 90.0F);
+
+			PlayerPower power = PowerClass.PLAYER_POWER.attachGet(user);
+			power.setPowerType(ModPlayerPowers.VAMPIRISM.get());
+			Ability drain = power.getAbility("vampirism_blood_drain");
+			component.entityAim.setTarget(new ActionTarget(prey));
+			helper.assertTrue(drain instanceof VampirismBloodDrainAbility && drain.checkConditions(power).isPositive(),
+					"fixture: Blood Drain is not usable on the cow");
+			HeldInputEntry entry = AbilityInput.keyPress(KEY, drain, user, null, InputMethod.HOLD,
+					0.0F, BufferingState.clickOnly(), drain.getAbilityId());
+			held = true;
+			EntityActionInstance action = component.getAction();
+			helper.assertTrue(entry != null && action != null && entry.action == action
+					&& action.getPhase() == ActionPhase.PERFORM, "fixture: the Blood Drain hold did not start");
+
+			DamageSource sweep = user.damageSources().mobAttack(attacker);
+			counter.hit(sweep, true);
+			helper.assertTrue(DamageSourceModified.isCountered(sweep, countering), "fixture: the counter did not mark its hit");
+			helper.assertTrue(component.getAction() == action && !action.isOver(),
+					"fixture: the countered hit on the cow stopped the user's Blood Drain");
+			user.invulnerableTime = 0;
+			user.hurt(sweep, HIT);
+			helper.assertTrue(action.isOver() || component.getAction() != action,
+					"1.16 cancelled the hit for the countering target only, but the user hurt by the same source after it"
+							+ " kept its held Blood Drain");
+		}
+		finally {
+			counter.close();
+			if (held) AbilityInput.keyRelease(KEY, user);
+			component.entityAim.setTarget(ActionTarget.EMPTY);
+			component.setAction(null, user, SyncType.NO_SYNC);
+			if (prey != null) prey.discard();
+			if (countering != null) countering.discard();
 			if (attacker != null) attacker.discard();
 			user.discard();
 		}
@@ -163,7 +260,7 @@ public final class CounteredHitGameTests {
 				if (event.getEntity() == target) {
 					event.setNewDamage(0.0F);
 					if (markCountered) {
-						((DamageSourceModified) event.getSource()).jojo_ripples$setCountered(true);
+						((DamageSourceModified) event.getSource()).jojo_ripples$setCounteredTarget(target);
 					}
 				}
 			};
@@ -171,9 +268,13 @@ public final class CounteredHitGameTests {
 		}
 
 		void hit(LivingEntity attacker, boolean countered) {
+			hit(target.damageSources().mobAttack(attacker), countered);
+		}
+
+		void hit(DamageSource source, boolean countered) {
 			markCountered = countered;
 			target.invulnerableTime = 0;
-			target.hurt(target.damageSources().mobAttack(attacker), HIT);
+			target.hurt(source, HIT);
 		}
 
 		@Override

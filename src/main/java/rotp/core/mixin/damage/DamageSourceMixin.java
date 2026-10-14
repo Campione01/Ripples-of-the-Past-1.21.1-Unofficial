@@ -1,5 +1,7 @@
 package rotp.core.mixin.damage;
 
+import javax.annotation.Nullable;
+
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -31,7 +33,7 @@ public class DamageSourceMixin implements DamageSourceModified {
 	private boolean jojo_ripples$nonLethal = false;
 	private boolean jojo_ripples$breakStandGuard = false;
 	private boolean jojo_ripples$fixedDamage = false;
-	private boolean jojo_ripples$countered = false;
+	private int jojo_ripples$counteredTargetId = -1;
 
 	@Override
 	public void jojo_ripples$modifyKnockback(float add, float multiply) {
@@ -156,13 +158,13 @@ public class DamageSourceMixin implements DamageSourceModified {
 	}
 
 	@Override
-	public void jojo_ripples$setCountered(boolean countered) {
-		this.jojo_ripples$countered = countered;
+	public void jojo_ripples$setCounteredTarget(@Nullable Entity target) {
+		this.jojo_ripples$counteredTargetId = target != null ? target.getId() : -1;
 	}
 
 	@Override
-	public boolean jojo_ripples$isCountered() {
-		return jojo_ripples$countered;
+	public boolean jojo_ripples$isCounteredOn(Entity target) {
+		return jojo_ripples$counteredTargetId != -1 && target.getId() == jojo_ripples$counteredTargetId;
 	}
 
 	// 1.16 StandEntityDamageSource.scalesWithDifficulty: a hit whose direct attacker is a non-player mob (the Stand)
