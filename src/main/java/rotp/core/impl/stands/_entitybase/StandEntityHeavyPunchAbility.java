@@ -9,6 +9,7 @@ import java.util.Optional;
 
 import javax.annotation.Nullable;
 
+import rotp.core.JojoModConfig;
 import rotp.core.client.ClientGlobals;
 import rotp.core.client.sound.ClientsideSoundsHelper;
 import rotp.core.client.sound.sounds.EntityLingeringSoundInstance;
@@ -43,6 +44,7 @@ import rotp.core.subsystems.entity_grab.LivingComponentGrab;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.AimingEntity;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
+import rotp.core.util.functions.DamageUtil;
 import rotp.core.util.functions.JojoModUtil;
 import rotp.core.util.functions.MathUtil;
 import rotp.core.util.functions_network.StreamCodecs;
@@ -63,8 +65,11 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.Brain;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Explosion;
 import net.minecraft.world.level.Level;
@@ -511,8 +516,11 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 				DamageSource dmgSource, float dmgAmount, float explRadius) {
 			BlockPos blockPos = target.getBlockPos();
 			Direction face = target.getFace();
+			// 1.16 HeavyPunchBlockInstance.doHit: the plain block punch (StandEntity.breakBlock) comes before the blast
+			StandEntityPunchAbility.StandEntityPunch.breakStandBlock(level, blockPos, stand, !isUserCreative());
 			Vec3 pos = Vec3.atCenterOf(blockPos).add(Vec3.atLowerCornerOf(face.getNormal()).scale(0.6));
-			DamageSource aoeDmgSource = dmgSource;
+			// 1.16 explosionDmgSource: a fresh Stand source, without the punch's Stand invulnerability ticks
+			DamageSource aoeDmgSource = makePunchDamageSource();
 			float aoeDmg = calcExplosionDamage(stand);
 			HeavyPunchExplosion explosion = new HeavyPunchExplosion(level, stand, 
 					new ActionTarget(blockPos, face), stand.getLookAngle(), 
@@ -698,7 +706,7 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 		protected void hurtEntity(Entity entity, float damage, Vec3 knockback) {
 			if (attackerAsStand != null) {
 				// 1.16 StandEntityHeavyAttack: the explosion used hurtTarget, no shield wear
-				EntityActionInstance.standEntityAttack(attackerAsStand, entity, damageSource, damage, false);
+				hurtTarget(attackerAsStand, entity, damageSource, damage);
 
 				entity.setDeltaMovement(entity.getDeltaMovement().add(knockback));
 				if (entity instanceof Player player) {
@@ -707,6 +715,31 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 					}
 				}
 			}
+		}
+
+		/**
+		 * 1.16 StandEntity.hurtTarget: the Stand damage multiplier through the target's hurt cooldown, without the
+		 * Stand-attack immunity the punches check and set, then the usual aggro and enchantment hooks.
+		 */
+		private static boolean hurtTarget(StandEntity stand, Entity target, DamageSource source, float damage) {
+			float multiplier = JojoModConfig.getCommonConfigInstance(false).standDamageMultiplier.get().floatValue();
+			boolean hurt = DamageUtil.hurtThroughInvulTicks(target, source, damage * multiplier);
+			if (hurt && target.level() instanceof ServerLevel serverLevel) {
+				LivingEntity user = stand.getUser();
+				if (user != null && target instanceof LivingEntity targetLiving) {
+					LivingEntity aggroTo = stand.isFollowingUser() || targetLiving.hasLineOfSight(user) ? user
+							: StandUtil.isEntityStandUser(targetLiving) ? stand : null;
+					if (aggroTo != null && aggroTo != source.getEntity()) {
+						Brain<?> brain = targetLiving.getBrain();
+						Optional<LivingEntity> attackTarget = brain.getMemoryInternal(MemoryModuleType.ATTACK_TARGET);
+						if (attackTarget != null && attackTarget.filter(t -> t == source.getEntity()).isPresent()) {
+							brain.setMemory(MemoryModuleType.ATTACK_TARGET, aggroTo);
+						}
+					}
+				}
+				EnchantmentHelper.doPostAttackEffects(serverLevel, target, source);
+			}
+			return hurt;
 		}
 
 		@Override
