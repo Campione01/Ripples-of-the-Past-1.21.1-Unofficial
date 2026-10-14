@@ -42,7 +42,9 @@ import rotp.core.powersystem.standpower.entity.EntityStandType;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.target.ActionTarget;
+import rotp.core.util.functions.CollisionHelper;
 import rotp.core.util.functions.DamageUtil;
+import rotp.core.util.functions.JojoModUtil;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.AfterBatch;
@@ -57,6 +59,7 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntitySelector;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Cow;
@@ -144,14 +147,16 @@ public final class CoreNonlivingHeavyImpactGameTests {
             active = this; helper.testInfo.addListener(this);
         }
         void listen() {
+            Consumer<EntityTickEvent.Pre> pre = event -> callback(() -> scene.pre(event.getEntity()));
             Consumer<EntityTickEvent.Post> post = event -> callback(() -> scene.post(event.getEntity()));
             Consumer<LivingIncomingDamageEvent> incoming = event -> callback(() -> scene.incoming(event));
             Consumer<EntityInvulnerabilityCheckEvent> invulnerability = event -> callback(() -> scene.invulnerability(event));
             Consumer<ExplosionEvent.Start> start = event -> callback(() -> scene.explosionStart(event));
             Consumer<ExplosionEvent.Detonate> detonate = event -> callback(() -> scene.explosionDetonate(event));
             Consumer<EntityJoinLevelEvent> join = event -> callback(() -> scene.join(event));
-            listeners.add(post); listeners.add(incoming); listeners.add(invulnerability);
+            listeners.add(pre); listeners.add(post); listeners.add(incoming); listeners.add(invulnerability);
             listeners.add(start); listeners.add(detonate); listeners.add(join);
+            NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, EntityTickEvent.Pre.class, pre);
             NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, EntityTickEvent.Post.class, post);
             NeoForge.EVENT_BUS.addListener(EventPriority.HIGHEST, LivingIncomingDamageEvent.class, incoming);
             NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, EntityInvulnerabilityCheckEvent.class, invulnerability);
@@ -258,8 +263,8 @@ public final class CoreNonlivingHeavyImpactGameTests {
             ChunkPos chunk = new ChunkPos(suite.helper.absolutePos(BlockPos.ZERO));
             origin = new Vec3(chunk.getMiddleBlockX() + 0.5, suite.helper.absolutePos(BlockPos.ZERO).getY() + 8, chunk.getMiddleBlockZ() + 0.5);
             for (int x = -5; x <= 5; x++) for (int z = -3; z <= 7; z++) {
-                for (int y = 0; y <= 4; y++) set(origin.add(x, y, z), Blocks.AIR.defaultBlockState());
-                set(origin.add(x, -1, z), Blocks.STONE.defaultBlockState());
+                for (int y = kind == Kind.BOAT_NO_WALL ? -5 : 0; y <= 4; y++) set(origin.add(x, y, z), Blocks.AIR.defaultBlockState());
+                if (kind != Kind.BOAT_NO_WALL) set(origin.add(x, -1, z), Blocks.STONE.defaultBlockState());
             }
             if (kind.wall()) for (int x = -2; x <= 2; x++) for (int y = 0; y <= 2; y++) {
                 BlockPos pos = set(origin.add(x, y, 2.5), Blocks.GLASS.defaultBlockState()); wall.add(pos);
@@ -355,6 +360,25 @@ public final class CoreNonlivingHeavyImpactGameTests {
             suite.premise(stand.getAttackDamage() == 15 && stand.getAttackSpeed() == 28, "actual effective attack getters");
             log("PRESS " + kind + " ability=" + ((Ability) action.ability).name() + " phases=" + action.phasesLength
                     + " ages=" + user.tickCount + "/" + stand.tickCount + "/" + primary.tickCount + " world=" + level.getGameTime());
+        }
+        void pre(Entity entity) {
+            if (kind != Kind.BOAT_NO_WALL || entity != primary || closed || done) return;
+            Vec3 nativeMotion = primary.getDeltaMovement();
+            AABB corridor = primary.getBoundingBox().inflate(0.25).expandTowards(nativeMotion.add(0, -0.08, 0));
+            boolean allAir = true;
+            for (BlockPos pos : BlockPos.betweenClosed(BlockPos.containing(corridor.minX, corridor.minY, corridor.minZ),
+                    BlockPos.containing(corridor.maxX, corridor.maxY, corridor.maxZ))) {
+                if (!level.getBlockState(pos).isAir()) { allAir = false; break; }
+            }
+            var blockers = CollisionHelper.getEntityCollisions(level, primary, corridor,
+                    EntitySelector.NO_CREATIVE_OR_SPECTATOR.and(e -> JojoModUtil.canHarm(user, e)))
+                    .map(pair -> pair.getLeft().getId()).toList();
+            suite.premise(allAir && level.noCollision(primary, corridor), "actual inflated swept all-air/native-shape corridor");
+            suite.premise(blockers.isEmpty(), "actual impact-eligible entity blockers=" + blockers);
+            suite.premise(!primary.noPhysics && !primary.isNoGravity() && !primary.onGround(), "airborne native collision/gravity/no ground contact");
+            log("NO-CONTACT-PRE world=" + level.getGameTime() + " age=" + primary.tickCount + " afterHit=" + primaryTicksAfterHit
+                    + " motion=" + nativeMotion + " inflatedSwept=" + corridor + " allAir=" + allAir + " blockers=" + blockers
+                    + " actorIds=" + user.getId() + "/" + stand.getId() + " ownUserCanHarm=" + JojoModUtil.canHarm(user, user));
         }
         void post(Entity entity) {
             if (closed || done || action == null) return;
@@ -453,7 +477,7 @@ public final class CoreNonlivingHeavyImpactGameTests {
             }
             suite.premise(primaryTicksAfterHit >= 5 && primary.tickCount >= ageAtHit + 5, "normal target world ticks completed without manual driver");
             suite.check(!near(primary.position(), positionAtHit), "native world movement actually occurred");
-            if (kind == Kind.BOAT_NO_WALL) suite.check(wallChecks == 0, "floor may flag block impact, but no sideways wall hurt");
+            if (kind == Kind.BOAT_NO_WALL) suite.check(!hadBlockImpact && wallChecks == 0, "qualified air corridor has no block impact or wall hurt");
             else suite.check(hadBlockImpact == physical, "native sideways wall impact flag=" + hadBlockImpact);
             suite.check(explosionStarts == (physical && kind.breaks() ? 1 : 0), "native explosion-start count=" + explosionStarts);
             suite.check(detonations == (explodes ? 1 : 0), "accepted native explosion-detonate count=" + detonations);
@@ -461,7 +485,9 @@ public final class CoreNonlivingHeavyImpactGameTests {
             suite.check(explosionStarts == 0 || explosionStartOrder > hitOrder, "native explosion follows captured successful primary");
             if (primary instanceof Boat) suite.check(physical ? wallChecks > 0 && wallDamageObserved > 0 : wallDamageObserved == 0,
                     "native wall-damage hook/count=" + wallChecks + " actualDamage10=" + wallDamageObserved);
-            suite.check(!capture(primary).active, "impact ended naturally after wall/floor collision; no manual reset");
+            if (kind == Kind.BOAT_NO_WALL) suite.check(capture(primary).active && !hadBlockImpact && !primary.onGround(),
+                    "moving no-contact primary retains armed impact through five natural ticks");
+            else suite.check(!capture(primary).active, "impact ended naturally after wall/floor collision; no manual reset");
         }
         @Override public void close() {
             if (closed) return; closed = true;
