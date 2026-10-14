@@ -19,6 +19,7 @@ import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.customobjects.DamageSourceModified;
+import rotp.core.customobjects.ObjectEntity;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility.StandEntityHeavyPunch;
 import rotp.core.impl.stands.starplatinum.HeavyPunchUppercutAbility.Uppercut;
 import rotp.core.impl.stands.theworld.TheWorldHeavyPunchAbility.TheWorldHeavyPunch;
@@ -70,6 +71,7 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.neoforge.common.ModConfigSpec;
@@ -94,20 +96,43 @@ public final class CoreDetachedHeavyPulseGameTests {
             JojoMod.resLoc(CoreDetachedHeavyPulseGameTests.class.getSimpleName().toLowerCase(Locale.ROOT)));
     private static Suite active;
 
+    // CD/GE/MR: their 1.16 heavies and finishers (MR kick x1.2 and GE lifeshot x1.25 on the additional) took the same pulses.
     private enum Move {
-        SP, TW, UPPERCUT, KICK, OTHER;
-        String stand() { return this == TW || this == KICK ? "the_world" : this == OTHER ? "crazy_diamond" : "star_platinum"; }
-        String finisher() { return this == UPPERCUT ? "uppercut" : this == KICK ? "kick" : null; }
-        double halfAdditional() { return switch (this) { case TW -> 3; case UPPERCUT -> 0.6015625; case KICK -> 1.75; default -> 1.1875; }; }
+        SP, TW, UPPERCUT, KICK, CD, CD_FINISHER, GE, GE_LIFESHOT, MR, MR_KICK;
+        String stand() {
+            return switch (this) {
+                case TW, KICK -> "the_world";
+                case CD, CD_FINISHER -> "crazy_diamond";
+                case GE, GE_LIFESHOT -> "gold_experience";
+                case MR, MR_KICK -> "magicians_red";
+                default -> "star_platinum";
+            };
+        }
+        String finisher() {
+            return switch (this) {
+                case UPPERCUT -> "uppercut";
+                case KICK, MR_KICK -> "kick";
+                case CD_FINISHER -> "finisher";
+                case GE_LIFESHOT -> "lifeshot";
+                default -> null;
+            };
+        }
+        double halfAdditional() {
+            return switch (this) {
+                case TW -> 3; case UPPERCUT -> 0.6015625; case KICK, CD_FINISHER -> 1.75;
+                case GE_LIFESHOT -> 2.1875; case MR_KICK -> 2.1; default -> 1.1875;
+            };
+        }
         double horizontal() { return this == UPPERCUT ? 0.30078125 : halfAdditional(); }
         double upward() { return this == UPPERCUT ? 0.6015625 * SIN_60 : 0; }
+        boolean breaksGuard() { return this == UPPERCUT || this == KICK; }
     }
     private enum Kind { SUCCESS, REFUSED, IMMUNE, BOAT, BOAT_REFUSED, ANGLE, STOPPED, LETHAL, TOTEM,
         OWNER, SHIELD_FRONT, SHIELD_REAR, SECONDARY, SECONDARY_REFUSED, PRIMARY_REFUSED_SECONDARY,
-        SECONDARY_IMMUNE, GRAB, DEFAULT_OFF }
+        SECONDARY_IMMUNE, GRAB }
     private record Spec(Move move, Kind kind, double multiplier, double resistance, boolean ground) {
         String id() { return move + "/" + kind + "/M" + multiplier + "/R" + resistance + "/" + (ground ? "ground" : "air"); }
-        boolean detached() { return kind != Kind.GRAB && kind != Kind.DEFAULT_OFF; }
+        boolean detached() { return kind != Kind.GRAB; }
         boolean vehicle() { return kind == Kind.BOAT || kind == Kind.BOAT_REFUSED; }
         boolean secondary() { return kind == Kind.SECONDARY || kind == Kind.SECONDARY_REFUSED
                 || kind == Kind.PRIMARY_REFUSED_SECONDARY || kind == Kind.SECONDARY_IMMUNE; }
@@ -155,7 +180,7 @@ public final class CoreDetachedHeavyPulseGameTests {
 
     private CoreDetachedHeavyPulseGameTests() {}
 
-    @GameTest(template = "empty", timeoutTicks = 4000, batch = GameTestBatches.DETACHED_HEAVY_TIME_STOP)
+    @GameTest(template = "empty", timeoutTicks = 5000, batch = GameTestBatches.DETACHED_HEAVY_TIME_STOP)
     public static void registeredRmbSeparatesNativeExtraAndAdmittedTail(GameTestHelper helper) {
         Suite suite = new Suite(helper);
         try {
@@ -193,7 +218,10 @@ public final class CoreDetachedHeavyPulseGameTests {
         for (Kind kind : new Kind[] {Kind.SECONDARY, Kind.SECONDARY_REFUSED, Kind.PRIMARY_REFUSED_SECONDARY, Kind.SECONDARY_IMMUNE})
             result.add(new Spec(Move.KICK, kind, 1, 0, false));
         result.add(new Spec(Move.KICK, Kind.SECONDARY, 0, 0, false));
-        result.add(new Spec(Move.OTHER, Kind.DEFAULT_OFF, 1, 0, false));
+        for (Move move : new Move[] {Move.CD, Move.CD_FINISHER, Move.GE, Move.GE_LIFESHOT, Move.MR, Move.MR_KICK}) {
+            result.add(new Spec(move, Kind.SUCCESS, 1, 0, false));
+            result.add(new Spec(move, Kind.BOAT, 1, 0, true));
+        }
         return result;
     }
 
@@ -358,11 +386,12 @@ public final class CoreDetachedHeavyPulseGameTests {
                 primeAction = press(primer, "heavy_punch", PRIME);
             }
             else if (cancelledPrimer()) {
+                // A light punch at zero guard counter: no knockback, so the grounded target stays on its floor.
                 primer = actor("crazy_diamond", origin.add(-0.5, 0, 0), origin.add(-0.5, 0, 0), false);
                 primer.user.getAttribute(ModEntityAttributes.STAND_SPEED).setBaseValue(32);
                 StandEntity.updateStandStatAttributes(primer.stand, primer.user);
                 LivingComponentAction.getComponent(primer.stand).entityAim.setTarget(new ActionTarget(primary));
-                primeAction = press(primer, "heavy_punch", PRIME);
+                primeAction = press(primer, "punch", PRIME);
             }
             log("START " + spec.id() + " primary=" + primary.getId() + " secondary=" + (secondary != null ? secondary.getId() : -1));
         }
@@ -425,7 +454,7 @@ public final class CoreDetachedHeavyPulseGameTests {
             if (primer != null && action == null && entity == primer.stand && primeAction.punchedTarget != null) {
                 if (cancelledPrimer()) premise(primerContext != null && ((LivingEntity) primary).damageContainers.isEmpty()
                         && !StandEntity.isStandAttackInvulnerable((LivingEntity) primary),
-                        "canceled default-off primer is cleaned without establishing RAW immunity");
+                        "canceled light-punch primer is cleaned without establishing RAW immunity");
                 else premise(StandEntity.isStandAttackInvulnerable((LivingEntity) (spec.kind == Kind.IMMUNE ? primary : secondary)), "real primer established active RAW immunity");
                 begin();
             }
@@ -529,12 +558,13 @@ public final class CoreDetachedHeavyPulseGameTests {
             }
             if (cancelledPrimer()) suite.check(((LivingEntity) target).damageContainers.isEmpty()
                     && primerContext.getSource() == primerSource
-                    && near(((DamageSourceModified) primerSource).jojo_ripples$addKnockback(), 2.375),
+                    && ((DamageSourceModified) primerSource).jojo_ripples$standPower() == primer.power
+                    && near(((DamageSourceModified) primerSource).jojo_ripples$addKnockback(), 0),
                     "both native attempts release only their own containers; prior source metadata is unchanged");
             double raw = main ? 15 : 7.5;
             suite.check(near(hurt.amount, raw * spec.multiplier), "actual primary/half-RAW secondary M once amount=" + hurt.amount);
             if (!spec.detached()) {
-                suite.check(detached.isEmpty() && nativePulses.size() == 1, "default-off grab/other caller has only original native event");
+                suite.check(detached.isEmpty() && nativePulses.size() == 1, "default-off grab caller has only original native event");
                 suite.check(hurt.source instanceof DamageSourceModified modified
                         && near(modified.jojo_ripples$addKnockback(), spec.move.halfAdditional() * 2), "default-off existing additional metadata preserved"); return;
             }
@@ -546,7 +576,7 @@ public final class CoreDetachedHeavyPulseGameTests {
                     && modified.jojo_ripples$standInvulTicks() == 10 && near(modified.jojo_ripples$addKnockback(), 0)
                     && near(modified.jojo_ripples$knockbackXRotDeg(), 0) && near(modified.jojo_ripples$knockbackYRotDeg(), 0)
                     && near(modified.jojo_ripples$knockbackXRotAppliedStrength(), 0)
-                    && modified.jojo_ripples$breaksStandGuard() == (spec.move == Move.UPPERCUT || spec.move == Move.KICK),
+                    && modified.jojo_ripples$breaksStandGuard() == spec.move.breaksGuard(),
                     "only native pulse fields neutralized; power/invul10/guard intact");
             for (Pulse pulse : nativePulses) {
                 double requested = spec.kind == Kind.SHIELD_FRONT && near(pulse.event.getOriginalStrength(), 0.5) ? 0.5 : 0.4;
@@ -758,6 +788,9 @@ public final class CoreDetachedHeavyPulseGameTests {
                 if (actor.power.isSummoned()) actor.type.forceUnsummon(actor.user, actor.power);
             }
             for (Entity entity : loose) entity.discard();
+            // Gold Experience knocks a cow's tooth out.
+            if (origin != null)
+                for (ObjectEntity tooth : level.getEntitiesOfClass(ObjectEntity.class, new AABB(origin, origin).inflate(8))) tooth.discard();
             floor.forEach(level::setBlockAndUpdate);
         }
     }

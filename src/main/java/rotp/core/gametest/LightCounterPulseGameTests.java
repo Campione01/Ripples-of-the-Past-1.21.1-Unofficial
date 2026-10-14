@@ -13,6 +13,7 @@ import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.customobjects.DamageSourceModified;
+import rotp.core.customobjects.ObjectEntity;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility.StandEntityPunch;
 import rotp.core.init.ModDataAttachmentTypes;
@@ -49,6 +50,7 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.neoforge.common.ModConfigSpec;
@@ -81,7 +83,7 @@ public final class LightCounterPulseGameTests {
     private record Actor(Player user, StandPower power, StandType type, StandEntity stand) {}
     private record Pulse(DamageSource source, float strength, Vec3 before) {}
 
-    @GameTest(template = "empty", timeoutTicks = 1200, batch = BATCH)
+    @GameTest(template = "empty", timeoutTicks = 2400, batch = BATCH)
     public static void registeredGuardCounterLightUsesSeparateDonorPulses(GameTestHelper helper) {
         Suite suite = new Suite(helper);
         try { suite.identity(); suite.listen(); helper.onEachTick(suite::tick); }
@@ -116,6 +118,12 @@ public final class LightCounterPulseGameTests {
             for (String ability : new String[] {"punch2", "punch3", "punch4"})
                 cases.add(new Spec("star_platinum", Kind.SUCCESS, ability));
             cases.add(new Spec("the_world", Kind.SUCCESS, "punch2"));
+            // 1.16 StandEntityLightAttack.addKnockback(guardCounter) for every humanoid Stand's light punch
+            for (String stand : new String[] {"crazy_diamond", "gold_experience", "magicians_red"})
+                for (Kind kind : new Kind[] {Kind.SUCCESS, Kind.BOAT}) cases.add(new Spec(stand, kind));
+            for (String ability : new String[] {"punch2", "punch3", "punch4"})
+                cases.add(new Spec("crazy_diamond", Kind.SUCCESS, ability));
+            cases.add(new Spec("gold_experience", Kind.SUCCESS, "punch2"));
             active = this;
             helper.testInfo.addListener(this);
         }
@@ -407,6 +415,9 @@ public final class LightCounterPulseGameTests {
                 if (actor.power.isSummoned()) actor.type.forceUnsummon(actor.user, actor.power);
             }
             entities.forEach(Entity::discard);
+            // A Gold Experience primer knocks a tooth out of the guarding user.
+            if (origin != null)
+                for (ObjectEntity tooth : level.getEntitiesOfClass(ObjectEntity.class, new AABB(origin, origin).inflate(8))) tooth.discard();
             floor.forEach((pos, state) -> level.setBlockAndUpdate(pos, state));
             chunks.forEach((chunk, already) -> { if (!already) level.setChunkForced(chunk.x, chunk.z, false); });
             log("SCENE-CLEANUP " + spec.id() + " actorsRemoved=" + entities.stream().allMatch(Entity::isRemoved));

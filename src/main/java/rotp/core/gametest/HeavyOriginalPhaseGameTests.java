@@ -13,12 +13,19 @@ import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.customobjects.DamageSourceModified;
+import rotp.core.customobjects.ObjectEntity;
+import rotp.core.impl.stands.StandInitCrazyDiamond;
+import rotp.core.impl.stands.StandInitGoldExperience;
+import rotp.core.impl.stands.StandInitMagiciansRed;
 import rotp.core.impl.stands.StandInitStarPlatinum;
 import rotp.core.impl.stands.StandInitTheWorld;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility.StandEntityHeavyPunch;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchChargedAbility.StandEntityChargedHeavy;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility.StandEntityPunch;
+import rotp.core.impl.stands.crazydiamond.CrazyDiamondHeavyPunchAbility.CrazyDiamondHeavyPunch;
+import rotp.core.impl.stands.goldexperience.GoldExperienceHeavyPunchAbility.ToothKnockingHeavyPunch;
+import rotp.core.impl.stands.magiciansred.MagiciansRedKickAbility.MagiciansRedKick;
 import rotp.core.impl.stands.starplatinum.HeavyPunchUppercutAbility.Uppercut;
 import rotp.core.impl.stands.theworld.TheWorldHeavyPunchAbility.TheWorldHeavyPunch;
 import rotp.core.impl.stands.theworld.TheWorldKickAbility.TheWorldKick;
@@ -79,16 +86,20 @@ public final class HeavyOriginalPhaseGameTests {
 
     private HeavyOriginalPhaseGameTests() {}
 
+    // original: a heavy (or its finisher variation) whose 1.16 action kept the builder's 1-tick perform
     private enum Family {
-        SP_HEAVY("star_platinum"), TW_HEAVY("the_world"),
-        UPPERCUT("star_platinum"), KICK("the_world"),
-        GRAB_HEAVY("star_platinum"), SHARED_HEAVY("crazy_diamond"),
-        CHARGED("star_platinum"), TS_PUNCH("the_world");
+        SP_HEAVY("star_platinum", null), TW_HEAVY("the_world", null),
+        UPPERCUT("star_platinum", "uppercut"), KICK("the_world", "kick"),
+        CD_HEAVY("crazy_diamond", null), CD_FINISHER("crazy_diamond", "finisher"),
+        GE_HEAVY("gold_experience", null), GE_LIFESHOT("gold_experience", "lifeshot"),
+        MR_HEAVY("magicians_red", null), MR_KICK("magicians_red", "kick"),
+        GRAB_HEAVY("star_platinum", null), CHARGED("star_platinum", null), TS_PUNCH("the_world", null);
 
         final String stand;
-        Family(String stand) { this.stand = stand; }
-        boolean original() { return ordinal() <= KICK.ordinal(); }
-        boolean finisher() { return this == UPPERCUT || this == KICK; }
+        final String finisherSkill;
+        Family(String stand, String finisherSkill) { this.stand = stand; this.finisherSkill = finisherSkill; }
+        boolean original() { return ordinal() <= MR_KICK.ordinal(); }
+        boolean finisher() { return finisherSkill != null; }
     }
 
     private enum Follow { NONE, EARLY_CLICK, BUFFERED_CLICK }
@@ -96,7 +107,7 @@ public final class HeavyOriginalPhaseGameTests {
         String id() { return family + (empty ? "-EMPTY" : "-HIT") + "-" + follow + "-delay" + clickDelay; }
     }
 
-    @GameTest(template = "empty", timeoutTicks = 2200, batch = BATCH)
+    @GameTest(template = "empty", timeoutTicks = 3200, batch = BATCH)
     public static void originalHeavyPerformEndsOnItsImpactTick(GameTestHelper helper) {
         Suite suite = new Suite(helper);
         try {
@@ -125,7 +136,11 @@ public final class HeavyOriginalPhaseGameTests {
         }
         for (Family family : new Family[] {Family.SP_HEAVY, Family.TW_HEAVY})
             result.add(new Spec(family, false, Follow.NONE, 4));
-        for (Family family : new Family[] {Family.GRAB_HEAVY, Family.SHARED_HEAVY, Family.CHARGED, Family.TS_PUNCH})
+        for (Family family : new Family[] {Family.CD_HEAVY, Family.CD_FINISHER, Family.GE_HEAVY, Family.GE_LIFESHOT,
+                Family.MR_HEAVY, Family.MR_KICK})
+            result.add(new Spec(family, false, Follow.NONE, 0));
+        result.add(new Spec(Family.CD_HEAVY, true, Follow.NONE, 0));
+        for (Family family : new Family[] {Family.GRAB_HEAVY, Family.CHARGED, Family.TS_PUNCH})
             result.add(new Spec(family, false, Follow.NONE, 0));
         return result;
     }
@@ -150,6 +165,7 @@ public final class HeavyOriginalPhaseGameTests {
 
         void identity() {
             for (Class<?> type : new Class<?>[] {StandInitStarPlatinum.class, StandInitTheWorld.class,
+                    StandInitCrazyDiamond.class, StandInitGoldExperience.class, StandInitMagiciansRed.class,
                     StandEntityHeavyPunchAbility.class, EntityActionInstance.class, HeavyOriginalPhaseGameTests.class}) {
                 String actual = sha(type);
                 String expected = System.getProperty("rotp.heavyOriginal.expected." + type.getName());
@@ -273,7 +289,7 @@ public final class HeavyOriginalPhaseGameTests {
             caster = actor(spec.family.stand, origin);
             if (!spec.empty) target = cow(origin.add(0, 0, 1.7));
             aim(target != null ? new ActionTarget(target) : ActionTarget.EMPTY, origin.add(0, 1, 8));
-            if (spec.family.finisher()) unlock(spec.family == Family.UPPERCUT ? "uppercut" : "kick");
+            if (spec.family.finisher()) unlock(spec.family.finisherSkill);
             if (spec.family == Family.TS_PUNCH) { unlock("time_stop"); unlock("ts_punch"); }
             if (spec.family == Family.GRAB_HEAVY) {
                 unlock("grab_throw");
@@ -317,7 +333,9 @@ public final class HeavyOriginalPhaseGameTests {
             String selected = ((Ability) action.ability).name();
             String expectedName = switch (spec.family) {
                 case UPPERCUT -> "finisher_uppercut";
-                case KICK -> "kick";
+                case KICK, MR_KICK -> "kick";
+                case CD_FINISHER -> "finisher";
+                case GE_LIFESHOT -> "lifeshot_punch";
                 case GRAB_HEAVY -> "grab_heavy_punch";
                 case CHARGED -> "heavy_charged";
                 case TS_PUNCH -> "ts_punch";
@@ -359,13 +377,15 @@ public final class HeavyOriginalPhaseGameTests {
 
         boolean correctClass() {
             return switch (spec.family) {
-                case SP_HEAVY, GRAB_HEAVY -> action.getClass() == StandEntityHeavyPunch.class;
+                case SP_HEAVY, GRAB_HEAVY, CD_FINISHER, MR_HEAVY -> action.getClass() == StandEntityHeavyPunch.class;
+                case CD_HEAVY -> action.getClass() == CrazyDiamondHeavyPunch.class;
+                case GE_HEAVY, GE_LIFESHOT -> action.getClass() == ToothKnockingHeavyPunch.class;
+                case MR_KICK -> action.getClass() == MagiciansRedKick.class;
                 case TW_HEAVY -> action.getClass() == TheWorldHeavyPunch.class;
                 case UPPERCUT -> action.getClass() == Uppercut.class;
                 case KICK -> action.getClass() == TheWorldKick.class;
                 case CHARGED -> action.getClass() == StandEntityChargedHeavy.class;
                 case TS_PUNCH -> action.getClass() == TheWorldTSPunch.class;
-                case SHARED_HEAVY -> action instanceof StandEntityHeavyPunch;
             };
         }
 
@@ -581,7 +601,10 @@ public final class HeavyOriginalPhaseGameTests {
                     if (caster.stand != null && !caster.stand.isRemoved()) caster.stand.discard();
                     caster.user.discard();
                 }
-                if (target != null) target.discard();
+                if (target != null) {
+                    for (ObjectEntity tooth : level.getEntitiesOfClass(ObjectEntity.class, target.getBoundingBox().inflate(8))) tooth.discard();
+                    target.discard();
+                }
                 log("SCENE-CLEANUP " + spec.id() + " actorsRemoved=" + ((caster == null || caster.user.isRemoved()
                         && (caster.stand == null || caster.stand.isRemoved())) && (target == null || target.isRemoved())));
             }

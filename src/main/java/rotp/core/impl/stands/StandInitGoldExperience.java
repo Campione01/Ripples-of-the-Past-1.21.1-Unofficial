@@ -10,6 +10,7 @@ import rotp.core.init.power.ModStandAbilities;
 import rotp.core.powersystem.MovesetBuilder;
 import rotp.core.powersystem.ability.controls.InputKey;
 import rotp.core.powersystem.ability.controls.InputMethod;
+import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.standpower.StandStats;
 import rotp.core.powersystem.standpower.StandUnlockableSkill;
 import rotp.core.powersystem.standpower.entity.StandControlType;
@@ -35,9 +36,11 @@ public class StandInitGoldExperience {
 				.addHumanoidStandStuff()
 
 				.addAbility("punch", ModStandAbilities.PUNCH, punch -> {
+					punch.detachedLightCounterKnockback();
 					punch.punchImpactSound(ModSoundEvents.GOLD_EXPERIENCE_PUNCH_LIGHT).standCrySound(ModSoundEvents.GOLD_EXPERIENCE_MUDA);
 				})
 				.addAbility("punch2", ModStandAbilities.PUNCH, punch -> {
+					punch.detachedLightCounterKnockback();
 					punch.punchImpactSound(ModSoundEvents.GOLD_EXPERIENCE_PUNCH_LIGHT).standCrySound(ModSoundEvents.GOLD_EXPERIENCE_MUDA);
 				})
 				.addAbility("barrage", ModStandAbilities.BARRAGE, barrage -> {
@@ -47,6 +50,8 @@ public class StandInitGoldExperience {
 					punch.heavyPunchImpactSound(ModSoundEvents.GOLD_EXPERIENCE_PUNCH_HEAVY)
 					.heavyPunchCrySound(ModSoundEvents.GOLD_EXPERIENCE_MUDA_LONG)
 					.heavyPunchPerformSound(ModSoundEvents.GOLD_EXPERIENCE_PUNCH_HEAVY_EXTRA);
+					punch.setDefaultPhaseLength(ActionPhase.PERFORM, 1);
+					punch.detachedPunchKnockback();
 				})
 				.addAbility("heavy_charged", ModStandAbilities.HEAVY_CHARGED)
 				.addAbility("guard", ModStandAbilities.GUARD)
@@ -73,6 +78,8 @@ public class StandInitGoldExperience {
 					.heavyPunchPerformSound(ModSoundEvents.GOLD_EXPERIENCE_PUNCH_HEAVY_EXTRA);
 					punch.initIsFinisher("heavy_punch");
 					punch.resolveLevelToUnlock(1);
+					punch.setDefaultPhaseLength(ActionPhase.PERFORM, 1);
+					punch.detachedPunchKnockback();
 				})
 				.addAbility("tooth_lifeform", ModStandAbilities.GE_TOOTH_LIFEFORM)
 				.addAbility("revert_lifeform", ModStandAbilities.GE_REVERT_LIFEFORM)

@@ -143,8 +143,9 @@ public final class SPHeavyRecoveryEntryGameTests {
                 }
                 if (expires()) premise(!user.hasEffect(ModStatusEffects.RESOLVE) && recoverySpeed < initialSpeed,
                         "Resolve expired naturally during WINDUP before RECOVERY");
-                check(PhaseEntryGameTestSupport.near(action.phasesLength.getFloat(ActionPhase.PERFORM), id.equals("cd_default") ? 6 : 1),
-                        "Existing configured PERFORM length unchanged");
+                // 1.16 kept the builder's 1-tick perform for every one of these heavies, Crazy Diamond's included.
+                check(PhaseEntryGameTestSupport.near(action.phasesLength.getFloat(ActionPhase.PERFORM), 1),
+                        "Configured 1-tick PERFORM length");
             }
             else if (action.getPhase() == ActionPhase.RECOVERY && recoverySeen) {
                 freezeObserved = true;

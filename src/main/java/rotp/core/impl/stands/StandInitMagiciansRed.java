@@ -10,6 +10,7 @@ import rotp.core.init.power.ModStandAbilities;
 import rotp.core.powersystem.MovesetBuilder;
 import rotp.core.powersystem.ability.controls.InputKey;
 import rotp.core.powersystem.ability.controls.InputMethod;
+import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.standpower.StandStats;
 import rotp.core.powersystem.standpower.StandUnlockableSkill;
 import rotp.core.powersystem.standpower.entity.StandControlType;
@@ -35,15 +36,20 @@ public class StandInitMagiciansRed {
 				.addHumanoidStandStuff()
 
 				.addAbility("punch", ModStandAbilities.PUNCH, punch -> {
+					punch.detachedLightCounterKnockback();
 					punch.punchImpactSound(ModSoundEvents.MAGICIANS_RED_PUNCH_LIGHT);
 				})
 				.addAbility("heavy_punch", ModStandAbilities.HEAVY_PUNCH, punch -> {
 					punch.heavyPunchImpactSound(ModSoundEvents.MAGICIANS_RED_PUNCH_HEAVY);
+					punch.setDefaultPhaseLength(ActionPhase.PERFORM, 1);
+					punch.detachedPunchKnockback();
 				})
 				.addAbility("heavy_charged", ModStandAbilities.HEAVY_CHARGED)
 				.addAbility("kick", ModStandAbilities.MR_KICK, kick -> {
 					kick.initIsFinisher("heavy_punch");
 					kick.resolveLevelToUnlock(1);
+					kick.setDefaultPhaseLength(ActionPhase.PERFORM, 1);
+					kick.detachedPunchKnockback();
 				})
 				.addAbility("guard", ModStandAbilities.GUARD)
 				.addAbility("flame_burst", ModStandAbilities.MR_FLAME_BURST)
