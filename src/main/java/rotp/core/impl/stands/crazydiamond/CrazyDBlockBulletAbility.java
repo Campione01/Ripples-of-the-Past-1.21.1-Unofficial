@@ -166,6 +166,8 @@ public class CrazyDBlockBulletAbility extends StandEntityAbility {
 				bullet.homingStaminaCost = HOMING_STAMINA_COST_TICK;
 				// 1.16 StandEntityTask paid after the shot and ignored the result: a short bar just drops to 0
 				StandAbilityStamina.consume(ability, standPower, STAMINA_COST, false);
+				// and the builder's staminaCostTick(2) for its one perform tick
+				StandAbilityStamina.consume(ability, standPower, HOMING_STAMINA_COST_TICK, true);
 			}
 		}
 		

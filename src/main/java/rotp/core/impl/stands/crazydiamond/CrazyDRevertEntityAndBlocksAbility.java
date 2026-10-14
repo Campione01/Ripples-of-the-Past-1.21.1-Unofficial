@@ -150,6 +150,11 @@ public class CrazyDRevertEntityAndBlocksAbility extends StandEntityAbility {
 		}
 
 		@Override
+		protected boolean paysTickWithoutEntityTarget() {
+			return true;
+		}
+
+		@Override
 		public HealResult restoreTarget(ActionTarget target, StandEntity crazyDiamond) {
 			HealResult result = new HealResult();
 			result.synched.target = target;

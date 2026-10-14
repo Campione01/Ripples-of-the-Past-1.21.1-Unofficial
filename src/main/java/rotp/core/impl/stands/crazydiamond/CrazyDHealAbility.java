@@ -243,6 +243,14 @@ public class CrazyDHealAbility extends StandEntityAbility {
 			StandAbilityStamina.consume(ability, standPower, staminaCostTick(), true);
 		}
 
+		/**
+		 * 1.16 CrazyDiamondHeal.standCanTickPerform: without an entity target the Stand task neither ticked the heal nor
+		 * paid its tick cost. Revert, whose 1.16 action had no such condition, pays on its item path too.
+		 */
+		protected boolean paysTickWithoutEntityTarget() {
+			return false;
+		}
+
 		@Override
 		public void actionTick() {
 			if (getPhase() != ActionPhase.PERFORM) {
@@ -254,8 +262,10 @@ public class CrazyDHealAbility extends StandEntityAbility {
 			HealResult.Synched curHealing;
 			if (!level.isClientSide()) {
 				// 1.16 StandEntityTask paid each perform tick and ignored the result: an empty bar stays at 0
-				consumeStaminaTick(standEntity);
 				ActionTarget target = getActionTarget(level);
+				if (paysTickWithoutEntityTarget() || target.getType() == TargetType.ENTITY && !target.isEmpty(level)) {
+					consumeStaminaTick(standEntity);
+				}
 				HealResult healResult = restoreTarget(target, standEntity);
 				curHealing = healResult.synched;
 				if (healResult.hpForExp > 0) {
