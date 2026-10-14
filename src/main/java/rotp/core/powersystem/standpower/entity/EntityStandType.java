@@ -9,6 +9,8 @@ import rotp.core.init.ModCriteriaTriggers;
 import rotp.core.init.ModEntityTypes;
 import rotp.core.network.s2c.TrSetStandEntityPacket;
 import rotp.core.powersystem.MovesetBuilder;
+import rotp.core.powersystem.entityaction.LivingComponentAction;
+import rotp.core.powersystem.entityaction.netcode.SyncType;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.StandStats;
 import rotp.core.powersystem.standpower.StandUtil;
@@ -337,6 +339,7 @@ public class EntityStandType extends StandType {
 		if (!user.level().isClientSide()) {
 			StandEntity standEntity = standPower.getSummonedStandEntity();
 			if (standEntity != null) {
+				clearStandActionBeforeRemoval(standEntity);
 				settleStandBeforeForcedUnsummon(standEntity);
 				standPower.setSummonedStand(null);
 				standEntity.remove(Entity.RemovalReason.DISCARDED);
@@ -348,6 +351,18 @@ public class EntityStandType extends StandType {
 			if (standEntity != null) {
 				settleStandBeforeForcedUnsummon(standEntity);
 			}
+		}
+	}
+
+	/**
+	 * 1.16 ended the held action of a Stand that was taken away (a portal, another dimension, the power lost) through
+	 * stopHeldAction, so it still ended as actions end: its onActionCleared runs, where a held action sets its cooldown.
+	 * A Stand made for a press that did not start was never in the level and has nothing to end.
+	 */
+	private static void clearStandActionBeforeRemoval(StandEntity standEntity) {
+		LivingComponentAction actions = LivingComponentAction.getExistingComponent(standEntity);
+		if (standEntity.isAddedToLevel() && actions != null && actions.getAction() != null) {
+			actions.setAction(null, SyncType.TRACKING_AND_SELF);
 		}
 	}
 
