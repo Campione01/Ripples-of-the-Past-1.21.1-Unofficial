@@ -4,6 +4,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.WeakHashMap;
+import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 
 import javax.annotation.Nullable;
@@ -12,6 +13,7 @@ import net.minecraft.core.Holder;
 import rotp.core.client.ClientGlobals;
 import rotp.core.client.sound.ClientsideSoundsHelper;
 import rotp.core.client.sound.barrage.StandCrySoundHandler;
+import rotp.core.client.sound.sounds.EntityStoppableSoundInstance;
 import rotp.core.customobjects.DamageSourceModified;
 import rotp.core.init.ModSoundEvents;
 import rotp.core.init.ModStatusEffects;
@@ -215,8 +217,16 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 				}
 				if (level.isClientSide()) {
 					if (ClientGlobals.canHearStand(stand) && !stand.isArmsOnlyMode() && shouldPlayBarrageCry(level, stand)) {
-						StandCrySoundHandler.create(stand, getBarrageCrySound(), 1, 1,
-								() -> this.isOver() || this.phase != ActionPhase.PERFORM);
+						BooleanSupplier stopCry = () -> this.isOver() || this.phase != ActionPhase.PERFORM;
+						if (usesEndlessBarrageCry(stand)) {
+							StandCrySoundHandler.create(stand, getBarrageCrySound(), 1, 1, stopCry);
+						}
+						else {
+							// 1.16 StandEntityAction.playSoundAtStand: one clip, cut off when the barrage leaves PERFORM
+							ClientsideSoundsHelper.playNonVanillaClassSound(new EntityStoppableSoundInstance(
+									ClientsideSoundsHelper.withStandSkin(getBarrageCrySound(), stand), stand.getSoundSource(),
+									1, 1, stand, stand.getRandom().nextLong(), stopCry));
+						}
 					}
 				}
 				onBarrageSet(level, stand);
@@ -420,6 +430,11 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 
 		protected boolean shouldPlayBarrageCry(Level level, StandEntity stand) {
 			return true;
+		}
+
+		// 1.16 StandEntityMeleeBarrage.playSoundAtStand: the cry repeats clip after clip only for a user with Resolve
+		protected boolean usesEndlessBarrageCry(StandEntity stand) {
+			return isResolveBarrage(stand);
 		}
 		
 		protected ActionTarget getPunchTarget(StandEntity stand) {

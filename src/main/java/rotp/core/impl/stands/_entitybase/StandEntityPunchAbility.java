@@ -254,7 +254,8 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		
 		@Override
 		public void onActionSet(EntityActionInstance prevAction) {
-			playedStandCrySound = prevAction != null;
+			// 1.16 replayed the punch cry with every new punch task, chained ones too (StandEntityLightAttack.getSounds)
+			playedStandCrySound = false;
 			if (performer instanceof StandEntity stand) {
 				if (stand.level().isClientSide()) {
 					stand.applySyncedPunchingHand(punchingHand);

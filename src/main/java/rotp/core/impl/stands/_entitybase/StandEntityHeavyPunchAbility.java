@@ -227,6 +227,18 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 			return true;
 		}
 
+		// 1.16 StandEntityHeavyAttack.standTickWindup: the swing sound with 3 windup ticks left
+		protected boolean heavySwingSoundDue() {
+			// how many ticks are left before the start of the 'perform' phase (when actionPerformStart() is called)
+			int ticksDiff = (int) (calcFullTicks(ActionPhase.PERFORM, 0) - getFullTicksPassed());
+			return !playedSwingSound && ticksDiff <= 3;
+		}
+
+		// 1.16 StandEntityHeavyAttack.clPlayPunchSwingSound
+		protected float getHeavySwingPitch(StandEntity stand) {
+			return 0.65F + stand.getRandom().nextFloat() * 0.2F;
+		}
+
 		private boolean samplesRecoveryPhaseEntry(ActionPhase newPhase) {
 			return newPhase == ActionPhase.RECOVERY && phase != null && phase != newPhase
 					&& performer instanceof StandEntity && !performer.level().isClientSide()
@@ -268,15 +280,11 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 			}
 			if (level.isClientSide() && !(playedSwingSound && playedStandCrySound)
 					&& performer instanceof StandEntity stand && ClientGlobals.canHearStand(stand)) {
-				if (!playedSwingSound) {
-					// how many ticks are left before the start of the 'perform' phase (when actionPerformStart() is called)
-					int ticksDiff = (int) (calcFullTicks(ActionPhase.PERFORM, 0) - getFullTicksPassed());
-					if (ticksDiff <= 4) {
-						level.playLocalSound(stand.getX(), stand.getEyeY(), stand.getZ(), ClientsideSoundsHelper.withStandSkin(
-								ModSoundEvents.STAND_PUNCH_HEAVY_SWING.get(), stand), 
-								stand.getSoundSource(), 1, 1, false);
-						playedSwingSound = true;
-					}
+				if (heavySwingSoundDue()) {
+					level.playLocalSound(stand.getX(), stand.getEyeY(), stand.getZ(), ClientsideSoundsHelper.withStandSkin(
+							ModSoundEvents.STAND_PUNCH_HEAVY_SWING.get(), stand), 
+							stand.getSoundSource(), 1, getHeavySwingPitch(stand), false);
+					playedSwingSound = true;
 				}
 
 				if (!playedStandCrySound) {
