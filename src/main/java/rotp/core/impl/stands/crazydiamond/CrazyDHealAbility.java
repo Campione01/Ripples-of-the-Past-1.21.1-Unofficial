@@ -251,6 +251,18 @@ public class CrazyDHealAbility extends StandEntityAbility {
 			return false;
 		}
 
+		/**
+		 * 1.16 StandEntityTask.keepTarget, every server tick: an entity target that is the Stand itself, dead with
+		 * deathTime >= 20 (a player who has not respawned) or out of the action's range is dropped.
+		 */
+		protected boolean keepsEntityTarget(ActionTarget target, Level level) {
+			Entity targetEntity = target.getEntity();
+			LivingEntity user = getPowerUser();
+			return targetEntity != null && targetEntity != performer
+					&& !(targetEntity instanceof LivingEntity living && living.deathTime >= 20)
+					&& user != null && isValidHealEntityTarget(user, target, level);
+		}
+
 		@Override
 		public void actionTick() {
 			if (getPhase() != ActionPhase.PERFORM) {
@@ -263,6 +275,10 @@ public class CrazyDHealAbility extends StandEntityAbility {
 			if (!level.isClientSide()) {
 				// 1.16 StandEntityTask paid each perform tick and ignored the result: an empty bar stays at 0
 				ActionTarget target = getActionTarget(level);
+				if (target.getType() == TargetType.ENTITY && !keepsEntityTarget(target, level)) {
+					setActionTarget(ActionTarget.EMPTY);
+					target = ActionTarget.EMPTY;
+				}
 				if (paysTickWithoutEntityTarget() || target.getType() == TargetType.ENTITY && !target.isEmpty(level)) {
 					consumeStaminaTick(standEntity);
 				}

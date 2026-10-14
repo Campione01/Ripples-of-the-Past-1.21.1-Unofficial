@@ -140,6 +140,73 @@ public final class CrazyDiamondStaminaTickGameTests {
 		});
 	}
 
+	/*
+	 * 1.16 StandEntityTask.keepTarget, every server tick: a target that is the Stand itself, dead with deathTime >= 20
+	 * or out of the action's range is dropped, and without a target the Heal neither heals nor pays.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void healDropsATargetThe116TaskWouldNotKeep(GameTestHelper helper) {
+		scene(helper, (user, power, stand, standAction) -> {
+			Cow cow = helper.spawn(EntityType.COW, new Vec3(2.5D, 12.6D, 4.5D));
+			cow.setNoAi(true);
+			cow.setNoGravity(true);
+			cow.setHealth(cow.getMaxHealth() - 4.0F);
+			Vec3 inReach = cow.position();
+			stand.setPos(user.getX() - 2.0D, user.getY(), user.getZ() - 2.0D);
+			power.setStamina(power.getMaxStamina());
+			EntityActionInstance heal = start(helper, user, power, stand, standAction, "heal", true);
+			setBooked(power, 0.0F);
+			standAction.tick();
+			helper.assertTrue(heal.getPhase() == ActionPhase.PERFORM && near(booked(power), -1.0F),
+					"setup: the held Heal on the cow did not pay 1 for its perform tick: booked " + booked(power) + "; " + describe(heal, helper));
+
+			cow.teleportTo(inReach.x, inReach.y, inReach.z + 12.0D);
+			float health = cow.getHealth();
+			assertNoHealTick(helper, heal, power, standAction, "a cow gone 12 blocks away");
+			helper.assertTrue(cow.getHealth() == health, "1.16 dropped the cow out of range, but the Heal still healed it: "
+					+ health + " -> " + cow.getHealth());
+
+			cow.teleportTo(inReach.x, inReach.y, inReach.z);
+			setTarget(heal, new ActionTarget(cow));
+			setBooked(power, 0.0F);
+			standAction.tick();
+			helper.assertTrue(near(booked(power), -1.0F),
+					"setup: the Heal back on the cow in reach did not pay: booked " + booked(power) + "; " + describe(heal, helper));
+
+			cow.deathTime = 20;
+			setTarget(heal, new ActionTarget(cow));
+			assertNoHealTick(helper, heal, power, standAction, "a cow with deathTime 20");
+			cow.deathTime = 0;
+
+			setTarget(heal, new ActionTarget(stand));
+			assertNoHealTick(helper, heal, power, standAction, "Crazy Diamond itself");
+		});
+	}
+
+	private static void assertNoHealTick(GameTestHelper helper, EntityActionInstance heal, StandPower power,
+			LivingComponentAction standAction, String target) {
+		setBooked(power, 0.0F);
+		float bar = power.getStamina();
+		for (int tick = 0; tick < 3; tick++) {
+			standAction.tick();
+		}
+		helper.assertTrue(heal.getPhase() == ActionPhase.PERFORM, "setup: the held Heal left PERFORM: " + heal.getPhase());
+		helper.assertTrue(near(booked(power), 0.0F) && near(power.getStamina(), bar),
+				"1.16 dropped " + target + " as the Heal's target and paid nothing, but booked " + booked(power)
+						+ ", bar " + bar + " -> " + power.getStamina() + "; " + describe(heal, helper));
+	}
+
+	private static void setTarget(EntityActionInstance action, ActionTarget target) {
+		try {
+			Method set = HealingAction.class.getDeclaredMethod("setActionTarget", ActionTarget.class);
+			set.setAccessible(true);
+			set.invoke(action, target);
+		}
+		catch (ReflectiveOperationException e) {
+			throw new IllegalStateException(e);
+		}
+	}
+
 	private interface Body {
 		void run(Player user, StandPower power, StandEntity stand, LivingComponentAction standAction);
 	}
