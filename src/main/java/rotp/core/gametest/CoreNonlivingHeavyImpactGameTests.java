@@ -114,13 +114,25 @@ public final class CoreNonlivingHeavyImpactGameTests {
             suite.listen();
             helper.onEachTick(suite::tick);
         }
-        catch (RuntimeException | Error error) { suite.close(); throw error; }
+        catch (RuntimeException | Error error) { throwCleanup(suite.closeInto(error)); }
     }
 
     @AfterBatch(batch = "core_nonliving_heavy_impact")
     public static void releaseNonlivingImpactBatch(ServerLevel level) {
         if (active != null) active.close();
         log("BATCH-CLEANUP released=" + (active == null));
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 300, batch = "core_nonliving_heavy_impact_cleanup")
+    public static void nonlivingImpactFixtureCleanupPreservesCauseAndOwnedResources(GameTestHelper helper) {
+        identity();
+        CleanupProbe probe = new CleanupProbe(helper);
+        helper.testInfo.addListener(probe); helper.onEachTick(probe::tick);
+    }
+    @AfterBatch(batch = "core_nonliving_heavy_impact_cleanup")
+    public static void releaseNonlivingImpactCleanupBatch(ServerLevel level) {
+        if (active != null) active.close();
+        cleanupLog("BATCH-CLEANUP active=" + (active != null));
     }
 
     private static final class Suite implements GameTestListener {
@@ -139,6 +151,9 @@ public final class CoreNonlivingHeavyImpactGameTests {
         int premises;
         boolean closed;
         boolean summaryComplete;
+        boolean cleanupComplete;
+        boolean multiplierRestored;
+        boolean breaksRestored;
 
         Suite(GameTestHelper helper) {
             helper.assertTrue(active == null, "Overlapping nonliving impact suites");
@@ -187,7 +202,8 @@ public final class CoreNonlivingHeavyImpactGameTests {
                 premise(++scene.ticks < 64, "native scene timeout ages=" + scene.stand.tickCount + "/" + scene.primary.tickCount);
             }
             catch (RuntimeException | Error error) {
-                log((summaryComplete ? "ASSERTION-RED " : "INVALID-PREMISE ") + error); close(); throw error;
+                Throwable failure = attemptCleanup(error, () -> log((summaryComplete ? "ASSERTION-RED " : "INVALID-PREMISE ") + error));
+                throwCleanup(closeInto(failure));
             }
         }
         void premise(boolean value, String detail) {
@@ -200,14 +216,43 @@ public final class CoreNonlivingHeavyImpactGameTests {
             if (!value) failures.add(scene.kind + ": " + detail);
         }
         void close() {
-            if (closed) return; closed = true;
-            for (Object listener : listeners) NeoForge.EVENT_BUS.unregister(listener);
-            listeners.clear(); if (scene != null) scene.close();
-            multiplier.set(oldMultiplier);
-            level.getGameRules().getRule(ModGamerules.BREAK_BLOCKS).set(oldBreaks, level.getServer());
-            if (active == this) active = null;
-            log("CLEANUP listeners=0 M=" + JojoModConfig.getCommonConfigInstance(false).standDamageMultiplier.get()
-                    + " breakBlocks=" + level.getGameRules().getBoolean(ModGamerules.BREAK_BLOCKS));
+            throwCleanup(closeInto(null));
+        }
+
+
+
+
+
+
+
+        Throwable closeInto(Throwable failure) {
+            if (closed && cleanupComplete) return failure;
+            closed = true;
+            boolean[] failed = {false};
+            for (Object listener : new ArrayList<>(listeners)) failure = attemptCleanup(failure, failed, () -> {
+                NeoForge.EVENT_BUS.unregister(listener); listeners.remove(listener);
+            });
+            if (scene != null) failure = scene.closeInto(failure);
+            failure = attemptCleanup(failure, failed, () -> {
+                multiplier.set(oldMultiplier);
+                multiplierRestored = Double.compare(multiplier.get(), oldMultiplier) == 0
+                        && Double.compare(JojoModConfig.getCommonConfigInstance(false).standDamageMultiplier.get(), oldMultiplier) == 0;
+                if (!multiplierRestored) throw new IllegalStateException("Owned stand multiplier was not restored");
+            });
+            failure = attemptCleanup(failure, failed, () -> {
+                level.getGameRules().getRule(ModGamerules.BREAK_BLOCKS).set(oldBreaks, level.getServer());
+                breaksRestored = level.getGameRules().getBoolean(ModGamerules.BREAK_BLOCKS) == oldBreaks;
+                if (!breaksRestored) throw new IllegalStateException("Owned BREAK_BLOCKS was not restored");
+            });
+            failure = attemptCleanup(failure, failed, () -> log("CLEANUP listeners=" + listeners.size()
+                    + " sceneComplete=" + (scene == null || scene.cleanupComplete)
+                    + " M=" + JojoModConfig.getCommonConfigInstance(false).standDamageMultiplier.get()
+                    + " breakBlocks=" + level.getGameRules().getBoolean(ModGamerules.BREAK_BLOCKS)
+                    + " activeOwned=" + (active == this)));
+            cleanupComplete = !failed[0] && listeners.isEmpty() && (scene == null || scene.cleanupComplete)
+                    && multiplierRestored && breaksRestored;
+            if (cleanupComplete && active == this) active = null;
+            return failure;
         }
         @Override public void testStructureLoaded(GameTestInfo test) {}
         @Override public void testPassed(GameTestInfo test, GameTestRunner runner) { close(); }
@@ -253,6 +298,7 @@ public final class CoreNonlivingHeavyImpactGameTests {
         boolean hadBlockImpact;
         boolean done;
         boolean closed;
+        boolean cleanupComplete;
         RuntimeException invalid;
 
         Scene(Suite suite, Kind kind) { this.suite = suite; this.kind = kind; level = suite.level; }
@@ -490,12 +536,281 @@ public final class CoreNonlivingHeavyImpactGameTests {
             else suite.check(!capture(primary).active, "impact ended naturally after wall/floor collision; no manual reset");
         }
         @Override public void close() {
-            if (closed) return; closed = true;
-            if (user != null) AbilityInput.keyRelease(ATTACK, user);
-            if (power != null && power.isSummoned()) type.forceUnsummon(user, power);
-            for (Entity entity : loose) entity.discard(); restored.forEach(level::setBlockAndUpdate);
+            throwCleanup(closeInto(null));
+        }
+
+
+
+        Throwable closeInto(Throwable failure) {
+            if (closed && cleanupComplete) return failure;
+            closed = true;
+            boolean[] failed = {false};
+            if (user != null) failure = attemptCleanup(failure, failed, () -> AbilityInput.keyRelease(ATTACK, user));
+            failure = attemptCleanup(failure, failed, () -> {
+                if (power != null && power.isSummoned()) type.forceUnsummon(user, power);
+            });
+            failure = attemptCleanup(failure, failed, () -> {
+                if (stand != null && !stand.isRemoved()) stand.discard();
+            });
+            for (Entity entity : new ArrayList<>(loose)) failure = attemptCleanup(failure, failed, () -> {
+                if (!entity.isRemoved()) entity.discard();
+            });
+            for (var block : restored.entrySet()) failure = attemptCleanup(failure, failed, () -> {
+                level.setBlockAndUpdate(block.getKey(), block.getValue());
+                if (!level.getBlockState(block.getKey()).equals(block.getValue()))
+                    throw new IllegalStateException("Owned terrain was not restored at " + block.getKey());
+            });
+            failure = attemptCleanup(failure, failed, () -> {
+                cleanupComplete = !failed[0] && remainingEntities() == 0 && (power == null || !power.isSummoned())
+                        && restored.entrySet().stream().allMatch(block -> level.getBlockState(block.getKey()).equals(block.getValue()));
+                log("SCENE-CLEANUP " + kind + " remainingEntities=" + remainingEntities() + " complete=" + cleanupComplete);
+                if (!cleanupComplete && !failed[0]) throw new IllegalStateException("Owned scene cleanup residue remains");
+            });
+            if (failed[0]) cleanupComplete = false;
+            return failure;
+        }
+        int remainingEntities() {
+            return (int) loose.stream().filter(entity -> !entity.isRemoved() || level.getEntity(entity.getUUID()) != null).count()
+                    + (stand != null && (!stand.isRemoved() || level.getEntity(stand.getUUID()) != null) ? 1 : 0);
         }
     }
+
+    private enum CleanupKind { UNREGISTER, ENTITY_REMOVE }
+    private static final class CleanupFailure extends RuntimeException {
+        CleanupFailure(String message) { super(message); }
+    }
+    private static final class CleanupProbe implements GameTestListener {
+        final GameTestHelper helper;
+        final List<String> failures = new ArrayList<>();
+        Suite suite;
+        Scene scene;
+        Cow sentinel;
+        UnregisterProbe first;
+        Consumer<EntityTickEvent.Pre> later;
+        CleanupKind kind;
+        CleanupFailure primary;
+        CleanupFailure cleanup;
+        RuntimeException caught;
+        int index, phase, waitTicks, checks, firstCalls, laterCalls, sentinelAgeAtClose;
+        long nativeSignalTime = -1;
+        boolean complete;
+        CleanupProbe(GameTestHelper helper) { this.helper = helper; }
+        void setup() {
+            kind = CleanupKind.values()[index++];
+            primary = new CleanupFailure(kind + " initial caught native-event failure");
+            cleanup = new CleanupFailure(kind + " actual owned cleanup failure");
+            suite = new Suite(helper); scene = new Scene(suite, Kind.BOAT_RULE_OFF); suite.scene = scene; scene.prepare();
+            if (kind == CleanupKind.ENTITY_REMOVE) {
+                Player owned = new RemovalProbePlayer(scene.level, cleanup);
+                owned.moveTo(scene.origin.x - 1, scene.origin.y, scene.origin.z, 0, 0);
+                helper.assertTrue(scene.level.addFreshEntity(owned), "Actual owned removal-probe Player added");
+                scene.loose.addFirst(owned);
+            }
+            suite.multiplier.set(Double.compare(suite.oldMultiplier, 0.1) == 0 ? 0.2 : 0.1);
+            scene.level.getGameRules().getRule(ModGamerules.BREAK_BLOCKS).set(!suite.oldBreaks, scene.level.getServer());
+            helper.assertTrue(Double.compare(actualMultiplier(), suite.oldMultiplier) != 0
+                    && actualBreaks() != suite.oldBreaks, "Both actual owned config/rule values changed before cleanup");
+            sentinel = new Cow(EntityType.COW, scene.level); sentinel.setNoAi(true); sentinel.setNoGravity(true);
+            sentinel.moveTo(scene.origin.x + 7, scene.origin.y + 1, scene.origin.z, 0, 0);
+            helper.assertTrue(scene.level.addFreshEntity(sentinel) && !sentinel.isPassenger(), "Natural tick sentinel added, not a passenger");
+            suite.listen();
+            first = new UnregisterProbe(this);
+            later = event -> { if (event.getEntity() == sentinel && phase >= 2) laterCalls++; };
+            suite.listeners.addFirst(first); NeoForge.EVENT_BUS.addListener(EventPriority.NORMAL, EntityTickEvent.Pre.class, first);
+            suite.listeners.add(later); NeoForge.EVENT_BUS.addListener(EventPriority.LOW, EntityTickEvent.Pre.class, later);
+            helper.assertTrue(active == suite && scene.remainingEntities() >= 3 && scene.power.isSummoned()
+                    && !scene.stand.isRemoved() && scene.restored.entrySet().stream()
+                    .anyMatch(block -> !scene.level.getBlockState(block.getKey()).equals(block.getValue())),
+                    "Actual owned actors/linked Stand/changed terrain/listeners exist before cleanup; no combat input");
+            phase = 0; waitTicks = 0; nativeSignalTime = -1; firstCalls = 0; laterCalls = 0; caught = null;
+            cleanupLog("BEFORE " + state() + " ownedUUIDs=" + ownedUuids()
+                    + " primary=" + primary.getMessage() + " cleanup=" + cleanup.getMessage());
+        }
+        void tick() {
+            if (complete) return;
+            try {
+                if (scene == null) {
+                    if (index == CleanupKind.values().length) {
+                        complete = true;
+                        cleanupLog("SUMMARY scenes=" + index + " checks=" + checks + " failures=" + failures.size() + " details=" + failures);
+                        helper.assertTrue(failures.isEmpty(), "Nonliving impact fixture exceptional cleanup failed; see CLEANUP SUMMARY");
+                        helper.succeed(); return;
+                    }
+                    setup(); return;
+                }
+                helper.assertTrue(++waitTicks < 70, "Natural cleanup probe timeout");
+                if (phase == 0 && nativeSignalTime >= 0) {
+                    try { suite.tick(); } catch (RuntimeException error) { caught = error; }
+                    phase = 2; waitTicks = 0; sentinelAgeAtClose = sentinel.tickCount;
+                    check(caught == primary, "actual caught native-event primary identity preserved");
+                    check(caught != null && caught.getSuppressed().length == 1 && caught.getSuppressed()[0] == cleanup,
+                            "exact distinct owned cleanup error suppressed on primary");
+                    check(suite.closed && scene.closed, "both owners stop normal callbacks despite first cleanup exception");
+                    check(scene.remainingEntities() == 0, "every owned Player/Stand/primary UUID removed from native world");
+                    check(!scene.power.isSummoned(), "actual summoned ownership unlinked despite earlier cleanup exception");
+                    check(terrainRestored(), "every original owned block state restored despite earlier exception");
+                    check(Double.compare(actualMultiplier(), suite.oldMultiplier) == 0, "actual server multiplier restored");
+                    check(actualBreaks() == suite.oldBreaks, "actual BREAK_BLOCKS restored");
+                    check(suite.listeners.size() == (kind == CleanupKind.UNREGISTER ? 1 : 0),
+                            "pending listener inventory equals actual failed primitive, not unconditional zero");
+                    check(!suite.cleanupComplete && active == suite, "failed primitive retains incomplete Suite ownership for retry");
+                    check(scene.cleanupComplete == (kind == CleanupKind.UNREGISTER),
+                            "Scene completion reflects actual failed delegated removal, not merely visible residue");
+                    cleanupLog("FIRST " + state() + " caught=" + describe(caught)); return;
+                }
+                if (phase == 2 && waitTicks >= 3) {
+                    helper.assertTrue(sentinel.tickCount >= sentinelAgeAtClose + 2 && !sentinel.isPassenger(),
+                            "Further real sentinel world ticks qualify listener presence/absence");
+                    check(laterCalls == 0, "later actual native listener removed despite earlier failure");
+                    check(kind == CleanupKind.UNREGISTER ? firstCalls > 0 : firstCalls == 0,
+                            "actual failed unregister remains live, otherwise first listener is absent");
+                    RuntimeException retry = null;
+                    try { suite.close(); } catch (RuntimeException error) { retry = error; }
+                    check(retry == null, "idempotent own retry has no repeated one-shot cleanup error");
+                    check(settled(), "retry settles all actual own actors/terrain/config/listeners and releases own active");
+                    check(suite.cleanupComplete && scene.cleanupComplete, "owners complete only after successful retry");
+                    phase = 3; waitTicks = 0; firstCalls = 0; laterCalls = 0; sentinelAgeAtClose = sentinel.tickCount;
+                    cleanupLog("RETRY " + state() + " failure=" + describe(retry)); return;
+                }
+                if (phase == 3 && waitTicks >= 3) {
+                    helper.assertTrue(sentinel.tickCount >= sentinelAgeAtClose + 2, "Post-retry real sentinel ticks occurred");
+                    check(firstCalls == 0 && laterCalls == 0, "both actual native listeners remain absent after retry");
+                    cleanupLog("PRE-RECOVERY " + state() + " ownedUUIDs=" + ownedUuids());
+                    Throwable recovery = recover(null);
+                    helper.assertTrue(recovery == null && settled() && sentinel.isRemoved()
+                            && scene.level.getEntity(sentinel.getUUID()) == null,
+                            "Only after orphan measurement, exact-owned recovery removes actual residue");
+                    scene = null; suite = null; sentinel = null; return;
+                }
+            }
+            catch (RuntimeException | Error error) {
+                Throwable failure = recover(error); complete = true; throwCleanup(failure);
+            }
+        }
+        void check(boolean value, String detail) {
+            checks++; cleanupLog((value ? "PASS " : "FAIL ") + kind + " " + detail);
+            if (!value) failures.add(kind + ": " + detail);
+        }
+        double actualMultiplier() { return JojoModConfig.getCommonConfigInstance(false).standDamageMultiplier.get(); }
+        boolean actualBreaks() { return suite.level.getGameRules().getBoolean(ModGamerules.BREAK_BLOCKS); }
+        boolean terrainRestored() {
+            return scene.restored.entrySet().stream().allMatch(block -> scene.level.getBlockState(block.getKey()).equals(block.getValue()));
+        }
+        boolean settled() {
+            return scene.remainingEntities() == 0 && !scene.power.isSummoned() && terrainRestored()
+                    && Double.compare(actualMultiplier(), suite.oldMultiplier) == 0 && actualBreaks() == suite.oldBreaks
+                    && suite.listeners.isEmpty() && active != suite;
+        }
+        String ownedUuids() {
+            return scene.loose.stream().map(entity -> entity.getUUID() + ":removed=" + entity.isRemoved()
+                    + ":lookup=" + (scene.level.getEntity(entity.getUUID()) != null)).toList()
+                    + " stand=" + scene.stand.getUUID() + ":lookup=" + (scene.level.getEntity(scene.stand.getUUID()) != null);
+        }
+        String state() {
+            if (suite == null) return "kind=" + kind + " suite=null";
+            return "kind=" + kind + " world=" + suite.level.getGameTime() + " remainingEntities="
+                    + (scene == null ? -1 : scene.remainingEntities()) + " blocksRestored="
+                    + (scene != null && terrainRestored()) + " M=" + actualMultiplier() + "/" + suite.oldMultiplier
+                    + " BREAK_BLOCKS=" + actualBreaks() + "/" + suite.oldBreaks + " listenersPending=" + suite.listeners.size()
+                    + " firstCalls=" + firstCalls + " laterCalls=" + laterCalls + " activeOwned=" + (active == suite)
+                    + " suiteComplete=" + suite.cleanupComplete + " sceneComplete=" + (scene != null && scene.cleanupComplete);
+        }
+        Throwable recover(Throwable failure) {
+            if (suite == null) return failure;
+            suite.closed = true; if (scene != null) scene.closed = true;
+            for (Object listener : new ArrayList<>(suite.listeners)) failure = attemptCleanup(failure, () -> {
+                NeoForge.EVENT_BUS.unregister(listener); suite.listeners.remove(listener);
+            });
+            if (scene != null) {
+                if (scene.user != null) failure = attemptCleanup(failure, () -> AbilityInput.keyRelease(ATTACK, scene.user));
+                failure = attemptCleanup(failure, () -> {
+                    if (scene.power != null && scene.power.isSummoned()) scene.type.forceUnsummon(scene.user, scene.power);
+                });
+                failure = attemptCleanup(failure, () -> { if (scene.stand != null && !scene.stand.isRemoved()) scene.stand.discard(); });
+                for (Entity entity : new ArrayList<>(scene.loose)) failure = attemptCleanup(failure, () -> { if (!entity.isRemoved()) entity.discard(); });
+                for (var block : scene.restored.entrySet()) failure = attemptCleanup(failure, () -> scene.level.setBlockAndUpdate(block.getKey(), block.getValue()));
+            }
+            if (sentinel != null) failure = attemptCleanup(failure, () -> { if (!sentinel.isRemoved()) sentinel.discard(); });
+            failure = attemptCleanup(failure, () -> suite.multiplier.set(suite.oldMultiplier));
+            failure = attemptCleanup(failure, () -> suite.level.getGameRules().getRule(ModGamerules.BREAK_BLOCKS).set(suite.oldBreaks, suite.level.getServer()));
+            failure = attemptCleanup(failure, () -> {
+                boolean clean = suite.listeners.isEmpty() && Double.compare(actualMultiplier(), suite.oldMultiplier) == 0
+                        && actualBreaks() == suite.oldBreaks && (scene == null || scene.remainingEntities() == 0
+                        && (scene.power == null || !scene.power.isSummoned()) && terrainRestored())
+                        && (sentinel == null || sentinel.isRemoved() && suite.level.getEntity(sentinel.getUUID()) == null);
+                if (clean && active == suite) active = null;
+                if (!clean) throw new IllegalStateException("Owned recovery residue remains");
+            });
+            Throwable result = failure;
+            return attemptCleanup(result, () -> cleanupLog("RECOVERY " + state() + " failure=" + describe(result)));
+        }
+        @Override public void testStructureLoaded(GameTestInfo test) {}
+        @Override public void testPassed(GameTestInfo test, GameTestRunner runner) { throwCleanup(recover(null)); }
+        @Override public void testFailed(GameTestInfo test, GameTestRunner runner) { throwCleanup(recover(null)); }
+        @Override public void testAddedForRerun(GameTestInfo oldTest, GameTestInfo newTest, GameTestRunner runner) { throwCleanup(recover(null)); }
+    }
+    private static final class UnregisterProbe implements Consumer<EntityTickEvent.Pre> {
+        final CleanupProbe owner;
+        boolean throwNextHash;
+        UnregisterProbe(CleanupProbe owner) { this.owner = owner; }
+        @Override public void accept(EntityTickEvent.Pre event) {
+            if (event.getEntity() != owner.sentinel) return;
+            if (owner.phase == 0 && owner.nativeSignalTime < 0) {
+                owner.nativeSignalTime = owner.scene.level.getGameTime();
+                owner.suite.callback(() -> { throw owner.primary; });
+                throwNextHash = owner.kind == CleanupKind.UNREGISTER;
+                cleanupLog("NATIVE-CALLBACK kind=" + owner.kind + " sentinelUUID=" + event.getEntity().getUUID()
+                        + " world=" + owner.nativeSignalTime + " primaryCaught=" + (owner.suite.callbackFailure == owner.primary));
+            }
+            else if (owner.phase >= 2) owner.firstCalls++;
+        }
+        @Override public int hashCode() {
+            if (throwNextHash) {
+                throwNextHash = false; cleanupLog("NATIVE-UNREGISTER-HASH kind=" + owner.kind + " failure=" + owner.cleanup.getMessage());
+                throw owner.cleanup;
+            }
+            return System.identityHashCode(this);
+        }
+    }
+    private static final class RemovalProbePlayer extends Player {
+        final RuntimeException failure;
+        boolean throwOnce = true;
+        RemovalProbePlayer(ServerLevel level, RuntimeException failure) {
+            super(level, BlockPos.ZERO, 0, new GameProfile(UUID.randomUUID(), "impact-cleanup-resource"));
+            this.failure = failure; setNoGravity(true); noPhysics = true;
+        }
+        @Override public boolean isCreative() { return false; }
+        @Override public boolean isSpectator() { return false; }
+        @Override public void remove(RemovalReason reason) {
+            super.remove(reason);
+            if (throwOnce && reason == RemovalReason.DISCARDED) {
+                throwOnce = false; cleanupLog("NATIVE-REMOVE playerUUID=" + getUUID() + " delegatedRemoved=" + isRemoved());
+                throw failure;
+            }
+        }
+    }
+    private static Throwable attemptCleanup(Throwable primary, Runnable action) {
+        try { action.run(); } catch (RuntimeException | Error later) {
+            if (primary == null) return later;
+            if (primary != later && java.util.Arrays.stream(primary.getSuppressed()).noneMatch(error -> error == later))
+                primary.addSuppressed(later);
+        }
+        return primary;
+    }
+    private static Throwable attemptCleanup(Throwable primary, boolean[] failed, Runnable action) {
+        return attemptCleanup(primary, () -> {
+            try { action.run(); } catch (RuntimeException | Error error) { failed[0] = true; throw error; }
+        });
+    }
+    private static void throwCleanup(Throwable failure) {
+        if (failure instanceof RuntimeException error) throw error;
+        if (failure instanceof Error error) throw error;
+    }
+    private static String describe(Throwable failure) {
+        return failure == null ? "none" : failure.getClass().getName() + ":" + failure.getMessage()
+                + " suppressed=" + java.util.Arrays.stream(failure.getSuppressed()).map(Throwable::getMessage).toList();
+    }
+    private static void cleanupLog(String value) { JojoMod.getLogger().info("CORE-NONLIVING-CLEANUP " + value); }
 
     private static final class ObservedAttackerStand extends StandEntity {
         final Scene scene;
@@ -529,6 +844,8 @@ public final class CoreNonlivingHeavyImpactGameTests {
     }
     private static void identity() {
         Class<?>[] types = {CoreNonlivingHeavyImpactGameTests.class, ObservedAttackerStand.class,
+                Suite.class, Scene.class, CleanupProbe.class, CleanupKind.class, CleanupFailure.class,
+                UnregisterProbe.class, RemovalProbePlayer.class, TestPlayer.class,
                 StandEntityHeavyPunchAbility.class, StandEntityHeavyPunch.class, TheWorldKick.class,
                 StandInitStarPlatinum.class, StandInitTheWorld.class, EntityActionInstance.class,
                 StandEntity.class, KnockbackCollisionImpact.class, DamageUtil.class, AbilityInput.class};
@@ -541,7 +858,8 @@ public final class CoreNonlivingHeavyImpactGameTests {
                 String expected = System.getProperty("rotp.nonliving.expected." + type.getName());
                 if (bound && (expected == null || !expected.equalsIgnoreCase(actual))) throw new IllegalStateException("Bound class mismatch " + type.getName());
                 log("IDENTITY " + type.getName() + " sha256=" + actual + " source="
-                        + type.getProtectionDomain().getCodeSource().getLocation().toURI().toASCIIString() + " bound=" + bound);
+                        + type.getProtectionDomain().getCodeSource().getLocation().toURI().toASCIIString() + " resource="
+                        + type.getResource("/" + type.getName().replace('.', '/') + ".class").toURI().toASCIIString() + " bound=" + bound);
             }
             catch (Exception error) { throw new IllegalStateException("Could not bind native class " + type.getName(), error); }
         }
