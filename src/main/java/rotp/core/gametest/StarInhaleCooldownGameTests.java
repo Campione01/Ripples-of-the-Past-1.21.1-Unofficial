@@ -87,7 +87,7 @@ public final class StarInhaleCooldownGameTests {
     }
 
     private static List<Spec> cases() {
-        return List.of(new Spec(Stop.LOCKED, 0), new Spec(Stop.EMPTY_STAMINA, 0),
+        return List.of(new Spec(Stop.LOCKED, 0), new Spec(Stop.EMPTY_STAMINA, 10),
                 new Spec(Stop.GUARD, 0), new Spec(Stop.RELEASE, 0),
                 new Spec(Stop.GUARD, 1), new Spec(Stop.GUARD, 7), new Spec(Stop.GUARD, 40),
                 new Spec(Stop.ZOOM, 7), new Spec(Stop.RELEASE, 1), new Spec(Stop.RELEASE, 7),
@@ -253,12 +253,14 @@ public final class StarInhaleCooldownGameTests {
             power.setStamina(spec.stop == Stop.EMPTY_STAMINA ? 0 : power.getMaxStamina());
             var selected = power.updateAvailableMoves().getContextVariationContainer(ability);
             boolean admitted = AbilityInput.withConditionCheck(selected, user, InputMethod.HOLD);
-            if (spec.stop == Stop.LOCKED || spec.stop == Stop.EMPTY_STAMINA) {
+            if (spec.stop == Stop.LOCKED) {
                 suite.check(!admitted && stand.getCurStandAction() == null && power.getAbilityCooldown("inhale") == 0,
                         "real early admission refusal creates no action/cooldown");
                 done = true;
                 return;
             }
+            // 1.16 checked no stamina before Inhale and paid its 2 per tick without stopping it
+            if (spec.stop == Stop.EMPTY_STAMINA) suite.check(admitted, "Inhale starts on an empty bar");
             premise(admitted, "registered Inhale HOLD admission");
             BufferingState input = BufferingState.clickOnly();
             AbilityInput.keyPress(KEY_A, selected.ability, user, null, InputMethod.HOLD, 0, input, ability.getAbilityId());
@@ -284,7 +286,20 @@ public final class StarInhaleCooldownGameTests {
                 AbilityInput.keyRelease(KEY_A, user);
                 observeSettlement("release after continued registered hold");
             }
-            if (!settled && (spec.stop == Stop.TIMEOUT || starved || spec.stop == Stop.FORCE && requested)
+            if (spec.stop == Stop.STAMINA && starved && !settled) {
+                if (stand.getCurStandAction() != action || action.getPhase() != ActionPhase.PERFORM) {
+                    settled = true;
+                    suite.check(false, "an empty bar must not end Inhale, it ended at " + action.getFullTicksPassed());
+                }
+                else if (action.getFullTicksPassed() >= resumedUntil) {
+                    suite.check(power.getStamina() < 2.5F, "the bar stays empty while Inhale keeps paying: " + power.getStamina());
+                    stopTicks = (int) Math.floor(action.getFullTicksPassed());
+                    expected = ability.getCooldown(power, stopTicks);
+                    AbilityInput.keyRelease(KEY_A, user);
+                    observeSettlement("release after inhaling on an empty bar");
+                }
+            }
+            if (!settled && (spec.stop == Stop.TIMEOUT || spec.stop == Stop.FORCE && requested)
                     && stand.getCurStandAction() != action) {
                 if (spec.stop == Stop.TIMEOUT) { stopTicks = 80; expected = ability.getCooldown(power, stopTicks); }
                 observeSettlement("native completion/clear");
@@ -317,7 +332,15 @@ public final class StarInhaleCooldownGameTests {
                 AbilityInput.keyRelease(KEY_A, user);
                 observeSettlement("normal key release");
             }
-            else if (spec.stop == Stop.STAMINA) starveNextTick = true;
+            else if (spec.stop == Stop.STAMINA) {
+                starveNextTick = true;
+                resumedUntil = stopTicks + 5;
+            }
+            else if (spec.stop == Stop.EMPTY_STAMINA) {
+                suite.check(power.getStamina() < 2.5F, "the bar stays empty while Inhale keeps paying: " + power.getStamina());
+                AbilityInput.keyRelease(KEY_A, user);
+                observeSettlement("release of a hold started on an empty bar");
+            }
             else if (spec.stop == Stop.FORCE) {
                 action.forceStop();
                 premise(action.isOver() && action.getPhaseTick() == stopTicks, "native forceStop retains actual elapsed phase clock");

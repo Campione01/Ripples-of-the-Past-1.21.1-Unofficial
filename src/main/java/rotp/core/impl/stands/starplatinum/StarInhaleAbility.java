@@ -11,7 +11,6 @@ import rotp.core.init.ModSoundEvents;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
-import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
@@ -48,12 +47,6 @@ public class StarInhaleAbility extends StandEntityAbility {
     @Override
     public boolean shouldSetCooldownOnKeyPress(InputMethod inputMethod) {
     	return false;
-    }
-
-    @Override
-    public ConditionCheck checkSpecificConditions(Power<?> context) {
-    	ConditionCheck check = super.checkSpecificConditions(context);
-    	return check.isPositive() ? StandAbilityStamina.check(context, INHALE_STAMINA_COST_TICK) : check;
     }
 
     @Override
@@ -125,11 +118,9 @@ public class StarInhaleAbility extends StandEntityAbility {
             }
             LivingEntity user = getPowerUser();
             if (!level.isClientSide()) {
+                // 1.16 StandEntityTask paid each perform tick and ignored the result: an empty bar stays at 0
                 StandPower standPower = user != null ? StandPower.get(user) : null;
-                if (!StandAbilityStamina.consume(ability, standPower, INHALE_STAMINA_COST_TICK, true)) {
-                    startRecovery();
-                    return;
-                }
+                StandAbilityStamina.consume(ability, standPower, INHALE_STAMINA_COST_TICK, true);
             }
 
             Vec3 mouthPos = standEntity.position()
@@ -157,7 +148,7 @@ public class StarInhaleAbility extends StandEntityAbility {
                         : suctionVec.scale(Math.max(distance - 1, 0)));
 
                 if (!level.isClientSide() && distance < 4 && entity instanceof LivingEntity livingEntity) {
-					DamageUtil.suffocateTick(livingEntity, standEntity, 0.025F);
+					DamageUtil.suffocateTick(livingEntity, 0.025F);
                 }
             });
 

@@ -148,7 +148,7 @@
   "jojo_ripples.subtitle.liquid_splash": "液体飞溅而出",
   "jojo_ripples.subtitle.shot": "枪声",
   "jojo_ripples.subtitle.clothes_sewed": "衣物缝制完成",
-  "death.attack.rotp_suffocation": "%s被%s窒息而死",
+  "death.attack.rotp_suffocation": "%s因窒息而死",
   "death.attack.rotp_suffocation.player": "%s 在与 %s 战斗时窒息而亡",
   "death.attack.rotp_suffocation.item": "%s被%s使用%s窒息而死",
   "death.attack.rotp_entityFlewInto": "%s 体验了 %s 的动能",
