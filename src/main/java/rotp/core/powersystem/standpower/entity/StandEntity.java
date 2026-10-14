@@ -2173,17 +2173,8 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 //					((StandEntity) dmgSource.getEntity()).playPunchSound = false;
 //				}
 			}
-			float standResistanceDamage = dmgAmount * (1 - getPhysicalResistance(blockedRatio, dmgAmount));
-			LivingEntity user = getUser();
-			float finalDamage;
-			if (user != null) {
-				float hypotheticalUserDamage = DamageUtil.damageEntityWillTake(user, dmgSource, 
-						damageContainers.peek().getOriginalDamage(), true).getNewDamage();
-				finalDamage = Math.min(standResistanceDamage, hypotheticalUserDamage);
-			}
-			else {
-				finalDamage = standResistanceDamage;
-			}
+			// 1.16: what the Stand resisted is what it passes on, whatever the user's armor or hurt cooldown
+			float finalDamage = dmgAmount * (1 - getPhysicalResistance(blockedRatio, dmgAmount));
 			if (wasDamageBlocked) {
 				blockDamage += finalDamage;
 				// 1.16 onLivingDamage: a blocked hit staggers neither the Stand nor its user
@@ -2227,7 +2218,8 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 			if (user != null) {
 				DamageContainer currentlyTakingDamage = !damageContainers.empty() ? damageContainers.peek() : null;
 				if (currentlyTakingDamage != null && this.getHealth() - currentlyTakingDamage.getNewDamage() == newHealthValue) { // this means it is *very* likely being called in LivingEntity#actuallyHurt
-					user.hurt(new StandLinkDamageSource(level, this, currentlyTakingDamage.getSource()), currentlyTakingDamage.getNewDamage());
+					// 1.16 hurtThroughInvulTicks: the link type bypasses the cooldown but would start a new one on the user
+					DamageUtil.hurtThroughInvulTicks(user, new StandLinkDamageSource(level, this, currentlyTakingDamage.getSource()), currentlyTakingDamage.getNewDamage());
 				}
 				else {
 					user.setHealth(newHealthValue);
