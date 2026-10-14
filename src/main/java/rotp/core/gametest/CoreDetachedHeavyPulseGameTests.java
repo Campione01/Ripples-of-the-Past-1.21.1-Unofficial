@@ -92,6 +92,7 @@ public final class CoreDetachedHeavyPulseGameTests {
     private static final short CONTROL = 135;
     private static final Vec3 SEED = new Vec3(0.8, 0.2, -0.6);
     private static final double SIN_60 = Math.sqrt(3) / 2;
+    private static final float PRIMER_SENTINEL_KNOCKBACK = 2.375F;
     private static final PowerSkillUnlocks.Owner UNLOCKS = PowerSkillUnlocks.register(
             JojoMod.resLoc(CoreDetachedHeavyPulseGameTests.class.getSimpleName().toLowerCase(Locale.ROOT)));
     private static Suite active;
@@ -482,6 +483,9 @@ public final class CoreDetachedHeavyPulseGameTests {
             if (cancelledPrimer() && primer != null && event.getEntity() == primary && event.getSource().getDirectEntity() == primer.stand) {
                 premise(!((LivingEntity) primary).damageContainers.isEmpty(), "native incoming primer has its own active container");
                 primerSource = event.getSource(); primerContext = ((LivingEntity) primary).damageContainers.peek();
+                // a sentinel the canceled hit never applies: a later attempt that rewrote this source would change it
+                DamageSourceModified primerKnockback = (DamageSourceModified) primerSource;
+                primerKnockback.jojo_ripples$modifyKnockback(PRIMER_SENTINEL_KNOCKBACK, primerKnockback.jojo_ripples$knockbackMultiplier());
                 event.setCanceled(true);
                 log("CANCELED-PRIMER " + spec.id() + " source=" + primerSource.getMsgId()
                         + " add=" + ((DamageSourceModified) primerSource).jojo_ripples$addKnockback());
@@ -559,7 +563,7 @@ public final class CoreDetachedHeavyPulseGameTests {
             if (cancelledPrimer()) suite.check(((LivingEntity) target).damageContainers.isEmpty()
                     && primerContext.getSource() == primerSource
                     && ((DamageSourceModified) primerSource).jojo_ripples$standPower() == primer.power
-                    && near(((DamageSourceModified) primerSource).jojo_ripples$addKnockback(), 0),
+                    && near(((DamageSourceModified) primerSource).jojo_ripples$addKnockback(), PRIMER_SENTINEL_KNOCKBACK),
                     "both native attempts release only their own containers; prior source metadata is unchanged");
             double raw = main ? 15 : 7.5;
             suite.check(near(hurt.amount, raw * spec.multiplier), "actual primary/half-RAW secondary M once amount=" + hurt.amount);
