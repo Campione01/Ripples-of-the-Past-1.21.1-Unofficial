@@ -292,24 +292,12 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 		}
 
 		private boolean canRefreshFrontOffset(StandEntity stand) {
-			return !stand.level().isClientSide() && stand.isFollowingUser() && !stand.isArmsOnlyMode()
-					&& !isGrabVariation() && LivingComponentGrab.getEntityGrabbedBy(stand) == null;
+			return StandEntityBarrageAbility.canRefreshFrontOffset(this, stand);
 		}
 
 		private void refreshFrontOffset(StandEntity stand, ActionTarget target) {
-			if (!canRefreshFrontOffset(stand)) {
-				return;
-			}
-			Vec3 previous = getSyncedStandOffset();
-			ActionTarget offsetTarget = target;
-			if (target.getType() == ActionTarget.TargetType.ENTITY && target.getClipPos().isPresent()
-					&& StandEntityPunchAbility.shouldRetainPunchTarget(stand, ability)) {
-				offsetTarget = target.copy().resolveEntityId(stand.level()).withClipPos(Optional.empty());
-			}
-			setStandFrontOffsetFromTarget(stand, offsetTarget, Math.min(0.5, stand.getEffectiveRange()), Math.min(1.5, stand.getEffectiveRange()));
-			if (!Objects.equals(previous, getSyncedStandOffset())) {
-				stand.offsetFromUser.syncToTracking();
-			}
+			StandEntityBarrageAbility.refreshFrontOffset(this, stand, target,
+					Math.min(0.5, stand.getEffectiveRange()), Math.min(1.5, stand.getEffectiveRange()));
 		}
 		
 		@Override
@@ -492,6 +480,33 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 			StandEntityPunchAbility.StandEntityPunch.breakStandBlock(level, target.getBlockPos(), stand, !isUserCreative());
 		}
 
+	}
+
+	static boolean canRefreshFrontOffset(EntityActionInstance action, StandEntity stand) {
+		return !stand.level().isClientSide() && stand.isFollowingUser() && !stand.isArmsOnlyMode()
+				&& action.ability.getAbilityUsageCategory() != AbilityUsageGroup.GRAB
+				&& LivingComponentGrab.getEntityGrabbedBy(stand) == null;
+	}
+
+	/**
+	 * 1.16 StandEntityAction.front3dOffset while the action runs: the Stand stays at its distance from the current
+	 * target, measured to an entity's own position (offsetToTarget, ActionTarget.getTargetPos) rather than to the
+	 * point where an aim ray met its surface. Clients get the offset only when it changes.
+	 */
+	public static void refreshFrontOffset(EntityActionInstance action, StandEntity stand, ActionTarget target,
+			double minOffset, double maxOffset) {
+		if (!canRefreshFrontOffset(action, stand)) {
+			return;
+		}
+		Vec3 previous = action.getSyncedStandOffset();
+		ActionTarget offsetTarget = target;
+		if (target.getType() == ActionTarget.TargetType.ENTITY && target.getClipPos().isPresent()) {
+			offsetTarget = target.copy().resolveEntityId(stand.level()).withClipPos(Optional.empty());
+		}
+		action.setStandFrontOffsetFromTarget(stand, offsetTarget, minOffset, maxOffset);
+		if (!Objects.equals(previous, action.getSyncedStandOffset())) {
+			stand.offsetFromUser.syncToTracking();
+		}
 	}
 
 	/**

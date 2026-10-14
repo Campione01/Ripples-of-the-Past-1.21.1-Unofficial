@@ -273,7 +273,8 @@ public final class BarrageFrontDistanceGameTests {
                     premise(clipped.getMainEntity() == target && clipped.getClipPos().isPresent(), "fresh directional surface target");
                     double clipZ = clipped.getClipPos().get().z - user.getZ();
                     premise(near(clipZ, 2.35), "cow surface geometry actual=" + clipZ);
-                    assertOffset(0.9, "directional surface point, not center distance");
+                    // 1.16 offsetToTarget measures to the entity's own position, not to the aim ray's surface point
+                    assertOffset(1.35, "directional target uses its entity position, not the surface point");
                 }
                 else assertOffset(1.35, clippedRetention() ? "retained clipped target uses current entity position" : "locked no-clip target moved out");
                 if (kind == Kind.CLEAR) {

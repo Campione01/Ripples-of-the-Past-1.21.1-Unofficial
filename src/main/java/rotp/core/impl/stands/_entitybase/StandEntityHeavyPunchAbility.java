@@ -259,6 +259,12 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 			Level level = performer.level();
 			if (performer instanceof StandEntity stand) {
 				StandEntityPunchAbility.releaseUnlockedPunchTarget(stand, this);
+				// 1.16 StandEntityHeavyAttack.getOffsetFromUser: through the windup the Stand keeps its distance from
+				// the current target, so it steps after one that backs away
+				if (!level.isClientSide() && getPhase() == ActionPhase.WINDUP && usesHeavyFinisherSetup() && !isGrabVariation()) {
+					StandEntityBarrageAbility.refreshFrontOffset(this, stand, getPunchTarget(stand),
+							Math.min(0.5, stand.getEffectiveRange()), Math.min(2, stand.getMaxRange()));
+				}
 			}
 			if (level.isClientSide() && !(playedSwingSound && playedStandCrySound)
 					&& performer instanceof StandEntity stand && ClientGlobals.canHearStand(stand)) {

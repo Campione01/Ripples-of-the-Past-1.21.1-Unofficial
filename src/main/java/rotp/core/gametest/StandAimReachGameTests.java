@@ -1,0 +1,184 @@
+package rotp.core.gametest;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+import rotp.core.api.stand.StandPowerTransitions;
+import rotp.core.core.JojoMod;
+import rotp.core.core.JojoRegistries;
+import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility.StandEntityHeavyPunch;
+import rotp.core.init.ModDataAttachmentTypes;
+import rotp.core.init.ModEntityAttributes;
+import rotp.core.powersystem.PowerClass;
+import rotp.core.powersystem.ability.Ability;
+import rotp.core.powersystem.ability.controls.InputMethod;
+import rotp.core.powersystem.ability.input.AbilityInput;
+import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
+import rotp.core.powersystem.entityaction.ActionPhase;
+import rotp.core.powersystem.entityaction.EntityActionInstance;
+import rotp.core.powersystem.entityaction.LivingComponentAction;
+import rotp.core.powersystem.standpower.StandInstance;
+import rotp.core.powersystem.standpower.StandPower;
+import rotp.core.powersystem.standpower.entity.StandEntity;
+import rotp.core.powersystem.standpower.type.StandType;
+import rotp.core.subsystems.target.ActionTarget;
+
+import net.minecraft.core.BlockPos;
+import net.minecraft.gametest.framework.GameTest;
+import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.animal.Cow;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.gametest.GameTestHolder;
+import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
+
+/**
+ * 1.16 StandEntity.punch / aimWithThisOrUser: an attack with no target in the Stand's reach aims with the user's own
+ * precision ray (the user's 5-block reach, the Stand's precision hitboxes) and keeps what the Stand, moved forward,
+ * can reach; the heavy punch's Stand keeps its distance from its target through the windup. Own batch: the rays
+ * reach several blocks and must not meet a neighbouring test's mobs.
+ */
+@GameTestHolder(JojoMod.MOD_ID)
+@PrefixGameTestTemplate(false)
+public final class StandAimReachGameTests {
+	private static final String BATCH = "stand_aim_reach";
+	private static final short KEY = 171;
+
+	private StandAimReachGameTests() {}
+
+	@GameTest(template = "empty", timeoutTicks = 60, batch = BATCH)
+	public static void heavyWindupFollowsARetreatingTarget(GameTestHelper helper) {
+		Scene scene = new Scene(helper, GameType.CREATIVE, true, 8);
+		Cow cow = scene.cow(0, 2.6);
+		EntityActionInstance[] action = new EntityActionInstance[1];
+		scene.run(tick -> {
+			if (tick == 3) {
+				LivingComponentAction.getComponent(scene.stand).entityAim.setTarget(new ActionTarget(cow));
+				action[0] = scene.press("heavy_punch", InputMethod.CLICK);
+				helper.assertTrue(action[0] instanceof StandEntityHeavyPunch, "The heavy input started " + action[0]);
+			}
+			else if (tick == 5) {
+				helper.assertTrue(action[0].getPhase() == ActionPhase.WINDUP, "Fixture: the windup ended early");
+				scene.assertOffset(action[0], 2.6 - 1.45, "start of the windup");
+				cow.moveTo(cow.getX(), cow.getY(), cow.getZ() + 1.0, 0, 0);
+			}
+			else if (tick == 7) {
+				helper.assertTrue(action[0].getPhase() == ActionPhase.WINDUP, "Fixture: the windup ended early");
+				scene.assertOffset(action[0], 2.0, "after the target stepped back (upper clamp 2)");
+				return true;
+			}
+			return false;
+		});
+	}
+
+	private interface Step {
+		boolean run(int tick);
+	}
+
+	private static final class Scene {
+		final GameTestHelper helper;
+		final Player user;
+		final StandPower power;
+		final StandType type;
+		final StandEntity stand;
+		final Vec3 origin;
+		final List<Entity> entities = new ArrayList<>();
+		int ticks;
+		boolean finished;
+
+		Scene(GameTestHelper helper, GameType gameType, boolean locked, double speed) {
+			this.helper = helper;
+			origin = Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(1, 2, 1)));
+			user = GameTestPlayers.makeServerMockPlayer(helper, gameType);
+			user.getAbilities().instabuild = gameType == GameType.CREATIVE;
+			user.setNoGravity(true);
+			user.noPhysics = true;
+			user.moveTo(origin.x, origin.y, origin.z, 0, 0);
+			user.setYHeadRot(0);
+			helper.assertTrue(helper.getLevel().addFreshEntity(user), "Could not add the Stand user");
+			entities.add(user);
+			power = PowerClass.STAND.attachGet(user);
+			type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("star_platinum"));
+			helper.assertTrue(type != null && StandPowerTransitions.insert(power, new StandInstance(type)).status()
+					== StandPowerTransitions.Status.APPLIED, "Could not grant Star Platinum");
+			helper.assertTrue(type.summon(user, power), "Could not summon Star Platinum");
+			stand = power.getSummonedStandEntity();
+			helper.assertTrue(stand != null && stand.getUser() == user, "Missing Star Platinum entity");
+			stand.summonLockTicks = 0;
+			stand.gradualSummonWeaknessTicks = 0;
+			stand.setNoGravity(true);
+			stand.moveTo(origin.x, origin.y, origin.z, 0, 0);
+			user.getAttribute(ModEntityAttributes.STAND_SPEED).setBaseValue(speed);
+			StandEntity.updateStandStatAttributes(stand, user);
+			power.setStamina(power.getMaxStamina());
+			stand.updateStrengthMultipliers();
+			user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get()).standAttackTargetLock = locked;
+		}
+
+		Cow cow(double x, double z) {
+			Cow cow = EntityType.COW.create(helper.getLevel());
+			helper.assertTrue(cow != null, "Could not create a cow");
+			cow.setNoAi(true);
+			cow.setNoGravity(true);
+			cow.noPhysics = true;
+			cow.getAttribute(Attributes.MAX_HEALTH).setBaseValue(500);
+			cow.getAttribute(Attributes.KNOCKBACK_RESISTANCE).setBaseValue(1);
+			cow.setHealth(500);
+			cow.moveTo(origin.x + x, origin.y, origin.z + z, 0, 0);
+			helper.assertTrue(helper.getLevel().addFreshEntity(cow), "Could not add a cow");
+			entities.add(cow);
+			return cow;
+		}
+
+		void clearAims() {
+			LivingComponentAction.getComponent(stand).entityAim.setTarget(ActionTarget.EMPTY);
+			LivingComponentAction.getComponent(user).entityAim.setTarget(ActionTarget.EMPTY);
+		}
+
+		EntityActionInstance press(String name, InputMethod method) {
+			Ability base = power.getAbility(name);
+			var selected = power.updateAvailableMoves().getContextVariationContainer(base);
+			helper.assertTrue(selected != null && AbilityInput.withConditionCheck(selected, user, method),
+					"The " + name + " input was not admitted");
+			BufferingState buffer = BufferingState.clickOnly();
+			var held = AbilityInput.keyPress(KEY, selected.ability, user, null, method, 0, buffer, base.getAbilityId());
+			helper.assertTrue(buffer.isActionSuccess, "The " + name + " key press failed");
+			return held != null && held.action instanceof EntityActionInstance a ? a : stand.getCurStandAction();
+		}
+
+		void assertOffset(EntityActionInstance action, double expected, String when) {
+			Vec3 synced = action.getSyncedStandOffset();
+			helper.assertTrue(synced != null && Math.abs(synced.z - expected) < 0.01,
+					"Heavy punch Stand distance at the " + when + " is " + synced + ", expected " + expected);
+		}
+
+		void run(Step step) {
+			helper.onEachTick(() -> {
+				if (finished) return;
+				try {
+					if (step.run(++ticks)) {
+						finished = true;
+						close();
+						helper.succeed();
+					}
+				}
+				catch (RuntimeException | Error error) {
+					finished = true;
+					close();
+					throw error;
+				}
+			});
+		}
+
+		void close() {
+			AbilityInput.keyRelease(KEY, user);
+			if (power.isSummoned()) type.forceUnsummon(user, power);
+			entities.forEach(Entity::discard);
+		}
+	}
+}
