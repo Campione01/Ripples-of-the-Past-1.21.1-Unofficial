@@ -1,5 +1,6 @@
 package rotp.core.util.functions;
 
+import java.util.Arrays;
 import java.util.stream.Stream;
 import java.util.function.Predicate;
 
@@ -97,6 +98,29 @@ public class DamageUtil {
 			living.lastHurt = amount;
 		}
 		return hurt;
+	}
+
+	// NeoForge 21.1.197's actuallyHurt drops getDamageAfterMagicAbsorb's return value and reads the damage container,
+	// which the Witch's own cut never reaches; later 21.1 builds record that cut themselves as INNATE_RESISTANCE
+	private static final boolean NEOFORGE_RECORDS_WITCH_RESISTANCE = Arrays.stream(DamageContainer.Reduction.values())
+			.anyMatch(reduction -> reduction.name().equals("INNATE_RESISTANCE"));
+
+	/**
+	 * 1.16 (and vanilla 1.21) Witch.getDamageAfterMagicAbsorb: a Witch takes none of the damage she deals herself and
+	 * 15% of the magic damage (minecraft:witch_resistant_to). damage is the amount after the vanilla effect and
+	 * enchantment reductions, which the container already holds.
+	 */
+	public static void recordWitchMagicResistance(LivingEntity witch, DamageSource source, float damage) {
+		if (NEOFORGE_RECORDS_WITCH_RESISTANCE || witch.damageContainers.isEmpty()) {
+			return;
+		}
+		DamageContainer container = witch.damageContainers.peek();
+		if (source.getEntity() == witch) {
+			container.setNewDamage(Math.max(container.getNewDamage() - damage, 0.0F));
+		}
+		else if (source.is(DamageTypeTags.WITCH_RESISTANT_TO)) {
+			container.setNewDamage(Math.max(container.getNewDamage() - damage * 0.85F, 0.0F));
+		}
 	}
 
 	public static boolean dealDamageAndSetOnFire(Entity entity, Predicate<Entity> hurtEntity, int fireTicks, boolean canSetStandOnFire) {
