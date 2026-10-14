@@ -145,8 +145,7 @@ public class StandTypePersistentData extends PowerData {
 			return false;
 		}
 		boolean changed = false;
-		boolean fullyTrained = StandPower.playerSkipsActionTraining(standPower.getUser())
-				|| standPower.wasProgressionSkipped();
+		boolean fullyTrained = StandPower.playerSkipsActionTraining(standPower.getUser());
 		for (UnlockableSkill skill : getAllSkills().values()) {
 			if (!(skill instanceof StandUnlockableSkill standSkill)
 					|| skill.hidden
