@@ -103,7 +103,7 @@ public final class TheWorldHeavyShoutAndImpactGameTests {
 		});
 	}
 
-	@GameTest(template = "empty", timeoutTicks = 120, batch = GameTestBatches.TIME_STOP)
+	@GameTest(template = "empty", timeoutTicks = 120, batch = GameTestBatches.HELD_TIME_STOP_BOAT)
 	public static void frozenBoatHurtByHeavyPunchSoundsOnTimeResume(GameTestHelper helper) {
 		ServerLevel level = helper.getLevel();
 		TimeStopState stop = level.getData(ModDataAttachmentTypes.TIME_STOP.get());

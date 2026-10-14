@@ -81,27 +81,26 @@ public final class VampirismEyeBeamTimeStopGameTests {
     private static final int TIMEOUT = 500;
     private static int nextStopId = -7_640_000;
     // One scene at a time: a stop covers its whole chunk column, and two cells of the batch can share a chunk.
-    // The other tests of the batch put and remove their stops within their first tick, before these stops begin.
     private static Fixture running;
 
     private VampirismEyeBeamTimeStopGameTests() {}
 
-    @GameTest(template = "empty", skyAccess = true, batch = GameTestBatches.TIME_STOP, timeoutTicks = TIMEOUT)
+    @GameTest(template = "empty", skyAccess = true, batch = GameTestBatches.HELD_TIME_STOP_EYE_BEAM, timeoutTicks = TIMEOUT)
     public static void shotFiredInStoppedTimeByAMovingOwnerExtendsBoundThenStopsDetached(GameTestHelper helper) {
         start(helper, Scenario.FIRED_INSIDE);
     }
 
-    @GameTest(template = "empty", skyAccess = true, batch = GameTestBatches.TIME_STOP, timeoutTicks = TIMEOUT)
+    @GameTest(template = "empty", skyAccess = true, batch = GameTestBatches.HELD_TIME_STOP_EYE_BEAM, timeoutTicks = TIMEOUT)
     public static void shotBegunBeforeTheStopKeepsExtendingBoundToItsMovingOwner(GameTestHelper helper) {
         start(helper, Scenario.STARTED_BEFORE);
     }
 
-    @GameTest(template = "empty", skyAccess = true, batch = GameTestBatches.TIME_STOP, timeoutTicks = TIMEOUT)
+    @GameTest(template = "empty", skyAccess = true, batch = GameTestBatches.HELD_TIME_STOP_EYE_BEAM, timeoutTicks = TIMEOUT)
     public static void shotThatRunsDryInStoppedTimeDetachesAfterThatTicksMove(GameTestHelper helper) {
         start(helper, Scenario.RUNS_DRY_INSIDE);
     }
 
-    @GameTest(template = "empty", skyAccess = true, batch = GameTestBatches.TIME_STOP, timeoutTicks = TIMEOUT)
+    @GameTest(template = "empty", skyAccess = true, batch = GameTestBatches.HELD_TIME_STOP_EYE_BEAM, timeoutTicks = TIMEOUT)
     public static void stoppedOwnersShotAndBoundBeamsWaitForTimeToResume(GameTestHelper helper) {
         start(helper, Scenario.OWNER_STOPPED);
     }

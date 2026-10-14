@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.function.BiPredicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -26,7 +27,9 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * GameTestBatches: a gametest that puts a TimeStopState instance or starts TimeStopAbility must run in the TIME_STOP
  * batch (or its exact isolated batch), so its stop cannot freeze a neighbour cell of the default batch. This pin reads the gametest sources, marks
  * every method that starts a time stop (directly, through a helper of its own file, or through a qualified helper of
- * another gametest file) and checks the compiled @GameTest batch of every marked test.
+ * another gametest file) and checks the compiled @GameTest batch of every marked test. A marked test that also goes
+ * on in a later tick and does not move its stop far away holds the stop over the shared batch's cells: it must be one
+ * of the ISOLATED tests, whose batches hold nothing else.
  */
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -47,6 +50,27 @@ public final class GameTestBatchSourcePinGameTests {
 			"FrozenGrabThrowGameTests.frozenThrowResumesOnceWithCollisionImpact");
 	private static final List<String> MUST_NOT_START = List.of(
 			"FrozenGrabThrowGameTests.normalTimeGrabThrowRemainsImmediate");
+	// Compact calls that let a test go on in a later tick, and the call that moves a stop away from every test cell.
+	private static final List<String> DEFERS = List.of("runAfterDelay(", "onEachTick(", "succeedWhen(", "runAtTickTime(",
+			"startSequence(", "succeedOnTickWhen(", "succeedWhenEntityPresent(");
+	private static final String MOVES_AWAY = ".withArea(";
+	// Tests that hold a stop over their cells through later ticks, each in its exact batch.
+	private static final Map<String, String> ISOLATED = Map.of(
+			"CoreDetachedHeavyPulseGameTests.registeredRmbSeparatesNativeExtraAndAdmittedTail",
+			GameTestBatches.DETACHED_HEAVY_TIME_STOP,
+			"TheWorldHeavyShoutAndImpactGameTests.frozenBoatHurtByHeavyPunchSoundsOnTimeResume",
+			GameTestBatches.HELD_TIME_STOP_BOAT,
+			"VampirismEyeBeamTimeStopGameTests.shotFiredInStoppedTimeByAMovingOwnerExtendsBoundThenStopsDetached",
+			GameTestBatches.HELD_TIME_STOP_EYE_BEAM,
+			"VampirismEyeBeamTimeStopGameTests.shotBegunBeforeTheStopKeepsExtendingBoundToItsMovingOwner",
+			GameTestBatches.HELD_TIME_STOP_EYE_BEAM,
+			"VampirismEyeBeamTimeStopGameTests.shotThatRunsDryInStoppedTimeDetachesAfterThatTicksMove",
+			GameTestBatches.HELD_TIME_STOP_EYE_BEAM,
+			"VampirismEyeBeamTimeStopGameTests.stoppedOwnersShotAndBoundBeamsWaitForTimeToResume",
+			GameTestBatches.HELD_TIME_STOP_EYE_BEAM);
+	// Detector self-check for the held stops: one that is held in place, one that is moved far away.
+	private static final String MUST_HOLD_IN_PLACE = "TheWorldHeavyShoutAndImpactGameTests.frozenBoatHurtByHeavyPunchSoundsOnTimeResume";
+	private static final String MUST_MOVE_AWAY = "TimeStopLowStaminaGameTests.lowStaminaTimeStopStartsEmptiesTheBarAndEndsOnItsFirstTick";
 	private static final Pattern DECLARATION = Pattern.compile(
 			"([\\w$]+(?:<[^;{}()]*>)?(?:\\[\\])*)\\s+([\\w$]+)\\s*\\([^;{}]*?\\)\\s*(?:throws\\s+[\\w.$,\\s]+)?\\{");
 	private static final Set<String> NOT_A_TYPE = Set.of("new", "return", "throw", "else", "case", "yield", "assert");
@@ -70,47 +94,70 @@ public final class GameTestBatchSourcePinGameTests {
 			problems.add("could not find " + SOURCE_DIR + " above " + Path.of("").toAbsolutePath());
 			return problems;
 		}
-		Map<String, Set<String>> starting;
+		Sources sources;
 		try {
-			starting = startingMethods(dir);
+			sources = read(dir);
 		}
 		catch (IOException exception) {
 			problems.add("could not read the gametest sources in " + dir + ": " + exception);
 			return problems;
 		}
+		Map<String, Set<String>> starting = startingMethods(sources);
+		Map<String, Set<String>> deferring = reaching(sources.bodies(), (file, body) -> DEFERS.stream().anyMatch(body::contains));
+		Map<String, Set<String>> movingAway = reaching(sources.bodies(), (file, body) -> body.contains(MOVES_AWAY));
 		for (String anchor : MUST_START) {
-			if (!starts(starting, anchor)) {
+			if (!marks(starting, anchor)) {
 				problems.add("the time-stop detector lost " + anchor);
 			}
 		}
 		for (String anchor : MUST_NOT_START) {
-			if (starts(starting, anchor)) {
+			if (marks(starting, anchor)) {
 				problems.add("the time-stop detector wrongly marks " + anchor);
+			}
+		}
+		if (!marks(deferring, MUST_HOLD_IN_PLACE) || marks(movingAway, MUST_HOLD_IN_PLACE)) {
+			problems.add("the held-stop detector lost " + MUST_HOLD_IN_PLACE);
+		}
+		if (!marks(deferring, MUST_MOVE_AWAY) || !marks(movingAway, MUST_MOVE_AWAY)) {
+			problems.add("the moved-stop detector lost " + MUST_MOVE_AWAY);
+		}
+		for (String isolated : ISOLATED.keySet()) {
+			if (!marks(starting, isolated)) {
+				problems.add("the time-stop detector lost the isolated " + isolated);
 			}
 		}
 		ClassLoader loader = GameTestBatchSourcePinGameTests.class.getClassLoader();
 		List<String> wrongBatch = new ArrayList<>();
+		List<String> heldInShared = new ArrayList<>();
+		List<String> sharedIsolated = new ArrayList<>();
 		int tests = 0;
-		for (Map.Entry<String, Set<String>> file : starting.entrySet()) {
+		for (String file : sources.bodies().keySet()) {
 			Class<?> type;
 			try {
-				type = Class.forName(PACKAGE + "." + file.getKey(), false, loader);
+				type = Class.forName(PACKAGE + "." + file, false, loader);
 			}
 			catch (ClassNotFoundException exception) {
 				continue; // a helper-only file named unlike its classes
 			}
 			for (Method method : type.getDeclaredMethods()) {
 				GameTest test = method.getAnnotation(GameTest.class);
-				if (test == null || !file.getValue().contains(method.getName())) {
+				if (test == null) {
+					continue;
+				}
+				String name = file + "." + method.getName();
+				if (ISOLATED.containsValue(test.batch()) && !test.batch().equals(ISOLATED.get(name))) {
+					sharedIsolated.add(name + " (batch " + test.batch() + ")");
+				}
+				if (!marks(starting, name)) {
 					continue;
 				}
 				tests++;
-				String requiredBatch = type == CoreDetachedHeavyPulseGameTests.class
-						&& method.getName().equals("registeredRmbSeparatesNativeExtraAndAdmittedTail")
-						? GameTestBatches.DETACHED_HEAVY_TIME_STOP : GameTestBatches.TIME_STOP;
+				String requiredBatch = ISOLATED.getOrDefault(name, GameTestBatches.TIME_STOP);
 				if (!requiredBatch.equals(test.batch())) {
-					wrongBatch.add(file.getKey() + "." + method.getName() + " (batch " + test.batch()
-							+ ", required " + requiredBatch + ")");
+					wrongBatch.add(name + " (batch " + test.batch() + ", required " + requiredBatch + ")");
+				}
+				if (!ISOLATED.containsKey(name) && marks(deferring, name) && !marks(movingAway, name)) {
+					heldInShared.add(name);
 				}
 			}
 		}
@@ -119,6 +166,13 @@ public final class GameTestBatchSourcePinGameTests {
 		}
 		if (!wrongBatch.isEmpty()) {
 			problems.add("these gametests start a time stop outside their exact required stopped batch: " + wrongBatch);
+		}
+		if (!heldInShared.isEmpty()) {
+			problems.add("these gametests go on in later ticks with a stop they do not move away, in the shared time stop"
+					+ " batch where it freezes their neighbours: " + heldInShared);
+		}
+		if (!sharedIsolated.isEmpty()) {
+			problems.add("these gametests share an isolated time stop batch: " + sharedIsolated);
 		}
 		return problems;
 	}
@@ -134,16 +188,28 @@ public final class GameTestBatchSourcePinGameTests {
 		return null;
 	}
 
-	private static boolean starts(Map<String, Set<String>> starting, String classAndMethod) {
+	private static boolean marks(Map<String, Set<String>> marked, String classAndMethod) {
 		int dot = classAndMethod.indexOf('.');
-		Set<String> names = starting.get(classAndMethod.substring(0, dot));
+		Set<String> names = marked.get(classAndMethod.substring(0, dot));
 		return names != null && names.contains(classAndMethod.substring(dot + 1));
 	}
 
+	/** File (class) name -> method name -> body; the files that import TimeStopState.Instance. */
+	record Sources(Map<String, Map<String, String>> bodies, Set<String> importsInstance) {}
+
 	/** File (class) name -> names of its methods that start a time stop. */
 	static Map<String, Set<String>> startingMethods(Path dir) throws IOException {
+		return startingMethods(read(dir));
+	}
+
+	static Map<String, Set<String>> startingMethods(Sources sources) {
+		return reaching(sources.bodies(), (file, body) -> STARTS.stream().anyMatch(body::contains)
+				|| sources.importsInstance().contains(file) && body.contains("newInstance("));
+	}
+
+	static Sources read(Path dir) throws IOException {
 		Map<String, Map<String, String>> bodies = new TreeMap<>();
-		Map<String, Set<String>> starting = new TreeMap<>();
+		Set<String> importsInstance = new TreeSet<>();
 		List<Path> files;
 		try (Stream<Path> list = Files.list(dir)) {
 			files = list.filter(path -> path.getFileName().toString().endsWith(".java")).sorted().toList();
@@ -155,7 +221,9 @@ public final class GameTestBatchSourcePinGameTests {
 				continue; // its own token strings
 			}
 			String source = stripComments(new String(Files.readAllBytes(path), StandardCharsets.UTF_8));
-			boolean importsInstance = compact(source).contains(INSTANCE_IMPORT);
+			if (compact(source).contains(INSTANCE_IMPORT)) {
+				importsInstance.add(name);
+			}
 			Map<String, String> methods = new TreeMap<>();
 			Matcher matcher = DECLARATION.matcher(source);
 			while (matcher.find()) {
@@ -167,35 +235,42 @@ public final class GameTestBatchSourcePinGameTests {
 				methods.merge(matcher.group(2), source.substring(open, bodyEnd(source, open)), String::concat);
 			}
 			bodies.put(name, methods);
-			for (Map.Entry<String, String> method : methods.entrySet()) {
-				String body = compact(method.getValue());
-				if (STARTS.stream().anyMatch(body::contains) || importsInstance && body.contains("newInstance(")) {
-					starting.computeIfAbsent(name, key -> new TreeSet<>()).add(method.getKey());
+		}
+		return new Sources(bodies, importsInstance);
+	}
+
+	/** File (class) name -> names of its methods whose compact body passes direct, or that call such a method. */
+	static Map<String, Set<String>> reaching(Map<String, Map<String, String>> bodies, BiPredicate<String, String> direct) {
+		Map<String, Set<String>> marked = new TreeMap<>();
+		for (Map.Entry<String, Map<String, String>> file : bodies.entrySet()) {
+			for (Map.Entry<String, String> method : file.getValue().entrySet()) {
+				if (direct.test(file.getKey(), compact(method.getValue()))) {
+					marked.computeIfAbsent(file.getKey(), key -> new TreeSet<>()).add(method.getKey());
 				}
 			}
 		}
-		// A method that calls a starting helper starts a time stop too.
+		// A method that calls a marked helper is marked too.
 		boolean changed = true;
 		while (changed) {
 			changed = false;
 			for (Map.Entry<String, Map<String, String>> file : bodies.entrySet()) {
 				for (Map.Entry<String, String> method : file.getValue().entrySet()) {
-					Set<String> own = starting.get(file.getKey());
+					Set<String> own = marked.get(file.getKey());
 					if (own != null && own.contains(method.getKey())) {
 						continue;
 					}
-					if (callsStartingHelper(file.getKey(), method.getValue(), starting)) {
-						starting.computeIfAbsent(file.getKey(), key -> new TreeSet<>()).add(method.getKey());
+					if (callsMarkedHelper(file.getKey(), method.getValue(), marked)) {
+						marked.computeIfAbsent(file.getKey(), key -> new TreeSet<>()).add(method.getKey());
 						changed = true;
 					}
 				}
 			}
 		}
-		return starting;
+		return marked;
 	}
 
-	private static boolean callsStartingHelper(String file, String body, Map<String, Set<String>> starting) {
-		for (Map.Entry<String, Set<String>> other : starting.entrySet()) {
+	private static boolean callsMarkedHelper(String file, String body, Map<String, Set<String>> marked) {
+		for (Map.Entry<String, Set<String>> other : marked.entrySet()) {
 			boolean sameFile = other.getKey().equals(file);
 			if (!sameFile && !body.contains(other.getKey())) {
 				continue;
