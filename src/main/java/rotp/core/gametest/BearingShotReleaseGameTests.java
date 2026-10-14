@@ -93,7 +93,9 @@ public final class BearingShotReleaseGameTests {
 	@GameTest(template = "empty", timeoutTicks = 100, batch = GameTestBatches.TIME_STOP)
 	public static void releaseWhileFrozenInStoppedTimeShootsNothing(GameTestHelper helper) {
 		scene(helper, "BearingFrozen", (user, power, stand, standAction, bearingShot, area) -> {
-			EntityActionInstance held = hold(helper, user, power, stand, standAction, bearingShot);
+			// put straight into its held phase: another stop of this batch may already freeze the cell, so it cannot tick there
+			EntityActionInstance held = start(helper, user, power, stand, standAction, bearingShot);
+			held.setPhaseStart(ActionPhase.PERFORM);
 			TimeStopState timeStops = helper.getLevel().getData(ModDataAttachmentTypes.TIME_STOP.get());
 			int stopId = -(user.getId() * 4 + 3);
 			try {
@@ -198,6 +200,18 @@ public final class BearingShotReleaseGameTests {
 	// bearing_shot with a nugget, held by its key into its held PERFORM phase
 	private static EntityActionInstance hold(GameTestHelper helper, Player user, StandPower power, StandEntity stand,
 			LivingComponentAction standAction, EntityActionAbility bearingShot) {
+		EntityActionInstance action = start(helper, user, power, stand, standAction, bearingShot);
+		for (int tick = 0; tick < 30 && action.getPhase() != ActionPhase.PERFORM; tick++) {
+			standAction.tick();
+		}
+		helper.assertTrue(standAction.getAction() == action && action.getPhase() == ActionPhase.PERFORM,
+				"the bearing shot is not held: phase=" + action.getPhase());
+		return action;
+	}
+
+	// bearing_shot with a nugget, set on the Stand and held by its key
+	private static EntityActionInstance start(GameTestHelper helper, Player user, StandPower power, StandEntity stand,
+			LivingComponentAction standAction, EntityActionAbility bearingShot) {
 		standAction.setAction(null, user, SyncType.NO_SYNC);
 		power.setStamina(power.getMaxStamina());
 		stand.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.IRON_NUGGET, 2));
@@ -205,11 +219,6 @@ public final class BearingShotReleaseGameTests {
 		standAction.setAction(action, user, SyncType.NO_SYNC);
 		EntityActionInputState input = user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get());
 		input.heldKeys.put(KEY, new HeldInputEntry(KEY, 1L, PowerClass.STAND, action));
-		for (int tick = 0; tick < 30 && action.getPhase() != ActionPhase.PERFORM; tick++) {
-			standAction.tick();
-		}
-		helper.assertTrue(standAction.getAction() == action && action.getPhase() == ActionPhase.PERFORM,
-				"the bearing shot is not held: phase=" + action.getPhase());
 		return action;
 	}
 
