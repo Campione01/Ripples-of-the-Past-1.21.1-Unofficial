@@ -8,6 +8,7 @@ import javax.annotation.Nullable;
 import org.jetbrains.annotations.ApiStatus;
 
 import rotp.core.client.ui.hud_power.WindupIndicator;
+import rotp.core.customobjects.DamageSourceModified;
 import rotp.core.config.MolangValue;
 import rotp.core.init.ModStatusEffects;
 import rotp.core.powersystem.Power;
@@ -374,14 +375,15 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 	/**
 	 * 1.16 GameplayEventHandler.onLivingDamage -> PowerBaseImpl.onUserGettingAttacked: a hit with a direct entity
 	 * stops the user's held actions (its own and its Stand's) whose cancelHeldOnGettingAttacked says so.
-	 * A hit that a shield or an incoming-damage reduction brought to nothing never reached that event.
+	 * A hit that a shield or an incoming-damage reduction brought to nothing, or that a counter cancelled at
+	 * LivingHurtEvent (DamageSourceModified#isCountered), never reached that event.
 	 */
 	@ApiStatus.Internal
 	public static void onUserGettingAttacked(LivingDamageEvent.Post event) {
 		LivingEntity user = event.getEntity();
 		DamageSource dmgSource = event.getSource();
 		if (user.level().isClientSide() || dmgSource.getDirectEntity() == null
-				|| damageBeforeArmor(event) <= 0) {
+				|| damageBeforeArmor(event) <= 0 || DamageSourceModified.isCountered(dmgSource)) {
 			return;
 		}
 		float dmgAmount = event.getNewDamage();

@@ -10,6 +10,7 @@ import javax.annotation.Nullable;
 
 import rotp.core.core.JojoMod;
 import rotp.core.JojoModConfig;
+import rotp.core.customobjects.DamageSourceModified;
 import rotp.core.impl.powers.hamon.ModHamonSkills;
 import rotp.core.init.ModDamageTypes;
 import rotp.core.init.ModSoundEvents;
@@ -809,8 +810,9 @@ public class ResolveCounter {
 
     @SubscribeEvent(priority = EventPriority.NORMAL)
     public static void resolveOnTakingDamage(LivingDamageEvent.Pre event) {
-    	// 1.16 LivingDamageEvent never fired for a hit the Stand's guard took whole (blockDamage cancelled it)
-    	if (StandUserGuard.blockedWhole(event.getContainer())) {
+    	// 1.16 LivingDamageEvent never fired for a hit the Stand's guard took whole (blockDamage cancelled it) or a
+    	// counter cancelled at LivingHurtEvent
+    	if (StandUserGuard.blockedWhole(event.getContainer()) || DamageSourceModified.isCountered(event.getSource())) {
     		return;
     	}
     	LivingEntity target = event.getEntity();

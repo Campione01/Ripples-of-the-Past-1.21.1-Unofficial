@@ -51,6 +51,17 @@ public interface DamageSourceModified {
 	 */
 	default void jojo_ripples$setFixedDamage(boolean fixedDamage) {}
 	default boolean jojo_ripples$isFixedDamage() { return false; }
+	/**
+	 * A hit a counter (C-Moon's gravity counter) brought to nothing at LivingDamageEvent.Pre, set by that counter. The
+	 * 1.16 counter cancelled the hit at LivingHurtEvent, so it never reached the user's Resolve bookkeeping
+	 * (ResolveCounter#resolveOnTakingDamage) nor stopped a held action (EntityActionAbility#onUserGettingAttacked).
+	 */
+	default void jojo_ripples$setCountered(boolean countered) {}
+	default boolean jojo_ripples$isCountered() { return false; }
+
+	public static boolean isCountered(DamageSource dmgSource) {
+		return dmgSource instanceof DamageSourceModified modified && modified.jojo_ripples$isCountered();
+	}
 
 	
 	/**
