@@ -480,7 +480,9 @@ public final class StandDamageMultiplierGameTests {
             }
             if (entity != target && entity != secondary) return;
             DamageSource source = event.getSource();
-            if (!source.is(ModDamageTypes.STAND_ATTACK) && source.getDirectEntity() != projectile) return;
+            // the heavy punch's block blast is the Stand's own source flagged as an explosion (1.16 explosionDmgSource)
+            if (!source.is(ModDamageTypes.STAND_ATTACK) && !source.is(ModDamageTypes.STAND_EXPLOSION)
+                    && source.getDirectEntity() != projectile) return;
             Hit hit = new Hit(entity, source, event.getOriginalAmount(), entity.getHealth(), entity.tickCount);
             hits.add(hit);
             if (entity == target && captured == null) {
