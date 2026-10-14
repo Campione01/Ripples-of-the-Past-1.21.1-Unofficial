@@ -22,6 +22,8 @@ import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
+import rotp.core.powersystem.entityaction.netcode.SyncType;
+import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
@@ -206,6 +208,41 @@ public final class StandAimReachGameTests {
 			helper.getLevel().setBlockAndUpdate(wall, oldWall);
 			scene.close();
 		}
+	}
+
+	// 1.16 StandEntity.aimWithThisOrUser: an action that is not a punch or barrage (an add-on's bomb or erase) aimed with
+	// the precision ray; the owner's strict crosshair covers only the default barrage and the light and heavy punches
+	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH)
+	public static void nonPunchActionAimsWithThePrecisionRay(GameTestHelper helper) {
+		Scene scene = new Scene(helper, GameType.SURVIVAL, false, 16);
+		LivingComponentAction component = LivingComponentAction.getComponent(scene.stand);
+		try {
+			Cow cow = scene.cow(1.2, 0.8);
+			helper.assertTrue(cow.getBoundingBox().clip(scene.user.getEyePosition(),
+					scene.user.getEyePosition().add(scene.user.getViewVector(1).scale(5))).isEmpty(),
+					"Fixture: the cow is on the crosshair");
+			scene.clearAims();
+			component.setAction(action(helper, scene, "punch"), scene.user, SyncType.NO_SYNC);
+			ActionTarget punch = StandEntityPunchAbility.getFreshPunchTarget(scene.stand, ActionTarget.EMPTY);
+			helper.assertTrue(punch.getMainEntity() != cow,
+					"Fixture: the light punch took the cow beside the crosshair, off the owner's strict crosshair");
+			component.setAction(action(helper, scene, "star_finger"), scene.user, SyncType.NO_SYNC);
+			ActionTarget finger = StandEntityPunchAbility.getFreshPunchTarget(scene.stand, ActionTarget.EMPTY);
+			helper.assertTrue(finger.getMainEntity() == cow,
+					"1.16 aimed an action that is not a punch with the precision ray, which takes the cow beside the"
+							+ " crosshair; got " + finger);
+			helper.succeed();
+		}
+		finally {
+			component.setAction(null, scene.user, SyncType.NO_SYNC);
+			scene.close();
+		}
+	}
+
+	private static EntityActionInstance action(GameTestHelper helper, Scene scene, String name) {
+		Ability ability = scene.power.getAbility(name);
+		helper.assertTrue(ability instanceof EntityActionType, "Fixture: no " + name + " action");
+		return ((EntityActionType) ability).initActionOnAbilityUse(helper.getLevel(), scene.user, scene.stand, null);
 	}
 
 	private interface Step {

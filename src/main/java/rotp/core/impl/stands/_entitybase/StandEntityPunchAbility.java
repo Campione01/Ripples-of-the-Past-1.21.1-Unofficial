@@ -603,20 +603,30 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		return target;
 	}
 
+	/**
+	 * The target of the Stand's current action. An action that is not one of the ordinary punches or barrages (an
+	 * add-on's bomb, erase, absorption or Open Space) aims through the user as its 1.16 task did, with the precision
+	 * ray; the punches and barrages follow the owner's strict crosshair (see {@link #userAimTarget}).
+	 */
 	public static ActionTarget getFreshPunchTarget(StandEntity stand, ActionTarget preferredTarget) {
 		EntityActionInstance action = LivingComponentAction.getCurEntityAction(stand);
 		return getFreshPunchTarget(stand, preferredTarget,
-				action == null || shouldRetainPunchTarget(stand, action.ability));
+				action == null || shouldRetainPunchTarget(stand, action.ability),
+				action != null && !isPunchOrBarrage(action.ability));
 	}
 
 	public static boolean shouldRetainPunchTarget(StandEntity stand, EntityActionType ability) {
 		if (stand.isManuallyControlled() || ability.getAbilityUsageCategory() == AbilityUsageGroup.GRAB
-				|| !(ability instanceof StandEntityPunchAbility
-						|| ability instanceof StandEntityHeavyPunchAbility
-						|| ability instanceof StandEntityBarrageAbility)) {
+				|| !isPunchOrBarrage(ability)) {
 			return true;
 		}
 		return PlayerClientBroadcastedSettings.isStandAttackTargetLockEnabled(stand.getUserPower());
+	}
+
+	private static boolean isPunchOrBarrage(EntityActionType ability) {
+		return ability instanceof StandEntityPunchAbility
+				|| ability instanceof StandEntityHeavyPunchAbility
+				|| ability instanceof StandEntityBarrageAbility;
 	}
 
 	public static void releaseUnlockedPunchTarget(StandEntity stand, EntityActionInstance action) {
@@ -628,6 +638,15 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 
 	public static ActionTarget getFreshPunchTarget(
 			StandEntity stand, ActionTarget preferredTarget, boolean retainPreferredTarget) {
+		return getFreshPunchTarget(stand, preferredTarget, retainPreferredTarget, false);
+	}
+
+	/**
+	 * @param precisionAim the user's own aim is 1.16's precision ray (StandEntity.aimWithThisOrUser for an action that
+	 *        is not a punch or barrage), walls still blocking it; otherwise the strict crosshair
+	 */
+	public static ActionTarget getFreshPunchTarget(
+			StandEntity stand, ActionTarget preferredTarget, boolean retainPreferredTarget, boolean precisionAim) {
 		Level level = stand.level();
 		ActionTarget target = retainPreferredTarget
 				? validatePunchTarget(stand, preferredTarget) : ActionTarget.EMPTY;
@@ -655,8 +674,10 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		// 1.16 StandEntity.aimWithThisOrUser: the synced aims are short (the idle Stand aim reaches 2.5 blocks from
 		// the eyes, the vanilla pick 3), so the user's own aim decides, checked against the Stand's reach
 		if (user != null && !stand.isManuallyControlled()) {
-			target = validatePunchTarget(stand, userAimTarget(stand, user, 1.0F,
-					entity -> entity != stand && canStandHit(stand, entity)));
+			Predicate<Entity> canTarget = entity -> entity != stand && canStandHit(stand, entity);
+			target = validatePunchTarget(stand, precisionAim
+					? userPrecisionRayTarget(stand, user, canTarget)
+					: userAimTarget(stand, user, 1.0F, canTarget));
 			if (!target.isEmpty(level)) {
 				return target;
 			}
