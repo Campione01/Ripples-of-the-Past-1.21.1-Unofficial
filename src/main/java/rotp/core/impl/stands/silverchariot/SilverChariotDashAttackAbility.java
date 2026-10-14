@@ -81,6 +81,21 @@ public class SilverChariotDashAttackAbility extends StandEntityAbility {
 		}
 	}
 
+	/**
+	 * 1.16 StandEntityHeavyAttack.getStandRecoveryTicks, read by StandEntityTask as the recovery starts: the recovery
+	 * follows the Stand's attack speed at that moment, not the one setHeavyFinisher saw. Call from onSetPhase.
+	 */
+	static boolean readRecoveryAtEntry(EntityActionInstance action, ActionPhase newPhase) {
+		if (newPhase == ActionPhase.RECOVERY && action.getPhase() != null && action.getPhase() != newPhase
+				&& action.getPerformer() instanceof StandEntity stand && !stand.level().isClientSide()) {
+			float before = action.phasesLength.getFloat(ActionPhase.RECOVERY);
+			action.phasesLength.put(ActionPhase.RECOVERY, StandStatFormulas.getHeavyAttackRecovery(
+					stand.getAttackSpeed(), stand.getLastHeavyFinisherValue()));
+			return Float.compare(before, action.phasesLength.getFloat(ActionPhase.RECOVERY)) != 0;
+		}
+		return false;
+	}
+
 	/** 1.16 HeavyPunchInstance.afterAttack: stop a hit Stand's barrage, arm the wall impact on the knocked-back entity. */
 	static void afterHeavyHit(StandEntity stand, LivingEntity target) {
 		EntityActionAbility.onHitByHeavyAttack(target);
@@ -133,6 +148,7 @@ public class SilverChariotDashAttackAbility extends StandEntityAbility {
 		private Vec3 dashForward = Vec3.ZERO;
 		private ActionTarget dashTarget = ActionTarget.EMPTY;
 		private boolean retractAfterDash;
+		private boolean recoveryReread;
 
 		public DashStrike(EntityActionType ability) {
 			super(ability);
@@ -149,7 +165,18 @@ public class SilverChariotDashAttackAbility extends StandEntityAbility {
 		}
 
 		@Override
+		public void setPhase(ActionPhase newPhase, int tick) {
+			recoveryReread = false;
+			super.setPhase(newPhase, tick);
+			if (recoveryReread) {
+				recoveryReread = false;
+				syncPhaseChanges();
+			}
+		}
+
+		@Override
 		public void onSetPhase(ActionPhase newPhase) {
+			recoveryReread = readRecoveryAtEntry(this, newPhase);
 			if (newPhase != ActionPhase.PERFORM || !(getPerformer() instanceof StandEntity stand)) {
 				return;
 			}

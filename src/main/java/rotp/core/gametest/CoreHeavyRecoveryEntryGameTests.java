@@ -8,9 +8,12 @@ import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility.StandEntit
 import rotp.core.impl.stands.crazydiamond.CrazyDiamondHeavyPunchAbility.CrazyDiamondHeavyPunch;
 import rotp.core.impl.stands.goldexperience.GoldExperienceHeavyPunchAbility.ToothKnockingHeavyPunch;
 import rotp.core.impl.stands.magiciansred.MagiciansRedKickAbility.MagiciansRedKick;
+import rotp.core.impl.stands.silverchariot.SilverChariotDashAttackAbility.DashStrike;
+import rotp.core.impl.stands.silverchariot.SilverChariotSweepingAttackAbility.SweepingStrike;
 import rotp.core.init.ModStatusEffects;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.entityaction.ActionPhase;
+import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.standpower.entity.StandStatFormulas;
 
 import net.minecraft.gametest.framework.AfterBatch;
@@ -24,9 +27,9 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * 1.16 StandEntityHeavyAttack.getStandRecoveryTicks: Crazy Diamond's heavy punch and finisher, Gold Experience's heavy
- * punch and Lifeshot punch, and Magician's Red's heavy punch and kick read their recovery from the Stand's attack speed
- * when the recovery starts (StandEntityTask.setPhase), not when the windup starts. Each scene lets the user's Resolve
- * run out during the windup, so the two readings differ.
+ * punch and Lifeshot punch, Magician's Red's heavy punch and kick, and Silver Chariot's dash attack and sweeping attack
+ * read their recovery from the Stand's attack speed when the recovery starts (StandEntityTask.setPhase), not when the
+ * action starts. Each scene lets the user's Resolve run out before the recovery, so the two readings differ.
  */
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -45,31 +48,49 @@ public final class CoreHeavyRecoveryEntryGameTests {
 
     private static final class Suite extends PhaseEntryGameTestSupport.Suite {
         Suite(GameTestHelper helper) {
-            super(helper, SUBJECT, List.of("cd_heavy", "cd_finisher", "ge_heavy", "ge_lifeshot", "mr_heavy", "mr_kick"));
+            super(helper, SUBJECT, List.of("cd_heavy", "cd_finisher", "ge_heavy", "ge_lifeshot", "mr_heavy", "mr_kick",
+                    "sc_dash", "sc_sweep"));
         }
         @Override PhaseEntryGameTestSupport.Scene create(String id) { return new Scene(this, id); }
     }
 
     private static final class Scene extends PhaseEntryGameTestSupport.Scene {
-        StandEntityHeavyPunch action;
+        EntityActionInstance action;
         double initialSpeed, recoverySpeed;
         float savedFinisher, initialStamina, cachedRecovery, recoveryLength;
         int readyTicks;
         boolean started, recoverySeen, freezeObserved;
 
         Scene(Suite suite, String id) { super(suite, id); }
-        boolean finisher() { return id.equals("cd_finisher") || id.equals("ge_lifeshot") || id.equals("mr_kick"); }
-        String standName() {
-            return id.startsWith("cd_") ? "crazy_diamond" : id.startsWith("ge_") ? "gold_experience" : "magicians_red";
+        boolean finisher() {
+            return id.equals("cd_finisher") || id.equals("ge_lifeshot") || id.equals("mr_kick") || id.equals("sc_sweep");
         }
-        String skill() { return id.equals("cd_finisher") ? "finisher" : id.equals("ge_lifeshot") ? "lifeshot" : "kick"; }
+        boolean chariot() { return id.startsWith("sc_"); }
+        String standName() {
+            return id.startsWith("cd_") ? "crazy_diamond" : id.startsWith("ge_") ? "gold_experience"
+                    : chariot() ? "silver_chariot" : "magicians_red";
+        }
+        String skill() {
+            return switch (id) {
+                case "cd_finisher" -> "finisher";
+                case "ge_lifeshot" -> "lifeshot";
+                case "sc_sweep" -> "sweeping_attack";
+                default -> "kick";
+            };
+        }
         String abilityName() {
             return switch (id) {
                 case "cd_finisher" -> "finisher";
                 case "ge_lifeshot" -> "lifeshot_punch";
                 case "mr_kick" -> "kick";
+                case "sc_dash" -> "dash_attack";
+                case "sc_sweep" -> "sweeping_attack";
                 default -> "heavy_punch";
             };
+        }
+        // the heavy punches keep their own snapshot, Silver Chariot's strikes read the Stand's last one as 1.16 did
+        float finisherSnapshot() {
+            return action instanceof StandEntityHeavyPunch heavy ? heavy.finisherValue : stand.getLastHeavyFinisherValue();
         }
 
         @Override void prepare() {
@@ -99,15 +120,20 @@ public final class CoreHeavyRecoveryEntryGameTests {
                 if (++readyTicks < 2) return;
                 aim();
                 stand.setFinisherMeter(finisher() ? 1 : 0.3F);
-                var press = press("heavy_punch", PhaseEntryGameTestSupport.ATTACK, false, 0);
-                premise(press.success() && press.action() instanceof StandEntityHeavyPunch, "Registered heavy input success");
-                action = (StandEntityHeavyPunch) press.action();
+                // the dash has no windup and pays as its perform starts, inside the press
+                initialStamina = power.getStamina();
+                var press = press(chariot() ? "dash_attack" : "heavy_punch", PhaseEntryGameTestSupport.ATTACK, false, 0);
+                premise(press.success() && (chariot() ? press.action() instanceof DashStrike || press.action() instanceof SweepingStrike
+                        : press.action() instanceof StandEntityHeavyPunch), "Registered heavy input success");
+                action = press.action();
                 premise(((Ability) action.ability).name().equals(abilityName()), "Actual " + abilityName() + ", got "
                         + ((Ability) action.ability).name());
                 if (id.equals("cd_heavy")) premise(action instanceof CrazyDiamondHeavyPunch, "Crazy Diamond heavy action");
                 if (id.startsWith("ge_")) premise(action instanceof ToothKnockingHeavyPunch, "Gold Experience heavy action");
                 if (id.equals("mr_kick")) premise(action instanceof MagiciansRedKick, "Magician's Red kick action");
-                initialSpeed = stand.getAttackSpeed(); savedFinisher = action.finisherValue; initialStamina = power.getStamina();
+                if (id.equals("sc_dash")) premise(action instanceof DashStrike, "Silver Chariot dash action");
+                if (id.equals("sc_sweep")) premise(action instanceof SweepingStrike, "Silver Chariot sweep action");
+                initialSpeed = stand.getAttackSpeed(); savedFinisher = finisherSnapshot();
                 cachedRecovery = StandStatFormulas.getHeavyAttackRecovery(initialSpeed, savedFinisher);
                 premise(PhaseEntryGameTestSupport.near(action.phasesLength.getFloat(ActionPhase.RECOVERY), cachedRecovery),
                         "Startup cache holds the initial speed and saved finisher");
@@ -129,7 +155,7 @@ public final class CoreHeavyRecoveryEntryGameTests {
                         "1.16: RECOVERY read at its start; speed " + initialSpeed + " -> " + recoverySpeed + ", saved finisher "
                                 + savedFinisher + ", windup-start reading " + cachedRecovery + ", expected " + expected
                                 + ", actual " + recoveryLength);
-                check(PhaseEntryGameTestSupport.near(action.finisherValue, savedFinisher),
+                check(PhaseEntryGameTestSupport.near(finisherSnapshot(), savedFinisher),
                         "Action finisher was neither resnapshotted nor consumed twice");
                 check(PhaseEntryGameTestSupport.near(initialStamina - power.getStamina(), 50),
                         "One impact debit before RECOVERY; got " + (initialStamina - power.getStamina()));

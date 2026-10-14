@@ -73,9 +73,25 @@ public class SilverChariotSweepingAttackAbility extends StandEntityAbility {
 
 	public static class SweepingStrike extends EntityActionInstance {
 		private boolean playedSwingSound;
+		private boolean recoveryReread;
 
 		public SweepingStrike(EntityActionType ability) {
 			super(ability);
+		}
+
+		@Override
+		public void setPhase(ActionPhase newPhase, int tick) {
+			recoveryReread = false;
+			super.setPhase(newPhase, tick);
+			if (recoveryReread) {
+				recoveryReread = false;
+				syncPhaseChanges();
+			}
+		}
+
+		@Override
+		public void onSetPhase(ActionPhase newPhase) {
+			recoveryReread = SilverChariotDashAttackAbility.readRecoveryAtEntry(this, newPhase);
 		}
 
 		@Override
