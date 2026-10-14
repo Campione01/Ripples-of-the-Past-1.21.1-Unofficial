@@ -5,7 +5,9 @@ import java.util.function.Predicate;
 
 import rotp.core.mechanics.resolve.ResolveCounter;
 import rotp.core.powersystem.standpower.entity.StandEntity;
+import rotp.core.util.functions.AttributeUtil;
 
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -102,17 +104,20 @@ public final class StandPrecisionRay {
 		return targets.get(0);
 	}
 
+	// ServerPlayer.CREATIVE_BLOCK_INTERACTION_RANGE_MODIFIER, put on or taken off on the player's next tick
+	private static final ResourceLocation CREATIVE_BLOCK_RANGE = ResourceLocation.withDefaultNamespace("creative_mode_block_range");
+
 	/**
 	 * 1.16 StandEntity.getAimDistance: the aiming user's REACH_DISTANCE, 5 for a player in either game mode. The 1.21
-	 * attribute is the Survival pick range, half a block less, and gets that half block back in Creative.
+	 * attribute is the Survival pick range, half a block less, plus a Creative bonus that is left out here, so the
+	 * reach does not depend on the game mode or on when the game last updated that bonus.
 	 */
 	public static double reach(LivingEntity user, StandEntity stand) {
 		AttributeInstance reach = user.getAttribute(Attributes.BLOCK_INTERACTION_RANGE);
 		if (reach == null) {
 			return stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE);
 		}
-		boolean creative = user instanceof Player player && player.getAbilities().instabuild;
-		return reach.getValue() + (creative ? 0.0D : 0.5D);
+		return AttributeUtil.calcValueWithoutModifiers(reach, CREATIVE_BLOCK_RANGE) + 0.5D;
 	}
 
 	private static double wallDistanceSqr(Entity aiming, Vec3 from, Vec3 to) {
