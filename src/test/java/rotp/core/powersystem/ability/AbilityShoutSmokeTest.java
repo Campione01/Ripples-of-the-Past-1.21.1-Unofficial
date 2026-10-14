@@ -60,9 +60,12 @@ public final class AbilityShoutSmokeTest {
 				"setDefaultPhaseLength(ActionPhase.RECOVERY,6);setPlaysVoiceLineOnSneak();}");
 		require(source("impl/powers/hamon/abilities/HamonBreathAbility.java"),
 				"setDefaultPhaseLength(ActionPhase.RECOVERY,0);setPlaysVoiceLineOnSneak();}");
-		// The World's heavy punch (SHIFT variation) and kick (finisher) shout as before
-		require(source("impl/stands/theworld/TheWorldHeavyPunchAbility.java"), "JojoModUtil.sayVoiceLine(powerUser,ModSoundEvents.DIO_DIE);");
-		require(source("impl/stands/theworld/TheWorldKickAbility.java"), "JojoModUtil.sayVoiceLine(powerUser,ModSoundEvents.DIO_DIE);");
+		// The World's heavy punch (SHIFT variation) and kick (finisher) shout sneaking or not, when the attack starts
+		String theWorldHeavy = compact(source("impl/stands/theworld/TheWorldHeavyPunchAbility.java"));
+		require(theWorldHeavy, "publicvoidonActionSet(EntityActionInstanceprevAction){sayDieShout(this);");
+		require(theWorldHeavy, "JojoModUtil.sayVoiceLine(user,ModSoundEvents.DIO_DIE);");
+		require(source("impl/stands/theworld/TheWorldKickAbility.java"),
+				"publicvoidonActionSet(EntityActionInstanceprevAction){TheWorldHeavyPunchAbility.sayDieShout(this);");
 	}
 
 	private static void require(String text, String token) {
