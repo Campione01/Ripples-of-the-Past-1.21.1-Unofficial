@@ -545,10 +545,10 @@ public class TimeStopState {
         }
     }
 
+    // 1.16 TimeStopHandler.reset (the last player leaving) only dropped the stops: no cooldown, refund or training.
     public void reset() {
         List<Instance> removedInstances = new ArrayList<>(instances.values());
         instances.clear();
-        applyTimeStopCooldowns(removedInstances);
         for (Instance removed : removedInstances) {
             removeTimeStopEffectIfNoActiveInstance(removed);
         }
@@ -1083,13 +1083,14 @@ public class TimeStopState {
             case SILENT -> null;
         };
         if (resumeVoiceLineUser != null && power != null && voiceLine != null) {
+            // 1.16 sayVoiceLine without interrupting: a line still being said keeps playing
             JojoModUtil.sayVoiceLine(
                     resumeVoiceLineUser,
                     voiceLine,
                     1.0F,
                     1.0F,
                     200,
-                    true);
+                    false);
         }
         return instance.forceResumeVoiceLine();
     }

@@ -409,6 +409,38 @@ public final class TimeStopProgressionGameTests {
 		return power;
 	}
 
+	/** 1.16 TimeStopHandler.reset, when the last player leaves, dropped the stops with no cooldown or training. */
+	@GameTest(template = "empty", timeoutTicks = 80, batch = GameTestBatches.TIME_STOP)
+	public static void lastPlayerLeavingSettlesNoTimeStop(GameTestHelper helper) {
+		Player player = helper.makeMockPlayer(GameType.SURVIVAL);
+		try {
+			helper.assertTrue(helper.getLevel().addFreshEntity(player), "Could not add the reset test player");
+			StandPower power = grantTimeStopStand(helper, player, JojoMod.resLoc("star_platinum"));
+			power.setResolveLevel(power.getMaxResolveLevel());
+			power.getCurTypeData().setAbilityLearningProgressPoints(TimeStopLearning.TIME_STOP, 0.0F,
+					TimeStopLearning.getMaxTrainingPoints(power), power);
+			TimeStopState state = new TimeStopState(helper.getLevel());
+			TimeStopState.Instance instance = new TimeStopState.Instance(1_000_003, 40, 40,
+					new ChunkPos(player.blockPosition()), 1, player.getId(), "time_stop_reset_gametest",
+					Optional.of(JojoMod.resLoc("star_platinum")), Optional.empty(), player.getId(), player.getId(),
+					false, false, 0.0F, 0, false);
+			helper.assertTrue(state.tryPutInstance(instance), "The time stop state rejected the instance");
+			for (int tick = 0; tick < 10; tick++) {
+				state.tickLifecycle();
+			}
+			helper.assertTrue(state.getInstance(1_000_003).isPresent(), "The time stop ended before the reset");
+			state.reset();
+			helper.assertTrue(state.getInstance(1_000_003).isEmpty(), "The reset kept the time stop");
+			helper.assertTrue(power.getAbilityCooldown(TimeStopLearning.TIME_STOP) == 0,
+					"A reset time stop must leave no cooldown: " + power.getAbilityCooldown(TimeStopLearning.TIME_STOP));
+			assertPoints(helper, power, 0.0F, "a reset time stop's training");
+		}
+		finally {
+			player.discard();
+		}
+		helper.succeed();
+	}
+
 	@GameTest(template = "empty", timeoutTicks = 80, batch = GameTestBatches.TIME_STOP)
 	public static void timeStopTrainingPersistsAcrossSurvivalReload(
 			GameTestHelper helper) {
