@@ -3,6 +3,7 @@ package rotp.core.impl.stands._entitybase;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 import javax.annotation.Nullable;
 
@@ -42,6 +43,7 @@ import rotp.core.subsystems.entity_grab.LivingComponentGrab;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.AimingEntity;
 import rotp.core.subsystems.target.HitResultUtil;
+import rotp.core.subsystems.target.StandPrecisionRay;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
 import rotp.core.util.functions.JojoModUtil;
 import rotp.core.compat.v1_21_4.missingmethods._EntitySelector;
@@ -61,20 +63,19 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Tiers;
-import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
-import net.minecraft.world.phys.shapes.CollisionContext;
 
 public class StandEntityPunchAbility extends StandEntityAbility {
 	private static final ResourceLocation SILVER_CHARIOT_ID = JojoMod.resLoc("silver_chariot");
+	// ServerPlayer.CREATIVE_BLOCK_INTERACTION_RANGE_MODIFIER
+	private static final ResourceLocation CREATIVE_BLOCK_RANGE = ResourceLocation.withDefaultNamespace("creative_mode_block_range");
 	// 1.16 harvest levels by (int) strength / 4. Level 0 covered every pickaxe, axe and shovel block, so below
 	// strength 4 only blocks no tool type is made for pass.
 	private static final BlockMiningTier[] LEGACY_HARVEST_TIERS = {
@@ -654,9 +655,10 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		}
 
 		// 1.16 StandEntity.aimWithThisOrUser: the synced aims are short (the idle Stand aim reaches 2.5 blocks from
-		// the eyes, the vanilla pick 3), so the user's own precision ray decides, checked against the Stand's reach
+		// the eyes, the vanilla pick 3), so the user's own aim decides, checked against the Stand's reach
 		if (user != null && !stand.isManuallyControlled()) {
-			target = validatePunchTarget(stand, userPrecisionRayTarget(stand, user));
+			target = validatePunchTarget(stand, userAimTarget(stand, user, 1.0F,
+					entity -> entity != stand && canStandHit(stand, entity)));
 			if (!target.isEmpty(level)) {
 				return target;
 			}
@@ -666,26 +668,45 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	}
 
 	/**
-	 * 1.16 StandEntity.precisionRayTrace(user, getAimDistance(user)): the user's reach, the Stand's precision hitboxes,
-	 * and of several entities a player or Stand first, then a hostile mob, then the rest; else the block. Blocks still
-	 * stop the ray, as in every other port aim, until the owner rules on aiming through walls; sneaking switches the
-	 * precision hitboxes off, as it does for the port's client aim.
+	 * Whether the user's own Stand aim (the default barrage, a punch's fallback) has 1.16's precision aim assist. Off:
+	 * the owner's strict crosshair rule of 2026-09-13, which the owner is asked to confirm against the 1.16 assist.
 	 */
-	public static ActionTarget userPrecisionRayTarget(StandEntity stand, LivingEntity user) {
-		Level level = stand.level();
+	private static boolean userAimAssist() {
+		return false;
+	}
+
+	/**
+	 * The user's own aim for a Stand attack (1.16 StandEntity.aimWithThisOrUser): from the user's eyes at the user's
+	 * reach, what the crosshair ray meets first; blocks stop the ray. With the aim assist on, 1.16's precision ray.
+	 */
+	public static ActionTarget userAimTarget(StandEntity stand, LivingEntity user, float partialTick, Predicate<Entity> canTarget) {
+		if (userAimAssist()) {
+			return userPrecisionRayTarget(stand, user, canTarget);
+		}
 		double reach = userAimReach(user, stand);
-		Vec3 eyes = user.getEyePosition();
-		Vec3 look = user.getViewVector(1.0F);
-		BlockHitResult blockHit = HitResultUtil.clipBlocks(new ClipContext(eyes, eyes.add(look.scale(reach)),
-				ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, CollisionContext.of(user)), level);
-		double wallSqr = blockHit.getType() == HitResult.Type.MISS ? Double.MAX_VALUE : eyes.distanceToSqr(blockHit.getLocation());
+		return HitResultUtil.clip(user.getEyePosition(partialTick), user.getViewVector(partialTick), reach, reach,
+				stand.level(), canTarget, user, 0);
+	}
+
+	public static ActionTarget userPrecisionRayTarget(StandEntity stand, LivingEntity user) {
+		return userPrecisionRayTarget(stand, user, entity -> entity != stand && canStandHit(stand, entity));
+	}
+
+	/**
+	 * 1.16 StandEntity.precisionRayTrace(user, getAimDistance(user)): the user's reach, the Stand's precision hitboxes,
+	 * and of several entities a player or Stand first, then a hostile mob, then the rest; else the block. An entity
+	 * behind a block on the ray is not picked, measured to the nearest point of its own box (the owner keeps walls
+	 * blocking the aim); sneaking switches the precision hitboxes off, as it does for the port's client aim.
+	 */
+	public static ActionTarget userPrecisionRayTarget(StandEntity stand, LivingEntity user, Predicate<Entity> canTarget) {
 		ActionTarget[] byPriority = new ActionTarget[3];
-		for (ActionTarget target : HitResultUtil.clipMultipleEntities(eyes, look, reach, level, user,
-				entity -> entity != stand && canStandHit(stand, entity), 0, user.isShiftKeyDown() ? 0 : stand.getPrecision())) {
-			if (target.getClipPos().map(clip -> eyes.distanceToSqr(clip) > wallSqr).orElse(false)) {
-				continue;
-			}
+		for (ActionTarget target : StandPrecisionRay.clipTargetsBeforeWalls(user, userAimReach(user, stand), canTarget,
+				0, user.isShiftKeyDown() ? 0 : stand.getPrecision())) {
 			Entity entity = target.getMainEntity();
+			if (entity == null) {
+				// no entity before a wall: the block
+				return target;
+			}
 			int priority = entity instanceof Player || entity instanceof StandEntity ? 0
 					: entity instanceof LivingEntity && ResolveCounter.attackingTargetGivesResolve(entity) ? 1 : 2;
 			if (byPriority[priority] == null) {
@@ -697,15 +718,24 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 				return target;
 			}
 		}
-		return ActionTarget.fromVanilla(blockHit);
+		return ActionTarget.EMPTY;
 	}
 
-	/** 1.16 StandEntity.getAimDistance: the user's REACH_DISTANCE, 5 in either game mode, half a block over the 1.21 attribute. */
+	/**
+	 * 1.16 StandEntity.getAimDistance: the user's REACH_DISTANCE, 5 in either game mode: the 1.21 Survival attribute
+	 * and half a block, without the Creative half block a server player gets on top.
+	 */
 	public static double userAimReach(LivingEntity user, StandEntity stand) {
 		AttributeInstance reach = user.getAttribute(Attributes.BLOCK_INTERACTION_RANGE);
-		return reach != null ? reach.getValue() + 0.5D : stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE);
+		if (reach == null) {
+			return stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE);
+		}
+		AttributeModifier creative = reach.getModifier(CREATIVE_BLOCK_RANGE);
+		double creativeBonus = creative != null && creative.operation() == AttributeModifier.Operation.ADD_VALUE
+				? creative.amount() : 0;
+		return reach.getValue() - creativeBonus + 0.5D;
 	}
-	
+
 	public static boolean canStandHit(StandEntity stand, Entity target) {
 		return target.isAlive() && canStandPick(stand, target) && stand.canAttackEntity(target);
 	}

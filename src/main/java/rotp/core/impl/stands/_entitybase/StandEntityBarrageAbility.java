@@ -41,7 +41,6 @@ import rotp.core.powersystem.standpower.entity.StandStatFormulas;
 import rotp.core.subsystems.entity_grab.LivingComponentGrab;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.AimingEntity;
-import rotp.core.subsystems.target.HitResultUtil;
 
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
@@ -201,14 +200,10 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 		if (user == null || !(action.ability instanceof StandEntityAbility ability)) {
 			return ActionTarget.EMPTY;
 		}
-		// 1.16 StandEntity.punch aimed with the user's reach and the Stand's precision, then checked the Stand's own
-		// reach; blocks still stop the ray (the owner's strict crosshair barrage)
-		double reach = StandEntityPunchAbility.userAimReach(user, stand);
-		ActionTarget target = HitResultUtil.clip(user.getEyePosition(partialTick), user.getViewVector(partialTick),
-				reach, reach, stand.level(),
-				entity -> ability.canTargetEntityForAiming(stand, entity)
-						&& StandEntityPunchAbility.canStandHit(stand, entity), user,
-				user.isShiftKeyDown() ? 0 : stand.getPrecision());
+		// 1.16 StandEntity.punch aimed from the user's eyes at the user's reach, then checked the Stand's own reach;
+		// the owner's strict crosshair barrage takes what that ray meets first
+		ActionTarget target = StandEntityPunchAbility.userAimTarget(stand, user, partialTick,
+				entity -> ability.canTargetEntityForAiming(stand, entity) && StandEntityPunchAbility.canStandHit(stand, entity));
 		return StandEntityPunchAbility.validatePunchTarget(stand, target);
 	}
 	

@@ -8,6 +8,8 @@ import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility;
+import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility.StandEntityBarrage;
+import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility.StandEntityHeavyPunch;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility.StandEntityPunch;
 import rotp.core.init.ModDataAttachmentTypes;
@@ -26,24 +28,31 @@ import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.target.ActionTarget;
 
+import net.minecraft.commands.arguments.EntityAnchorArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
- * 1.16 StandEntity.punch / aimWithThisOrUser: an attack with no target in the Stand's reach aims with the user's own
- * precision ray (the user's 5-block reach, the Stand's precision hitboxes) and keeps what the Stand, moved forward,
- * can reach; the heavy punch's Stand keeps its distance from its target through the windup. Own batch: the rays
- * reach several blocks and must not meet a neighbouring test's mobs.
+ * 1.16 StandEntity.punch / aimWithThisOrUser: an attack with no target in the Stand's reach aims from the user's eyes
+ * at the user's 5-block reach and keeps what the Stand, moved forward, can reach. The default barrage and that
+ * fallback follow the owner's strict crosshair rule: what the crosshair ray meets first, no precision widening. The
+ * heavy punch's Stand keeps its distance from its target through the windup. Own batch: the rays reach several blocks
+ * and must not meet a neighbouring test's mobs.
  */
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -103,10 +112,11 @@ public final class StandAimReachGameTests {
 	}
 
 	@GameTest(template = "empty", timeoutTicks = 60, batch = BATCH)
-	public static void defaultBarrageAimsWithUserReachAndPrecision(GameTestHelper helper) {
+	public static void defaultBarrageAimsWithTheUserReach(GameTestHelper helper) {
 		Scene scene = new Scene(helper, GameType.CREATIVE, false, 16);
-		// off the crosshair and past the old 2.5-block eye ray, inside the moved Stand's reach
-		Cow cow = scene.cow(0.5, 3.4);
+		// on the crosshair, past the old 2.5-block eye ray, inside the moved Stand's reach
+		Cow cow = scene.cow(0, 3.4);
+		scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, cow.getBoundingBox().getCenter());
 		float health = cow.getHealth();
 		scene.run(tick -> {
 			if (tick == 3) {
@@ -119,10 +129,83 @@ public final class StandAimReachGameTests {
 				return true;
 			}
 			else if (tick > 30) {
-				helper.fail("The default barrage missed a cow 3.4 blocks ahead and 0.5 off the crosshair, which 1.16 hit");
+				helper.fail("The default barrage missed a cow 3.4 blocks ahead on the crosshair, which 1.16 hit");
 			}
 			return false;
 		});
+	}
+
+	// the owner's strict crosshair: Star Platinum's 1.16 precision boxes (about 1.9 blocks each side) would take a mob
+	// this close whichever way the user looked
+	@GameTest(template = "empty", timeoutTicks = 60, batch = BATCH)
+	public static void defaultBarrageSkipsAMobBesideTheCrosshair(GameTestHelper helper) {
+		Scene scene = new Scene(helper, GameType.CREATIVE, false, 16);
+		Cow cow = scene.cow(1.2, 0.8);
+		helper.assertTrue(cow.getBoundingBox().distanceToSqr(scene.user.getEyePosition()) < 1.9 * 1.9,
+				"Fixture: the cow is not within 1.9 blocks of the user's eyes");
+		helper.assertTrue(cow.getBoundingBox().clip(scene.user.getEyePosition(),
+				scene.user.getEyePosition().add(scene.user.getViewVector(1).scale(5))).isEmpty(),
+				"Fixture: the cow is on the crosshair");
+		float health = cow.getHealth();
+		scene.run(tick -> {
+			if (tick == 3) {
+				scene.clearAims();
+				EntityActionInstance action = scene.press("barrage", InputMethod.HOLD);
+				helper.assertTrue(StandEntityBarrageAbility.isDirectionalBarrage(scene.stand, action),
+						"Fixture: the default barrage is not the unlocked directional one");
+			}
+			else if (tick > 3 && cow.getHealth() < health) {
+				helper.fail("The default barrage hit a cow beside the crosshair 1.9 blocks from the user, off the owner's strict crosshair");
+			}
+			else if (tick > 25) {
+				helper.assertTrue(scene.stand.getCurStandAction() instanceof StandEntityBarrage,
+						"Fixture: the barrage ended before the check");
+				return true;
+			}
+			return false;
+		});
+	}
+
+	// 1.16 REACH_DISTANCE was 5 in Survival and Creative alike; a 1.21 server player gets half a block more in Creative
+	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH)
+	public static void userAimReachIsFiveBlocksInEitherGameMode(GameTestHelper helper) {
+		Scene scene = new Scene(helper, GameType.SURVIVAL, false, 16);
+		try {
+			AttributeInstance range = scene.user.getAttribute(Attributes.BLOCK_INTERACTION_RANGE);
+			double survival = StandEntityPunchAbility.userAimReach(scene.user, scene.stand);
+			range.addOrUpdateTransientModifier(new AttributeModifier(
+					ResourceLocation.withDefaultNamespace("creative_mode_block_range"), 0.5, AttributeModifier.Operation.ADD_VALUE));
+			double creative = StandEntityPunchAbility.userAimReach(scene.user, scene.stand);
+			helper.assertTrue(Math.abs(survival - 5) < 1.0E-6 && Math.abs(creative - 5) < 1.0E-6,
+					"1.16 aimed at the user's 5-block reach in either game mode: Survival " + survival + ", Creative " + creative);
+			helper.succeed();
+		}
+		finally {
+			scene.close();
+		}
+	}
+
+	// the 1.16 precision aim kept behind the aim switch: walls hide an entity measured by its own box, even one so close
+	// that its precision box holds the user's eyes
+	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH)
+	public static void precisionAimDoesNotPickAMobBehindAWall(GameTestHelper helper) {
+		Scene scene = new Scene(helper, GameType.SURVIVAL, false, 16);
+		BlockPos wall = BlockPos.containing(scene.origin.add(0, 1, 1));
+		BlockState oldWall = helper.getLevel().getBlockState(wall);
+		try {
+			helper.getLevel().setBlockAndUpdate(wall, Blocks.STONE.defaultBlockState());
+			Cow cow = scene.cow(0, 1.9);
+			helper.assertTrue(cow.getBoundingBox().distanceToSqr(scene.user.getEyePosition()) < 1.9 * 1.9,
+					"Fixture: the cow is not within 1.9 blocks of the user's eyes");
+			ActionTarget aimed = StandEntityPunchAbility.userPrecisionRayTarget(scene.stand, scene.user);
+			helper.assertTrue(aimed.getType() == ActionTarget.TargetType.BLOCK && aimed.getBlockPos().equals(wall),
+					"The precision aim picked " + aimed + " behind the stone at " + wall + "; walls hide entities");
+			helper.succeed();
+		}
+		finally {
+			helper.getLevel().setBlockAndUpdate(wall, oldWall);
+			scene.close();
+		}
 	}
 
 	private interface Step {
