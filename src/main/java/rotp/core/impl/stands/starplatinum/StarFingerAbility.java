@@ -101,11 +101,9 @@ public class StarFingerAbility extends StandEntityAbility {
                 Vec3 offset = new Vec3(0.07, 1.5, 1)
                         .yRot(-getPerformer().yBodyRot * MathUtil.DEG_TO_RAD);
                 this.extendableOBB().updatePosition(level(), pos, offset, getPerformer().getXRot(), getPerformer().getYRot());
+                // 1.16: a finger retracted early by a block it could not break leaves the Stand task running
+                // its full perform duration
                 this.extendableOBB().tick();
-                if (this.extendableOBB().isRetracted()){
-                    setPhaseStart(ActionPhase.RECOVERY);
-                    syncPhaseChanges();
-                }
             }
         }
 

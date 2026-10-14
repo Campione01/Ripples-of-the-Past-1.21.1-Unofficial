@@ -107,6 +107,7 @@ public final class SPStarFingerImpactGameTests {
         int index;
         int checks;
         int defaultExpiry;
+        int defaultActionTicks;
         boolean closed;
 
         Suite(GameTestHelper helper) {
@@ -157,6 +158,7 @@ public final class SPStarFingerImpactGameTests {
                 if (scene == null || closed || observerFailure != null) return;
                 try {
                     if (event.getEntity() == scene.finger) scene.post();
+                    if (event.getEntity() == scene.stand) scene.standTick();
                     if (event.getEntity() == scene.stand && scene.observed && scene.blockAge > 0
                             && scene.finger.isAlive() && scene.finger.tickCount <= scene.blockAge + 2
                             && scene.action.extendableOBB().getLength() < scene.impactLength) scene.obbShrank = true;
@@ -255,12 +257,14 @@ public final class SPStarFingerImpactGameTests {
         int removedAge;
         int impacts;
         int destroyRequests;
+        int actionTicks;
         double preDistance;
         double emittedStandSpeed;
         float impactLength;
         boolean observed;
         boolean collisionReady;
         boolean obbShrank;
+        boolean walkHeld = true;
         boolean closed;
 
         Scene(Suite suite, SceneKind kind) { this.suite = suite; this.kind = kind; level = suite.level; }
@@ -368,8 +372,25 @@ public final class SPStarFingerImpactGameTests {
                     + " obbRetracting=" + action.extendableOBB().isRetracting() + " obbLength=" + action.extendableOBB().getLength());
         }
 
+        // 1.16 Stand task: the Star Finger pose and its 0.5 walk factor last the whole perform, whatever the finger hit
+        void standTick() {
+            if (action == null || stand.getCurStandAction() != action || action.getPhase() != ActionPhase.PERFORM) return;
+            actionTicks++;
+            if (action.userWalkSpeed != 0.5F) walkHeld = false;
+        }
+
         void finish() {
             if (finger.isRemoved() && removedAge == 0) removedAge = finger.tickCount;
+            if (kind == SceneKind.EMPTY) {
+                suite.defaultActionTicks = actionTicks;
+                suite.check(actionTicks >= 19 && actionTicks <= 21 && stand.getCurStandAction() != action,
+                        "no-impact Star Finger ends after its 20-tick perform ticks=" + actionTicks);
+            }
+            else {
+                suite.check(actionTicks == suite.defaultActionTicks && stand.getCurStandAction() != action,
+                        "the action keeps its full perform ticks=" + actionTicks + " control=" + suite.defaultActionTicks);
+            }
+            suite.check(walkHeld, "the 0.5 walk factor holds through the perform");
             suite.check(emissions.size() == 1 && uid.equals(finger.getUUID()) && finger.isRemoved()
                     && level.getEntity(finger.getId()) == null, "single original emission cleaned up");
             if (kind == SceneKind.ENTITY || kind == SceneKind.BROKEN_BLOCK) {
