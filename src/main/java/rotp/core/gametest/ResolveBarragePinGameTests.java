@@ -135,6 +135,9 @@ public final class ResolveBarragePinGameTests {
 			helper.assertTrue(isPinned(pinned) && gravity(pinned) == 0,
 					"1.16: a Resolve barrage removes the target's gravity, but it is " + gravity(pinned));
 			helper.assertTrue(pinned.getNavigation().isDone(), "1.16: a Resolve barrage stops the mob's path");
+			// that hit is the last: the held barrage would keep hitting the pig, whose precision box (1.16 aim assist)
+			// surrounds the user's eyes
+			LivingComponentAction.getComponent(stand).setAction(null, attacker, SyncType.NO_SYNC);
 
 			// still pinned after one of its ticks, released within 3
 			helper.runAfterDelay(1, () -> guarded(holder, attacker, other, attackerType, otherType, () ->
