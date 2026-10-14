@@ -143,6 +143,26 @@ public final class DirectionalBarrageGameTests {
 		}
 	}
 
+	// 1.16 StandEntityAction.isCancelable read getStandRecoveryTicks live: a Stand turned arms-only mid-barrage (no
+	// recovery) lets another action cancel the barrage during PERFORM
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void barrageCancelDuringPerformReadsTheRecoveryThen(GameTestHelper helper) {
+		try (Fixture f = new Fixture(helper, "recovery_cancel", true)) {
+			f.lookAt(f.user.getEyePosition().add(0, 2, -3));
+			EntityActionInstance barrage = f.start("barrage");
+			EntityActionType heavy = (EntityActionType) f.power.getAbility("heavy_punch");
+			f.tick(3);
+			helper.assertTrue(barrage.getPhase() == ActionPhase.PERFORM && !barrage.canBeCancelledInto(heavy),
+					"Fixture: a barrage with a recovery could be cancelled during PERFORM, phase " + barrage.getPhase());
+			f.stand.setArmsOnlyMode(true, true);
+			helper.assertTrue(barrage.getPhase() == ActionPhase.PERFORM && barrage.canBeCancelledInto(heavy),
+					"1.16 let another action cancel the barrage of a Stand that turned arms-only during PERFORM; the port"
+							+ " still read the recovery of " + barrage.phasesLength.getFloat(ActionPhase.RECOVERY) + " set at its start");
+			barrage.onKeyRelease(f.user);
+			helper.succeed();
+		}
+	}
+
 	// 1.16 SilverChariotMeleeBarrage.getHoldDurationMax: no limit while the armor is off, read on every tick
 	@GameTest(template = "empty", timeoutTicks = 200)
 	public static void silverChariotWithoutArmorBarragesWithoutLimit(GameTestHelper helper) {

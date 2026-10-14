@@ -397,7 +397,20 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 				return user != null && user.hasEffect(ModStatusEffects.RESOLVE)
 						|| canFollowUpBarrage(cancellingAbility);
 			}
-			return phasesLength.getFloat(ActionPhase.RECOVERY) <= 0 && cancellingAbility != this.ability;
+			return recoveryNow() <= 0 && cancellingAbility != this.ability;
+		}
+
+		/**
+		 * 1.16 StandEntityAction.isCancelable read getStandRecoveryTicks live during PERFORM. Server: the base rule's
+		 * recovery is read again now, as when RECOVERY starts; an ability that put its own length keeps it.
+		 */
+		private float recoveryNow() {
+			float recovery = phasesLength.getFloat(ActionPhase.RECOVERY);
+			if (performer instanceof StandEntity stand && !stand.level().isClientSide()
+					&& Float.compare(recovery, recoveryByBaseRule) == 0) {
+				return getBarrageRecoveryTicks(stand);
+			}
+			return recovery;
 		}
 
 		private static boolean canFollowUpBarrage(EntityActionType cancellingAbility) {
