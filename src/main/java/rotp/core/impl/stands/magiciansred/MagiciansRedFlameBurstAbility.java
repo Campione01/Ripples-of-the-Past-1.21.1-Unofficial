@@ -6,10 +6,8 @@ import rotp.core.init.ModSoundEvents;
 import rotp.core.powersystem.standpower.StandInstance.StandPart;
 
 import rotp.core.mechanics.resolve.ResolveModeEffect;
-import rotp.core.powersystem.Power;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
-import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.entityaction.ActionAnimIdentifier;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
@@ -33,12 +31,6 @@ public class MagiciansRedFlameBurstAbility extends StandEntityAbility {
 		super(abilityType, abilityId, FlameBurstShot::new);
 		partsRequired(StandPart.MAIN_BODY);
 		setButtonHoldPhase(ActionPhase.PERFORM);
-	}
-
-	@Override
-	public ConditionCheck checkSpecificConditions(Power<?> context) {
-		ConditionCheck check = super.checkSpecificConditions(context);
-		return check.isPositive() ? StandAbilityStamina.check(context, STAMINA_COST_TICK) : check;
 	}
 
 	@Override
@@ -75,11 +67,6 @@ public class MagiciansRedFlameBurstAbility extends StandEntityAbility {
 			if (user == null || !(getPerformer() instanceof StandEntity stand)) {
 				return;
 			}
-			StandPower standPower = StandPower.get(user);
-			if (!StandAbilityStamina.consume(ability, standPower, STAMINA_COST_TICK, true)) {
-				startRecovery();
-				return;
-			}
 			MRFlameEntity flame = new MRFlameEntity(stand, level);
 			flame.setShootingPosOf(stand);
 			flame.shootFromRotation(stand,
@@ -87,6 +74,8 @@ public class MagiciansRedFlameBurstAbility extends StandEntityAbility {
 					stand.getYRot() + (stand.getRandom().nextFloat() - 0.5F) * 10F,
 					0, flameVelocity(stand, user), 0.0F);
 			addProjectileWithStandStats(flame);
+			// 1.16 StandEntityTask paid each perform tick and ignored the result: an empty bar stays at 0
+			StandAbilityStamina.consume(ability, StandPower.get(user), STAMINA_COST_TICK, true);
 		}
 
 		private static float flameVelocity(StandEntity stand, LivingEntity user) {

@@ -1,12 +1,10 @@
 package rotp.core.impl.stands.hierophant;
 
 import rotp.core.init.ModSoundEvents;
-import rotp.core.powersystem.Power;
 import rotp.core.powersystem.standpower.StandInstance.StandPart;
 
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
-import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
@@ -46,12 +44,6 @@ public class HierophantStringAttackAbility extends NoPoseStandEntityAbility {
 		if (binding) {
 			cooldown(BIND_COOLDOWN_TECHNICAL, BIND_COOLDOWN_ADDITIONAL, BIND_RESOLVE_COOLDOWN_MULTIPLIER);
 		}
-	}
-
-	@Override
-	public ConditionCheck checkSpecificConditions(Power<?> context) {
-		ConditionCheck check = super.checkSpecificConditions(context);
-		return check.isPositive() ? StandAbilityStamina.check(context, STAMINA_COST) : check;
 	}
 
 	private static boolean isStringBind(AbilityId abilityId) {
@@ -115,11 +107,6 @@ public class HierophantStringAttackAbility extends NoPoseStandEntityAbility {
 			if (!(getPerformer() instanceof StandEntity stand)) {
 				return;
 			}
-			StandPower standPower = StandPower.get(user);
-			if (!StandAbilityStamina.consumeOrMessage(ability, standPower, user, STAMINA_COST)) {
-				startRecovery();
-				return;
-			}
 			int stringCount = binding ? BIND_STRING_COUNT : NORMAL_STRING_COUNT;
 			int lifespan = stringActionTicks(stand, binding);
 			for (int i = 0; i < stringCount; i++) {
@@ -128,6 +115,8 @@ public class HierophantStringAttackAbility extends NoPoseStandEntityAbility {
 			}
 			spawnString(stand, 0.0F, 0.0F, binding, lifespan);
 			StandUtil.playStandEntitySound(stand, ModSoundEvents.HIEROPHANT_GREEN_TENTACLES, 1.0F, 1.0F);
+			// 1.16 StandEntityTask paid after the strings were out and ignored the result: a short bar just drops to 0
+			StandAbilityStamina.consume(ability, StandPower.get(user), STAMINA_COST, false);
 		}
 
 		private void spawnString(StandEntity stand, float yRotDelta, float xRotDelta, boolean binding, int lifespan) {

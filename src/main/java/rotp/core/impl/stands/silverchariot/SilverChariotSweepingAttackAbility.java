@@ -63,7 +63,7 @@ public class SilverChariotSweepingAttackAbility extends StandEntityAbility {
 		if (lacksRapier(context)) {
 			return ConditionCheck.createNegative("chariot_rapier");
 		}
-		return StandAbilityStamina.check(context, STAMINA_COST);
+		return check;
 	}
 
 	private static boolean lacksRapier(Power<?> context) {
@@ -141,11 +141,6 @@ public class SilverChariotSweepingAttackAbility extends StandEntityAbility {
 			if (!(getPerformer() instanceof StandEntity stand)) {
 				return;
 			}
-			StandPower standPower = StandPower.get(user);
-			if (!StandAbilityStamina.consumeOrMessage(ability, standPower, user, STAMINA_COST)) {
-				return;
-			}
-
 			Vec3 lookVec = stand.getLookAngle();
 			if (lookVec.lengthSqr() < 1.0E-6) {
 				lookVec = user.getLookAngle();
@@ -184,6 +179,8 @@ public class SilverChariotSweepingAttackAbility extends StandEntityAbility {
 					SilverChariotDashAttackAbility.afterHeavyHit(stand, target);
 				}
 			}
+			// 1.16 StandEntityTask paid after the sweep and ignored the result: a short bar just drops to 0
+			StandAbilityStamina.consume(ability, StandPower.get(user), STAMINA_COST, false);
 
 			level.addParticle(ParticleTypes.SWEEP_ATTACK,
 					stand.getX() + lookXZ.x,

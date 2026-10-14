@@ -104,7 +104,7 @@ public class SilverChariotDashAttackAbility extends StandEntityAbility {
 		if (lacksRapier(context)) {
 			return ConditionCheck.createNegative("chariot_rapier");
 		}
-		return StandAbilityStamina.check(context, STAMINA_COST);
+		return check;
 	}
 
 	private static boolean lacksRapier(Power<?> context) {
@@ -164,11 +164,8 @@ public class SilverChariotDashAttackAbility extends StandEntityAbility {
 					startRecovery();
 					return;
 				}
-				StandPower standPower = StandPower.get(user);
-				if (!StandAbilityStamina.consumeOrMessage(ability, standPower, user, STAMINA_COST)) {
-					startRecovery();
-					return;
-				}
+				// 1.16 StandEntityTask paid 50 as the perform started and ignored the result: a short bar just drops to 0
+				StandAbilityStamina.consume(ability, StandPower.get(user), STAMINA_COST, false);
 			}
 			else if (ClientGlobals.canHearStand(stand)) {
 				level().playLocalSound(stand, ClientsideSoundsHelper.withStandSkin(

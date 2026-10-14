@@ -9,7 +9,6 @@ import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.ability.TrainableAbility;
 import rotp.core.powersystem.ability.condition.AvailableAbilities;
-import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.entityaction.ActionAnimIdentifier;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
@@ -55,12 +54,6 @@ public class MagiciansRedCrossfireHurricaneAbility extends StandEntityAbility im
 			setPlaysVoiceLineOnSneak();
 		}
 		setDefaultPhaseLength(ActionPhase.BUTTON_CHARGE, HOLD_TO_FIRE_TICKS);
-	}
-
-	@Override
-	public ConditionCheck checkSpecificConditions(Power<?> context) {
-		ConditionCheck check = super.checkSpecificConditions(context);
-		return check.isPositive() ? StandAbilityStamina.check(context, STAMINA_COST) : check;
 	}
 
 	@Override
@@ -162,11 +155,6 @@ public class MagiciansRedCrossfireHurricaneAbility extends StandEntityAbility im
 				clearAction();
 				return;
 			}
-			StandPower standPower = StandPower.get(user);
-			if (!StandAbilityStamina.consumeOrMessage(ability, standPower, user, STAMINA_COST)) {
-				clearAction();
-				return;
-			}
 			boolean special = SPECIAL_ABILITY.equals(ability.getAbilityId().nameInMoveset());
 			int shots = special ? SPECIAL_SHOT_COUNT : 1;
 			Vec3 targetPos = special ? getAimTarget(level, stand, user) : null;
@@ -187,6 +175,8 @@ public class MagiciansRedCrossfireHurricaneAbility extends StandEntityAbility im
 				level.addFreshEntity(cross);
 			}
 			StandUtil.playStandEntitySound(stand, ModSoundEvents.MAGICIANS_RED_CROSSFIRE_HURRICANE, 1.0F, 1.0F);
+			// 1.16 StandEntityTask paid after the shot and ignored the result: a short bar just drops to 0
+			StandAbilityStamina.consume(ability, StandPower.get(user), STAMINA_COST, false);
 		}
 
 		@Override

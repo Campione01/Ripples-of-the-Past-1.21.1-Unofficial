@@ -3,11 +3,9 @@ package rotp.core.impl.stands.magiciansred;
 import rotp.core.init.ModSoundEvents;
 import rotp.core.powersystem.standpower.StandInstance.StandPart;
 
-import rotp.core.powersystem.Power;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
-import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.entityaction.ActionAnimIdentifier;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
@@ -32,12 +30,6 @@ public class MagiciansRedRedBindAbility extends StandEntityAbility {
 		partsRequired(StandPart.ARMS);
 		noFinisherBarDecay = true;
 		setButtonHoldPhase(ActionPhase.PERFORM);
-	}
-
-	@Override
-	public ConditionCheck checkSpecificConditions(Power<?> context) {
-		ConditionCheck check = super.checkSpecificConditions(context);
-		return check.isPositive() ? StandAbilityStamina.check(context, STAMINA_COST_TICK) : check;
 	}
 
 	@Override
@@ -91,10 +83,8 @@ public class MagiciansRedRedBindAbility extends StandEntityAbility {
 			if (user == null) {
 				return;
 			}
-			StandPower standPower = StandPower.get(user);
-			if (!StandAbilityStamina.consume(ability, standPower, STAMINA_COST_TICK, true)) {
-				startRecovery();
-			}
+			// 1.16 StandEntityTask paid each perform tick and ignored the result: an empty bar stays at 0
+			StandAbilityStamina.consume(ability, StandPower.get(user), STAMINA_COST_TICK, true);
 		}
 
 		@Override

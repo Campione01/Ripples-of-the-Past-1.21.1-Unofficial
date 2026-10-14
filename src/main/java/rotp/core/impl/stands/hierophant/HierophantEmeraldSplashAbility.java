@@ -11,7 +11,6 @@ import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.ability.TrainableAbility;
-import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.entityaction.ActionAnimIdentifier;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
@@ -68,14 +67,6 @@ public class HierophantEmeraldSplashAbility extends StandEntityAbility implement
 			// 1.16 hierophant_green_es_concentrated was the SHIFT variation
 			setPlaysVoiceLineOnSneak();
 		}
-	}
-
-	@Override
-	public ConditionCheck checkSpecificConditions(Power<?> context) {
-		ConditionCheck check = super.checkSpecificConditions(context);
-		return check.isPositive()
-				? StandAbilityStamina.check(context, concentrated ? CONCENTRATED_STAMINA_COST_TICK : STAMINA_COST_TICK)
-				: check;
 	}
 
 	@Override
@@ -183,10 +174,6 @@ public class HierophantEmeraldSplashAbility extends StandEntityAbility implement
 			}
 			LivingEntity user = getPowerUser();
 			StandPower standPower = user != null ? StandPower.get(user) : null;
-			if (!StandAbilityStamina.consume(ability, standPower, staminaCostTick(), true)) {
-				startRecovery();
-				return;
-			}
 			if (!voiceLinePlayed && user != null) {
 				Ability.sayShoutOf(ability, user, ModSoundEvents.KAKYOIN_EMERALD_SPLASH);
 				voiceLinePlayed = true;
@@ -202,6 +189,8 @@ public class HierophantEmeraldSplashAbility extends StandEntityAbility implement
 			}
 			runFractionalTimes(() -> shootEmerald(stand), fireRate, stand.getRandom()::nextDouble);
 			shootFromPlacedBarriers(stand, standPower);
+			// 1.16 StandEntityTask paid each perform tick after the shots and ignored the result
+			StandAbilityStamina.consume(ability, standPower, staminaCostTick(), true);
 		}
 
 		private float staminaCostTick() {

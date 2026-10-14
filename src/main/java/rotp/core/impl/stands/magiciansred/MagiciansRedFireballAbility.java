@@ -3,10 +3,8 @@ package rotp.core.impl.stands.magiciansred;
 import rotp.core.powersystem.standpower.StandInstance.StandPart;
 
 import rotp.core.init.ModSoundEvents;
-import rotp.core.powersystem.Power;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
-import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.entityaction.ActionAnimIdentifier;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
@@ -34,12 +32,6 @@ public class MagiciansRedFireballAbility extends StandEntityAbility {
 	}
 
 	@Override
-	public ConditionCheck checkSpecificConditions(Power<?> context) {
-		ConditionCheck check = super.checkSpecificConditions(context);
-		return check.isPositive() ? StandAbilityStamina.check(context, STAMINA_COST) : check;
-	}
-
-	@Override
 	public ActionAnimIdentifier getEntityAnim(EntityActionInstance action) {
 		return FIREBALL_ANIM;
 	}
@@ -60,15 +52,13 @@ public class MagiciansRedFireballAbility extends StandEntityAbility {
 			if (user == null || !(getPerformer() instanceof StandEntity stand)) {
 				return;
 			}
-			StandPower standPower = StandPower.get(user);
-			if (!StandAbilityStamina.consumeOrMessage(ability, standPower, user, STAMINA_COST)) {
-				return;
-			}
 			MRFireballEntity fireball = new MRFireballEntity(stand, level);
 			fireball.setShootingPosOf(stand);
 			fireball.shootFromRotation(stand, stand.getXRot(), stand.getYRot(), 0, SHOT_VELOCITY, SHOT_INACCURACY);
 			addProjectileWithStandStats(fireball);
 			StandUtil.playStandEntitySound(stand, ModSoundEvents.MAGICIANS_RED_FIREBALL.get(), 1.0F, 1.0F);
+			// 1.16 StandEntityTask paid after the shot and ignored the result: a short bar just drops to 0
+			StandAbilityStamina.consume(ability, StandPower.get(user), STAMINA_COST, false);
 		}
 	}
 }
