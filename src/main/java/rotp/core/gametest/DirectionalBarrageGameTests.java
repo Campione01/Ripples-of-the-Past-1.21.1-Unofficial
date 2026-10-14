@@ -1,5 +1,6 @@
 package rotp.core.gametest;
 
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -12,6 +13,7 @@ import rotp.core.config.client.PlayerClientBroadcastedSettings;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.init.ModDataAttachmentTypes;
+import rotp.core.init.ModStatusEffects;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.entityaction.ActionPhase;
@@ -27,12 +29,17 @@ import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.AimingEntity;
 import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility;
+import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility.StandEntityBarrage;
+import rotp.core.impl.stands.silverchariot.SilverChariotState;
 import com.mojang.authlib.GameProfile;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Blocks;
@@ -47,27 +54,127 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 public final class DirectionalBarrageGameTests {
 	private DirectionalBarrageGameTests() {}
 
-	@GameTest(template = "empty", timeoutTicks = 80)
-	public static void heldEmptyBarrageKeepsActionAndPhaseClock(GameTestHelper helper) {
+	// the owner's 2026-10-14 rule: the default barrage ends at the 1.16 hold maximum; a miss still does not end it
+	@GameTest(template = "empty", timeoutTicks = 200)
+	public static void heldEmptyBarrageKeepsActionUntilTheHoldMaximum(GameTestHelper helper) {
 		try (Fixture f = new Fixture(helper, "held_empty", true)) {
 			f.lookAt(f.user.getEyePosition().add(0, 2, -3));
 			EntityActionInstance action = f.start("barrage");
+			helper.assertTrue(StandEntityBarrageAbility.isDirectionalBarrage(f.stand, action),
+					"Fixture: the default barrage is not the directional one");
 			int id = action.id;
 			long generation = action.networkGeneration();
-			float phaseTick = action.getPhaseTick();
-			int oldDuration = StandStatFormulas.getBarrageMaxDuration(f.stand.getDurability());
-			f.tick(oldDuration + 40);
+			int maximum = StandStatFormulas.getBarrageMaxDuration(f.stand.getDurability());
+			f.tick(maximum);
 			helper.assertTrue(f.component.getAction() == action && action.id == id
 					&& action.networkGeneration() == generation, "Held empty barrage replaced its action");
-			helper.assertTrue(action.getPhase() == ActionPhase.PERFORM
-					&& action.getPhaseTick() > phaseTick + oldDuration,
-					"Held empty barrage ended or clamped its animation phase clock");
+			helper.assertTrue(action.getPhase() == ActionPhase.PERFORM && action.getPhaseTick() == maximum,
+					"Held empty barrage left PERFORM before the 1.16 hold maximum " + maximum + ": phase "
+							+ action.getPhase() + " tick " + action.getPhaseTick());
 			f.assertUnlocked(action);
-			action.onKeyRelease(f.user);
-			helper.assertTrue(action.getPhase() == ActionPhase.RECOVERY || action.isOver(),
-					"Releasing held directional barrage did not leave PERFORM");
+			f.tick(1);
+			helper.assertTrue(action.getPhase() == ActionPhase.RECOVERY && f.stand.barrageHits == 0,
+					"The default barrage held past the 1.16 hold maximum of 20 + 5 x durability = " + maximum
+							+ " ticks without Resolve: phase " + action.getPhase() + " tick " + action.getPhaseTick());
 			f.tick(30);
-			helper.assertTrue(f.component.getAction() == null, "Released barrage did not finish recovery");
+			helper.assertTrue(f.component.getAction() == null, "Ended barrage did not finish recovery");
+			helper.succeed();
+		}
+	}
+
+	// 1.16 PowerBaseImpl.tickHeldAction read getHoldDurationMax on every tick, Resolve included
+	@GameTest(template = "empty", timeoutTicks = 200)
+	public static void resolveLiftsAndRestoresTheBarrageHoldMaximum(GameTestHelper helper) {
+		try (Fixture f = new Fixture(helper, "resolve_hold", true)) {
+			f.lookAt(f.user.getEyePosition().add(0, 2, -3));
+			EntityActionInstance action = f.start("barrage");
+			int maximum = StandStatFormulas.getBarrageMaxDuration(f.stand.getDurability());
+			f.tick(maximum - 5);
+			f.user.addEffect(new MobEffectInstance(ModStatusEffects.RESOLVE, 400));
+			f.tick(20);
+			helper.assertTrue(f.component.getAction() == action && action.getPhase() == ActionPhase.PERFORM,
+					"Resolve gained mid-barrage did not lift the hold maximum " + maximum + ": phase " + action.getPhase());
+			f.user.removeEffect(ModStatusEffects.RESOLVE);
+			f.tick(1);
+			helper.assertTrue(action.getPhase() == ActionPhase.RECOVERY,
+					"Resolve lost past the hold maximum did not end the barrage: phase " + action.getPhase()
+							+ " tick " + action.getPhaseTick() + ", maximum " + maximum);
+			helper.succeed();
+		}
+	}
+
+	// 1.16 StandEntityMeleeBarrage.getStandRecoveryTicks, read by StandEntityTask.moveToPhase as RECOVERY starts
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void barrageReadsItsRecoveryWhenRecoveryStarts(GameTestHelper helper) {
+		try (Fixture f = new Fixture(helper, "recovery_entry", true)) {
+			f.lookAt(f.user.getEyePosition().add(0, 2, -3));
+			EntityActionInstance faster = f.start("barrage");
+			float atStart = faster.phasesLength.getFloat(ActionPhase.RECOVERY);
+			helper.assertTrue(atStart == StandStatFormulas.getBarrageRecovery(f.stand.getAttackSpeed()) && atStart > 0,
+					"Fixture: recovery at the start " + atStart);
+			f.tick(3);
+			AttributeModifier boost = new AttributeModifier(JojoMod.resLoc("barrage_recovery_entry_test"), 12,
+					AttributeModifier.Operation.ADD_VALUE);
+			f.stand.getAttribute(Attributes.ATTACK_SPEED).addTransientModifier(boost);
+			try {
+				int expected = StandStatFormulas.getBarrageRecovery(f.stand.getAttackSpeed());
+				helper.assertTrue(expected != atStart, "Fixture: the speed change does not change the recovery");
+				faster.onKeyRelease(f.user);
+				helper.assertTrue(faster.getPhase() == ActionPhase.RECOVERY
+						&& faster.phasesLength.getFloat(ActionPhase.RECOVERY) == expected,
+						"1.16 read the barrage recovery from the attack speed as RECOVERY started: expected " + expected
+								+ ", got " + faster.phasesLength.getFloat(ActionPhase.RECOVERY) + " (" + atStart + " at the start)");
+			}
+			finally {
+				f.stand.getAttribute(Attributes.ATTACK_SPEED).removeModifier(boost.id());
+			}
+			f.tick(30);
+
+			EntityActionInstance armsOnly = f.start("barrage");
+			helper.assertTrue(armsOnly.phasesLength.getFloat(ActionPhase.RECOVERY) > 0, "Fixture: recovery at the start is 0");
+			f.tick(3);
+			f.stand.setArmsOnlyMode(true, true);
+			armsOnly.onKeyRelease(f.user);
+			helper.assertTrue(armsOnly.getPhase() != ActionPhase.PERFORM
+					&& armsOnly.phasesLength.getFloat(ActionPhase.RECOVERY) == 0,
+					"1.16 gave no barrage recovery to a Stand arms-only as RECOVERY started, got "
+							+ armsOnly.phasesLength.getFloat(ActionPhase.RECOVERY));
+			helper.succeed();
+		}
+	}
+
+	// 1.16 SilverChariotMeleeBarrage.getHoldDurationMax: no limit while the armor is off, read on every tick
+	@GameTest(template = "empty", timeoutTicks = 200)
+	public static void silverChariotWithoutArmorBarragesWithoutLimit(GameTestHelper helper) {
+		try (Fixture f = new Fixture(helper, "chariot_no_armor", true, "silver_chariot")) {
+			SilverChariotState state = SilverChariotState.get(f.user);
+			state.setHasArmor(false);
+			f.stand.summonLockTicks = 0;
+			try {
+				f.lookAt(f.user.getEyePosition().add(0, 2, -3));
+				EntityActionInstance action = f.start("melee_barrage");
+				int maximum = StandStatFormulas.getBarrageMaxDuration(f.stand.getDurability());
+				helper.assertTrue(f.holdMaximum(action) == Integer.MAX_VALUE,
+						"Silver Chariot without its armor got a hold maximum of " + f.holdMaximum(action));
+				f.tick(maximum + 5);
+				helper.assertTrue(f.component.getAction() == action && action.getPhase() == ActionPhase.PERFORM
+						&& action.getPhaseTick() == maximum + 5,
+						"Silver Chariot without its armor stopped its barrage at " + maximum + " ticks: phase "
+								+ action.getPhase() + " tick " + action.getPhaseTick());
+				state.setHasArmor(true);
+				helper.assertTrue(f.holdMaximum(action) < Integer.MAX_VALUE,
+						"Silver Chariot's armor back on did not bring back the hold maximum");
+				// the armor also raises the durability the maximum is read from
+				for (int tick = 0; tick < 200 && action.getPhase() == ActionPhase.PERFORM; tick++) {
+					f.tick(1);
+				}
+				helper.assertTrue(action.getPhase() != ActionPhase.PERFORM,
+						"Silver Chariot's armored barrage held past its maximum " + f.holdMaximum(action)
+								+ ": phase tick " + action.getPhaseTick());
+			}
+			finally {
+				state.setHasArmor(true);
+			}
 			helper.succeed();
 		}
 	}
@@ -173,7 +280,7 @@ public final class DirectionalBarrageGameTests {
 			EntityActionInstance locked = f.start("barrage");
 			int oldDuration = StandStatFormulas.getBarrageMaxDuration(f.stand.getDurability());
 			helper.assertTrue(!StandEntityBarrageAbility.isDirectionalBarrage(f.stand, locked)
-					&& locked.phasesLength.getFloat(ActionPhase.PERFORM) == oldDuration,
+					&& f.holdMaximum(locked) == oldDuration,
 					"Legacy locked barrage duration or mode changed");
 			f.hit(target);
 			f.tick(oldDuration + 30);
@@ -185,7 +292,7 @@ public final class DirectionalBarrageGameTests {
 			f.component.entityAim.setTarget(new ActionTarget(grabbed));
 			EntityActionInstance grab = f.start("grab_barrage");
 			helper.assertTrue(!StandEntityBarrageAbility.isDirectionalBarrage(f.stand, grab)
-					&& grab.phasesLength.getFloat(ActionPhase.PERFORM) == oldDuration,
+					&& f.holdMaximum(grab) == oldDuration,
 					"Grab barrage incorrectly entered continuous directional mode");
 			f.component.entityAim.setTarget(ActionTarget.EMPTY);
 			f.hit(grabbed);
@@ -206,6 +313,10 @@ public final class DirectionalBarrageGameTests {
 		private final Map<BlockPos, BlockState> originalBlocks = new LinkedHashMap<>();
 
 		private Fixture(GameTestHelper helper, String name, boolean infiniteStamina) {
+			this(helper, name, infiniteStamina, "star_platinum");
+		}
+
+		private Fixture(GameTestHelper helper, String name, boolean infiniteStamina, String standId) {
 			this.helper = helper;
 			String profileName = "DirBarrage_" + name;
 			user = FakePlayerFactory.get(helper.getLevel(), new GameProfile(
@@ -217,8 +328,8 @@ public final class DirectionalBarrageGameTests {
 			power = PowerClass.STAND.attachGet(user);
 			settings = user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get());
 			settings.standAttackTargetLock = false;
-			standType = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("star_platinum"));
-			helper.assertTrue(standType != null, "Missing Star Platinum Stand type");
+			standType = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc(standId));
+			helper.assertTrue(standType != null, "Missing Stand type " + standId);
 			helper.assertTrue(StandPowerTransitions.insert(power, new StandInstance(standType)).status()
 					== StandPowerTransitions.Status.APPLIED, "Could not grant directional-barrage Stand");
 			helper.assertTrue(standType.summon(user, power), "Could not summon directional-barrage Stand");
@@ -265,6 +376,17 @@ public final class DirectionalBarrageGameTests {
 			return StandEntityBarrageAbility.clipDirectionalBarrageTarget(stand, action, 1.0F);
 		}
 
+		private int holdMaximum(EntityActionInstance action) {
+			try {
+				Method method = StandEntityBarrage.class.getDeclaredMethod("getHoldDurationMax", StandEntity.class);
+				method.setAccessible(true);
+				return (Integer) method.invoke(action, stand);
+			}
+			catch (ReflectiveOperationException e) {
+				throw new IllegalStateException("Missing barrage hold maximum", e);
+			}
+		}
+
 		private void tick(int count) {
 			for (int i = 0; i < count; i++) {
 				stand.tickCount++;
@@ -293,6 +415,7 @@ public final class DirectionalBarrageGameTests {
 
 		@Override
 		public void close() {
+			user.removeEffect(ModStatusEffects.RESOLVE);
 			if (power.isSummoned()) {
 				standType.forceUnsummon(user, power);
 			}

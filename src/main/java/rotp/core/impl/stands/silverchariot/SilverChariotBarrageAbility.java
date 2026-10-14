@@ -7,8 +7,6 @@ import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
-import rotp.core.powersystem.entityaction.ActionPhase;
-import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
@@ -47,22 +45,18 @@ public class SilverChariotBarrageAbility extends StandEntityBarrageAbility {
 		return ConditionCheck.POSITIVE;
 	}
 
-	@Override
-	public void initActionFromConfig(EntityActionInstance action, Level level,
-			LivingEntity powerUser, LivingEntity performer) {
-		super.initActionFromConfig(action, level, powerUser, performer);
-		if (!level.isClientSide()) {
-			SilverChariotState state = SilverChariotState.get(powerUser);
-			if (state != null && !state.hasArmor()) {
-				action.phasesLength.put(ActionPhase.PERFORM, Integer.MAX_VALUE);
-			}
-		}
-	}
-
 	public static class SilverChariotBarrage extends StandEntityBarrageAbility.StandEntityBarrage {
 
 		public SilverChariotBarrage(EntityActionType ability) {
 			super(ability);
+		}
+
+		// 1.16 SilverChariotMeleeBarrage.getHoldDurationMax: no limit while the armor is off
+		@Override
+		protected int getHoldDurationMax(StandEntity stand) {
+			LivingEntity user = getPowerUser();
+			SilverChariotState state = user != null ? SilverChariotState.get(user) : null;
+			return state != null && !state.hasArmor() ? Integer.MAX_VALUE : super.getHoldDurationMax(stand);
 		}
 
 		@Override

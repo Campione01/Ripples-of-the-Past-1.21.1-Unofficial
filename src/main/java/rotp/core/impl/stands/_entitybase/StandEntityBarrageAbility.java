@@ -133,19 +133,29 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 	}
 	
 	@Override
-	public void initActionFromConfig(EntityActionInstance action, Level level, 
+	public void initActionFromConfig(EntityActionInstance action, Level level,
 			LivingEntity powerUser, LivingEntity performer) {
 		super.initActionFromConfig(action, level, powerUser, performer);
 		if (!level.isClientSide() && performer instanceof StandEntity stand) {
-			if (isDirectionalBarrage(stand, action)
-					|| powerUser != null && powerUser.hasEffect(ModStatusEffects.RESOLVE)) {
-				action.phasesLength.put(ActionPhase.PERFORM, Integer.MAX_VALUE);
+			// 1.16 PowerBaseImpl.tickHeldAction read the hold maximum again on every tick, so PERFORM has no fixed
+			// end here: StandEntityBarrage.actionTick ends it (getHoldDurationMax)
+			action.phasesLength.put(ActionPhase.PERFORM, Integer.MAX_VALUE);
+			int recovery = getBarrageRecoveryTicks(stand);
+			action.phasesLength.put(ActionPhase.RECOVERY, recovery);
+			if (action instanceof StandEntityBarrage barrage) {
+				barrage.recoveryByBaseRule = recovery;
 			}
-			else {
-				action.phasesLength.put(ActionPhase.PERFORM, StandStatFormulas.getBarrageMaxDuration(stand.getDurability()));
-			}
-			action.phasesLength.put(ActionPhase.RECOVERY, stand.isArmsOnlyMode() ? 0 : StandStatFormulas.getBarrageRecovery(stand.getAttackSpeed()));
 		}
+	}
+
+	/** 1.16 StandEntityMeleeBarrage.getHoldDurationMax: no limit while the user has Resolve, otherwise 20 + 5 x durability. */
+	public static int getBarrageHoldDurationMax(StandEntity stand) {
+		return isResolveBarrage(stand) ? Integer.MAX_VALUE : StandStatFormulas.getBarrageMaxDuration(stand.getDurability());
+	}
+
+	/** 1.16 StandEntityMeleeBarrage.getStandRecoveryTicks, read when the barrage enters RECOVERY. */
+	public static int getBarrageRecoveryTicks(StandEntity stand) {
+		return stand.isArmsOnlyMode() ? 0 : StandStatFormulas.getBarrageRecovery(stand.getAttackSpeed());
 	}
 
 	// 1.16 StandEntityMeleeBarrage: a hit on the Stand of 4 or more, taken by the user through the health link.
@@ -196,11 +206,34 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 		public int hitsThisTick;
 		private boolean delayedHit;
 		private int delayedHits;
+		// server: the RECOVERY length the base rule set; an ability that puts its own length keeps it
+		private float recoveryByBaseRule = Float.NaN;
 
 		public StandEntityBarrage(EntityActionType ability) {
 			super(ability);
 		}
-		
+
+		/** The live hold maximum, checked on every PERFORM tick on the server. */
+		protected int getHoldDurationMax(StandEntity stand) {
+			return getBarrageHoldDurationMax(stand);
+		}
+
+		private boolean samplesRecoveryAtEntry(ActionPhase newPhase) {
+			return newPhase == ActionPhase.RECOVERY && phase != null && phase != newPhase
+					&& performer instanceof StandEntity && !performer.level().isClientSide()
+					&& Float.compare(phasesLength.getFloat(ActionPhase.RECOVERY), recoveryByBaseRule) == 0;
+		}
+
+		@Override
+		public void setPhase(ActionPhase newPhase, int tick) {
+			boolean samplesEntry = samplesRecoveryAtEntry(newPhase);
+			float previousLength = samplesEntry ? phasesLength.getFloat(newPhase) : 0;
+			super.setPhase(newPhase, tick);
+			if (samplesEntry && Float.compare(previousLength, phasesLength.getFloat(newPhase)) != 0) {
+				syncPhaseChanges();
+			}
+		}
+
 		@Override
 		public void onActionSet(EntityActionInstance prevAction) {
 			Level level = performer.level();
@@ -235,6 +268,11 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 		
 		@Override
 		public void onSetPhase(ActionPhase newPhase) {
+			if (samplesRecoveryAtEntry(newPhase) && performer instanceof StandEntity stand) {
+				int recovery = getBarrageRecoveryTicks(stand);
+				phasesLength.put(ActionPhase.RECOVERY, recovery);
+				recoveryByBaseRule = recovery;
+			}
 			userWalkSpeed = newPhase == ActionPhase.PERFORM ? 0.15F : 1.0F;
 			if (level().isClientSide() && performer instanceof StandEntity stand && stand.clientStuff != null) {
 				stand.clientStuff.barrageHitSounds.setIsBarraging(newPhase == ActionPhase.PERFORM);
@@ -254,8 +292,8 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 			if (getPhase() == ActionPhase.PERFORM && performer instanceof StandEntity stand) {
 				boolean directional = isDirectionalBarrage(stand, this);
 				StandPower standPower = StandPower.get(getPowerUser());
-				if (directional && !level.isClientSide()
-						&& (standPower == null || !standPower.consumeStamina(4, true))) {
+				if (!level.isClientSide() && (curPhaseTick >= getHoldDurationMax(stand)
+						|| directional && (standPower == null || !standPower.consumeStamina(4, true)))) {
 					hitsThisTick = 0;
 					stand.setBarrageHitsThisTick(0);
 					punchedTarget = null;
