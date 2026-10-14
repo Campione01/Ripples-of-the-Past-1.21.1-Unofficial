@@ -12,8 +12,10 @@ import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility.StandEntityBa
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility.StandEntityHeavyPunch;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility.StandEntityPunch;
 import rotp.core.init.ModStatusEffects;
+import rotp.core.init.power.ModStandAbilities;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
+import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
@@ -30,6 +32,7 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.util.FakePlayerFactory;
 import net.neoforged.neoforge.gametest.GameTestHolder;
@@ -97,6 +100,26 @@ public final class StandAttackSoundCueGameTests {
 		});
 	}
 
+	// 1.16: the core Stands registered their barrage cry with standSound(PERFORM, false, ...), silent in arms-only
+	// mode; a cry registered with the one-argument standSound (GER, C-Moon, Doppio) played there too
+	@GameTest(template = "empty", timeoutTicks = 40)
+	public static void barrageCryInArmsOnlyModeIsAnOptIn(GameTestHelper helper) {
+		withStand(helper, "arms_only_cry", (user, power, stand) -> {
+			EntityActionInstance barrage = start(helper, user, power, stand, "barrage");
+			helper.assertTrue(barrage instanceof StandEntityBarrage, "Fixture: no barrage " + barrage);
+			EntityActionInstance optedIn = ModStandAbilities.BARRAGE.get()
+					.createInstance(new AbilityId(null, null, "arms_only_cry_test"))
+					.barrageCryInArmsOnly().createActionObj();
+			helper.assertTrue(playsCry(barrage, stand) && playsCry(optedIn, stand),
+					"Fixture: a fully summoned Stand does not cry");
+			stand.setArmsOnlyMode(true, true);
+			helper.assertTrue(!playsCry(barrage, stand),
+					"Star Platinum's barrage cried in arms-only mode; 1.16 registered it with playInArmsOnly false");
+			helper.assertTrue(playsCry(optedIn, stand),
+					"A barrage registered to cry in arms-only mode stayed silent there");
+		});
+	}
+
 	private interface Check {
 		void run(Player user, StandPower power, StandEntity stand);
 	}
@@ -135,6 +158,17 @@ public final class StandAttackSoundCueGameTests {
 		EntityActionInstance action = ((EntityActionType) ability).initActionOnAbilityUse(helper.getLevel(), user, stand, null);
 		LivingComponentAction.getComponent(stand).setAction(action, user, SyncType.NO_SYNC);
 		return action;
+	}
+
+	private static boolean playsCry(EntityActionInstance action, StandEntity stand) {
+		try {
+			Method method = StandEntityBarrage.class.getDeclaredMethod("playsBarrageCry", Level.class, StandEntity.class);
+			method.setAccessible(true);
+			return (Boolean) method.invoke(action, stand.level(), stand);
+		}
+		catch (ReflectiveOperationException e) {
+			throw new IllegalStateException("Missing barrage cry hook", e);
+		}
 	}
 
 	private static boolean flag(EntityActionInstance action, String name) {

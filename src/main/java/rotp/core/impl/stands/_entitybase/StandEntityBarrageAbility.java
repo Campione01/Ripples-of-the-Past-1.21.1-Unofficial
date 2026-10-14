@@ -65,6 +65,7 @@ import rotp.core.core.JojoMod;
 public class StandEntityBarrageAbility extends StandEntityAbility {
 	@Nullable private Holder<SoundEvent> barrageHitSound;
 	@Nullable private Holder<SoundEvent> barrageCrySound;
+	private boolean barrageCryInArmsOnly;
 
 	public StandEntityBarrageAbility(AbilityType<?> abilityType, AbilityId abilityId) {
 		this(abilityType, abilityId, StandEntityBarrage::new);
@@ -88,6 +89,15 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 
 	public StandEntityBarrageAbility barrageCrySound(Holder<SoundEvent> barrageCrySound) {
 		this.barrageCrySound = barrageCrySound;
+		return this;
+	}
+
+	/**
+	 * The barrage cry also plays while the Stand is arms-only, as a 1.16 cry registered with the one-argument
+	 * standSound (playInArmsOnly true) did; the core Stands registered theirs with playInArmsOnly false.
+	 */
+	public StandEntityBarrageAbility barrageCryInArmsOnly() {
+		this.barrageCryInArmsOnly = true;
 		return this;
 	}
 
@@ -249,7 +259,7 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 					setActionTargetSnapshot(null);
 				}
 				if (level.isClientSide()) {
-					if (ClientGlobals.canHearStand(stand) && !stand.isArmsOnlyMode() && shouldPlayBarrageCry(level, stand)) {
+					if (ClientGlobals.canHearStand(stand) && playsBarrageCry(level, stand)) {
 						BooleanSupplier stopCry = () -> this.isOver() || this.phase != ActionPhase.PERFORM;
 						if (usesEndlessBarrageCry(stand)) {
 							StandCrySoundHandler.create(stand, getBarrageCrySound(), 1, 1, stopCry);
@@ -468,6 +478,13 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 
 		protected boolean shouldPlayBarrageCry(Level level, StandEntity stand) {
 			return true;
+		}
+
+		// 1.16 StandEntityAction.getPhaseStandSounds: an arms-only Stand plays only the sounds registered to play there
+		protected boolean playsBarrageCry(Level level, StandEntity stand) {
+			return (!stand.isArmsOnlyMode()
+					|| ability instanceof StandEntityBarrageAbility barrageAbility && barrageAbility.barrageCryInArmsOnly)
+					&& shouldPlayBarrageCry(level, stand);
 		}
 
 		// 1.16 StandEntityMeleeBarrage.playSoundAtStand: the cry repeats clip after clip only for a user with Resolve
