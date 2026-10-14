@@ -36,25 +36,19 @@ import rotp.core.powersystem.standpower.entity.StandEntityAbility;
 import rotp.core.powersystem.standpower.entity.StandEntityAbility.AutoSummonMode;
 import rotp.core.powersystem.standpower.entity.StandLinkDamageSource;
 import rotp.core.powersystem.standpower.entity.StandStatFormulas;
-import rotp.core.powersystem.standpower.entity.StandStatFormulas.BlockMiningTier;
 import rotp.core.subsystems.entity_grab.LivingComponentGrab;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.AimingEntity;
 import rotp.core.subsystems.target.HitResultUtil;
 
-import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.sounds.SoundSource;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Tiers;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.SoundType;
-import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
@@ -194,15 +188,6 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 	}
 	
 	public static class StandEntityBarrage extends EntityActionInstance {
-		private static final BlockMiningTier[] BARRAGE_HARVEST_TIERS = {
-				BlockMiningTier.EMPTY_ARMS,
-				new BlockMiningTier.VanillaTierWrapper(Tiers.WOOD),
-				new BlockMiningTier.VanillaTierWrapper(Tiers.STONE),
-				new BlockMiningTier.VanillaTierWrapper(Tiers.IRON),
-				new BlockMiningTier.VanillaTierWrapper(Tiers.DIAMOND),
-				new BlockMiningTier.VanillaTierWrapper(Tiers.NETHERITE),
-				BlockMiningTier.ANY_BLOCK
-		};
 		public int hitsThisTick;
 		private boolean delayedHit;
 		private int delayedHits;
@@ -504,41 +489,7 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 		}
 		
 		protected void hitBlock(ActionTarget target, Level level, StandEntity stand) {
-			BlockPos blockPos = target.getBlockPos();
-			BlockState blockState = level.getBlockState(blockPos);
-			if (blockState.isAir()) return;
-			// 1.16 StandEntity.breakBlock gate (gamerule, LivingDestroyBlockEvent, spawn protection):
-			// protected blocks get no break, no cracks and no block hit sound
-			if (!StandEntityPunchAbility.StandEntityPunch.canStandBreakBlock(level, blockPos, blockState, stand)) {
-				return;
-			}
-			
-			float blockHardnessForStand = stand.getBlockHardnessForStandBreak(blockState, level, blockPos);
-			boolean rapier = JojoMod.resLoc("silver_chariot").equals(stand.getStandType()) && stand.isSilverChariotRapierVisible();
-			if (blockHardnessForStand >= 0 && (rapier || canBreakBarrageBlock(stand.getAttackDamage(), blockState, level, blockPos))) {
-				level.destroyBlock(blockPos, !isUserCreative(), stand);
-			}
-			
-			if (blockHardnessForStand != 0) {
-				if (curPhaseTick % 2 == 0) {
-					SoundType blockSounds = blockState.getSoundType(level, blockPos, stand);
-					level.playSound(null, blockPos, blockSounds.getHitSound(), SoundSource.BLOCKS, 
-							(blockSounds.getVolume() + 1.0F) / 8.0F, blockSounds.getPitch() * 0.5F);
-				}
-			}
-		}
-
-		private static boolean canBreakBarrageBlock(double strength, BlockState blockState, Level level, BlockPos pos) {
-			float hardness = blockState.getDestroySpeed(level, pos);
-			if (!blockState.requiresCorrectToolForDrops()) {
-				hardness *= 0.6F;
-			}
-			if (hardness < 0 || !(hardness < Math.exp(strength / 4))) {
-				return false;
-			}
-			// 1.16 harvestLevel < (int) strength / 4: each four strength unlocks the next legacy tool tier.
-			int harvestTier = Mth.clamp((int) strength / 4, 0, BARRAGE_HARVEST_TIERS.length - 1);
-			return BARRAGE_HARVEST_TIERS[harvestTier].canMine(blockState);
+			StandEntityPunchAbility.StandEntityPunch.breakStandBlock(level, target.getBlockPos(), stand, !isUserCreative());
 		}
 
 	}

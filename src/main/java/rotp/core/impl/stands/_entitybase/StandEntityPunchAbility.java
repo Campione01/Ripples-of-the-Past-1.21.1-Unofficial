@@ -1,12 +1,12 @@
 package rotp.core.impl.stands._entitybase;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
 
 import javax.annotation.Nullable;
 
+import rotp.core.core.JojoMod;
 import rotp.core.client.ClientGlobals;
 import rotp.core.config.client.PlayerClientBroadcastedSettings;
 import rotp.core.client.sound.ClientsideSoundsHelper;
@@ -36,23 +36,23 @@ import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.entity.StandEntityAbility;
 import rotp.core.powersystem.standpower.entity.StandEntityAbility.AutoSummonMode;
 import rotp.core.powersystem.standpower.entity.StandStatFormulas;
-import rotp.core.subsystems.ServerBlockDestroyTracker;
-import rotp.core.subsystems.ServerBlockDestroyTracker.BlockBreakResult;
+import rotp.core.powersystem.standpower.entity.StandStatFormulas.BlockMiningTier;
 import rotp.core.subsystems.entity_grab.LivingComponentGrab;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.AimingEntity;
 import rotp.core.subsystems.target.HitResultUtil;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
-import rotp.core.util.OOPMoment;
 import rotp.core.util.functions.JojoModUtil;
 import rotp.core.compat.v1_21_4.missingmethods._EntitySelector;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.InteractionHand;
@@ -60,12 +60,27 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Tiers;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
 public class StandEntityPunchAbility extends StandEntityAbility {
+	private static final ResourceLocation SILVER_CHARIOT_ID = JojoMod.resLoc("silver_chariot");
+	// 1.16 harvest levels by (int) strength / 4. Level 0 covered every pickaxe, axe and shovel block, so below
+	// strength 4 only blocks no tool type is made for pass.
+	private static final BlockMiningTier[] LEGACY_HARVEST_TIERS = {
+			blockState -> !blockState.requiresCorrectToolForDrops() && !blockState.is(BlockTags.MINEABLE_WITH_PICKAXE)
+					&& !blockState.is(BlockTags.MINEABLE_WITH_AXE) && !blockState.is(BlockTags.MINEABLE_WITH_SHOVEL),
+			new BlockMiningTier.VanillaTierWrapper(Tiers.WOOD),
+			new BlockMiningTier.VanillaTierWrapper(Tiers.STONE),
+			new BlockMiningTier.VanillaTierWrapper(Tiers.IRON),
+			new BlockMiningTier.VanillaTierWrapper(Tiers.DIAMOND),
+			new BlockMiningTier.VanillaTierWrapper(Tiers.NETHERITE),
+			BlockMiningTier.ANY_BLOCK
+	};
 	@Nullable private Holder<SoundEvent> punchImpactSound;
 	@Nullable private Holder<SoundEvent> standCrySound;
 	private boolean detachedLightCounterKnockback;
@@ -450,72 +465,62 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		protected void hitBlock(ActionTarget target, Level level, StandEntity stand) {
 			hitBlockTarget(target, level, stand, !isUserCreative());
 		}
-		
-		public static void hitBlockTarget(ActionTarget target, Level level, StandEntity stand, boolean dropBlock) {
-			BlockPos blockPos = target.getBlockPos();
-			BlockState blockState = level.getBlockState(blockPos);
-			// 1.16 StandEntity.breakBlock gate: protected blocks get no break, no cracks and no block sound
-			if (!canStandBreakBlock(level, blockPos, blockState, stand)) {
-				return;
-			}
-			
-			double standStrength = stand.getAttackDamage();
-			float blockDamage = (float) standStrength * StandStatFormulas.getBlockMiningEfficiency(standStrength) * 0.05f;
-			float blockHardness = stand.getBlockHardnessForStandBreak(blockState, level, blockPos);
-			if (blockHardness < 0) {
-				// 1.16 else branch: allowed but unbreakable for this Stand, hit sound only
-				playBlockHitSound(level, blockPos, blockState, stand);
-				return;
-			}
-			
-			BlockBreakResult blockPunch = ServerBlockDestroyTracker.addBlockDestroyProgress((ServerLevel) level, stand, 
-					blockPos, blockState, blockDamage / blockHardness);
-			if (blockPunch.progressNew < 1) return;
-			
-			level.destroyBlock(blockPos, dropBlock, stand);
-			blockDamage -= blockPunch.progressAdded * blockHardness;
 
-			// add cracks to the blocks around
-			if (blockDamage > 0) {
-				float aroundDamageTotal = blockDamage;
-				List<BlockPosState> blocksAround = new ArrayList<>(25);
-				BlockPos.MutableBlockPos nearbyPos = new BlockPos.MutableBlockPos();
-				int centerX = blockPos.getX();
-				int centerY = blockPos.getY();
-				int centerZ = blockPos.getZ();
-				for (int x = -1; x <= 1; x++) for (int y = -1; y <= 1; y++) for (int z = -1; z <= 1; z++) {
-					int manhattanDist = Math.abs(x) + Math.abs(y) + Math.abs(z);
-					if (manhattanDist > 0 && manhattanDist < 3) {
-						nearbyPos.set(centerX + x, centerY + y, centerZ + z);
-						BlockState nearbyState = level.getBlockState(nearbyPos);
-						if (!nearbyState.isEmpty() && nearbyState.getDestroySpeed(level, nearbyPos) > 0) {
-							blocksAround.add(new BlockPosState(nearbyPos.immutable(), nearbyState, manhattanDist));
-						}
-					}
-				}
-				if (!blocksAround.isEmpty()) {
-					Collections.shuffle(blocksAround);
-					for (BlockPosState block : blocksAround) {
-						// protected neighbours get no cracks
-						if (!canStandBreakBlock(level, block.blockPos, block.blockState, stand)) {
-							continue;
-						}
-						blockHardness = stand.getBlockHardnessForStandBreak(block.blockState, level, block.blockPos);
-						if (blockHardness < 0) {
-							continue;
-						}
-						float multiplier = (0.5f + 0.5f * OOPMoment.RANDOM.nextFloat()) / block.manhattanDist;
-						float damageToDeal = Math.min(blockDamage, aroundDamageTotal / blocksAround.size() * multiplier);
-						blockPunch = ServerBlockDestroyTracker.addBlockDestroyProgress((ServerLevel) level, stand, 
-								block.blockPos, block.blockState, damageToDeal / blockHardness, false);
-						blockDamage -= blockPunch.progressAdded * blockHardness;
-						if (blockDamage <= 0) break;
-					}
-				}
-			}
+		/** 1.16 StandBlockPunch.doHit, shared by the light punch and Silver Chariot's dash. */
+		public static void hitBlockTarget(ActionTarget target, Level level, StandEntity stand, boolean dropBlock) {
+			breakStandBlock(level, target.getBlockPos(), stand, dropBlock);
 		}
-		protected static record BlockPosState(BlockPos blockPos, BlockState blockState, int manhattanDist) {}
-		
+
+		/**
+		 * 1.16 StandEntity.breakBlock: a protected block gets nothing; a block within the Stand's strength rule breaks
+		 * at once, after the user's playerWillDestroy (piglin anger, Creative shulker box contents); any other block
+		 * only plays its hit sound. Returns whether the block broke.
+		 */
+		public static boolean breakStandBlock(Level level, BlockPos blockPos, StandEntity stand, boolean dropBlock) {
+			BlockState blockState = level.getBlockState(blockPos);
+			if (!canStandBreakBlock(level, blockPos, blockState, stand)) {
+				return false;
+			}
+			if (!canStandBreakBlockByStrength(stand, blockState, level, blockPos)) {
+				playBlockHitSound(level, blockPos, blockState, stand);
+				return false;
+			}
+			if (stand.getUser() instanceof Player player) {
+				blockState.getBlock().playerWillDestroy(level, blockPos, blockState, player);
+				dropBlock &= !player.getAbilities().instabuild;
+			}
+			if (level.destroyBlock(blockPos, dropBlock, stand)) {
+				blockState.getBlock().destroy(level, blockPos, blockState);
+				return true;
+			}
+			return false;
+		}
+
+		/** 1.16 StandEntity.canBreakBlock; Silver Chariot's visible rapier has its own rule instead (SilverChariotEntity). */
+		public static boolean canStandBreakBlockByStrength(StandEntity stand, BlockState blockState, Level level, BlockPos blockPos) {
+			if (stand.getBlockHardnessForStandBreak(blockState, level, blockPos) < 0) {
+				return false;
+			}
+			boolean rapier = SILVER_CHARIOT_ID.equals(stand.getStandType()) && stand.isSilverChariotRapierVisible();
+			return rapier || isBlockBreakableByStrength(stand.getAttackDamage(), blockState, level, blockPos);
+		}
+
+		/**
+		 * 1.16 StandStatFormulas.isBlockBreakable: hardness (x0.6 when no tool is needed) under e^(strength/4) and a
+		 * harvest level under (int) strength / 4.
+		 */
+		public static boolean isBlockBreakableByStrength(double strength, BlockState blockState, Level level, BlockPos blockPos) {
+			float hardness = blockState.getDestroySpeed(level, blockPos);
+			if (!blockState.requiresCorrectToolForDrops()) {
+				hardness *= 0.6F;
+			}
+			if (hardness < 0 || !(hardness < Math.exp(strength / 4))) {
+				return false;
+			}
+			int harvestTier = Mth.clamp((int) strength / 4, 0, LEGACY_HARVEST_TIERS.length - 1);
+			return LEGACY_HARVEST_TIERS[harvestTier].canMine(blockState);
+		}
+
 		/** Gamerule, block, LivingDestroyBlockEvent and spawn protection gate for Stand punch block breaking. */
 		public static boolean canStandBreakBlock(Level level, BlockPos blockPos, BlockState blockState, StandEntity stand) {
 			return level instanceof ServerLevel serverLevel && !blockState.isAir()

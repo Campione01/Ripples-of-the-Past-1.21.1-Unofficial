@@ -79,7 +79,7 @@ public final class StandPunchBlockGateGameTests {
 	}
 
 	@GameTest(template = "empty", timeoutTicks = 60)
-	public static void punchSkipsProtectedNeighbours(GameTestHelper helper) {
+	public static void punchBreaksInOneHitWithoutCracks(GameTestHelper helper) {
 		try (Fixture f = new Fixture(helper, "punch_claim")) {
 			f.setBreakBlocks(true);
 			BlockPos centre = f.cluster(CENTRE);
@@ -91,7 +91,9 @@ public final class StandPunchBlockGateGameTests {
 			};
 			NeoForge.EVENT_BUS.addListener(EventPriority.HIGHEST, LivingDestroyBlockEvent.class, claim);
 			try {
-				f.hitUntilBroken(centre, "claimed-cluster light punch", () -> f.punch(centre));
+				f.punch(centre);
+				helper.assertTrue(f.level().getBlockState(centre).isAir(),
+						"Claimed-cluster light punch did not break the allowed glass in one hit");
 				helper.assertTrue(f.crackedNeighbours(centre) == 0,
 						"Light punch cracked blocks a LivingDestroyBlockEvent listener denied");
 			}
@@ -99,11 +101,16 @@ public final class StandPunchBlockGateGameTests {
 				NeoForge.EVENT_BUS.unregister(claim);
 			}
 
-			// control: without the claim the same punch cracks the neighbours
+			// 1.16 StandEntity.breakBlock: one hit, no mining progress and nothing done to the blocks around
 			f.place(centre, Blocks.GLASS.defaultBlockState());
-			f.hitUntilBroken(centre, "control light punch", () -> f.punch(centre));
-			helper.assertTrue(f.crackedNeighbours(centre) > 0,
-					"Control light punch left no cracks, the neighbour loop was not reached");
+			f.punch(centre);
+			helper.assertTrue(f.level().getBlockState(centre).isAir(), "Light punch did not break glass in one hit");
+			helper.assertTrue(f.crackedNeighbours(centre) == 0,
+					"Light punch cracked " + f.crackedNeighbours(centre) + " blocks around the one it broke");
+			for (BlockPos pos : BlockPos.betweenClosed(centre.offset(-1, -1, -1), centre.offset(1, 1, 1))) {
+				helper.assertTrue(pos.equals(centre) || f.level().getBlockState(pos).is(Blocks.STONE),
+						"Light punch changed a block around the one it broke at " + pos);
+			}
 		}
 		helper.succeed();
 	}
@@ -192,10 +199,20 @@ public final class StandPunchBlockGateGameTests {
 				helper.assertTrue(sounds.count == 0, "Barrage played " + sounds.count
 						+ " block hit sounds with jojoAbilitiesBreakBlocks off");
 
-				// control: an allowed block keeps the barrage hit sound (also proves the phase tick is even)
+				// 1.16 StandEntity.breakBlock: a broken block gets only its break sound, no hit sound
 				f.setBreakBlocks(true);
 				invoke(hitBlock, action, f.target(centre), f.level(), f.stand);
-				helper.assertTrue(sounds.count > 0, "Control barrage played no block hit sound");
+				helper.assertTrue(f.level().getBlockState(centre).isAir() && sounds.count == 0,
+						"Barrage broke glass with " + sounds.count + " block hit sounds on top");
+
+				// an allowed block it cannot break plays the hit sound on every hit tick, odd ones too
+				f.place(centre, Blocks.BEDROCK.defaultBlockState());
+				for (int tick = 0; tick < 2; tick++) {
+					setPhaseTick(action, 7 + tick);
+					invoke(hitBlock, action, f.target(centre), f.level(), f.stand);
+				}
+				helper.assertTrue(sounds.count == 2,
+						"Barrage on bedrock played " + sounds.count + " block hit sounds over two hit ticks");
 			}
 			finally {
 				sounds.close();
@@ -235,6 +252,17 @@ public final class StandPunchBlockGateGameTests {
 		}
 		catch (ReflectiveOperationException e) {
 			throw new IllegalStateException("Barrage hitBlock is missing", e);
+		}
+	}
+
+	private static void setPhaseTick(EntityActionInstance action, int tick) {
+		try {
+			java.lang.reflect.Field field = EntityActionInstance.class.getDeclaredField("curPhaseTick");
+			field.setAccessible(true);
+			field.setInt(action, tick);
+		}
+		catch (ReflectiveOperationException e) {
+			throw new IllegalStateException("Action phase tick is missing", e);
 		}
 	}
 
