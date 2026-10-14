@@ -14,13 +14,21 @@ import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.util.functions.DamageUtil;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.gametest.GameTestHolder;
@@ -93,6 +101,17 @@ public final class StandLinkDamageTransferGameTests {
 			hitStand(helper, user, stand, attacker, 0, 0, resisted, "a user out of cooldown");
 			// The user is still in the cooldown of a bigger hit of their own.
 			hitStand(helper, user, stand, attacker, 15, 20, resisted, "a user in their own hurt cooldown");
+
+			// 1.16 link damage was bypassMagic: neither the user's effects nor their enchantments cut it
+			helper.assertTrue(DamageUtil.make(helper.getLevel(), ModDamageTypes.STAND_HEALTH_LINK).is(DamageTypeTags.BYPASSES_ENCHANTMENTS)
+					&& DamageUtil.make(helper.getLevel(), ModDamageTypes.STAND_HEALTH_LINK).is(DamageTypeTags.BYPASSES_EFFECTS),
+					"The Stand health link damage type is not tagged to bypass enchantments and effects, as 1.16 bypassMagic did");
+			Holder<Enchantment> protection = helper.getLevel().registryAccess().lookupOrThrow(Registries.ENCHANTMENT)
+					.getOrThrow(Enchantments.PROTECTION);
+			ItemStack chestplate = new ItemStack(Items.DIAMOND_CHESTPLATE);
+			chestplate.enchant(protection, 4);
+			user.setItemSlot(EquipmentSlot.CHEST, chestplate);
+			hitStand(helper, user, stand, attacker, 0, 0, resisted, "a user in Protection IV");
 			helper.succeed();
 		}
 		finally {

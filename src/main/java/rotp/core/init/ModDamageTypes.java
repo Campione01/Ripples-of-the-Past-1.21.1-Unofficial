@@ -118,12 +118,14 @@ public class ModDamageTypes {
 			DamageTypeTags.PANIC_CAUSES,
 			Tags.DamageTypes.IS_PHYSICAL);
 
+	// 1.16 StandLinkDamageSource: bypassArmor and bypassMagic (effects and enchantments)
 	public static final ResourceKey<DamageType> STAND_HEALTH_LINK = DAMAGE_TYPES.withTags(JojoMod.resLoc("stand_health_link"),
 			DamageTypeTags.BYPASSES_ARMOR,
 			DamageTypeTags.BYPASSES_WOLF_ARMOR,
 			DamageTypeTags.BYPASSES_SHIELD,
 			DamageTypeTags.BYPASSES_COOLDOWN,
 			DamageTypeTags.BYPASSES_EFFECTS,
+			DamageTypeTags.BYPASSES_ENCHANTMENTS,
 			DamageTypeTags.NO_KNOCKBACK,
 			Tags.DamageTypes.IS_TECHNICAL);
 	
