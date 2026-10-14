@@ -9,7 +9,6 @@ import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.StandInstance.StandPart;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.subsystems.target.ActionTarget;
-import rotp.core.util.functions.JojoModUtil;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility;
 
 import net.minecraft.core.Holder;
@@ -32,19 +31,16 @@ public class TheWorldKickAbility extends StandEntityHeavyPunchAbility {
 		partsRequired(StandPart.LEGS);
 	}
 
-	@Override
-	public void initActionFromConfig(EntityActionInstance action, Level level,
-			LivingEntity powerUser, LivingEntity performer) {
-		super.initActionFromConfig(action, level, powerUser, performer);
-		if (!level.isClientSide() && powerUser != null) {
-			JojoModUtil.sayVoiceLine(powerUser, ModSoundEvents.DIO_DIE);
-		}
-	}
-
 	public static class TheWorldKick extends StandEntityHeavyPunchAbility.StandEntityHeavyPunch {
 
 		public TheWorldKick(EntityActionType ability) {
 			super(ability);
+		}
+
+		@Override
+		public void onActionSet(EntityActionInstance prevAction) {
+			TheWorldHeavyPunchAbility.sayDieShout(this);
+			super.onActionSet(prevAction);
 		}
 
 		@Override

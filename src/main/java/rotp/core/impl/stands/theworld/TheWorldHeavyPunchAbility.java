@@ -19,6 +19,7 @@ import net.minecraft.core.Holder;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
 
@@ -29,19 +30,17 @@ public class TheWorldHeavyPunchAbility extends StandEntityHeavyPunchAbility {
 		this.createActionObj = TheWorldHeavyPunch::new;
 	}
 
-	@Override
-	public void initActionFromConfig(EntityActionInstance action, Level level,
-			LivingEntity powerUser, LivingEntity performer) {
-		super.initActionFromConfig(action, level, powerUser, performer);
-		if (!level.isClientSide() && powerUser != null) {
-			JojoModUtil.sayVoiceLine(powerUser, ModSoundEvents.DIO_DIE);
-		}
-	}
-
 	public static class TheWorldHeavyPunch extends StandEntityHeavyPunchAbility.StandEntityHeavyPunch {
 
 		public TheWorldHeavyPunch(EntityActionType ability) {
 			super(ability);
+		}
+
+		// 1.16 said the line when the attack started, not at a press queued while the Stand was busy
+		@Override
+		public void onActionSet(EntityActionInstance prevAction) {
+			sayDieShout(this);
+			super.onActionSet(prevAction);
 		}
 
 		@Override
@@ -51,10 +50,27 @@ public class TheWorldHeavyPunchAbility extends StandEntityHeavyPunchAbility {
 
 		@Override
 		protected void afterHeavyPunchHit(StandEntity stand, LivingEntity targetLiving, DamageSource dmgSource, float dmgAmount, boolean hurt) {
-			if (hurt && targetLiving.level() instanceof ServerLevel serverLevel) {
+			if (hurt) {
+				queueStoppedTimeImpactSound(targetLiving);
+			}
+		}
+
+		// 1.16 TheWorldHeavyPunchInstance.afterAttack: any hurt entity, a boat or minecart too, not only a living one
+		@Override
+		protected boolean attemptHeavyPunch(StandEntity stand, Entity target, Entity primaryTarget,
+				DamageSource source, float rawDamage, boolean mainTarget) {
+			boolean hurt = super.attemptHeavyPunch(stand, target, primaryTarget, source, rawDamage, mainTarget);
+			if (hurt && !(target instanceof LivingEntity)) {
+				queueStoppedTimeImpactSound(target);
+			}
+			return hurt;
+		}
+
+		private static void queueStoppedTimeImpactSound(Entity target) {
+			if (target.level() instanceof ServerLevel serverLevel) {
 				TimeStopState state = serverLevel.getData(ModDataAttachmentTypes.TIME_STOP.get());
-				if (state.shouldFreeze(targetLiving)) {
-					state.queueOnTimeResume(targetLiving, () -> targetLiving.playSound(ModSoundEvents.THE_WORLD_PUNCH_HEAVY_TS_IMPACT.get(), 1.0F, 1.0F));
+				if (state.shouldFreeze(target)) {
+					state.queueOnTimeResume(target, () -> target.playSound(ModSoundEvents.THE_WORLD_PUNCH_HEAVY_TS_IMPACT.get(), 1.0F, 1.0F));
 				}
 			}
 		}
@@ -73,6 +89,13 @@ public class TheWorldHeavyPunchAbility extends StandEntityHeavyPunchAbility {
 				dmgAmount = DamageUtil.addArmorPiercing(dmgAmount, armorPiercing, targetLiving, dmgSource);
 			}
 			super.hitEntity(target, level, stand, dmgSource, dmgAmount, explRadius);
+		}
+	}
+
+	static void sayDieShout(EntityActionInstance action) {
+		LivingEntity user = action.getPowerUser();
+		if (user != null && !user.level().isClientSide()) {
+			JojoModUtil.sayVoiceLine(user, ModSoundEvents.DIO_DIE);
 		}
 	}
 }
