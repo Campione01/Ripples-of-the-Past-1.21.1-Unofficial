@@ -2859,7 +2859,7 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 				if (currentAction == null || !(currentAction.ability instanceof StandEntityAbility standAbility && standAbility.noFinisherBarDecay)) {
 					float decay = FINISHER_DECAY;
 					float value = entityData.get(FINISHER_VALUE);
-					if (value < 1F) {
+					if (value < 0.5F) {
 						decay *= 0.5F;
 					}
 					LivingEntity user = getUser();
