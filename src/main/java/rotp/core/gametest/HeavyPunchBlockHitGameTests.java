@@ -70,11 +70,15 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * 1.16 HeavyPunchBlockInstance.doHit: a heavy punch or kick on a block first tries the plain block punch
  * (StandEntity.breakBlock with the strength rule), then makes its blast. The blast hurts with a fresh Stand source
  * through hurtTarget: no Stand-attack immunity is checked or left behind. Own batch: the block-breaking gamerule.
+ * The blast reaches about 5.6 blocks, past the cell beside it, so each test that weighs its blast on cows runs in a
+ * batch of its own: a neighbour's blast hurt one cow of a pair and not the other.
  */
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class HeavyPunchBlockHitGameTests {
 	private static final String BATCH = "heavy_punch_block_hit";
+	private static final String IMMUNITY_BATCH = "heavy_punch_block_hit_blast_immunity";
+	private static final String PROTECTION_BATCH = "heavy_punch_block_hit_blast_protection";
 	private static final short KEY = 163;
 	private static final PowerSkillUnlocks.Owner UNLOCKS = PowerSkillUnlocks.register(
 			JojoMod.resLoc(HeavyPunchBlockHitGameTests.class.getSimpleName().toLowerCase(Locale.ROOT)));
@@ -94,6 +98,26 @@ public final class HeavyPunchBlockHitGameTests {
 			level.getGameRules().getRule(ModGamerules.BREAK_BLOCKS).set(oldBreakBlocks, level.getServer());
 			oldBreakBlocks = null;
 		}
+	}
+
+	@BeforeBatch(batch = IMMUNITY_BATCH)
+	public static void allowBlockBreakingForTheImmunityBlast(ServerLevel level) {
+		allowBlockBreaking(level);
+	}
+
+	@AfterBatch(batch = IMMUNITY_BATCH)
+	public static void restoreBlockBreakingAfterTheImmunityBlast(ServerLevel level) {
+		restoreBlockBreaking(level);
+	}
+
+	@BeforeBatch(batch = PROTECTION_BATCH)
+	public static void allowBlockBreakingForTheProtectionBlast(ServerLevel level) {
+		allowBlockBreaking(level);
+	}
+
+	@AfterBatch(batch = PROTECTION_BATCH)
+	public static void restoreBlockBreakingAfterTheProtectionBlast(ServerLevel level) {
+		restoreBlockBreaking(level);
 	}
 
 	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH)
@@ -133,7 +157,7 @@ public final class HeavyPunchBlockHitGameTests {
 		});
 	}
 
-	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH)
+	@GameTest(template = "empty", timeoutTicks = 80, batch = IMMUNITY_BATCH)
 	public static void heavyPunchBlastLeavesNoStandImmunity(GameTestHelper helper) {
 		Scene scene = new Scene(helper, "star_platinum", 16, false);
 		Cow fresh = scene.cow(1.6);
@@ -166,7 +190,7 @@ public final class HeavyPunchBlockHitGameTests {
 	}
 
 	// 1.16 explosionDmgSource: the blast is the Stand's own source flagged as an explosion, so Blast Protection cuts it
-	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH)
+	@GameTest(template = "empty", timeoutTicks = 80, batch = PROTECTION_BATCH)
 	public static void heavyPunchBlastIsAStandExplosion(GameTestHelper helper) {
 		Scene scene = new Scene(helper, "star_platinum", 16, false);
 		Cow protectedCow = scene.cow(1.6);
