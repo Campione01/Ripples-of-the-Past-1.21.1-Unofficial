@@ -11,6 +11,7 @@ import rotp.core.core.JojoRegistries;
 import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility.StandEntityBarrage;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility.StandEntityHeavyPunch;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility.StandEntityPunch;
+import rotp.core.init.ModSoundEvents;
 import rotp.core.init.ModStatusEffects;
 import rotp.core.init.power.ModStandAbilities;
 import rotp.core.powersystem.PowerClass;
@@ -28,8 +29,10 @@ import rotp.core.powersystem.standpower.type.StandType;
 import com.mojang.authlib.GameProfile;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
@@ -118,6 +121,48 @@ public final class StandAttackSoundCueGameTests {
 			helper.assertTrue(playsCry(optedIn, stand),
 					"A barrage registered to cry in arms-only mode stayed silent there");
 		});
+	}
+
+	// 1.16 StandEntityMeleeBarrage.Builder kept hitSound = STAND_PUNCH_LIGHT unless the registration set one
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void barrageHitSoundsFollowTheDonorRegistrations(GameTestHelper helper) {
+		EntityActionInstance unset = ModStandAbilities.BARRAGE.get()
+				.createInstance(new AbilityId(null, null, "default_barrage_hit_sound_test")).createActionObj();
+		assertBarrageHitSound(helper, unset, ModSoundEvents.STAND_PUNCH_LIGHT.get(), "a barrage registration without a hit sound");
+		assertBarrageHitSound(helper, registeredBarrage(helper, "star_platinum", "barrage"),
+				ModSoundEvents.STAR_PLATINUM_PUNCH_BARRAGE.get(), "Star Platinum");
+		assertBarrageHitSound(helper, registeredBarrage(helper, "the_world", "barrage"),
+				ModSoundEvents.THE_WORLD_PUNCH_BARRAGE.get(), "The World");
+		assertBarrageHitSound(helper, registeredBarrage(helper, "crazy_diamond", "barrage"),
+				ModSoundEvents.CRAZY_DIAMOND_PUNCH_BARRAGE.get(), "Crazy Diamond");
+		assertBarrageHitSound(helper, registeredBarrage(helper, "gold_experience", "barrage"),
+				ModSoundEvents.GOLD_EXPERIENCE_PUNCH_BARRAGE.get(), "Gold Experience");
+		assertBarrageHitSound(helper, registeredBarrage(helper, "silver_chariot", "melee_barrage"), null, "Silver Chariot");
+		helper.succeed();
+	}
+
+	private static EntityActionInstance registeredBarrage(GameTestHelper helper, String standId, String name) {
+		StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc(standId));
+		Ability ability = type != null ? type.getBaseMoveset().getAbility(name) : null;
+		helper.assertTrue(ability instanceof EntityActionType, "Missing registered barrage " + standId + " " + name);
+		return ((EntityActionType) ability).createActionObj();
+	}
+
+	@SuppressWarnings("unchecked")
+	private static void assertBarrageHitSound(GameTestHelper helper, EntityActionInstance action, SoundEvent expected, String who) {
+		helper.assertTrue(action instanceof StandEntityBarrage, "Fixture: not a barrage action " + action);
+		Holder<SoundEvent> sound;
+		try {
+			Method method = StandEntityBarrage.class.getDeclaredMethod("getBarrageHitSound");
+			method.setAccessible(true);
+			sound = (Holder<SoundEvent>) method.invoke(action);
+		}
+		catch (ReflectiveOperationException e) {
+			throw new IllegalStateException("Missing barrage hit sound", e);
+		}
+		SoundEvent actual = sound != null ? sound.value() : null;
+		helper.assertTrue(actual == expected, "1.16 gave " + who + " the barrage hit sound "
+				+ (expected != null ? expected.getLocation() : null) + ", the port plays " + (actual != null ? actual.getLocation() : null));
 	}
 
 	private interface Check {

@@ -464,7 +464,8 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 			if (ability instanceof StandEntityBarrageAbility barrageAbility && barrageAbility.barrageHitSound != null) {
 				return barrageAbility.barrageHitSound;
 			}
-			return ModSoundEvents.STAND_PUNCH_BARRAGE;
+			// 1.16 StandEntityMeleeBarrage.Builder: hitSound = STAND_PUNCH_LIGHT
+			return ModSoundEvents.STAND_PUNCH_LIGHT;
 		}
 
 		protected SoundEvent getBarrageCrySound() {
