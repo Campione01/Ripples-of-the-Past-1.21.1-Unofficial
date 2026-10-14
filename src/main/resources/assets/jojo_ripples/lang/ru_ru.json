@@ -530,7 +530,6 @@
   "effect.jojo_ripples.sensory_overload": "Sensory Overload",
   "jojo.message.action_condition.stand_too_slow": "Your Stand is too slow to do this",
   "jojo.message.action_condition.stun": "You are stunned",
-  "jojo.message.action_condition.cooldown": "Ability is on cooldown",
   "jojo.message.action_condition.no_energy_pillarman": "You are exhausted",
   "jojo.message.action_condition.stone_form": "Это нельзя использовать, находясь в каменной форме",
   "jojo.message.action_condition.peaceful": "Монстры не могут никому навредить на мирной сложности",

@@ -583,7 +583,6 @@
   "effect.jojo_ripples.sensory_overload": "精神暴走",
   "jojo.message.action_condition.stand_too_slow": "你的替身速度不足，无法执行这个动作",
   "jojo.message.action_condition.stun": "你无法行动",
-  "jojo.message.action_condition.cooldown": "能力正在冷却中",
   "jojo.message.action_condition.no_energy_pillarman": "你已经精疲力尽了",
   "jojo.message.action_condition.stone_form": "石化状态下无法使用这个能力",
   "jojo.message.action_condition.peaceful": "怪物无法在和平难度上伤害任何人",

@@ -503,7 +503,6 @@
   "effect.jojo_ripples.sensory_overload": "意識暴衝",
   "jojo.message.action_condition.stand_too_slow": "Your Stand is too slow to do this",
   "jojo.message.action_condition.stun": "你動彈不得",
-  "jojo.message.action_condition.cooldown": "Ability is on cooldown",
   "jojo.message.action_condition.no_energy_pillarman": "你已筋疲力盡",
   "jojo.message.action_condition.stone_form": "你不能在石頭形式的時候使用",
   "jojo.message.action_condition.peaceful": "怪物無法在和平難度上傷害任何人",

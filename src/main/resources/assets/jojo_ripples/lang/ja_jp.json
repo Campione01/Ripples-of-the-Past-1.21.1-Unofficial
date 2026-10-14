@@ -498,7 +498,6 @@
   "effect.jojo_ripples.sensory_overload": "感覚暴走",
   "jojo.message.action_condition.stand_too_slow": "Your Stand is too slow to do this",
   "jojo.message.action_condition.stun": "青ざめたな？",
-  "jojo.message.action_condition.cooldown": "Ability is on cooldown",
   "jojo.message.action_condition.no_energy_pillarman": "You are exhausted",
   "jojo.message.action_condition.stone_form": "You cannot use it in stone form",
   "jojo.message.action_condition.peaceful": "難易度「ピースフル」では、モンスターは誰も傷つけることはできない",

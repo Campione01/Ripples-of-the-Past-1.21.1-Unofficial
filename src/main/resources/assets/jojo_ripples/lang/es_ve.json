@@ -499,7 +499,6 @@
   "effect.jojo_ripples.sensory_overload": "Sensory Overload",
   "jojo.message.action_condition.stand_too_slow": "Your Stand is too slow to do this",
   "jojo.message.action_condition.stun": "Estas aturdido",
-  "jojo.message.action_condition.cooldown": "Ability is on cooldown",
   "jojo.message.action_condition.no_energy_pillarman": "Estas fatigado",
   "jojo.message.action_condition.stone_form": "No puedes hacerlo petrificado",
   "jojo.message.action_condition.peaceful": "Los monstruos no pueden herir a nadie en Pacifico",
