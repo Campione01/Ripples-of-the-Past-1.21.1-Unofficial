@@ -39,7 +39,8 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class TimeStopKnockbackGameTests {
-	private static int nextStopId = -7_320_000;
+	// apart from TimeStopBlockEntityGameTests' ids: a shared id lets one test's stop replace another's in the batch
+	private static int nextStopId = -7_340_000;
 
 	private TimeStopKnockbackGameTests() {}
 

@@ -411,7 +411,9 @@ public final class HamonProjectileSourceGameTests {
             try {
                 if (observerFailure != null) throw observerFailure;
                 helper.assertTrue(helper.getTick() < 140, "Hamon source watchdog: route=" + route + " shots=" + shots.size());
-                if (shooterTicks >= 2 && defenderTicks >= 2) {
+                // the light engine shades both players a few ticks after the roof is placed, not at once
+                if (shooterTicks >= 2 && defenderTicks >= 2
+                        && !level.canSeeSky(shooter.blockPosition()) && !level.canSeeSky(defender.blockPosition())) {
                     if (freezing && !freezePressed) pressFreeze();
                     if (!attackPressed && (!freezing || defenderTicks > freezeStartedTicks)) pressAttack();
                 }

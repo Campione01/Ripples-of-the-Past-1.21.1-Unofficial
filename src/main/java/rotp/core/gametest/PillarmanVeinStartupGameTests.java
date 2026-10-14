@@ -355,7 +355,8 @@ public final class PillarmanVeinStartupGameTests {
                 helper.assertTrue(user.isAlive() && near(user.position(), userPosition) && !user.isOnFire()
                                 && user.getYRot() == 0.0F && user.getXRot() == 0.0F && user.yBodyRot == 0.0F,
                         "Vein owner moved, rotated, died or burned");
-                if (!pressed && userTicks >= 2) press();
+                // the light engine shades the eye a few ticks after the roof is placed, not at once
+                if (!pressed && userTicks >= 2 && !level.canSeeSky(BlockPos.containing(user.getEyePosition()))) press();
                 if (veins.size() == route.count && !released) {
                     AbilityInput.keyRelease(KEY, user);
                     released = true;
