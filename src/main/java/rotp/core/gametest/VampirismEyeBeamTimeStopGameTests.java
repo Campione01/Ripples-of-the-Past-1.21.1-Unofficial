@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 import com.mojang.authlib.GameProfile;
@@ -17,6 +18,7 @@ import net.minecraft.gametest.framework.GameTestListener;
 import net.minecraft.gametest.framework.GameTestRunner;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ThreadedLevelLightEngine;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -309,6 +311,7 @@ public final class VampirismEyeBeamTimeStopGameTests {
         private Vec3 userPosition;
         private Vec3 shotEye;
         private ChunkPos chunk;
+        private CompletableFuture<?> roofLit;
         private PlayerPower power;
         private VampirismData vampire;
         private Ability ability;
@@ -379,6 +382,17 @@ public final class VampirismEyeBeamTimeStopGameTests {
                 original.put(pos.immutable(), level.getBlockState(pos));
                 premise(level.setBlockAndUpdate(pos, Blocks.STONE.defaultBlockState()), "shade block placed");
             }
+            // The light engine lights block changes on its own thread, often ticks late: just after an earlier scene in this
+            // chunk took down its roof at these cells, its stale shade can be read before this roof is lit, and the light
+            // still changes afterwards. The shade is read once every change queued for these chunks so far is applied.
+            ThreadedLevelLightEngine light = level.getChunkSource().getLightEngine();
+            List<CompletableFuture<?>> lit = new ArrayList<>();
+            for (int dx = -1; dx <= 1; dx++) {
+                for (int dz = -1; dz <= 1; dz++) {
+                    lit.add(light.waitForPendingTasks(chunk.x + dx, chunk.z + dz));
+                }
+            }
+            roofLit = CompletableFuture.allOf(lit.toArray(CompletableFuture[]::new));
             userPosition = new Vec3(x + 0.5D, y, z + 0.5D);
             user = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
             user.setNoGravity(true);
@@ -477,7 +491,10 @@ public final class VampirismEyeBeamTimeStopGameTests {
 
         private void press() {
             premise(shadeReady() && !user.isOnFire() && vampire.isVampireAtFullPower()
-                    && level.isPositionEntityTicking(user.blockPosition()), "Survival vampire in the shade");
+                    && level.isPositionEntityTicking(user.blockPosition()), "Survival vampire in the shade: shade=" + shadeReady()
+                    + " skyAtEyes=" + level.getBrightness(LightLayer.SKY, BlockPos.containing(user.getEyePosition()))
+                    + " onFire=" + user.isOnFire() + " fullPower=" + vampire.isVampireAtFullPower()
+                    + " entityTicking=" + level.isPositionEntityTicking(user.blockPosition()));
             AvailableAbilities available = new AvailableAbilities();
             available.update(power, power.getMoveset());
             premise(AbilityInput.withConditionCheck(available.getContextVariationContainer(ability), user, InputMethod.HOLD),
@@ -577,7 +594,8 @@ public final class VampirismEyeBeamTimeStopGameTests {
             if (closed) return;
             try {
                 if (observerFailure != null) throw observerFailure;
-                premise(helper.getTick() < TIMEOUT - 20, "watchdog: waiting=" + (running != this) + " userTicks=" + userTicks
+                premise(helper.getTick() < TIMEOUT - 20, "watchdog: waiting=" + (running != this) + " roofLit="
+                        + (roofLit != null && roofLit.isDone()) + " userTicks=" + userTicks
                         + " powered=" + (power != null) + " pressed=" + pressed + " released=" + released
                         + " stopStarted=" + stopStarted + " stopActive=" + stopActive + " ended=" + ended
                         + " beams=" + beams.size() + " shotDeltas=" + shotDeltas + " frames=" + frames.values());
@@ -596,7 +614,7 @@ public final class VampirismEyeBeamTimeStopGameTests {
                 premise(user.isAlive() && !user.isOnFire(), "the owner is unharmed");
                 premise(ownerMoved || user.position().distanceToSqr(userPosition) < 1.0E-10D && user.getXRot() == 90.0F,
                         "the owner stays put, looking down, until his beams are detached");
-                if (power == null && userTicks >= 2 && shadeReady()) grantPower();
+                if (power == null && userTicks >= 2 && roofLit.isDone() && shadeReady()) grantPower();
                 if (!pressed && poweredAt >= 0 && userTicks >= poweredAt + 4) press();
                 if (!released) {
                     if (pressed && action.getPhase() == ActionPhase.WINDUP && action.getPhaseTick() >= 20
