@@ -4,8 +4,10 @@ import java.lang.reflect.Field;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.function.Consumer;
 
 import rotp.core.JojoModConfig;
@@ -72,6 +74,7 @@ import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.neoforge.common.ModConfigSpec;
@@ -290,6 +293,7 @@ public final class StandDamageMultiplierGameTests {
         Vec3 origin;
         BlockPos block;
         BlockState oldBlock;
+        final Map<BlockPos, BlockState> floor = new LinkedHashMap<>();
         float initialHealth;
         float raw;
         float bodyApplied = Float.NaN;
@@ -315,6 +319,7 @@ public final class StandDamageMultiplierGameTests {
             ChunkPos chunk = new ChunkPos(suite.helper.absolutePos(BlockPos.ZERO));
             origin = new Vec3(chunk.getMiddleBlockX() + 0.5, suite.helper.absolutePos(BlockPos.ZERO).getY() + 8,
                     chunk.getMiddleBlockZ() + 0.5);
+            if (spec.kind == Kind.CHEAT) landingFloor();
             caster = actor(spec.kind == Kind.TRANSPORT ? "crazy_diamond" : spec.stand, origin);
             caster.stand.setCanFollowUser(false);
             caster.stand.moveTo(origin.x, origin.y, origin.z, 0, 0);
@@ -472,6 +477,22 @@ public final class StandDamageMultiplierGameTests {
         }
 
         boolean isAngelo() { return spec.kind == Kind.ANGELO || spec.kind == Kind.ARMORED || spec.kind == Kind.TRANSPORT; }
+
+        // Cheat Death moves its user like a chorus fruit (up to 8 blocks aside and 8 down, onto whatever is below) and
+        // the punch's flight goes on from there. Down among the test cells the user landed beside their barriers and
+        // flew into them; a floor of its own, above them, takes every landing.
+        void landingFloor() {
+            origin = origin.add(0, 9, 0);
+            BlockPos user = BlockPos.containing(origin.add(0, 0, 1.7));
+            AABB space = new AABB(user.offset(-9, -9, -9).getCenter(), user.offset(9, 9, 9).getCenter()).inflate(0.5);
+            premise(level.getEntities((Entity) null, space).isEmpty()
+                    && BlockPos.betweenClosedStream(space.deflate(0.5)).allMatch(level::isEmptyBlock),
+                    "the space Cheat Death can move its user to is empty air");
+            for (BlockPos pos : BlockPos.betweenClosed(user.offset(-9, -9, -9), user.offset(9, -9, 9))) {
+                floor.put(pos.immutable(), level.getBlockState(pos));
+                level.setBlockAndUpdate(pos, Blocks.STONE.defaultBlockState());
+            }
+        }
 
         void incoming(LivingIncomingDamageEvent event) {
             LivingEntity entity = event.getEntity();
@@ -742,6 +763,7 @@ public final class StandDamageMultiplierGameTests {
             }
             finally {
                 if (block != null) level.setBlockAndUpdate(block, oldBlock);
+                floor.forEach(level::setBlockAndUpdate);
                 for (Entity entity : owned) if (!entity.isRemoved()) entity.discard();
                 log("SCENE-CLEANUP " + spec.id + " actorsRemoved=" + owned.stream().allMatch(Entity::isRemoved));
             }
