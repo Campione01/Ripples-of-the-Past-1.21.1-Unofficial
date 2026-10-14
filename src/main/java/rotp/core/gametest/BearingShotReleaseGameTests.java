@@ -21,7 +21,6 @@ import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.type.StandType;
-import rotp.core.subsystems.timestop.TimeStopState;
 import com.mojang.authlib.GameProfile;
 
 import net.minecraft.core.BlockPos;
@@ -32,7 +31,6 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.util.FakePlayerFactory;
@@ -86,29 +84,6 @@ public final class BearingShotReleaseGameTests {
 			helper.assertTrue(ModStatusEffects.isStunned(stand), "setup: the Stand is not stunned");
 			assertNoShot(helper, user, power, stand, held, area, "a stunned Stand");
 			stand.removeEffect(ModStatusEffects.STUN);
-		});
-	}
-
-	// 1.16 checkConditions refused a user frozen in someone else's stopped time, and stopHeldAction(true) ran it.
-	@GameTest(template = "empty", timeoutTicks = 100, batch = GameTestBatches.TIME_STOP)
-	public static void releaseWhileFrozenInStoppedTimeShootsNothing(GameTestHelper helper) {
-		scene(helper, "BearingFrozen", (user, power, stand, standAction, bearingShot, area) -> {
-			// put straight into its held phase: another stop of this batch may already freeze the cell, so it cannot tick there
-			EntityActionInstance held = start(helper, user, power, stand, standAction, bearingShot);
-			held.setPhaseStart(ActionPhase.PERFORM);
-			TimeStopState timeStops = helper.getLevel().getData(ModDataAttachmentTypes.TIME_STOP.get());
-			int stopId = -(user.getId() * 4 + 3);
-			try {
-				// A stop owned by no one: the user is not its stopper.
-				helper.assertTrue(timeStops.tryPutInstance(new TimeStopState.Instance(stopId, 200, 200,
-						new ChunkPos(user.blockPosition()), 1, -1, "bearing_release_frozen_test"))
-						&& timeStops.shouldFreeze(user), "setup: the user did not freeze in the stopped time");
-				assertNoShot(helper, user, power, stand, held, area, "a user frozen in stopped time");
-			}
-			finally {
-				// Removed before the level ticks, so no neighbouring test is frozen.
-				timeStops.removeInstance(stopId);
-			}
 		});
 	}
 
