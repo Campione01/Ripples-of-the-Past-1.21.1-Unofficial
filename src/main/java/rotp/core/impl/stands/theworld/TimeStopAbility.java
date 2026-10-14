@@ -360,6 +360,20 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 		return amount * PlayerClientBroadcastedSettings.getTimeStopStaminaCostMultiplier(power);
 	}
 
+	/**
+	 * The owner's never-refunded unit (2026-10-14): what the shortest stop, an immediate release of the charge,
+	 * costs under the same startup-cost policy and multiplier as the stop that starts.
+	 */
+	private float getShortestStopStaminaCost(StandPower power, String learningName, TimeStopState.Instance instance,
+			float chargeLength) {
+		int shortestTicks = TimeStopLearning.getReleasedTimeStopTicks(TimeStopLearning.getSavedTimeStopTicks(power, learningName),
+				TimeStopLearning.MIN_RELEASE_TIME_STOP_TICKS, chargeLength);
+		float defaultCost = TimeStopLearning.getTimeStopStaminaCost(power, learningName, shortestTicks);
+		TimeStopStartupCostDecision decision = TimeStopBehaviorPolicies.resolveStartupCost(
+				power, abilityId, instance.withTiming(shortestTicks, shortestTicks), defaultCost);
+		return effectiveTimeStopStaminaCost(power, decision.isDenied() ? defaultCost : decision.resolve(defaultCost));
+	}
+
 	private void playTimeStopVoiceLine(ServerLevel serverLevel, LivingEntity user, StandPower power, boolean standAlreadySummoned) {
 		TimeStopAudioDecision decision =
 				TimeStopBehaviorPolicies.resolveAudio(
@@ -412,6 +426,12 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 	}
 
 	private boolean startTimeStopAfterHold(LivingEntity user, boolean standAlreadySummoned, int requestedTimeStopTicks) {
+		return startTimeStopAfterHold(user, standAlreadySummoned, requestedTimeStopTicks, getHoldToFireTicks(user));
+	}
+
+	// chargeLength: the charge the press had; it prices the shortest stop, whose cost an early end never gives back
+	private boolean startTimeStopAfterHold(LivingEntity user, boolean standAlreadySummoned, int requestedTimeStopTicks,
+			float chargeLength) {
 		Level level = user.level();
 		if (level.isClientSide() || !(level instanceof ServerLevel serverLevel)) {
 			return false;
@@ -489,6 +509,7 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 			instance = instance.withStartupDelay(0);
 			startEvent.setInstance(instance);
 		}
+		float unrefundableStartCost = getShortestStopStaminaCost(power, learningName, instance, chargeLength);
 		int startupDelay = Math.max(-instance.ticksPassed(), 0);
 		int statusDuration = (int) Math.min(
 				(long) instance.ticksLeft() + startupDelay,
@@ -500,7 +521,7 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 				false,
 				false,
 				true));
-		if (!state.commitPreStart(startEvent, this, chargedStartCost)) {
+		if (!state.commitPreStart(startEvent, this, chargedStartCost, unrefundableStartCost)) {
 			user.removeEffect(ModStatusEffects.TIME_STOP);
 			if (!power.isStaminaInfinite()) {
 				power.setStamina(power.getStamina() + chargedStartCost);
@@ -586,7 +607,9 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 			}
 			LivingEntity user = getPowerUser();
 			if (!(ability instanceof TimeStopAbility timeStop) || user == null
-					|| !timeStop.startTimeStopAfterHold(user, standAlreadySummoned)) {
+					|| !timeStop.startTimeStopAfterHold(user, standAlreadySummoned,
+							TimeStopLearning.getTimeStopTicks(PowerClass.STAND.get(user), timeStop.getLearningAbilityName()),
+							phasesLength.getFloat(ActionPhase.BUTTON_CHARGE))) {
 				LivingComponentAction.getComponent(performer).setAction(null, SyncType.TRACKING_AND_SELF);
 			}
 		}
@@ -615,7 +638,7 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 								user.getScoreboardName(),
 								power != null && power.getPowerType() != null ? power.getPowerType().getId() : "<none>",
 								chargeTicks, curPhaseLength, chargeRatio, learningPoints, maxTicks, timeStopTicks);
-						timeStop.startTimeStopAfterHold(user, standAlreadySummoned, timeStopTicks);
+						timeStop.startTimeStopAfterHold(user, standAlreadySummoned, timeStopTicks, curPhaseLength);
 					}
 				}
 				LivingComponentAction.getComponent(performer).setAction(null, SyncType.TRACKING_AND_SELF);

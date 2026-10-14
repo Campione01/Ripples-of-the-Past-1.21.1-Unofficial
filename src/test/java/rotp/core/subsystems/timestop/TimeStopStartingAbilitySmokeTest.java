@@ -37,7 +37,7 @@ public final class TimeStopStartingAbilitySmokeTest {
 				"commit must record (or clear) the starting ability before the instance goes live");
 		check(state.contains("return commitPreStart(event, null);"),
 				"API commits without an ability must clear a stale starter");
-		check(ability.contains("state.commitPreStart(startEvent, this, chargedStartCost)")
+		check(ability.contains("state.commitPreStart(startEvent, this, chargedStartCost, unrefundableStartCost)")
 				&& !ability.contains("state.commitPreStart(startEvent))"),
 				"the time-stop ability must commit itself as the starter");
 

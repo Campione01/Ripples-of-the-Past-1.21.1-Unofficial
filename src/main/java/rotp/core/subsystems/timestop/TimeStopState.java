@@ -97,8 +97,8 @@ public class TimeStopState {
     private final Map<Integer, TimeStopState.Instance> instances = new HashMap<>();
     // Server-only: the ability that started each instance, like 1.16 TimeStopInstance.action.
     private final Map<Integer, AbilityId> timeStopStarters = new HashMap<>();
-    // Server-only: the stamina each instance's start actually took; an early resume refunds a share of it.
-    private final Map<Integer, Float> timeStopStartCharges = new HashMap<>();
+    // Server-only: the stamina each instance's start actually took, and the part of it no early end gives back.
+    private final Map<Integer, StartCharge> timeStopStartCharges = new HashMap<>();
     private final Map<Integer, FrozenEntityState> frozenEntities = new HashMap<>();
     private final Map<Integer, List<Runnable>> onTimeResume = new HashMap<>();
     private final Set<UUID> playersVisionFrozen = new HashSet<>();
@@ -165,12 +165,23 @@ public class TimeStopState {
     }
 
     /**
-     * Also records the stamina the start actually took. An early resume refunds a share of
+     * Also records the stamina the start actually took. An early end refunds a share of
      * that record, and nothing when no charge was recorded.
      */
     @ApiStatus.Internal
     public boolean commitPreStart(TimeStopLifecycleEvent.PreStart event, @Nullable Ability startingAbility,
             float chargedStartCost) {
+        return commitPreStart(event, startingAbility, chargedStartCost, 0.0F);
+    }
+
+    /**
+     * The owner's rule for an early end (2026-10-14): the unused share of what the start took comes back,
+     * except unrefundableStartCost, the price of the shortest stop (an immediate release) under the same
+     * policy and multiplier, which is never given back.
+     */
+    @ApiStatus.Internal
+    public boolean commitPreStart(TimeStopLifecycleEvent.PreStart event, @Nullable Ability startingAbility,
+            float chargedStartCost, float unrefundableStartCost) {
         if (event == null || event.isCanceled() || event.getLevel() != level) {
             return false;
         }
@@ -182,7 +193,8 @@ public class TimeStopState {
             timeStopStarters.remove(instance.id());
         }
         if (chargedStartCost > 0.0F && Float.isFinite(chargedStartCost)) {
-            timeStopStartCharges.put(instance.id(), chargedStartCost);
+            timeStopStartCharges.put(instance.id(), new StartCharge(chargedStartCost,
+                    Float.isFinite(unrefundableStartCost) ? Math.max(unrefundableStartCost, 0.0F) : chargedStartCost));
         }
         else {
             timeStopStartCharges.remove(instance.id());
@@ -545,10 +557,21 @@ public class TimeStopState {
         }
     }
 
-    // 1.16 TimeStopHandler.reset (the last player leaving) only dropped the stops: no cooldown, refund or training.
+    // 1.16 TimeStopHandler.reset (the last player leaving) only dropped the stops: no cooldown or training. The
+    // owner's early-end refund still gives back the unused share of each start.
     public void reset() {
         List<Instance> removedInstances = new ArrayList<>(instances.values());
         instances.clear();
+        for (Instance removed : removedInstances) {
+            LivingEntity user = getLivingEntityById(removed.userId());
+            StandPower power = user != null ? PowerClass.STAND.get(user) : null;
+            StartCharge charge = timeStopStartCharges.get(removed.id());
+            if (power != null && power.hasPower() && charge != null) {
+                refundUnusedTimeStopStartCost(power, removed, Math.max(removed.ticksPassed(), 0), charge);
+            }
+        }
+        timeStopStarters.clear();
+        timeStopStartCharges.clear();
         for (Instance removed : removedInstances) {
             removeTimeStopEffectIfNoActiveInstance(removed);
         }
@@ -897,7 +920,7 @@ public class TimeStopState {
                 settlements.add(new TimeStopSettlement(
                         power, removed, effectiveTicksPassed,
                         getStartingAbility(removed, power),
-                        timeStopStartCharges.getOrDefault(removed.id(), 0.0F)));
+                        timeStopStartCharges.get(removed.id())));
                 Integer previousTicks = cooldownTicks.get(power);
                 if (previousTicks == null || effectiveTicksPassed > previousTicks) {
                     cooldownTicks.put(power, effectiveTicksPassed);
@@ -916,7 +939,7 @@ public class TimeStopState {
                     settlement.power(),
                     settlement.instance(),
                     settlement.effectiveTicksPassed(),
-                    settlement.chargedStartCost());
+                    settlement.startCharge());
         }
         // 1.16 TimeStopInstance.onRemoved: the learning goes to the time stop that started it.
         for (TimeStopSettlement settlement : settlements) {
@@ -990,30 +1013,38 @@ public class TimeStopState {
     }
 
 	private void refundUnusedTimeStopStartCost(StandPower power, Instance removed, int effectiveTicksPassed,
-			float chargedStartCost) {
+			@Nullable StartCharge startCharge) {
 		if (!removed.refundUnusedStartCost()) {
 			return;
 		}
-		if (power.isStaminaInfinite()) {
+		if (power.isStaminaInfinite() || startCharge == null) {
 			return;
 		}
 		// a share of what the start took (policy and multiplier included), never repriced at the end
-		float refund = getUnusedStartCostRefund(chargedStartCost, removed.totalTicks(), effectiveTicksPassed);
+		float refund = getUnusedStartCostRefund(startCharge.charged(), startCharge.unrefundable(),
+				removed.totalTicks(), effectiveTicksPassed);
 		if (refund > 0.0F) {
 			power.setStamina(power.getStamina() + refund);
 		}
 	}
 
-	/** The unused share of the recorded start charge; nothing without a recorded charge. */
-	static float getUnusedStartCostRefund(float chargedStartCost, int totalTicks, int effectiveTicksPassed) {
-		if (!(chargedStartCost > 0.0F) || !Float.isFinite(chargedStartCost) || totalTicks <= 0) {
+	/**
+	 * (charged - unrefundable) x unused ticks / total ticks, never below 0; nothing without a recorded charge.
+	 * The owner's example: a full 200-tick stop that cost 1000, whose shortest stop costs 100, resumed after 10 ticks
+	 * gives back 900 x 190 / 200 = 855; the shortest stop itself gives back nothing.
+	 */
+	static float getUnusedStartCostRefund(float chargedStartCost, float unrefundableStartCost, int totalTicks,
+			int effectiveTicksPassed) {
+		if (!(chargedStartCost > 0.0F) || !Float.isFinite(chargedStartCost) || totalTicks <= 0
+				|| !Float.isFinite(unrefundableStartCost)) {
 			return 0.0F;
 		}
+		float refundable = chargedStartCost - Math.max(unrefundableStartCost, 0.0F);
 		int elapsedTicks = Math.max(0, Math.min(effectiveTicksPassed, totalTicks));
-		if (elapsedTicks >= totalTicks) {
+		if (!(refundable > 0.0F) || elapsedTicks >= totalTicks) {
 			return 0.0F;
 		}
-		return chargedStartCost * (float) (totalTicks - elapsedTicks) / (float) totalTicks;
+		return refundable * (float) (totalTicks - elapsedTicks) / (float) totalTicks;
 	}
 
     private void removeTimeStopEffectIfNoActiveInstance(Instance removed) {
@@ -1399,7 +1430,9 @@ public class TimeStopState {
             Instance instance,
             int effectiveTicksPassed,
             @Nullable Ability timeStop,
-            float chargedStartCost) {}
+            @Nullable StartCharge startCharge) {}
+
+    private record StartCharge(float charged, float unrefundable) {}
 
     public static record Instance(int id, int ticksLeft, int totalTicks, ChunkPos centerPos, int chunkRange, int userId, String visualRoute, Optional<ResourceLocation> standTypeId, Optional<ResourceLocation> selectedSkin, int resumeSoundUserId, int resumeVoiceLineUserId, boolean ticksManuallySet, boolean forceResumeVoiceLine, float staminaCostTick, int ticksPassed, boolean refundUnusedStartCost) {
         public static final int TIME_RESUME_SOUND_TICKS = 10;
