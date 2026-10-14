@@ -27,7 +27,7 @@ import rotp.core.powersystem.standpower.entity.StandEntityAbility;
 import rotp.core.powersystem.standpower.entity.StandStatFormulas;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.AimingEntity;
-import rotp.core.subsystems.target.HitResultUtil;
+import rotp.core.subsystems.target.StandPrecisionRay;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
 import rotp.core.subsystems.timestop.TimeStopLearning;
 import rotp.core.subsystems.timestop.TimeStopState;
@@ -281,8 +281,7 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 					stand.summonLockTicks = 0;
 					boolean trainsTimeStop = !(ability instanceof TheWorldTSPunchAbility tsPunch) || tsPunch.trainsTimeStop;
 					TheWorldTSPunchAbility punchAbility = ability instanceof TheWorldTSPunchAbility tsPunchAbility ? tsPunchAbility : null;
-					ActionTarget target = blinkStandTowardTarget(stand, prevAction, getActionTargetSnapshot(stand.level()),
-							trainsTimeStop, punchAbility);
+					ActionTarget target = blinkStandTowardTarget(stand, prevAction, trainsTimeStop, punchAbility);
 					targetAfterBlink = setActionTargetSnapshot(target);
 					if (!target.isEmpty(stand.level())) {
 						standRotationTarget = target;
@@ -362,6 +361,12 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 			}
 		}
 
+		// 1.16 TheWorldTSHeavyPunch was a HeavyPunchInstance: the native hurt, then 2 on a landed hit, then a 2 tail
+		@Override
+		protected boolean usesDetachedPunchKnockback() {
+			return true;
+		}
+
 		@Override
 		protected void addKnockback(DamageSource dmgSource) {
 			DamageSourceModified knockback = (DamageSourceModified) dmgSource;
@@ -386,11 +391,11 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 			}
 		}
 
+		// 1.16 TheWorldTSHeavyAttack disableBlocking(1.0F), between the landed hit's push and the tail
 		@Override
-		protected void afterHeavyPunchHit(StandEntity stand, LivingEntity targetLiving, DamageSource dmgSource, float dmgAmount, boolean hurt) {
-			super.afterHeavyPunchHit(stand, targetLiving, dmgSource, dmgAmount, hurt);
-			// 1.16 TheWorldTSHeavyAttack disableBlocking(1.0F)
-			StandEntityHeavyPunchAbility.disableShieldOnHit(targetLiving, hurt, 1.0F);
+		protected void afterDetachedPunchHurt(StandEntity stand, LivingEntity target, DamageSource source, float rawDamage, boolean hurt) {
+			super.afterDetachedPunchHurt(stand, target, source, rawDamage, hurt);
+			StandEntityHeavyPunchAbility.disableShieldOnHit(target, hurt, 1.0F);
 		}
 
 		private void disableTargetStandBlocking(StandEntity stand, Entity targetEntity) {
@@ -408,8 +413,16 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 
 		@Override
 		protected ActionTarget getPunchTarget(StandEntity stand) {
-			ActionTarget target = targetAfterBlink != ActionTarget.EMPTY ? targetAfterBlink : super.getPunchTarget(stand);
-			target = StandEntityPunchAbility.validatePunchTarget(stand, target);
+			ActionTarget target = strikeTarget(stand, targetAfterBlink);
+			if (target.isEmpty(stand.level())) {
+				// 1.16 StandEntity.punch: a target the strike cannot reach is replaced by a fresh aim
+				target = strikeTarget(stand, super.getPunchTarget(stand));
+			}
+			return target;
+		}
+
+		private static ActionTarget strikeTarget(StandEntity stand, ActionTarget candidate) {
+			ActionTarget target = StandEntityPunchAbility.validatePunchTarget(stand, candidate);
 			if (target.getType() == TargetType.ENTITY && !stand.hasLineOfSight(target.getMainEntity())) {
 				return ActionTarget.EMPTY;
 			}
@@ -417,17 +430,15 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 		}
 
 		private static ActionTarget blinkStandTowardTarget(StandEntity stand, EntityActionInstance prevAction,
-				ActionTarget inputTarget, boolean trainsTimeStop, TheWorldTSPunchAbility punchAbility) {
+				boolean trainsTimeStop, TheWorldTSPunchAbility punchAbility) {
 			LivingEntity user = stand.getUser();
 			if (user == null || !(stand.level() instanceof ServerLevel serverLevel)) {
 				return ActionTarget.EMPTY;
 			}
 
 			LivingEntity aimingEntity = stand.isManuallyControlled() ? stand : user;
-			ActionTarget target = inputTarget != null ? inputTarget.resolveEntityId(stand.level()) : ActionTarget.EMPTY;
-			if (target.isEmpty(stand.level())) {
-				target = rayTraceTsPunchTarget(stand, aimingEntity);
-			}
+			// 1.16 TheWorldTSHeavyAttack.targetBeforePerform aimed again and never used the clicked target
+			ActionTarget target = rayTraceTsPunchTarget(stand, aimingEntity);
 			Vec3 blinkPos = calcBlinkPos(stand, aimingEntity, target);
 
 			StandPower standPower = StandPower.get(user);
@@ -498,11 +509,9 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 							&& getTimeSkipSound(player, heardByAll) == ModSoundEvents.THE_WORLD_TIME_STOP_UNREVEALED);
 		}
 
+		// 1.16 precisionRayTrace(aiming, getMaxRange(), getPrecision() / 16, false); entities behind a wall stay hidden
 		private static ActionTarget rayTraceTsPunchTarget(StandEntity stand, LivingEntity aimingEntity) {
-			return HitResultUtil.clip(aimingEntity.getEyePosition(), aimingEntity.getLookAngle(),
-					stand.getMaxRange(), stand.getMaxRange(), stand.level(),
-					entity -> StandEntityPunchAbility.canStandHit(stand, entity),
-					aimingEntity, stand.getPrecision() / 16F);
+			return StandPrecisionRay.trace(aimingEntity, stand, stand.getMaxRange(), stand.getPrecision() / 16D, false, true);
 		}
 
 		private static Vec3 calcBlinkPos(StandEntity stand, LivingEntity aimingEntity, ActionTarget target) {

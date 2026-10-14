@@ -460,9 +460,10 @@ public final class TheWorldTSPunchParityGameTests {
             check(near(staminaAtDamage, staminaBeforePerform), "F2 strike occurs before configured debit, incoming stamina=" + staminaAtDamage);
             check(near(event.getOriginalAmount(), StandStatFormulas.getHeavyAttackDamage(caster.stand.getAttackDamage())), "unchanged heavy damage independent of meter");
             if (action instanceof TheWorldTSPunch) {
+                // 1.16 HeavyPunchInstance: the additional 4 is pushed after the hurt in two halves, never inside it
                 check(event.getSource() instanceof DamageSourceModified modified && modified.jojo_ripples$standPower() == caster.power
-                        && modified.jojo_ripples$standInvulTicks() == 10 && near(modified.jojo_ripples$addKnockback(), 4),
-                        "unchanged owned TS source, invul10 and fixed knockback4");
+                        && modified.jojo_ripples$standInvulTicks() == 10 && near(modified.jojo_ripples$addKnockback(), 0),
+                        "owned TS source, invul10, and its additional knockback kept out of the native hurt");
             }
             log("DAMAGE " + spec.id() + " nativeFrame=" + standNativeTicks + " phaseTick=" + action.getPhaseTick()
                     + " amount=" + event.getOriginalAmount() + " stamina=" + staminaAtDamage + " calls=" + incomingCalls);

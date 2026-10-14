@@ -24,6 +24,7 @@ import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility.StandEntit
 import rotp.core.impl.stands.starplatinum.HeavyPunchUppercutAbility.Uppercut;
 import rotp.core.impl.stands.theworld.TheWorldHeavyPunchAbility.TheWorldHeavyPunch;
 import rotp.core.impl.stands.theworld.TheWorldKickAbility.TheWorldKick;
+import rotp.core.impl.stands.theworld.TheWorldTSPunchAbility.TheWorldTSPunch;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModEntityAttributes;
 import rotp.core.init.ModEntityTypes;
@@ -98,11 +99,12 @@ public final class CoreDetachedHeavyPulseGameTests {
     private static Suite active;
 
     // CD/GE/MR: their 1.16 heavies and finishers (MR kick x1.2 and GE lifeshot x1.25 on the additional) took the same pulses.
+    // TS: The World's time-stop punch (1.16 TheWorldTSHeavyPunch, a HeavyPunchInstance with addKnockback(4)).
     private enum Move {
-        SP, TW, UPPERCUT, KICK, CD, CD_FINISHER, GE, GE_LIFESHOT, MR, MR_KICK;
+        SP, TW, UPPERCUT, KICK, CD, CD_FINISHER, GE, GE_LIFESHOT, MR, MR_KICK, TS;
         String stand() {
             return switch (this) {
-                case TW, KICK -> "the_world";
+                case TW, KICK, TS -> "the_world";
                 case CD, CD_FINISHER -> "crazy_diamond";
                 case GE, GE_LIFESHOT -> "gold_experience";
                 case MR, MR_KICK -> "magicians_red";
@@ -121,12 +123,13 @@ public final class CoreDetachedHeavyPulseGameTests {
         double halfAdditional() {
             return switch (this) {
                 case TW -> 3; case UPPERCUT -> 0.6015625; case KICK, CD_FINISHER -> 1.75;
-                case GE_LIFESHOT -> 2.1875; case MR_KICK -> 2.1; default -> 1.1875;
+                case GE_LIFESHOT -> 2.1875; case MR_KICK -> 2.1; case TS -> 2; default -> 1.1875;
             };
         }
         double horizontal() { return this == UPPERCUT ? 0.30078125 : halfAdditional(); }
         double upward() { return this == UPPERCUT ? 0.6015625 * SIN_60 : 0; }
         boolean breaksGuard() { return this == UPPERCUT || this == KICK; }
+        String ability() { return this == TS ? "ts_punch" : "heavy_punch"; }
     }
     private enum Kind { SUCCESS, REFUSED, IMMUNE, BOAT, BOAT_REFUSED, ANGLE, STOPPED, LETHAL, TOTEM,
         OWNER, SHIELD_FRONT, SHIELD_REAR, SECONDARY, SECONDARY_REFUSED, PRIMARY_REFUSED_SECONDARY,
@@ -186,7 +189,7 @@ public final class CoreDetachedHeavyPulseGameTests {
         Suite suite = new Suite(helper);
         try {
             log("IDENTITY heavy=" + sha(StandEntityHeavyPunch.class) + " uppercut=" + sha(Uppercut.class)
-                    + " world=" + sha(TheWorldHeavyPunch.class) + " kick=" + sha(TheWorldKick.class)
+                    + " world=" + sha(TheWorldHeavyPunch.class) + " kick=" + sha(TheWorldKick.class) + " ts=" + sha(TheWorldTSPunch.class)
                     + " fixture=" + sha(CoreDetachedHeavyPulseGameTests.class));
             suite.listen(); helper.onEachTick(suite::tick);
         }
@@ -223,6 +226,12 @@ public final class CoreDetachedHeavyPulseGameTests {
             result.add(new Spec(move, Kind.SUCCESS, 1, 0, false));
             result.add(new Spec(move, Kind.BOAT, 1, 0, true));
         }
+        result.add(new Spec(Move.TS, Kind.SUCCESS, 1, 0, true));
+        result.add(new Spec(Move.TS, Kind.SUCCESS, 1, 0, false));
+        result.add(new Spec(Move.TS, Kind.REFUSED, 1, 0, true));
+        result.add(new Spec(Move.TS, Kind.BOAT, 1, 0, true));
+        result.add(new Spec(Move.TS, Kind.SHIELD_FRONT, 1, 0, false));
+        result.add(new Spec(Move.TS, Kind.SHIELD_REAR, 1, 0, false));
         return result;
     }
 
@@ -408,6 +417,7 @@ public final class CoreDetachedHeavyPulseGameTests {
 
         void begin() {
             if (spec.move.finisher() != null) unlock(caster, spec.move.finisher());
+            if (spec.move == Move.TS) unlock(caster, "ts_punch");
             caster.stand.setFinisherMeter(spec.move.finisher() != null ? 0.75F : 0);
             if (spec.kind == Kind.GRAB) {
                 unlock(caster, "grab_throw");
@@ -423,11 +433,12 @@ public final class CoreDetachedHeavyPulseGameTests {
                 premise(stop.shouldFreeze(primary) && !stop.shouldFreeze(caster.stand), "native target frozen and caster ticks");
             }
             LivingComponentAction.getComponent(caster.stand).entityAim.setTarget(new ActionTarget(primary));
-            action = press(caster, "heavy_punch", ATTACK);
+            action = press(caster, spec.move.ability(), ATTACK);
             premise(action instanceof StandEntityHeavyPunch, "registered RMB heavy action");
             premise((spec.move == Move.UPPERCUT) == (action instanceof Uppercut)
                     && (spec.move == Move.KICK) == (action instanceof TheWorldKick)
-                    && (spec.move == Move.TW) == (action instanceof TheWorldHeavyPunch), "resolved original ordinary/finisher factory");
+                    && (spec.move == Move.TW) == (action instanceof TheWorldHeavyPunch)
+                    && (spec.move == Move.TS) == (action instanceof TheWorldTSPunch), "resolved original ordinary/finisher factory");
             premise((action.ability.getAbilityUsageCategory() == AbilityUsageGroup.GRAB) == (spec.kind == Kind.GRAB), "registered grab distinction");
             premise(caster.stand.getAttackDamage() == 15 && caster.stand.getAttackSpeed() == 28, "native strength/cadence getters");
             log("PRESS " + spec.id() + " ability=" + ((Ability) action.ability).name() + " phases=" + action.phasesLength);
@@ -730,7 +741,7 @@ public final class CoreDetachedHeavyPulseGameTests {
             StandPower power = PowerClass.STAND.attachGet(user);
             StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc(standName));
             premise(type != null && StandPowerTransitions.insert(power, new StandInstance(type)).status() == StandPowerTransitions.Status.APPLIED, "grant native " + standName);
-            power.setResolveLevel(2);
+            power.setResolveLevel(actors.isEmpty() && spec.move == Move.TS ? 3 : 2);
             if (actors.isEmpty() && spec.kind == Kind.STOPPED)
                 power.setResolveLevel(Math.max(2, power.getAbility("time_stop").getRequiredResolveLevel(power)));
             premise(type.summon(user, power), "native summon");
