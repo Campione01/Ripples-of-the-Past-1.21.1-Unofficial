@@ -5,10 +5,8 @@ import org.jetbrains.annotations.Nullable;
 import rotp.core.client.ClientGlobals;
 import rotp.core.client.sound.ClientsideSoundsHelper;
 import rotp.core.init.ModSoundEvents;
-import rotp.core.powersystem.Power;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
-import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.entityaction.ActionAnimIdentifier;
 import rotp.core.powersystem.entityaction.ActionOBB;
 import rotp.core.powersystem.entityaction.ActionPhase;
@@ -38,12 +36,6 @@ public class StarFingerAbility extends StandEntityAbility {
 		setDefaultPhaseLength(ActionPhase.PERFORM, 20);
 		partsRequired(StandPart.ARMS);
 		cooldown(20, 60);
-	}
-
-	@Override
-	public ConditionCheck checkSpecificConditions(Power<?> context) {
-		ConditionCheck check = super.checkSpecificConditions(context);
-		return check.isPositive() ? StandAbilityStamina.check(context, STAR_FINGER_STAMINA_COST) : check;
 	}
 
 	@Override
@@ -80,18 +72,16 @@ public class StarFingerAbility extends StandEntityAbility {
             if (level().isClientSide()) {
                 return;
             }
-            LivingEntity user = getPowerUser();
-            StandPower standPower = user != null ? StandPower.get(user) : null;
-            if (user == null || !StandAbilityStamina.consumeOrMessage(ability, standPower, user, STAR_FINGER_STAMINA_COST)) {
-                startRecovery();
-                return;
-            }
             if (getPerformer() instanceof StandEntity stand) {
                 SPStarFingerEntity starFinger = new SPStarFingerEntity(stand, level());
                 starFinger.setLifeSpan(Mth.ceil(phasesLength.getFloat(ActionPhase.PERFORM)));
                 starFinger.setShootingPosOf(stand);
                 addProjectileWithStandStats(starFinger);
             }
+            // 1.16 StandEntityTask: the cost is paid after the finger is out; a short bar just drops to 0
+            LivingEntity user = getPowerUser();
+            StandPower standPower = user != null ? StandPower.get(user) : null;
+            StandAbilityStamina.consume(ability, standPower, STAR_FINGER_STAMINA_COST, false);
         }
 
         @Override
