@@ -1328,6 +1328,51 @@ public final class StandTargetRangeGameTests {
 		helper.succeed();
 	}
 
+	// 1.16 PowerBaseImpl.checkTarget:295-301 with the barrier's TargetRequirement.BLOCK: a press on an entity the server no
+	// longer has empties the target and is refused; no ray of the server's own takes the stone on the look ray instead
+	@GameTest(template = "empty", batch = BATCH)
+	public static void hierophantBarrierDoesNotTakeABlockWhenTheAimedEntityIsGoneOnThePress(GameTestHelper helper) {
+		try (Fixture fixture = Fixture.open(helper, Kind.HG_BARRIER)) {
+			fixture.stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z + 1.0D, 0.0F, 0.0F);
+			BlockPos stone = fixture.block(BlockPos.containing(fixture.origin.x, fixture.origin.y + 1.0D, fixture.origin.z + 3.0D));
+			ActionTargetAim aim = sendGoneEntity(helper, fixture, fixture.cow(6.0D));
+			String answered = fixture.refusal();
+			ActionTarget picked = HierophantBarrierAbility.getCurrentBlockTarget(fixture.user, fixture.stand, fixture.level);
+			helper.assertTrue(BLOCK_TARGET.equals(answered) && picked.getType() == TargetType.EMPTY,
+					"HG_BARRIER pressed on an entity the server no longer has, with stone on the look ray: answered " + answered
+							+ " and picked " + picked + "; 1.16 empties the whole target (" + BLOCK_TARGET + ")");
+
+			aim.setTargetFromClient(ActionTarget.EMPTY, fixture.level);
+			ActionTarget open = HierophantBarrierAbility.getCurrentBlockTarget(fixture.user, fixture.stand, fixture.level);
+			helper.assertTrue("accepted".equals(fixture.refusal()) && open.getType() == TargetType.BLOCK
+					&& stone.equals(open.getBlockPos()), "HG_BARRIER with an empty aim and stone on the look ray picked "
+							+ open + "; the stone is the target again");
+		}
+		helper.succeed();
+	}
+
+	// the same with the entity there: an ENTITY target fails TargetRequirement.BLOCK, so 1.16 refused the press instead
+	// of putting the barrier on the block behind the mob
+	@GameTest(template = "empty", batch = BATCH)
+	public static void hierophantBarrierPressedAtAMobDoesNotTakeTheBlockBehindIt(GameTestHelper helper) {
+		try (Fixture fixture = Fixture.open(helper, Kind.HG_BARRIER)) {
+			fixture.stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z + 1.0D, 0.0F, 0.0F);
+			BlockPos stone = fixture.block(BlockPos.containing(fixture.origin.x, fixture.origin.y + 1.0D, fixture.origin.z + 4.0D));
+			Cow cow = fixture.cow(2.5D);
+			cow.moveTo(fixture.origin.x, fixture.origin.y + 0.6D, fixture.origin.z + 2.5D, 180.0F, 0.0F);
+			fixture.aim(new ActionTarget(cow));
+			String answered = fixture.refusal();
+			ActionTarget picked = HierophantBarrierAbility.getCurrentBlockTarget(fixture.user, fixture.stand, fixture.level);
+			helper.assertTrue(BLOCK_TARGET.equals(answered) && picked.getType() == TargetType.EMPTY,
+					"HG_BARRIER pressed at a cow with stone behind it at " + stone + ": answered " + answered + " and picked "
+							+ picked + "; 1.16 refuses a press at an entity (TargetRequirement.BLOCK)");
+
+			fixture.aim(new ActionTarget(stone, Direction.NORTH));
+			helper.assertTrue("accepted".equals(fixture.refusal()), "HG_BARRIER pressed at the stone behind the cow was refused");
+		}
+		helper.succeed();
+	}
+
 	// An open trapdoor is a plate on the far side of its cell: the cell is 9.8 blocks from the Stand's eyes, the plate
 	// 10.6. 1.16 ActionTarget.getBoundingBox measures to the bounds of the block's shape.
 	@GameTest(template = "empty", batch = BATCH)
