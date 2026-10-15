@@ -42,6 +42,7 @@ import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.vehicle.Boat;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -302,6 +303,35 @@ public final class StandAimReachGameTests {
 		}
 		finally {
 			component.setAction(null, scene.user, SyncType.NO_SYNC);
+			scene.close();
+		}
+	}
+
+	// 1.16 StandEntity.precisionRayTrace: a mob that is neither a player, a Stand nor hostile keeps the priority of the
+	// entity before it, the lowest at first, so a boat behind a cow on the ray comes first
+	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH)
+	public static void precisionAimTakesABoatBeforeACowInFrontOfIt(GameTestHelper helper) {
+		Scene scene = new Scene(helper, GameType.SURVIVAL, false, 16);
+		try {
+			Cow cow = scene.cow(0, 1.5);
+			Boat boat = EntityType.BOAT.create(helper.getLevel());
+			helper.assertTrue(boat != null, "Could not create a boat");
+			boat.setNoGravity(true);
+			boat.moveTo(scene.origin.x, scene.origin.y, scene.origin.z + 4.2, 0, 0);
+			helper.assertTrue(helper.getLevel().addFreshEntity(boat), "Could not add a boat");
+			scene.entities.add(boat);
+			scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, boat.getBoundingBox().getCenter());
+			helper.assertTrue(StandEntityPunchAbility.canStandHit(scene.stand, boat), "Fixture: the Stand cannot hit the boat");
+			Vec3 eyes = scene.user.getEyePosition();
+			Vec3 end = eyes.add(scene.user.getViewVector(1).scale(5));
+			helper.assertTrue(cow.getBoundingBox().clip(eyes, end).isPresent() && boat.getBoundingBox().clip(eyes, end)
+					.isPresent(), "Fixture: the cow and the boat are not both on the crosshair");
+			ActionTarget aimed = StandEntityPunchAbility.userPrecisionRayTarget(scene.stand, scene.user);
+			helper.assertTrue(aimed.getMainEntity() == boat,
+					"1.16's precision ray took the boat behind the cow, a passive mob keeping the lowest priority; got " + aimed);
+			helper.succeed();
+		}
+		finally {
 			scene.close();
 		}
 	}

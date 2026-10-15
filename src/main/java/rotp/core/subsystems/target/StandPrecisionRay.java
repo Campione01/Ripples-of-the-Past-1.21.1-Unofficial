@@ -70,7 +70,7 @@ public final class StandPrecisionRay {
 	}
 
 	// 1.16 keeps the priority of the previous entity when the next one fits no category
-	private static ActionTarget closestWithPriority(List<ActionTarget> targets) {
+	public static ActionTarget closestWithPriority(List<ActionTarget> targets) {
 		if (targets.isEmpty()) {
 			return ActionTarget.EMPTY;
 		}

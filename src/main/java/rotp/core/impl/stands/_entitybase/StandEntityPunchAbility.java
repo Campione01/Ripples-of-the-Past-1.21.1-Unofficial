@@ -13,7 +13,6 @@ import rotp.core.client.sound.ClientsideSoundsHelper;
 import rotp.core.client.sound.sounds.EntityLingeringSoundInstance;
 import rotp.core.customobjects.DamageSourceModified;
 import rotp.core.init.ModSoundEvents;
-import rotp.core.mechanics.resolve.ResolveCounter;
 import rotp.core.init.power.ModStandAbilities;
 import rotp.core.powersystem.Moveset;
 import rotp.core.powersystem.Power;
@@ -723,26 +722,8 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	 * blocking the aim); sneaking switches the precision hitboxes off, as it does for the port's client aim.
 	 */
 	public static ActionTarget userPrecisionRayTarget(StandEntity stand, LivingEntity user, Predicate<Entity> canTarget) {
-		ActionTarget[] byPriority = new ActionTarget[3];
-		for (ActionTarget target : StandPrecisionRay.clipTargetsBeforeWalls(user, userAimReach(user, stand), canTarget,
-				0, user.isShiftKeyDown() ? 0 : stand.getPrecision())) {
-			Entity entity = target.getMainEntity();
-			if (entity == null) {
-				// no entity before a wall: the block
-				return target;
-			}
-			int priority = entity instanceof Player || entity instanceof StandEntity ? 0
-					: entity instanceof LivingEntity && ResolveCounter.attackingTargetGivesResolve(entity) ? 1 : 2;
-			if (byPriority[priority] == null) {
-				byPriority[priority] = target;
-			}
-		}
-		for (ActionTarget target : byPriority) {
-			if (target != null) {
-				return target;
-			}
-		}
-		return ActionTarget.EMPTY;
+		return StandPrecisionRay.closestWithPriority(StandPrecisionRay.clipTargetsBeforeWalls(user,
+				userAimReach(user, stand), canTarget, 0, user.isShiftKeyDown() ? 0 : stand.getPrecision()));
 	}
 
 	/**
