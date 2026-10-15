@@ -249,6 +249,40 @@ public final class StandAttackAimRulesGameTests {
 		}, 60, () -> "The " + name + " at the user's own wolf on the ground never hit the cow beside it");
 	}
 
+	// keep attack target on: the locked barrage keeps the target it was pressed at, but 1.16 refused a pressed entity the
+	// Stand cannot attack (PowerBaseImpl.checkTarget, StandEntity.canAttack), so the user's own wolf is neither saved nor
+	// turned to
+	@GameTest(template = "empty", timeoutTicks = 40, batch = BATCH + "wolf_locked_barrage")
+	public static void lockedBarragePressedAtTheUsersOwnWolfKeepsNothingAsIn116(GameTestHelper helper) {
+		Scene scene = new Scene(helper, true);
+		scene.user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get()).standAttackTargetLock = true;
+		Wolf wolf = scene.ownWolf(scene.origin.add(0, 0.6, 2.0));
+		scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, wolf.getBoundingBox().getCenter());
+		helper.assertTrue(scene.vanillaPick().getMainEntity() == wolf, "Fixture: the vanilla pick is " + scene.vanillaPick());
+		float health = wolf.getHealth();
+		EntityActionInstance[] action = new EntityActionInstance[1];
+		scene.run(tick -> {
+			if (tick == 3) {
+				scene.sendClientAims();
+				action[0] = scene.press("barrage", InputMethod.HOLD);
+				helper.assertTrue(action[0] instanceof StandEntityBarrageAbility.StandEntityBarrage
+						&& !StandEntityBarrageAbility.isDirectionalBarrage(scene.stand, action[0]),
+						"Fixture: the barrage input started " + action[0] + ", not the locked barrage");
+				ActionTarget saved = savedTarget(action[0]);
+				helper.assertTrue((saved == null || saved.getMainEntity() != wolf) && (action[0].standRotationTarget == null
+						|| action[0].standRotationTarget.getMainEntity() != wolf), "The locked barrage pressed at the user's own"
+								+ " wolf saved " + saved + " and turns the Stand to " + action[0].standRotationTarget
+								+ "; 1.16 refused a pressed entity the Stand cannot attack");
+				return false;
+			}
+			if (tick < 3) {
+				return false;
+			}
+			helper.assertTrue(wolf.getHealth() >= health, "The locked barrage hurt the user's own wolf");
+			return tick > 12;
+		}, 30, () -> "The locked barrage test timed out");
+	}
+
 	// the grab (a port move) takes only an entity the Stand can attack (StandEntityGrab picks with canStandHit); one that
 	// becomes the user's own while held is spared by the grab's punches, as 1.16's StandEntity.attackEntity refused any
 	// main target the Stand could not harm
