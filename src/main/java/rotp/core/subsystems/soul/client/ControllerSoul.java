@@ -8,6 +8,7 @@ import rotp.core.network.c2s.ClRemovePlayerSoulEntityPacket;
 import rotp.core.network.c2s.ClSoulRotationPacket;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.standpower.StandPower;
+import rotp.core.subsystems.soul.SoulAscensionClientState;
 import rotp.core.subsystems.soul.SoulEntity;
 
 import net.minecraft.client.Minecraft;
@@ -36,8 +37,7 @@ public final class ControllerSoul {
 	private static final int SOUL_BAR_WIDTH = 182;
 	private static final int SOUL_BAR_HEIGHT = 5;
 	private static SoulEntity playerSoulEntity;
-	private static boolean firstDeathFrame;
-	private static boolean soulEntityWaiting;
+	private static final SoulAscensionClientState STATE = new SoulAscensionClientState();
 	private static boolean jumpWasDown;
 
 	private ControllerSoul() {}
@@ -47,40 +47,26 @@ public final class ControllerSoul {
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.player == null) {
 			playerSoulEntity = null;
-			firstDeathFrame = false;
-			soulEntityWaiting = false;
+			STATE.reset();
 			jumpWasDown = false;
 			return;
 		}
 
-		updatePlayerSoul(mc);
+		boolean playerDead = mc.player.isDeadOrDying();
+		updatePlayerSoul(mc, playerDead);
 		boolean soulCamera = isCameraEntityPlayerSoul();
-		if (mc.player.isDeadOrDying()) {
-			if (soulEntityWaiting && playerSoulEntity != null) {
-				soulEntityWaiting = false;
-			}
-			if (soulEntityWaiting || soulCamera) {
-				mc.player.deathTime = Math.min(mc.player.deathTime, 18);
-				ClientProxy.setOverlayMessage(Component.translatable(
-						"jojo_ripples.message.skip_soul_ascension", Component.keybind("key.jump")), false);
-			}
-		}
-		else {
-			if (!firstDeathFrame) {
-				firstDeathFrame = true;
-			}
-			soulEntityWaiting = false;
-		}
-
-		if (soulCamera) {
+		if (STATE.showsSkipPrompt(playerDead)) {
 			mc.player.deathTime = Math.min(mc.player.deathTime, 18);
 			ClientProxy.setOverlayMessage(Component.translatable(
 					"jojo_ripples.message.skip_soul_ascension", Component.keybind("key.jump")), false);
+		}
+
+		if (soulCamera) {
 			PacketDistributor.sendToServer(new ClSoulRotationPacket(
 					playerSoulEntity.getId(), playerSoulEntity.getYRot(), playerSoulEntity.getXRot()));
 		}
 
-		if (soulCamera || soulEntityWaiting) {
+		if (soulCamera || STATE.awaitsSoul()) {
 			boolean jumpDown = mc.options.keyJump.isDown();
 			if (jumpDown && !jumpWasDown) {
 				skipAscension();
@@ -92,7 +78,7 @@ public final class ControllerSoul {
 		}
 	}
 
-	private static void updatePlayerSoul(Minecraft mc) {
+	private static void updatePlayerSoul(Minecraft mc, boolean playerDead) {
 		Entity cameraEntity = mc.getCameraEntity();
 		if (cameraEntity instanceof SoulEntity soulEntity
 				&& soulEntity.getOriginEntity() == mc.player
@@ -100,17 +86,19 @@ public final class ControllerSoul {
 			playerSoulEntity = soulEntity;
 		}
 
-		if (playerSoulEntity != null) {
-			if (!playerSoulEntity.isAlive() || !mc.player.isDeadOrDying() || mc.player.isSpectator()) {
-				if (cameraEntity == playerSoulEntity) {
-					ClientUtil.setCameraEntityPreventShaderSwitch(mc.player);
-				}
-				playerSoulEntity = null;
-				return;
+		STATE.tick(playerSoulEntity != null && playerSoulEntity.isAlive() && playerSoulEntity.getOriginEntity() == mc.player,
+				playerDead, mc.player.isSpectator());
+		if (playerSoulEntity == null) {
+			return;
+		}
+		if (!STATE.followsSoul()) {
+			if (cameraEntity == playerSoulEntity) {
+				ClientUtil.setCameraEntityPreventShaderSwitch(mc.player);
 			}
-			if (cameraEntity != playerSoulEntity) {
-				ClientUtil.setCameraEntityPreventShaderSwitch(playerSoulEntity);
-			}
+			playerSoulEntity = null;
+		}
+		else if (cameraEntity != playerSoulEntity) {
+			ClientUtil.setCameraEntityPreventShaderSwitch(playerSoulEntity);
 		}
 	}
 
@@ -128,8 +116,8 @@ public final class ControllerSoul {
 			PacketDistributor.sendToServer(new ClRemovePlayerSoulEntityPacket(playerSoulEntity.getId()));
 			playerSoulEntity.skipAscension();
 		}
-		else if (soulEntityWaiting) {
-			soulEntityWaiting = false;
+		else {
+			STATE.stopWaiting();
 		}
 	}
 
@@ -179,17 +167,13 @@ public final class ControllerSoul {
 			if (standPower == null && mc.player != null) {
 				standPower = StandPower.get(mc.player);
 			}
-			if (!soulEntityWaiting && firstDeathFrame && standPower != null && standPower.willSoulSpawn()) {
-				soulEntityWaiting = true;
-				firstDeathFrame = false;
-			}
-			if (isCameraEntityPlayerSoul() || soulEntityWaiting) {
+			if (STATE.holdsDeathScreen(isCameraEntityPlayerSoul(), standPower != null && standPower.willSoulSpawn())) {
 				event.setNewScreen(null);
 			}
 		}
 	}
 
 	public static void onSoulFailedSpawn() {
-		soulEntityWaiting = false;
+		STATE.stopWaiting();
 	}
 }

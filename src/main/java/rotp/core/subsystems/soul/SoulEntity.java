@@ -106,8 +106,7 @@ public class SoulEntity extends Entity implements IEntityWithComplexSpawn {
 	public void tick() {
 		super.tick();
 		resolveOriginEntity();
-		if (originEntity == null || originEntity.isRemoved()
-				|| tickCount > 1 && !originEntity.isDeadOrDying()) {
+		if (endedByOrigin(originEntity, tickCount, level().isClientSide())) {
 			restoreOriginCamera();
 			discard();
 			return;
@@ -131,6 +130,15 @@ public class SoulEntity extends Entity implements IEntityWithComplexSpawn {
 		originEntity.deathTime = Math.min(originEntity.deathTime, 18);
 		setDeltaMovement(RISE);
 		move(MoverType.SELF, RISE);
+	}
+
+	/**
+	 * Whether the soul ends with its origin. Only the server ends the soul of an origin that lives on (a revived one) and
+	 * the removal reaches its clients: a client gets the soul in the tick its origin dies but the origin's health of 0 only
+	 * with the server's next tick, and the 1.16 client, which checked too, dropped the soul when it ran two ticks between.
+	 */
+	public static boolean endedByOrigin(@Nullable LivingEntity origin, int tickCount, boolean clientSide) {
+		return origin == null || origin.isRemoved() || !clientSide && tickCount > 1 && !origin.isDeadOrDying();
 	}
 
 	private void resolveOriginEntity() {
