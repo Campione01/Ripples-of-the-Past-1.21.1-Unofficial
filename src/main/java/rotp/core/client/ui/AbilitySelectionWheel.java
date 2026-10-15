@@ -287,8 +287,11 @@ public class AbilitySelectionWheel extends Screen implements ScreenLetsUseWASD {
 				if (abilityPath == null) continue;
 				Power<?> power = ClientPowerCache.getPower(abilityPath.powerClass());	if (power == null) continue;
 				Moveset moveset = power.getMoveset();									if (moveset == null) continue;
-				Ability ability = moveset.getAbility(abilityPath.abilityName());		if (ability == null) continue;
-				
+				// 1.16 drawHotbarText named the action the slot resolves to now, the one its icon shows
+				AbilityConditionCheck resolved = abilityPath.getAbility();
+				Ability ability = resolved != null ? resolved.ability : moveset.getAbility(abilityPath.abilityName());
+				if (ability == null) continue;
+
 				abilityNames.add(ability.getName(power).copy().withStyle(ChatFormatting.BLACK));
 			}
 		}

@@ -1,6 +1,7 @@
 package rotp.core.impl.stands._entitybase;
 
 import rotp.core.client.input.AbilityInputState;
+import rotp.core.client.ui.utils.GuiItemIcon;
 import rotp.core.customobjects.entity_projectile.ThrownNuggetBearingEntity;
 import rotp.core.init.ModSoundEvents;
 import rotp.core.powersystem.Power;
@@ -73,7 +74,7 @@ public class StandBearingShotAbility extends StandEntityAbility {
 			}
 		}
 
-		guiGraphics.renderFakeItem(item, (int) x, (int) y);
+		GuiItemIcon.render(guiGraphics, null, item, (int) x, (int) y, color);
 	}
 
 	public static boolean canShoot(ItemStack item) {

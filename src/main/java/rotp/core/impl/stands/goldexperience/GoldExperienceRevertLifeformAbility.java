@@ -2,6 +2,7 @@ package rotp.core.impl.stands.goldexperience;
 
 import java.util.Optional;
 
+import rotp.core.client.ui.utils.GuiItemIcon;
 import rotp.core.core.JojoMod;
 import rotp.core.init.power.ModStandAbilities;
 import rotp.core.powersystem.Power;
@@ -43,7 +44,7 @@ public class GoldExperienceRevertLifeformAbility extends GoldExperienceUtilityAb
                 .map(GECreatedLifeformEffect::getItemView)
                 .filter(item -> !item.isEmpty())
                 .ifPresentOrElse(
-                        item -> guiGraphics.renderItem(item, (int) x, (int) y),
+                        item -> GuiItemIcon.render(guiGraphics, context.getUser(), item, (int) x, (int) y, color),
                         () -> super.renderAbilityIcon(context, guiGraphics, sprite, x, y, color));
     }
 

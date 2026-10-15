@@ -189,6 +189,7 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 	public static class StandEntityHeavyPunch extends EntityActionInstance {
 		protected LivingEntity punchTarget;
 		public float finisherValue;
+		private boolean finisherValueSynced;
 		public boolean playedSwingSound;
 		public boolean playedStandCrySound;
 		/**
@@ -220,11 +221,14 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 				if (usesHeavyFinisherSetup()) {
 					if (!level.isClientSide()) {
 						stand.setHeavyPunchFinisher();
-					}
-					finisherValue = stand.getLastHeavyFinisherValue();
-					phasesLength.put(ActionPhase.RECOVERY, StandStatFormulas.getHeavyAttackRecovery(stand.getAttackSpeed(), finisherValue));
-					if (!level.isClientSide()) {
+						finisherValue = stand.getLastHeavyFinisherValue();
+						phasesLength.put(ActionPhase.RECOVERY, StandStatFormulas.getHeavyAttackRecovery(stand.getAttackSpeed(), finisherValue));
 						stand.addFinisherMeter(-0.51F, 0);
+					}
+					// the client gets the action before the Stand's new snapshot: the server's value and recovery come
+					// with the action (toBuf, phase lengths), as 1.16's onClick took it on the client too
+					else if (!finisherValueSynced) {
+						finisherValue = stand.getLastHeavyFinisherValue();
 					}
 				}
 			}
@@ -232,6 +236,19 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 
 		protected boolean usesHeavyFinisherSetup() {
 			return true;
+		}
+
+		@Override
+		public void toBuf(FriendlyByteBuf buf) {
+			super.toBuf(buf);
+			buf.writeFloat(finisherValue);
+		}
+
+		@Override
+		public void fromBuf(FriendlyByteBuf buf) {
+			super.fromBuf(buf);
+			finisherValue = buf.readFloat();
+			finisherValueSynced = true;
 		}
 
 		// 1.16 StandEntityHeavyAttack.standTickWindup: the swing sound with 3 windup ticks left

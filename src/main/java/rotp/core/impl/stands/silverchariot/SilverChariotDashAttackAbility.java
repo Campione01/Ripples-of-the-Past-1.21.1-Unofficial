@@ -70,13 +70,11 @@ public class SilverChariotDashAttackAbility extends StandEntityAbility {
 
 	/** 1.16 StandEntityHeavyAttack onClick/onTaskSet: snapshot the finisher meter, recover by it, spend 0.51. */
 	static void setHeavyFinisher(EntityActionInstance action, StandEntity stand) {
-		boolean server = !stand.level().isClientSide();
-		if (server) {
+		// the client keeps the recovery the action came with: its copy of the snapshot is still the previous one
+		if (!stand.level().isClientSide()) {
 			stand.setHeavyPunchFinisher();
-		}
-		action.phasesLength.put(ActionPhase.RECOVERY, StandStatFormulas.getHeavyAttackRecovery(
-				stand.getAttackSpeed(), stand.getLastHeavyFinisherValue()));
-		if (server) {
+			action.phasesLength.put(ActionPhase.RECOVERY, StandStatFormulas.getHeavyAttackRecovery(
+					stand.getAttackSpeed(), stand.getLastHeavyFinisherValue()));
 			stand.addFinisherMeter(-0.51F, 0);
 		}
 	}

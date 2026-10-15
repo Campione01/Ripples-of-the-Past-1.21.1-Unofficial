@@ -5,6 +5,7 @@ import java.lang.reflect.Constructor;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import rotp.core.client.ui.utils.GuiItemIcon;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
@@ -49,6 +50,35 @@ public final class UnusableAbilityIconTintSmokeTest {
 				&& wheel.substring(icon, iconEnd).contains("PowerHudControlsElement.abilityColor("),
 				"the selection wheel must take the unusable icon tint from the hotbar rule");
 		check(!wheel.contains("0xFF606060"), "the selection wheel still has its own unusable icon colour");
+		int tooltip = wheel.indexOf("hoveredSlot.getBaseBind(inputMethod)");
+		int tooltipName = wheel.indexOf("abilityNames.add(", tooltip);
+		check(tooltip >= 0 && tooltipName > tooltip, "the selection wheel tooltip loop was not found");
+		String tooltipLoop = wheel.substring(tooltip, tooltipName);
+		check(tooltipLoop.contains("abilityPath.getAbility()")
+				&& tooltipLoop.indexOf("abilityPath.getAbility()") < tooltipLoop.indexOf("moveset.getAbility("),
+				"the selection wheel must name the ability the slot resolves to, as its icon and 1.16 drawHotbarText do");
+
+		// owner decision 2026-10-15: icons drawn from an item dim and fade like the others
+		assertColor(new float[] { 0.2F, 0.2F, 0.2F, 128 / 255.0F },
+				GuiItemIcon.shaderColor(PowerHudControlsElement.abilityColor(opaque, refused)),
+				"an unusable item icon must be drawn with the unusable brightness and alpha");
+		assertColor(new float[] { 0.2F, 0.2F, 0.2F, 0x20 / 255.0F },
+				GuiItemIcon.shaderColor(PowerHudControlsElement.abilityColor(dimmedControls, refused)),
+				"an unusable item icon must fade with the disabled controls");
+		assertColor(new float[] { 1.0F, 1.0F, 1.0F, 0x40 / 255.0F }, GuiItemIcon.shaderColor(dimmedControls),
+				"an item icon must fade with the disabled controls");
+		check(GuiItemIcon.needsTranslucentPass(PowerHudControlsElement.abilityColor(opaque, refused)),
+				"a half-transparent item icon must be drawn as translucent");
+		check(!GuiItemIcon.needsTranslucentPass(opaque), "an opaque item icon must keep its own render type");
+		for (String itemIcon : new String[] {
+				"src/main/java/rotp/core/impl/stands/goldexperience/GoldExperienceRevertLifeformAbility.java",
+				"src/main/java/rotp/core/impl/stands/_entitybase/StandBearingShotAbility.java" }) {
+			String source = read(root.resolve(itemIcon));
+			check(source.contains("GuiItemIcon.render(") && source.contains(", color)"),
+					itemIcon + " must draw its item icon with the colour the HUD passes in");
+			check(!source.contains("guiGraphics.renderItem(") && !source.contains("guiGraphics.renderFakeItem("),
+					itemIcon + " still draws its item icon without the HUD colour");
+		}
 
 		System.out.println("Unusable ability icon tint smoke test passed");
 	}
@@ -74,6 +104,15 @@ public final class UnusableAbilityIconTintSmokeTest {
 		if (expected != actual) {
 			throw new AssertionError(message + ": expected 0x" + Integer.toHexString(expected)
 					+ " but was 0x" + Integer.toHexString(actual));
+		}
+	}
+
+	private static void assertColor(float[] expected, float[] actual, String message) {
+		for (int i = 0; i < 4; i++) {
+			if (Math.abs(expected[i] - actual[i]) > 1.0E-6F) {
+				throw new AssertionError(message + ": expected " + java.util.Arrays.toString(expected)
+						+ " but was " + java.util.Arrays.toString(actual));
+			}
 		}
 	}
 
