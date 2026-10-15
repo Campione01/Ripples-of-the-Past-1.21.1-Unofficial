@@ -142,6 +142,8 @@ public final class VampireBloodDrainReachGameTests {
         private GameTestLight.Wait light;
         private int userTicks;
         private int targetTicks;
+        private int grantedUserTicks;
+        private int grantedTargetTicks;
         private boolean pressed;
         private boolean closed;
 
@@ -188,18 +190,6 @@ public final class VampireBloodDrainReachGameTests {
             user.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
             user.setItemInHand(InteractionHand.OFF_HAND, ItemStack.EMPTY);
             helper.assertTrue(level.addFreshEntity(user), "Could not add Drain user");
-            power = PowerClass.PLAYER_POWER.attachGet(user);
-            power.setPowerType(ModPlayerPowers.VAMPIRISM.get());
-            data = PlayerPower.getPowerData(user, ModPlayerPowers.VAMPIRISM).orElseThrow();
-            data.setVampireFullPower(true, user);
-            user.setHealth(user.getMaxHealth());
-            VampirismState.get(user).blood().setCurrent(100.0F);
-            data.setBloodLevel(100.0F);
-            var found = power.getAbility("vampirism_blood_drain");
-            helper.assertTrue(found instanceof VampirismBloodDrainAbility
-                            && found.abilityType == VampirismPowerType.VAMPIRE_BLOOD_DRAIN.get(),
-                    "Missing vampire_blood_drain type at vampirism_blood_drain moveset entry");
-            ability = (VampirismBloodDrainAbility) found;
 
             target = EntityType.COW.create(level);
             helper.assertTrue(target != null, "Could not create Drain target");
@@ -214,6 +204,25 @@ public final class VampireBloodDrainReachGameTests {
             registerObservers();
             log("setup user=" + user.getUUID() + " target=" + target.getUUID() + " separation=" + scenario.separation
                     + " noGravity=true cowAI=true speed=0 roofAndFloor=" + blocks.size() + " difficulty=" + level.getDifficulty());
+        }
+
+        // a vampire in the sun the light engine has not yet taken away is burned, so the user is a plain player until then
+        private void grantPower() {
+            power = PowerClass.PLAYER_POWER.attachGet(user);
+            power.setPowerType(ModPlayerPowers.VAMPIRISM.get());
+            data = PlayerPower.getPowerData(user, ModPlayerPowers.VAMPIRISM).orElseThrow();
+            data.setVampireFullPower(true, user);
+            user.setHealth(user.getMaxHealth());
+            VampirismState.get(user).blood().setCurrent(100.0F);
+            data.setBloodLevel(100.0F);
+            var found = power.getAbility("vampirism_blood_drain");
+            helper.assertTrue(found instanceof VampirismBloodDrainAbility
+                            && found.abilityType == VampirismPowerType.VAMPIRE_BLOOD_DRAIN.get(),
+                    "Missing vampire_blood_drain type at vampirism_blood_drain moveset entry");
+            ability = (VampirismBloodDrainAbility) found;
+            grantedUserTicks = userTicks;
+            grantedTargetTicks = targetTicks;
+            log("grant userTicks=" + userTicks + " sky=" + level.canSeeSky(BlockPos.containing(user.getEyePosition())));
         }
 
         private void putBlock(BlockPos pos, BlockState state) {
@@ -388,7 +397,8 @@ public final class VampireBloodDrainReachGameTests {
                 if (!light.settled(helper, "the roof")) { helper.runAfterDelay(1, this::poll); return; }
                 helper.assertTrue(light.ticksSinceSettled(helper) < 45,
                         "Drain watchdog ticks=" + userTicks + "/" + targetTicks + " samples=" + samples.size());
-                if (!pressed && userTicks >= 2 && targetTicks >= 2) {
+                if (power == null) grantPower();
+                if (!pressed && userTicks >= grantedUserTicks + 2 && targetTicks >= grantedTargetTicks + 2) {
                     helper.assertTrue(blocks.keySet().stream().allMatch(pos -> level.getBlockState(pos).is(Blocks.STONE)),
                             "Owned Drain shade or floor changed before input");
                     BlockPos eye = BlockPos.containing(user.getEyePosition());
