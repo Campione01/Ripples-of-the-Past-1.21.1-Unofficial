@@ -82,16 +82,17 @@ import rotp.core.subsystems.target.ActionTarget;
 public final class HungryZombieOwnerGoalGameTests {
     private HungryZombieOwnerGoalGameTests() {}
 
-    @GameTest(template = "empty", batch = "hungry_zombie_follow_far", timeoutTicks = 260)
+    // the ticks are only a ceiling for the real-time wait of the light engine (GameTestLight)
+    @GameTest(template = "empty", batch = "hungry_zombie_follow_far", timeoutTicks = 4000)
     public static void summonedZombieDoesNotStartFreshFarOwnerNavigation(GameTestHelper helper) { start(helper, Lane.FAR_FOLLOW); }
 
-    @GameTest(template = "empty", batch = "hungry_zombie_follow_spectator", timeoutTicks = 260)
+    @GameTest(template = "empty", batch = "hungry_zombie_follow_spectator", timeoutTicks = 4000)
     public static void summonedZombieDoesNotAdmitNewSpectatorOwnerFollow(GameTestHelper helper) { start(helper, Lane.SPECTATOR); }
 
-    @GameTest(template = "empty", batch = "hungry_zombie_follow_passenger", timeoutTicks = 260)
+    @GameTest(template = "empty", batch = "hungry_zombie_follow_passenger", timeoutTicks = 4000)
     public static void summonedPassengerDoesNotRequestFreshOwnerNavigation(GameTestHelper helper) { start(helper, Lane.PASSENGER); }
 
-    @GameTest(template = "empty", batch = "hungry_zombie_owner_melee_far", timeoutTicks = 260)
+    @GameTest(template = "empty", batch = "hungry_zombie_owner_melee_far", timeoutTicks = 4000)
     public static void summonedZombieDoesNotAdmitFreshFarOwnerMeleeTarget(GameTestHelper helper) { start(helper, Lane.OWNER_ATTACK); }
 
     private enum Lane { FAR_FOLLOW, SPECTATOR, PASSENGER, OWNER_ATTACK }
@@ -106,8 +107,8 @@ public final class HungryZombieOwnerGoalGameTests {
 
     private static final class Fixture implements AutoCloseable, GameTestListener {
         private static final short KEY = 61, DRAIN_KEY = 62;
-        private static final int LIGHT_WAIT_TICKS = 100;
         private long pressTick;
+        private GameTestLight.Wait light;
         private final GameTestHelper helper;
         private final ServerLevel level;
         private final Lane lane;
@@ -203,6 +204,7 @@ public final class HungryZombieOwnerGoalGameTests {
                 put(new BlockPos(chunk.getMinBlockX(), (int) floorY + h, chunk.getMinBlockZ() + i));
                 put(new BlockPos(chunk.getMinBlockX() + 15, (int) floorY + h, chunk.getMinBlockZ() + i));
             }
+            light = new GameTestLight.Wait(level, chunk);
             observeEvents();
             owner = new FakePlayer(level, new GameProfile(UUID.randomUUID(), "HungryOwner"));
             owned.add(owner);
@@ -320,8 +322,9 @@ public final class HungryZombieOwnerGoalGameTests {
             for (WrappedGoal goal : each.goalSelector.getAvailableGoals()) if (goal.getGoal() instanceof RandomStrollGoal) strolls.add(goal.getGoal());
             strolls.forEach(each.goalSelector::removeGoal);
         }
-        // The light engine darkens the room some ticks after its roof is placed. Until then a zombie in it still reads
-        // full sky light and, by day, catches fire on about one tick in 25.
+        // The light engine, on a thread of its own, darkens the room some ticks after its roof is placed, under load many
+        // ticks. Until then a zombie in it still reads full sky light and, by day, catches fire on about one tick in 25.
+        // The wait for it is timed in real time (GameTestLight), as the server does not pace its ticks.
         private int brightestSkyLight() {
             int brightest = 0;
             for (int ix = 1; ix <= 14; ix++) for (int iz = 1; iz <= 14; iz++) for (int h = 0; h < 4; h++) {
@@ -451,8 +454,10 @@ public final class HungryZombieOwnerGoalGameTests {
                 if (observerFailure instanceof Error error) throw error;
                 if (!pressed) {
                     int skyLight = brightestSkyLight();
-                    premise(helper.getTick() < LIGHT_WAIT_TICKS, "room sky light did not settle, brightest=" + skyLight);
-                    if (ownerPosts >= 3 && skyLight == 0) { pressTick = helper.getTick(); press(); }
+                    boolean dark = light.done() && skyLight == 0;
+                    premise(dark || !light.stalled(), "room sky light did not settle after " + light.millis() + " ms, lightDone="
+                            + light.done() + " brightest=" + skyLight);
+                    if (ownerPosts >= 3 && dark) { pressTick = helper.getTick(); press(); }
                     again(); return;
                 }
                 premise(helper.getTick() - pressTick < 130, "finite natural AI watchdog");

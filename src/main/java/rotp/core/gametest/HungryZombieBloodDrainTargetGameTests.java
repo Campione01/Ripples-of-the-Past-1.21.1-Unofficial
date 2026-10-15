@@ -79,13 +79,14 @@ import rotp.core.subsystems.target.ActionTarget;
 public final class HungryZombieBloodDrainTargetGameTests {
     private HungryZombieBloodDrainTargetGameTests() {}
 
-    @GameTest(template = "empty", batch = "hungry_zombie_non_drain_source", timeoutTicks = 280)
+    // the ticks are only a ceiling for the real-time wait of the light engine (GameTestLight)
+    @GameTest(template = "empty", batch = "hungry_zombie_non_drain_source", timeoutTicks = 4000)
     public static void freshNonDrainVictimSourceDoesNotAdmitOwnerTarget(GameTestHelper helper) { start(helper, Lane.MELEE); }
 
-    @GameTest(template = "empty", batch = "hungry_zombie_registered_drain_source", timeoutTicks = 280)
+    @GameTest(template = "empty", batch = "hungry_zombie_registered_drain_source", timeoutTicks = 4000)
     public static void actualRegisteredDrainOnThePrimedVictimAdmitsOwnerTarget(GameTestHelper helper) { start(helper, Lane.DRAIN); }
 
-    @GameTest(template = "empty", batch = "hungry_zombie_expired_victim_source", timeoutTicks = 280)
+    @GameTest(template = "empty", batch = "hungry_zombie_expired_victim_source", timeoutTicks = 4000)
     public static void naturallyExpiredVictimSourceAdmitsTheUnconsumedOwnerEvent(GameTestHelper helper) { start(helper, Lane.EXPIRED); }
 
     private enum Lane { MELEE, DRAIN, EXPIRED }
@@ -115,8 +116,8 @@ public final class HungryZombieBloodDrainTargetGameTests {
 
     private static final class Fixture implements AutoCloseable, GameTestListener {
         private static final short SUMMON_KEY = 67, DRAIN_KEY = 68;
-        private static final int LIGHT_WAIT_TICKS = 100;
         private long readyTick;
+        private GameTestLight.Wait light;
         private final GameTestHelper helper;
         private final ServerLevel level;
         private final Lane lane;
@@ -195,8 +196,9 @@ public final class HungryZombieBloodDrainTargetGameTests {
             for (WrappedGoal goal : each.goalSelector.getAvailableGoals()) if (goal.getGoal() instanceof RandomStrollGoal) strolls.add(goal.getGoal());
             strolls.forEach(each.goalSelector::removeGoal);
         }
-        // The light engine darkens the room some ticks after its roof is placed. Until then a zombie in it still reads
-        // full sky light and, by day, catches fire on about one tick in 25.
+        // The light engine, on a thread of its own, darkens the room some ticks after its roof is placed, under load many
+        // ticks. Until then a zombie in it still reads full sky light and, by day, catches fire on about one tick in 25.
+        // The wait for it is timed in real time (GameTestLight), as the server does not pace its ticks.
         private int brightestSkyLight() {
             int brightest = 0;
             for (int ix = 1; ix <= 14; ix++) for (int iz = 1; iz <= 14; iz++) for (int h = 0; h < 4; h++) {
@@ -231,6 +233,7 @@ public final class HungryZombieBloodDrainTargetGameTests {
                 put(new BlockPos(chunk.getMinBlockX(), (int) floorY + h, chunk.getMinBlockZ() + i));
                 put(new BlockPos(chunk.getMinBlockX() + 15, (int) floorY + h, chunk.getMinBlockZ() + i));
             }
+            light = new GameTestLight.Wait(level, chunk);
             registerObservers();
             owner = new FakePlayer(level, new GameProfile(UUID.randomUUID(), "HungrySource")); owned.add(owner);
             owner.setGameMode(GameType.SURVIVAL);
@@ -539,8 +542,10 @@ public final class HungryZombieBloodDrainTargetGameTests {
                 state();
                 if (phase == Phase.OWNER_READY) {
                     int skyLight = brightestSkyLight();
-                    premise(helper.getTick() < LIGHT_WAIT_TICKS, "room sky light did not settle, brightest=" + skyLight);
-                    if (ownerPosts < 3 || skyLight != 0) { helper.runAfterDelay(1, this::poll); return; }
+                    boolean dark = light.done() && skyLight == 0;
+                    premise(dark || !light.stalled(), "room sky light did not settle after " + light.millis() + " ms, lightDone="
+                            + light.done() + " brightest=" + skyLight);
+                    if (ownerPosts < 3 || !dark) { helper.runAfterDelay(1, this::poll); return; }
                     readyTick = helper.getTick();
                     if (lane == Lane.EXPIRED) { victim = createVictim(); begin(Phase.ARM); }
                     else pressSummon();
