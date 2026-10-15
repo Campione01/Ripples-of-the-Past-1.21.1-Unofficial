@@ -30,6 +30,7 @@ import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.netcode.SyncType;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
+import rotp.core.powersystem.entityaction.type.SpecialEntityActionType;
 import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
@@ -80,6 +81,7 @@ public final class StandSkillWallsGameTests {
 	private static final String KEPT_WALL_BATCH = "stand_skill_walls_kept_wall";
 	private static final String MANUAL_STAND_AIM_BATCH = "stand_skill_walls_manual_stand_aim";
 	private static final String CHARGED_BATCH = "stand_skill_walls_charged";
+	private static final String USER_OWN_ACTION_BATCH = "stand_skill_walls_user_own_action";
 	private static final short KEY = 173;
 
 	@Nullable
@@ -397,6 +399,46 @@ public final class StandSkillWallsGameTests {
 		}, 80, () -> "The marked charged heavy punch did not strike");
 	}
 
+	// the mark of the Stand's action reaches the user's rays only while the user runs no action of its own; the Stand's
+	// marked punch keeps passing the wall either way
+	@GameTest(template = "empty", timeoutTicks = 20, batch = USER_OWN_ACTION_BATCH)
+	public static void aRayForTheUsersOwnActionStopsAtAWallWhileItsStandRunsAMarkedPunch(GameTestHelper helper) {
+		Scene scene = new Scene(helper);
+		LivingComponentAction standActions = LivingComponentAction.getComponent(scene.stand);
+		LivingComponentAction userActions = LivingComponentAction.getComponent(scene.user);
+		try {
+			Cow cow = scene.cowBehindWall();
+			scene.mark(true);
+			scene.clearAims();
+			standActions.setAction(scene.action("punch"), scene.user, SyncType.NO_SYNC);
+			ActionTarget idleUserRay = scene.userRay();
+			helper.assertTrue(idleUserRay.getMainEntity() == cow, "A ray from the eyes of a user with no action of its own"
+					+ " must follow its Stand's marked punch through the wall; got " + idleUserRay);
+			EntityActionInstance own = new SpecialEntityActionType(null, JojoMod.resLoc("test_user_own_action")) {}
+					.createActionObj();
+			userActions.setAction(own, scene.user, SyncType.NO_SYNC);
+			helper.assertTrue(LivingComponentAction.getCurEntityAction(scene.user) == own,
+					"Fixture: the user's own action did not start");
+			ActionTarget ownRay = scene.userRay();
+			helper.assertTrue(ownRay.getType() == ActionTarget.TargetType.BLOCK, "A ray the user casts for an action of its"
+					+ " own passed the wall during its Stand's marked punch; got " + ownRay);
+			ActionTarget punchTarget = StandEntityPunchAbility.getFreshPunchTarget(scene.stand, ActionTarget.EMPTY);
+			helper.assertTrue(punchTarget.getMainEntity() == cow, "The Stand's marked punch stopped at the wall while its user"
+					+ " ran an action of its own; got " + punchTarget);
+			helper.succeed();
+		}
+		finally {
+			userActions.setAction(null, scene.user, SyncType.NO_SYNC);
+			standActions.setAction(null, scene.user, SyncType.NO_SYNC);
+			scene.close();
+		}
+	}
+
+	@AfterBatch(batch = USER_OWN_ACTION_BATCH)
+	public static void releaseUserOwnActionBatch(ServerLevel level) {
+		releaseActive();
+	}
+
 	@AfterBatch(batch = KEPT_WALL_BATCH)
 	public static void releaseKeptWallBatch(ServerLevel level) {
 		releaseActive();
@@ -653,6 +695,12 @@ public final class StandSkillWallsGameTests {
 					"Fixture: an idle client's aims must stop at the wall; crosshair " + crosshair + ", Stand aim " + standAim);
 			LivingComponentAction.getComponent(user).entityAim.setTarget(crosshair);
 			LivingComponentAction.getComponent(stand).entityAim.setTarget(standAim);
+		}
+
+		// a ray from the user's eyes through the helper that asks StandSkillWalls for the user
+		ActionTarget userRay() {
+			return HitResultUtil.clip(user.getEyePosition(), user.getLookAngle(), 5, 5, helper.getLevel(),
+					entity -> entity instanceof Cow, user, 0);
 		}
 
 		void clearAims() {

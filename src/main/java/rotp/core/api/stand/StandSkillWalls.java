@@ -46,7 +46,8 @@ import net.minecraft.world.level.Level;
  * {@link StandEntityPunchAbility#throughWallsTarget}).</p>
  *
  * <p><b>Core helpers that honour the mark on their own.</b> They ask {@link #wallsHideEntities(Entity)}, which looks at
- * the skill in progress: the current action of the aiming entity, of the Stand it is, or of the Stand it has out.</p>
+ * the skill in progress: the current action of the aiming entity, or, for a Stand user that runs no action of its own,
+ * of the Stand it has out.</p>
  * <ul>
  * <li>{@link rotp.core.subsystems.target.HitResultUtil#clip(net.minecraft.world.phys.Vec3,
  * net.minecraft.world.phys.Vec3, double, double, Level, java.util.function.Predicate, Entity, double)} and
@@ -150,23 +151,26 @@ public final class StandSkillWalls {
 	}
 
 	/**
-	 * Whether blocks stop the entity pick or hit of the skill in progress: the current action of the aiming entity,
-	 * or, for a Stand user, of its summoned Stand.
+	 * Whether blocks stop the entity pick or hit of the skill in progress: the current action of the aiming entity. A
+	 * Stand user that runs no action of its own is taken to aim for its summoned Stand, whose skills cast their rays
+	 * from the user's eyes, so the Stand's current action answers; while the user runs an action of its own, its rays
+	 * serve that action and the Stand's mark does not reach them. The Stand's punches, heavy punches and barrages ask
+	 * {@link #wallsHideEntities(Level, Object)} with the Stand's own action for every ray they cast, the user's
+	 * included. A ray the user casts for something else while it runs no action (a power with no action, a delayed
+	 * effect) cannot be told apart here: such code passes the answer itself, as the class description says.
 	 */
 	public static boolean wallsHideEntities(@Nullable Entity aiming) {
 		if (aiming == null || noMarks() || !(aiming instanceof LivingEntity living)) {
 			return true;
 		}
 		Level level = living.level();
-		if (!wallsHideEntities(level, currentAction(living))) {
-			return false;
+		EntityActionInstance ownAction = currentAction(living);
+		if (ownAction != null || living instanceof StandEntity) {
+			return wallsHideEntities(level, ownAction);
 		}
-		if (!(living instanceof StandEntity)) {
-			StandPower power = StandPower.get(living);
-			StandEntity stand = power != null ? power.getSummonedStandEntity() : null;
-			return stand == null || wallsHideEntities(level, currentAction(stand));
-		}
-		return true;
+		StandPower power = StandPower.get(living);
+		StandEntity stand = power != null ? power.getSummonedStandEntity() : null;
+		return stand == null || wallsHideEntities(level, currentAction(stand));
 	}
 
 	@Nullable

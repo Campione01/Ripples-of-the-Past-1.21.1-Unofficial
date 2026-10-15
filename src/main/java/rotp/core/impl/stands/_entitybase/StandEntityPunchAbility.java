@@ -686,37 +686,34 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	 * from the Stand's own eyes. Without the aim assist only the crosshair: no precision ray, and the Stand's eyes only
 	 * under manual control. Walls block every ray, except for an action marked through walls ({@link StandSkillWalls}):
 	 * when all its ray meets is an entity out of the Stand's reach, the block the same aim meets is taken instead, so a
-	 * wall the user aims at is struck. Checked against the Stand's reach.
+	 * wall the user aims at is struck. Every ray, the user's too, follows the Stand's current action. Checked against the
+	 * Stand's reach.
 	 */
 	public static ActionTarget aimWithThisOrUser(StandEntity stand, @Nullable LivingEntity user, float partialTick,
 			Predicate<Entity> canTarget, boolean precisionAim) {
 		if (user != null && stand.aimsWithoutUser()) {
 			user = null;
 		}
-		boolean userRayWallsHide = user == null || StandSkillWalls.wallsHideEntities(user);
-		boolean standRayWallsHide = StandSkillWalls.wallsHideEntities(stand);
-		ActionTarget aim = pickWithThisOrUser(stand, user, partialTick, canTarget, precisionAim,
-				userRayWallsHide, standRayWallsHide);
+		boolean wallsHideEntities = StandSkillWalls.wallsHideEntities(stand);
+		ActionTarget aim = pickWithThisOrUser(stand, user, partialTick, canTarget, precisionAim, wallsHideEntities);
 		ActionTarget target = validatePunchTarget(stand, aim);
-		if (target.getType() == TargetType.EMPTY && aim.getType() == TargetType.ENTITY
-				&& !(userRayWallsHide && standRayWallsHide)) {
-			target = validatePunchTarget(stand, pickWithThisOrUser(stand, user, partialTick, canTarget, precisionAim,
-					true, true));
+		if (!wallsHideEntities && target.getType() == TargetType.EMPTY && aim.getType() == TargetType.ENTITY) {
+			target = validatePunchTarget(stand, pickWithThisOrUser(stand, user, partialTick, canTarget, precisionAim, true));
 		}
 		return target;
 	}
 
 	private static ActionTarget pickWithThisOrUser(StandEntity stand, @Nullable LivingEntity user, float partialTick,
-			Predicate<Entity> canTarget, boolean precisionAim, boolean userRayWallsHide, boolean standRayWallsHide) {
+			Predicate<Entity> canTarget, boolean precisionAim, boolean wallsHideEntities) {
 		ActionTarget aim = ActionTarget.EMPTY;
 		boolean assist = aimAssist(stand.getUser());
 		if (user != null) {
 			aim = precisionAim && assist
-					? userPrecisionRayTarget(stand, user, canTarget, userRayWallsHide)
-					: userAimTarget(stand, user, partialTick, canTarget, userRayWallsHide);
+					? userPrecisionRayTarget(stand, user, canTarget, wallsHideEntities)
+					: userAimTarget(stand, user, partialTick, canTarget, wallsHideEntities);
 		}
 		if (aim.getType() == TargetType.EMPTY && (user == null || assist)) {
-			aim = standPrecisionRayTarget(stand, canTarget, standRayWallsHide);
+			aim = standPrecisionRayTarget(stand, canTarget, wallsHideEntities);
 		}
 		return aim;
 	}
@@ -775,10 +772,11 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	 * The user's own aim for a Stand attack. Without the aim assist, what the crosshair ray meets first from the user's
 	 * eyes at the user's reach; blocks stop the ray. With it, as 1.16's client and server did together: the vanilla pick
 	 * ({@link #crosshairPick}) while the Stand can reach it (EntityStandType.clientHitResult kept it, aimWithThisOrUser
-	 * kept a target in reach), otherwise 1.16's precision ray.
+	 * kept a target in reach), otherwise 1.16's precision ray. Walls follow the Stand's current action
+	 * ({@link StandSkillWalls}), not an action of the user's own.
 	 */
 	public static ActionTarget userAimTarget(StandEntity stand, LivingEntity user, float partialTick, Predicate<Entity> canTarget) {
-		return userAimTarget(stand, user, partialTick, canTarget, StandSkillWalls.wallsHideEntities(user));
+		return userAimTarget(stand, user, partialTick, canTarget, StandSkillWalls.wallsHideEntities(stand));
 	}
 
 	private static ActionTarget userAimTarget(StandEntity stand, LivingEntity user, float partialTick,
@@ -799,7 +797,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	 * block within its block interaction range, else a miss even with a block behind; a mob looks as far as its reach.
 	 */
 	public static ActionTarget crosshairPick(StandEntity stand, LivingEntity user, float partialTick, Predicate<Entity> canTarget) {
-		return crosshairPick(stand, user, partialTick, canTarget, StandSkillWalls.wallsHideEntities(user));
+		return crosshairPick(stand, user, partialTick, canTarget, StandSkillWalls.wallsHideEntities(stand));
 	}
 
 	private static ActionTarget crosshairPick(StandEntity stand, LivingEntity user, float partialTick,
@@ -831,7 +829,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			Predicate<Entity> aimable) {
 		Predicate<Entity> canTarget = aimable.and(entity -> entity != stand);
 		if (!aimAssist(user)) {
-			return strictCrosshairTarget(stand, user, 1.0F, canTarget, StandSkillWalls.wallsHideEntities(user));
+			return strictCrosshairTarget(stand, user, 1.0F, canTarget, StandSkillWalls.wallsHideEntities(stand));
 		}
 		if (vanillaPick.getType() == TargetType.BLOCK) {
 			return vanillaPick;
@@ -862,10 +860,10 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	 * 1.16 StandEntity.precisionRayTrace(user, getAimDistance(user)): the user's reach, the Stand's precision hitboxes,
 	 * and of several entities a player or Stand first, then a hostile mob, then the rest; else the block. An entity
 	 * behind a block on the ray is not picked, measured to the nearest point of its own box (the owner keeps walls
-	 * blocking the aim). As 1.16, sneaking does not change it.
+	 * blocking the aim), unless the Stand's current action is marked through walls. As 1.16, sneaking does not change it.
 	 */
 	public static ActionTarget userPrecisionRayTarget(StandEntity stand, LivingEntity user, Predicate<Entity> canTarget) {
-		return userPrecisionRayTarget(stand, user, canTarget, StandSkillWalls.wallsHideEntities(user));
+		return userPrecisionRayTarget(stand, user, canTarget, StandSkillWalls.wallsHideEntities(stand));
 	}
 
 	private static ActionTarget userPrecisionRayTarget(StandEntity stand, LivingEntity user, Predicate<Entity> canTarget,
