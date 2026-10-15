@@ -150,6 +150,34 @@ public final class TimeStopBehaviorPolicies {
 		BY_STAND.clear();
 	}
 
+	/**
+	 * Game tests only: binds the policy to the Stand type in place of whatever an add-on registered for it, until the
+	 * returned restore runs. No owner is recorded, so add-on registrations are neither blocked nor lost.
+	 */
+	@ApiStatus.Internal
+	public static synchronized Runnable overrideForGameTest(
+			ResourceLocation standType,
+			TimeStopBehaviorPolicy policy) {
+		Objects.requireNonNull(standType, "standType");
+		Objects.requireNonNull(policy, "policy");
+		Binding previous = BY_STAND.get(standType);
+		Binding override = new Binding(JojoMod.resLoc("game_test_override"), standType, policy);
+		BY_STAND.put(standType, override);
+		return () -> {
+			synchronized (TimeStopBehaviorPolicies.class) {
+				if (BY_STAND.get(standType) != override) {
+					return;
+				}
+				if (previous != null) {
+					BY_STAND.put(standType, previous);
+				}
+				else {
+					BY_STAND.remove(standType);
+				}
+			}
+		};
+	}
+
 	private record Binding(
 			ResourceLocation owner,
 			ResourceLocation standType,

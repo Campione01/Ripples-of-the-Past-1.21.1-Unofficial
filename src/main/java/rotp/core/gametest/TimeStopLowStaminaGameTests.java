@@ -150,7 +150,7 @@ public final class TimeStopLowStaminaGameTests {
 	 */
 	@GameTest(template = "empty", timeoutTicks = 60, batch = GameTestBatches.TIME_STOP)
 	public static void timeStopDeniedByItsStartupCostPolicyIsRefusedWithoutAStaminaMessage(GameTestHelper helper) {
-		registerDenyingPolicy();
+		Runnable restorePolicy = TimeStopBehaviorPolicies.overrideForGameTest(JojoMod.resLoc("the_world"), DENYING_POLICY);
 		Scene scene = new Scene(helper);
 		try {
 			scene.setUp();
@@ -168,30 +168,32 @@ public final class TimeStopLowStaminaGameTests {
 			helper.assertTrue(scene.instance() == null && scene.power.getStamina() == stamina,
 					"A denied time stop held to fire started " + scene.instance() + " or took stamina " + stamina + " -> "
 							+ scene.power.getStamina() + " after " + holdTicks + " ticks");
+			restorePolicy.run();
+			helper.assertTrue(!TimeStopBehaviorPolicies.resolveStartupCost(scene.power, scene.timeStop.getAbilityId(), null,
+					1.0F).isDenied(), "The test's denying policy stayed bound to The World after the test");
 		}
 		finally {
-			scene.close();
+			try {
+				scene.close();
+			}
+			finally {
+				restorePolicy.run();
+			}
 		}
 		helper.succeed();
 	}
 
 	private static final String DENIED_START_TAG = "rotp_gametest_time_stop_start_denied";
-	private static boolean denyingPolicyRegistered;
 
-	// The registry has no removal; the policy denies only users with the tag and passes every other start.
-	private static synchronized void registerDenyingPolicy() {
-		if (denyingPolicyRegistered) return;
-		TimeStopBehaviorPolicies.register(JojoMod.resLoc("time_stop_denied_start_gametest"), JojoMod.resLoc("the_world"),
-				new TimeStopBehaviorPolicy() {
-					@Override
-					public TimeStopStartupCostDecision startupCost(TimeStopStartupCostContext context) {
-						LivingEntity user = context.power().getUser();
-						return user != null && user.getTags().contains(DENIED_START_TAG)
-								? TimeStopStartupCostDecision.deny() : TimeStopStartupCostDecision.pass();
-					}
-				});
-		denyingPolicyRegistered = true;
-	}
+	// in place of any add-on's The World policy for this test only; it denies only users with the tag
+	private static final TimeStopBehaviorPolicy DENYING_POLICY = new TimeStopBehaviorPolicy() {
+		@Override
+		public TimeStopStartupCostDecision startupCost(TimeStopStartupCostContext context) {
+			LivingEntity user = context.power().getUser();
+			return user != null && user.getTags().contains(DENIED_START_TAG)
+					? TimeStopStartupCostDecision.deny() : TimeStopStartupCostDecision.pass();
+		}
+	};
 
 	private static final class Scene {
 		private final GameTestHelper helper;
