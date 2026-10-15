@@ -367,8 +367,9 @@ public class HamonRebuffOverdriveAbility extends HamonActionRuntimeAbility {
 			float preEnergy = hamon.getEnergy();
 			float efficiency = hamon.getActionEfficiency(ENERGY_COST, true, ModHamonSkills.REBUFF_OVERDRIVE.get(), user);
 			float damage = (properCounter ? COUNTER_DAMAGE : NORMAL_DAMAGE) * efficiency;
-			// 1.16 punch: the Hamon part lands only on a target that takes it; the punch and the counter happen anyway
-			boolean hamonHit = efficiency > 0.0F && HamonAbilityHelpers.hamonHurt(target, user, damage);
+			// 1.16 punch: the Hamon part lands only on a target that takes it, a hit of 0 at no efficiency included;
+			// the punch and the counter happen anyway
+			boolean hamonHit = HamonAbilityHelpers.hamonHurt(target, user, damage);
 			if (hamonHit) {
 				if (properCounter) {
 					level().playSound(null, target, ModSoundEvents.HAMON_REBUFF_PUNCH.get(),
