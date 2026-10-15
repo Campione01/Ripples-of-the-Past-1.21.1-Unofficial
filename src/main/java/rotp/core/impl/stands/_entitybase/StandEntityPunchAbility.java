@@ -261,7 +261,8 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			// 1.16 replayed the punch cry with every new punch task, chained ones too (StandEntityLightAttack.getSounds)
 			playedStandCrySound = false;
 			if (performer instanceof StandEntity stand) {
-				if (stand.level().isClientSide()) {
+				// a failed input that puts this punch back keeps its hand
+				if (stand.level().isClientSide() || isRestoringInputLifecycle()) {
 					stand.applySyncedPunchingHand(punchingHand);
 				}
 				else {

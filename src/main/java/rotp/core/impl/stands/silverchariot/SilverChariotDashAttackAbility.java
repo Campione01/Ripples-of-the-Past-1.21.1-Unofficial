@@ -182,7 +182,8 @@ public class SilverChariotDashAttackAbility extends StandEntityAbility {
 		@Override
 		public void onSetPhase(ActionPhase newPhase) {
 			recoveryReread = readRecoveryAtEntry(this, newPhase);
-			if (newPhase != ActionPhase.PERFORM || !(getPerformer() instanceof StandEntity stand)) {
+			// a failed input that puts the dash back mid-dash keeps the stamina it paid, its path and what it hit
+			if (newPhase != ActionPhase.PERFORM || isRestoringInputLifecycle() || !(getPerformer() instanceof StandEntity stand)) {
 				return;
 			}
 			LivingEntity user = getPowerUser();

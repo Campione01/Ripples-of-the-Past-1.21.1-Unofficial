@@ -225,7 +225,10 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 		public void onActionSet(EntityActionInstance prevAction) {
 			aimAs = AimingEntity.STAND;
 			if (performer instanceof StandEntity stand) {
-				stand.alternateHands();
+				// a failed input that puts this punch back keeps the hand it took
+				if (!isRestoringInputLifecycle()) {
+					stand.alternateHands();
+				}
 				double minOffset = Math.min(0.5, stand.getEffectiveRange());
 				double maxOffset = Math.min(2, stand.getMaxRange());
 				ActionTarget target = setActionTargetSnapshot(StandEntityPunchAbility.pressTarget(

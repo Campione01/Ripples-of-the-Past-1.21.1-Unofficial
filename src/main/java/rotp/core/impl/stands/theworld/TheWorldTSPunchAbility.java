@@ -281,6 +281,11 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 					stand.setNoGravity(true);
 					stand.hurtMarked = true;
 					stand.summonLockTicks = 0;
+					// a failed input that puts this punch back keeps the blink, time skip and stamina it took
+					if (isRestoringInputLifecycle()) {
+						setActionTargetSnapshot(targetAfterBlink);
+						return;
+					}
 					boolean trainsTimeStop = !(ability instanceof TheWorldTSPunchAbility tsPunch) || tsPunch.trainsTimeStop;
 					TheWorldTSPunchAbility punchAbility = ability instanceof TheWorldTSPunchAbility tsPunchAbility ? tsPunchAbility : null;
 					ActionTarget target = blinkStandTowardTarget(stand, prevAction, trainsTimeStop, punchAbility);

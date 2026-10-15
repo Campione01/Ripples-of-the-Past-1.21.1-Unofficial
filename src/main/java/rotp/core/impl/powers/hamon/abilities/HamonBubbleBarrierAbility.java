@@ -51,7 +51,9 @@ public class HamonBubbleBarrierAbility extends HamonActionRuntimeAbility {
 		public void onActionSet(EntityActionInstance prevAction) {
 			Level level = level();
 			LivingEntity user = getPowerUser();
-			if (user != null && !level.isClientSide()) {
+			// a hold a failed input puts back keeps the barrier it is growing
+			if (user != null && !level.isClientSide()
+					&& !(isRestoringInputLifecycle() && chargingBarrier != null && chargingBarrier.isAlive())) {
 				chargingBarrier = new HamonBubbleBarrierEntity(level, user).setCharging();
 				level.addFreshEntity(chargingBarrier);
 			}
