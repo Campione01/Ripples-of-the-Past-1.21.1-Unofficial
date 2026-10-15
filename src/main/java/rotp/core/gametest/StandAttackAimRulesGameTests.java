@@ -245,6 +245,92 @@ public final class StandAttackAimRulesGameTests {
 		}, 60, () -> "The grab " + name + " never swung at the held wolf");
 	}
 
+	// 1.16 StandEntityMeleeBarrage.checkStandTarget refused every pressed target, so under manual control each hit aimed
+	// again from the Stand's own eyes (StandEntity.punch, aimWithThisOrUser skipping the user, precisionRayTrace(this,
+	// getAimDistance)): pressed at one cow, the barrage hits the other once the Stand turns to it. Without the aim assist
+	// the Stand's own crosshair ray decides the same way. With "keep attack target" (a port setting) it stays on the first.
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "manual_barrage")
+	public static void manuallyControlledBarrageAimsEveryHitFromTheStandsEyesAsIn116(GameTestHelper helper) {
+		manualBarrage(helper, true, false);
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "manual_barrage_off")
+	public static void manuallyControlledBarrageWithoutAimAssistAimsEveryHitWithTheStandsCrosshair(GameTestHelper helper) {
+		manualBarrage(helper, false, false);
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "manual_barrage_lock")
+	public static void manuallyControlledBarrageWithKeepAttackTargetStaysOnItsPressedTarget(GameTestHelper helper) {
+		manualBarrage(helper, true, true);
+	}
+
+	private static void manualBarrage(GameTestHelper helper, boolean aimAssist, boolean keepTarget) {
+		Scene scene = new Scene(helper, aimAssist);
+		scene.user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get()).standAttackTargetLock = keepTarget;
+		// small precision boxes, so that only the cow the Stand faces is on its rays, with the assist on too
+		scene.precision(0);
+		Vec3 standPos = scene.origin.add(0, 0, 1);
+		Cow first = scene.cow(-1.2, 2.2);
+		Cow second = scene.cow(1.2, 2.2);
+		scene.stand.setManuallyControlled(true);
+		helper.assertTrue(scene.stand.isManuallyControlled() && scene.stand.aimsWithoutUser(),
+				"Fixture: the Stand is not manually controlled");
+		String how = (keepTarget ? "locked " : "") + "barrage of a manually controlled Stand"
+				+ (aimAssist ? "" : " without the aim assist");
+		float firstHealth = first.getHealth();
+		float secondHealth = second.getHealth();
+		float[] firstAfterTurn = new float[1];
+		EntityActionInstance[] action = new EntityActionInstance[1];
+		scene.run(tick -> {
+			Cow facing = tick < 14 ? first : second;
+			scene.standAt(standPos, facing);
+			if (tick == 3) {
+				for (Cow cow : List.of(first, second)) {
+					scene.standAt(standPos, cow);
+					ActionTarget aim = StandEntityPunchAbility.aimWithThisOrUser(scene.stand, scene.user, 1,
+							entity -> entity != scene.stand && StandEntityPunchAbility.canStandHit(scene.stand, entity),
+							StandEntityPunchAbility.CrosshairRule.NONE, true);
+					helper.assertTrue(aim.getMainEntity() == cow, "Fixture: the Stand's own aim, facing " + cow
+							+ ", took " + aim);
+				}
+				scene.standAt(standPos, first);
+				// the Stand aim a client syncs under manual control
+				LivingComponentAction.getComponent(scene.stand).entityAim.setTargetFromClient(new ActionTarget(first),
+						helper.getLevel());
+				action[0] = scene.press("barrage", InputMethod.HOLD);
+				helper.assertTrue(action[0] instanceof StandEntityBarrageAbility.StandEntityBarrage,
+						"Fixture: the barrage input started " + action[0]);
+				return false;
+			}
+			if (tick < 3) {
+				return false;
+			}
+			if (tick == 13) {
+				helper.assertTrue(first.getHealth() < firstHealth && second.getHealth() >= secondHealth,
+						"The " + how + " pressed at the cow it faces did not hit it alone: " + first.getHealth() + " and "
+								+ second.getHealth() + " of " + firstHealth);
+			}
+			if (tick == 14) {
+				firstAfterTurn[0] = first.getHealth();
+			}
+			if (tick < 30) {
+				return false;
+			}
+			if (keepTarget) {
+				helper.assertTrue(second.getHealth() >= secondHealth && first.getHealth() < firstAfterTurn[0],
+						"The " + how + " left the cow it was pressed at when the Stand turned to the other: the first at "
+								+ first.getHealth() + " (" + firstAfterTurn[0] + " at the turn), the other at " + second.getHealth());
+			}
+			else {
+				helper.assertTrue(first.getHealth() >= firstAfterTurn[0] && second.getHealth() < secondHealth,
+						"The " + how + " kept hitting the cow it was pressed at after the Stand turned to the other: the first"
+								+ " at " + first.getHealth() + " (" + firstAfterTurn[0] + " at the turn), the other at "
+								+ second.getHealth() + "; 1.16 aimed every hit again from the Stand's eyes");
+			}
+			return true;
+		}, 40, () -> "The " + how + " test timed out");
+	}
+
 	private interface Step {
 		boolean run(int tick);
 	}
@@ -301,6 +387,20 @@ public final class StandAttackAimRulesGameTests {
 				block(feet.south(z), Blocks.STONE.defaultBlockState());
 			}
 			return feet.south(2);
+		}
+
+		void precision(double precision) {
+			user.getAttribute(ModEntityAttributes.STAND_PRECISION).setBaseValue(precision);
+			StandEntity.updateStandStatAttributes(stand, user);
+			stand.getAttribute(ModEntityAttributes.STAND_PRECISION).setBaseValue(precision);
+			helper.assertTrue(stand.getPrecision() == precision, "Fixture: the Stand's precision is " + stand.getPrecision());
+		}
+
+		// the Stand at the given place, its eyes turned to the middle of the entity, as its user turns it under manual control
+		void standAt(Vec3 pos, Entity facing) {
+			stand.moveTo(pos.x, pos.y, pos.z, stand.getYRot(), stand.getXRot());
+			stand.setDeltaMovement(Vec3.ZERO);
+			stand.lookAt(EntityAnchorArgument.Anchor.EYES, facing.getBoundingBox().getCenter());
 		}
 
 		boolean isStone(BlockPos pos) {

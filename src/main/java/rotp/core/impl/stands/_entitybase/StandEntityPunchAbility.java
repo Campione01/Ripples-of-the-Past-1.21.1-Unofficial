@@ -653,13 +653,17 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	}
 
 	/**
-	 * Whether an attack keeps the target it was pressed at instead of following its user's crosshair: always when no
-	 * user crosshair steers it (manual control, a Stand that aims without its user), for a grab and for an action that
-	 * is not a punch or barrage; otherwise as the user's "keep attack target" setting says.
+	 * Whether an attack keeps the target it was pressed at instead of aiming again: always for a grab and for an action
+	 * that is not a punch or barrage; the barrage only with its user's "keep attack target" setting, also under manual
+	 * control and for a Stand that aims without its user, since 1.16's barrage refused every pressed target
+	 * (StandEntityMeleeBarrage.checkStandTarget) and each hit aimed again from the Stand's own eyes there
+	 * (StandEntity.punch, aimWithThisOrUser); a punch always when no user crosshair steers it, otherwise as that setting says.
 	 */
 	public static boolean shouldRetainPunchTarget(StandEntity stand, EntityActionType ability) {
-		if (stand.aimsWithoutUser() || ability.getAbilityUsageCategory() == AbilityUsageGroup.GRAB
-				|| !isPunchOrBarrage(ability)) {
+		if (ability.getAbilityUsageCategory() == AbilityUsageGroup.GRAB || !isPunchOrBarrage(ability)) {
+			return true;
+		}
+		if (stand.aimsWithoutUser() && !(ability instanceof StandEntityBarrageAbility)) {
 			return true;
 		}
 		return PlayerClientBroadcastedSettings.isStandAttackTargetLockEnabled(stand.getUserPower());

@@ -190,8 +190,13 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 		return action instanceof StandEntityBarrage
 				&& action.ability instanceof StandEntityBarrageAbility
 				&& action.ability.getAbilityUsageCategory() == AbilityUsageGroup.COMBAT
-				&& stand.getUser() instanceof Player
+				&& stand.getUser() != null
 				&& !StandEntityPunchAbility.shouldRetainPunchTarget(stand, action.ability);
+	}
+
+	// the stamina rule of a player's default barrage: paid on the server and ended before an unpaid hit
+	private static boolean paysAsDefaultBarrage(StandEntity stand, boolean directional) {
+		return directional && stand.getUser() instanceof Player && !stand.aimsWithoutUser();
 	}
 
 	public static ActionTarget clipDirectionalBarrageTarget(
@@ -303,10 +308,10 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 			}
 			
 			if (getPhase() == ActionPhase.PERFORM && performer instanceof StandEntity stand) {
-				boolean directional = isDirectionalBarrage(stand, this);
+				boolean paysAsDefault = paysAsDefaultBarrage(stand, isDirectionalBarrage(stand, this));
 				StandPower standPower = StandPower.get(getPowerUser());
 				if (!level.isClientSide() && (curPhaseTick >= getHoldDurationMax(stand)
-						|| directional && (standPower == null || !standPower.consumeStamina(4, true)))) {
+						|| paysAsDefault && (standPower == null || !standPower.consumeStamina(4, true)))) {
 					hitsThisTick = 0;
 					stand.setBarrageHitsThisTick(0);
 					punchedTarget = null;
@@ -357,7 +362,7 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 					TrBarrageHitSoundPacket.send(stand, playSound, getBarrageHitSound(), soundPos);
 					punchedTarget = target;
 				}
-				if (standPower != null && (!directional || level.isClientSide())) {
+				if (standPower != null && (!paysAsDefault || level.isClientSide())) {
 					standPower.consumeStamina(4, true);
 				}
 			}
