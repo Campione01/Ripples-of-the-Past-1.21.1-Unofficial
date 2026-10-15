@@ -89,7 +89,8 @@ public class StandBearingShotAbility extends StandEntityAbility {
 
 		@Override
 		public void onActionSet(EntityActionInstance prevAction) {
-			if (prevAction != null && prevAction.ability == this.ability) {
+			// a shot a failed input puts back keeps its own phase; prevAction is then the failed replacement
+			if (prevAction != null && prevAction.ability == this.ability && !isRestoringInputLifecycle()) {
 				setPhase(ActionPhase.WINDUP, (int) (phasesLength.getFloat(ActionPhase.WINDUP) / 2));
 				syncPhaseChanges();
 			}

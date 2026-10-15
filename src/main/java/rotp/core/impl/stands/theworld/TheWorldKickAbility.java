@@ -1,5 +1,6 @@
 package rotp.core.impl.stands.theworld;
 
+import rotp.core.api.stand.StandSkillWalls;
 import rotp.core.customobjects.DamageSourceModified;
 import rotp.core.init.ModSoundEvents;
 import rotp.core.powersystem.ability.AbilityId;
@@ -84,6 +85,7 @@ public class TheWorldKickAbility extends StandEntityHeavyPunchAbility {
 
 		private void sweepTargetsAroundKick(Entity primaryTarget, Level level, StandEntity stand, float sweepDamage) {
 			LivingEntity user = stand.getUser();
+			boolean wallsHide = StandSkillWalls.wallsHideEntities(level, this);
 			for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class,
 					primaryTarget.getBoundingBox().inflate(0.5, 0, 0.5),
 					entity -> entity != primaryTarget
@@ -93,7 +95,8 @@ public class TheWorldKickAbility extends StandEntityHeavyPunchAbility {
 							&& !entity.isSpectator()
 							&& entity.isPickable()
 							&& getSweepTargetDistance(stand, entity.getBoundingBox()) < stand.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE)
-							&& stand.canAttackEntity(entity))) {
+							&& stand.canAttackEntity(entity)
+							&& !(wallsHide && StandEntityHeavyPunchAbility.wallHidesFromStand(stand, entity)))) {
 				// 1.16 StandEntityPunch sweep targets went through doAttack, no shield wear
 				DamageSource sweepSource = makePunchDamageSource();
 				((DamageSourceModified) sweepSource).jojo_ripples$setStandInvulTicks(10);

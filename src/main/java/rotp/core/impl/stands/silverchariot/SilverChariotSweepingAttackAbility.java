@@ -2,6 +2,7 @@ package rotp.core.impl.stands.silverchariot;
 
 import java.util.List;
 
+import rotp.core.api.stand.StandSkillWalls;
 import rotp.core.client.ClientGlobals;
 import rotp.core.client.sound.ClientsideSoundsHelper;
 import rotp.core.customobjects.DamageSourceModified;
@@ -22,6 +23,7 @@ import rotp.core.powersystem.standpower.entity.StandStatFormulas;
 import rotp.core.subsystems.target.AimingEntity;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.impl.stands._entitybase.StandAbilityStamina;
+import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility;
 
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.world.damagesource.DamageSource;
@@ -176,8 +178,10 @@ public class SilverChariotSweepingAttackAbility extends StandEntityAbility {
 			lookXZ = lookXZ.normalize();
 			double reach = stand.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE);
 			AABB area = stand.getBoundingBox().inflate(reach, 0.0, reach);
+			boolean wallsHide = StandSkillWalls.wallsHideEntities(level, this);
 			List<LivingEntity> targets = level.getEntitiesOfClass(LivingEntity.class, area,
-					e -> e != user && e != stand && !e.isSpectator() && e.isAlive() && e.isPickable() && stand.canAttack(e));
+					e -> e != user && e != stand && !e.isSpectator() && e.isAlive() && e.isPickable() && stand.canAttack(e)
+							&& !(wallsHide && StandEntityHeavyPunchAbility.wallHidesFromStand(stand, e)));
 			for (LivingEntity target : targets) {
 				Vec3 toTarget = target.position().subtract(stand.position());
 				if (toTarget.lengthSqr() < 1e-6) continue;
