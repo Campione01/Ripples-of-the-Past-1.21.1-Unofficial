@@ -50,12 +50,6 @@ public class StarPlatinumZoomAbility extends NoPoseStandEntityAbility {
 		}
 
 		@Override
-		public void onSetPhase(ActionPhase newPhase) {
-			super.onSetPhase(newPhase);
-			userWalkSpeed = newPhase == null || newPhase == ActionPhase.RECOVERY ? 1F : 0.5F;
-		}
-
-		@Override
 		public void actionTick() {
 			if (level().isClientSide() && getPhase() == ActionPhase.PERFORM && performer instanceof StandEntity stand) {
 				if (curPhaseTick % 16 == 3 && curPhaseTick > 32 && curPhaseTick < 80) {

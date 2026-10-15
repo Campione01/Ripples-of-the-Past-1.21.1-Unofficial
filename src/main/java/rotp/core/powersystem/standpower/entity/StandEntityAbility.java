@@ -26,7 +26,7 @@ import net.minecraft.world.level.Level;
 public class StandEntityAbility extends EntityActionAbility {
 	public boolean noFinisherBarDecay = false;
 	protected AutoSummonMode autoSummonMode = AutoSummonMode.FULL;
-	private float standUserWalkSpeed = 0.5F;
+	private float standUserWalkSpeed = 1.0F;
 
 	/**
 	 * @deprecated You can use the other constructor, so that you don't have to override {@link EntityActionAbility#createActionObj()}
@@ -128,8 +128,11 @@ public class StandEntityAbility extends EntityActionAbility {
 	}
 
 	/**
-	 * 1.16 StandEntityAction.Builder#standUserWalkSpeed: the user's walk speed while the action runs, in every phase
-	 * but RECOVERY. 0.5 unless the ability says otherwise.
+	 * The user's walk speed while the action runs, in every phase but RECOVERY (full speed there), as 1.16
+	 * StandEntityAction.Builder#standUserWalkSpeed. Owner rule 2026-10-15: only the Stand guard slows its user (0.5);
+	 * every other Stand action keeps full speed, so the default is 1.0 instead of the 1.16 default 0.5.
+	 * Values written in an action's constructor or initActionFromConfig are replaced by the registration value; only
+	 * onSetPhase or tick writes override it.
 	 */
 	public StandEntityAbility standUserWalkSpeed(float factor) {
 		this.standUserWalkSpeed = Mth.clamp(factor, 0.0F, 1.0F);

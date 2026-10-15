@@ -79,8 +79,6 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 		noFinisherBarDecay = true;
 		standAutoSummonMode(AutoSummonMode.ARMS);
 		partsRequired(StandPart.ARMS);
-		// 1.16 StandEntityMeleeBarrage.Builder
-		standUserWalkSpeed(0.15F);
 	}
 
 	public StandEntityBarrageAbility barrageHitSound(Holder<SoundEvent> barrageHitSound) {

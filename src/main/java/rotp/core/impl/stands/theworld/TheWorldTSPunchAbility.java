@@ -72,8 +72,6 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 		partsRequired(StandPart.MAIN_BODY, StandPart.ARMS);
 		cooldown(50);
 		resolveLevelToUnlock(RESOLVE_LEVEL_TO_UNLOCK);
-		// 1.16 the_world_ts_punch: standUserWalkSpeed(1.0F)
-		standUserWalkSpeed(1.0F);
 	}
 
 	/** 1.16 StandEntityAction.Builder#staminaCost of an add-on TS punch (The World's is 50). */

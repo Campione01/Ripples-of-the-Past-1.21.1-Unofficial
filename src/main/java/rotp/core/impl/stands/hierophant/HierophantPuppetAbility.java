@@ -27,8 +27,6 @@ public class HierophantPuppetAbility extends StandEntityAbility {
 
 	public HierophantPuppetAbility(AbilityType<?> abilityType, AbilityId abilityId) {
 		super(abilityType, abilityId, PuppetingAction::new);
-		// a port addition with no 1.16 registration: the user keeps full speed, as before the Stand action default
-		standUserWalkSpeed(1.0F);
 	}
 
 	@Override

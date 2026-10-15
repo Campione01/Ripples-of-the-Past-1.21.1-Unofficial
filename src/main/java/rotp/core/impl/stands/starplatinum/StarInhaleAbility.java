@@ -197,7 +197,6 @@ public class StarInhaleAbility extends StandEntityAbility {
         @Override
         public void onSetPhase(ActionPhase newPhase) {
             super.onSetPhase(newPhase);
-            userWalkSpeed = newPhase == null || newPhase == ActionPhase.RECOVERY ? 1F : 0.5F;
             if (newPhase == ActionPhase.RECOVERY) {
             	setCooldownFromHeldTicks();
             }

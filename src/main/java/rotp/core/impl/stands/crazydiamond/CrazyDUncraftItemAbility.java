@@ -44,8 +44,6 @@ public class CrazyDUncraftItemAbility extends StandEntityAbility {
 		partsRequired(StandPart.ARMS);
 		setButtonHoldPhase(ActionPhase.PERFORM);
 		standAutoSummonMode(AutoSummonMode.OFF_ARM);
-		// a port addition with no 1.16 registration: the user keeps full speed, as before the Stand action default
-		standUserWalkSpeed(1.0F);
 	}
 
 	@Override
