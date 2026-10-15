@@ -3,6 +3,8 @@ package rotp.core.gametest;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
+import javax.annotation.Nullable;
+
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
@@ -31,6 +33,7 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.util.FakePlayerFactory;
 import net.neoforged.neoforge.gametest.GameTestHolder;
@@ -54,6 +57,7 @@ public final class BarrageTargetLifecycleGameTests {
 		StandPower power = null;
 		Cow defeated = null;
 		Cow replacement = null;
+		BlockPos ceiling = null;
 		try {
 			helper.assertTrue(standType != null,
 					"Missing Star Platinum Stand type");
@@ -102,7 +106,7 @@ public final class BarrageTargetLifecycleGameTests {
 							stand, defeated),
 					"Default Stand aim still accepts a defeated entity");
 			standAction.entityAim.setTarget(ActionTarget.EMPTY);
-			stepOutOfThePrecisionAim(user, userPos);
+			ceiling = stepOutOfThePrecisionAim(helper, user, userPos);
 			standAction.tick();
 			helper.assertTrue(action.standRotationTarget == null
 					&& action.aimAs == AimingEntity.CAMERA_ENTITY,
@@ -150,6 +154,7 @@ public final class BarrageTargetLifecycleGameTests {
 			if (replacement != null) {
 				replacement.discard();
 			}
+			removeCeiling(helper, ceiling);
 			user.discard();
 		}
 	}
@@ -187,6 +192,7 @@ public final class BarrageTargetLifecycleGameTests {
 		StandPower power = null;
 		Cow initial = null;
 		Cow current = null;
+		BlockPos ceiling = null;
 		try {
 			helper.assertTrue(standType != null, "Missing Star Platinum Stand type");
 			Vec3 userPos = Vec3.atCenterOf(helper.absolutePos(new BlockPos(2, 2, 2)));
@@ -254,7 +260,7 @@ public final class BarrageTargetLifecycleGameTests {
 					component.setAction(action, user, SyncType.NO_SYNC);
 				}
 				aimBoth(component, user, ActionTarget.EMPTY);
-				stepOutOfThePrecisionAim(user, userPos);
+				ceiling = stepOutOfThePrecisionAim(helper, user, userPos);
 				ActionTarget emptyAim = directional
 						? StandEntityBarrageAbility.clipDirectionalBarrageTarget(stand, action, 1.0F)
 						: StandEntityPunchAbility.getFreshPunchTarget(stand, new ActionTarget(initial));
@@ -277,6 +283,7 @@ public final class BarrageTargetLifecycleGameTests {
 			}
 			if (initial != null) initial.discard();
 			if (current != null) current.discard();
+			removeCeiling(helper, ceiling);
 			user.discard();
 		}
 	}
@@ -289,12 +296,25 @@ public final class BarrageTargetLifecycleGameTests {
 
 	/*
 	 * 1.16 aimed with the Stand's precision ray (StandEntity.punch -> aimWithThisOrUser -> precisionRayTrace), whose
-	 * boxes take a mob within about 1.9 blocks of the user's eyes wherever the user looks. For an aim at empty space
-	 * the user steps 3 blocks back and looks up, away from the cows; the Stand stays by them.
+	 * boxes take a mob within about 1.9 blocks of the user's eyes wherever the user looks. For an aim at nothing the
+	 * Stand can hit, the user steps 3 blocks back, away from the cows, and looks up at a block in its own reach but out
+	 * of the Stand's: a ray that met nothing at all would have 1.16 aim with the Stand's own ray, and the Stand stays
+	 * by the cows. Returns the block to take away again.
 	 */
-	private static void stepOutOfThePrecisionAim(Player user, Vec3 userPos) {
+	private static BlockPos stepOutOfThePrecisionAim(GameTestHelper helper, Player user, Vec3 userPos) {
 		user.moveTo(userPos.x, userPos.y, userPos.z - 3.0D);
-		lookAt(user, user.getEyePosition().add(0, 2, -3));
+		Vec3 above = user.getEyePosition().add(0, 3, 0);
+		BlockPos ceiling = BlockPos.containing(above);
+		helper.assertTrue(helper.getLevel().isEmptyBlock(ceiling), "Fixture: the block above the user is taken");
+		helper.getLevel().setBlockAndUpdate(ceiling, Blocks.BEDROCK.defaultBlockState());
+		lookAt(user, above);
+		return ceiling;
+	}
+
+	private static void removeCeiling(GameTestHelper helper, @Nullable BlockPos ceiling) {
+		if (ceiling != null) {
+			helper.getLevel().setBlockAndUpdate(ceiling, Blocks.AIR.defaultBlockState());
+		}
 	}
 
 	// what a client sends while its user looks at the target: its Stand aim and its vanilla pick

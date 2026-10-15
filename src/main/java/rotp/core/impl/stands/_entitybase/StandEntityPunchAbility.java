@@ -675,19 +675,28 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			}
 		}
 
-		// 1.16 StandEntity.aimWithThisOrUser: the synced aims are short (the idle Stand aim reaches 2.5 blocks from
-		// the eyes, the vanilla pick 3), so the user's own aim decides, checked against the Stand's reach
-		if (userAims) {
-			Predicate<Entity> canTarget = entity -> entity != stand && canStandHit(stand, entity);
-			target = validatePunchTarget(stand, precisionAim
-					? userPrecisionRayTarget(stand, user, canTarget)
-					: userAimTarget(stand, user, 1.0F, canTarget));
-			if (!target.isEmpty(level)) {
-				return target;
-			}
-		}
+		// the synced aims are short (the idle Stand aim reaches 2.5 blocks from the eyes, the vanilla pick 3)
+		return aimWithThisOrUser(stand, userAims ? user : null, 1.0F,
+				entity -> entity != stand && canStandHit(stand, entity), precisionAim);
+	}
 
-		return ActionTarget.EMPTY;
+	/**
+	 * 1.16 StandEntity.aimWithThisOrUser with no target the Stand can reach: the user's own aim (the precision ray, or
+	 * {@link #userAimTarget}); when that ray met nothing at all, or no user aims (manual control), 1.16's precision ray
+	 * from the Stand's own eyes. Walls block both rays. Checked against the Stand's reach.
+	 */
+	public static ActionTarget aimWithThisOrUser(StandEntity stand, @Nullable LivingEntity user, float partialTick,
+			Predicate<Entity> canTarget, boolean precisionAim) {
+		ActionTarget aim = ActionTarget.EMPTY;
+		if (user != null) {
+			aim = precisionAim
+					? userPrecisionRayTarget(stand, user, canTarget)
+					: userAimTarget(stand, user, partialTick, canTarget);
+		}
+		if (aim.getType() == TargetType.EMPTY) {
+			aim = standPrecisionRayTarget(stand, canTarget);
+		}
+		return validatePunchTarget(stand, aim);
 	}
 
 	/**
@@ -749,6 +758,16 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	public static ActionTarget userPrecisionRayTarget(StandEntity stand, LivingEntity user, Predicate<Entity> canTarget) {
 		return StandPrecisionRay.closestWithPriority(StandPrecisionRay.clipTargetsBeforeWalls(user,
 				userAimReach(user, stand), canTarget, 0, user.isShiftKeyDown() ? 0 : stand.getPrecision()));
+	}
+
+	// 1.16 precisionRayTrace(this, getAimDistance(getUser())), with the user's sneak rule and walls as above
+	private static ActionTarget standPrecisionRayTarget(StandEntity stand, Predicate<Entity> canTarget) {
+		LivingEntity user = stand.getUser();
+		double reach = user != null && !stand.isManuallyControlled()
+				? userAimReach(user, stand) : stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE);
+		return StandPrecisionRay.closestWithPriority(StandPrecisionRay.clipTargetsBeforeWalls(stand, reach,
+				canTarget.and(entity -> entity != user), 0,
+				user != null && user.isShiftKeyDown() ? 0 : stand.getPrecision()));
 	}
 
 	/**

@@ -368,6 +368,38 @@ public final class StandAimReachGameTests {
 		});
 	}
 
+	// 1.16 StandEntity.aimWithThisOrUser: when the user's precision ray met nothing within its reach, the Stand's own
+	// precision ray from its eyes; the owner's walls block that one too
+	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH)
+	public static void punchFallsBackToTheStandsOwnPrecisionRayWhenTheUsersMeetsNothing(GameTestHelper helper) {
+		Scene scene = new Scene(helper, GameType.SURVIVAL, false, 16);
+		LivingComponentAction component = LivingComponentAction.getComponent(scene.stand);
+		try {
+			Cow cow = scene.cow(0, 2.0);
+			scene.user.moveTo(scene.origin.x, scene.origin.y, scene.origin.z - 3, 0, -90);
+			scene.stand.lookAt(EntityAnchorArgument.Anchor.EYES, cow.getBoundingBox().getCenter());
+			ActionTarget userRay = StandEntityPunchAbility.userPrecisionRayTarget(scene.stand, scene.user);
+			helper.assertTrue(userRay.getType() == ActionTarget.TargetType.EMPTY,
+					"Fixture: the user's precision ray meets " + userRay);
+			scene.clearAims();
+			component.setAction(action(helper, scene, "punch"), scene.user, SyncType.NO_SYNC);
+			ActionTarget open = StandEntityPunchAbility.getFreshPunchTarget(scene.stand, ActionTarget.EMPTY);
+			helper.assertTrue(open.getMainEntity() == cow, "1.16 aimed with the Stand's own precision ray when the user's"
+					+ " met nothing, which takes the cow the Stand looks at; got " + open);
+			BlockPos wall = BlockPos.containing(scene.origin.add(0, 1, 1));
+			scene.placedBlocks.add(new PlacedBlock(wall, helper.getLevel().getBlockState(wall)));
+			helper.getLevel().setBlockAndUpdate(wall, Blocks.BEDROCK.defaultBlockState());
+			ActionTarget walled = StandEntityPunchAbility.getFreshPunchTarget(scene.stand, ActionTarget.EMPTY);
+			helper.assertTrue(walled.getType() == ActionTarget.TargetType.BLOCK && walled.getBlockPos().equals(wall),
+					"The Stand's own precision ray took " + walled + " behind the bedrock at " + wall + "; walls block the aim");
+			helper.succeed();
+		}
+		finally {
+			component.setAction(null, scene.user, SyncType.NO_SYNC);
+			scene.close();
+		}
+	}
+
 	// 1.16 StandEntity.precisionRayTrace: a mob that is neither a player, a Stand nor hostile keeps the priority of the
 	// entity before it, the lowest at first, so a boat behind a cow on the ray comes first
 	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH)

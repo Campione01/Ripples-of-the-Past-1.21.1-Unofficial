@@ -204,9 +204,9 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 		}
 		// 1.16 StandEntity.punch aimed from the user's eyes at the user's reach with the precision ray, then checked the
 		// Stand's own reach
-		ActionTarget target = StandEntityPunchAbility.userAimTarget(stand, user, partialTick,
-				entity -> ability.canTargetEntityForAiming(stand, entity) && StandEntityPunchAbility.canStandHit(stand, entity));
-		return StandEntityPunchAbility.validatePunchTarget(stand, target);
+		return StandEntityPunchAbility.aimWithThisOrUser(stand, user, partialTick,
+				entity -> ability.canTargetEntityForAiming(stand, entity) && StandEntityPunchAbility.canStandHit(stand, entity),
+				false);
 	}
 	
 	public static class StandEntityBarrage extends EntityActionInstance {
