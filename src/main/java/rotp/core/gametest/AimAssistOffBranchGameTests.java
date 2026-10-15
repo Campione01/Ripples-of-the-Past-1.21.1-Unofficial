@@ -92,6 +92,11 @@ public final class AimAssistOffBranchGameTests {
 
 			for (boolean assist : new boolean[] { true, false }) {
 				scene.aimAssist(assist);
+				if (standAims) {
+					// what a real client syncs for the Stand: the precision pick with the aim assist on, the crosshair's with it off
+					LivingComponentAction.getComponent(scene.stand).entityAim.setTarget(
+							new ActionTarget(assist ? beside : crosshair));
+				}
 				Optional<Vec3> aimPoint = EmeraldSplashShot.barrierAimPoint(hierophant);
 				helper.assertTrue(aimPoint.equals(Optional.of(crosshair.getBoundingBox().getCenter())),
 						"With the aim assist " + (assist ? "on" : "off") + " the Emerald Splash barrier aim from " + position + " went for "

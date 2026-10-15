@@ -98,6 +98,25 @@ public final class SoulRiseGameTests {
 						"25 ticks later the late client has " + trackedLate.lifeSpanLeft(true) + " ticks of life left, expected "
 								+ (server - 25));
 
+				// the renderer's fade: the full alpha at the start, nothing when the life is spent, for the late client too
+				trackedLate.tickCount = 0;
+				float atStart = SoulEntity.fadeAlpha(trackedLate.lifeSpanLeft(true), trackedLate.getInitialLifeSpan());
+				trackedLate.tickCount = server - 10;
+				float nearEnd = SoulEntity.fadeAlpha(trackedLate.lifeSpanLeft(true), trackedLate.getInitialLifeSpan());
+				trackedLate.tickCount = server;
+				float atEnd = SoulEntity.fadeAlpha(trackedLate.lifeSpanLeft(true), trackedLate.getInitialLifeSpan());
+				helper.assertTrue(atStart == 0.75F && Math.abs(nearEnd - 0.15F) < 1.0E-4F && atEnd == 0.0F,
+						"The fade of a client that began to track the 200 tick soul with " + server + " ticks left: alpha " + atStart
+								+ " at its first tick, " + nearEnd + " ten ticks before the end, " + atEnd + " at the end; expected"
+								+ " 0.75, 0.15 and 0, so that it fades out and does not vanish at 0.75");
+				helper.assertTrue(SoulEntity.fadeAlpha(200, 200) == 0.75F && SoulEntity.fadeAlpha(50, 200) == 0.75F
+						&& Math.abs(SoulEntity.fadeAlpha(25, 200) - 0.375F) < 1.0E-4F && SoulEntity.fadeAlpha(0, 200) == 0.0F
+						&& SoulEntity.fadeAlpha(10, 0) == 0.0F,
+						"The fade alpha of 200 ticks left, 50, 25 and 0 of 200, and of a soul without an initial life: "
+								+ SoulEntity.fadeAlpha(200, 200) + ", " + SoulEntity.fadeAlpha(50, 200) + ", " + SoulEntity.fadeAlpha(25, 200)
+								+ ", " + SoulEntity.fadeAlpha(0, 200) + ", " + SoulEntity.fadeAlpha(10, 0)
+								+ "; expected 0.75, 0.75, 0.375, 0 and 0");
+
 				// the soul fire of the last 60 ticks
 				trackedFromTheStart.tickCount = 139;
 				boolean before = SoulEntity.isResolveUpPhase(trackedFromTheStart.lifeSpanLeft(true));

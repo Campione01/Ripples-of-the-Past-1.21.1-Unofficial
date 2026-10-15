@@ -33,6 +33,7 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 public class HierophantEmeraldSplashAbility extends StandEntityAbility implements TrainableAbility {
@@ -252,6 +253,11 @@ public class HierophantEmeraldSplashAbility extends StandEntityAbility implement
 			if (target != null && target.getType() == TargetType.ENTITY && !netTarget.test(target.getEntity())) {
 				target = ActionTarget.EMPTY;
 			}
+			// the Stand's synced aim under manual control is a precision pick at its own reach; the net's ray took none
+			if (target != null && target.getType() == TargetType.ENTITY
+					&& !strictRayMeets(aimingEntity, target.getEntity(), stand.getMaxRange())) {
+				target = ActionTarget.EMPTY;
+			}
 			// a synced aim was picked with walls hiding what is behind them
 			if (target == null || target.isEmpty(level) || target.getType() == TargetType.BLOCK) {
 				ActionTarget throughWalls = HitResultUtil.clip(aimingEntity.getEyePosition(), aimingEntity.getLookAngle(),
@@ -272,6 +278,15 @@ public class HierophantEmeraldSplashAbility extends StandEntityAbility implement
 				return clipPos.isPresent() ? clipPos : Optional.of(Vec3.atCenterOf(target.getBlockPos()));
 			}
 			return Optional.empty();
+		}
+
+		private static boolean strictRayMeets(LivingEntity aiming, Entity entity, double maxRange) {
+			if (entity == null) {
+				return false;
+			}
+			Vec3 eyes = aiming.getEyePosition();
+			AABB box = entity.getBoundingBox().inflate(entity.getPickRadius());
+			return box.contains(eyes) || box.clip(eyes, eyes.add(aiming.getLookAngle().scale(maxRange))).isPresent();
 		}
 
 		@Override
