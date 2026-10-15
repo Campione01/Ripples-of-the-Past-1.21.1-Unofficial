@@ -13,7 +13,7 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * Which block's in-wall texture covers the view of a Stand camera (manual control, where standBodyThroughWalls on
- * "manga" lets the Stand into blocks), so that a view from inside a block never shows the terrain behind it. Vanilla
+ * "phasing" lets the Stand into blocks), so that a view from inside a block never shows the terrain behind it. Vanilla
  * draws its in-wall overlay only for the player and only in first person; the player's own overlay is left to vanilla.
  */
 public final class StandCameraInWall {

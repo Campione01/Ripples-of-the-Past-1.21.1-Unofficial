@@ -31,8 +31,11 @@ public class JojoModConfig {
 	public static final ModConfigSpec COMMON_SPEC;
 	private static final Common COMMON_FROM_FILE;
 	private static final Common COMMON_SYNCED_TO_CLIENT;
-	public static final String WALLS_MODE_MANGA = "manga";
-	public static final String BODY_WALLS_MODE_1_16 = "1.16";
+	public static final String BODY_MODE_STANDARD = "standard";
+	public static final String BODY_MODE_PHASING = "phasing";
+	// the values of R770 test builds; a file that still has them reads as the mode they meant
+	public static final String LEGACY_BODY_MODE_1_16 = "1.16";
+	public static final String LEGACY_BODY_MODE_MANGA = "manga";
 
 	static {
 		Pair<Common, ModConfigSpec> specPair = new ModConfigSpec.Builder().configure(Common::new);
@@ -234,15 +237,21 @@ public class JojoModConfig {
 					.translation("jojo.config.standResistanceMultiplier")
 					.defineInRange("standResistanceMultiplier", 1.0D, 1.0D, 128.0D), 1.0D);
 			standBodyThroughWalls = ConfigValue.fromSpec(
-					builder.comment("Whether a manually controlled Stand passes through blocks.",
-							"manga - it passes through blocks, as Stands do in the original story; seen from inside a block,",
-							"        the view shows that block, as it does for a player inside a block",
-							"1.16  - it is stopped by blocks and pushed out of them, as in the 1.16 version of the mod",
-							"Stands with a solid body always collide; Stands that are not manually controlled are not affected.")
+					builder.comment("When a Stand's body passes through blocks.",
+							"standard - as in 1.16 and as the original story shows Stands in general: a Stand passes through blocks",
+							"           only while it follows its user and performs no action. It collides with blocks while it",
+							"           performs an action, while it is manually controlled and while it is left at a fixed",
+							"           position away from its user; a manually controlled Stand stuck in a block is pushed out",
+							"           toward its user.",
+							"phasing  - the same, except that a manually controlled Stand also passes through blocks while it",
+							"           performs no action; seen from inside a block, the view shows that block, as it does for",
+							"           a player inside a block. It still collides while it performs an action.",
+							"Stands with a solid body always collide, and a Stand whose own power passes through matter keeps its own rule.",
+							"Allowed values: standard, phasing.")
 					.translation("jojo.config.standBodyThroughWalls")
-					.defineInList("standBodyThroughWalls", WALLS_MODE_MANGA,
-							Arrays.asList(WALLS_MODE_MANGA, BODY_WALLS_MODE_1_16)),
-					WALLS_MODE_MANGA);
+					.defineInList("standBodyThroughWalls", BODY_MODE_STANDARD,
+							Arrays.asList(BODY_MODE_STANDARD, BODY_MODE_PHASING, LEGACY_BODY_MODE_1_16, LEGACY_BODY_MODE_MANGA)),
+					BODY_MODE_STANDARD);
 
 			builder.push("Hamon settings");
 			hamonPointsMultiplier = ConfigValue.fromSpec(
@@ -357,7 +366,7 @@ public class JojoModConfig {
 			timeStopDamageMultiplier = ConfigValue.synced(1.0D);
 			standDamageMultiplier = ConfigValue.synced(1.0D);
 			standResistanceMultiplier = ConfigValue.synced(1.0D);
-			standBodyThroughWalls = ConfigValue.synced(WALLS_MODE_MANGA);
+			standBodyThroughWalls = ConfigValue.synced(BODY_MODE_STANDARD);
 			hamonPointsMultiplier = ConfigValue.synced(1.0D);
 			breathingTrainingMultiplier = ConfigValue.synced(1.0D);
 			breathingTrainingDeterioration = ConfigValue.synced(true);
@@ -390,9 +399,13 @@ public class JojoModConfig {
 			return new Common();
 		}
 
-		/** standBodyThroughWalls: whether a manually controlled Stand passes through blocks ("manga") or not ("1.16"). */
+		/**
+		 * standBodyThroughWalls: whether a manually controlled Stand passes through blocks while it performs no action
+		 * ("phasing") or collides with them ("standard", the default).
+		 */
 		public boolean manualStandPassesThroughBlocks() {
-			return !BODY_WALLS_MODE_1_16.equals(standBodyThroughWalls.get());
+			String mode = standBodyThroughWalls.get();
+			return BODY_MODE_PHASING.equals(mode) || LEGACY_BODY_MODE_MANGA.equals(mode);
 		}
 
 		public boolean isStandBanned(@Nullable ResourceLocation standId) {
@@ -420,7 +433,7 @@ public class JojoModConfig {
 			timeStopChunkRange.set(values.timeStopChunkRange);
 			standDamageMultiplier.set(values.standDamageMultiplier);
 			standResistanceMultiplier.set(values.standResistanceMultiplier);
-			standBodyThroughWalls.set(values.standBodyThroughBlocks ? WALLS_MODE_MANGA : BODY_WALLS_MODE_1_16);
+			standBodyThroughWalls.set(values.standBodyThroughBlocks ? BODY_MODE_PHASING : BODY_MODE_STANDARD);
 			hamonPointsMultiplier.set(values.hamonPointsMultiplier);
 			breathingTrainingMultiplier.set(values.breathingTrainingMultiplier);
 			breathingTrainingDeterioration.set(values.breathingTrainingDeterioration);

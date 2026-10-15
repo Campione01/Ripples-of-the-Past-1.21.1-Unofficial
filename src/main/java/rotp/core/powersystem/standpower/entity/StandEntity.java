@@ -1259,7 +1259,7 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		setNoPhysics(shouldHaveNoPhysics());
 	}
 
-	// 1.16 StandEntity.shouldHaveNoPhysics, with the server's standBodyThroughWalls on "manga" for manual control too
+	// 1.16 StandEntity.shouldHaveNoPhysics, with the server's standBodyThroughWalls on "phasing" for manual control too
 	protected boolean shouldHaveNoPhysics() {
 		return standCanHaveNoPhysics && (!isManuallyControlled() || manualControlPassesThroughBlocks())
 				&& followingUserIsEnabled();
@@ -1271,7 +1271,7 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 
 	/**
 	 * 1.16 StandEntity.tick on the client: a manually controlled Stand that collides with blocks and is stuck in one
-	 * is moved toward its user. With standBodyThroughWalls on "manga" only a Stand that always collides is moved.
+	 * is moved toward its user. With standBodyThroughWalls on "phasing" only a Stand that always collides is moved.
 	 */
 	private void pushOutOfViewBlockingBlock(@Nullable LivingEntity user) {
 		if (user != null && isManuallyControlled() && !noPhysics

@@ -17,7 +17,7 @@ import net.minecraft.core.BlockPos;
 
 /**
  * A first-person view from a Stand whose eyes are inside a block (manual control with standBodyThroughWalls on
- * "manga") shows that block's in-wall overlay, as vanilla does for a player inside a block, instead of the terrain
+ * "phasing") shows that block's in-wall overlay, as vanilla does for a player inside a block, instead of the terrain
  * behind it. The user's own in-wall overlay is cancelled while a Stand is controlled (ClientStandController). The
  * other camera types are covered after the hand pass (GameRendererStandCameraInWallMixin).
  */

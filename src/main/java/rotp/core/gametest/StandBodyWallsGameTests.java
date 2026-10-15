@@ -33,10 +33,11 @@ import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
- * The server setting standBodyThroughWalls (owner, 2026-10-15): in "manga" mode a manually controlled Stand passes
- * through blocks; in "1.16" mode it collides with them, as 1.16 StandEntity.shouldHaveNoPhysics had it. A Stand with a
- * solid body (standCanHaveNoPhysics false, as rotp-rhcp's) collides in both. The server moves a manually controlled
- * Stand with MoverType.PLAYER (ClStandManualMovementPacket). Own batches: the mode is global while a batch runs.
+ * The server setting standBodyThroughWalls (owner, 2026-10-15): in the default "standard" mode a manually controlled
+ * Stand collides with blocks, as 1.16 StandEntity.shouldHaveNoPhysics had it; in "phasing" mode it passes through them
+ * while it performs no action. A Stand with a solid body (standCanHaveNoPhysics false, as rotp-rhcp's) collides in
+ * both. The server moves a manually controlled Stand with MoverType.PLAYER (ClStandManualMovementPacket). Own batches:
+ * the mode is global while a batch runs.
  */
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -51,23 +52,25 @@ public final class StandBodyWallsGameTests {
 	private StandBodyWallsGameTests() {}
 
 	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH)
-	public static void manualStandPassesIntoABlockOnlyInMangaMode(GameTestHelper helper) {
+	public static void controlledStandStopsAtAWallByDefaultAndEntersItWhenPhasing(GameTestHelper helper) {
 		Scene scene = new Scene(helper);
 		try {
 			double wallZ = scene.wallAhead();
 			scene.stand.setManuallyControlled(true);
 
-			scene.setMode(JojoModConfig.WALLS_MODE_MANGA);
-			helper.assertTrue(scene.stand.noPhysics, "manga: a manually controlled Stand must have no physics");
+			helper.assertTrue(JojoModConfig.BODY_MODE_STANDARD.equals(scene.mode.getDefault()),
+					"The Stand body setting must default to standard: " + scene.mode.getDefault());
+			scene.setMode(scene.mode.getDefault());
+			helper.assertFalse(scene.stand.noPhysics, "standard: a manually controlled Stand must collide");
 			AABB box = scene.moveForward();
-			helper.assertTrue(scene.stand.getZ() > wallZ,
-					"manga: the manually controlled Stand stopped at the stone instead of entering it: " + box);
-
-			scene.setMode(JojoModConfig.BODY_WALLS_MODE_1_16);
-			helper.assertFalse(scene.stand.noPhysics, "1.16: a manually controlled Stand must collide");
-			box = scene.moveForward();
 			helper.assertTrue(box.maxZ <= wallZ + EPS,
-					"1.16: the manually controlled Stand entered the stone: " + box + ", stone from z " + wallZ);
+					"standard: the manually controlled Stand entered the stone: " + box + ", stone from z " + wallZ);
+
+			scene.setMode(JojoModConfig.BODY_MODE_PHASING);
+			helper.assertTrue(scene.stand.noPhysics, "phasing: a manually controlled Stand must have no physics");
+			box = scene.moveForward();
+			helper.assertTrue(scene.stand.getZ() > wallZ,
+					"phasing: the manually controlled Stand stopped at the stone instead of entering it: " + box);
 			helper.succeed();
 		}
 		finally {
@@ -83,7 +86,7 @@ public final class StandBodyWallsGameTests {
 			scene.stand.setNoPhysics(false);
 			scene.stand.standCanHaveNoPhysics = false;
 			scene.stand.setManuallyControlled(true);
-			for (String mode : List.of(JojoModConfig.WALLS_MODE_MANGA, JojoModConfig.BODY_WALLS_MODE_1_16)) {
+			for (String mode : List.of(JojoModConfig.BODY_MODE_STANDARD, JojoModConfig.BODY_MODE_PHASING)) {
 				scene.setMode(mode);
 				helper.assertFalse(scene.stand.noPhysics, mode + ": a Stand with a solid body must collide");
 				AABB box = scene.moveForward();
@@ -163,21 +166,28 @@ public final class StandBodyWallsGameTests {
 	public static void bodyModeChangedAtRuntimeReachesAControlledStand(GameTestHelper helper) {
 		Scene scene = new Scene(helper);
 		scene.stand.setManuallyControlled(true);
-		scene.setMode(JojoModConfig.BODY_WALLS_MODE_1_16);
-		helper.assertFalse(scene.stand.noPhysics, "Fixture: 1.16 mode left the controlled Stand without physics");
+		scene.setMode(JojoModConfig.BODY_MODE_STANDARD);
+		helper.assertFalse(scene.stand.noPhysics, "Fixture: standard mode left the controlled Stand without physics");
 		helper.assertTrue(scene.stand.getCurStandAction() == null, "Fixture: the Stand is busy with "
 				+ scene.stand.getCurStandAction());
-		scene.mode.set(JojoModConfig.WALLS_MODE_MANGA);
+		scene.mode.set(JojoModConfig.BODY_MODE_PHASING);
 		int[] ticks = new int[1];
+		boolean[] phased = new boolean[1];
 		helper.onEachTick(() -> {
 			if (scene.closed) return;
-			if (scene.stand.noPhysics) {
+			if (!phased[0] && scene.stand.noPhysics) {
+				phased[0] = true;
+				ticks[0] = 0;
+				scene.mode.set(JojoModConfig.BODY_MODE_STANDARD);
+			}
+			else if (phased[0] && !scene.stand.noPhysics) {
 				scene.close();
 				helper.succeed();
 			}
 			else if (++ticks[0] > 5) {
 				scene.close();
-				helper.fail("Switching standBodyThroughWalls to manga did not reach the controlled Stand in 5 ticks");
+				helper.fail("Switching standBodyThroughWalls to " + (phased[0] ? "standard" : "phasing")
+						+ " did not reach the controlled Stand in 5 ticks");
 			}
 		});
 	}
