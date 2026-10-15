@@ -50,6 +50,13 @@ public final class UnusableAbilityIconTintSmokeTest {
 				&& wheel.substring(icon, iconEnd).contains("PowerHudControlsElement.abilityColor("),
 				"the selection wheel must take the unusable icon tint from the hotbar rule");
 		check(!wheel.contains("0xFF606060"), "the selection wheel still has its own unusable icon colour");
+		int tooltip = wheel.indexOf("hoveredSlot.getBaseBind(inputMethod)");
+		int tooltipName = wheel.indexOf("abilityNames.add(", tooltip);
+		check(tooltip >= 0 && tooltipName > tooltip, "the selection wheel tooltip loop was not found");
+		String tooltipLoop = wheel.substring(tooltip, tooltipName);
+		check(tooltipLoop.contains("abilityPath.getAbility()")
+				&& tooltipLoop.indexOf("abilityPath.getAbility()") < tooltipLoop.indexOf("moveset.getAbility("),
+				"the selection wheel must name the ability the slot resolves to, as its icon and 1.16 drawHotbarText do");
 
 		// owner decision 2026-10-15: icons drawn from an item dim and fade like the others
 		assertColor(new float[] { 0.2F, 0.2F, 0.2F, 128 / 255.0F },
