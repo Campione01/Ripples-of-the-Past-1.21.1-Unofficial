@@ -21,7 +21,6 @@ import rotp.core.impl.stands._entitybase.StandAbilityStamina;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Animal;
@@ -129,15 +128,6 @@ public class GoldExperienceBoneMealAbility extends NoPoseStandEntityAbility {
         return distance <= stand.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE);
     }
 
-    // 1.16 ran ageUp on the client too, where AgeableMob.aiStep spawned a HAPPY_VILLAGER every 4 ticks for 40 ticks around the
-    // animal; forcedAgeTimer is not synced, so the server sends the sparkles in one burst of the same 10, over the same box
-    private static void showGrowthSparkles(Animal animal) {
-        if (animal.level() instanceof ServerLevel serverLevel) {
-            serverLevel.sendParticles(ParticleTypes.HAPPY_VILLAGER, animal.getX(), animal.getY() + 0.5D + animal.getBbHeight() / 2.0D,
-                    animal.getZ(), 10, animal.getBbWidth() * 0.6D, animal.getBbHeight() * 0.3D, animal.getBbWidth() * 0.6D, 0.0D);
-        }
-    }
-
     private static boolean applyOriginalBonemealEffect(Level level, Player player, BlockPos pos, Direction face) {
         if (BoneMealItem.applyBonemeal(ItemStack.EMPTY, level, pos, player)) {
             if (!level.isClientSide()) {
@@ -192,7 +182,7 @@ public class GoldExperienceBoneMealAbility extends NoPoseStandEntityAbility {
                     if (target.getMainEntity() instanceof Animal animal) {
                         int age = animal.getAge();
                         animal.ageUp((int) ((-age / 20) * 0.2F), true);
-                        showGrowthSparkles(animal);
+                        GEGrowthSparkles.start(animal);
                     }
                 }
                 // 1.16 standPerform: blocks only for a player user, as that player (HamonHealing.bonemealEffect)

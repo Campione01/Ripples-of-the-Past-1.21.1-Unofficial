@@ -94,6 +94,7 @@ import net.neoforged.bus.api.EventPriority;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.neoforge.event.entity.player.BonemealEvent;
+import net.neoforged.neoforge.event.tick.LevelTickEvent;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -1387,23 +1388,37 @@ public final class StandTargetRangeGameTests {
 		helper.succeed();
 	}
 
-	// 1.16 standPerform ran ageUp on both sides, and the client's AgeableMob.aiStep spawned HAPPY_VILLAGER while forcedAgeTimer
-	// ran; the server does not sync that timer, so the server sends the sparkles to the players who see the animal
-	@GameTest(template = "empty", batch = BATCH)
-	public static void goldExperienceBoneMealShowsTheGrowthSparklesOnTheAnimalToItsViewers(GameTestHelper helper) {
-		ParticleWatcher watcher = new ParticleWatcher(helper.getLevel());
-		try (Fixture fixture = Fixture.open(helper, Kind.GE_BONE_MEAL)) {
-			fixture.stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z + 1.0D, 0.0F, 0.0F);
-			watcher.setPos(fixture.origin.x, fixture.origin.y, fixture.origin.z + 2.0D);
-			// only ServerLevel.players receive sendParticles bursts; removed again below
-			fixture.level.players().add(watcher);
+	// 1.16 standPerform ran ageUp on every client tracking the Stand: AgeableMob.ageUp set forcedAgeTimer to 40 when it was 0,
+	// and the client's aiStep spawned a HAPPY_VILLAGER at getRandomX(1.0), getRandomY() + 0.5, getRandomZ(1.0), with no
+	// motion, every 4 ticks while it counted down: 10 sparkles over 2 seconds, on a baby and on an adult the perform aimed
+	// again at. A second Bone Meal while it counts down starts no other countdown; a dead animal shows no more.
+	// Own batch: the scene stays for some ticks, and the others of this class share a chunk's scene.
+	@GameTest(template = "empty", batch = BATCH + "_sparkles", timeoutTicks = 200)
+	public static void goldExperienceBoneMealTricklesTheGrowthSparklesOnTheAnimalToItsViewers(GameTestHelper helper) {
+		Fixture fixture = Fixture.open(helper, Kind.GE_BONE_MEAL);
+		helper.testInfo.addListener(fixture);
+		ParticleWatcher watcher = new ParticleWatcher(fixture.level);
+		helper.testInfo.addListener(watcher);
+		fixture.stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z + 1.0D, 0.0F, 0.0F);
+		watcher.setPos(fixture.origin.x, fixture.origin.y, fixture.origin.z + 2.0D);
 
-			Cow baby = fixture.babyCow(0.0D, 2.5D);
+		Cow baby = fixture.babyCow(0.0D, 2.5D);
+		fixture.aim(new ActionTarget(baby));
+		long babyPressed = fixture.level.getGameTime();
+		fixture.pressAndRun();
+		int agedOnce = baby.getAge();
+		helper.runAfterDelay(10, () -> {
 			fixture.aim(new ActionTarget(baby));
 			fixture.pressAndRun();
-			helper.assertTrue(watcher.sparklesAround(baby.getBoundingBox().inflate(1.0D)) > 0,
-					"GE_BONE_MEAL on a baby cow sent its viewers " + watcher.sparkles() + " HAPPY_VILLAGER burst(s); the cow's"
-							+ " box is " + baby.getBoundingBox() + "; 1.16 showed the growth sparkles around the animal");
+			helper.assertTrue(baby.getAge() > agedOnce + 1000, "SPARKLES premise: the second GE_BONE_MEAL on the baby cow did"
+					+ " not age it: " + agedOnce + " -> " + baby.getAge());
+		});
+		helper.runAfterDelay(50, () -> {
+			List<SentParticle> babySparkles = watcher.sparkles();
+			helper.assertTrue(babySparkles.size() == 10, "GE_BONE_MEAL on a baby cow, pressed again 10 ticks later, sent its"
+					+ " viewers " + describe(babySparkles, babyPressed) + " in 50 ticks; 1.16 showed 10 over 40 ticks, and the"
+					+ " second press started no other countdown");
+			assertTrickle(helper, babySparkles, baby, babyPressed, "a baby cow");
 
 			baby.discard();
 			watcher.clear();
@@ -1412,53 +1427,131 @@ public final class StandTargetRangeGameTests {
 			BlockPos sapling = fixture.sapling(BlockPos.containing(fixture.origin.x, fixture.origin.y + 1.0D,
 					fixture.origin.z + 6.0D));
 			fixture.aim(new ActionTarget(sapling, Direction.NORTH));
+			long adultPressed = fixture.level.getGameTime();
 			fixture.pressAndRun();
-			helper.assertTrue(adult.getAge() == 0 && watcher.sparklesAround(adult.getBoundingBox().inflate(1.0D)) > 0,
-					"GE_BONE_MEAL whose perform aimed again at an adult cow: its age is " + adult.getAge() + " and its viewers got "
-							+ watcher.sparkles() + " HAPPY_VILLAGER burst(s); 1.16 ran ageUp on any animal and showed the sparkles");
+			helper.assertTrue(adult.getAge() == 0, "SPARKLES premise: GE_BONE_MEAL whose perform aimed again at an adult cow"
+					+ " left its age at " + adult.getAge());
+			helper.runAfterDelay(10, () -> {
+				int whileAlive = watcher.sparkles().size();
+				adult.kill();
+				long died = fixture.level.getGameTime();
+				helper.runAfterDelay(40, () -> {
+					List<SentParticle> adultSparkles = watcher.sparkles();
+					helper.assertTrue(whileAlive > 0 && adultSparkles.size() == whileAlive
+							&& adultSparkles.stream().allMatch(sent -> sent.tick() <= died),
+							"GE_BONE_MEAL whose perform aimed again at an adult cow, killed 10 ticks later: " + whileAlive
+									+ " sparkle(s) before it died at tick " + died + ", then " + describe(adultSparkles, adultPressed)
+									+ "; 1.16 showed the sparkles on any animal it aged, and a dead one shows no more");
+					assertTrickle(helper, adultSparkles, adult, adultPressed, "an adult cow");
 
-			adult.discard();
-			watcher.clear();
-			fixture.aim(new ActionTarget(sapling, Direction.NORTH));
-			fixture.pressAndRun();
-			helper.assertTrue(watcher.sparkles() == 0, "GE_BONE_MEAL on a sapling with no animal on the line sent "
-					+ watcher.sparkles() + " animal growth sparkle burst(s)");
-		}
-		finally {
-			helper.getLevel().players().remove(watcher);
-		}
-		helper.succeed();
+					watcher.clear();
+					fixture.aim(new ActionTarget(sapling, Direction.NORTH));
+					fixture.pressAndRun();
+					helper.runAfterDelay(10, () -> {
+						helper.assertTrue(watcher.sparkles().isEmpty(), "GE_BONE_MEAL on a sapling with no animal on the line"
+								+ " sent " + describe(watcher.sparkles(), 0L));
+						helper.succeed();
+					});
+				});
+			});
+		});
 	}
 
-	private static final class ParticleWatcher extends FakePlayer {
-		private final List<ClientboundLevelParticlesPacket> particles = new ArrayList<>();
+	// each sparkle 4 ticks after the one before, the first on the tick after the press, at a point of the 1.16 box
+	// (x and z within the animal's width of its position, y from 0.5 above its feet to 0.5 above its height), alone and still
+	private static void assertTrickle(GameTestHelper helper, List<SentParticle> sparkles, Cow animal, long pressed, String what) {
+		double width = animal.getBbWidth();
+		double height = animal.getBbHeight();
+		AABB box = new AABB(animal.getX() - width, animal.getY() + 0.5D, animal.getZ() - width,
+				animal.getX() + width, animal.getY() + 0.5D + height, animal.getZ() + width).inflate(1.0E-6D);
+		for (int i = 0; i < sparkles.size(); i++) {
+			SentParticle sent = sparkles.get(i);
+			ClientboundLevelParticlesPacket packet = sent.packet();
+			long after = i == 0 ? sent.tick() - pressed : sent.tick() - sparkles.get(i - 1).tick();
+			boolean onTime = i == 0 ? after >= 0 && after <= 1 : after == 4;
+			helper.assertTrue(onTime && box.contains(packet.getX(), packet.getY(), packet.getZ()) && packet.getCount() == 0
+					&& packet.getXDist() == 0.0F && packet.getYDist() == 0.0F && packet.getZDist() == 0.0F
+					&& packet.getMaxSpeed() == 0.0F, "GE_BONE_MEAL on " + what + ": sparkle " + (i + 1) + " came " + after
+							+ " tick(s) after " + (i == 0 ? "the press" : "the one before") + " at (" + packet.getX() + ", "
+							+ packet.getY() + ", " + packet.getZ() + ") with count " + packet.getCount() + ", spread ("
+							+ packet.getXDist() + ", " + packet.getYDist() + ", " + packet.getZDist() + "), speed "
+							+ packet.getMaxSpeed() + "; 1.16 put one every 4 ticks, still, in " + box);
+		}
+	}
+
+	private static String describe(List<SentParticle> sparkles, long since) {
+		return sparkles.size() + " HAPPY_VILLAGER packet(s) at ticks "
+				+ sparkles.stream().map(sent -> sent.tick() - since + "x" + sent.packet().getCount()).toList()
+				+ " (ticks after the press x particle count)";
+	}
+
+	private record SentParticle(long tick, ClientboundLevelParticlesPacket packet) {}
+
+	// only ServerLevel.players receive sendParticles; the watcher is one only while the level's tick ends, where the
+	// growth sparkles are sent, and not while the level ticks its entities and chunks
+	private static final class ParticleWatcher extends FakePlayer implements GameTestListener {
+		private final List<SentParticle> particles = new ArrayList<>();
+		private final Consumer<LevelTickEvent.Post> join;
+		private final Consumer<LevelTickEvent.Post> leave;
+		private boolean closed;
 
 		private ParticleWatcher(ServerLevel level) {
 			super(level, new GameProfile(UUID.randomUUID(), "bone-meal-sparkle-watcher"));
 			this.connection = new RecordingConnection(level, this);
+			join = event -> {
+				if (event.getLevel() == level && !level.players().contains(this)) level.players().add(this);
+			};
+			leave = event -> {
+				if (event.getLevel() == level) level.players().remove(this);
+			};
+			NeoForge.EVENT_BUS.addListener(EventPriority.HIGHEST, LevelTickEvent.Post.class, join);
+			NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, LevelTickEvent.Post.class, leave);
 		}
 
-		private int sparkles() {
-			return (int) particles.stream().filter(packet -> packet.getParticle().getType() == ParticleTypes.HAPPY_VILLAGER).count();
-		}
-
-		private int sparklesAround(AABB area) {
-			return (int) particles.stream().filter(packet -> packet.getParticle().getType() == ParticleTypes.HAPPY_VILLAGER
-					&& area.contains(packet.getX(), packet.getY(), packet.getZ())).count();
+		private List<SentParticle> sparkles() {
+			return particles.stream().filter(sent -> sent.packet().getParticle().getType() == ParticleTypes.HAPPY_VILLAGER).toList();
 		}
 
 		private void clear() {
 			particles.clear();
 		}
+
+		private void close() {
+			if (closed) return;
+			closed = true;
+			NeoForge.EVENT_BUS.unregister(join);
+			NeoForge.EVENT_BUS.unregister(leave);
+			serverLevel().players().remove(this);
+		}
+
+		@Override
+		public void testStructureLoaded(GameTestInfo test) {}
+
+		@Override
+		public void testPassed(GameTestInfo test, GameTestRunner runner) {
+			close();
+		}
+
+		@Override
+		public void testFailed(GameTestInfo test, GameTestRunner runner) {
+			close();
+		}
+
+		@Override
+		public void testAddedForRerun(GameTestInfo oldTest, GameTestInfo newTest, GameTestRunner runner) {
+			close();
+		}
 	}
 
 	private static final class RecordingConnection extends ServerGamePacketListenerImpl {
-		private final List<ClientboundLevelParticlesPacket> sink;
+		private final List<SentParticle> sink;
+		private final ServerLevel level;
 
 		private RecordingConnection(ServerLevel level, ParticleWatcher player) {
 			super(level.getServer(), openConnection(), player,
 					CommonListenerCookie.createInitial(player.getGameProfile(), false));
 			this.sink = player.particles;
+			this.level = level;
 		}
 
 		// as GameTestHelper.makeMockServerPlayerInLevel: a live channel, so channel lookups do not fail
@@ -1471,7 +1564,7 @@ public final class StandTargetRangeGameTests {
 		@Override
 		public void send(Packet<?> packet, @Nullable PacketSendListener listener) {
 			if (packet instanceof ClientboundLevelParticlesPacket particles && sink != null) {
-				sink.add(particles);
+				sink.add(new SentParticle(level.getGameTime(), particles));
 			}
 		}
 	}
