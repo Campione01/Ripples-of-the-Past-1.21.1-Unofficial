@@ -48,13 +48,19 @@ public class HierophantBarrierAbility extends NoPoseStandEntityAbility {
 
 	// 1.16: the crosshair block, valid within 10 blocks of the performer (the summoned Stand)
 	public static ActionTarget getCurrentBlockTarget(LivingEntity powerUser, LivingEntity performer, Level level) {
-		if (isPressedAtAnEntity(cameraEntity(powerUser, performer), level)) {
+		LivingEntity camera = cameraEntity(powerUser, performer);
+		if (isPressedAtAnEntity(camera, level)) {
 			return ActionTarget.EMPTY;
 		}
 		LivingEntity rangeFrom = rangeOrigin(powerUser, performer);
 		ActionTarget target = getAimTarget(powerUser, level);
 		if (isValidBlockTarget(rangeFrom, target, level)) {
 			return target;
+		}
+		// the user's vanilla pick met no block: 1.16 pressed at the Stand's aim, which is a mob when the precision ray
+		// found one beside the crosshair
+		if (camera != performer && target.getType() != TargetType.BLOCK && isPressedAtAnEntity(performer, level)) {
+			return ActionTarget.EMPTY;
 		}
 		target = getAimTarget(performer, level);
 		if (isValidBlockTarget(rangeFrom, target, level)) {

@@ -1398,6 +1398,43 @@ public final class StandTargetRangeGameTests {
 		helper.succeed();
 	}
 
+	// 1.16 EntityStandType.clientHitResult: with nothing under the vanilla pick the pressed target is the precision ray,
+	// which may be the mob beside the crosshair line; TargetRequirement.BLOCK fails for it, so the press was refused and no
+	// block on the line was taken. The Stand's synced aim is that target.
+	@GameTest(template = "empty", batch = BATCH)
+	public static void hierophantBarrierPressedAtAMobBesideTheCrosshairDoesNotTakeTheStoneOnIt(GameTestHelper helper) {
+		try (Fixture fixture = Fixture.open(helper, Kind.HG_BARRIER)) {
+			fixture.stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z + 1.0D, 0.0F, 0.0F);
+			BlockPos stone = fixture.block(BlockPos.containing(fixture.origin.x, fixture.origin.y + 1.0D, fixture.origin.z + 4.0D));
+			Cow beside = fixture.cow(2.5D);
+			beside.moveTo(fixture.origin.x + 0.9D, fixture.origin.y + 0.6D, fixture.origin.z + 2.5D, 180.0F, 0.0F);
+			Vec3 eyes = fixture.user.getEyePosition();
+			Vec3 end = eyes.add(fixture.user.getLookAngle().scale(5.0D));
+			helper.assertTrue(beside.getBoundingBox().clip(eyes, end).isEmpty(),
+					"STAND-RANGE premise: the cow is on the user's look ray, not beside it");
+			fixture.aim(ActionTarget.EMPTY);
+			LivingComponentAction.getComponent(fixture.stand).entityAim.setTarget(new ActionTarget(beside));
+			String answered = fixture.refusal();
+			ActionTarget picked = HierophantBarrierAbility.getCurrentBlockTarget(fixture.user, fixture.stand, fixture.level);
+			helper.assertTrue(BLOCK_TARGET.equals(answered) && picked.getType() == TargetType.EMPTY,
+					"HG_BARRIER with nothing under the vanilla pick, the Stand's aim on a cow beside the crosshair and stone at "
+							+ stone + " on it: answered " + answered + " and picked " + picked
+							+ "; 1.16 pressed at the cow and refused (TargetRequirement.BLOCK)");
+
+			LivingComponentAction.getComponent(fixture.stand).entityAim.setTarget(ActionTarget.EMPTY);
+			ActionTarget open = HierophantBarrierAbility.getCurrentBlockTarget(fixture.user, fixture.stand, fixture.level);
+			helper.assertTrue("accepted".equals(fixture.refusal()) && open.getType() == TargetType.BLOCK
+					&& stone.equals(open.getBlockPos()), "HG_BARRIER with the Stand's aim empty and stone on the look ray picked "
+							+ open + "; the stone is the target");
+
+			LivingComponentAction.getComponent(fixture.stand).entityAim.setTarget(new ActionTarget(stone, Direction.NORTH));
+			fixture.aim(ActionTarget.EMPTY);
+			helper.assertTrue("accepted".equals(fixture.refusal()),
+					"HG_BARRIER with the Stand's aim on the stone was refused");
+		}
+		helper.succeed();
+	}
+
 	// An open trapdoor is a plate on the far side of its cell: the cell is 9.8 blocks from the Stand's eyes, the plate
 	// 10.6. 1.16 ActionTarget.getBoundingBox measures to the bounds of the block's shape.
 	@GameTest(template = "empty", batch = BATCH)
