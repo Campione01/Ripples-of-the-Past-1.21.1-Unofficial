@@ -29,6 +29,8 @@ import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.ability.input.AbilityInput;
 import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
 import rotp.core.powersystem.entityaction.EntityActionInputState.HeldInputEntry;
+import rotp.core.init.ModDataAttachmentTypes;
+import rotp.core.init.ModEntityAttributes;
 import rotp.core.init.ModGamerules;
 import rotp.core.init.ModStatusEffects;
 import rotp.core.init.power.ModStandAbilities;
@@ -45,6 +47,7 @@ import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
 import rotp.core.subsystems.target.ActionTargetAim;
 import rotp.core.subsystems.target.ActionTargetRange;
+import rotp.core.subsystems.target.StandPrecisionRay;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -1183,6 +1186,52 @@ public final class StandTargetRangeGameTests {
 		helper.succeed();
 	}
 
+	// The owner's aim assist setting, off (2026-10-15): with nothing under the vanilla pick the press takes what the
+	// crosshair meets within the user's 5 blocks, as the punches do, not the baby the precision boxes reach beside it.
+	// The Stand stands by both babies, so the perform keeps the pressed one.
+	@GameTest(template = "empty", batch = BATCH)
+	public static void goldExperienceBoneMealWithoutTheAimAssistTakesTheBabyOnTheCrosshairPastTheVanillaPick(
+			GameTestHelper helper) {
+		boneMealWithoutTheAimAssist(helper, new Vec3(0.3D, 0.0D, 3.2D), "the press");
+	}
+
+	// The same scene with the Stand away from both babies: 1.16 standPerform aimed again, and without the aim assist
+	// that aim is the crosshair too.
+	@GameTest(template = "empty", batch = BATCH)
+	public static void goldExperienceBoneMealWithoutTheAimAssistAimsAgainAtTheBabyOnTheCrosshair(GameTestHelper helper) {
+		boneMealWithoutTheAimAssist(helper, new Vec3(2.0D, 0.0D, -2.0D), "the perform's new aim");
+	}
+
+	private static void boneMealWithoutTheAimAssist(GameTestHelper helper, Vec3 standOffset, String step) {
+		try (Fixture fixture = Fixture.open(helper, Kind.GE_BONE_MEAL)) {
+			fixture.stand.getAttribute(ModEntityAttributes.STAND_PRECISION).setBaseValue(16.0D);
+			fixture.stand.moveTo(fixture.origin.x + standOffset.x, fixture.origin.y + standOffset.y,
+					fixture.origin.z + standOffset.z, 0.0F, 0.0F);
+			Cow crosshair = fixture.babyCow(0.0D, 4.0D);
+			Cow beside = fixture.babyCow(0.6D, 2.5D);
+			fixture.aim(ActionTarget.EMPTY);
+			Vec3 eyes = fixture.user.getEyePosition();
+			Vec3 end = eyes.add(fixture.user.getLookAngle().scale(5.0D));
+			double fromEyes = crosshair.getBoundingBox().clip(eyes, end).map(eyes::distanceTo).orElse(-1.0D);
+			ActionTarget assisted = StandPrecisionRay.trace(fixture.user, fixture.stand);
+			helper.assertTrue(fromEyes > 3.2D && fromEyes < 4.8D && beside.getBoundingBox().clip(eyes, end).isEmpty()
+					&& assisted.getMainEntity() == beside,
+					"STAND-RANGE premise: the baby on the crosshair is not between the vanilla pick's 3 blocks and the user's 5,"
+							+ " or the aim assist would not take the baby beside it: fromEyes=" + fromEyes + " assisted=" + assisted);
+			fixture.user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get()).standAimAssist = false;
+			int crosshairAge = crosshair.getAge();
+			int besideAge = beside.getAge();
+			String answered = fixture.refusal();
+			fixture.pressAndRun();
+			helper.assertTrue("accepted".equals(answered) && crosshair.getAge() > crosshairAge && beside.getAge() == besideAge,
+					"GE_BONE_MEAL with the aim assist off, nothing under the vanilla pick, a baby cow " + fromEyes + " blocks"
+							+ " along the crosshair and another beside it: answered " + answered + ", the crosshair baby aged "
+							+ (crosshair.getAge() - crosshairAge) + ", the one beside " + (beside.getAge() - besideAge) + "; "
+							+ step + " takes what the crosshair meets within the user's 5 blocks");
+		}
+		helper.succeed();
+	}
+
 	// The block's near face is 10.15 blocks straight ahead of the Stand's eyes. 1.16 JojoModUtil.getDistance takes half
 	// the performer's width off, which leaves about 9.85.
 	// Own batch: this test keeps its scene for some ticks, and the others of this class share a chunk's scene.
@@ -1537,6 +1586,19 @@ public final class StandTargetRangeGameTests {
 			cow.moveTo(origin.x, origin.y, origin.z + separation, 180.0F, 0.0F);
 			helper.assertTrue(level.addFreshEntity(cow), "STAND-RANGE premise: could not add the cow");
 			return cow;
+		}
+
+		// a baby cow with its box centred on the user's look ray, x blocks to the side of it
+		private Cow babyCow(double x, double separation) {
+			Cow baby = EntityType.COW.create(level);
+			helper.assertTrue(baby != null, "STAND-RANGE premise: could not create the baby cow");
+			baby.setNoAi(true);
+			baby.setNoGravity(true);
+			baby.setAge(-24000);
+			baby.moveTo(origin.x + x, user.getEyeY() - baby.getBbHeight() / 2.0D, origin.z + separation, 180.0F, 0.0F);
+			extras.add(baby);
+			helper.assertTrue(level.addFreshEntity(baby) && baby.isBaby(), "STAND-RANGE premise: could not add the baby cow");
+			return baby;
 		}
 
 		// the user has met a cow and has the stamina, so Create Lifeform has a lifeform to create

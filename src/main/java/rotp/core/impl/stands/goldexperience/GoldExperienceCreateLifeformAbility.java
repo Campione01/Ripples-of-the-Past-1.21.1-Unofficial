@@ -605,10 +605,13 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceChosenLif
         ActionTarget target = ownClient
                 ? (aiming == user ? ClientsideAim.playerAim : ClientsideAim.standAim).getTarget()
                 : getAimTarget(aiming);
-        if (target.getType() == ActionTarget.TargetType.EMPTY && aiming == user && StandEntityPunchAbility.aimAssist(user)) {
+        if (target.getType() == ActionTarget.TargetType.EMPTY && aiming == user) {
             StandEntity stand = standPower.getSummonedStandEntity();
             if (stand != null) {
-                target = StandPrecisionRay.trace(user, stand);
+                // without the aim assist the strict crosshair at the same reach, as the punches take it
+                target = StandEntityPunchAbility.aimAssist(user)
+                        ? StandPrecisionRay.trace(user, stand)
+                        : StandPrecisionRay.crosshair(user, stand, StandPrecisionRay.reach(user, stand), true);
             }
         }
         target.resolveEntityId(level);
