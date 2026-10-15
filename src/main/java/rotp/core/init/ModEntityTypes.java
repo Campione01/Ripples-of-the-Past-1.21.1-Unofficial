@@ -649,7 +649,8 @@ public final class ModEntityTypes {
 
 	public static final DeferredHolder<EntityType<?>, EntityType<SoulEntity>> SOUL = ENTITY_TYPES.register("soul", key ->
 			EntityType.Builder.<SoulEntity>of(SoulEntity::new, MobCategory.MISC)
-			.sized(0.5F, 0.5F)
+			// 1.16: player-sized, so the camera of the dead player on it sits at a standing eye height
+			.sized(0.6F, 1.8F)
 			.noSummon()
 			.noSave()
 			.clientTrackingRange(8)

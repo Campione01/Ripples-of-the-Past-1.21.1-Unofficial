@@ -13,6 +13,7 @@ import io.netty.channel.embedded.EmbeddedChannel;
 
 import rotp.core.core.JojoMod;
 import rotp.core.init.ModDataAttachmentTypes;
+import rotp.core.init.ModEntityTypes;
 import rotp.core.init.power.ModStands;
 import rotp.core.network.c2s.ClSoulRotationPacket;
 import rotp.core.network.s2c.SoulSpawnPacket;
@@ -34,6 +35,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.network.CommonListenerCookie;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.player.Player;
@@ -408,6 +410,16 @@ public final class SoulAscensionClientGameTests {
 		finally {
 			origin.discard();
 		}
+		helper.succeed();
+	}
+
+	/** 1.16 registered the soul player-sized: the camera of a dead player rode it at a standing eye height. */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void soulIsPlayerSizedAsIn116(GameTestHelper helper) {
+		EntityDimensions size = ModEntityTypes.SOUL.get().getDimensions();
+		check(helper, size.width() == 0.6F && size.height() == 1.8F && Math.abs(size.eyeHeight() - 1.53F) < 1.0E-4F,
+				"The soul is " + size.width() + " x " + size.height() + " with its eyes at " + size.eyeHeight()
+						+ "; 1.16 made it 0.6 x 1.8 with the eyes at 1.53, where the dead player's camera sits");
 		helper.succeed();
 	}
 
