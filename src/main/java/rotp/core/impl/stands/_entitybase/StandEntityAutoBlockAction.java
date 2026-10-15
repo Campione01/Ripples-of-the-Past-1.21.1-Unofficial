@@ -54,8 +54,8 @@ public class StandEntityAutoBlockAction extends SpecialEntityActionType {
 
 		@Override
 		public void onSetPhase(ActionPhase newPhase) {
-			// 1.16 StandEntityBlock.standUserWalkSpeed(0.3F)
-			userWalkSpeed = newPhase == ActionPhase.PERFORM ? 0.3F : 1;
+			// owner rule 2026-10-15: a guard halves its user's walk speed (1.16 StandEntityBlock: 0.3)
+			userWalkSpeed = newPhase == ActionPhase.PERFORM ? 0.5F : 1;
 		}
 
 		@Override

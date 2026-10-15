@@ -364,7 +364,7 @@ public final class HeavyOriginalPhaseGameTests {
             }
             check(near(action.phasesLength.getFloat(ActionPhase.RECOVERY), expectedRecovery), "stored recovery=" + action.phasesLength.getFloat(ActionPhase.RECOVERY));
             check(near(action.phasesLength.getFloat(ActionPhase.PERFORM), expectedPerform), "stored PERFORM=" + action.phasesLength.getFloat(ActionPhase.PERFORM) + " expected=" + expectedPerform);
-            check(near(action.userWalkSpeed, walkDuringAttack()), "native start movement factor=" + action.userWalkSpeed);
+            check(near(action.userWalkSpeed, walkDuringAttack()), "native start movement factor (owner rule 2026-10-15: 1)=" + action.userWalkSpeed);
             if (spec.family == Family.GRAB_HEAVY) check(action.ability.getAbilityUsageCategory() == AbilityUsageGroup.GRAB, "port-only grab context remains independent");
             log("PRESS " + spec.id() + " selected=" + selected + " speed=" + speed + " snapshot=" + meterAtPress + " phases=" + action.phasesLength);
             if (spec.follow == Follow.BUFFERED_CLICK) {
@@ -430,7 +430,7 @@ public final class HeavyOriginalPhaseGameTests {
                 if (!stampSeen && action.punchedTarget != null) observeStamp();
                 if (action.getPhase() == ActionPhase.RECOVERY && recoveryAge < 0) observeRecovery();
                 if (beforePhase == ActionPhase.PERFORM && action.getPhase() == ActionPhase.PERFORM)
-                    check(near(action.userWalkSpeed, walkDuringAttack()), "non-recovery movement factor preserved");
+                    check(near(action.userWalkSpeed, walkDuringAttack()), "non-recovery movement factor preserved (owner rule 2026-10-15: 1)=" + action.userWalkSpeed);
                 if (beforePhase == ActionPhase.RECOVERY)
                     check(near(action.userWalkSpeed, 1), "recovery movement factor1");
             }
@@ -508,7 +508,8 @@ public final class HeavyOriginalPhaseGameTests {
         }
 
         void verifyImpactCount() { check(incomingCalls == (spec.empty ? 0 : 1), "actual primary damage callbacks=" + incomingCalls); }
-        float walkDuringAttack() { return spec.family == Family.TS_PUNCH || spec.family == Family.CHARGED ? 1 : 0.5F; }
+        // owner rule 2026-10-15: every heavy-family strike keeps full walk speed (D-core-88's grab heavy punch 0.5 superseded)
+        float walkDuringAttack() { return 1; }
 
         Press press(String name, InputMethod method, short key, float delay, boolean canBuffer) {
             Ability base = caster.power.getAbility(name);

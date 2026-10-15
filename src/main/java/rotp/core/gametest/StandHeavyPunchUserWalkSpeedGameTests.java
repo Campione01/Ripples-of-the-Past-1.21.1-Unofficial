@@ -26,8 +26,8 @@ import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
- * 1.16 StandEntityAction: the user walks at the action's userWalkSpeed (builder default 0.5) in every phase but
- * RECOVERY. StandEntityHeavyAttack.Builder keeps the default; the_world_ts_punch sets standUserWalkSpeed(1.0F).
+ * Owner rule 2026-10-15 (replaces the 1.16 StandEntityHeavyAttack.Builder default 0.5): heavy punches and kicks keep
+ * their user's full walk speed in every phase, as the time-stop punch did in 1.16 (standUserWalkSpeed(1.0F)).
  */
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -37,26 +37,27 @@ public final class StandHeavyPunchUserWalkSpeedGameTests {
 	private StandHeavyPunchUserWalkSpeedGameTests() {}
 
 	@GameTest(template = "empty", batch = BATCH)
-	public static void starPlatinumHeavyPunchHalvesTheUsersWalkSpeed(GameTestHelper helper) {
-		run(helper, "star_platinum", "heavy_punch", 0.5F);
+	public static void starPlatinumHeavyPunchKeepsTheUsersWalkSpeed(GameTestHelper helper) {
+		run(helper, "star_platinum", "heavy_punch", "owner rule 2026-10-15");
 	}
 
 	@GameTest(template = "empty", batch = BATCH)
-	public static void starPlatinumUppercutHalvesTheUsersWalkSpeed(GameTestHelper helper) {
-		run(helper, "star_platinum", "finisher_uppercut", 0.5F);
+	public static void starPlatinumUppercutKeepsTheUsersWalkSpeed(GameTestHelper helper) {
+		run(helper, "star_platinum", "finisher_uppercut", "owner rule 2026-10-15");
 	}
 
 	@GameTest(template = "empty", batch = BATCH)
-	public static void theWorldKickHalvesTheUsersWalkSpeed(GameTestHelper helper) {
-		run(helper, "the_world", "kick", 0.5F);
+	public static void theWorldKickKeepsTheUsersWalkSpeed(GameTestHelper helper) {
+		run(helper, "the_world", "kick", "owner rule 2026-10-15");
 	}
 
 	@GameTest(template = "empty", batch = BATCH)
 	public static void theWorldTimeStopPunchKeepsTheUsersWalkSpeed(GameTestHelper helper) {
-		run(helper, "the_world", "ts_punch", 1.0F);
+		run(helper, "the_world", "ts_punch", "1.16 the_world_ts_punch standUserWalkSpeed(1.0F) and owner rule 2026-10-15");
 	}
 
-	private static void run(GameTestHelper helper, String standId, String abilityName, float expected) {
+	private static void run(GameTestHelper helper, String standId, String abilityName, String source) {
+		float expected = 1.0F;
 		StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc(standId));
 		helper.assertTrue(type != null, "HEAVY-WALK premise: missing registered Stand " + standId);
 		Vec3 pos = Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(1, 2, 1)));
@@ -93,7 +94,7 @@ public final class StandHeavyPunchUserWalkSpeedGameTests {
 			float recovery = action.userWalkSpeed;
 			helper.assertTrue(atStart == expected && inStand == expected && windup == expected && perform == expected
 							&& recovery == 1.0F,
-					standId + " " + abilityName + " user walk speed (1.16: " + expected + " until RECOVERY, then 1.0):"
+					standId + " " + abilityName + " user walk speed (" + source + ": " + expected + " in every phase):"
 							+ " start(" + startPhase + ")=" + atStart + " throughStand=" + inStand + " windup=" + windup
 							+ " perform=" + perform + " recovery=" + recovery);
 		}

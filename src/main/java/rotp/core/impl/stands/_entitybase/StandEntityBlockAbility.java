@@ -34,8 +34,8 @@ public class StandEntityBlockAbility extends StandEntityAbility {
 		setButtonHoldPhase(ActionPhase.PERFORM);
 		standAutoSummonMode(AutoSummonMode.ARMS);
 		partsRequired(StandPart.ARMS);
-		// 1.16 StandEntityBlock
-		standUserWalkSpeed(0.3F);
+		// owner rule 2026-10-15: the guard is the one Stand action that slows its user, to half walk speed (1.16: 0.3)
+		standUserWalkSpeed(0.5F);
 	}
 
 	@Override

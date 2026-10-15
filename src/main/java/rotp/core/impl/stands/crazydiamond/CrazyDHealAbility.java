@@ -329,7 +329,6 @@ public class CrazyDHealAbility extends StandEntityAbility {
 					}
 				}
 			}
-			userWalkSpeed = getPhase() == ActionPhase.PERFORM ? 0.5F : 1.0F;
 		}
 		
 		public void onHealResultUpdated(HealResult.Synched old, HealResult.Synched cur) {

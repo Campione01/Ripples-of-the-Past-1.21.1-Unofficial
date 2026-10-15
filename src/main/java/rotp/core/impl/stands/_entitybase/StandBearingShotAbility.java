@@ -37,8 +37,6 @@ public class StandBearingShotAbility extends StandEntityAbility {
 		setDefaultPhaseLength(ActionPhase.WINDUP, 10);
 		setButtonHoldPhase(ActionPhase.PERFORM);
 		setDefaultPhaseLength(ActionPhase.RECOVERY, 15);
-		// a port addition with no 1.16 registration: the user keeps full speed, as before the Stand action default
-		standUserWalkSpeed(1.0F);
 	}
 
 	@Override

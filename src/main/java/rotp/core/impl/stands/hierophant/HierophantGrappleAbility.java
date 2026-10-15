@@ -82,6 +82,8 @@ public class HierophantGrappleAbility extends StandEntityAbility {
 			aimAs = AimingEntity.STAND;
 		}
 
+		// 1.16 standUserWalkSpeed(0.0F): the user stands still while the string pulls, the one Stand action the owner rule
+		// of 2026-10-15 keeps holding its user (a mechanic, not a slowdown)
 		@Override
 		public void onSetPhase(ActionPhase newPhase) {
 			userWalkSpeed = newPhase == ActionPhase.PERFORM ? 0.0F : 1.0F;

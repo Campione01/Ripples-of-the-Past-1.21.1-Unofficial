@@ -751,8 +751,9 @@ public class EntityActionInstance implements HeldInput {
 		applySyncedStandOffset();
 	}
 
-	// 1.16 StandEntityAction.getUserWalkSpeed: a Stand's action slows its user to the speed of its registration in every
-	// phase but RECOVERY. Set before the action's own callbacks, which may change it.
+	// 1.16 StandEntityAction.getUserWalkSpeed: a Stand's action sets its user's walk speed from its registration in every
+	// phase but RECOVERY (owner rule 2026-10-15: 0.5 for the guard, 1.0 otherwise). Set before the action's own
+	// callbacks, which may change it.
 	private void applyStandUserWalkSpeed(@Nullable ActionPhase phase) {
 		if (phase != null && ability instanceof StandEntityAbility standAbility) {
 			userWalkSpeed = phase == ActionPhase.RECOVERY ? 1.0F : standAbility.getStandUserWalkSpeed();

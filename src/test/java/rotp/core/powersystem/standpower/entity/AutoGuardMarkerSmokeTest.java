@@ -47,7 +47,7 @@ public final class AutoGuardMarkerSmokeTest {
 		check(auto instanceof StandEntityAutoBlockAction.AutoBlockInstance && auto != generic.createActionObj(),
 				"each generic auto-guard must build its own action");
 		auto.onSetPhase(ActionPhase.PERFORM);
-		check(auto.userWalkSpeed == 0.3F, "the user walks at 0.3 while the generic guard holds, as with 1.16 StandEntityBlock");
+		check(auto.userWalkSpeed == 0.5F, "the user walks at half speed while the generic guard holds (owner rule 2026-10-15)");
 		auto.onSetPhase(ActionPhase.RECOVERY);
 		check(auto.userWalkSpeed == 1.0F, "the walk speed comes back after the guard");
 		StandEntityBlockAbility ownGuard = new AbilityType<StandEntityBlockAbility>(id("auto_guard_generic_block"),

@@ -104,7 +104,8 @@ public final class StandAutoGuardGameTests {
 							+ stand.offsetFromUser.getRelativeOffset() + " on " + stand.offsetFromUser.getRotations());
 			helper.assertTrue(auto.getSyncedStandOffset() == null,
 					"The auto-guard sends clients a Stand offset: " + auto.getSyncedStandOffset());
-			helper.assertTrue(auto.userWalkSpeed == 0.3F, "The auto-guard lost the 0.3 walk speed: " + auto.userWalkSpeed);
+			helper.assertTrue(auto.userWalkSpeed == 0.5F,
+					"The auto-guard lost the guard's 0.5 walk speed (owner rule 2026-10-15): " + auto.userWalkSpeed);
 
 			scheduled = true;
 			helper.runAfterDelay(2, () -> {

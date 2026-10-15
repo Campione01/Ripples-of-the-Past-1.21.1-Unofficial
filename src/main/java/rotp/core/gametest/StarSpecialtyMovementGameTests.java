@@ -87,18 +87,19 @@ public final class StarSpecialtyMovementGameTests {
         log("BATCH-CLEANUP released=" + (active == null));
     }
 
+    // owner rule 2026-10-15: only the guard slows its user (0.5); Star Finger, Inhale and Zoom keep full speed
     private static List<Spec> cases() {
-        return List.of(new Spec("star_finger", End.NATURAL, 20, 0.5F),
-                new Spec("star_finger", End.GUARD, 4, 0.5F),
-                new Spec("star_finger", End.FORCE, 4, 0.5F),
-                new Spec("inhale", End.NATURAL, 80, 0.5F), new Spec("inhale", End.RELEASE, 7, 0.5F),
-                new Spec("inhale", End.GUARD, 7, 0.5F), new Spec("inhale", End.ROLLBACK, 7, 0.5F),
-                new Spec("inhale", End.FORCE, 7, 0.5F),
-                new Spec("enhanced_eyesight", End.RELEASE, 7, 0.5F),
-                new Spec("enhanced_eyesight", End.LATCHED_RELEASE, 40, 0.5F),
-                new Spec("enhanced_eyesight", End.GUARD, 7, 0.5F),
-                new Spec("enhanced_eyesight", End.ROLLBACK, 7, 0.5F),
-                new Spec("guard", End.RELEASE, 7, 0.3F), new Spec("time_stop", End.FORCE, 2, 1F));
+        return List.of(new Spec("star_finger", End.NATURAL, 20, 1F),
+                new Spec("star_finger", End.GUARD, 4, 1F),
+                new Spec("star_finger", End.FORCE, 4, 1F),
+                new Spec("inhale", End.NATURAL, 80, 1F), new Spec("inhale", End.RELEASE, 7, 1F),
+                new Spec("inhale", End.GUARD, 7, 1F), new Spec("inhale", End.ROLLBACK, 7, 1F),
+                new Spec("inhale", End.FORCE, 7, 1F),
+                new Spec("enhanced_eyesight", End.RELEASE, 7, 1F),
+                new Spec("enhanced_eyesight", End.LATCHED_RELEASE, 40, 1F),
+                new Spec("enhanced_eyesight", End.GUARD, 7, 1F),
+                new Spec("enhanced_eyesight", End.ROLLBACK, 7, 1F),
+                new Spec("guard", End.RELEASE, 7, 0.5F), new Spec("time_stop", End.FORCE, 2, 1F));
     }
 
     private static final class Suite implements GameTestListener {
@@ -294,8 +295,8 @@ public final class StarSpecialtyMovementGameTests {
                     AbilityInput.keyRelease(KEY_B, user);
                 }
                 else {
-                    suite.check(succeeded && stand.getCurStandAction() != action && action.isOver() && factor() == 0.3F,
-                            "registered guard replacement uses only guard0.3");
+                    suite.check(succeeded && stand.getCurStandAction() != action && action.isOver() && factor() == 0.5F,
+                            "registered guard replacement uses only guard0.5 (owner rule 2026-10-15)");
                     releaseReplacement = true;
                 }
             }
@@ -316,7 +317,7 @@ public final class StarSpecialtyMovementGameTests {
         void checkActive(String reason) {
             suite.check(action.getPowerUser() == user && stand.getUser() == user && action.userWalkSpeed == spec.factor
                     && factor() == spec.factor, reason + " raw=" + action.userWalkSpeed + " StandResolver=" + factor()
-                            + " expected=" + spec.factor + " phase=" + action.getPhase());
+                            + " expected(owner rule 2026-10-15)=" + spec.factor + " phase=" + action.getPhase());
         }
         float factor() {
             StandEntity currentStand = power.getSummonedStandEntity();

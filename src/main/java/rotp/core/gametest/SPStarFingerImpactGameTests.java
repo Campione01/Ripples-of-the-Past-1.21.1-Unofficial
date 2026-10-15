@@ -372,11 +372,12 @@ public final class SPStarFingerImpactGameTests {
                     + " obbRetracting=" + action.extendableOBB().isRetracting() + " obbLength=" + action.extendableOBB().getLength());
         }
 
-        // 1.16 Stand task: the Star Finger pose and its 0.5 walk factor last the whole perform, whatever the finger hit
+        // 1.16 Stand task: the Star Finger pose lasts the whole perform, whatever the finger hit; owner rule 2026-10-15:
+        // the user keeps full walk speed through it
         void standTick() {
             if (action == null || stand.getCurStandAction() != action || action.getPhase() != ActionPhase.PERFORM) return;
             actionTicks++;
-            if (action.userWalkSpeed != 0.5F) walkHeld = false;
+            if (action.userWalkSpeed != 1.0F) walkHeld = false;
         }
 
         void finish() {
@@ -390,7 +391,7 @@ public final class SPStarFingerImpactGameTests {
                 suite.check(actionTicks == suite.defaultActionTicks && stand.getCurStandAction() != action,
                         "the action keeps its full perform ticks=" + actionTicks + " control=" + suite.defaultActionTicks);
             }
-            suite.check(walkHeld, "the 0.5 walk factor holds through the perform");
+            suite.check(walkHeld, "the full walk factor holds through the perform (owner rule 2026-10-15)");
             suite.check(emissions.size() == 1 && uid.equals(finger.getUUID()) && finger.isRemoved()
                     && level.getEntity(finger.getId()) == null, "single original emission cleaned up");
             if (kind == SceneKind.ENTITY || kind == SceneKind.BROKEN_BLOCK) {

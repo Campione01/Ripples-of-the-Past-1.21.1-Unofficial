@@ -53,8 +53,6 @@ public class StandEntityGrabAbility extends StandEntityAbility {
 		usageGroup = AbilityUsageGroup.COMBAT;
 		setDefaultPhaseLength(ActionPhase.WINDUP, 9);
 		noFinisherBarDecay = true;
-		// a port addition with no 1.16 registration: the user keeps full speed, as before the Stand action default
-		standUserWalkSpeed(1.0F);
 	}
 
 	@Override
