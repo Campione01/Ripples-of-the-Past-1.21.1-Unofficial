@@ -166,6 +166,55 @@ public final class GoldExperienceToothGameTests {
 		}
 	}
 
+	// 1.16 GoldExperienceHeavyPunch.rotateStandTowardsTarget: during the heavy punch the Stand looks at the top of an
+	// entity target's bounding box, not at its eyes; any other target keeps the common rule.
+	@GameTest(template = "empty", timeoutTicks = 40)
+	public static void geHeavyPunchTurnsTheStandToTheTopOfItsTarget(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		Player user = FakePlayerFactory.get(level, new GameProfile(
+				UUID.fromString("7c1e0b48-0000-4000-8000-00000000a150"), "GoldExperienceHeavyPunchLook"));
+		StandType standType = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("gold_experience"));
+		StandPower power = null;
+		Vec3 userPos = Vec3.atCenterOf(helper.absolutePos(new BlockPos(2, 2, 2)));
+		AABB area = new AABB(userPos, userPos).inflate(4.0D);
+		List<Mob> spawned = new ArrayList<>();
+		try {
+			helper.assertTrue(standType != null, "Missing Gold Experience Stand type");
+			user.moveTo(userPos.x, userPos.y, userPos.z);
+			helper.assertTrue(level.addFreshEntity(user), "Could not add Gold Experience heavy-punch player");
+			power = grantAndSummon(helper, user, standType);
+			StandEntity stand = power.getSummonedStandEntity();
+			Mob cow = spawnTarget(helper, spawned, EntityType.COW, userPos.add(0.0D, 0.0D, 2.0D));
+			LivingComponentAction component = LivingComponentAction.getComponent(stand);
+			component.entityAim.setTarget(new ActionTarget(cow));
+			Ability ability = power.getAbility("heavy_punch");
+			helper.assertTrue(ability instanceof EntityActionType, "Gold Experience heavy punch is not an entity action");
+			EntityActionInstance action = ((EntityActionType) ability).initActionOnAbilityUse(level, user, stand, null);
+			helper.assertTrue(action instanceof ToothKnockingHeavyPunch, "Gold Experience heavy punch is not the tooth-knocking punch");
+			component.setAction(action, user, SyncType.NO_SYNC);
+
+			Vec3 lookAt = stand.getPosToLookAt(new ActionTarget(cow));
+			Vec3 top = new Vec3(cow.getX(), cow.getBoundingBox().maxY, cow.getZ());
+			helper.assertTrue(lookAt != null && lookAt.distanceTo(top) < 1.0E-6D,
+					"Gold Experience's Stand looks at " + lookAt + " of a cow during its heavy punch; 1.16 turns it to the top"
+							+ " of the cow's bounding box " + top + " (the cow's eyes are at y=" + cow.getEyeY() + ")");
+			BlockPos block = BlockPos.containing(userPos.add(0.0D, 0.0D, 3.0D));
+			Vec3 blockLook = stand.getPosToLookAt(new ActionTarget(block, net.minecraft.core.Direction.NORTH));
+			helper.assertTrue(Vec3.atCenterOf(block).equals(blockLook),
+					"Gold Experience's Stand looks at " + blockLook + " of a block during its heavy punch; 1.16 keeps the"
+							+ " common rule there, the block's centre " + Vec3.atCenterOf(block));
+			component.setAction(null, user, SyncType.NO_SYNC);
+			helper.succeed();
+		}
+		finally {
+			if (power != null && power.isSummoned() && standType != null) {
+				standType.forceUnsummon(user, power);
+			}
+			discardAll(level, area, spawned);
+			user.discard();
+		}
+	}
+
 	private static StandPower grantAndSummon(GameTestHelper helper, Player user, StandType standType) {
 		StandPower power = PowerClass.STAND.attachGet(user);
 		StandPowerTransitions.Result inserted = StandPowerTransitions.insert(power, new StandInstance(standType));
