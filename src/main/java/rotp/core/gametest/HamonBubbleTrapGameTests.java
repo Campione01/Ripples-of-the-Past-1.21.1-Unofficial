@@ -23,6 +23,7 @@ import com.mojang.authlib.GameProfile;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -298,6 +299,32 @@ public final class HamonBubbleTrapGameTests {
 		}
 		finally {
 			cleanup(idle, barrier, pig);
+		}
+	}
+
+	// 1.16 kept the shooter's power only in memory (no field of the save), so a barrier read back from a save had none
+	// and tick() removed it on its first server tick, after that tick's hit, although its owner was right there.
+	@GameTest(template = "empty", timeoutTicks = 40)
+	public static void reloadedBarrierWithItsOwnerPresentHitsOnceAndIsRemovedOnItsFirstTick(GameTestHelper helper) {
+		Player owner = hamonUser(helper, "BubbleTrapReloaded");
+		Pig pig = target(helper);
+		HamonBubbleBarrierEntity reloaded = ModEntityTypes.HAMON_BUBBLE_BARRIER.get().create(helper.getLevel());
+		try {
+			hamon(owner);
+			HamonBubbleBarrierEntity shot = new HamonBubbleBarrierEntity(helper.getLevel(), owner);
+			reloaded.load(shot.saveWithoutId(new CompoundTag()));
+			float health = pig.getHealth();
+			launchAt(helper, reloaded, pig, 0);
+			helper.assertTrue(reloaded.getOwner() == owner && pig.getHealth() < health,
+					"setup: the reloaded barrier should know its present owner and still deal its Hamon hit: owner="
+							+ reloaded.getOwner() + ", health " + health + " -> " + pig.getHealth());
+			helper.assertTrue(reloaded.isRemoved() && pig.getVehicle() == null && !pig.hasEffect(ModStatusEffects.STUN),
+					"1.16: a Bubble Barrier read back from a save is removed on its first tick, its owner present or not, and"
+							+ " leaves no trap or stun: " + state(pig, reloaded));
+			helper.succeed();
+		}
+		finally {
+			cleanup(reloaded, pig, owner);
 		}
 	}
 

@@ -34,6 +34,9 @@ public class HamonBubbleBarrierEntity extends ModdedProjectileEntity {
 	private boolean barrier;
 	private int barrierTicks;
 	private boolean charging;
+	// 1.16 kept the shooter's power only in memory, so a barrier read from a save (a reload, a dimension change,
+	// /summon) had none
+	private boolean loadedFromSave;
 
 	public HamonBubbleBarrierEntity(Level level, LivingEntity shooter) {
 		super(ModEntityTypes.HAMON_BUBBLE_BARRIER.get(), shooter, level);
@@ -68,9 +71,9 @@ public class HamonBubbleBarrierEntity extends ModdedProjectileEntity {
 	public void tick() {
 		super.tick();
 		if (!level().isClientSide()) {
-			// 1.16 HamonBubbleBarrierEntity.tick removed a barrier without its transient power (summoned, or reloaded)
-			// on its first tick, after that tick's hit; here that is a barrier without an owner.
-			if (getOwner() == null) {
+			// 1.16 HamonBubbleBarrierEntity.tick removed a barrier without its transient power (summoned, or reloaded,
+			// its owner present or not) on its first tick, after that tick's hit.
+			if (getOwner() == null || loadedFromSave) {
 				discard();
 			}
 			// 1.16 HamonBubbleBarrierEntity.tick: a barrier whose hold ended before it fired is removed.
@@ -216,8 +219,8 @@ public class HamonBubbleBarrierEntity extends ModdedProjectileEntity {
 		barrier = nbt.getBoolean("Barrier");
 		barrierTicks = nbt.getInt("BarrierTicks");
 		barrierMaxTicks = nbt.getInt("BarrierMaxTicks");
-		// A charge does not survive a reload, so a barrier saved mid-charge is removed on its first tick.
 		charging = nbt.getBoolean("Charging");
+		loadedFromSave = true;
 	}
 
 	@Override
