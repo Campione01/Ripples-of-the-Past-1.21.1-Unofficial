@@ -78,12 +78,13 @@ public final class HamonScarfSourceGameTests {
 
     private HamonScarfSourceGameTests() {}
 
-    @GameTest(template = "empty", skyAccess = true, batch = "hamon_scarf_source_freeze", timeoutTicks = 100)
+    // the ticks are only a ceiling for the real-time wait of the light engine (GameTestLight)
+    @GameTest(template = "empty", skyAccess = true, batch = "hamon_scarf_source_freeze", timeoutTicks = 4000)
     public static void scarfSwingDoesNotRetaliateAgainstItsRangedOwner(GameTestHelper helper) {
         start(helper, true);
     }
 
-    @GameTest(template = "empty", skyAccess = true, batch = "hamon_scarf_source_control", timeoutTicks = 100)
+    @GameTest(template = "empty", skyAccess = true, batch = "hamon_scarf_source_control", timeoutTicks = 4000)
     public static void scarfSwingDamagesVampireAndTrainsWithoutFreeze(GameTestHelper helper) {
         start(helper, false);
     }
@@ -131,6 +132,7 @@ public final class HamonScarfSourceGameTests {
         private final List<Object> listeners = new ArrayList<>();
         private final List<SatiporojaScarfEntity> spawned = new ArrayList<>();
         private final List<LivingIncomingDamageEvent> incoming = new ArrayList<>();
+        private GameTestLight.Wait light;
         private Player user;
         private Player defender;
         private HamonData hamon;
@@ -184,6 +186,8 @@ public final class HamonScarfSourceGameTests {
                 roof.put(pos.immutable(), level.getBlockState(pos));
                 helper.assertTrue(level.setBlockAndUpdate(pos, Blocks.STONE.defaultBlockState()), "Could not place owned scarf shade");
             }
+            // the shade is read only once the light engine, on a thread of its own, has lit the roof
+            light = new GameTestLight.Wait(level, chunk);
             userPosition = new Vec3(x + 6.5D, y, z + 5.5D);
             defenderPosition = userPosition.add(sweepTip(2.7D, -54.0D));
             user = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
@@ -463,7 +467,8 @@ public final class HamonScarfSourceGameTests {
             if (closed) return;
             try {
                 if (observerFailure != null) throw observerFailure;
-                helper.assertTrue(helper.getTick() < 80, "Scarf source watchdog expired");
+                if (!light.settled(helper, "the roof")) { helper.runAfterDelay(1, this::poll); return; }
+                helper.assertTrue(light.ticksSinceSettled(helper) < 80, "Scarf source watchdog expired");
                 if (!powersGranted) {
                     if (shadeAndTickingReady()) grantPowers();
                     helper.runAfterDelay(1, this::poll);

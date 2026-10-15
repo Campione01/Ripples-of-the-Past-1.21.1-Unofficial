@@ -65,22 +65,23 @@ import rotp.core.subsystems.target.ActionTarget;
 public final class VampireBloodGiftParityGameTests {
     private VampireBloodGiftParityGameTests() {}
 
-    @GameTest(template = "empty", skyAccess = true, batch = "vampire_gift_surface_reach", timeoutTicks = 200)
+    // the ticks are only a ceiling for the real-time wait of the light engine (GameTestLight)
+    @GameTest(template = "empty", skyAccess = true, batch = "vampire_gift_surface_reach", timeoutTicks = 4000)
     public static void fundedVisibleSurfaceRecipientAcceptsRegisteredGift(GameTestHelper helper) {
         start(helper, Scenario.SURFACE);
     }
 
-    @GameTest(template = "empty", skyAccess = true, batch = "vampire_gift_near_payment_ledger", timeoutTicks = 200)
+    @GameTest(template = "empty", skyAccess = true, batch = "vampire_gift_near_payment_ledger", timeoutTicks = 4000)
     public static void fundedNearGiftConvertsAndMeasuresNaturalPayments(GameTestHelper helper) {
         start(helper, Scenario.NEAR);
     }
 
-    @GameTest(template = "empty", skyAccess = true, batch = "vampire_gift_underfunded_admission", timeoutTicks = 200)
+    @GameTest(template = "empty", skyAccess = true, batch = "vampire_gift_underfunded_admission", timeoutTicks = 4000)
     public static void freshUnderfundedGiftHoldIsRejectedBeforePayment(GameTestHelper helper) {
         start(helper, Scenario.UNDERFUNDED);
     }
 
-    @GameTest(template = "empty", skyAccess = true, batch = "vampire_gift_retained_aim_occlusion", timeoutTicks = 200)
+    @GameTest(template = "empty", skyAccess = true, batch = "vampire_gift_retained_aim_occlusion", timeoutTicks = 4000)
     public static void retainedRecipientBeyondOccludedReachStopsWithoutFurtherPayment(GameTestHelper helper) {
         start(helper, Scenario.OCCLUDED);
     }
@@ -96,12 +97,12 @@ public final class VampireBloodGiftParityGameTests {
         }
     }
 
-    @GameTest(template = "empty", skyAccess = true, batch = "vampire_gift_release59", timeoutTicks = 200)
+    @GameTest(template = "empty", skyAccess = true, batch = "vampire_gift_release59", timeoutTicks = 4000)
     public static void releaseAfter59NaturalWindupTicksDoesNotConvert(GameTestHelper helper) {
         start(helper, Scenario.RELEASE_59);
     }
 
-    @GameTest(template = "empty", skyAccess = true, batch = "vampire_gift_commit60", timeoutTicks = 200)
+    @GameTest(template = "empty", skyAccess = true, batch = "vampire_gift_commit60", timeoutTicks = 4000)
     public static void giftCommitsOn60thNaturalWindupTickBeforeRelease(GameTestHelper helper) {
         start(helper, Scenario.COMMIT_60);
     }
@@ -161,6 +162,7 @@ public final class VampireBloodGiftParityGameTests {
         private final List<Double> controlDebits = new ArrayList<>();
         private final List<Donation> donations = new ArrayList<>();
         private final List<String> giverKnockbacks = new ArrayList<>();
+        private GameTestLight.Wait light;
         private Player giver;
         private Player recipient;
         private PlayerPower power;
@@ -229,6 +231,8 @@ public final class VampireBloodGiftParityGameTests {
                     putBlock(center.offset(x, 3, z), Blocks.STONE.defaultBlockState());
                 }
             }
+            // the shade is read only once the light engine, on a thread of its own, has lit the roof
+            light = new GameTestLight.Wait(level, chunk);
 
             giver = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
             recipient = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
@@ -633,7 +637,8 @@ public final class VampireBloodGiftParityGameTests {
             try {
                 if (observerFailure instanceof RuntimeException error) throw error;
                 if (observerFailure instanceof Error error) throw error;
-                premise(helper.getTick() < 180, "watchdog stage=" + stage + " naturalTicks=" + giverTicks + "/" + recipientTicks);
+                if (!light.settled(helper, "the roof")) { helper.runAfterDelay(1, this::poll); return; }
+                premise(light.ticksSinceSettled(helper) < 180, "watchdog stage=" + stage + " naturalTicks=" + giverTicks + "/" + recipientTicks);
                 if (!granted && giverTicks >= 2 && recipientTicks >= 2) {
                     premise(blocks.keySet().stream().allMatch(pos -> level.getBlockState(pos).is(Blocks.STONE)),
                             "human-ready roof/floor changed");

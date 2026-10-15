@@ -65,17 +65,18 @@ public final class AjaStoneBeamCollisionGameTests {
 
     private AjaStoneBeamCollisionGameTests() {}
 
-    @GameTest(template = "empty", skyAccess = true, batch = "aja_item_mixed", timeoutTicks = 100)
+    // the ticks are only a ceiling for the real-time wait of the light engine (GameTestLight)
+    @GameTest(template = "empty", skyAccess = true, batch = "aja_item_mixed", timeoutTicks = 4000)
     public static void chargedAjaKeepsFullRayEntityPriorityBehindWall(GameTestHelper helper) {
         start(helper, Scenario.MIXED);
     }
 
-    @GameTest(template = "empty", skyAccess = true, batch = "aja_item_entity", timeoutTicks = 100)
+    @GameTest(template = "empty", skyAccess = true, batch = "aja_item_entity", timeoutTicks = 4000)
     public static void chargedAjaHitsEligibleHuskThroughItsRealItemRoute(GameTestHelper helper) {
         start(helper, Scenario.ENTITY);
     }
 
-    @GameTest(template = "empty", skyAccess = true, batch = "aja_item_block", timeoutTicks = 100)
+    @GameTest(template = "empty", skyAccess = true, batch = "aja_item_block", timeoutTicks = 4000)
     public static void chargedAjaBlockOnlyHitPlacesSupportedFire(GameTestHelper helper) {
         start(helper, Scenario.BLOCK);
     }
@@ -128,6 +129,7 @@ public final class AjaStoneBeamCollisionGameTests {
         private final List<ItemEntity> drops = new ArrayList<>();
         private final List<ProjectileImpactEvent> impacts = new ArrayList<>();
         private final List<Incoming> incoming = new ArrayList<>();
+        private GameTestLight.Wait light;
         private Player user;
         private PlayerPower power;
         private Husk target;
@@ -189,6 +191,8 @@ public final class AjaStoneBeamCollisionGameTests {
             }
             lampPos = new BlockPos(x + 10, y + 24, z + 8);
             place(lampPos, Blocks.SEA_LANTERN.defaultBlockState());
+            // the shade is read only once the light engine, on a thread of its own, has lit the roof and the lamp
+            light = new GameTestLight.Wait(level, chunk);
             wallCenter = new BlockPos(x + 8, y + 20, z + 8);
             firePos = wallCenter.above();
             original.put(firePos, level.getBlockState(firePos));
@@ -482,7 +486,8 @@ public final class AjaStoneBeamCollisionGameTests {
             if (closed) return;
             try {
                 if (observerFailure != null) throw observerFailure;
-                helper.assertTrue(helper.getTick() < 80, "Aja item fixture watchdog expired");
+                if (!light.settled(helper, "the roof and the lamp")) { helper.runAfterDelay(1, this::poll); return; }
+                helper.assertTrue(light.ticksSinceSettled(helper) < 80, "Aja item fixture watchdog expired");
                 if (contact != null && completion != null && cooldownStep != null) {
                     validate();
                     close();

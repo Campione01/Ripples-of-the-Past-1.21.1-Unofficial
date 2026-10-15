@@ -56,24 +56,32 @@ import rotp.core.util.functions.DamageUtil;
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class SunWeaknessGameTests {
+    private static final int GUARD_TICKS = 6000;
+    private static final int CADENCE_TICKS = 80;
+
     private SunWeaknessGameTests() {}
 
-    @GameTest(template = "empty", batch = "sun_weakness_motion", skyAccess = true, timeoutTicks = 150)
+    // the ticks are only a ceiling for the real-time waits for the light engine (GameTestLight)
+    @GameTest(template = "empty", batch = "sun_weakness_motion", skyAccess = true, timeoutTicks = 4000)
     public static void environmentalSunlightKeepsDamageAndBurnWithoutKnockback(GameTestHelper helper) {
         Fixture fixture = new Fixture(helper);
         // Let the real ServerPlayer's sixty-tick spawn immunity expire under sun protection.
         helper.runAfterDelay(63, () -> guarded(fixture, () -> {
             fixture.assertSunlight();
-            fixture.player.addEffect(new MobEffectInstance(ModStatusEffects.SUN_RESISTANCE, 200));
+            fixture.guard();
             fixture.assertNoSunDamage("SUN_RESISTANCE");
-            fixture.player.removeEffect(ModStatusEffects.SUN_RESISTANCE);
+            // The protection stays on while the light engine, on a thread of its own, catches up with each block change:
+            // the vampire is exposed only on the tick the sky it stands under is the one the fixture states.
             fixture.level.setBlockAndUpdate(fixture.shade, Blocks.STONE.defaultBlockState());
-            helper.runAfterDelay(3, () -> guarded(fixture, () -> {
+            fixture.afterLight("the shade", () -> {
                 helper.assertTrue(!fixture.level.canSeeSky(fixture.sunPos()), "Shade did not block the actual sun-check position");
+                fixture.player.removeEffect(ModStatusEffects.SUN_RESISTANCE);
                 fixture.assertNoSunDamage("Opaque shade");
                 fixture.level.setBlockAndUpdate(fixture.shade, fixture.oldShade);
-                helper.runAfterDelay(3, () -> guarded(fixture, () -> {
+                fixture.guard();
+                fixture.afterLight("the open sky", () -> {
                     fixture.assertSunlight();
+                    fixture.player.removeEffect(ModStatusEffects.SUN_RESISTANCE);
                     fixture.player.move(MoverType.SELF, new Vec3(0, -0.01D, 0));
                     fixture.player.setDeltaMovement(Vec3.ZERO);
                     fixture.player.invulnerableTime = 0;
@@ -98,10 +106,14 @@ public final class SunWeaknessGameTests {
                             fixture.player.onGround(), DamageUtil.make(fixture.level, ModDamageTypes.ULTRAVIOLET)
                                     .is(DamageTypeTags.NO_KNOCKBACK));
                     fixture.measureCadence = true;
-                }));
-            }));
+                    fixture.cadenceStartTick = helper.getTick();
+                });
+            });
         }));
         helper.onEachTick(() -> guarded(fixture, () -> {
+            if (fixture.measureCadence && helper.getTick() - fixture.cadenceStartTick > CADENCE_TICKS) {
+                helper.fail("Sunlight fixture did not complete its real periodic follow-ups: " + fixture.hits);
+            }
             if (!fixture.measureCadence || fixture.hits.size() < 3) {
                 return;
             }
@@ -123,9 +135,6 @@ public final class SunWeaknessGameTests {
                     "Environmental sunlight must retain the donor no-knockback behavior");
             fixture.close();
             helper.succeed();
-        }));
-        helper.runAfterDelay(140, () -> guarded(fixture, () -> {
-            helper.fail("Sunlight fixture did not complete its real periodic follow-ups: " + fixture.hits);
         }));
     }
 
@@ -169,6 +178,7 @@ public final class SunWeaknessGameTests {
         private final Consumer<LivingDamageEvent.Post> damageListener;
         private final Consumer<LivingKnockBackEvent> knockbackListener;
         private boolean measureCadence;
+        private long cadenceStartTick;
         private Vec3 firstMotion = Vec3.ZERO;
 
         private Fixture(GameTestHelper helper) {
@@ -235,6 +245,22 @@ public final class SunWeaknessGameTests {
                 close();
                 throw failure;
             }
+        }
+
+        private void guard() {
+            player.addEffect(new MobEffectInstance(ModStatusEffects.SUN_RESISTANCE, GUARD_TICKS));
+        }
+
+        private void afterLight(String what, Runnable then) {
+            pollLight(new GameTestLight.Wait(level, new ChunkPos(floor)), what, then);
+        }
+
+        private void pollLight(GameTestLight.Wait light, String what, Runnable then) {
+            if (!light.settled(helper, "the sky over the player after " + what)) {
+                helper.runAfterDelay(1, () -> guarded(this, () -> pollLight(light, what, then)));
+                return;
+            }
+            then.run();
         }
 
         private BlockPos sunPos() {

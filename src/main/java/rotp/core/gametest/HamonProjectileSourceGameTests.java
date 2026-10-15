@@ -77,32 +77,33 @@ import rotp.core.util.functions.DamageUtil;
 public final class HamonProjectileSourceGameTests {
     private HamonProjectileSourceGameTests() {}
 
-    @GameTest(template = "empty", skyAccess = true, batch = "hamon_source_launcher_freeze", timeoutTicks = 160)
+    // the ticks are only a ceiling for the real-time wait of the light engine (GameTestLight)
+    @GameTest(template = "empty", skyAccess = true, batch = "hamon_source_launcher_freeze", timeoutTicks = 4000)
     public static void bubbleLauncherDoesNotRetaliateAgainstItsRangedOwner(GameTestHelper helper) {
         start(helper, Route.LAUNCHER, true);
     }
 
-    @GameTest(template = "empty", skyAccess = true, batch = "hamon_source_launcher_control", timeoutTicks = 160)
+    @GameTest(template = "empty", skyAccess = true, batch = "hamon_source_launcher_control", timeoutTicks = 4000)
     public static void bubbleLauncherDamagesVampireWithoutFreeze(GameTestHelper helper) {
         start(helper, Route.LAUNCHER, false);
     }
 
-    @GameTest(template = "empty", skyAccess = true, batch = "hamon_source_barrier_freeze", timeoutTicks = 160)
+    @GameTest(template = "empty", skyAccess = true, batch = "hamon_source_barrier_freeze", timeoutTicks = 4000)
     public static void initialBubbleBarrierDoesNotRetaliateAgainstItsRangedOwner(GameTestHelper helper) {
         start(helper, Route.BARRIER, true);
     }
 
-    @GameTest(template = "empty", skyAccess = true, batch = "hamon_source_barrier_control", timeoutTicks = 160)
+    @GameTest(template = "empty", skyAccess = true, batch = "hamon_source_barrier_control", timeoutTicks = 4000)
     public static void initialBubbleBarrierDamagesVampireWithoutFreeze(GameTestHelper helper) {
         start(helper, Route.BARRIER, false);
     }
 
-    @GameTest(template = "empty", skyAccess = true, batch = "hamon_source_zoom_freeze", timeoutTicks = 160)
+    @GameTest(template = "empty", skyAccess = true, batch = "hamon_source_zoom_freeze", timeoutTicks = 4000)
     public static void zoomPunchHamonDoesNotRetaliateAgainstItsRangedOwner(GameTestHelper helper) {
         start(helper, Route.ZOOM, true);
     }
 
-    @GameTest(template = "empty", skyAccess = true, batch = "hamon_source_zoom_control", timeoutTicks = 160)
+    @GameTest(template = "empty", skyAccess = true, batch = "hamon_source_zoom_control", timeoutTicks = 4000)
     public static void zoomPunchPreservesPhysicalAndBaseTrainingWithoutFreeze(GameTestHelper helper) {
         start(helper, Route.ZOOM, false);
     }
@@ -177,6 +178,9 @@ public final class HamonProjectileSourceGameTests {
         private int shooterTicks;
         private int defenderTicks;
         private int freezeStartedTicks;
+        private int grantedShooterTicks;
+        private int grantedDefenderTicks;
+        private GameTestLight.Wait light;
         private boolean freezePressed;
         private boolean attackPressed;
         private boolean attackReleased;
@@ -209,6 +213,8 @@ public final class HamonProjectileSourceGameTests {
                 roof.put(pos.immutable(), level.getBlockState(pos));
                 level.setBlockAndUpdate(pos, Blocks.STONE.defaultBlockState());
             }
+            // the shade is read only once the light engine, on a thread of its own, has lit the roof
+            light = new GameTestLight.Wait(level, chunk);
             shooter = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
             defender = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
             shooter.setNoGravity(true);
@@ -220,6 +226,15 @@ public final class HamonProjectileSourceGameTests {
             defender.setYHeadRot(180);
             defender.yBodyRot = 180;
             helper.assertTrue(level.addFreshEntity(shooter) && level.addFreshEntity(defender), "Could not add source-fixture players");
+            LivingComponentAction.getComponent(shooter).entityAim.setTarget(ActionTarget.EMPTY);
+            LivingComponentAction.getComponent(defender).entityAim.setTarget(ActionTarget.EMPTY);
+            registerObservers();
+            log("setup shooter=" + shooter.getUUID() + " defender=" + defender.getUUID() + " roofCells=" + roof.size()
+                    + " survival=true fixtureNoGravity=true separation=" + shooter.distanceTo(defender));
+        }
+
+        // a vampire in the sun the light engine has not yet taken away is burned, so both players are plain until then
+        private void grantPowers() {
             shooterPower = PowerClass.PLAYER_POWER.attachGet(shooter);
             shooterPower.setPowerType(ModPlayerPowers.HAMON.get());
             hamon = PlayerPower.getPowerData(shooter, ModPlayerPowers.HAMON).orElseThrow();
@@ -242,8 +257,6 @@ public final class HamonProjectileSourceGameTests {
             vampire.setBloodLevel(100);
             shooter.setHealth(shooter.getMaxHealth());
             defender.setHealth(defender.getMaxHealth());
-            LivingComponentAction.getComponent(shooter).entityAim.setTarget(ActionTarget.EMPTY);
-            LivingComponentAction.getComponent(defender).entityAim.setTarget(ActionTarget.EMPTY);
             attackAbility = shooterPower.getAbility(route.name);
             freezeAbility = defenderPower.getAbility("vampirism_freeze");
             boolean registered = switch (route) {
@@ -259,9 +272,10 @@ public final class HamonProjectileSourceGameTests {
                             && hamon.getEnergy() > 1500 && !hamon.isSkillLearned(ModHamonSkills.NATURAL_TALENT.get())
                             && JojoModConfig.getCommonConfigInstance(false).hamonPointsMultiplier.get() > 0,
                     "Source fixture registry, energy or training setup is invalid");
-            registerObservers();
-            log("setup shooter=" + shooter.getUUID() + " defender=" + defender.getUUID() + " roofCells=" + roof.size()
-                    + " survival=true fixtureNoGravity=true separation=" + shooter.distanceTo(defender));
+            grantedShooterTicks = shooterTicks;
+            grantedDefenderTicks = defenderTicks;
+            log("grant shooterTicks=" + shooterTicks + " defenderTicks=" + defenderTicks
+                    + " shooterSky=" + level.canSeeSky(shooter.blockPosition()) + " defenderSky=" + level.canSeeSky(defender.blockPosition()));
         }
 
         private void registerObservers() {
@@ -410,9 +424,10 @@ public final class HamonProjectileSourceGameTests {
             if (closed) return;
             try {
                 if (observerFailure != null) throw observerFailure;
-                helper.assertTrue(helper.getTick() < 140, "Hamon source watchdog: route=" + route + " shots=" + shots.size());
-                // the light engine shades both players a few ticks after the roof is placed, not at once
-                if (shooterTicks >= 2 && defenderTicks >= 2
+                if (!light.settled(helper, "the roof")) { helper.runAfterDelay(1, this::poll); return; }
+                helper.assertTrue(light.ticksSinceSettled(helper) < 140, "Hamon source watchdog: route=" + route + " shots=" + shots.size());
+                if (shooterPower == null) grantPowers();
+                if (shooterTicks >= grantedShooterTicks + 2 && defenderTicks >= grantedDefenderTicks + 2
                         && !level.canSeeSky(shooter.blockPosition()) && !level.canSeeSky(defender.blockPosition())) {
                     if (freezing && !freezePressed) pressFreeze();
                     if (!attackPressed && (!freezing || defenderTicks > freezeStartedTicks)) pressAttack();
