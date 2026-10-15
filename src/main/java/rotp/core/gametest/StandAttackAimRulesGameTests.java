@@ -10,7 +10,9 @@ import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.compat.v1_21_4.missingmethods._EntitySelector;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
+import rotp.core.entityattachment.syncheddata.SynchedDataExtended;
 import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility;
+import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility.StandEntityBarrage;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility.StandEntityHeavyPunch;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchChargedAbility.StandEntityChargedHeavy;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
@@ -39,6 +41,7 @@ import net.minecraft.commands.arguments.EntityAnchorArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -549,6 +552,10 @@ public final class StandAttackAimRulesGameTests {
 						&& cow.getHealth() < health, "The default barrage in a barrage clash struck " + action.punchedTarget
 								+ " instead of the cow its user aims at; 1.16 took the opposing Stand as its target only once"
 								+ " a hit met it");
+				ActionTarget clientHeld = clientHeldClashOpponent(helper, scene.stand, action);
+				helper.assertTrue(clientHeld.isEmpty(helper.getLevel()), "Clients hold " + clientHeld + " for the default"
+						+ " barrage in a barrage clash no hit of which met the opposing Stand, so the Stand turns away from"
+						+ " the cow its user aims at; 1.16 sent clients the task target, still empty");
 			}
 			else {
 				opponentFirst(helper, scene, action, opponent, cow);
@@ -585,6 +592,7 @@ public final class StandAttackAimRulesGameTests {
 		}
 		helper.assertTrue(action.punchedTarget != null && action.punchedTarget.getMainEntity() == opponent,
 				"Fixture: the barrage at the opposing Stand its user looks at struck " + action.punchedTarget);
+		assertClientsHold(helper, scene, action, opponent, "once a hit met it");
 		// that tick placed the Stand before its first hit, while 1.16's task target was still empty
 		Vec3 offset = action.getSyncedStandOffset();
 		helper.assertTrue(offset != null && Math.abs(offset.z - farthest) < 0.01, "The default barrage in a barrage clash"
@@ -605,6 +613,7 @@ public final class StandAttackAimRulesGameTests {
 						+ " where its user looks instead of the opposing Stand a hit had met; 1.16 kept it as its target");
 		helper.assertTrue(offset != null && Math.abs(offset.z - fromOpponent) < 0.01, "The default barrage on its"
 				+ " clash opponent placed the Stand at " + offset + "; 1.16 placed it from its target, at " + fromOpponent);
+		assertClientsHold(helper, scene, action, opponent, "while its user looks at the cow");
 		opponent.moveTo(scene.origin.x, scene.origin.y, scene.origin.z + 8, 180, 0);
 		for (int tick = 0; tick < 6; tick++) {
 			scene.stand.tickCount++;
@@ -612,6 +621,43 @@ public final class StandAttackAimRulesGameTests {
 		}
 		helper.assertTrue(action.punchedTarget != null && action.punchedTarget.getMainEntity() == cow,
 				"The default barrage kept its clash opponent out of reach: it struck " + action.punchedTarget);
+		ActionTarget clientHeld = clientHeldClashOpponent(helper, scene.stand, action);
+		helper.assertTrue(clientHeld.isEmpty(helper.getLevel()), "Clients still hold " + clientHeld + " for the default"
+				+ " barrage whose clash opponent is out of reach and whose hits strike the cow");
+	}
+
+	// the server turns the Stand to the opposing Stand it holds; every client must turn it there too
+	private static void assertClientsHold(GameTestHelper helper, Scene scene, EntityActionInstance action,
+			StandEntity opponent, String when) {
+		ActionTarget serverHeld = StandEntityBarrageAbility.clipDirectionalBarrageTarget(scene.stand, action, 1);
+		helper.assertTrue(serverHeld.getMainEntity() == opponent, "Fixture: the server does not hold the opposing Stand "
+				+ when + ": " + serverHeld);
+		ActionTarget clientHeld = clientHeldClashOpponent(helper, scene.stand, action);
+		helper.assertTrue(clientHeld.getMainEntity() == opponent, "Clients hold " + clientHeld + " for the default barrage"
+				+ " in a barrage clash " + when + ", where the server holds the opposing Stand, so the Stand turns to its"
+				+ " user's aim on every client; 1.16 sent clients the task target (StandEntity.setTaskTarget,"
+				+ " TrStandTaskTargetPacket)");
+	}
+
+	// what a client decides from: a barrage with only the synced data the server sends with the action
+	// (SyncActionInstanceData.onStartedTracking), without the server's punchedTarget
+	private static ActionTarget clientHeldClashOpponent(GameTestHelper helper, StandEntity stand, EntityActionInstance action) {
+		SynchedDataExtended sent = action.synchedData.getDataSyncher();
+		helper.assertTrue(sent != null, "The default barrage sends clients no synced data");
+		StandEntityBarrage client = new StandEntityBarrage(action.ability);
+		try {
+			java.lang.reflect.Field performer = EntityActionInstance.class.getDeclaredField("performer");
+			performer.setAccessible(true);
+			performer.set(client, stand);
+		}
+		catch (ReflectiveOperationException e) {
+			throw new IllegalStateException("Fixture: cannot give the client copy its Stand", e);
+		}
+		List<SynchedEntityData.DataValue<?>> values = sent.syncOnStartedTracking();
+		if (values != null) {
+			client.synchedData.getDataSyncher().assignValues(values);
+		}
+		return client.heldClashOpponentAsSynced(stand);
 	}
 
 	// the target the action saved from its press (EntityActionInstance.actionTargetSnapshot)
