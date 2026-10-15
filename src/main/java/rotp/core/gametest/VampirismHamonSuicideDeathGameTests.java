@@ -63,8 +63,9 @@ import rotp.core.powersystem.standpower.StandPower;
 public final class VampirismHamonSuicideDeathGameTests {
     private VampirismHamonSuicideDeathGameTests() {}
 
+    // the ticks are only a ceiling for the real-time wait of the light engine (GameTestLight)
     @GameTest(template = "empty", skyAccess = true, required = true,
-            batch = "vampire_hamon_suicide_death", timeoutTicks = 150)
+            batch = "vampire_hamon_suicide_death", timeoutTicks = 4000)
     public static void naturallyLethalSelfHamonDoesNotContinueDeadWindup(GameTestHelper helper) {
         Fixture fixture = new Fixture(helper);
         helper.testInfo.addListener(fixture);
@@ -104,6 +105,8 @@ public final class VampirismHamonSuicideDeathGameTests {
         private EntityActionInstance action;
         private HeldInputEntry input;
         private ChunkPos chunk;
+        private GameTestLight.Wait light;
+        private long readyTick = -1;
         private AABB room;
         private Frame before;
         private Frame deadBefore;
@@ -143,6 +146,9 @@ public final class VampirismHamonSuicideDeathGameTests {
                 putBlock(new BlockPos(x + dx, y + 3, z + dz));
                 putBlock(new BlockPos(x + dx, y - 1, z + dz));
             }
+            // the light engine runs on a thread of its own and can be many ticks behind: the shade is read only after it
+            // has lit the roof
+            light = new GameTestLight.Wait(level, chunk);
             user = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
             GameType.SURVIVAL.updatePlayerAbilities(user.getAbilities());
             user.moveTo(x + 8.5D, y, z + 8.5D, 0, 0);
@@ -163,7 +169,7 @@ public final class VampirismHamonSuicideDeathGameTests {
         private boolean shadeReady() {
             if (user == null) return false;
             BlockPos sun = BlockPos.containing(user.getX(), Math.round(user.getY(1D)), user.getZ());
-            return blocks.keySet().stream().allMatch(pos -> level.getBlockState(pos).equals(Blocks.STONE.defaultBlockState()))
+            return light.done() && blocks.keySet().stream().allMatch(pos -> level.getBlockState(pos).equals(Blocks.STONE.defaultBlockState()))
                     && level.isPositionEntityTicking(user.blockPosition()) && !level.canSeeSky(sun);
         }
 
@@ -414,13 +420,18 @@ public final class VampirismHamonSuicideDeathGameTests {
             try {
                 if (observerFailure instanceof RuntimeException error) throw error;
                 if (observerFailure instanceof Error error) throw error;
-                premise(helper.getTick() < 130, "finite natural death/continuation watchdog expired");
+                premise(readyTick < 0 || helper.getTick() - readyTick < 130, "finite natural death/continuation watchdog expired");
                 if (done) { validate(); close(); helper.succeed(); return; }
                 premise(user != null && !user.isRemoved(), "actor disappeared without an observed containment boundary");
                 if (data == null) {
                     boolean shaded = shadeReady();
+                    if (shaded && readyTick < 0) readyTick = helper.getTick();
                     if (posts >= 20 && user.onGround() && shaded) convert();
-                    else if (helper.getTick() % 10 == 0) log("shade-wait posts=" + posts + " grounded=" + user.onGround() + " roofAndShade=" + shaded);
+                    else {
+                        premise(shaded || !light.stalled(), "the light engine did not shade the room after " + light.millis()
+                                + " ms: lightDone=" + light.done());
+                        if (helper.getTick() % 10 == 0) log("shade-wait posts=" + posts + " grounded=" + user.onGround() + " roofAndShade=" + shaded);
+                    }
                 }
                 else if (!pressed && posts - conversionPosts >= 20) press();
                 helper.runAfterDelay(1, this::poll);
