@@ -663,7 +663,12 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		if (ability.getAbilityUsageCategory() == AbilityUsageGroup.GRAB || !isPunchOrBarrage(ability)) {
 			return true;
 		}
-		if (stand.aimsWithoutUser() && !(ability instanceof StandEntityBarrageAbility)) {
+		if (ability instanceof StandEntityBarrageAbility) {
+			// a mob user has no such setting; 1.16 aimed its barrage hits again from its own eyes too
+			return stand.getUser() instanceof Player
+					&& PlayerClientBroadcastedSettings.isStandAttackTargetLockEnabled(stand.getUserPower());
+		}
+		if (stand.aimsWithoutUser()) {
 			return true;
 		}
 		return PlayerClientBroadcastedSettings.isStandAttackTargetLockEnabled(stand.getUserPower());

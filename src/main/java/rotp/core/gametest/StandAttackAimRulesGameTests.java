@@ -23,6 +23,8 @@ import rotp.core.powersystem.ability.input.AbilityInput;
 import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
+import rotp.core.powersystem.entityaction.netcode.SyncType;
+import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
@@ -40,6 +42,9 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.animal.Wolf;
+import net.minecraft.world.entity.monster.Zombie;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
@@ -329,6 +334,85 @@ public final class StandAttackAimRulesGameTests {
 			}
 			return true;
 		}, 40, () -> "The " + how + " test timed out");
+	}
+
+	// 1.16 refused every pressed barrage target whoever the user (StandEntityMeleeBarrage.checkStandTarget), so a mob user's
+	// barrage aimed each hit again from the mob's eyes (StandEntity.punch, aimWithThisOrUser with the mob as the user):
+	// pressed at one cow, it hits the other once the mob looks at it. A mob has no "keep attack target" setting.
+	@GameTest(template = "empty", timeoutTicks = 40, batch = BATCH + "mob_barrage")
+	public static void mobUsersBarrageAimsEveryHitFromTheMobsEyesAsIn116(GameTestHelper helper) {
+		Vec3 origin = Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(1, 2, 1)));
+		StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("star_platinum"));
+		Zombie zombie = EntityType.ZOMBIE.create(helper.getLevel());
+		helper.assertTrue(type != null && zombie != null, "Fixture: could not create the zombie or find Star Platinum");
+		List<Entity> entities = new ArrayList<>(List.of(zombie));
+		zombie.setNoAi(true);
+		zombie.setNoGravity(true);
+		zombie.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 400));
+		zombie.moveTo(origin.x, origin.y, origin.z, 0, 0);
+		helper.assertTrue(helper.getLevel().addFreshEntity(zombie), "Fixture: could not add the zombie");
+		StandPower power = PowerClass.STAND.attachGet(zombie);
+		try {
+			helper.assertTrue(StandPowerTransitions.insert(power, new StandInstance(type)).status()
+					== StandPowerTransitions.Status.APPLIED && type.summon(zombie, power), "Fixture: could not give the zombie Star Platinum");
+			StandEntity stand = power.getSummonedStandEntity();
+			helper.assertTrue(stand != null, "Fixture: the zombie's Stand is missing");
+			stand.setNoGravity(true);
+			stand.moveTo(origin.x, origin.y, origin.z, 0, 0);
+			// small precision boxes, so that only the cow the zombie looks at is on its ray
+			stand.getAttribute(ModEntityAttributes.STAND_PRECISION).setBaseValue(0);
+			Cow first = mobBarrageCow(helper, entities, origin.add(-1.0, 0, 1.8));
+			Cow second = mobBarrageCow(helper, entities, origin.add(1.0, 0, 1.8));
+			EntityActionType barrage = (EntityActionType) power.getAbility("barrage");
+			helper.assertTrue(barrage != null, "Fixture: Star Platinum has no barrage");
+			zombie.lookAt(EntityAnchorArgument.Anchor.EYES, first.getBoundingBox().getCenter());
+			LivingComponentAction.getComponent(zombie).entityAim.setTarget(new ActionTarget(first));
+			EntityActionInstance action = barrage.initActionOnAbilityUse(helper.getLevel(), zombie, stand, null);
+			LivingComponentAction standActions = LivingComponentAction.getComponent(stand);
+			standActions.setAction(action, zombie, SyncType.NO_SYNC);
+			float firstHealth = first.getHealth();
+			for (int tick = 0; tick < 12 && first.getHealth() >= firstHealth; tick++) {
+				stand.tickCount++;
+				standActions.tick();
+			}
+			helper.assertTrue(first.getHealth() < firstHealth && action.punchedTarget != null
+					&& action.punchedTarget.getMainEntity() == first, "Fixture: the zombie's barrage pressed at the cow it looks at"
+							+ " did not hit it: " + action.punchedTarget);
+			zombie.lookAt(EntityAnchorArgument.Anchor.EYES, second.getBoundingBox().getCenter());
+			float secondHealth = second.getHealth();
+			for (int tick = 0; tick < 12 && second.getHealth() >= secondHealth; tick++) {
+				stand.tickCount++;
+				standActions.tick();
+			}
+			helper.assertTrue(second.getHealth() < secondHealth && action.punchedTarget != null
+					&& action.punchedTarget.getMainEntity() == second, "The zombie's barrage stayed on " + action.punchedTarget
+							+ ", the cow it was pressed at, after the zombie looked at the other; 1.16 aimed every hit again from"
+							+ " the mob's eyes");
+			helper.assertTrue(!StandEntityPunchAbility.shouldRetainPunchTarget(stand, barrage),
+					"A mob user's barrage keeps the target it was pressed at; 1.16 aimed every hit again");
+			standActions.setAction(null, zombie, SyncType.NO_SYNC);
+		}
+		finally {
+			if (power.isSummoned()) {
+				type.forceUnsummon(zombie, power);
+			}
+			entities.forEach(Entity::discard);
+		}
+		helper.succeed();
+	}
+
+	private static Cow mobBarrageCow(GameTestHelper helper, List<Entity> entities, Vec3 pos) {
+		Cow cow = EntityType.COW.create(helper.getLevel());
+		helper.assertTrue(cow != null, "Fixture: could not create a cow");
+		cow.setNoAi(true);
+		cow.setNoGravity(true);
+		cow.getAttribute(Attributes.MAX_HEALTH).setBaseValue(500);
+		cow.getAttribute(Attributes.KNOCKBACK_RESISTANCE).setBaseValue(1);
+		cow.setHealth(500);
+		cow.moveTo(pos.x, pos.y, pos.z, 0, 0);
+		helper.assertTrue(helper.getLevel().addFreshEntity(cow), "Fixture: could not add a cow");
+		entities.add(cow);
+		return cow;
 	}
 
 	private interface Step {
