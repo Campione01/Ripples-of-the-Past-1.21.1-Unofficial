@@ -190,11 +190,11 @@ public class GoldExperienceHeavyPunchAbility extends StandEntityHeavyPunchAbilit
         }
 
         // 1.16 GoldExperienceHeavyPunch.rotateStandTowardsTarget: at an entity the Stand turns straight (360 degrees a
-        // tick) to the top of its bounding box
+        // tick) to the top of its bounding box. The Life Shot punch was a plain StandEntityHeavyAttack without it.
         @Override
         @Nullable
         public Vec3 getStandLookTargetPosition(StandEntity standEntity, ActionTarget target) {
-            Entity entity = target.getType() == ActionTarget.TargetType.ENTITY ? target.getEntity() : null;
+            Entity entity = !isLifeshotPunch() && target.getType() == ActionTarget.TargetType.ENTITY ? target.getEntity() : null;
             if (entity != null) {
                 return new Vec3(entity.getX(), entity.getY(1.0D), entity.getZ());
             }

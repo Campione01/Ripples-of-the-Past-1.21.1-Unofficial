@@ -135,7 +135,7 @@ public final class HamonAbilityHelpers {
 	// 1.16 DamageUtil.dealHamonDamage did not look at the amount: a hit of zero (an efficiency of 0, an empty glider)
 	// still went to hurt(), which a mob accepts (hurt animation, knockback, true) and a player refuses. It refused
 	// only a charged or stone-form target and a Hamon user in a Satiporoja scarf.
-	private static boolean refusesHamonHit(LivingEntity target) {
+	public static boolean refusesHamonHit(LivingEntity target) {
 		return targetHasHamonDamageImmunity(target)
 				|| hasSatiporojaScarf(target) && PlayerPower.getPowerData(target, ModPlayerPowers.HAMON).isPresent();
 	}

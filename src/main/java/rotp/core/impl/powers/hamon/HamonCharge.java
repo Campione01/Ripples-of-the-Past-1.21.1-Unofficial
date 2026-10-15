@@ -97,7 +97,8 @@ public class HamonCharge {
 					HamonUtil.emitHamonSparkParticles(level, null, chargePos, 4.0F);
 					knockbackFromCharge(target, chargePos);
 				}
-				if (userLiving != null && chargedEntity instanceof LivingEntity
+				// 1.16: the shock comes with the full-strength hit only, as the sparks and the knockback do
+				if (doLargeChargeDmg && userLiving != null && chargedEntity instanceof LivingEntity
 						&& HamonUtil.isLiving(target)
 						&& !ModStatusEffects.isStunned(target)) {
 					PlayerPower.getPowerData(userLiving, ModPlayerPowers.HAMON).ifPresent(hamon -> {
@@ -123,10 +124,11 @@ public class HamonCharge {
 	}
 
 	private boolean dealHamonDamage(LivingEntity target, @Nullable Entity chargedEntity, @Nullable Entity user, float baseDamage) {
-		float amount = HamonAbilityHelpers.hamonDamageAmount(target, baseDamage);
-		if (amount <= 0.0F) {
+		// 1.16 sent a charge worth 0 on to dealHamonDamage too: a mob takes that hit and its follow-ups
+		if (HamonAbilityHelpers.refusesHamonHit(target)) {
 			return false;
 		}
+		float amount = Math.max(HamonAbilityHelpers.hamonDamageAmount(target, baseDamage), 0.0F);
 		// 1.16 HamonCharge: a charged living entity is itself the attacker, any other charged entity
 		// hurts on the Hamon user's behalf, and a charged block uses the anonymous Hamon source.
 		Entity causingEntity = chargedEntity instanceof LivingEntity ? chargedEntity

@@ -1,5 +1,9 @@
 package rotp.core.gametest;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
@@ -7,6 +11,7 @@ import rotp.core.init.ModDamageTypes;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModItems;
 import rotp.core.init.ModSoundEvents;
+import rotp.core.init.ModStatusEffects;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
@@ -31,11 +36,16 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageTypes;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.animal.Pig;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.bus.api.EventPriority;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.entity.living.LivingKnockBackEvent;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -146,6 +156,45 @@ public final class HamonRebuffOverdriveGameTests {
 			helper.assertTrue(attacker.getHealth() < attacker.getMaxHealth() && f.fistHitLanded(),
 					"1.16 still punched a target the Hamon could not hurt: health=" + attacker.getHealth()
 					+ " last hit=" + attacker.getLastDamageSource());
+			helper.succeed();
+		}
+	}
+
+	// 1.16 punch sent damage * efficiency to dealHamonDamage with no efficiency check: at an efficiency of 0 a mob still
+	// takes the hit of 0, so the counter's knockback of 2 and its Hamon Shock follow
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void counterAtNoEfficiencyStillLandsItsHamonOnAMob(GameTestHelper helper) {
+		try (Fixture f = new Fixture(helper)) {
+			f.hamon.learnSkill(ModHamonSkills.HAMON_SHOCK.get());
+			helper.assertTrue(f.hamon.isSkillLearned(ModHamonSkills.HAMON_SHOCK.get()), "Could not grant Hamon Shock");
+			f.hamon.setEnergy(0.0F);
+			f.hamon.setBreathStability(0.0F);
+			float efficiency = f.hamon.getActionEfficiency(1200.0F, true, ModHamonSkills.REBUFF_OVERDRIVE.get(), f.user);
+			helper.assertTrue(efficiency == 0.0F, "premise: the user's Rebuff Overdrive efficiency is " + efficiency + ", not 0");
+			EntityActionInstance action = f.start();
+			f.tick(COUNTER_TIMING_TICK);
+			Pig pig = EntityType.PIG.create(helper.getLevel());
+			helper.assertTrue(pig != null, "Could not create the pig");
+			pig.moveTo(f.pos.x, f.pos.y, f.pos.z + 1.5D, 180.0F, 0.0F);
+			List<Float> knockbacks = new ArrayList<>();
+			Consumer<LivingKnockBackEvent> knockback = event -> {
+				if (event.getEntity() == pig) {
+					knockbacks.add(event.getOriginalStrength());
+				}
+			};
+			try {
+				helper.assertTrue(helper.getLevel().addFreshEntity(pig), "Could not add the pig");
+				NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, true, LivingKnockBackEvent.class, knockback);
+				boolean countered = ((HamonRebuffOverdrive) action).counterAttack(pig);
+				helper.assertTrue(countered, "The counter did not strike");
+				helper.assertTrue(knockbacks.contains(2.0F) && pig.hasEffect(ModStatusEffects.HAMON_SHOCK),
+						"1.16: a counter at an efficiency of 0 still lands its Hamon hit of 0 on a mob, with the knockback of 2"
+								+ " and Hamon Shock: knockbacks=" + knockbacks + " shocked=" + pig.hasEffect(ModStatusEffects.HAMON_SHOCK));
+			}
+			finally {
+				NeoForge.EVENT_BUS.unregister(knockback);
+				pig.discard();
+			}
 			helper.succeed();
 		}
 	}
