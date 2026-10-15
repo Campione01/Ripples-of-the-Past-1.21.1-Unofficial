@@ -10,6 +10,7 @@ import javax.annotation.Nullable;
 
 import com.mojang.authlib.GameProfile;
 
+import io.netty.buffer.Unpooled;
 import io.netty.channel.embedded.EmbeddedChannel;
 
 import rotp.core.api.power.PowerSkillUnlocks;
@@ -29,12 +30,14 @@ import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.target.ActionTarget;
+import rotp.core.subsystems.target.ActionTargetAim;
 import rotp.core.subsystems.timestop.TimeStopLearning;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.Connection;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.PacketSendListener;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.PacketFlow;
@@ -82,6 +85,29 @@ public final class TimeStopBlinkTargetGameTests {
 			helper.assertTrue(scene.user.position().distanceTo(expected) < 0.01,
 					"with the Stand out, 1.16's precision ray keeps a mob just off the crosshair as the target: landed at "
 							+ scene.user.position() + ", expected beside the zombie at " + expected);
+		}
+		helper.succeed();
+	}
+
+	// 1.16 PowerBaseImpl.checkTarget: a press at an entity the server no longer has is a press at nothing, so the blink
+	// takes its own look ray and not the Stand's precision ray, which keeps the mob just off the crosshair
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void blinkAtAnEntityTheServerNoLongerHasDoesNotTakeTheMobOffTheCrosshair(GameTestHelper helper) {
+		try (Scene scene = new Scene(helper, 0)) {
+			scene.summonStand();
+			Zombie zombie = scene.add(EntityType.ZOMBIE.create(scene.level), scene.start.add(0.9, 0, 4));
+			Vec3 beside = zombie.position().subtract(scene.user.getLookAngle().scale(zombie.getBbWidth() + scene.user.getBbWidth()));
+			Zombie gone = scene.add(EntityType.ZOMBIE.create(scene.level), scene.start.add(-3, 0, 2));
+			FriendlyByteBuf sent = new FriendlyByteBuf(Unpooled.buffer());
+			ActionTarget.STREAM_CODEC_UNRESOLVED_ENTITY_ID.encode(sent, new ActionTarget(gone));
+			gone.discard();
+			ActionTargetAim aim = LivingComponentAction.getComponent(scene.user).entityAim;
+			aim.setTargetFromClient(ActionTarget.STREAM_CODEC_UNRESOLVED_ENTITY_ID.decode(sent), scene.level);
+			helper.assertTrue(aim.isClientEntityMissing(), "fixture: the server still finds the entity the client aimed at");
+			scene.blink();
+			helper.assertTrue(scene.user.position().distanceTo(beside) > 0.5 && scene.user.position().z > zombie.getZ(),
+					"a blink at an entity the server no longer has took the zombie just off the crosshair: landed at "
+							+ scene.user.position() + "; 1.16 empties the press and rays along the look line past it");
 		}
 		helper.succeed();
 	}

@@ -56,6 +56,7 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.animal.SnowGolem;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.animal.Cod;
@@ -90,6 +91,8 @@ public final class StandTargetRangeGameTests {
 	private static final String TOO_FAR = "jojo.message.action_condition.target_too_far";
 	private static final String GE_MATERIAL = "jojo.message.action_condition.ge_lifeform_material";
 	private static final String HEAL_TARGET = "jojo.message.action_condition.heal_target";
+	private static final String ITEM_OFFHAND = "jojo.message.action_condition.item_offhand";
+	private static final String BLOCK_TARGET = "jojo.message.action_condition.block_target";
 	private static final String GE_MATERIAL_ONLY_ITEM = "jojo.message.action_condition.ge_lifeform_material_only_item";
 	private static final String GE_MATERIAL_ITEM = "jojo.message.action_condition.ge_lifeform_material_item";
 	private static final String GE_MATERIAL_BLOCK = "jojo.message.action_condition.ge_lifeform_material_block";
@@ -881,6 +884,67 @@ public final class StandTargetRangeGameTests {
 		helper.succeed();
 	}
 
+	// the same for Revert: no ray of the server's own reverts a snow golem on the look ray in place of the entity gone
+	@GameTest(template = "empty", batch = BATCH)
+	public static void crazyDiamondRevertDoesNotTakeAnotherMobWhenTheAimedEntityIsGoneOnThePress(GameTestHelper helper) {
+		try (Fixture fixture = Fixture.open(helper, Kind.CD_REVERT)) {
+			fixture.stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z + 1.0D, 0.0F, 0.0F);
+			fixture.power.setResolveLevel(4);
+			SnowGolem golem = EntityType.SNOW_GOLEM.create(fixture.level);
+			helper.assertTrue(golem != null, "STAND-RANGE premise: could not create the snow golem");
+			golem.setNoAi(true);
+			golem.setNoGravity(true);
+			golem.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z + 3.0D, 180.0F, 0.0F);
+			fixture.extras.add(golem);
+			helper.assertTrue(fixture.level.addFreshEntity(golem), "STAND-RANGE premise: could not add the snow golem");
+			ActionTargetAim aim = sendGoneEntity(helper, fixture, fixture.cow(6.0D));
+			String answered = fixture.refusal();
+			helper.assertTrue(ITEM_OFFHAND.equals(answered), "CD_REVERT pressed on an entity the server no longer has, with a"
+					+ " snow golem on the look ray: answered " + answered + "; 1.16 empties the whole target, so the press"
+					+ " reverts no entity and asks for an item (" + ITEM_OFFHAND + ")");
+
+			aim.setTargetFromClient(ActionTarget.EMPTY, fixture.level);
+			String answeredAfter = fixture.refusal();
+			helper.assertTrue("accepted".equals(answeredAfter), "CD_REVERT with an empty aim and a snow golem on the look"
+					+ " ray: answered " + answeredAfter + "; the golem is the target again");
+		}
+		helper.succeed();
+	}
+
+	// the same for the block anchor: no ray of the server's own takes the stone on the look ray in place of the entity gone
+	@GameTest(template = "empty", batch = BATCH)
+	public static void crazyDiamondAnchorDoesNotTakeABlockWhenTheAimedEntityIsGoneOnThePress(GameTestHelper helper) {
+		try (Fixture fixture = Fixture.open(helper, Kind.CD_ANCHOR)) {
+			fixture.stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z + 1.0D, 0.0F, 0.0F);
+			fixture.block(BlockPos.containing(fixture.origin.x, fixture.origin.y + 1.0D, fixture.origin.z + 3.0D));
+			ActionTargetAim aim = sendGoneEntity(helper, fixture, fixture.cow(6.0D));
+			String answered = fixture.refusal();
+			helper.assertTrue(BLOCK_TARGET.equals(answered), "CD_ANCHOR pressed on an entity the server no longer has, with"
+					+ " stone on the look ray: answered " + answered + "; 1.16 empties the whole target (" + BLOCK_TARGET + ")");
+
+			aim.setTargetFromClient(ActionTarget.EMPTY, fixture.level);
+			String answeredAfter = fixture.refusal();
+			helper.assertTrue("accepted".equals(answeredAfter), "CD_ANCHOR with an empty aim and stone on the look ray:"
+					+ " answered " + answeredAfter + "; the stone is the target again");
+		}
+		helper.succeed();
+	}
+
+	// an aim on an entity the server cannot find, stored through the step both packet handlers store an aim through
+	private static ActionTargetAim sendGoneEntity(GameTestHelper helper, Fixture fixture, Entity gone) {
+		FriendlyByteBuf sent = new FriendlyByteBuf(Unpooled.buffer());
+		ActionTarget.STREAM_CODEC_UNRESOLVED_ENTITY_ID.encode(sent, new ActionTarget(gone));
+		gone.discard();
+		ActionTarget received = ActionTarget.STREAM_CODEC_UNRESOLVED_ENTITY_ID.decode(sent);
+		ActionTargetAim aim = LivingComponentAction.getComponent(fixture.user).entityAim;
+		aim.setTargetFromClient(received, fixture.level);
+		helper.assertTrue(received.getType() == TargetType.ENTITY && aim.isClientEntityMissing()
+				&& aim.getTarget().getType() == TargetType.EMPTY,
+				"STAND-RANGE premise: the client's aim was not an entity or the server still found it: stored="
+						+ aim.getTarget().getType());
+		return aim;
+	}
+
 	// 1.16 perform: a marked item that lies on the ground (ENTITY_IS_ITEM) goes through mobFromEntity like any dropped
 	// item. The item entity itself is the source and is put back as it was; nothing of mobFromInventory happens to it
 	// (a fish bucket is not emptied into the world and does not come back as a water bucket).
@@ -1156,7 +1220,7 @@ public final class StandTargetRangeGameTests {
 	}
 
 	private enum Kind {
-		CD_HEAL("crazy_diamond", "heal"), CD_ANCHOR("crazy_diamond", "block_anchor_make"),
+		CD_HEAL("crazy_diamond", "heal"), CD_ANCHOR("crazy_diamond", "block_anchor_make"), CD_REVERT("crazy_diamond", "revert_state"),
 		GE_HEAL_OTHER("gold_experience", "heal_other"), GE_LIFESHOT("gold_experience", "lifeshot"),
 		GE_CREATE_LIFEFORM("gold_experience", "create_lifeform"), GE_BONE_MEAL("gold_experience", "bone_meal"),
 		HG_BARRIER("hierophant_green", "barrier");
