@@ -191,17 +191,18 @@ public class StandEntityHeavyPunchChargedAbility extends StandEntityAbility {
 		// the synced Stand aim in the Stand's reach, else what the user looks at; without the aim assist only the latter;
 		// a Stand that aims without its user (StandEntity.aimsWithoutUser) only its own aim. As the heavy punch it is
 		// modelled on (1.16 StandEntityHeavyAttack.standKeepsTarget), with the aim assist it takes no block from either aim
-		// but what the precision ray gives
+		// but what the precision ray gives. The Stand still lunges from here: for an attack marked through walls an entity
+		// behind a wall out of its reach leaves no target rather than the wall, as it does in the open
 		protected ActionTarget capturePerformTarget(StandEntity stand) {
 			Level level = stand.level();
 			boolean assist = StandEntityPunchAbility.aimAssist(stand.getUser());
 			ActionTarget aimed = stand.aimsWithoutUser() || assist
 					? StandEntityPunchAbility.throughWallsTarget(stand, CrosshairRule.ENTITY.keeps(
 							StandEntityPunchAbility.validatePunchTarget(stand, captureActionTargetFromAim(stand)), assist),
-							CrosshairRule.ENTITY, true)
+							CrosshairRule.ENTITY, false)
 					: ActionTarget.EMPTY;
 			if (aimed.isEmpty(level) && !stand.aimsWithoutUser()) {
-				aimed = userAimTarget(stand, this);
+				aimed = userAimTarget(stand, this, true);
 			}
 			return setActionTargetSnapshot(aimed);
 		}
@@ -212,7 +213,7 @@ public class StandEntityHeavyPunchChargedAbility extends StandEntityAbility {
 			Level level = stand.level();
 			ActionTarget target = StandEntityPunchAbility.validatePunchTarget(stand, getActionTargetSnapshot(level));
 			if (target.isEmpty(level) && !stand.aimsWithoutUser()) {
-				target = userAimTarget(stand, this);
+				target = userAimTarget(stand, this, false);
 			}
 			if (target.isEmpty(level)) {
 				target = HitResultUtil.clipEntityLook(stand, entity -> StandEntityPunchAbility.canStandHit(stand, entity), 0);
@@ -258,14 +259,19 @@ public class StandEntityHeavyPunchChargedAbility extends StandEntityAbility {
 		}
 	}
 
-	/** What the charged heavy punch takes from its user's aim, by the heavy punch's {@link CrosshairRule#ENTITY}. */
-	public static ActionTarget userAimTarget(StandEntity stand, EntityActionInstance action) {
+	/**
+	 * What the charged heavy punch takes from its user's aim, by the heavy punch's {@link CrosshairRule#ENTITY}.
+	 * @param lungeStart at the start of its lunge, for an attack marked through walls, an entity the aim meets behind a
+	 *        wall out of the Stand's reach leaves no target rather than the wall, so the Stand lunges and aims again at
+	 *        the end; then the wall is struck only when nothing the Stand can reach is behind it
+	 */
+	public static ActionTarget userAimTarget(StandEntity stand, EntityActionInstance action, boolean lungeStart) {
 		LivingEntity user = stand.getUser();
 		if (user == null || !(action.ability instanceof StandEntityAbility ability)) {
 			return ActionTarget.EMPTY;
 		}
 		return StandEntityPunchAbility.aimWithThisOrUser(stand, user, 1.0F,
 				entity -> ability.canTargetEntityForAiming(stand, entity) && StandEntityPunchAbility.canStandHit(stand, entity),
-				CrosshairRule.ENTITY, true);
+				CrosshairRule.ENTITY, !lungeStart);
 	}
 }
