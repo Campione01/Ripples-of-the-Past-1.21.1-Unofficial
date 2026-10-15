@@ -46,6 +46,8 @@ public final class StandActionUserWalkSpeedGameTests {
 	private static final String BATCH = "stand_action_user_walk_speed";
 	private static final String OWNER_FULL = "owner rule 2026-10-15: full walk speed in every phase";
 	private static final float EPS = 1.0E-6F;
+	// samples the start phase and RECOVERY only, for actions whose later phases fire projectiles or flames
+	private static final int START_ONLY = -1;
 
 	private StandActionUserWalkSpeedGameTests() {}
 
@@ -106,6 +108,61 @@ public final class StandActionUserWalkSpeedGameTests {
 	}
 
 	@GameTest(template = "empty", batch = BATCH)
+	public static void grabThrowKeepsFullWalkSpeed(GameTestHelper helper) {
+		run(helper, "star_platinum", "grab_throw", START_ONLY, everyPhase(1.0F), OWNER_FULL);
+	}
+
+	@GameTest(template = "empty", batch = BATCH)
+	public static void bearingShotKeepsFullWalkSpeed(GameTestHelper helper) {
+		run(helper, "star_platinum", "bearing_shot", START_ONLY, everyPhase(1.0F), OWNER_FULL);
+	}
+
+	@GameTest(template = "empty", batch = BATCH)
+	public static void silverChariotDashAttackKeepsFullWalkSpeed(GameTestHelper helper) {
+		run(helper, "silver_chariot", "dash_attack", START_ONLY, everyPhase(1.0F), OWNER_FULL);
+	}
+
+	@GameTest(template = "empty", batch = BATCH)
+	public static void silverChariotSweepingAttackKeepsFullWalkSpeed(GameTestHelper helper) {
+		run(helper, "silver_chariot", "sweeping_attack", START_ONLY, everyPhase(1.0F), OWNER_FULL);
+	}
+
+	@GameTest(template = "empty", batch = BATCH)
+	public static void hierophantEmeraldSplashKeepsFullWalkSpeed(GameTestHelper helper) {
+		run(helper, "hierophant_green", "emerald_splash", START_ONLY, everyPhase(1.0F), OWNER_FULL);
+	}
+
+	@GameTest(template = "empty", batch = BATCH)
+	public static void hierophantPuppetKeepsFullWalkSpeed(GameTestHelper helper) {
+		run(helper, "hierophant_green", "puppet", START_ONLY, everyPhase(1.0F), OWNER_FULL);
+	}
+
+	@GameTest(template = "empty", batch = BATCH)
+	public static void magiciansRedCrossfireHurricaneChargeKeepsFullWalkSpeed(GameTestHelper helper) {
+		run(helper, "magicians_red", "crossfire_hurricane", START_ONLY, everyPhase(1.0F), OWNER_FULL);
+	}
+
+	@GameTest(template = "empty", batch = BATCH)
+	public static void crazyDiamondBloodCutterKeepsFullWalkSpeed(GameTestHelper helper) {
+		run(helper, "crazy_diamond", "blood_cutter", START_ONLY, everyPhase(1.0F), OWNER_FULL);
+	}
+
+	@GameTest(template = "empty", batch = BATCH)
+	public static void crazyDiamondUncraftKeepsFullWalkSpeed(GameTestHelper helper) {
+		run(helper, "crazy_diamond", "uncraft", START_ONLY, everyPhase(1.0F), OWNER_FULL);
+	}
+
+	@GameTest(template = "empty", batch = BATCH)
+	public static void goldExperienceHealKeepsFullWalkSpeed(GameTestHelper helper) {
+		run(helper, "gold_experience", "heal", START_ONLY, everyPhase(1.0F), OWNER_FULL);
+	}
+
+	@GameTest(template = "empty", batch = BATCH)
+	public static void goldExperienceLifeshotKeepsFullWalkSpeed(GameTestHelper helper) {
+		run(helper, "gold_experience", "lifeshot", START_ONLY, everyPhase(1.0F), OWNER_FULL);
+	}
+
+	@GameTest(template = "empty", batch = BATCH)
 	public static void hierophantGrappleHoldsTheUserStillWhileItPulls(GameTestHelper helper) {
 		run(helper, "hierophant_green", "grapple", 0, phase -> phase == ActionPhase.PERFORM ? 0.0F : 1.0F,
 				"owner rule 2026-10-15, seventh card: the grapple holds its user still while it pulls (1.16 0.0)",
@@ -158,7 +215,7 @@ public final class StandActionUserWalkSpeedGameTests {
 
 	/**
 	 * Starts the registered action on a summoned Stand and walks it forward through every phase it has, ticking each
-	 * phase ticksPerPhase times (0: no tick, for actions that fire projectiles), then into RECOVERY.
+	 * phase ticksPerPhase times (0: no tick; START_ONLY: no walk at all), then into RECOVERY.
 	 */
 	private static void run(GameTestHelper helper, String standId, String abilityName, int ticksPerPhase,
 			Expected expected, String source, ActionPhase... requiredPhases) {
@@ -206,7 +263,7 @@ public final class StandActionUserWalkSpeedGameTests {
 			};
 			sample.run();
 			for (ActionPhase phase : new ActionPhase[] { ActionPhase.BUTTON_CHARGE, ActionPhase.WINDUP, ActionPhase.PERFORM }) {
-				if (action.isOver()) break;
+				if (action.isOver() || ticksPerPhase == START_ONLY) break;
 				ActionPhase current = action.getPhase();
 				if (current != phase) {
 					if (current.ordinal() > phase.ordinal() || action.phasesLength.getFloat(phase) <= 0) continue;
