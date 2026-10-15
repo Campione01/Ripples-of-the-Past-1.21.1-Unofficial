@@ -41,10 +41,12 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Cow;
+import net.minecraft.world.entity.animal.Wolf;
 import net.minecraft.world.entity.monster.Husk;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.vehicle.Boat;
@@ -680,6 +682,49 @@ public final class StandAimReachGameTests {
 		}
 	}
 
+	// 1.16 refused a pressed entity the Stand cannot attack (PowerBaseImpl.checkTarget through StandEntityAction
+	// checkStandTarget and canStandTargetEntity, StandEntity.canAttack), so the punch aimed again with the precision ray,
+	// which skips that entity (precisionRayTrace without friendly fire), and the barrage, whose pressed target 1.16 always
+	// refused, aimed so on every tick: the user's own wolf on the crosshair is spared and the cow beside it is hit
+	@GameTest(template = "empty", timeoutTicks = 60, batch = BATCH + "_alone_10")
+	public static void punchAtTheUsersOwnWolfOnTheCrosshairHitsTheMobBesideAsIn116(GameTestHelper helper) {
+		ownWolfOnTheCrosshair(helper, "punch", InputMethod.CLICK);
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 60, batch = BATCH + "_alone_11")
+	public static void barrageAtTheUsersOwnWolfOnTheCrosshairHitsTheMobBesideAsIn116(GameTestHelper helper) {
+		ownWolfOnTheCrosshair(helper, "barrage", InputMethod.HOLD);
+	}
+
+	private static void ownWolfOnTheCrosshair(GameTestHelper helper, String name, InputMethod method) {
+		Scene scene = new Scene(helper, GameType.SURVIVAL, false, 16);
+		Cow beside = scene.besideTheCrosshair();
+		Wolf wolf = scene.ownWolfOnTheCrosshair(2.0);
+		float wolfHealth = wolf.getHealth();
+		float besideHealth = beside.getHealth();
+		scene.run(tick -> {
+			if (tick == 3) {
+				ActionTarget aim = scene.sendClientAims();
+				helper.assertTrue(aim.getMainEntity() == wolf, "Fixture: a client's Stand aim, the marker, is " + aim
+						+ " instead of the wolf on the crosshair");
+				EntityActionInstance action = scene.press(name, method);
+				helper.assertTrue(action instanceof StandEntityPunch || StandEntityBarrageAbility.isDirectionalBarrage(
+						scene.stand, action), "Fixture: the " + name + " input started " + action);
+			}
+			else if (tick > 3 && wolf.getHealth() < wolfHealth) {
+				helper.fail("The " + name + " hurt the user's own wolf");
+			}
+			else if (tick > 3 && beside.getHealth() < besideHealth) {
+				return true;
+			}
+			else if (tick > 40) {
+				helper.fail("The " + name + " at the user's own wolf on the crosshair never hit the cow beside it, which"
+						+ " 1.16's precision ray took once the wolf was refused");
+			}
+			return false;
+		});
+	}
+
 	private static EntityActionInstance action(GameTestHelper helper, Scene scene, String name) {
 		Ability ability = scene.power.getAbility(name);
 		helper.assertTrue(ability instanceof EntityActionType, "Fixture: no " + name + " action");
@@ -797,6 +842,40 @@ public final class StandAimReachGameTests {
 			helper.assertTrue(StandEntityPunchAbility.userPrecisionRayTarget(stand, user).getMainEntity() == cow,
 					"Fixture: the precision ray does not take the cow beside the crosshair");
 			return cow;
+		}
+
+		// the user's own tame wolf at eye level, on the level crosshair, in the Stand's reach; the Stand cannot attack it
+		Wolf ownWolfOnTheCrosshair(double z) {
+			Wolf wolf = new Wolf(EntityType.WOLF, helper.getLevel()) {
+				// the level finds a real owner, a server player, by its UUID; this mock user is not one
+				@Override
+				public LivingEntity getOwner() {
+					return user;
+				}
+			};
+			wolf.setNoAi(true);
+			wolf.setNoGravity(true);
+			wolf.noPhysics = true;
+			wolf.getAttribute(Attributes.MAX_HEALTH).setBaseValue(500);
+			wolf.getAttribute(Attributes.KNOCKBACK_RESISTANCE).setBaseValue(1);
+			wolf.setHealth(500);
+			wolf.setTame(true, false);
+			wolf.setOwnerUUID(user.getUUID());
+			wolf.moveTo(origin.x, origin.y + 1.2, origin.z + z, 0, 0);
+			helper.assertTrue(helper.getLevel().addFreshEntity(wolf), "Could not add a wolf");
+			entities.add(wolf);
+			helper.assertTrue(wolf.getOwner() == user && !StandEntityPunchAbility.canStandHit(stand, wolf),
+					"Fixture: the wolf is not the user's own, or the Stand can attack it");
+			helper.assertTrue(crosshairPick().getMainEntity() == wolf, "Fixture: the vanilla pick is not the wolf");
+			helper.assertTrue(wolf.getBoundingBox().distanceToSqr(stand.getEyePosition()) < Math.pow(
+					stand.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE), 2), "Fixture: the wolf is not in the Stand's reach");
+			helper.assertTrue(StandEntityPunchAbility.userPrecisionRayTarget(stand, user).getMainEntity() != wolf,
+					"Fixture: the precision ray takes the wolf");
+			return wolf;
+		}
+
+		ActionTarget crosshairPick() {
+			return StandEntityPunchAbility.crosshairPick(stand, user, 1, pickable());
 		}
 
 		// bedrock half a block ahead of the eyes, between them and the cow beside the crosshair
