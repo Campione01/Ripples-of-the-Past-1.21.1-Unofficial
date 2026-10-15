@@ -64,6 +64,7 @@ public class JojoMod {
 						: "development");
 		modEventBus.register(this);
 		modContainer.registerConfig(ModConfig.Type.COMMON, JojoModConfig.COMMON_SPEC);
+		modEventBus.addListener(JojoModConfig::onConfigReloading);
 
 		ModBlocks.BLOCKS.register(modEventBus);
 		ModFluids.FLUIDS.register(modEventBus);

@@ -191,7 +191,8 @@ public class StandEntityHeavyPunchChargedAbility extends StandEntityAbility {
 		protected ActionTarget capturePerformTarget(StandEntity stand) {
 			Level level = stand.level();
 			ActionTarget aimed = stand.isManuallyControlled() || StandEntityPunchAbility.aimAssist(stand.getUser())
-					? StandEntityPunchAbility.validatePunchTarget(stand, captureActionTargetFromAim(stand))
+					? StandEntityPunchAbility.throughWallsTarget(stand,
+							StandEntityPunchAbility.validatePunchTarget(stand, captureActionTargetFromAim(stand)), false)
 					: ActionTarget.EMPTY;
 			if (aimed.isEmpty(level) && !stand.isManuallyControlled()) {
 				aimed = StandEntityBarrageAbility.clipDirectionalBarrageTarget(stand, this, 1.0F);

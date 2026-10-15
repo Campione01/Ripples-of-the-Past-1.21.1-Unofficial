@@ -1,6 +1,7 @@
 package rotp.core;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -17,16 +18,24 @@ import rotp.core.powersystem.standpower.StandUtil;
 import javax.annotation.Nullable;
 
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
+import net.neoforged.fml.event.config.ModConfigEvent;
 import net.neoforged.neoforge.common.ModConfigSpec;
 import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.server.ServerLifecycleHooks;
 
 public class JojoModConfig {
 	public static final ModConfigSpec COMMON_SPEC;
 	private static final Common COMMON_FROM_FILE;
 	private static final Common COMMON_SYNCED_TO_CLIENT;
+	public static final String BODY_MODE_STANDARD = "standard";
+	public static final String BODY_MODE_PHASING = "phasing";
+	// the values of R770 test builds; a file that still has them reads as the mode they meant
+	public static final String LEGACY_BODY_MODE_1_16 = "1.16";
+	public static final String LEGACY_BODY_MODE_MANGA = "manga";
 
 	static {
 		Pair<Common, ModConfigSpec> specPair = new ModConfigSpec.Builder().configure(Common::new);
@@ -50,6 +59,21 @@ public class JojoModConfig {
 
 	public static void syncWithClient(ServerPlayer player) {
 		PacketDistributor.sendToPlayer(player, new CommonConfigPacket(new Common.SyncedValues(COMMON_FROM_FILE)));
+	}
+
+	/** The common config file edited while a server runs: the players' synced copies follow without a relog. */
+	public static void onConfigReloading(ModConfigEvent.Reloading event) {
+		if (event.getConfig().getSpec() != COMMON_SPEC) {
+			return;
+		}
+		MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+		if (server != null) {
+			server.execute(() -> syncWithClients(server));
+		}
+	}
+
+	public static void syncWithClients(MinecraftServer server) {
+		server.getPlayerList().getPlayers().forEach(JojoModConfig::syncWithClient);
 	}
 
 	public static void resetClientSyncedConfig(ServerPlayer player) {
@@ -78,6 +102,7 @@ public class JojoModConfig {
 		public final ConfigValue<Double> timeStopDamageMultiplier;
 		public final ConfigValue<Double> standDamageMultiplier;
 		public final ConfigValue<Double> standResistanceMultiplier;
+		public final ConfigValue<String> standBodyThroughWalls;
 		public final ConfigValue<Double> hamonPointsMultiplier;
 		public final ConfigValue<Double> breathingTrainingMultiplier;
 		public final ConfigValue<Boolean> breathingTrainingDeterioration;
@@ -211,6 +236,22 @@ public class JojoModConfig {
 					builder.comment("Damage resistance applied to all Stands.")
 					.translation("jojo.config.standResistanceMultiplier")
 					.defineInRange("standResistanceMultiplier", 1.0D, 1.0D, 128.0D), 1.0D);
+			standBodyThroughWalls = ConfigValue.fromSpec(
+					builder.comment("When a Stand's body passes through blocks.",
+							"standard - as in 1.16 and as the original story shows Stands in general: a Stand passes through blocks",
+							"           only while it follows its user and performs no action. It collides with blocks while it",
+							"           performs an action, while it is manually controlled and while it is left at a fixed",
+							"           position away from its user; a manually controlled Stand stuck in a block is pushed out",
+							"           toward its user.",
+							"phasing  - the same, except that a manually controlled Stand also passes through blocks while it",
+							"           performs no action; seen from inside a block, the view shows that block, as it does for",
+							"           a player inside a block. It still collides while it performs an action.",
+							"Stands with a solid body always collide, and a Stand whose own power passes through matter keeps its own rule.",
+							"Allowed values: standard, phasing.")
+					.translation("jojo.config.standBodyThroughWalls")
+					.defineInList("standBodyThroughWalls", BODY_MODE_STANDARD,
+							Arrays.asList(BODY_MODE_STANDARD, BODY_MODE_PHASING, LEGACY_BODY_MODE_1_16, LEGACY_BODY_MODE_MANGA)),
+					BODY_MODE_STANDARD);
 
 			builder.push("Hamon settings");
 			hamonPointsMultiplier = ConfigValue.fromSpec(
@@ -325,6 +366,7 @@ public class JojoModConfig {
 			timeStopDamageMultiplier = ConfigValue.synced(1.0D);
 			standDamageMultiplier = ConfigValue.synced(1.0D);
 			standResistanceMultiplier = ConfigValue.synced(1.0D);
+			standBodyThroughWalls = ConfigValue.synced(BODY_MODE_STANDARD);
 			hamonPointsMultiplier = ConfigValue.synced(1.0D);
 			breathingTrainingMultiplier = ConfigValue.synced(1.0D);
 			breathingTrainingDeterioration = ConfigValue.synced(true);
@@ -357,6 +399,15 @@ public class JojoModConfig {
 			return new Common();
 		}
 
+		/**
+		 * standBodyThroughWalls: whether a manually controlled Stand passes through blocks while it performs no action
+		 * ("phasing") or collides with them ("standard", the default).
+		 */
+		public boolean manualStandPassesThroughBlocks() {
+			String mode = standBodyThroughWalls.get();
+			return BODY_MODE_PHASING.equals(mode) || LEGACY_BODY_MODE_MANGA.equals(mode);
+		}
+
 		public boolean isStandBanned(@Nullable ResourceLocation standId) {
 			return standId != null && bannedStandIds().contains(standId.toString());
 		}
@@ -382,6 +433,7 @@ public class JojoModConfig {
 			timeStopChunkRange.set(values.timeStopChunkRange);
 			standDamageMultiplier.set(values.standDamageMultiplier);
 			standResistanceMultiplier.set(values.standResistanceMultiplier);
+			standBodyThroughWalls.set(values.standBodyThroughBlocks ? BODY_MODE_PHASING : BODY_MODE_STANDARD);
 			hamonPointsMultiplier.set(values.hamonPointsMultiplier);
 			breathingTrainingMultiplier.set(values.breathingTrainingMultiplier);
 			breathingTrainingDeterioration.set(values.breathingTrainingDeterioration);
@@ -414,6 +466,7 @@ public class JojoModConfig {
 			timeStopDamageMultiplier.clearCache();
 			standDamageMultiplier.clearCache();
 			standResistanceMultiplier.clearCache();
+			standBodyThroughWalls.clearCache();
 			hamonPointsMultiplier.clearCache();
 			breathingTrainingMultiplier.clearCache();
 			breathingTrainingDeterioration.clearCache();
@@ -446,6 +499,7 @@ public class JojoModConfig {
 			private final int timeStopChunkRange;
 			private final double standDamageMultiplier;
 			private final double standResistanceMultiplier;
+			private final boolean standBodyThroughBlocks;
 			private final double hamonPointsMultiplier;
 			private final double breathingTrainingMultiplier;
 			private final boolean breathingTrainingDeterioration;
@@ -481,6 +535,7 @@ public class JojoModConfig {
 				this.timeStopChunkRange = config.timeStopChunkRange.get();
 				this.standDamageMultiplier = config.standDamageMultiplier.get();
 				this.standResistanceMultiplier = config.standResistanceMultiplier.get();
+				this.standBodyThroughBlocks = config.manualStandPassesThroughBlocks();
 				this.hamonPointsMultiplier = config.hamonPointsMultiplier.get();
 				this.breathingTrainingMultiplier = config.breathingTrainingMultiplier.get();
 				this.breathingTrainingDeterioration = config.breathingTrainingDeterioration.get();
@@ -560,6 +615,7 @@ public class JojoModConfig {
 				this.standArrowMode = poolFilters[Mth.clamp(buf.readVarInt(), 0, poolFilters.length - 1)];
 				this.arrowDurability = Math.max(1, buf.readVarInt());
 				this.arrowDurabilityBeetle = Math.max(1, buf.readVarInt());
+				this.standBodyThroughBlocks = buf.readBoolean();
 			}
 
 			public void writeToBuf(RegistryFriendlyByteBuf buf) {
@@ -607,6 +663,7 @@ public class JojoModConfig {
 				buf.writeVarInt(standArrowMode.ordinal());
 				buf.writeVarInt(arrowDurability);
 				buf.writeVarInt(arrowDurabilityBeetle);
+				buf.writeBoolean(standBodyThroughBlocks);
 			}
 
 			private static List<Double> readDoubleList(RegistryFriendlyByteBuf buf, List<Double> defaults,

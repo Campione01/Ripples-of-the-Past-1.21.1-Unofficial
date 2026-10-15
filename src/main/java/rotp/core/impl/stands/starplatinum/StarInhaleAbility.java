@@ -2,6 +2,7 @@ package rotp.core.impl.stands.starplatinum;
 
 import javax.annotation.Nullable;
 
+import rotp.core.api.stand.StandSkillWalls;
 import rotp.core.client.ClientGlobals;
 import rotp.core.client.sound.ClientsideSoundsHelper;
 import rotp.core.client.sound.sounds.EntityStoppableSoundInstance;
@@ -132,7 +133,7 @@ public class StarInhaleAbility extends StandEntityAbility {
             Vec3 spLookVec = standEntity.getLookAngle();
             level.getEntities(standEntity, standEntity.getBoundingBox().inflate(RANGE, RANGE, RANGE),
                     entity -> spLookVec.dot(entity.position().subtract(standEntity.position()).normalize()) > 0.886
-                            && standEntity.hasLineOfSight(entity)
+                            && (!StandSkillWalls.wallsHideEntities(standEntity) || standEntity.hasLineOfSight(entity))
                             && entity.distanceToSqr(standEntity) > 0.5
                             && !entity.is(user)
                             && canInhaleAffectEntity(level, entity)

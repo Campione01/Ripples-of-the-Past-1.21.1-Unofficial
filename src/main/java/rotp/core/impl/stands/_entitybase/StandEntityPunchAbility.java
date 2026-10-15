@@ -7,6 +7,7 @@ import java.util.function.Predicate;
 
 import javax.annotation.Nullable;
 
+import rotp.core.api.stand.StandSkillWalls;
 import rotp.core.client.ClientGlobals;
 import rotp.core.config.client.PlayerClientBroadcastedSettings;
 import rotp.core.client.sound.ClientsideSoundsHelper;
@@ -650,7 +651,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		ActionTarget target = retainPreferredTarget
 				? validatePunchTarget(stand, preferredTarget) : ActionTarget.EMPTY;
 		if (!target.isEmpty(level)) {
-			return target;
+			return throughWallsTarget(stand, target, precisionAim);
 		}
 
 		LivingEntity user = stand.getUser();
@@ -662,7 +663,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		if (standAim != null) {
 			target = validatePunchTarget(stand, standAim.getTarget());
 			if (!target.isEmpty(level)) {
-				return target;
+				return throughWallsTarget(stand, target, precisionAim);
 			}
 		}
 
@@ -670,7 +671,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		if (userAim != null) {
 			target = validatePunchTarget(stand, userAim.getTarget());
 			if (!target.isEmpty(level)) {
-				return target;
+				return throughWallsTarget(stand, target, precisionAim);
 			}
 		}
 
@@ -717,14 +718,29 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		if (userAim != null) {
 			ActionTarget crosshair = userAim.getTarget().resolveEntityId(level);
 			if (!crosshair.isEmpty(level)) {
-				return crosshair;
+				return throughWallsTarget(stand, crosshair, false);
 			}
 		}
 		if (userAims && !aimAssist(user)) {
 			return userAimTarget(stand, user, 1.0F, entity -> entity != stand && canStandHit(stand, entity));
 		}
 		var standAim = LivingComponentAction.getAim(stand);
-		return standAim != null ? standAim.getTarget() : ActionTarget.EMPTY;
+		return standAim != null ? throughWallsTarget(stand, standAim.getTarget(), false) : ActionTarget.EMPTY;
+	}
+
+	/**
+	 * A target from a synced aim or a kept press, for an action marked through walls ({@link StandSkillWalls}): those
+	 * aims were picked while no action ran, so a block among them may hide an entity behind it. The aim is picked again
+	 * through walls, and the block stays only when that finds no entity the Stand can reach.
+	 */
+	public static ActionTarget throughWallsTarget(StandEntity stand, ActionTarget target, boolean precisionAim) {
+		if (target.getType() != TargetType.BLOCK || StandSkillWalls.wallsHideEntities(stand)) {
+			return target;
+		}
+		LivingEntity user = stand.getUser();
+		ActionTarget entityBehind = aimWithThisOrUser(stand, user != null && !stand.isManuallyControlled() ? user : null,
+				1.0F, entity -> entity != stand && canStandHit(stand, entity), precisionAim);
+		return entityBehind.getType() == TargetType.ENTITY ? entityBehind : target;
 	}
 
 	/**

@@ -1,5 +1,6 @@
 package rotp.core.impl.stands.theworld;
 
+import rotp.core.api.stand.StandSkillWalls;
 import rotp.core.customobjects.DamageSourceModified;
 import rotp.core.init.ModCriteriaTriggers;
 import rotp.core.init.ModDataAttachmentTypes;
@@ -461,7 +462,8 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 
 		private static ActionTarget strikeTarget(StandEntity stand, ActionTarget candidate) {
 			ActionTarget target = StandEntityPunchAbility.validatePunchTarget(stand, candidate);
-			if (target.getType() == TargetType.ENTITY && !stand.hasLineOfSight(target.getMainEntity())) {
+			if (target.getType() == TargetType.ENTITY && StandSkillWalls.wallsHideEntities(stand)
+					&& !stand.hasLineOfSight(target.getMainEntity())) {
 				return ActionTarget.EMPTY;
 			}
 			return target;
@@ -476,7 +478,7 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 
 			LivingEntity aimingEntity = stand.isManuallyControlled() ? stand : user;
 			// 1.16 TheWorldTSHeavyAttack.targetBeforePerform aimed again and never used the clicked target
-			ActionTarget target = rayTraceTsPunchTarget(stand, aimingEntity);
+			ActionTarget target = rayTraceTsPunchTarget(stand, aimingEntity, punchAbility);
 			Vec3 blinkPos = calcBlinkPos(stand, aimingEntity, target);
 
 			StandPower standPower = StandPower.get(user);
@@ -548,11 +550,15 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 		}
 
 		// 1.16 precisionRayTrace(aiming, getMaxRange(), getPrecision() / 16, false); entities behind a wall stay hidden
-		private static ActionTarget rayTraceTsPunchTarget(StandEntity stand, LivingEntity aimingEntity) {
+		// unless this skill is marked through walls
+		private static ActionTarget rayTraceTsPunchTarget(StandEntity stand, LivingEntity aimingEntity,
+				TheWorldTSPunchAbility punchAbility) {
+			boolean wallsHideEntities = StandSkillWalls.wallsHideEntities(stand.level(), punchAbility);
 			if (!StandEntityPunchAbility.aimAssist(stand.getUser())) {
-				return StandPrecisionRay.crosshair(aimingEntity, stand, stand.getMaxRange(), false);
+				return StandPrecisionRay.crosshair(aimingEntity, stand, stand.getMaxRange(), false, wallsHideEntities);
 			}
-			return StandPrecisionRay.trace(aimingEntity, stand, stand.getMaxRange(), stand.getPrecision() / 16D, false, true);
+			return StandPrecisionRay.trace(aimingEntity, stand, stand.getMaxRange(), stand.getPrecision() / 16D, false,
+					wallsHideEntities);
 		}
 
 		private static Vec3 calcBlinkPos(StandEntity stand, LivingEntity aimingEntity, ActionTarget target) {

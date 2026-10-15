@@ -217,7 +217,7 @@ public class HierophantEmeraldSplashAbility extends StandEntityAbility implement
 			if (!(stand instanceof HierophantGreenEntity hierophant) || hierophant.getPlacedBarriersCount() <= 0) {
 				return;
 			}
-			barrierTarget(hierophant).ifPresent(targetPos -> hierophant.getBarriersNet().shootEmeraldsFromBarriers(
+			barrierAimPoint(hierophant).ifPresent(targetPos -> hierophant.getBarriersNet().shootEmeraldsFromBarriers(
 					standPower,
 					hierophant,
 					targetPos,
@@ -228,25 +228,35 @@ public class HierophantEmeraldSplashAbility extends StandEntityAbility implement
 					true));
 		}
 
-		private Optional<Vec3> barrierTarget(HierophantGreenEntity stand) {
+		/**
+		 * Where the barrier net fires its emeralds: what the user aims at, or the Stand under manual control. The net
+		 * senses its target and fires without sight, as in the original story and as 1.16's aimForBarriers ray
+		 * (JojoModUtil.rayTrace) did, so a mob behind blocks on the aim is the aim point; the emeralds still stop at blocks.
+		 */
+		public static Optional<Vec3> barrierAimPoint(HierophantGreenEntity stand) {
+			Level level = stand.level();
 			LivingEntity aimingEntity = stand.isManuallyControlled() ? stand : stand.getUser();
 			if (aimingEntity == null) {
 				return Optional.empty();
 			}
 			var aim = LivingComponentAction.getAim(aimingEntity);
 			ActionTarget target = aim != null ? aim.getTarget() : ActionTarget.EMPTY;
-			if (target != null && !target.isEmpty(level())
-					&& !HitResultUtil.isTargetWithinRange(target, aimingEntity, level(),
+			if (target != null && !target.isEmpty(level)
+					&& !HitResultUtil.isTargetWithinRange(target, aimingEntity, level,
 							stand.getMaxRange(), stand.getMaxRange())) {
 				target = ActionTarget.EMPTY;
 			}
-			if (target == null || target.isEmpty(level())) {
-				target = HitResultUtil.clip(aimingEntity.getEyePosition(), aimingEntity.getLookAngle(),
-						stand.getMaxRange(), stand.getMaxRange(), level(),
+			// a synced aim was picked with walls hiding what is behind them
+			if (target == null || target.isEmpty(level) || target.getType() == TargetType.BLOCK) {
+				ActionTarget throughWalls = HitResultUtil.clip(aimingEntity.getEyePosition(), aimingEntity.getLookAngle(),
+						stand.getMaxRange(), stand.getMaxRange(), level,
 						entity -> entity instanceof LivingEntity && stand.canAttackEntity(entity),
-						aimingEntity, StandEntityPunchAbility.aimAssist(stand.getUser()) ? stand.getPrecision() : 0);
+						aimingEntity, StandEntityPunchAbility.aimAssist(stand.getUser()) ? stand.getPrecision() : 0, false);
+				if (target == null || target.isEmpty(level) || throughWalls.getType() == TargetType.ENTITY) {
+					target = throughWalls;
+				}
 			}
-			if (target == null || target.isEmpty(level())) {
+			if (target == null || target.isEmpty(level)) {
 				return Optional.empty();
 			}
 			if (target.getType() == TargetType.ENTITY) {

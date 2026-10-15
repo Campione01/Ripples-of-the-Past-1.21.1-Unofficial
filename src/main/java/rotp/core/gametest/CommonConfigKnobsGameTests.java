@@ -156,6 +156,51 @@ public final class CommonConfigKnobsGameTests {
 		}
 	}
 
+	// owner, 2026-10-15 (ninth card): the Stand body setting defaults to "standard", which a client assumes until the
+	// server says otherwise; a file written with the values of the R770 test builds keeps its meaning
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void standBodySettingDefaultsToStandardReadsOldValuesAndReachesTheClient(GameTestHelper helper) {
+		ModConfigSpec.ConfigValue<String> body = spec("Stand settings", "standBodyThroughWalls");
+		String previousBody = body.get();
+		try {
+			helper.assertTrue(JojoModConfig.BODY_MODE_STANDARD.equals(body.getDefault()),
+					"The Stand body setting must default to standard: " + body.getDefault());
+			helper.assertTrue(spec("Stand settings", "standSkillsThroughWalls") == null,
+					"Walls follow the original story for every skill; there is no skills-through-walls setting");
+			JojoModConfig.resetSyncedConfig();
+			JojoModConfig.Common client = JojoModConfig.getCommonConfigInstance(true);
+			helper.assertFalse(client.manualStandPassesThroughBlocks(),
+					"A client copy the server has not filled must assume standard for the Stand body setting");
+
+			JojoModConfig.Common server = JojoModConfig.getCommonConfigInstance(false);
+			for (String value : List.of(JojoModConfig.BODY_MODE_STANDARD, JojoModConfig.BODY_MODE_PHASING,
+					JojoModConfig.LEGACY_BODY_MODE_1_16, JojoModConfig.LEGACY_BODY_MODE_MANGA)) {
+				helper.assertTrue(body.getSpec().test(value), "A config file with " + value + " must load as it is");
+				body.set(value);
+				boolean phasing = JojoModConfig.BODY_MODE_PHASING.equals(value)
+						|| JojoModConfig.LEGACY_BODY_MODE_MANGA.equals(value);
+				helper.assertTrue(server.manualStandPassesThroughBlocks() == phasing,
+						value + " must read as " + (phasing ? "phasing" : "standard"));
+			}
+			helper.assertFalse(body.getSpec().test("walls") || body.getSpec().test(null),
+					"Only the Stand body modes are valid values");
+			helper.assertTrue(JojoModConfig.BODY_MODE_STANDARD.equals(body.getSpec().correct("walls")),
+					"An unknown value must fall back to standard");
+
+			body.set(JojoModConfig.BODY_MODE_PHASING);
+			RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), helper.getLevel().registryAccess());
+			new JojoModConfig.Common.SyncedValues(server).writeToBuf(buf);
+			JojoModConfig.applySyncedConfig(new JojoModConfig.Common.SyncedValues(buf));
+			helper.assertTrue(client.manualStandPassesThroughBlocks(), "phasing did not reach the client copy");
+			helper.assertFalse(buf.isReadable(), "The synced config left " + buf.readableBytes() + " unread bytes");
+			helper.succeed();
+		}
+		finally {
+			body.set(previousBody);
+			JojoModConfig.resetSyncedConfig();
+		}
+	}
+
 	private static void setLevels(HamonData hamon, int level) {
 		hamon.setHamonStatPoints(HamonData.HamonStat.STRENGTH, HamonData.pointsAtLevel(level), true, true);
 		hamon.setHamonStatPoints(HamonData.HamonStat.CONTROL, HamonData.pointsAtLevel(level), true, true);

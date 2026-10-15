@@ -2,12 +2,15 @@ package rotp.core.gametest;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.impl.stands.hierophant.HierophantBarrierAbility;
+import rotp.core.impl.stands.hierophant.HierophantEmeraldSplashAbility.EmeraldSplashShot;
+import rotp.core.impl.stands.hierophant.HierophantGreenEntity;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.standpower.StandInstance;
@@ -22,6 +25,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -101,6 +106,68 @@ public final class HierophantBarrierReachGameTests {
 			LivingComponentAction.getComponent(user).entityAim.setTarget(ActionTarget.EMPTY);
 			if (stand != null) {
 				stand.setManuallyControlled(false);
+			}
+			if (power != null && power.isSummoned() && standType != null) {
+				standType.forceUnsummon(user, power);
+			}
+			for (Map.Entry<BlockPos, BlockState> block : original.entrySet()) {
+				helper.getLevel().setBlockAndUpdate(block.getKey(), block.getValue());
+			}
+			user.discard();
+		}
+	}
+
+	// the barrier net senses and fires without sight (owner, 2026-10-15; 1.16 aimForBarriers): its aim passes walls
+	@GameTest(template = "empty", timeoutTicks = 40)
+	public static void emeraldSplashFromTheBarrierNetAimsAtAMobBehindAWall(GameTestHelper helper) {
+		Player user = FakePlayerFactory.get(helper.getLevel(), new GameProfile(
+				UUID.fromString("5d1c7a3e-2f4b-4c8e-b1a9-0e6f3d2c8b74"), "HierophantNetAim"));
+		StandType standType = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("hierophant_green"));
+		StandPower power = null;
+		Cow cow = null;
+		Map<BlockPos, BlockState> original = new HashMap<>();
+		try {
+			helper.assertTrue(standType != null, "Missing Stand type hierophant_green");
+			Vec3 userPos = Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(1, 2, 1)));
+			// everyone looks straight up, so the rays stay inside this test's column
+			user.moveTo(userPos.x, userPos.y, userPos.z, 0.0F, -90.0F);
+			helper.assertTrue(helper.getLevel().addFreshEntity(user), "Could not add the Hierophant Green user");
+			power = PowerClass.STAND.attachGet(user);
+			helper.assertTrue(StandPowerTransitions.insert(power, new StandInstance(standType)).status()
+					== StandPowerTransitions.Status.APPLIED, "Could not grant Hierophant Green");
+			helper.assertTrue(standType.summon(user, power), "Could not summon Hierophant Green");
+			helper.assertTrue(power.getSummonedStandEntity() instanceof HierophantGreenEntity,
+					"Summoned Hierophant Green entity is missing");
+			HierophantGreenEntity stand = (HierophantGreenEntity) power.getSummonedStandEntity();
+			stand.moveTo(userPos.x + 1.0D, userPos.y, userPos.z, 0.0F, -90.0F);
+
+			Vec3 userEye = user.getEyePosition();
+			BlockPos wall = BlockPos.containing(userEye.add(0.0D, 2.0D, 0.0D));
+			set(helper, original, wall, Blocks.STONE.defaultBlockState());
+			ActionTarget idleAim = new ActionTarget(wall, Direction.DOWN);
+			LivingComponentAction.getComponent(user).entityAim.setTarget(idleAim);
+			Optional<Vec3> aimPoint = EmeraldSplashShot.barrierAimPoint(stand);
+			helper.assertTrue(aimPoint.isPresent() && aimPoint.get().distanceTo(Vec3.atCenterOf(wall)) < 1.0D,
+					"With nothing behind it, the net must aim at the wall the user aims at: " + aimPoint);
+
+			cow = EntityType.COW.create(helper.getLevel());
+			helper.assertTrue(cow != null, "Could not create a cow");
+			cow.setNoAi(true);
+			cow.setNoGravity(true);
+			cow.moveTo(userEye.x, userEye.y + 4.0D, userEye.z, 0.0F, 0.0F);
+			helper.assertTrue(helper.getLevel().addFreshEntity(cow), "Could not add a cow");
+			helper.assertTrue(userEye.distanceTo(cow.getBoundingBox().getCenter()) < stand.getMaxRange(),
+					"Fixture: the cow is out of Hierophant Green's range " + stand.getMaxRange());
+			aimPoint = EmeraldSplashShot.barrierAimPoint(stand);
+			helper.assertTrue(aimPoint.isPresent() && aimPoint.get().distanceTo(cow.getBoundingBox().getCenter()) < 1.0E-6,
+					"The barrier net must aim at the cow behind the wall: " + aimPoint + ", cow at "
+							+ cow.getBoundingBox().getCenter());
+			helper.succeed();
+		}
+		finally {
+			LivingComponentAction.getComponent(user).entityAim.setTarget(ActionTarget.EMPTY);
+			if (cow != null) {
+				cow.discard();
 			}
 			if (power != null && power.isSummoned() && standType != null) {
 				standType.forceUnsummon(user, power);

@@ -2004,6 +2004,8 @@
   "jojo.config.undeadMobsSunDamage.tooltip": "究极生物在阳光下是否会像吸血鬼一样晒伤.",
   "jojo.config.vampiresAggroMobs": "敌对生物仇恨吸血鬼",
   "jojo.config.vampiresAggroMobs.tooltip": "敌对生物是否对吸血鬼玩家有攻击性",
+  "jojo.config.standBodyThroughWalls": "替身本体穿墙",
+  "jojo.config.standBodyThroughWalls.tooltip": "standard：与1.16版相同，替身只在跟随使用者且没有出招时穿过方块；出招、手动操控或停在固定位置时会被方块挡住。phasing：手动操控的替身在没有出招时也能穿过方块。",
   "jojo.config.vampirismCuringDuration": "吸血鬼治疗持续时间",
   "jojo.config.vampirismCuringDuration.tooltip": "吸血鬼治疗过程的所需时间"
 }
