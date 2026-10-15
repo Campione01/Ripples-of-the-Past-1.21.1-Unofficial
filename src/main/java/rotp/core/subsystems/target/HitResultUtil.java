@@ -8,6 +8,7 @@ import java.util.function.Predicate;
 
 import javax.annotation.Nullable;
 
+import rotp.core.api.stand.StandSkillWalls;
 import rotp.core.util.functions.AABBUtil;
 
 import net.minecraft.core.BlockPos;
@@ -134,8 +135,23 @@ public class HitResultUtil {
 				.toList();
 	}
 
+	/**
+	 * What the ray meets first. Blocks stop it unless the skill in progress goes through walls
+	 * ({@link StandSkillWalls#wallsHideEntities(Entity)}).
+	 */
 	public static ActionTarget clip(Vec3 startingPos, Vec3 directionVec, double blockMaxRange, double entityMaxRange, 
 			Level level, Predicate<Entity> entityFilter, @Nullable Entity aiming, double standPrecision) {
+		return clip(startingPos, directionVec, blockMaxRange, entityMaxRange, level, entityFilter, aiming, standPrecision,
+				StandSkillWalls.wallsHideEntities(aiming));
+	}
+
+	/**
+	 * @param wallsHideEntities false: the entity search runs the whole entity range through blocks, as the 1.16
+	 * entity rays did, and an entity it finds comes before the block
+	 */
+	public static ActionTarget clip(Vec3 startingPos, Vec3 directionVec, double blockMaxRange, double entityMaxRange, 
+			Level level, Predicate<Entity> entityFilter, @Nullable Entity aiming, double standPrecision,
+			boolean wallsHideEntities) {
 		boolean hitFluids = false;
 		CollisionContext entityCtx = aiming != null ? CollisionContext.of(aiming) : CollisionContext.empty();
 
@@ -155,7 +171,9 @@ public class HitResultUtil {
 		if (blockHitResult.getType() != HitResult.Type.MISS) {
 			blockHitAABB = new AABB(blockHitResult.getBlockPos());
 			Vec3 blockClipPos = blockHitAABB.clip(startingPos, endPosBlocks).orElse(blockHitResult.getLocation());
-			maxRange = Math.min(maxRange, Math.sqrt(blockClipPos.distanceToSqr(startingPos)));
+			if (wallsHideEntities) {
+				maxRange = Math.min(maxRange, Math.sqrt(blockClipPos.distanceToSqr(startingPos)));
+			}
 		}
 
 

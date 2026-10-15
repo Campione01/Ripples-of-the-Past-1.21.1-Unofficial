@@ -3,6 +3,7 @@ package rotp.core.subsystems.target;
 import java.util.List;
 import java.util.function.Predicate;
 
+import rotp.core.api.stand.StandSkillWalls;
 import rotp.core.mechanics.resolve.ResolveCounter;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.util.functions.AttributeUtil;
@@ -48,19 +49,29 @@ public final class StandPrecisionRay {
 		if (!friendlyFire) {
 			filter = filter.and(stand::canAttackEntity);
 		}
-		List<ActionTarget> targets = wallsHideEntities
-				? clipTargetsBeforeWalls(aiming, reach, filter, rayTraceInflate, stand.getPrecision())
-				: HitResultUtil.clipMultipleTargets(aiming, reach, filter, rayTraceInflate, stand.getPrecision());
+		List<ActionTarget> targets = clipTargets(aiming, reach, filter, rayTraceInflate, stand.getPrecision(),
+				wallsHideEntities);
 		return closestWithPriority(targets);
 	}
 
 	/**
 	 * HitResultUtil.clipMultipleTargets (1.16 JojoModUtil.rayTraceMultipleEntities: pickable entities nearest first,
 	 * else the block by its outline), except that an entity behind a block with a collision shape on the ray is not
-	 * picked, as the port's other aims do.
+	 * picked, as the port's other aims do, unless the skill in progress goes through walls
+	 * ({@link StandSkillWalls#wallsHideEntities(Entity)}).
 	 */
 	public static List<ActionTarget> clipTargetsBeforeWalls(Entity aiming, double reach, Predicate<Entity> entityFilter,
 			double rayTraceInflate, double standPrecision) {
+		return clipTargets(aiming, reach, entityFilter, rayTraceInflate, standPrecision,
+				StandSkillWalls.wallsHideEntities(aiming));
+	}
+
+	/** @param wallsHideEntities false: 1.16 JojoModUtil.rayTraceMultipleEntities, entities through blocks */
+	public static List<ActionTarget> clipTargets(Entity aiming, double reach, Predicate<Entity> entityFilter,
+			double rayTraceInflate, double standPrecision, boolean wallsHideEntities) {
+		if (!wallsHideEntities) {
+			return HitResultUtil.clipMultipleTargets(aiming, reach, entityFilter, rayTraceInflate, standPrecision);
+		}
 		Vec3 from = aiming.getEyePosition();
 		Vec3 to = from.add(aiming.getLookAngle().normalize().scale(reach));
 		double wallDistanceSqr = wallDistanceSqr(aiming, from, to);

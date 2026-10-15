@@ -7,6 +7,7 @@ import java.util.function.BiFunction;
 
 import javax.annotation.Nullable;
 
+import rotp.core.api.stand.StandSkillWalls;
 import rotp.core.api.timestop.TimeStopTicksModifiers;
 import rotp.core.config.client.PlayerClientBroadcastedSettings;
 import rotp.core.init.ModCriteriaTriggers;
@@ -209,9 +210,10 @@ public class TimeStopBlinkAbility extends Ability {
 		}
 		double playerSpeed = getDistancePerTick(user);
 		double maxDistance = Math.min(playerSpeed * timeStopTicks, MAX_BLINK_DISTANCE);
-		ActionTarget target = getClickedBlinkTarget(user, power);
+		boolean wallsHideEntities = StandSkillWalls.wallsHideEntities(serverLevel, this);
+		ActionTarget target = getClickedBlinkTarget(user, power, wallsHideEntities);
 		if (target.isEmpty(serverLevel)) {
-			target = rayTraceBlinkTarget(user, maxDistance);
+			target = rayTraceBlinkTarget(user, maxDistance, wallsHideEntities);
 		}
 		Vec3 blinkPos = calcBlinkPos(serverLevel, user, target, maxDistance);
 		int impliedTicks = getImpliedTicks(user, blinkPos, playerSpeed, timeStopTicks);
@@ -282,12 +284,13 @@ public class TimeStopBlinkAbility extends Ability {
 		return entity.getAttributeValue(Attributes.MOVEMENT_SPEED) * 2.1585;
 	}
 
-	private static ActionTarget getClickedBlinkTarget(LivingEntity user, StandPower power) {
+	private static ActionTarget getClickedBlinkTarget(LivingEntity user, StandPower power, boolean wallsHideEntities) {
 		ActionTarget target = LivingComponentAction.getComponent(user).entityAim.getTarget().copy().resolveEntityId(user.level());
 		// 1.16 EntityStandType.clientHitResult: with the Stand out, a vanilla miss became the Stand's precision ray
 		StandEntity summoned = power.getSummonedStandEntity();
 		if (target.getType() == ActionTarget.TargetType.EMPTY && summoned != null) {
-			target = StandPrecisionRay.trace(user, summoned, StandPrecisionRay.reach(user, summoned), 0.0D, true, true);
+			target = StandPrecisionRay.trace(user, summoned, StandPrecisionRay.reach(user, summoned), 0.0D, true,
+					wallsHideEntities);
 		}
 		if (target.getType() == ActionTarget.TargetType.ENTITY) {
 			Entity entity = target.getEntity();
@@ -305,9 +308,9 @@ public class TimeStopBlinkAbility extends Ability {
 	}
 
 	// 1.16 JojoModUtil.rayTrace: the nearest pickable living entity on the look ray, else the block by its outline
-	private static ActionTarget rayTraceBlinkTarget(LivingEntity user, double maxDistance) {
-		List<ActionTarget> targets = StandPrecisionRay.clipTargetsBeforeWalls(user, maxDistance,
-				entity -> canBlinkTarget(user, entity), 0.0D, 0.0D);
+	private static ActionTarget rayTraceBlinkTarget(LivingEntity user, double maxDistance, boolean wallsHideEntities) {
+		List<ActionTarget> targets = StandPrecisionRay.clipTargets(user, maxDistance,
+				entity -> canBlinkTarget(user, entity), 0.0D, 0.0D, wallsHideEntities);
 		return targets.isEmpty() ? ActionTarget.EMPTY : targets.get(0);
 	}
 
