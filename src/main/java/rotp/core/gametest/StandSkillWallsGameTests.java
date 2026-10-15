@@ -2,12 +2,14 @@ package rotp.core.gametest;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Predicate;
 
 import javax.annotation.Nullable;
 
 import rotp.core.JojoModConfig;
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.api.stand.StandSkillWalls;
+import rotp.core.config.client.PlayerClientBroadcastedSettings;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
@@ -27,8 +29,10 @@ import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
+import rotp.core.powersystem.standpower.entity.StandEntityAbility;
 import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.target.ActionTarget;
+import rotp.core.subsystems.target.HitResultUtil;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.AfterBatch;
@@ -60,6 +64,9 @@ public final class StandSkillWallsGameTests {
 	private static final String PICK_BATCH = "stand_skill_walls_pick";
 	private static final String MARKED_BATCH = "stand_skill_walls_marked";
 	private static final String UNMARKED_BATCH = "stand_skill_walls_unmarked";
+	private static final String SYNCED_AIM_BATCH = "stand_skill_walls_synced_aim";
+	private static final String KEPT_TARGET_BATCH = "stand_skill_walls_kept_target";
+	private static final String MANUAL_BATCH = "stand_skill_walls_manual";
 	private static final short KEY = 173;
 
 	@Nullable
@@ -140,8 +147,66 @@ public final class StandSkillWallsGameTests {
 		}, Integer.MAX_VALUE, () -> "unreachable");
 	}
 
+	// a client picks its aims while no action runs, so what it sends stops at the wall; the marked punch looks again
+	@GameTest(template = "empty", timeoutTicks = 60, batch = SYNCED_AIM_BATCH)
+	public static void markedPunchFromTheSyncedAimsHitsAMobBehindAWall(GameTestHelper helper) {
+		punchFromIdleAims(helper, false, false);
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 60, batch = KEPT_TARGET_BATCH)
+	public static void markedPunchWithKeepAttackTargetHitsAMobBehindAWall(GameTestHelper helper) {
+		punchFromIdleAims(helper, true, false);
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 60, batch = MANUAL_BATCH)
+	public static void markedPunchUnderManualControlHitsAMobBehindAWall(GameTestHelper helper) {
+		punchFromIdleAims(helper, false, true);
+	}
+
+	private static void punchFromIdleAims(GameTestHelper helper, boolean keepAttackTarget, boolean manualControl) {
+		Scene scene = new Scene(helper);
+		Cow cow = scene.cowBehindWall();
+		scene.mark(true);
+		scene.settings().standAttackTargetLock = keepAttackTarget;
+		if (manualControl) {
+			scene.stand.setManuallyControlled(true);
+			// the user looks away: only the Stand's own aim can find the cow
+			scene.user.setYRot(180);
+			scene.user.setYHeadRot(180);
+		}
+		String how = manualControl ? "under manual control" : keepAttackTarget ? "with keep attack target on" : "from the synced aims";
+		float health = cow.getHealth();
+		scene.run(tick -> {
+			if (tick == 3) {
+				scene.syncIdleAims();
+				EntityActionInstance punch = scene.press("punch");
+				helper.assertTrue(punch instanceof StandEntityPunch && StandSkillWalls.isMarked(punch),
+						"Fixture: the punch input started " + punch + ", which is not the marked punch");
+				boolean keepsPressTarget = StandEntityPunchAbility.shouldRetainPunchTarget(scene.stand, punch.ability);
+				helper.assertTrue(keepsPressTarget == (keepAttackTarget || manualControl),
+						"Fixture: the punch " + how + (keepsPressTarget ? " keeps" : " does not keep") + " its press target");
+			}
+			return tick > 3 && cow.getHealth() < health;
+		}, 30, () -> "The marked punch " + how + " did not hit the cow behind the wall");
+	}
+
 	@AfterBatch(batch = PICK_BATCH)
 	public static void releasePickBatch(ServerLevel level) {
+		releaseActive();
+	}
+
+	@AfterBatch(batch = SYNCED_AIM_BATCH)
+	public static void releaseSyncedAimBatch(ServerLevel level) {
+		releaseActive();
+	}
+
+	@AfterBatch(batch = KEPT_TARGET_BATCH)
+	public static void releaseKeptTargetBatch(ServerLevel level) {
+		releaseActive();
+	}
+
+	@AfterBatch(batch = MANUAL_BATCH)
+	public static void releaseManualBatch(ServerLevel level) {
 		releaseActive();
 	}
 
@@ -261,6 +326,36 @@ public final class StandSkillWallsGameTests {
 			Ability ability = power.getAbility(name);
 			helper.assertTrue(ability instanceof EntityActionType, "Fixture: no " + name + " action");
 			return ((EntityActionType) ability).initActionOnAbilityUse(helper.getLevel(), user, stand, null);
+		}
+
+		PlayerClientBroadcastedSettings settings() {
+			return user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get());
+		}
+
+		// what an idle client sends (ClientsideAim): its crosshair target, and the Stand's aim from the user or, under
+		// manual control, where the Stand is the camera, both from the Stand's eyes; all picked with no action running
+		void syncIdleAims() {
+			helper.assertTrue(stand.getCurStandAction() == null, "Fixture: the Stand is busy with " + stand.getCurStandAction());
+			Predicate<Entity> aimable = entity -> StandEntityAbility.canDefaultTargetEntityForAiming(stand, entity);
+			ActionTarget crosshair;
+			ActionTarget standAim;
+			if (stand.isManuallyControlled()) {
+				standAim = HitResultUtil.clip(stand.getEyePosition(), stand.getLookAngle(),
+						stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE),
+						stand.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE),
+						stand.level(), aimable, stand, stand.getPrecision());
+				crosshair = standAim;
+			}
+			else {
+				crosshair = StandEntityPunchAbility.crosshairPick(stand, user, 1.0F,
+						entity -> entity != stand && !entity.isSpectator() && entity.isPickable());
+				standAim = StandEntityPunchAbility.userStandAim(stand, user, crosshair, aimable);
+			}
+			helper.assertTrue(crosshair.getType() == ActionTarget.TargetType.BLOCK
+					&& standAim.getType() == ActionTarget.TargetType.BLOCK,
+					"Fixture: an idle client's aims must stop at the wall; crosshair " + crosshair + ", Stand aim " + standAim);
+			LivingComponentAction.getComponent(user).entityAim.setTarget(crosshair);
+			LivingComponentAction.getComponent(stand).entityAim.setTarget(standAim);
 		}
 
 		void clearAims() {

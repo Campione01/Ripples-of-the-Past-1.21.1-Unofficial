@@ -6,6 +6,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import javax.annotation.Nullable;
 
+import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
@@ -40,10 +41,14 @@ import net.minecraft.world.level.Level;
  * {@link rotp.core.subsystems.target.HitResultUtil#clipEntityLook}, which use it;</li>
  * <li>{@link rotp.core.subsystems.target.StandPrecisionRay#clipTargetsBeforeWalls} and
  * {@link rotp.core.subsystems.target.StandPrecisionRay#crosshair(Entity, StandEntity, double, boolean)};</li>
- * <li>the client's Stand aim and target marker, which aim through these.</li>
+ * <li>the client's Stand aim and target marker while an action runs;</li>
+ * <li>the targets of {@link StandEntityPunchAbility}, the heavy punches and the barrages, and of every action that takes
+ * its target through {@link StandEntityPunchAbility#getFreshPunchTarget(StandEntity, rotp.core.subsystems.target.ActionTarget)}.</li>
  * </ul>
  * <p>An action that aims through these needs no further code. The World's time-stop punch, the time-stop blink and
- * Star Platinum's inhale ask for themselves.</p>
+ * Star Platinum's inhale ask for themselves. The synced aims a client sends (its crosshair target and the Stand's aim)
+ * are picked while no action runs, so they stop at walls; an action that takes its target from them re-picks a block
+ * through {@link StandEntityPunchAbility#throughWallsTarget}, as the core attacks do.</p>
  *
  * <p><b>When an add-on passes the answer itself.</b> A skill that is not the current action of its user or Stand (an
  * ability that runs no action, a delayed or summoned effect), or that runs its own entity search, ray or line of
