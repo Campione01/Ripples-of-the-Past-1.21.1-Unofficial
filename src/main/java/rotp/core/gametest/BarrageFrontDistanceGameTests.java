@@ -275,8 +275,10 @@ public final class BarrageFrontDistanceGameTests {
                     // 1.16 aimed every barrage hit with the precision ray, which meets the cow's box grown by the Stand's
                     // precision before its own surface at 2.35
                     premise(clipZ < 2.25, "precision box surface geometry actual=" + clipZ);
-                    // 1.16 offsetToTarget measures to the entity's own position, not to the aim ray's surface point
-                    assertOffset(1.35, "directional target uses its entity position, not the surface point");
+                    // 1.16 placed the default barrage's Stand from its task target, which stayed empty (checkStandTarget):
+                    // front3dOffset (StandEntityMeleeBarrage 176, StandEntityAction 435-447) took the user's look ray,
+                    // which ends before the cow's front at 2.35, so the farthest offset, whatever each hit aims at
+                    assertOffset(1.5, "directional barrage stands along its user's look, not at the target it hits");
                 }
                 else assertOffset(1.35, clippedRetention() ? "retained clipped target uses current entity position" : "locked no-clip target moved out");
                 if (kind == Kind.CLEAR) {

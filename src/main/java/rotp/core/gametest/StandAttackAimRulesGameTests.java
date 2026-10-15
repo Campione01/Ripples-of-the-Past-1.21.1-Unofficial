@@ -12,6 +12,7 @@ import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility.StandEntityHeavyPunch;
+import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchChargedAbility.StandEntityChargedHeavy;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility.StandEntityPunch;
 import rotp.core.init.ModDataAttachmentTypes;
@@ -22,6 +23,7 @@ import rotp.core.powersystem.ability.AbilityUsageGroup;
 import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.ability.input.AbilityInput;
 import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
+import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.netcode.SyncType;
@@ -86,6 +88,18 @@ public final class StandAttackAimRulesGameTests {
 		atTheGround(helper, "punch", InputMethod.CLICK, true);
 	}
 
+	// the charged heavy punch follows the heavy punch's rule (StandEntityHeavyAttack.standKeepsTarget kept only an entity),
+	// released as a client's key release ends its charge
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "ground_charged")
+	public static void chargedHeavyPunchAtTheGroundHitsTheMobInThePrecisionBoxesAsIn116(GameTestHelper helper) {
+		atTheGround(helper, "heavy_charged", InputMethod.HOLD, true);
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "ground_charged_off")
+	public static void chargedHeavyPunchWithoutAimAssistStrikesTheGroundOnTheCrosshair(GameTestHelper helper) {
+		atTheGround(helper, "heavy_charged", InputMethod.HOLD, false);
+	}
+
 	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "ground_heavy_off")
 	public static void heavyPunchWithoutAimAssistStrikesTheGroundOnTheCrosshair(GameTestHelper helper) {
 		atTheGround(helper, "heavy_punch", InputMethod.CLICK, false);
@@ -119,14 +133,41 @@ public final class StandAttackAimRulesGameTests {
 		scene.run(tick -> {
 			if (tick == 3) {
 				scene.sendClientAims();
-				action[0] = scene.press(name, method);
+				action[0] = name.equals("heavy_charged") ? scene.release(name) : scene.press(name, method);
 				helper.assertTrue(action[0] instanceof StandEntityPunch || action[0] instanceof StandEntityHeavyPunch
+						|| action[0] instanceof StandEntityChargedHeavy
 						|| StandEntityBarrageAbility.isDirectionalBarrage(scene.stand, action[0]),
 						"Fixture: the " + name + " input started " + action[0]);
+				if (mobFirst && name.equals("heavy_punch")) {
+					// 1.16 StandEntityHeavyAttack.standKeepsTarget kept only an entity: the pressed ground was refused
+					ActionTarget saved = savedTarget(action[0]);
+					helper.assertTrue((saved == null || saved.getType() != ActionTarget.TargetType.BLOCK)
+							&& (action[0].standRotationTarget == null
+									|| action[0].standRotationTarget.getType() != ActionTarget.TargetType.BLOCK),
+							"The " + how + " pressed at the ground saved " + saved + " and turns the Stand to "
+									+ action[0].standRotationTarget + "; 1.16 kept no block for a heavy punch");
+				}
 				return false;
 			}
 			if (tick < 3) {
 				return false;
+			}
+			if (mobFirst && name.equals("heavy_charged") && action[0].getPhase() == ActionPhase.PERFORM) {
+				// the lunge goes at the target its perform start took: the ground in the Stand's aim is dropped
+				ActionTarget lunge = savedTarget(action[0]);
+				helper.assertTrue(lunge == null || lunge.getType() != ActionTarget.TargetType.BLOCK, "The " + how
+						+ " lunges at " + lunge + " instead of the cow in the precision boxes; 1.16 kept no block for a heavy punch");
+			}
+			if (tick == 5 && mobFirst && !name.equals("heavy_charged")) {
+				// 1.16 placed the Stand from the task target, empty here (the barrage kept none, the heavy punch no block):
+				// front3dOffset took the user's look ray, which meets nothing within its reach, so the farthest offset,
+				// not a step in toward the cow the precision ray takes
+				Vec3 offset = action[0].getSyncedStandOffset();
+				double farthest = name.equals("barrage") ? Math.min(1.5, scene.stand.getEffectiveRange())
+						: Math.min(2, scene.stand.getMaxRange());
+				helper.assertTrue(farthest > 0.6 && offset != null && Math.abs(offset.z - farthest) < 0.01, "The " + how
+						+ " placed the Stand at " + offset + " toward the cow it aims at; 1.16 stood along its user's look,"
+						+ " at the farthest " + farthest);
 			}
 			ActionTarget struck = action[0].punchedTarget;
 			boolean blockStruck = struck != null && struck.getType() == ActionTarget.TargetType.BLOCK;
@@ -467,6 +508,18 @@ public final class StandAttackAimRulesGameTests {
 		helper.succeed();
 	}
 
+	// the target the action saved from its press (EntityActionInstance.actionTargetSnapshot)
+	static ActionTarget savedTarget(EntityActionInstance action) {
+		try {
+			java.lang.reflect.Field field = EntityActionInstance.class.getDeclaredField("actionTargetSnapshot");
+			field.setAccessible(true);
+			return (ActionTarget) field.get(action);
+		}
+		catch (ReflectiveOperationException e) {
+			throw new IllegalStateException("Fixture: cannot read the action's saved target", e);
+		}
+	}
+
 	private static Cow mobBarrageCow(GameTestHelper helper, List<Entity> entities, Vec3 pos) {
 		Cow cow = EntityType.COW.create(helper.getLevel());
 		helper.assertTrue(cow != null, "Fixture: could not create a cow");
@@ -643,6 +696,16 @@ public final class StandAttackAimRulesGameTests {
 			var held = AbilityInput.keyPress(KEY, selected.ability, user, null, method, 0, buffer, base.getAbilityId());
 			helper.assertTrue(buffer.isActionSuccess, "The " + name + " key press failed");
 			return held != null && held.action instanceof EntityActionInstance a ? a : stand.getCurStandAction();
+		}
+
+		// a held move started on the Stand and its key released, as StandSkillWallsGameTests drives the charged heavy punch
+		EntityActionInstance release(String name) {
+			EntityActionInstance action = ((EntityActionType) power.getAbility(name))
+					.initActionOnAbilityUse(helper.getLevel(), user, stand, null);
+			LivingComponentAction.getComponent(stand).setAction(action, user, SyncType.NO_SYNC);
+			helper.assertTrue(stand.getCurStandAction() == action, "Fixture: the " + name + " did not start on the Stand");
+			action.onKeyRelease(user);
+			return action;
 		}
 
 		void run(Step step, int lastTick, java.util.function.Supplier<String> timeoutMessage) {
