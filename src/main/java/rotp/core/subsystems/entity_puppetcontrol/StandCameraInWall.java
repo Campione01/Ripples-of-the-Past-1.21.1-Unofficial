@@ -17,6 +17,10 @@ import net.minecraft.world.phys.Vec3;
  * draws its in-wall overlay only for the player and only in first person; the player's own overlay is left to vanilla.
  */
 public final class StandCameraInWall {
+	// Camera.getMaxZoom keeps the camera 0.1 short of a block from the eyes; nearer than this, the zoom has collapsed
+	public static final double COLLAPSED_ZOOM = 0.15D;
+	// Camera.getMaxZoom's own box around the camera position
+	private static final double CAMERA_BOX = 0.1D;
 
 	private StandCameraInWall() {}
 
@@ -52,14 +56,30 @@ public final class StandCameraInWall {
 	/**
 	 * Any other camera type: the block the camera position (Camera.getPosition) of a Stand camera is in. In third
 	 * person Camera.getMaxZoom clips from the eyes, so with the eyes inside a block the camera stays inside it too.
+	 * When the zoom of a Stand that passes through blocks has collapsed onto its eyes (in or next to a block it is
+	 * entering or leaving), the near plane can reach into a block the camera point is not in, so Camera.getMaxZoom's
+	 * box around the camera is checked too; a camera the zoom left further out is judged by its own point only.
+	 * @param eyePos the camera entity's eye position this frame
 	 */
 	@Nullable
-	public static BlockPos cameraOverlayBlock(@Nullable Entity cameraEntity, BlockGetter level, Vec3 cameraPos) {
-		if (!(cameraEntity instanceof StandEntity)) {
+	public static BlockPos cameraOverlayBlock(@Nullable Entity cameraEntity, BlockGetter level, Vec3 cameraPos, Vec3 eyePos) {
+		if (!(cameraEntity instanceof StandEntity stand)) {
 			return null;
 		}
 		BlockPos pos = BlockPos.containing(cameraPos);
-		return blocksView(level, pos) ? pos : null;
+		if (blocksView(level, pos)) {
+			return pos;
+		}
+		if (stand.noPhysics && cameraPos.distanceToSqr(eyePos) < COLLAPSED_ZOOM * COLLAPSED_ZOOM) {
+			for (int i = 0; i < 8; i++) {
+				BlockPos corner = BlockPos.containing(cameraPos.add(
+						((i & 1) * 2 - 1) * CAMERA_BOX, ((i >> 1 & 1) * 2 - 1) * CAMERA_BOX, ((i >> 2 & 1) * 2 - 1) * CAMERA_BOX));
+				if (blocksView(level, corner)) {
+					return corner;
+				}
+			}
+		}
+		return null;
 	}
 
 	private static boolean blocksView(BlockGetter level, BlockPos pos) {

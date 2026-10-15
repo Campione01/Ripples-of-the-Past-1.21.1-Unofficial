@@ -40,7 +40,8 @@ public abstract class GameRendererStandCameraInWallMixin {
 		if (StandCameraInWall.vanillaDrawsScreenEffects(minecraft.options.getCameraType().isFirstPerson(), sleeping)) {
 			return;
 		}
-		BlockPos pos = StandCameraInWall.cameraOverlayBlock(cameraEntity, minecraft.level, camera.getPosition());
+		BlockPos pos = cameraEntity == null ? null : StandCameraInWall.cameraOverlayBlock(cameraEntity, minecraft.level,
+				camera.getPosition(), cameraEntity.getEyePosition(partialTick));
 		if (pos != null) {
 			ScreenEffectRendererInvoker.jojo_ripples$renderTex(minecraft.getBlockRenderer().getBlockModelShaper()
 					.getTexture(minecraft.level.getBlockState(pos), minecraft.level, pos), new PoseStack());

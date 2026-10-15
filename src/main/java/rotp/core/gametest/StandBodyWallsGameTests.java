@@ -129,7 +129,7 @@ public final class StandBodyWallsGameTests {
 				eyeBlocks.forEach(pos -> scene.put(pos, state));
 				scene.put(cameraBlock, state);
 				BlockPos eyeOverlay = StandCameraInWall.eyeOverlayBlock(stand);
-				BlockPos cameraOverlay = StandCameraInWall.cameraOverlayBlock(stand, level, camera);
+				BlockPos cameraOverlay = StandCameraInWall.cameraOverlayBlock(stand, level, camera, stand.getEyePosition());
 				if (state.is(Blocks.STONE)) {
 					helper.assertTrue(eyeOverlay != null && eyeBlocks.contains(eyeOverlay),
 							"First person: a Stand's eyes in stone must show the stone's in-wall texture; got " + eyeOverlay);
@@ -142,8 +142,35 @@ public final class StandBodyWallsGameTests {
 				}
 			}
 
+			// F5 with the zoom collapsed onto the eyes of a Stand that passes through blocks: the near plane reaches into a
+			// block within Camera.getMaxZoom's 0.1 box of the camera, so that block covers the view; a camera the zoom left
+			// further out, or a Stand that collides with blocks, is judged by the camera point alone
+			stand.setManuallyControlled(true);
+			scene.setMode(JojoModConfig.BODY_MODE_PHASING);
+			helper.assertTrue(stand.noPhysics, "Fixture: phasing left the controlled Stand colliding");
+			Vec3 eyes = stand.getEyePosition();
+			BlockPos face = BlockPos.containing(eyes).south();
+			scene.put(face, Blocks.STONE.defaultBlockState());
+			Vec3 nearFace = new Vec3(eyes.x, eyes.y, face.getZ() - 0.05D);
+			Vec3 clearOfFace = new Vec3(eyes.x, eyes.y, face.getZ() - 0.3D);
+			helper.assertTrue(level.getBlockState(BlockPos.containing(nearFace)).isAir()
+					&& level.getBlockState(BlockPos.containing(clearOfFace)).isAir(), "Fixture: the camera points are not in air");
+			BlockPos collapsed = StandCameraInWall.cameraOverlayBlock(stand, level, nearFace, nearFace.add(0, 0, -0.1D));
+			helper.assertTrue(face.equals(collapsed), "Third person, zoom collapsed 0.05 short of a stone face: the stone's"
+					+ " in-wall texture must cover the near plane; got " + collapsed);
+			helper.assertTrue(StandCameraInWall.cameraOverlayBlock(stand, level, nearFace, nearFace.add(0, 0, -0.5D)) == null,
+					"Third person: a camera the zoom left 0.5 from the eyes must not flash the overlay beside a wall");
+			helper.assertTrue(StandCameraInWall.cameraOverlayBlock(stand, level, clearOfFace, clearOfFace.add(0, 0, -0.1D)) == null,
+					"Third person: a collapsed camera with no block within 0.1 must not get the overlay");
+			scene.setMode(JojoModConfig.BODY_MODE_STANDARD);
+			helper.assertFalse(stand.noPhysics, "Fixture: standard mode left the controlled Stand without physics");
+			helper.assertTrue(StandCameraInWall.cameraOverlayBlock(stand, level, nearFace, nearFace.add(0, 0, -0.1D)) == null,
+					"standard: a Stand that collides with blocks is judged by its camera point alone");
+			stand.setManuallyControlled(false);
+			scene.put(face, Blocks.AIR.defaultBlockState());
+
 			eyeBlocks.forEach(pos -> scene.put(pos, Blocks.STONE.defaultBlockState()));
-			helper.assertTrue(StandCameraInWall.cameraOverlayBlock(stand, level, camera) == null,
+			helper.assertTrue(StandCameraInWall.cameraOverlayBlock(stand, level, camera, stand.getEyePosition()) == null,
 					"Third person: a camera out in the air must not be covered because the Stand's eyes are in stone");
 
 			scene.put(cameraBlock, Blocks.STONE.defaultBlockState());
@@ -151,7 +178,7 @@ public final class StandBodyWallsGameTests {
 			user.moveTo(stand.getX(), stand.getY(), stand.getZ(), 0, 0);
 			scene.put(BlockPos.containing(user.getEyePosition()), Blocks.STONE.defaultBlockState());
 			helper.assertTrue(StandCameraInWall.eyeOverlayBlock(user) == null
-					&& StandCameraInWall.cameraOverlayBlock(user, level, camera) == null
+					&& StandCameraInWall.cameraOverlayBlock(user, level, camera, user.getEyePosition()) == null
 					&& StandCameraInWall.eyeOverlayBlock(null) == null,
 					"Only a Stand camera gets this overlay; the player's own stays vanilla's");
 			helper.succeed();
