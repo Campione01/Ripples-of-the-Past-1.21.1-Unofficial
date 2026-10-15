@@ -6,6 +6,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.LockSupport;
 
+import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ThreadedLevelLightEngine;
 import net.minecraft.world.level.ChunkPos;
@@ -38,6 +39,7 @@ final class GameTestLight {
 	static final class Wait {
 		private final CompletableFuture<?> pending;
 		private final long startedAt = System.nanoTime();
+		private long settledTick = -1;
 
 		Wait(ServerLevel level, ChunkPos chunk) {
 			this.pending = pending(level, chunk);
@@ -55,6 +57,24 @@ final class GameTestLight {
 
 		long millis() {
 			return TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt);
+		}
+
+		/**
+		 * For a fixture that pauses its poll until the light is applied: true from the first poll that finds it done;
+		 * before that it fails the test once the real-time budget is spent.
+		 */
+		boolean settled(GameTestHelper helper, String what) {
+			if (pending.isDone()) {
+				if (settledTick < 0) settledTick = helper.getTick();
+				return true;
+			}
+			helper.assertTrue(!stalled(), "the light engine did not light " + what + " after " + millis() + " ms");
+			return false;
+		}
+
+		/** Ticks since {@link #settled} first returned true: tick watchdogs count from there. */
+		long ticksSinceSettled(GameTestHelper helper) {
+			return settledTick < 0 ? 0L : helper.getTick() - settledTick;
 		}
 	}
 }

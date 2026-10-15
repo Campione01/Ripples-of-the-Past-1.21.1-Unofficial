@@ -61,22 +61,23 @@ import rotp.core.util.functions.DamageUtil;
 public final class PillarmanBladeBarrageDefenseGameTests {
     private PillarmanBladeBarrageDefenseGameTests() {}
 
-    @GameTest(template = "empty", skyAccess = true, batch = "blade_guard_modded", timeoutTicks = 100)
+    // the ticks are only a ceiling for the real-time wait of the light engine (GameTestLight)
+    @GameTest(template = "empty", skyAccess = true, batch = "blade_guard_modded", timeoutTicks = 4000)
     public static void heldBladesBlockSideAndRearTommyButReleasedBladesDoNot(GameTestHelper helper) {
         start(helper, Case.MODDED);
     }
 
-    @GameTest(template = "empty", skyAccess = true, batch = "blade_guard_stand", timeoutTicks = 100)
+    @GameTest(template = "empty", skyAccess = true, batch = "blade_guard_stand", timeoutTicks = 4000)
     public static void heldBladesDoNotBlockRegisteredStandDamageProjectile(GameTestHelper helper) {
         start(helper, Case.STAND);
     }
 
-    @GameTest(template = "empty", skyAccess = true, batch = "blade_guard_non_evadable", timeoutTicks = 100)
+    @GameTest(template = "empty", skyAccess = true, batch = "blade_guard_non_evadable", timeoutTicks = 4000)
     public static void heldBladesDoNotBlockRegisteredNonEvadableProjectile(GameTestHelper helper) {
         start(helper, Case.NON_EVADE);
     }
 
-    @GameTest(template = "empty", skyAccess = true, batch = "blade_guard_vanilla", timeoutTicks = 100)
+    @GameTest(template = "empty", skyAccess = true, batch = "blade_guard_vanilla", timeoutTicks = 4000)
     public static void vanillaArrowDefenseStillRequiresTheFrontCone(GameTestHelper helper) {
         start(helper, Case.VANILLA);
     }
@@ -108,6 +109,7 @@ public final class PillarmanBladeBarrageDefenseGameTests {
         private int userPosts, shooterPosts, grantPost, heldPosts, releasePost;
         private boolean granted, pressed, released, testedHeld, closed;
         private Throwable observerFailure;
+        private GameTestLight.Wait light;
         private DamageSource activeSource;
         private LivingIncomingDamageEvent incoming;
         private int incomingCount, damagePosts, attempts;
@@ -134,6 +136,8 @@ public final class PillarmanBladeBarrageDefenseGameTests {
                 roof.put(pos.immutable(), level.getBlockState(pos));
                 premise(level.setBlockAndUpdate(pos, Blocks.STONE.defaultBlockState()), "roof placement failed");
             }
+            // the shade is read only once the light engine, on a thread of its own, has lit the roof
+            light = new GameTestLight.Wait(level, chunk);
             user = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
             shooter = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
             owned.add(user); owned.add(shooter);
@@ -289,7 +293,8 @@ public final class PillarmanBladeBarrageDefenseGameTests {
             if (closed) return;
             try {
                 throwObserverFailure();
-                premise(helper.getTick() < 80, "finite readiness/hold watchdog");
+                if (!light.settled(helper, "the roof")) { helper.runAfterDelay(1, this::poll); return; }
+                premise(light.ticksSinceSettled(helper) < 80, "finite readiness/hold watchdog");
                 if (!granted && userPosts >= 2 && shooterPosts >= 2
                         && !level.canSeeSky(BlockPos.containing(user.getEyePosition()))) grant();
                 else if (granted && !pressed && userPosts >= grantPost + 3) press();

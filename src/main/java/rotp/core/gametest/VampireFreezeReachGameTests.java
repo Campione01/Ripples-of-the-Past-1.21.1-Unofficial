@@ -66,27 +66,28 @@ import rotp.core.util.functions.DamageUtil;
 public final class VampireFreezeReachGameTests {
     private VampireFreezeReachGameTests() {}
 
-    @GameTest(template = "empty", skyAccess = true, batch = "vampire_freeze_surface_reach", timeoutTicks = 60)
+    // the ticks are only a ceiling for the real-time wait of the light engine (GameTestLight)
+    @GameTest(template = "empty", skyAccess = true, batch = "vampire_freeze_surface_reach", timeoutTicks = 4000)
     public static void visibleCowWithinDonorSurfaceReachFreezes(GameTestHelper helper) {
         start(helper, Scenario.SURFACE);
     }
 
-    @GameTest(template = "empty", skyAccess = true, batch = "vampire_freeze_near_control", timeoutTicks = 60)
+    @GameTest(template = "empty", skyAccess = true, batch = "vampire_freeze_near_control", timeoutTicks = 4000)
     public static void nearbyCowStillFreezesThroughRegisteredHold(GameTestHelper helper) {
         start(helper, Scenario.NEAR);
     }
 
-    @GameTest(template = "empty", skyAccess = true, batch = "vampire_freeze_outside_reach", timeoutTicks = 60)
+    @GameTest(template = "empty", skyAccess = true, batch = "vampire_freeze_outside_reach", timeoutTicks = 4000)
     public static void visibleCowBeyondDonorSurfaceReachDoesNotFreeze(GameTestHelper helper) {
         start(helper, Scenario.OUTSIDE);
     }
 
-    @GameTest(template = "empty", skyAccess = true, batch = "vampire_freeze_occluded_reach", timeoutTicks = 60)
+    @GameTest(template = "empty", skyAccess = true, batch = "vampire_freeze_occluded_reach", timeoutTicks = 4000)
     public static void occludedCowBeyondReducedSurfaceReachDoesNotFreeze(GameTestHelper helper) {
         start(helper, Scenario.OCCLUDED);
     }
 
-    @GameTest(template = "empty", skyAccess = true, batch = "vampire_freeze_occluded_near", timeoutTicks = 60)
+    @GameTest(template = "empty", skyAccess = true, batch = "vampire_freeze_occluded_near", timeoutTicks = 4000)
     public static void nearbyOccludedCowWithinReducedSurfaceReachStillFreezes(GameTestHelper helper) {
         start(helper, Scenario.OCCLUDED_NEAR);
     }
@@ -147,6 +148,7 @@ public final class VampireFreezeReachGameTests {
         private EntityActionInstance action;
         private Before before;
         private RuntimeException observerFailure;
+        private GameTestLight.Wait light;
         private int userTicks;
         private int targetTicks;
         private BlockPos occluderBase;
@@ -182,6 +184,8 @@ public final class VampireFreezeReachGameTests {
                     putBlock(center.offset(x, 3, z), Blocks.STONE.defaultBlockState());
                 }
             }
+            // the shade is read only once the light engine, on a thread of its own, has lit the roof
+            light = new GameTestLight.Wait(level, chunk);
 
             user = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
             user.setNoGravity(true);
@@ -393,7 +397,8 @@ public final class VampireFreezeReachGameTests {
             if (closed) return;
             try {
                 if (observerFailure != null) throw observerFailure;
-                helper.assertTrue(helper.getTick() < 45,
+                if (!light.settled(helper, "the roof")) { helper.runAfterDelay(1, this::poll); return; }
+                helper.assertTrue(light.ticksSinceSettled(helper) < 45,
                         (prepared && !pressed ? "Freeze shade readiness deadline" : "Freeze watchdog")
                                 + " ticks=" + userTicks + "/" + targetTicks + " samples=" + samples.size()
                                 + " sky=" + level.canSeeSky(BlockPos.containing(user.getEyePosition())));

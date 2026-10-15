@@ -53,12 +53,13 @@ import rotp.core.subsystems.target.ActionTarget;
 public final class ZombieDisguiseCompletionGameTests {
     private ZombieDisguiseCompletionGameTests() {}
 
-    @GameTest(template = "empty", skyAccess = true, batch = "zombie_disguise_complete60", timeoutTicks = 160)
+    // the ticks are only a ceiling for the real-time wait of the light engine (GameTestLight)
+    @GameTest(template = "empty", skyAccess = true, batch = "zombie_disguise_complete60", timeoutTicks = 4000)
     public static void registeredDisguiseCompletesOn60thNaturalHoldTick(GameTestHelper helper) {
         start(helper, false);
     }
 
-    @GameTest(template = "empty", skyAccess = true, batch = "zombie_disguise_release59", timeoutTicks = 160)
+    @GameTest(template = "empty", skyAccess = true, batch = "zombie_disguise_release59", timeoutTicks = 4000)
     public static void releaseAfter59NaturalDisguiseTicksDoesNotToggle(GameTestHelper helper) {
         start(helper, true);
     }
@@ -96,6 +97,7 @@ public final class ZombieDisguiseCompletionGameTests {
         private long preTime, releasedGeneration;
         private boolean granted, pressed, released, componentOpen, done, closed;
         private Throwable observerFailure;
+        private GameTestLight.Wait light;
 
         Fixture(GameTestHelper helper, boolean release59) {
             this.helper = helper; this.level = helper.getLevel(); this.release59 = release59;
@@ -118,6 +120,8 @@ public final class ZombieDisguiseCompletionGameTests {
             for (int dx = 6; dx <= 10; dx++) for (int dz = 6; dz <= 10; dz++) {
                 put(new BlockPos(x + dx, y - 1, z + dz)); put(new BlockPos(x + dx, y + 3, z + dz));
             }
+            // the shade is read only once the light engine, on a thread of its own, has lit the roof
+            light = new GameTestLight.Wait(level, chunk);
             user = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
             GameType.SURVIVAL.updatePlayerAbilities(user.getAbilities());
             user.moveTo(x + 8.5D, y + 0.2D, z + 8.5D, 0, 0);
@@ -277,7 +281,8 @@ public final class ZombieDisguiseCompletionGameTests {
             try {
                 if (observerFailure instanceof RuntimeException error) throw error;
                 if (observerFailure instanceof Error error) throw error;
-                premise(helper.getTick() < 140, "finite readiness/charge watchdog");
+                if (!light.settled(helper, "the roof")) { helper.runAfterDelay(1, this::poll); return; }
+                premise(light.ticksSinceSettled(helper) < 140, "finite readiness/charge watchdog");
                 if (!granted && posts >= 2 && user.onGround() && !level.canSeeSky(BlockPos.containing(user.getEyePosition()))
                         && blocks.keySet().stream().allMatch(pos -> level.getBlockState(pos).is(Blocks.STONE))) grant();
                 else if (granted && !pressed && posts >= grantPosts + 3) press();

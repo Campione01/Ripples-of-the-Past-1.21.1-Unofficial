@@ -68,7 +68,8 @@ public final class PillarmanRibStartupGameTests {
 
     private PillarmanRibStartupGameTests() {}
 
-    @GameTest(template = "empty", skyAccess = true, batch = "pillarman_rib_startup", timeoutTicks = 100)
+    // the ticks are only a ceiling for the real-time wait of the light engine (GameTestLight)
+    @GameTest(template = "empty", skyAccess = true, batch = "pillarman_rib_startup", timeoutTicks = 4000)
     public static void registeredRibsKeepDonorInitialEyeBeforeTwoNaturalSteps(GameTestHelper helper) {
         Fixture fixture = new Fixture(helper);
         helper.testInfo.addListener(fixture);
@@ -118,6 +119,7 @@ public final class PillarmanRibStartupGameTests {
         private Ability ability;
         private EntityActionInstance action;
         private RuntimeException observerFailure;
+        private GameTestLight.Wait light;
         private int userTicks;
         private int poweredAtTicks = -1;
         private boolean pressed;
@@ -148,6 +150,8 @@ public final class PillarmanRibStartupGameTests {
                 roof.put(pos.immutable(), level.getBlockState(pos));
                 helper.assertTrue(level.setBlockAndUpdate(pos, Blocks.STONE.defaultBlockState()), "Could not place rib shade");
             }
+            // the shade is read only once the light engine, on a thread of its own, has lit the roof
+            light = new GameTestLight.Wait(level, chunk);
             user = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
             user.setNoGravity(true);
             user.moveTo(userPosition.x, userPosition.y, userPosition.z, 0.0F, 0.0F);
@@ -274,7 +278,8 @@ public final class PillarmanRibStartupGameTests {
             if (closed) return;
             try {
                 if (observerFailure != null) throw observerFailure;
-                helper.assertTrue(helper.getTick() < 80, "Rib watchdog: userTicks=" + userTicks + " powered=" + (power != null)
+                if (!light.settled(helper, "the roof")) { helper.runAfterDelay(1, this::poll); return; }
+                helper.assertTrue(light.ticksSinceSettled(helper) < 80, "Rib watchdog: userTicks=" + userTicks + " powered=" + (power != null)
                         + " ribs=" + ribs.size() + " sky=" + level.getBrightness(LightLayer.SKY, BlockPos.containing(user.getEyePosition())));
                 helper.assertTrue(user.isAlive() && near(user.position(), userPosition) && !user.isOnFire()
                                 && user.getYRot() == 0.0F && user.getXRot() == 0.0F && user.yBodyRot == 0.0F,

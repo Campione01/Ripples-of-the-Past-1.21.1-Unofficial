@@ -68,12 +68,13 @@ public final class VampirismEyeBeamShotBudgetGameTests {
 
     private VampirismEyeBeamShotBudgetGameTests() {}
 
-    @GameTest(template = "empty", skyAccess = true, batch = "srse_shot_budget_full", timeoutTicks = 200)
+    // the ticks are only a ceiling for the real-time wait of the light engine (GameTestLight)
+    @GameTest(template = "empty", skyAccess = true, batch = "srse_shot_budget_full", timeoutTicks = 4000)
     public static void fullShotPaysOnReleaseThenTwentyOneTicksAndBindsTheBeamsForTwentyOneMoves(GameTestHelper helper) {
         start(helper, false);
     }
 
-    @GameTest(template = "empty", skyAccess = true, batch = "srse_shot_budget_exhausted", timeoutTicks = 200)
+    @GameTest(template = "empty", skyAccess = true, batch = "srse_shot_budget_exhausted", timeoutTicks = 4000)
     public static void shotThatCannotPayEmptiesTheBloodAndDetachesAfterThatTicksMove(GameTestHelper helper) {
         start(helper, true);
     }
@@ -114,6 +115,7 @@ public final class VampirismEyeBeamShotBudgetGameTests {
         private Ability ability;
         private EntityActionInstance action;
         private RuntimeException observerFailure;
+        private GameTestLight.Wait light;
         private float speed;
         private float bloodAtPre;
         private float bloodBeforeRelease;
@@ -168,6 +170,8 @@ public final class VampirismEyeBeamShotBudgetGameTests {
                 original.put(pos.immutable(), level.getBlockState(pos));
                 premise(level.setBlockAndUpdate(pos, Blocks.STONE.defaultBlockState()), "shade block placed");
             }
+            // the shade is read only once the light engine, on a thread of its own, has lit the roof
+            light = new GameTestLight.Wait(level, chunk);
             userPosition = new Vec3(x + 0.5D, y, z + 0.5D);
             user = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
             user.setNoGravity(true);
@@ -301,7 +305,8 @@ public final class VampirismEyeBeamShotBudgetGameTests {
             if (closed) return;
             try {
                 if (observerFailure != null) throw observerFailure;
-                premise(helper.getTick() < 170, "watchdog: userTicks=" + userTicks + " shade=" + shadeReady() + " sky="
+                if (!light.settled(helper, "the roof")) { helper.runAfterDelay(1, this::poll); return; }
+                premise(light.ticksSinceSettled(helper) < 170, "watchdog: userTicks=" + userTicks + " shade=" + shadeReady() + " sky="
                         + level.getBrightness(LightLayer.SKY, BlockPos.containing(user.getEyePosition()))
                         + " powered=" + (power != null) + " pressed=" + pressed + " released=" + released
                         + " ended=" + ended + " beams=" + beams.size() + " shotDeltas=" + shotDeltas + " frames=" + frames.values());

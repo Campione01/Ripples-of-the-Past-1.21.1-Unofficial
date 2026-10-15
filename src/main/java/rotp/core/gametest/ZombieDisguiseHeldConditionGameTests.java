@@ -77,13 +77,14 @@ import rotp.core.subsystems.target.ActionTarget;
 public final class ZombieDisguiseHeldConditionGameTests {
     private ZombieDisguiseHeldConditionGameTests() {}
 
-    @GameTest(template = "empty", batch = "zombie_disguise_real_rib_stun", timeoutTicks = 160)
+    // the ticks are only a ceiling for the real-time wait of the light engine (GameTestLight)
+    @GameTest(template = "empty", batch = "zombie_disguise_real_rib_stun", timeoutTicks = 4000)
     public static void registeredRibStunStopsRetainedDisguiseHold(GameTestHelper helper) { start(helper, Lane.STUN); }
 
-    @GameTest(template = "empty", batch = "zombie_disguise_real_weapon_death", timeoutTicks = 160)
+    @GameTest(template = "empty", batch = "zombie_disguise_real_weapon_death", timeoutTicks = 4000)
     public static void actualWeaponDeathStopsOriginalRetainedDisguiseHold(GameTestHelper helper) { start(helper, Lane.DEATH); }
 
-    @GameTest(template = "empty", batch = "zombie_disguise_nonstun_hit", timeoutTicks = 160)
+    @GameTest(template = "empty", batch = "zombie_disguise_nonstun_hit", timeoutTicks = 4000)
     public static void survivingNonstunWeaponHitKeepsSameDisguiseHold(GameTestHelper helper) { start(helper, Lane.DAMAGE_ONLY); }
 
     private enum Lane { STUN, DEATH, DAMAGE_ONLY }
@@ -136,6 +137,7 @@ public final class ZombieDisguiseHeldConditionGameTests {
         private long preTime;
         private boolean granted, pressed, produced, launchRequested, componentOpen, swingOpen, checked, done, closed;
         private Throwable observerFailure;
+        private GameTestLight.Wait light;
 
         Fixture(GameTestHelper helper, Lane lane) { this.helper = helper; this.level = helper.getLevel(); this.lane = lane; }
         private void premise(boolean ok, String text) { helper.assertTrue(ok, "ZHOLD-PREMISE " + text); }
@@ -157,6 +159,8 @@ public final class ZombieDisguiseHeldConditionGameTests {
             for (int ix = 4; ix <= 12; ix++) for (int iz = 3; iz <= 11; iz++) {
                 put(new BlockPos(x + ix, y - 1, z + iz)); put(new BlockPos(x + ix, y + 3, z + iz));
             }
+            // the shade is read only once the light engine, on a thread of its own, has lit the roof
+            light = new GameTestLight.Wait(level, chunk);
             user = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL); owned.add(user);
             attacker = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL); owned.add(attacker);
             GameType.SURVIVAL.updatePlayerAbilities(user.getAbilities()); GameType.SURVIVAL.updatePlayerAbilities(attacker.getAbilities());
@@ -416,7 +420,8 @@ public final class ZombieDisguiseHeldConditionGameTests {
             try {
                 if (observerFailure instanceof RuntimeException error) throw error;
                 if (observerFailure instanceof Error error) throw error;
-                premise(helper.getTick() < 140, "finite setup/condition/component watchdog");
+                if (!light.settled(helper, "the roof")) { helper.runAfterDelay(1, this::poll); return; }
+                premise(light.ticksSinceSettled(helper) < 140, "finite setup/condition/component watchdog");
                 if (!granted && userPosts >= 2 && attackerPosts >= 2 && user.onGround() && attacker.onGround()
                         && !level.canSeeSky(BlockPos.containing(user.getEyePosition()))
                         && !level.canSeeSky(BlockPos.containing(attacker.getEyePosition()))) grant();

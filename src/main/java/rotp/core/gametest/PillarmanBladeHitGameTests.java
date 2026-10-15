@@ -81,38 +81,39 @@ import rotp.core.util.functions.MathUtil;
 public final class PillarmanBladeHitGameTests {
     private PillarmanBladeHitGameTests() {}
 
-    @GameTest(template = "empty", skyAccess = true, batch = "blade_hit_slash", timeoutTicks = 140)
+    // the ticks are only a ceiling for the real-time wait of the light engine (GameTestLight)
+    @GameTest(template = "empty", skyAccess = true, batch = "blade_hit_slash", timeoutTicks = 4000)
     public static void bladeSlashHitSendsNineSparksForItsTargetOnly(GameTestHelper helper) {
         start(helper, Case.SLASH);
     }
 
-    @GameTest(template = "empty", skyAccess = true, batch = "blade_hit_slash_refused", timeoutTicks = 140)
+    @GameTest(template = "empty", skyAccess = true, batch = "blade_hit_slash_refused", timeoutTicks = 4000)
     public static void refusedBladeSlashSendsNoSparks(GameTestHelper helper) {
         start(helper, Case.SLASH_REFUSED);
     }
 
     // 1.16 PillarmanUtil.sparkEffect: sendToClientsTrackingAndSelf, so a hit player sees the sparks on himself
-    @GameTest(template = "empty", skyAccess = true, batch = "blade_hit_slash_player", timeoutTicks = 140)
+    @GameTest(template = "empty", skyAccess = true, batch = "blade_hit_slash_player", timeoutTicks = 4000)
     public static void bladeSlashHitSendsItsSparksToTheHitPlayerToo(GameTestHelper helper) {
         start(helper, Case.SLASH_PLAYER);
     }
 
-    @GameTest(template = "empty", skyAccess = true, batch = "blade_hit_barrage", timeoutTicks = 140)
+    @GameTest(template = "empty", skyAccess = true, batch = "blade_hit_barrage", timeoutTicks = 4000)
     public static void bladeBarrageSendsTwelveSparksPerLandedHit(GameTestHelper helper) {
         start(helper, Case.BARRAGE);
     }
 
-    @GameTest(template = "empty", skyAccess = true, batch = "blade_hit_dash", timeoutTicks = 140)
+    @GameTest(template = "empty", skyAccess = true, batch = "blade_hit_dash", timeoutTicks = 4000)
     public static void bladeDashSendsSixtySparksOncePerTarget(GameTestHelper helper) {
         start(helper, Case.DASH);
     }
 
-    @GameTest(template = "empty", skyAccess = true, batch = "blade_hit_dash_late_look", timeoutTicks = 140)
+    @GameTest(template = "empty", skyAccess = true, batch = "blade_hit_dash_late_look", timeoutTicks = 4000)
     public static void bladeDashSideKnockbackFollowsBodyYawAfterLateLook(GameTestHelper helper) {
         start(helper, Case.DASH_LATE_LOOK);
     }
 
-    @GameTest(template = "empty", skyAccess = true, batch = "blade_hit_deflect", timeoutTicks = 140)
+    @GameTest(template = "empty", skyAccess = true, batch = "blade_hit_deflect", timeoutTicks = 4000)
     public static void heldBladesDeflectAirborneArrowWithTwelveSparks(GameTestHelper helper) {
         start(helper, Case.DEFLECT);
     }
@@ -175,6 +176,7 @@ public final class PillarmanBladeHitGameTests {
         private int userPosts, grantPost, heldPosts, chargePosts, performPosts, settlePosts, hits;
         private boolean granted, pressed, released, turned, probed, closed;
         private Throwable observerFailure;
+        private GameTestLight.Wait light;
 
         Fixture(GameTestHelper helper, Case testCase) {
             this.helper = helper; this.level = helper.getLevel(); this.testCase = testCase;
@@ -196,6 +198,8 @@ public final class PillarmanBladeHitGameTests {
                     premise(level.setBlockAndUpdate(pos, Blocks.STONE.defaultBlockState()), "room block placement failed");
                 }
             }
+            // the shade is read only once the light engine, on a thread of its own, has lit the roof
+            light = new GameTestLight.Wait(level, chunk);
             double x = minX + 8.5D, userZ = minZ + 4.7D;
             user = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
             owned.add(user);
@@ -445,7 +449,8 @@ public final class PillarmanBladeHitGameTests {
             if (closed) return;
             try {
                 throwObserverFailure();
-                premise(helper.getTick() < 120, "watchdog: granted=" + granted + " pressed=" + pressed + " released=" + released
+                if (!light.settled(helper, "the room's roof")) { helper.runAfterDelay(1, this::poll); return; }
+                premise(light.ticksSinceSettled(helper) < 120, "watchdog: granted=" + granted + " pressed=" + pressed + " released=" + released
                         + " charge=" + chargePosts + " perform=" + performPosts + " held=" + heldPosts + " hits=" + hits);
                 if (!granted) {
                     if (userPosts >= 2 && user.onGround() && !level.canSeeSky(BlockPos.containing(user.getEyePosition()))) grant();

@@ -61,12 +61,13 @@ public final class PillarmanVeinStartupGameTests {
 
     private PillarmanVeinStartupGameTests() {}
 
-    @GameTest(template = "empty", skyAccess = true, batch = "pillarman_prison_startup", timeoutTicks = 110)
+    // the ticks are only a ceiling for the real-time wait of the light engine (GameTestLight)
+    @GameTest(template = "empty", skyAccess = true, batch = "pillarman_prison_startup", timeoutTicks = 4000)
     public static void registeredPrisonKeepsDonorInitialTipBeforeNaturalMovement(GameTestHelper helper) {
         start(helper, Route.PRISON);
     }
 
-    @GameTest(template = "empty", skyAccess = true, batch = "pillarman_erratic_startup", timeoutTicks = 110)
+    @GameTest(template = "empty", skyAccess = true, batch = "pillarman_erratic_startup", timeoutTicks = 4000)
     public static void registeredErraticKeepsDonorInitialTipBeforeNaturalMovement(GameTestHelper helper) {
         start(helper, Route.ERRATIC);
     }
@@ -150,6 +151,7 @@ public final class PillarmanVeinStartupGameTests {
         private EntityActionInstance action;
         private Vec3 userPosition;
         private RuntimeException observerFailure;
+        private GameTestLight.Wait light;
         private int userTicks;
         private int pressTicks;
         private int spawnAfterTicks = -1;
@@ -181,6 +183,8 @@ public final class PillarmanVeinStartupGameTests {
                 roof.put(pos.immutable(), level.getBlockState(pos));
                 helper.assertTrue(level.setBlockAndUpdate(pos, Blocks.STONE.defaultBlockState()), "Could not place vein fixture shade");
             }
+            // the shade is read only once the light engine, on a thread of its own, has lit the roof
+            light = new GameTestLight.Wait(level, chunk);
             user = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
             user.setNoGravity(true);
             user.moveTo(userPosition.x, userPosition.y, userPosition.z, 0.0F, 0.0F);
@@ -351,7 +355,8 @@ public final class PillarmanVeinStartupGameTests {
             if (closed) return;
             try {
                 if (observerFailure != null) throw observerFailure;
-                helper.assertTrue(helper.getTick() < 95, "Vein watchdog: ticks=" + userTicks + " spawned=" + veins.size());
+                if (!light.settled(helper, "the roof")) { helper.runAfterDelay(1, this::poll); return; }
+                helper.assertTrue(light.ticksSinceSettled(helper) < 95, "Vein watchdog: ticks=" + userTicks + " spawned=" + veins.size());
                 helper.assertTrue(user.isAlive() && near(user.position(), userPosition) && !user.isOnFire()
                                 && user.getYRot() == 0.0F && user.getXRot() == 0.0F && user.yBodyRot == 0.0F,
                         "Vein owner moved, rotated, died or burned");
