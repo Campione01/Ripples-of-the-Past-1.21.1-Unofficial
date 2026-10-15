@@ -68,7 +68,7 @@ public final class StandAimsWithoutUserGameTests {
 		run(helper, 3);
 	}
 
-	// no user crosshair steers its attacks, so they keep their pressed target, as under manual control
+	// no user crosshair steers its punch, so it keeps its pressed target, as under manual control; its barrage aims again
 	@GameTest(template = "empty", timeoutTicks = 20, batch = "stand_aims_without_user_5")
 	public static void aStandThatAimsOnItsOwnKeepsItsAttacksPressedTarget(GameTestHelper helper) {
 		run(helper, 4);
@@ -151,9 +151,12 @@ public final class StandAimsWithoutUserGameTests {
 						+ " Stand that aims on its own started at " + hunterStart + " instead of the target in its own aim");
 			}
 			else if (path == 4) {
-				helper.assertTrue(StandEntityPunchAbility.shouldRetainPunchTarget(hunter, punch)
-						&& StandEntityPunchAbility.shouldRetainPunchTarget(hunter, barrage), "The attacks of a Stand that"
-						+ " aims on its own follow its user's crosshair instead of keeping their pressed target");
+				helper.assertTrue(StandEntityPunchAbility.shouldRetainPunchTarget(hunter, punch), "The punch of a Stand that"
+						+ " aims on its own follows its user's crosshair instead of keeping its pressed target");
+				// the 1.16 Purple Haze's madness gave its barrage the target, which StandEntityMeleeBarrage.checkStandTarget
+				// refused, so each hit aimed again from the Stand's eyes (PurpleHazeEntity.aimWithThisOrUser)
+				helper.assertTrue(!StandEntityPunchAbility.shouldRetainPunchTarget(hunter, barrage), "The barrage of a Stand"
+						+ " that aims on its own keeps its pressed target; 1.16 aimed every barrage hit again");
 			}
 			else {
 				LivingComponentAction.getComponent(hunter).entityAim.setTarget(ActionTarget.EMPTY);

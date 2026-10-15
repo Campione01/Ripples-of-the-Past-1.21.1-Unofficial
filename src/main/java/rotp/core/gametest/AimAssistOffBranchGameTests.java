@@ -93,9 +93,11 @@ public final class AimAssistOffBranchGameTests {
 			for (boolean assist : new boolean[] { true, false }) {
 				scene.aimAssist(assist);
 				if (standAims) {
-					// what a real client syncs for the Stand: the precision pick with the aim assist on, the crosshair's with it off
+					// what a real client syncs for the Stand (ClientsideAim): the precision pick at the Stand's reach with the
+					// aim assist on, the cow beside; with it off a precision-0 clip at that reach, which ends before the
+					// crosshair cow 4 blocks out and syncs nothing
 					LivingComponentAction.getComponent(scene.stand).entityAim.setTarget(
-							new ActionTarget(assist ? beside : crosshair));
+							assist ? new ActionTarget(beside) : ActionTarget.EMPTY);
 				}
 				Optional<Vec3> aimPoint = EmeraldSplashShot.barrierAimPoint(hierophant);
 				helper.assertTrue(aimPoint.equals(Optional.of(crosshair.getBoundingBox().getCenter())),
@@ -103,6 +105,16 @@ public final class AimAssistOffBranchGameTests {
 								+ aimPoint + " instead of the cow on the crosshair at " + crosshair.getBoundingBox().getCenter()
 								+ " (the cow beside it is at " + beside.getBoundingBox().getCenter() + "); 1.16 casts the net's ray"
 								+ " with precision 0");
+				if (standAims && !assist) {
+					// a synced aim the strict ray meets within the Stand's 2.5 blocks, as a client syncs it, is kept
+					Cow near = scene.cow(0.0D, 2.0D);
+					LivingComponentAction.getComponent(scene.stand).entityAim.setTarget(new ActionTarget(near));
+					Optional<Vec3> nearPoint = EmeraldSplashShot.barrierAimPoint(hierophant);
+					helper.assertTrue(nearPoint.equals(Optional.of(near.getBoundingBox().getCenter())), "Without the aim assist the"
+							+ " Emerald Splash barrier aim from " + position + " went for " + nearPoint + " instead of the cow on the"
+							+ " crosshair within the Stand's reach that its synced aim holds, at " + near.getBoundingBox().getCenter());
+					near.discard();
+				}
 			}
 		}
 	}

@@ -37,6 +37,7 @@ import rotp.core.impl.powers.hamon.ChargedHamonEggTracker;
 import rotp.core.impl.powers.hamon.EntityHamonChargeState;
 import rotp.core.impl.powers.hamon.HamonHypnosisState;
 import rotp.core.impl.powers.hamon.ProjectileHamonChargeState;
+import rotp.core.impl.stands.goldexperience.GEGrowthSparkles;
 import rotp.core.impl.stands.goldexperience.GEProductEffectsState;
 import rotp.core.impl.stands.goldexperience.GoldExperienceLifeformState;
 import rotp.core.impl.stands.goldexperience.GEStuckObjectsState;
@@ -171,6 +172,9 @@ public final class ModDataAttachmentTypes {
 
 	public static final Supplier<AttachmentType<GETreeLeavesDecayState>> GE_TREE_DECAY = ATTACHMENT_TYPES.register("ge_tree_decay",
 			() -> AttachmentType.builder(obj -> obj instanceof ServerLevel level ? new GETreeLeavesDecayState(level) : null).build());
+
+	public static final Supplier<AttachmentType<GEGrowthSparkles>> GE_GROWTH_SPARKLES = ATTACHMENT_TYPES.register("ge_growth_sparkles",
+			() -> AttachmentType.builder(obj -> obj instanceof ServerLevel level ? new GEGrowthSparkles(level) : null).build());
 
 	public static final Supplier<AttachmentType<ChargedHamonEggTracker>> CHARGED_HAMON_EGGS = ATTACHMENT_TYPES.register("charged_hamon_eggs",
 			() -> AttachmentType.builder(obj -> obj instanceof ServerLevel ? new ChargedHamonEggTracker() : null).build());

@@ -190,8 +190,27 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 		return action instanceof StandEntityBarrage
 				&& action.ability instanceof StandEntityBarrageAbility
 				&& action.ability.getAbilityUsageCategory() == AbilityUsageGroup.COMBAT
-				&& stand.getUser() instanceof Player
+				&& stand.getUser() != null
 				&& !StandEntityPunchAbility.shouldRetainPunchTarget(stand, action.ability);
+	}
+
+	/**
+	 * Where the barrage places its Stand from: 1.16 StandEntityMeleeBarrage.getOffsetFromUser took front3dOffset of the
+	 * task target, which for the default barrage stayed empty but for a barrage-clash opponent, so the Stand stood along
+	 * its user's look (StandEntityAction.front3dOffset) whatever each hit aimed at; a locked barrage places from its target.
+	 */
+	static ActionTarget placementTarget(StandEntity stand, ActionTarget target, boolean directional) {
+		if (!directional) {
+			return target;
+		}
+		Entity opponent = stand.barrageClashOpponent().orElse(null);
+		return opponent != null && target.getType() == ActionTarget.TargetType.ENTITY
+				&& target.copy().resolveEntityId(stand.level()).getMainEntity() == opponent ? target : ActionTarget.EMPTY;
+	}
+
+	// the stamina rule of a player's default barrage: paid on the server and ended before an unpaid hit
+	private static boolean paysAsDefaultBarrage(StandEntity stand, boolean directional) {
+		return directional && stand.getUser() instanceof Player && !stand.aimsWithoutUser();
 	}
 
 	public static ActionTarget clipDirectionalBarrageTarget(
@@ -199,6 +218,14 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 		LivingEntity user = stand.getUser();
 		if (user == null || !(action.ability instanceof StandEntityAbility ability)) {
 			return ActionTarget.EMPTY;
+		}
+		// 1.16 checkStandTarget took only a barrage-clash opponent as the task target, and aimWithThisOrUser kept it while
+		// the Stand could reach it
+		ActionTarget opponent = stand.barrageClashOpponent()
+				.map(entity -> StandEntityPunchAbility.validatePunchTarget(stand, new ActionTarget(entity)))
+				.orElse(ActionTarget.EMPTY);
+		if (!opponent.isEmpty(stand.level())) {
+			return opponent;
 		}
 		// 1.16 StandEntityMeleeBarrage.checkStandTarget refused every pressed target, so each hit's StandEntity.punch aimed
 		// from the user's eyes at the user's reach with the precision ray, then checked the Stand's own reach
@@ -255,7 +282,7 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 				ActionTarget target = setActionTargetSnapshot(directional && !level.isClientSide()
 						? clipDirectionalBarrageTarget(stand, this, 1.0F)
 						: StandEntityPunchAbility.pressTarget(stand, getActionTargetSnapshot(level)));
-				setStandFrontOffsetFromTarget(stand, target, minOffset, maxOffset);
+				setStandFrontOffsetFromTarget(stand, placementTarget(stand, target, directional), minOffset, maxOffset);
 				keepStandAimedAtTarget(target);
 				aimAs = AimingEntity.STAND;
 				StandEntityPunchAbility.releaseUnlockedPunchTarget(stand, this);
@@ -298,15 +325,16 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 			if (performer instanceof StandEntity stand) {
 				StandEntityPunchAbility.releaseUnlockedPunchTarget(stand, this);
 				if (getPhase() != ActionPhase.PERFORM && canRefreshFrontOffset(stand)) {
-					refreshFrontOffset(stand, getPunchTarget(stand));
+					refreshFrontOffset(stand, placementTarget(stand, getPunchTarget(stand), isDirectionalBarrage(stand, this)));
 				}
 			}
-			
+
 			if (getPhase() == ActionPhase.PERFORM && performer instanceof StandEntity stand) {
 				boolean directional = isDirectionalBarrage(stand, this);
+				boolean paysAsDefault = paysAsDefaultBarrage(stand, directional);
 				StandPower standPower = StandPower.get(getPowerUser());
 				if (!level.isClientSide() && (curPhaseTick >= getHoldDurationMax(stand)
-						|| directional && (standPower == null || !standPower.consumeStamina(4, true)))) {
+						|| paysAsDefault && (standPower == null || !standPower.consumeStamina(4, true)))) {
 					hitsThisTick = 0;
 					stand.setBarrageHitsThisTick(0);
 					punchedTarget = null;
@@ -314,7 +342,7 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 					return;
 				}
 				ActionTarget target = getPunchTarget(stand);
-				refreshFrontOffset(stand, target);
+				refreshFrontOffset(stand, placementTarget(stand, target, directional));
 				if (target.isEmpty(level)) {
 					standRotationTarget = null;
 					aimAs = AimingEntity.CAMERA_ENTITY;
@@ -357,7 +385,7 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 					TrBarrageHitSoundPacket.send(stand, playSound, getBarrageHitSound(), soundPos);
 					punchedTarget = target;
 				}
-				if (standPower != null && (!directional || level.isClientSide())) {
+				if (standPower != null && (!paysAsDefault || level.isClientSide())) {
 					standPower.consumeStamina(4, true);
 				}
 			}

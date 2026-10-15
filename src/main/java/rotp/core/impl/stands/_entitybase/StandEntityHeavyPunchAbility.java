@@ -207,6 +207,7 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 
 	public static class StandEntityHeavyPunch extends EntityActionInstance {
 		protected LivingEntity punchTarget;
+		@Nullable private Entity keptEntity;
 		public float finisherValue;
 		private boolean finisherValueSynced;
 		public boolean playedSwingSound;
@@ -233,7 +234,9 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 				double maxOffset = Math.min(2, stand.getMaxRange());
 				ActionTarget target = setActionTargetSnapshot(StandEntityPunchAbility.pressTarget(
 						stand, getActionTargetSnapshot(stand.level()), StandEntityPunchAbility.CrosshairRule.ENTITY));
-				setStandFrontOffsetFromTarget(stand, target, minOffset, maxOffset);
+				keptEntity = target.getType() == ActionTarget.TargetType.ENTITY
+						? target.copy().resolveEntityId(stand.level()).getMainEntity() : null;
+				setStandFrontOffsetFromTarget(stand, windupPlacementTarget(), minOffset, maxOffset);
 				keepStandAimedAtTarget(target);
 				StandEntityPunchAbility.releaseUnlockedPunchTarget(stand, this);
 				Level level = performer.level();
@@ -259,6 +262,13 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 
 		protected boolean usesHeavyFinisherSetup() {
 			return true;
+		}
+
+		// 1.16 StandEntityHeavyAttack.getOffsetFromUser: front3dOffset of the task target, which through the windup was the
+		// entity the press kept (standKeepsTarget) or nothing, and then the user's look placed the Stand
+		private ActionTarget windupPlacementTarget() {
+			return keptEntity != null && keptEntity.isAlive() && keptEntity.level() == performer.level()
+					? new ActionTarget(keptEntity) : ActionTarget.EMPTY;
 		}
 
 		@Override
@@ -319,7 +329,8 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 				// 1.16 StandEntityHeavyAttack.getOffsetFromUser: through the windup the Stand keeps its distance from
 				// the current target, so it steps after one that backs away
 				if (!level.isClientSide() && getPhase() == ActionPhase.WINDUP && usesHeavyFinisherSetup() && !isGrabVariation()) {
-					StandEntityBarrageAbility.refreshFrontOffset(this, stand, getPunchTarget(stand),
+					getPunchTarget(stand);
+					StandEntityBarrageAbility.refreshFrontOffset(this, stand, windupPlacementTarget(),
 							Math.min(0.5, stand.getEffectiveRange()), Math.min(2, stand.getMaxRange()));
 				}
 			}
