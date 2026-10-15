@@ -72,12 +72,13 @@ import rotp.core.util.functions.JojoModUtil;
 public final class PillarmanRibAttachmentLifecycleGameTests {
     private PillarmanRibAttachmentLifecycleGameTests() {}
 
-    @GameTest(template = "empty", skyAccess = true, batch = "rib_removed_attachment", timeoutTicks = 120)
+    // the ticks are only a ceiling for the real-time wait of the light engine (GameTestLight)
+    @GameTest(template = "empty", skyAccess = true, batch = "rib_removed_attachment", timeoutTicks = 4000)
     public static void lethalRibKeepsTargetEndpointAfterNaturalCorpseRemoval(GameTestHelper helper) {
         start(helper, true);
     }
 
-    @GameTest(template = "empty", skyAccess = true, batch = "rib_living_attachment", timeoutTicks = 120)
+    @GameTest(template = "empty", skyAccess = true, batch = "rib_living_attachment", timeoutTicks = 4000)
     public static void survivingRibTargetKeepsItsNaturalAttachmentEndpoint(GameTestHelper helper) {
         start(helper, false);
     }
@@ -139,6 +140,7 @@ public final class PillarmanRibAttachmentLifecycleGameTests {
         private long generation, targetPreTime;
         private boolean granted, pressed, targetTickOpen, naturalRemoval, lastSelectedLookup, done, closed;
         private Throwable observerFailure;
+        private GameTestLight.Wait light;
 
         Fixture(GameTestHelper helper, boolean lethal) {
             this.helper = helper; this.level = helper.getLevel(); this.lethal = lethal;
@@ -164,6 +166,8 @@ public final class PillarmanRibAttachmentLifecycleGameTests {
                     premise(level.setBlockAndUpdate(pos, Blocks.STONE.defaultBlockState()), "basin wall placement failed");
                 }
             }
+            // the shade is read only once the light engine, on a thread of its own, has lit the roof
+            light = new GameTestLight.Wait(level, chunk);
             user = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL); owned.add(user);
             GameType.SURVIVAL.updatePlayerAbilities(user.getAbilities());
             user.setNoGravity(true); user.moveTo(x + 8.5D, y, z + 4.10D, 0, 0);
@@ -405,7 +409,8 @@ public final class PillarmanRibAttachmentLifecycleGameTests {
             try {
                 if (observerFailure instanceof RuntimeException error) throw error;
                 if (observerFailure instanceof Error error) throw error;
-                premise(helper.getTick() < 100, "finite attachment/removal watchdog; ribs=" + ribs.size() + " selected=" + (selected != null));
+                if (!light.settled(helper, "the roof")) { helper.runAfterDelay(1, this::poll); return; }
+                premise(light.ticksSinceSettled(helper) < 100, "finite attachment/removal watchdog; ribs=" + ribs.size() + " selected=" + (selected != null));
                 if (!granted && userPosts >= 2 && targetPosts >= 2 && !level.canSeeSky(BlockPos.containing(user.getEyePosition()))) grant();
                 else if (granted && !pressed && userPosts >= grantPost + 3) press();
                 if (selected != null) premise(!selected.rib.isRemoved() && user.isAlive(), "natural source expired before required lifecycle window");

@@ -69,22 +69,23 @@ public final class VampirismEyeBeamCollisionGameTests {
 
     private VampirismEyeBeamCollisionGameTests() {}
 
-    @GameTest(template = "empty", skyAccess = true, batch = "srse_unbroken_block", timeoutTicks = 120)
+    // the ticks are only a ceiling for the real-time wait of the light engine (GameTestLight)
+    @GameTest(template = "empty", skyAccess = true, batch = "srse_unbroken_block", timeoutTicks = 4000)
     public static void bothEyeBeamsRetractAndExpireAtTheirFirstUnbrokenBlock(GameTestHelper helper) {
         start(helper, true);
     }
 
-    @GameTest(template = "empty", skyAccess = true, batch = "srse_empty_flight", timeoutTicks = 120)
+    @GameTest(template = "empty", skyAccess = true, batch = "srse_empty_flight", timeoutTicks = 4000)
     public static void bothEyeBeamsKeepExtendingBeforeNormalDetachWithoutABlock(GameTestHelper helper) {
         start(helper, false);
     }
 
-    @GameTest(template = "empty", skyAccess = true, batch = "srse_mixed_refused", timeoutTicks = 120)
+    @GameTest(template = "empty", skyAccess = true, batch = "srse_mixed_refused", timeoutTicks = 4000)
     public static void bothEyeBeamsSelectOnlyRefusedEntityAcrossTheUnbrokenWall(GameTestHelper helper) {
         start(helper, true, true);
     }
 
-    @GameTest(template = "empty", skyAccess = true, batch = "srse_latched_retraction", timeoutTicks = 120)
+    @GameTest(template = "empty", skyAccess = true, batch = "srse_latched_retraction", timeoutTicks = 4000)
     public static void bothEyeBeamsKeepRetractingAfterTheBlockLeavesTheirRay(GameTestHelper helper) {
         start(helper, true, false, true);
     }
@@ -156,6 +157,7 @@ public final class VampirismEyeBeamCollisionGameTests {
         private Ability ability;
         private EntityActionInstance action;
         private RuntimeException observerFailure;
+        private GameTestLight.Wait light;
         private int userTicks;
         private int poweredAt = -1;
         private int pressedAt;
@@ -193,6 +195,8 @@ public final class VampirismEyeBeamCollisionGameTests {
             for (BlockPos pos : BlockPos.betweenClosed(new BlockPos(x + 4, y + 3, z + 1), new BlockPos(x + 12, y + 3, z + 12))) {
                 ownBlock(pos, Blocks.STONE.defaultBlockState());
             }
+            // the shade is read only once the light engine, on a thread of its own, has lit the roof
+            light = new GameTestLight.Wait(level, chunk);
             if (withWall) {
                 double rootZ = z + 4.5D;
                 int wallZ = lateWall ? (int) Math.ceil(rootZ + 3.0D * speed + EPSILON) : z + 5;
@@ -435,7 +439,8 @@ public final class VampirismEyeBeamCollisionGameTests {
             if (closed) return;
             try {
                 if (observerFailure != null) throw observerFailure;
-                helper.assertTrue(helper.getTick() < 100, "SRSE watchdog userTicks=" + userTicks + " powered=" + (power != null)
+                if (!light.settled(helper, "the roof")) { helper.runAfterDelay(1, this::poll); return; }
+                helper.assertTrue(light.ticksSinceSettled(helper) < 100, "SRSE watchdog userTicks=" + userTicks + " powered=" + (power != null)
                         + " beams=" + beams.size() + " sky=" + level.getBrightness(LightLayer.SKY, BlockPos.containing(user.getEyePosition()))
                         + " lastShade=" + lastShadeDiagnostic);
                 helper.assertTrue(user.isAlive() && !user.isOnFire() && near(user.position(), userPosition)

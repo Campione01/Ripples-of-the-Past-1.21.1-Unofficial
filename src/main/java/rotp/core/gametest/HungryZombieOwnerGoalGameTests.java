@@ -107,7 +107,7 @@ public final class HungryZombieOwnerGoalGameTests {
 
     private static final class Fixture implements AutoCloseable, GameTestListener {
         private static final short KEY = 61, DRAIN_KEY = 62;
-        private long pressTick;
+        private long pressTick, lightDoneTick = -1;
         private GameTestLight.Wait light;
         private final GameTestHelper helper;
         private final ServerLevel level;
@@ -455,8 +455,11 @@ public final class HungryZombieOwnerGoalGameTests {
                 if (!pressed) {
                     int skyLight = brightestSkyLight();
                     boolean dark = light.done() && skyLight == 0;
-                    premise(dark || !light.stalled(), "room sky light did not settle after " + light.millis() + " ms, lightDone="
-                            + light.done() + " brightest=" + skyLight);
+                    if (light.done() && lightDoneTick < 0) lightDoneTick = helper.getTick();
+                    if (lightDoneTick < 0) premise(!light.stalled(), "room sky light did not settle after " + light.millis()
+                            + " ms, lightDone=false brightest=" + skyLight);
+                    else premise((ownerPosts >= 3 && dark) || helper.getTick() - lightDoneTick < 100,
+                            "owner not ready 100 ticks after the light engine settled, brightest=" + skyLight);
                     if (ownerPosts >= 3 && dark) { pressTick = helper.getTick(); press(); }
                     again(); return;
                 }
