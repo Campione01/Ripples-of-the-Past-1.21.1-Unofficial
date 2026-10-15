@@ -205,6 +205,14 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 		if (user == null || !(action.ability instanceof StandEntityAbility ability)) {
 			return ActionTarget.EMPTY;
 		}
+		// 1.16 checkStandTarget took only a barrage-clash opponent as the task target, and aimWithThisOrUser kept it while
+		// the Stand could reach it
+		ActionTarget opponent = stand.barrageClashOpponent()
+				.map(entity -> StandEntityPunchAbility.validatePunchTarget(stand, new ActionTarget(entity)))
+				.orElse(ActionTarget.EMPTY);
+		if (!opponent.isEmpty(stand.level())) {
+			return opponent;
+		}
 		// 1.16 StandEntityMeleeBarrage.checkStandTarget refused every pressed target, so each hit's StandEntity.punch aimed
 		// from the user's eyes at the user's reach with the precision ray, then checked the Stand's own reach
 		return StandEntityPunchAbility.aimWithThisOrUser(stand, user, partialTick,

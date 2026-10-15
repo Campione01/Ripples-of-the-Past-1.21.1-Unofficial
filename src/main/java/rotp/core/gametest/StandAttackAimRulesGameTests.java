@@ -1,5 +1,6 @@
 package rotp.core.gametest;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
@@ -397,6 +398,71 @@ public final class StandAttackAimRulesGameTests {
 				type.forceUnsummon(zombie, power);
 			}
 			entities.forEach(Entity::discard);
+		}
+		helper.succeed();
+	}
+
+	// 1.16 StandEntityMeleeBarrage.checkStandTarget accepted a barrage-clash opponent, so once a hit met the opposing Stand
+	// it stayed the task target, which aimWithThisOrUser kept while in reach (StandEntity 1676-1678), wherever the user
+	// looked; out of reach, the barrage aimed again
+	@GameTest(template = "empty", timeoutTicks = 40, batch = BATCH + "clash_lock")
+	public static void defaultBarrageStaysOnItsBarrageClashOpponentAsIn116(GameTestHelper helper) {
+		Scene scene = new Scene(helper, true);
+		scene.precision(0);
+		Player rival = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
+		rival.setNoGravity(true);
+		rival.moveTo(scene.origin.x, scene.origin.y, scene.origin.z + 4, 180, 0);
+		helper.assertTrue(helper.getLevel().addFreshEntity(rival), "Fixture: could not add the rival Stand user");
+		scene.entities.add(rival);
+		StandPower rivalPower = PowerClass.STAND.attachGet(rival);
+		try {
+			helper.assertTrue(StandPowerTransitions.insert(rivalPower, new StandInstance(scene.type)).status()
+					== StandPowerTransitions.Status.APPLIED && scene.type.summon(rival, rivalPower),
+					"Fixture: could not give the rival Star Platinum");
+			StandEntity opponent = rivalPower.getSummonedStandEntity();
+			helper.assertTrue(opponent != null, "Fixture: the rival's Stand is missing");
+			opponent.setNoGravity(true);
+			opponent.moveTo(scene.origin.x, scene.origin.y, scene.origin.z + 2, 180, 0);
+			Cow cow = scene.cow(1.6, 0.3);
+			scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, cow.getBoundingBox().getCenter());
+			EntityActionType barrage = (EntityActionType) scene.power.getAbility("barrage");
+			EntityActionInstance action = barrage.initActionOnAbilityUse(helper.getLevel(), scene.user, scene.stand, null);
+			LivingComponentAction standActions = LivingComponentAction.getComponent(scene.stand);
+			standActions.setAction(action, scene.user, SyncType.NO_SYNC);
+			helper.assertTrue(StandEntityBarrageAbility.isDirectionalBarrage(scene.stand, action)
+					&& StandEntityBarrageAbility.clipDirectionalBarrageTarget(scene.stand, action, 1).getMainEntity() == cow,
+					"Fixture: the default barrage does not aim at the cow the user looks at");
+			Method clash = StandEntity.class.getDeclaredMethod("setBarrageClashOpponent", Entity.class);
+			clash.setAccessible(true);
+			clash.invoke(scene.stand, opponent);
+			helper.assertTrue(scene.stand.barrageClashOpponent().orElse(null) == opponent
+					&& opponent.barrageClashOpponent().orElse(null) == scene.stand, "Fixture: the two Stands are not in a barrage clash");
+			float health = cow.getHealth();
+			for (int tick = 0; tick < 8; tick++) {
+				scene.stand.tickCount++;
+				standActions.tick();
+			}
+			helper.assertTrue(action.punchedTarget != null && action.punchedTarget.getMainEntity() == opponent
+					&& cow.getHealth() >= health, "The default barrage in a barrage clash struck " + action.punchedTarget
+							+ " where its user looks instead of the opposing Stand; 1.16 kept a clash opponent as its target");
+			opponent.moveTo(scene.origin.x, scene.origin.y, scene.origin.z + 8, 180, 0);
+			for (int tick = 0; tick < 8; tick++) {
+				scene.stand.tickCount++;
+				standActions.tick();
+			}
+			helper.assertTrue(action.punchedTarget != null && action.punchedTarget.getMainEntity() == cow,
+					"The default barrage kept its clash opponent out of reach: it struck " + action.punchedTarget);
+			standActions.setAction(null, scene.user, SyncType.NO_SYNC);
+		}
+		catch (ReflectiveOperationException e) {
+			throw new IllegalStateException("Fixture: could not start the barrage clash", e);
+		}
+		finally {
+			scene.stand.barrageClashStopped();
+			if (rivalPower.isSummoned()) {
+				scene.type.forceUnsummon(rival, rivalPower);
+			}
+			scene.close();
 		}
 		helper.succeed();
 	}
