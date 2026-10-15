@@ -10,6 +10,9 @@ import java.util.function.Consumer;
 import com.mojang.authlib.GameProfile;
 
 import io.netty.buffer.Unpooled;
+import io.netty.channel.embedded.EmbeddedChannel;
+
+import javax.annotation.Nullable;
 
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
@@ -51,14 +54,22 @@ import rotp.core.subsystems.target.StandPrecisionRay;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.gametest.framework.GameTestInfo;
 import net.minecraft.gametest.framework.GameTestListener;
 import net.minecraft.gametest.framework.GameTestRunner;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.Connection;
+import net.minecraft.network.PacketSendListener;
 import net.minecraft.network.chat.contents.TranslatableContents;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.network.protocol.game.ClientboundLevelParticlesPacket;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.animal.SnowGolem;
 import net.minecraft.world.entity.Entity;
@@ -1374,6 +1385,95 @@ public final class StandTargetRangeGameTests {
 					+ "; 1.16 standPerform ages any animal, which clears the cooldown of an adult");
 		}
 		helper.succeed();
+	}
+
+	// 1.16 standPerform ran ageUp on both sides, and the client's AgeableMob.aiStep spawned HAPPY_VILLAGER while forcedAgeTimer
+	// ran; the server does not sync that timer, so the server sends the sparkles to the players who see the animal
+	@GameTest(template = "empty", batch = BATCH)
+	public static void goldExperienceBoneMealShowsTheGrowthSparklesOnTheAnimalToItsViewers(GameTestHelper helper) {
+		ParticleWatcher watcher = new ParticleWatcher(helper.getLevel());
+		try (Fixture fixture = Fixture.open(helper, Kind.GE_BONE_MEAL)) {
+			fixture.stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z + 1.0D, 0.0F, 0.0F);
+			watcher.setPos(fixture.origin.x, fixture.origin.y, fixture.origin.z + 2.0D);
+			// only ServerLevel.players receive sendParticles bursts; removed again below
+			fixture.level.players().add(watcher);
+
+			Cow baby = fixture.babyCow(0.0D, 2.5D);
+			fixture.aim(new ActionTarget(baby));
+			fixture.pressAndRun();
+			helper.assertTrue(watcher.sparklesAround(baby.getBoundingBox().inflate(1.0D)) > 0,
+					"GE_BONE_MEAL on a baby cow sent its viewers " + watcher.sparkles() + " HAPPY_VILLAGER burst(s); the cow's"
+							+ " box is " + baby.getBoundingBox() + "; 1.16 showed the growth sparkles around the animal");
+
+			baby.discard();
+			watcher.clear();
+			fixture.stand.moveTo(fixture.origin.x + 1.5D, fixture.origin.y, fixture.origin.z, 0.0F, 0.0F);
+			Cow adult = fixture.adultCow(3.0D, 6000);
+			BlockPos sapling = fixture.sapling(BlockPos.containing(fixture.origin.x, fixture.origin.y + 1.0D,
+					fixture.origin.z + 6.0D));
+			fixture.aim(new ActionTarget(sapling, Direction.NORTH));
+			fixture.pressAndRun();
+			helper.assertTrue(adult.getAge() == 0 && watcher.sparklesAround(adult.getBoundingBox().inflate(1.0D)) > 0,
+					"GE_BONE_MEAL whose perform aimed again at an adult cow: its age is " + adult.getAge() + " and its viewers got "
+							+ watcher.sparkles() + " HAPPY_VILLAGER burst(s); 1.16 ran ageUp on any animal and showed the sparkles");
+
+			adult.discard();
+			watcher.clear();
+			fixture.aim(new ActionTarget(sapling, Direction.NORTH));
+			fixture.pressAndRun();
+			helper.assertTrue(watcher.sparkles() == 0, "GE_BONE_MEAL on a sapling with no animal on the line sent "
+					+ watcher.sparkles() + " animal growth sparkle burst(s)");
+		}
+		finally {
+			helper.getLevel().players().remove(watcher);
+		}
+		helper.succeed();
+	}
+
+	private static final class ParticleWatcher extends FakePlayer {
+		private final List<ClientboundLevelParticlesPacket> particles = new ArrayList<>();
+
+		private ParticleWatcher(ServerLevel level) {
+			super(level, new GameProfile(UUID.randomUUID(), "bone-meal-sparkle-watcher"));
+			this.connection = new RecordingConnection(level, this);
+		}
+
+		private int sparkles() {
+			return (int) particles.stream().filter(packet -> packet.getParticle().getType() == ParticleTypes.HAPPY_VILLAGER).count();
+		}
+
+		private int sparklesAround(AABB area) {
+			return (int) particles.stream().filter(packet -> packet.getParticle().getType() == ParticleTypes.HAPPY_VILLAGER
+					&& area.contains(packet.getX(), packet.getY(), packet.getZ())).count();
+		}
+
+		private void clear() {
+			particles.clear();
+		}
+	}
+
+	private static final class RecordingConnection extends ServerGamePacketListenerImpl {
+		private final List<ClientboundLevelParticlesPacket> sink;
+
+		private RecordingConnection(ServerLevel level, ParticleWatcher player) {
+			super(level.getServer(), openConnection(), player,
+					CommonListenerCookie.createInitial(player.getGameProfile(), false));
+			this.sink = player.particles;
+		}
+
+		// as GameTestHelper.makeMockServerPlayerInLevel: a live channel, so channel lookups do not fail
+		private static Connection openConnection() {
+			Connection connection = new Connection(PacketFlow.SERVERBOUND);
+			new EmbeddedChannel(connection);
+			return connection;
+		}
+
+		@Override
+		public void send(Packet<?> packet, @Nullable PacketSendListener listener) {
+			if (packet instanceof ClientboundLevelParticlesPacket particles && sink != null) {
+				sink.add(particles);
+			}
+		}
 	}
 
 	// the same with the entity there: an ENTITY target fails TargetRequirement.BLOCK, so 1.16 refused the press instead
