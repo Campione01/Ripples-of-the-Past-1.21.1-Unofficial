@@ -30,6 +30,7 @@ import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.AimingEntity;
 import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility;
 import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility.StandEntityBarrage;
+import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 import rotp.core.impl.stands.silverchariot.SilverChariotState;
 import com.mojang.authlib.GameProfile;
 
@@ -204,9 +205,8 @@ public final class DirectionalBarrageGameTests {
 		try (Fixture f = new Fixture(helper, "sweep", true)) {
 			Cow first = f.cow(0, 0, 2);
 			Cow second = f.cow(1.9, 0, 1.5);
-			// off the axis and beyond 1.16's precision boxes, which take a mob within about 1.9 blocks of the eyes
-			Cow side = f.cow(-3.5, 0, 1.6);
-			Cow behind = f.cow(0, 0, -3.5);
+			Cow side = f.cow(-1.7, 0, 1.6);
+			Cow behind = f.cow(0, 0, -1.5);
 			f.lookAt(first.getBoundingBox().getCenter());
 			f.component.entityAim.setTarget(new ActionTarget(side));
 			EntityActionInstance action = f.start("barrage");
@@ -218,15 +218,37 @@ public final class DirectionalBarrageGameTests {
 			f.lookAt(second.getBoundingBox().getCenter());
 			f.hit(second);
 			helper.assertTrue(first.getHealth() == firstHealth, "Swept barrage retained its previous live target");
+			helper.assertTrue(side.getHealth() == side.getMaxHealth() && behind.getHealth() == behind.getMaxHealth(),
+					"The default barrage hit the Stand's synced aim or a mob behind while the crosshair met another mob");
 			second.setHealth(0);
 			f.tick(1);
 			helper.assertTrue(f.component.getAction() == action && action.getPhase() == ActionPhase.PERFORM,
 					"Death of the currently aimed target ended directional barrage");
-			f.lookAt(f.user.getEyePosition().add(0, 3, 0));
+			// 1.16's precision boxes take a mob within about 1.9 blocks of the eyes wherever the user looks, so the user
+			// steps out of them and looks up at a block in its own reach but out of the Stand's: 1.16 aimed at that block
+			// (no fallback to the Stand's own ray), and the Stand keeps the earlier targets within its reach
+			f.user.moveTo(f.origin.x, f.origin.y, f.origin.z - 4.5);
+			Vec3 above = f.user.getEyePosition().add(0, 3, 0);
+			BlockPos ceiling = BlockPos.containing(above);
+			f.block(ceiling, Blocks.BEDROCK.defaultBlockState());
+			f.lookAt(above);
+			ActionTarget userRay = StandEntityPunchAbility.userPrecisionRayTarget(f.stand, f.user);
+			helper.assertTrue(userRay.getType() == ActionTarget.TargetType.BLOCK && userRay.getBlockPos().equals(ceiling),
+					"Fixture: the user's aim at empty space met " + userRay);
+			for (Cow kept : List.of(first, side, behind)) {
+				helper.assertTrue(StandEntityPunchAbility.validatePunchTarget(f.stand, new ActionTarget(kept)).getMainEntity() == kept,
+						"Fixture: " + kept + " is out of the Stand's reach, so a barrage that kept it could not hit it");
+			}
+			firstHealth = first.getHealth();
 			secondHealth = second.getHealth();
+			float sideHealth = side.getHealth();
+			float behindHealth = behind.getHealth();
 			f.tick(12);
-			helper.assertTrue(second.getHealth() == secondHealth && side.getHealth() == side.getMaxHealth()
-					&& behind.getHealth() == behind.getMaxHealth(), "Empty directional ray hit a retained or off-axis entity");
+			helper.assertTrue(first.getHealth() == firstHealth && second.getHealth() == secondHealth
+					&& side.getHealth() == sideHealth && behind.getHealth() == behindHealth,
+					"Empty directional ray hit a retained or off-axis entity: first " + firstHealth + " -> "
+							+ first.getHealth() + ", side " + sideHealth + " -> " + side.getHealth() + ", behind "
+							+ behindHealth + " -> " + behind.getHealth());
 			helper.assertTrue(f.component.getAction() == action && action.getPhase() == ActionPhase.PERFORM
 					&& action.networkGeneration() == generation, "Miss or target death restarted or ended barrage");
 			f.assertUnlocked(action);
@@ -242,7 +264,7 @@ public final class DirectionalBarrageGameTests {
 			Cow outsideRange = f.cow(0, 0, 8);
 			f.lookAt(farther.getBoundingBox().getCenter());
 			EntityActionInstance action = f.start("barrage");
-			helper.assertTrue(f.clip(action).getMainEntity() == nearest, "Strict barrage ray skipped the nearest entity");
+			helper.assertTrue(f.clip(action).getMainEntity() == nearest, "The directional barrage aim skipped the nearest entity on the crosshair");
 			f.hit(nearest);
 			helper.assertTrue(farther.getHealth() == farther.getMaxHealth(), "Barrage added full damage to a second intersection");
 			nearest.discard();

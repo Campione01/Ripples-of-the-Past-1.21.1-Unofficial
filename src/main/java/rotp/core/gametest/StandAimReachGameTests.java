@@ -3,14 +3,17 @@ package rotp.core.gametest;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 import rotp.core.api.stand.StandPowerTransitions;
+import rotp.core.compat.v1_21_4.missingmethods._EntitySelector;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility;
 import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility.StandEntityBarrage;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility.StandEntityHeavyPunch;
+import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchChargedAbility.StandEntityChargedHeavy;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility.StandEntityPunch;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModEntityAttributes;
@@ -27,6 +30,7 @@ import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
+import rotp.core.powersystem.standpower.entity.StandEntityAbility;
 import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.target.ActionTarget;
 
@@ -41,7 +45,9 @@ import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Cow;
+import net.minecraft.world.entity.monster.Husk;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.vehicle.Boat;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -306,6 +312,350 @@ public final class StandAimReachGameTests {
 		}
 	}
 
+	// 1.16 EntityStandType.clientHitResult sent the vanilla pick, the cow on the crosshair, and aimWithThisOrUser kept it
+	// while the Stand could reach it. A client also sends its Stand aim, a precision clip that takes the nearer cow.
+	@GameTest(template = "empty", timeoutTicks = 60, batch = BATCH)
+	public static void firstPunchTakesTheCrosshairMobOverTheStandAim(GameTestHelper helper) {
+		crosshairOverStandAim(helper, "punch", InputMethod.CLICK, false);
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 60, batch = BATCH)
+	public static void heavyPunchTakesTheCrosshairMobOverTheStandAim(GameTestHelper helper) {
+		crosshairOverStandAim(helper, "heavy_punch", InputMethod.CLICK, false);
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 60, batch = BATCH)
+	public static void defaultBarrageTakesTheCrosshairMobOverTheStandAim(GameTestHelper helper) {
+		crosshairOverStandAim(helper, "barrage", InputMethod.HOLD, false);
+	}
+
+	// the target lock keeps the target of the press, which 1.16 took from the crosshair too
+	@GameTest(template = "empty", timeoutTicks = 60, batch = BATCH)
+	public static void lockedBarrageKeepsTheCrosshairMobOverTheStandAim(GameTestHelper helper) {
+		crosshairOverStandAim(helper, "barrage", InputMethod.HOLD, true);
+	}
+
+	private static void crosshairOverStandAim(GameTestHelper helper, String name, InputMethod method, boolean locked) {
+		Scene scene = new Scene(helper, GameType.SURVIVAL, locked, 16);
+		Cow beside = scene.besideTheCrosshair();
+		Cow crosshair = scene.cow(0, 2.0);
+		scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, crosshair.getBoundingBox().getCenter());
+		Vec3 eyes = scene.user.getEyePosition();
+		helper.assertTrue(beside.getBoundingBox().clip(eyes, eyes.add(scene.user.getViewVector(1).scale(5))).isEmpty(),
+				"Fixture: the cow beside is on the crosshair");
+		helper.assertTrue(StandEntityPunchAbility.validatePunchTarget(scene.stand, new ActionTarget(crosshair)).getMainEntity()
+				== crosshair, "Fixture: the cow on the crosshair is not within the Stand's reach");
+		float crosshairHealth = crosshair.getHealth();
+		float besideHealth = beside.getHealth();
+		scene.run(tick -> {
+			if (tick == 3) {
+				// the aims a client sends with the press, through the packet handlers' own step
+				LivingComponentAction.getComponent(scene.stand).entityAim.setTargetFromClient(
+						new ActionTarget(beside), helper.getLevel());
+				LivingComponentAction.getComponent(scene.user).entityAim.setTargetFromClient(
+						new ActionTarget(crosshair), helper.getLevel());
+				EntityActionInstance action = scene.press(name, method);
+				helper.assertTrue(action != null && (!name.equals("barrage") || locked
+						!= StandEntityBarrageAbility.isDirectionalBarrage(scene.stand, action)),
+						"Fixture: the " + name + " input started " + action);
+			}
+			else if (tick > 3 && beside.getHealth() < besideHealth) {
+				helper.fail("The " + name + (locked ? " with the target lock" : "") + " hit the cow beside the crosshair,"
+						+ " the Stand's synced aim; 1.16 hit the cow on the crosshair the user aimed at");
+			}
+			else if (tick > 3 && crosshair.getHealth() < crosshairHealth) {
+				return true;
+			}
+			else if (tick > 40) {
+				helper.fail("The " + name + " never hit the cow on the crosshair");
+			}
+			return false;
+		});
+	}
+
+	// 1.16 StandEntity.aimWithThisOrUser: when the user's precision ray met nothing within its reach, the Stand's own
+	// precision ray from its eyes; the owner's walls block that one too
+	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH)
+	public static void punchFallsBackToTheStandsOwnPrecisionRayWhenTheUsersMeetsNothing(GameTestHelper helper) {
+		Scene scene = new Scene(helper, GameType.SURVIVAL, false, 16);
+		LivingComponentAction component = LivingComponentAction.getComponent(scene.stand);
+		try {
+			Cow cow = scene.cow(0, 2.0);
+			scene.user.moveTo(scene.origin.x, scene.origin.y, scene.origin.z - 3, 0, -90);
+			scene.stand.lookAt(EntityAnchorArgument.Anchor.EYES, cow.getBoundingBox().getCenter());
+			ActionTarget userRay = StandEntityPunchAbility.userPrecisionRayTarget(scene.stand, scene.user);
+			helper.assertTrue(userRay.getType() == ActionTarget.TargetType.EMPTY,
+					"Fixture: the user's precision ray meets " + userRay);
+			scene.clearAims();
+			component.setAction(action(helper, scene, "punch"), scene.user, SyncType.NO_SYNC);
+			ActionTarget open = StandEntityPunchAbility.getFreshPunchTarget(scene.stand, ActionTarget.EMPTY);
+			helper.assertTrue(open.getMainEntity() == cow, "1.16 aimed with the Stand's own precision ray when the user's"
+					+ " met nothing, which takes the cow the Stand looks at; got " + open);
+			BlockPos wall = BlockPos.containing(scene.origin.add(0, 1, 1));
+			scene.placedBlocks.add(new PlacedBlock(wall, helper.getLevel().getBlockState(wall)));
+			helper.getLevel().setBlockAndUpdate(wall, Blocks.BEDROCK.defaultBlockState());
+			ActionTarget walled = StandEntityPunchAbility.getFreshPunchTarget(scene.stand, ActionTarget.EMPTY);
+			helper.assertTrue(walled.getType() == ActionTarget.TargetType.BLOCK && walled.getBlockPos().equals(wall),
+					"The Stand's own precision ray took " + walled + " behind the bedrock at " + wall + "; walls block the aim");
+			helper.succeed();
+		}
+		finally {
+			component.setAction(null, scene.user, SyncType.NO_SYNC);
+			scene.close();
+		}
+	}
+
+	// 1.16 StandEntity.precisionRayTrace: a mob that is neither a player, a Stand nor hostile keeps the priority of the
+	// entity before it, the lowest at first, so a boat behind a cow on the ray comes first
+	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH)
+	public static void precisionAimTakesABoatBeforeACowInFrontOfIt(GameTestHelper helper) {
+		Scene scene = new Scene(helper, GameType.SURVIVAL, false, 16);
+		try {
+			Cow cow = scene.cow(0, 1.5);
+			Boat boat = EntityType.BOAT.create(helper.getLevel());
+			helper.assertTrue(boat != null, "Could not create a boat");
+			boat.setNoGravity(true);
+			boat.moveTo(scene.origin.x, scene.origin.y, scene.origin.z + 4.2, 0, 0);
+			helper.assertTrue(helper.getLevel().addFreshEntity(boat), "Could not add a boat");
+			scene.entities.add(boat);
+			scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, boat.getBoundingBox().getCenter());
+			helper.assertTrue(StandEntityPunchAbility.canStandHit(scene.stand, boat), "Fixture: the Stand cannot hit the boat");
+			Vec3 eyes = scene.user.getEyePosition();
+			Vec3 end = eyes.add(scene.user.getViewVector(1).scale(5));
+			helper.assertTrue(cow.getBoundingBox().clip(eyes, end).isPresent() && boat.getBoundingBox().clip(eyes, end)
+					.isPresent(), "Fixture: the cow and the boat are not both on the crosshair");
+			ActionTarget aimed = StandEntityPunchAbility.userPrecisionRayTarget(scene.stand, scene.user);
+			helper.assertTrue(aimed.getMainEntity() == boat,
+					"1.16's precision ray took the boat behind the cow, a passive mob keeping the lowest priority; got " + aimed);
+			helper.succeed();
+		}
+		finally {
+			scene.close();
+		}
+	}
+
+	// 1.16 EntityStandType.clientHitResult kept the vanilla pick when it met a mob, so a client's Stand aim (the marker,
+	// the Stand aim a press carries) is the cow on the crosshair, not the nearer cow the precision boxes reach beside it
+	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH + "_alone_1")
+	public static void clientStandAimTakesTheCrosshairMobBeforeANearerOneBeside(GameTestHelper helper) {
+		Scene scene = new Scene(helper, GameType.SURVIVAL, false, 16);
+		LivingComponentAction component = LivingComponentAction.getComponent(scene.stand);
+		try {
+			scene.besideTheCrosshair();
+			Cow crosshair = scene.cow(0, 2.0);
+			scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, crosshair.getBoundingBox().getCenter());
+			ActionTarget aim = scene.sendClientAims();
+			helper.assertTrue(aim.getMainEntity() == crosshair, "A client's Stand aim took " + aim
+					+ "; 1.16 kept the vanilla pick, the cow on the crosshair, before the nearer cow beside it");
+			component.setAction(action(helper, scene, "star_finger"), scene.user, SyncType.NO_SYNC);
+			ActionTarget finger = StandEntityPunchAbility.getFreshPunchTarget(scene.stand, ActionTarget.EMPTY);
+			helper.assertTrue(finger.getMainEntity() == crosshair,
+					"An action that is not a punch took " + finger + " from the Stand aim a client sends");
+			helper.succeed();
+		}
+		finally {
+			component.setAction(null, scene.user, SyncType.NO_SYNC);
+			scene.close();
+		}
+	}
+
+	// the charged heavy punch takes the synced Stand aim at its perform start
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "_alone_2")
+	public static void chargedHeavyTakesTheCrosshairMobFromAClientStandAim(GameTestHelper helper) {
+		Scene scene = new Scene(helper, GameType.SURVIVAL, false, 16);
+		Cow beside = scene.besideTheCrosshair();
+		Cow crosshair = scene.cow(0, 2.0);
+		scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, crosshair.getBoundingBox().getCenter());
+		float besideHealth = beside.getHealth();
+		float crosshairHealth = crosshair.getHealth();
+		scene.run(tick -> {
+			if (tick == 3) {
+				scene.sendClientAims();
+				EntityActionInstance action = action(helper, scene, "heavy_charged");
+				helper.assertTrue(action instanceof StandEntityChargedHeavy, "Fixture: heavy_charged started " + action);
+				LivingComponentAction.getComponent(scene.stand).setAction(action, scene.user, SyncType.NO_SYNC);
+				action.onKeyRelease(scene.user);
+			}
+			else if (tick > 3 && beside.getHealth() < besideHealth) {
+				helper.fail("The charged heavy punch hit the cow beside the crosshair; the client's Stand aim is the cow"
+						+ " on the crosshair, as 1.16's pressed target");
+			}
+			else if (tick > 3 && crosshair.getHealth() < crosshairHealth) {
+				return true;
+			}
+			else if (tick > 60) {
+				helper.fail("The charged heavy punch never hit the cow on the crosshair");
+			}
+			return false;
+		});
+	}
+
+	// on a vanilla miss 1.16's client pressed the precision ray's pick, a hostile mob before a nearer cow; the target lock
+	// keeps the target of the press
+	@GameTest(template = "empty", timeoutTicks = 60, batch = BATCH + "_alone_3")
+	public static void lockedPunchOnAVanillaMissTakesTheHostileMobFromAClientStandAim(GameTestHelper helper) {
+		Scene scene = new Scene(helper, GameType.SURVIVAL, true, 16);
+		Cow cow = scene.besideTheCrosshair();
+		Husk husk = scene.husk(-0.8, 2.2);
+		Vec3 eyes = scene.user.getEyePosition();
+		helper.assertTrue(husk.getBoundingBox().clip(eyes, eyes.add(scene.user.getViewVector(1).scale(5))).isEmpty(),
+				"Fixture: the husk is on the crosshair");
+		helper.assertTrue(StandEntityPunchAbility.userPrecisionRayTarget(scene.stand, scene.user).getMainEntity() == husk,
+				"Fixture: 1.16's precision ray does not take the husk before the nearer cow");
+		float cowHealth = cow.getHealth();
+		float huskHealth = husk.getHealth();
+		scene.run(tick -> {
+			if (tick == 3) {
+				ActionTarget aim = scene.sendClientAims();
+				helper.assertTrue(aim.getMainEntity() == husk, "A client's Stand aim on a vanilla miss took " + aim
+						+ "; 1.16 pressed the precision ray's hostile mob before the nearer cow");
+				EntityActionInstance action = scene.press("punch", InputMethod.CLICK);
+				helper.assertTrue(action instanceof StandEntityPunch, "The punch input started " + action);
+			}
+			else if (tick > 3 && cow.getHealth() < cowHealth) {
+				helper.fail("The locked punch hit the nearer cow; the press on a vanilla miss takes 1.16's priority pick");
+			}
+			else if (tick > 3 && husk.getHealth() < huskHealth) {
+				return true;
+			}
+			else if (tick > 40) {
+				helper.fail("The locked punch never hit the husk it was pressed at");
+			}
+			return false;
+		});
+	}
+
+	// 1.16's vanilla pick met entities up to 3 blocks away in Survival; past that the press took the precision ray
+	@GameTest(template = "empty", timeoutTicks = 60, batch = BATCH + "_alone_4")
+	public static void firstPunchPastTheSurvivalEntityPickTakesThePrecisionRay(GameTestHelper helper) {
+		Scene scene = new Scene(helper, GameType.SURVIVAL, false, 16);
+		Cow beside = scene.besideTheCrosshair();
+		Cow crosshair = scene.cow(0, 3.4);
+		scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, crosshair.getBoundingBox().getCenter());
+		helper.assertTrue(StandEntityPunchAbility.crosshairPick(scene.stand, scene.user, 1, scene.pickable()).isEmpty(
+				helper.getLevel()), "Fixture: the Survival vanilla pick meets the cow 3.4 blocks away");
+		float besideHealth = beside.getHealth();
+		float crosshairHealth = crosshair.getHealth();
+		scene.run(tick -> {
+			if (tick == 3) {
+				scene.sendClientAims();
+				EntityActionInstance action = scene.press("punch", InputMethod.CLICK);
+				helper.assertTrue(action instanceof StandEntityPunch, "The punch input started " + action);
+			}
+			else if (tick > 3 && crosshair.getHealth() < crosshairHealth) {
+				helper.fail("The first punch took the cow 3.4 blocks away on the crosshair; past the Survival vanilla"
+						+ " pick 1.16 took the precision ray, which meets the nearer cow beside it first");
+			}
+			else if (tick > 3 && beside.getHealth() < besideHealth) {
+				return true;
+			}
+			else if (tick > 40) {
+				helper.fail("The first punch never hit the cow beside the crosshair");
+			}
+			return false;
+		});
+	}
+
+	// the owner's "aim assist" Stand setting (2026-10-15), off: every Stand attack takes only what the crosshair meets
+	@GameTest(template = "empty", timeoutTicks = 60, batch = BATCH + "_alone_5")
+	public static void aimAssistOffFirstPunchTakesTheCrosshairMobNotTheOneBeside(GameTestHelper helper) {
+		assistOffTakesTheCrosshairMob(helper, "punch", InputMethod.CLICK);
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 60, batch = BATCH + "_alone_6")
+	public static void aimAssistOffDefaultBarrageTakesTheCrosshairMobNotTheOneBeside(GameTestHelper helper) {
+		assistOffTakesTheCrosshairMob(helper, "barrage", InputMethod.HOLD);
+	}
+
+	// the scene of firstPunchPastTheSurvivalEntityPickTakesThePrecisionRay, where the assist takes the cow beside
+	private static void assistOffTakesTheCrosshairMob(GameTestHelper helper, String name, InputMethod method) {
+		Scene scene = new Scene(helper, GameType.SURVIVAL, false, 16);
+		Cow beside = scene.besideTheCrosshair();
+		Cow crosshair = scene.cow(0, 3.4);
+		scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, crosshair.getBoundingBox().getCenter());
+		scene.aimAssist(false);
+		float besideHealth = beside.getHealth();
+		float crosshairHealth = crosshair.getHealth();
+		scene.run(tick -> {
+			if (tick == 3) {
+				ActionTarget aim = scene.sendClientAims();
+				helper.assertTrue(aim.getMainEntity() == crosshair, "With the aim assist off a client's Stand aim took " + aim
+						+ " instead of the cow on the crosshair");
+				EntityActionInstance action = scene.press(name, method);
+				helper.assertTrue(action instanceof StandEntityPunch || StandEntityBarrageAbility.isDirectionalBarrage(
+						scene.stand, action), "Fixture: the " + name + " input started " + action);
+			}
+			else if (tick > 3 && beside.getHealth() < besideHealth) {
+				helper.fail("With the aim assist off the " + name + " hit the cow beside the crosshair");
+			}
+			else if (tick > 3 && crosshair.getHealth() < crosshairHealth) {
+				return true;
+			}
+			else if (tick > 40) {
+				helper.fail("With the aim assist off the " + name + " never hit the cow on the crosshair");
+			}
+			return false;
+		});
+	}
+
+	// an action that is not a punch reads the Stand's synced aim first; with the assist off the server takes the crosshair
+	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH + "_alone_7")
+	public static void aimAssistDecidesWhatANonPunchActionTakes(GameTestHelper helper) {
+		Scene scene = new Scene(helper, GameType.SURVIVAL, false, 16);
+		LivingComponentAction component = LivingComponentAction.getComponent(scene.stand);
+		try {
+			Cow beside = scene.besideTheCrosshair();
+			Cow crosshair = scene.cow(0, 3.4);
+			scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, crosshair.getBoundingBox().getCenter());
+			// where a press would move it, so that both cows are in its reach
+			scene.stand.moveTo(scene.origin.x, scene.origin.y, scene.origin.z + 1.5, 0, 0);
+			component.setAction(action(helper, scene, "star_finger"), scene.user, SyncType.NO_SYNC);
+			scene.sendClientAims();
+			ActionTarget on = StandEntityPunchAbility.getFreshPunchTarget(scene.stand, ActionTarget.EMPTY);
+			helper.assertTrue(on.getMainEntity() == beside, "With the aim assist on, an action that is not a punch took "
+					+ on + "; 1.16's precision ray takes the nearer cow beside the crosshair");
+			scene.aimAssist(false);
+			scene.sendClientAims();
+			ActionTarget off = StandEntityPunchAbility.getFreshPunchTarget(scene.stand, ActionTarget.EMPTY);
+			helper.assertTrue(off.getMainEntity() == crosshair, "With the aim assist off, an action that is not a punch took "
+					+ off + " instead of the cow on the crosshair");
+			scene.sendStaleStandAim(beside);
+			ActionTarget stale = StandEntityPunchAbility.getFreshPunchTarget(scene.stand, ActionTarget.EMPTY);
+			helper.assertTrue(stale.getMainEntity() == crosshair, "With the aim assist off the server took " + stale
+					+ " from a client's Stand aim beside the crosshair; the server decides from the player's setting");
+			helper.succeed();
+		}
+		finally {
+			component.setAction(null, scene.user, SyncType.NO_SYNC);
+			scene.close();
+		}
+	}
+
+	// the owner, 2026-10-15: sneaking no longer changes the aim (1.16 had no such rule); it still picks shift variants
+	@GameTest(template = "empty", timeoutTicks = 60, batch = BATCH + "_alone_8")
+	public static void aimAssistOnWhileSneakingFirstPunchHitsTheMobBeside(GameTestHelper helper) {
+		Scene scene = new Scene(helper, GameType.SURVIVAL, false, 16);
+		Cow cow = scene.besideTheCrosshair();
+		float health = cow.getHealth();
+		scene.run(tick -> {
+			if (tick == 3) {
+				scene.user.setShiftKeyDown(true);
+				ActionTarget aim = scene.sendClientAims();
+				helper.assertTrue(aim.getMainEntity() == cow, "A sneaking client's Stand aim took " + aim
+						+ "; sneaking does not switch the aim assist off");
+				EntityActionInstance action = scene.press("punch", InputMethod.CLICK);
+				helper.assertTrue(action instanceof StandEntityPunch, "The punch input started " + action);
+			}
+			else if (tick > 3 && cow.getHealth() < health) {
+				return true;
+			}
+			else if (tick > 25) {
+				helper.fail("The first punch while sneaking missed the cow beside the crosshair, which the aim assist takes");
+			}
+			return false;
+		});
+	}
+
 	private static EntityActionInstance action(GameTestHelper helper, Scene scene, String name) {
 		Ability ability = scene.power.getAbility(name);
 		helper.assertTrue(ability instanceof EntityActionType, "Fixture: no " + name + " action");
@@ -370,6 +720,46 @@ public final class StandAimReachGameTests {
 			helper.assertTrue(helper.getLevel().addFreshEntity(cow), "Could not add a cow");
 			entities.add(cow);
 			return cow;
+		}
+
+		// a hostile mob that does not burn in daylight
+		Husk husk(double x, double z) {
+			Husk husk = EntityType.HUSK.create(helper.getLevel());
+			helper.assertTrue(husk != null, "Could not create a husk");
+			husk.setNoAi(true);
+			husk.setNoGravity(true);
+			husk.noPhysics = true;
+			husk.getAttribute(Attributes.MAX_HEALTH).setBaseValue(500);
+			husk.getAttribute(Attributes.KNOCKBACK_RESISTANCE).setBaseValue(1);
+			husk.setHealth(500);
+			husk.moveTo(origin.x + x, origin.y, origin.z + z, 0, 0);
+			helper.assertTrue(helper.getLevel().addFreshEntity(husk), "Could not add a husk");
+			entities.add(husk);
+			return husk;
+		}
+
+		// what the vanilla pick meets; the Stand standing on its user here is no part of a real view
+		Predicate<Entity> pickable() {
+			return entity -> entity != stand && _EntitySelector.CAN_BE_PICKED.test(entity);
+		}
+
+		// the aims a client sends, its vanilla pick and its Stand aim, through the packet handlers' own step
+		ActionTarget sendClientAims() {
+			ActionTarget pick = StandEntityPunchAbility.crosshairPick(stand, user, 1, pickable());
+			ActionTarget standAim = StandEntityPunchAbility.userStandAim(stand, user, pick,
+					entity -> StandEntityAbility.canDefaultTargetEntityForAiming(stand, entity));
+			LivingComponentAction.getComponent(user).entityAim.setTargetFromClient(pick, helper.getLevel());
+			LivingComponentAction.getComponent(stand).entityAim.setTargetFromClient(standAim, helper.getLevel());
+			return standAim;
+		}
+
+		void aimAssist(boolean on) {
+			user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get()).standAimAssist = on;
+		}
+
+		// a Stand aim from a client that does not follow the setting
+		void sendStaleStandAim(Entity target) {
+			LivingComponentAction.getComponent(stand).entityAim.setTargetFromClient(new ActionTarget(target), helper.getLevel());
 		}
 
 		// within Star Platinum's precision boxes of the user's eyes, off the crosshair

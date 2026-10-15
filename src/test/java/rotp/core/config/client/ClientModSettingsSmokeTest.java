@@ -285,6 +285,13 @@ public final class ClientModSettingsSmokeTest {
 			ClientModSettings.init(settingsFile.toFile());
 			assertBooleanEquals(false, ClientModSettings.getSettingsReadOnly().broadcasted.standAttackTargetLock,
 					"existing settings default to unlocked attacks");
+			assertBooleanEquals(true, ClientModSettings.getSettingsReadOnly().broadcasted.standAimAssist,
+					"a settings file from before the aim assist setting has it on");
+			ClientModSettings.edit(settings -> settings.broadcasted.standAimAssist = false, false);
+			resetInstance();
+			ClientModSettings.init(settingsFile.toFile());
+			assertBooleanEquals(false, ClientModSettings.getSettingsReadOnly().broadcasted.standAimAssist,
+					"the aim assist set off survives reload");
 			ClientModSettings.edit(settings -> settings.broadcasted.standAttackTargetLock = true, false);
 			resetInstance();
 			ClientModSettings.init(settingsFile.toFile());
@@ -305,10 +312,12 @@ public final class ClientModSettingsSmokeTest {
 	}
 
 	private static void invalidAttackTargetLockKeepsOtherSettings() throws Exception {
-		withSettingsFile("{\"broadcasted\":{\"standAttackTargetLock\":{}},\"standAimMarker\":true}", settingsFile -> {
+		withSettingsFile("{\"broadcasted\":{\"standAttackTargetLock\":{},\"standAimAssist\":{}},\"standAimMarker\":true}", settingsFile -> {
 			ClientModSettings.init(settingsFile.toFile());
 			assertBooleanEquals(false, ClientModSettings.getSettingsReadOnly().broadcasted.standAttackTargetLock,
 					"invalid target lock falls back to disabled");
+			assertBooleanEquals(true, ClientModSettings.getSettingsReadOnly().broadcasted.standAimAssist,
+					"invalid aim assist falls back to on");
 			assertBooleanEquals(true, ClientModSettings.getSettingsReadOnly().standAimMarker,
 					"invalid target lock leaves marker settings unchanged");
 		});

@@ -7,6 +7,7 @@ import java.util.UUID;
 import javax.annotation.Nullable;
 
 import rotp.core.client.ClientProxy;
+import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 import rotp.core.client.input.ClientsideAim;
 import rotp.core.customobjects.entity_projectile.KnifeEntity;
 import rotp.core.customobjects.RoadRollerEntity;
@@ -604,7 +605,7 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceChosenLif
         ActionTarget target = ownClient
                 ? (aiming == user ? ClientsideAim.playerAim : ClientsideAim.standAim).getTarget()
                 : getAimTarget(aiming);
-        if (target.getType() == ActionTarget.TargetType.EMPTY && aiming == user) {
+        if (target.getType() == ActionTarget.TargetType.EMPTY && aiming == user && StandEntityPunchAbility.aimAssist(user)) {
             StandEntity stand = standPower.getSummonedStandEntity();
             if (stand != null) {
                 target = StandPrecisionRay.trace(user, stand);

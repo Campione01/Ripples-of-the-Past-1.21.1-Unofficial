@@ -13,7 +13,6 @@ import rotp.core.client.sound.ClientsideSoundsHelper;
 import rotp.core.client.sound.sounds.EntityLingeringSoundInstance;
 import rotp.core.customobjects.DamageSourceModified;
 import rotp.core.init.ModSoundEvents;
-import rotp.core.mechanics.resolve.ResolveCounter;
 import rotp.core.init.power.ModStandAbilities;
 import rotp.core.powersystem.Moveset;
 import rotp.core.powersystem.Power;
@@ -274,7 +273,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 				}
 				double minOffset = Math.min(0.5, stand.getEffectiveRange());
 				double maxOffset = Math.min(2, stand.getMaxRange());
-				ActionTarget target = captureActionTargetFromAim(stand);
+				ActionTarget target = setActionTargetSnapshot(pressTarget(stand, getActionTargetSnapshot(stand.level())));
 				setStandFrontOffsetFromTarget(stand, target, minOffset, maxOffset);
 				keepStandAimedAtTarget(target);
 			}
@@ -645,7 +644,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 
 	/**
 	 * @param precisionAim the user's own aim is 1.16's precision ray (StandEntity.aimWithThisOrUser), walls still
-	 *        blocking it, whatever {@link #userAimAssist} says; otherwise {@link #userAimTarget}
+	 *        blocking it, while the user has the aim assist ({@link #aimAssist}); otherwise {@link #userAimTarget}
 	 */
 	public static ActionTarget getFreshPunchTarget(
 			StandEntity stand, ActionTarget preferredTarget, boolean retainPreferredTarget, boolean precisionAim) {
@@ -656,7 +655,12 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			return target;
 		}
 
-		var standAim = LivingComponentAction.getAim(stand);
+		LivingEntity user = stand.getUser();
+		boolean userAims = user != null && !stand.isManuallyControlled();
+		// 1.16 EntityStandType.clientHitResult sent what the user's crosshair met. The Stand's synced aim speaks first only
+		// under manual control and, with the aim assist, for an action that is not a punch; without the assist the server
+		// takes what the crosshair meets, whatever a client sent.
+		var standAim = !userAims || precisionAim && aimAssist(user) ? LivingComponentAction.getAim(stand) : null;
 		if (standAim != null) {
 			target = validatePunchTarget(stand, standAim.getTarget());
 			if (!target.isEmpty(level)) {
@@ -664,8 +668,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			}
 		}
 
-		LivingEntity user = stand.getUser();
-		var userAim = user != null && !stand.isManuallyControlled() ? LivingComponentAction.getAim(user) : null;
+		var userAim = userAims ? LivingComponentAction.getAim(user) : null;
 		if (userAim != null) {
 			target = validatePunchTarget(stand, userAim.getTarget());
 			if (!target.isEmpty(level)) {
@@ -673,43 +676,135 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			}
 		}
 
-		// 1.16 StandEntity.aimWithThisOrUser: the synced aims are short (the idle Stand aim reaches 2.5 blocks from
-		// the eyes, the vanilla pick 3), so the user's own aim decides, checked against the Stand's reach
-		if (user != null && !stand.isManuallyControlled()) {
-			Predicate<Entity> canTarget = entity -> entity != stand && canStandHit(stand, entity);
-			target = validatePunchTarget(stand, precisionAim
+		// the synced aims are short (the idle Stand aim reaches 2.5 blocks from the eyes, the vanilla pick 3)
+		return aimWithThisOrUser(stand, userAims ? user : null, 1.0F,
+				entity -> entity != stand && canStandHit(stand, entity), precisionAim);
+	}
+
+	/**
+	 * 1.16 StandEntity.aimWithThisOrUser with no target the Stand can reach: the user's own aim (the precision ray, or
+	 * {@link #userAimTarget}); when that ray met nothing at all, or no user aims (manual control), 1.16's precision ray
+	 * from the Stand's own eyes. Without the aim assist only the crosshair: no precision ray, and the Stand's eyes only
+	 * under manual control. Walls block every ray. Checked against the Stand's reach.
+	 */
+	public static ActionTarget aimWithThisOrUser(StandEntity stand, @Nullable LivingEntity user, float partialTick,
+			Predicate<Entity> canTarget, boolean precisionAim) {
+		ActionTarget aim = ActionTarget.EMPTY;
+		boolean assist = aimAssist(stand.getUser());
+		if (user != null) {
+			aim = precisionAim && assist
 					? userPrecisionRayTarget(stand, user, canTarget)
-					: userAimTarget(stand, user, 1.0F, canTarget));
-			if (!target.isEmpty(level)) {
-				return target;
+					: userAimTarget(stand, user, partialTick, canTarget);
+		}
+		if (aim.getType() == TargetType.EMPTY && (user == null || assist)) {
+			aim = standPrecisionRayTarget(stand, canTarget);
+		}
+		return validatePunchTarget(stand, aim);
+	}
+
+	/**
+	 * The target a punch, heavy punch or barrage is pressed at: what the user's crosshair met (1.16
+	 * EntityStandType.clientHitResult kept the vanilla pick); when it met nothing, the Stand's synced aim, which stands
+	 * in for 1.16's precision ray there, or without the aim assist what the crosshair meets; under manual control the
+	 * Stand's aim. A client keeps what its server sent.
+	 */
+	public static ActionTarget pressTarget(StandEntity stand, ActionTarget sentByServer) {
+		Level level = stand.level();
+		if (level.isClientSide()) {
+			return sentByServer;
+		}
+		LivingEntity user = stand.getUser();
+		boolean userAims = user != null && !stand.isManuallyControlled();
+		var userAim = userAims ? LivingComponentAction.getAim(user) : null;
+		if (userAim != null) {
+			ActionTarget crosshair = userAim.getTarget().resolveEntityId(level);
+			if (!crosshair.isEmpty(level)) {
+				return crosshair;
 			}
 		}
-
-		return ActionTarget.EMPTY;
+		if (userAims && !aimAssist(user)) {
+			return userAimTarget(stand, user, 1.0F, entity -> entity != stand && canStandHit(stand, entity));
+		}
+		var standAim = LivingComponentAction.getAim(stand);
+		return standAim != null ? standAim.getTarget() : ActionTarget.EMPTY;
 	}
 
 	/**
-	 * Whether the user's own Stand aim (the default barrage, a punch's fallback) has 1.16's precision aim assist. On:
-	 * the owner restored it on 2026-10-14 in place of the strict crosshair of 2026-09-13; walls still block it.
+	 * Whether the Stand's aims have 1.16's precision aim assist: the user's own "aim assist" Stand setting (the owner,
+	 * 2026-10-15), on by default; a mob always has it. Off is the strict crosshair of 2026-09-13. Sneaking changes nothing.
 	 */
-	private static boolean userAimAssist() {
-		return true;
+	public static boolean aimAssist(@Nullable LivingEntity user) {
+		return PlayerClientBroadcastedSettings.isStandAimAssistEnabled(user);
 	}
 
 	/**
-	 * The user's own aim for a Stand attack: from the user's eyes at the user's reach, what the crosshair ray meets
-	 * first; blocks stop the ray. With the aim assist on, as 1.16's client and server did together: what the crosshair
-	 * meets while the Stand can reach it (EntityStandType.clientHitResult kept the vanilla pick, aimWithThisOrUser kept
-	 * a target in reach), otherwise 1.16's precision ray.
+	 * The user's own aim for a Stand attack. Without the aim assist, what the crosshair ray meets first from the user's
+	 * eyes at the user's reach; blocks stop the ray. With it, as 1.16's client and server did together: the vanilla pick
+	 * ({@link #crosshairPick}) while the Stand can reach it (EntityStandType.clientHitResult kept it, aimWithThisOrUser
+	 * kept a target in reach), otherwise 1.16's precision ray.
 	 */
 	public static ActionTarget userAimTarget(StandEntity stand, LivingEntity user, float partialTick, Predicate<Entity> canTarget) {
-		double reach = userAimReach(user, stand);
-		ActionTarget crosshair = HitResultUtil.clip(user.getEyePosition(partialTick), user.getViewVector(partialTick),
-				reach, reach, stand.level(), canTarget, user, 0);
-		if (!userAimAssist() || !validatePunchTarget(stand, crosshair).isEmpty(stand.level())) {
+		if (!aimAssist(user)) {
+			return strictCrosshairTarget(stand, user, partialTick, canTarget);
+		}
+		ActionTarget crosshair = crosshairPick(stand, user, partialTick, canTarget);
+		if (!validatePunchTarget(stand, crosshair).isEmpty(stand.level())) {
 			return crosshair;
 		}
 		return userPrecisionRayTarget(stand, user, canTarget);
+	}
+
+	/**
+	 * 1.16's vanilla pick (GameRenderer.pick), what a client's crosshair target is: the first entity or block on the
+	 * crosshair ray, a player's entity within its entity interaction range (3 blocks in Survival, 5 in Creative) and a
+	 * block within its block interaction range, else a miss even with a block behind; a mob looks as far as its reach.
+	 */
+	public static ActionTarget crosshairPick(StandEntity stand, LivingEntity user, float partialTick, Predicate<Entity> canTarget) {
+		double blockRange = user instanceof Player player ? player.blockInteractionRange() : userAimReach(user, stand);
+		double entityRange = user instanceof Player player ? player.entityInteractionRange() : blockRange;
+		double range = Math.max(blockRange, entityRange);
+		Level level = stand.level();
+		Vec3 eyes = user.getEyePosition(partialTick);
+		ActionTarget hit = HitResultUtil.clip(eyes, user.getViewVector(partialTick), range, range, level, canTarget, user, 0);
+		if (hit.isEmpty(level)) {
+			return ActionTarget.EMPTY;
+		}
+		double hitRange = hit.getType() == TargetType.ENTITY ? entityRange : blockRange;
+		double distanceSqr = hit.getClipPos().map(eyes::distanceToSqr)
+				.orElseGet(() -> hit.getBoundingBox(level).map(box -> box.distanceToSqr(eyes)).orElse(0.0D));
+		return distanceSqr < hitRange * hitRange ? hit : ActionTarget.EMPTY;
+	}
+
+	/**
+	 * The Stand's aim while its user aims, the one a client keeps (the marker, the Stand aim a press carries): 1.16
+	 * EntityStandType.clientHitResult, the vanilla pick when it met a block or an entity the Stand aims at, otherwise the
+	 * precision ray from the user's eyes, and when that met nothing at all the Stand's own, as aimWithThisOrUser went on.
+	 * Not limited to the Stand's reach, as the 1.16 pressed target was not; its readers check the reach. Without the aim
+	 * assist, what the crosshair meets.
+	 */
+	public static ActionTarget userStandAim(StandEntity stand, LivingEntity user, ActionTarget vanillaPick,
+			Predicate<Entity> aimable) {
+		Predicate<Entity> canTarget = aimable.and(entity -> entity != stand);
+		if (!aimAssist(user)) {
+			return strictCrosshairTarget(stand, user, 1.0F, canTarget);
+		}
+		if (vanillaPick.getType() == TargetType.BLOCK) {
+			return vanillaPick;
+		}
+		Entity picked = vanillaPick.getType() == TargetType.ENTITY ? vanillaPick.getEntity() : null;
+		if (picked != null && canTarget.test(picked)) {
+			return vanillaPick;
+		}
+		ActionTarget aim = userPrecisionRayTarget(stand, user, canTarget);
+		return aim.getType() == TargetType.EMPTY ? standPrecisionRayTarget(stand, canTarget) : aim;
+	}
+
+	// the strict crosshair of 2026-09-13: from the user's eyes at the user's reach, blocks stopping the ray
+	private static ActionTarget strictCrosshairTarget(StandEntity stand, LivingEntity user, float partialTick,
+			Predicate<Entity> canTarget) {
+		double reach = userAimReach(user, stand);
+		return HitResultUtil.clip(user.getEyePosition(partialTick), user.getViewVector(partialTick),
+				reach, reach, stand.level(), canTarget, user, 0);
 	}
 
 	public static ActionTarget userPrecisionRayTarget(StandEntity stand, LivingEntity user) {
@@ -720,29 +815,24 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	 * 1.16 StandEntity.precisionRayTrace(user, getAimDistance(user)): the user's reach, the Stand's precision hitboxes,
 	 * and of several entities a player or Stand first, then a hostile mob, then the rest; else the block. An entity
 	 * behind a block on the ray is not picked, measured to the nearest point of its own box (the owner keeps walls
-	 * blocking the aim); sneaking switches the precision hitboxes off, as it does for the port's client aim.
+	 * blocking the aim). As 1.16, sneaking does not change it.
 	 */
 	public static ActionTarget userPrecisionRayTarget(StandEntity stand, LivingEntity user, Predicate<Entity> canTarget) {
-		ActionTarget[] byPriority = new ActionTarget[3];
-		for (ActionTarget target : StandPrecisionRay.clipTargetsBeforeWalls(user, userAimReach(user, stand), canTarget,
-				0, user.isShiftKeyDown() ? 0 : stand.getPrecision())) {
-			Entity entity = target.getMainEntity();
-			if (entity == null) {
-				// no entity before a wall: the block
-				return target;
-			}
-			int priority = entity instanceof Player || entity instanceof StandEntity ? 0
-					: entity instanceof LivingEntity && ResolveCounter.attackingTargetGivesResolve(entity) ? 1 : 2;
-			if (byPriority[priority] == null) {
-				byPriority[priority] = target;
-			}
+		return StandPrecisionRay.closestWithPriority(StandPrecisionRay.clipTargetsBeforeWalls(user,
+				userAimReach(user, stand), canTarget, 0, stand.getPrecision()));
+	}
+
+	// 1.16 precisionRayTrace(this, getAimDistance(getUser())) with walls as above; without the aim assist the crosshair
+	private static ActionTarget standPrecisionRayTarget(StandEntity stand, Predicate<Entity> canTarget) {
+		LivingEntity user = stand.getUser();
+		double reach = user != null && !stand.isManuallyControlled()
+				? userAimReach(user, stand) : stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE);
+		Predicate<Entity> filter = canTarget.and(entity -> entity != user);
+		if (!aimAssist(user)) {
+			return HitResultUtil.clip(stand.getEyePosition(), stand.getLookAngle(), reach, reach, stand.level(), filter, stand, 0);
 		}
-		for (ActionTarget target : byPriority) {
-			if (target != null) {
-				return target;
-			}
-		}
-		return ActionTarget.EMPTY;
+		return StandPrecisionRay.closestWithPriority(StandPrecisionRay.clipTargetsBeforeWalls(stand, reach,
+				filter, 0, stand.getPrecision()));
 	}
 
 	/**

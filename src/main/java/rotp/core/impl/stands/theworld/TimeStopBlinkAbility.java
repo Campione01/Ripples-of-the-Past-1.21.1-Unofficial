@@ -8,6 +8,7 @@ import java.util.function.BiFunction;
 import javax.annotation.Nullable;
 
 import rotp.core.api.timestop.TimeStopTicksModifiers;
+import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 import rotp.core.config.client.PlayerClientBroadcastedSettings;
 import rotp.core.init.ModCriteriaTriggers;
 import rotp.core.init.ModDataAttachmentTypes;
@@ -30,6 +31,7 @@ import rotp.core.powersystem.standpower.StandUtil;
 import rotp.core.powersystem.standpower.StandInstance.StandPart;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.subsystems.target.ActionTarget;
+import rotp.core.subsystems.target.ActionTargetAim;
 import rotp.core.subsystems.target.ActionTargetRange;
 import rotp.core.subsystems.target.StandPrecisionRay;
 import rotp.core.subsystems.timestop.TimeStopCooldowns;
@@ -283,10 +285,15 @@ public class TimeStopBlinkAbility extends Ability {
 	}
 
 	private static ActionTarget getClickedBlinkTarget(LivingEntity user, StandPower power) {
-		ActionTarget target = LivingComponentAction.getComponent(user).entityAim.getTarget().copy().resolveEntityId(user.level());
+		ActionTargetAim aim = LivingComponentAction.getComponent(user).entityAim;
+		// 1.16 PowerBaseImpl.checkTarget: a press on an entity the server no longer has is a press on nothing
+		if (!user.level().isClientSide() && aim.isClientEntityMissing()) {
+			return ActionTarget.EMPTY;
+		}
+		ActionTarget target = aim.getTarget().copy().resolveEntityId(user.level());
 		// 1.16 EntityStandType.clientHitResult: with the Stand out, a vanilla miss became the Stand's precision ray
 		StandEntity summoned = power.getSummonedStandEntity();
-		if (target.getType() == ActionTarget.TargetType.EMPTY && summoned != null) {
+		if (target.getType() == ActionTarget.TargetType.EMPTY && summoned != null && StandEntityPunchAbility.aimAssist(user)) {
 			target = StandPrecisionRay.trace(user, summoned, StandPrecisionRay.reach(user, summoned), 0.0D, true, true);
 		}
 		if (target.getType() == ActionTarget.TargetType.ENTITY) {

@@ -1,6 +1,7 @@
 package rotp.core.impl.stands.goldexperience;
 
 import rotp.core.powersystem.standpower.StandInstance.StandPart;
+import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.ability.AbilityId;
@@ -96,6 +97,9 @@ public class GoldExperienceBoneMealAbility extends NoPoseStandEntityAbility {
     private static ActionTarget aimWithThisOrUser(Level level, LivingEntity user, StandEntity stand, ActionTarget pressed) {
         if (!pressed.isEmpty(level) && isInStandReach(level, stand, pressed)) {
             return pressed;
+        }
+        if (!StandEntityPunchAbility.aimAssist(user)) {
+            return StandPrecisionRay.crosshair(stand.isManuallyControlled() ? stand : user, stand, TARGET_RANGE, true);
         }
         ActionTarget aim = ActionTarget.EMPTY;
         if (!stand.isManuallyControlled()) {

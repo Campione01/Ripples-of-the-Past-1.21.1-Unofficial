@@ -551,6 +551,9 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 
 		// 1.16 precisionRayTrace(aiming, getMaxRange(), getPrecision() / 16, false); entities behind a wall stay hidden
 		private static ActionTarget rayTraceTsPunchTarget(StandEntity stand, LivingEntity aimingEntity) {
+			if (!StandEntityPunchAbility.aimAssist(stand.getUser())) {
+				return StandPrecisionRay.crosshair(aimingEntity, stand, stand.getMaxRange(), false);
+			}
 			return StandPrecisionRay.trace(aimingEntity, stand, stand.getMaxRange(), stand.getPrecision() / 16D, false, true);
 		}
 
