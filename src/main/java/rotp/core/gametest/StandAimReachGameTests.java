@@ -3,14 +3,17 @@ package rotp.core.gametest;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 import rotp.core.api.stand.StandPowerTransitions;
+import rotp.core.compat.v1_21_4.missingmethods._EntitySelector;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility;
 import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility.StandEntityBarrage;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility.StandEntityHeavyPunch;
+import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchChargedAbility.StandEntityChargedHeavy;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility.StandEntityPunch;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModEntityAttributes;
@@ -27,6 +30,7 @@ import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
+import rotp.core.powersystem.standpower.entity.StandEntityAbility;
 import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.target.ActionTarget;
 
@@ -41,6 +45,7 @@ import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Cow;
+import net.minecraft.world.entity.monster.Husk;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.vehicle.Boat;
 import net.minecraft.world.level.GameType;
@@ -429,6 +434,128 @@ public final class StandAimReachGameTests {
 		}
 	}
 
+	// 1.16 EntityStandType.clientHitResult kept the vanilla pick when it met a mob, so a client's Stand aim (the marker,
+	// the Stand aim a press carries) is the cow on the crosshair, not the nearer cow the precision boxes reach beside it
+	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH + "_alone_1")
+	public static void clientStandAimTakesTheCrosshairMobBeforeANearerOneBeside(GameTestHelper helper) {
+		Scene scene = new Scene(helper, GameType.SURVIVAL, false, 16);
+		LivingComponentAction component = LivingComponentAction.getComponent(scene.stand);
+		try {
+			scene.besideTheCrosshair();
+			Cow crosshair = scene.cow(0, 2.0);
+			scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, crosshair.getBoundingBox().getCenter());
+			ActionTarget aim = scene.sendClientAims();
+			helper.assertTrue(aim.getMainEntity() == crosshair, "A client's Stand aim took " + aim
+					+ "; 1.16 kept the vanilla pick, the cow on the crosshair, before the nearer cow beside it");
+			component.setAction(action(helper, scene, "star_finger"), scene.user, SyncType.NO_SYNC);
+			ActionTarget finger = StandEntityPunchAbility.getFreshPunchTarget(scene.stand, ActionTarget.EMPTY);
+			helper.assertTrue(finger.getMainEntity() == crosshair,
+					"An action that is not a punch took " + finger + " from the Stand aim a client sends");
+			helper.succeed();
+		}
+		finally {
+			component.setAction(null, scene.user, SyncType.NO_SYNC);
+			scene.close();
+		}
+	}
+
+	// the charged heavy punch takes the synced Stand aim at its perform start
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "_alone_2")
+	public static void chargedHeavyTakesTheCrosshairMobFromAClientStandAim(GameTestHelper helper) {
+		Scene scene = new Scene(helper, GameType.SURVIVAL, false, 16);
+		Cow beside = scene.besideTheCrosshair();
+		Cow crosshair = scene.cow(0, 2.0);
+		scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, crosshair.getBoundingBox().getCenter());
+		float besideHealth = beside.getHealth();
+		float crosshairHealth = crosshair.getHealth();
+		scene.run(tick -> {
+			if (tick == 3) {
+				scene.sendClientAims();
+				EntityActionInstance action = action(helper, scene, "heavy_charged");
+				helper.assertTrue(action instanceof StandEntityChargedHeavy, "Fixture: heavy_charged started " + action);
+				LivingComponentAction.getComponent(scene.stand).setAction(action, scene.user, SyncType.NO_SYNC);
+				action.onKeyRelease(scene.user);
+			}
+			else if (tick > 3 && beside.getHealth() < besideHealth) {
+				helper.fail("The charged heavy punch hit the cow beside the crosshair; the client's Stand aim is the cow"
+						+ " on the crosshair, as 1.16's pressed target");
+			}
+			else if (tick > 3 && crosshair.getHealth() < crosshairHealth) {
+				return true;
+			}
+			else if (tick > 60) {
+				helper.fail("The charged heavy punch never hit the cow on the crosshair");
+			}
+			return false;
+		});
+	}
+
+	// on a vanilla miss 1.16's client pressed the precision ray's pick, a hostile mob before a nearer cow; the target lock
+	// keeps the target of the press
+	@GameTest(template = "empty", timeoutTicks = 60, batch = BATCH + "_alone_3")
+	public static void lockedPunchOnAVanillaMissTakesTheHostileMobFromAClientStandAim(GameTestHelper helper) {
+		Scene scene = new Scene(helper, GameType.SURVIVAL, true, 16);
+		Cow cow = scene.besideTheCrosshair();
+		Husk husk = scene.husk(-0.8, 2.2);
+		Vec3 eyes = scene.user.getEyePosition();
+		helper.assertTrue(husk.getBoundingBox().clip(eyes, eyes.add(scene.user.getViewVector(1).scale(5))).isEmpty(),
+				"Fixture: the husk is on the crosshair");
+		helper.assertTrue(StandEntityPunchAbility.userPrecisionRayTarget(scene.stand, scene.user).getMainEntity() == husk,
+				"Fixture: 1.16's precision ray does not take the husk before the nearer cow");
+		float cowHealth = cow.getHealth();
+		float huskHealth = husk.getHealth();
+		scene.run(tick -> {
+			if (tick == 3) {
+				ActionTarget aim = scene.sendClientAims();
+				helper.assertTrue(aim.getMainEntity() == husk, "A client's Stand aim on a vanilla miss took " + aim
+						+ "; 1.16 pressed the precision ray's hostile mob before the nearer cow");
+				EntityActionInstance action = scene.press("punch", InputMethod.CLICK);
+				helper.assertTrue(action instanceof StandEntityPunch, "The punch input started " + action);
+			}
+			else if (tick > 3 && cow.getHealth() < cowHealth) {
+				helper.fail("The locked punch hit the nearer cow; the press on a vanilla miss takes 1.16's priority pick");
+			}
+			else if (tick > 3 && husk.getHealth() < huskHealth) {
+				return true;
+			}
+			else if (tick > 40) {
+				helper.fail("The locked punch never hit the husk it was pressed at");
+			}
+			return false;
+		});
+	}
+
+	// 1.16's vanilla pick met entities up to 3 blocks away in Survival; past that the press took the precision ray
+	@GameTest(template = "empty", timeoutTicks = 60, batch = BATCH + "_alone_4")
+	public static void firstPunchPastTheSurvivalEntityPickTakesThePrecisionRay(GameTestHelper helper) {
+		Scene scene = new Scene(helper, GameType.SURVIVAL, false, 16);
+		Cow beside = scene.besideTheCrosshair();
+		Cow crosshair = scene.cow(0, 3.4);
+		scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, crosshair.getBoundingBox().getCenter());
+		helper.assertTrue(StandEntityPunchAbility.crosshairPick(scene.stand, scene.user, 1, scene.pickable()).isEmpty(
+				helper.getLevel()), "Fixture: the Survival vanilla pick meets the cow 3.4 blocks away");
+		float besideHealth = beside.getHealth();
+		float crosshairHealth = crosshair.getHealth();
+		scene.run(tick -> {
+			if (tick == 3) {
+				scene.sendClientAims();
+				EntityActionInstance action = scene.press("punch", InputMethod.CLICK);
+				helper.assertTrue(action instanceof StandEntityPunch, "The punch input started " + action);
+			}
+			else if (tick > 3 && crosshair.getHealth() < crosshairHealth) {
+				helper.fail("The first punch took the cow 3.4 blocks away on the crosshair; past the Survival vanilla"
+						+ " pick 1.16 took the precision ray, which meets the nearer cow beside it first");
+			}
+			else if (tick > 3 && beside.getHealth() < besideHealth) {
+				return true;
+			}
+			else if (tick > 40) {
+				helper.fail("The first punch never hit the cow beside the crosshair");
+			}
+			return false;
+		});
+	}
+
 	private static EntityActionInstance action(GameTestHelper helper, Scene scene, String name) {
 		Ability ability = scene.power.getAbility(name);
 		helper.assertTrue(ability instanceof EntityActionType, "Fixture: no " + name + " action");
@@ -493,6 +620,37 @@ public final class StandAimReachGameTests {
 			helper.assertTrue(helper.getLevel().addFreshEntity(cow), "Could not add a cow");
 			entities.add(cow);
 			return cow;
+		}
+
+		// a hostile mob that does not burn in daylight
+		Husk husk(double x, double z) {
+			Husk husk = EntityType.HUSK.create(helper.getLevel());
+			helper.assertTrue(husk != null, "Could not create a husk");
+			husk.setNoAi(true);
+			husk.setNoGravity(true);
+			husk.noPhysics = true;
+			husk.getAttribute(Attributes.MAX_HEALTH).setBaseValue(500);
+			husk.getAttribute(Attributes.KNOCKBACK_RESISTANCE).setBaseValue(1);
+			husk.setHealth(500);
+			husk.moveTo(origin.x + x, origin.y, origin.z + z, 0, 0);
+			helper.assertTrue(helper.getLevel().addFreshEntity(husk), "Could not add a husk");
+			entities.add(husk);
+			return husk;
+		}
+
+		// what the vanilla pick meets; the Stand standing on its user here is no part of a real view
+		Predicate<Entity> pickable() {
+			return entity -> entity != stand && _EntitySelector.CAN_BE_PICKED.test(entity);
+		}
+
+		// the aims a client sends, its vanilla pick and its Stand aim, through the packet handlers' own step
+		ActionTarget sendClientAims() {
+			ActionTarget pick = StandEntityPunchAbility.crosshairPick(stand, user, 1, pickable());
+			ActionTarget standAim = StandEntityPunchAbility.userStandAim(stand, user, pick,
+					entity -> StandEntityAbility.canDefaultTargetEntityForAiming(stand, entity));
+			LivingComponentAction.getComponent(user).entityAim.setTargetFromClient(pick, helper.getLevel());
+			LivingComponentAction.getComponent(stand).entityAim.setTargetFromClient(standAim, helper.getLevel());
+			return standAim;
 		}
 
 		// within Star Platinum's precision boxes of the user's eyes, off the crosshair

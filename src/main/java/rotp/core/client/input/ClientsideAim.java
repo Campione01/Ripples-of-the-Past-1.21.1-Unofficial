@@ -10,6 +10,7 @@ import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTargetAim;
 import rotp.core.subsystems.target.HitResultUtil;
 import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility;
+import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.Entity;
@@ -72,8 +73,10 @@ public class ClientsideAim {
 					Predicate<Entity> targetFilter = curAction != null && curAction.ability instanceof StandEntityAbility standAbility
 							? entity -> standAbility.canTargetEntityForAiming(stand, entity)
 							: entity -> StandEntityAbility.canDefaultTargetEntityForAiming(stand, entity);
-					ActionTarget target = HitResultUtil.clip(lookPos, lookVec, 
-							stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE), stand.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE), 
+					ActionTarget target = aiming == mc.player && isPlayerCameraEntity
+							? StandEntityPunchAbility.userStandAim(stand, mc.player, cameraEntityAimTarget, targetFilter)
+							: HitResultUtil.clip(lookPos, lookVec,
+							stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE), stand.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE),
 							aiming.level(), targetFilter, aiming, precisionAimingDisabled(mc) ? 0 : stand.getPrecision());
 					standAim.setTarget(target);
 				}

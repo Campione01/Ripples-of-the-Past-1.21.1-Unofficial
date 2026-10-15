@@ -730,19 +730,62 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	}
 
 	/**
-	 * The user's own aim for a Stand attack: from the user's eyes at the user's reach, what the crosshair ray meets
-	 * first; blocks stop the ray. With the aim assist on, as 1.16's client and server did together: what the crosshair
-	 * meets while the Stand can reach it (EntityStandType.clientHitResult kept the vanilla pick, aimWithThisOrUser kept
-	 * a target in reach), otherwise 1.16's precision ray.
+	 * The user's own aim for a Stand attack. Without the aim assist, what the crosshair ray meets first from the user's
+	 * eyes at the user's reach; blocks stop the ray. With it, as 1.16's client and server did together: the vanilla pick
+	 * ({@link #crosshairPick}) while the Stand can reach it (EntityStandType.clientHitResult kept it, aimWithThisOrUser
+	 * kept a target in reach), otherwise 1.16's precision ray.
 	 */
 	public static ActionTarget userAimTarget(StandEntity stand, LivingEntity user, float partialTick, Predicate<Entity> canTarget) {
-		double reach = userAimReach(user, stand);
-		ActionTarget crosshair = HitResultUtil.clip(user.getEyePosition(partialTick), user.getViewVector(partialTick),
-				reach, reach, stand.level(), canTarget, user, 0);
-		if (!userAimAssist() || !validatePunchTarget(stand, crosshair).isEmpty(stand.level())) {
+		if (!userAimAssist()) {
+			double reach = userAimReach(user, stand);
+			return HitResultUtil.clip(user.getEyePosition(partialTick), user.getViewVector(partialTick),
+					reach, reach, stand.level(), canTarget, user, 0);
+		}
+		ActionTarget crosshair = crosshairPick(stand, user, partialTick, canTarget);
+		if (!validatePunchTarget(stand, crosshair).isEmpty(stand.level())) {
 			return crosshair;
 		}
 		return userPrecisionRayTarget(stand, user, canTarget);
+	}
+
+	/**
+	 * 1.16's vanilla pick (GameRenderer.pick), what a client's crosshair target is: the first entity or block on the
+	 * crosshair ray, a player's entity within its entity interaction range (3 blocks in Survival, 5 in Creative) and a
+	 * block within its block interaction range, else a miss even with a block behind; a mob looks as far as its reach.
+	 */
+	public static ActionTarget crosshairPick(StandEntity stand, LivingEntity user, float partialTick, Predicate<Entity> canTarget) {
+		double blockRange = user instanceof Player player ? player.blockInteractionRange() : userAimReach(user, stand);
+		double entityRange = user instanceof Player player ? player.entityInteractionRange() : blockRange;
+		double range = Math.max(blockRange, entityRange);
+		Level level = stand.level();
+		Vec3 eyes = user.getEyePosition(partialTick);
+		ActionTarget hit = HitResultUtil.clip(eyes, user.getViewVector(partialTick), range, range, level, canTarget, user, 0);
+		if (hit.isEmpty(level)) {
+			return ActionTarget.EMPTY;
+		}
+		double hitRange = hit.getType() == TargetType.ENTITY ? entityRange : blockRange;
+		double distanceSqr = hit.getClipPos().map(eyes::distanceToSqr)
+				.orElseGet(() -> hit.getBoundingBox(level).map(box -> box.distanceToSqr(eyes)).orElse(0.0D));
+		return distanceSqr < hitRange * hitRange ? hit : ActionTarget.EMPTY;
+	}
+
+	/**
+	 * The Stand's aim while its user aims, the one a client keeps (the marker, the Stand aim a press carries): 1.16
+	 * EntityStandType.clientHitResult, the vanilla pick when it met a block or an entity the Stand aims at, otherwise the
+	 * precision ray from the user's eyes, and when that met nothing at all the Stand's own, as aimWithThisOrUser went on.
+	 * Not limited to the Stand's reach, as the 1.16 pressed target was not; its readers check the reach.
+	 */
+	public static ActionTarget userStandAim(StandEntity stand, LivingEntity user, ActionTarget vanillaPick,
+			Predicate<Entity> canTarget) {
+		if (vanillaPick.getType() == TargetType.BLOCK) {
+			return vanillaPick;
+		}
+		Entity picked = vanillaPick.getType() == TargetType.ENTITY ? vanillaPick.getEntity() : null;
+		if (picked != null && picked != stand && canTarget.test(picked)) {
+			return vanillaPick;
+		}
+		ActionTarget aim = userPrecisionRayTarget(stand, user, canTarget);
+		return aim.getType() == TargetType.EMPTY ? standPrecisionRayTarget(stand, canTarget) : aim;
 	}
 
 	public static ActionTarget userPrecisionRayTarget(StandEntity stand, LivingEntity user) {
