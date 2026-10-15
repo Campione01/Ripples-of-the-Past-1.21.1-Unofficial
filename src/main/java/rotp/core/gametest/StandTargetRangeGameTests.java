@@ -1351,6 +1351,31 @@ public final class StandTargetRangeGameTests {
 		helper.succeed();
 	}
 
+	// 1.16 GoldExperienceBoneMeal.checkTarget wants a baby, but standPerform ages any AnimalEntity its new aim meets:
+	// AgeableMob.ageUp clamps an adult's positive age to 0, so the breeding cooldown is gone and the animal stays
+	// an adult. The press is on a sapling past the Stand's reach, so the perform aims again along the look ray.
+	@GameTest(template = "empty", batch = BATCH)
+	public static void goldExperienceBoneMealSecondAimClearsAnAdultCowsBreedingCooldown(GameTestHelper helper) {
+		try (Fixture fixture = Fixture.open(helper, Kind.GE_BONE_MEAL)) {
+			fixture.stand.moveTo(fixture.origin.x + 1.5D, fixture.origin.y, fixture.origin.z, 0.0F, 0.0F);
+			Cow adult = fixture.adultCow(3.0D, 6000);
+			BlockPos sapling = fixture.sapling(BlockPos.containing(fixture.origin.x, fixture.origin.y + 1.0D,
+					fixture.origin.z + 6.0D));
+			fixture.aim(new ActionTarget(sapling, Direction.NORTH));
+			ActionTarget reaim = StandPrecisionRay.trace(fixture.user, fixture.stand, 64.0D, 0.0D, true, false);
+			String answered = fixture.refusal();
+			helper.assertTrue("accepted".equals(answered) && reaim.getMainEntity() == adult && adult.getAge() == 6000
+					&& !adult.isBaby(), "STAND-RANGE premise: the press on the sapling was refused or the perform's new aim"
+							+ " does not meet the adult cow, or the cow is not an adult with a cooldown of 6000: answered "
+							+ answered + ", " + reaim + ", age " + adult.getAge());
+			fixture.pressAndRun();
+			helper.assertTrue(adult.getAge() == 0 && !adult.isBaby(), "GE_BONE_MEAL whose perform aimed again at an adult"
+					+ " cow with a breeding cooldown of 6000 left it at age " + adult.getAge() + ", baby " + adult.isBaby()
+					+ "; 1.16 standPerform ages any animal, which clears the cooldown of an adult");
+		}
+		helper.succeed();
+	}
+
 	// the same with the entity there: an ENTITY target fails TargetRequirement.BLOCK, so 1.16 refused the press instead
 	// of putting the barrier on the block behind the mob
 	@GameTest(template = "empty", batch = BATCH)
@@ -1369,6 +1394,43 @@ public final class StandTargetRangeGameTests {
 
 			fixture.aim(new ActionTarget(stone, Direction.NORTH));
 			helper.assertTrue("accepted".equals(fixture.refusal()), "HG_BARRIER pressed at the stone behind the cow was refused");
+		}
+		helper.succeed();
+	}
+
+	// 1.16 EntityStandType.clientHitResult: with nothing under the vanilla pick the pressed target is the precision ray,
+	// which may be the mob beside the crosshair line; TargetRequirement.BLOCK fails for it, so the press was refused and no
+	// block on the line was taken. The Stand's synced aim is that target.
+	@GameTest(template = "empty", batch = BATCH)
+	public static void hierophantBarrierPressedAtAMobBesideTheCrosshairDoesNotTakeTheStoneOnIt(GameTestHelper helper) {
+		try (Fixture fixture = Fixture.open(helper, Kind.HG_BARRIER)) {
+			fixture.stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z + 1.0D, 0.0F, 0.0F);
+			BlockPos stone = fixture.block(BlockPos.containing(fixture.origin.x, fixture.origin.y + 1.0D, fixture.origin.z + 4.0D));
+			Cow beside = fixture.cow(2.5D);
+			beside.moveTo(fixture.origin.x + 0.9D, fixture.origin.y + 0.6D, fixture.origin.z + 2.5D, 180.0F, 0.0F);
+			Vec3 eyes = fixture.user.getEyePosition();
+			Vec3 end = eyes.add(fixture.user.getLookAngle().scale(5.0D));
+			helper.assertTrue(beside.getBoundingBox().clip(eyes, end).isEmpty(),
+					"STAND-RANGE premise: the cow is on the user's look ray, not beside it");
+			fixture.aim(ActionTarget.EMPTY);
+			LivingComponentAction.getComponent(fixture.stand).entityAim.setTarget(new ActionTarget(beside));
+			String answered = fixture.refusal();
+			ActionTarget picked = HierophantBarrierAbility.getCurrentBlockTarget(fixture.user, fixture.stand, fixture.level);
+			helper.assertTrue(BLOCK_TARGET.equals(answered) && picked.getType() == TargetType.EMPTY,
+					"HG_BARRIER with nothing under the vanilla pick, the Stand's aim on a cow beside the crosshair and stone at "
+							+ stone + " on it: answered " + answered + " and picked " + picked
+							+ "; 1.16 pressed at the cow and refused (TargetRequirement.BLOCK)");
+
+			LivingComponentAction.getComponent(fixture.stand).entityAim.setTarget(ActionTarget.EMPTY);
+			ActionTarget open = HierophantBarrierAbility.getCurrentBlockTarget(fixture.user, fixture.stand, fixture.level);
+			helper.assertTrue("accepted".equals(fixture.refusal()) && open.getType() == TargetType.BLOCK
+					&& stone.equals(open.getBlockPos()), "HG_BARRIER with the Stand's aim empty and stone on the look ray picked "
+							+ open + "; the stone is the target");
+
+			LivingComponentAction.getComponent(fixture.stand).entityAim.setTarget(new ActionTarget(stone, Direction.NORTH));
+			fixture.aim(ActionTarget.EMPTY);
+			helper.assertTrue("accepted".equals(fixture.refusal()),
+					"HG_BARRIER with the Stand's aim on the stone was refused");
 		}
 		helper.succeed();
 	}
@@ -1697,6 +1759,19 @@ public final class StandTargetRangeGameTests {
 			extras.add(baby);
 			helper.assertTrue(level.addFreshEntity(baby) && baby.isBaby(), "STAND-RANGE premise: could not add the baby cow");
 			return baby;
+		}
+
+		// an adult cow with the given breeding cooldown, its box centred on the user's look ray
+		private Cow adultCow(double separation, int age) {
+			Cow adult = EntityType.COW.create(level);
+			helper.assertTrue(adult != null, "STAND-RANGE premise: could not create the adult cow");
+			adult.setNoAi(true);
+			adult.setNoGravity(true);
+			adult.setAge(age);
+			adult.moveTo(origin.x, user.getEyeY() - adult.getBbHeight() / 2.0D, origin.z + separation, 180.0F, 0.0F);
+			extras.add(adult);
+			helper.assertTrue(level.addFreshEntity(adult) && !adult.isBaby(), "STAND-RANGE premise: could not add the adult cow");
+			return adult;
 		}
 
 		// the user has met a cow and has the stamina, so Create Lifeform has a lifeform to create

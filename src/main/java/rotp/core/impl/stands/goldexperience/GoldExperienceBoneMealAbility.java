@@ -178,7 +178,8 @@ public class GoldExperienceBoneMealAbility extends NoPoseStandEntityAbility {
             }
             switch (target.getType()) {
                 case ENTITY -> {
-                    if (target.getMainEntity() instanceof Animal animal && animal.isBaby()) {
+                    // 1.16 standPerform ages any animal its aim meets; only the press wants a baby
+                    if (target.getMainEntity() instanceof Animal animal) {
                         int age = animal.getAge();
                         animal.ageUp((int) ((-age / 20) * 0.2F), true);
                     }

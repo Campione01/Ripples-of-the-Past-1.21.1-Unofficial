@@ -1,10 +1,10 @@
 package rotp.core.impl.stands.hierophant;
 
 import rotp.core.init.ModSoundEvents;
-import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 import rotp.core.powersystem.standpower.StandInstance.StandPart;
 
 import java.util.Optional;
+import java.util.function.Predicate;
 
 import rotp.core.mechanics.resolve.ResolveModeEffect;
 import rotp.core.powersystem.Power;
@@ -232,6 +232,7 @@ public class HierophantEmeraldSplashAbility extends StandEntityAbility implement
 		 * Where the barrier net fires its emeralds: what the user aims at, or the Stand under manual control. The net
 		 * senses its target and fires without sight, as in the original story and as 1.16's aimForBarriers ray
 		 * (JojoModUtil.rayTrace) did, so a mob behind blocks on the aim is the aim point; the emeralds still stop at blocks.
+		 * That ray took no precision boxes, so the aim assist setting does not change it.
 		 */
 		public static Optional<Vec3> barrierAimPoint(HierophantGreenEntity stand) {
 			Level level = stand.level();
@@ -239,6 +240,7 @@ public class HierophantEmeraldSplashAbility extends StandEntityAbility implement
 			if (aimingEntity == null) {
 				return Optional.empty();
 			}
+			Predicate<Entity> netTarget = entity -> entity instanceof LivingEntity && stand.canAttackEntity(entity);
 			var aim = LivingComponentAction.getAim(aimingEntity);
 			ActionTarget target = aim != null ? aim.getTarget() : ActionTarget.EMPTY;
 			if (target != null && !target.isEmpty(level)
@@ -246,12 +248,14 @@ public class HierophantEmeraldSplashAbility extends StandEntityAbility implement
 							stand.getMaxRange(), stand.getMaxRange())) {
 				target = ActionTarget.EMPTY;
 			}
+			// the ray's filter: an entity the net would not fire at is passed over
+			if (target != null && target.getType() == TargetType.ENTITY && !netTarget.test(target.getEntity())) {
+				target = ActionTarget.EMPTY;
+			}
 			// a synced aim was picked with walls hiding what is behind them
 			if (target == null || target.isEmpty(level) || target.getType() == TargetType.BLOCK) {
 				ActionTarget throughWalls = HitResultUtil.clip(aimingEntity.getEyePosition(), aimingEntity.getLookAngle(),
-						stand.getMaxRange(), stand.getMaxRange(), level,
-						entity -> entity instanceof LivingEntity && stand.canAttackEntity(entity),
-						aimingEntity, StandEntityPunchAbility.aimAssist(stand.getUser()) ? stand.getPrecision() : 0, false);
+						stand.getMaxRange(), stand.getMaxRange(), level, netTarget, aimingEntity, 0, false);
 				if (target == null || target.isEmpty(level) || throughWalls.getType() == TargetType.ENTITY) {
 					target = throughWalls;
 				}

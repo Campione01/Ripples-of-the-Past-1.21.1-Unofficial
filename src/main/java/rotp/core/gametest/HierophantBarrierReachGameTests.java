@@ -27,6 +27,7 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.animal.Cow;
+import net.minecraft.world.entity.vehicle.Boat;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -174,6 +175,66 @@ public final class HierophantBarrierReachGameTests {
 			}
 			for (Map.Entry<BlockPos, BlockState> block : original.entrySet()) {
 				helper.getLevel().setBlockAndUpdate(block.getKey(), block.getValue());
+			}
+			user.discard();
+		}
+	}
+
+	// 1.16 aimForBarriers filtered its ray to a living entity the Stand can attack: a boat on the aim is passed over for
+	// the mob behind it
+	@GameTest(template = "empty", timeoutTicks = 40)
+	public static void emeraldSplashFromTheBarrierNetPassesOverAnEntityItCannotAttack(GameTestHelper helper) {
+		Player user = FakePlayerFactory.get(helper.getLevel(), new GameProfile(
+				UUID.fromString("7b2e9d4a-6c1f-4e3b-8a5d-3f0c9e1b7a25"), "HierophantNetFilter"));
+		StandType standType = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("hierophant_green"));
+		StandPower power = null;
+		Cow cow = null;
+		Boat boat = null;
+		try {
+			helper.assertTrue(standType != null, "Missing Stand type hierophant_green");
+			Vec3 userPos = Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(1, 2, 1)));
+			// everyone looks straight up, so the rays stay inside this test's column
+			user.moveTo(userPos.x, userPos.y, userPos.z, 0.0F, -90.0F);
+			helper.assertTrue(helper.getLevel().addFreshEntity(user), "Could not add the Hierophant Green user");
+			power = PowerClass.STAND.attachGet(user);
+			helper.assertTrue(StandPowerTransitions.insert(power, new StandInstance(standType)).status()
+					== StandPowerTransitions.Status.APPLIED, "Could not grant Hierophant Green");
+			helper.assertTrue(standType.summon(user, power), "Could not summon Hierophant Green");
+			helper.assertTrue(power.getSummonedStandEntity() instanceof HierophantGreenEntity,
+					"Summoned Hierophant Green entity is missing");
+			HierophantGreenEntity stand = (HierophantGreenEntity) power.getSummonedStandEntity();
+			stand.moveTo(userPos.x + 1.0D, userPos.y, userPos.z, 0.0F, -90.0F);
+
+			Vec3 userEye = user.getEyePosition();
+			boat = EntityType.BOAT.create(helper.getLevel());
+			cow = EntityType.COW.create(helper.getLevel());
+			helper.assertTrue(boat != null && cow != null, "Could not create the boat and the cow");
+			boat.setNoGravity(true);
+			boat.moveTo(userEye.x, userEye.y + 1.5D, userEye.z, 0.0F, 0.0F);
+			cow.setNoAi(true);
+			cow.setNoGravity(true);
+			cow.moveTo(userEye.x, userEye.y + 4.0D, userEye.z, 0.0F, 0.0F);
+			helper.assertTrue(helper.getLevel().addFreshEntity(boat) && helper.getLevel().addFreshEntity(cow),
+					"Could not add the boat and the cow");
+			helper.assertTrue(userEye.distanceTo(cow.getBoundingBox().getCenter()) < stand.getMaxRange(),
+					"Fixture: the cow is out of Hierophant Green's range " + stand.getMaxRange());
+			LivingComponentAction.getComponent(user).entityAim.setTarget(new ActionTarget(boat));
+			Optional<Vec3> aimPoint = EmeraldSplashShot.barrierAimPoint(stand);
+			helper.assertTrue(aimPoint.isPresent() && aimPoint.get().distanceTo(cow.getBoundingBox().getCenter()) < 1.0E-6,
+					"The barrier net must pass over the boat the user aims at and aim at the cow behind it: " + aimPoint
+							+ ", cow at " + cow.getBoundingBox().getCenter() + ", boat at " + boat.getBoundingBox().getCenter());
+			helper.succeed();
+		}
+		finally {
+			LivingComponentAction.getComponent(user).entityAim.setTarget(ActionTarget.EMPTY);
+			if (cow != null) {
+				cow.discard();
+			}
+			if (boat != null) {
+				boat.discard();
+			}
+			if (power != null && power.isSummoned() && standType != null) {
+				standType.forceUnsummon(user, power);
 			}
 			user.discard();
 		}
