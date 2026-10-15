@@ -8,6 +8,7 @@ import java.util.function.BiFunction;
 import javax.annotation.Nullable;
 
 import rotp.core.api.timestop.TimeStopTicksModifiers;
+import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 import rotp.core.config.client.PlayerClientBroadcastedSettings;
 import rotp.core.init.ModCriteriaTriggers;
 import rotp.core.init.ModDataAttachmentTypes;
@@ -292,7 +293,7 @@ public class TimeStopBlinkAbility extends Ability {
 		ActionTarget target = aim.getTarget().copy().resolveEntityId(user.level());
 		// 1.16 EntityStandType.clientHitResult: with the Stand out, a vanilla miss became the Stand's precision ray
 		StandEntity summoned = power.getSummonedStandEntity();
-		if (target.getType() == ActionTarget.TargetType.EMPTY && summoned != null) {
+		if (target.getType() == ActionTarget.TargetType.EMPTY && summoned != null && StandEntityPunchAbility.aimAssist(user)) {
 			target = StandPrecisionRay.trace(user, summoned, StandPrecisionRay.reach(user, summoned), 0.0D, true, true);
 		}
 		if (target.getType() == ActionTarget.TargetType.ENTITY) {

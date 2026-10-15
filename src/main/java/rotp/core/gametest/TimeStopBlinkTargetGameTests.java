@@ -18,6 +18,7 @@ import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.impl.stands.theworld.TimeStopBlinkAbility;
+import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModStatusEffects;
 import rotp.core.network.s2c.TrDirectEntityPosPacket;
 import rotp.core.powersystem.PowerClass;
@@ -108,6 +109,22 @@ public final class TimeStopBlinkTargetGameTests {
 			helper.assertTrue(scene.user.position().distanceTo(beside) > 0.5 && scene.user.position().z > zombie.getZ(),
 					"a blink at an entity the server no longer has took the zombie just off the crosshair: landed at "
 							+ scene.user.position() + "; 1.16 empties the press and rays along the look line past it");
+		}
+		helper.succeed();
+	}
+
+	// the owner's "aim assist" Stand setting (2026-10-15), off: the blink takes only what the crosshair meets
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void aimAssistOffBlinkDoesNotTakeTheMobOffTheCrosshair(GameTestHelper helper) {
+		try (Scene scene = new Scene(helper, 0)) {
+			scene.summonStand();
+			scene.user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get()).standAimAssist = false;
+			Zombie zombie = scene.add(EntityType.ZOMBIE.create(scene.level), scene.start.add(0.9, 0, 4));
+			Vec3 beside = zombie.position().subtract(scene.user.getLookAngle().scale(zombie.getBbWidth() + scene.user.getBbWidth()));
+			scene.blink();
+			helper.assertTrue(scene.user.position().distanceTo(beside) > 0.5 && scene.user.position().z > zombie.getZ(),
+					"with the aim assist off the blink took the zombie just off the crosshair: landed at "
+							+ scene.user.position() + "; only what the crosshair meets is a target");
 		}
 		helper.succeed();
 	}
