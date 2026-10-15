@@ -532,8 +532,13 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceChosenLif
     // 1.16 PowerBaseImpl.checkTarget: on every use the item entity on the look ray replaces what is under the
     // crosshair (overrideVanillaMouseTarget), and only then come the range and the action's own checkTarget.
     // A target that fails either is no target (TargetRequirement.NONE); nothing else is picked in its place.
+    // A press on an entity the server no longer has empties the whole target, the item entity with it (checkTarget:295).
     private static ActionTarget findLifeformTarget(Level level, LivingEntity user, StandPower standPower) {
         LivingEntity aiming = getControlledEntity(user, standPower);
+        var aim = !level.isClientSide() ? LivingComponentAction.getAim(aiming) : null;
+        if (aim != null && aim.isClientEntityMissing()) {
+            return ActionTarget.EMPTY;
+        }
         ActionTarget crosshair = getSyncedLookTarget(level, user, standPower, aiming);
         ActionTarget target = clipItemEntity(level, aiming);
         if (target.isEmpty(level)) {

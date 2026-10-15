@@ -498,28 +498,40 @@ public class ClAbilityInputPacket implements CustomPacketPayload {
 		private static final class AimTargetTransaction {
 			private final LivingComponentAction playerAction;
 			private final ActionTarget playerBefore;
+			private final boolean playerBeforeMissing;
 			private final ActionTarget playerTarget;
+			private final boolean playerMissing;
 			@Nullable private final StandEntity stand;
 			@Nullable private final LivingComponentAction standAction;
 			@Nullable private final ActionTarget standBefore;
+			private final boolean standBeforeMissing;
 			@Nullable private final ActionTarget standTarget;
+			private final boolean standMissing;
 			private boolean started;
 
 			private AimTargetTransaction(
 					LivingComponentAction playerAction,
 					ActionTarget playerBefore,
+					boolean playerBeforeMissing,
 					ActionTarget playerTarget,
+					boolean playerMissing,
 					@Nullable StandEntity stand,
 					@Nullable LivingComponentAction standAction,
 					@Nullable ActionTarget standBefore,
-					@Nullable ActionTarget standTarget) {
+					boolean standBeforeMissing,
+					@Nullable ActionTarget standTarget,
+					boolean standMissing) {
 				this.playerAction = playerAction;
 				this.playerBefore = playerBefore;
+				this.playerBeforeMissing = playerBeforeMissing;
 				this.playerTarget = playerTarget;
+				this.playerMissing = playerMissing;
 				this.stand = stand;
 				this.standAction = standAction;
 				this.standBefore = standBefore;
+				this.standBeforeMissing = standBeforeMissing;
 				this.standTarget = standTarget;
+				this.standMissing = standMissing;
 			}
 
 			private static AimTargetTransaction resolve(
@@ -528,45 +540,56 @@ public class ClAbilityInputPacket implements CustomPacketPayload {
 						LivingComponentAction.getComponent(player);
 				ActionTarget playerBefore = copyTargetOrEmpty(
 						playerAction.entityAim.getTarget());
+				boolean playerSentEntity = payload.playerAimTarget.getType() == ActionTarget.TargetType.ENTITY;
 				ActionTarget playerTarget = copyTargetOrEmpty(
 						payload.playerAimTarget.resolveEntityId(player.level()));
+				boolean playerMissing = playerSentEntity
+						&& playerTarget.getType() == ActionTarget.TargetType.EMPTY;
 				StandEntity stand = StandUtil.getSummonedStand(player);
 				LivingComponentAction standAction = stand != null
 						? LivingComponentAction.getComponent(stand) : null;
 				ActionTarget standBefore = standAction != null
 						? copyTargetOrEmpty(standAction.entityAim.getTarget()) : null;
+				boolean standSentEntity = payload.standAimTarget.getType() == ActionTarget.TargetType.ENTITY;
 				ActionTarget standTarget = standAction != null
 						? copyTargetOrEmpty(payload.standAimTarget
 								.resolveEntityId(player.level())) : null;
+				boolean standMissing = standTarget != null && standSentEntity
+						&& standTarget.getType() == ActionTarget.TargetType.EMPTY;
 				if (standTarget != null
 						&& standTarget.getType() == ActionTarget.TargetType.EMPTY
 						&& playerTarget.getType() != ActionTarget.TargetType.EMPTY) {
 					standTarget = copyTargetOrEmpty(playerTarget);
+					standMissing = false;
 				}
 				return new AimTargetTransaction(
-						playerAction, playerBefore, playerTarget,
-						stand, standAction, standBefore, standTarget);
+						playerAction, playerBefore, playerAction.entityAim.isClientEntityMissing(),
+						playerTarget, playerMissing,
+						stand, standAction, standBefore,
+						standAction != null && standAction.entityAim.isClientEntityMissing(),
+						standTarget, standMissing);
 			}
 
+			// an aimed entity the server cannot find stays known as such (1.16 PowerBaseImpl.checkTarget emptied the press)
 			private void apply() {
 				started = true;
-				playerAction.entityAim.setTarget(playerTarget);
-				setStandTarget(standTarget);
+				playerAction.entityAim.setTarget(playerTarget, playerMissing);
+				setStandTarget(standTarget, standMissing);
 			}
 
 			private void rollback() {
 				if (!started) {
 					return;
 				}
-				playerAction.entityAim.setTarget(playerBefore);
-				setStandTarget(standBefore);
+				playerAction.entityAim.setTarget(playerBefore, playerBeforeMissing);
+				setStandTarget(standBefore, standBeforeMissing);
 			}
 
-			private void setStandTarget(@Nullable ActionTarget target) {
+			private void setStandTarget(@Nullable ActionTarget target, boolean clientEntityMissing) {
 				if (stand == null || standAction == null || target == null) {
 					return;
 				}
-				standAction.entityAim.setTarget(target);
+				standAction.entityAim.setTarget(target, clientEntityMissing);
 				if (standAction.entityAim.checkDirty()) {
 					PacketDistributor.sendToPlayersTrackingEntityAndSelf(
 							stand,
