@@ -1995,8 +1995,6 @@
   "jojo.config.undeadMobsSunDamage.tooltip": "Whether or not undead mobs take damage under the sun similarly to vampires.",
   "jojo.config.vampiresAggroMobs": "Vampires aggro mobs",
   "jojo.config.vampiresAggroMobs.tooltip": "Whether or not hostile mobs are agressive towards vampire players.",
-  "jojo.config.standSkillsThroughWalls": "Stand skills through walls",
-  "jojo.config.standSkillsThroughWalls.tooltip": "manga: the Stand skills that pass through walls in the original story can target and hit entities behind blocks. walls: blocks stop every Stand skill.",
   "jojo.config.standBodyThroughWalls": "Stands through walls",
   "jojo.config.standBodyThroughWalls.tooltip": "manga: a manually controlled Stand passes through blocks. 1.16: blocks stop it, as in the 1.16 version of the mod.",
   "jojo.config.vampirismCuringDuration": "Vampirism curing duration",

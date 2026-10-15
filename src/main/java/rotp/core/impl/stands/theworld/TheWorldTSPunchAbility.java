@@ -550,7 +550,7 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 		}
 
 		// 1.16 precisionRayTrace(aiming, getMaxRange(), getPrecision() / 16, false); entities behind a wall stay hidden
-		// unless the server lets this skill through walls
+		// unless this skill is marked through walls
 		private static ActionTarget rayTraceTsPunchTarget(StandEntity stand, LivingEntity aimingEntity,
 				TheWorldTSPunchAbility punchAbility) {
 			boolean wallsHideEntities = StandSkillWalls.wallsHideEntities(stand.level(), punchAbility);

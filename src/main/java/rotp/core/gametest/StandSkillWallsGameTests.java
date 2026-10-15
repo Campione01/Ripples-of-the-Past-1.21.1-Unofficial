@@ -49,17 +49,17 @@ import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
- * The server setting standSkillsThroughWalls (owner, 2026-10-15): in "manga" mode a skill marked through
- * {@link StandSkillWalls} picks and hits a mob behind a block, as the 1.16 entity rays did; in "walls" mode, and for a
- * skill that is not marked, the block stops it. Star Platinum's punch is marked only inside these tests. Each test has
- * its own batch: the mark and the mode are global while a batch runs, and the rays reach past the test area.
+ * Walls as in the original story (owner, 2026-10-15): a skill marked through {@link StandSkillWalls} picks and hits a
+ * mob behind a block, as the 1.16 entity rays did; the block stops a skill that is not marked. Star Platinum's punch is
+ * marked only inside these tests. Each test has its own batch: the mark is global while a batch runs, and the rays
+ * reach past the test area.
  */
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class StandSkillWallsGameTests {
 	private static final String PICK_BATCH = "stand_skill_walls_pick";
-	private static final String MANGA_BATCH = "stand_skill_walls_manga";
-	private static final String WALLS_BATCH = "stand_skill_walls_walls";
+	private static final String MARKED_BATCH = "stand_skill_walls_marked";
+	private static final String UNMARKED_BATCH = "stand_skill_walls_unmarked";
 	private static final short KEY = 173;
 
 	@Nullable
@@ -68,28 +68,24 @@ public final class StandSkillWallsGameTests {
 	private StandSkillWallsGameTests() {}
 
 	@GameTest(template = "empty", timeoutTicks = 20, batch = PICK_BATCH)
-	public static void onlyAMarkedSkillPicksAMobBehindAWallAndOnlyInMangaMode(GameTestHelper helper) {
+	public static void onlyAMarkedSkillPicksAMobBehindAWall(GameTestHelper helper) {
 		Scene scene = new Scene(helper);
 		LivingComponentAction component = LivingComponentAction.getComponent(scene.stand);
 		try {
 			Cow cow = scene.cowBehindWall();
 			EntityActionInstance punch = scene.action("punch");
 			component.setAction(punch, scene.user, SyncType.NO_SYNC);
-			for (String mode : List.of(JojoModConfig.WALLS_MODE_MANGA, JojoModConfig.SKILL_WALLS_MODE_WALLS)) {
-				scene.mode.set(mode);
-				for (boolean marked : new boolean[] { true, false }) {
-					scene.mark(marked);
-					scene.clearAims();
-					ActionTarget target = StandEntityPunchAbility.getFreshPunchTarget(scene.stand, ActionTarget.EMPTY);
-					if (marked && JojoModConfig.WALLS_MODE_MANGA.equals(mode)) {
-						helper.assertTrue(target.getMainEntity() == cow,
-								"A marked punch in manga mode must pick the cow behind the wall; got " + target);
-					}
-					else {
-						helper.assertTrue(target.getType() == ActionTarget.TargetType.BLOCK,
-								"The wall must stop the " + (marked ? "marked" : "unmarked") + " punch in " + mode
-										+ " mode; got " + target);
-					}
+			for (boolean marked : new boolean[] { true, false }) {
+				scene.mark(marked);
+				scene.clearAims();
+				ActionTarget target = StandEntityPunchAbility.getFreshPunchTarget(scene.stand, ActionTarget.EMPTY);
+				if (marked) {
+					helper.assertTrue(target.getMainEntity() == cow,
+							"A marked punch must pick the cow behind the wall; got " + target);
+				}
+				else {
+					helper.assertTrue(target.getType() == ActionTarget.TargetType.BLOCK,
+							"The wall must stop the unmarked punch; got " + target);
 				}
 			}
 			helper.succeed();
@@ -100,11 +96,10 @@ public final class StandSkillWallsGameTests {
 		}
 	}
 
-	@GameTest(template = "empty", timeoutTicks = 60, batch = MANGA_BATCH)
-	public static void markedPunchHitsAMobBehindAWallInMangaMode(GameTestHelper helper) {
+	@GameTest(template = "empty", timeoutTicks = 60, batch = MARKED_BATCH)
+	public static void markedPunchHitsAMobBehindAWall(GameTestHelper helper) {
 		Scene scene = new Scene(helper);
 		Cow cow = scene.cowBehindWall();
-		scene.mode.set(JojoModConfig.WALLS_MODE_MANGA);
 		scene.mark(true);
 		float health = cow.getHealth();
 		scene.run(tick -> {
@@ -115,26 +110,25 @@ public final class StandSkillWallsGameTests {
 						"Fixture: the punch input started " + punch + ", which is not the marked punch");
 			}
 			return tick > 3 && cow.getHealth() < health;
-		}, 30, () -> "The marked punch in manga mode did not hit the cow behind the wall");
+		}, 30, () -> "The marked punch did not hit the cow behind the wall");
 	}
 
-	@GameTest(template = "empty", timeoutTicks = 60, batch = WALLS_BATCH)
-	public static void markedPunchIsStoppedByAWallInWallsMode(GameTestHelper helper) {
+	@GameTest(template = "empty", timeoutTicks = 60, batch = UNMARKED_BATCH)
+	public static void unmarkedPunchIsStoppedByAWall(GameTestHelper helper) {
 		Scene scene = new Scene(helper);
 		Cow cow = scene.cowBehindWall();
-		scene.mode.set(JojoModConfig.SKILL_WALLS_MODE_WALLS);
-		scene.mark(true);
+		scene.mark(false);
 		float health = cow.getHealth();
 		EntityActionInstance[] punch = new EntityActionInstance[1];
 		scene.run(tick -> {
 			if (tick == 3) {
 				scene.clearAims();
 				punch[0] = scene.press("punch");
-				helper.assertTrue(punch[0] instanceof StandEntityPunch && StandSkillWalls.isMarked(punch[0]),
-						"Fixture: the punch input started " + punch[0] + ", which is not the marked punch");
+				helper.assertTrue(punch[0] instanceof StandEntityPunch && !StandSkillWalls.isMarked(punch[0]),
+						"Fixture: the punch input started " + punch[0] + ", which is not the unmarked punch");
 			}
 			else if (tick > 3 && cow.getHealth() < health) {
-				helper.fail("The marked punch in walls mode hit the cow behind the wall");
+				helper.fail("The unmarked punch hit the cow behind the wall");
 			}
 			else if (tick > 25) {
 				helper.assertTrue(punch[0].punchedTarget != null
@@ -151,13 +145,13 @@ public final class StandSkillWallsGameTests {
 		releaseActive();
 	}
 
-	@AfterBatch(batch = MANGA_BATCH)
-	public static void releaseMangaBatch(ServerLevel level) {
+	@AfterBatch(batch = MARKED_BATCH)
+	public static void releaseMarkedBatch(ServerLevel level) {
 		releaseActive();
 	}
 
-	@AfterBatch(batch = WALLS_BATCH)
-	public static void releaseWallsBatch(ServerLevel level) {
+	@AfterBatch(batch = UNMARKED_BATCH)
+	public static void releaseUnmarkedBatch(ServerLevel level) {
 		releaseActive();
 	}
 
@@ -184,8 +178,7 @@ public final class StandSkillWallsGameTests {
 		final StandType type;
 		final StandEntity stand;
 		final Vec3 origin;
-		final ModConfigSpec.ConfigValue<String> mode = spec("standSkillsThroughWalls");
-		final String previousMode = mode.get();
+
 		final List<Entity> entities = new ArrayList<>();
 		final List<PlacedBlock> placedBlocks = new ArrayList<>();
 		AbilityId markedId;
@@ -316,7 +309,6 @@ public final class StandSkillWallsGameTests {
 			if (markedId != null) {
 				StandSkillWalls.unmarkThroughWalls(markedId.powerTypeId(), markedId.nameInMoveset());
 			}
-			mode.set(previousMode);
 			AbilityInput.keyRelease(KEY, user);
 			if (power.isSummoned()) type.forceUnsummon(user, power);
 			entities.forEach(Entity::discard);
