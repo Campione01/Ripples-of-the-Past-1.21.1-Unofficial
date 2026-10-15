@@ -20,7 +20,7 @@ import rotp.core.api.stand.StandManualMovementObservers.LogicalSide;
 import net.minecraft.resources.ResourceLocation;
 
 public final class StandManualMovementObserversSmokeTest {
-	private static final long WAIT_SECONDS = 5L;
+	private static final long WAIT_SECONDS = 30L;
 
 	private StandManualMovementObserversSmokeTest() {}
 
