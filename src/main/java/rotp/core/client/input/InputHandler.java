@@ -1274,7 +1274,12 @@ public class InputHandler {
 			input.forwardImpulse *= movementMultiplier;
 			input.leftImpulse *= movementMultiplier;
 			if (movementMultiplier < 1) {
+				// 1.16 InputHandler.slowDown: a slowed user also lets go of the sprint key and cannot jump at speed 0
 				player.setSprinting(false);
+				KeyMapping.set(mc.options.keySprint.getKey(), false);
+				if (movementMultiplier == 0) {
+					input.jumping = false;
+				}
 			}
 		}
 		handleHamonDoubleShiftInput(player, input);

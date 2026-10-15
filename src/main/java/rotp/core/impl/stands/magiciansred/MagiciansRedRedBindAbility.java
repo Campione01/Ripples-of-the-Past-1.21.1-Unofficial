@@ -48,9 +48,12 @@ public class MagiciansRedRedBindAbility extends StandEntityAbility {
 			setStandOffset(0.0, 0.5, StandOffsetFromUser.Rotations.BODY, false);
 		}
 
+		// 1.16 magicians_red_red_bind: heldWalkSpeed(0.3F) while the key is held, on top of the Stand action's speed
 		@Override
 		public void onSetPhase(ActionPhase newPhase) {
-			userWalkSpeed = newPhase == ActionPhase.PERFORM ? 0.3F : 1;
+			if (newPhase == ActionPhase.PERFORM) {
+				userWalkSpeed *= 0.3F;
+			}
 		}
 
 		@Override

@@ -23,6 +23,7 @@ import rotp.core.powersystem.standpower.StandUtil;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.effect.StandEffectInstance;
 import rotp.core.powersystem.standpower.entity.StandEntity;
+import rotp.core.powersystem.standpower.entity.StandEntityAbility;
 import rotp.core.powersystem.standpower.entity.StandOffsetFromUser;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.AimingEntity;
@@ -720,6 +721,7 @@ public class EntityActionInstance implements HeldInput {
 		float prevTickLength = this.curPhaseLength;
 		
 		if (this.performer != null && this.phase != phase) {
+			applyStandUserWalkSpeed(phase);
 			onSetPhase(phase);
 		}
 		this.phase = phase;
@@ -743,9 +745,18 @@ public class EntityActionInstance implements HeldInput {
 
 	@ApiStatus.Internal
 	public void _onActionStarted(@Nullable EntityActionInstance prevAction) {
+		applyStandUserWalkSpeed(phase);
 		onActionSet(prevAction);
 		onSetPhase(phase);
 		applySyncedStandOffset();
+	}
+
+	// 1.16 StandEntityAction.getUserWalkSpeed: a Stand's action slows its user to the speed of its registration in every
+	// phase but RECOVERY. Set before the action's own callbacks, which may change it.
+	private void applyStandUserWalkSpeed(@Nullable ActionPhase phase) {
+		if (phase != null && ability instanceof StandEntityAbility standAbility) {
+			userWalkSpeed = phase == ActionPhase.RECOVERY ? 1.0F : standAbility.getStandUserWalkSpeed();
+		}
 	}
 
 	private void applySyncedStandOffset() {

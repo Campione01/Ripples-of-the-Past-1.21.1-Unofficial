@@ -17,6 +17,7 @@ import rotp.core.powersystem.standpower.StandUtil;
 import rotp.core.compat.v1_21_4.missingmethods._EntitySelector;
 
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -25,6 +26,7 @@ import net.minecraft.world.level.Level;
 public class StandEntityAbility extends EntityActionAbility {
 	public boolean noFinisherBarDecay = false;
 	protected AutoSummonMode autoSummonMode = AutoSummonMode.FULL;
+	private float standUserWalkSpeed = 0.5F;
 
 	/**
 	 * @deprecated You can use the other constructor, so that you don't have to override {@link EntityActionAbility#createActionObj()}
@@ -123,6 +125,19 @@ public class StandEntityAbility extends EntityActionAbility {
 	
 	protected AutoSummonMode getAutoSummonMode(StandPower standPower, LivingEntity user) {
 		return autoSummonMode;
+	}
+
+	/**
+	 * 1.16 StandEntityAction.Builder#standUserWalkSpeed: the user's walk speed while the action runs, in every phase
+	 * but RECOVERY. 0.5 unless the ability says otherwise.
+	 */
+	public StandEntityAbility standUserWalkSpeed(float factor) {
+		this.standUserWalkSpeed = Mth.clamp(factor, 0.0F, 1.0F);
+		return this;
+	}
+
+	public float getStandUserWalkSpeed() {
+		return standUserWalkSpeed;
 	}
 
 	public static boolean canPickEntityForAiming(Entity target) {
