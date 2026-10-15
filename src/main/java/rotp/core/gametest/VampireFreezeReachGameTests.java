@@ -151,6 +151,8 @@ public final class VampireFreezeReachGameTests {
         private GameTestLight.Wait light;
         private int userTicks;
         private int targetTicks;
+        private int grantedUserTicks;
+        private int grantedTargetTicks;
         private BlockPos occluderBase;
         private boolean prepared;
         private boolean pressed;
@@ -192,18 +194,6 @@ public final class VampireFreezeReachGameTests {
             user.moveTo(origin.x, origin.y, origin.z, 0, 0);
             user.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
             helper.assertTrue(level.addFreshEntity(user), "Could not add Freeze user");
-            power = PowerClass.PLAYER_POWER.attachGet(user);
-            power.setPowerType(ModPlayerPowers.VAMPIRISM.get());
-            data = PlayerPower.getPowerData(user, ModPlayerPowers.VAMPIRISM).orElseThrow();
-            data.setVampireFullPower(true, user);
-            user.setHealth(user.getMaxHealth());
-            VampirismState.get(user).blood().setCurrent(100.0F);
-            data.setBloodLevel(100.0F);
-            var found = power.getAbility("vampirism_freeze");
-            helper.assertTrue(found instanceof VampirismFreezeAbility
-                            && found.abilityType == VampirismPowerType.VAMPIRE_FREEZE.get(),
-                    "Missing vampire_freeze type at vampirism_freeze moveset entry");
-            ability = (VampirismFreezeAbility) found;
 
             target = EntityType.COW.create(level);
             helper.assertTrue(target != null, "Could not create Freeze target");
@@ -216,6 +206,25 @@ public final class VampireFreezeReachGameTests {
             registerObservers();
             log("setup user=" + user.getUUID() + " target=" + target.getUUID() + " separation=" + scenario.separation
                     + " noGravity=true cowAI=true speed=0 roofAndFloor=" + blocks.size() + " difficulty=" + level.getDifficulty());
+        }
+
+        // a vampire in the sun the light engine has not yet taken away is burned, so the user is a plain player until then
+        private void grantPower() {
+            power = PowerClass.PLAYER_POWER.attachGet(user);
+            power.setPowerType(ModPlayerPowers.VAMPIRISM.get());
+            data = PlayerPower.getPowerData(user, ModPlayerPowers.VAMPIRISM).orElseThrow();
+            data.setVampireFullPower(true, user);
+            user.setHealth(user.getMaxHealth());
+            VampirismState.get(user).blood().setCurrent(100.0F);
+            data.setBloodLevel(100.0F);
+            var found = power.getAbility("vampirism_freeze");
+            helper.assertTrue(found instanceof VampirismFreezeAbility
+                            && found.abilityType == VampirismPowerType.VAMPIRE_FREEZE.get(),
+                    "Missing vampire_freeze type at vampirism_freeze moveset entry");
+            ability = (VampirismFreezeAbility) found;
+            grantedUserTicks = userTicks;
+            grantedTargetTicks = targetTicks;
+            log("grant userTicks=" + userTicks + " sky=" + level.canSeeSky(BlockPos.containing(user.getEyePosition())));
         }
 
         private void putBlock(BlockPos pos, BlockState state) {
@@ -402,7 +411,8 @@ public final class VampireFreezeReachGameTests {
                         (prepared && !pressed ? "Freeze shade readiness deadline" : "Freeze watchdog")
                                 + " ticks=" + userTicks + "/" + targetTicks + " samples=" + samples.size()
                                 + " sky=" + level.canSeeSky(BlockPos.containing(user.getEyePosition())));
-                if (!pressed && userTicks >= 2 && targetTicks >= 2) {
+                if (power == null) grantPower();
+                if (!pressed && userTicks >= grantedUserTicks + 2 && targetTicks >= grantedTargetTicks + 2) {
                     if (!prepared) prepareSelection();
                     if (shadeReady()) press();
                     else log("shade-wait ticks=" + userTicks + "/" + targetTicks + " eye=" + user.getEyePosition()

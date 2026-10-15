@@ -64,7 +64,8 @@ public final class VampireDarkAuraBoundaryGameTests {
             MobEffects.WEAKNESS, MobEffects.DIG_SLOWDOWN);
     private VampireDarkAuraBoundaryGameTests() {}
 
-    @GameTest(template = "empty", skyAccess = true, batch = "vampire_dark_aura_vertical_boundary", timeoutTicks = 60)
+    // the ticks are only a ceiling for the real-time wait of the light engine (GameTestLight)
+    @GameTest(template = "empty", skyAccess = true, batch = "vampire_dark_aura_vertical_boundary", timeoutTicks = 4000)
     public static void darkAuraUsesTheDonorCenteredVerticalBounds(GameTestHelper helper) {
         Fixture fixture = new Fixture(helper);
         helper.testInfo.addListener(fixture);
@@ -110,6 +111,7 @@ public final class VampireDarkAuraBoundaryGameTests {
         private VampirismDarkAuraAbility ability;
         private EntityActionInstance action, observedPerform;
         private ChunkPos chunk;
+        private GameTestLight.Wait light;
         private Vec3 feet;
         private AABB room;
         private BlockPos roomMin, roomMax;
@@ -143,6 +145,8 @@ public final class VampireDarkAuraBoundaryGameTests {
                 roof.put(key, level.getBlockState(key));
                 premise(level.setBlock(key, Blocks.STONE.defaultBlockState(), 3), "Roof placement failed");
             }
+            // the shade is read only once the light engine, on a thread of its own, has lit the roof
+            light = new GameTestLight.Wait(level, chunk);
             user = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
             GameType.SURVIVAL.updatePlayerAbilities(user.getAbilities());
             user.setNoGravity(true);
@@ -366,7 +370,8 @@ public final class VampireDarkAuraBoundaryGameTests {
             try {
                 if (observerFailure instanceof RuntimeException error) throw error;
                 if (observerFailure instanceof Error error) throw error;
-                premise(helper.getTick() < 45, "Watchdog expired before the one-cast boundary observation");
+                if (!light.settled(helper, "the roof")) { helper.runAfterDelay(1, this::poll); return; }
+                premise(light.ticksSinceSettled(helper) < 45, "Watchdog expired before the one-cast boundary observation");
                 if (userPosts >= 2 && subjects.values().stream().allMatch(subject -> subject.posts >= 2) && !pressed) {
                     if (shadeReady()) {
                         if (!powered) grantVampirism();

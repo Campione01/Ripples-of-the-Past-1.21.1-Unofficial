@@ -153,6 +153,7 @@ public final class PillarmanVeinStartupGameTests {
         private RuntimeException observerFailure;
         private GameTestLight.Wait light;
         private int userTicks;
+        private int grantedUserTicks;
         private int pressTicks;
         private int spawnAfterTicks = -1;
         private boolean pressed;
@@ -191,6 +192,14 @@ public final class PillarmanVeinStartupGameTests {
             user.setYHeadRot(0.0F);
             user.yBodyRot = 0.0F;
             helper.assertTrue(level.addFreshEntity(user), "Could not add vein user");
+            LivingComponentAction.getComponent(user).entityAim.setTarget(ActionTarget.EMPTY);
+            registerObservers();
+            log("setup user=" + user.getUUID() + " pos=" + userPosition + " chunk=" + chunk
+                    + " noGravity=true shadeBlocks=" + roof.size());
+        }
+
+        // a Pillar Man in the sun the light engine has not yet taken away is burned, so the user is a plain player until then
+        private void grantPower() {
             power = PowerClass.PLAYER_POWER.attachGet(user);
             power.setPowerType(ModPlayerPowers.PILLAR_MAN.get());
             data = PlayerPower.getPowerData(user, ModPlayerPowers.PILLAR_MAN).orElseThrow();
@@ -205,10 +214,9 @@ public final class PillarmanVeinStartupGameTests {
                     : ability instanceof PillarmanErraticBlazeKingAbility
                             && ability.abilityType == PillarmanPowerType.PILLAR_MAN_ERRATIC_BLAZE_KING.get();
             helper.assertTrue(registered && !data.isStoneFormEnabled(), "Registered vein ability or HEAT fixture is invalid");
-            LivingComponentAction.getComponent(user).entityAim.setTarget(ActionTarget.EMPTY);
-            registerObservers();
-            log("setup user=" + user.getUUID() + " pos=" + userPosition + " chunk=" + chunk
-                    + " noGravity=true shadeBlocks=" + roof.size() + " energy=" + data.getEnergy());
+            grantedUserTicks = userTicks;
+            log("grant userTicks=" + userTicks + " energy=" + data.getEnergy()
+                    + " sky=" + level.canSeeSky(BlockPos.containing(user.getEyePosition())));
         }
 
         private void registerObservers() {
@@ -357,11 +365,12 @@ public final class PillarmanVeinStartupGameTests {
                 if (observerFailure != null) throw observerFailure;
                 if (!light.settled(helper, "the roof")) { helper.runAfterDelay(1, this::poll); return; }
                 helper.assertTrue(light.ticksSinceSettled(helper) < 95, "Vein watchdog: ticks=" + userTicks + " spawned=" + veins.size());
+                if (power == null) grantPower();
                 helper.assertTrue(user.isAlive() && near(user.position(), userPosition) && !user.isOnFire()
                                 && user.getYRot() == 0.0F && user.getXRot() == 0.0F && user.yBodyRot == 0.0F,
                         "Vein owner moved, rotated, died or burned");
                 // the light engine shades the eye a few ticks after the roof is placed, not at once
-                if (!pressed && userTicks >= 2 && !level.canSeeSky(BlockPos.containing(user.getEyePosition()))) press();
+                if (!pressed && userTicks >= grantedUserTicks + 2 && !level.canSeeSky(BlockPos.containing(user.getEyePosition()))) press();
                 if (veins.size() == route.count && !released) {
                     AbilityInput.keyRelease(KEY, user);
                     released = true;
