@@ -23,6 +23,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.world.entity.AgeableMob;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BoneMealItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -122,8 +123,8 @@ public class GoldExperienceBoneMealAbility extends NoPoseStandEntityAbility {
         return distance <= stand.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE);
     }
 
-    private static boolean applyOriginalBonemealEffect(Level level, BlockPos pos, Direction face) {
-        if (BoneMealItem.growCrop(ItemStack.EMPTY, level, pos)) {
+    private static boolean applyOriginalBonemealEffect(Level level, Player player, BlockPos pos, Direction face) {
+        if (BoneMealItem.applyBonemeal(ItemStack.EMPTY, level, pos, player)) {
             if (!level.isClientSide()) {
                 level.levelEvent(1505, pos, 5);
             }
@@ -177,7 +178,11 @@ public class GoldExperienceBoneMealAbility extends NoPoseStandEntityAbility {
                         animal.ageUp((int) ((-age / 20) * 0.2F), true);
                     }
                 }
+                // 1.16 standPerform: blocks only for a player user, as that player (HamonHealing.bonemealEffect)
                 case BLOCK -> {
+                    if (!(user instanceof Player player)) {
+                        break;
+                    }
                     BlockPos pos = target.getBlockPos();
                     boolean grown = false;
                     if (level instanceof ServerLevel serverLevel) {
@@ -188,7 +193,7 @@ public class GoldExperienceBoneMealAbility extends NoPoseStandEntityAbility {
                         }
                     }
                     if (!grown) {
-                        applyOriginalBonemealEffect(level, pos, target.getFace());
+                        applyOriginalBonemealEffect(level, player, pos, target.getFace());
                     }
                 }
                 default -> {}
