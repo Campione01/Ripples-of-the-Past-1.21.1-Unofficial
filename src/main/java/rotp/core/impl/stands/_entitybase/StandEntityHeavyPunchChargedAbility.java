@@ -187,14 +187,15 @@ public class StandEntityHeavyPunchChargedAbility extends StandEntityAbility {
 			}
 		}
 
-		// the synced Stand aim in the Stand's reach, else what the user looks at; without the aim assist only the latter
+		// the synced Stand aim in the Stand's reach, else what the user looks at; without the aim assist only the latter;
+		// a Stand that aims without its user (StandEntity.aimsWithoutUser) only its own aim
 		protected ActionTarget capturePerformTarget(StandEntity stand) {
 			Level level = stand.level();
-			ActionTarget aimed = stand.isManuallyControlled() || StandEntityPunchAbility.aimAssist(stand.getUser())
+			ActionTarget aimed = stand.aimsWithoutUser() || StandEntityPunchAbility.aimAssist(stand.getUser())
 					? StandEntityPunchAbility.throughWallsTarget(stand,
 							StandEntityPunchAbility.validatePunchTarget(stand, captureActionTargetFromAim(stand)), false)
 					: ActionTarget.EMPTY;
-			if (aimed.isEmpty(level) && !stand.isManuallyControlled()) {
+			if (aimed.isEmpty(level) && !stand.aimsWithoutUser()) {
 				aimed = StandEntityBarrageAbility.clipDirectionalBarrageTarget(stand, this, 1.0F);
 			}
 			return setActionTargetSnapshot(aimed);
@@ -205,7 +206,7 @@ public class StandEntityHeavyPunchChargedAbility extends StandEntityAbility {
 		protected ActionTarget getPerformTarget(StandEntity stand) {
 			Level level = stand.level();
 			ActionTarget target = StandEntityPunchAbility.validatePunchTarget(stand, getActionTargetSnapshot(level));
-			if (target.isEmpty(level) && !stand.isManuallyControlled()) {
+			if (target.isEmpty(level) && !stand.aimsWithoutUser()) {
 				target = StandEntityBarrageAbility.clipDirectionalBarrageTarget(stand, this, 1.0F);
 			}
 			if (target.isEmpty(level)) {

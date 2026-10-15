@@ -615,8 +615,13 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 				action != null && !isPunchOrBarrage(action.ability));
 	}
 
+	/**
+	 * Whether an attack keeps the target it was pressed at instead of following its user's crosshair: always when no
+	 * user crosshair steers it (manual control, a Stand that aims without its user), for a grab and for an action that
+	 * is not a punch or barrage; otherwise as the user's "keep attack target" setting says.
+	 */
 	public static boolean shouldRetainPunchTarget(StandEntity stand, EntityActionType ability) {
-		if (stand.isManuallyControlled() || ability.getAbilityUsageCategory() == AbilityUsageGroup.GRAB
+		if (stand.aimsWithoutUser() || ability.getAbilityUsageCategory() == AbilityUsageGroup.GRAB
 				|| !isPunchOrBarrage(ability)) {
 			return true;
 		}
@@ -755,7 +760,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			return target;
 		}
 		LivingEntity user = stand.getUser();
-		ActionTarget entityBehind = aimWithThisOrUser(stand, user != null && !stand.isManuallyControlled() ? user : null,
+		ActionTarget entityBehind = aimWithThisOrUser(stand, user != null && !stand.aimsWithoutUser() ? user : null,
 				1.0F, entity -> entity != stand && canStandHit(stand, entity), precisionAim);
 		return entityBehind.getType() == TargetType.ENTITY ? entityBehind : target;
 	}
@@ -872,11 +877,12 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 				userAimReach(user, stand), canTarget, 0, stand.getPrecision(), wallsHideEntities));
 	}
 
-	// 1.16 precisionRayTrace(this, getAimDistance(getUser())) with walls as above; without the aim assist the crosshair
+	// 1.16 precisionRayTrace(this, getAimDistance(getUser())) with walls as above; without the aim assist the crosshair.
+	// getAimDistance took the Stand's own reach under manual control, and so for a Stand that aims without its user
 	private static ActionTarget standPrecisionRayTarget(StandEntity stand, Predicate<Entity> canTarget,
 			boolean wallsHideEntities) {
 		LivingEntity user = stand.getUser();
-		double reach = user != null && !stand.isManuallyControlled()
+		double reach = user != null && !stand.aimsWithoutUser()
 				? userAimReach(user, stand) : stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE);
 		Predicate<Entity> filter = canTarget.and(entity -> entity != user);
 		if (!aimAssist(user)) {
