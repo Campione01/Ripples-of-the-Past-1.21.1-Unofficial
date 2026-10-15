@@ -233,6 +233,8 @@ public final class DirectionalBarrageGameTests {
 			// steps out of them and looks up at a block in its own reach but out of the Stand's: 1.16 aimed at that block
 			// (no fallback to the Stand's own ray), and the Stand keeps the earlier targets within its reach
 			f.user.moveTo(f.origin.x, f.origin.y, f.origin.z - 4.5);
+			// out of the boxes the aim assist is back on, so this step aims with 1.16's precision ray
+			f.settings.standAimAssist = true;
 			Vec3 above = f.user.getEyePosition().add(0, 3, 0);
 			BlockPos ceiling = BlockPos.containing(above);
 			f.block(ceiling, Blocks.BEDROCK.defaultBlockState());

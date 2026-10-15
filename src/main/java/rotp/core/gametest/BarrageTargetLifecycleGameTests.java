@@ -264,6 +264,8 @@ public final class BarrageTargetLifecycleGameTests {
 					component.setAction(action, user, SyncType.NO_SYNC);
 				}
 				aimBoth(component, user, ActionTarget.EMPTY);
+				// out of the precision boxes the aim assist is back on, so the empty aim is 1.16's precision ray
+				settings.standAimAssist = true;
 				ceiling = stepOutOfThePrecisionAim(helper, user, userPos);
 				ActionTarget emptyAim = directional
 						? StandEntityBarrageAbility.clipDirectionalBarrageTarget(stand, action, 1.0F)
