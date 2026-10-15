@@ -14,6 +14,7 @@ import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility.StandEntityPunch;
+import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility;
 import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility.StandEntityBarrage;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModEntityAttributes;
@@ -71,6 +72,8 @@ public final class StandSkillWallsGameTests {
 	private static final String ATTACK_HIT_BATCH = "stand_skill_walls_attack_hit";
 	private static final String ATTACK_STRICT_BATCH = "stand_skill_walls_attack_strict";
 	private static final String ATTACK_WALL_BATCH = "stand_skill_walls_attack_wall";
+	private static final String ATTACK_FAR_BATCH = "stand_skill_walls_attack_far";
+	private static final String ATTACK_FAR_STRICT_BATCH = "stand_skill_walls_attack_far_strict";
 	private static final short KEY = 173;
 
 	@Nullable
@@ -245,6 +248,68 @@ public final class StandSkillWallsGameTests {
 				: "The marked barrage" + aim + " did not hit the cow behind the wall");
 	}
 
+	// the aim meets a mob behind the wall that the Stand cannot reach: the wall the user aims at is struck (owner, 2026-10-15)
+	@GameTest(template = "empty", timeoutTicks = 80, batch = ATTACK_FAR_BATCH)
+	public static void markedStandBarrageBreaksTheWallItsAimMeetsWhenTheMobBehindIsOutOfReach(GameTestHelper helper) {
+		barrageAtAWallWithAMobOutOfReachBehind(helper, true);
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 80, batch = ATTACK_FAR_STRICT_BATCH)
+	public static void markedStandBarrageWithoutAimAssistBreaksTheWallWhenTheMobBehindIsOutOfReach(GameTestHelper helper) {
+		barrageAtAWallWithAMobOutOfReachBehind(helper, false);
+	}
+
+	private static void barrageAtAWallWithAMobOutOfReachBehind(GameTestHelper helper, boolean aimAssist) {
+		Scene scene = new Scene(helper);
+		scene.settings().standAimAssist = aimAssist;
+		scene.lookStraightAhead();
+		BlockPos wall = scene.oneBlockWall();
+		Cow cow = scene.cowOutOfReachBehindTheWall();
+		scene.markAttacks(true);
+		float health = cow.getHealth();
+		String aim = aimAssist ? "" : " without the aim assist";
+		String[] chargedMiss = new String[1];
+		scene.run(tick -> {
+			if (tick == 3) {
+				// the charged heavy punch's own fallback aim, read before the barrage breaks the wall
+				LivingComponentAction component = LivingComponentAction.getComponent(scene.stand);
+				EntityActionInstance charged = scene.action("heavy_charged");
+				component.setAction(charged, scene.user, SyncType.NO_SYNC);
+				ActionTarget chargedAim = StandEntityBarrageAbility.clipDirectionalBarrageTarget(scene.stand, charged, 1.0F);
+				component.setAction(null, scene.user, SyncType.NO_SYNC);
+				if (chargedAim.getType() != ActionTarget.TargetType.BLOCK || !wall.equals(chargedAim.getBlockPos())) {
+					chargedMiss[0] = "The marked charged heavy punch" + aim + " aimed at " + chargedAim
+							+ " instead of the wall in front of a cow out of its reach";
+				}
+				scene.syncIdleAims();
+				EntityActionInstance barrage = scene.action("barrage");
+				component.setAction(barrage, scene.user, SyncType.NO_SYNC);
+				helper.assertTrue(barrage instanceof StandEntityBarrage && scene.stand.getCurStandAction() == barrage
+						&& StandEntityBarrageAbility.isDirectionalBarrage(scene.stand, barrage),
+						"Fixture: " + barrage + " is not Star Platinum's directional barrage");
+				return false;
+			}
+			if (tick < 3) {
+				return false;
+			}
+			helper.assertTrue(cow.getHealth() >= health, "The marked barrage" + aim + " hurt a cow out of the Stand's reach");
+			boolean broken = !helper.getLevel().getBlockState(wall).is(Blocks.STONE);
+			helper.assertTrue(!broken || chargedMiss[0] == null, String.valueOf(chargedMiss[0]));
+			return broken;
+		}, 50, () -> "The marked barrage" + aim + " did not break the wall it aimed at, with a cow out of its reach behind it"
+				+ (chargedMiss[0] != null ? "; " + chargedMiss[0] : ""));
+	}
+
+	@AfterBatch(batch = ATTACK_FAR_BATCH)
+	public static void releaseAttackFarBatch(ServerLevel level) {
+		releaseActive();
+	}
+
+	@AfterBatch(batch = ATTACK_FAR_STRICT_BATCH)
+	public static void releaseAttackFarStrictBatch(ServerLevel level) {
+		releaseActive();
+	}
+
 	@AfterBatch(batch = PICK_BATCH)
 	public static void releasePickBatch(ServerLevel level) {
 		releaseActive();
@@ -377,7 +442,30 @@ public final class StandSkillWallsGameTests {
 			return pos;
 		}
 
+		// level, along +z: the one-block wall is then at eye level half a block ahead
+		void lookStraightAhead() {
+			user.moveTo(origin.x, origin.y, origin.z, 0, 0);
+			user.setYHeadRot(0);
+			stand.moveTo(origin.x, origin.y, origin.z, 0, 0);
+		}
+
+		// on the level crosshair 4 blocks from the user's eyes, behind the one-block wall: within the user's aim reach,
+		// out of the Stand's
+		Cow cowOutOfReachBehindTheWall() {
+			Cow cow = cow(origin.add(0, 0.8, 4.45));
+			Vec3 eyes = user.getEyePosition();
+			helper.assertTrue(cow.getBoundingBox().distanceToSqr(eyes) < Math.pow(StandEntityPunchAbility.userAimReach(user, stand), 2),
+					"Fixture: the cow is beyond the user's aim reach");
+			helper.assertTrue(StandEntityPunchAbility.validatePunchTarget(stand, new ActionTarget(cow)).isEmpty(helper.getLevel()),
+					"Fixture: Star Platinum can reach the cow behind the wall");
+			return cow;
+		}
+
 		Cow cow() {
+			return cow(origin.add(0, 0, 2.2));
+		}
+
+		Cow cow(Vec3 pos) {
 			Cow cow = EntityType.COW.create(helper.getLevel());
 			helper.assertTrue(cow != null, "Could not create a cow");
 			cow.setNoAi(true);
@@ -386,7 +474,7 @@ public final class StandSkillWallsGameTests {
 			cow.getAttribute(Attributes.MAX_HEALTH).setBaseValue(500);
 			cow.getAttribute(Attributes.KNOCKBACK_RESISTANCE).setBaseValue(1);
 			cow.setHealth(500);
-			cow.moveTo(origin.x, origin.y, origin.z + 2.2, 0, 0);
+			cow.moveTo(pos.x, pos.y, pos.z, 0, 0);
 			helper.assertTrue(helper.getLevel().addFreshEntity(cow), "Could not add a cow");
 			entities.add(cow);
 			Vec3 eyes = user.getEyePosition();

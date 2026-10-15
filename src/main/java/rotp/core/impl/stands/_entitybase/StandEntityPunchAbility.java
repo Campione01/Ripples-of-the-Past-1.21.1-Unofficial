@@ -684,24 +684,41 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	 * 1.16 StandEntity.aimWithThisOrUser with no target the Stand can reach: the user's own aim (the precision ray, or
 	 * {@link #userAimTarget}); when that ray met nothing at all, or no user aims (manual control), 1.16's precision ray
 	 * from the Stand's own eyes. Without the aim assist only the crosshair: no precision ray, and the Stand's eyes only
-	 * under manual control. Walls block every ray. Checked against the Stand's reach.
+	 * under manual control. Walls block every ray, except for an action marked through walls ({@link StandSkillWalls}):
+	 * when all its ray meets is an entity out of the Stand's reach, the block the same aim meets is taken instead, so a
+	 * wall the user aims at is struck. Checked against the Stand's reach.
 	 */
 	public static ActionTarget aimWithThisOrUser(StandEntity stand, @Nullable LivingEntity user, float partialTick,
 			Predicate<Entity> canTarget, boolean precisionAim) {
-		ActionTarget aim = ActionTarget.EMPTY;
-		boolean assist = aimAssist(stand.getUser());
 		if (user != null && stand.aimsWithoutUser()) {
 			user = null;
 		}
+		boolean userRayWallsHide = user == null || StandSkillWalls.wallsHideEntities(user);
+		boolean standRayWallsHide = StandSkillWalls.wallsHideEntities(stand);
+		ActionTarget aim = pickWithThisOrUser(stand, user, partialTick, canTarget, precisionAim,
+				userRayWallsHide, standRayWallsHide);
+		ActionTarget target = validatePunchTarget(stand, aim);
+		if (target.getType() == TargetType.EMPTY && aim.getType() == TargetType.ENTITY
+				&& !(userRayWallsHide && standRayWallsHide)) {
+			target = validatePunchTarget(stand, pickWithThisOrUser(stand, user, partialTick, canTarget, precisionAim,
+					true, true));
+		}
+		return target;
+	}
+
+	private static ActionTarget pickWithThisOrUser(StandEntity stand, @Nullable LivingEntity user, float partialTick,
+			Predicate<Entity> canTarget, boolean precisionAim, boolean userRayWallsHide, boolean standRayWallsHide) {
+		ActionTarget aim = ActionTarget.EMPTY;
+		boolean assist = aimAssist(stand.getUser());
 		if (user != null) {
 			aim = precisionAim && assist
-					? userPrecisionRayTarget(stand, user, canTarget)
-					: userAimTarget(stand, user, partialTick, canTarget);
+					? userPrecisionRayTarget(stand, user, canTarget, userRayWallsHide)
+					: userAimTarget(stand, user, partialTick, canTarget, userRayWallsHide);
 		}
 		if (aim.getType() == TargetType.EMPTY && (user == null || assist)) {
-			aim = standPrecisionRayTarget(stand, canTarget);
+			aim = standPrecisionRayTarget(stand, canTarget, standRayWallsHide);
 		}
-		return validatePunchTarget(stand, aim);
+		return aim;
 	}
 
 	/**
@@ -761,14 +778,19 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	 * kept a target in reach), otherwise 1.16's precision ray.
 	 */
 	public static ActionTarget userAimTarget(StandEntity stand, LivingEntity user, float partialTick, Predicate<Entity> canTarget) {
+		return userAimTarget(stand, user, partialTick, canTarget, StandSkillWalls.wallsHideEntities(user));
+	}
+
+	private static ActionTarget userAimTarget(StandEntity stand, LivingEntity user, float partialTick,
+			Predicate<Entity> canTarget, boolean wallsHideEntities) {
 		if (!aimAssist(user)) {
-			return strictCrosshairTarget(stand, user, partialTick, canTarget);
+			return strictCrosshairTarget(stand, user, partialTick, canTarget, wallsHideEntities);
 		}
-		ActionTarget crosshair = crosshairPick(stand, user, partialTick, canTarget);
+		ActionTarget crosshair = crosshairPick(stand, user, partialTick, canTarget, wallsHideEntities);
 		if (!validatePunchTarget(stand, crosshair).isEmpty(stand.level())) {
 			return crosshair;
 		}
-		return userPrecisionRayTarget(stand, user, canTarget);
+		return userPrecisionRayTarget(stand, user, canTarget, wallsHideEntities);
 	}
 
 	/**
@@ -777,12 +799,18 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	 * block within its block interaction range, else a miss even with a block behind; a mob looks as far as its reach.
 	 */
 	public static ActionTarget crosshairPick(StandEntity stand, LivingEntity user, float partialTick, Predicate<Entity> canTarget) {
+		return crosshairPick(stand, user, partialTick, canTarget, StandSkillWalls.wallsHideEntities(user));
+	}
+
+	private static ActionTarget crosshairPick(StandEntity stand, LivingEntity user, float partialTick,
+			Predicate<Entity> canTarget, boolean wallsHideEntities) {
 		double blockRange = user instanceof Player player ? player.blockInteractionRange() : userAimReach(user, stand);
 		double entityRange = user instanceof Player player ? player.entityInteractionRange() : blockRange;
 		double range = Math.max(blockRange, entityRange);
 		Level level = stand.level();
 		Vec3 eyes = user.getEyePosition(partialTick);
-		ActionTarget hit = HitResultUtil.clip(eyes, user.getViewVector(partialTick), range, range, level, canTarget, user, 0);
+		ActionTarget hit = HitResultUtil.clip(eyes, user.getViewVector(partialTick), range, range, level, canTarget, user, 0,
+				wallsHideEntities);
 		if (hit.isEmpty(level)) {
 			return ActionTarget.EMPTY;
 		}
@@ -803,7 +831,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			Predicate<Entity> aimable) {
 		Predicate<Entity> canTarget = aimable.and(entity -> entity != stand);
 		if (!aimAssist(user)) {
-			return strictCrosshairTarget(stand, user, 1.0F, canTarget);
+			return strictCrosshairTarget(stand, user, 1.0F, canTarget, StandSkillWalls.wallsHideEntities(user));
 		}
 		if (vanillaPick.getType() == TargetType.BLOCK) {
 			return vanillaPick;
@@ -814,15 +842,16 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			return vanillaPick;
 		}
 		ActionTarget aim = userPrecisionRayTarget(stand, user, canTarget);
-		return aim.getType() == TargetType.EMPTY ? standPrecisionRayTarget(stand, canTarget) : aim;
+		return aim.getType() == TargetType.EMPTY
+				? standPrecisionRayTarget(stand, canTarget, StandSkillWalls.wallsHideEntities(stand)) : aim;
 	}
 
 	// the strict crosshair of 2026-09-13: from the user's eyes at the user's reach, blocks stopping the ray
 	private static ActionTarget strictCrosshairTarget(StandEntity stand, LivingEntity user, float partialTick,
-			Predicate<Entity> canTarget) {
+			Predicate<Entity> canTarget, boolean wallsHideEntities) {
 		double reach = userAimReach(user, stand);
 		return HitResultUtil.clip(user.getEyePosition(partialTick), user.getViewVector(partialTick),
-				reach, reach, stand.level(), canTarget, user, 0);
+				reach, reach, stand.level(), canTarget, user, 0, wallsHideEntities);
 	}
 
 	public static ActionTarget userPrecisionRayTarget(StandEntity stand, LivingEntity user) {
@@ -836,21 +865,28 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	 * blocking the aim). As 1.16, sneaking does not change it.
 	 */
 	public static ActionTarget userPrecisionRayTarget(StandEntity stand, LivingEntity user, Predicate<Entity> canTarget) {
-		return StandPrecisionRay.closestWithPriority(StandPrecisionRay.clipTargetsBeforeWalls(user,
-				userAimReach(user, stand), canTarget, 0, stand.getPrecision()));
+		return userPrecisionRayTarget(stand, user, canTarget, StandSkillWalls.wallsHideEntities(user));
+	}
+
+	private static ActionTarget userPrecisionRayTarget(StandEntity stand, LivingEntity user, Predicate<Entity> canTarget,
+			boolean wallsHideEntities) {
+		return StandPrecisionRay.closestWithPriority(StandPrecisionRay.clipTargets(user,
+				userAimReach(user, stand), canTarget, 0, stand.getPrecision(), wallsHideEntities));
 	}
 
 	// 1.16 precisionRayTrace(this, getAimDistance(getUser())) with walls as above; without the aim assist the crosshair
-	private static ActionTarget standPrecisionRayTarget(StandEntity stand, Predicate<Entity> canTarget) {
+	private static ActionTarget standPrecisionRayTarget(StandEntity stand, Predicate<Entity> canTarget,
+			boolean wallsHideEntities) {
 		LivingEntity user = stand.getUser();
 		double reach = user != null && !stand.isManuallyControlled()
 				? userAimReach(user, stand) : stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE);
 		Predicate<Entity> filter = canTarget.and(entity -> entity != user);
 		if (!aimAssist(user)) {
-			return HitResultUtil.clip(stand.getEyePosition(), stand.getLookAngle(), reach, reach, stand.level(), filter, stand, 0);
+			return HitResultUtil.clip(stand.getEyePosition(), stand.getLookAngle(), reach, reach, stand.level(), filter, stand, 0,
+					wallsHideEntities);
 		}
-		return StandPrecisionRay.closestWithPriority(StandPrecisionRay.clipTargetsBeforeWalls(stand, reach,
-				filter, 0, stand.getPrecision()));
+		return StandPrecisionRay.closestWithPriority(StandPrecisionRay.clipTargets(stand, reach,
+				filter, 0, stand.getPrecision(), wallsHideEntities));
 	}
 
 	/**
