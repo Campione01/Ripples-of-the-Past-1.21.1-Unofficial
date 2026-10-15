@@ -1,5 +1,6 @@
 package rotp.core.gametest;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -17,6 +18,7 @@ import javax.annotation.Nullable;
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
+import rotp.core.impl.stands.goldexperience.GEGrowthSparkles;
 import rotp.core.impl.stands.goldexperience.GEItemMarkEffect;
 import rotp.core.impl.stands.goldexperience.GETransformationEntity;
 import rotp.core.impl.stands.goldexperience.GoldExperienceCreateLifeformAbility;
@@ -51,6 +53,7 @@ import rotp.core.subsystems.target.ActionTarget.TargetType;
 import rotp.core.subsystems.target.ActionTargetAim;
 import rotp.core.subsystems.target.ActionTargetRange;
 import rotp.core.subsystems.target.StandPrecisionRay;
+import rotp.core.subsystems.timestop.TimeStopState;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -1455,6 +1458,70 @@ public final class StandTargetRangeGameTests {
 				});
 			});
 		});
+	}
+
+	// 1.16 counted the sparkles down on the client's animal, whose tick a time stop held (EntityUtilCap.updateEntityTimeStop,
+	// canUpdate(false)): none came while the animal stood stopped in time, and all 10 came once time resumed. The stop is
+	// put and removed within this tick, and the sparkle countdown ticked by hand.
+	@GameTest(template = "empty", batch = GameTestBatches.TIME_STOP)
+	public static void goldExperienceGrowthSparklesWaitWhileTheAnimalIsStoppedInTime(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		Cow cow = EntityType.COW.create(level);
+		helper.assertTrue(cow != null, "SPARKLES premise: could not create a cow");
+		Vec3 pos = Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(2, 2, 2)));
+		cow.moveTo(pos.x, pos.y, pos.z, 0.0F, 0.0F);
+		cow.setNoAi(true);
+		helper.assertTrue(level.addFreshEntity(cow), "SPARKLES premise: could not add the cow");
+		TimeStopState state = level.getData(ModDataAttachmentTypes.TIME_STOP.get());
+		GEGrowthSparkles sparkles = level.getData(ModDataAttachmentTypes.GE_GROWTH_SPARKLES.get());
+		ParticleWatcher watcher = new ParticleWatcher(level);
+		watcher.setPos(pos.x, pos.y, pos.z + 2.0D);
+		int stop = -7_320_000;
+		try {
+			Method tick = GEGrowthSparkles.class.getDeclaredMethod("tick");
+			tick.setAccessible(true);
+			GEGrowthSparkles.start(cow);
+			helper.assertTrue(state.tryPutInstance(new TimeStopState.Instance(stop, 200, 200, new ChunkPos(cow.blockPosition()), 2,
+					-1, "ge_growth_sparkles_test")) && TimeStopState.shouldFreezeOnServer(cow),
+					"SPARKLES premise: the cow did not stop in time");
+			List<Integer> stopped = sparkleTicks(level, watcher, tick, sparkles, 12);
+			state.removeInstance(stop);
+			helper.assertTrue(!TimeStopState.shouldFreezeOnServer(cow), "SPARKLES premise: time did not resume for the cow");
+			List<Integer> resumed = sparkleTicks(level, watcher, tick, sparkles, 48);
+			helper.assertTrue(stopped.isEmpty() && resumed.equals(List.of(0, 4, 8, 12, 16, 20, 24, 28, 32, 36)),
+					"The growth sparkles of a cow stopped in time came at stopped ticks " + stopped + " of 12, then at ticks "
+							+ resumed + " after time resumed; 1.16 showed none while the animal was stopped, then one every 4"
+							+ " ticks from the first tick after, 10 in all");
+		}
+		catch (ReflectiveOperationException e) {
+			throw new IllegalStateException("SPARKLES premise: cannot tick the growth sparkles", e);
+		}
+		finally {
+			state.removeInstance(stop);
+			watcher.close();
+			cow.discard();
+		}
+		helper.succeed();
+	}
+
+	// the countdown ticked the given times with the watcher among the level's players; the ticks that sent a sparkle
+	private static List<Integer> sparkleTicks(ServerLevel level, ParticleWatcher watcher, Method tick, GEGrowthSparkles sparkles,
+			int ticks) throws ReflectiveOperationException {
+		List<Integer> sent = new ArrayList<>();
+		for (int i = 0; i < ticks; i++) {
+			int before = watcher.sparkles().size();
+			level.players().add(watcher);
+			try {
+				tick.invoke(sparkles);
+			}
+			finally {
+				level.players().remove(watcher);
+			}
+			if (watcher.sparkles().size() > before) {
+				sent.add(i);
+			}
+		}
+		return sent;
 	}
 
 	// each sparkle 4 ticks after the one before, the first on the tick after the press, at a point of the 1.16 box
