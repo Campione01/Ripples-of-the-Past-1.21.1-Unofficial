@@ -6,6 +6,7 @@ import java.util.Map;
 
 import rotp.core.core.JojoMod;
 import rotp.core.init.ModDataAttachmentTypes;
+import rotp.core.subsystems.timestop.TimeStopState;
 
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
@@ -45,6 +46,11 @@ public class GEGrowthSparkles {
 			Animal animal = entry.getKey();
 			if (!animal.isAlive() || animal.level() != level) {
 				iter.remove();
+				continue;
+			}
+			// the 1.16 client's animal did not tick while stopped in time (EntityUtilCap.updateEntityTimeStop), so its
+			// countdown and its sparkles waited for time to resume
+			if (TimeStopState.shouldFreezeOnServer(animal)) {
 				continue;
 			}
 			int timer = entry.getValue();
