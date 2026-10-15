@@ -66,13 +66,13 @@ public final class AimAssistOffBranchGameTests {
 			helper.assertTrue(action instanceof EmeraldSplashShot, "Fixture: emerald_splash started " + action);
 			// the action reads its level from the Stand it runs on
 			LivingComponentAction.getComponent(scene.stand).setAction(action, scene.user, SyncType.NO_SYNC);
-			Method barrierTarget = method(helper, EmeraldSplashShot.class, "barrierTarget", HierophantGreenEntity.class);
+			HierophantGreenEntity hierophant = (HierophantGreenEntity) scene.stand;
 
-			Object on = invoke(helper, barrierTarget, action, scene.stand);
+			Optional<Vec3> on = EmeraldSplashShot.barrierAimPoint(hierophant);
 			helper.assertTrue(on.equals(Optional.of(beside.getBoundingBox().getCenter())),
 					"Fixture: with the aim assist on the barrier aim does not take the cow beside the crosshair: " + on);
 			scene.aimAssist(false);
-			Object off = invoke(helper, barrierTarget, action, scene.stand);
+			Optional<Vec3> off = EmeraldSplashShot.barrierAimPoint(hierophant);
 			helper.assertTrue(off.equals(Optional.of(crosshair.getBoundingBox().getCenter())),
 					"With the aim assist off the Emerald Splash barrier aim went for " + off
 							+ " instead of the cow on the crosshair at " + crosshair.getBoundingBox().getCenter());
