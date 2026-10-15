@@ -126,7 +126,10 @@ public final class ClackersPostImpactGameTests {
                             "rotation after flight tick " + (i + 1) + ": expected pitch " + pitch + " yaw " + yaw + " but was "
                                     + step.post().xRot() + " " + step.post().yRot());
                 }
-                scene.check(Math.abs(track.steps.get(2).post().xRot()) > 0.1F, "fixture: the heading never changed");
+                // the throw's inaccuracy leaves the starting pitch a little off level: measure the turn from it, not from zero
+                float start = track.steps.get(0).pre().xRot();
+                scene.check(Math.abs(track.steps.get(2).post().xRot() - start) > 0.1F, "fixture: the heading never changed from the pitch "
+                        + start + " to " + track.steps.get(2).post().xRot());
             });
         });
     }
