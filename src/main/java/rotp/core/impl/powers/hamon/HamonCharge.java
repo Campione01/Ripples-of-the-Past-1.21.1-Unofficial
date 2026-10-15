@@ -97,7 +97,8 @@ public class HamonCharge {
 					HamonUtil.emitHamonSparkParticles(level, null, chargePos, 4.0F);
 					knockbackFromCharge(target, chargePos);
 				}
-				if (userLiving != null && chargedEntity instanceof LivingEntity
+				// 1.16: the shock comes with the full-strength hit only, as the sparks and the knockback do
+				if (doLargeChargeDmg && userLiving != null && chargedEntity instanceof LivingEntity
 						&& HamonUtil.isLiving(target)
 						&& !ModStatusEffects.isStunned(target)) {
 					PlayerPower.getPowerData(userLiving, ModPlayerPowers.HAMON).ifPresent(hamon -> {
