@@ -149,9 +149,11 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 		if (!isCurrentlyInStoppedTime(user) && hasUncancellableStandAction(power)) {
 			return ConditionCheck.NEGATIVE;
 		}
-		// 1.16 had no stamina gate here: a start the bar cannot pay empties it and the stop ends on its first tick
+		// 1.16 had no stamina gate here: a start the bar cannot pay empties it and the stop ends on its first tick. A
+		// start the startup-cost policy denies is refused without a message, as 1.16 TimeStop refused a start it would
+		// not make (an uncancellable Stand action above) and as the release below starts nothing in silence.
 		return isTimeStopStartDenied(power)
-				? ConditionCheck.createNegative("no_stamina")
+				? ConditionCheck.NEGATIVE
 				: ConditionCheck.POSITIVE;
 	}
 

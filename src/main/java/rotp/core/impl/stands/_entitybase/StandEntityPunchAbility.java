@@ -604,9 +604,9 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	}
 
 	/**
-	 * The target of the Stand's current action. An action that is not one of the ordinary punches or barrages (an
-	 * add-on's bomb, erase, absorption or Open Space) aims through the user as its 1.16 task did, with the precision
-	 * ray; the punches and barrages follow the owner's strict crosshair (see {@link #userAimTarget}).
+	 * The target of the Stand's current action. Every action aims through the user as its 1.16 task did
+	 * (StandEntity.aimWithThisOrUser): an action that is not one of the ordinary punches or barrages (an add-on's bomb,
+	 * erase, absorption or Open Space) with the precision ray, the punches and barrages through {@link #userAimTarget}.
 	 */
 	public static ActionTarget getFreshPunchTarget(StandEntity stand, ActionTarget preferredTarget) {
 		EntityActionInstance action = LivingComponentAction.getCurEntityAction(stand);
@@ -642,8 +642,8 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	}
 
 	/**
-	 * @param precisionAim the user's own aim is 1.16's precision ray (StandEntity.aimWithThisOrUser for an action that
-	 *        is not a punch or barrage), walls still blocking it; otherwise the strict crosshair
+	 * @param precisionAim the user's own aim is 1.16's precision ray (StandEntity.aimWithThisOrUser), walls still
+	 *        blocking it, whatever {@link #userAimAssist} says; otherwise {@link #userAimTarget}
 	 */
 	public static ActionTarget getFreshPunchTarget(
 			StandEntity stand, ActionTarget preferredTarget, boolean retainPreferredTarget, boolean precisionAim) {
@@ -687,24 +687,27 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	}
 
 	/**
-	 * Whether the user's own Stand aim (the default barrage, a punch's fallback) has 1.16's precision aim assist. Off:
-	 * the owner's strict crosshair rule of 2026-09-13, which the owner is asked to confirm against the 1.16 assist.
+	 * Whether the user's own Stand aim (the default barrage, a punch's fallback) has 1.16's precision aim assist. On:
+	 * the owner restored it on 2026-10-14 in place of the strict crosshair of 2026-09-13; walls still block it.
 	 */
 	private static boolean userAimAssist() {
-		return false;
+		return true;
 	}
 
 	/**
-	 * The user's own aim for a Stand attack (1.16 StandEntity.aimWithThisOrUser): from the user's eyes at the user's
-	 * reach, what the crosshair ray meets first; blocks stop the ray. With the aim assist on, 1.16's precision ray.
+	 * The user's own aim for a Stand attack: from the user's eyes at the user's reach, what the crosshair ray meets
+	 * first; blocks stop the ray. With the aim assist on, as 1.16's client and server did together: what the crosshair
+	 * meets while the Stand can reach it (EntityStandType.clientHitResult kept the vanilla pick, aimWithThisOrUser kept
+	 * a target in reach), otherwise 1.16's precision ray.
 	 */
 	public static ActionTarget userAimTarget(StandEntity stand, LivingEntity user, float partialTick, Predicate<Entity> canTarget) {
-		if (userAimAssist()) {
-			return userPrecisionRayTarget(stand, user, canTarget);
-		}
 		double reach = userAimReach(user, stand);
-		return HitResultUtil.clip(user.getEyePosition(partialTick), user.getViewVector(partialTick), reach, reach,
-				stand.level(), canTarget, user, 0);
+		ActionTarget crosshair = HitResultUtil.clip(user.getEyePosition(partialTick), user.getViewVector(partialTick),
+				reach, reach, stand.level(), canTarget, user, 0);
+		if (!userAimAssist() || !validatePunchTarget(stand, crosshair).isEmpty(stand.level())) {
+			return crosshair;
+		}
+		return userPrecisionRayTarget(stand, user, canTarget);
 	}
 
 	public static ActionTarget userPrecisionRayTarget(StandEntity stand, LivingEntity user) {

@@ -102,6 +102,7 @@ public final class BarrageTargetLifecycleGameTests {
 							stand, defeated),
 					"Default Stand aim still accepts a defeated entity");
 			standAction.entityAim.setTarget(ActionTarget.EMPTY);
+			stepOutOfThePrecisionAim(user, userPos);
 			standAction.tick();
 			helper.assertTrue(action.standRotationTarget == null
 					&& action.aimAs == AimingEntity.CAMERA_ENTITY,
@@ -251,9 +252,7 @@ public final class BarrageTargetLifecycleGameTests {
 				}
 				component.entityAim.setTarget(ActionTarget.EMPTY);
 				LivingComponentAction.getComponent(user).entityAim.setTarget(ActionTarget.EMPTY);
-				if (directional) {
-					lookAt(user, user.getEyePosition().add(0, 2, -3));
-				}
+				stepOutOfThePrecisionAim(user, userPos);
 				ActionTarget emptyAim = directional
 						? StandEntityBarrageAbility.clipDirectionalBarrageTarget(stand, action, 1.0F)
 						: StandEntityPunchAbility.getFreshPunchTarget(stand, new ActionTarget(initial));
@@ -284,6 +283,16 @@ public final class BarrageTargetLifecycleGameTests {
 			GameTestHelper helper, EntityActionInstance action, String abilityName) {
 		helper.assertTrue(action.standRotationTarget == null && action.aimAs == AimingEntity.CAMERA_ENTITY,
 				abilityName + " kept Stand-direction aiming or a persistent rotation target while lock was disabled");
+	}
+
+	/*
+	 * 1.16 aimed with the Stand's precision ray (StandEntity.punch -> aimWithThisOrUser -> precisionRayTrace), whose
+	 * boxes take a mob within about 1.9 blocks of the user's eyes wherever the user looks. For an aim at empty space
+	 * the user steps 3 blocks back and looks up, away from the cows; the Stand stays by them.
+	 */
+	private static void stepOutOfThePrecisionAim(Player user, Vec3 userPos) {
+		user.moveTo(userPos.x, userPos.y, userPos.z - 3.0D);
+		lookAt(user, user.getEyePosition().add(0, 2, -3));
 	}
 
 	private static void lookAt(Player user, Vec3 target) {

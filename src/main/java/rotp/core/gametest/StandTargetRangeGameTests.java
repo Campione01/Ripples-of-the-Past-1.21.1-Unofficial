@@ -42,6 +42,7 @@ import rotp.core.subsystems.itemtracking.ItemTracking;
 import rotp.core.subsystems.itemtracking.KnownItemState;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
+import rotp.core.subsystems.target.ActionTargetAim;
 import rotp.core.subsystems.target.ActionTargetRange;
 
 import net.minecraft.core.BlockPos;
@@ -778,12 +779,11 @@ public final class StandTargetRangeGameTests {
 		helper.succeed();
 	}
 
-	// Known difference from 1.16, kept by decision (the shared aim handlers are not changed for it): when the entity
-	// the client aimed at cannot be found on the server, 1.16 PowerBaseImpl.checkTarget empties the whole target, the
-	// item entity on the look ray with it. Here ClAbilityInputPacket and ClAimTargetPacket store such an aim as no aim
-	// (ActionTarget.resolveEntityId), so the press goes on as with an empty crosshair and takes the item entity.
+	// 1.16 PowerBaseImpl.checkTarget:295-298: when the entity the client aimed at cannot be found on the server, the
+	// whole target is emptied after overrideVanillaMouseTarget, the item entity on the look ray with it, so Create
+	// Lifeform falls back to the off-hand item and, without one, asks for a material.
 	@GameTest(template = "empty", batch = BATCH)
-	public static void goldExperienceCreateLifeformTakesTheItemRayHitWhenTheAimedEntityIsGoneOnThePress(GameTestHelper helper) {
+	public static void goldExperienceCreateLifeformDropsTheItemRayHitWhenTheAimedEntityIsGoneOnThePress(GameTestHelper helper) {
 		try (Fixture fixture = Fixture.open(helper, Kind.GE_CREATE_LIFEFORM)) {
 			fixture.meetACow();
 			fixture.stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z + 1.0D, 0.0F, 0.0F);
@@ -795,26 +795,29 @@ public final class StandTargetRangeGameTests {
 			ActionTarget received = ActionTarget.STREAM_CODEC_UNRESOLVED_ENTITY_ID.decode(sent);
 			TargetType sentType = received.getType();
 			// the step both packet handlers store an aim through
-			ActionTarget stored = received.resolveEntityId(fixture.level);
-			fixture.aim(stored);
-			helper.assertTrue(sentType == TargetType.ENTITY && stored.getType() == TargetType.EMPTY
+			ActionTargetAim aim = LivingComponentAction.getComponent(fixture.user).entityAim;
+			aim.setTargetFromClient(received, fixture.level);
+			helper.assertTrue(sentType == TargetType.ENTITY && aim.getTarget().getType() == TargetType.EMPTY
 					&& fixture.user.getOffhandItem().isEmpty(),
 					"STAND-RANGE premise: the client's aim was not an entity, the server still found it, or the user has an"
-							+ " off-hand item: sent=" + sentType + " stored=" + stored.getType());
+							+ " off-hand item: sent=" + sentType + " stored=" + aim.getTarget().getType());
 
-			Vec3 itemPos = dropped.position();
 			String answered = fixture.refusal();
 			boolean admitted = fixture.admitted();
 			if (admitted) fixture.press();
 			List<GETransformationEntity> created = fixture.created();
-			double fromItem = created.isEmpty() ? -1.0D : created.get(0).position().distanceTo(itemPos);
-			helper.assertTrue("accepted".equals(answered) && admitted && created.size() == 1 && fromItem >= 0.0D
-					&& fromItem < 0.5D && !dropped.isAlive(),
+			helper.assertTrue(GE_MATERIAL.equals(answered) && !admitted && created.isEmpty() && dropped.isAlive(),
 					"GE_CREATE_LIFEFORM press with an item entity on the look ray while the entity the client aimed at is"
 							+ " gone on the server, empty off hand: answered " + answered + " admitted=" + admitted
-							+ " transformations=" + created.size() + " fromItem=" + fromItem + " itemEntityLeft="
-							+ dropped.isAlive() + "; the port stores that aim as an empty crosshair and takes the item entity"
-							+ " (1.16 would empty the target and ask for a material)");
+							+ " transformations=" + created.size() + " itemEntityLeft=" + dropped.isAlive()
+							+ "; 1.16 empties the whole target and asks for a material");
+
+			// the next aim the client sends is a fresh one
+			aim.setTargetFromClient(ActionTarget.EMPTY, fixture.level);
+			String answeredAfter = fixture.refusal();
+			helper.assertTrue("accepted".equals(answeredAfter),
+					"GE_CREATE_LIFEFORM press with the item entity on the look ray after the client sent an empty aim:"
+							+ " answered " + answeredAfter + "; the item entity is the source again");
 		}
 		helper.succeed();
 	}
