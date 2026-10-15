@@ -39,6 +39,7 @@ import net.minecraft.commands.arguments.EntityAnchorArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
@@ -477,15 +478,29 @@ public final class StandAttackAimRulesGameTests {
 		helper.succeed();
 	}
 
-	// 1.16 StandEntityMeleeBarrage.checkStandTarget accepted a barrage-clash opponent, so once a hit met the opposing Stand
-	// it stayed the task target, which aimWithThisOrUser kept while in reach (StandEntity 1676-1678), wherever the user
-	// looked; out of reach, the barrage aimed again
+	// 1.16 StandEntityMeleeBarrage.checkStandTarget let only a barrage-clash opponent become the task target, when a hit's
+	// aim met it (StandEntity.punch 1788-1796); aimWithThisOrUser then kept it while in reach (StandEntity 1676-1678),
+	// wherever the user looked, and getOffsetFromUser placed the Stand from it; out of reach, the barrage aimed again
 	@GameTest(template = "empty", timeoutTicks = 40, batch = BATCH + "clash_lock")
 	public static void defaultBarrageStaysOnItsBarrageClashOpponentAsIn116(GameTestHelper helper) {
+		barrageClash(helper, true);
+	}
+
+	// the user aims at a cow from the start of the clash: no hit meets the opposing Stand, so 1.16's task target stayed
+	// empty (checkStandTarget refused the cow) and every hit aimed again and struck the cow
+	@GameTest(template = "empty", timeoutTicks = 40, batch = BATCH + "clash_aim")
+	public static void defaultBarrageInABarrageClashHitsWhatItsUserAimsAtUntilAHitMeetsTheOpposingStandAsIn116(
+			GameTestHelper helper) {
+		barrageClash(helper, false);
+	}
+
+	private static void barrageClash(GameTestHelper helper, boolean opponentFirst) {
 		Scene scene = new Scene(helper, true);
 		scene.precision(0);
 		Player rival = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
 		rival.setNoGravity(true);
+		rival.getAttribute(Attributes.MAX_HEALTH).setBaseValue(500);
+		rival.setHealth(500);
 		rival.moveTo(scene.origin.x, scene.origin.y, scene.origin.z + 4, 180, 0);
 		helper.assertTrue(helper.getLevel().addFreshEntity(rival), "Fixture: could not add the rival Stand user");
 		scene.entities.add(rival);
@@ -499,34 +514,34 @@ public final class StandAttackAimRulesGameTests {
 			opponent.setNoGravity(true);
 			opponent.moveTo(scene.origin.x, scene.origin.y, scene.origin.z + 2, 180, 0);
 			Cow cow = scene.cow(1.6, 0.3);
-			scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, cow.getBoundingBox().getCenter());
+			Entity aimed = opponentFirst ? opponent : cow;
+			scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, aimed.getBoundingBox().getCenter());
 			EntityActionType barrage = (EntityActionType) scene.power.getAbility("barrage");
 			EntityActionInstance action = barrage.initActionOnAbilityUse(helper.getLevel(), scene.user, scene.stand, null);
 			LivingComponentAction standActions = LivingComponentAction.getComponent(scene.stand);
 			standActions.setAction(action, scene.user, SyncType.NO_SYNC);
 			helper.assertTrue(StandEntityBarrageAbility.isDirectionalBarrage(scene.stand, action)
-					&& StandEntityBarrageAbility.clipDirectionalBarrageTarget(scene.stand, action, 1).getMainEntity() == cow,
-					"Fixture: the default barrage does not aim at the cow the user looks at");
+					&& StandEntityBarrageAbility.clipDirectionalBarrageTarget(scene.stand, action, 1).getMainEntity() == aimed,
+					"Fixture: the default barrage does not aim at " + aimed + ", where the user looks");
 			Method clash = StandEntity.class.getDeclaredMethod("setBarrageClashOpponent", Entity.class);
 			clash.setAccessible(true);
 			clash.invoke(scene.stand, opponent);
 			helper.assertTrue(scene.stand.barrageClashOpponent().orElse(null) == opponent
 					&& opponent.barrageClashOpponent().orElse(null) == scene.stand, "Fixture: the two Stands are not in a barrage clash");
 			float health = cow.getHealth();
-			for (int tick = 0; tick < 8; tick++) {
-				scene.stand.tickCount++;
-				standActions.tick();
+			if (!opponentFirst) {
+				for (int tick = 0; tick < 6; tick++) {
+					scene.stand.tickCount++;
+					standActions.tick();
+				}
+				helper.assertTrue(action.punchedTarget != null && action.punchedTarget.getMainEntity() == cow
+						&& cow.getHealth() < health, "The default barrage in a barrage clash struck " + action.punchedTarget
+								+ " instead of the cow its user aims at; 1.16 took the opposing Stand as its target only once"
+								+ " a hit met it");
 			}
-			helper.assertTrue(action.punchedTarget != null && action.punchedTarget.getMainEntity() == opponent
-					&& cow.getHealth() >= health, "The default barrage in a barrage clash struck " + action.punchedTarget
-							+ " where its user looks instead of the opposing Stand; 1.16 kept a clash opponent as its target");
-			opponent.moveTo(scene.origin.x, scene.origin.y, scene.origin.z + 8, 180, 0);
-			for (int tick = 0; tick < 8; tick++) {
-				scene.stand.tickCount++;
-				standActions.tick();
+			else {
+				opponentFirst(helper, scene, action, opponent, cow);
 			}
-			helper.assertTrue(action.punchedTarget != null && action.punchedTarget.getMainEntity() == cow,
-					"The default barrage kept its clash opponent out of reach: it struck " + action.punchedTarget);
 			standActions.setAction(null, scene.user, SyncType.NO_SYNC);
 		}
 		catch (ReflectiveOperationException e) {
@@ -540,6 +555,52 @@ public final class StandAttackAimRulesGameTests {
 			scene.close();
 		}
 		helper.succeed();
+	}
+
+	// the user looks at the opposing Stand until a hit meets it, then turns to the cow
+	private static void opponentFirst(GameTestHelper helper, Scene scene, EntityActionInstance action, StandEntity opponent,
+			Cow cow) {
+		LivingComponentAction standActions = LivingComponentAction.getComponent(scene.stand);
+		float health = cow.getHealth();
+		double nearest = Math.min(0.5, scene.stand.getEffectiveRange());
+		double farthest = Math.min(1.5, scene.stand.getEffectiveRange());
+		double fromOpponent = Mth.clamp(opponent.position().subtract(scene.user.position()).horizontalDistance()
+				- (1.0 + opponent.getBbWidth() / 2.0), nearest, farthest);
+		helper.assertTrue(Math.abs(fromOpponent - farthest) > 0.1, "Fixture: the Stand placed from the opposing Stand"
+				+ " stands at " + fromOpponent + ", as along the user's look");
+		for (int tick = 0; tick < 6 && action.punchedTarget == null; tick++) {
+			scene.stand.tickCount++;
+			standActions.tick();
+		}
+		helper.assertTrue(action.punchedTarget != null && action.punchedTarget.getMainEntity() == opponent,
+				"Fixture: the barrage at the opposing Stand its user looks at struck " + action.punchedTarget);
+		// that tick placed the Stand before its first hit, while 1.16's task target was still empty
+		Vec3 offset = action.getSyncedStandOffset();
+		helper.assertTrue(offset != null && Math.abs(offset.z - farthest) < 0.01, "The default barrage in a barrage clash"
+				+ " placed the Stand at " + offset + " from the opposing Stand before a hit met it; 1.16 stood along its"
+				+ " user's look, at the farthest " + farthest);
+		scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, cow.getBoundingBox().getCenter());
+		helper.assertTrue(StandEntityPunchAbility.aimWithThisOrUser(scene.stand, scene.user, 1,
+				entity -> entity != scene.stand && StandEntityPunchAbility.canStandHit(scene.stand, entity),
+				StandEntityPunchAbility.CrosshairRule.NONE, true).getMainEntity() == cow,
+				"Fixture: the user's aim does not take the cow once turned to it");
+		for (int tick = 0; tick < 6; tick++) {
+			scene.stand.tickCount++;
+			standActions.tick();
+		}
+		offset = action.getSyncedStandOffset();
+		helper.assertTrue(action.punchedTarget != null && action.punchedTarget.getMainEntity() == opponent
+				&& cow.getHealth() >= health, "The default barrage in a barrage clash struck " + action.punchedTarget
+						+ " where its user looks instead of the opposing Stand a hit had met; 1.16 kept it as its target");
+		helper.assertTrue(offset != null && Math.abs(offset.z - fromOpponent) < 0.01, "The default barrage on its"
+				+ " clash opponent placed the Stand at " + offset + "; 1.16 placed it from its target, at " + fromOpponent);
+		opponent.moveTo(scene.origin.x, scene.origin.y, scene.origin.z + 8, 180, 0);
+		for (int tick = 0; tick < 6; tick++) {
+			scene.stand.tickCount++;
+			standActions.tick();
+		}
+		helper.assertTrue(action.punchedTarget != null && action.punchedTarget.getMainEntity() == cow,
+				"The default barrage kept its clash opponent out of reach: it struck " + action.punchedTarget);
 	}
 
 	// the target the action saved from its press (EntityActionInstance.actionTargetSnapshot)
