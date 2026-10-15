@@ -136,6 +136,21 @@ public final class StandTargetRangeGameTests {
 	}
 
 	@GameTest(template = "empty", batch = BATCH)
+	public static void goldExperienceHealOtherTakesNoEntityPastThePrecisionRay(GameTestHelper helper) {
+		precisionRayEntityPastTheUsersReach(helper, Kind.GE_HEAL_OTHER);
+	}
+
+	@GameTest(template = "empty", batch = BATCH)
+	public static void goldExperienceLifeshotTakesNoEntityPastThePrecisionRay(GameTestHelper helper) {
+		precisionRayEntityPastTheUsersReach(helper, Kind.GE_LIFESHOT);
+	}
+
+	@GameTest(template = "empty", batch = BATCH)
+	public static void goldExperienceBoneMealTakesNoBlockPastThePrecisionRay(GameTestHelper helper) {
+		precisionRayBlockPastTheUsersReach(helper, Kind.GE_BONE_MEAL);
+	}
+
+	@GameTest(template = "empty", batch = BATCH)
 	public static void crazyDiamondAnchorReachesABlockNearTheDistantStand(GameTestHelper helper) {
 		blockNearTheStand(helper, Kind.CD_ANCHOR);
 	}
@@ -1152,8 +1167,8 @@ public final class StandTargetRangeGameTests {
 		helper.succeed();
 	}
 
-	// Nothing under the synced crosshair, so the server's own ray from the user's eyes picks the entity 5 blocks ahead.
-	// The 1.16 range rule holds for that pick too: with the Stand 14 blocks behind its user the entity is out of reach.
+	// Nothing under the synced crosshair, so the Stand's precision ray from the user's eyes picks the entity 5 blocks
+	// ahead. The 1.16 range rule holds for that pick too: with the Stand 14 blocks behind its user it is out of reach.
 	private static void serverRayEntityFarFromTheStand(GameTestHelper helper, Kind kind) {
 		try (Fixture fixture = Fixture.open(helper, kind)) {
 			Cow cow = fixture.cow(5.0D);
@@ -1172,10 +1187,71 @@ public final class StandTargetRangeGameTests {
 							+ fromStand + " standBeside=" + near + " usedOnTheCow=" + nearUsed);
 			String far = fixture.refusal(kind, cow);
 			boolean farUsed = fixture.usedOn(kind, cow);
-			helper.assertTrue(!farUsed && (kind != Kind.GE_LIFESHOT || "none".equals(far)), kind + " with nothing under the"
+			// 1.16 PowerBaseImpl.checkTarget: for an action that needs an entity, a target out of range answers
+			// Action.checkRangeAndTarget's target_too_far
+			helper.assertTrue(!farUsed && (kind != Kind.GE_LIFESHOT || TOO_FAR.equals(far)), kind + " with nothing under the"
 					+ " crosshair and an entity " + fromUser + " blocks ahead of the user, " + fromStand + " from the Stand:"
 					+ " answered " + far + " usedOnTheEntity=" + farUsed + "; 1.16 measures from the Stand, so the entity is"
-					+ " out of reach");
+					+ " out of reach, and refuses with " + TOO_FAR);
+		}
+		helper.succeed();
+	}
+
+	// 1.16 EntityStandType.clientHitResult: with nothing under the crosshair a press has only the Stand's precision ray,
+	// which ends at the user's reach of 5 blocks; 1.16 casts no other ray for these actions. The cow stands about 6
+	// blocks ahead, within the actions' 8 and beside the Stand, then about 4.
+	private static void precisionRayEntityPastTheUsersReach(GameTestHelper helper, Kind kind) {
+		try (Fixture fixture = Fixture.open(helper, kind)) {
+			Cow cow = fixture.cow(6.5D);
+			cow.moveTo(fixture.origin.x, fixture.origin.y + 0.6D, fixture.origin.z + 6.5D, 180.0F, 0.0F);
+			fixture.aim(ActionTarget.EMPTY);
+			fixture.stand.moveTo(fixture.origin.x + 1.5D, fixture.origin.y, fixture.origin.z, 0.0F, 0.0F);
+			Vec3 eyes = fixture.user.getEyePosition();
+			double fromEyes = cow.getBoundingBox().clip(eyes, eyes.add(fixture.user.getLookAngle().scale(10.0D)))
+					.map(eyes::distanceTo).orElse(-1.0D);
+			helper.assertTrue(fromEyes > 5.5D && fromEyes < 7.0D, "STAND-RANGE premise: the user's look ray does not enter"
+					+ " the cow between 5.5 and 7 blocks: " + fromEyes);
+			String far = fixture.refusal(kind, cow);
+			boolean farUsed = fixture.usedOn(kind, cow);
+			helper.assertTrue(!farUsed && (kind != Kind.GE_LIFESHOT || "none".equals(far)), kind + " with nothing under the"
+					+ " crosshair, the Stand out and a cow " + fromEyes + " blocks along the look ray: answered " + far
+					+ " usedOnTheCow=" + farUsed + "; 1.16 has only the Stand's precision ray, which ends at the user's 5"
+					+ " blocks, and casts no ray of its own");
+
+			cow.moveTo(fixture.origin.x, fixture.origin.y + 0.6D, fixture.origin.z + 4.5D, 180.0F, 0.0F);
+			String near = fixture.refusal(kind, cow);
+			boolean nearUsed = fixture.usedOn(kind, cow);
+			helper.assertTrue("accepted".equals(near) && nearUsed, kind + " with nothing under the crosshair, the Stand out"
+					+ " and a cow about 4 blocks along the look ray: answered " + near + " usedOnTheCow=" + nearUsed
+					+ "; 1.16 takes the target of the Stand's precision ray");
+		}
+		helper.succeed();
+	}
+
+	// the same for a grass block: about 6.5 blocks ahead, within the Stand's 10, then 3.5
+	private static void precisionRayBlockPastTheUsersReach(GameTestHelper helper, Kind kind) {
+		try (Fixture fixture = Fixture.open(helper, kind)) {
+			fixture.aim(ActionTarget.EMPTY);
+			fixture.stand.moveTo(fixture.origin.x + 1.5D, fixture.origin.y, fixture.origin.z, 0.0F, 0.0F);
+			BlockPos farPos = fixture.block(BlockPos.containing(fixture.origin.x, fixture.origin.y + 1.0D, fixture.origin.z + 7.0D),
+					Blocks.GRASS_BLOCK.defaultBlockState());
+			double fromEyes = Math.sqrt(new AABB(farPos).distanceToSqr(fixture.user.getEyePosition()));
+			boolean inStandRange = ActionTargetRange.isBlockWithinRange(fixture.stand, fixture.level, farPos, 100.0D);
+			helper.assertTrue(fromEyes > 6.0D && fromEyes < 7.0D && inStandRange, "STAND-RANGE premise: the grass block is"
+					+ " not between 6 and 7 blocks ahead of the user's eyes within the Stand's 10: fromEyes=" + fromEyes
+					+ " inStandRange=" + inStandRange);
+			String far = fixture.refusal();
+			helper.assertTrue("none".equals(far), kind + " with nothing under the crosshair, the Stand out and a grass block "
+					+ fromEyes + " blocks ahead: answered " + far + "; 1.16 has only the Stand's precision ray, which ends at the"
+					+ " user's 5 blocks, and refuses a press without a target");
+
+			fixture.block(farPos, Blocks.AIR.defaultBlockState());
+			BlockPos nearPos = fixture.block(BlockPos.containing(fixture.origin.x, fixture.origin.y + 1.0D, fixture.origin.z + 4.0D),
+					Blocks.GRASS_BLOCK.defaultBlockState());
+			String near = fixture.refusal();
+			helper.assertTrue("accepted".equals(near), kind + " with nothing under the crosshair, the Stand out and a grass"
+					+ " block " + Math.sqrt(new AABB(nearPos).distanceToSqr(fixture.user.getEyePosition()))
+					+ " blocks ahead: answered " + near + "; 1.16 takes the block on the Stand's precision ray");
 		}
 		helper.succeed();
 	}

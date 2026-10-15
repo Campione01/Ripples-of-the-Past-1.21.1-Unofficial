@@ -609,6 +609,12 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceChosenLif
         return target;
     }
 
+    // The same client target for Gold Experience's Bone Meal, Heal Other and Life Shot, aimed by the user
+    static ActionTarget getClientLookTarget(Level level, LivingEntity user) {
+        StandPower standPower = StandPower.get(user);
+        return standPower != null ? getSyncedLookTarget(level, user, standPower, user) : ActionTarget.EMPTY;
+    }
+
     private static ActionTarget getAimTarget(LivingEntity aiming) {
         var aim = LivingComponentAction.getAim(aiming);
         ActionTarget target = aim != null ? aim.getTarget() : null;
