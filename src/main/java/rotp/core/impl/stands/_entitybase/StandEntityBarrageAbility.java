@@ -15,6 +15,8 @@ import rotp.core.client.sound.ClientsideSoundsHelper;
 import rotp.core.client.sound.barrage.StandCrySoundHandler;
 import rotp.core.client.sound.sounds.EntityStoppableSoundInstance;
 import rotp.core.customobjects.DamageSourceModified;
+import rotp.core.entityattachment.syncheddata.SyncedDataHolderExtended;
+import rotp.core.entityattachment.syncheddata.SynchedDataBuilder;
 import rotp.core.init.ModSoundEvents;
 import rotp.core.init.ModStatusEffects;
 import rotp.core.network.s2c.TrBarrageHitSoundPacket;
@@ -42,6 +44,9 @@ import rotp.core.subsystems.entity_grab.LivingComponentGrab;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.AimingEntity;
 
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.damagesource.DamageSource;
@@ -212,9 +217,13 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 	 * The barrage-clash opponent the default barrage stays on. 1.16 StandEntityMeleeBarrage.checkStandTarget let only the
 	 * clash opponent become the task target, and only when a hit's aim met it (StandEntity.punch: setTaskTarget of what
 	 * aimWithThisOrUser found); aimWithThisOrUser then kept it while the Stand could reach it. So it is held once the
-	 * barrage's last hit met it, while it is alive and within the Stand's reach.
+	 * barrage's last hit met it, while it is alive and within the Stand's reach. Clients decide it from the entity the
+	 * last hit met, which the server sends with the action (1.16 sent the task target, TrStandTaskTargetPacket).
 	 */
 	private static ActionTarget heldClashOpponent(StandEntity stand, EntityActionInstance action) {
+		if (stand.level().isClientSide()) {
+			return action instanceof StandEntityBarrage barrage ? barrage.heldClashOpponentAsSynced(stand) : ActionTarget.EMPTY;
+		}
 		Entity opponent = stand.barrageClashOpponent().orElse(null);
 		if (opponent == null || action.punchedTarget == null || !action.punchedTarget.sameTarget(new ActionTarget(opponent))) {
 			return ActionTarget.EMPTY;
@@ -244,7 +253,13 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 				StandEntityPunchAbility.CrosshairRule.NONE, true);
 	}
 	
-	public static class StandEntityBarrage extends EntityActionInstance {
+	public static class StandEntityBarrage extends EntityActionInstance implements SyncedDataHolderExtended {
+		// apart, so that a barrage can be made without a bootstrapped game (the add-on API smoke tests)
+		private static final class SyncedData {
+			// the entity punchedTarget names, -1 for none: clients decide the clash lock from it
+			private static final EntityDataAccessor<Integer> PUNCHED_ENTITY_ID = SynchedEntityData.defineId(
+					StandEntityBarrage.class, EntityDataSerializers.INT);
+		}
 		public int hitsThisTick;
 		private boolean delayedHit;
 		private int delayedHits;
@@ -258,6 +273,33 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 
 		public StandEntityBarrage(EntityActionType ability) {
 			super(ability);
+		}
+
+		@Override
+		public void defineSynchedData(SynchedDataBuilder builder) {
+			builder.define(SyncedData.PUNCHED_ENTITY_ID, -1);
+		}
+
+		@Override
+		public <T> void onSyncedDataUpdated(T oldValue, T newValue, EntityDataAccessor<T> dataAccessor) {}
+
+		private void setPunchedTarget(@Nullable ActionTarget target) {
+			punchedTarget = target;
+			Entity entity = target != null && target.getType() == ActionTarget.TargetType.ENTITY
+					? target.copy().resolveEntityId(level()).getEntity() : null;
+			synchedData.set(SyncedData.PUNCHED_ENTITY_ID, entity != null ? entity.getId() : -1);
+		}
+
+		/**
+		 * The clash opponent this barrage holds as a client decides it: the server's rule (heldClashOpponent) read from
+		 * the entity the last hit met, as the server sent it.
+		 */
+		public ActionTarget heldClashOpponentAsSynced(StandEntity stand) {
+			Entity opponent = stand.barrageClashOpponent().orElse(null);
+			if (opponent == null || synchedData.get(SyncedData.PUNCHED_ENTITY_ID) != opponent.getId()) {
+				return ActionTarget.EMPTY;
+			}
+			return StandEntityPunchAbility.validatePunchTarget(stand, new ActionTarget(opponent));
 		}
 
 		/** The live hold maximum, checked on every PERFORM tick on the server. */
@@ -347,7 +389,7 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 						|| paysAsDefault && (standPower == null || !standPower.consumeStamina(4, true)))) {
 					hitsThisTick = 0;
 					stand.setBarrageHitsThisTick(0);
-					punchedTarget = null;
+					setPunchedTarget(null);
 					startRecovery();
 					return;
 				}
@@ -393,7 +435,7 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 						playSound = false;
 					}
 					TrBarrageHitSoundPacket.send(stand, playSound, getBarrageHitSound(), soundPos);
-					punchedTarget = target;
+					setPunchedTarget(target);
 				}
 				if (standPower != null && (!paysAsDefault || level.isClientSide())) {
 					standPower.consumeStamina(4, true);
