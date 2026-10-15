@@ -6,7 +6,11 @@ import java.util.function.Consumer;
 
 import rotp.core.api.power.PowerSkillUnlocks;
 import rotp.core.api.stand.StandPowerTransitions;
+import rotp.core.api.timestop.TimeStopBehaviorPolicies;
+import rotp.core.api.timestop.TimeStopBehaviorPolicy;
 import rotp.core.api.timestop.TimeStopLifecycleEvent;
+import rotp.core.api.timestop.TimeStopStartupCostContext;
+import rotp.core.api.timestop.TimeStopStartupCostDecision;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.impl.stands.theworld.TimeStopAbility;
@@ -15,6 +19,7 @@ import rotp.core.init.ModStatusEffects;
 import rotp.core.mechanics.resolve.ResolveModeEffect;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
+import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.netcode.SyncType;
@@ -28,6 +33,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.GameType;
@@ -134,6 +140,57 @@ public final class TimeStopLowStaminaGameTests {
 			scene.close();
 			throw error;
 		}
+	}
+
+	/*
+	 * A startup-cost policy (the add-on API) that denies the start is no stamina refusal: since R766 the bar gates no
+	 * time stop, as in 1.16. The 1.16 TimeStop refused a start it would not make with ActionConditionResult.NEGATIVE,
+	 * no message (checkSpecificConditions, an uncancellable Stand action), and the port's release already starts
+	 * nothing in silence.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 60, batch = GameTestBatches.TIME_STOP)
+	public static void timeStopDeniedByItsStartupCostPolicyIsRefusedWithoutAStaminaMessage(GameTestHelper helper) {
+		registerDenyingPolicy();
+		Scene scene = new Scene(helper);
+		try {
+			scene.setUp();
+			scene.player.addTag(DENIED_START_TAG);
+			scene.power.setStamina(scene.power.getMaxStamina());
+			helper.assertTrue(TimeStopBehaviorPolicies.resolveStartupCost(scene.power, scene.timeStop.getAbilityId(), null,
+					1.0F).isDenied(), "LOW-STAMINA-TS premise: the test policy does not deny this user's start");
+			ConditionCheck check = scene.timeStop.checkSpecificConditions(scene.power);
+			helper.assertTrue(!check.isPositive() && check.getWarning() == null,
+					"A time stop its startup-cost policy denies, with a full bar: positive=" + check.isPositive()
+							+ " message=" + (check.getWarning() != null ? check.getWarning().getString() : null)
+							+ "; a silent refusal expected, the bar does not gate a time stop");
+			float stamina = scene.power.getStamina();
+			int holdTicks = scene.holdToFire();
+			helper.assertTrue(scene.instance() == null && scene.power.getStamina() == stamina,
+					"A denied time stop held to fire started " + scene.instance() + " or took stamina " + stamina + " -> "
+							+ scene.power.getStamina() + " after " + holdTicks + " ticks");
+		}
+		finally {
+			scene.close();
+		}
+		helper.succeed();
+	}
+
+	private static final String DENIED_START_TAG = "rotp_gametest_time_stop_start_denied";
+	private static boolean denyingPolicyRegistered;
+
+	// The registry has no removal; the policy denies only users with the tag and passes every other start.
+	private static synchronized void registerDenyingPolicy() {
+		if (denyingPolicyRegistered) return;
+		TimeStopBehaviorPolicies.register(JojoMod.resLoc("time_stop_denied_start_gametest"), JojoMod.resLoc("the_world"),
+				new TimeStopBehaviorPolicy() {
+					@Override
+					public TimeStopStartupCostDecision startupCost(TimeStopStartupCostContext context) {
+						LivingEntity user = context.power().getUser();
+						return user != null && user.getTags().contains(DENIED_START_TAG)
+								? TimeStopStartupCostDecision.deny() : TimeStopStartupCostDecision.pass();
+					}
+				});
+		denyingPolicyRegistered = true;
 	}
 
 	private static final class Scene {
