@@ -5,6 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 import com.mojang.authlib.GameProfile;
 
@@ -58,6 +59,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Cod;
 import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -72,7 +74,10 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import net.neoforged.bus.api.EventPriority;
+import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.common.util.FakePlayer;
+import net.neoforged.neoforge.event.entity.player.BonemealEvent;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -1017,6 +1022,59 @@ public final class StandTargetRangeGameTests {
 		blockFarFromTheStand(helper, Kind.GE_BONE_MEAL);
 	}
 
+	// 1.16 GoldExperienceBoneMeal.standPerform re-aims with StandEntity.aimWithThisOrUser(64, task target): a pressed
+	// target out of the Stand's reach gives way to the precision ray from the user's eyes. The Stand stands beside its
+	// user, the sapling on the user's look ray about 6 blocks ahead, past the Stand's reach and within the press range.
+	@GameTest(template = "empty", batch = BATCH)
+	public static void goldExperienceBoneMealReaimsAlongTheUsersLookRayPastTheStandsReach(GameTestHelper helper) {
+		try (Fixture fixture = Fixture.open(helper, Kind.GE_BONE_MEAL)) {
+			List<BlockPos> boneMealed = new ArrayList<>();
+			Consumer<BonemealEvent> listener = event -> {
+				if (event.getLevel() == fixture.level && fixture.space.contains(Vec3.atCenterOf(event.getPos()))) {
+					boneMealed.add(event.getPos().immutable());
+				}
+			};
+			NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, true, BonemealEvent.class, listener);
+			try {
+				fixture.stand.moveTo(fixture.origin.x + 1.5D, fixture.origin.y, fixture.origin.z, 0.0F, 0.0F);
+				BlockPos onRay = fixture.sapling(BlockPos.containing(fixture.origin.x, fixture.origin.y + 1.0D,
+						fixture.origin.z + 6.0D));
+				AABB saplingBox = fixture.level.getBlockState(onRay).getShape(fixture.level, onRay).bounds().move(onRay);
+				double fromStand = ActionTargetRange.getDistance(fixture.stand, saplingBox);
+				double reach = fixture.stand.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE);
+				Vec3 eyes = fixture.user.getEyePosition();
+				boolean onLookRay = saplingBox.clip(eyes, eyes.add(fixture.user.getLookAngle().scale(64.0D))).isPresent();
+				fixture.aim(new ActionTarget(onRay, Direction.NORTH));
+				String pressed = fixture.refusal();
+				helper.assertTrue(fromStand > reach && onLookRay && "accepted".equals(pressed),
+						"STAND-RANGE premise: the sapling is not past the Stand's reach on the user's look ray, or the press on"
+								+ " it was refused: fromStand=" + fromStand + " reach=" + reach + " onLookRay=" + onLookRay
+								+ " press=" + pressed);
+				fixture.pressAndRun();
+				helper.assertTrue(boneMealed.equals(List.of(onRay)), "GE_BONE_MEAL pressed on a sapling " + fromStand
+						+ " blocks from the Stand, past its reach of " + reach + ", on the user's look ray: bone-mealed "
+						+ boneMealed + "; 1.16 re-aims along the user's look ray and bone-meals the sapling " + onRay);
+
+				boneMealed.clear();
+				fixture.sapling(onRay);
+				BlockPos offRay = fixture.sapling(BlockPos.containing(fixture.origin.x - 2.0D, fixture.origin.y + 1.0D,
+						fixture.origin.z + 5.0D));
+				fixture.aim(new ActionTarget(offRay, Direction.NORTH));
+				pressed = fixture.refusal();
+				helper.assertTrue("accepted".equals(pressed), "STAND-RANGE premise: the press on the sapling off the look ray"
+						+ " was refused: " + pressed);
+				fixture.pressAndRun();
+				helper.assertTrue(boneMealed.equals(List.of(onRay)), "GE_BONE_MEAL pressed on a sapling " + offRay
+						+ " off the user's look ray and past the Stand's reach: bone-mealed " + boneMealed + "; 1.16 re-aims"
+						+ " along the user's look ray and bone-meals the sapling there, " + onRay);
+			}
+			finally {
+				NeoForge.EVENT_BUS.unregister(listener);
+			}
+		}
+		helper.succeed();
+	}
+
 	// The block's near face is 10.15 blocks straight ahead of the Stand's eyes. 1.16 JojoModUtil.getDistance takes half
 	// the performer's width off, which leaves about 9.85.
 	// Own batch: this test keeps its scene for some ticks, and the others of this class share a chunk's scene.
@@ -1427,6 +1485,28 @@ public final class StandTargetRangeGameTests {
 			pressed = true;
 			return AbilityInput.keyPress(KEY, ability, user, null, InputMethod.CLICK, 0.0F, BufferingState.clickOnly(),
 					ability.getAbilityId());
+		}
+
+		// a fresh oak sapling on a dirt block
+		private BlockPos sapling(BlockPos pos) {
+			block(pos.below(), Blocks.DIRT.defaultBlockState());
+			return block(pos, Blocks.OAK_SAPLING.defaultBlockState());
+		}
+
+		// a real press run to its end, with the stamina its use needs
+		private void pressAndRun() {
+			power.setStamina(power.getMaxStamina());
+			stand.summonLockTicks = 0;
+			LivingComponentAction standActions = LivingComponentAction.getComponent(stand);
+			LivingComponentAction userActions = LivingComponentAction.getComponent(user);
+			press();
+			for (int tick = 0; tick < 30; tick++) {
+				standActions.tick();
+				userActions.tick();
+			}
+			AbilityInput.keyRelease(KEY, user);
+			standActions.setAction(null, user, SyncType.NO_SYNC);
+			userActions.setAction(null, user, SyncType.NO_SYNC);
 		}
 
 		// the ability's answer for a wounded cow, with the material and stamina its use needs
