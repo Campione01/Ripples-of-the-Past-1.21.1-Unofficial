@@ -3,6 +3,7 @@ package rotp.core.gametest;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.compat.v1_21_4.missingmethods._EntitySelector;
@@ -16,6 +17,7 @@ import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModEntityAttributes;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
+import rotp.core.powersystem.ability.AbilityUsageGroup;
 import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.ability.input.AbilityInput;
 import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
@@ -200,6 +202,49 @@ public final class StandAttackAimRulesGameTests {
 		}, 60, () -> "The " + name + " at the user's own wolf on the ground never hit the cow beside it");
 	}
 
+	// the grab (a port move) takes only an entity the Stand can attack (StandEntityGrab picks with canStandHit); one that
+	// becomes the user's own while held is spared by the grab's punches, as 1.16's StandEntity.attackEntity refused any
+	// main target the Stand could not harm
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "grab_punch")
+	public static void grabPunchSparesAHeldWolfThatBecameTheUsersOwn(GameTestHelper helper) {
+		heldWolfBecameOwn(helper, "punch");
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "grab_heavy")
+	public static void grabHeavyPunchSparesAHeldWolfThatBecameTheUsersOwn(GameTestHelper helper) {
+		heldWolfBecameOwn(helper, "heavy_punch");
+	}
+
+	private static void heldWolfBecameOwn(GameTestHelper helper, String name) {
+		Scene scene = new Scene(helper, true);
+		LivingEntity[] owner = new LivingEntity[1];
+		Wolf wolf = scene.wolf(scene.origin.add(0, 1.0, 1.5), () -> owner[0]);
+		helper.assertTrue(StandEntityPunchAbility.canStandHit(scene.stand, wolf), "Fixture: the Stand cannot attack the wild wolf");
+		float health = wolf.getHealth();
+		EntityActionInstance[] action = new EntityActionInstance[1];
+		scene.run(tick -> {
+			if (tick == 3) {
+				scene.stand.getData(ModDataAttachmentTypes.LIVING_GRAB.get()).setGrabTarget(wolf);
+				owner[0] = scene.user;
+				wolf.setTame(true, false);
+				wolf.setOwnerUUID(scene.user.getUUID());
+				helper.assertTrue(!StandEntityPunchAbility.canStandHit(scene.stand, wolf),
+						"Fixture: the Stand can still attack the wolf tamed by its user");
+				action[0] = scene.press(name, InputMethod.CLICK);
+				helper.assertTrue(action[0] != null && action[0].ability.getAbilityUsageCategory() == AbilityUsageGroup.GRAB,
+						"Fixture: the " + name + " input started " + action[0] + ", not its grab variation");
+				return false;
+			}
+			if (tick < 3) {
+				return false;
+			}
+			helper.assertTrue(wolf.getHealth() >= health, "The grab " + name + " hurt the held wolf that became the user's"
+					+ " own; 1.16's StandEntity.attackEntity spared a main target the Stand could not harm");
+			ActionTarget struck = action[0].punchedTarget;
+			return struck != null && struck.getMainEntity() == wolf && tick > 20;
+		}, 60, () -> "The grab " + name + " never swung at the held wolf");
+	}
+
 	private interface Step {
 		boolean run(int tick);
 	}
@@ -292,11 +337,20 @@ public final class StandAttackAimRulesGameTests {
 
 		// the user's own tame wolf; the Stand cannot attack it
 		Wolf ownWolf(Vec3 pos) {
+			Wolf wolf = wolf(pos, () -> user);
+			wolf.setTame(true, false);
+			wolf.setOwnerUUID(user.getUUID());
+			helper.assertTrue(wolf.getOwner() == user && !StandEntityPunchAbility.canStandHit(stand, wolf),
+					"Fixture: the wolf is not the user's own, or the Stand can attack it");
+			return wolf;
+		}
+
+		Wolf wolf(Vec3 pos, Supplier<LivingEntity> owner) {
 			Wolf wolf = new Wolf(EntityType.WOLF, helper.getLevel()) {
 				// the level finds a real owner, a server player, by its UUID; this mock user is not one
 				@Override
 				public LivingEntity getOwner() {
-					return user;
+					return owner.get();
 				}
 			};
 			wolf.setNoAi(true);
@@ -305,13 +359,9 @@ public final class StandAttackAimRulesGameTests {
 			wolf.getAttribute(Attributes.MAX_HEALTH).setBaseValue(500);
 			wolf.getAttribute(Attributes.KNOCKBACK_RESISTANCE).setBaseValue(1);
 			wolf.setHealth(500);
-			wolf.setTame(true, false);
-			wolf.setOwnerUUID(user.getUUID());
 			wolf.moveTo(pos.x, pos.y, pos.z, 0, 0);
 			helper.assertTrue(helper.getLevel().addFreshEntity(wolf), "Could not add a wolf");
 			entities.add(wolf);
-			helper.assertTrue(wolf.getOwner() == user && !StandEntityPunchAbility.canStandHit(stand, wolf),
-					"Fixture: the wolf is not the user's own, or the Stand can attack it");
 			return wolf;
 		}
 

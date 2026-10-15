@@ -421,7 +421,8 @@ public class EntityActionInstance implements HeldInput {
 	public static boolean standEntityAttack(StandEntity stand, Entity target, DamageSource dmgSource, float dmgAmount,
 			boolean mainTarget) {
 		ServerLevel level = (ServerLevel) target.level();
-		boolean hurt = stand.hurtWithStandAttack(target, dmgSource, dmgAmount);
+		// 1.16 StandEntity.attackEntity: a main target the Stand cannot harm is not hit, a grabbed one included
+		boolean hurt = (!mainTarget || stand.canAttackEntity(target)) && stand.hurtWithStandAttack(target, dmgSource, dmgAmount);
 		if (hurt && mainTarget && !stand.isManuallyControlled()) {
 			stand.setLastHurtMob(target);
 			LivingEntity standUser = stand.getUser();
