@@ -656,6 +656,30 @@ public final class StandAimReachGameTests {
 		});
 	}
 
+	// 1.16 EntityStandType.clientHitResult kept the vanilla pick for any entity but the Stand
+	// (JojoModUtil.isAnotherEntityTargeted) and left it to the action to refuse one it cannot take, so a client's Stand
+	// aim stays on the crosshair entity the Stand does not aim at instead of a mob beside it
+	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH + "_alone_9")
+	public static void clientStandAimKeepsACrosshairEntityTheStandDoesNotAimAt(GameTestHelper helper) {
+		Scene scene = new Scene(helper, GameType.SURVIVAL, false, 16);
+		try {
+			Cow beside = scene.besideTheCrosshair();
+			Cow crosshair = scene.cow(0, 2.0);
+			scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, crosshair.getBoundingBox().getCenter());
+			ActionTarget pick = StandEntityPunchAbility.crosshairPick(scene.stand, scene.user, 1, scene.pickable());
+			helper.assertTrue(pick.getMainEntity() == crosshair, "Fixture: the vanilla pick is " + pick);
+			ActionTarget aim = StandEntityPunchAbility.userStandAim(scene.stand, scene.user, pick,
+					entity -> entity != crosshair && StandEntityAbility.canDefaultTargetEntityForAiming(scene.stand, entity));
+			helper.assertTrue(aim.getMainEntity() == crosshair, "A client's Stand aim with the crosshair on an entity the"
+					+ " Stand does not aim at took " + aim + (aim.getMainEntity() == beside ? " (the cow beside)" : "")
+					+ "; 1.16 kept the vanilla pick of any entity but the Stand");
+			helper.succeed();
+		}
+		finally {
+			scene.close();
+		}
+	}
+
 	private static EntityActionInstance action(GameTestHelper helper, Scene scene, String name) {
 		Ability ability = scene.power.getAbility(name);
 		helper.assertTrue(ability instanceof EntityActionType, "Fixture: no " + name + " action");
