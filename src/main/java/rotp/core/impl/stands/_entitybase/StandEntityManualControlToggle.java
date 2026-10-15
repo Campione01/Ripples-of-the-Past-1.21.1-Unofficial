@@ -111,6 +111,8 @@ public class StandEntityManualControlToggle extends Ability {
 			return;
 		}
 		stand.setCanFollowUser(true);
+		// a Stand taken over from a fixed remote position has its physics from there
+		stand.updateNoPhysics();
 		if (level.isClientSide()) {
 			if (user == ClientProxy.getClientPlayer()) {
 				ClientEntityController.setInstance(new ClientStandController(stand));

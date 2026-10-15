@@ -132,6 +132,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ProjectileWeaponItem;
 import net.minecraft.world.item.Tiers;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec2;
@@ -360,6 +361,10 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 			if (barrageClashOpponentOutOfReach()) {
 				setBarrageClashOpponent(null);
 			}
+			// standBodyThroughWalls can change while the server runs
+			if (isManuallyControlled() && getCurStandAction() == null) {
+				updateNoPhysics();
+			}
 		}
 		
 		if (user != null) {
@@ -382,6 +387,7 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		tickFinisherMeter();
 		tickSummonAlpha();
 		if (level.isClientSide()) {
+			pushOutOfViewBlockingBlock(user);
 			++overlayTickCount;
 		}
 	}
@@ -1253,8 +1259,46 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		setNoPhysics(shouldHaveNoPhysics());
 	}
 
+	// 1.16 StandEntity.shouldHaveNoPhysics, with the server's standBodyThroughWalls on "manga" for manual control too
 	protected boolean shouldHaveNoPhysics() {
-		return standCanHaveNoPhysics && !isManuallyControlled() && followingUserIsEnabled();
+		return standCanHaveNoPhysics && (!isManuallyControlled() || manualControlPassesThroughBlocks())
+				&& followingUserIsEnabled();
+	}
+
+	private boolean manualControlPassesThroughBlocks() {
+		return JojoModConfig.getCommonConfigInstance(level().isClientSide()).manualStandPassesThroughBlocks();
+	}
+
+	/**
+	 * 1.16 StandEntity.tick on the client: a manually controlled Stand that collides with blocks and is stuck in one
+	 * is moved toward its user. With standBodyThroughWalls on "manga" only a Stand that always collides is moved.
+	 */
+	private void pushOutOfViewBlockingBlock(@Nullable LivingEntity user) {
+		if (user != null && isManuallyControlled() && !noPhysics
+				&& (!standCanHaveNoPhysics || !manualControlPassesThroughBlocks())
+				&& isInsideViewBlockingBlock(position())) {
+			Vec3 vecToUser = user.position().subtract(position());
+			if (vecToUser.lengthSqr() > 1) {
+				vecToUser = vecToUser.normalize();
+			}
+			moveWithoutCollision(vecToUser);
+		}
+	}
+
+	// 1.16 StandEntity.isInsideViewBlockingBlock
+	public boolean isInsideViewBlockingBlock(Vec3 pos) {
+		BlockPos.MutableBlockPos blockPos = new BlockPos.MutableBlockPos();
+		for (int i = 0; i < 8; ++i) {
+			double x = pos.x + (double) (((float) ((i >> 0) % 2) - 0.5F) * getBbWidth() * 0.8F);
+			double y = pos.y + getEyeHeight() + (double) (((float) ((i >> 1) % 2) - 0.5F) * 0.1F);
+			double z = pos.z + (double) (((float) ((i >> 2) % 2) - 0.5F) * getBbWidth() * 0.8F);
+			blockPos.set(x, y, z);
+			BlockState blockState = level().getBlockState(blockPos);
+			if (blockState.getRenderShape() != RenderShape.INVISIBLE && blockState.isSuffocating(level(), blockPos)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	public void setNoPhysics(boolean noPhysics) {
