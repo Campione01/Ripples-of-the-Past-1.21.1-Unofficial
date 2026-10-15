@@ -44,6 +44,7 @@ import rotp.core.powersystem.standpower.entity.StandStatFormulas;
 import rotp.core.subsystems.entity_grab.LivingComponentGrab;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.AimingEntity;
+import rotp.core.subsystems.target.HitResultUtil;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
 import rotp.core.util.functions.DamageUtil;
 import rotp.core.util.functions.JojoModUtil;
@@ -72,11 +73,13 @@ import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Explosion;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.ItemAbilities;
 
@@ -173,6 +176,22 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 			player.stopUsingItem();
 			player.level().broadcastEntityEvent(player, (byte) 30);
 		}
+	}
+
+	/**
+	 * Whether blocks hide an entity from a Stand's body: both the line from the Stand's eyes to the entity's eyes (the
+	 * vanilla line of sight) and the one to the centre of its box meet a block's collision shape. The bodily sweeps of
+	 * ordinary Stands skip such an entity, as the original story stops their attacks at walls (owner, 2026-10-15).
+	 */
+	public static boolean wallHidesFromStand(StandEntity stand, Entity target) {
+		Vec3 eyes = stand.getEyePosition();
+		return wallBetween(stand, eyes, target.getEyePosition())
+				&& wallBetween(stand, eyes, target.getBoundingBox().getCenter());
+	}
+
+	private static boolean wallBetween(StandEntity stand, Vec3 from, Vec3 to) {
+		return HitResultUtil.clipBlocks(new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, stand),
+				stand.level()).getType() != HitResult.Type.MISS;
 	}
 
 	@Override

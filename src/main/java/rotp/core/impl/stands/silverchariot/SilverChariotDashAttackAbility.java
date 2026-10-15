@@ -5,8 +5,11 @@ import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.powersystem.standpower.StandInstance.StandPart;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+import java.util.function.Predicate;
 
+import rotp.core.api.stand.StandSkillWalls;
 import rotp.core.client.ClientGlobals;
 import rotp.core.client.sound.ClientsideSoundsHelper;
 import rotp.core.init.ModSoundEvents;
@@ -39,7 +42,10 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 public class SilverChariotDashAttackAbility extends StandEntityAbility {
@@ -222,7 +228,7 @@ public class SilverChariotDashAttackAbility extends StandEntityAbility {
 				if (moveForward) {
 					hitDashTargets(level, stand);
 				}
-				else if (hadForwardMovement) {
+				else if (hadForwardMovement && !wallHidesDashTarget(level, stand, dashTarget)) {
 					hitDashTarget(level, stand, dashTarget);
 				}
 			}
@@ -287,10 +293,48 @@ public class SilverChariotDashAttackAbility extends StandEntityAbility {
 
 		private void hitDashTargets(Level level, StandEntity stand) {
 			double reach = stand.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE);
-			for (ActionTarget target : HitResultUtil.clipMultipleTargets(stand, reach,
-					entity -> StandEntityPunchAbility.canStandHit(stand, entity), 0.25D, stand.getPrecision())) {
+			Predicate<Entity> canHit = entity -> StandEntityPunchAbility.canStandHit(stand, entity);
+			List<ActionTarget> targets = StandSkillWalls.wallsHideEntities(level, this)
+					? dashTargetsBeforeWalls(level, stand, reach, canHit)
+					: HitResultUtil.clipMultipleTargets(stand, reach, canHit, 0.25D, stand.getPrecision());
+			for (ActionTarget target : targets) {
 				hitDashTarget(level, stand, target);
 			}
+		}
+
+		private boolean wallHidesDashTarget(Level level, StandEntity stand, ActionTarget target) {
+			target = target.resolveEntityId(level);
+			return target.getType() == ActionTarget.TargetType.ENTITY && target.getEntity() != null
+					&& StandSkillWalls.wallsHideEntities(level, this)
+					&& StandEntityHeavyPunchAbility.wallHidesFromStand(stand, target.getEntity());
+		}
+
+		/**
+		 * 1.16's dash ray (entities first, the block it meets when there are none) with the original story's walls: the
+		 * rapier's path ends at the first block it meets, and an entity a wall hides from the Stand is not hit.
+		 */
+		private static List<ActionTarget> dashTargetsBeforeWalls(Level level, StandEntity stand, double reach,
+				Predicate<Entity> canHit) {
+			Vec3 start = stand.getEyePosition();
+			Vec3 look = stand.getLookAngle();
+			if (look.lengthSqr() < 1.0E-7) {
+				return List.of();
+			}
+			Vec3 end = start.add(look.normalize().scale(reach));
+			BlockHitResult wall = HitResultUtil.clipBlocks(new ClipContext(start, end,
+					ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, stand), level);
+			double pathSqr = wall.getType() == HitResult.Type.MISS ? Double.MAX_VALUE : start.distanceToSqr(wall.getLocation());
+			List<ActionTarget> entities = HitResultUtil.clipMultipleEntities(stand, reach, canHit, 0.25D, stand.getPrecision())
+					.stream()
+					.filter(target -> target.getClipPos().map(clip -> start.distanceToSqr(clip) <= pathSqr).orElse(true)
+							&& !StandEntityHeavyPunchAbility.wallHidesFromStand(stand, target.getEntity()))
+					.toList();
+			if (!entities.isEmpty()) {
+				return entities;
+			}
+			ActionTarget block = ActionTarget.fromVanilla(HitResultUtil.clipBlocks(new ClipContext(start, end,
+					ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, stand), level));
+			return block.isEmpty(level) ? List.of() : List.of(block);
 		}
 
 		private void hitDashTarget(Level level, StandEntity stand, ActionTarget target) {
