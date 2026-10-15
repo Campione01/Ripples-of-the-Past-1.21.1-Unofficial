@@ -607,13 +607,49 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	/**
 	 * The target of the Stand's current action. Every action aims through the user as its 1.16 task did
 	 * (StandEntity.aimWithThisOrUser): an action that is not one of the ordinary punches or barrages (an add-on's bomb,
-	 * erase, absorption or Open Space) with the precision ray, the punches and barrages through {@link #userAimTarget}.
+	 * erase, absorption or Open Space) with the precision ray, the punches and barrages by their {@link CrosshairRule}.
 	 */
 	public static ActionTarget getFreshPunchTarget(StandEntity stand, ActionTarget preferredTarget) {
 		EntityActionInstance action = LivingComponentAction.getCurEntityAction(stand);
+		boolean precisionAim = action != null && !isPunchOrBarrage(action.ability);
 		return getFreshPunchTarget(stand, preferredTarget,
 				action == null || shouldRetainPunchTarget(stand, action.ability),
-				action != null && !isPunchOrBarrage(action.ability));
+				action == null ? CrosshairRule.BLOCK_OR_ENTITY : crosshairRule(action.ability), precisionAim);
+	}
+
+	/**
+	 * What an attack takes from its user's crosshair while the aim assist is on, as its 1.16 action kept the target it
+	 * was pressed at: the light punch a block or an entity the Stand can attack (StandEntityLightAttack.standKeepsTarget),
+	 * the heavy punch only such an entity (StandEntityHeavyAttack.standKeepsTarget), the barrage nothing
+	 * (StandEntityMeleeBarrage.checkStandTarget). An entity the attack cannot take is refused as 1.16's press refused it
+	 * (PowerBaseImpl.checkTarget, StandEntity.canAttack). What the attack does not take, 1.16's precision ray decides.
+	 * Without the assist every attack takes what the crosshair meets.
+	 */
+	public enum CrosshairRule {
+		BLOCK_OR_ENTITY,
+		ENTITY,
+		NONE;
+
+		boolean takes(StandEntity stand, ActionTarget crosshair, Predicate<Entity> canTarget) {
+			Level level = stand.level();
+			return switch (crosshair.getType()) {
+				case ENTITY -> crosshair.getEntity() != null && canTarget.test(crosshair.getEntity())
+						&& !validatePunchTarget(stand, crosshair).isEmpty(level);
+				case BLOCK -> this == BLOCK_OR_ENTITY && !validatePunchTarget(stand, crosshair).isEmpty(level);
+				default -> false;
+			};
+		}
+
+		ActionTarget keeps(ActionTarget target, boolean aimAssist) {
+			return aimAssist && this == ENTITY && target.getType() == TargetType.BLOCK ? ActionTarget.EMPTY : target;
+		}
+	}
+
+	private static CrosshairRule crosshairRule(EntityActionType ability) {
+		if (ability instanceof StandEntityHeavyPunchAbility || ability instanceof StandEntityHeavyPunchChargedAbility) {
+			return CrosshairRule.ENTITY;
+		}
+		return isPunchOrBarrage(ability) ? CrosshairRule.BLOCK_OR_ENTITY : CrosshairRule.NONE;
 	}
 
 	/**
@@ -653,102 +689,143 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	 */
 	public static ActionTarget getFreshPunchTarget(
 			StandEntity stand, ActionTarget preferredTarget, boolean retainPreferredTarget, boolean precisionAim) {
+		return getFreshPunchTarget(stand, preferredTarget, retainPreferredTarget,
+				precisionAim ? CrosshairRule.NONE : CrosshairRule.BLOCK_OR_ENTITY, precisionAim);
+	}
+
+	/** A punch's or heavy punch's target, what it takes from the crosshair given by its {@link CrosshairRule}. */
+	public static ActionTarget getFreshPunchTarget(
+			StandEntity stand, ActionTarget preferredTarget, boolean retainPreferredTarget, CrosshairRule rule) {
+		return getFreshPunchTarget(stand, preferredTarget, retainPreferredTarget, rule, false);
+	}
+
+	private static ActionTarget getFreshPunchTarget(StandEntity stand, ActionTarget preferredTarget,
+			boolean retainPreferredTarget, CrosshairRule rule, boolean precisionAim) {
 		Level level = stand.level();
+		LivingEntity user = stand.getUser();
+		boolean assist = aimAssist(user);
 		ActionTarget target = retainPreferredTarget
-				? validatePunchTarget(stand, preferredTarget) : ActionTarget.EMPTY;
+				? rule.keeps(validatePunchTarget(stand, preferredTarget), assist) : ActionTarget.EMPTY;
 		if (!target.isEmpty(level)) {
-			return throughWallsTarget(stand, target, precisionAim);
+			return throughWallsTarget(stand, target, rule, true);
 		}
 
-		LivingEntity user = stand.getUser();
 		boolean userAims = user != null && !stand.aimsWithoutUser();
 		// 1.16 EntityStandType.clientHitResult sent what the user's crosshair met. The Stand's synced aim speaks first only
 		// under manual control and, with the aim assist, for an action that is not a punch; without the assist the server
 		// takes what the crosshair meets, whatever a client sent.
-		var standAim = !userAims || precisionAim && aimAssist(user) ? LivingComponentAction.getAim(stand) : null;
+		var standAim = !userAims || precisionAim && assist ? LivingComponentAction.getAim(stand) : null;
 		if (standAim != null) {
-			target = validatePunchTarget(stand, standAim.getTarget());
+			target = rule.keeps(validatePunchTarget(stand, standAim.getTarget()), assist);
 			if (!target.isEmpty(level)) {
-				return throughWallsTarget(stand, target, precisionAim);
+				return throughWallsTarget(stand, target, rule, true);
 			}
 		}
 
 		var userAim = userAims ? LivingComponentAction.getAim(user) : null;
 		if (userAim != null) {
-			target = validatePunchTarget(stand, userAim.getTarget());
+			target = rule.keeps(validatePunchTarget(stand, userAim.getTarget()), assist);
 			if (!target.isEmpty(level)) {
-				return throughWallsTarget(stand, target, precisionAim);
+				return throughWallsTarget(stand, target, rule, true);
 			}
 		}
 
 		// the synced aims are short (the idle Stand aim reaches 2.5 blocks from the eyes, the vanilla pick 3)
 		return aimWithThisOrUser(stand, userAims ? user : null, 1.0F,
-				entity -> entity != stand && canStandHit(stand, entity), precisionAim);
+				entity -> entity != stand && canStandHit(stand, entity), rule, true);
+	}
+
+	public static ActionTarget aimWithThisOrUser(StandEntity stand, @Nullable LivingEntity user, float partialTick,
+			Predicate<Entity> canTarget, boolean precisionAim) {
+		return aimWithThisOrUser(stand, user, partialTick, canTarget,
+				precisionAim ? CrosshairRule.NONE : CrosshairRule.BLOCK_OR_ENTITY, true);
 	}
 
 	/**
-	 * 1.16 StandEntity.aimWithThisOrUser with no target the Stand can reach: the user's own aim (the precision ray, or
-	 * {@link #userAimTarget}); when that ray met nothing at all, or no user aims (manual control), 1.16's precision ray
-	 * from the Stand's own eyes. Without the aim assist only the crosshair: no precision ray, and the Stand's eyes only
-	 * under manual control. Walls block every ray, except for an action marked through walls ({@link StandSkillWalls}):
-	 * when all its ray meets is an entity out of the Stand's reach, the block the same aim meets is taken instead, so a
-	 * wall the user aims at is struck. Every ray, the user's too, follows the Stand's current action. Checked against the
-	 * Stand's reach.
+	 * 1.16 StandEntity.aimWithThisOrUser with no target the Stand can reach: the user's own aim ({@link #userAimTarget}
+	 * by the attack's {@link CrosshairRule}, the precision ray for {@link CrosshairRule#NONE}); when that ray met nothing
+	 * at all, or no user aims (manual control), 1.16's precision ray from the Stand's own eyes. Without the aim assist
+	 * only the crosshair: no precision ray, and the Stand's eyes only under manual control. Walls block every ray, except
+	 * for an action marked through walls ({@link StandSkillWalls}). Every ray, the user's too, follows the Stand's
+	 * current action. Checked against the Stand's reach.
+	 * @param wallBeforeEntityOutOfReach for a marked action, when all its ray meets is an entity out of the Stand's
+	 *        reach, the block the same aim meets is taken instead, so a wall the user aims at is struck; false leaves no
+	 *        target then, for a move that still closes in on the entity
 	 */
 	public static ActionTarget aimWithThisOrUser(StandEntity stand, @Nullable LivingEntity user, float partialTick,
-			Predicate<Entity> canTarget, boolean precisionAim) {
+			Predicate<Entity> canTarget, CrosshairRule rule, boolean wallBeforeEntityOutOfReach) {
 		if (user != null && stand.aimsWithoutUser()) {
 			user = null;
 		}
 		boolean wallsHideEntities = StandSkillWalls.wallsHideEntities(stand);
-		ActionTarget aim = pickWithThisOrUser(stand, user, partialTick, canTarget, precisionAim, wallsHideEntities);
+		ActionTarget aim = pickWithThisOrUser(stand, user, partialTick, canTarget, rule, wallsHideEntities);
 		ActionTarget target = validatePunchTarget(stand, aim);
-		if (!wallsHideEntities && target.getType() == TargetType.EMPTY && aim.getType() == TargetType.ENTITY) {
-			target = validatePunchTarget(stand, pickWithThisOrUser(stand, user, partialTick, canTarget, precisionAim, true));
+		if (wallBeforeEntityOutOfReach && !wallsHideEntities
+				&& target.getType() == TargetType.EMPTY && aim.getType() == TargetType.ENTITY) {
+			target = validatePunchTarget(stand, pickWithThisOrUser(stand, user, partialTick, canTarget, rule, true));
 		}
 		return target;
 	}
 
 	private static ActionTarget pickWithThisOrUser(StandEntity stand, @Nullable LivingEntity user, float partialTick,
-			Predicate<Entity> canTarget, boolean precisionAim, boolean wallsHideEntities) {
+			Predicate<Entity> canTarget, CrosshairRule rule, boolean wallsHideEntities) {
 		ActionTarget aim = ActionTarget.EMPTY;
-		boolean assist = aimAssist(stand.getUser());
 		if (user != null) {
-			aim = precisionAim && assist
-					? userPrecisionRayTarget(stand, user, canTarget, wallsHideEntities)
-					: userAimTarget(stand, user, partialTick, canTarget, wallsHideEntities);
+			aim = userAimTarget(stand, user, partialTick, canTarget, wallsHideEntities, rule);
 		}
-		if (aim.getType() == TargetType.EMPTY && (user == null || assist)) {
+		if (aim.getType() == TargetType.EMPTY && (user == null || aimAssist(stand.getUser()))) {
 			aim = standPrecisionRayTarget(stand, canTarget, wallsHideEntities);
 		}
 		return aim;
+	}
+
+	public static ActionTarget pressTarget(StandEntity stand, ActionTarget sentByServer) {
+		return pressTarget(stand, sentByServer, CrosshairRule.BLOCK_OR_ENTITY);
 	}
 
 	/**
 	 * The target a punch, heavy punch or barrage is pressed at: what the user's crosshair met (1.16
 	 * EntityStandType.clientHitResult kept the vanilla pick); when it met nothing, the Stand's synced aim, which stands
 	 * in for 1.16's precision ray there, or without the aim assist what the crosshair meets; under manual control the
-	 * Stand's aim. A client keeps what its server sent.
+	 * Stand's aim. 1.16 refused a pressed entity the Stand cannot attack (PowerBaseImpl.checkTarget,
+	 * StandEntityAction.checkStandTarget, StandEntity.canAttack) and, with the {@link CrosshairRule#ENTITY} rule, a
+	 * pressed block: the task had no target, so the Stand did not turn to it, and the attack aimed again when it struck.
+	 * A client keeps what its server sent.
 	 */
-	public static ActionTarget pressTarget(StandEntity stand, ActionTarget sentByServer) {
+	public static ActionTarget pressTarget(StandEntity stand, ActionTarget sentByServer, CrosshairRule rule) {
 		Level level = stand.level();
 		if (level.isClientSide()) {
 			return sentByServer;
 		}
 		LivingEntity user = stand.getUser();
 		boolean userAims = user != null && !stand.aimsWithoutUser();
+		boolean assist = aimAssist(user);
 		var userAim = userAims ? LivingComponentAction.getAim(user) : null;
 		if (userAim != null) {
 			ActionTarget crosshair = userAim.getTarget().resolveEntityId(level);
-			if (!crosshair.isEmpty(level)) {
-				return throughWallsTarget(stand, crosshair, false);
+			// clientHitResult took a vanilla pick of the Stand itself for a miss
+			if (!crosshair.isEmpty(level) && crosshair.getEntity() != stand) {
+				return pressedTarget(stand, crosshair, rule, assist);
 			}
 		}
-		if (userAims && !aimAssist(user)) {
+		if (userAims && !assist) {
 			return userAimTarget(stand, user, 1.0F, entity -> entity != stand && canStandHit(stand, entity));
 		}
 		var standAim = LivingComponentAction.getAim(stand);
-		return standAim != null ? throughWallsTarget(stand, standAim.getTarget(), false) : ActionTarget.EMPTY;
+		return standAim != null
+				? pressedTarget(stand, standAim.getTarget().resolveEntityId(level), rule, assist) : ActionTarget.EMPTY;
+	}
+
+	private static ActionTarget pressedTarget(StandEntity stand, ActionTarget target, CrosshairRule rule, boolean assist) {
+		return switch (target.getType()) {
+			case ENTITY -> target.getEntity() != null && canStandHit(stand, target.getEntity()) ? target : ActionTarget.EMPTY;
+			case BLOCK -> throughWallsTarget(stand, rule.keeps(target, assist), rule, true);
+			default -> ActionTarget.EMPTY;
+		};
+	}
+
+	public static ActionTarget throughWallsTarget(StandEntity stand, ActionTarget target, boolean precisionAim) {
+		return throughWallsTarget(stand, target, precisionAim ? CrosshairRule.NONE : CrosshairRule.BLOCK_OR_ENTITY, true);
 	}
 
 	/**
@@ -758,15 +835,21 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	 * where the user, or the Stand that aims without it, looks now, not along the old aim: a wall kept from the key press
 	 * (keep attack target, manual control) gives way to the entity the current aim meets, which need not be behind that
 	 * wall once the aim has turned.
+	 * @param wallBeforeEntityOutOfReach false: when the new pick meets an entity out of the Stand's reach, no target
+	 *        instead of the block, for a move that still closes in on the entity
 	 */
-	public static ActionTarget throughWallsTarget(StandEntity stand, ActionTarget target, boolean precisionAim) {
+	public static ActionTarget throughWallsTarget(StandEntity stand, ActionTarget target, CrosshairRule rule,
+			boolean wallBeforeEntityOutOfReach) {
 		if (target.getType() != TargetType.BLOCK || StandSkillWalls.wallsHideEntities(stand)) {
 			return target;
 		}
 		LivingEntity user = stand.getUser();
 		ActionTarget entityBehind = aimWithThisOrUser(stand, user != null && !stand.aimsWithoutUser() ? user : null,
-				1.0F, entity -> entity != stand && canStandHit(stand, entity), precisionAim);
-		return entityBehind.getType() == TargetType.ENTITY ? entityBehind : target;
+				1.0F, entity -> entity != stand && canStandHit(stand, entity), rule, wallBeforeEntityOutOfReach);
+		if (entityBehind.getType() == TargetType.ENTITY) {
+			return entityBehind;
+		}
+		return wallBeforeEntityOutOfReach || entityBehind.getType() != TargetType.EMPTY ? target : ActionTarget.EMPTY;
 	}
 
 	/**
@@ -780,22 +863,27 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	/**
 	 * The user's own aim for a Stand attack. Without the aim assist, what the crosshair ray meets first from the user's
 	 * eyes at the user's reach; blocks stop the ray. With it, as 1.16's client and server did together: the vanilla pick
-	 * ({@link #crosshairPick}) while the Stand can reach it (EntityStandType.clientHitResult kept it, aimWithThisOrUser
-	 * kept a target in reach), otherwise 1.16's precision ray. Walls follow the Stand's current action
-	 * ({@link StandSkillWalls}), not an action of the user's own.
+	 * ({@link #crosshairPick} of any entity but the Stand) while the Stand can reach it and the attack takes it
+	 * ({@link CrosshairRule}; EntityStandType.clientHitResult sent it, the action kept or refused it, aimWithThisOrUser
+	 * kept a target in reach), otherwise 1.16's precision ray, also past an entity the attack refused. Walls follow the
+	 * Stand's current action ({@link StandSkillWalls}), not an action of the user's own.
 	 */
 	public static ActionTarget userAimTarget(StandEntity stand, LivingEntity user, float partialTick, Predicate<Entity> canTarget) {
-		return userAimTarget(stand, user, partialTick, canTarget, StandSkillWalls.wallsHideEntities(stand));
+		return userAimTarget(stand, user, partialTick, canTarget, StandSkillWalls.wallsHideEntities(stand),
+				CrosshairRule.BLOCK_OR_ENTITY);
 	}
 
 	private static ActionTarget userAimTarget(StandEntity stand, LivingEntity user, float partialTick,
-			Predicate<Entity> canTarget, boolean wallsHideEntities) {
+			Predicate<Entity> canTarget, boolean wallsHideEntities, CrosshairRule rule) {
 		if (!aimAssist(user)) {
 			return strictCrosshairTarget(stand, user, partialTick, canTarget, wallsHideEntities);
 		}
-		ActionTarget crosshair = crosshairPick(stand, user, partialTick, canTarget, wallsHideEntities);
-		if (!validatePunchTarget(stand, crosshair).isEmpty(stand.level())) {
-			return crosshair;
+		if (rule != CrosshairRule.NONE) {
+			ActionTarget crosshair = crosshairPick(stand, user, partialTick,
+					entity -> entity != stand && canStandPick(stand, entity), wallsHideEntities);
+			if (rule.takes(stand, crosshair, canTarget)) {
+				return crosshair;
+			}
 		}
 		return userPrecisionRayTarget(stand, user, canTarget, wallsHideEntities);
 	}

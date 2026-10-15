@@ -326,9 +326,11 @@ public final class StandAimReachGameTests {
 		crosshairOverStandAim(helper, "heavy_punch", InputMethod.CLICK, false);
 	}
 
+	// 1.16 StandEntityMeleeBarrage.checkStandTarget refused every pressed target, so each hit (standTickPerform ->
+	// StandEntity.punch -> aimWithThisOrUser) took the precision ray's pick, the nearer cow whose grown box holds the eyes
 	@GameTest(template = "empty", timeoutTicks = 60, batch = BATCH)
-	public static void defaultBarrageTakesTheCrosshairMobOverTheStandAim(GameTestHelper helper) {
-		crosshairOverStandAim(helper, "barrage", InputMethod.HOLD, false);
+	public static void defaultBarrageAimsEveryHitWithThePrecisionRayOverTheCrosshairMob(GameTestHelper helper) {
+		crosshairOverStandAim(helper, "barrage", InputMethod.HOLD, false, true);
 	}
 
 	// the target lock keeps the target of the press, which 1.16 took from the crosshair too
@@ -338,6 +340,11 @@ public final class StandAimReachGameTests {
 	}
 
 	private static void crosshairOverStandAim(GameTestHelper helper, String name, InputMethod method, boolean locked) {
+		crosshairOverStandAim(helper, name, method, locked, false);
+	}
+
+	private static void crosshairOverStandAim(GameTestHelper helper, String name, InputMethod method, boolean locked,
+			boolean precisionHits) {
 		Scene scene = new Scene(helper, GameType.SURVIVAL, locked, 16);
 		Cow beside = scene.besideTheCrosshair();
 		Cow crosshair = scene.cow(0, 2.0);
@@ -361,15 +368,22 @@ public final class StandAimReachGameTests {
 						!= StandEntityBarrageAbility.isDirectionalBarrage(scene.stand, action)),
 						"Fixture: the " + name + " input started " + action);
 			}
-			else if (tick > 3 && beside.getHealth() < besideHealth) {
+			else if (precisionHits && tick > 3 && crosshair.getHealth() < crosshairHealth) {
+				helper.fail("The " + name + " hit the cow on the crosshair; 1.16 aimed every barrage hit with the precision"
+						+ " ray, which takes the nearer cow beside it");
+			}
+			else if (precisionHits && tick > 15 && beside.getHealth() < besideHealth) {
+				return true;
+			}
+			else if (!precisionHits && tick > 3 && beside.getHealth() < besideHealth) {
 				helper.fail("The " + name + (locked ? " with the target lock" : "") + " hit the cow beside the crosshair,"
 						+ " the Stand's synced aim; 1.16 hit the cow on the crosshair the user aimed at");
 			}
-			else if (tick > 3 && crosshair.getHealth() < crosshairHealth) {
+			else if (!precisionHits && tick > 3 && crosshair.getHealth() < crosshairHealth) {
 				return true;
 			}
 			else if (tick > 40) {
-				helper.fail("The " + name + " never hit the cow on the crosshair");
+				helper.fail("The " + name + " never hit the cow " + (precisionHits ? "beside the crosshair" : "on the crosshair"));
 			}
 			return false;
 		});

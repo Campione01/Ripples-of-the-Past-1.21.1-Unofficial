@@ -203,6 +203,11 @@ public final class DirectionalBarrageGameTests {
 	@GameTest(template = "empty", timeoutTicks = 80)
 	public static void directionalBarrageSweepsWithoutRetainingTargets(GameTestHelper helper) {
 		try (Fixture f = new Fixture(helper, "sweep", true)) {
+			// the barrage follows the crosshair from mob to mob only without the aim assist: with it, 1.16 aimed every hit
+			// with the precision ray (StandEntityMeleeBarrage.checkStandTarget refused every pressed target, then
+			// StandEntity.punch -> aimWithThisOrUser -> precisionRayTrace), whose grown boxes hold the user's eyes for the
+			// side and behind cows and take them wherever the user looks
+			f.settings.standAimAssist = false;
 			Cow first = f.cow(0, 0, 2);
 			Cow second = f.cow(1.9, 0, 1.5);
 			Cow side = f.cow(-1.7, 0, 1.6);

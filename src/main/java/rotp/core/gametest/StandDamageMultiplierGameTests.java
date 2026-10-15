@@ -367,6 +367,10 @@ public final class StandDamageMultiplierGameTests {
             initialHealth = target instanceof LivingEntity living ? living.getHealth() : 0;
             if (spec.kind == Kind.KICK) secondary = cow(origin.add(0.55, 0, 1.7), 200);
             if (spec.kind == Kind.SPLASH) {
+                // a heavy punch strikes the block beside the cow only without the aim assist: with it, 1.16's heavy punch
+                // refused the pressed block (StandEntityHeavyAttack.standKeepsTarget) and StandEntity.punch's precision
+                // ray (aimWithThisOrUser -> precisionRayTrace) took the cow first
+                caster.user.getData(rotp.core.init.ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get()).standAimAssist = false;
                 block = BlockPos.containing(origin.add(0, 0, 1.7));
                 oldBlock = level.getBlockState(block);
                 level.setBlockAndUpdate(block, Blocks.STONE.defaultBlockState());
