@@ -827,6 +827,15 @@ public final class StandTargetRangeGameTests {
 							+ " transformations=" + created.size() + " itemEntityLeft=" + dropped.isAlive()
 							+ "; 1.16 empties the whole target and asks for a material");
 
+			// an aim stored without the client's word on a missing entity is a fresh one too
+			aim.setTarget(ActionTarget.EMPTY);
+			String answeredAfterSet = fixture.refusal();
+			helper.assertTrue(!aim.isClientEntityMissing() && "accepted".equals(answeredAfterSet),
+					"GE_CREATE_LIFEFORM press with the item entity on the look ray after an empty aim was stored: missing="
+							+ aim.isClientEntityMissing() + " answered " + answeredAfterSet
+							+ "; the missing entity belongs to the press before");
+
+			aim.setTargetFromClient(received, fixture.level);
 			// the next aim the client sends is a fresh one
 			aim.setTargetFromClient(ActionTarget.EMPTY, fixture.level);
 			String answeredAfter = fixture.refusal();
