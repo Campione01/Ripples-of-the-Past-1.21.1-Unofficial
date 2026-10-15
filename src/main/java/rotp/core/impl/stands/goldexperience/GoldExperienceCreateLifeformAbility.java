@@ -614,6 +614,12 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceChosenLif
         return target;
     }
 
+    // The same client target for Gold Experience's Bone Meal, Heal Other and Life Shot, aimed by the user
+    static ActionTarget getClientLookTarget(Level level, LivingEntity user) {
+        StandPower standPower = StandPower.get(user);
+        return standPower != null ? getSyncedLookTarget(level, user, standPower, user) : ActionTarget.EMPTY;
+    }
+
     private static ActionTarget getAimTarget(LivingEntity aiming) {
         var aim = LivingComponentAction.getAim(aiming);
         ActionTarget target = aim != null ? aim.getTarget() : null;
@@ -746,8 +752,22 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceChosenLif
         Vec3 pos = source.spawnPos(performer, user, createdEntity);
         // 1.16 mobFromEntity: an entity that is taken whole hands on its rotation, fire and motion
         Entity taken = source.takenEntity();
-        float yaw = taken != null ? taken.getYRot() : performer.getYRot();
-        float pitch = taken != null ? taken.getXRot() : 0.0F;
+        Entity markedHolder = taken == null ? source.markedItemHolder(user.level()) : null;
+        float yaw = performer.getYRot();
+        float pitch = 0.0F;
+        if (taken != null) {
+            yaw = taken.getYRot();
+            pitch = taken.getXRot();
+        }
+        // 1.16 perform: a stuck arrow or knife takes both angles of the entity it is stuck in, an item a holder
+        // carries only its yaw, and an item in a block's inventory none
+        else if (markedHolder != null) {
+            yaw = markedHolder.getYRot();
+            pitch = source.stuckProjectileHolder() != null ? markedHolder.getXRot() : 0.0F;
+        }
+        else if (source.markedItemBlockPos() != null) {
+            yaw = 0.0F;
+        }
         transformation.moveTo(pos.x, pos.y, pos.z, yaw, pitch);
         createdEntity.moveTo(pos.x, pos.y, pos.z, yaw, pitch);
         if (createdEntity instanceof LivingEntity livingCreated) {
@@ -954,6 +974,21 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceChosenLif
             return sourceItemEntity != null ? sourceItemEntity : sourceEntity;
         }
 
+        @Nullable
+        Entity markedItemHolder(Level level) {
+            if (stuckProjectileHolder != null) {
+                return stuckProjectileHolder;
+            }
+            return markedItemTracker != null && markedItemTracker.getItemState() == KnownItemState.ENTITY_HAS_ITEM
+                    ? markedItemTracker.getAtEntity(level) : null;
+        }
+
+        @Nullable
+        BlockPos markedItemBlockPos() {
+            return markedItemTracker != null && markedItemTracker.getItemState() == KnownItemState.BLOCK_HAS_ITEM
+                    ? markedItemTracker.getAtBlockPos() : null;
+        }
+
         Vec3 spawnPos(LivingEntity performer, LivingEntity user, Entity createdEntity) {
             if (sourceItemEntity != null) {
                 return sourceItemEntity.position();
@@ -966,6 +1001,16 @@ public class GoldExperienceCreateLifeformAbility extends GoldExperienceChosenLif
             }
             if (sourceBlockPos != null) {
                 return Vec3.atBottomCenterOf(sourceBlockPos);
+            }
+            // 1.16 perform: at the feet of the holder that carries the marked item, or on the corner one block above
+            // the block whose inventory holds it
+            Entity markedHolder = markedItemHolder(user.level());
+            if (markedHolder != null) {
+                return markedHolder.position();
+            }
+            BlockPos markedBlockPos = markedItemBlockPos();
+            if (markedBlockPos != null) {
+                return new Vec3(markedBlockPos.getX(), markedBlockPos.getY() + 1, markedBlockPos.getZ());
             }
             if (markedItemTracker != null) {
                 Vec3 markerPos = markedItemTracker.getPos(user.level(), 1.0F);

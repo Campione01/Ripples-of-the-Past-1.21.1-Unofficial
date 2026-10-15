@@ -1,7 +1,5 @@
 package rotp.core.impl.stands.goldexperience;
 
-import javax.annotation.Nullable;
-
 import rotp.core.powersystem.standpower.StandInstance.StandPart;
 
 import rotp.core.powersystem.Power;
@@ -10,7 +8,6 @@ import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
-import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
@@ -18,19 +15,22 @@ import rotp.core.powersystem.standpower.entity.NoPoseStandEntityAbility;
 import rotp.core.powersystem.standpower.entity.StandEntityAbility.AutoSummonMode;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTargetRange;
-import rotp.core.subsystems.target.HitResultUtil;
+import rotp.core.subsystems.target.StandPrecisionRay;
 import rotp.core.impl.stands._entitybase.StandAbilityStamina;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.entity.AgeableMob;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.BoneMealItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.block.BonemealableBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import net.minecraft.server.level.ServerLevel;
 
 public class GoldExperienceBoneMealAbility extends NoPoseStandEntityAbility {
@@ -50,29 +50,32 @@ public class GoldExperienceBoneMealAbility extends NoPoseStandEntityAbility {
         if (user == null) {
             return ConditionCheck.NEGATIVE;
         }
-        if (isSyncedBoneMealTargetTooFar(user.level(), user)) {
+        Level level = user.level();
+        ActionTarget target = GoldExperienceCreateLifeformAbility.getClientLookTarget(level, user);
+        if (!target.isEmpty(level)
+                && !ActionTargetRange.isTargetWithinRange(ActionTargetRange.standPerformer(user), target, level)) {
             return ConditionCheck.createNegative("target_too_far");
         }
-        if (!isValidBoneMealTarget(user.level(), user, null)) {
+        if (!isValidBoneMealTarget(level, target)) {
             return ConditionCheck.NEGATIVE;
         }
         return super.checkSpecificConditions(context);
     }
-    
+
     @Override
     public void initActionFromConfig(EntityActionInstance action, Level level, LivingEntity powerUser, LivingEntity performer) {
         super.initActionFromConfig(action, level, powerUser, performer);
         if (action instanceof BoneMealAction boneMealAction) {
-            ActionTarget target = findBoneMealTarget(level, powerUser, performer);
+            ActionTarget target = GoldExperienceCreateLifeformAbility.getClientLookTarget(level, powerUser);
             boneMealAction.target = target;
             if (!target.isEmpty(level)) {
                 action.standRotationTarget = target;
             }
         }
     }
-    
-    private static boolean isValidBoneMealTarget(Level level, LivingEntity user, @Nullable LivingEntity aiming) {
-        ActionTarget target = findBoneMealTarget(level, user, aiming);
+
+    // 1.16 GoldExperienceBoneMeal.checkTarget on the target the client sent (TargetRequirement.ANY: none is refused)
+    private static boolean isValidBoneMealTarget(Level level, ActionTarget target) {
         return switch (target.getType()) {
             case ENTITY -> target.getMainEntity() instanceof AgeableMob animal && animal.isBaby();
             case BLOCK -> {
@@ -88,47 +91,35 @@ public class GoldExperienceBoneMealAbility extends NoPoseStandEntityAbility {
         };
     }
     
-    private static ActionTarget findBoneMealTarget(Level level, LivingEntity user, @Nullable LivingEntity aiming) {
-        LivingEntity aimingEntity = aiming != null ? aiming : user;
-        ActionTarget syncedTarget = getSyncedLookTarget(level, aimingEntity);
-        if (!syncedTarget.isEmpty(level)
-                && isWithinBoneMealRange(level, syncedTarget, user, aiming)) {
-            return syncedTarget;
+    // 1.16 standPerform: StandEntity.aimWithThisOrUser(64, task target) keeps the pressed target while it is in the
+    // Stand's reach, else takes the precision ray from the user's eyes (not under remote control), then the Stand's
+    private static ActionTarget aimWithThisOrUser(Level level, LivingEntity user, StandEntity stand, ActionTarget pressed) {
+        if (!pressed.isEmpty(level) && isInStandReach(level, stand, pressed)) {
+            return pressed;
         }
-        ActionTarget clipped = HitResultUtil.clip(
-                aimingEntity.getEyePosition(),
-                aimingEntity.getLookAngle(),
-                TARGET_RANGE,
-                TARGET_RANGE,
-                level,
-                entity -> entity instanceof AgeableMob animal && animal.isBaby(),
-                aimingEntity,
-                0);
-        return clipped.isEmpty(level) || isWithinBoneMealRange(level, clipped, user, aiming) ? clipped : ActionTarget.EMPTY;
+        ActionTarget aim = ActionTarget.EMPTY;
+        if (!stand.isManuallyControlled()) {
+            aim = StandPrecisionRay.trace(user, stand, TARGET_RANGE, 0.0D, true, false);
+        }
+        if (aim.isEmpty(level)) {
+            aim = StandPrecisionRay.trace(stand, stand, TARGET_RANGE, 0.0D, true, false);
+        }
+        return aim;
     }
 
-    // 1.16: the press takes Action.checkRangeAndTarget from the performer; standPerform re-aims within 64 blocks
-    private static boolean isWithinBoneMealRange(Level level, ActionTarget target, LivingEntity user,
-            @Nullable LivingEntity aiming) {
-        if (aiming != null) {
-            return HitResultUtil.isTargetWithinRange(target, aiming, level, TARGET_RANGE, TARGET_RANGE);
+    // 1.16 StandEntity.isTargetInReach: getDistanceToTarget, 0 for a target without bounds, against the Stand's reach
+    private static boolean isInStandReach(Level level, StandEntity stand, ActionTarget target) {
+        AABB bounds = null;
+        if (target.getType() == ActionTarget.TargetType.ENTITY && target.getMainEntity() != null) {
+            bounds = target.getMainEntity().getBoundingBox();
         }
-        return ActionTargetRange.isTargetWithinRange(ActionTargetRange.standPerformer(user), target, level);
-    }
-
-    private static ActionTarget getSyncedLookTarget(Level level, LivingEntity aimingEntity) {
-        var aim = LivingComponentAction.getAim(aimingEntity);
-        if (aim == null) {
-            return ActionTarget.EMPTY;
+        else if (target.getType() == ActionTarget.TargetType.BLOCK) {
+            BlockPos pos = target.getBlockPos();
+            VoxelShape shape = level.getBlockState(pos).getShape(level, pos);
+            bounds = shape.isEmpty() ? null : shape.bounds().move(pos);
         }
-        ActionTarget target = aim.getTarget();
-        return target != null ? target.resolveEntityId(level) : ActionTarget.EMPTY;
-    }
-
-    private static boolean isSyncedBoneMealTargetTooFar(Level level, LivingEntity aimingEntity) {
-        ActionTarget syncedTarget = getSyncedLookTarget(level, aimingEntity);
-        return !syncedTarget.isEmpty(level)
-                && !ActionTargetRange.isTargetWithinRange(ActionTargetRange.standPerformer(aimingEntity), syncedTarget, level);
+        double distance = bounds != null ? ActionTargetRange.getDistance(stand, bounds) : 0.0D;
+        return distance <= stand.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE);
     }
 
     private static boolean applyOriginalBonemealEffect(Level level, BlockPos pos, Direction face) {
@@ -172,8 +163,10 @@ public class GoldExperienceBoneMealAbility extends NoPoseStandEntityAbility {
                 return;
             }
 
-            LivingEntity aimingEntity = performer instanceof StandEntity ? performer : user;
-            target = !target.isEmpty(level) ? target.resolveEntityId(level) : findBoneMealTarget(level, user, aimingEntity);
+            target = target.resolveEntityId(level);
+            if (performer instanceof StandEntity stand) {
+                target = aimWithThisOrUser(level, user, stand, target);
+            }
             if (!target.isEmpty(level)) {
                 standRotationTarget = target;
             }

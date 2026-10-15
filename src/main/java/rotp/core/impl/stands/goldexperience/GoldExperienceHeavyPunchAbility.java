@@ -189,6 +189,18 @@ public class GoldExperienceHeavyPunchAbility extends StandEntityHeavyPunchAbilit
             return false;
         }
 
+        // 1.16 GoldExperienceHeavyPunch.rotateStandTowardsTarget: at an entity the Stand turns straight (360 degrees a
+        // tick) to the top of its bounding box
+        @Override
+        @Nullable
+        public Vec3 getStandLookTargetPosition(StandEntity standEntity, ActionTarget target) {
+            Entity entity = target.getType() == ActionTarget.TargetType.ENTITY ? target.getEntity() : null;
+            if (entity != null) {
+                return new Vec3(entity.getX(), entity.getY(1.0D), entity.getZ());
+            }
+            return super.getStandLookTargetPosition(standEntity, target);
+        }
+
         @Override
         protected void addKnockback(DamageSource dmgSource) {
             if (!(performer instanceof StandEntity stand)) {

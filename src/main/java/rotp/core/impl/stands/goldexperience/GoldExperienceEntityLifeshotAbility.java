@@ -12,7 +12,6 @@ import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.HeldInput;
-import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.StandUtil;
@@ -20,7 +19,6 @@ import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.entity.NoPoseStandEntityAbility;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTargetRange;
-import rotp.core.subsystems.target.HitResultUtil;
 import rotp.core.util.reflection.CommonReflection;
 import rotp.core.impl.stands._entitybase.StandAbilityStamina;
 import rotp.core.impl.stands.goldexperience.GoldExperienceHeavyPunchAbility.ToothKnockingHeavyPunch;
@@ -134,35 +132,17 @@ public class GoldExperienceEntityLifeshotAbility extends NoPoseStandEntityAbilit
     }
     
     private static LivingEntity getLifeShotTarget(LivingEntity user, Level level) {
-        ActionTarget syncedTarget = getSyncedLookTarget(user, level);
-        if (!syncedTarget.isEmpty(level)
-                && isWithinLifeShotRange(syncedTarget, user, level)) {
-            Entity syncedEntity = syncedTarget.getMainEntity();
-            return syncedEntity instanceof LivingEntity living && living != user ? living : null;
-        }
-        ActionTarget target = HitResultUtil.clip(
-                user.getEyePosition(),
-                user.getLookAngle(),
-                REACH,
-                REACH,
-                level,
-                entity -> entity instanceof LivingEntity && entity != user,
-                user,
-                0);
-        if (!isWithinLifeShotRange(target, user, level)) {
+        ActionTarget target = getSyncedLookTarget(user, level);
+        if (target.isEmpty(level) || !isWithinLifeShotRange(target, user, level)) {
             return null;
         }
         Entity entity = target.getMainEntity();
-        return entity instanceof LivingEntity living ? living : null;
+        return entity instanceof LivingEntity living && living != user ? living : null;
     }
 
+    // 1.16 casts no ray of its own: the target is the client's, its vanilla pick or the Stand's precision ray
     private static ActionTarget getSyncedLookTarget(LivingEntity user, Level level) {
-        var aim = LivingComponentAction.getAim(user);
-        if (aim == null) {
-            return ActionTarget.EMPTY;
-        }
-        ActionTarget target = aim.getTarget();
-        return target != null ? target.resolveEntityId(level) : ActionTarget.EMPTY;
+        return GoldExperienceCreateLifeformAbility.getClientLookTarget(level, user);
     }
 
     // 1.16 Action.checkRangeAndTarget: from the Stand while it is out, less without a line of sight

@@ -12,13 +12,11 @@ import rotp.core.powersystem.ability.condition.AvailableAbilities;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
-import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.NoPoseStandEntityAbility;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTargetRange;
-import rotp.core.subsystems.target.HitResultUtil;
 import rotp.core.impl.stands._entitybase.StandAbilityStamina;
 
 import net.minecraft.network.chat.Component;
@@ -189,26 +187,11 @@ public class GoldExperienceHealOtherAbility extends NoPoseStandEntityAbility {
 
     private static ResolvedHealingTarget findLookTarget(
             LivingEntity user, Level level) {
-        ActionTarget syncedTarget = getSyncedLookTarget(user, level);
-        if (!syncedTarget.isEmpty(level)
-                && isWithinHealRange(syncedTarget, user, level)) {
-            Entity syncedEntity = syncedTarget.getMainEntity();
-            return resolveHealingTarget(syncedEntity, user);
-        }
-        ActionTarget target = HitResultUtil.clip(
-                user.getEyePosition(),
-                user.getLookAngle(),
-                TARGET_REACH,
-                TARGET_REACH,
-                level,
-                entity -> resolveHealingTarget(entity, user) != null,
-                user,
-                0.0D);
-        if (!isWithinHealRange(target, user, level)) {
+        ActionTarget target = getSyncedLookTarget(user, level);
+        if (target.isEmpty(level) || !isWithinHealRange(target, user, level)) {
             return null;
         }
-        Entity entity = target.getEntity();
-        return resolveHealingTarget(entity, user);
+        return resolveHealingTarget(target.getMainEntity(), user);
     }
 
     private static ResolvedHealingTarget resolveHealingTarget(
@@ -231,13 +214,9 @@ public class GoldExperienceHealOtherAbility extends NoPoseStandEntityAbility {
                 : null;
     }
 
+    // 1.16 casts no ray of its own: the target is the client's, its vanilla pick or the Stand's precision ray
     private static ActionTarget getSyncedLookTarget(LivingEntity user, Level level) {
-        var aim = LivingComponentAction.getAim(user);
-        if (aim == null) {
-            return ActionTarget.EMPTY;
-        }
-        ActionTarget target = aim.getTarget();
-        return target != null ? target.resolveEntityId(level) : ActionTarget.EMPTY;
+        return GoldExperienceCreateLifeformAbility.getClientLookTarget(level, user);
     }
 
     // 1.16 Action.checkRangeAndTarget: from the Stand while it is out, less without a line of sight
