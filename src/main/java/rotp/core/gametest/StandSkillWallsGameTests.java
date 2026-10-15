@@ -16,6 +16,7 @@ import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility.StandEntityPunch;
 import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility;
 import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility.StandEntityBarrage;
+import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchChargedAbility.StandEntityChargedHeavy;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModEntityAttributes;
 import rotp.core.powersystem.PowerClass;
@@ -24,6 +25,7 @@ import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.ability.input.AbilityInput;
 import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
+import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.netcode.SyncType;
@@ -36,6 +38,7 @@ import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.HitResultUtil;
 
+import net.minecraft.commands.arguments.EntityAnchorArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.AfterBatch;
 import net.minecraft.gametest.framework.GameTest;
@@ -74,6 +77,9 @@ public final class StandSkillWallsGameTests {
 	private static final String ATTACK_WALL_BATCH = "stand_skill_walls_attack_wall";
 	private static final String ATTACK_FAR_BATCH = "stand_skill_walls_attack_far";
 	private static final String ATTACK_FAR_STRICT_BATCH = "stand_skill_walls_attack_far_strict";
+	private static final String KEPT_WALL_BATCH = "stand_skill_walls_kept_wall";
+	private static final String MANUAL_STAND_AIM_BATCH = "stand_skill_walls_manual_stand_aim";
+	private static final String CHARGED_BATCH = "stand_skill_walls_charged";
 	private static final short KEY = 173;
 
 	@Nullable
@@ -298,6 +304,112 @@ public final class StandSkillWallsGameTests {
 			return broken;
 		}, 50, () -> "The marked barrage" + aim + " did not break the wall it aimed at, with a cow out of its reach behind it"
 				+ (chargedMiss[0] != null ? "; " + chargedMiss[0] : ""));
+	}
+
+	// keep attack target: pressed with nothing behind the wall, the punch keeps the wall; a mob that comes behind it before
+	// the swing is hit through it
+	@GameTest(template = "empty", timeoutTicks = 60, batch = KEPT_WALL_BATCH)
+	public static void markedPunchKeepingAWallTargetHitsAMobThatComesBehindIt(GameTestHelper helper) {
+		Scene scene = new Scene(helper);
+		scene.wall(new BlockPos(1, 2, 2));
+		scene.wall(new BlockPos(1, 3, 2));
+		scene.mark(true);
+		scene.settings().standAttackTargetLock = true;
+		Cow[] cow = new Cow[1];
+		float[] health = new float[1];
+		scene.run(tick -> {
+			if (tick == 3) {
+				scene.syncIdleAims();
+				EntityActionInstance punch = scene.press("punch");
+				helper.assertTrue(punch instanceof StandEntityPunch && StandSkillWalls.isMarked(punch)
+						&& StandEntityPunchAbility.shouldRetainPunchTarget(scene.stand, punch.ability),
+						"Fixture: the punch input started " + punch + ", which is not the marked punch keeping its target");
+				helper.assertTrue(punch.punchedTarget == null && scene.stand.getCurStandAction() == punch,
+						"Fixture: the punch swung before the cow came");
+				cow[0] = scene.cow();
+				health[0] = cow[0].getHealth();
+			}
+			return tick > 3 && cow[0].getHealth() < health[0];
+		}, 30, () -> "The marked punch kept the wall it was pressed at and struck it, not the cow that came behind it");
+	}
+
+	// manual control: the press found nothing, and the Stand's aim a client sent afterwards is the wall
+	@GameTest(template = "empty", timeoutTicks = 60, batch = MANUAL_STAND_AIM_BATCH)
+	public static void markedPunchUnderManualControlLooksThroughTheWallInTheStandsAim(GameTestHelper helper) {
+		Scene scene = new Scene(helper);
+		Cow cow = scene.cowBehindWall();
+		scene.mark(true);
+		scene.stand.setManuallyControlled(true);
+		scene.user.setYRot(180);
+		scene.user.setYHeadRot(180);
+		float health = cow.getHealth();
+		scene.run(tick -> {
+			if (tick == 3) {
+				scene.syncIdleAims();
+				ActionTarget wall = LivingComponentAction.getComponent(scene.stand).entityAim.getTarget();
+				scene.clearAims();
+				EntityActionInstance punch = scene.press("punch");
+				helper.assertTrue(punch instanceof StandEntityPunch && StandSkillWalls.isMarked(punch)
+						&& punch.punchedTarget == null, "Fixture: the punch input started " + punch
+						+ ", which is not the marked punch, or it swung at once");
+				LivingComponentAction.getComponent(scene.stand).entityAim.setTarget(wall);
+			}
+			return tick > 3 && cow.getHealth() < health;
+		}, 30, () -> "The marked punch under manual control struck the wall in the Stand's aim, not the cow behind it");
+	}
+
+	// the charged heavy punch takes the Stand's synced aim at its perform start, here the wall; the user stands against
+	// the wall, so that the cow behind it is within the reach of the Stand at its idle place, where it starts to punch
+	@GameTest(template = "empty", timeoutTicks = 100, batch = CHARGED_BATCH)
+	public static void markedChargedHeavyPunchLooksThroughTheWallInTheStandsAim(GameTestHelper helper) {
+		Scene scene = new Scene(helper);
+		scene.wall(new BlockPos(1, 2, 2));
+		scene.wall(new BlockPos(1, 3, 2));
+		Vec3 cowPos = scene.origin.add(0, 0, 2.0);
+		scene.user.moveTo(scene.origin.x, scene.origin.y, scene.origin.z + 0.2, 0, 0);
+		scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, cowPos.add(0, 0.7, 0));
+		Cow cow = scene.cow(cowPos);
+		scene.markAttacks(true);
+		EntityActionInstance[] charged = new EntityActionInstance[1];
+		Boolean[] reachAtStart = new Boolean[1];
+		scene.run(tick -> {
+			if (tick == 3) {
+				scene.syncIdleAims();
+				charged[0] = scene.action("heavy_charged");
+				LivingComponentAction.getComponent(scene.stand).setAction(charged[0], scene.user, SyncType.NO_SYNC);
+				helper.assertTrue(charged[0] instanceof StandEntityChargedHeavy && scene.stand.getCurStandAction() == charged[0]
+						&& StandSkillWalls.isMarked(charged[0]), "Fixture: " + charged[0] + " is not the marked charged heavy punch");
+				charged[0].onKeyRelease(scene.user);
+				return false;
+			}
+			if (tick < 3 || charged[0].punchedTarget == null) {
+				if (tick > 3 && charged[0].getPhase() == ActionPhase.PERFORM && reachAtStart[0] == null) {
+					reachAtStart[0] = !StandEntityPunchAbility.validatePunchTarget(scene.stand, new ActionTarget(cow)).isEmpty(
+							helper.getLevel());
+				}
+				return false;
+			}
+			helper.assertTrue(Boolean.TRUE.equals(reachAtStart[0]), "Fixture: the Stand could not reach the cow when it"
+					+ " started to punch; Stand at " + scene.stand.position() + ", cow at " + cow.position());
+			helper.assertTrue(charged[0].punchedTarget.getMainEntity() == cow, "The marked charged heavy punch struck "
+					+ charged[0].punchedTarget + ", the wall in the Stand's aim, not the cow behind it");
+			return true;
+		}, 80, () -> "The marked charged heavy punch did not strike");
+	}
+
+	@AfterBatch(batch = KEPT_WALL_BATCH)
+	public static void releaseKeptWallBatch(ServerLevel level) {
+		releaseActive();
+	}
+
+	@AfterBatch(batch = MANUAL_STAND_AIM_BATCH)
+	public static void releaseManualStandAimBatch(ServerLevel level) {
+		releaseActive();
+	}
+
+	@AfterBatch(batch = CHARGED_BATCH)
+	public static void releaseChargedBatch(ServerLevel level) {
+		releaseActive();
 	}
 
 	@AfterBatch(batch = ATTACK_FAR_BATCH)
