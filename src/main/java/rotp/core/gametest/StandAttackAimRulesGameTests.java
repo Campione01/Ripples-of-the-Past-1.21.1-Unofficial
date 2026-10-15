@@ -116,12 +116,15 @@ public final class StandAttackAimRulesGameTests {
 		atTheGround(helper, "punch", InputMethod.CLICK, false);
 	}
 
-	// the crosshair on the ground 2 blocks ahead, a cow beside the crosshair inside Star Platinum's precision boxes
+	// the crosshair on the ground 2 blocks ahead, a cow beside the crosshair inside Star Platinum's precision boxes. For
+	// the charged heavy punch the far side of the ground 1 block ahead: its perform starts with the Stand at its idle place
+	// behind its user, from whose eyes the ground 2 blocks ahead is out of reach, so that no rule would decide anything there
 	private static void atTheGround(GameTestHelper helper, String name, InputMethod method, boolean aimAssist) {
 		Scene scene = new Scene(helper, aimAssist);
-		BlockPos ground = scene.groundStrip();
+		boolean charged = name.equals("heavy_charged");
+		BlockPos ground = charged ? scene.groundStrip().north() : scene.groundStrip();
 		Cow cow = scene.besideTheCrosshair();
-		scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, Vec3.upFromBottomCenterOf(ground, 1));
+		scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, Vec3.upFromBottomCenterOf(ground, 1).add(0, 0, charged ? 0.4 : 0));
 		helper.assertTrue(scene.vanillaPick().getType() == ActionTarget.TargetType.BLOCK
 				&& ground.equals(scene.vanillaPick().getBlockPos()), "Fixture: the crosshair does not meet the ground at " + ground
 				+ ": " + scene.vanillaPick());
@@ -153,7 +156,15 @@ public final class StandAttackAimRulesGameTests {
 			if (tick < 3) {
 				return false;
 			}
-			if (mobFirst && name.equals("heavy_charged") && action[0].getPhase() == ActionPhase.PERFORM) {
+			if (mobFirst && charged && action[0].getPhase() != null
+					&& action[0].getPhase().ordinal() < ActionPhase.PERFORM.ordinal()) {
+				var standAim = LivingComponentAction.getAim(scene.stand);
+				ActionTarget synced = standAim != null ? standAim.getTarget() : ActionTarget.EMPTY;
+				ActionTarget reached = StandEntityPunchAbility.validatePunchTarget(scene.stand, synced.copy());
+				helper.assertTrue(reached.getType() == ActionTarget.TargetType.BLOCK && ground.equals(reached.getBlockPos()),
+						"Fixture: before the perform the Stand's synced aim " + synced + " is not the ground within its reach");
+			}
+			if (mobFirst && charged && action[0].getPhase() == ActionPhase.PERFORM) {
 				// the lunge goes at the target its perform start took: the ground in the Stand's aim is dropped
 				ActionTarget lunge = savedTarget(action[0]);
 				helper.assertTrue(lunge == null || lunge.getType() != ActionTarget.TargetType.BLOCK, "The " + how
