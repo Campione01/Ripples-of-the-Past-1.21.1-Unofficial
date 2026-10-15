@@ -705,6 +705,9 @@ public class PowerHudControlsElement extends HudElement {
 		ability.renderAbilityIcon(power, guiGraphics, abilityUi.sprite, 
 				x + 3, y + 3, abilityColor(alpha, abilityUi.ability));
 		renderAbilityCooldownOverlay(guiGraphics, x, y, ability, power, partialTick);
+		// item icons and the cooldown fill end with blending off; the next tinted icon and the selection frame need it
+		RenderSystem.enableBlend();
+		RenderSystem.defaultBlendFunc();
 	}
 
 	private static void renderAbilityCooldownOverlay(GuiGraphics guiGraphics, float x, float y, Ability ability, Power<?> power, float partialTick) {
