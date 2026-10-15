@@ -66,7 +66,8 @@ public final class VampireFreezePlacementGameTests {
 
     private VampireFreezePlacementGameTests() {}
 
-    @GameTest(template = "empty", skyAccess = true, batch = "vampire_freeze_placement", timeoutTicks = 100)
+    // the ticks are only a ceiling for the real-time wait of the light engine (GameTestLight)
+    @GameTest(template = "empty", skyAccess = true, batch = "vampire_freeze_placement", timeoutTicks = 4000)
     public static void registeredFreezeKeepsLivingOccupiedWaterUnfrozen(GameTestHelper helper) {
         Fixture fixture = new Fixture(helper);
         helper.testInfo.addListener(fixture);
@@ -106,7 +107,10 @@ public final class VampireFreezePlacementGameTests {
         private Before before;
         private Result result;
         private RuntimeException observerFailure;
+        private GameTestLight.Wait light;
         private int userTicks;
+        private int poweredAt;
+        private long poweredTick;
         private boolean pressed;
         private boolean closed;
 
@@ -149,6 +153,15 @@ public final class VampireFreezePlacementGameTests {
             user.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
             user.setItemInHand(InteractionHand.OFF_HAND, ItemStack.EMPTY);
             helper.assertTrue(level.addFreshEntity(user), "Could not add the ordinary gravity-enabled vampire user");
+            // The roof's shade is read from the light engine, which runs on a thread of its own, so the vampire is made
+            // only once it has lit the roof: a vampire made earlier would burn in the light of the open sky left there.
+            light = new GameTestLight.Wait(level, chunk);
+            registerObservers();
+            log("setup user=" + user.getUUID() + " occupied=" + occupied + " empty=" + empty
+                    + " savedBlocks=" + original.size() + " difficulty=" + level.getDifficulty());
+        }
+
+        private void grantPower() {
             power = PowerClass.PLAYER_POWER.attachGet(user);
             power.setPowerType(ModPlayerPowers.VAMPIRISM.get());
             data = PlayerPower.getPowerData(user, ModPlayerPowers.VAMPIRISM).orElseThrow();
@@ -161,9 +174,13 @@ public final class VampireFreezePlacementGameTests {
                             && ability.abilityType == VampirismPowerType.VAMPIRE_FREEZE.get(),
                     "Fixture did not resolve registered Vampire Freeze");
             LivingComponentAction.getComponent(user).entityAim.setTarget(ActionTarget.EMPTY);
-            registerObservers();
-            log("setup user=" + user.getUUID() + " occupied=" + occupied + " empty=" + empty
-                    + " savedBlocks=" + original.size() + " difficulty=" + level.getDifficulty());
+            poweredAt = userTicks;
+            poweredTick = helper.getTick();
+        }
+
+        private boolean shadeReady() {
+            BlockPos sun = BlockPos.containing(user.getX(), Math.round(user.getY(1.0D)), user.getZ());
+            return !level.canSeeSky(user.blockPosition()) && !level.canSeeSky(sun);
         }
 
         private void registerObservers() {
@@ -248,7 +265,10 @@ public final class VampireFreezePlacementGameTests {
                     || !ability.checkMainModLogicConditions(power).isPositive() || !ability.checkSpecificConditions(power).isPositive()
                     || !occupied.closerToCenterThan(user.position(), 4) || !empty.closerToCenterThan(user.position(), 4)
                     || occupied.getY() != user.blockPosition().getY() - 1 || empty.getY() != occupied.getY()) {
-                throw new IllegalStateException("Registered Freeze is not naturally grounded and eligible on the observed tick");
+                throw new IllegalStateException("Registered Freeze is not naturally grounded and eligible on the observed tick: onGround="
+                        + user.onGround() + " onFire=" + user.isOnFire() + " canSeeSky=" + level.canSeeSky(user.blockPosition())
+                        + " userTicking=" + level.isPositionEntityTicking(user.blockPosition())
+                        + " cowTicking=" + level.isPositionEntityTicking(cow.blockPosition()));
             }
             Vec3 eye = user.getEyePosition();
             Vec3 look = user.getLookAngle();
@@ -292,9 +312,19 @@ public final class VampireFreezePlacementGameTests {
             if (closed) return;
             try {
                 if (observerFailure != null) throw observerFailure;
-                helper.assertTrue(helper.getTick() < 80, "Freeze placement watchdog: grounded=" + user.onGround()
-                        + " naturalUserTicks=" + userTicks + " pressed=" + pressed);
-                if (!pressed && userTicks >= 2 && user.onGround()) press();
+                if (power == null) {
+                    boolean shaded = light.done() && shadeReady();
+                    if (shaded && userTicks >= 2) grantPower();
+                    else if (!shaded) {
+                        helper.assertTrue(!light.stalled(), "Freeze placement: the light engine did not shade the enclosure after "
+                                + light.millis() + " ms: lightDone=" + light.done() + " shade=" + shadeReady());
+                    }
+                }
+                else {
+                    helper.assertTrue(helper.getTick() - poweredTick < 80, "Freeze placement watchdog: grounded=" + user.onGround()
+                            + " naturalUserTicks=" + userTicks + " pressed=" + pressed);
+                    if (!pressed && userTicks >= poweredAt + 2 && user.onGround()) press();
+                }
                 if (result != null) {
                     validate();
                     close();
