@@ -67,6 +67,7 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Cod;
 import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.vehicle.Boat;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -1228,6 +1229,58 @@ public final class StandTargetRangeGameTests {
 							+ " along the crosshair and another beside it: answered " + answered + ", the crosshair baby aged "
 							+ (crosshair.getAge() - crosshairAge) + ", the one beside " + (beside.getAge() - besideAge) + "; "
 							+ step + " takes what the crosshair meets within the user's 5 blocks");
+		}
+		helper.succeed();
+	}
+
+	// 1.16 GoldExperienceBoneMeal.checkTarget took only a baby AnimalEntity, and standPerform aged only one: a baby
+	// villager is no target
+	@GameTest(template = "empty", batch = BATCH)
+	public static void goldExperienceBoneMealDoesNotAgeABabyVillager(GameTestHelper helper) {
+		try (Fixture fixture = Fixture.open(helper, Kind.GE_BONE_MEAL)) {
+			fixture.stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z + 1.0D, 0.0F, 0.0F);
+			Villager villager = EntityType.VILLAGER.create(fixture.level);
+			helper.assertTrue(villager != null, "STAND-RANGE premise: could not create the villager");
+			villager.setNoAi(true);
+			villager.setNoGravity(true);
+			villager.setAge(-24000);
+			villager.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z + 2.5D, 180.0F, 0.0F);
+			fixture.extras.add(villager);
+			helper.assertTrue(fixture.level.addFreshEntity(villager) && villager.isBaby(),
+					"STAND-RANGE premise: could not add a baby villager");
+			fixture.aim(new ActionTarget(villager));
+			int villagerAge = villager.getAge();
+			String villagerAnswer = fixture.refusal();
+			fixture.pressAndRun();
+			helper.assertTrue(!"accepted".equals(villagerAnswer) && villager.getAge() == villagerAge,
+					"GE_BONE_MEAL on a baby villager: answered " + villagerAnswer + ", aged it by " + (villager.getAge()
+							- villagerAge) + "; 1.16 takes only a baby animal");
+
+			Cow calf = fixture.babyCow(0.0D, 2.5D);
+			fixture.aim(new ActionTarget(calf));
+			int calfAge = calf.getAge();
+			String calfAnswer = fixture.refusal();
+			fixture.pressAndRun();
+			helper.assertTrue("accepted".equals(calfAnswer) && calf.getAge() > calfAge,
+					"GE_BONE_MEAL on a baby cow: answered " + calfAnswer + ", aged it by " + (calf.getAge() - calfAge));
+
+			// a press on a sapling past the Stand's reach: the perform aims again along the look ray and meets the villager
+			calf.discard();
+			fixture.stand.moveTo(fixture.origin.x + 1.5D, fixture.origin.y, fixture.origin.z, 0.0F, 0.0F);
+			villager.moveTo(fixture.origin.x, fixture.user.getEyeY() - villager.getBbHeight() / 2.0D,
+					fixture.origin.z + 3.0D, 180.0F, 0.0F);
+			BlockPos sapling = fixture.sapling(BlockPos.containing(fixture.origin.x, fixture.origin.y + 1.0D,
+					fixture.origin.z + 6.0D));
+			fixture.aim(new ActionTarget(sapling, Direction.NORTH));
+			ActionTarget reaim = StandPrecisionRay.trace(fixture.user, fixture.stand, 64.0D, 0.0D, true, false);
+			String saplingAnswer = fixture.refusal();
+			helper.assertTrue("accepted".equals(saplingAnswer) && reaim.getMainEntity() == villager,
+					"STAND-RANGE premise: the press on the sapling was refused or the perform's new aim does not meet the"
+							+ " villager: " + saplingAnswer + ", " + reaim);
+			villagerAge = villager.getAge();
+			fixture.pressAndRun();
+			helper.assertTrue(villager.getAge() == villagerAge, "GE_BONE_MEAL whose perform aimed again at a baby villager"
+					+ " aged it by " + (villager.getAge() - villagerAge) + "; 1.16 standPerform ages only an animal");
 		}
 		helper.succeed();
 	}
