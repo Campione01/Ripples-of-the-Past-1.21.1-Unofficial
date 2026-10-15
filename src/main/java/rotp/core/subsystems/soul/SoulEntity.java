@@ -82,7 +82,15 @@ public class SoulEntity extends Entity implements IEntityWithComplexSpawn {
 	}
 
 	public int getLifeSpan() {
-		return lifeSpan;
+		return lifeSpanLeft(level().isClientSide());
+	}
+
+	/**
+	 * What is left of the soul's life. Only the server counts lifeSpan down; a client has the life the soul had when it
+	 * began to track it and counts the ticks it has seen since, as the 1.16 soul counted tickCount against lifeSpan.
+	 */
+	public int lifeSpanLeft(boolean clientView) {
+		return clientView ? Math.max(lifeSpan - tickCount, 0) : lifeSpan;
 	}
 
 	public int getInitialLifeSpan() {
@@ -196,8 +204,12 @@ public class SoulEntity extends Entity implements IEntityWithComplexSpawn {
 						defaultEligibility));
 	}
 
+	public static boolean isResolveUpPhase(int lifeSpanLeft) {
+		return lifeSpanLeft <= RESOLVE_UP_DURATION && lifeSpanLeft > 0;
+	}
+
 	private boolean isInResolveUpPhase() {
-		return lifeSpan <= RESOLVE_UP_DURATION && lifeSpan > 0;
+		return isResolveUpPhase(getLifeSpan());
 	}
 
 	private void emitClientParticles(boolean inResolveUp) {
@@ -296,13 +308,14 @@ public class SoulEntity extends Entity implements IEntityWithComplexSpawn {
 	public void writeSpawnData(RegistryFriendlyByteBuf buf) {
 		resolveOriginEntity();
 		buf.writeInt(this.lifeSpan);
+		buf.writeInt(this.initialLifeSpan);
 		buf.writeInt(this.originEntity != null ? this.originEntity.getId() : -1);
 	}
 
 	@Override
 	public void readSpawnData(RegistryFriendlyByteBuf buf) {
 		this.lifeSpan = buf.readInt();
-		this.initialLifeSpan = this.lifeSpan;
+		this.initialLifeSpan = buf.readInt();
 		int originId = buf.readInt();
 		if (originId >= 0 && level().getEntity(originId) instanceof LivingEntity living) {
 			setOriginEntity(living);
