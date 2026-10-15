@@ -108,7 +108,7 @@ public class CrazyDRevertEntityAndBlocksAbility extends StandEntityAbility {
 	}
 
 	private static ActionTarget getCurrentRevertEntityTarget(LivingEntity user, Level level) {
-		if (user == null) {
+		if (user == null || CrazyDHealAbility.isClientEntityMissing(user, level)) {
 			return ActionTarget.EMPTY;
 		}
 		ActionTargetAim aim = LivingComponentAction.getAim(user);

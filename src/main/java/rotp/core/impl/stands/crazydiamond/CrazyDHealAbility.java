@@ -133,7 +133,7 @@ public class CrazyDHealAbility extends StandEntityAbility {
 	}
 
 	protected static ActionTarget getCurrentEntityTarget(LivingEntity user, Level level) {
-		if (user == null) {
+		if (user == null || isClientEntityMissing(user, level)) {
 			return ActionTarget.EMPTY;
 		}
 		ActionTarget target = getAimedTarget(user, level);
@@ -150,6 +150,15 @@ public class CrazyDHealAbility extends StandEntityAbility {
 				user,
 				0);
 		return isValidHealEntityTarget(user, target, level) ? target : ActionTarget.EMPTY;
+	}
+
+	/**
+	 * Server: the aim the client sent is an entity the server no longer has. 1.16 PowerBaseImpl.checkTarget emptied the
+	 * whole target of such a press, so no ray of the server's own takes another entity in its place.
+	 */
+	static boolean isClientEntityMissing(LivingEntity aiming, Level level) {
+		ActionTargetAim aim = !level.isClientSide() ? LivingComponentAction.getAim(aiming) : null;
+		return aim != null && aim.isClientEntityMissing();
 	}
 
 	private static ActionTarget getAimedTarget(LivingEntity user, Level level) {

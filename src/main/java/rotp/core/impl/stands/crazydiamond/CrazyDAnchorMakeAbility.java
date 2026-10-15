@@ -112,6 +112,9 @@ public class CrazyDAnchorMakeAbility extends StandEntityAbility {
 
 	private static ActionTarget findAnchorMakeTarget(LivingEntity user) {
 		LivingEntity aimingEntity = getAnchorAimingEntity(user);
+		if (CrazyDHealAbility.isClientEntityMissing(aimingEntity, aimingEntity.level())) {
+			return ActionTarget.EMPTY;
+		}
 		StandPower standPower = StandPower.get(user);
 		StandEntity stand = standPower != null ? standPower.getSummonedStandEntity() : null;
 		ActionTarget syncedTarget = getSyncedLookTarget(aimingEntity);

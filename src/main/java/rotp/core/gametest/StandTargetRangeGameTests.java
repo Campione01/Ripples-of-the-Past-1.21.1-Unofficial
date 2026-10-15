@@ -89,6 +89,7 @@ public final class StandTargetRangeGameTests {
 	private static final String BATCH = "stand_target_range";
 	private static final String TOO_FAR = "jojo.message.action_condition.target_too_far";
 	private static final String GE_MATERIAL = "jojo.message.action_condition.ge_lifeform_material";
+	private static final String HEAL_TARGET = "jojo.message.action_condition.heal_target";
 	private static final String GE_MATERIAL_ONLY_ITEM = "jojo.message.action_condition.ge_lifeform_material_only_item";
 	private static final String GE_MATERIAL_ITEM = "jojo.message.action_condition.ge_lifeform_material_item";
 	private static final String GE_MATERIAL_BLOCK = "jojo.message.action_condition.ge_lifeform_material_block";
@@ -842,6 +843,40 @@ public final class StandTargetRangeGameTests {
 			helper.assertTrue("accepted".equals(answeredAfter),
 					"GE_CREATE_LIFEFORM press with the item entity on the look ray after the client sent an empty aim:"
 							+ " answered " + answeredAfter + "; the item entity is the source again");
+		}
+		helper.succeed();
+	}
+
+	// 1.16 PowerBaseImpl.checkTarget:295-298 empties the whole target of a press on an entity the server no longer has,
+	// for Heal too: no ray of the server's own heals another mob on the look ray in its place
+	@GameTest(template = "empty", batch = BATCH)
+	public static void crazyDiamondHealDoesNotTakeAnotherMobWhenTheAimedEntityIsGoneOnThePress(GameTestHelper helper) {
+		try (Fixture fixture = Fixture.open(helper, Kind.CD_HEAL)) {
+			fixture.stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z + 1.0D, 0.0F, 0.0F);
+			Cow gone = fixture.cow(5.0D);
+			Cow wounded = fixture.cow(3.0D);
+			fixture.user.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES,
+					wounded.getBoundingBox().getCenter());
+			FriendlyByteBuf sent = new FriendlyByteBuf(Unpooled.buffer());
+			ActionTarget.STREAM_CODEC_UNRESOLVED_ENTITY_ID.encode(sent, new ActionTarget(gone));
+			gone.discard();
+			ActionTarget received = ActionTarget.STREAM_CODEC_UNRESOLVED_ENTITY_ID.decode(sent);
+			// the step both packet handlers store an aim through
+			ActionTargetAim aim = LivingComponentAction.getComponent(fixture.user).entityAim;
+			aim.setTargetFromClient(received, fixture.level);
+			helper.assertTrue(received.getType() == TargetType.ENTITY && aim.isClientEntityMissing()
+					&& aim.getTarget().getType() == TargetType.EMPTY,
+					"STAND-RANGE premise: the client's aim was not an entity or the server still found it: stored="
+							+ aim.getTarget().getType());
+			String answered = fixture.refusal(Kind.CD_HEAL, wounded);
+			helper.assertTrue(HEAL_TARGET.equals(answered), "CD_HEAL pressed on an entity the server no longer has, with a"
+					+ " wounded cow on the look ray: answered " + answered + "; 1.16 empties the whole target, so there is"
+					+ " nothing to heal (" + HEAL_TARGET + ")");
+
+			aim.setTargetFromClient(ActionTarget.EMPTY, fixture.level);
+			String answeredAfter = fixture.refusal(Kind.CD_HEAL, wounded);
+			helper.assertTrue("accepted".equals(answeredAfter), "CD_HEAL with an empty aim and a wounded cow on the look"
+					+ " ray: answered " + answeredAfter + "; the cow is the target again");
 		}
 		helper.succeed();
 	}
