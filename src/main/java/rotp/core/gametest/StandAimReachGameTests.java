@@ -51,10 +51,10 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * 1.16 StandEntity.punch / aimWithThisOrUser: an attack with no target in the Stand's reach aims from the user's eyes
- * at the user's 5-block reach and keeps what the Stand, moved forward, can reach. The default barrage and that
- * fallback follow the owner's strict crosshair rule: what the crosshair ray meets first, no precision widening. The
- * heavy punch's Stand keeps its distance from its target through the windup. Own batch: the rays reach several blocks
- * and must not meet a neighbouring test's mobs.
+ * at the user's 5-block reach with the Stand's precision ray (precisionRayTrace) and keeps what the Stand, moved
+ * forward, can reach. The owner restored that aim assist for the first punch and the default barrage (2026-10-14) and
+ * kept walls blocking it. The heavy punch's Stand keeps its distance from its target through the windup. Own batch:
+ * the rays reach several blocks and must not meet a neighbouring test's mobs.
  */
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -137,17 +137,12 @@ public final class StandAimReachGameTests {
 		});
 	}
 
-	// the owner's strict crosshair: Star Platinum's 1.16 precision boxes (about 1.9 blocks each side) would take a mob
-	// this close whichever way the user looked
+	// 1.16 StandEntityMeleeBarrage hit through StandEntity.punch -> aimWithThisOrUser -> precisionRayTrace: Star
+	// Platinum's precision boxes (about 1.9 blocks each side) take a mob this close whichever way the user looks
 	@GameTest(template = "empty", timeoutTicks = 60, batch = BATCH)
-	public static void defaultBarrageSkipsAMobBesideTheCrosshair(GameTestHelper helper) {
+	public static void defaultBarrageHitsAMobBesideTheCrosshair(GameTestHelper helper) {
 		Scene scene = new Scene(helper, GameType.CREATIVE, false, 16);
-		Cow cow = scene.cow(1.2, 0.8);
-		helper.assertTrue(cow.getBoundingBox().distanceToSqr(scene.user.getEyePosition()) < 1.9 * 1.9,
-				"Fixture: the cow is not within 1.9 blocks of the user's eyes");
-		helper.assertTrue(cow.getBoundingBox().clip(scene.user.getEyePosition(),
-				scene.user.getEyePosition().add(scene.user.getViewVector(1).scale(5))).isEmpty(),
-				"Fixture: the cow is on the crosshair");
+		Cow cow = scene.besideTheCrosshair();
 		float health = cow.getHealth();
 		scene.run(tick -> {
 			if (tick == 3) {
@@ -157,11 +152,85 @@ public final class StandAimReachGameTests {
 						"Fixture: the default barrage is not the unlocked directional one");
 			}
 			else if (tick > 3 && cow.getHealth() < health) {
-				helper.fail("The default barrage hit a cow beside the crosshair 1.9 blocks from the user, off the owner's strict crosshair");
+				return true;
+			}
+			else if (tick > 30) {
+				helper.fail("The default barrage missed a cow beside the crosshair within 1.9 blocks of the user, which"
+						+ " 1.16's precision aim took");
+			}
+			return false;
+		});
+	}
+
+	// 1.16 StandEntityLightAttack hit through the same StandEntity.punch -> aimWithThisOrUser -> precisionRayTrace
+	@GameTest(template = "empty", timeoutTicks = 60, batch = BATCH)
+	public static void firstPunchHitsAMobBesideTheCrosshair(GameTestHelper helper) {
+		Scene scene = new Scene(helper, GameType.SURVIVAL, false, 16);
+		Cow cow = scene.besideTheCrosshair();
+		float health = cow.getHealth();
+		scene.run(tick -> {
+			if (tick == 3) {
+				scene.clearAims();
+				EntityActionInstance action = scene.press("punch", InputMethod.CLICK);
+				helper.assertTrue(action instanceof StandEntityPunch, "The punch input started " + action);
+			}
+			else if (tick > 3 && cow.getHealth() < health) {
+				return true;
+			}
+			else if (tick > 25) {
+				helper.fail("The first punch from idle missed a cow beside the crosshair within 1.9 blocks of the user,"
+						+ " which 1.16's precision aim took");
+			}
+			return false;
+		});
+	}
+
+	// the owner kept walls blocking the aim (2026-10-14): bedrock right ahead hides the cow the precision boxes reach
+	@GameTest(template = "empty", timeoutTicks = 60, batch = BATCH)
+	public static void defaultBarrageDoesNotHitAMobBesideTheCrosshairBehindAWall(GameTestHelper helper) {
+		Scene scene = new Scene(helper, GameType.CREATIVE, false, 16);
+		Cow cow = scene.besideTheCrosshair();
+		scene.wallAhead();
+		float health = cow.getHealth();
+		scene.run(tick -> {
+			if (tick == 3) {
+				scene.clearAims();
+				EntityActionInstance action = scene.press("barrage", InputMethod.HOLD);
+				helper.assertTrue(StandEntityBarrageAbility.isDirectionalBarrage(scene.stand, action),
+						"Fixture: the default barrage is not the unlocked directional one");
+			}
+			else if (tick > 3 && cow.getHealth() < health) {
+				helper.fail("The default barrage hit a cow behind the bedrock; walls block the aim");
 			}
 			else if (tick > 25) {
 				helper.assertTrue(scene.stand.getCurStandAction() instanceof StandEntityBarrage,
 						"Fixture: the barrage ended before the check");
+				return true;
+			}
+			return false;
+		});
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 60, batch = BATCH)
+	public static void firstPunchDoesNotHitAMobBesideTheCrosshairBehindAWall(GameTestHelper helper) {
+		Scene scene = new Scene(helper, GameType.SURVIVAL, false, 16);
+		Cow cow = scene.besideTheCrosshair();
+		scene.wallAhead();
+		float health = cow.getHealth();
+		EntityActionInstance[] punch = new EntityActionInstance[1];
+		scene.run(tick -> {
+			if (tick == 3) {
+				scene.clearAims();
+				punch[0] = scene.press("punch", InputMethod.CLICK);
+				helper.assertTrue(punch[0] instanceof StandEntityPunch, "The punch input started " + punch[0]);
+			}
+			else if (tick > 3 && cow.getHealth() < health) {
+				helper.fail("The first punch hit a cow behind the bedrock; walls block the aim");
+			}
+			else if (tick > 25) {
+				helper.assertTrue(punch[0].punchedTarget != null
+								&& punch[0].punchedTarget.getType() == ActionTarget.TargetType.BLOCK,
+						"Fixture: the punch did not strike the bedrock: " + punch[0].punchedTarget);
 				return true;
 			}
 			return false;
@@ -187,8 +256,8 @@ public final class StandAimReachGameTests {
 		}
 	}
 
-	// the 1.16 precision aim kept behind the aim switch: walls hide an entity measured by its own box, even one so close
-	// that its precision box holds the user's eyes
+	// the 1.16 precision aim with the owner's walls: an entity is measured by its own box, even one so close that its
+	// precision box holds the user's eyes
 	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH)
 	public static void precisionAimDoesNotPickAMobBehindAWall(GameTestHelper helper) {
 		Scene scene = new Scene(helper, GameType.SURVIVAL, false, 16);
@@ -210,22 +279,20 @@ public final class StandAimReachGameTests {
 		}
 	}
 
-	// 1.16 StandEntity.aimWithThisOrUser: an action that is not a punch or barrage (an add-on's bomb or erase) aimed with
-	// the precision ray; the owner's strict crosshair covers only the default barrage and the light and heavy punches
+	// 1.16 StandEntity.aimWithThisOrUser: a punch and an action that is not one (an add-on's bomb or erase) both aimed
+	// with the precision ray
 	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH)
-	public static void nonPunchActionAimsWithThePrecisionRay(GameTestHelper helper) {
+	public static void punchAndNonPunchActionAimWithThePrecisionRay(GameTestHelper helper) {
 		Scene scene = new Scene(helper, GameType.SURVIVAL, false, 16);
 		LivingComponentAction component = LivingComponentAction.getComponent(scene.stand);
 		try {
-			Cow cow = scene.cow(1.2, 0.8);
-			helper.assertTrue(cow.getBoundingBox().clip(scene.user.getEyePosition(),
-					scene.user.getEyePosition().add(scene.user.getViewVector(1).scale(5))).isEmpty(),
-					"Fixture: the cow is on the crosshair");
+			Cow cow = scene.besideTheCrosshair();
 			scene.clearAims();
 			component.setAction(action(helper, scene, "punch"), scene.user, SyncType.NO_SYNC);
 			ActionTarget punch = StandEntityPunchAbility.getFreshPunchTarget(scene.stand, ActionTarget.EMPTY);
-			helper.assertTrue(punch.getMainEntity() != cow,
-					"Fixture: the light punch took the cow beside the crosshair, off the owner's strict crosshair");
+			helper.assertTrue(punch.getMainEntity() == cow,
+					"1.16 aimed the light punch with the precision ray, which takes the cow beside the crosshair; got "
+							+ punch);
 			component.setAction(action(helper, scene, "star_finger"), scene.user, SyncType.NO_SYNC);
 			ActionTarget finger = StandEntityPunchAbility.getFreshPunchTarget(scene.stand, ActionTarget.EMPTY);
 			helper.assertTrue(finger.getMainEntity() == cow,
@@ -257,6 +324,7 @@ public final class StandAimReachGameTests {
 		final StandEntity stand;
 		final Vec3 origin;
 		final List<Entity> entities = new ArrayList<>();
+		final List<PlacedBlock> placedBlocks = new ArrayList<>();
 		int ticks;
 		boolean finished;
 
@@ -304,6 +372,29 @@ public final class StandAimReachGameTests {
 			return cow;
 		}
 
+		// within Star Platinum's precision boxes of the user's eyes, off the crosshair
+		Cow besideTheCrosshair() {
+			Cow cow = cow(1.2, 0.8);
+			helper.assertTrue(cow.getBoundingBox().distanceToSqr(user.getEyePosition()) < 1.9 * 1.9,
+					"Fixture: the cow is not within 1.9 blocks of the user's eyes");
+			helper.assertTrue(cow.getBoundingBox().clip(user.getEyePosition(),
+					user.getEyePosition().add(user.getViewVector(1).scale(5))).isEmpty(),
+					"Fixture: the cow is on the crosshair");
+			helper.assertTrue(StandEntityPunchAbility.userPrecisionRayTarget(stand, user).getMainEntity() == cow,
+					"Fixture: the precision ray does not take the cow beside the crosshair");
+			return cow;
+		}
+
+		// bedrock half a block ahead of the eyes, between them and the cow beside the crosshair
+		void wallAhead() {
+			BlockPos wall = BlockPos.containing(origin.add(0, 1.62, 1));
+			placedBlocks.add(new PlacedBlock(wall, helper.getLevel().getBlockState(wall)));
+			helper.getLevel().setBlockAndUpdate(wall, Blocks.BEDROCK.defaultBlockState());
+			ActionTarget aimed = StandEntityPunchAbility.userPrecisionRayTarget(stand, user);
+			helper.assertTrue(aimed.getType() == ActionTarget.TargetType.BLOCK && aimed.getBlockPos().equals(wall),
+					"Fixture: the precision aim does not stop at the bedrock at " + wall + ": " + aimed);
+		}
+
 		void clearAims() {
 			LivingComponentAction.getComponent(stand).entityAim.setTarget(ActionTarget.EMPTY);
 			LivingComponentAction.getComponent(user).entityAim.setTarget(ActionTarget.EMPTY);
@@ -348,6 +439,10 @@ public final class StandAimReachGameTests {
 			AbilityInput.keyRelease(KEY, user);
 			if (power.isSummoned()) type.forceUnsummon(user, power);
 			entities.forEach(Entity::discard);
+			placedBlocks.forEach(placed -> helper.getLevel().setBlockAndUpdate(placed.pos(), placed.previous()));
+			placedBlocks.clear();
 		}
 	}
+
+	private record PlacedBlock(BlockPos pos, BlockState previous) {}
 }

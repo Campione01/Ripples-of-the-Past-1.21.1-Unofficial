@@ -449,7 +449,7 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 			return target;
 		}
 
-		// 1.16 aimWithThisOrUser: the precision ray, walls blocking; the owner's strict crosshair is for the ordinary punches
+		// 1.16 aimWithThisOrUser: the precision ray, walls blocking
 		private ActionTarget freshAim(StandEntity stand) {
 			if (isGrabVariation()) {
 				return super.getPunchTarget(stand);

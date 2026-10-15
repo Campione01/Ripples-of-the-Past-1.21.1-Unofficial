@@ -204,8 +204,9 @@ public final class DirectionalBarrageGameTests {
 		try (Fixture f = new Fixture(helper, "sweep", true)) {
 			Cow first = f.cow(0, 0, 2);
 			Cow second = f.cow(1.9, 0, 1.5);
-			Cow side = f.cow(-1.7, 0, 1.6);
-			Cow behind = f.cow(0, 0, -1.5);
+			// off the axis and beyond 1.16's precision boxes, which take a mob within about 1.9 blocks of the eyes
+			Cow side = f.cow(-3.5, 0, 1.6);
+			Cow behind = f.cow(0, 0, -3.5);
 			f.lookAt(first.getBoundingBox().getCenter());
 			f.component.entityAim.setTarget(new ActionTarget(side));
 			EntityActionInstance action = f.start("barrage");

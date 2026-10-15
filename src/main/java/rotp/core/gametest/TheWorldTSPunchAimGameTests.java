@@ -151,8 +151,7 @@ public final class TheWorldTSPunchAimGameTests {
 		}
 	}
 
-	// 1.16 TheWorldTSHeavyAttack.standPerform aimed again through StandEntity.aimWithThisOrUser: the precision ray, not
-	// the owner's strict crosshair, which covers only the default barrage and the ordinary punches
+	// 1.16 TheWorldTSHeavyAttack.standPerform aimed again through StandEntity.aimWithThisOrUser: the precision ray
 	@GameTest(template = "empty", timeoutTicks = 40)
 	public static void tsPunchFreshAimTakesAMobBesideTheCrosshair(GameTestHelper helper) {
 		Scene scene = new Scene(helper, 0);
