@@ -556,6 +556,106 @@ public final class StandAimReachGameTests {
 		});
 	}
 
+	// the owner's "aim assist" Stand setting (2026-10-15), off: every Stand attack takes only what the crosshair meets
+	@GameTest(template = "empty", timeoutTicks = 60, batch = BATCH + "_alone_5")
+	public static void aimAssistOffFirstPunchTakesTheCrosshairMobNotTheOneBeside(GameTestHelper helper) {
+		assistOffTakesTheCrosshairMob(helper, "punch", InputMethod.CLICK);
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 60, batch = BATCH + "_alone_6")
+	public static void aimAssistOffDefaultBarrageTakesTheCrosshairMobNotTheOneBeside(GameTestHelper helper) {
+		assistOffTakesTheCrosshairMob(helper, "barrage", InputMethod.HOLD);
+	}
+
+	// the scene of firstPunchPastTheSurvivalEntityPickTakesThePrecisionRay, where the assist takes the cow beside
+	private static void assistOffTakesTheCrosshairMob(GameTestHelper helper, String name, InputMethod method) {
+		Scene scene = new Scene(helper, GameType.SURVIVAL, false, 16);
+		Cow beside = scene.besideTheCrosshair();
+		Cow crosshair = scene.cow(0, 3.4);
+		scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, crosshair.getBoundingBox().getCenter());
+		scene.aimAssist(false);
+		float besideHealth = beside.getHealth();
+		float crosshairHealth = crosshair.getHealth();
+		scene.run(tick -> {
+			if (tick == 3) {
+				ActionTarget aim = scene.sendClientAims();
+				helper.assertTrue(aim.getMainEntity() == crosshair, "With the aim assist off a client's Stand aim took " + aim
+						+ " instead of the cow on the crosshair");
+				EntityActionInstance action = scene.press(name, method);
+				helper.assertTrue(action instanceof StandEntityPunch || StandEntityBarrageAbility.isDirectionalBarrage(
+						scene.stand, action), "Fixture: the " + name + " input started " + action);
+			}
+			else if (tick > 3 && beside.getHealth() < besideHealth) {
+				helper.fail("With the aim assist off the " + name + " hit the cow beside the crosshair");
+			}
+			else if (tick > 3 && crosshair.getHealth() < crosshairHealth) {
+				return true;
+			}
+			else if (tick > 40) {
+				helper.fail("With the aim assist off the " + name + " never hit the cow on the crosshair");
+			}
+			return false;
+		});
+	}
+
+	// an action that is not a punch reads the Stand's synced aim first; with the assist off the server takes the crosshair
+	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH + "_alone_7")
+	public static void aimAssistDecidesWhatANonPunchActionTakes(GameTestHelper helper) {
+		Scene scene = new Scene(helper, GameType.SURVIVAL, false, 16);
+		LivingComponentAction component = LivingComponentAction.getComponent(scene.stand);
+		try {
+			Cow beside = scene.besideTheCrosshair();
+			Cow crosshair = scene.cow(0, 3.4);
+			scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, crosshair.getBoundingBox().getCenter());
+			// where a press would move it, so that both cows are in its reach
+			scene.stand.moveTo(scene.origin.x, scene.origin.y, scene.origin.z + 1.5, 0, 0);
+			component.setAction(action(helper, scene, "star_finger"), scene.user, SyncType.NO_SYNC);
+			scene.sendClientAims();
+			ActionTarget on = StandEntityPunchAbility.getFreshPunchTarget(scene.stand, ActionTarget.EMPTY);
+			helper.assertTrue(on.getMainEntity() == beside, "With the aim assist on, an action that is not a punch took "
+					+ on + "; 1.16's precision ray takes the nearer cow beside the crosshair");
+			scene.aimAssist(false);
+			scene.sendClientAims();
+			ActionTarget off = StandEntityPunchAbility.getFreshPunchTarget(scene.stand, ActionTarget.EMPTY);
+			helper.assertTrue(off.getMainEntity() == crosshair, "With the aim assist off, an action that is not a punch took "
+					+ off + " instead of the cow on the crosshair");
+			scene.sendStaleStandAim(beside);
+			ActionTarget stale = StandEntityPunchAbility.getFreshPunchTarget(scene.stand, ActionTarget.EMPTY);
+			helper.assertTrue(stale.getMainEntity() == crosshair, "With the aim assist off the server took " + stale
+					+ " from a client's Stand aim beside the crosshair; the server decides from the player's setting");
+			helper.succeed();
+		}
+		finally {
+			component.setAction(null, scene.user, SyncType.NO_SYNC);
+			scene.close();
+		}
+	}
+
+	// the owner, 2026-10-15: sneaking no longer changes the aim (1.16 had no such rule); it still picks shift variants
+	@GameTest(template = "empty", timeoutTicks = 60, batch = BATCH + "_alone_8")
+	public static void aimAssistOnWhileSneakingFirstPunchHitsTheMobBeside(GameTestHelper helper) {
+		Scene scene = new Scene(helper, GameType.SURVIVAL, false, 16);
+		Cow cow = scene.besideTheCrosshair();
+		float health = cow.getHealth();
+		scene.run(tick -> {
+			if (tick == 3) {
+				scene.user.setShiftKeyDown(true);
+				ActionTarget aim = scene.sendClientAims();
+				helper.assertTrue(aim.getMainEntity() == cow, "A sneaking client's Stand aim took " + aim
+						+ "; sneaking does not switch the aim assist off");
+				EntityActionInstance action = scene.press("punch", InputMethod.CLICK);
+				helper.assertTrue(action instanceof StandEntityPunch, "The punch input started " + action);
+			}
+			else if (tick > 3 && cow.getHealth() < health) {
+				return true;
+			}
+			else if (tick > 25) {
+				helper.fail("The first punch while sneaking missed the cow beside the crosshair, which the aim assist takes");
+			}
+			return false;
+		});
+	}
+
 	private static EntityActionInstance action(GameTestHelper helper, Scene scene, String name) {
 		Ability ability = scene.power.getAbility(name);
 		helper.assertTrue(ability instanceof EntityActionType, "Fixture: no " + name + " action");
@@ -651,6 +751,15 @@ public final class StandAimReachGameTests {
 			LivingComponentAction.getComponent(user).entityAim.setTargetFromClient(pick, helper.getLevel());
 			LivingComponentAction.getComponent(stand).entityAim.setTargetFromClient(standAim, helper.getLevel());
 			return standAim;
+		}
+
+		void aimAssist(boolean on) {
+			user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get()).standAimAssist = on;
+		}
+
+		// a Stand aim from a client that does not follow the setting
+		void sendStaleStandAim(Entity target) {
+			LivingComponentAction.getComponent(stand).entityAim.setTargetFromClient(new ActionTarget(target), helper.getLevel());
 		}
 
 		// within Star Platinum's precision boxes of the user's eyes, off the crosshair

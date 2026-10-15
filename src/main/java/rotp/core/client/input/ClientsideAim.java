@@ -104,7 +104,7 @@ public class ClientsideAim {
 	}
 	
 	public static boolean precisionAimingDisabled(Minecraft mc) {
-		return mc.player == null || mc.player.isShiftKeyDown();
+		return mc.player == null || !StandEntityPunchAbility.aimAssist(mc.player);
 	}
 
 }

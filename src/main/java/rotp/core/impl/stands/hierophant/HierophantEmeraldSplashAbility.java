@@ -1,6 +1,7 @@
 package rotp.core.impl.stands.hierophant;
 
 import rotp.core.init.ModSoundEvents;
+import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 import rotp.core.powersystem.standpower.StandInstance.StandPart;
 
 import java.util.Optional;
@@ -243,7 +244,7 @@ public class HierophantEmeraldSplashAbility extends StandEntityAbility implement
 				target = HitResultUtil.clip(aimingEntity.getEyePosition(), aimingEntity.getLookAngle(),
 						stand.getMaxRange(), stand.getMaxRange(), level(),
 						entity -> entity instanceof LivingEntity && stand.canAttackEntity(entity),
-						aimingEntity, stand.getPrecision());
+						aimingEntity, StandEntityPunchAbility.aimAssist(stand.getUser()) ? stand.getPrecision() : 0);
 			}
 			if (target == null || target.isEmpty(level())) {
 				return Optional.empty();

@@ -189,10 +189,12 @@ public class StandEntityHeavyPunchChargedAbility extends StandEntityAbility {
 			}
 		}
 
-		// the synced crosshair target in the Stand's reach, else what the user looks at
+		// the synced Stand aim in the Stand's reach, else what the user looks at; without the aim assist only the latter
 		protected ActionTarget capturePerformTarget(StandEntity stand) {
 			Level level = stand.level();
-			ActionTarget aimed = StandEntityPunchAbility.validatePunchTarget(stand, captureActionTargetFromAim(stand));
+			ActionTarget aimed = stand.isManuallyControlled() || StandEntityPunchAbility.aimAssist(stand.getUser())
+					? StandEntityPunchAbility.validatePunchTarget(stand, captureActionTargetFromAim(stand))
+					: ActionTarget.EMPTY;
 			if (aimed.isEmpty(level) && !stand.isManuallyControlled()) {
 				aimed = StandEntityBarrageAbility.clipDirectionalBarrageTarget(stand, this, 1.0F);
 			}

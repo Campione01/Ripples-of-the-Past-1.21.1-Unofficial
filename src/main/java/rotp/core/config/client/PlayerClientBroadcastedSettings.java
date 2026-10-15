@@ -18,6 +18,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.HumanoidArm;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.neoforged.neoforge.attachment.AttachmentType;
 import net.neoforged.neoforge.common.util.INBTSerializable;
@@ -33,6 +34,7 @@ public class PlayerClientBroadcastedSettings implements SynchronizablePlayerData
 	public boolean vampireGlowingEyes = true;
 	public boolean noStandAbilityCooldown = false;
 	public boolean standAttackTargetLock = false;
+	public boolean standAimAssist = true;
 
 	public PlayerClientBroadcastedSettings() {
 		this.owner = null;
@@ -49,6 +51,7 @@ public class PlayerClientBroadcastedSettings implements SynchronizablePlayerData
 		buf.writeBoolean(vampireGlowingEyes);
 		buf.writeBoolean(noStandAbilityCooldown);
 		buf.writeBoolean(standAttackTargetLock);
+		buf.writeBoolean(standAimAssist);
 	}
 
 	public void fromBuf(FriendlyByteBuf buf) {
@@ -56,6 +59,7 @@ public class PlayerClientBroadcastedSettings implements SynchronizablePlayerData
 		vampireGlowingEyes = buf.readBoolean();
 		noStandAbilityCooldown = buf.readBoolean();
 		standAttackTargetLock = buf.readBoolean();
+		standAimAssist = buf.readBoolean();
 	}
 
 	public PlayerClientBroadcastedSettings copy() {
@@ -69,6 +73,7 @@ public class PlayerClientBroadcastedSettings implements SynchronizablePlayerData
 		this.vampireGlowingEyes = other.vampireGlowingEyes;
 		this.noStandAbilityCooldown = other.noStandAbilityCooldown;
 		this.standAttackTargetLock = other.standAttackTargetLock;
+		this.standAimAssist = other.standAimAssist;
 	}
 
 
@@ -112,6 +117,7 @@ public class PlayerClientBroadcastedSettings implements SynchronizablePlayerData
 		nbt.putBoolean("VampireGlowingEyes", vampireGlowingEyes);
 		nbt.putBoolean("NoStandAbilityCooldown", noStandAbilityCooldown);
 		nbt.putBoolean("StandAttackTargetLock", standAttackTargetLock);
+		nbt.putBoolean("StandAimAssist", standAimAssist);
 		return nbt;
 	}
 
@@ -121,6 +127,8 @@ public class PlayerClientBroadcastedSettings implements SynchronizablePlayerData
 		vampireGlowingEyes = nbt.getBoolean("VampireGlowingEyes");
 		noStandAbilityCooldown = nbt.getBoolean("NoStandAbilityCooldown");
 		standAttackTargetLock = nbt.getBoolean("StandAttackTargetLock");
+		// on unless a save says otherwise: the setting came after saves that lack it
+		standAimAssist = !nbt.contains("StandAimAssist") || nbt.getBoolean("StandAimAssist");
 	}
 
 	public static boolean isStandAttackTargetLockEnabled(StandPower standPower) {
@@ -129,6 +137,14 @@ public class PlayerClientBroadcastedSettings implements SynchronizablePlayerData
 		}
 		if (standPower.getUser() instanceof Player player) {
 			return getPlayerSettings(player).map(settings -> settings.standAttackTargetLock).orElse(false);
+		}
+		return true;
+	}
+
+	/** The "aim assist" Stand setting of a player Stand user; a mob always has the assist. */
+	public static boolean isStandAimAssistEnabled(@Nullable LivingEntity user) {
+		if (user instanceof Player player) {
+			return getPlayerSettings(player).map(settings -> settings.standAimAssist).orElse(true);
 		}
 		return true;
 	}

@@ -225,7 +225,8 @@ public class MagiciansRedCrossfireHurricaneAbility extends StandEntityAbility im
 		}
 
 		private static ActionTarget clipAim(Level level, LivingEntity aiming, StandEntity stand) {
-			double standPrecision = aiming == stand ? stand.getPrecision() : 0.0D;
+			double standPrecision = aiming == stand && StandEntityPunchAbility.aimAssist(stand.getUser())
+					? stand.getPrecision() : 0.0D;
 			return HitResultUtil.clip(aiming.getEyePosition(), aiming.getLookAngle(),
 					SPECIAL_AIM_RANGE, SPECIAL_AIM_RANGE, level,
 					entity -> StandEntityPunchAbility.canStandHit(stand, entity),

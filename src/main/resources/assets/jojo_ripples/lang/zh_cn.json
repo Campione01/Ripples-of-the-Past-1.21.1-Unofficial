@@ -1946,6 +1946,8 @@
   "jojo_ripples.stand_display.compact_hotbar": "精简技能栏：%s",
   "jojo_ripples.stand_display.attack_target_lock": "持续锁定攻击目标：%s",
   "jojo_ripples.stand_display.attack_target_lock.tooltip": "让近战攻击持续锁定目标。关闭后，连打随准星方向判定，按住时持续，松开或体力不足时结束。不改变目标标记的显示设置。",
+  "jojo_ripples.stand_display.aim_assist": "瞄准辅助：%s",
+  "jojo_ripples.stand_display.aim_assist.tooltip": "开启：1.16 的精准辅助，替身的出拳、连打和招式可以命中准星旁、在替身精准范围内的目标。关闭：只打准星对到的目标。",
   "jojo_ripples.stand_display.classic_obstruction": "经典防遮挡：%s",
   "jojo_ripples.stand_display.own_transparency": "自身替身透明度：%s%%",
   "jojo_ripples.stand_display.other_transparency": "其他替身透明度：%s%%",

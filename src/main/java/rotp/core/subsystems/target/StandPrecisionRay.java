@@ -43,15 +43,28 @@ public final class StandPrecisionRay {
 	 */
 	public static ActionTarget trace(Entity aiming, StandEntity stand, double reach, double rayTraceInflate,
 			boolean friendlyFire, boolean wallsHideEntities) {
-		Predicate<Entity> filter = entity -> entity != stand && entity != stand.getUser() && entity.isAlive()
-				&& !(entity instanceof Projectile projectile && projectile.getOwner() == stand);
-		if (!friendlyFire) {
-			filter = filter.and(stand::canAttackEntity);
-		}
+		Predicate<Entity> filter = targetFilter(stand, friendlyFire);
 		List<ActionTarget> targets = wallsHideEntities
 				? clipTargetsBeforeWalls(aiming, reach, filter, rayTraceInflate, stand.getPrecision())
 				: HitResultUtil.clipMultipleTargets(aiming, reach, filter, rayTraceInflate, stand.getPrecision());
 		return closestWithPriority(targets);
+	}
+
+	/**
+	 * The aim of a Stand user without the aim assist: what the aiming entity's crosshair ray meets first within reach,
+	 * by the entities' own boxes, with no priority; blocks stop it.
+	 */
+	public static ActionTarget crosshair(Entity aiming, StandEntity stand, double reach, boolean friendlyFire) {
+		Predicate<Entity> filter = targetFilter(stand, friendlyFire).and(entity -> !entity.isSpectator() && entity.isPickable());
+		return HitResultUtil.clip(aiming.getEyePosition(), aiming.getLookAngle(), reach, reach, aiming.level(), filter,
+				aiming, 0);
+	}
+
+	// 1.16 StandEntity.canTarget, and canHarm without friendly fire
+	private static Predicate<Entity> targetFilter(StandEntity stand, boolean friendlyFire) {
+		Predicate<Entity> filter = entity -> entity != stand && entity != stand.getUser() && entity.isAlive()
+				&& !(entity instanceof Projectile projectile && projectile.getOwner() == stand);
+		return friendlyFire ? filter : filter.and(stand::canAttackEntity);
 	}
 
 	/**
