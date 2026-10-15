@@ -116,7 +116,7 @@ public final class HungryZombieBloodDrainTargetGameTests {
 
     private static final class Fixture implements AutoCloseable, GameTestListener {
         private static final short SUMMON_KEY = 67, DRAIN_KEY = 68;
-        private long readyTick;
+        private long readyTick, lightDoneTick = -1;
         private GameTestLight.Wait light;
         private final GameTestHelper helper;
         private final ServerLevel level;
@@ -543,8 +543,11 @@ public final class HungryZombieBloodDrainTargetGameTests {
                 if (phase == Phase.OWNER_READY) {
                     int skyLight = brightestSkyLight();
                     boolean dark = light.done() && skyLight == 0;
-                    premise(dark || !light.stalled(), "room sky light did not settle after " + light.millis() + " ms, lightDone="
-                            + light.done() + " brightest=" + skyLight);
+                    if (light.done() && lightDoneTick < 0) lightDoneTick = helper.getTick();
+                    if (lightDoneTick < 0) premise(!light.stalled(), "room sky light did not settle after " + light.millis()
+                            + " ms, lightDone=false brightest=" + skyLight);
+                    else premise((ownerPosts >= 3 && dark) || helper.getTick() - lightDoneTick < 100,
+                            "owner not ready 100 ticks after the light engine settled, brightest=" + skyLight);
                     if (ownerPosts < 3 || !dark) { helper.runAfterDelay(1, this::poll); return; }
                     readyTick = helper.getTick();
                     if (lane == Lane.EXPIRED) { victim = createVictim(); begin(Phase.ARM); }

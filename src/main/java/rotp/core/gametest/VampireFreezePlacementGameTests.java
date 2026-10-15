@@ -111,6 +111,7 @@ public final class VampireFreezePlacementGameTests {
         private int userTicks;
         private int poweredAt;
         private long poweredTick;
+        private long lightDoneTick = -1;
         private boolean pressed;
         private boolean closed;
 
@@ -314,8 +315,14 @@ public final class VampireFreezePlacementGameTests {
                 if (observerFailure != null) throw observerFailure;
                 if (power == null) {
                     boolean shaded = light.done() && shadeReady();
+                    if (light.done() && lightDoneTick < 0) lightDoneTick = helper.getTick();
                     if (shaded && userTicks >= 2) grantPower();
-                    else if (!shaded) {
+                    else if (lightDoneTick >= 0) {
+                        helper.assertTrue(helper.getTick() - lightDoneTick < 80, "Freeze placement watchdog: 80 ticks after the light"
+                                + " engine settled: shade=" + shaded + " naturalUserTicks=" + userTicks
+                                + " userTicking=" + level.isPositionEntityTicking(user.blockPosition()));
+                    }
+                    else {
                         helper.assertTrue(!light.stalled(), "Freeze placement: the light engine did not shade the enclosure after "
                                 + light.millis() + " ms: lightDone=" + light.done() + " shade=" + shadeReady());
                     }

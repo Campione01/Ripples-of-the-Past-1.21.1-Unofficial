@@ -168,9 +168,20 @@ public final class VampirismHamonSuicideDeathGameTests {
 
         private boolean shadeReady() {
             if (user == null) return false;
-            BlockPos sun = BlockPos.containing(user.getX(), Math.round(user.getY(1D)), user.getZ());
-            return light.done() && blocks.keySet().stream().allMatch(pos -> level.getBlockState(pos).equals(Blocks.STONE.defaultBlockState()))
-                    && level.isPositionEntityTicking(user.blockPosition()) && !level.canSeeSky(sun);
+            return light.done() && roofIntact() && level.isPositionEntityTicking(user.blockPosition()) && !level.canSeeSky(sun());
+        }
+
+        private BlockPos sun() {
+            return BlockPos.containing(user.getX(), Math.round(user.getY(1D)), user.getZ());
+        }
+
+        private boolean roofIntact() {
+            return blocks.keySet().stream().allMatch(pos -> level.getBlockState(pos).equals(Blocks.STONE.defaultBlockState()));
+        }
+
+        private String shadeConditions() {
+            return "lightDone=" + light.done() + " roofIntact=" + roofIntact()
+                    + " ticking=" + level.isPositionEntityTicking(user.blockPosition()) + " canSeeSky=" + level.canSeeSky(sun());
         }
 
         private void convert() {
@@ -428,8 +439,8 @@ public final class VampirismHamonSuicideDeathGameTests {
                     if (shaded && readyTick < 0) readyTick = helper.getTick();
                     if (posts >= 20 && user.onGround() && shaded) convert();
                     else {
-                        premise(shaded || !light.stalled(), "the light engine did not shade the room after " + light.millis()
-                                + " ms: lightDone=" + light.done());
+                        premise(shaded || !light.stalled(), "the room was not shaded after " + light.millis()
+                                + " ms: " + shadeConditions());
                         if (helper.getTick() % 10 == 0) log("shade-wait posts=" + posts + " grounded=" + user.onGround() + " roofAndShade=" + shaded);
                     }
                 }
