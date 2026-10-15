@@ -47,6 +47,8 @@ public class GoldExperienceEntityLifeshotAbility extends NoPoseStandEntityAbilit
     public GoldExperienceEntityLifeshotAbility(AbilityType<?> abilityType, AbilityId abilityId) {
         super(abilityType, abilityId, LifeshotAction::new);
         isSubAbility = true;
+        // 1.16 gold_experience_lifeshot was a StandEntityActionModifier, not a Stand action: it never slowed the user
+        standUserWalkSpeed(1.0F);
     }
 
     @Override

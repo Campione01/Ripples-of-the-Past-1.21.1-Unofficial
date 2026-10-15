@@ -72,6 +72,8 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 		partsRequired(StandPart.MAIN_BODY, StandPart.ARMS);
 		cooldown(50);
 		resolveLevelToUnlock(RESOLVE_LEVEL_TO_UNLOCK);
+		// 1.16 the_world_ts_punch: standUserWalkSpeed(1.0F)
+		standUserWalkSpeed(1.0F);
 	}
 
 	/** 1.16 StandEntityAction.Builder#staminaCost of an add-on TS punch (The World's is 50). */
@@ -300,11 +302,9 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 			}
 		}
 
-		// 1.16 the_world_ts_punch: standUserWalkSpeed(1.0F)
 		@Override
 		public void onSetPhase(ActionPhase newPhase) {
 			super.onSetPhase(newPhase);
-			userWalkSpeed = 1.0F;
 			// 1.16 TheWorldTSHeavyAttack.getStandRecoveryTicks, read by StandEntityTask as the recovery starts: finisher 0
 			// at the Stand's attack speed of that moment
 			if (newPhase == ActionPhase.RECOVERY && phase != null && phase != newPhase

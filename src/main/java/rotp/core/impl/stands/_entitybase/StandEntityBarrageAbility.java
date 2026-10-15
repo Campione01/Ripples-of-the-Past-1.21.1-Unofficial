@@ -79,6 +79,8 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 		noFinisherBarDecay = true;
 		standAutoSummonMode(AutoSummonMode.ARMS);
 		partsRequired(StandPart.ARMS);
+		// 1.16 StandEntityMeleeBarrage.Builder
+		standUserWalkSpeed(0.15F);
 	}
 
 	public StandEntityBarrageAbility barrageHitSound(Holder<SoundEvent> barrageHitSound) {
@@ -283,7 +285,6 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 				phasesLength.put(ActionPhase.RECOVERY, recovery);
 				recoveryByBaseRule = recovery;
 			}
-			userWalkSpeed = newPhase == ActionPhase.PERFORM ? 0.15F : 1.0F;
 			if (level().isClientSide() && performer instanceof StandEntity stand && stand.clientStuff != null) {
 				stand.clientStuff.barrageHitSounds.setIsBarraging(newPhase == ActionPhase.PERFORM);
 			}

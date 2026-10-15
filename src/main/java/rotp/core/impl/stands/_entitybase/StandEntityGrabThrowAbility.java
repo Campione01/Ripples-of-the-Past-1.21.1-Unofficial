@@ -38,6 +38,8 @@ public class StandEntityGrabThrowAbility extends StandEntityAbility {
 		setButtonHoldPhase(ActionPhase.WINDUP);
 		setDefaultPhaseLength(ActionPhase.PERFORM, 6);
 		setDefaultPhaseLength(ActionPhase.RECOVERY, 12);
+		// a port addition with no 1.16 registration: the user keeps full speed, as before the Stand action default
+		standUserWalkSpeed(1.0F);
 	}
 
 	@Override

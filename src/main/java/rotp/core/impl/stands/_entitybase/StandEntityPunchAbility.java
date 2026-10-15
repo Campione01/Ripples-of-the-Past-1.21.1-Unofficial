@@ -105,6 +105,8 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		noFinisherBarDecay = true;
 		standAutoSummonMode(AutoSummonMode.MAIN_ARM);
 		partsRequired(StandPart.ARMS);
+		// 1.16 StandEntityLightAttack.Builder
+		standUserWalkSpeed(1.0F);
 	}
 
 	public StandEntityPunchAbility punchImpactSound(Holder<SoundEvent> punchImpactSound) {

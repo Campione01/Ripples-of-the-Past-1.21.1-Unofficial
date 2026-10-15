@@ -34,6 +34,8 @@ public class StandEntityBlockAbility extends StandEntityAbility {
 		setButtonHoldPhase(ActionPhase.PERFORM);
 		standAutoSummonMode(AutoSummonMode.ARMS);
 		partsRequired(StandPart.ARMS);
+		// 1.16 StandEntityBlock
+		standUserWalkSpeed(0.3F);
 	}
 
 	@Override
@@ -90,11 +92,6 @@ public class StandEntityBlockAbility extends StandEntityAbility {
 					&& !standEntity.isAutoGuarding()) {
 				setStandOffset(new Vec3(0, standEntity.Y_OFFSET, 0.3), StandOffsetFromUser.Rotations.HEAD, false);
 			}
-		}
-
-		@Override
-		public void onSetPhase(ActionPhase newPhase) {
-			userWalkSpeed = newPhase == ActionPhase.PERFORM ? 0.3F : 1;
 		}
 
 		@Override
