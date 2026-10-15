@@ -346,6 +346,41 @@ public final class SoulAscensionClientGameTests {
 		helper.succeed();
 	}
 
+	/**
+	 * The soul comes with the kill and is gone before the client ticks again: a client stalled for the soul's whole life,
+	 * or a player revived in the tick of the death on a client that runs several ticks a frame. 1.16 kept the soul from
+	 * its spawn data, so its wait ended all the same.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void soulGoneBeforeTheNextClientTickEndsTheWait(GameTestHelper helper) {
+		Client stalled = new Client();
+		stalled.tick();
+		stalled.soulSpawnsWithCamera();
+		check(helper, !stalled.deathScreenOpens(), "Fixture: the kill's death screen opened although the soul spawned");
+		stalled.playerDead = true;
+		stalled.soulEnds();
+		stalled.deathScreenOpens();
+		stalled.tick();
+		check(helper, stalled.deathScreenOpens(), "The death screen was held back for a soul that came and went between two"
+				+ " client ticks; 1.16 opened the vanilla death screen once it was gone");
+		stalled.tick();
+		check(helper, !stalled.state.awaitsSoul() && !stalled.state.showsSkipPrompt(true),
+				"The stalled client still waits for, or prompts to skip, a soul that is gone");
+
+		Client revived = new Client();
+		revived.tick();
+		revived.soulSpawnsWithCamera();
+		check(helper, !revived.deathScreenOpens(), "Fixture: the kill's death screen opened although the soul spawned");
+		revived.soulEnds();
+		revived.tick();
+		revived.tick();
+		check(helper, !revived.state.awaitsSoul() && !revived.state.showsSkipPrompt(false),
+				"The client of a player revived in the tick of its death, whose soul it never ticked with, still awaits it");
+		revived.playerDead = true;
+		check(helper, !revived.deathScreenOpens(), "The death after that revival did not wait for its soul");
+		helper.succeed();
+	}
+
 	@GameTest(template = "empty", timeoutTicks = 40)
 	public static void onlyServerEndsSoulOfLivingOrigin(GameTestHelper helper) {
 		Cow origin = EntityType.COW.create(helper.getLevel());

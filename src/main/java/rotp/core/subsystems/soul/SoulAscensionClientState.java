@@ -79,6 +79,11 @@ public final class SoulAscensionClientState {
 	 */
 	public boolean holdsDeathScreen(boolean soulCamera, boolean willSoulSpawn) {
 		killSeen = true;
+		// a soul on the camera at the kill has come, also when it is gone before the client ticks again (a stall as long as
+		// its life, or a revival in the tick of the death on a client that runs several ticks a frame)
+		if (soulCamera) {
+			soulCame = true;
+		}
 		if (!soulEntityWaiting && firstDeathFrame && willSoulSpawn) {
 			soulEntityWaiting = true;
 			firstDeathFrame = false;
