@@ -14,6 +14,7 @@ import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility.StandEntityPunch;
+import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility.StandEntityBarrage;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModEntityAttributes;
 import rotp.core.powersystem.PowerClass;
@@ -67,6 +68,9 @@ public final class StandSkillWallsGameTests {
 	private static final String SYNCED_AIM_BATCH = "stand_skill_walls_synced_aim";
 	private static final String KEPT_TARGET_BATCH = "stand_skill_walls_kept_target";
 	private static final String MANUAL_BATCH = "stand_skill_walls_manual";
+	private static final String ATTACK_HIT_BATCH = "stand_skill_walls_attack_hit";
+	private static final String ATTACK_STRICT_BATCH = "stand_skill_walls_attack_strict";
+	private static final String ATTACK_WALL_BATCH = "stand_skill_walls_attack_wall";
 	private static final short KEY = 173;
 
 	@Nullable
@@ -190,8 +194,74 @@ public final class StandSkillWallsGameTests {
 		}, 30, () -> "The marked punch " + how + " did not hit the cow behind the wall");
 	}
 
+	// a Stand whose attacks cross matter (owner, 2026-10-15): the user's aim decides between the mob behind and the wall
+	@GameTest(template = "empty", timeoutTicks = 80, batch = ATTACK_HIT_BATCH)
+	public static void markedStandBarrageHitsTheMobItsAimMeetsBehindAWall(GameTestHelper helper) {
+		barrageAtAOneBlockWall(helper, true, true);
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 80, batch = ATTACK_STRICT_BATCH)
+	public static void markedStandBarrageWithoutAimAssistHitsTheMobOnTheCrosshairBehindAWall(GameTestHelper helper) {
+		barrageAtAOneBlockWall(helper, true, false);
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 80, batch = ATTACK_WALL_BATCH)
+	public static void markedStandBarrageBreaksAWallWithNothingBehindIt(GameTestHelper helper) {
+		barrageAtAOneBlockWall(helper, false, true);
+	}
+
+	private static void barrageAtAOneBlockWall(GameTestHelper helper, boolean cowBehind, boolean aimAssist) {
+		Scene scene = new Scene(helper);
+		BlockPos wall = scene.oneBlockWall();
+		Cow cow = cowBehind ? scene.cow() : null;
+		scene.markAttacks(true);
+		scene.settings().standAimAssist = aimAssist;
+		float health = cow != null ? cow.getHealth() : 0;
+		int[] hitTick = new int[1];
+		String aim = aimAssist ? "" : " without the aim assist";
+		scene.run(tick -> {
+			if (tick == 3) {
+				scene.syncIdleAims();
+				EntityActionInstance barrage = scene.action("barrage");
+				LivingComponentAction.getComponent(scene.stand).setAction(barrage, scene.user, SyncType.NO_SYNC);
+				helper.assertTrue(barrage instanceof StandEntityBarrage && scene.stand.getCurStandAction() == barrage
+						&& !StandSkillWalls.isMarked(barrage.ability.getAbilityId()),
+						"Fixture: " + barrage + " is not Star Platinum's barrage, or its name is marked on its own");
+				return false;
+			}
+			if (tick < 3) {
+				return false;
+			}
+			boolean wallStands = helper.getLevel().getBlockState(wall).is(Blocks.STONE);
+			if (cow == null) {
+				return !wallStands;
+			}
+			helper.assertTrue(wallStands, "The marked barrage" + aim + " broke the wall instead of hitting the cow behind it");
+			if (hitTick[0] == 0 && cow.getHealth() < health) {
+				hitTick[0] = tick;
+			}
+			return hitTick[0] > 0 && tick >= hitTick[0] + 10;
+		}, 50, () -> cow == null ? "The marked barrage did not break the wall with nothing behind it"
+				: "The marked barrage" + aim + " did not hit the cow behind the wall");
+	}
+
 	@AfterBatch(batch = PICK_BATCH)
 	public static void releasePickBatch(ServerLevel level) {
+		releaseActive();
+	}
+
+	@AfterBatch(batch = ATTACK_HIT_BATCH)
+	public static void releaseAttackHitBatch(ServerLevel level) {
+		releaseActive();
+	}
+
+	@AfterBatch(batch = ATTACK_STRICT_BATCH)
+	public static void releaseAttackStrictBatch(ServerLevel level) {
+		releaseActive();
+	}
+
+	@AfterBatch(batch = ATTACK_WALL_BATCH)
+	public static void releaseAttackWallBatch(ServerLevel level) {
 		releaseActive();
 	}
 
@@ -290,6 +360,24 @@ public final class StandSkillWallsGameTests {
 		Cow cowBehindWall() {
 			wall(new BlockPos(1, 2, 2));
 			wall(new BlockPos(1, 3, 2));
+			return cow();
+		}
+
+		// one stone block at eye level, half a block ahead, that the crosshair meets first; the Stand can break it
+		BlockPos oneBlockWall() {
+			BlockPos pos = helper.absolutePos(new BlockPos(1, 3, 2));
+			placedBlocks.add(new PlacedBlock(pos, helper.getLevel().getBlockState(pos)));
+			helper.getLevel().setBlockAndUpdate(pos, Blocks.STONE.defaultBlockState());
+			ActionTarget crosshair = StandEntityPunchAbility.crosshairPick(stand, user, 1.0F, entity -> false);
+			helper.assertTrue(crosshair.getType() == ActionTarget.TargetType.BLOCK && pos.equals(crosshair.getBlockPos()),
+					"Fixture: the crosshair does not meet the wall first: " + crosshair);
+			helper.assertTrue(StandEntityPunch.canStandBreakBlockByStrength(stand, Blocks.STONE.defaultBlockState(),
+					helper.getLevel(), pos) && StandEntityPunch.canStandBreakBlock(helper.getLevel(), pos,
+					Blocks.STONE.defaultBlockState(), stand), "Fixture: Star Platinum cannot break the stone wall");
+			return pos;
+		}
+
+		Cow cow() {
 			Cow cow = EntityType.COW.create(helper.getLevel());
 			helper.assertTrue(cow != null, "Could not create a cow");
 			cow.setNoAi(true);
@@ -311,6 +399,15 @@ public final class StandSkillWallsGameTests {
 			BlockPos pos = helper.absolutePos(relative);
 			placedBlocks.add(new PlacedBlock(pos, helper.getLevel().getBlockState(pos)));
 			helper.getLevel().setBlockAndUpdate(pos, Blocks.BEDROCK.defaultBlockState());
+		}
+
+		void markAttacks(boolean marked) {
+			if (marked) {
+				StandSkillWalls.markAttacksThroughWalls(markedId.powerTypeId());
+			}
+			else {
+				StandSkillWalls.unmarkAttacksThroughWalls(markedId.powerTypeId());
+			}
 		}
 
 		void mark(boolean marked) {
@@ -403,6 +500,7 @@ public final class StandSkillWallsGameTests {
 			closed = true;
 			if (markedId != null) {
 				StandSkillWalls.unmarkThroughWalls(markedId.powerTypeId(), markedId.nameInMoveset());
+				StandSkillWalls.unmarkAttacksThroughWalls(markedId.powerTypeId());
 			}
 			AbilityInput.keyRelease(KEY, user);
 			if (power.isSummoned()) type.forceUnsummon(user, power);

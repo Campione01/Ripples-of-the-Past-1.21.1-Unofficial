@@ -6,6 +6,9 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import javax.annotation.Nullable;
 
+import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility;
+import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility;
+import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchChargedAbility;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.AbilityId;
@@ -32,6 +35,15 @@ import net.minecraft.world.level.Level;
  * <pre>{@code
  * StandSkillWalls.markThroughWalls(ResourceLocation.fromNamespaceAndPath("rotp_wr", "weather_report"), "lightning");
  * }</pre>
+ *
+ * <p><b>The attacks of a Stand whose power crosses matter.</b> {@link #markAttacksThroughWalls} marks every punch,
+ * heavy punch (charged too) and barrage of a Stand type at once, whatever their names, add-on subclasses of the core
+ * attack abilities included. For them the user's aim decides, as the original story has it: an entity the aim meets
+ * behind a wall is hit through the wall (with the aim assist within the Stand's precision boxes, without it on the
+ * crosshair line), and a wall the aim meets with no entity behind it in reach is struck and broken as by any Stand,
+ * within the Stand's strength and the block breaking game rule. A target the attack took from a synced aim or from the
+ * target kept at the key press is picked again through walls when it is a block (see
+ * {@link StandEntityPunchAbility#throughWallsTarget}).</p>
  *
  * <p><b>Core helpers that honour the mark on their own.</b> They ask {@link #wallsHideEntities(Entity)}, which looks at
  * the skill in progress: the current action of the aiming entity, of the Stand it is, or of the Stand it has out.</p>
@@ -66,6 +78,7 @@ import net.minecraft.world.level.Level;
  */
 public final class StandSkillWalls {
 	private static final Set<Key> MARKED = ConcurrentHashMap.newKeySet();
+	private static final Set<ResourceLocation> ATTACKS_MARKED = ConcurrentHashMap.newKeySet();
 
 	private StandSkillWalls() {}
 
@@ -85,16 +98,46 @@ public final class StandSkillWalls {
 	}
 
 	/**
+	 * Marks every punch, heavy punch and barrage of a Stand type as going through walls: the user's aim decides whether
+	 * they hit an entity behind a wall or strike the wall.
+	 * @param standTypeId the id of the Stand type
+	 */
+	public static void markAttacksThroughWalls(ResourceLocation standTypeId) {
+		ATTACKS_MARKED.add(Objects.requireNonNull(standTypeId, "standTypeId"));
+	}
+
+	/** Takes a Stand type's attack mark back. Returns whether its attacks were marked. */
+	public static boolean unmarkAttacksThroughWalls(ResourceLocation standTypeId) {
+		return ATTACKS_MARKED.remove(standTypeId);
+	}
+
+	/** Whether a skill is one of the attacks {@link #markAttacksThroughWalls} marks: a punch, heavy punch or barrage. */
+	public static boolean isStandAttack(@Nullable Object skill) {
+		if (skill instanceof EntityActionInstance action) {
+			skill = action.ability;
+		}
+		return skill instanceof StandEntityPunchAbility || skill instanceof StandEntityHeavyPunchAbility
+				|| skill instanceof StandEntityHeavyPunchChargedAbility || skill instanceof StandEntityBarrageAbility;
+	}
+
+	/**
 	 * @param skill an {@link Ability}, an {@link EntityActionType}, an {@link EntityActionInstance} or an
-	 * {@link AbilityId}
+	 * {@link AbilityId}; a bare id is not known as an attack, so only its own mark counts
 	 */
 	public static boolean isMarked(@Nullable Object skill) {
-		if (MARKED.isEmpty()) {
+		if (noMarks()) {
 			return false;
 		}
 		AbilityId id = abilityId(skill);
-		return id != null && id.powerTypeId() != null && id.nameInMoveset() != null
-				&& MARKED.contains(new Key(id.powerTypeId(), id.nameInMoveset()));
+		if (id == null || id.powerTypeId() == null) {
+			return false;
+		}
+		return id.nameInMoveset() != null && MARKED.contains(new Key(id.powerTypeId(), id.nameInMoveset()))
+				|| ATTACKS_MARKED.contains(id.powerTypeId()) && isStandAttack(skill);
+	}
+
+	private static boolean noMarks() {
+		return MARKED.isEmpty() && ATTACKS_MARKED.isEmpty();
 	}
 
 	/**
@@ -110,7 +153,7 @@ public final class StandSkillWalls {
 	 * or, for a Stand user, of its summoned Stand.
 	 */
 	public static boolean wallsHideEntities(@Nullable Entity aiming) {
-		if (aiming == null || MARKED.isEmpty() || !(aiming instanceof LivingEntity living)) {
+		if (aiming == null || noMarks() || !(aiming instanceof LivingEntity living)) {
 			return true;
 		}
 		Level level = living.level();
