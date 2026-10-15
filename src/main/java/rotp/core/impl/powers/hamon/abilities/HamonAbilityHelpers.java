@@ -125,27 +125,24 @@ public final class HamonAbilityHelpers {
 	// sparkParticle: 1.16 HamonAttackProperties.hamonParticle, null for the default spark
 	public static boolean hamonHurt(LivingEntity target, float baseDamage,
 			@Nullable Entity directEntity, @Nullable Entity causingEntity, @Nullable ParticleOptions sparkParticle) {
-		if (targetHasHamonDamageImmunity(target)) {
-			return false;
-		}
-		float damage = hamonDamageAmount(target, baseDamage);
-		if (damage <= 0.0F) {
-			return false;
-		}
-		return hamonHurtWithAmountAndSparks(target, damage,
-				hamonDamageSource(target.level(), directEntity, causingEntity), sparkParticle);
-	}
-
-	// 1.16 DamageUtil.dealHamonDamage did not look at the amount: a hit of zero still went to hurt(), which a mob
-	// accepts (hurt animation, knockback, true) and a player refuses. hamonHurt refuses it for every target.
-	public static boolean hamonHurtAllowingZero(LivingEntity target, float baseDamage,
-			@Nullable Entity directEntity, @Nullable Entity causingEntity) {
-		if (targetHasHamonDamageImmunity(target)
-				|| hasSatiporojaScarf(target) && PlayerPower.getPowerData(target, ModPlayerPowers.HAMON).isPresent()) {
+		if (refusesHamonHit(target)) {
 			return false;
 		}
 		return hamonHurtWithAmountAndSparks(target, Math.max(hamonDamageAmount(target, baseDamage), 0.0F),
-				hamonDamageSource(target.level(), directEntity, causingEntity), null);
+				hamonDamageSource(target.level(), directEntity, causingEntity), sparkParticle);
+	}
+
+	// 1.16 DamageUtil.dealHamonDamage did not look at the amount: a hit of zero (an efficiency of 0, an empty glider)
+	// still went to hurt(), which a mob accepts (hurt animation, knockback, true) and a player refuses. It refused
+	// only a charged or stone-form target and a Hamon user in a Satiporoja scarf.
+	private static boolean refusesHamonHit(LivingEntity target) {
+		return targetHasHamonDamageImmunity(target)
+				|| hasSatiporojaScarf(target) && PlayerPower.getPowerData(target, ModPlayerPowers.HAMON).isPresent();
+	}
+
+	public static boolean hamonHurtAllowingZero(LivingEntity target, float baseDamage,
+			@Nullable Entity directEntity, @Nullable Entity causingEntity) {
+		return hamonHurt(target, baseDamage, directEntity, causingEntity, null);
 	}
 
 	// 1.16 dealHamonDamage built EntityDamageSource(direct) for a direct entity without an indirect one, and its
@@ -155,11 +152,10 @@ public final class HamonAbilityHelpers {
 	}
 
 	public static boolean hamonHurtWithSource(LivingEntity target, float baseDamage, DamageSource source) {
-		if (targetHasHamonDamageImmunity(target)) {
+		if (refusesHamonHit(target)) {
 			return false;
 		}
-		float damage = hamonDamageAmount(target, baseDamage);
-		return damage > 0.0F && hamonHurtWithAmount(target, damage, source);
+		return hamonHurtWithAmount(target, Math.max(hamonDamageAmount(target, baseDamage), 0.0F), source);
 	}
 
 	public static boolean hamonHurtWithAmount(LivingEntity target, float damage, DamageSource source) {
