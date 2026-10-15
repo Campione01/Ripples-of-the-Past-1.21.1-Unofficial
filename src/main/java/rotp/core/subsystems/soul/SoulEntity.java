@@ -35,8 +35,8 @@ public class SoulEntity extends Entity implements IEntityWithComplexSpawn {
 
 	private static final int DEFAULT_LIFESPAN_TICKS = 200;
 	private static final int RESOLVE_UP_DURATION = 60;
-	private static final double RESOLVE_UP_DRIFT = 0.06;
-	private static final double NORMAL_DRIFT = 0.02;
+	// 1.16 SoulEntity.getDeltaMovement: a constant rise, in the resolve-up phase too
+	private static final Vec3 RISE = new Vec3(0.0D, 0.04D, 0.0D);
 
 	@Nullable
 	private LivingEntity originEntity;
@@ -121,10 +121,8 @@ public class SoulEntity extends Entity implements IEntityWithComplexSpawn {
 			}
 		}
 		originEntity.deathTime = Math.min(originEntity.deathTime, 18);
-		double drift = inResolveUp ? RESOLVE_UP_DRIFT : NORMAL_DRIFT;
-		Vec3 driftVec = new Vec3(0.0, drift, 0.0);
-		setDeltaMovement(getDeltaMovement().scale(0.96).add(driftVec));
-		move(MoverType.SELF, getDeltaMovement());
+		setDeltaMovement(RISE);
+		move(MoverType.SELF, RISE);
 	}
 
 	private void resolveOriginEntity() {
