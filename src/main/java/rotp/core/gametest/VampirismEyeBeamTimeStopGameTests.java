@@ -586,6 +586,12 @@ public final class VampirismEyeBeamTimeStopGameTests {
             if (closed) return;
             try {
                 if (observerFailure != null) throw observerFailure;
+                // the coarse one: a scene that waits for the earlier scene or for the light engine and never starts
+                premise(helper.getTick() < TIMEOUT - 20, "watchdog: waiting=" + (running != this) + " roofLit="
+                        + (light != null && light.done()) + " userTicks=" + userTicks
+                        + " powered=" + (power != null) + " pressed=" + pressed + " released=" + released
+                        + " stopStarted=" + stopStarted + " stopActive=" + stopActive + " ended=" + ended
+                        + " beams=" + beams.size() + " shotDeltas=" + shotDeltas + " frames=" + frames.values());
                 if (running == null) {
                     running = this;
                 }
