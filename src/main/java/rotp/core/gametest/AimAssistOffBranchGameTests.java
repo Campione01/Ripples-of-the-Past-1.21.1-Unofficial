@@ -25,6 +25,7 @@ import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.target.ActionTarget;
+import rotp.core.subsystems.target.HitResultUtil;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
@@ -52,13 +53,35 @@ public final class AimAssistOffBranchGameTests {
 
 	private AimAssistOffBranchGameTests() {}
 
-	// Emerald Splash shot from the placed barriers aims at what the user aims at, else at what the user's ray meets
+	// 1.16 HierophantGreenEmeraldSplash.aimForBarriers cast JojoModUtil.rayTrace with inflate 0 and precision 0 from the
+	// user's eyes, or the Stand's under manual control. The net's aim never took the Stand's precision boxes, so the mob on
+	// the crosshair is its aim with the aim assist on and off, and the mob beside the crosshair is never.
 	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH + "_1")
-	public static void emeraldSplashBarrierAimWithoutTheAimAssistTakesTheCrosshairMob(GameTestHelper helper) {
-		try (Scene scene = new Scene(helper, "hierophant_green", false)) {
+	public static void emeraldSplashBarrierAimTakesTheCrosshairMobWithTheAimAssistOnAndOff(GameTestHelper helper) {
+		barrierNetAimTakesTheCrosshairMob(helper, false);
+		barrierNetAimTakesTheCrosshairMob(helper, true);
+		helper.succeed();
+	}
+
+	private static void barrierNetAimTakesTheCrosshairMob(GameTestHelper helper, boolean standAims) {
+		String position = standAims ? "the Stand's eyes under manual control" : "the user's eyes";
+		try (Scene scene = new Scene(helper, "hierophant_green", standAims)) {
 			Cow beside = scene.cow(1.2D, 2.0D);
 			Cow crosshair = scene.cow(0.0D, 4.0D);
 			helper.assertTrue(scene.stand instanceof HierophantGreenEntity, "Fixture: the Stand is not Hierophant Green");
+			HierophantGreenEntity hierophant = (HierophantGreenEntity) scene.stand;
+			LivingEntity aiming = standAims ? scene.stand : scene.user;
+			if (standAims) {
+				scene.stand.setManuallyControlled(true);
+			}
+			Vec3 eyes = aiming.getEyePosition();
+			Vec3 end = eyes.add(aiming.getLookAngle().scale(hierophant.getMaxRange()));
+			ActionTarget precise = HitResultUtil.clip(eyes, aiming.getLookAngle(), hierophant.getMaxRange(), hierophant.getMaxRange(),
+					helper.getLevel(), entity -> entity instanceof LivingEntity, aiming, hierophant.getPrecision(), false);
+			helper.assertTrue(crosshair.getBoundingBox().clip(eyes, end).isPresent() && beside.getBoundingBox().clip(eyes, end).isEmpty()
+					&& precise.getMainEntity() == beside,
+					"Fixture: from " + position + " the crosshair does not meet only the cow on it, or the Stand's precision boxes would not"
+							+ " take the cow beside it: precision ray " + precise);
 			Ability splash = scene.power.getAbility("emerald_splash");
 			helper.assertTrue(splash instanceof EntityActionType, "Fixture: no emerald_splash action");
 			EntityActionInstance action = ((EntityActionType) splash).initActionOnAbilityUse(helper.getLevel(), scene.user,
@@ -66,18 +89,17 @@ public final class AimAssistOffBranchGameTests {
 			helper.assertTrue(action instanceof EmeraldSplashShot, "Fixture: emerald_splash started " + action);
 			// the action reads its level from the Stand it runs on
 			LivingComponentAction.getComponent(scene.stand).setAction(action, scene.user, SyncType.NO_SYNC);
-			HierophantGreenEntity hierophant = (HierophantGreenEntity) scene.stand;
 
-			Optional<Vec3> on = EmeraldSplashShot.barrierAimPoint(hierophant);
-			helper.assertTrue(on.equals(Optional.of(beside.getBoundingBox().getCenter())),
-					"Fixture: with the aim assist on the barrier aim does not take the cow beside the crosshair: " + on);
-			scene.aimAssist(false);
-			Optional<Vec3> off = EmeraldSplashShot.barrierAimPoint(hierophant);
-			helper.assertTrue(off.equals(Optional.of(crosshair.getBoundingBox().getCenter())),
-					"With the aim assist off the Emerald Splash barrier aim went for " + off
-							+ " instead of the cow on the crosshair at " + crosshair.getBoundingBox().getCenter());
+			for (boolean assist : new boolean[] { true, false }) {
+				scene.aimAssist(assist);
+				Optional<Vec3> aimPoint = EmeraldSplashShot.barrierAimPoint(hierophant);
+				helper.assertTrue(aimPoint.equals(Optional.of(crosshair.getBoundingBox().getCenter())),
+						"With the aim assist " + (assist ? "on" : "off") + " the Emerald Splash barrier aim from " + position + " went for "
+								+ aimPoint + " instead of the cow on the crosshair at " + crosshair.getBoundingBox().getCenter()
+								+ " (the cow beside it is at " + beside.getBoundingBox().getCenter() + "); 1.16 casts the net's ray"
+								+ " with precision 0");
+			}
 		}
-		helper.succeed();
 	}
 
 	// Magician's Red's Crossfire Hurricane special aims from the Stand's own eyes under remote control
