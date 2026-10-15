@@ -753,7 +753,10 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	/**
 	 * A target from a synced aim or a kept press, for an action marked through walls ({@link StandSkillWalls}): those
 	 * aims were picked while no action ran, so a block among them may hide an entity behind it. The aim is picked again
-	 * through walls, and the block stays only when that finds no entity the Stand can reach.
+	 * through walls, and the block stays only when that finds no entity the Stand can reach. The new pick looks from
+	 * where the user, or the Stand that aims without it, looks now, not along the old aim: a wall kept from the key press
+	 * (keep attack target, manual control) gives way to the entity the current aim meets, which need not be behind that
+	 * wall once the aim has turned.
 	 */
 	public static ActionTarget throughWallsTarget(StandEntity stand, ActionTarget target, boolean precisionAim) {
 		if (target.getType() != TargetType.BLOCK || StandSkillWalls.wallsHideEntities(stand)) {
