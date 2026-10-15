@@ -26,6 +26,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.MoverType;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -111,6 +112,9 @@ public class SoulEntity extends Entity implements IEntityWithComplexSpawn {
 			discard();
 			return;
 		}
+		if (looksWithOrigin(level().isClientSide(), originEntity)) {
+			setRot(originEntity.getYRot(), originEntity.getXRot());
+		}
 		boolean inResolveUp = isInResolveUpPhase();
 		if (level().isClientSide()) {
 			emitClientParticles(inResolveUp);
@@ -139,6 +143,20 @@ public class SoulEntity extends Entity implements IEntityWithComplexSpawn {
 	 */
 	public static boolean endedByOrigin(@Nullable LivingEntity origin, int tickCount, boolean clientSide) {
 		return origin == null || origin.isRemoved() || !clientSide && tickCount > 1 && !origin.isDeadOrDying();
+	}
+
+	/**
+	 * Whether this is the soul of the client's own player. 1.16 gave it that player's look every tick: the mouse turns
+	 * the player, not the camera's entity, and the client sends the soul's look to the server, which gives Resolve to the
+	 * entity it looks at. Such a soul also takes no position or look from the server, as in 1.16.
+	 */
+	public static boolean looksWithOrigin(boolean clientSide, @Nullable LivingEntity origin) {
+		return clientSide && origin instanceof Player player && player.isLocalPlayer();
+	}
+
+	@Override
+	public boolean isControlledByLocalInstance() {
+		return looksWithOrigin(level().isClientSide(), originEntity) || super.isControlledByLocalInstance();
 	}
 
 	private void resolveOriginEntity() {
@@ -179,21 +197,29 @@ public class SoulEntity extends Entity implements IEntityWithComplexSpawn {
 	}
 
 	private void giveResolveToLookTarget() {
+		LivingEntity looked = lookTarget();
+		if (looked != null) {
+			LivingEntity standUser = StandUtil.getStandUser(looked);
+			StandPower stand = StandPower.get(standUser);
+			if (stand != null && giveResolve(standUser, stand)) {
+				stand.getResolveCounter().soulAddResolveLook(stand);
+			}
+		}
+	}
+
+	/** The entity the soul looks at, whose Stand user it gives Resolve to. */
+	@Nullable
+	public LivingEntity lookTarget() {
 		if (originEntity == null) {
-			return;
+			return null;
 		}
 		Vec3 start = position().add(0.0D, getBbHeight() * 0.5D, 0.0D);
 		ActionTarget target = HitResultUtil.clip(start, getLookAngle(), 32.0D, 32.0D, level(),
 				entity -> entity instanceof LivingEntity living
 						&& !StandUtil.getStandUser(living).is(originEntity),
 				this, 1.0D);
-		if (target.getType() == ActionTarget.TargetType.ENTITY && target.getMainEntity() instanceof LivingEntity living) {
-			LivingEntity standUser = StandUtil.getStandUser(living);
-			StandPower stand = StandPower.get(standUser);
-			if (stand != null && giveResolve(standUser, stand)) {
-				stand.getResolveCounter().soulAddResolveLook(stand);
-			}
-		}
+		return target.getType() == ActionTarget.TargetType.ENTITY && target.getMainEntity() instanceof LivingEntity living
+				? living : null;
 	}
 
 	private boolean giveResolve(LivingEntity target, StandPower targetStandPower) {

@@ -827,14 +827,14 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 			serverPlayerUser.ifPresent(player -> PacketDistributor.sendToPlayer(player, SoulSpawnPacket.noSoulSpawned()));
 			return false;
 		}
-		if (hasActiveSoulEntity(level)) {
+		if (soulAlreadyAscends(level)) {
 			return true;
 		}
 		int ticks = getSoulLifespanTicks(level);
 		boolean resolveCanLvlUp = level.getLevelData().isHardcore()
 				|| !JojoModConfig.getCommonConfigInstance(false).keepStandOnDeath.get();
 		Runnable spawnSoul = () -> {
-			if (hasActiveSoulEntity(level)) {
+			if (soulAlreadyAscends(level)) {
 				return;
 			}
 			serverPlayerUser.ifPresent(ModCriteriaTriggers::triggerSoulAscension);
@@ -870,6 +870,20 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 	private boolean hasActiveSoulEntity(ServerLevel level) {
 		return !level.getEntitiesOfClass(SoulEntity.class, user.getBoundingBox().inflate(SOUL_DUPLICATE_CHECK_RADIUS),
 				soul -> soul.isAlive() && user.equals(soul.getOriginEntity())).isEmpty();
+	}
+
+	/**
+	 * A soul of the user still ascends, so no second one spawns; the client, which holds its death screen back for this
+	 * death's soul, learns that none comes, as from a failed spawn.
+	 */
+	private boolean soulAlreadyAscends(ServerLevel level) {
+		if (!hasActiveSoulEntity(level)) {
+			return false;
+		}
+		// as the client now has it, so that tickSoulCheck sends the flag again once the user lives
+		willSoulSpawn = false;
+		serverPlayerUser.ifPresent(player -> PacketDistributor.sendToPlayer(player, SoulSpawnPacket.noSoulSpawned()));
+		return true;
 	}
 	
 	
