@@ -271,14 +271,18 @@ public class StandDisplaySettingsScreen extends Screen implements IJojoMenuScree
 	}
 
 	@Override
-	public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-		int x = getWindowX(this);
-		int y = getWindowY(this);
+	public void renderBackground(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+		// the menu blur takes in all that is drawn before it: the window goes on top of it, under the controls
+		super.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
 		BlitFloat.blit(guiGraphics.pose(), Minecraft.getInstance(), WINDOW,
-				x, y, getWindowWidth(), getWindowHeight(), 0,
+				getWindowX(this), getWindowY(this), getWindowWidth(), getWindowHeight(), 0,
 				0, 0, getWindowWidth(), getWindowHeight(), 256, 256, BlitFloat.NO_TINT);
-		guiGraphics.drawCenteredString(font, title, width / 2, y + 16, 0xFF202020);
+	}
+
+	@Override
+	public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
 		super.render(guiGraphics, mouseX, mouseY, partialTick);
+		guiGraphics.drawCenteredString(font, title, width / 2, getWindowY(this) + 16, 0xFF202020);
 		renderTabs(guiGraphics, this);
 		renderTabTooltip(guiGraphics, this, mouseX, mouseY);
 	}
