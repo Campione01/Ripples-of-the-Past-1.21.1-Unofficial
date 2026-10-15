@@ -1256,6 +1256,14 @@ public final class StandTargetRangeGameTests {
 			ChunkPos chunk = new ChunkPos(template);
 			origin = new Vec3(chunk.getMinBlockX() + 8.5D, template.getY() + 40.0D, chunk.getMinBlockZ() + 6.5D);
 			space = new AABB(origin.x - 3, origin.y - 2, origin.z - 16, origin.x + 3, origin.y + 4, origin.z + 18);
+			// The scene reaches into the chunks on both sides of the test's own (the Stand 14 blocks behind the user, a cow 15
+			// ahead). GameTestChunkMargin makes them tick entities before a test starts; a test that finds one that does not
+			// would fail on a Stand, an item entity or a barrier that never ticks, far from the cause.
+			List<ChunkPos> idle = ChunkPos.rangeClosed(new ChunkPos(BlockPos.containing(space.minX, space.minY, space.minZ)),
+					new ChunkPos(BlockPos.containing(space.maxX, space.maxY, space.maxZ)))
+					.filter(scene -> !level.isPositionEntityTicking(scene.getWorldPosition())).toList();
+			helper.assertTrue(idle.isEmpty(), "STAND-RANGE premise: the scene reaches chunks that do not tick entities: " + idle
+					+ " (the test's own chunk is " + chunk + ")");
 			helper.assertTrue(level.getEntities((Entity) null, space).isEmpty()
 					&& BlockPos.betweenClosedStream(space).allMatch(level::isEmptyBlock),
 					"STAND-RANGE premise: the scene is not empty");
