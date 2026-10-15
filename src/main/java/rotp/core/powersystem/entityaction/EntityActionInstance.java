@@ -9,6 +9,7 @@ import javax.annotation.Nullable;
 
 import org.jetbrains.annotations.ApiStatus;
 
+import rotp.core.api.stand.StandSkillWalls;
 import rotp.core.client.entityanim.PreFrameEntityAnimCalc.LivingAnimState;
 import rotp.core.customobjects.DamageSourceModified;
 import rotp.core.customobjects.entity_projectile.DamagingEntity;
@@ -381,7 +382,7 @@ public class EntityActionInstance implements HeldInput {
 			}
 		}
 		return HitResultUtil.clip(user.getEyePosition(), user.getLookAngle(), maxOffset, maxOffset,
-				level, entity -> standEntity.canAttackEntity(entity), user, 0);
+				level, entity -> standEntity.canAttackEntity(entity), user, 0, StandSkillWalls.wallsHideEntities(standEntity));
 	}
 
 	protected ActionTarget captureActionTargetFromAim(LivingEntity aimingEntity) {
@@ -421,7 +422,8 @@ public class EntityActionInstance implements HeldInput {
 	public static boolean standEntityAttack(StandEntity stand, Entity target, DamageSource dmgSource, float dmgAmount,
 			boolean mainTarget) {
 		ServerLevel level = (ServerLevel) target.level();
-		boolean hurt = stand.hurtWithStandAttack(target, dmgSource, dmgAmount);
+		// 1.16 StandEntity.attackEntity: a main target the Stand cannot harm is not hit, a grabbed one included
+		boolean hurt = (!mainTarget || stand.canAttackEntity(target)) && stand.hurtWithStandAttack(target, dmgSource, dmgAmount);
 		if (hurt && mainTarget && !stand.isManuallyControlled()) {
 			stand.setLastHurtMob(target);
 			LivingEntity standUser = stand.getUser();

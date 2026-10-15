@@ -200,11 +200,11 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 		if (user == null || !(action.ability instanceof StandEntityAbility ability)) {
 			return ActionTarget.EMPTY;
 		}
-		// 1.16 StandEntity.punch aimed from the user's eyes at the user's reach with the precision ray, then checked the
-		// Stand's own reach
+		// 1.16 StandEntityMeleeBarrage.checkStandTarget refused every pressed target, so each hit's StandEntity.punch aimed
+		// from the user's eyes at the user's reach with the precision ray, then checked the Stand's own reach
 		return StandEntityPunchAbility.aimWithThisOrUser(stand, user, partialTick,
 				entity -> ability.canTargetEntityForAiming(stand, entity) && StandEntityPunchAbility.canStandHit(stand, entity),
-				false);
+				StandEntityPunchAbility.CrosshairRule.NONE, true);
 	}
 	
 	public static class StandEntityBarrage extends EntityActionInstance {
@@ -250,13 +250,16 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 			if (performer instanceof StandEntity stand) {
 				double minOffset = Math.min(0.5, stand.getEffectiveRange());
 				double maxOffset = Math.min(1.5, stand.getEffectiveRange());
-				ActionTarget target = setActionTargetSnapshot(StandEntityPunchAbility.pressTarget(
-						stand, getActionTargetSnapshot(level)));
+				boolean directional = isDirectionalBarrage(stand, this);
+				// the default barrage keeps no pressed target (1.16 checkStandTarget): it starts at what its first hit aims at
+				ActionTarget target = setActionTargetSnapshot(directional && !level.isClientSide()
+						? clipDirectionalBarrageTarget(stand, this, 1.0F)
+						: StandEntityPunchAbility.pressTarget(stand, getActionTargetSnapshot(level)));
 				setStandFrontOffsetFromTarget(stand, target, minOffset, maxOffset);
 				keepStandAimedAtTarget(target);
 				aimAs = AimingEntity.STAND;
 				StandEntityPunchAbility.releaseUnlockedPunchTarget(stand, this);
-				if (isDirectionalBarrage(stand, this)) {
+				if (directional) {
 					setActionTargetSnapshot(null);
 				}
 				if (level.isClientSide()) {

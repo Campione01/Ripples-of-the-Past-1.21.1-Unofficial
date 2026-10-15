@@ -232,7 +232,7 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 				double minOffset = Math.min(0.5, stand.getEffectiveRange());
 				double maxOffset = Math.min(2, stand.getMaxRange());
 				ActionTarget target = setActionTargetSnapshot(StandEntityPunchAbility.pressTarget(
-						stand, getActionTargetSnapshot(stand.level())));
+						stand, getActionTargetSnapshot(stand.level()), StandEntityPunchAbility.CrosshairRule.ENTITY));
 				setStandFrontOffsetFromTarget(stand, target, minOffset, maxOffset);
 				keepStandAimedAtTarget(target);
 				StandEntityPunchAbility.releaseUnlockedPunchTarget(stand, this);
@@ -639,7 +639,8 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 			}
 			ActionTarget target = StandEntityPunchAbility.getFreshPunchTarget(
 					stand, getActionTargetSnapshot(stand.level()),
-					StandEntityPunchAbility.shouldRetainPunchTarget(stand, ability));
+					StandEntityPunchAbility.shouldRetainPunchTarget(stand, ability),
+					StandEntityPunchAbility.CrosshairRule.ENTITY);
 			setActionTargetSnapshot(target);
 			return target;
 		}

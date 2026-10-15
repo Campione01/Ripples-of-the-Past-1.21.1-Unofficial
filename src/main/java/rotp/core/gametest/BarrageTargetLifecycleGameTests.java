@@ -207,6 +207,10 @@ public final class BarrageTargetLifecycleGameTests {
 			boolean directional = !locked && "barrage".equals(abilityName);
 			if (directional) {
 				user.getAbilities().instabuild = true;
+				// with the aim assist 1.16 aimed every barrage hit with the precision ray (StandEntityMeleeBarrage
+				// checkStandTarget refused every pressed target; StandEntity.punch -> aimWithThisOrUser -> precisionRayTrace),
+				// whose grown boxes hold the user's eyes for both cows here: the barrage follows the crosshair without it
+				settings.standAimAssist = false;
 			}
 			helper.assertTrue(StandPowerTransitions.insert(power, new StandInstance(standType)).status()
 					== StandPowerTransitions.Status.APPLIED, "Could not grant Star Platinum");

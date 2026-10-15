@@ -272,7 +272,9 @@ public final class BarrageFrontDistanceGameTests {
                     ActionTarget clipped = StandEntityBarrageAbility.clipDirectionalBarrageTarget(stand, action, 1);
                     premise(clipped.getMainEntity() == target && clipped.getClipPos().isPresent(), "fresh directional surface target");
                     double clipZ = clipped.getClipPos().get().z - user.getZ();
-                    premise(near(clipZ, 2.35), "cow surface geometry actual=" + clipZ);
+                    // 1.16 aimed every barrage hit with the precision ray, which meets the cow's box grown by the Stand's
+                    // precision before its own surface at 2.35
+                    premise(clipZ < 2.25, "precision box surface geometry actual=" + clipZ);
                     // 1.16 offsetToTarget measures to the entity's own position, not to the aim ray's surface point
                     assertOffset(1.35, "directional target uses its entity position, not the surface point");
                 }
