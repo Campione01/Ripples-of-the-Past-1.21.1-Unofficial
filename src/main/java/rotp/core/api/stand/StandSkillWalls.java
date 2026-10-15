@@ -58,7 +58,8 @@ import net.minecraft.world.level.Level;
  * its target through {@link StandEntityPunchAbility#getFreshPunchTarget(StandEntity, rotp.core.subsystems.target.ActionTarget)}.</li>
  * </ul>
  * <p>An action that aims through these needs no further code. The World's time-stop punch, the time-stop blink and
- * Star Platinum's inhale ask for themselves. The synced aims a client sends (its crosshair target and the Stand's aim)
+ * Star Platinum's inhale ask for themselves; the aim point of Hierophant Green's barrier net always passes walls (its
+ * emeralds do not). The synced aims a client sends (its crosshair target and the Stand's aim)
  * are picked while no action runs, so they stop at walls; an action that takes its target from them re-picks a block
  * through {@link StandEntityPunchAbility#throughWallsTarget}, as the core attacks do.</p>
  *
