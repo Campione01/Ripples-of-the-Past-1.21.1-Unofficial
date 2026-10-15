@@ -23,6 +23,7 @@ import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.target.ActionTarget;
+import rotp.core.util.reflection.CommonReflection;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
@@ -30,6 +31,7 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.animal.Cow;
+import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -180,6 +182,51 @@ public final class CrazyDiamondStaminaTickGameTests {
 
 			setTarget(heal, new ActionTarget(stand));
 			assertNoHealTick(helper, heal, power, standAction, "Crazy Diamond itself");
+		});
+	}
+
+	/*
+	 * 1.16 StandEntityTask.keepTarget ran for Revert's task too, with CrazyDiamondPreviousState.checkTarget: a creeper
+	 * that is no longer charged is dropped. The task then went on with an empty target, so standTickPerform took its
+	 * default branch, the off-hand item, and the task kept paying 0.2 a tick.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void revertDropsATargetThe116TaskWouldNotKeepAndTurnsToTheOffHandItem(GameTestHelper helper) {
+		scene(helper, (user, power, stand, standAction) -> {
+			Creeper creeper = helper.spawn(EntityType.CREEPER, new Vec3(2.5D, 12.6D, 4.5D));
+			creeper.setNoAi(true);
+			creeper.setNoGravity(true);
+			CommonReflection.setCreeperPowered(creeper, true);
+			creeper.setHealth(creeper.getMaxHealth() - 6.0F);
+			user.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.ENCHANTED_BOOK));
+			stand.setPos(user.getX() - 2.0D, user.getY(), user.getZ() - 2.0D);
+			power.setStamina(power.getMaxStamina());
+			EntityActionInstance revert = start(helper, user, power, stand, standAction, "revert_state", true);
+			standAction.tick();
+			helper.assertTrue(revert.getPhase() == ActionPhase.PERFORM && describe(revert, helper).contains("Creeper"),
+					"setup: the held Revert did not take the charged creeper: phase " + revert.getPhase() + "; "
+							+ describe(revert, helper));
+
+			CommonReflection.setCreeperPowered(creeper, false);
+			float health = creeper.getHealth();
+			setBooked(power, 0.0F);
+			standAction.tick();
+			helper.assertTrue(revert.getPhase() == ActionPhase.PERFORM && near(booked(power), -0.2F),
+					"1.16 Revert kept its task and paid 0.2 for the tick after dropping the creeper: phase "
+							+ revert.getPhase() + ", booked " + booked(power) + "; " + describe(revert, helper));
+			standAction.tick();
+			standAction.tick();
+			helper.assertTrue(creeper.getHealth() == health && describe(revert, helper).contains("target EMPTY"),
+					"1.16 dropped the creeper that was no longer charged from Revert's target, but Revert still works"
+							+ " on it: health " + health + " -> " + creeper.getHealth() + "; " + describe(revert, helper));
+
+			for (int tick = 0; tick < 20 && user.getOffhandItem().is(Items.ENCHANTED_BOOK); tick++) {
+				standAction.tick();
+			}
+			helper.assertTrue(!user.getOffhandItem().is(Items.ENCHANTED_BOOK) && user.getInventory().contains(new ItemStack(Items.BOOK)),
+					"1.16 Revert turned to the off-hand item once its target was dropped: off hand " + user.getOffhandItem()
+							+ ", book given " + user.getInventory().contains(new ItemStack(Items.BOOK)));
+			creeper.discard();
 		});
 	}
 

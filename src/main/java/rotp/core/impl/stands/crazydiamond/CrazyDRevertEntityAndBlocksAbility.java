@@ -17,6 +17,7 @@ import rotp.core.subsystems.target.AimingEntity;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
 import rotp.core.subsystems.target.ActionTargetAim;
+import rotp.core.subsystems.target.ActionTargetRange;
 import rotp.core.subsystems.target.HitResultUtil;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.entity.StandEntityAbility;
@@ -154,9 +155,20 @@ public class CrazyDRevertEntityAndBlocksAbility extends StandEntityAbility {
 			return true;
 		}
 
+		/**
+		 * 1.16 StandEntityTask.keepTarget with CrazyDiamondPreviousState.checkTarget: an entity Revert can no longer
+		 * work on (a creeper no longer charged, a Wither past its spawn, a Resolve level gone) or beyond the default
+		 * 8 blocks from the Stand is dropped, and the task goes on with the off-hand item.
+		 */
 		@Override
 		protected boolean keepsEntityTarget(ActionTarget target, Level level) {
-			return true;
+			Entity targetEntity = target.getEntity();
+			LivingEntity user = getPowerUser();
+			return targetEntity != null && targetEntity != performer && !targetEntity.isRemoved()
+					&& !(targetEntity instanceof LivingEntity living && living.deathTime >= 20)
+					&& user != null && canRevertEntity(targetEntity, user)
+					&& ActionTargetRange.isEntityWithinRange(ActionTargetRange.standPerformer(user), targetEntity,
+							ActionTargetRange.DEFAULT_ENTITY_RANGE_SQ);
 		}
 
 		@Override

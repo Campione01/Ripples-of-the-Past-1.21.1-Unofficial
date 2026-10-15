@@ -332,6 +332,11 @@ public class CrazyDHealAbility extends StandEntityAbility {
 			}
 
 			Level level = level();
+			// the target the server dropped (1.16 setTaskTarget(EMPTY) reached the clients as well)
+			if (level.isClientSide() && old != null && old.target.getType() == TargetType.ENTITY
+					&& cur.target.getType() != TargetType.ENTITY) {
+				setActionTarget(ActionTarget.EMPTY);
+			}
 			cur.target.resolveEntityId(level);
 			setBarrageHitSoundsActive(getPhase() == ActionPhase.PERFORM && cur.isHealing && cur.barrageVisuals);
 			boolean healingStateChanged = old == null || cur.isHealing != old.isHealing;
