@@ -18,11 +18,14 @@ import rotp.core.powersystem.standpower.StandUtil;
 import javax.annotation.Nullable;
 
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
+import net.neoforged.fml.event.config.ModConfigEvent;
 import net.neoforged.neoforge.common.ModConfigSpec;
 import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.server.ServerLifecycleHooks;
 
 public class JojoModConfig {
 	public static final ModConfigSpec COMMON_SPEC;
@@ -54,6 +57,21 @@ public class JojoModConfig {
 
 	public static void syncWithClient(ServerPlayer player) {
 		PacketDistributor.sendToPlayer(player, new CommonConfigPacket(new Common.SyncedValues(COMMON_FROM_FILE)));
+	}
+
+	/** The common config file edited while a server runs: the players' synced copies follow without a relog. */
+	public static void onConfigReloading(ModConfigEvent.Reloading event) {
+		if (event.getConfig().getSpec() != COMMON_SPEC) {
+			return;
+		}
+		MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+		if (server != null) {
+			server.execute(() -> syncWithClients(server));
+		}
+	}
+
+	public static void syncWithClients(MinecraftServer server) {
+		server.getPlayerList().getPlayers().forEach(JojoModConfig::syncWithClient);
 	}
 
 	public static void resetClientSyncedConfig(ServerPlayer player) {
