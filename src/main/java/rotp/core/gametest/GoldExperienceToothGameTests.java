@@ -167,7 +167,7 @@ public final class GoldExperienceToothGameTests {
 	}
 
 	// 1.16 GoldExperienceHeavyPunch.rotateStandTowardsTarget: during the heavy punch the Stand looks at the top of an
-	// entity target's bounding box, not at its eyes; any other target keeps the common rule.
+	// entity target's bounding box, not at its eyes; any other target, and the Life Shot punch, keep the common rule.
 	@GameTest(template = "empty", timeoutTicks = 40)
 	public static void geHeavyPunchTurnsTheStandToTheTopOfItsTarget(GameTestHelper helper) {
 		ServerLevel level = helper.getLevel();
@@ -203,6 +203,20 @@ public final class GoldExperienceToothGameTests {
 			helper.assertTrue(Vec3.atCenterOf(block).equals(blockLook),
 					"Gold Experience's Stand looks at " + blockLook + " of a block during its heavy punch; 1.16 keeps the"
 							+ " common rule there, the block's centre " + Vec3.atCenterOf(block));
+			component.setAction(null, user, SyncType.NO_SYNC);
+
+			// 1.16 GoldExperienceLifeshotPunch extends StandEntityHeavyAttack, without that turn: it looks at the eyes
+			Ability lifeshot = power.getAbility("lifeshot_punch");
+			helper.assertTrue(lifeshot instanceof EntityActionType, "Gold Experience Life Shot punch is not an entity action");
+			EntityActionInstance lifeshotAction = ((EntityActionType) lifeshot).initActionOnAbilityUse(level, user, stand, null);
+			helper.assertTrue(lifeshotAction != null, "Gold Experience Life Shot punch made no action");
+			component.setAction(lifeshotAction, user, SyncType.NO_SYNC);
+			Vec3 lifeshotLookAt = stand.getPosToLookAt(new ActionTarget(cow));
+			Vec3 eyes = new Vec3(cow.getX(), cow.getEyeY(), cow.getZ());
+			helper.assertTrue(lifeshotLookAt != null && lifeshotLookAt.distanceTo(eyes) < 1.0E-6D,
+					"Gold Experience's Stand looks at " + lifeshotLookAt + " of a cow during its Life Shot punch; 1.16 keeps"
+							+ " the common rule there, the cow's eyes " + eyes + " (the top of its bounding box is at y="
+							+ cow.getBoundingBox().maxY + ")");
 			component.setAction(null, user, SyncType.NO_SYNC);
 			helper.succeed();
 		}
