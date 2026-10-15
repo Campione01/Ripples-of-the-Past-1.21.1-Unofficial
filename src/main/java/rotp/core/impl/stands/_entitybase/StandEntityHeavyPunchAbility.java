@@ -218,7 +218,8 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 				if (isGrabVariation() && stand.offsetFromUser.grabIdleOffset != null) {
 					stand.offsetFromUser.setOffset(stand.offsetFromUser.grabIdleOffset, StandOffsetFromUser.Rotations.HEAD);
 				}
-				if (usesHeavyFinisherSetup()) {
+				// a failed input that puts this punch back keeps the finisher it took and spent when it was first set
+				if (usesHeavyFinisherSetup() && !isRestoringInputLifecycle()) {
 					if (!level.isClientSide()) {
 						stand.setHeavyPunchFinisher();
 						finisherValue = stand.getLastHeavyFinisherValue();

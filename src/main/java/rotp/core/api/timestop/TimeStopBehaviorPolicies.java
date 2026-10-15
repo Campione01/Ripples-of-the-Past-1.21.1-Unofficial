@@ -152,7 +152,9 @@ public final class TimeStopBehaviorPolicies {
 
 	/**
 	 * Game tests only: binds the policy to the Stand type in place of whatever an add-on registered for it, until the
-	 * returned restore runs. No owner is recorded, so add-on registrations are neither blocked nor lost.
+	 * returned restore runs, which puts the replaced binding back. No owner is recorded. While the override is bound, a
+	 * registration for the same Stand type is refused ({@link #register} throws: already owned by
+	 * jojo_ripples:game_test_override); registrations for other Stand types are not affected.
 	 */
 	@ApiStatus.Internal
 	public static synchronized Runnable overrideForGameTest(

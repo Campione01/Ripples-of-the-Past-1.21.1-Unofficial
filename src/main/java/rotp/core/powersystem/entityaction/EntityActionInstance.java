@@ -61,6 +61,7 @@ public class EntityActionInstance implements HeldInput {
 	/** Is used in network code, to make sure server and client are on the same page when sending changes to the action's phases from server */
 	@ApiStatus.Internal public int id;
 	@ApiStatus.Internal private long networkGeneration;
+	private boolean restoringInputLifecycle;
 	@Nonnull public final EntityActionType ability;
 	@ApiStatus.Internal public Object2FloatMap<ActionPhase> phasesLength = new Object2FloatArrayMap<>();
 	@ApiStatus.Internal @Nullable public Object2FloatMap<ActionPhase> skippedWindupPhase = null;
@@ -133,7 +134,21 @@ public class EntityActionInstance implements HeldInput {
 		this.skippedWindupPhase = snapshot.skippedWindupPhase() != null
 				? new Object2FloatArrayMap<>(snapshot.skippedWindupPhase())
 				: null;
-		_onActionStarted(failedReplacement);
+		restoringInputLifecycle = true;
+		try {
+			_onActionStarted(failedReplacement);
+		}
+		finally {
+			restoringInputLifecycle = false;
+		}
+	}
+
+	/**
+	 * Whether onActionSet runs again for an action a failed input transaction puts back: what it spent or took once
+	 * when it was first set must not be spent again.
+	 */
+	public boolean isRestoringInputLifecycle() {
+		return restoringInputLifecycle;
 	}
 
 	@ApiStatus.Internal

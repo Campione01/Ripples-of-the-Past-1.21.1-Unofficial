@@ -29,6 +29,8 @@ import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.ability.input.AbilityInput;
 import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
 import rotp.core.powersystem.entityaction.EntityActionInputState.HeldInputEntry;
+import rotp.core.init.ModDataAttachmentTypes;
+import rotp.core.init.ModEntityAttributes;
 import rotp.core.init.ModGamerules;
 import rotp.core.init.ModStatusEffects;
 import rotp.core.init.power.ModStandAbilities;
@@ -45,6 +47,7 @@ import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
 import rotp.core.subsystems.target.ActionTargetAim;
 import rotp.core.subsystems.target.ActionTargetRange;
+import rotp.core.subsystems.target.StandPrecisionRay;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -64,6 +67,7 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Cod;
 import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.vehicle.Boat;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -1183,6 +1187,104 @@ public final class StandTargetRangeGameTests {
 		helper.succeed();
 	}
 
+	// The owner's aim assist setting, off (2026-10-15): with nothing under the vanilla pick the press takes what the
+	// crosshair meets within the user's 5 blocks, as the punches do, not the baby the precision boxes reach beside it.
+	// The Stand stands by both babies, so the perform keeps the pressed one.
+	@GameTest(template = "empty", batch = BATCH)
+	public static void goldExperienceBoneMealWithoutTheAimAssistTakesTheBabyOnTheCrosshairPastTheVanillaPick(
+			GameTestHelper helper) {
+		boneMealWithoutTheAimAssist(helper, new Vec3(0.3D, 0.0D, 3.2D), "the press");
+	}
+
+	// The same scene with the Stand away from both babies: 1.16 standPerform aimed again, and without the aim assist
+	// that aim is the crosshair too.
+	@GameTest(template = "empty", batch = BATCH)
+	public static void goldExperienceBoneMealWithoutTheAimAssistAimsAgainAtTheBabyOnTheCrosshair(GameTestHelper helper) {
+		boneMealWithoutTheAimAssist(helper, new Vec3(2.0D, 0.0D, -2.0D), "the perform's new aim");
+	}
+
+	private static void boneMealWithoutTheAimAssist(GameTestHelper helper, Vec3 standOffset, String step) {
+		try (Fixture fixture = Fixture.open(helper, Kind.GE_BONE_MEAL)) {
+			fixture.stand.getAttribute(ModEntityAttributes.STAND_PRECISION).setBaseValue(16.0D);
+			fixture.stand.moveTo(fixture.origin.x + standOffset.x, fixture.origin.y + standOffset.y,
+					fixture.origin.z + standOffset.z, 0.0F, 0.0F);
+			Cow crosshair = fixture.babyCow(0.0D, 4.0D);
+			Cow beside = fixture.babyCow(0.6D, 2.5D);
+			fixture.aim(ActionTarget.EMPTY);
+			Vec3 eyes = fixture.user.getEyePosition();
+			Vec3 end = eyes.add(fixture.user.getLookAngle().scale(5.0D));
+			double fromEyes = crosshair.getBoundingBox().clip(eyes, end).map(eyes::distanceTo).orElse(-1.0D);
+			ActionTarget assisted = StandPrecisionRay.trace(fixture.user, fixture.stand);
+			helper.assertTrue(fromEyes > 3.2D && fromEyes < 4.8D && beside.getBoundingBox().clip(eyes, end).isEmpty()
+					&& assisted.getMainEntity() == beside,
+					"STAND-RANGE premise: the baby on the crosshair is not between the vanilla pick's 3 blocks and the user's 5,"
+							+ " or the aim assist would not take the baby beside it: fromEyes=" + fromEyes + " assisted=" + assisted);
+			fixture.user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get()).standAimAssist = false;
+			int crosshairAge = crosshair.getAge();
+			int besideAge = beside.getAge();
+			String answered = fixture.refusal();
+			fixture.pressAndRun();
+			helper.assertTrue("accepted".equals(answered) && crosshair.getAge() > crosshairAge && beside.getAge() == besideAge,
+					"GE_BONE_MEAL with the aim assist off, nothing under the vanilla pick, a baby cow " + fromEyes + " blocks"
+							+ " along the crosshair and another beside it: answered " + answered + ", the crosshair baby aged "
+							+ (crosshair.getAge() - crosshairAge) + ", the one beside " + (beside.getAge() - besideAge) + "; "
+							+ step + " takes what the crosshair meets within the user's 5 blocks");
+		}
+		helper.succeed();
+	}
+
+	// 1.16 GoldExperienceBoneMeal.checkTarget took only a baby AnimalEntity, and standPerform aged only one: a baby
+	// villager is no target
+	@GameTest(template = "empty", batch = BATCH)
+	public static void goldExperienceBoneMealDoesNotAgeABabyVillager(GameTestHelper helper) {
+		try (Fixture fixture = Fixture.open(helper, Kind.GE_BONE_MEAL)) {
+			fixture.stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z + 1.0D, 0.0F, 0.0F);
+			Villager villager = EntityType.VILLAGER.create(fixture.level);
+			helper.assertTrue(villager != null, "STAND-RANGE premise: could not create the villager");
+			villager.setNoAi(true);
+			villager.setNoGravity(true);
+			villager.setAge(-24000);
+			villager.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z + 2.5D, 180.0F, 0.0F);
+			fixture.extras.add(villager);
+			helper.assertTrue(fixture.level.addFreshEntity(villager) && villager.isBaby(),
+					"STAND-RANGE premise: could not add a baby villager");
+			fixture.aim(new ActionTarget(villager));
+			int villagerAge = villager.getAge();
+			String villagerAnswer = fixture.refusal();
+			fixture.pressAndRun();
+			helper.assertTrue(!"accepted".equals(villagerAnswer) && villager.getAge() == villagerAge,
+					"GE_BONE_MEAL on a baby villager: answered " + villagerAnswer + ", aged it by " + (villager.getAge()
+							- villagerAge) + "; 1.16 takes only a baby animal");
+
+			Cow calf = fixture.babyCow(0.0D, 2.5D);
+			fixture.aim(new ActionTarget(calf));
+			int calfAge = calf.getAge();
+			String calfAnswer = fixture.refusal();
+			fixture.pressAndRun();
+			helper.assertTrue("accepted".equals(calfAnswer) && calf.getAge() > calfAge,
+					"GE_BONE_MEAL on a baby cow: answered " + calfAnswer + ", aged it by " + (calf.getAge() - calfAge));
+
+			// a press on a sapling past the Stand's reach: the perform aims again along the look ray and meets the villager
+			calf.discard();
+			fixture.stand.moveTo(fixture.origin.x + 1.5D, fixture.origin.y, fixture.origin.z, 0.0F, 0.0F);
+			villager.moveTo(fixture.origin.x, fixture.user.getEyeY() - villager.getBbHeight() / 2.0D,
+					fixture.origin.z + 3.0D, 180.0F, 0.0F);
+			BlockPos sapling = fixture.sapling(BlockPos.containing(fixture.origin.x, fixture.origin.y + 1.0D,
+					fixture.origin.z + 6.0D));
+			fixture.aim(new ActionTarget(sapling, Direction.NORTH));
+			ActionTarget reaim = StandPrecisionRay.trace(fixture.user, fixture.stand, 64.0D, 0.0D, true, false);
+			String saplingAnswer = fixture.refusal();
+			helper.assertTrue("accepted".equals(saplingAnswer) && reaim.getMainEntity() == villager,
+					"STAND-RANGE premise: the press on the sapling was refused or the perform's new aim does not meet the"
+							+ " villager: " + saplingAnswer + ", " + reaim);
+			villagerAge = villager.getAge();
+			fixture.pressAndRun();
+			helper.assertTrue(villager.getAge() == villagerAge, "GE_BONE_MEAL whose perform aimed again at a baby villager"
+					+ " aged it by " + (villager.getAge() - villagerAge) + "; 1.16 standPerform ages only an animal");
+		}
+		helper.succeed();
+	}
+
 	// The block's near face is 10.15 blocks straight ahead of the Stand's eyes. 1.16 JojoModUtil.getDistance takes half
 	// the performer's width off, which leaves about 9.85.
 	// Own batch: this test keeps its scene for some ticks, and the others of this class share a chunk's scene.
@@ -1223,6 +1325,51 @@ public final class StandTargetRangeGameTests {
 		helper.assertTrue(barriers.size() == 1 && pos.equals(barriers.get(0).getOriginBlockPos()),
 				"HG_BARRIER press on the block in range: after " + waited + " ticks the Stand's barriers start at "
 						+ barriers.stream().map(HGBarrierEntity::getOriginBlockPos).toList() + ", expected one at " + pos);
+		helper.succeed();
+	}
+
+	// 1.16 PowerBaseImpl.checkTarget:295-301 with the barrier's TargetRequirement.BLOCK: a press on an entity the server no
+	// longer has empties the target and is refused; no ray of the server's own takes the stone on the look ray instead
+	@GameTest(template = "empty", batch = BATCH)
+	public static void hierophantBarrierDoesNotTakeABlockWhenTheAimedEntityIsGoneOnThePress(GameTestHelper helper) {
+		try (Fixture fixture = Fixture.open(helper, Kind.HG_BARRIER)) {
+			fixture.stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z + 1.0D, 0.0F, 0.0F);
+			BlockPos stone = fixture.block(BlockPos.containing(fixture.origin.x, fixture.origin.y + 1.0D, fixture.origin.z + 3.0D));
+			ActionTargetAim aim = sendGoneEntity(helper, fixture, fixture.cow(6.0D));
+			String answered = fixture.refusal();
+			ActionTarget picked = HierophantBarrierAbility.getCurrentBlockTarget(fixture.user, fixture.stand, fixture.level);
+			helper.assertTrue(BLOCK_TARGET.equals(answered) && picked.getType() == TargetType.EMPTY,
+					"HG_BARRIER pressed on an entity the server no longer has, with stone on the look ray: answered " + answered
+							+ " and picked " + picked + "; 1.16 empties the whole target (" + BLOCK_TARGET + ")");
+
+			aim.setTargetFromClient(ActionTarget.EMPTY, fixture.level);
+			ActionTarget open = HierophantBarrierAbility.getCurrentBlockTarget(fixture.user, fixture.stand, fixture.level);
+			helper.assertTrue("accepted".equals(fixture.refusal()) && open.getType() == TargetType.BLOCK
+					&& stone.equals(open.getBlockPos()), "HG_BARRIER with an empty aim and stone on the look ray picked "
+							+ open + "; the stone is the target again");
+		}
+		helper.succeed();
+	}
+
+	// the same with the entity there: an ENTITY target fails TargetRequirement.BLOCK, so 1.16 refused the press instead
+	// of putting the barrier on the block behind the mob
+	@GameTest(template = "empty", batch = BATCH)
+	public static void hierophantBarrierPressedAtAMobDoesNotTakeTheBlockBehindIt(GameTestHelper helper) {
+		try (Fixture fixture = Fixture.open(helper, Kind.HG_BARRIER)) {
+			fixture.stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z + 1.0D, 0.0F, 0.0F);
+			BlockPos stone = fixture.block(BlockPos.containing(fixture.origin.x, fixture.origin.y + 1.0D, fixture.origin.z + 4.0D));
+			Cow cow = fixture.cow(2.5D);
+			cow.moveTo(fixture.origin.x, fixture.origin.y + 0.6D, fixture.origin.z + 2.5D, 180.0F, 0.0F);
+			fixture.aim(new ActionTarget(cow));
+			String answered = fixture.refusal();
+			ActionTarget picked = HierophantBarrierAbility.getCurrentBlockTarget(fixture.user, fixture.stand, fixture.level);
+			helper.assertTrue(BLOCK_TARGET.equals(answered) && picked.getType() == TargetType.EMPTY,
+					"HG_BARRIER pressed at a cow with stone behind it at " + stone + ": answered " + answered + " and picked "
+							+ picked + "; 1.16 refuses a press at an entity (TargetRequirement.BLOCK)");
+
+			fixture.aim(new ActionTarget(stone, Direction.NORTH));
+			helper.assertTrue("accepted".equals(fixture.refusal()), "HG_BARRIER pressed at the stone behind the cow was refused");
+		}
 		helper.succeed();
 	}
 
@@ -1537,6 +1684,19 @@ public final class StandTargetRangeGameTests {
 			cow.moveTo(origin.x, origin.y, origin.z + separation, 180.0F, 0.0F);
 			helper.assertTrue(level.addFreshEntity(cow), "STAND-RANGE premise: could not add the cow");
 			return cow;
+		}
+
+		// a baby cow with its box centred on the user's look ray, x blocks to the side of it
+		private Cow babyCow(double x, double separation) {
+			Cow baby = EntityType.COW.create(level);
+			helper.assertTrue(baby != null, "STAND-RANGE premise: could not create the baby cow");
+			baby.setNoAi(true);
+			baby.setNoGravity(true);
+			baby.setAge(-24000);
+			baby.moveTo(origin.x + x, user.getEyeY() - baby.getBbHeight() / 2.0D, origin.z + separation, 180.0F, 0.0F);
+			extras.add(baby);
+			helper.assertTrue(level.addFreshEntity(baby) && baby.isBaby(), "STAND-RANGE premise: could not add the baby cow");
+			return baby;
 		}
 
 		// the user has met a cow and has the stamina, so Create Lifeform has a lifeform to create

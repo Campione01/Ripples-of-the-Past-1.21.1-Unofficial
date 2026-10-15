@@ -21,9 +21,9 @@ import rotp.core.impl.stands._entitybase.StandAbilityStamina;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.world.entity.AgeableMob;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.animal.Animal;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BoneMealItem;
 import net.minecraft.world.item.ItemStack;
@@ -76,10 +76,11 @@ public class GoldExperienceBoneMealAbility extends NoPoseStandEntityAbility {
         }
     }
 
-    // 1.16 GoldExperienceBoneMeal.checkTarget on the target the client sent (TargetRequirement.ANY: none is refused)
+    // 1.16 GoldExperienceBoneMeal.checkTarget on the target the client sent (TargetRequirement.ANY: none is refused);
+    // of entities only a baby AnimalEntity, so not a baby villager
     private static boolean isValidBoneMealTarget(Level level, ActionTarget target) {
         return switch (target.getType()) {
-            case ENTITY -> target.getMainEntity() instanceof AgeableMob animal && animal.isBaby();
+            case ENTITY -> target.getMainEntity() instanceof Animal animal && animal.isBaby();
             case BLOCK -> {
                 BlockPos pos = target.getBlockPos();
                 BlockState state = level.getBlockState(pos);
@@ -177,7 +178,7 @@ public class GoldExperienceBoneMealAbility extends NoPoseStandEntityAbility {
             }
             switch (target.getType()) {
                 case ENTITY -> {
-                    if (target.getMainEntity() instanceof AgeableMob animal && animal.isBaby()) {
+                    if (target.getMainEntity() instanceof Animal animal && animal.isBaby()) {
                         int age = animal.getAge();
                         animal.ageUp((int) ((-age / 20) * 0.2F), true);
                     }

@@ -655,7 +655,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		}
 
 		LivingEntity user = stand.getUser();
-		boolean userAims = user != null && !stand.isManuallyControlled();
+		boolean userAims = user != null && !stand.aimsWithoutUser();
 		// 1.16 EntityStandType.clientHitResult sent what the user's crosshair met. The Stand's synced aim speaks first only
 		// under manual control and, with the aim assist, for an action that is not a punch; without the assist the server
 		// takes what the crosshair meets, whatever a client sent.
@@ -690,6 +690,9 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			Predicate<Entity> canTarget, boolean precisionAim) {
 		ActionTarget aim = ActionTarget.EMPTY;
 		boolean assist = aimAssist(stand.getUser());
+		if (user != null && stand.aimsWithoutUser()) {
+			user = null;
+		}
 		if (user != null) {
 			aim = precisionAim && assist
 					? userPrecisionRayTarget(stand, user, canTarget)
@@ -713,7 +716,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			return sentByServer;
 		}
 		LivingEntity user = stand.getUser();
-		boolean userAims = user != null && !stand.isManuallyControlled();
+		boolean userAims = user != null && !stand.aimsWithoutUser();
 		var userAim = userAims ? LivingComponentAction.getAim(user) : null;
 		if (userAim != null) {
 			ActionTarget crosshair = userAim.getTarget().resolveEntityId(level);
@@ -791,7 +794,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 
 	/**
 	 * The Stand's aim while its user aims, the one a client keeps (the marker, the Stand aim a press carries): 1.16
-	 * EntityStandType.clientHitResult, the vanilla pick when it met a block or an entity the Stand aims at, otherwise the
+	 * EntityStandType.clientHitResult, the vanilla pick when it met a block or any entity but the Stand, otherwise the
 	 * precision ray from the user's eyes, and when that met nothing at all the Stand's own, as aimWithThisOrUser went on.
 	 * Not limited to the Stand's reach, as the 1.16 pressed target was not; its readers check the reach. Without the aim
 	 * assist, what the crosshair meets.
@@ -805,8 +808,9 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		if (vanillaPick.getType() == TargetType.BLOCK) {
 			return vanillaPick;
 		}
+		// JojoModUtil.isAnotherEntityTargeted: any entity but the Stand; the readers' own filters judge it
 		Entity picked = vanillaPick.getType() == TargetType.ENTITY ? vanillaPick.getEntity() : null;
-		if (picked != null && canTarget.test(picked)) {
+		if (picked != null && picked != stand) {
 			return vanillaPick;
 		}
 		ActionTarget aim = userPrecisionRayTarget(stand, user, canTarget);

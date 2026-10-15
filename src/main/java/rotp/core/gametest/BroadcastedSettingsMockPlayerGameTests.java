@@ -1,10 +1,13 @@
 package rotp.core.gametest;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Proxy;
 import java.util.Optional;
 
 import rotp.core.config.client.PlayerClientBroadcastedSettings;
 import rotp.core.core.JojoMod;
 import rotp.core.init.ModDataAttachmentTypes;
+import rotp.core.network.c2s.ClBroadcastedModSettingsPacket;
 
 import io.netty.buffer.Unpooled;
 import net.minecraft.core.HolderLookup;
@@ -12,11 +15,13 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.GameType;
 import net.neoforged.neoforge.gametest.GameTestHolder;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
@@ -90,6 +95,75 @@ public final class BroadcastedSettingsMockPlayerGameTests {
 		}
 		finally {
 			player.discard();
+		}
+	}
+
+	// 1.16 ClientEventHandler.clientLoggedIn sent the client's settings on every login; the server keeps what it gets,
+	// and a server that got nothing yet reads the aim assist on
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void serverStoresTheSettingsAClientSendsAndReadsTheAimAssistOnWithoutThem(GameTestHelper helper) {
+		Player player = helper.makeMockPlayer(GameType.SURVIVAL);
+		try {
+			helper.assertTrue(PlayerClientBroadcastedSettings.getServerStored(player).isEmpty(),
+					"Fixture: a new player already has stored settings");
+			helper.assertTrue(PlayerClientBroadcastedSettings.isStandAimAssistEnabled(player),
+					"A server with no settings stored for the player read the aim assist off");
+
+			PlayerClientBroadcastedSettings client = new PlayerClientBroadcastedSettings();
+			client.standAimAssist = false;
+			client.standAttackTargetLock = true;
+			receive(helper, player, client);
+			Optional<PlayerClientBroadcastedSettings> stored = PlayerClientBroadcastedSettings.getServerStored(player);
+			helper.assertTrue(stored.isPresent() && !stored.get().standAimAssist && stored.get().standAttackTargetLock,
+					"The server did not store the settings a client sent at login: "
+							+ stored.map(s -> "aimAssist=" + s.standAimAssist + " targetLock=" + s.standAttackTargetLock));
+			helper.assertTrue(!PlayerClientBroadcastedSettings.isStandAimAssistEnabled(player),
+					"The server read the aim assist on after the client sent it off");
+
+			client.standAimAssist = true;
+			receive(helper, player, client);
+			helper.assertTrue(PlayerClientBroadcastedSettings.isStandAimAssistEnabled(player),
+					"The server kept the aim assist off after the client sent it on");
+			helper.succeed();
+		}
+		finally {
+			player.discard();
+		}
+	}
+
+	// through the packet's codec and its server handler, as a client's packet arrives
+	private static void receive(GameTestHelper helper, Player player, PlayerClientBroadcastedSettings sent) {
+		RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), helper.getLevel().registryAccess());
+		ClBroadcastedModSettingsPacket.Handler.STREAM_CODEC.encode(buf, new ClBroadcastedModSettingsPacket(sent.copy()));
+		ClBroadcastedModSettingsPacket received = ClBroadcastedModSettingsPacket.Handler.STREAM_CODEC.decode(buf);
+		IPayloadContext context = (IPayloadContext) Proxy.newProxyInstance(IPayloadContext.class.getClassLoader(),
+				new Class<?>[] { IPayloadContext.class }, (proxy, method, args) -> {
+					if (method.getName().equals("player")) {
+						return player;
+					}
+					throw new UnsupportedOperationException("Fixture: the handler asked the context for " + method.getName());
+				});
+		// the Handler constructor sets the packet's static type; put back the registered one
+		Object registeredType;
+		Field typeField;
+		try {
+			typeField = ClBroadcastedModSettingsPacket.class.getDeclaredField("type");
+			typeField.setAccessible(true);
+			registeredType = typeField.get(null);
+		}
+		catch (ReflectiveOperationException e) {
+			throw new IllegalStateException("Fixture: cannot read the packet type", e);
+		}
+		try {
+			new ClBroadcastedModSettingsPacket.Handler(JojoMod.resLoc("clbroadcastedsettings")).handle(received, context);
+		}
+		finally {
+			try {
+				typeField.set(null, registeredType);
+			}
+			catch (ReflectiveOperationException e) {
+				throw new IllegalStateException("Fixture: cannot restore the packet type", e);
+			}
 		}
 	}
 }

@@ -31,6 +31,7 @@ public final class ClientModSettingsSmokeTest {
 			invalidCompactHotbarValueKeepsOtherSettings();
 			attackTargetLockDefaultsAndPersistsWithoutChangingMarker();
 			invalidAttackTargetLockKeepsOtherSettings();
+			loginSendsTheBroadcastSettings();
 			ownAfkMenacingFirstPersonDefaultsOnAndPersistsApartFromMaster();
 			rotp.core.client.ui.hud_power.CompactStandHotbarWindowSmokeTest.run();
 			savedJsonAssertionsRejectNestedSameNameKeys();
@@ -308,6 +309,50 @@ public final class ClientModSettingsSmokeTest {
 					"target lock can be disabled and persisted");
 			assertBooleanEquals(true, ClientModSettings.getSettingsReadOnly().standAimMarker,
 					"disabling lock does not disable the red marker");
+		});
+	}
+
+	// 1.16 ClientEventHandler.clientLoggedIn: the login handler sends the broadcast settings. Without a game the send
+	// fails inside the network call, which is how this check sees that it was made.
+	private static void loginSendsTheBroadcastSettings() throws Exception {
+		Class<?> login = Class.forName("rotp.core.client.BroadcastedSettingsLogin");
+		Method handler = null;
+		for (Method method : login.getDeclaredMethods()) {
+			if (method.isAnnotationPresent(net.neoforged.bus.api.SubscribeEvent.class)
+					&& java.lang.reflect.Modifier.isStatic(method.getModifiers())
+					&& method.getParameterCount() == 1
+					&& method.getParameterTypes()[0].getName().equals(
+							"net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent$LoggingIn")) {
+				handler = method;
+			}
+		}
+		if (handler == null) {
+			throw new AssertionError("No static @SubscribeEvent handler of ClientPlayerNetworkEvent.LoggingIn in " + login);
+		}
+		Method loggingIn = handler;
+		withSettingsFile("{\"broadcasted\":{\"standAimAssist\":false}}", settingsFile -> {
+			ClientModSettings.init(settingsFile.toFile());
+			Throwable sent = null;
+			try {
+				loggingIn.invoke(null, (Object) null);
+			}
+			catch (java.lang.reflect.InvocationTargetException failure) {
+				sent = failure.getCause();
+			}
+			boolean broadcast = false;
+			for (Throwable cause = sent; cause != null && !broadcast; cause = cause.getCause()) {
+				for (StackTraceElement frame : cause.getStackTrace()) {
+					if (frame.getClassName().equals(PlayerClientBroadcastedSettings.class.getName())
+							&& frame.getMethodName().equals("broadcastToServer")) {
+						broadcast = true;
+						break;
+					}
+				}
+			}
+			if (!broadcast) {
+				throw new AssertionError("The login handler did not send the broadcast settings to the server (1.16"
+						+ " ClientEventHandler.clientLoggedIn did); it ended with " + sent);
+			}
 		});
 	}
 

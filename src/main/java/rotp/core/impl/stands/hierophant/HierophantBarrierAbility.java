@@ -48,6 +48,9 @@ public class HierophantBarrierAbility extends NoPoseStandEntityAbility {
 
 	// 1.16: the crosshair block, valid within 10 blocks of the performer (the summoned Stand)
 	public static ActionTarget getCurrentBlockTarget(LivingEntity powerUser, LivingEntity performer, Level level) {
+		if (isPressedAtAnEntity(cameraEntity(powerUser, performer), level)) {
+			return ActionTarget.EMPTY;
+		}
 		LivingEntity rangeFrom = rangeOrigin(powerUser, performer);
 		ActionTarget target = getAimTarget(powerUser, level);
 		if (isValidBlockTarget(rangeFrom, target, level)) {
@@ -60,6 +63,16 @@ public class HierophantBarrierAbility extends NoPoseStandEntityAbility {
 		// server-side crosshair: the camera entity's look, capped at the user's reach
 		target = raytraceBlockTarget(cameraEntity(powerUser, performer), userReach(powerUser), level);
 		return isValidBlockTarget(rangeFrom, target, level) ? target : ActionTarget.EMPTY;
+	}
+
+	// 1.16 PowerBaseImpl.checkTarget 295-301: the barrier's TargetRequirement.BLOCK fails for a press at an entity, also
+	// one the server no longer has; the target is emptied and the press refused, no block behind the entity is taken
+	private static boolean isPressedAtAnEntity(LivingEntity camera, Level level) {
+		ActionTargetAim aim = camera != null ? LivingComponentAction.getAim(camera) : null;
+		if (aim == null) {
+			return false;
+		}
+		return !level.isClientSide() && aim.isClientEntityMissing() || aim.getTarget().getType() == TargetType.ENTITY;
 	}
 
 	private static LivingEntity rangeOrigin(LivingEntity powerUser, LivingEntity performer) {

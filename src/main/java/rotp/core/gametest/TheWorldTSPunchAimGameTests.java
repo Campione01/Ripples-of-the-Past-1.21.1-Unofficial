@@ -12,6 +12,7 @@ import rotp.core.core.JojoRegistries;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 import rotp.core.impl.stands.theworld.TheWorldTSPunchAbility;
 import rotp.core.impl.stands.theworld.TheWorldTSPunchAbility.TheWorldTSPunch;
+import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.controls.InputMethod;
@@ -84,6 +85,22 @@ public final class TheWorldTSPunchAimGameTests {
 			EntityActionInstance action = scene.press();
 			helper.assertTrue(blinkTarget(action) == zombie,
 					"1.16's precision ray put a hostile mob before a cow on the same line: it went for " + describe(action));
+		}
+		helper.succeed();
+	}
+
+	// the owner's aim assist setting, off (2026-10-15): the blink takes what the crosshair meets first, the cow, not the
+	// hostile mob behind it that the precision ray's priority takes
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void tsPunchWithoutTheAimAssistTakesWhatTheCrosshairMeetsFirst(GameTestHelper helper) {
+		try (Scene scene = new Scene(helper, 0)) {
+			Cow cow = scene.mob(EntityType.COW.create(scene.level), scene.start.add(0, 0.5, 3));
+			scene.mob(EntityType.ZOMBIE.create(scene.level), scene.start.add(0, 0, 6));
+			scene.user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get()).standAimAssist = false;
+			EntityActionInstance action = scene.press();
+			helper.assertTrue(blinkTarget(action) == cow,
+					"With the aim assist off the time-stop punch went for " + describe(action)
+							+ ", not the cow the crosshair meets first");
 		}
 		helper.succeed();
 	}
