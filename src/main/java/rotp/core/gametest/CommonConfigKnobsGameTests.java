@@ -156,6 +156,41 @@ public final class CommonConfigKnobsGameTests {
 		}
 	}
 
+	// owner, 2026-10-15: both wall settings default to "manga", which a client assumes until the server says otherwise
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void wallSettingsDefaultToMangaAndReachTheClient(GameTestHelper helper) {
+		ModConfigSpec.ConfigValue<String> skills = spec("Stand settings", "standSkillsThroughWalls");
+		ModConfigSpec.ConfigValue<String> body = spec("Stand settings", "standBodyThroughWalls");
+		String previousSkills = skills.get();
+		String previousBody = body.get();
+		try {
+			helper.assertTrue(JojoModConfig.WALLS_MODE_MANGA.equals(skills.getDefault())
+					&& JojoModConfig.WALLS_MODE_MANGA.equals(body.getDefault()),
+					"The wall settings must default to manga: skills " + skills.getDefault() + ", body " + body.getDefault());
+			JojoModConfig.resetSyncedConfig();
+			JojoModConfig.Common client = JojoModConfig.getCommonConfigInstance(true);
+			helper.assertTrue(client.skillsGoThroughWalls() && client.manualStandPassesThroughBlocks(),
+					"A client copy the server has not filled must assume manga for both wall settings");
+
+			skills.set(JojoModConfig.SKILL_WALLS_MODE_WALLS);
+			body.set(JojoModConfig.BODY_WALLS_MODE_1_16);
+			JojoModConfig.Common server = JojoModConfig.getCommonConfigInstance(false);
+			helper.assertFalse(server.skillsGoThroughWalls() || server.manualStandPassesThroughBlocks(),
+					"The server must read walls and 1.16 from the config at once");
+			RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), helper.getLevel().registryAccess());
+			new JojoModConfig.Common.SyncedValues(server).writeToBuf(buf);
+			JojoModConfig.applySyncedConfig(new JojoModConfig.Common.SyncedValues(buf));
+			helper.assertFalse(client.skillsGoThroughWalls() || client.manualStandPassesThroughBlocks(),
+					"walls and 1.16 did not reach the client copy");
+			helper.succeed();
+		}
+		finally {
+			skills.set(previousSkills);
+			body.set(previousBody);
+			JojoModConfig.resetSyncedConfig();
+		}
+	}
+
 	private static void setLevels(HamonData hamon, int level) {
 		hamon.setHamonStatPoints(HamonData.HamonStat.STRENGTH, HamonData.pointsAtLevel(level), true, true);
 		hamon.setHamonStatPoints(HamonData.HamonStat.CONTROL, HamonData.pointsAtLevel(level), true, true);

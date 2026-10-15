@@ -176,6 +176,9 @@
 	"entity_like_player.puppetcontrol.client.GameRendererControllerPickMixin",
 	"entity_like_player.puppetcontrol.client.LocalPlayerControllerCameraMixin",
 	"entity_like_player.puppetcontrol.client.GuiAccessor",
+	"entity_like_player.puppetcontrol.client.ScreenEffectRendererStandCameraMixin",
+	"entity_like_player.puppetcontrol.client.ScreenEffectRendererInvoker",
+	"entity_like_player.puppetcontrol.client.GameRendererStandCameraInWallMixin",
 	
 	"client.firstperson.ItemInHandRendererMixin",
 	"client.firstperson.LivingEntityRendererMixin",
