@@ -252,7 +252,8 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 			if (performer instanceof StandEntity stand) {
 				double minOffset = Math.min(0.5, stand.getEffectiveRange());
 				double maxOffset = Math.min(1.5, stand.getEffectiveRange());
-				ActionTarget target = captureActionTargetFromAim(stand);
+				ActionTarget target = setActionTargetSnapshot(StandEntityPunchAbility.pressTarget(
+						stand, getActionTargetSnapshot(level)));
 				setStandFrontOffsetFromTarget(stand, target, minOffset, maxOffset);
 				keepStandAimedAtTarget(target);
 				aimAs = AimingEntity.STAND;

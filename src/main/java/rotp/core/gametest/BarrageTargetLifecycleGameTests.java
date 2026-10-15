@@ -110,7 +110,10 @@ public final class BarrageTargetLifecycleGameTests {
 			helper.assertTrue(standAction.getAction() == action,
 					"Releasing the defeated target interrupted the held barrage");
 
-			standAction.entityAim.setTarget(new ActionTarget(replacement));
+			// the user comes back and looks at the replacement; 1.16 took the target the crosshair met
+			user.moveTo(userPos.x, userPos.y, userPos.z);
+			lookAt(user, replacement.getBoundingBox().getCenter());
+			aimBoth(standAction, user, new ActionTarget(replacement));
 			ActionTarget freshTarget =
 					StandEntityPunchAbility.getFreshPunchTarget(
 							stand, ActionTarget.EMPTY);
@@ -211,7 +214,7 @@ public final class BarrageTargetLifecycleGameTests {
 				lookAt(user, initial.getBoundingBox().getCenter());
 			}
 			LivingComponentAction component = LivingComponentAction.getComponent(stand);
-			component.entityAim.setTarget(new ActionTarget(initial));
+			aimBoth(component, user, new ActionTarget(initial));
 			Ability ability = power.getAbility(abilityName);
 			helper.assertTrue(ability instanceof EntityActionType, "Missing ordinary attack " + abilityName);
 			EntityActionInstance action = ((EntityActionType) ability)
@@ -221,7 +224,7 @@ public final class BarrageTargetLifecycleGameTests {
 				assertNoPersistentLock(helper, action, abilityName);
 			}
 
-			component.entityAim.setTarget(new ActionTarget(current));
+			aimBoth(component, user, new ActionTarget(current));
 			if (directional) {
 				lookAt(user, current.getBoundingBox().getCenter());
 			}
@@ -245,13 +248,12 @@ public final class BarrageTargetLifecycleGameTests {
 				assertNoPersistentLock(helper, action, abilityName);
 				if (!"barrage".equals(abilityName)) {
 					component.setAction(null, user, SyncType.NO_SYNC);
-					component.entityAim.setTarget(new ActionTarget(initial));
+					aimBoth(component, user, new ActionTarget(initial));
 					action = ((EntityActionType) ability)
 							.initActionOnAbilityUse(helper.getLevel(), user, stand, null);
 					component.setAction(action, user, SyncType.NO_SYNC);
 				}
-				component.entityAim.setTarget(ActionTarget.EMPTY);
-				LivingComponentAction.getComponent(user).entityAim.setTarget(ActionTarget.EMPTY);
+				aimBoth(component, user, ActionTarget.EMPTY);
 				stepOutOfThePrecisionAim(user, userPos);
 				ActionTarget emptyAim = directional
 						? StandEntityBarrageAbility.clipDirectionalBarrageTarget(stand, action, 1.0F)
@@ -293,6 +295,12 @@ public final class BarrageTargetLifecycleGameTests {
 	private static void stepOutOfThePrecisionAim(Player user, Vec3 userPos) {
 		user.moveTo(userPos.x, userPos.y, userPos.z - 3.0D);
 		lookAt(user, user.getEyePosition().add(0, 2, -3));
+	}
+
+	// what a client sends while its user looks at the target: its Stand aim and its vanilla pick
+	private static void aimBoth(LivingComponentAction standComponent, Player user, ActionTarget target) {
+		standComponent.entityAim.setTarget(target);
+		LivingComponentAction.getComponent(user).entityAim.setTarget(target);
 	}
 
 	private static void lookAt(Player user, Vec3 target) {

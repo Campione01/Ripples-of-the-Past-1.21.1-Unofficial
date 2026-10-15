@@ -307,6 +307,67 @@ public final class StandAimReachGameTests {
 		}
 	}
 
+	// 1.16 EntityStandType.clientHitResult sent the vanilla pick, the cow on the crosshair, and aimWithThisOrUser kept it
+	// while the Stand could reach it. A client also sends its Stand aim, a precision clip that takes the nearer cow.
+	@GameTest(template = "empty", timeoutTicks = 60, batch = BATCH)
+	public static void firstPunchTakesTheCrosshairMobOverTheStandAim(GameTestHelper helper) {
+		crosshairOverStandAim(helper, "punch", InputMethod.CLICK, false);
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 60, batch = BATCH)
+	public static void heavyPunchTakesTheCrosshairMobOverTheStandAim(GameTestHelper helper) {
+		crosshairOverStandAim(helper, "heavy_punch", InputMethod.CLICK, false);
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 60, batch = BATCH)
+	public static void defaultBarrageTakesTheCrosshairMobOverTheStandAim(GameTestHelper helper) {
+		crosshairOverStandAim(helper, "barrage", InputMethod.HOLD, false);
+	}
+
+	// the target lock keeps the target of the press, which 1.16 took from the crosshair too
+	@GameTest(template = "empty", timeoutTicks = 60, batch = BATCH)
+	public static void lockedBarrageKeepsTheCrosshairMobOverTheStandAim(GameTestHelper helper) {
+		crosshairOverStandAim(helper, "barrage", InputMethod.HOLD, true);
+	}
+
+	private static void crosshairOverStandAim(GameTestHelper helper, String name, InputMethod method, boolean locked) {
+		Scene scene = new Scene(helper, GameType.SURVIVAL, locked, 16);
+		Cow beside = scene.besideTheCrosshair();
+		Cow crosshair = scene.cow(0, 2.0);
+		scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, crosshair.getBoundingBox().getCenter());
+		Vec3 eyes = scene.user.getEyePosition();
+		helper.assertTrue(beside.getBoundingBox().clip(eyes, eyes.add(scene.user.getViewVector(1).scale(5))).isEmpty(),
+				"Fixture: the cow beside is on the crosshair");
+		helper.assertTrue(StandEntityPunchAbility.validatePunchTarget(scene.stand, new ActionTarget(crosshair)).getMainEntity()
+				== crosshair, "Fixture: the cow on the crosshair is not within the Stand's reach");
+		float crosshairHealth = crosshair.getHealth();
+		float besideHealth = beside.getHealth();
+		scene.run(tick -> {
+			if (tick == 3) {
+				// the aims a client sends with the press, through the packet handlers' own step
+				LivingComponentAction.getComponent(scene.stand).entityAim.setTargetFromClient(
+						new ActionTarget(beside), helper.getLevel());
+				LivingComponentAction.getComponent(scene.user).entityAim.setTargetFromClient(
+						new ActionTarget(crosshair), helper.getLevel());
+				EntityActionInstance action = scene.press(name, method);
+				helper.assertTrue(action != null && (!name.equals("barrage") || locked
+						!= StandEntityBarrageAbility.isDirectionalBarrage(scene.stand, action)),
+						"Fixture: the " + name + " input started " + action);
+			}
+			else if (tick > 3 && beside.getHealth() < besideHealth) {
+				helper.fail("The " + name + (locked ? " with the target lock" : "") + " hit the cow beside the crosshair,"
+						+ " the Stand's synced aim; 1.16 hit the cow on the crosshair the user aimed at");
+			}
+			else if (tick > 3 && crosshair.getHealth() < crosshairHealth) {
+				return true;
+			}
+			else if (tick > 40) {
+				helper.fail("The " + name + " never hit the cow on the crosshair");
+			}
+			return false;
+		});
+	}
+
 	// 1.16 StandEntity.precisionRayTrace: a mob that is neither a player, a Stand nor hostile keeps the priority of the
 	// entity before it, the lowest at first, so a boat behind a cow on the ray comes first
 	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH)

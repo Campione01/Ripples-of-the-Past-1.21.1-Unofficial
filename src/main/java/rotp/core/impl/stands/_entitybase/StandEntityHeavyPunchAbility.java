@@ -208,7 +208,8 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 				stand.alternateHands();
 				double minOffset = Math.min(0.5, stand.getEffectiveRange());
 				double maxOffset = Math.min(2, stand.getMaxRange());
-				ActionTarget target = captureActionTargetFromAim(stand);
+				ActionTarget target = setActionTargetSnapshot(StandEntityPunchAbility.pressTarget(
+						stand, getActionTargetSnapshot(stand.level())));
 				setStandFrontOffsetFromTarget(stand, target, minOffset, maxOffset);
 				keepStandAimedAtTarget(target);
 				StandEntityPunchAbility.releaseUnlockedPunchTarget(stand, this);

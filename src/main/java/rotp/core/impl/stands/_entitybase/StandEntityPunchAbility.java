@@ -273,7 +273,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 				}
 				double minOffset = Math.min(0.5, stand.getEffectiveRange());
 				double maxOffset = Math.min(2, stand.getMaxRange());
-				ActionTarget target = captureActionTargetFromAim(stand);
+				ActionTarget target = setActionTargetSnapshot(pressTarget(stand, getActionTargetSnapshot(stand.level())));
 				setStandFrontOffsetFromTarget(stand, target, minOffset, maxOffset);
 				keepStandAimedAtTarget(target);
 			}
@@ -655,7 +655,11 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			return target;
 		}
 
-		var standAim = LivingComponentAction.getAim(stand);
+		LivingEntity user = stand.getUser();
+		boolean userAims = user != null && !stand.isManuallyControlled();
+		// 1.16 EntityStandType.clientHitResult sent what the user's crosshair met. The Stand's synced aim, a precision
+		// clip that takes the nearest mob, speaks first only under manual control and for an action that is not a punch.
+		var standAim = !userAims || precisionAim ? LivingComponentAction.getAim(stand) : null;
 		if (standAim != null) {
 			target = validatePunchTarget(stand, standAim.getTarget());
 			if (!target.isEmpty(level)) {
@@ -663,8 +667,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			}
 		}
 
-		LivingEntity user = stand.getUser();
-		var userAim = user != null && !stand.isManuallyControlled() ? LivingComponentAction.getAim(user) : null;
+		var userAim = userAims ? LivingComponentAction.getAim(user) : null;
 		if (userAim != null) {
 			target = validatePunchTarget(stand, userAim.getTarget());
 			if (!target.isEmpty(level)) {
@@ -674,7 +677,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 
 		// 1.16 StandEntity.aimWithThisOrUser: the synced aims are short (the idle Stand aim reaches 2.5 blocks from
 		// the eyes, the vanilla pick 3), so the user's own aim decides, checked against the Stand's reach
-		if (user != null && !stand.isManuallyControlled()) {
+		if (userAims) {
 			Predicate<Entity> canTarget = entity -> entity != stand && canStandHit(stand, entity);
 			target = validatePunchTarget(stand, precisionAim
 					? userPrecisionRayTarget(stand, user, canTarget)
@@ -685,6 +688,28 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		}
 
 		return ActionTarget.EMPTY;
+	}
+
+	/**
+	 * The target a punch, heavy punch or barrage is pressed at: what the user's crosshair met (1.16
+	 * EntityStandType.clientHitResult kept the vanilla pick); when it met nothing, the Stand's synced aim, which stands
+	 * in for 1.16's precision ray there; under manual control the Stand's aim. A client keeps what its server sent.
+	 */
+	public static ActionTarget pressTarget(StandEntity stand, ActionTarget sentByServer) {
+		Level level = stand.level();
+		if (level.isClientSide()) {
+			return sentByServer;
+		}
+		LivingEntity user = stand.getUser();
+		var userAim = user != null && !stand.isManuallyControlled() ? LivingComponentAction.getAim(user) : null;
+		if (userAim != null) {
+			ActionTarget crosshair = userAim.getTarget().resolveEntityId(level);
+			if (!crosshair.isEmpty(level)) {
+				return crosshair;
+			}
+		}
+		var standAim = LivingComponentAction.getAim(stand);
+		return standAim != null ? standAim.getTarget() : ActionTarget.EMPTY;
 	}
 
 	/**
