@@ -14,6 +14,7 @@ import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.type.StandType;
+import rotp.core.subsystems.entity_puppetcontrol.StandCameraInWall;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.AfterBatch;
@@ -93,6 +94,66 @@ public final class StandBodyWallsGameTests {
 		}
 		finally {
 			scene.stand.standCanHaveNoPhysics = true;
+			scene.close();
+		}
+	}
+
+	// the view from inside a block is never an x-ray: first person by the eyes, F5 back and front by the camera position
+	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH)
+	public static void standCameraInsideABlockShowsItsInWallTextureInEveryCameraType(GameTestHelper helper) {
+		Scene scene = new Scene(helper);
+		try {
+			ServerLevel level = helper.getLevel();
+			helper.assertTrue(StandCameraInWall.vanillaDrawsScreenEffects(true, false),
+					"First person: vanilla's screen effect pass must be the one that draws the overlay");
+			helper.assertFalse(StandCameraInWall.vanillaDrawsScreenEffects(false, false),
+					"Third person: vanilla draws no screen effects, so the Stand camera's overlay must be drawn after the hand pass");
+			helper.assertFalse(StandCameraInWall.vanillaDrawsScreenEffects(true, true),
+					"A sleeping camera entity gets no screen effects from vanilla");
+
+			StandEntity stand = scene.stand;
+			List<BlockPos> eyeBlocks = new ArrayList<>();
+			for (double dy : new double[] { -0.05, 0.05 }) {
+				BlockPos pos = BlockPos.containing(stand.getX(), stand.getEyeY() + dy * stand.getScale(), stand.getZ());
+				if (!eyeBlocks.contains(pos)) eyeBlocks.add(pos);
+			}
+			BlockPos cameraBlock = helper.absolutePos(new BlockPos(3, 3, 1));
+			helper.assertFalse(eyeBlocks.contains(cameraBlock), "Fixture: the camera block overlaps the eyes");
+			Vec3 camera = Vec3.atCenterOf(cameraBlock);
+
+			for (BlockState state : List.of(Blocks.STONE.defaultBlockState(), Blocks.GLASS.defaultBlockState(),
+					Blocks.WATER.defaultBlockState(), Blocks.AIR.defaultBlockState())) {
+				eyeBlocks.forEach(pos -> scene.put(pos, state));
+				scene.put(cameraBlock, state);
+				BlockPos eyeOverlay = StandCameraInWall.eyeOverlayBlock(stand);
+				BlockPos cameraOverlay = StandCameraInWall.cameraOverlayBlock(stand, level, camera);
+				if (state.is(Blocks.STONE)) {
+					helper.assertTrue(eyeOverlay != null && eyeBlocks.contains(eyeOverlay),
+							"First person: a Stand's eyes in stone must show the stone's in-wall texture; got " + eyeOverlay);
+					helper.assertTrue(cameraBlock.equals(cameraOverlay),
+							"Third person: a Stand camera in stone must show the stone's in-wall texture; got " + cameraOverlay);
+				}
+				else {
+					helper.assertTrue(eyeOverlay == null && cameraOverlay == null, "No in-wall texture in "
+							+ state + "; got eyes " + eyeOverlay + ", camera " + cameraOverlay);
+				}
+			}
+
+			eyeBlocks.forEach(pos -> scene.put(pos, Blocks.STONE.defaultBlockState()));
+			helper.assertTrue(StandCameraInWall.cameraOverlayBlock(stand, level, camera) == null,
+					"Third person: a camera out in the air must not be covered because the Stand's eyes are in stone");
+
+			scene.put(cameraBlock, Blocks.STONE.defaultBlockState());
+			Player user = scene.user;
+			user.moveTo(stand.getX(), stand.getY(), stand.getZ(), 0, 0);
+			scene.put(BlockPos.containing(user.getEyePosition()), Blocks.STONE.defaultBlockState());
+			helper.assertTrue(StandCameraInWall.eyeOverlayBlock(user) == null
+					&& StandCameraInWall.cameraOverlayBlock(user, level, camera) == null
+					&& StandCameraInWall.eyeOverlayBlock(null) == null,
+					"Only a Stand camera gets this overlay; the player's own stays vanilla's");
+			helper.succeed();
+		}
+		finally {
 			scene.close();
 		}
 	}
@@ -182,6 +243,13 @@ public final class StandBodyWallsGameTests {
 				helper.getLevel().setBlockAndUpdate(pos, Blocks.STONE.defaultBlockState());
 			}
 			return helper.absolutePos(new BlockPos(1, 2, 3)).getZ();
+		}
+
+		void put(BlockPos pos, BlockState state) {
+			if (placedBlocks.stream().noneMatch(placed -> placed.pos().equals(pos))) {
+				placedBlocks.add(new PlacedBlock(pos, helper.getLevel().getBlockState(pos)));
+			}
+			helper.getLevel().setBlockAndUpdate(pos, state);
 		}
 
 		void setMode(String value) {
