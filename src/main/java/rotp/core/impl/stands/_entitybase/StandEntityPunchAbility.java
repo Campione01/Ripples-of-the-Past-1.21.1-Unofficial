@@ -654,7 +654,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		}
 
 		LivingEntity user = stand.getUser();
-		boolean userAims = user != null && !stand.isManuallyControlled();
+		boolean userAims = user != null && !stand.aimsWithoutUser();
 		// 1.16 EntityStandType.clientHitResult sent what the user's crosshair met. The Stand's synced aim speaks first only
 		// under manual control and, with the aim assist, for an action that is not a punch; without the assist the server
 		// takes what the crosshair meets, whatever a client sent.
@@ -689,6 +689,9 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			Predicate<Entity> canTarget, boolean precisionAim) {
 		ActionTarget aim = ActionTarget.EMPTY;
 		boolean assist = aimAssist(stand.getUser());
+		if (user != null && stand.aimsWithoutUser()) {
+			user = null;
+		}
 		if (user != null) {
 			aim = precisionAim && assist
 					? userPrecisionRayTarget(stand, user, canTarget)
@@ -712,7 +715,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			return sentByServer;
 		}
 		LivingEntity user = stand.getUser();
-		boolean userAims = user != null && !stand.isManuallyControlled();
+		boolean userAims = user != null && !stand.aimsWithoutUser();
 		var userAim = userAims ? LivingComponentAction.getAim(user) : null;
 		if (userAim != null) {
 			ActionTarget crosshair = userAim.getTarget().resolveEntityId(level);

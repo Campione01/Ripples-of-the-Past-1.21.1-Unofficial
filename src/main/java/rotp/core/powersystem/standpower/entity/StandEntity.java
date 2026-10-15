@@ -1163,6 +1163,15 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		return getStandFlag(StandFlag.MANUAL_CONTROL);
 	}
 	
+	/**
+	 * Whether the Stand's attacks take the Stand's own aim instead of its user's crosshair: under manual control, and for
+	 * a Stand that overrides this while it acts on its own (a Stand that puts a target of its own into its aim and
+	 * starts its punches itself, as 1.16 gave such a task its own target).
+	 */
+	public boolean aimsWithoutUser() {
+		return isManuallyControlled();
+	}
+	
 	public void setManuallyControlled(boolean value) {
 		setStandFlag(StandFlag.MANUAL_CONTROL, value);
 		if (level().isClientSide()) {
