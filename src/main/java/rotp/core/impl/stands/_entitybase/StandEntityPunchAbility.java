@@ -970,11 +970,12 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	}
 
 	// 1.16 precisionRayTrace(this, getAimDistance(getUser())) with walls as above; without the aim assist the crosshair.
-	// getAimDistance took the Stand's own reach under manual control, and so for a Stand that aims without its user
+	// getAimDistance took the Stand's own reach only under manual control: the 1.16 Purple Haze, aiming on its own while
+	// mad, still looked as far as its user's reach
 	private static ActionTarget standPrecisionRayTarget(StandEntity stand, Predicate<Entity> canTarget,
 			boolean wallsHideEntities) {
 		LivingEntity user = stand.getUser();
-		double reach = user != null && !stand.aimsWithoutUser()
+		double reach = user != null && !stand.isManuallyControlled()
 				? userAimReach(user, stand) : stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE);
 		Predicate<Entity> filter = canTarget.and(entity -> entity != user);
 		if (!aimAssist(user)) {

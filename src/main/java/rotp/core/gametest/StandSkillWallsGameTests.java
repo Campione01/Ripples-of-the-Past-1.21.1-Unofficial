@@ -84,6 +84,7 @@ public final class StandSkillWallsGameTests {
 	private static final String CHARGED_BATCH = "stand_skill_walls_charged";
 	private static final String USER_OWN_ACTION_BATCH = "stand_skill_walls_user_own_action";
 	private static final String CHARGED_LUNGE_BATCH = "stand_skill_walls_charged_lunge";
+	private static final String FRONT_OFFSET_BATCH = "stand_skill_walls_front_offset";
 	private static final short KEY = 173;
 
 	@Nullable
@@ -481,6 +482,44 @@ public final class StandSkillWallsGameTests {
 
 	@AfterBatch(batch = CHARGED_LUNGE_BATCH)
 	public static void releaseChargedLungeBatch(ServerLevel level) {
+		releaseActive();
+	}
+
+	// where the Stand stands for a marked punch pressed at nothing: its ray from the user's eyes follows the Stand's action
+	// like the punch's other rays, also while the user runs an action of its own
+	@GameTest(template = "empty", timeoutTicks = 20, batch = FRONT_OFFSET_BATCH)
+	public static void aMarkedPunchStandsOffFromTheMobBehindAWallWhileItsUserRunsAnActionOfItsOwn(GameTestHelper helper) {
+		Scene scene = new Scene(helper);
+		LivingComponentAction standActions = LivingComponentAction.getComponent(scene.stand);
+		LivingComponentAction userActions = LivingComponentAction.getComponent(scene.user);
+		try {
+			scene.cowBehindWall();
+			scene.mark(true);
+			scene.clearAims();
+			EntityActionInstance punch = scene.action("punch");
+			standActions.setAction(punch, scene.user, SyncType.NO_SYNC);
+			EntityActionInstance own = new SpecialEntityActionType(null, JojoMod.resLoc("test_user_own_action_offset")) {}
+					.createActionObj();
+			userActions.setAction(own, scene.user, SyncType.NO_SYNC);
+			helper.assertTrue(LivingComponentAction.getCurEntityAction(scene.user) == own
+					&& scene.userRay().getType() == ActionTarget.TargetType.BLOCK,
+					"Fixture: the user's own action did not start, or a ray for it passes the wall");
+			// no lower clamp, so that the wall (no distance) and the cow behind it (0.3 blocks) give different distances
+			punch.setStandFrontOffsetFromTarget(scene.stand, ActionTarget.EMPTY, 0, 3);
+			Vec3 offset = punch.getSyncedStandOffset();
+			helper.assertTrue(offset != null && offset.z > 0.1, "The marked punch pressed at nothing set the Stand's"
+					+ " distance from the wall, not from the cow behind it, while its user ran an action of its own: " + offset);
+			helper.succeed();
+		}
+		finally {
+			userActions.setAction(null, scene.user, SyncType.NO_SYNC);
+			standActions.setAction(null, scene.user, SyncType.NO_SYNC);
+			scene.close();
+		}
+	}
+
+	@AfterBatch(batch = FRONT_OFFSET_BATCH)
+	public static void releaseFrontOffsetBatch(ServerLevel level) {
 		releaseActive();
 	}
 

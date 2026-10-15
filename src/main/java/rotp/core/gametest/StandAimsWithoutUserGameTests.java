@@ -74,10 +74,11 @@ public final class StandAimsWithoutUserGameTests {
 		run(helper, 4);
 	}
 
-	// its own eyes look as far as its own reach, as under manual control, so a hostile mob beyond it does not take the
-	// precision ray's priority from its target in reach
+	// 1.16 StandEntity.getAimDistance gave a Stand that is not manually controlled its user's reach (the 1.16 Purple Haze
+	// hunted while mad with precisionRayTrace(this, its user's reach)), so a hostile mob on its look beyond its own reach
+	// takes the precision ray's priority from the cow in reach, and the punch finds nothing it can reach
 	@GameTest(template = "empty", timeoutTicks = 20, batch = "stand_aims_without_user_6")
-	public static void aStandThatAimsOnItsOwnLooksAsFarAsItsOwnReach(GameTestHelper helper) {
+	public static void aStandThatAimsOnItsOwnLooksAsFarAsItsUsersReachAsIn116(GameTestHelper helper) {
 		run(helper, 5);
 	}
 
@@ -170,8 +171,9 @@ public final class StandAimsWithoutUserGameTests {
 				ActionTarget looked = StandEntityPunchAbility.aimWithThisOrUser(hunter, user, 1.0F,
 						entity -> entity != hunter && StandEntityPunchAbility.canStandHit(hunter, entity), false);
 				Husk beyondReach = husk;
-				helper.assertTrue(looked.getMainEntity() == own, "A Stand that aims on its own looked past its reach and"
-						+ " lost its target in reach to the hostile mob beyond it: " + looked + " (precision " + hunter.getPrecision()
+				helper.assertTrue(looked.isEmpty(helper.getLevel()), "A Stand that aims on its own looked only as far as its"
+						+ " own reach and took " + looked + "; 1.16 looked as far as its user's reach, where the hostile mob"
+						+ " beyond the Stand's reach comes first and is out of reach (precision " + hunter.getPrecision()
 						+ ", own reach " + hunter.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE) + ", cow at "
 						+ Math.sqrt(own.getBoundingBox().distanceToSqr(eyes)) + ", husk at "
 						+ Math.sqrt(beyondReach.getBoundingBox().distanceToSqr(eyes)) + ", ray within its reach "

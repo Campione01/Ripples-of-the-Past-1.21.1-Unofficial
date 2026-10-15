@@ -9,6 +9,7 @@ import javax.annotation.Nullable;
 
 import org.jetbrains.annotations.ApiStatus;
 
+import rotp.core.api.stand.StandSkillWalls;
 import rotp.core.client.entityanim.PreFrameEntityAnimCalc.LivingAnimState;
 import rotp.core.customobjects.DamageSourceModified;
 import rotp.core.customobjects.entity_projectile.DamagingEntity;
@@ -381,7 +382,7 @@ public class EntityActionInstance implements HeldInput {
 			}
 		}
 		return HitResultUtil.clip(user.getEyePosition(), user.getLookAngle(), maxOffset, maxOffset,
-				level, entity -> standEntity.canAttackEntity(entity), user, 0);
+				level, entity -> standEntity.canAttackEntity(entity), user, 0, StandSkillWalls.wallsHideEntities(standEntity));
 	}
 
 	protected ActionTarget captureActionTargetFromAim(LivingEntity aimingEntity) {
