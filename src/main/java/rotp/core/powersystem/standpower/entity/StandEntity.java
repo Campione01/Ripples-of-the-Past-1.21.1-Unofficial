@@ -1268,7 +1268,11 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		setNoPhysics(shouldHaveNoPhysics());
 	}
 
-	// 1.16 StandEntity.shouldHaveNoPhysics, with the server's standBodyThroughWalls on "phasing" for manual control too
+	/**
+	 * 1.16 StandEntity.shouldHaveNoPhysics, with the server's standBodyThroughWalls on "phasing" for manual control too.
+	 * An add-on Stand with a phasing rule of its own overrides this: while it is manually controlled and performs no
+	 * action, the server refreshes its physics from here every tick, which undoes a direct {@link #setNoPhysics} call.
+	 */
 	protected boolean shouldHaveNoPhysics() {
 		return standCanHaveNoPhysics && (!isManuallyControlled() || manualControlPassesThroughBlocks())
 				&& followingUserIsEnabled();

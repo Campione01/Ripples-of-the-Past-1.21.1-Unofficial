@@ -3,15 +3,19 @@ package rotp.core.gametest;
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
+import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchChargedAbility.StandEntityChargedHeavy;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
+import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.netcode.SyncType;
+import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.target.ActionTarget;
+import rotp.core.subsystems.target.StandPrecisionRay;
 
 import net.minecraft.commands.arguments.EntityAnchorArgument;
 import net.minecraft.core.BlockPos;
@@ -19,7 +23,9 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Cow;
+import net.minecraft.world.entity.monster.Husk;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
@@ -56,6 +62,25 @@ public final class StandAimsWithoutUserGameTests {
 		run(helper, 2);
 	}
 
+	// the charged heavy punch's perform-start target without the aim assist: the Stand's own aim, not its user's view
+	@GameTest(template = "empty", timeoutTicks = 20, batch = "stand_aims_without_user_4")
+	public static void aStandThatAimsOnItsOwnStartsItsChargedHeavyPunchAtItsOwnTarget(GameTestHelper helper) {
+		run(helper, 3);
+	}
+
+	// no user crosshair steers its attacks, so they keep their pressed target, as under manual control
+	@GameTest(template = "empty", timeoutTicks = 20, batch = "stand_aims_without_user_5")
+	public static void aStandThatAimsOnItsOwnKeepsItsAttacksPressedTarget(GameTestHelper helper) {
+		run(helper, 4);
+	}
+
+	// its own eyes look as far as its own reach, as under manual control, so a hostile mob beyond it does not take the
+	// precision ray's priority from its target in reach
+	@GameTest(template = "empty", timeoutTicks = 20, batch = "stand_aims_without_user_6")
+	public static void aStandThatAimsOnItsOwnLooksAsFarAsItsOwnReach(GameTestHelper helper) {
+		run(helper, 5);
+	}
+
 	private static void run(GameTestHelper helper, int path) {
 		Player user = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
 		Vec3 origin = Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(1, 2, 1)));
@@ -63,6 +88,7 @@ public final class StandAimsWithoutUserGameTests {
 		StandPower power = null;
 		Cow crosshair = null;
 		Cow own = null;
+		Husk husk = null;
 		try {
 			user.setNoGravity(true);
 			user.moveTo(origin.x, origin.y, origin.z, 0, 0);
@@ -78,6 +104,23 @@ public final class StandAimsWithoutUserGameTests {
 					helper.getLevel()), origin, own, crosshair);
 			helper.assertTrue(StandEntityPunchAbility.getFreshPunchTarget(plain, ActionTarget.EMPTY, false).getMainEntity()
 					== crosshair, "Fixture: a plain Stand's punch did not take its user's crosshair mob");
+			EntityActionType heavyCharged = (EntityActionType) power.getAbility("heavy_charged");
+			EntityActionType punch = (EntityActionType) power.getAbility("punch");
+			EntityActionType barrage = (EntityActionType) power.getAbility("barrage");
+			helper.assertTrue(heavyCharged != null && punch != null && barrage != null, "Fixture: a Star Platinum attack is missing");
+			if (path == 3) {
+				user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get()).standAimAssist = false;
+				user.lookAt(EntityAnchorArgument.Anchor.EYES, crosshair.getBoundingBox().getCenter());
+				ActionTarget plainStart = new ChargedHeavyProbe(heavyCharged).performStartTarget(plain);
+				helper.assertTrue(plainStart.getMainEntity() == crosshair, "Fixture: without the aim assist a plain Stand's"
+						+ " charged heavy punch did not start at its user's crosshair mob: " + plainStart);
+			}
+			else if (path == 4) {
+				user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get()).standAttackTargetLock = false;
+				helper.assertTrue(!StandEntityPunchAbility.shouldRetainPunchTarget(plain, punch)
+						&& !StandEntityPunchAbility.shouldRetainPunchTarget(plain, barrage),
+						"Fixture: with keep attack target off a plain Stand's attacks keep their pressed target");
+			}
 
 			StandEntity hunter = place(helper, user, power, type, new OwnAimStand(standEntityType(helper, user, power, type),
 					helper.getLevel()), origin, own, crosshair);
@@ -91,12 +134,49 @@ public final class StandAimsWithoutUserGameTests {
 				helper.assertTrue(pressed.getMainEntity() == own, "A punch a Stand that aims on its own starts was pressed at "
 						+ pressed + " instead of the target in its own aim");
 			}
-			else {
+			else if (path == 2) {
 				LivingComponentAction.getComponent(hunter).entityAim.setTarget(ActionTarget.EMPTY);
 				ActionTarget looked = StandEntityPunchAbility.aimWithThisOrUser(hunter, user, 1.0F,
 						entity -> entity != hunter && StandEntityPunchAbility.canStandHit(hunter, entity), false);
 				helper.assertTrue(looked.getMainEntity() == own, "A Stand that aims on its own, with nothing in its aim,"
 						+ " aimed " + looked + " with its user's crosshair instead of its own eyes");
+			}
+			else if (path == 3) {
+				// turned away from its target, as a Stand that has just put it into its aim: only that aim can find it
+				hunter.setYRot(hunter.getYRot() + 180);
+				hunter.setYHeadRot(hunter.getYRot());
+				ActionTarget hunterStart = new ChargedHeavyProbe(heavyCharged).performStartTarget(hunter);
+				helper.assertTrue(hunterStart.getMainEntity() == own, "Without the aim assist the charged heavy punch of a"
+						+ " Stand that aims on its own started at " + hunterStart + " instead of the target in its own aim");
+			}
+			else if (path == 4) {
+				helper.assertTrue(StandEntityPunchAbility.shouldRetainPunchTarget(hunter, punch)
+						&& StandEntityPunchAbility.shouldRetainPunchTarget(hunter, barrage), "The attacks of a Stand that"
+						+ " aims on its own follow its user's crosshair instead of keeping their pressed target");
+			}
+			else {
+				LivingComponentAction.getComponent(hunter).entityAim.setTarget(ActionTarget.EMPTY);
+				Vec3 eyes = hunter.getEyePosition();
+				Vec3 beyond = eyes.add(own.getBoundingBox().getCenter().subtract(eyes).normalize().scale(4.6));
+				husk = EntityType.HUSK.create(helper.getLevel());
+				helper.assertTrue(husk != null, "Fixture: could not create a husk");
+				husk.setNoAi(true);
+				husk.setNoGravity(true);
+				husk.moveTo(beyond.x, beyond.y - husk.getBbHeight() / 2, beyond.z, 0, 0);
+				helper.assertTrue(helper.getLevel().addFreshEntity(husk), "Fixture: could not add a husk");
+				helper.assertTrue(StandEntityPunchAbility.validatePunchTarget(hunter, new ActionTarget(husk)).isEmpty(
+						helper.getLevel()) && husk.getBoundingBox().clip(eyes, eyes.add(hunter.getLookAngle().scale(5)))
+						.isPresent(), "Fixture: the husk is not on the Stand's look beyond its reach");
+				ActionTarget looked = StandEntityPunchAbility.aimWithThisOrUser(hunter, user, 1.0F,
+						entity -> entity != hunter && StandEntityPunchAbility.canStandHit(hunter, entity), false);
+				Husk beyondReach = husk;
+				helper.assertTrue(looked.getMainEntity() == own, "A Stand that aims on its own looked past its reach and"
+						+ " lost its target in reach to the hostile mob beyond it: " + looked + " (precision " + hunter.getPrecision()
+						+ ", own reach " + hunter.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE) + ", cow at "
+						+ Math.sqrt(own.getBoundingBox().distanceToSqr(eyes)) + ", husk at "
+						+ Math.sqrt(beyondReach.getBoundingBox().distanceToSqr(eyes)) + ", ray within its reach "
+						+ StandPrecisionRay.clipTargets(hunter, hunter.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE),
+								entity -> entity != hunter && entity != user, 0, hunter.getPrecision(), true) + ")");
 			}
 			helper.succeed();
 		}
@@ -106,7 +186,20 @@ public final class StandAimsWithoutUserGameTests {
 			}
 			if (crosshair != null) crosshair.discard();
 			if (own != null) own.discard();
+			if (husk != null) husk.discard();
 			user.discard();
+		}
+	}
+
+	// reads the charged heavy punch's perform-start target, as actionPerformStart does
+	private static final class ChargedHeavyProbe extends StandEntityChargedHeavy {
+		ChargedHeavyProbe(EntityActionType ability) {
+			super(ability);
+		}
+
+		ActionTarget performStartTarget(StandEntity stand) {
+			capturePerformTarget(stand);
+			return getActionTargetSnapshot(stand.level());
 		}
 	}
 
