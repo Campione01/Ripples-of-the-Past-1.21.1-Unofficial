@@ -208,6 +208,15 @@ public class SoulEntity extends Entity implements IEntityWithComplexSpawn {
 		return lifeSpanLeft <= RESOLVE_UP_DURATION && lifeSpanLeft > 0;
 	}
 
+	/**
+	 * The renderer's alpha, from what is left of the life: a client that began to track the soul late has the full initial
+	 * life but the remaining life in lifeSpan, so the ticks it has seen would end the fade short of zero.
+	 */
+	public static float fadeAlpha(int lifeSpanLeft, int initialLifeSpan) {
+		float lifeRatio = initialLifeSpan > 0 ? Mth.clamp(1.0F - (float) lifeSpanLeft / (float) initialLifeSpan, 0.0F, 1.0F) : 1.0F;
+		return Math.min(0.75F, 3.0F * (1.0F - lifeRatio));
+	}
+
 	private boolean isInResolveUpPhase() {
 		return isResolveUpPhase(getLifeSpan());
 	}

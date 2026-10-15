@@ -64,10 +64,7 @@ public class SoulRenderer<T extends SoulEntity> extends EntityRenderer<T> {
 		RenderType renderType = RenderType.itemEntityTranslucentCull(livingRenderer.getTextureLocation(originEntity));
 		VertexConsumer vertexBuilder = buffer.getBuffer(renderType);
 		int overlay = OverlayTexture.pack(OverlayTexture.u(0.5F), OverlayTexture.v(false));
-		float lifeRatio = soulEntity.getInitialLifeSpan() > 0
-				? Math.min((float) soulEntity.tickCount / (float) soulEntity.getInitialLifeSpan(), 1.0F)
-				: 1.0F;
-		float alpha = Math.min(0.75F, 3.0F * (1.0F - lifeRatio));
+		float alpha = SoulEntity.fadeAlpha(soulEntity.getLifeSpan(), soulEntity.getInitialLifeSpan());
 		model.renderToBuffer(poseStack, vertexBuilder, packedLight, overlay, 0xFFFF00 | ((int) (alpha * 255) << 24));
 
 		poseStack.popPose();
