@@ -8,6 +8,11 @@ import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.powersystem.PowerClass;
+import rotp.core.powersystem.entityaction.ActionPhase;
+import rotp.core.powersystem.entityaction.EntityActionInstance;
+import rotp.core.powersystem.entityaction.LivingComponentAction;
+import rotp.core.powersystem.entityaction.netcode.SyncType;
+import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.EntityStandType;
@@ -18,6 +23,9 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.HumanoidArm;
+import net.minecraft.world.entity.Pose;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
@@ -30,6 +38,12 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * no task takes user.yRot): 0.75 to the right of the view, 0.75 behind it and 0.2 up. The "Stand offset side" setting
  * LEFT mirrors the side (StandRelativeOffset.getAbsoluteVec), and a sneaking user's Stand drops the 0.2. The Stand
  * took the user's view as its yaw and head yaw (StandEntity.defaultRotation).
+ * <p>
+ * StandEntity.updatePosition measured every offset, an action's too, from the user's feet whatever the user's pose
+ * or the Stand's size, and in arms-only mode getAbsoluteVec lowered it by 0.85 of the height the user's pose takes
+ * off its standing height. 1.16 also multiplied the y by the user's current height over its type's height; the port
+ * scales an offset by the user's standing size only (StandOffsetFromUser.scaleOffsetForUser), so here a pose moves
+ * only an arms-only offset.
  */
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -43,12 +57,25 @@ public final class StandIdlePlacementGameTests {
 	@GameTest(template = "empty", timeoutTicks = 100)
 	public static void everyCoreStandIdlesBehindTheRightOfItsUsersViewAsIn116(GameTestHelper helper) {
 		for (String id : CORE_ENTITY_STANDS) {
-			checkIdlePlacement(helper, id);
+			withSummonedStand(helper, id, StandIdlePlacementGameTests::checkIdlePlacement);
 		}
 		helper.succeed();
 	}
 
-	private static void checkIdlePlacement(GameTestHelper helper, String id) {
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void everyCoreStandFollowsFromItsUsersFeetAsIn116(GameTestHelper helper) {
+		for (String id : CORE_ENTITY_STANDS) {
+			withSummonedStand(helper, id, StandIdlePlacementGameTests::checkFeetRelativePlacement);
+		}
+		helper.succeed();
+	}
+
+	private interface StandCheck {
+		void check(GameTestHelper helper, String id, Player user, PlayerClientBroadcastedSettings settings,
+				StandPower power, StandEntity stand);
+	}
+
+	private static void withSummonedStand(GameTestHelper helper, String id, StandCheck check) {
 		Player user = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
 		StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc(id));
 		StandPower power = null;
@@ -68,34 +95,7 @@ public final class StandIdlePlacementGameTests {
 			StandEntity stand = power.getSummonedStandEntity();
 			helper.assertTrue(stand != null && stand.getUser() == user && stand.isFollowingUser() && !stand.isArmsOnlyMode()
 					&& stand.offsetFromUser.isIdle(), "setup: the summoned " + id + " is not an idle full Stand following its user");
-
-			// view yaw 0 faces south (+z), so the user's right is -x; the body is turned away from the view
-			turn(user, 0.0F, 50.0F);
-			assertIdleAt(helper, id, user, stand, -0.75D, 0.2D, -0.75D, "view yaw 0, body yaw 50, side RIGHT");
-			helper.assertTrue(near(stand.getYRot(), 0.0F) && near(stand.getYHeadRot(), 0.0F),
-					"1.16 turned an idle " + id + " and its head to the user's view yaw 0: yaw " + stand.getYRot()
-							+ ", head " + stand.getYHeadRot());
-			helper.assertTrue(near(stand.yBodyRot, 50.0F),
-					"the idle " + id + "'s body lags the view as 1.16's head turn let it, by taking the user's body yaw 50: body "
-							+ stand.yBodyRot);
-
-			turn(user, 0.0F, 120.0F);
-			assertIdleAt(helper, id, user, stand, -0.75D, 0.2D, -0.75D, "view yaw 0, body yaw 120 (the body alone turned)");
-
-			settings.standSide = HumanoidArm.LEFT;
-			assertIdleAt(helper, id, user, stand, 0.75D, 0.2D, -0.75D, "view yaw 0, side LEFT (mirrored to the left)");
-			settings.standSide = HumanoidArm.RIGHT;
-
-			// facing west (-x) the right is -z; facing north (-z) it is +x
-			turn(user, 90.0F, 50.0F);
-			assertIdleAt(helper, id, user, stand, 0.75D, 0.2D, -0.75D, "view yaw 90, body yaw 50, side RIGHT");
-			turn(user, 180.0F, 50.0F);
-			assertIdleAt(helper, id, user, stand, 0.75D, 0.2D, 0.75D, "view yaw 180, body yaw 50, side RIGHT");
-
-			turn(user, 0.0F, 50.0F);
-			user.setShiftKeyDown(true);
-			assertIdleAt(helper, id, user, stand, -0.75D, 0.0D, -0.75D, "view yaw 0, sneaking (1.16 dropped the y offset)");
-			user.setShiftKeyDown(false);
+			check.check(helper, id, user, settings, power, stand);
 		}
 		finally {
 			if (power != null && power.isSummoned() && type != null) {
@@ -103,6 +103,115 @@ public final class StandIdlePlacementGameTests {
 			}
 			user.discard();
 		}
+	}
+
+	private static void checkIdlePlacement(GameTestHelper helper, String id, Player user,
+			PlayerClientBroadcastedSettings settings, StandPower power, StandEntity stand) {
+		// view yaw 0 faces south (+z), so the user's right is -x; the body is turned away from the view
+		turn(user, 0.0F, 50.0F);
+		assertIdleAt(helper, id, user, stand, -0.75D, 0.2D, -0.75D, "view yaw 0, body yaw 50, side RIGHT");
+		helper.assertTrue(near(stand.getYRot(), 0.0F) && near(stand.getYHeadRot(), 0.0F),
+				"1.16 turned an idle " + id + " and its head to the user's view yaw 0: yaw " + stand.getYRot()
+						+ ", head " + stand.getYHeadRot());
+		helper.assertTrue(near(stand.yBodyRot, 50.0F),
+				"the idle " + id + "'s body lags the view as 1.16's head turn let it, by taking the user's body yaw 50: body "
+						+ stand.yBodyRot);
+
+		turn(user, 0.0F, 120.0F);
+		assertIdleAt(helper, id, user, stand, -0.75D, 0.2D, -0.75D, "view yaw 0, body yaw 120 (the body alone turned)");
+
+		settings.standSide = HumanoidArm.LEFT;
+		assertIdleAt(helper, id, user, stand, 0.75D, 0.2D, -0.75D, "view yaw 0, side LEFT (mirrored to the left)");
+		settings.standSide = HumanoidArm.RIGHT;
+
+		// facing west (-x) the right is -z; facing north (-z) it is +x
+		turn(user, 90.0F, 50.0F);
+		assertIdleAt(helper, id, user, stand, 0.75D, 0.2D, -0.75D, "view yaw 90, body yaw 50, side RIGHT");
+		turn(user, 180.0F, 50.0F);
+		assertIdleAt(helper, id, user, stand, 0.75D, 0.2D, 0.75D, "view yaw 180, body yaw 50, side RIGHT");
+
+		turn(user, 0.0F, 50.0F);
+		user.setShiftKeyDown(true);
+		assertIdleAt(helper, id, user, stand, -0.75D, 0.0D, -0.75D, "view yaw 0, sneaking (1.16 dropped the y offset)");
+		user.setShiftKeyDown(false);
+	}
+
+	private static void checkFeetRelativePlacement(GameTestHelper helper, String id, Player user,
+			PlayerClientBroadcastedSettings settings, StandPower power, StandEntity stand) {
+		turn(user, 0.0F, 50.0F);
+		user.setPose(Pose.SWIMMING);
+		assertFeetRelative(helper, "an idle " + id, true, user, stand, -0.75D, 0.2D, -0.75D,
+				"view yaw 0, a swimming user (eye height " + user.getEyeHeight() + ")");
+		user.setPose(Pose.STANDING);
+
+		// LivingEntity.tick applies a new scale; nothing ticks here
+		AttributeInstance standScale = stand.getAttribute(Attributes.SCALE);
+		standScale.setBaseValue(0.5D);
+		stand.refreshDimensions();
+		helper.assertTrue(Math.abs(stand.getEyeHeight() - 0.81F) < EPS,
+				"setup: the half-size " + id + " has eye height " + stand.getEyeHeight());
+		assertIdleAt(helper, id, user, stand, -0.75D, 0.2D, -0.75D,
+				"view yaw 0, a half-size Stand (eye height " + stand.getEyeHeight() + ")");
+		standScale.setBaseValue(1.0D);
+		stand.refreshDimensions();
+
+		checkArmsOnlyIdle(helper, id, user, stand);
+		checkHeldGuard(helper, id, user, power, stand);
+	}
+
+	// 1.16 StandEntity.offsetDefaultArmsOnly, StandRelativeOffset.withYOffset(0, 0, 0.15)
+	private static void checkArmsOnlyIdle(GameTestHelper helper, String id, Player user, StandEntity stand) {
+		stand.setArmsOnlyMode();
+		helper.assertTrue(stand.isArmsOnlyMode() && stand.offsetFromUser.isIdle()
+				&& new Vec3(0, 0, 0.15).equals(stand.offsetFromUser.getRelativeOffset()),
+				"setup: the arms-only " + id + " is not at its arms-only idle offset: " + stand.offsetFromUser.getRelativeOffset());
+		String what = "an idle arms-only " + id;
+		turn(user, 0.0F, 50.0F);
+		assertAt(helper, "1.16 put " + what, true, user, stand, 0.0D, 0.0D, 0.15D, "view yaw 0, a standing user");
+
+		// a crouch without the sneak key, as under a 1.5 high ceiling
+		user.setPose(Pose.CROUCHING);
+		assertFeetRelative(helper, what, true, user, stand, 0.0D, -0.255D, 0.15D,
+				"view yaw 0, a crouching user that does not sneak (the arms-only drop 0.85 * (1.5 - 1.8))");
+		turn(user, 90.0F, 50.0F);
+		assertFeetRelative(helper, what, true, user, stand, -0.15D, -0.255D, 0.0D,
+				"view yaw 90, a crouching user that does not sneak (the arms-only drop 0.85 * (1.5 - 1.8))");
+		turn(user, 0.0F, 50.0F);
+		user.setShiftKeyDown(true);
+		assertAt(helper, "1.16 put " + what, true, user, stand, 0.0D, 0.0D, 0.15D,
+				"view yaw 0, a sneaking user (taskOffset dropped the whole y, the arms-only drop too)");
+		user.setShiftKeyDown(false);
+		user.setPose(Pose.SWIMMING);
+		assertFeetRelative(helper, what, true, user, stand, 0.0D, -1.02D, 0.15D,
+				"view yaw 0, a swimming user (the arms-only drop 0.85 * (0.6 - 1.8))");
+		user.setPose(Pose.STANDING);
+
+		stand.setArmsOnlyMode(false);
+		helper.assertTrue(!stand.isArmsOnlyMode() && stand.offsetFromUser.isIdle(),
+				"setup: the " + id + " summoned in full again is not at its idle offset: " + stand.offsetFromUser.getRelativeOffset());
+	}
+
+	// 1.16 StandEntityBlock.standOffsetFromUser(0, 0.3); with a task the sneak rule left the offset's y alone
+	private static void checkHeldGuard(GameTestHelper helper, String id, Player user, StandPower power, StandEntity stand) {
+		helper.assertTrue(power.getAbility("guard") instanceof EntityActionType, "Missing the guard of " + id);
+		EntityActionType guardType = (EntityActionType) power.getAbility("guard");
+		EntityActionInstance held = guardType.createActionObj();
+		guardType.initActionFromConfig(held, helper.getLevel(), user, stand);
+		held.phasesLength.put(ActionPhase.BUTTON_CHARGE, 0F);
+		held.phasesLength.put(ActionPhase.WINDUP, 0F);
+		held.phasesLength.put(ActionPhase.PERFORM, 40F);
+		held.setStartingPhase();
+		LivingComponentAction.getComponent(stand).setAction(held, user, SyncType.NO_SYNC);
+		helper.assertTrue(stand.getCurStandAction() == held && stand.isFollowingUser()
+				&& new Vec3(0, stand.Y_OFFSET, 0.3).equals(stand.offsetFromUser.getRelativeOffset()),
+				"setup: the held guard of " + id + " did not set its offset: " + stand.offsetFromUser.getRelativeOffset());
+		turn(user, 0.0F, 50.0F);
+		user.setPose(Pose.CROUCHING);
+		user.setShiftKeyDown(true);
+		assertFeetRelative(helper, "the guarding " + id, false, user, stand, 0.0D, 0.2D, 0.3D,
+				"view yaw 0, a crouching sneaking user (eye height " + user.getEyeHeight() + ")");
+		user.setShiftKeyDown(false);
+		user.setPose(Pose.STANDING);
 	}
 
 	private static void turn(Player user, float viewYaw, float bodyYaw) {
@@ -114,14 +223,25 @@ public final class StandIdlePlacementGameTests {
 		user.yBodyRotO = bodyYaw;
 	}
 
-	// StandEntity.tick places a following Stand through updatePosition
 	private static void assertIdleAt(GameTestHelper helper, String id, Player user, StandEntity stand,
+			double dx, double dy, double dz, String when) {
+		assertAt(helper, "1.16 put an idle " + id, true, user, stand, dx, dy, dz, when);
+	}
+
+	// a user out of the standing pose: there 1.16 also scaled the y by the height ratio, which the port does not
+	private static void assertFeetRelative(GameTestHelper helper, String what, boolean idle, Player user, StandEntity stand,
+			double dx, double dy, double dz, String when) {
+		assertAt(helper, "Measured from the feet as in 1.16, " + what + " belongs", idle, user, stand, dx, dy, dz, when);
+	}
+
+	// StandEntity.tick places a following Stand through updatePosition
+	private static void assertAt(GameTestHelper helper, String claim, boolean idle, Player user, StandEntity stand,
 			double dx, double dy, double dz, String when) {
 		stand.updatePosition(user);
 		Vec3 actual = stand.position().subtract(user.position());
-		helper.assertTrue(stand.offsetFromUser.isIdle() && Math.abs(actual.x - dx) < EPS && Math.abs(actual.y - dy) < EPS
-				&& Math.abs(actual.z - dz) < EPS,
-				"1.16 put an idle " + id + " at its user's feet + (" + dx + ", " + dy + ", " + dz + ") with " + when
+		helper.assertTrue(stand.offsetFromUser.isIdle() == idle && Math.abs(actual.x - dx) < EPS
+				&& Math.abs(actual.y - dy) < EPS && Math.abs(actual.z - dz) < EPS,
+				claim + " at its user's feet + (" + dx + ", " + dy + ", " + dz + ") with " + when
 						+ ", got " + actual + " (idle " + stand.offsetFromUser.isIdle() + ", offset "
 						+ stand.offsetFromUser.getRelativeOffset() + " " + stand.offsetFromUser.getRotations() + ")");
 	}

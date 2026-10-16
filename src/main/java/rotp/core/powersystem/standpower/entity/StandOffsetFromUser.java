@@ -121,6 +121,11 @@ public class StandOffsetFromUser {
 		// Standing width includes vanilla/Pehkui size, without crouching or swimming height changes.
 		offset = scaleOffsetForUser(offset, userEntity.getDimensions(Pose.STANDING).width(),
 				userEntity.getType().getDimensions().width(), ageScale);
+		// 1.16 StandRelativeOffset.getAbsoluteVec: arms-only Stands sink with a crouching, swimming or lying user
+		if (standEntity.isArmsOnlyMode() && userEntity.getPose() != Pose.STANDING) {
+			offset = offset.add(0, (userEntity.getDimensions(userEntity.getPose()).height()
+					- userEntity.getDimensions(Pose.STANDING).height()) * 0.85F, 0);
+		}
 		
 		double maxRange = standEntity.getMaxRangeForMovement(userEntity);
 		double offsetDist = offset.lengthSqr();
@@ -129,7 +134,8 @@ public class StandOffsetFromUser {
 			offset = offset.scale(maxRange / offsetDist);
 		}
 		
-		return AlignBy.EYE_POS.align(userEntity, standEntity, offset);
+		// 1.16 StandEntity.updatePosition measured every offset from the user's feet
+		return AlignBy.BOTTOM.align(userEntity, standEntity, offset);
 	}
 
 	static Vec3 scaleOffsetForUser(Vec3 offset, float scaledWidth, float defaultWidth, float ageScale) {

@@ -354,8 +354,9 @@ public final class StarSpecialtyOffsetGameTests {
             double left = spec.side == HumanoidArm.LEFT ? -relative.x : relative.x;
             double radians = Math.toRadians(yaw);
             double widthScale = user.getDimensions(Pose.STANDING).width() / (double) user.getType().getDimensions().width();
+            // 1.16 StandEntity.updatePosition: the offset from the user's feet
             return user.position().add((left * Math.cos(radians) - relative.z * Math.sin(radians)) * widthScale,
-                    user.getEyeHeight() - stand.getEyeHeight() + relative.y * widthScale,
+                    relative.y * widthScale,
                     (relative.z * Math.cos(radians) + left * Math.sin(radians)) * widthScale);
         }
         void checkPosition(Vec3 expected, String detail) {
