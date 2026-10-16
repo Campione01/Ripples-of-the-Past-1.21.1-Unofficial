@@ -401,15 +401,21 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 				 *  During the punch, the Stand entity keeps rotating towards the target (keepStandAimedAtTarget()),
 				 *  and while it keeps one it aims as itself (aimAs == AimingEntity.STAND). From the recovery on
 				 *  (onSetPhase) it aims as its user's camera again, as 1.16 took the next press from the user's view
-				 *  (EntityStandType.clientHitResult); a strike that met no entity hands the aim back at once. A client
-				 *  sets them from the target it holds, and the server sends what its strike changed
-				 *  (sendsPerformStartTargets).
+				 *  (EntityStandType.clientHitResult); a strike that met no entity hands the aim back at once. The
+				 *  server's strike sets the targets by 1.16's task rule (takeStrikeTarget), again here for a
+				 *  getPunchTarget override of its own, and sends what it changed (sendsPerformStartTargets); a client
+				 *  sets them from the target it holds.
 				 */
-				if (target.getType() == TargetType.ENTITY) {
-					standRotationTarget = target;
+				if (takesTargetsFromServer() || isGrabVariation()) {
+					if (target.getType() == TargetType.ENTITY) {
+						standRotationTarget = target;
+					}
+					else {
+						aimAs = AimingEntity.CAMERA_ENTITY;
+					}
 				}
 				else {
-					aimAs = AimingEntity.CAMERA_ENTITY;
+					takeStrikeTarget(target, keepsStrikeBlock());
 				}
 				releaseUnlockedPunchTarget(stand, this);
 			}
@@ -577,8 +583,10 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		}
 		
 		/**
-		 * The target the punch strikes now. The server aims as 1.16's StandEntity.punch did and saves it; a client strikes
-		 * at the target the server last sent it, the kept one or the strike's own once the server sent it.
+		 * The target the punch strikes now. The server aims as 1.16's StandEntity.punch did and, at the strike, makes it the
+		 * target the punch keeps and turns to by the task rule ({@link #takeStrikeTarget}), so an action that strikes in an
+		 * actionPerformStart of its own gets it too; a client strikes at the target the server last sent it, the kept one
+		 * or the strike's own once the server sent it.
 		 */
 		protected ActionTarget getPunchTarget(StandEntity stand) {
 			if (isGrabVariation()) {
@@ -589,8 +597,18 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			}
 			ActionTarget target = StandEntityPunchAbility.getFreshPunchTarget(
 					stand, getActionTargetSnapshot(stand.level()), shouldRetainPunchTarget(stand, ability), punchRule(ability));
-			setActionTargetSnapshot(target);
+			if (isStartingPerform()) {
+				takeStrikeTarget(target, keepsStrikeBlock());
+			}
+			else {
+				setActionTargetSnapshot(target);
+			}
 			return target;
+		}
+
+		// 1.16 StandEntityLightAttack.standKeepsTarget kept a struck block, StandEntityHeavyAttack's refused it
+		private boolean keepsStrikeBlock() {
+			return punchRule(ability) != CrosshairRule.ENTITY;
 		}
 
 		@Override

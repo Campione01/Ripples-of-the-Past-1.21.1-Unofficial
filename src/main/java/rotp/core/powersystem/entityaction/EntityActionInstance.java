@@ -83,6 +83,7 @@ public class EntityActionInstance implements HeldInput {
 	@Nullable public ActionTarget standRotationTarget;
 	public AimingEntity aimAs = AimingEntity.CAMERA_ENTITY;
 	@Nullable protected ActionTarget actionTargetSnapshot;
+	private boolean startingPerform;
 	@Nullable private Vec3 standOffsetSync;
 	@Nullable private StandOffsetFromUser.Rotations standOffsetSyncRotations;
 	private boolean standOffsetSyncCanInvertSide = true;
@@ -452,6 +453,31 @@ public class EntityActionInstance implements HeldInput {
 	 */
 	protected boolean sendsPerformStartTargets() {
 		return false;
+	}
+
+	/**
+	 * Server: the target a strike was dealt at becomes the action's target, kept and turned to, as 1.16's StandEntity.punch
+	 * set it as the task target (setTaskTarget, StandEntityTask.setTarget/keepTarget): nothing when the strike met nothing,
+	 * so the Stand turns along its user's look again (StandEntity.defaultRotation). A block only for an action whose 1.16
+	 * class kept one (standKeepsTarget); otherwise the targets stay as they were. A strike that met no entity hands the aim
+	 * back to the user's camera.
+	 */
+	@ApiStatus.Internal
+	protected void takeStrikeTarget(ActionTarget struck, boolean keepsBlock) {
+		if (struck.getType() == ActionTarget.TargetType.BLOCK && !keepsBlock) {
+			return;
+		}
+		setActionTargetSnapshot(struck);
+		standRotationTarget = struck.getType() != ActionTarget.TargetType.EMPTY ? struck : null;
+		if (struck.getType() != ActionTarget.TargetType.ENTITY) {
+			aimAs = AimingEntity.CAMERA_ENTITY;
+		}
+	}
+
+	/** Whether {@link #actionPerformStart} runs now: the strike of a punch, which sets the strike's target. */
+	@ApiStatus.Internal
+	protected final boolean isStartingPerform() {
+		return startingPerform;
 	}
 
 	/** The targets as tracking clients hold them, to send them again only once they changed. */
@@ -910,7 +936,13 @@ public class EntityActionInstance implements HeldInput {
 		if (phase == ActionPhase.PERFORM) {
 			if (getPhaseTick() < 1) {
 				HeldTargets held = sendsPerformStartTargets() && !takesTargetsFromServer() ? heldTargets() : null;
-				actionPerformStart();
+				startingPerform = true;
+				try {
+					actionPerformStart();
+				}
+				finally {
+					startingPerform = false;
+				}
 				if (held != null && !isOver()) {
 					syncTargetsToTrackingIfChanged(held);
 				}

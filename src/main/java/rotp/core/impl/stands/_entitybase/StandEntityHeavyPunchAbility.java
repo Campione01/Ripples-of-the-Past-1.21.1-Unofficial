@@ -427,11 +427,18 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 					punchedTarget = target;
 					standPower.consumeStamina(50);
 				}
-				if (target.getType() == TargetType.ENTITY) {
-					standRotationTarget = target;
+				// the server's strike set the targets by 1.16's task rule (getPunchTarget), again here for an override of
+				// its own; a client sets them from the target it holds
+				if (takesTargetsFromServer() || isGrabVariation()) {
+					if (target.getType() == TargetType.ENTITY) {
+						standRotationTarget = target;
+					}
+					else {
+						aimAs = AimingEntity.CAMERA_ENTITY;
+					}
 				}
 				else {
-					aimAs = AimingEntity.CAMERA_ENTITY;
+					takeStrikeTarget(target, false);
 				}
 				StandEntityPunchAbility.releaseUnlockedPunchTarget(stand, this);
 			}
@@ -658,8 +665,10 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 		 * The target the heavy punch would strike now. Through the windup the target it was pressed at stays its 1.16 task
 		 * target while within the action's range ({@link StandEntityPunchAbility#keepsTargetInRange}), even out of the
 		 * Stand's reach for a while, and no new aim takes its place; the strike takes it if in reach, otherwise aims again
-		 * (StandEntity.punch, aimWithThisOrUser). Only the server judges it: a client strikes at the target the server last
-		 * sent it, the kept one or the strike's own once the server sent it.
+		 * (StandEntity.punch, aimWithThisOrUser), and the strike makes it the target the heavy punch keeps and turns to by
+		 * the task rule ({@link #takeStrikeTarget}): a struck block is refused (StandEntityHeavyAttack.standKeepsTarget) and
+		 * leaves the targets as they were. Only the server judges it: a client strikes at the target the server last sent it,
+		 * the kept one or the strike's own once the server sent it.
 		 */
 		protected ActionTarget getPunchTarget(StandEntity stand) {
 			if (isGrabVariation()) {
@@ -675,7 +684,10 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 			ActionTarget target = StandEntityPunchAbility.getFreshPunchTarget(stand, getActionTargetSnapshot(stand.level()),
 					StandEntityPunchAbility.shouldRetainPunchTarget(stand, ability),
 					StandEntityPunchAbility.CrosshairRule.ENTITY);
-			if (!windup) {
+			if (isStartingPerform()) {
+				takeStrikeTarget(target, false);
+			}
+			else if (!windup) {
 				setActionTargetSnapshot(target);
 			}
 			return target;
