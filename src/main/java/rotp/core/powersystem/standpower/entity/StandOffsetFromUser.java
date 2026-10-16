@@ -33,12 +33,13 @@ public class StandOffsetFromUser {
 	@Nullable public EntityActionType standAbility;
 	
 	private Vec3 prevAbsoluteOffset;
-	private Rotations prevRotations;
+	private boolean prevBodyTurnedWithUser;
 	private float prevBodyRotDiff;
 	private int changedTimestamp;
 	
 	public static StandOffsetFromUser createDefault(StandEntity standEntity) {
-		StandOffsetFromUser offset = new StandOffsetFromUser(standEntity, new Vec3(0.75, standEntity.Y_OFFSET, -0.75), Rotations.BODY);
+		// 1.16 StandEntity.offsetDefault: behind the user's right, turned by the view yaw (StandEntity.taskOffset)
+		StandOffsetFromUser offset = new StandOffsetFromUser(standEntity, new Vec3(-0.75, standEntity.Y_OFFSET, -0.75), Rotations.HEAD);
 		offset.armsOnlyIdleOffset(new Vec3(0, 0, 0.15), Rotations.HEAD);
 		offset.grabOffset(new Vec3(-1, standEntity.Y_OFFSET, 1.5));
 		return offset;
@@ -80,7 +81,9 @@ public class StandOffsetFromUser {
 			else {
 				this.prevAbsoluteOffset = null;
 			}
-			this.prevRotations = this.rotations != null ? this.rotations : rotations;
+			this.prevBodyTurnedWithUser = this.relativeOffset != null && this.rotations != null
+					? bodyTurnsWithUser(this.relativeOffset, this.rotations)
+					: bodyTurnsWithUser(offset, rotations);
 			
 			this.relativeOffset = offset;
 			this.rotations = rotations;
@@ -188,10 +191,10 @@ public class StandOffsetFromUser {
 		standEntity.yHeadRotO = userEntity.yHeadRotO;
 		
 		// this shit so ass
-		boolean isBodyRot = rotations == Rotations.BODY;
+		boolean isBodyRot = bodyTurnsWithUser(relativeOffset, rotations);
 		float bodyRotAmount = isBodyRot ? 1 : 0;
 		if (lerp) {
-			boolean wasBodyRot = prevRotations == Rotations.BODY;
+			boolean wasBodyRot = prevBodyTurnedWithUser;
 			if (isBodyRot != wasBodyRot) {
 				float lerpAmount = getLerpAmount();
 				bodyRotAmount = isBodyRot ? lerpAmount : (1 - lerpAmount);
@@ -210,6 +213,14 @@ public class StandOffsetFromUser {
 			standEntity.yBodyRot = Mth.lerp(bodyRotAmount, userEntity.getYRot(), userEntity.yBodyRot);
 			standEntity.yBodyRotO = standEntity.yBodyRot + prevBodyRotDiff / (isBodyRot ? -LERP_TIME : LERP_TIME);
 		}
+	}
+	
+	/*
+	 * 1.16 left an idle Stand's body to the vanilla head turn, so it lagged behind the view as its user's body does;
+	 * the idle Stand takes its user's body yaw for that, while its place and head turn with the view.
+	 */
+	private boolean bodyTurnsWithUser(Vec3 offset, Rotations rotations) {
+		return rotations == Rotations.BODY || rotations == idleRotations && idleOffset.equals(offset);
 	}
 	
 //	public float getLerpAmount() {

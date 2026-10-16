@@ -254,8 +254,8 @@ public final class StarSpecialtyOffsetGameTests {
             if (action == null) {
                 if (posts < 5) return;
                 suite.check(stand.isFollowingUser() && stand.offsetFromUser.isIdle()
-                        && stand.offsetFromUser.getRotations() == StandOffsetFromUser.Rotations.BODY, "settled native idle remains BODY/follow");
-                checkPosition(oracle(stand.offsetFromUser.idleOffset, BODY_YAW), "native idle body-yaw position");
+                        && stand.offsetFromUser.getRotations() == StandOffsetFromUser.Rotations.HEAD, "settled native idle remains HEAD/follow");
+                checkPosition(oracle(stand.offsetFromUser.idleOffset, VIEW_YAW), "native idle view-yaw position (1.16 taskOffset)");
                 idleAbsolute = stand.offsetFromUser.getAbsoluteOffset(user, false);
                 prepareAim();
                 if (spec.aim == Aim.MANUAL) {
@@ -305,14 +305,14 @@ public final class StarSpecialtyOffsetGameTests {
                 AbilityInput.keyRelease(KEY, user);
             }
             if (stand.getCurStandAction() == null && action.isOver() && ++clearedTicks >= 6) {
-                suite.check(measured && stand.offsetFromUser.isIdle() && stand.offsetFromUser.getRotations() == StandOffsetFromUser.Rotations.BODY,
-                        "native natural/release clear restores idle BODY");
+                suite.check(measured && stand.offsetFromUser.isIdle() && stand.offsetFromUser.getRotations() == StandOffsetFromUser.Rotations.HEAD,
+                        "native natural/release clear restores idle HEAD");
                 if (spec.aim == Aim.MANUAL) {
                     checkPosition(manualAnchor, "clear does not overwrite O-control anchor");
                     press("manual_control", MANUAL_KEY, InputMethod.CLICK);
                     suite.check(!stand.isManuallyControlled(), "registered O exit retained");
                 }
-                else checkPosition(oracle(stand.offsetFromUser.idleOffset, BODY_YAW), "native cleared idle position unchanged");
+                else checkPosition(oracle(stand.offsetFromUser.idleOffset, VIEW_YAW), "native cleared idle position unchanged");
                 done = true;
             }
         }
