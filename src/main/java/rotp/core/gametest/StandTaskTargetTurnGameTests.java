@@ -668,6 +668,49 @@ public final class StandTaskTargetTurnGameTests {
 		helper.succeed();
 	}
 
+	/*
+	 * 1.16 StandEntityAction.rotateStand: a Stand whose action moved it by itself (standMovesByItself,
+	 * noAdheringToUserOffset) and whose task held no target kept its yaw, pitch and head as they were, where
+	 * StandEntity.defaultRotation would have put them on its user's look and the head on the yaw; under manual control
+	 * defaultRotation still ran and put the head on the yaw.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aStandItsActionMovesByItselfKeepsItsRotationAndHeadWithoutATaskTargetAsIn116(GameTestHelper helper) {
+		for (boolean manual : new boolean[] { false, true }) {
+			StandTaskTargetOffsetGameTests.withStand(helper, "hierophant_green", scene -> {
+				StandEntity stand = scene.stand();
+				SelfMovingProbe probe = new SelfMovingProbe(ModStandAbilities.HG_STRING_ATTACK.get(),
+						new AbilityId(PowerClass.STAND, JojoMod.resLoc("hierophant_green"), "self_moving_probe"));
+				EntityActionInstance action = probe.initActionOnAbilityUse(helper.getLevel(), scene.user(), stand, null);
+				stand.summonLockTicks = 0;
+				LivingComponentAction.getComponent(stand).setAction(action, scene.user(), SyncType.NO_SYNC);
+				if (manual) {
+					stand.setManuallyControlled(true);
+				}
+				StandTaskTargetOffsetGameTests.turn(scene.user(), VIEW_YAW + 60.0F, VIEW_YAW + 60.0F);
+				stand.setYRot(VIEW_YAW - 20.0F);
+				stand.setXRot(10.0F);
+				stand.setYHeadRot(VIEW_YAW + 10.0F);
+				stand.yHeadRotO = VIEW_YAW + 10.0F;
+				helper.assertTrue(stand.getCurStandAction() == action && !stand.isFollowingUser()
+						&& stand.isManuallyControlled() == manual
+						&& action.getTaskTarget(helper.getLevel()).getType() == ActionTarget.TargetType.EMPTY,
+						"setup: the probe does not move its Stand by itself without a task target, manual control " + manual);
+				stand.tick();
+				float headYaw = manual ? VIEW_YAW - 20.0F : VIEW_YAW + 10.0F;
+				helper.assertTrue(Math.abs(Mth.wrapDegrees(stand.getYRot() - VIEW_YAW + 20.0F)) < EPS
+						&& Math.abs(stand.getXRot() - 10.0F) < EPS
+						&& Math.abs(Mth.wrapDegrees(stand.yHeadRot - headYaw)) < EPS
+						&& Math.abs(Mth.wrapDegrees(stand.yHeadRotO - headYaw)) < EPS, "1.16 left a hierophant_green its action"
+								+ " moves by itself" + (manual ? ", manually controlled," : "") + " at yaw " + (VIEW_YAW - 20.0F)
+								+ " and pitch 10 with its head at " + headYaw + ", its user looking at " + (VIEW_YAW + 60.0F)
+								+ ": yaw " + stand.getYRot() + ", pitch " + stand.getXRot() + ", head " + stand.yHeadRot + " from "
+								+ stand.yHeadRotO);
+			});
+		}
+		helper.succeed();
+	}
+
 	// as when each Stand has parried the other's barrage (StandEntity.barrageClashParryPunches)
 	private static void startBarrageClash(GameTestHelper helper, StandEntity stand, StandEntity opponent) {
 		try {
@@ -728,6 +771,24 @@ public final class StandTaskTargetTurnGameTests {
 			if (getPerformer() instanceof StandEntity stand && stand.getUser() != null) {
 				stand.setYRot(stand.getUser().getYRot() + ASIDE);
 			}
+		}
+	}
+
+	// an action that moves its Stand by itself (1.16 standMovesByItself, noAdheringToUserOffset)
+	private static final class SelfMovingProbe extends StandEntityAbility {
+		SelfMovingProbe(AbilityType<?> abilityType, AbilityId abilityId) {
+			super(abilityType, abilityId, EntityActionInstance::new);
+			setDefaultPhaseLength(ActionPhase.PERFORM, 40);
+		}
+
+		@Override
+		public boolean noAdheringToUserOffset(StandPower standPower, StandEntity standEntity) {
+			return true;
+		}
+
+		@Override
+		public boolean noAdheringToUserOffsetClientFallback(StandEntity standEntity) {
+			return true;
 		}
 	}
 

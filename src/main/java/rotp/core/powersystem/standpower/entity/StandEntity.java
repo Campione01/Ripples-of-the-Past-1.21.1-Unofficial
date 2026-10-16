@@ -383,8 +383,9 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		this.yBodyRotO = rotO.yBodyRot;
 
 		// 1.16 MCUtil.rotateTowards turned the head to the task's target, and an action that then gave the Stand another
-		// yaw left the head there; otherwise StandEntity.defaultRotation put the head on the yaw
-		if (headTurnedToTaskTarget) {
+		// yaw left the head there; StandEntityAction.rotateStand left the head of a Stand its action moves by itself where
+		// it was; otherwise StandEntity.defaultRotation put the head on the yaw
+		if (headTurnedToTaskTarget || !isManuallyControlled() && curActionDisablesUserOffset()) {
 			yHeadRotO = rotO.yHeadRot;
 		}
 		else {
