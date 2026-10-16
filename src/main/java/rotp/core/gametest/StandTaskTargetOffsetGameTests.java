@@ -29,6 +29,7 @@ import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.EntityStandType;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.entity.StandEntityAbility;
+import rotp.core.powersystem.standpower.entity.StandOffsetFromUser;
 import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTargetRange;
@@ -372,6 +373,63 @@ public final class StandTaskTargetOffsetGameTests {
 					"1.16 StandEntity.setTask gave a punch pressed at nothing the cow of the punch it replaced; it keeps "
 							+ next.getTaskTarget(helper.getLevel()) + " and turns the Stand to " + next.standRotationTarget);
 		});
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 lockOnTargetPosition (true for these): Hierophant Green's Barrier and Crazy Diamond's Block Anchor kept the block
+	 * they were pressed at (TargetRequirement.BLOCK), the entity Grapple the entity (standKeepsTarget of its shift
+	 * variation) and Rapier Launch any target, and every offset of the task turned from the user's eyes to it: pressed at a
+	 * block or a cow 3 blocks east of its user who looks south, the action's offset (Rapier Launch's 0.25 in front, the
+	 * default one for the others) turns by the yaw to the target's centre or eyes.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void barrierBlockAnchorEntityGrappleAndRapierLaunchTurnTheirOffsetToTheirKeptTargetAsIn116(GameTestHelper helper) {
+		// Stand, ability, its skill, pressed at a block (else the cow)
+		Object[][] rows = {
+				{ "hierophant_green", "barrier", "barrier", true },
+				{ "crazy_diamond", "block_anchor_make", "block_anchor", true },
+				{ "hierophant_green", "grapple_entity", "grapple", false },
+				{ "silver_chariot", "rapier_launch", "rapier_launch", false } };
+		for (Object[] row : rows) {
+			String name = (String) row[1];
+			boolean atBlock = (boolean) row[3];
+			withStand(helper, (String) row[0], scene -> {
+				scene.power.getCurTypeData()._setSkillUnlocked((String) row[2], true, false);
+				BlockPos block = BlockPos.containing(scene.user.getEyePosition().add(COW_FROM_USER));
+				Cow cow = atBlock ? null : scene.cow(COW_FROM_USER);
+				try {
+					Vec3 targetPos;
+					if (atBlock) {
+						helper.getLevel().setBlockAndUpdate(block, Blocks.STONE.defaultBlockState());
+						LivingComponentAction.getComponent(scene.user).entityAim.setTarget(new ActionTarget(block, Direction.WEST));
+						targetPos = Vec3.atCenterOf(block);
+					}
+					else {
+						userAims(scene.user, cow);
+						standAims(scene.stand, cow);
+						targetPos = cow.getEyePosition();
+					}
+					EntityActionInstance action = scene.set(name);
+					ActionTarget held = action.getTaskTarget(helper.getLevel());
+					helper.assertTrue(atBlock ? held.getType() == ActionTarget.TargetType.BLOCK && block.equals(held.getBlockPos())
+							: held.getEntity() == cow, "setup: the " + name + " holds " + held + ", not what it was pressed at");
+					turn(scene.user, VIEW_YAW, BODY_YAW);
+					Vec3 toTarget = targetPos.subtract(scene.user.getEyePosition());
+					Vec3 relative = scene.stand.offsetFromUser.getRelativeOffset();
+					Vec3 expected = scene.stand.offsetFromUser.getRotations() == StandOffsetFromUser.Rotations.HEAD_XY
+							? relative.xRot(-MathUtil.xRotDegFromVec(toTarget) * MathUtil.DEG_TO_RAD) : relative;
+					expected = expected.yRot(-MathUtil.yRotDegFromVec(toTarget) * MathUtil.DEG_TO_RAD);
+					assertAt(helper, scene, expected, "1.16 put a " + row[0] + " whose " + name + " held " + held
+							+ " east of its user who looks south with its offset turned to it (lockOnTargetPosition)");
+				}
+				finally {
+					if (atBlock) {
+						helper.getLevel().setBlockAndUpdate(block, Blocks.AIR.defaultBlockState());
+					}
+				}
+			});
+		}
 		helper.succeed();
 	}
 
