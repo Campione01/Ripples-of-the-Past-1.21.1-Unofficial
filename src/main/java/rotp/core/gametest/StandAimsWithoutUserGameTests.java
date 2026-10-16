@@ -68,7 +68,7 @@ public final class StandAimsWithoutUserGameTests {
 		run(helper, 3);
 	}
 
-	// no user crosshair steers its punch, so it keeps its pressed target, as under manual control; its barrage aims again
+	// its punch keeps its pressed target as every punch does (1.16); its barrage aims again, without keep attack target
 	@GameTest(template = "empty", timeoutTicks = 20, batch = "stand_aims_without_user_5")
 	public static void aStandThatAimsOnItsOwnKeepsItsAttacksPressedTarget(GameTestHelper helper) {
 		run(helper, 4);
@@ -118,9 +118,11 @@ public final class StandAimsWithoutUserGameTests {
 			}
 			else if (path == 4) {
 				user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get()).standAttackTargetLock = false;
-				helper.assertTrue(!StandEntityPunchAbility.shouldRetainPunchTarget(plain, punch)
-						&& !StandEntityPunchAbility.shouldRetainPunchTarget(plain, barrage),
-						"Fixture: with keep attack target off a plain Stand's attacks keep their pressed target");
+				helper.assertTrue(StandEntityPunchAbility.shouldRetainPunchTarget(plain, punch),
+						"With keep attack target off a plain Stand's punch follows its user's crosshair instead of keeping its"
+								+ " pressed target; 1.16 kept a light punch's pressed target");
+				helper.assertTrue(!StandEntityPunchAbility.shouldRetainPunchTarget(plain, barrage),
+						"Fixture: with keep attack target off a plain Stand's barrage keeps its pressed target");
 			}
 
 			StandEntity hunter = place(helper, user, power, type, new OwnAimStand(standEntityType(helper, user, power, type),

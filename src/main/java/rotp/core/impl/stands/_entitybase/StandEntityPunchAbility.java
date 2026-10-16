@@ -653,25 +653,21 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	}
 
 	/**
-	 * Whether an attack keeps the target it was pressed at instead of aiming again: always for a grab and for an action
-	 * that is not a punch or barrage; the barrage only with its user's "keep attack target" setting, also under manual
-	 * control and for a Stand that aims without its user, since 1.16's barrage refused every pressed target
-	 * (StandEntityMeleeBarrage.checkStandTarget) and each hit aimed again from the Stand's own eyes there
-	 * (StandEntity.punch, aimWithThisOrUser); a punch always when no user crosshair steers it, otherwise as that setting says.
+	 * Whether an attack keeps the target it was pressed at instead of aiming again. Every action but the barrage keeps it,
+	 * the light and heavy punch among them: 1.16 kept their pressed target for the whole task while it stayed in range
+	 * (StandEntityTask.keepTarget, StandEntityLightAttack/StandEntityHeavyAttack.standKeepsTarget) and struck it while in
+	 * reach (StandEntity.aimWithThisOrUser), whatever the user's crosshair met by then. The barrage keeps it only with its
+	 * user's "keep attack target" setting, also under manual control and for a Stand that aims without its user, since
+	 * 1.16's barrage refused every pressed target (StandEntityMeleeBarrage.checkStandTarget) and each hit aimed again
+	 * (StandEntity.punch, aimWithThisOrUser).
 	 */
 	public static boolean shouldRetainPunchTarget(StandEntity stand, EntityActionType ability) {
-		if (ability.getAbilityUsageCategory() == AbilityUsageGroup.GRAB || !isPunchOrBarrage(ability)) {
+		if (ability.getAbilityUsageCategory() == AbilityUsageGroup.GRAB || !(ability instanceof StandEntityBarrageAbility)) {
 			return true;
 		}
-		if (ability instanceof StandEntityBarrageAbility) {
-			// a mob user has no such setting; 1.16 aimed its barrage hits again from its own eyes too
-			return stand.getUser() instanceof Player
-					&& PlayerClientBroadcastedSettings.isStandAttackTargetLockEnabled(stand.getUserPower());
-		}
-		if (stand.aimsWithoutUser()) {
-			return true;
-		}
-		return PlayerClientBroadcastedSettings.isStandAttackTargetLockEnabled(stand.getUserPower());
+		// a mob user has no such setting; 1.16 aimed its barrage hits again from its own eyes too
+		return stand.getUser() instanceof Player
+				&& PlayerClientBroadcastedSettings.isStandAttackTargetLockEnabled(stand.getUserPower());
 	}
 
 	private static boolean isPunchOrBarrage(EntityActionType ability) {

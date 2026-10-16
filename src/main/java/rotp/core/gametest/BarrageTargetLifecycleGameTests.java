@@ -159,19 +159,26 @@ public final class BarrageTargetLifecycleGameTests {
 		}
 	}
 
+	// 1.16 kept a light or heavy punch's pressed mob while the Stand could reach it, wherever its user aimed by the swing
+	// (StandEntityTask.keepTarget, standKeepsTarget, StandEntity.aimWithThisOrUser); the setting decides only the barrage
 	@GameTest(template = "empty", timeoutTicks = 80)
-	public static void lightPunchFollowsAimWithoutLock(GameTestHelper helper) {
+	public static void lightPunchKeepsItsPressedTargetWithoutLockAsIn116(GameTestHelper helper) {
 		verifyAimSwitch(helper, "punch", false);
 	}
 
 	@GameTest(template = "empty", timeoutTicks = 80)
-	public static void heavyPunchFollowsAimWithoutLock(GameTestHelper helper) {
+	public static void heavyPunchKeepsItsPressedTargetWithoutLockAsIn116(GameTestHelper helper) {
 		verifyAimSwitch(helper, "heavy_punch", false);
 	}
 
 	@GameTest(template = "empty", timeoutTicks = 80)
 	public static void barrageFollowsAimWithoutLock(GameTestHelper helper) {
 		verifyAimSwitch(helper, "barrage", false);
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void barrageLockRetainsTarget(GameTestHelper helper) {
+		verifyAimSwitch(helper, "barrage", true);
 	}
 
 	@GameTest(template = "empty", timeoutTicks = 80)
@@ -204,12 +211,15 @@ public final class BarrageTargetLifecycleGameTests {
 			helper.assertTrue(!new PlayerClientBroadcastedSettings().standAttackTargetLock,
 					"Continuous Stand target lock must default to disabled");
 			settings.standAttackTargetLock = locked;
-			boolean directional = !locked && "barrage".equals(abilityName);
-			if (directional) {
+			boolean barrage = "barrage".equals(abilityName);
+			boolean directional = !locked && barrage;
+			boolean keeps = locked || !barrage;
+			if (barrage) {
 				user.getAbilities().instabuild = true;
 				// with the aim assist 1.16 aimed every barrage hit with the precision ray (StandEntityMeleeBarrage
 				// checkStandTarget refused every pressed target; StandEntity.punch -> aimWithThisOrUser -> precisionRayTrace),
-				// whose grown boxes hold the user's eyes for both cows here: the barrage follows the crosshair without it
+				// whose grown boxes hold the user's eyes for both cows here: the barrage follows the crosshair without it,
+				// and a locked barrage that followed it would leave the cow it was pressed at
 				settings.standAimAssist = false;
 			}
 			helper.assertTrue(StandPowerTransitions.insert(power, new StandInstance(standType)).status()
@@ -219,8 +229,8 @@ public final class BarrageTargetLifecycleGameTests {
 			helper.assertTrue(stand != null, "Summoned Stand is missing");
 			stand.moveTo(userPos.x, userPos.y, userPos.z);
 			initial = spawnCow(helper, userPos.add(0.0D, 0.0D, 1.0D));
-			current = spawnCow(helper, userPos.add(directional ? 1.4D : 0.75D, 0.0D, 1.25D));
-			if (directional) {
+			current = spawnCow(helper, userPos.add(barrage ? 1.4D : 0.75D, 0.0D, 1.25D));
+			if (barrage) {
 				lookAt(user, initial.getBoundingBox().getCenter());
 			}
 			LivingComponentAction component = LivingComponentAction.getComponent(stand);
@@ -230,46 +240,44 @@ public final class BarrageTargetLifecycleGameTests {
 			EntityActionInstance action = ((EntityActionType) ability)
 					.initActionOnAbilityUse(helper.getLevel(), user, stand, null);
 			component.setAction(action, user, SyncType.NO_SYNC);
-			if (!locked) {
+			if (!keeps) {
 				assertNoPersistentLock(helper, action, abilityName);
 			}
 
 			aimBoth(component, user, new ActionTarget(current));
-			if (directional) {
+			if (barrage) {
 				lookAt(user, current.getBoundingBox().getCenter());
 			}
 			ActionTarget selected = directional
 					? StandEntityBarrageAbility.clipDirectionalBarrageTarget(stand, action, 1.0F)
 					: StandEntityPunchAbility.getFreshPunchTarget(stand, new ActionTarget(initial));
-			Cow expected = locked ? initial : current;
-			Cow untouched = locked ? current : initial;
-			helper.assertTrue(selected.getMainEntity() == expected,
-					abilityName + " did not obey its target-lock setting when aim changed");
+			Cow expected = keeps ? initial : current;
+			Cow untouched = keeps ? current : initial;
+			helper.assertTrue(selected.getMainEntity() == expected, abilityName + (locked ? " with" : " without")
+					+ " the target lock took " + selected + " when its user's aim changed; "
+					+ (barrage ? "the setting decides the barrage" : "1.16 kept a punch's pressed target"));
 			float expectedHealth = expected.getHealth();
 			float untouchedHealth = untouched.getHealth();
 			for (int tick = 0; tick < 60 && expected.getHealth() >= expectedHealth
 					&& component.getAction() == action; tick++) {
 				component.tick();
+				if (keeps && expected.getHealth() >= expectedHealth) {
+					helper.assertTrue(action.standRotationTarget != null
+							&& action.standRotationTarget.getMainEntity() == initial, abilityName + (locked ? " with" : " without")
+									+ " the target lock turns the Stand to " + action.standRotationTarget
+									+ " instead of the cow it was pressed at");
+				}
 			}
 			helper.assertTrue(expected.getHealth() < expectedHealth, abilityName + " did not damage its aimed target");
 			helper.assertTrue(untouched.getHealth() == untouchedHealth, abilityName + " damaged the other entity");
 
-			if (!locked) {
+			if (!keeps) {
 				assertNoPersistentLock(helper, action, abilityName);
-				if (!"barrage".equals(abilityName)) {
-					component.setAction(null, user, SyncType.NO_SYNC);
-					aimBoth(component, user, new ActionTarget(initial));
-					action = ((EntityActionType) ability)
-							.initActionOnAbilityUse(helper.getLevel(), user, stand, null);
-					component.setAction(action, user, SyncType.NO_SYNC);
-				}
 				aimBoth(component, user, ActionTarget.EMPTY);
 				// out of the precision boxes the aim assist is back on, so the empty aim is 1.16's precision ray
 				settings.standAimAssist = true;
 				ceiling = stepOutOfThePrecisionAim(helper, user, userPos);
-				ActionTarget emptyAim = directional
-						? StandEntityBarrageAbility.clipDirectionalBarrageTarget(stand, action, 1.0F)
-						: StandEntityPunchAbility.getFreshPunchTarget(stand, new ActionTarget(initial));
+				ActionTarget emptyAim = StandEntityBarrageAbility.clipDirectionalBarrageTarget(stand, action, 1.0F);
 				helper.assertTrue(emptyAim.isEmpty(helper.getLevel()),
 						abilityName + " retained an entity after the crosshair moved to empty space");
 				float initialHealth = initial.getHealth();

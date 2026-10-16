@@ -298,6 +298,106 @@ public final class StandAttackAimRulesGameTests {
 		}, 30, () -> "The locked barrage test timed out");
 	}
 
+	// 1.16 kept the mob a light or heavy punch was pressed at as the task target while it stayed in range
+	// (StandEntityTask.keepTarget, standKeepsTarget of StandEntityLightAttack and StandEntityHeavyAttack), turned the Stand
+	// to it (StandEntityTask.rotateStand) and struck it while the Stand could reach it (StandEntity.aimWithThisOrUser), not
+	// what the crosshair met by then. "Keep attack target" is off. Small precision boxes, so that only the kept target
+	// finds the mob once it is off the crosshair.
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "kept_mob_punch")
+	public static void punchStrikesTheMobItWasPressedAtThatStepsAsideAsIn116(GameTestHelper helper) {
+		pressedMobStepsAside(helper, "punch");
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "kept_mob_heavy")
+	public static void heavyPunchStrikesTheMobItWasPressedAtThatStepsAsideAsIn116(GameTestHelper helper) {
+		pressedMobStepsAside(helper, "heavy_punch");
+	}
+
+	private static void pressedMobStepsAside(GameTestHelper helper, String name) {
+		Scene scene = new Scene(helper, true);
+		scene.precision(0);
+		Cow cow = scene.cow(0, 2.0);
+		scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, cow.getBoundingBox().getCenter());
+		helper.assertTrue(scene.vanillaPick().getMainEntity() == cow, "Fixture: the vanilla pick is " + scene.vanillaPick());
+		float health = cow.getHealth();
+		EntityActionInstance[] action = new EntityActionInstance[1];
+		scene.run(tick -> {
+			if (tick == 3) {
+				scene.sendClientAims();
+				action[0] = scene.press(name, InputMethod.CLICK);
+				helper.assertTrue((action[0] instanceof StandEntityPunch || action[0] instanceof StandEntityHeavyPunch)
+						&& action[0].punchedTarget == null, "Fixture: the " + name + " input started " + action[0]
+								+ ", or it struck at once");
+				// a step aside within the Stand's reach, off the crosshair; the client sends its aims again
+				cow.moveTo(cow.getX() + 0.9, cow.getY(), cow.getZ(), 0, 0);
+				scene.sendClientAims();
+				helper.assertTrue(scene.vanillaPick().getMainEntity() != cow
+						&& StandEntityPunchAbility.userPrecisionRayTarget(scene.stand, scene.user).getMainEntity() != cow,
+						"Fixture: the user's aims still meet the cow that stepped aside");
+				return false;
+			}
+			if (tick < 3) {
+				return false;
+			}
+			ActionTarget struck = action[0].punchedTarget;
+			if (struck == null) {
+				ActionTarget turnedTo = action[0].standRotationTarget;
+				helper.assertTrue(turnedTo != null && turnedTo.getMainEntity() == cow, "The " + name + " turns the Stand to "
+						+ turnedTo + " instead of the cow it was pressed at; 1.16 turned the Stand to its task target");
+				return false;
+			}
+			helper.assertTrue(struck.getMainEntity() == cow && cow.getHealth() < health, "The " + name + " struck " + struck
+					+ " instead of the cow it was pressed at, which stepped aside within the Stand's reach (Stand at "
+					+ scene.stand.position() + ", cow at " + cow.position() + "); 1.16 struck the task target the press kept");
+			return true;
+		}, 60, () -> "The " + name + " never struck");
+	}
+
+	// 1.16 kept the block a light punch was pressed at too (StandEntityLightAttack.standKeepsTarget): its user turns from
+	// the ground to a cow before the swing, and the punch strikes the ground
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "kept_block_punch")
+	public static void punchStrikesTheBlockItWasPressedAtAfterItsUserTurnsAsIn116(GameTestHelper helper) {
+		Scene scene = new Scene(helper, true);
+		BlockPos ground = scene.groundStrip();
+		Cow cow = scene.cow(-1.0, 1.6);
+		scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, Vec3.upFromBottomCenterOf(ground, 1));
+		helper.assertTrue(scene.vanillaPick().getType() == ActionTarget.TargetType.BLOCK
+				&& ground.equals(scene.vanillaPick().getBlockPos()), "Fixture: the crosshair does not meet the ground at "
+						+ ground + ": " + scene.vanillaPick());
+		float health = cow.getHealth();
+		EntityActionInstance[] action = new EntityActionInstance[1];
+		scene.run(tick -> {
+			if (tick == 3) {
+				scene.sendClientAims();
+				action[0] = scene.press("punch", InputMethod.CLICK);
+				helper.assertTrue(action[0] instanceof StandEntityPunch && action[0].punchedTarget == null,
+						"Fixture: the punch input started " + action[0] + ", or it struck at once");
+				scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, cow.getBoundingBox().getCenter());
+				scene.sendClientAims();
+				helper.assertTrue(scene.vanillaPick().getMainEntity() == cow, "Fixture: the turned user's vanilla pick is "
+						+ scene.vanillaPick());
+				return false;
+			}
+			if (tick < 3) {
+				return false;
+			}
+			helper.assertTrue(cow.getHealth() >= health, "The punch pressed at the ground hurt the cow its user turned to;"
+					+ " 1.16 struck the block the press kept");
+			ActionTarget struck = action[0].punchedTarget;
+			if (struck == null) {
+				ActionTarget turnedTo = action[0].standRotationTarget;
+				helper.assertTrue(turnedTo != null && turnedTo.getType() == ActionTarget.TargetType.BLOCK
+						&& ground.equals(turnedTo.getBlockPos()), "The punch turns the Stand to " + turnedTo
+								+ " instead of the ground it was pressed at; 1.16 turned the Stand to its task target");
+				return false;
+			}
+			helper.assertTrue(struck.getType() == ActionTarget.TargetType.BLOCK && ground.equals(struck.getBlockPos()),
+					"The punch pressed at the ground struck " + struck + " after its user turned; 1.16 struck the block"
+							+ " the press kept");
+			return tick > 15;
+		}, 60, () -> "The punch pressed at the ground never struck it");
+	}
+
 	// the grab (a port move) takes only an entity the Stand can attack (StandEntityGrab picks with canStandHit); one that
 	// becomes the user's own while held is spared by the grab's punches, as 1.16's StandEntity.attackEntity refused any
 	// main target the Stand could not harm

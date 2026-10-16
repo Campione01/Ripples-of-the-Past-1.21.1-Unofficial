@@ -171,6 +171,7 @@ public final class StandSkillWallsGameTests {
 		punchFromIdleAims(helper, false, false);
 	}
 
+	// the setting decides only the barrage: the punch keeps its press target either way
 	@GameTest(template = "empty", timeoutTicks = 60, batch = KEPT_TARGET_BATCH)
 	public static void markedPunchWithKeepAttackTargetHitsAMobBehindAWall(GameTestHelper helper) {
 		punchFromIdleAims(helper, true, false);
@@ -200,9 +201,9 @@ public final class StandSkillWallsGameTests {
 				EntityActionInstance punch = scene.press("punch");
 				helper.assertTrue(punch instanceof StandEntityPunch && StandSkillWalls.isMarked(punch),
 						"Fixture: the punch input started " + punch + ", which is not the marked punch");
-				boolean keepsPressTarget = StandEntityPunchAbility.shouldRetainPunchTarget(scene.stand, punch.ability);
-				helper.assertTrue(keepsPressTarget == (keepAttackTarget || manualControl),
-						"Fixture: the punch " + how + (keepsPressTarget ? " keeps" : " does not keep") + " its press target");
+				// 1.16 kept a light punch's pressed target (StandEntityLightAttack.standKeepsTarget) whatever the setting
+				helper.assertTrue(StandEntityPunchAbility.shouldRetainPunchTarget(scene.stand, punch.ability),
+						"The punch " + how + " does not keep its press target; 1.16 kept a light punch's pressed target");
 			}
 			return tick > 3 && cow.getHealth() < health;
 		}, 30, () -> "The marked punch " + how + " did not hit the cow behind the wall");
@@ -311,15 +312,14 @@ public final class StandSkillWallsGameTests {
 				+ (chargedMiss[0] != null ? "; " + chargedMiss[0] : ""));
 	}
 
-	// keep attack target: pressed with nothing behind the wall, the punch keeps the wall; a mob that comes behind it before
-	// the swing is hit through it
+	// pressed with nothing behind the wall, the punch keeps the wall as 1.16 kept a pressed block, the keep attack target
+	// setting off; a mob that comes behind it before the swing is hit through it
 	@GameTest(template = "empty", timeoutTicks = 60, batch = KEPT_WALL_BATCH)
 	public static void markedPunchKeepingAWallTargetHitsAMobThatComesBehindIt(GameTestHelper helper) {
 		Scene scene = new Scene(helper);
 		scene.wall(new BlockPos(1, 2, 2));
 		scene.wall(new BlockPos(1, 3, 2));
 		scene.mark(true);
-		scene.settings().standAttackTargetLock = true;
 		Cow[] cow = new Cow[1];
 		float[] health = new float[1];
 		scene.run(tick -> {
