@@ -499,7 +499,7 @@ public class EntityActionInstance implements HeldInput {
 			kept = target.copy().resolveEntityId(performer.level());
 		}
 		if (!sameTarget(taskTarget, kept)) {
-			taskTarget = kept;
+			holdTaskTarget(kept);
 			if (!(startingPerform && sendsPerformStartTargets())) {
 				syncTargetsToTracking();
 			}
@@ -510,9 +510,20 @@ public class EntityActionInstance implements HeldInput {
 	private void releaseTaskTargetNoLongerKept() {
 		if (taskTarget != null && !takesTargetsFromServer() && ability instanceof StandEntityAbility standAbility
 				&& performer instanceof StandEntity stand && !standAbility.keepsTaskTarget(stand, taskTarget)) {
-			taskTarget = null;
+			holdTaskTarget(null);
 			syncTargetsToTracking();
 		}
+	}
+
+	/*
+	 * 1.16 turned a Stand only to its task's target (StandEntityTask.rotateStand), so a Stand turned to the target its task
+	 * no longer holds turns to the one it holds now, or with none along its user's look again (StandEntity.defaultRotation)
+	 */
+	private void holdTaskTarget(@Nullable ActionTarget kept) {
+		if (taskTarget != null && standRotationTarget != null && taskTarget.sameTarget(standRotationTarget)) {
+			standRotationTarget = kept;
+		}
+		taskTarget = kept;
 	}
 
 	/**
