@@ -15,6 +15,7 @@ import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.NoPoseStandEntityAbility;
+import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTargetRange;
 import rotp.core.impl.stands._entitybase.StandAbilityStamina;
@@ -76,6 +77,29 @@ public class GoldExperienceHealOtherAbility extends NoPoseStandEntityAbility {
             }
         }
         return super.replaceWithSubAbility(context, abilities);
+    }
+
+    // the entity it was pressed at, which its task holds and the Stand turns to (1.16 TargetRequirement.ENTITY)
+    @Override
+    public void initActionFromConfig(EntityActionInstance action, Level level, LivingEntity powerUser, LivingEntity performer) {
+        super.initActionFromConfig(action, level, powerUser, performer);
+        ResolvedHealingTarget pressed = powerUser != null ? findLookTarget(powerUser, level) : null;
+        if (pressed != null) {
+            action.standRotationTarget = new ActionTarget(pressed.rawTarget());
+        }
+    }
+
+    // 1.16 GoldExperienceHealOther.getTargetRequirement: ENTITY
+    @Override
+    protected boolean keepsTaskTargetType(StandEntity standEntity, ActionTarget target) {
+        return target.getType() == ActionTarget.TargetType.ENTITY;
+    }
+
+    // the port heals allies 1.16's canStandTargetEntity refused, so its task keeps any entity it can heal
+    @Override
+    protected boolean keepsTaskTargetEntity(StandEntity standEntity, Entity entity) {
+        LivingEntity user = standEntity.getUser();
+        return user != null && resolveHealingTarget(entity, user) != null;
     }
 
     @Override
@@ -140,10 +164,12 @@ public class GoldExperienceHealOtherAbility extends NoPoseStandEntityAbility {
                 return;
             }
 
-            ResolvedHealingTarget resolved =
-                    GoldExperienceHealOtherAbility
-                            .findLookTarget(user, level);
-            if (resolved == null || resolved.rawTarget() == user) {
+            // 1.16 standPerform healed the entity its task held (task.getTarget()), not one aimed at again
+            ActionTarget taskTarget = getTaskTarget(level);
+            ResolvedHealingTarget resolved = taskTarget.getType() == ActionTarget.TargetType.ENTITY
+                    ? resolveHealingTarget(taskTarget.getEntity(), user)
+                    : null;
+            if (resolved == null) {
                 return;
             }
 

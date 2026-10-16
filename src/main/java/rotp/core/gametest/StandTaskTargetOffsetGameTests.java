@@ -3,6 +3,9 @@ package rotp.core.gametest;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
+
+import com.mojang.authlib.GameProfile;
 
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.config.client.PlayerClientBroadcastedSettings;
@@ -30,13 +33,20 @@ import io.netty.buffer.Unpooled;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.HumanoidArm;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.animal.Cow;
+import net.minecraft.world.entity.animal.Wolf;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -78,6 +88,62 @@ public final class StandTaskTargetOffsetGameTests {
 			Vec3 expected = cow.getEyePosition().subtract(scene.user.getEyePosition()).normalize().scale(front);
 			assertAt(helper, scene, expected, "1.16 put a crazy_diamond healing a cow 3 blocks east of its user who looks"
 					+ " south, the offset turned from the user's eyes to the cow's (lockOnTargetPosition)");
+		});
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 GoldExperienceHealOther (TargetRequirement.ENTITY): its task held the entity it was pressed at, the default
+	 * offset turned to it, and standPerform healed that entity (task.getTarget()), whatever the crosshair met by then
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void goldExperienceHealsTheMobItWasPressedAtWithItsOffsetTurnedToItAsIn116(GameTestHelper helper) {
+		withStand(helper, "gold_experience", scene -> {
+			Cow pressedAt = scene.cow(COW_FROM_USER);
+			Cow aimedAfter = scene.cow(new Vec3(-3.0D, 0.0D, 1.0D));
+			pressedAt.setHealth(pressedAt.getMaxHealth() - 4.0F);
+			aimedAfter.setHealth(aimedAfter.getMaxHealth() - 4.0F);
+			scene.user.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.IRON_INGOT, 2));
+			userAims(scene.user, pressedAt);
+			EntityActionInstance heal = scene.set("heal_other");
+			turn(scene.user, VIEW_YAW, BODY_YAW);
+			helper.assertTrue(heal.getTaskTarget(helper.getLevel()).getEntity() == pressedAt,
+					"1.16 GoldExperienceHealOther's task held the wounded cow it was pressed at; it holds "
+							+ heal.getTaskTarget(helper.getLevel()));
+			Vec3 toCow = pressedAt.getEyePosition().subtract(scene.user.getEyePosition());
+			Vec3 expected = scene.stand.offsetFromUser.getRelativeOffset()
+					.yRot(-MathUtil.yRotDegFromVec(toCow) * MathUtil.DEG_TO_RAD);
+			assertAt(helper, scene, expected, "1.16 put a gold_experience healing a cow 3 blocks east of its user who looks"
+					+ " south, the default offset turned by the yaw to the cow");
+
+			userAims(scene.user, aimedAfter);
+			LivingComponentAction.getComponent(scene.stand).tick();
+			helper.assertTrue(pressedAt.hasEffect(MobEffects.REGENERATION) && !aimedAfter.hasEffect(MobEffects.REGENERATION),
+					"1.16 GoldExperienceHealOther.standPerform healed the cow its task held, not the one aimed at since;"
+							+ " regeneration on the pressed cow " + pressedAt.hasEffect(MobEffects.REGENERATION)
+							+ ", on the one aimed at after " + aimedAfter.hasEffect(MobEffects.REGENERATION));
+		});
+		helper.succeed();
+	}
+
+	// the port heals the user's own pets, which 1.16 refused (canStandTargetEntity); its task holds what it heals
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void goldExperienceHealOtherHoldsTheUsersOwnWolfItHeals(GameTestHelper helper) {
+		// a server player, which the level finds as the wolf's owner
+		FakePlayer owner = new FakePlayer(helper.getLevel(), new GameProfile(UUID.randomUUID(), "StandTaskTargetOwner"));
+		owner.setGameMode(GameType.SURVIVAL);
+		withStand(helper, "gold_experience", owner, scene -> {
+			Wolf wolf = scene.mob(EntityType.WOLF, COW_FROM_USER);
+			wolf.setTame(true, false);
+			wolf.setOwnerUUID(scene.user.getUUID());
+			wolf.setHealth(wolf.getMaxHealth() - 4.0F);
+			helper.assertTrue(wolf.getOwner() == scene.user && !scene.stand.canAttack(wolf),
+					"setup: the wolf is not the user's own one the Stand may not attack");
+			LivingComponentAction.getComponent(scene.user).entityAim.setTarget(new ActionTarget(wolf));
+			EntityActionInstance heal = scene.set("heal_other");
+			helper.assertTrue(heal.getTaskTarget(helper.getLevel()).getEntity() == wolf,
+					"Heal Other pressed at its user's own wounded wolf holds " + heal.getTaskTarget(helper.getLevel())
+							+ ", not the wolf it heals");
 		});
 		helper.succeed();
 	}
@@ -279,15 +345,19 @@ public final class StandTaskTargetOffsetGameTests {
 
 	private record Scene(GameTestHelper helper, Player user, StandPower power, StandEntity stand, List<Entity> spawned) {
 		Cow cow(Vec3 fromUser) {
-			Cow cow = EntityType.COW.create(helper.getLevel());
-			helper.assertTrue(cow != null, "Could not make a cow");
+			return mob(EntityType.COW, fromUser);
+		}
+
+		<T extends Mob> T mob(EntityType<T> type, Vec3 fromUser) {
+			T mob = type.create(helper.getLevel());
+			helper.assertTrue(mob != null, "Could not make a " + type);
 			Vec3 pos = user.position().add(fromUser);
-			cow.moveTo(pos.x, pos.y, pos.z, 0.0F, 0.0F);
-			cow.setNoAi(true);
-			cow.setNoGravity(true);
-			helper.assertTrue(helper.getLevel().addFreshEntity(cow), "Could not add a cow");
-			spawned.add(cow);
-			return cow;
+			mob.moveTo(pos.x, pos.y, pos.z, 0.0F, 0.0F);
+			mob.setNoAi(true);
+			mob.setNoGravity(true);
+			helper.assertTrue(helper.getLevel().addFreshEntity(mob), "Could not add a " + type);
+			spawned.add(mob);
+			return mob;
 		}
 
 		EntityActionInstance start(String name, ActionPhase until) {
@@ -323,7 +393,10 @@ public final class StandTaskTargetOffsetGameTests {
 	}
 
 	private static void withStand(GameTestHelper helper, String id, StandCheck check) {
-		Player user = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
+		withStand(helper, id, GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL), check);
+	}
+
+	private static void withStand(GameTestHelper helper, String id, Player user, StandCheck check) {
 		StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc(id));
 		StandPower power = null;
 		List<Entity> spawned = new ArrayList<>();

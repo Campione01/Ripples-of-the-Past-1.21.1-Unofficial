@@ -215,12 +215,20 @@ public class StandEntityAbility extends EntityActionAbility {
 	}
 
 	/**
+	 * 1.16 StandEntityAction.checkStandTarget and canStandTargetEntity: the entities the action's task keeps are the living
+	 * ones the Stand may attack. See {@link #keepsTaskTarget}.
+	 */
+	protected boolean keepsTaskTargetEntity(StandEntity standEntity, Entity entity) {
+		return entity instanceof LivingEntity living && standEntity.canAttack(living);
+	}
+
+	/**
 	 * 1.16 StandEntityTask.keepTarget, which the server asked as the task started (makeServerSideTask, setTask taking the
 	 * previous task's target) and on every tick of it: no target is kept from nothing; an entity is kept until it is
-	 * removed or has lain dead for 20 ticks, never the Stand itself, only a living one the Stand may attack
-	 * (StandEntityAction.checkStandTarget, canStandTargetEntity); the action keeps that kind of target
-	 * ({@link #keepsTaskTargetType}); and it is within the action's range of the Stand (Action.checkRangeAndTarget: 8
-	 * blocks to an entity, 4 without a line of sight, 10 to a block that is not air). Server side.
+	 * removed or has lain dead for 20 ticks, never the Stand itself, only one the action keeps
+	 * ({@link #keepsTaskTargetEntity}); the action keeps that kind of target ({@link #keepsTaskTargetType}); and it is
+	 * within the action's range of the Stand (Action.checkRangeAndTarget: 8 blocks to an entity, 4 without a line of
+	 * sight, 10 to a block that is not air). Server side.
 	 */
 	public boolean keepsTaskTarget(StandEntity standEntity, @Nullable ActionTarget target) {
 		Level level = standEntity.level();
@@ -230,8 +238,8 @@ public class StandEntityAbility extends EntityActionAbility {
 		}
 		if (kept.getType() == ActionTarget.TargetType.ENTITY) {
 			Entity entity = kept.getEntity();
-			if (entity == standEntity || !(entity instanceof LivingEntity living) || living.deathTime >= 20
-					|| !standEntity.canAttack(living)) {
+			if (entity == standEntity || entity instanceof LivingEntity living && living.deathTime >= 20
+					|| !keepsTaskTargetEntity(standEntity, entity)) {
 				return false;
 			}
 		}
