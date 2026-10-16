@@ -33,6 +33,12 @@ public class HierophantBarrierAbility extends NoPoseStandEntityAbility {
 		partsRequired(StandPart.MAIN_BODY);
 	}
 
+	// 1.16 HierophantGreenBarrier.getTargetRequirement: BLOCK
+	@Override
+	protected boolean keepsTaskTargetType(StandEntity standEntity, ActionTarget target) {
+		return target.getType() == TargetType.BLOCK;
+	}
+
 	@Override
 	public void initActionFromConfig(EntityActionInstance action, Level level, LivingEntity powerUser, LivingEntity performer) {
 		super.initActionFromConfig(action, level, powerUser, performer);

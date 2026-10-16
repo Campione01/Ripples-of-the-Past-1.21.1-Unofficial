@@ -6,8 +6,10 @@ import javax.annotation.Nullable;
 
 import rotp.core.config.client.PlayerClientBroadcastedSettings;
 import rotp.core.network.s2c.TrSyncStandOffsetPacket;
+import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.subsystems.entity_grab.LivingComponentGrab;
+import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.util.functions.MathUtil;
 
 import net.minecraft.util.Mth;
@@ -182,7 +184,7 @@ public class StandOffsetFromUser {
 		if (lerp && prevAbsoluteOffset == null) {
 			prevAbsoluteOffset = getAbsoluteOffset(userEntity, false);
 		}
-		Vec3 absoluteOffset = relativeToAbsolute(relativeOffset, rotations, userEntity, standEntity.getUserBroadcastedSettings(), canInvertSide);
+		Vec3 absoluteOffset = turnForAction(relativeOffset, rotations, userEntity);
 		
 		if (lerp) {
 			double lerpAmount = getLerpAmount();
@@ -206,16 +208,55 @@ public class StandOffsetFromUser {
 	
 	public static Vec3 relativeToAbsolute(Vec3 relativeVec, Rotations rotations, LivingEntity origin, 
 			Optional<PlayerClientBroadcastedSettings> userSettings, boolean canInvertSide) {
+		return relativeToAbsolute(relativeVec, rotations, rotations == Rotations.BODY ? origin.yBodyRot : origin.getYRot(),
+				origin.getXRot(), userSettings, canInvertSide);
+	}
+
+	public static Vec3 relativeToAbsolute(Vec3 relativeVec, Rotations rotations, float yRot, float xRot,
+			Optional<PlayerClientBroadcastedSettings> userSettings, boolean canInvertSide) {
 		if (canInvertSide && userSettings.map(settings -> settings.standSide == HumanoidArm.LEFT).orElse(false)) {
 			relativeVec = new Vec3(-relativeVec.x, relativeVec.y, relativeVec.z);
 		}
 		Vec3 absoluteOffset = relativeVec;
 		if (rotations == Rotations.HEAD_XY) {
-			absoluteOffset = relativeVec.xRot(-origin.getXRot() * MathUtil.DEG_TO_RAD);
+			absoluteOffset = relativeVec.xRot(-xRot * MathUtil.DEG_TO_RAD);
 		}
-		float userYRot = rotations == Rotations.BODY ? origin.yBodyRot : origin.getYRot();
-		absoluteOffset = absoluteOffset.yRot(-userYRot * MathUtil.DEG_TO_RAD);
+		absoluteOffset = absoluteOffset.yRot(-yRot * MathUtil.DEG_TO_RAD);
 		return absoluteOffset;
+	}
+
+	/*
+	 * 1.16 StandEntity.taskOffset: while the current action locks on its task's target, any of its offsets, the default
+	 * one included, turns by the yaw and pitch from the user's eyes to that target; otherwise by the action's
+	 * yRotForOffset (a BODY offset by the body yaw) and the user's pitch. A client turns by the target the server sent.
+	 */
+	private Vec3 turnForAction(Vec3 relativeVec, Rotations rotations, LivingEntity userEntity) {
+		float yRot = rotations == Rotations.BODY ? userEntity.yBodyRot : userEntity.getYRot();
+		float xRot = userEntity.getXRot();
+		EntityActionInstance action = standEntity.getCurStandAction();
+		if (action != null && action.ability instanceof StandEntityAbility standAbility) {
+			Vec3 targetPos = standAbility.lockOnTargetPosition(standEntity.getUserPower(), standEntity, action)
+					? taskTargetPos(action.getTaskTarget(standEntity.level())) : null;
+			if (targetPos != null) {
+				Vec3 toTarget = targetPos.subtract(userEntity.getEyePosition());
+				yRot = MathUtil.yRotDegFromVec(toTarget);
+				xRot = MathUtil.xRotDegFromVec(toTarget);
+			}
+			else if (rotations != Rotations.BODY) {
+				yRot = standAbility.yRotForOffset(userEntity, action);
+			}
+		}
+		return relativeToAbsolute(relativeVec, rotations, yRot, xRot, standEntity.getUserBroadcastedSettings(), canInvertSide);
+	}
+
+	// 1.16 ActionTarget.getTargetPos(true): an entity's eyes, a block's centre
+	@Nullable
+	private static Vec3 taskTargetPos(ActionTarget target) {
+		return switch (target.getType()) {
+			case ENTITY -> target.getEntity() != null ? target.getEntity().getEyePosition() : null;
+			case BLOCK -> Vec3.atCenterOf(target.getBlockPos());
+			default -> null;
+		};
 	}
 	
 	public void copyRotation(LivingEntity userEntity, boolean lerp) {

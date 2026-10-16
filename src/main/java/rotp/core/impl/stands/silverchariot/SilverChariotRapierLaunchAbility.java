@@ -51,6 +51,12 @@ public class SilverChariotRapierLaunchAbility extends StandEntityAbility {
 		return RAPIER_LAUNCH_ANIM;
 	}
 
+	// 1.16 SilverChariotRapierLaunch.standKeepsTarget
+	@Override
+	protected boolean keepsTaskTargetType(StandEntity standEntity, ActionTarget target) {
+		return true;
+	}
+
 	private static boolean lacksRapier(Power<?> context) {
 		// Client-aware: the HUD greys the move from the Stand's synced flag
 		return !SilverChariotState.hasRapier(PowerClass.STAND.cast(context));

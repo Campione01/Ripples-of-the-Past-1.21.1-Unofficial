@@ -141,6 +141,12 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		return false;
 	}
 
+	// 1.16 StandEntityLightAttack.lockOnTargetPosition: the punch turns the Stand to its target, never its offset
+	@Override
+	public boolean lockOnTargetPosition(@Nullable StandPower standPower, StandEntity standEntity, EntityActionInstance action) {
+		return false;
+	}
+
 	@Override
 	protected ConditionCheck checkStandEntityConditions(StandPower standPower, StandEntity standEntity) {
 		ConditionCheck check = super.checkStandEntityConditions(standPower, standEntity);
@@ -617,6 +623,13 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		@Override
 		protected boolean sendsPerformStartTargets() {
 			return true;
+		}
+
+		// the target the punch keeps is its task's (1.16 StandEntity.punch set it with setTaskTarget), which a next action
+		// may take over
+		@Override
+		public ActionTarget getTaskTarget(Level level) {
+			return heldTarget(actionTargetSnapshot, level);
 		}
 
 		// 1.16 StandEntityTask.tick, on every server tick of the task: setTaskTarget(EMPTY) once keepTarget failed, sent to

@@ -18,9 +18,10 @@ import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 /**
- * The targets the server changed while an action runs: the target it keeps, the one its Stand turns to, and how the
- * Stand aims. 1.16 StandEntity.setTaskTarget sent the new task target to tracking clients (TrStandTaskTargetPacket), and
- * clients never judged it themselves (StandEntityTask.keepTarget passed everything on a client).
+ * The targets the server changed while an action runs: the target it keeps, the one its Stand turns to, how the Stand
+ * aims, and its task's target, which turns its offsets. 1.16 StandEntity.setTaskTarget sent the new task target to
+ * tracking clients (TrStandTaskTargetPacket), and clients never judged it themselves (StandEntityTask.keepTarget passed
+ * everything on a client).
  */
 public record TrEntityActionTargetPacket(int performerId,
 		UUID performerUuid,
@@ -28,7 +29,8 @@ public record TrEntityActionTargetPacket(int performerId,
 		int actionId,
 		@Nullable ActionTarget keptTarget,
 		@Nullable ActionTarget rotationTarget,
-		AimingEntity aimAs) implements CustomPacketPayload {
+		AimingEntity aimAs,
+		@Nullable ActionTarget taskTarget) implements CustomPacketPayload {
 
 	public TrEntityActionTargetPacket {
 		Objects.requireNonNull(performerUuid, "performerUuid");
@@ -45,7 +47,8 @@ public record TrEntityActionTargetPacket(int performerId,
 				buf.readVarInt(),
 				NetworkUtil.readOptional(buf, ActionTarget.STREAM_CODEC_UNRESOLVED_ENTITY_ID).orElse(null),
 				NetworkUtil.readOptional(buf, ActionTarget.STREAM_CODEC_UNRESOLVED_ENTITY_ID).orElse(null),
-				buf.readEnum(AimingEntity.class));
+				buf.readEnum(AimingEntity.class),
+				NetworkUtil.readOptional(buf, ActionTarget.STREAM_CODEC_UNRESOLVED_ENTITY_ID).orElse(null));
 	}
 
 	private void write(RegistryFriendlyByteBuf buf) {
@@ -56,6 +59,7 @@ public record TrEntityActionTargetPacket(int performerId,
 		NetworkUtil.writeOptionally(keptTarget, buf, ActionTarget.STREAM_CODEC_UNRESOLVED_ENTITY_ID);
 		NetworkUtil.writeOptionally(rotationTarget, buf, ActionTarget.STREAM_CODEC_UNRESOLVED_ENTITY_ID);
 		buf.writeEnum(aimAs);
+		NetworkUtil.writeOptionally(taskTarget, buf, ActionTarget.STREAM_CODEC_UNRESOLVED_ENTITY_ID);
 	}
 
 	private static CustomPacketPayload.Type<TrEntityActionTargetPacket> type;

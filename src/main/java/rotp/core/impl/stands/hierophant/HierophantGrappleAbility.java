@@ -44,6 +44,12 @@ public class HierophantGrappleAbility extends StandEntityAbility {
 		return action instanceof GrappleShot grapple && grapple.isBindEntities();
 	}
 
+	// 1.16 HierophantGreenGrapple.standKeepsTarget: the shift variation keeps an entity
+	@Override
+	protected boolean keepsTaskTargetType(StandEntity standEntity, ActionTarget target) {
+		return abilityId.nameInMoveset().equals("grapple_entity") && target.getType() == ActionTarget.TargetType.ENTITY;
+	}
+
 	@Override
 	public ActionAnimIdentifier getEntityAnim(EntityActionInstance action) {
 		return action instanceof GrappleShot grapple && grapple.isBindEntities() ? GRAPPLE_ENTITY_ANIM : GRAPPLE_ANIM;

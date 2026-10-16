@@ -49,6 +49,12 @@ public class StandEntityHeavyPunchChargedAbility extends StandEntityAbility {
 		setDefaultPhaseLength(ActionPhase.RECOVERY, 12);
 	}
 
+	// a heavy punch, which 1.16 never let turn its offset to its target (StandEntityHeavyAttack.lockOnTargetPosition)
+	@Override
+	public boolean lockOnTargetPosition(StandPower standPower, StandEntity standEntity, EntityActionInstance action) {
+		return false;
+	}
+
 	@Override
 	public boolean isAbilityAvailable(Power<?> context) {
 		return super.isAbilityAvailable(context) && StandUtil.getStandGrabTarget(context) == null;

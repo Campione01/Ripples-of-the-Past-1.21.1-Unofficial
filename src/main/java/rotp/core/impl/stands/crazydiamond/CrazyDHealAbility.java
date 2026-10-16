@@ -219,6 +219,12 @@ public class CrazyDHealAbility extends StandEntityAbility {
 		protected ActionTarget getActionTarget(Level level) {
 			return actionTarget.resolveEntityId(level);
 		}
+
+		// the entity the server picked and keeps (1.16 targetRequirement ENTITY), which the healing Stand turns its offset to
+		@Override
+		public ActionTarget getTaskTarget(Level level) {
+			return heldTarget(actionTarget, level);
+		}
 		
 		@Override
 		public void onButtonStopHold() {

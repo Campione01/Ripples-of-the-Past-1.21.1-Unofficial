@@ -83,6 +83,7 @@ public class EntityActionInstance implements HeldInput {
 	@Nullable public ActionTarget standRotationTarget;
 	public AimingEntity aimAs = AimingEntity.CAMERA_ENTITY;
 	@Nullable protected ActionTarget actionTargetSnapshot;
+	@Nullable private ActionTarget taskTarget;
 	private boolean startingPerform;
 	@Nullable private ActionTarget refusedStrike;
 	@Nullable private ActionTarget rotationBeforeRefusedStrike;
@@ -417,27 +418,100 @@ public class EntityActionInstance implements HeldInput {
 	}
 
 	/**
-	 * Server: tells the clients tracking the performer the target this action keeps now, the one its Stand turns to and
-	 * how the Stand aims, after the server changed them while the action runs (1.16 StandEntity.setTaskTarget sent
-	 * TrStandTaskTargetPacket). Clients take them as they are ({@link #setTargetsFromServer}).
+	 * The target this action's task holds, as 1.16's StandEntityTask held one: what an action that keeps a target was
+	 * pressed at, or the previous task's target it took over, while it keeps it ({@link StandEntityAbility#keepsTaskTarget}).
+	 * An action that locks on it turns its offsets toward it ({@link StandEntityAbility#lockOnTargetPosition}). The server
+	 * decides it; a client holds only what the server sent, with the action and in {@link #syncTargetsToTracking}, and
+	 * never one of its own aim. Empty when it holds none or a client cannot find its entity.
+	 */
+	public ActionTarget getTaskTarget(Level level) {
+		return heldTarget(taskTarget, level);
+	}
+
+	// resolved without forgetting it: a client may get the entity after the target
+	protected static ActionTarget heldTarget(@Nullable ActionTarget target, Level level) {
+		if (target == null) {
+			return ActionTarget.EMPTY;
+		}
+		ActionTarget resolved = target.resolveEntityId(level);
+		return resolved.isEmpty(level) ? ActionTarget.EMPTY : resolved;
+	}
+
+	/**
+	 * Server: what this action was pressed at, which its task holds if it keeps it. The Stand turns to it
+	 * ({@link #standRotationTarget}) as 1.16 turned a Stand to its task's target; an action that keeps it elsewhere
+	 * returns that.
+	 */
+	@ApiStatus.OverrideOnly
+	protected ActionTarget pressedTaskTarget() {
+		return standRotationTarget != null ? standRotationTarget : ActionTarget.EMPTY;
+	}
+
+	/**
+	 * Server: the previous action's task target became this action's (1.16 StandEntity.setTask), so the Stand turns to it
+	 * as 1.16 turned a Stand to its task's target.
+	 */
+	@ApiStatus.OverrideOnly
+	protected void onTaskTargetInherited(ActionTarget target) {
+		if (standRotationTarget == null || standRotationTarget.getType() == ActionTarget.TargetType.EMPTY) {
+			standRotationTarget = target;
+		}
+	}
+
+	/*
+	 * 1.16 StandEntityTask.makeServerSideTask and StandEntity.setTask: the press target if the action keeps it,
+	 * otherwise the previous task's target if the action keeps that. Before the action is sent.
+	 */
+	private void initTaskTarget(@Nullable EntityActionInstance prevAction) {
+		if (restoringInputLifecycle || performer == null || takesTargetsFromServer()
+				|| !(ability instanceof StandEntityAbility standAbility) || !(performer instanceof StandEntity stand)) {
+			return;
+		}
+		Level level = performer.level();
+		ActionTarget pressed = pressedTaskTarget();
+		ActionTarget kept = standAbility.keepsTaskTarget(stand, pressed) ? pressed.copy() : null;
+		if (kept == null && prevAction != null && prevAction.performer == performer) {
+			ActionTarget previous = prevAction.getTaskTarget(level);
+			if (standAbility.keepsTaskTarget(stand, previous)) {
+				kept = previous.copy().resolveEntityId(level);
+				onTaskTargetInherited(kept);
+			}
+		}
+		taskTarget = kept;
+	}
+
+	// 1.16 StandEntityTask.tick: on every server tick, before the action ticks, a target the task no longer keeps is dropped
+	private void releaseTaskTargetNoLongerKept() {
+		if (taskTarget != null && !takesTargetsFromServer() && ability instanceof StandEntityAbility standAbility
+				&& performer instanceof StandEntity stand && !standAbility.keepsTaskTarget(stand, taskTarget)) {
+			taskTarget = null;
+			syncTargetsToTracking();
+		}
+	}
+
+	/**
+	 * Server: tells the clients tracking the performer the target this action keeps now, the one its Stand turns to, how
+	 * the Stand aims and its task's target, after the server changed them while the action runs (1.16
+	 * StandEntity.setTaskTarget sent TrStandTaskTargetPacket). Clients take them as they are ({@link #setTargetsFromServer}).
 	 */
 	protected void syncTargetsToTracking() {
 		if (performer != null && !performer.level().isClientSide()) {
 			PacketDistributor.sendToPlayersTrackingEntityAndSelf(performer, new TrEntityActionTargetPacket(
 					performer.getId(), performer.getUUID(), networkGeneration, id,
-					actionTargetSnapshot, standRotationTarget, aimAs));
+					actionTargetSnapshot, standRotationTarget, aimAs, taskTarget));
 		}
 	}
 
 	/** Client: the targets the server sent while this action runs ({@link #syncTargetsToTracking}). */
 	@ApiStatus.Internal
 	public void setTargetsFromServer(@Nullable ActionTarget keptTarget, @Nullable ActionTarget rotationTarget,
-			AimingEntity aimAs) {
+			AimingEntity aimAs, @Nullable ActionTarget taskTarget) {
 		setActionTargetSnapshot(keptTarget);
 		standRotationTarget = rotationTarget == null || rotationTarget.getType() == ActionTarget.TargetType.EMPTY ? null
 				: rotationTarget.getType() == ActionTarget.TargetType.ENTITY ? rotationTarget.resolveEntityId(level())
 				: rotationTarget;
 		this.aimAs = aimAs;
+		this.taskTarget = taskTarget == null || taskTarget.getType() == ActionTarget.TargetType.EMPTY ? null : taskTarget;
 	}
 
 	/**
@@ -498,18 +572,19 @@ public class EntityActionInstance implements HeldInput {
 
 	/** The targets as tracking clients hold them, to send them again only once they changed. */
 	@ApiStatus.Internal
-	protected record HeldTargets(@Nullable ActionTarget kept, @Nullable ActionTarget rotation, AimingEntity aimAs) {}
+	protected record HeldTargets(@Nullable ActionTarget kept, @Nullable ActionTarget rotation, AimingEntity aimAs,
+			@Nullable ActionTarget task) {}
 
 	@ApiStatus.Internal
 	protected HeldTargets heldTargets() {
-		return new HeldTargets(actionTargetSnapshot, standRotationTarget, aimAs);
+		return new HeldTargets(actionTargetSnapshot, standRotationTarget, aimAs, taskTarget);
 	}
 
 	/** Server: {@link #syncTargetsToTracking} if the targets are no longer the ones clients hold. */
 	@ApiStatus.Internal
 	protected void syncTargetsToTrackingIfChanged(HeldTargets held) {
 		if (!sameTarget(held.kept(), actionTargetSnapshot) || !sameTarget(held.rotation(), standRotationTarget)
-				|| held.aimAs() != aimAs) {
+				|| held.aimAs() != aimAs || !sameTarget(held.task(), taskTarget)) {
 			syncTargetsToTracking();
 		}
 	}
@@ -873,6 +948,7 @@ public class EntityActionInstance implements HeldInput {
 		applyStandUserWalkSpeed(phase);
 		onActionSet(prevAction);
 		onSetPhase(phase);
+		initTaskTarget(prevAction);
 		applySyncedStandOffset();
 	}
 
@@ -948,6 +1024,7 @@ public class EntityActionInstance implements HeldInput {
 		if (alignsBodyYawToLook()) {
 			performer.yBodyRot = performer.getYRot();
 		}
+		releaseTaskTargetNoLongerKept();
 		actionTick();
 		if (phase == ActionPhase.PERFORM) {
 			if (getPhaseTick() < 1) {
@@ -1069,6 +1146,7 @@ public class EntityActionInstance implements HeldInput {
 				buffer.writeEnum(action.standOffsetSyncRotations);
 				buffer.writeBoolean(action.standOffsetSyncCanInvertSide);
 			}
+			NetworkUtil.writeOptionally(action.taskTarget, buffer, ActionTarget.STREAM_CODEC_UNRESOLVED_ENTITY_ID);
 			action.toBuf(buffer);
 		}
 	}
@@ -1104,6 +1182,7 @@ public class EntityActionInstance implements HeldInput {
 					action.standOffsetSyncRotations = buffer.readEnum(StandOffsetFromUser.Rotations.class);
 					action.standOffsetSyncCanInvertSide = buffer.readBoolean();
 				}
+				action.taskTarget = NetworkUtil.readOptional(buffer, ActionTarget.STREAM_CODEC_UNRESOLVED_ENTITY_ID).orElse(null);
 				action.fromBuf(buffer);
 				return action;
 			}
