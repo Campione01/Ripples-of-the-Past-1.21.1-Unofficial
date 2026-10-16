@@ -411,12 +411,6 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 
 					boolean entityTarget = target.getType() == TargetType.ENTITY;
 					Vec3 impactSoundPos = target.isEmpty(level) ? null : target.getCenterPos();
-					// 1.16 HeavyPunchBlockInstance.playImpactSound: a block always sounds, whatever its hardness
-					if (target.getType() == TargetType.BLOCK && impactSoundPos != null) {
-						StandUtil.broadcastSound((ServerLevel) level, impactSoundPos, 
-								getHeavyPunchImpactSound(target), true, standPower,
-								stand.getSoundSource(), 1, 1);
-					}
 					DamageSource dmgSource = makePunchDamageSource();
 					((DamageSourceModified) dmgSource).jojo_ripples$setStandInvulTicks(10);
 					float dmgAmount = StandStatFormulas.getHeavyAttackDamage(stand.getAttackDamage());
@@ -434,8 +428,10 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 						case BLOCK -> hitBlock(target, level, stand, dmgSource, dmgAmount, explRadius);
 						default -> {}
 					}
-					// 1.16 StandEntity.attackTarget: an entity's impact sound comes after the hit, if it landed
-					if (entityTarget && impactSoundPos != null && (impactSoundDue == null || impactSoundDue)) {
+					// 1.16 StandEntity.attackTarget: the impact sound comes after the hit (doHit, a block's break and blast too),
+					// a block's always whatever its hardness (HeavyPunchBlockInstance.playImpactSound), an entity's if it landed
+					if (impactSoundPos != null && (target.getType() == TargetType.BLOCK
+							|| entityTarget && (impactSoundDue == null || impactSoundDue))) {
 						StandUtil.broadcastSound((ServerLevel) level, impactSoundPos, 
 								getHeavyPunchImpactSound(target), true, standPower,
 								stand.getSoundSource(), 1, 1);
@@ -648,11 +644,12 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 
 		/**
 		 * Server: 1.16 StandEntityHeavyAttack.punchBlock, a HeavyPunchBlockInstance, for a heavy attack of an add-on that
-		 * strikes a block as the heavy punch does (D4C's hand chop): the attack's impact sound at the block if it has one
-		 * (playImpactSound, on any block), the plain block punch (StandEntity.breakBlock: the block breaks if the Stand's
-		 * strength may break it, else only knocks), then the blast from the face hit along the Stand's look
-		 * ({@link StandEntityHeavyPunchAbility#calcExplosionRadius}, {@link StandEntityHeavyPunchAbility#calcExplosionDamage}),
-		 * which breaks blocks into shards by the Stand's strength and precision and hurts the mobs around. Nothing for a
+		 * strikes a block as the heavy punch does (D4C's hand chop): the plain block punch (StandEntity.breakBlock: the
+		 * block breaks if the Stand's strength may break it, else only knocks), then the blast from the face hit along the
+		 * Stand's look ({@link StandEntityHeavyPunchAbility#calcExplosionRadius},
+		 * {@link StandEntityHeavyPunchAbility#calcExplosionDamage}), which breaks blocks into shards by the Stand's strength
+		 * and precision and hurts the mobs around, then the attack's impact sound at the block if it has one
+		 * (playImpactSound, on any block that was not air; StandEntity.attackTarget played it after doHit). Nothing for a
 		 * target that is not a block.
 		 * @param dropBlock whether the block the punch breaks drops, false for a user in Creative
 		 * @param impactSound 1.16's punchSound of the attack, null for none
@@ -662,11 +659,12 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 			if (level.isClientSide() || target.getType() != TargetType.BLOCK) {
 				return;
 			}
-			if (impactSound != null && !target.isEmpty(level)) {
+			boolean sounds = impactSound != null && !target.isEmpty(level);
+			punchBlock(target, level, stand, dropBlock, blastDamageSource(stand, stand.getUser()), calcExplosionRadius(stand));
+			if (sounds) {
 				StandUtil.broadcastSound((ServerLevel) level, target.getCenterPos(), impactSound, true,
 						StandPower.get(stand.getUser()), stand.getSoundSource(), 1, 1);
 			}
-			punchBlock(target, level, stand, dropBlock, blastDamageSource(stand, stand.getUser()), calcExplosionRadius(stand));
 		}
 
 		// 1.16 HeavyPunchBlockInstance.doHit: the plain block punch (StandEntity.breakBlock) comes before the blast
