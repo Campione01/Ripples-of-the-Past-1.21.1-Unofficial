@@ -514,6 +514,34 @@ public final class StandTaskTargetOffsetGameTests {
 		helper.succeed();
 	}
 
+	// the same shot of a Stand that does not follow its user starts at the Stand's own eyes, which turned to the cow
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void rapierLaunchOfAStandAwayShootsFromTheStandsEyesAtItsTargetAsIn116(GameTestHelper helper) {
+		withStand(helper, "silver_chariot", scene -> {
+			Cow cow = scene.cow(COW_FROM_USER);
+			standAims(scene.stand, cow);
+			scene.start("rapier_launch", ActionPhase.PERFORM);
+			scene.stand.setCanFollowUser(false);
+			Vec3 away = scene.user.position().add(0.0D, 0.0D, 2.0D);
+			scene.stand.moveTo(away.x, away.y, away.z, 180.0F, 0.0F);
+			scene.stand.updatePosition(scene.user);
+			Vec3 eyes = scene.stand.getEyePosition();
+			LivingComponentAction.getComponent(scene.stand).tick();
+			List<SCRapierEntity> rapiers = helper.getLevel().getEntitiesOfClass(SCRapierEntity.class,
+					scene.user.getBoundingBox().inflate(6.0D));
+			scene.spawned().addAll(rapiers);
+			helper.assertTrue(rapiers.size() == 1 && !scene.stand.isFollowingUser(),
+					"setup: the Rapier Launch of the Stand away shot " + rapiers.size() + " rapiers");
+			SCRapierEntity rapier = rapiers.get(0);
+			Vec3 flies = rapier.getDeltaMovement().normalize();
+			Vec3 toCow = cow.getEyePosition().subtract(eyes).normalize();
+			helper.assertTrue(rapier.position().distanceTo(eyes) < EPS && flies.dot(toCow) > 0.9999D,
+					"1.16 shot the rapier of a silver_chariot away from its user, pressed at a cow, from the Stand's eyes " + eyes
+							+ " toward the cow " + toCow + "; it starts at " + rapier.position() + " and flies along " + flies);
+		});
+		helper.succeed();
+	}
+
 	/*
 	 * 1.16 CrazyDiamondPreviousState had TargetRequirement.NONE, so pressed at nothing it took over an entity the previous
 	 * task held when its checkTarget kept it (StandEntity.setTask): a snow golem the Heal held, at Resolve level 3, is the
