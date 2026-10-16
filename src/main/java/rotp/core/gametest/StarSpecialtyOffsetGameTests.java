@@ -353,10 +353,12 @@ public final class StarSpecialtyOffsetGameTests {
         Vec3 oracle(Vec3 relative, float yaw) {
             double left = spec.side == HumanoidArm.LEFT ? -relative.x : relative.x;
             double radians = Math.toRadians(yaw);
-            double widthScale = user.getDimensions(Pose.STANDING).width() / (double) user.getType().getDimensions().width();
+            // 1.16 getAbsoluteVec scaled across by the user's width ratio and up by its height ratio
+            double widthScale = user.getBbWidth() / (double) user.getType().getDimensions().width();
+            double heightScale = user.getBbHeight() / (double) user.getType().getDimensions().height();
             // 1.16 StandEntity.updatePosition: the offset from the user's feet
             return user.position().add((left * Math.cos(radians) - relative.z * Math.sin(radians)) * widthScale,
-                    relative.y * widthScale,
+                    relative.y * heightScale,
                     (relative.z * Math.cos(radians) + left * Math.sin(radians)) * widthScale);
         }
         void checkPosition(Vec3 expected, String detail) {

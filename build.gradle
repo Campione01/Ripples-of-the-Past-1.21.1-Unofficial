@@ -478,7 +478,7 @@ tasks.register('meditationVanillaClickSmokeTest', JavaExec) {
 
 tasks.register('standOffsetScaleSmokeTest', JavaExec) {
     group = 'verification'
-    description = 'Verifies scaled Stand-user offsets without double-applying age or pose height.'
+    description = 'Verifies Stand-user offsets scaled by the user bounding box, pose included, as in 1.16.'
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
     mainClass = 'rotp.core.powersystem.standpower.entity.StandOffsetFromUserScaleSmokeTest'

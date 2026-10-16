@@ -39,11 +39,11 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * LEFT mirrors the side (StandRelativeOffset.getAbsoluteVec), and a sneaking user's Stand drops the 0.2. The Stand
  * took the user's view as its yaw and head yaw (StandEntity.defaultRotation).
  * <p>
- * StandEntity.updatePosition measured every offset, an action's too, from the user's feet whatever the user's pose
- * or the Stand's size, and in arms-only mode getAbsoluteVec lowered it by 0.85 of the height the user's pose takes
- * off its standing height. 1.16 also multiplied the y by the user's current height over its type's height; the port
- * scales an offset by the user's standing size only (StandOffsetFromUser.scaleOffsetForUser), so here a pose moves
- * only an arms-only offset.
+ * StandEntity.updatePosition measured every offset, an action's too, from the user's feet whatever the Stand's size.
+ * getAbsoluteVec lowered an arms-only offset by 0.85 of the height the user's pose takes off its standing height, and
+ * then scaled any offset by the user's bounding box against its type's size, across by the width and up by the
+ * height: a crouching player's y by 1.5 / 1.8, a swimming one's by 0.6 / 1.8, a sleeping or dying one's offset to a
+ * third across and a ninth up.
  */
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -51,6 +51,11 @@ public final class StandIdlePlacementGameTests {
 	private static final List<String> CORE_ENTITY_STANDS = List.of("star_platinum", "the_world", "hierophant_green",
 			"silver_chariot", "magicians_red", "crazy_diamond", "gold_experience");
 	private static final double EPS = 1.0E-4D;
+	// a player's bounding box in a pose over its type's 0.6 by 1.8
+	private static final double CROUCHING_UP = 1.5D / 1.8D;
+	private static final double SWIMMING_UP = 0.6D / 1.8D;
+	private static final double LYING_UP = 0.2D / 1.8D;
+	private static final double LYING_ACROSS = 0.2D / 0.6D;
 
 	private StandIdlePlacementGameTests() {}
 
@@ -67,6 +72,17 @@ public final class StandIdlePlacementGameTests {
 		for (String id : CORE_ENTITY_STANDS) {
 			withSummonedStand(helper, id, StandIdlePlacementGameTests::checkFeetRelativePlacement);
 		}
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 HierophantGreenEmeraldSplash was built with standOffsetFront(), StandRelativeOffset.noYOffset(0, 0.5), and
+	 * its getOffsetFromUser gave the idle offset in full mode outside PERFORM; it had no arms-only offset
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void emeraldSplashStandsInFrontOnlyWhileItFiresInFullModeAsIn116(GameTestHelper helper) {
+		withSummonedStand(helper, "hierophant_green", StandIdlePlacementGameTests::checkFullModeEmeraldSplash);
+		withSummonedStand(helper, "hierophant_green", StandIdlePlacementGameTests::checkArmsOnlyEmeraldSplash);
 		helper.succeed();
 	}
 
@@ -140,8 +156,13 @@ public final class StandIdlePlacementGameTests {
 			PlayerClientBroadcastedSettings settings, StandPower power, StandEntity stand) {
 		turn(user, 0.0F, 50.0F);
 		user.setPose(Pose.SWIMMING);
-		assertFeetRelative(helper, "an idle " + id, true, user, stand, -0.75D, 0.2D, -0.75D,
-				"view yaw 0, a swimming user (eye height " + user.getEyeHeight() + ")");
+		assertIdleAt(helper, id, user, stand, -0.75D, 0.2D * SWIMMING_UP, -0.75D,
+				"view yaw 0, a swimming user (0.6 high, eyes at " + user.getEyeHeight() + ")");
+		for (Pose lying : List.of(Pose.SLEEPING, Pose.DYING)) {
+			user.setPose(lying);
+			assertIdleAt(helper, id, user, stand, -0.75D * LYING_ACROSS, 0.2D * LYING_UP, -0.75D * LYING_ACROSS,
+					"view yaw 0, a " + lying + " user (0.2 wide and high)");
+		}
 		user.setPose(Pose.STANDING);
 
 		// LivingEntity.tick applies a new scale; nothing ticks here
@@ -171,19 +192,19 @@ public final class StandIdlePlacementGameTests {
 
 		// a crouch without the sneak key, as under a 1.5 high ceiling
 		user.setPose(Pose.CROUCHING);
-		assertFeetRelative(helper, what, true, user, stand, 0.0D, -0.255D, 0.15D,
-				"view yaw 0, a crouching user that does not sneak (the arms-only drop 0.85 * (1.5 - 1.8))");
+		assertAt(helper, "1.16 put " + what, true, user, stand, 0.0D, -0.2125D, 0.15D,
+				"view yaw 0, a crouching user that does not sneak (the drop 0.85 * (1.5 - 1.8), times 1.5 / 1.8)");
 		turn(user, 90.0F, 50.0F);
-		assertFeetRelative(helper, what, true, user, stand, -0.15D, -0.255D, 0.0D,
-				"view yaw 90, a crouching user that does not sneak (the arms-only drop 0.85 * (1.5 - 1.8))");
+		assertAt(helper, "1.16 put " + what, true, user, stand, -0.15D, -0.2125D, 0.0D,
+				"view yaw 90, a crouching user that does not sneak (the drop 0.85 * (1.5 - 1.8), times 1.5 / 1.8)");
 		turn(user, 0.0F, 50.0F);
 		user.setShiftKeyDown(true);
 		assertAt(helper, "1.16 put " + what, true, user, stand, 0.0D, 0.0D, 0.15D,
 				"view yaw 0, a sneaking user (taskOffset dropped the whole y, the arms-only drop too)");
 		user.setShiftKeyDown(false);
 		user.setPose(Pose.SWIMMING);
-		assertFeetRelative(helper, what, true, user, stand, 0.0D, -1.02D, 0.15D,
-				"view yaw 0, a swimming user (the arms-only drop 0.85 * (0.6 - 1.8))");
+		assertAt(helper, "1.16 put " + what, true, user, stand, 0.0D, -0.34D, 0.15D,
+				"view yaw 0, a swimming user (the drop 0.85 * (0.6 - 1.8), times 0.6 / 1.8)");
 		user.setPose(Pose.STANDING);
 
 		stand.setArmsOnlyMode(false);
@@ -208,10 +229,60 @@ public final class StandIdlePlacementGameTests {
 		turn(user, 0.0F, 50.0F);
 		user.setPose(Pose.CROUCHING);
 		user.setShiftKeyDown(true);
-		assertFeetRelative(helper, "the guarding " + id, false, user, stand, 0.0D, 0.2D, 0.3D,
-				"view yaw 0, a crouching sneaking user (eye height " + user.getEyeHeight() + ")");
+		assertAt(helper, "1.16 put the guarding " + id, false, user, stand, 0.0D, 0.2D * CROUCHING_UP, 0.3D,
+				"view yaw 0, a crouching sneaking user (1.5 high, eyes at " + user.getEyeHeight() + ")");
 		user.setShiftKeyDown(false);
 		user.setPose(Pose.STANDING);
+	}
+
+	private static void checkFullModeEmeraldSplash(GameTestHelper helper, String id, Player user,
+			PlayerClientBroadcastedSettings settings, StandPower power, StandEntity stand) {
+		EntityActionInstance splash = startEmeraldSplash(helper, id, user, power, stand);
+		// looking down: an offset the pitch turned too would sink in front of the user
+		turn(user, 0.0F, 50.0F);
+		user.setXRot(45.0F);
+		user.xRotO = 45.0F;
+		assertAt(helper, "1.16 kept a " + id + " winding up its Emerald Splash", true, user, stand, -0.75D, 0.2D, -0.75D,
+				"view yaw 0, pitch 45 (the idle offset)");
+		splash.setPhase(ActionPhase.PERFORM, 0);
+		assertAt(helper, "1.16 put a " + id + " firing its Emerald Splash", false, user, stand, 0.0D, 0.2D, 0.5D,
+				"view yaw 0, pitch 45 (noYOffset(0, 0.5), turned by the yaw alone)");
+		splash.setPhase(ActionPhase.RECOVERY, 0);
+		assertAt(helper, "1.16 put a " + id + " recovering from its Emerald Splash", true, user, stand, -0.75D, 0.2D, -0.75D,
+				"view yaw 0, pitch 45 (the idle offset)");
+		user.setXRot(0.0F);
+		user.xRotO = 0.0F;
+	}
+
+	private static void checkArmsOnlyEmeraldSplash(GameTestHelper helper, String id, Player user,
+			PlayerClientBroadcastedSettings settings, StandPower power, StandEntity stand) {
+		stand.setArmsOnlyMode();
+		EntityActionInstance splash = startEmeraldSplash(helper, id, user, power, stand);
+		turn(user, 0.0F, 50.0F);
+		String what = "an arms-only " + id + " with its Emerald Splash";
+		assertAt(helper, "1.16 kept " + what, true, user, stand, 0.0D, 0.0D, 0.15D, "view yaw 0, in the windup");
+		splash.setPhase(ActionPhase.PERFORM, 0);
+		assertAt(helper, "1.16 kept " + what, true, user, stand, 0.0D, 0.0D, 0.15D, "view yaw 0, firing");
+		splash.setPhase(ActionPhase.RECOVERY, 0);
+		assertAt(helper, "1.16 kept " + what, true, user, stand, 0.0D, 0.0D, 0.15D, "view yaw 0, in the recovery");
+		stand.setArmsOnlyMode(false);
+	}
+
+	private static EntityActionInstance startEmeraldSplash(GameTestHelper helper, String id, Player user, StandPower power,
+			StandEntity stand) {
+		helper.assertTrue(power.getAbility("emerald_splash") instanceof EntityActionType, "Missing the Emerald Splash of " + id);
+		EntityActionType splashType = (EntityActionType) power.getAbility("emerald_splash");
+		EntityActionInstance splash = splashType.createActionObj();
+		splashType.initActionFromConfig(splash, helper.getLevel(), user, stand);
+		splash.phasesLength.put(ActionPhase.BUTTON_CHARGE, 0F);
+		splash.phasesLength.put(ActionPhase.WINDUP, 10F);
+		splash.phasesLength.put(ActionPhase.PERFORM, 30F);
+		splash.phasesLength.put(ActionPhase.RECOVERY, 40F);
+		splash.setStartingPhase();
+		LivingComponentAction.getComponent(stand).setAction(splash, user, SyncType.NO_SYNC);
+		helper.assertTrue(stand.getCurStandAction() == splash && splash.getPhase() == ActionPhase.WINDUP && stand.isFollowingUser(),
+				"setup: the Emerald Splash of " + id + " is not in its windup with the Stand following: " + splash.getPhase());
+		return splash;
 	}
 
 	private static void turn(Player user, float viewYaw, float bodyYaw) {
@@ -226,12 +297,6 @@ public final class StandIdlePlacementGameTests {
 	private static void assertIdleAt(GameTestHelper helper, String id, Player user, StandEntity stand,
 			double dx, double dy, double dz, String when) {
 		assertAt(helper, "1.16 put an idle " + id, true, user, stand, dx, dy, dz, when);
-	}
-
-	// a user out of the standing pose: there 1.16 also scaled the y by the height ratio, which the port does not
-	private static void assertFeetRelative(GameTestHelper helper, String what, boolean idle, Player user, StandEntity stand,
-			double dx, double dy, double dz, String when) {
-		assertAt(helper, "Measured from the feet as in 1.16, " + what + " belongs", idle, user, stand, dx, dy, dz, when);
 	}
 
 	// StandEntity.tick places a following Stand through updatePosition

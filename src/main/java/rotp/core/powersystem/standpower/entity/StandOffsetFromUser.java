@@ -12,6 +12,7 @@ import rotp.core.util.functions.MathUtil;
 
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Pose;
@@ -117,15 +118,14 @@ public class StandOffsetFromUser {
 	
 	public Vec3 getPosition(LivingEntity userEntity) {
 		Vec3 offset = getAbsoluteOffset(userEntity, standEntity.level().isClientSide());
-		float ageScale = userEntity.isBaby() ? userEntity.getAgeScale() : 1;
-		// Standing width includes vanilla/Pehkui size, without crouching or swimming height changes.
-		offset = scaleOffsetForUser(offset, userEntity.getDimensions(Pose.STANDING).width(),
-				userEntity.getType().getDimensions().width(), ageScale);
 		// 1.16 StandRelativeOffset.getAbsoluteVec: arms-only Stands sink with a crouching, swimming or lying user
 		if (standEntity.isArmsOnlyMode() && userEntity.getPose() != Pose.STANDING) {
 			offset = offset.add(0, (userEntity.getDimensions(userEntity.getPose()).height()
 					- userEntity.getDimensions(Pose.STANDING).height()) * 0.85F, 0);
 		}
+		EntityDimensions defaultSize = userEntity.getType().getDimensions();
+		offset = scaleOffsetForUser(offset, userEntity.getBbWidth(), userEntity.getBbHeight(),
+				defaultSize.width(), defaultSize.height());
 		
 		double maxRange = standEntity.getMaxRangeForMovement(userEntity);
 		double offsetDist = offset.lengthSqr();
@@ -138,12 +138,23 @@ public class StandOffsetFromUser {
 		return AlignBy.BOTTOM.align(userEntity, standEntity, offset);
 	}
 
-	static Vec3 scaleOffsetForUser(Vec3 offset, float scaledWidth, float defaultWidth, float ageScale) {
-		double ageAdjustedWidth = (double) defaultWidth * ageScale;
-		double physicalScale = scaledWidth > 0 && Float.isFinite(scaledWidth)
-				&& ageAdjustedWidth > 0 && Double.isFinite(ageAdjustedWidth)
-				? scaledWidth / ageAdjustedWidth : 1;
-		return offset.scale(ageScale * physicalScale);
+	/*
+	 * 1.16 StandRelativeOffset.getAbsoluteVec: an offset follows its user's bounding box, which a pose, a baby's age
+	 * and a size mod all change, across by its width and up by its height
+	 */
+	static Vec3 scaleOffsetForUser(Vec3 offset, float width, float height, float defaultWidth, float defaultHeight) {
+		if (width == defaultWidth && height == defaultHeight) {
+			return offset;
+		}
+		double widthRatio = sizeRatio(width, defaultWidth);
+		double heightRatio = sizeRatio(height, defaultHeight);
+		return new Vec3(offset.x * widthRatio, offset.y * heightRatio, offset.z * widthRatio);
+	}
+	
+	// a broken size keeps the offset rather than sending the Stand to NaN or infinity
+	private static double sizeRatio(float size, float defaultSize) {
+		float ratio = size / defaultSize;
+		return Float.isFinite(ratio) && ratio >= 0 ? ratio : 1;
 	}
 	
 	public Vec3 getAbsoluteOffset(LivingEntity userEntity, boolean lerp) {
