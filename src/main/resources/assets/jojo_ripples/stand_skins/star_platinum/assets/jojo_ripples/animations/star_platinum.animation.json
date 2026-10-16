@@ -25196,7 +25196,7 @@
           "rotation": {
             "vector": [
               "query.head_x_rotation",
-              "query.head_y_rotation",
+              "27.5+query.head_y_rotation",
               0
             ]
           }

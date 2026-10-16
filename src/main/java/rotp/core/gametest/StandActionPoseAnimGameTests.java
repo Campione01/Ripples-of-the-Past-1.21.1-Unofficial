@@ -59,6 +59,44 @@ public final class StandActionPoseAnimGameTests {
 			"stand_skins/silver_chariot/assets/jojo_ripples/animations/silver_chariot.animation.json";
 	private static final String HG_ANIMS =
 			"stand_skins/hierophant_green/assets/jojo_ripples/animations/hierophant_green.animation.json";
+	private static final String SP_ANIMS =
+			"stand_skins/star_platinum/assets/jojo_ripples/animations/star_platinum.animation.json";
+
+	/**
+	 * 1.16 StarPlatinumStarFinger posed the Stand with STAR_FINGER_POSE ("starFinger"), a held pose of a model
+	 * without any finger bone: the SPStarFingerEntity drawn for every viewer is the only finger. 1.16's head hung
+	 * from the model root, so the 27.5 degree body twist did not turn it; the port's head hangs from the body.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 40)
+	public static void starFingerHoldsThe116PoseWithoutAModelFinger(GameTestHelper helper) {
+		try (Fixture f = new Fixture(helper, "star_platinum", "SPStarFingerPose")) {
+			f.summon();
+			ActionAnimIdentifier got = f.anim("star_finger");
+			helper.assertTrue("starFinger".equals(got.name()) && got.index() == 0 && !got.isIdle(),
+					"Star Finger must hold the 1.16 starFinger pose" + f.state(got));
+			JsonObject anims = readJson(helper, SP_ANIMS).getAsJsonObject("animations");
+			helper.assertTrue(!anims.has("armsOnly_starFinger"),
+					"an arms-only starFinger clip would replace the 1.16 pose in arms-only mode");
+			JsonObject clip = anims.getAsJsonObject("starFinger");
+			helper.assertTrue(clip != null, "star_platinum starFinger clip is missing");
+			JsonObject bones = clip.getAsJsonObject("bones");
+			for (String bone : bones.keySet()) {
+				helper.assertTrue(!bone.startsWith("hidden.") && !bones.getAsJsonObject(bone).has("scale"),
+						"starFinger shows or stretches the model bone " + bone + ": a second finger beside the projectile");
+			}
+			helper.assertTrue(vec(bones, "right_arm").toString().equals("[-62.5,0,90]")
+					&& vec(bones, "left_arm").toString().equals("[0,0,-45]")
+					&& vec(bones, "left_arm_bend").toString().equals("[0,0,35]")
+					&& vec(bones, "body").toString().equals("[0,-27.5,0]"),
+					"starFinger is not the 1.16 pose: right_arm " + vec(bones, "right_arm") + ", left_arm "
+							+ vec(bones, "left_arm") + ", body " + vec(bones, "body"));
+			JsonArray head = vec(bones, "head");
+			helper.assertTrue("query.head_x_rotation".equals(head.get(0).getAsString())
+					&& "27.5+query.head_y_rotation".equals(head.get(1).getAsString()),
+					"the head must undo the body's -27.5 yaw to look where 1.16's did: " + head);
+			helper.succeed();
+		}
+	}
 
 	@GameTest(template = "empty", timeoutTicks = 40)
 	public static void hierophantGreenGuardUsesPitchAwareBlockClip(GameTestHelper helper) {
