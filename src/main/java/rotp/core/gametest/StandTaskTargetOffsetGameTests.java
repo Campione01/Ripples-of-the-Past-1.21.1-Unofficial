@@ -566,6 +566,108 @@ public final class StandTaskTargetOffsetGameTests {
 		helper.succeed();
 	}
 
+	/*
+	 * 1.16 StandEntityTask.rotateStand: while the task held a target and the Stand was not manually controlled, the action
+	 * turned the Stand to it on every tick (rotateStandTowardsTarget), whatever else the action did. A following Stand whose
+	 * action holds the cow but names no target of its own to turn to, its user looking away, faces the cow.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aFollowingStandFacesItsTaskTargetAsIn116(GameTestHelper helper) {
+		withStand(helper, "hierophant_green", scene -> {
+			Cow cow = scene.cow(COW_FROM_USER);
+			standAims(scene.stand, cow);
+			EntityActionInstance stringAttack = scene.start("string_attack", ActionPhase.PERFORM);
+			stringAttack.standRotationTarget = null;
+			turn(scene.user, VIEW_YAW, BODY_YAW);
+			helper.assertTrue(stringAttack.getTaskTarget(helper.getLevel()).getEntity() == cow && scene.stand.isFollowingUser(),
+					"setup: the following Stand's String Attack holds " + stringAttack.getTaskTarget(helper.getLevel()));
+			scene.stand.updatePosition(scene.user);
+			assertFaces(helper, scene.stand, cow, "1.16 turned a following hierophant_green whose String Attack held a cow 3"
+					+ " blocks east of its user who looks south to the cow");
+		});
+		helper.succeed();
+	}
+
+	/*
+	 * The same while the Stand does not follow its user (left where it is, as an action that moves the Stand by itself
+	 * leaves it): 1.16 still turned it to the task's target.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aStandAwayFromItsUserFacesItsTaskTargetAsIn116(GameTestHelper helper) {
+		withStand(helper, "hierophant_green", scene -> {
+			Cow cow = scene.cow(COW_FROM_USER);
+			standAims(scene.stand, cow);
+			EntityActionInstance stringAttack = scene.start("string_attack", ActionPhase.PERFORM);
+			scene.stand.setCanFollowUser(false);
+			turn(scene.user, VIEW_YAW, BODY_YAW);
+			scene.stand.setYRot(180.0F);
+			scene.stand.setXRot(0.0F);
+			helper.assertTrue(stringAttack.getTaskTarget(helper.getLevel()).getEntity() == cow && !scene.stand.isFollowingUser()
+					&& !scene.stand.isManuallyControlled(), "setup: the String Attack of the Stand away from its user holds "
+							+ stringAttack.getTaskTarget(helper.getLevel()));
+			scene.stand.updatePosition(scene.user);
+			assertFaces(helper, scene.stand, cow, "1.16 turned a hierophant_green that does not follow its user, whose String"
+					+ " Attack held a cow east of it, to the cow");
+		});
+		helper.succeed();
+	}
+
+	// a client's copy holds only the task target the server sent, no target of its own to turn to, and its own aim is elsewhere
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aClientStandFacesTheTaskTargetTheServerSent(GameTestHelper helper) {
+		withStand(helper, "hierophant_green", scene -> {
+			Cow pressedAt = scene.cow(COW_FROM_USER);
+			Cow clientAim = scene.cow(new Vec3(-3.0D, 0.0D, 1.0D));
+			standAims(scene.stand, pressedAt);
+			EntityActionInstance server = scene.start("string_attack", ActionPhase.PERFORM);
+			EntityActionInstance received = received(helper, server);
+			ClientStringAttack client = new ClientStringAttack(server.ability);
+			copyAsSent(received, client);
+			standAims(scene.stand, clientAim);
+			LivingComponentAction actions = LivingComponentAction.getComponent(scene.stand);
+			actions.setAction(null, scene.user, SyncType.NO_SYNC);
+			actions.setAction(client, scene.user, SyncType.NO_SYNC);
+			// what the copy's onActionSet took from the test level, which is the server's, is not what a client holds
+			client.standRotationTarget = null;
+			turn(scene.user, VIEW_YAW, BODY_YAW);
+			helper.assertTrue(scene.stand.getCurStandAction() == client && client.standRotationTarget == null,
+					"setup: the client's String Attack is not the Stand's action or names a target to turn to: "
+							+ client.standRotationTarget);
+			scene.stand.updatePosition(scene.user);
+			assertFaces(helper, scene.stand, pressedAt, "A client given the server's String Attack, which holds the cow east of"
+					+ " the user, while its own aim is on another cow west of it, turned the hierophant_green to the held cow"
+					+ " (the client's task holds " + client.getTaskTarget(helper.getLevel()) + ")");
+		});
+		helper.succeed();
+	}
+
+	// the grab (a port move): its punch keeps the cow it was pressed at as its task target, but strikes and faces the held one
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aGrabPunchFacesTheEntityItHoldsNotWhatItWasPressedAt(GameTestHelper helper) {
+		withStand(helper, "star_platinum", scene -> {
+			Cow pressedAt = scene.cow(new Vec3(1.5D, 0.0D, 0.5D));
+			Cow held = scene.cow(new Vec3(-1.5D, 0.0D, 0.5D));
+			scene.stand.getData(ModDataAttachmentTypes.LIVING_GRAB.get()).setGrabTarget(held);
+			userAims(scene.user, pressedAt);
+			EntityActionInstance punch = scene.start("grab_punch", ActionPhase.RECOVERY);
+			turn(scene.user, VIEW_YAW, BODY_YAW);
+			helper.assertTrue(punch.getTaskTarget(helper.getLevel()).getEntity() == pressedAt
+					&& punch.standRotationTarget != null && punch.standRotationTarget.getEntity() == held,
+					"setup: the grab punch keeps " + punch.getTaskTarget(helper.getLevel()) + " and struck "
+							+ punch.standRotationTarget + ", not the pressed cow and the held one");
+			scene.stand.updatePosition(scene.user);
+			assertFaces(helper, scene.stand, held, "A star_platinum whose grab punch struck the cow it holds faced it");
+		});
+		helper.succeed();
+	}
+
+	private static void assertFaces(GameTestHelper helper, StandEntity stand, Entity target, String claim) {
+		Vec3 toTarget = target.getEyePosition().subtract(stand.getEyePosition()).normalize();
+		Vec3 look = stand.getLookAngle();
+		helper.assertTrue(look.dot(toTarget) > 0.9999D, claim + ": it looks along " + look + " (yaw " + stand.getYRot()
+				+ ", pitch " + stand.getXRot() + ") instead of " + toTarget);
+	}
+
 	// a client's copy of the action (EntityActionInstance.takesTargetsFromServer)
 	private static final class ClientStringAttack extends StringAttackShot {
 		ClientStringAttack(EntityActionType ability) {

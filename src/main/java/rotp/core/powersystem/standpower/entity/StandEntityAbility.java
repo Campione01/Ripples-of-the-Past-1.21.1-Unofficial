@@ -207,6 +207,18 @@ public class StandEntityAbility extends EntityActionAbility {
 	}
 
 	/**
+	 * 1.16 StandEntityAction.rotateStandTowardsTarget, which StandEntityTask.rotateStand called on every tick the action's
+	 * task held a target and the Stand was not manually controlled, following its user or not
+	 * ({@link StandEntity#lookAtTaskTarget}): the Stand faces the target at once (MCUtil.rotateTowards by 360 degrees), at
+	 * the point the action looks at ({@link EntityActionInstance#getStandLookTargetPosition}, as Gold Experience's and
+	 * Crazy Diamond's heavy punches give) or else where {@link StandEntity#getPosToLookAt} puts it: a living entity's
+	 * eyes, the middle of another entity's box, a block's centre.
+	 */
+	public void rotateStandTowardsTarget(StandEntity standEntity, EntityActionInstance action, ActionTarget target) {
+		standEntity.lookAtTarget(target, true);
+	}
+
+	/**
 	 * The kinds of target the action's task keeps, 1.16's getTargetRequirement, standKeepsTarget and checkTarget: none,
 	 * as for a 1.16 action with neither. See {@link #keepsTaskTarget}.
 	 */

@@ -566,6 +566,9 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		else if (isManuallyControlled()) {
 			moveStandManualControl();
 		}
+		else {
+			lookAtTaskTarget();
+		}
 		if (isBeingRetracted() && user != null) {
 			if (!isCloseToUser()) {
 				Vec3 targetPos = offsetFromUser.getPosition(user);
@@ -606,6 +609,9 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 	}
 	
 	public boolean lookAtCurTarget(PrevRotations rotO) {
+		if (lookAtTaskTarget()) {
+			return true;
+		}
 		ActionTarget lookTarget;
 		EntityActionInstance curAction = standAction.getAction();
 		boolean fullyRotateBody = curAction != null;
@@ -631,7 +637,27 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		
 		return lookAtTarget(lookTarget, fullyRotateBody);
 	}
-	
+
+	/**
+	 * 1.16 StandEntityTask.rotateStand: on every tick the current action's task holds a target
+	 * ({@link EntityActionInstance#getTaskTarget}) and the Stand is not manually controlled, the action turns the Stand to
+	 * it ({@link StandEntityAbility#rotateStandTowardsTarget}), whether the Stand follows its user or moves by itself. Each
+	 * side turns by the target it holds, a client by the one its server sent.
+	 * @return whether the task held a target
+	 */
+	public boolean lookAtTaskTarget() {
+		EntityActionInstance curAction = standAction.getAction();
+		if (curAction == null || isManuallyControlled() || !(curAction.ability instanceof StandEntityAbility standAbility)) {
+			return false;
+		}
+		ActionTarget taskTarget = curAction.getTaskTarget(level());
+		if (taskTarget.getType() == TargetType.EMPTY) {
+			return false;
+		}
+		standAbility.rotateStandTowardsTarget(this, curAction, taskTarget);
+		return true;
+	}
+
 	public Vec3 getPosToLookAt(ActionTarget target) {
 		EntityActionInstance curAction = standAction.getAction();
 		if (curAction != null) {

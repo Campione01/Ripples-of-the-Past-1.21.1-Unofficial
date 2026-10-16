@@ -150,6 +150,11 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 	}
 
 	@Override
+	public void rotateStandTowardsTarget(StandEntity standEntity, EntityActionInstance action, ActionTarget target) {
+		super.rotateStandTowardsTarget(standEntity, action, StandEntityPunchAbility.grabTurnTarget(action, target));
+	}
+
+	@Override
 	protected ConditionCheck checkStandEntityConditions(StandPower standPower, StandEntity standEntity) {
 		ConditionCheck check = super.checkStandEntityConditions(standPower, standEntity);
 		if (!check.isPositive()) {

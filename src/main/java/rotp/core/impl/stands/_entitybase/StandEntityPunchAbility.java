@@ -148,6 +148,18 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	}
 
 	@Override
+	public void rotateStandTowardsTarget(StandEntity standEntity, EntityActionInstance action, ActionTarget target) {
+		super.rotateStandTowardsTarget(standEntity, action, grabTurnTarget(action, target));
+	}
+
+	// a grab's punch (a port move) faces the entity the Stand holds once its strike turned to it, not what it was pressed at
+	static ActionTarget grabTurnTarget(EntityActionInstance action, ActionTarget taskTarget) {
+		ActionTarget turnedTo = action.standRotationTarget;
+		return action.ability.getAbilityUsageCategory() == AbilityUsageGroup.GRAB && turnedTo != null
+				&& !turnedTo.isEmpty(action.level()) ? turnedTo : taskTarget;
+	}
+
+	@Override
 	protected ConditionCheck checkStandEntityConditions(StandPower standPower, StandEntity standEntity) {
 		ConditionCheck check = super.checkStandEntityConditions(standPower, standEntity);
 		if (!check.isPositive()) {
