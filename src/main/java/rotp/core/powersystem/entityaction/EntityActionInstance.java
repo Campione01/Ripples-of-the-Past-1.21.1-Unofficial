@@ -84,6 +84,8 @@ public class EntityActionInstance implements HeldInput {
 	public AimingEntity aimAs = AimingEntity.CAMERA_ENTITY;
 	@Nullable protected ActionTarget actionTargetSnapshot;
 	private boolean startingPerform;
+	@Nullable private ActionTarget refusedStrike;
+	@Nullable private ActionTarget rotationBeforeRefusedStrike;
 	@Nullable private Vec3 standOffsetSync;
 	@Nullable private StandOffsetFromUser.Rotations standOffsetSyncRotations;
 	private boolean standOffsetSyncCanInvertSide = true;
@@ -458,20 +460,34 @@ public class EntityActionInstance implements HeldInput {
 	/**
 	 * Server: the target a strike was dealt at becomes the action's target, kept and turned to, as 1.16's StandEntity.punch
 	 * set it as the task target (setTaskTarget, StandEntityTask.setTarget/keepTarget): nothing when the strike met nothing,
-	 * so the Stand turns along its user's look again (StandEntity.defaultRotation). A block only for an action whose 1.16
-	 * class kept one (standKeepsTarget); otherwise the targets stay as they were. A strike that met no entity hands the aim
-	 * back to the user's camera.
+	 * so the Stand turns along its user's look again (StandEntity.defaultRotation). A block or an entity only when the
+	 * action keeps it ({@code keeps}: keepTarget, the 1.16 class's standKeepsTarget and checkStandTarget, which refused an
+	 * entity that is not living); otherwise the targets stay as they were and nothing is sent. A strike that met no entity
+	 * hands the aim back to the user's camera.
 	 */
 	@ApiStatus.Internal
-	protected void takeStrikeTarget(ActionTarget struck, boolean keepsBlock) {
-		if (struck.getType() == ActionTarget.TargetType.BLOCK && !keepsBlock) {
+	protected void takeStrikeTarget(ActionTarget struck, boolean keeps) {
+		if (struck.getType() != ActionTarget.TargetType.EMPTY && !keeps) {
+			refusedStrike = struck;
+			rotationBeforeRefusedStrike = standRotationTarget;
 			return;
 		}
+		refusedStrike = null;
 		setActionTargetSnapshot(struck);
 		standRotationTarget = struck.getType() != ActionTarget.TargetType.EMPTY ? struck : null;
 		if (struck.getType() != ActionTarget.TargetType.ENTITY) {
 			aimAs = AimingEntity.CAMERA_ENTITY;
 		}
+	}
+
+	// An action's own line after its strike (King Crimson's KingCrimsonStrikeAction) turns the Stand to the entity it
+	// struck; one the task refused stays refused, as 1.16 left the task target as it was.
+	private void keepRefusedStrikeUnturned() {
+		if (refusedStrike != null && standRotationTarget != null && refusedStrike.sameTarget(standRotationTarget)) {
+			standRotationTarget = rotationBeforeRefusedStrike;
+		}
+		refusedStrike = null;
+		rotationBeforeRefusedStrike = null;
 	}
 
 	/** Whether {@link #actionPerformStart} runs now: the strike of a punch, which sets the strike's target. */
@@ -936,6 +952,7 @@ public class EntityActionInstance implements HeldInput {
 		if (phase == ActionPhase.PERFORM) {
 			if (getPhaseTick() < 1) {
 				HeldTargets held = sendsPerformStartTargets() && !takesTargetsFromServer() ? heldTargets() : null;
+				refusedStrike = null;
 				startingPerform = true;
 				try {
 					actionPerformStart();
@@ -943,6 +960,7 @@ public class EntityActionInstance implements HeldInput {
 				finally {
 					startingPerform = false;
 				}
+				keepRefusedStrikeUnturned();
 				if (held != null && !isOver()) {
 					syncTargetsToTrackingIfChanged(held);
 				}

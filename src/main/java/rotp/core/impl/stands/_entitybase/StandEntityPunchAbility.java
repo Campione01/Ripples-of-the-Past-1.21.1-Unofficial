@@ -323,7 +323,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			Level level = performer.level();
 			if (performer instanceof StandEntity stand) {
 				releaseUnlockedPunchTarget(stand, this);
-				if (!level.isClientSide() && getPhase() == ActionPhase.WINDUP && !isGrabVariation()) {
+				if (!takesTargetsFromServer() && !isGrabVariation()) {
 					releaseTargetOutOfRange(stand);
 				}
 			}
@@ -362,6 +362,8 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			Level level = level();
 			if (performer instanceof StandEntity stand) {
 				ActionTarget target = getPunchTarget(stand);
+				// judged before the hit, which may break the block or remove the entity, as 1.16 set the task target first
+				boolean keepsStruck = !takesTargetsFromServer() && keepsStrikeTarget(stand, target);
 				if (!level.isClientSide()) {
 					StandPower standPower = StandPower.get(getPowerUser());
 					
@@ -415,7 +417,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 					}
 				}
 				else {
-					takeStrikeTarget(target, keepsStrikeBlock());
+					takeStrikeTarget(target, keepsStruck);
 				}
 				releaseUnlockedPunchTarget(stand, this);
 			}
@@ -598,7 +600,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			ActionTarget target = StandEntityPunchAbility.getFreshPunchTarget(
 					stand, getActionTargetSnapshot(stand.level()), shouldRetainPunchTarget(stand, ability), punchRule(ability));
 			if (isStartingPerform()) {
-				takeStrikeTarget(target, keepsStrikeBlock());
+				takeStrikeTarget(target, keepsStrikeTarget(stand, target));
 			}
 			else {
 				setActionTargetSnapshot(target);
@@ -606,9 +608,10 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			return target;
 		}
 
-		// 1.16 StandEntityLightAttack.standKeepsTarget kept a struck block, StandEntityHeavyAttack's refused it
-		private boolean keepsStrikeBlock() {
-			return punchRule(ability) != CrosshairRule.ENTITY;
+		// 1.16 StandEntityTask.keepTarget of the struck target: StandEntityLightAttack.standKeepsTarget kept a block,
+		// StandEntityHeavyAttack's refused it, and neither kept an entity that is not living (checkStandTarget)
+		private boolean keepsStrikeTarget(StandEntity stand, ActionTarget struck) {
+			return keepsTargetInRange(stand, struck, punchRule(ability));
 		}
 
 		@Override
@@ -616,12 +619,11 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			return true;
 		}
 
-		// 1.16 StandEntityTask.tick: setTaskTarget(EMPTY) once keepTarget failed, sent to tracking clients; the Stand stops
-		// turning to the target
+		// 1.16 StandEntityTask.tick, on every server tick of the task: setTaskTarget(EMPTY) once keepTarget failed, sent to
+		// tracking clients; the Stand stops turning to the target. Read as held, so that a block broken since (air) or an
+		// entity removed is dropped too.
 		private void releaseTargetOutOfRange(StandEntity stand) {
-			Level level = stand.level();
-			ActionTarget kept = getActionTargetSnapshot(level);
-			if (!kept.isEmpty(level) && !keepsTargetInRange(stand, kept, punchRule(ability))) {
+			if (actionTargetSnapshot != null && !keepsTargetInRange(stand, actionTargetSnapshot, punchRule(ability))) {
 				setActionTargetSnapshot(null);
 				standRotationTarget = null;
 				aimAs = AimingEntity.CAMERA_ENTITY;

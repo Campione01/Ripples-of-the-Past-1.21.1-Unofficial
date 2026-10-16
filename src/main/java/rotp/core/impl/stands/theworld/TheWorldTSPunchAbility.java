@@ -339,6 +339,8 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 			Level level = level();
 			if (performer instanceof StandEntity stand) {
 				ActionTarget target = getPunchTarget(stand);
+				// judged before the hit, which may break the block or remove the entity, as 1.16 set the task target first
+				boolean keepsStruck = !takesTargetsFromServer() && keepsStrikeTarget(stand, target);
 				if (!level.isClientSide()) {
 					StandPower standPower = StandPower.get(getPowerUser());
 					float staminaCost = ability instanceof TheWorldTSPunchAbility tsPunch ? tsPunch.staminaCost : STAMINA_COST;
@@ -384,13 +386,26 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 					// The donor task charges after the strike, even when the blink exhausted stamina.
 					standPower.consumeStamina(staminaCost);
 				}
-				if (target.getType() == TargetType.ENTITY) {
-					standRotationTarget = target;
+				// the server's strike set the targets by 1.16's task rule (getPunchTarget); a client sets them from the
+				// target it holds
+				if (takesTargetsFromServer() || isGrabVariation()) {
+					if (target.getType() == TargetType.ENTITY) {
+						standRotationTarget = target;
+					}
+					else {
+						aimAs = AimingEntity.CAMERA_ENTITY;
+					}
 				}
 				else {
-					aimAs = AimingEntity.CAMERA_ENTITY;
+					takeStrikeTarget(target, keepsStruck);
 				}
 			}
+		}
+
+		// 1.16 TheWorldTSHeavyAttack.standKeepsTarget kept every target, a block too, as the light attack did
+		@Override
+		protected StandEntityPunchAbility.CrosshairRule keptTargetRule() {
+			return StandEntityPunchAbility.CrosshairRule.BLOCK_OR_ENTITY;
 		}
 
 		// 1.16 TheWorldTSHeavyPunch was a HeavyPunchInstance: the native hurt, then 2 on a landed hit, then a 2 tail
@@ -446,26 +461,30 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 		@Override
 		protected ActionTarget getPunchTarget(StandEntity stand) {
 			// the blink's target is the server's: a client holds what the server sent
-			if (takesTargetsFromServer()) {
+			if (takesTargetsFromServer() || isGrabVariation()) {
 				return super.getPunchTarget(stand);
 			}
-			ActionTarget target = strikeTarget(stand, targetAfterBlink);
+			// the blink's target while the task keeps it (StandEntityTask.tick dropped it on any tick it failed keepTarget)
+			ActionTarget target = strikeTarget(stand, getActionTargetSnapshot(stand.level()));
 			if (target.isEmpty(stand.level())) {
 				// 1.16 StandEntity.punch: a target the strike cannot reach is replaced by a fresh aim
 				target = strikeTarget(stand, freshAim(stand));
+			}
+			if (isStartingPerform()) {
+				takeStrikeTarget(target, keepsStrikeTarget(stand, target));
 			}
 			return target;
 		}
 
 		// 1.16 aimWithThisOrUser: the precision ray, walls blocking
 		private ActionTarget freshAim(StandEntity stand) {
-			if (isGrabVariation()) {
-				return super.getPunchTarget(stand);
-			}
 			ActionTarget target = StandEntityPunchAbility.getFreshPunchTarget(
 					stand, getActionTargetSnapshot(stand.level()),
 					StandEntityPunchAbility.shouldRetainPunchTarget(stand, ability), true);
-			setActionTargetSnapshot(target);
+			// at the strike, the task rule decides what is kept (takeStrikeTarget)
+			if (!isStartingPerform()) {
+				setActionTargetSnapshot(target);
+			}
 			return target;
 		}
 
