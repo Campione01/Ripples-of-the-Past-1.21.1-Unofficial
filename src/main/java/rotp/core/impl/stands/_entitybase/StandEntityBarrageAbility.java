@@ -393,6 +393,9 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 					startRecovery();
 					return;
 				}
+				// 1.16 sent tracking clients a kept task target the server changed (StandEntity.setTaskTarget); the
+				// default barrage's own aim at each hit was never one, and every client aims it from its user's look
+				HeldTargets held = !directional && !isGrabVariation() && !takesTargetsFromServer() ? heldTargets() : null;
 				ActionTarget target = getPunchTarget(stand);
 				refreshFrontOffset(stand, placementTarget(stand, this, target, directional));
 				if (target.isEmpty(level)) {
@@ -404,6 +407,9 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 					aimAs = AimingEntity.STAND;
 				}
 				StandEntityPunchAbility.releaseUnlockedPunchTarget(stand, this);
+				if (held != null) {
+					syncTargetsToTrackingIfChanged(held);
+				}
 				hitsThisTick = getHitsThisTick(level, stand);
 				stand.setBarrageHitsThisTick(hitsThisTick);
 				
@@ -602,6 +608,10 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 						stand,
 						new ActionTarget(
 								LivingComponentGrab.getEntityGrabbedBy(stand)));
+			}
+			// what the locked barrage keeps is the server's, as a 1.16 task target was: a client holds what it sent
+			if (takesTargetsFromServer()) {
+				return getActionTargetSnapshot(stand.level());
 			}
 			ActionTarget target = StandEntityPunchAbility.getFreshPunchTarget(
 					stand, getActionTargetSnapshot(stand.level()),

@@ -431,9 +431,51 @@ public class EntityActionInstance implements HeldInput {
 	public void setTargetsFromServer(@Nullable ActionTarget keptTarget, @Nullable ActionTarget rotationTarget,
 			AimingEntity aimAs) {
 		setActionTargetSnapshot(keptTarget);
-		standRotationTarget = rotationTarget != null && rotationTarget.getType() != ActionTarget.TargetType.EMPTY
-				? rotationTarget.resolveEntityId(level()) : null;
+		standRotationTarget = rotationTarget == null || rotationTarget.getType() == ActionTarget.TargetType.EMPTY ? null
+				: rotationTarget.getType() == ActionTarget.TargetType.ENTITY ? rotationTarget.resolveEntityId(level())
+				: rotationTarget;
 		this.aimAs = aimAs;
+	}
+
+	/**
+	 * Whether this copy of the action takes its targets from the server, as a client's does: it never aims or saves one
+	 * itself and holds what the server last sent (1.16 StandEntity.punch aimed on the server only, and
+	 * StandEntityTask.keepTarget passed everything on a client).
+	 */
+	protected boolean takesTargetsFromServer() {
+		return level().isClientSide();
+	}
+
+	/**
+	 * Whether the server sends tracking clients the targets this action changed as its perform started (1.16
+	 * StandEntity.punch: setTaskTarget of the strike's target sent TrStandTaskTargetPacket when it changed).
+	 */
+	protected boolean sendsPerformStartTargets() {
+		return false;
+	}
+
+	/** The targets as tracking clients hold them, to send them again only once they changed. */
+	@ApiStatus.Internal
+	protected record HeldTargets(@Nullable ActionTarget kept, @Nullable ActionTarget rotation, AimingEntity aimAs) {}
+
+	@ApiStatus.Internal
+	protected HeldTargets heldTargets() {
+		return new HeldTargets(actionTargetSnapshot, standRotationTarget, aimAs);
+	}
+
+	/** Server: {@link #syncTargetsToTracking} if the targets are no longer the ones clients hold. */
+	@ApiStatus.Internal
+	protected void syncTargetsToTrackingIfChanged(HeldTargets held) {
+		if (!sameTarget(held.kept(), actionTargetSnapshot) || !sameTarget(held.rotation(), standRotationTarget)
+				|| held.aimAs() != aimAs) {
+			syncTargetsToTracking();
+		}
+	}
+
+	private static boolean sameTarget(@Nullable ActionTarget held, @Nullable ActionTarget now) {
+		boolean heldNone = held == null || held.getType() == ActionTarget.TargetType.EMPTY;
+		boolean nowNone = now == null || now.getType() == ActionTarget.TargetType.EMPTY;
+		return heldNone || nowNone ? heldNone == nowNone : held.sameTarget(now);
 	}
 	
 	// a punch's main target: a blocked hit wears the shield as in 1.16 StandEntityPunch.doHit
@@ -867,7 +909,11 @@ public class EntityActionInstance implements HeldInput {
 		actionTick();
 		if (phase == ActionPhase.PERFORM) {
 			if (getPhaseTick() < 1) {
+				HeldTargets held = sendsPerformStartTargets() && !takesTargetsFromServer() ? heldTargets() : null;
 				actionPerformStart();
+				if (held != null && !isOver()) {
+					syncTargetsToTrackingIfChanged(held);
+				}
 				resetAttackStrengthOnPerform();
 			}
 			if (getPhaseTick() + 1 >= curPhaseLength) {

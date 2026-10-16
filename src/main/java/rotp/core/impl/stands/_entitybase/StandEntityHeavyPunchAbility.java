@@ -657,14 +657,18 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 		 * The target the heavy punch would strike now. Through the windup the target it was pressed at stays its 1.16 task
 		 * target while within the action's range ({@link StandEntityPunchAbility#keepsTargetInRange}), even out of the
 		 * Stand's reach for a while, and no new aim takes its place; the strike takes it if in reach, otherwise aims again
-		 * (StandEntity.punch, aimWithThisOrUser).
+		 * (StandEntity.punch, aimWithThisOrUser). Only the server judges it: a client strikes at the target the server last
+		 * sent it, the kept one or the strike's own once the server sent it.
 		 */
 		protected ActionTarget getPunchTarget(StandEntity stand) {
 			if (isGrabVariation()) {
 				return new ActionTarget(punchTarget);
 			}
+			if (takesTargetsFromServer()) {
+				return getActionTargetSnapshot(stand.level());
+			}
 			boolean windup = getPhase() == ActionPhase.WINDUP;
-			if (windup && !stand.level().isClientSide()) {
+			if (windup) {
 				releaseTargetOutOfRange(stand);
 			}
 			ActionTarget target = StandEntityPunchAbility.getFreshPunchTarget(stand, getActionTargetSnapshot(stand.level()),
@@ -674,6 +678,11 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 				setActionTargetSnapshot(target);
 			}
 			return target;
+		}
+
+		@Override
+		protected boolean sendsPerformStartTargets() {
+			return true;
 		}
 
 		// 1.16 StandEntityTask.tick: setTaskTarget(EMPTY) once keepTarget failed, sent to tracking clients; the Stand stops

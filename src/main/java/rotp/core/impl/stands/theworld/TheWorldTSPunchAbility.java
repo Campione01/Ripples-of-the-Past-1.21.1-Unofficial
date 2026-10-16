@@ -445,6 +445,10 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 
 		@Override
 		protected ActionTarget getPunchTarget(StandEntity stand) {
+			// the blink's target is the server's: a client holds what the server sent
+			if (takesTargetsFromServer()) {
+				return super.getPunchTarget(stand);
+			}
 			ActionTarget target = strikeTarget(stand, targetAfterBlink);
 			if (target.isEmpty(stand.level())) {
 				// 1.16 StandEntity.punch: a target the strike cannot reach is replaced by a fresh aim

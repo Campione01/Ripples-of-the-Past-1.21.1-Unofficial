@@ -401,7 +401,9 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 				 *  During the punch, the Stand entity keeps rotating towards the target (keepStandAimedAtTarget()),
 				 *  and while it keeps one it aims as itself (aimAs == AimingEntity.STAND). From the recovery on
 				 *  (onSetPhase) it aims as its user's camera again, as 1.16 took the next press from the user's view
-				 *  (EntityStandType.clientHitResult); a strike that met no entity hands the aim back at once.
+				 *  (EntityStandType.clientHitResult); a strike that met no entity hands the aim back at once. A client
+				 *  sets them from the target it holds, and the server sends what its strike changed
+				 *  (sendsPerformStartTargets).
 				 */
 				if (target.getType() == TargetType.ENTITY) {
 					standRotationTarget = target;
@@ -574,14 +576,26 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 					(blockSounds.getVolume() + 1.0F) / 8.0F, blockSounds.getPitch() * 0.5F);
 		}
 		
+		/**
+		 * The target the punch strikes now. The server aims as 1.16's StandEntity.punch did and saves it; a client strikes
+		 * at the target the server last sent it, the kept one or the strike's own once the server sent it.
+		 */
 		protected ActionTarget getPunchTarget(StandEntity stand) {
 			if (isGrabVariation()) {
 				return new ActionTarget(LivingComponentGrab.getEntityGrabbedBy(stand));
+			}
+			if (takesTargetsFromServer()) {
+				return getActionTargetSnapshot(stand.level());
 			}
 			ActionTarget target = StandEntityPunchAbility.getFreshPunchTarget(
 					stand, getActionTargetSnapshot(stand.level()), shouldRetainPunchTarget(stand, ability), punchRule(ability));
 			setActionTargetSnapshot(target);
 			return target;
+		}
+
+		@Override
+		protected boolean sendsPerformStartTargets() {
+			return true;
 		}
 
 		// 1.16 StandEntityTask.tick: setTaskTarget(EMPTY) once keepTarget failed, sent to tracking clients; the Stand stops
