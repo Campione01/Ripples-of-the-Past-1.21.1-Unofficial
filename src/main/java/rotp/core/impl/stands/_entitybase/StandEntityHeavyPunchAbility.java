@@ -268,9 +268,10 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 		}
 
 		// 1.16 StandEntityHeavyAttack.getOffsetFromUser: front3dOffset of the task target, which through the windup was the
-		// entity the press kept (standKeepsTarget) or nothing, and then the user's look placed the Stand
+		// entity the press kept (standKeepsTarget), a dying one too until the windup dropped it, or nothing, and then the
+		// user's look placed the Stand
 		private ActionTarget windupPlacementTarget() {
-			return keptEntity != null && keptEntity.isAlive() && keptEntity.level() == performer.level()
+			return keptEntity != null && !keptEntity.isRemoved() && keptEntity.level() == performer.level()
 					? new ActionTarget(keptEntity) : ActionTarget.EMPTY;
 		}
 

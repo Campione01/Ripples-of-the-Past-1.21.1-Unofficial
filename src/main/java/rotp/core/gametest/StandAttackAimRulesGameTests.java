@@ -873,6 +873,127 @@ public final class StandAttackAimRulesGameTests {
 		}, 60, () -> how + " never struck the cow its user turned to");
 	}
 
+	// 1.16 StandEntityTask.keepTarget kept a dying task target until it was removed or had lain dead for 20 ticks, and
+	// StandEntity.punch struck it in reach (aimWithThisOrUser), though no hit hurt it any more: the punch pressed at a
+	// dying cow turns the Stand to it and strikes it, not the ground its user's crosshair meets past it
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "dying_cow_punch")
+	public static void punchPressedAtADyingCowStrikesItAsIn116(GameTestHelper helper) {
+		Scene scene = new Scene(helper, true);
+		scene.precision(0);
+		BlockPos ground = scene.groundStrip();
+		Cow cow = scene.cow(0, 2.0);
+		// low on the cow, so that past it the crosshair meets the ground strip
+		scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, cow.position().add(0, 0.4, 0));
+		EntityActionInstance[] action = new EntityActionInstance[1];
+		scene.run(tick -> {
+			if (tick == 2) {
+				cow.setHealth(0);
+				return false;
+			}
+			if (tick == 3) {
+				helper.assertTrue(cow.isDeadOrDying() && !cow.isRemoved() && cow.deathTime < 20
+						&& scene.vanillaPick().getMainEntity() == cow, "Fixture: the cow on the crosshair (" + scene.vanillaPick()
+								+ ") is not dying: health " + cow.getHealth() + ", " + cow.deathTime + " ticks dead");
+				scene.sendClientAims();
+				action[0] = scene.press("punch", InputMethod.CLICK);
+				helper.assertTrue(action[0] instanceof StandEntityPunch && action[0].punchedTarget == null,
+						"Fixture: the punch input started " + action[0] + ", or it struck at once");
+				ActionTarget saved = savedTarget(action[0]);
+				ActionTarget turnedTo = action[0].standRotationTarget;
+				helper.assertTrue(entityOf(helper, saved) == cow && entityOf(helper, turnedTo) == cow, "The punch pressed at"
+						+ " a dying cow saved " + saved + " and turns the Stand to " + turnedTo + "; 1.16 kept a dying task"
+						+ " target until it was removed or had lain dead for 20 ticks (StandEntityTask.keepTarget)");
+				return false;
+			}
+			if (tick < 3) {
+				return false;
+			}
+			ActionTarget struck = action[0].punchedTarget;
+			if (struck == null) {
+				return false;
+			}
+			helper.assertTrue(struck.getMainEntity() == cow && scene.isStone(ground), "The punch pressed at a dying cow"
+					+ " struck " + struck + " and the ground behind it " + (scene.isStone(ground) ? "stands" : "broke")
+					+ "; 1.16 struck the dying task target in reach (StandEntity.aimWithThisOrUser), which no hit hurt any"
+					+ " more");
+			return true;
+		}, 60, () -> "The punch pressed at a dying cow never struck");
+	}
+
+	// the same through a heavy punch's windup: the mob it was pressed at dies on the way and stays its target, the Stand
+	// placed from it (StandEntityHeavyAttack.getOffsetFromUser), until the strike; one dead for 20 ticks would be dropped
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "dying_cow_heavy")
+	public static void heavyPunchKeepsTheMobItWasPressedAtThatDiesInTheWindupAsIn116(GameTestHelper helper) {
+		Scene scene = new Scene(helper, true);
+		scene.precision(0);
+		BlockPos ground = scene.groundStrip();
+		Cow cow = scene.cow(0, 2.0);
+		scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, cow.position().add(0, 0.4, 0));
+		helper.assertTrue(scene.vanillaPick().getMainEntity() == cow, "Fixture: the vanilla pick is " + scene.vanillaPick());
+		String how = "The heavy punch whose pressed cow died in its windup";
+		double farthest = Math.min(2, scene.stand.getMaxRange());
+		TargetWatcher watcher = scene.watchStand();
+		EntityActionInstance[] action = new EntityActionInstance[1];
+		Vec3[] placed = new Vec3[1];
+		boolean[] keptDying = new boolean[1];
+		scene.run(tick -> {
+			if (tick == 3) {
+				scene.sendClientAims();
+				action[0] = scene.press("heavy_punch", InputMethod.CLICK);
+				helper.assertTrue(action[0] instanceof StandEntityHeavyPunch && action[0].punchedTarget == null
+						&& entityOf(helper, savedTarget(action[0])) == cow, "Fixture: the heavy punch input started "
+								+ action[0] + ", struck at once or keeps " + savedTarget(action[0]));
+				return false;
+			}
+			if (tick < 3) {
+				return false;
+			}
+			if (tick == 4) {
+				placed[0] = action[0].getSyncedStandOffset();
+				helper.assertTrue(placed[0] != null && Math.abs(placed[0].z - farthest) > 0.1, "Fixture: the heavy punch"
+						+ " placed the Stand at " + placed[0] + ", as along its user's look, not from the cow");
+				cow.setHealth(0);
+				return false;
+			}
+			ActionTarget struck = action[0].punchedTarget;
+			if (struck == null) {
+				// the strike comes with the first action tick of the PERFORM the windup's last tick entered
+				helper.assertTrue(cow.isDeadOrDying() && !cow.isRemoved() && (action[0].getPhase() == ActionPhase.WINDUP
+						|| action[0].getPhase() == ActionPhase.PERFORM), "Fixture: at tick " + tick + " the cow has health "
+								+ cow.getHealth() + ", " + cow.deathTime + " ticks dead, removed " + cow.isRemoved()
+								+ ", and the heavy punch is in its " + action[0].getPhase() + " without striking");
+				ActionTarget saved = savedTarget(action[0]);
+				ActionTarget turnedTo = action[0].standRotationTarget;
+				List<TrEntityActionTargetPacket> sent = watcher.sentFor(action[0]);
+				helper.assertTrue(entityOf(helper, saved) == cow && entityOf(helper, turnedTo) == cow && sent.isEmpty(),
+						how + " keeps " + saved + ", turns the Stand to " + turnedTo + " and sent tracking clients " + sent
+								+ "; 1.16 kept a dying task target until it was removed or had lain dead for 20 ticks"
+								+ " (StandEntityTask.keepTarget)");
+				Vec3 offset = action[0].getSyncedStandOffset();
+				helper.assertTrue(offset != null && offset.distanceTo(placed[0]) < 0.01, how + " placed the Stand at "
+						+ offset + " instead of from the cow, at " + placed[0] + "; 1.16 placed it from the task target");
+				int deathTime = cow.deathTime;
+				ActionTarget atCow = new ActionTarget(cow);
+				boolean kept = StandEntityPunchAbility.keepsTargetInRange(scene.stand, atCow,
+						StandEntityPunchAbility.CrosshairRule.ENTITY);
+				cow.deathTime = 20;
+				boolean keptAt20 = StandEntityPunchAbility.keepsTargetInRange(scene.stand, atCow,
+						StandEntityPunchAbility.CrosshairRule.ENTITY);
+				cow.deathTime = deathTime;
+				helper.assertTrue(kept && !keptAt20, "A heavy punch's windup " + (kept ? "keeps" : "drops") + " a cow dead"
+						+ " for " + deathTime + " ticks and " + (keptAt20 ? "keeps" : "drops") + " one dead for 20; 1.16 kept"
+						+ " a dying task target until it had lain dead for 20 ticks (StandEntityTask.keepTarget)");
+				keptDying[0] = true;
+				return false;
+			}
+			helper.assertTrue(keptDying[0], "Fixture: the heavy punch struck before a windup tick with the cow dying");
+			helper.assertTrue(struck.getMainEntity() == cow && scene.isStone(ground), how + " struck " + struck + " and the"
+					+ " ground behind it " + (scene.isStone(ground) ? "stands" : "broke") + "; 1.16 struck the dying task"
+					+ " target in reach (StandEntity.aimWithThisOrUser)");
+			return true;
+		}, 60, () -> how + " never struck");
+	}
+
 	// a punch that stands for a 1.16 heavy attack, as an add-on's (King Crimson's Ground Punch) declares it
 	private static final class HeavyAttackPunchProbe extends StandEntityPunchAbility {
 		HeavyAttackPunchProbe(AbilityType<?> abilityType, AbilityId abilityId) {
