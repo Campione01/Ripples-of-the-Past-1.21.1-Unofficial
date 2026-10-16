@@ -45,7 +45,7 @@ public class MagiciansRedRedBindAbility extends StandEntityAbility {
 
 		@Override
 		public void onActionSet(EntityActionInstance prevAction) {
-			setStandOffset(0.0, 0.5, StandOffsetFromUser.Rotations.BODY, false);
+			setStandOffset(0.0, 0.5, StandOffsetFromUser.Rotations.HEAD, false);
 		}
 
 		@Override

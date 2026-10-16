@@ -82,14 +82,14 @@ public final class ClientEntityActionSyncQueueSmokeTest {
 				.withClipPos(Optional.of(new Vec3(3.5D, -6.25D, 11.0D)));
 		ActionTarget entity = entityTarget(4242, new Vec3(1.0D, 2.5D, -3.0D));
 		checkRoundTrip(new TrEntityActionTargetPacket(
-				1234, new UUID(5L, 6L), 77L, 9, block, entity, AimingEntity.STAND),
-				"a target sync keeping a block and turning to an entity");
+				1234, new UUID(5L, 6L), 77L, 9, block, entity, AimingEntity.STAND, entity),
+				"a target sync keeping a block and turning to an entity, its task holding the entity");
 		checkRoundTrip(new TrEntityActionTargetPacket(
-				-8, new UUID(9L, 10L), 300L, 0, entity, block, AimingEntity.PLAYER),
-				"a target sync keeping an entity and turning to a block");
+				-8, new UUID(9L, 10L), 300L, 0, entity, block, AimingEntity.PLAYER, block),
+				"a target sync keeping an entity and turning to a block, its task holding the block");
 		checkRoundTrip(new TrEntityActionTargetPacket(
-				1, new UUID(11L, 12L), 1L, 3, null, null, AimingEntity.CAMERA_ENTITY),
-				"a target sync that keeps and turns to nothing");
+				1, new UUID(11L, 12L), 1L, 3, null, null, AimingEntity.CAMERA_ENTITY, null),
+				"a target sync that keeps and turns to nothing, its task holding nothing");
 	}
 
 	private static void testTargetSyncReachesItsAction() {
@@ -152,7 +152,7 @@ public final class ClientEntityActionSyncQueueSmokeTest {
 		return new TrEntityActionTargetPacket(performerId, new UUID(0L, performerId * 100L), generation, actionId,
 				entityTarget(900 + performerId, new Vec3(0.5D, 1.0D, 0.5D)),
 				new ActionTarget(new BlockPos(performerId, 64, -performerId), Direction.UP),
-				AimingEntity.CAMERA_ENTITY);
+				AimingEntity.CAMERA_ENTITY, entityTarget(700 + performerId, new Vec3(0.0D, 1.5D, 0.0D)));
 	}
 
 	// a client's action of a generation, as the action packet installed it
@@ -165,9 +165,11 @@ public final class ClientEntityActionSyncQueueSmokeTest {
 	private static void checkHolds(EntityActionInstance action, TrEntityActionTargetPacket packet, String what) {
 		check(Arrays.equals(targetBytes(savedTarget(action)), targetBytes(packet.keptTarget()))
 				&& Arrays.equals(targetBytes(action.standRotationTarget), targetBytes(packet.rotationTarget()))
-				&& action.aimAs == packet.aimAs(),
+				&& action.aimAs == packet.aimAs()
+				&& Arrays.equals(targetBytes(taskTarget(action)), targetBytes(packet.taskTarget())),
 				what + " must leave the action holding what the server sent: it holds " + describe(savedTarget(action))
-						+ ", turns to " + describe(action.standRotationTarget) + " and aims as " + action.aimAs);
+						+ ", turns to " + describe(action.standRotationTarget) + ", aims as " + action.aimAs
+						+ " and its task holds " + describe(taskTarget(action)));
 	}
 
 	private static void checkRoundTrip(TrEntityActionTargetPacket sent, String what) {
@@ -183,7 +185,8 @@ public final class ClientEntityActionSyncQueueSmokeTest {
 					&& read.actionId() == sent.actionId()
 					&& read.aimAs() == sent.aimAs()
 					&& Arrays.equals(targetBytes(read.keptTarget()), targetBytes(sent.keptTarget()))
-					&& Arrays.equals(targetBytes(read.rotationTarget()), targetBytes(sent.rotationTarget())),
+					&& Arrays.equals(targetBytes(read.rotationTarget()), targetBytes(sent.rotationTarget()))
+					&& Arrays.equals(targetBytes(read.taskTarget()), targetBytes(sent.taskTarget())),
 					what + " must read back as written: " + describe(sent) + " came back as " + describe(read)
 							+ (buf.isReadable() ? " with " + buf.readableBytes() + " bytes left" : ""));
 		}
@@ -226,11 +229,25 @@ public final class ClientEntityActionSyncQueueSmokeTest {
 	private static String describe(TrEntityActionTargetPacket packet) {
 		return "[performer " + packet.performerId() + " " + packet.performerUuid() + ", generation "
 				+ packet.actionGeneration() + ", action " + packet.actionId() + ", kept " + describe(packet.keptTarget())
-				+ ", turned to " + describe(packet.rotationTarget()) + ", " + packet.aimAs() + "]";
+				+ ", turned to " + describe(packet.rotationTarget()) + ", " + packet.aimAs() + ", task "
+				+ describe(packet.taskTarget()) + "]";
 	}
 
 	private static String describe(@Nullable ActionTarget target) {
 		return target == null ? "nothing" : target.getType() + Arrays.toString(targetBytes(target));
+	}
+
+	// what a client's action holds as its task's target, which turns its offsets: only what the server sent
+	@Nullable
+	private static ActionTarget taskTarget(EntityActionInstance action) {
+		try {
+			Field field = EntityActionInstance.class.getDeclaredField("taskTarget");
+			field.setAccessible(true);
+			return (ActionTarget) field.get(action);
+		}
+		catch (ReflectiveOperationException error) {
+			throw new AssertionError("cannot read the action's task target", error);
+		}
 	}
 
 	@Nullable

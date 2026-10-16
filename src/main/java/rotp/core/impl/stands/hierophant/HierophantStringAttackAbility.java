@@ -59,6 +59,12 @@ public class HierophantStringAttackAbility extends NoPoseStandEntityAbility {
 		}
 	}
 
+	// 1.16 HierophantGreenStringAttack.standKeepsTarget
+	@Override
+	protected boolean keepsTaskTargetType(StandEntity standEntity, ActionTarget target) {
+		return true;
+	}
+
 	private static int stringActionTicks(StandEntity stand, boolean binding) {
 		int baseTicks = binding ? BIND_LIFESPAN : NORMAL_LIFESPAN;
 		double speed = stand.getAttackSpeed() / 8;

@@ -88,6 +88,12 @@ public class CrazyDRepairItemAbility extends StandEntityAbility implements Train
 		return ITEM_FIX_ANIM;
 	}
 
+	// 1.16 CrazyDiamondRepairItem.yRotForOffset, the arms-only Stand's default offset included
+	@Override
+	public float yRotForOffset(LivingEntity user, EntityActionInstance action) {
+		return user.yBodyRot;
+	}
+
 	@Override
 	public String getLearningAbilityName() {
 		return REPAIR_ITEM_ABILITY;

@@ -504,7 +504,7 @@ public final class StandAttackAimRulesGameTests {
 									+ "; 1.16 sent them the emptied task target once (StandEntity.setTaskTarget,"
 									+ " TrStandTaskTargetPacket)");
 					TrEntityActionTargetPacket drop = sent.get(0);
-					client[0].setTargetsFromServer(drop.keptTarget(), drop.rotationTarget(), drop.aimAs());
+					client[0].setTargetsFromServer(drop.keptTarget(), drop.rotationTarget(), drop.aimAs(), drop.taskTarget());
 					ActionTarget shown = StandEntityPunchAbility.keptStrikeTarget(scene.stand, client[0]);
 					helper.assertTrue(shown == null && client[0].standRotationTarget == null && savedTarget(client[0]) == null
 							&& client[0].aimAs == AimingEntity.CAMERA_ENTITY, "A client that took what the server sent still"
@@ -738,7 +738,7 @@ public final class StandAttackAimRulesGameTests {
 						who + " strikes at " + aimed + " of its own, then keeps " + saved + " and turns the Stand to "
 								+ copy.standRotationTarget + "; a 1.16 client struck at the task target the server had sent,"
 								+ " none here (StandEntity.punch aimed on the server only)");
-				copy.setTargetsFromServer(received.keptTarget(), received.rotationTarget(), received.aimAs());
+				copy.setTargetsFromServer(received.keptTarget(), received.rotationTarget(), received.aimAs(), received.taskTarget());
 				setPhase(copy, ActionPhase.PERFORM);
 				ActionTarget shown = StandEntityPunchAbility.keptStrikeTarget(scene.stand, copy);
 				ActionTarget held = client.strikeTarget(scene.stand);
@@ -858,7 +858,7 @@ public final class StandAttackAimRulesGameTests {
 							+ " barrage strikes at " + aimed + " of its own and keeps " + saved + "; the target the barrage"
 							+ " keeps is the server's, as a 1.16 task target was");
 					if (received != null) {
-						copy.setTargetsFromServer(received.keptTarget(), received.rotationTarget(), received.aimAs());
+						copy.setTargetsFromServer(received.keptTarget(), received.rotationTarget(), received.aimAs(), received.taskTarget());
 						ActionTarget held = client.strikeTarget(scene.stand);
 						helper.assertTrue(held.getMainEntity() == cow, "A client's copy of the locked barrage that took what"
 								+ " the server sent holds " + held + " instead of the cow");
@@ -1180,7 +1180,7 @@ public final class StandAttackAimRulesGameTests {
 			TrEntityActionTargetPacket drop = received(helper, sent.get(0));
 			for (ClientStrike client : clients) {
 				EntityActionInstance copy = (EntityActionInstance) client;
-				copy.setTargetsFromServer(drop.keptTarget(), drop.rotationTarget(), drop.aimAs());
+				copy.setTargetsFromServer(drop.keptTarget(), drop.rotationTarget(), drop.aimAs(), drop.taskTarget());
 				helper.assertTrue(copy.standRotationTarget == null && savedTarget(copy) == null && client.strikeTarget(
 						scene.stand).isEmpty(helper.getLevel()), "A client's " + copy.getClass().getSimpleName() + " that took"
 								+ " what the server sent turns the Stand to " + copy.standRotationTarget + " and keeps "
@@ -1271,7 +1271,7 @@ public final class StandAttackAimRulesGameTests {
 				TrEntityActionTargetPacket drop = received(helper, sent.get(1));
 				for (ClientStrike client : clients) {
 					EntityActionInstance copy = (EntityActionInstance) client;
-					copy.setTargetsFromServer(drop.keptTarget(), drop.rotationTarget(), drop.aimAs());
+					copy.setTargetsFromServer(drop.keptTarget(), drop.rotationTarget(), drop.aimAs(), drop.taskTarget());
 					setPhase(copy, ActionPhase.PERFORM);
 					ActionTarget shown = StandEntityPunchAbility.keptStrikeTarget(scene.stand, copy);
 					helper.assertTrue(shown == null && copy.standRotationTarget == null && savedTarget(copy) == null,
@@ -1357,7 +1357,7 @@ public final class StandAttackAimRulesGameTests {
 			helper.assertTrue(!clients.isEmpty(), "Fixture: no client copy of the " + name + " was taken before it struck");
 			for (ClientStrike client : clients) {
 				EntityActionInstance copy = (EntityActionInstance) client;
-				copy.setTargetsFromServer(received.keptTarget(), received.rotationTarget(), received.aimAs());
+				copy.setTargetsFromServer(received.keptTarget(), received.rotationTarget(), received.aimAs(), received.taskTarget());
 				setPhase(copy, ActionPhase.PERFORM);
 				ActionTarget shown = StandEntityPunchAbility.keptStrikeTarget(scene.stand, copy);
 				// the marker shows no block that broke

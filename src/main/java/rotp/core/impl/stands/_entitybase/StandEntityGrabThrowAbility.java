@@ -102,7 +102,7 @@ public class StandEntityGrabThrowAbility extends StandEntityAbility {
 		@Override
 		public void actionPerformStart() {
 			if (performer instanceof StandEntity stand) {
-				setStandOffset(0, Math.max(stand.offsetFromUser.getRelativeOffset().z, 0) + 2,
+				setStandOffset(0, Math.max(stand.offsetFromUser.getOffsetBeforeAction().z, 0) + 2,
 						StandOffsetFromUser.Rotations.HEAD_XY, false);
 
 				Level level = performer.level();

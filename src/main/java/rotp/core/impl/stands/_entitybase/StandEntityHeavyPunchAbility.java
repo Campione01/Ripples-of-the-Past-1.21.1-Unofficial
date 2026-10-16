@@ -143,6 +143,12 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 		return super.replaceWithSubAbility(context, abilities);
 	}
 
+	// 1.16 StandEntityHeavyAttack.lockOnTargetPosition: the heavy punch turns the Stand to its target, never its offset
+	@Override
+	public boolean lockOnTargetPosition(@Nullable StandPower standPower, StandEntity standEntity, EntityActionInstance action) {
+		return false;
+	}
+
 	@Override
 	protected ConditionCheck checkStandEntityConditions(StandPower standPower, StandEntity standEntity) {
 		ConditionCheck check = super.checkStandEntityConditions(standPower, standEntity);
@@ -232,8 +238,10 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 				}
 				double minOffset = Math.min(0.5, stand.getEffectiveRange());
 				double maxOffset = Math.min(2, stand.getMaxRange());
-				ActionTarget target = setActionTargetSnapshot(StandEntityPunchAbility.pressTarget(
-						stand, getActionTargetSnapshot(stand.level()), StandEntityPunchAbility.CrosshairRule.ENTITY));
+				ActionTarget target = setActionTargetSnapshot(StandEntityPunchAbility.takeOverIfPressedAtNothing(stand,
+						StandEntityPunchAbility.pressTarget(stand, getActionTargetSnapshot(stand.level()),
+								StandEntityPunchAbility.CrosshairRule.ENTITY),
+						isRestoringInputLifecycle() ? null : prevAction, keptTargetRule()));
 				keptEntity = target.getType() == ActionTarget.TargetType.ENTITY
 						? target.copy().resolveEntityId(stand.level()).getMainEntity() : null;
 				setStandFrontOffsetFromTarget(stand, windupPlacementTarget(), minOffset, maxOffset);
@@ -711,6 +719,12 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 		@Override
 		protected boolean sendsPerformStartTargets() {
 			return true;
+		}
+
+		// the target the heavy punch keeps is its task's (1.16 StandEntity.punch), which a next action may take over
+		@Override
+		public ActionTarget getTaskTarget(Level level) {
+			return heldTarget(actionTargetSnapshot, level);
 		}
 
 		// 1.16 StandEntityTask.tick, on every server tick of the task: setTaskTarget(EMPTY) once keepTarget failed, sent to

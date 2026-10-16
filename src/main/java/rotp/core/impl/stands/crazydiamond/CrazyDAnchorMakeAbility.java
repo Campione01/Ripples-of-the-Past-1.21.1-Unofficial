@@ -68,6 +68,12 @@ public class CrazyDAnchorMakeAbility extends StandEntityAbility {
 		return FINISHER_ANIM;
 	}
 
+	// 1.16 CrazyDiamondBlockCheckpointMake.getTargetRequirement: BLOCK
+	@Override
+	protected boolean keepsTaskTargetType(StandEntity standEntity, ActionTarget target) {
+		return target.getType() == TargetType.BLOCK;
+	}
+
 	@Override
 	public ConditionCheck checkSpecificConditions(Power<?> context) {
 		LivingEntity user = context.getUser();

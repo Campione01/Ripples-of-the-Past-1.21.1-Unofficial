@@ -2,6 +2,8 @@ package rotp.core.powersystem.standpower.entity;
 
 import java.util.function.Function;
 
+import javax.annotation.Nullable;
+
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
@@ -14,6 +16,8 @@ import rotp.core.powersystem.entityaction.HeldInput;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.StandUtil;
+import rotp.core.subsystems.target.ActionTarget;
+import rotp.core.subsystems.target.ActionTargetRange;
 import rotp.core.compat.v1_21_4.missingmethods._EntitySelector;
 
 import net.minecraft.network.FriendlyByteBuf;
@@ -181,7 +185,59 @@ public class StandEntityAbility extends EntityActionAbility {
 	public boolean retractsStandAfterAction(StandPower standPower, StandEntity standEntity, EntityActionInstance action) {
 		return true;
 	}
-	
+
+	/**
+	 * 1.16 StandEntityAction.lockOnTargetPosition: while the action's task holds a target with a position
+	 * ({@link EntityActionInstance#getTaskTarget}), every offset of the action, the default one included, turns by the
+	 * yaw and pitch from the user's eyes to that target (StandEntity.taskOffset); the pitch reaches only an offset turned
+	 * by the pitch ({@link StandOffsetFromUser.Rotations#HEAD_XY}). False turns them by {@link #yRotForOffset} and the
+	 * user's pitch whatever the task holds, as 1.16's punches and Previous State did.
+	 * @param standPower null on a client that does not have the user's power
+	 */
+	public boolean lockOnTargetPosition(@Nullable StandPower standPower, StandEntity standEntity, EntityActionInstance action) {
+		return true;
+	}
+
+	/**
+	 * 1.16 StandEntityAction.yRotForOffset: the yaw that turns the action's offsets while they are not locked on its
+	 * task's target, the user's view yaw. An offset given {@link StandOffsetFromUser.Rotations#BODY} takes the body yaw.
+	 */
+	public float yRotForOffset(LivingEntity user, EntityActionInstance action) {
+		return user.getYRot();
+	}
+
+	/**
+	 * The kinds of target the action's task keeps, 1.16's getTargetRequirement, standKeepsTarget and checkTarget: none,
+	 * as for a 1.16 action with neither. See {@link #keepsTaskTarget}.
+	 */
+	protected boolean keepsTaskTargetType(StandEntity standEntity, ActionTarget target) {
+		return false;
+	}
+
+	/**
+	 * 1.16 StandEntityTask.keepTarget, which the server asked as the task started (makeServerSideTask, setTask taking the
+	 * previous task's target) and on every tick of it: no target is kept from nothing; an entity is kept until it is
+	 * removed or has lain dead for 20 ticks, never the Stand itself, only a living one the Stand may attack
+	 * (StandEntityAction.checkStandTarget, canStandTargetEntity); the action keeps that kind of target
+	 * ({@link #keepsTaskTargetType}); and it is within the action's range of the Stand (Action.checkRangeAndTarget: 8
+	 * blocks to an entity, 4 without a line of sight, 10 to a block that is not air). Server side.
+	 */
+	public boolean keepsTaskTarget(StandEntity standEntity, @Nullable ActionTarget target) {
+		Level level = standEntity.level();
+		ActionTarget kept = target != null ? target.resolveEntityId(level) : ActionTarget.EMPTY;
+		if (kept.isEmpty(level) || !keepsTaskTargetType(standEntity, kept)) {
+			return false;
+		}
+		if (kept.getType() == ActionTarget.TargetType.ENTITY) {
+			Entity entity = kept.getEntity();
+			if (entity == standEntity || !(entity instanceof LivingEntity living) || living.deathTime >= 20
+					|| !standEntity.canAttack(living)) {
+				return false;
+			}
+		}
+		return ActionTargetRange.isTargetWithinRange(standEntity, kept, level);
+	}
+
 	public enum AutoSummonMode {
 		FULL,
 		ARMS,

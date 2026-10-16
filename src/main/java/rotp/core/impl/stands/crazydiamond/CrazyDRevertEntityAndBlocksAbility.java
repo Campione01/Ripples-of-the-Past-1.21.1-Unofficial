@@ -19,6 +19,7 @@ import rotp.core.subsystems.target.ActionTarget.TargetType;
 import rotp.core.subsystems.target.ActionTargetAim;
 import rotp.core.subsystems.target.ActionTargetRange;
 import rotp.core.subsystems.target.HitResultUtil;
+import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.entity.StandEntityAbility;
 import rotp.core.powersystem.standpower.entity.StandEntityAbility.AutoSummonMode;
@@ -53,6 +54,18 @@ public class CrazyDRevertEntityAndBlocksAbility extends StandEntityAbility {
 		partsRequired(StandPart.ARMS);
 		setButtonHoldPhase(ActionPhase.PERFORM);
 		standAutoSummonMode(AutoSummonMode.OFF_ARM);
+	}
+
+	// 1.16 CrazyDiamondPreviousState.lockOnTargetPosition: an offset never turns to the entity Revert works on
+	@Override
+	public boolean lockOnTargetPosition(StandPower standPower, StandEntity standEntity, EntityActionInstance action) {
+		return false;
+	}
+
+	// 1.16 CrazyDiamondPreviousState.yRotForOffset: the view yaw with an entity target, the body yaw on the off-hand item
+	@Override
+	public float yRotForOffset(LivingEntity user, EntityActionInstance action) {
+		return action.getTaskTarget(user.level()).getType() != TargetType.EMPTY ? super.yRotForOffset(user, action) : user.yBodyRot;
 	}
 
 	@Override

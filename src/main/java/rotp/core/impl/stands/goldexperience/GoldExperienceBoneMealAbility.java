@@ -76,6 +76,12 @@ public class GoldExperienceBoneMealAbility extends NoPoseStandEntityAbility {
         }
     }
 
+    // 1.16 GoldExperienceBoneMeal.checkTarget, which StandEntityTask.keepTarget asked too
+    @Override
+    protected boolean keepsTaskTargetType(StandEntity standEntity, ActionTarget target) {
+        return isValidBoneMealTarget(standEntity.level(), target);
+    }
+
     // 1.16 GoldExperienceBoneMeal.checkTarget on the target the client sent (TargetRequirement.ANY: none is refused);
     // of entities only a baby AnimalEntity, so not a baby villager
     private static boolean isValidBoneMealTarget(Level level, ActionTarget target) {

@@ -6,6 +6,7 @@ import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.config.client.PlayerClientBroadcastedSettings;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
+import rotp.core.impl.stands._entitybase.StandEntityAutoBlockAction;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.entityaction.ActionPhase;
@@ -233,6 +234,17 @@ public final class StandIdlePlacementGameTests {
 				"view yaw 0, a crouching sneaking user (1.5 high, eyes at " + user.getEyeHeight() + ")");
 		user.setShiftKeyDown(false);
 		user.setPose(Pose.STANDING);
+
+		// 1.16 BLOCK_STAND_ENTITY gave no offset, and a task without one showed the default offset
+		EntityActionType autoGuard = StandEntityAutoBlockAction.get();
+		EntityActionInstance noOffset = autoGuard.createActionObj();
+		autoGuard.initActionFromConfig(noOffset, helper.getLevel(), user, stand);
+		noOffset.phasesLength.put(ActionPhase.PERFORM, 5F);
+		noOffset.setStartingPhase();
+		LivingComponentAction.getComponent(stand).setAction(noOffset, user, SyncType.NO_SYNC);
+		helper.assertTrue(stand.getCurStandAction() == noOffset, "setup: the action without an offset did not replace the guard of " + id);
+		assertAt(helper, "1.16 put a " + id + " whose guard gave way to an action without an offset", true, user, stand,
+				-0.75D, 0.2D, -0.75D, "view yaw 0 (the default offset, not the guard's leftover)");
 	}
 
 	private static void checkFullModeEmeraldSplash(GameTestHelper helper, String id, Player user,
@@ -244,6 +256,13 @@ public final class StandIdlePlacementGameTests {
 		user.xRotO = 45.0F;
 		assertAt(helper, "1.16 kept a " + id + " winding up its Emerald Splash", true, user, stand, -0.75D, 0.2D, -0.75D,
 				"view yaw 0, pitch 45 (the idle offset)");
+		user.setPose(Pose.CROUCHING);
+		user.setShiftKeyDown(true);
+		assertAt(helper, "1.16 kept a " + id + " winding up its Emerald Splash", true, user, stand,
+				-0.75D, 0.2D * CROUCHING_UP, -0.75D,
+				"view yaw 0, a crouching sneaking user (taskOffset dropped the y only with no task)");
+		user.setShiftKeyDown(false);
+		user.setPose(Pose.STANDING);
 		splash.setPhase(ActionPhase.PERFORM, 0);
 		assertAt(helper, "1.16 put a " + id + " firing its Emerald Splash", false, user, stand, 0.0D, 0.2D, 0.5D,
 				"view yaw 0, pitch 45 (noYOffset(0, 0.5), turned by the yaw alone)");

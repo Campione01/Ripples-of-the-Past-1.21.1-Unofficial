@@ -736,7 +736,7 @@ public final class ClientEntityActionSyncQueue {
 			return ApplyResult.REJECTED;
 		}
 		action.setTargetsFromServer(
-				packet.keptTarget(), packet.rotationTarget(), packet.aimAs());
+				packet.keptTarget(), packet.rotationTarget(), packet.aimAs(), packet.taskTarget());
 		return ApplyResult.APPLIED;
 	}
 
