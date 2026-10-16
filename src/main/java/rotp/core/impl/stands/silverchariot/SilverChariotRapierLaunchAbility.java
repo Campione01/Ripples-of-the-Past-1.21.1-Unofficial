@@ -107,7 +107,7 @@ public class SilverChariotRapierLaunchAbility extends StandEntityAbility {
 				rapier.igniteForTicks(rapier.ticksLifespan());
 			}
 			// 1.16 standEntity.shootProjectile: from the user's eyes along the Stand's own rotation, turned to its target
-			rapier.shootFromRotation(stand, stand.getXRot(), stand.getYRot(), 0, SHOT_VELOCITY, 0);
+			rapier.shootFromRotation(stand, stand.getXRot(), stand.getYRot(), 0, SHOT_VELOCITY, stand.getProjectileInaccuracy(0));
 			addProjectileWithStandStats(rapier);
 			StandUtil.playStandEntitySound(stand, ModSoundEvents.SILVER_CHARIOT_RAPIER_SHOT, 1.0F, 1.0F);
 

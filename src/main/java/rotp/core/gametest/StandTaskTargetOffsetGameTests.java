@@ -711,11 +711,11 @@ public final class StandTaskTargetOffsetGameTests {
 		client.standRotationTarget = received.standRotationTarget;
 	}
 
-	private interface StandCheck {
+	interface StandCheck {
 		void check(Scene scene);
 	}
 
-	private record Scene(GameTestHelper helper, Player user, StandPower power, StandEntity stand, List<Entity> spawned) {
+	record Scene(GameTestHelper helper, Player user, StandPower power, StandEntity stand, List<Entity> spawned) {
 		Cow cow(Vec3 fromUser) {
 			return mob(EntityType.COW, fromUser);
 		}
@@ -764,7 +764,7 @@ public final class StandTaskTargetOffsetGameTests {
 		}
 	}
 
-	private static void withStand(GameTestHelper helper, String id, StandCheck check) {
+	static void withStand(GameTestHelper helper, String id, StandCheck check) {
 		withStand(helper, id, GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL), check);
 	}
 
@@ -809,7 +809,7 @@ public final class StandTaskTargetOffsetGameTests {
 		LivingComponentAction.getComponent(stand).entityAim.setTarget(cow != null ? new ActionTarget(cow) : ActionTarget.EMPTY);
 	}
 
-	private static void turn(Player user, float viewYaw, float bodyYaw) {
+	static void turn(Player user, float viewYaw, float bodyYaw) {
 		user.setYRot(viewYaw);
 		user.yRotO = viewYaw;
 		user.setYHeadRot(viewYaw);

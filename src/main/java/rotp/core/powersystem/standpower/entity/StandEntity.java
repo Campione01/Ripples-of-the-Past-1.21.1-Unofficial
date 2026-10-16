@@ -1551,6 +1551,11 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		double precision = getAttributeValue(ModEntityAttributes.STAND_PRECISION);
 		return precision * getStandEfficiency();
 	}
+
+	/** The spread of this Stand's shot of the given base spread ({@link StandStatFormulas#standShotInaccuracy}). */
+	public float getProjectileInaccuracy(float inaccuracyBase) {
+		return StandStatFormulas.standShotInaccuracy(getPrecision(), inaccuracyBase);
+	}
 	
 	public double getEffectiveRange() {
 		return getAttributeValue(ModEntityAttributes.STAND_EFFECTIVE_RANGE);

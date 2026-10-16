@@ -159,7 +159,7 @@ public class CrazyDBlockBulletAbility extends StandEntityAbility {
 				}
 				
 				float inaccuracy = performer instanceof StandEntity stand
-						? StandStatFormulas.projectileInaccuracyScaling(stand.getPrecision(), SHOT_INACCURACY)
+						? stand.getProjectileInaccuracy(SHOT_INACCURACY)
 						: SHOT_INACCURACY;
 				bullet.shootFromRotation(performer, SHOT_VELOCITY, inaccuracy);
 				addProjectileWithStandStats(bullet);

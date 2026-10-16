@@ -54,7 +54,7 @@ public class MagiciansRedFireballAbility extends StandEntityAbility {
 			}
 			MRFireballEntity fireball = new MRFireballEntity(stand, level);
 			fireball.setShootingPosOf(stand);
-			fireball.shootFromRotation(stand, stand.getXRot(), stand.getYRot(), 0, SHOT_VELOCITY, SHOT_INACCURACY);
+			fireball.shootFromRotation(stand, stand.getXRot(), stand.getYRot(), 0, SHOT_VELOCITY, stand.getProjectileInaccuracy(SHOT_INACCURACY));
 			addProjectileWithStandStats(fireball);
 			StandUtil.playStandEntitySound(stand, ModSoundEvents.MAGICIANS_RED_FIREBALL.get(), 1.0F, 1.0F);
 			// 1.16 StandEntityTask paid after the shot and ignored the result: a short bar just drops to 0
