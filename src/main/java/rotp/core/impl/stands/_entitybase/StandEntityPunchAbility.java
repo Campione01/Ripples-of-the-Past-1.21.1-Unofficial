@@ -645,6 +645,27 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			return heldTarget(actionTargetSnapshot, level);
 		}
 
+		@Override
+		@Nullable
+		protected ActionTarget storedTaskTarget() {
+			return actionTargetSnapshot;
+		}
+
+		// dropped as releaseTargetOutOfRange drops it
+		@Override
+		protected void storeTaskTarget(@Nullable ActionTarget target) {
+			setActionTargetSnapshot(target);
+			if (target == null) {
+				standRotationTarget = null;
+				aimAs = AimingEntity.CAMERA_ENTITY;
+			}
+		}
+
+		@Override
+		protected boolean keepsAsTaskTarget(StandEntity stand, ActionTarget target) {
+			return keepsTargetInRange(stand, target, punchRule(ability));
+		}
+
 		// 1.16 StandEntityTask.tick, on every server tick of the task: setTaskTarget(EMPTY) once keepTarget failed, sent to
 		// tracking clients; the Stand stops turning to the target. Read as held, so that a block broken since (air) or an
 		// entity removed is dropped too.

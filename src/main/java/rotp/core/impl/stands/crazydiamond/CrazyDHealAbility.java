@@ -1,5 +1,7 @@
 package rotp.core.impl.stands.crazydiamond;
 
+import javax.annotation.Nullable;
+
 import rotp.core.powersystem.standpower.StandInstance.StandPart;
 
 import org.spongepowered.include.com.google.common.base.Objects;
@@ -224,6 +226,24 @@ public class CrazyDHealAbility extends StandEntityAbility {
 		@Override
 		public ActionTarget getTaskTarget(Level level) {
 			return heldTarget(actionTarget, level);
+		}
+
+		@Override
+		@Nullable
+		protected ActionTarget storedTaskTarget() {
+			return actionTarget.getType() != TargetType.EMPTY ? actionTarget : null;
+		}
+
+		// it aims as itself while it holds an entity, as initActionFromConfig and onHealResultUpdated set it
+		@Override
+		protected void storeTaskTarget(@Nullable ActionTarget target) {
+			setActionTarget(target);
+			aimAs = target != null ? AimingEntity.STAND : AimingEntity.CAMERA_ENTITY;
+		}
+
+		@Override
+		protected boolean keepsAsTaskTarget(StandEntity stand, ActionTarget target) {
+			return target.getType() == TargetType.ENTITY && keepsEntityTarget(target, level());
 		}
 
 		// the previous action's target this one took over (1.16 StandEntity.setTask) is the entity it works on

@@ -658,6 +658,19 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		return true;
 	}
 
+	/**
+	 * Server: 1.16 StandEntity.setTaskTarget, which server code called on any Stand, another's too (RHCP's counterattack
+	 * dropped the target of the Stand it hit with setTaskTarget(new ActionTarget(null))): the task of the current action
+	 * holds the target if it keeps it, nothing for null or {@link ActionTarget#EMPTY}; the Stand turns as its task holds,
+	 * and tracking clients get the change ({@link EntityActionInstance#setTaskTarget}). Nothing without an action.
+	 */
+	public void setTaskTarget(@Nullable ActionTarget target) {
+		EntityActionInstance curAction = standAction.getAction();
+		if (curAction != null) {
+			curAction.setTaskTarget(target);
+		}
+	}
+
 	public Vec3 getPosToLookAt(ActionTarget target) {
 		EntityActionInstance curAction = standAction.getAction();
 		if (curAction != null) {

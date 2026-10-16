@@ -732,6 +732,29 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 			return heldTarget(actionTargetSnapshot, level);
 		}
 
+		@Override
+		@Nullable
+		protected ActionTarget storedTaskTarget() {
+			return actionTargetSnapshot;
+		}
+
+		// kept and dropped as onActionSet and releaseTargetOutOfRange do
+		@Override
+		protected void storeTaskTarget(@Nullable ActionTarget target) {
+			setActionTargetSnapshot(target);
+			keptEntity = target != null && target.getType() == ActionTarget.TargetType.ENTITY
+					? target.copy().resolveEntityId(level()).getMainEntity() : null;
+			if (target == null) {
+				standRotationTarget = null;
+				aimAs = AimingEntity.CAMERA_ENTITY;
+			}
+		}
+
+		@Override
+		protected boolean keepsAsTaskTarget(StandEntity stand, ActionTarget target) {
+			return StandEntityPunchAbility.keepsTargetInRange(stand, target, keptTargetRule());
+		}
+
 		// 1.16 StandEntityTask.tick, on every server tick of the task: setTaskTarget(EMPTY) once keepTarget failed, sent to
 		// tracking clients; the Stand stops turning to the target. Read as held, so that a block broken since (air) or an
 		// entity removed is dropped too.
