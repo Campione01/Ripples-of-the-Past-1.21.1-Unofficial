@@ -254,8 +254,8 @@ public final class StarSpecialtyOffsetGameTests {
             if (action == null) {
                 if (posts < 5) return;
                 suite.check(stand.isFollowingUser() && stand.offsetFromUser.isIdle()
-                        && stand.offsetFromUser.getRotations() == StandOffsetFromUser.Rotations.BODY, "settled native idle remains BODY/follow");
-                checkPosition(oracle(stand.offsetFromUser.idleOffset, BODY_YAW), "native idle body-yaw position");
+                        && stand.offsetFromUser.getRotations() == StandOffsetFromUser.Rotations.HEAD, "settled native idle remains HEAD/follow");
+                checkPosition(oracle(stand.offsetFromUser.idleOffset, VIEW_YAW), "native idle view-yaw position (1.16 taskOffset)");
                 idleAbsolute = stand.offsetFromUser.getAbsoluteOffset(user, false);
                 prepareAim();
                 if (spec.aim == Aim.MANUAL) {
@@ -305,14 +305,14 @@ public final class StarSpecialtyOffsetGameTests {
                 AbilityInput.keyRelease(KEY, user);
             }
             if (stand.getCurStandAction() == null && action.isOver() && ++clearedTicks >= 6) {
-                suite.check(measured && stand.offsetFromUser.isIdle() && stand.offsetFromUser.getRotations() == StandOffsetFromUser.Rotations.BODY,
-                        "native natural/release clear restores idle BODY");
+                suite.check(measured && stand.offsetFromUser.isIdle() && stand.offsetFromUser.getRotations() == StandOffsetFromUser.Rotations.HEAD,
+                        "native natural/release clear restores idle HEAD");
                 if (spec.aim == Aim.MANUAL) {
                     checkPosition(manualAnchor, "clear does not overwrite O-control anchor");
                     press("manual_control", MANUAL_KEY, InputMethod.CLICK);
                     suite.check(!stand.isManuallyControlled(), "registered O exit retained");
                 }
-                else checkPosition(oracle(stand.offsetFromUser.idleOffset, BODY_YAW), "native cleared idle position unchanged");
+                else checkPosition(oracle(stand.offsetFromUser.idleOffset, VIEW_YAW), "native cleared idle position unchanged");
                 done = true;
             }
         }
@@ -353,9 +353,12 @@ public final class StarSpecialtyOffsetGameTests {
         Vec3 oracle(Vec3 relative, float yaw) {
             double left = spec.side == HumanoidArm.LEFT ? -relative.x : relative.x;
             double radians = Math.toRadians(yaw);
-            double widthScale = user.getDimensions(Pose.STANDING).width() / (double) user.getType().getDimensions().width();
+            // 1.16 getAbsoluteVec scaled across by the user's width ratio and up by its height ratio
+            double widthScale = user.getBbWidth() / (double) user.getType().getDimensions().width();
+            double heightScale = user.getBbHeight() / (double) user.getType().getDimensions().height();
+            // 1.16 StandEntity.updatePosition: the offset from the user's feet
             return user.position().add((left * Math.cos(radians) - relative.z * Math.sin(radians)) * widthScale,
-                    user.getEyeHeight() - stand.getEyeHeight() + relative.y * widthScale,
+                    relative.y * heightScale,
                     (relative.z * Math.cos(radians) + left * Math.sin(radians)) * widthScale);
         }
         void checkPosition(Vec3 expected, String detail) {

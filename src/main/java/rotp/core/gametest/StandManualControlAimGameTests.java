@@ -250,9 +250,10 @@ public final class StandManualControlAimGameTests {
 		settings.standAimAssist = false;
 		helper.assertTrue(stand.getUser() == user && !stand.isManuallyControlled() && stand.aimsWithoutUser(),
 				"Fixture: the Stand is not a self-aiming Stand of its user");
-		// the Stand idles 0.75 blocks to the right of its user and 0.75 behind it; the wall is on its line of sight
-		BlockPos wallTop = helper.absolutePos(new BlockPos(2, 3, 3));
-		BlockPos wallBottom = helper.absolutePos(new BlockPos(2, 2, 3));
+		// the Stand idles 0.75 blocks to the right of its user (-x, the user facing +z) and 0.75 behind it; the wall is on
+		// its line of sight
+		BlockPos wallTop = helper.absolutePos(new BlockPos(0, 3, 3));
+		BlockPos wallBottom = helper.absolutePos(new BlockPos(0, 2, 3));
 		BlockState wallTopBefore = helper.getLevel().getBlockState(wallTop);
 		BlockState wallBottomBefore = helper.getLevel().getBlockState(wallBottom);
 		helper.getLevel().setBlockAndUpdate(wallTop, Blocks.BEDROCK.defaultBlockState());
@@ -266,7 +267,7 @@ public final class StandManualControlAimGameTests {
 		cow.getAttribute(Attributes.KNOCKBACK_RESISTANCE).setBaseValue(1);
 		cow.setHealth(500);
 		// behind the wall from the idle Stand, and on the line of its lunge, straight ahead of its user
-		cow.moveTo(origin.x + 0.375, origin.y + 0.8, origin.z + 3.6, 0, 0);
+		cow.moveTo(origin.x - 0.375, origin.y + 0.8, origin.z + 3.6, 0, 0);
 		helper.assertTrue(helper.getLevel().addFreshEntity(cow), "Fixture: could not add a cow");
 		markedStandType = power.getAbility("punch").getAbilityId().powerTypeId();
 		StandSkillWalls.markAttacksThroughWalls(markedStandType);

@@ -12,6 +12,7 @@ import rotp.core.util.functions.MathUtil;
 
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Pose;
@@ -33,12 +34,13 @@ public class StandOffsetFromUser {
 	@Nullable public EntityActionType standAbility;
 	
 	private Vec3 prevAbsoluteOffset;
-	private Rotations prevRotations;
+	private boolean prevBodyTurnedWithUser;
 	private float prevBodyRotDiff;
 	private int changedTimestamp;
 	
 	public static StandOffsetFromUser createDefault(StandEntity standEntity) {
-		StandOffsetFromUser offset = new StandOffsetFromUser(standEntity, new Vec3(0.75, standEntity.Y_OFFSET, -0.75), Rotations.BODY);
+		// 1.16 StandEntity.offsetDefault: behind the user's right, turned by the view yaw (StandEntity.taskOffset)
+		StandOffsetFromUser offset = new StandOffsetFromUser(standEntity, new Vec3(-0.75, standEntity.Y_OFFSET, -0.75), Rotations.HEAD);
 		offset.armsOnlyIdleOffset(new Vec3(0, 0, 0.15), Rotations.HEAD);
 		offset.grabOffset(new Vec3(-1, standEntity.Y_OFFSET, 1.5));
 		return offset;
@@ -80,7 +82,9 @@ public class StandOffsetFromUser {
 			else {
 				this.prevAbsoluteOffset = null;
 			}
-			this.prevRotations = this.rotations != null ? this.rotations : rotations;
+			this.prevBodyTurnedWithUser = this.relativeOffset != null && this.rotations != null
+					? bodyTurnsWithUser(this.relativeOffset, this.rotations)
+					: bodyTurnsWithUser(offset, rotations);
 			
 			this.relativeOffset = offset;
 			this.rotations = rotations;
@@ -114,10 +118,14 @@ public class StandOffsetFromUser {
 	
 	public Vec3 getPosition(LivingEntity userEntity) {
 		Vec3 offset = getAbsoluteOffset(userEntity, standEntity.level().isClientSide());
-		float ageScale = userEntity.isBaby() ? userEntity.getAgeScale() : 1;
-		// Standing width includes vanilla/Pehkui size, without crouching or swimming height changes.
-		offset = scaleOffsetForUser(offset, userEntity.getDimensions(Pose.STANDING).width(),
-				userEntity.getType().getDimensions().width(), ageScale);
+		// 1.16 StandRelativeOffset.getAbsoluteVec: arms-only Stands sink with a crouching, swimming or lying user
+		if (standEntity.isArmsOnlyMode() && userEntity.getPose() != Pose.STANDING) {
+			offset = offset.add(0, (userEntity.getDimensions(userEntity.getPose()).height()
+					- userEntity.getDimensions(Pose.STANDING).height()) * 0.85F, 0);
+		}
+		EntityDimensions defaultSize = userEntity.getType().getDimensions();
+		offset = scaleOffsetForUser(offset, userEntity.getBbWidth(), userEntity.getBbHeight(),
+				defaultSize.width(), defaultSize.height());
 		
 		double maxRange = standEntity.getMaxRangeForMovement(userEntity);
 		double offsetDist = offset.lengthSqr();
@@ -126,15 +134,27 @@ public class StandOffsetFromUser {
 			offset = offset.scale(maxRange / offsetDist);
 		}
 		
-		return AlignBy.EYE_POS.align(userEntity, standEntity, offset);
+		// 1.16 StandEntity.updatePosition measured every offset from the user's feet
+		return AlignBy.BOTTOM.align(userEntity, standEntity, offset);
 	}
 
-	static Vec3 scaleOffsetForUser(Vec3 offset, float scaledWidth, float defaultWidth, float ageScale) {
-		double ageAdjustedWidth = (double) defaultWidth * ageScale;
-		double physicalScale = scaledWidth > 0 && Float.isFinite(scaledWidth)
-				&& ageAdjustedWidth > 0 && Double.isFinite(ageAdjustedWidth)
-				? scaledWidth / ageAdjustedWidth : 1;
-		return offset.scale(ageScale * physicalScale);
+	/*
+	 * 1.16 StandRelativeOffset.getAbsoluteVec: an offset follows its user's bounding box, which a pose, a baby's age
+	 * and a size mod all change, across by its width and up by its height
+	 */
+	static Vec3 scaleOffsetForUser(Vec3 offset, float width, float height, float defaultWidth, float defaultHeight) {
+		if (width == defaultWidth && height == defaultHeight) {
+			return offset;
+		}
+		double widthRatio = sizeRatio(width, defaultWidth);
+		double heightRatio = sizeRatio(height, defaultHeight);
+		return new Vec3(offset.x * widthRatio, offset.y * heightRatio, offset.z * widthRatio);
+	}
+	
+	// a broken size keeps the offset rather than sending the Stand to NaN or infinity
+	private static double sizeRatio(float size, float defaultSize) {
+		float ratio = size / defaultSize;
+		return Float.isFinite(ratio) && ratio >= 0 ? ratio : 1;
 	}
 	
 	public Vec3 getAbsoluteOffset(LivingEntity userEntity, boolean lerp) {
@@ -188,10 +208,10 @@ public class StandOffsetFromUser {
 		standEntity.yHeadRotO = userEntity.yHeadRotO;
 		
 		// this shit so ass
-		boolean isBodyRot = rotations == Rotations.BODY;
+		boolean isBodyRot = bodyTurnsWithUser(relativeOffset, rotations);
 		float bodyRotAmount = isBodyRot ? 1 : 0;
 		if (lerp) {
-			boolean wasBodyRot = prevRotations == Rotations.BODY;
+			boolean wasBodyRot = prevBodyTurnedWithUser;
 			if (isBodyRot != wasBodyRot) {
 				float lerpAmount = getLerpAmount();
 				bodyRotAmount = isBodyRot ? lerpAmount : (1 - lerpAmount);
@@ -210,6 +230,14 @@ public class StandOffsetFromUser {
 			standEntity.yBodyRot = Mth.lerp(bodyRotAmount, userEntity.getYRot(), userEntity.yBodyRot);
 			standEntity.yBodyRotO = standEntity.yBodyRot + prevBodyRotDiff / (isBodyRot ? -LERP_TIME : LERP_TIME);
 		}
+	}
+	
+	/*
+	 * 1.16 left an idle Stand's body to the vanilla head turn, so it lagged behind the view as its user's body does;
+	 * the idle Stand takes its user's body yaw for that, while its place and head turn with the view.
+	 */
+	private boolean bodyTurnsWithUser(Vec3 offset, Rotations rotations) {
+		return rotations == Rotations.BODY || rotations == idleRotations && idleOffset.equals(offset);
 	}
 	
 //	public float getLerpAmount() {

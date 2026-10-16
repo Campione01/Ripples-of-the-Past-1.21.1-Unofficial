@@ -154,14 +154,16 @@ public class HierophantEmeraldSplashAbility extends StandEntityAbility implement
 			updateStandOffset(newPhase);
 		}
 
+		// 1.16 HierophantGreenEmeraldSplash.getOffsetFromUser: standOffsetFront() while it fires in full mode, the idle
+		// offset in every other phase and in arms-only mode, which had no offset for it
 		private void updateStandOffset(ActionPhase phase) {
 			if (!(getPerformer() instanceof StandEntity stand)) {
 				return;
 			}
-			if (stand.isArmsOnlyMode() || phase == ActionPhase.PERFORM) {
-				_setStandOffset(stand, new Vec3(0.0D, stand.Y_OFFSET, 0.5D), StandOffsetFromUser.Rotations.HEAD_XY, stand.isArmsOnlyMode());
+			if (phase == ActionPhase.PERFORM && !stand.isArmsOnlyMode()) {
+				setStandOffset(0.0D, 0.5D, StandOffsetFromUser.Rotations.HEAD, false);
 			}
-			else if (stand.offsetFromUser.standAbility == ability) {
+			else {
 				stand.offsetFromUser.resetToIdle();
 			}
 		}

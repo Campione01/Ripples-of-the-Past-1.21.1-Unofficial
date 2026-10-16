@@ -2,6 +2,13 @@ package rotp.core.gametest;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+import javax.annotation.Nullable;
+
+import com.mojang.authlib.GameProfile;
 
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
@@ -22,6 +29,7 @@ import rotp.core.powersystem.entityaction.netcode.SyncType;
 import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
+import rotp.core.powersystem.standpower.packet.TrStaminaPacket;
 import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.util.reflection.CommonReflection;
@@ -29,17 +37,29 @@ import rotp.core.util.reflection.CommonReflection;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.network.PacketSendListener;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket;
+import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
+import net.minecraft.network.protocol.game.ClientboundBundlePacket;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.server.network.ServerGamePacketListenerImpl;
+import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -55,6 +75,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 public final class CrazyDiamondStaminaTickGameTests {
 	private static final short KEY = 11;
 	private static final float EPS = 1.0E-4F;
+	private static final Vec3 USER_POS = new Vec3(2.5D, 12.0D, 2.5D);
 
 	private CrazyDiamondStaminaTickGameTests() {}
 
@@ -298,6 +319,139 @@ public final class CrazyDiamondStaminaTickGameTests {
 		});
 	}
 
+	/*
+	 * 1.16 StandEntityTask booked a ticking cost on the server and on the user's own client, so the user's bar fell in
+	 * step, and StandPower.tickStamina sent a changed bar to the players tracking the user. The port books Revert's 0.2
+	 * on the server only, so a stamina tick that applied a booked payment sends the bar to the user and to the players
+	 * tracking it, as setStamina does; a tick of regeneration alone, which every client runs itself, sends nothing.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void heldRevertSendsEachPaidTickToItsUserAndTrackersButRegenerationAloneSendsNothing(GameTestHelper helper) {
+		Vec3 userPos = helper.absoluteVec(USER_POS);
+		StaminaWatcher observer = new StaminaWatcher(helper.getLevel(), "stamina-observer");
+		StaminaWatcher survivalUser = new StaminaWatcher(helper.getLevel(), "stamina-user");
+		try {
+			observer.setNoGravity(true);
+			observer.moveTo(userPos.x + 2.0D, userPos.y, userPos.z - 2.0D, 0.0F, 0.0F);
+			helper.assertTrue(helper.getLevel().addFreshEntity(observer), "Could not add the tracking observer");
+			// the user's chunk counts as sent to the observer, so the observer tracks the user once it is added
+			observer.connection.chunkSender.dropChunk(observer, new ChunkPos(BlockPos.containing(userPos)));
+			scene(helper, survivalUser, (user, power, stand, standAction) -> {
+				helper.assertTrue(observer.added.contains(user.getId()), "setup: the observer does not track the Stand user");
+				helper.assertTrue(!power.isStaminaInfinite(), "setup: the Stand user's stamina is infinite, not a survival user's");
+				power.setStamina(power.getMaxStamina() * 0.5F);
+				helper.assertTrue(near(booked(power), 0.0F), "setup: a payment is booked before any action: " + booked(power));
+
+				assertRegenerationAloneSendsNothing(helper, power, survivalUser, observer, "before the hold");
+
+				EntityActionInstance revert = start(helper, user, power, stand, standAction, "revert_state", true);
+				setBooked(power, 0.0F);
+				for (int tick = 0; tick < 5; tick++) {
+					standAction.tick();
+					helper.assertTrue(revert.getPhase() == ActionPhase.PERFORM && near(booked(power), -0.2F),
+							"setup: the held Revert did not book 0.2 for its perform tick: tick " + tick + ", phase "
+									+ revert.getPhase() + ", booked " + booked(power));
+					survivalUser.stamina.clear();
+					observer.stamina.clear();
+					float before = power.getStamina();
+					float expected = Mth.clamp(before + (power.getStaminaTickGain() - 0.2F), 0.0F, power.getMaxStamina());
+					power.tick();
+					float bar = power.getStamina();
+					helper.assertTrue(near(bar, expected) && bar != before,
+							"setup: the server bar did not take the paid tick: " + before + " -> " + bar + ", expected " + expected);
+					List<Float> toUser = survivalUser.staminaOf(user);
+					helper.assertTrue(toUser.equals(List.of(bar)),
+							"1.16 booked Revert's ticking cost on the user's own client too, so its bar fell in step; the port books it"
+									+ " on the server only and must send the paid bar " + bar + " to the user on the tick it is paid,"
+									+ " tick " + tick + ": the user's client got " + toUser);
+					List<Float> toTracker = observer.staminaOf(user);
+					helper.assertTrue(toTracker.equals(List.of(bar)),
+							"1.16 tickStamina sent a changed bar to the players tracking the user: paid bar " + bar + ", tick "
+									+ tick + ", the tracking player got " + toTracker);
+				}
+
+				// an action holds regeneration back, so the bar regenerates again once the released Revert is gone
+				release(user);
+				revert.onButtonStopHold();
+				for (int tick = 0; tick < 60 && stand.getCurStandAction() != null; tick++) {
+					standAction.tick();
+				}
+				helper.assertTrue(stand.getCurStandAction() == null, "setup: the released Revert did not end: phase " + revert.getPhase());
+				power.tick();
+				helper.assertTrue(near(booked(power), 0.0F), "setup: a payment is booked after the hold: " + booked(power));
+				assertRegenerationAloneSendsNothing(helper, power, survivalUser, observer, "after the hold");
+			});
+		}
+		finally {
+			observer.discard();
+			observer.getAdvancements().stopListening();
+			survivalUser.getAdvancements().stopListening();
+		}
+	}
+
+	private static void assertRegenerationAloneSendsNothing(GameTestHelper helper, StandPower power, StaminaWatcher user,
+			StaminaWatcher observer, String when) {
+		user.stamina.clear();
+		observer.stamina.clear();
+		float before = power.getStamina();
+		power.tick();
+		helper.assertTrue(power.getStamina() > before,
+				"setup: the bar did not regenerate " + when + ": " + before + " -> " + power.getStamina());
+		helper.assertTrue(user.staminaOf(user).isEmpty() && observer.staminaOf(user).isEmpty(),
+				"every client regenerates the bar itself, so a tick of regeneration alone " + when + " sends nothing: "
+						+ before + " -> " + power.getStamina() + ", the user's client got " + user.staminaOf(user)
+						+ ", the tracking player got " + observer.staminaOf(user));
+	}
+
+	/** A server player whose connection keeps the entities added to it and the stamina values it is sent. */
+	private static final class StaminaWatcher extends FakePlayer {
+		final List<Integer> added = new ArrayList<>();
+		final List<TrStaminaPacket> stamina = new ArrayList<>();
+
+		StaminaWatcher(ServerLevel level, String name) {
+			super(level, new GameProfile(UUID.randomUUID(), name));
+			new RecordingConnection(this);
+		}
+
+		List<Float> staminaOf(Entity entity) {
+			List<Float> values = new ArrayList<>();
+			for (TrStaminaPacket packet : stamina) {
+				if (packet.entityId() == entity.getId()) {
+					values.add(packet.stamina());
+				}
+			}
+			return values;
+		}
+	}
+
+	private static final class RecordingConnection extends ServerGamePacketListenerImpl {
+		private final StaminaWatcher watcher;
+
+		RecordingConnection(StaminaWatcher player) {
+			super(player.getServer(), player.connection.getConnection(), player,
+					CommonListenerCookie.createInitial(player.getGameProfile(), false));
+			watcher = player;
+		}
+
+		@Override
+		public void send(Packet<?> packet) {
+			send(packet, null);
+		}
+
+		@Override
+		public void send(Packet<?> packet, @Nullable PacketSendListener listener) {
+			if (packet instanceof ClientboundBundlePacket bundle) {
+				bundle.subPackets().forEach(this::send);
+			}
+			else if (packet instanceof ClientboundAddEntityPacket add) {
+				watcher.added.add(add.getId());
+			}
+			else if (packet instanceof ClientboundCustomPayloadPacket custom && custom.payload() instanceof TrStaminaPacket value) {
+				watcher.stamina.add(value);
+			}
+		}
+	}
+
 	private static int logsInInventory(Player user) {
 		return user.getInventory().countItem(Items.OAK_LOG) + user.getInventory().countItem(Items.OAK_WOOD)
 				+ user.getInventory().countItem(Items.STRIPPED_OAK_LOG) + user.getInventory().countItem(Items.STRIPPED_OAK_WOOD);
@@ -332,13 +486,16 @@ public final class CrazyDiamondStaminaTickGameTests {
 	}
 
 	private static void scene(GameTestHelper helper, Body body) {
-		Player user = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
+		scene(helper, GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL), body);
+	}
+
+	private static void scene(GameTestHelper helper, Player user, Body body) {
 		StandType standType = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("crazy_diamond"));
 		StandPower power = null;
 		AABB area = new AABB(helper.absolutePos(BlockPos.ZERO)).inflate(32.0D);
 		try {
 			helper.assertTrue(standType != null, "Missing Crazy Diamond Stand type");
-			Vec3 pos = helper.absoluteVec(new Vec3(2.5D, 12.0D, 2.5D));
+			Vec3 pos = helper.absoluteVec(USER_POS);
 			user.setNoGravity(true);
 			user.moveTo(pos.x, pos.y, pos.z, 0.0F, 0.0F);
 			helper.assertTrue(helper.getLevel().addFreshEntity(user), "Could not add the Crazy Diamond user");

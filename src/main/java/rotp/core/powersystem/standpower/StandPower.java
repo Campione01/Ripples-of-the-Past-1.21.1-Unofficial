@@ -501,9 +501,14 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 	
 	protected void tickStamina() {
 		if (this.usesStamina()) {
-			float staminaRegen = getStaminaTickGain() + staminaAddNextTick;
+			float paidTicking = staminaAddNextTick;
+			float staminaRegen = getStaminaTickGain() + paidTicking;
 			staminaAddNextTick = 0;
-			staminaLerp.set(Mth.clamp(staminaLerp.get() + staminaRegen, 0, getMaxStamina()), true);
+			float stamina = Mth.clamp(staminaLerp.get() + staminaRegen, 0, getMaxStamina());
+			// clients follow regeneration on their own, but most ticking payments are booked on the server only
+			if (staminaLerp.set(stamina, true) && paidTicking != 0 && !user.level().isClientSide()) {
+				PacketDistributor.sendToPlayersTrackingEntityAndSelf(user, new TrStaminaPacket(user.getId(), stamina));
+			}
 		}
 	}
 
