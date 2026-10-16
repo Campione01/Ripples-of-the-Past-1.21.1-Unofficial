@@ -238,6 +238,9 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 						? target.copy().resolveEntityId(stand.level()).getMainEntity() : null;
 				setStandFrontOffsetFromTarget(stand, windupPlacementTarget(), minOffset, maxOffset);
 				keepStandAimedAtTarget(target);
+				if (standRotationTarget == null) {
+					aimAs = AimingEntity.CAMERA_ENTITY;
+				}
 				StandEntityPunchAbility.releaseUnlockedPunchTarget(stand, this);
 				Level level = performer.level();
 				if (isGrabVariation() && stand.offsetFromUser.grabIdleOffset != null) {
@@ -319,6 +322,10 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 			if (samplesRecoveryPhaseEntry(newPhase) && performer instanceof StandEntity stand) {
 				phasesLength.put(newPhase, StandStatFormulas.getHeavyAttackRecovery(stand.getAttackSpeed(), finisherValue));
 			}
+			// from the recovery on the user's aim is what the next press takes (1.16 EntityStandType.clientHitResult)
+			if (newPhase == ActionPhase.RECOVERY) {
+				aimAs = AimingEntity.CAMERA_ENTITY;
+			}
 		}
 
 		@Override
@@ -329,10 +336,16 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 				// 1.16 StandEntityTask.tick dropped the task target that left the action's range (getPunchTarget), and
 				// StandEntityHeavyAttack.getOffsetFromUser kept the Stand's distance from it through the windup, so it
 				// steps after one that backs away
-				if (!level.isClientSide() && getPhase() == ActionPhase.WINDUP && usesHeavyFinisherSetup() && !isGrabVariation()) {
-					getPunchTarget(stand);
-					StandEntityBarrageAbility.refreshFrontOffset(this, stand, windupPlacementTarget(),
-							Math.min(0.5, stand.getEffectiveRange()), Math.min(2, stand.getMaxRange()));
+				if (getPhase() == ActionPhase.WINDUP && usesHeavyFinisherSetup() && !isGrabVariation()) {
+					if (!level.isClientSide()) {
+						getPunchTarget(stand);
+						StandEntityBarrageAbility.refreshFrontOffset(this, stand, windupPlacementTarget(),
+								Math.min(0.5, stand.getEffectiveRange()), Math.min(2, stand.getMaxRange()));
+					}
+					else {
+						// no packet tells clients of the drop; they judge it the same way, for the Stand's turn and the marker
+						releaseTargetOutOfRange(stand);
+					}
 				}
 			}
 			if (level.isClientSide() && !(playedSwingSound && playedStandCrySound)
@@ -655,23 +668,30 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 			if (isGrabVariation()) {
 				return new ActionTarget(punchTarget);
 			}
-			Level level = stand.level();
-			ActionTarget kept = getActionTargetSnapshot(level);
 			boolean windup = getPhase() == ActionPhase.WINDUP;
-			if (windup && !level.isClientSide() && !kept.isEmpty(level)
-					&& !StandEntityPunchAbility.keepsTargetInRange(stand, kept, StandEntityPunchAbility.CrosshairRule.ENTITY)) {
-				setActionTargetSnapshot(null);
-				keptEntity = null;
-				standRotationTarget = null;
-				kept = ActionTarget.EMPTY;
+			if (windup && !stand.level().isClientSide()) {
+				releaseTargetOutOfRange(stand);
 			}
-			ActionTarget target = StandEntityPunchAbility.getFreshPunchTarget(stand, kept,
+			ActionTarget target = StandEntityPunchAbility.getFreshPunchTarget(stand, getActionTargetSnapshot(stand.level()),
 					StandEntityPunchAbility.shouldRetainPunchTarget(stand, ability),
 					StandEntityPunchAbility.CrosshairRule.ENTITY);
 			if (!windup) {
 				setActionTargetSnapshot(target);
 			}
 			return target;
+		}
+
+		// 1.16 StandEntityTask.tick: setTaskTarget(EMPTY) once keepTarget failed; the Stand stops turning to the target
+		private void releaseTargetOutOfRange(StandEntity stand) {
+			Level level = stand.level();
+			ActionTarget kept = getActionTargetSnapshot(level);
+			if (!kept.isEmpty(level)
+					&& !StandEntityPunchAbility.keepsTargetInRange(stand, kept, StandEntityPunchAbility.CrosshairRule.ENTITY)) {
+				setActionTargetSnapshot(null);
+				keptEntity = null;
+				standRotationTarget = null;
+				aimAs = AimingEntity.CAMERA_ENTITY;
+			}
 		}
 
 	}

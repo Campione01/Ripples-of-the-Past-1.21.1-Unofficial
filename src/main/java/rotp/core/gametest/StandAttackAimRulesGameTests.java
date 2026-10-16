@@ -42,6 +42,7 @@ import rotp.core.powersystem.standpower.entity.StandStatFormulas;
 import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTargetRange;
+import rotp.core.subsystems.target.AimingEntity;
 
 import net.minecraft.commands.arguments.EntityAnchorArgument;
 import net.minecraft.core.BlockPos;
@@ -455,6 +456,78 @@ public final class StandAttackAimRulesGameTests {
 			}
 			return true;
 		}, 60, () -> "The heavy punch never struck");
+	}
+
+	// the red aim marker (the owner's opt-in of 2026-09-13) shows what a punch keeps while it winds up and strikes, the
+	// target 1.16's task held and turned the Stand to (StandAimMarker draws StandEntityPunchAbility.keptStrikeTarget). From
+	// the recovery on the punch aims as its user's camera again, so a client's Stand aim and the marker follow the user's
+	// crosshair, what the next press takes (1.16 EntityStandType.clientHitResult)
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "marker_kept_punch")
+	public static void aimMarkerShowsThePunchsKeptTargetThenTheUsersAimFromItsRecovery(GameTestHelper helper) {
+		markerOverAPunch(helper, "punch", true);
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "marker_kept_heavy")
+	public static void aimMarkerShowsTheHeavyPunchsKeptTargetThenTheUsersAimFromItsRecovery(GameTestHelper helper) {
+		markerOverAPunch(helper, "heavy_punch", true);
+	}
+
+	// a heavy punch pressed at the ground keeps nothing: through its windup the marker shows the user's aim, which the
+	// strike takes
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "marker_nothing_kept_heavy")
+	public static void aimMarkerFollowsTheUsersAimThroughAHeavyPunchThatKeepsNothing(GameTestHelper helper) {
+		markerOverAPunch(helper, "heavy_punch", false);
+	}
+
+	private static void markerOverAPunch(GameTestHelper helper, String name, boolean atCow) {
+		Scene scene = new Scene(helper, true);
+		scene.precision(0);
+		BlockPos ground = scene.groundStrip();
+		Cow cow = scene.cow(0, 2.0);
+		scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, atCow ? cow.getBoundingBox().getCenter()
+				: Vec3.upFromBottomCenterOf(ground.north(), 1));
+		helper.assertTrue(atCow ? scene.vanillaPick().getMainEntity() == cow
+				: scene.vanillaPick().getType() == ActionTarget.TargetType.BLOCK, "Fixture: the vanilla pick is "
+						+ scene.vanillaPick());
+		String how = "The aim marker over the " + name + (atCow ? " pressed at a cow" : " pressed at the ground");
+		boolean[] seen = new boolean[3];
+		EntityActionInstance[] action = new EntityActionInstance[1];
+		scene.run(tick -> {
+			if (tick < 3) {
+				return false;
+			}
+			if (tick == 3) {
+				scene.sendClientAims();
+				action[0] = scene.press(name, InputMethod.CLICK);
+				helper.assertTrue(action[0] instanceof StandEntityPunch || action[0] instanceof StandEntityHeavyPunch,
+						"Fixture: the " + name + " input started " + action[0]);
+			}
+			ActionPhase phase = action[0].getPhase();
+			ActionTarget marker = StandEntityPunchAbility.keptStrikeTarget(scene.stand, action[0]);
+			if (phase == ActionPhase.WINDUP || phase == ActionPhase.PERFORM) {
+				seen[phase == ActionPhase.WINDUP ? 0 : 1] = true;
+				if (atCow) {
+					helper.assertTrue(marker != null && marker.getMainEntity() == cow, how + " shows " + marker + " in its "
+							+ phase + " instead of the cow it keeps");
+				}
+				else {
+					helper.assertTrue(marker == null && action[0].aimAs == AimingEntity.CAMERA_ENTITY, how + " shows "
+							+ marker + " with the Stand aiming as " + action[0].aimAs + " in its " + phase + "; it keeps nothing,"
+							+ " so the marker shows the user's aim, which its strike takes");
+					return phase == ActionPhase.PERFORM;
+				}
+				return false;
+			}
+			if (phase == ActionPhase.RECOVERY) {
+				seen[2] = true;
+				helper.assertTrue(marker == null && action[0].aimAs == AimingEntity.CAMERA_ENTITY, how + " shows " + marker
+						+ " with the Stand aiming as " + action[0].aimAs + " in its recovery; from there it follows the user's"
+						+ " crosshair, what the next press takes");
+				helper.assertTrue(seen[0] && seen[1], "Fixture: the " + name + " was not seen winding up and striking");
+				return true;
+			}
+			return false;
+		}, 60, () -> how + " never reached " + (atCow ? "the recovery" : "the strike"));
 	}
 
 	// 1.16 kept the block a light punch was pressed at too (StandEntityLightAttack.standKeepsTarget): its user turns from

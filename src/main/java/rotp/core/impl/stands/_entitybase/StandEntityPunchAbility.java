@@ -263,6 +263,9 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 				phasesLength.put(newPhase, newPhase == ActionPhase.RECOVERY
 						? length * (stand.isArmsOnlyMode() ? 2 : 4) : length);
 			}
+			if (newPhase == ActionPhase.RECOVERY) {
+				aimAs = AimingEntity.CAMERA_ENTITY;
+			}
 		}
 		
 		@Override
@@ -287,7 +290,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 				setStandFrontOffsetFromTarget(stand, target, minOffset, maxOffset);
 				keepStandAimedAtTarget(target);
 			}
-			aimAs = AimingEntity.STAND;
+			aimAs = standRotationTarget != null ? AimingEntity.STAND : AimingEntity.CAMERA_ENTITY;
 			if (performer instanceof StandEntity stand) {
 				releaseUnlockedPunchTarget(stand, this);
 			}
@@ -392,12 +395,10 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 					standPower.consumeStamina(10);
 				}
 				/*
-				 *  During the punch, the Stand entity keeps rotating towards the target (keepStandAimedAtTarget()).
-				 *  Additionally, when we set aimAs == AimingEntity.STAND, 
-				 *  effectively this makes the Stand locked on the target entity after the punch,
-				 *  because the Stand keeps aiming at *its* direction rather than the player's.
-				 *  Here, if the Stand does not hit an entity, we reset this field to AimingEntity.CAMERA_ENTITY, 
-				 *  resetting the aim back to the default.
+				 *  During the punch, the Stand entity keeps rotating towards the target (keepStandAimedAtTarget()),
+				 *  and while it keeps one it aims as itself (aimAs == AimingEntity.STAND). From the recovery on
+				 *  (onSetPhase) it aims as its user's camera again, as 1.16 took the next press from the user's view
+				 *  (EntityStandType.clientHitResult); a strike that met no entity hands the aim back at once.
 				 */
 				if (target.getType() == TargetType.ENTITY) {
 					standRotationTarget = target;
@@ -630,6 +631,23 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			return false;
 		}
 		return ActionTargetRange.isTargetWithinRange(stand, kept, level);
+	}
+
+	/**
+	 * What the aim marker shows while a punch or heavy punch winds up and strikes: the target it keeps, which the Stand is
+	 * turned to. Null when it keeps none, where the marker shows the aim its strike will take, and from its recovery on,
+	 * where the marker shows what the next press takes.
+	 */
+	@Nullable
+	public static ActionTarget keptStrikeTarget(StandEntity stand, @Nullable EntityActionInstance action) {
+		if (!(action instanceof StandEntityPunch || action instanceof StandEntityHeavyPunchAbility.StandEntityHeavyPunch)
+				|| action.ability.getAbilityUsageCategory() == AbilityUsageGroup.GRAB
+				|| action.getPhase() != ActionPhase.WINDUP && action.getPhase() != ActionPhase.PERFORM
+				|| action.standRotationTarget == null) {
+			return null;
+		}
+		ActionTarget kept = action.standRotationTarget.resolveEntityId(stand.level());
+		return kept.isEmpty(stand.level()) ? null : kept;
 	}
 
 	/**
