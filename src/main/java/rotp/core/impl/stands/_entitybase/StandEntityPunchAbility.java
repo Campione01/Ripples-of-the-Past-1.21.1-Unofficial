@@ -323,6 +323,10 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			Level level = performer.level();
 			if (performer instanceof StandEntity stand) {
 				releaseUnlockedPunchTarget(stand, this);
+				// clients get no packet for the drop and judge it the same way, for the Stand's turn and the marker
+				if (getPhase() == ActionPhase.WINDUP && !isGrabVariation()) {
+					releaseTargetOutOfRange(stand);
+				}
 			}
 			if (level.isClientSide() && !(playedSwingSound && playedStandCrySound)
 					&& performer instanceof StandEntity stand && ClientGlobals.canHearStand(stand)) {
@@ -576,6 +580,17 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 					stand, getActionTargetSnapshot(stand.level()), shouldRetainPunchTarget(stand, ability), punchRule(ability));
 			setActionTargetSnapshot(target);
 			return target;
+		}
+
+		// 1.16 StandEntityTask.tick: setTaskTarget(EMPTY) once keepTarget failed; the Stand stops turning to the target
+		private void releaseTargetOutOfRange(StandEntity stand) {
+			Level level = stand.level();
+			ActionTarget kept = getActionTargetSnapshot(level);
+			if (!kept.isEmpty(level) && !keepsTargetInRange(stand, kept, punchRule(ability))) {
+				setActionTargetSnapshot(null);
+				standRotationTarget = null;
+				aimAs = AimingEntity.CAMERA_ENTITY;
+			}
 		}
 		
 		

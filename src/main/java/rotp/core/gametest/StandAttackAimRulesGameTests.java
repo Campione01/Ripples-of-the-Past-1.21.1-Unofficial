@@ -381,17 +381,31 @@ public final class StandAttackAimRulesGameTests {
 	// crosshair, and is struck
 	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "kept_mob_heavy_leaves_reach")
 	public static void heavyPunchStrikesTheMobItWasPressedAtThatLeftTheStandsReachInTheWindupAsIn116(GameTestHelper helper) {
-		pressedMobLeavesInTheWindup(helper, 4.0, true);
+		pressedMobLeavesInTheWindup(helper, "heavy_punch", 4.0, true);
 	}
 
 	// beyond the action's range 1.16 dropped the task target for good: the Stand no longer turns to the mob, and the strike
 	// aims again at what the crosshair meets, though the mob is back within reach
 	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "kept_mob_heavy_leaves_range")
 	public static void heavyPunchDropsTheMobItWasPressedAtThatLeftTheActionsRangeInTheWindupAsIn116(GameTestHelper helper) {
-		pressedMobLeavesInTheWindup(helper, 12.0, false);
+		pressedMobLeavesInTheWindup(helper, "heavy_punch", 12.0, false);
 	}
 
-	private static void pressedMobLeavesInTheWindup(GameTestHelper helper, double away, boolean staysInRange) {
+	// the same task rule on the punch action, through the long windup of a punch standing for a 1.16 heavy attack (King
+	// Crimson's Ground Punch and Desperate Eyejab)
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "kept_mob_heavy_attack_punch_leaves_reach")
+	public static void heavyAttackPunchStrikesTheMobItWasPressedAtThatLeftTheStandsReachInTheWindupAsIn116(
+			GameTestHelper helper) {
+		pressedMobLeavesInTheWindup(helper, HEAVY_ATTACK_PUNCH, 4.0, true);
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "kept_mob_heavy_attack_punch_leaves_range")
+	public static void heavyAttackPunchDropsTheMobItWasPressedAtThatLeftTheActionsRangeInTheWindupAsIn116(
+			GameTestHelper helper) {
+		pressedMobLeavesInTheWindup(helper, HEAVY_ATTACK_PUNCH, 12.0, false);
+	}
+
+	private static void pressedMobLeavesInTheWindup(GameTestHelper helper, String name, double away, boolean staysInRange) {
 		Scene scene = new Scene(helper, true);
 		scene.precision(0);
 		scene.groundStrip();
@@ -399,16 +413,17 @@ public final class StandAttackAimRulesGameTests {
 		Vec3 pressedAt = cow.position();
 		scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, cow.position().add(0, 0.4, 0));
 		helper.assertTrue(scene.vanillaPick().getMainEntity() == cow, "Fixture: the vanilla pick is " + scene.vanillaPick());
-		String how = "The heavy punch whose pressed cow left " + (staysInRange ? "the Stand's reach" : "the action's range")
+		String how = "The " + name + " whose pressed cow left " + (staysInRange ? "the Stand's reach" : "the action's range")
 				+ " in the windup";
 		float health = cow.getHealth();
 		EntityActionInstance[] action = new EntityActionInstance[1];
 		scene.run(tick -> {
 			if (tick == 3) {
 				scene.sendClientAims();
-				action[0] = scene.press("heavy_punch", InputMethod.CLICK);
-				helper.assertTrue(action[0] instanceof StandEntityHeavyPunch && action[0].punchedTarget == null,
-						"Fixture: the heavy punch input started " + action[0] + ", or it struck at once");
+				action[0] = name.equals(HEAVY_ATTACK_PUNCH) ? scene.startHeavyAttackPunch() : scene.press(name, InputMethod.CLICK);
+				helper.assertTrue((action[0] instanceof StandEntityPunch || action[0] instanceof StandEntityHeavyPunch)
+						&& action[0].punchedTarget == null, "Fixture: the " + name + " input started " + action[0]
+								+ ", or it struck at once");
 				return false;
 			}
 			if (tick < 3) {
@@ -424,7 +439,7 @@ public final class StandAttackAimRulesGameTests {
 			}
 			if (tick == 7) {
 				helper.assertTrue(action[0].punchedTarget == null && action[0].getPhase() == ActionPhase.WINDUP,
-						"Fixture: the heavy punch struck, or left its windup, while the cow was away");
+						"Fixture: the " + name + " struck, or left its windup, while the cow was away");
 				ActionTarget turnedTo = action[0].standRotationTarget;
 				if (staysInRange) {
 					helper.assertTrue(turnedTo != null && turnedTo.getMainEntity() == cow, how + " turns the Stand to "
@@ -455,7 +470,7 @@ public final class StandAttackAimRulesGameTests {
 						+ " aimed again at the strike");
 			}
 			return true;
-		}, 60, () -> "The heavy punch never struck");
+		}, 60, () -> "The " + name + " never struck");
 	}
 
 	// the red aim marker (the owner's opt-in of 2026-09-13) shows what a punch keeps while it winds up and strikes, the
