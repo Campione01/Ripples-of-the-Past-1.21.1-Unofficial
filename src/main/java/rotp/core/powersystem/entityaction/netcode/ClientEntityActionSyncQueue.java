@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 import javax.annotation.Nullable;
@@ -240,13 +241,24 @@ public final class ClientEntityActionSyncQueue {
 				Minecraft.getInstance(), originListener, "target")) {
 			return;
 		}
+		applyOrQueueTarget(
+				packet,
+				ClientEntityActionSyncQueue::ledgerFor,
+				ClientEntityActionSyncQueue::applyTarget);
+	}
+
+	static void applyOrQueueTarget(
+			TrEntityActionTargetPacket packet,
+			Function<EntityIdentity, GenerationLedger> ledgers,
+			PayloadApplier<TrEntityActionTargetPacket> applier) {
 		handleDependent(
 				PENDING_TARGETS,
 				new EntityIdentity(
 						packet.performerId(), packet.performerUuid()),
 				packet.actionGeneration(),
 				packet,
-				ClientEntityActionSyncQueue::applyTarget);
+				applier,
+				ledgers);
 	}
 
 	/** @deprecated Network handlers must pass their payload context listener. */
@@ -262,9 +274,20 @@ public final class ClientEntityActionSyncQueue {
 			long generation,
 			T payload,
 			PayloadApplier<T> applier) {
+		handleDependent(map, identity, generation, payload, applier,
+				ClientEntityActionSyncQueue::ledgerFor);
+	}
+
+	private static <T> void handleDependent(
+			Map<EntityIdentity, List<Pending<T>>> map,
+			EntityIdentity identity,
+			long generation,
+			T payload,
+			PayloadApplier<T> applier,
+			Function<EntityIdentity, GenerationLedger> ledgers) {
 		NetworkPayloadValidation.requireGeneration(
 				generation, "entity action dependency");
-		GenerationLedger ledger = ledgerFor(identity);
+		GenerationLedger ledger = ledgers.apply(identity);
 		if (ledger == null) {
 			return;
 		}
@@ -433,6 +456,14 @@ public final class ClientEntityActionSyncQueue {
 
 	private static void applyPendingFor(
 			EntityIdentity identity, long generation) {
+		applyPendingFor(identity, generation,
+				ClientEntityActionSyncQueue::applyTarget);
+	}
+
+	static void applyPendingFor(
+			EntityIdentity identity,
+			long generation,
+			PayloadApplier<TrEntityActionTargetPacket> targetApplier) {
 		if (applyPendingFor(
 				PENDING_SYNCHED_DATA, identity, generation,
 				ClientEntityActionSyncQueue::applySynchedData)
@@ -455,8 +486,7 @@ public final class ClientEntityActionSyncQueue {
 			return;
 		}
 		if (applyPendingFor(
-				PENDING_TARGETS, identity, generation,
-				ClientEntityActionSyncQueue::applyTarget)
+				PENDING_TARGETS, identity, generation, targetApplier)
 				== ApplyResult.REJECTED) {
 			rejectGeneration(identity, generation);
 		}
@@ -698,6 +728,18 @@ public final class ClientEntityActionSyncQueue {
 		}
 	}
 
+	// the client's action of the packet's generation takes the targets the server sent, unless it is another action
+	static ApplyResult applyTargetTo(
+			EntityActionInstance action,
+			TrEntityActionTargetPacket packet) {
+		if (action.id != packet.actionId()) {
+			return ApplyResult.REJECTED;
+		}
+		action.setTargetsFromServer(
+				packet.keptTarget(), packet.rotationTarget(), packet.aimAs());
+		return ApplyResult.APPLIED;
+	}
+
 	private static ApplyResult applyTarget(
 			TrEntityActionTargetPacket packet) {
 		LivingEntity living = findLiving(new EntityIdentity(
@@ -707,20 +749,13 @@ public final class ClientEntityActionSyncQueue {
 		if (living == null || action == null) {
 			return ApplyResult.RETRY;
 		}
-		if (action.id != packet.actionId()) {
-			RuntimeException error = new IllegalStateException(
-					"Target sync action ID does not match its generation");
-			containDependentFailure(
-					living, action, packet.actionGeneration(),
-					"target", error);
-			return ApplyResult.REJECTED;
-		}
+		ApplyResult result;
 		try {
-			action.setTargetsFromServer(
-					packet.keptTarget(), packet.rotationTarget(), packet.aimAs());
-			recordDependentApplied(
-					living, action, packet.actionGeneration(), "target");
-			return ApplyResult.APPLIED;
+			result = applyTargetTo(action, packet);
+			if (result == ApplyResult.APPLIED) {
+				recordDependentApplied(
+						living, action, packet.actionGeneration(), "target");
+			}
 		}
 		catch (RuntimeException error) {
 			containDependentFailure(
@@ -728,6 +763,14 @@ public final class ClientEntityActionSyncQueue {
 					"target", error);
 			return ApplyResult.REJECTED;
 		}
+		if (result == ApplyResult.REJECTED) {
+			RuntimeException error = new IllegalStateException(
+					"Target sync action ID does not match its generation");
+			containDependentFailure(
+					living, action, packet.actionGeneration(),
+					"target", error);
+		}
+		return result;
 	}
 
 	@Nullable
