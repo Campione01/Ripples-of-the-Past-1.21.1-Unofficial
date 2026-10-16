@@ -291,8 +291,9 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 				}
 				double minOffset = Math.min(0.5, stand.getEffectiveRange());
 				double maxOffset = Math.min(2, stand.getMaxRange());
-				ActionTarget target = setActionTargetSnapshot(pressTarget(stand, getActionTargetSnapshot(stand.level()),
-						punchRule(ability)));
+				ActionTarget target = setActionTargetSnapshot(takeOverIfPressedAtNothing(stand,
+						pressTarget(stand, getActionTargetSnapshot(stand.level()), punchRule(ability)),
+						isRestoringInputLifecycle() ? null : prevAction, punchRule(ability)));
 				setStandFrontOffsetFromTarget(stand, target, minOffset, maxOffset);
 				keepStandAimedAtTarget(target);
 			}
@@ -961,6 +962,21 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 
 	public static ActionTarget pressTarget(StandEntity stand, ActionTarget sentByServer) {
 		return pressTarget(stand, sentByServer, CrosshairRule.BLOCK_OR_ENTITY);
+	}
+
+	/**
+	 * 1.16 StandEntity.setTask: a punch or heavy punch pressed at nothing takes the target of the action it replaces (that
+	 * task's target, {@link EntityActionInstance#getTaskTarget}) when it keeps that target ({@link #keepsTargetInRange}).
+	 * Server side; a client keeps what its server sent.
+	 */
+	public static ActionTarget takeOverIfPressedAtNothing(StandEntity stand, ActionTarget pressed,
+			@Nullable EntityActionInstance prevAction, CrosshairRule rule) {
+		Level level = stand.level();
+		if (level.isClientSide() || prevAction == null || !pressed.isEmpty(level)) {
+			return pressed;
+		}
+		ActionTarget previous = prevAction.getTaskTarget(level);
+		return keepsTargetInRange(stand, previous, rule) ? previous.copy().resolveEntityId(level) : pressed;
 	}
 
 	/**

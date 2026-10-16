@@ -124,6 +124,14 @@ public final class StandTaskTargetOffsetGameTests {
 			// front3dOffset's withXRot(0, front), along the view
 			assertAt(helper, scene, new Vec3(0.0D, 0.0D, relative.z), "1.16 StandEntityLightAttack.lockOnTargetPosition kept"
 					+ " a star_platinum punching a cow east of its user along the user's view south");
+
+			// pressed at nothing, the next punch takes the cow over (StandEntity.setTask) and the Stand turns to it
+			LivingComponentAction.getComponent(scene.user).entityAim.setTarget(ActionTarget.EMPTY);
+			EntityActionInstance next = scene.start("punch", ActionPhase.WINDUP);
+			helper.assertTrue(next != punch && next.getTaskTarget(helper.getLevel()).getEntity() == cow
+					&& next.standRotationTarget != null && next.standRotationTarget.getEntity() == cow,
+					"1.16 StandEntity.setTask gave a punch pressed at nothing the cow of the punch it replaced; it keeps "
+							+ next.getTaskTarget(helper.getLevel()) + " and turns the Stand to " + next.standRotationTarget);
 		});
 		helper.succeed();
 	}

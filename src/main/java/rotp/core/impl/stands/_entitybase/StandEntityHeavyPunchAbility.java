@@ -238,8 +238,10 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 				}
 				double minOffset = Math.min(0.5, stand.getEffectiveRange());
 				double maxOffset = Math.min(2, stand.getMaxRange());
-				ActionTarget target = setActionTargetSnapshot(StandEntityPunchAbility.pressTarget(
-						stand, getActionTargetSnapshot(stand.level()), StandEntityPunchAbility.CrosshairRule.ENTITY));
+				ActionTarget target = setActionTargetSnapshot(StandEntityPunchAbility.takeOverIfPressedAtNothing(stand,
+						StandEntityPunchAbility.pressTarget(stand, getActionTargetSnapshot(stand.level()),
+								StandEntityPunchAbility.CrosshairRule.ENTITY),
+						isRestoringInputLifecycle() ? null : prevAction, keptTargetRule()));
 				keptEntity = target.getType() == ActionTarget.TargetType.ENTITY
 						? target.copy().resolveEntityId(stand.level()).getMainEntity() : null;
 				setStandFrontOffsetFromTarget(stand, windupPlacementTarget(), minOffset, maxOffset);
