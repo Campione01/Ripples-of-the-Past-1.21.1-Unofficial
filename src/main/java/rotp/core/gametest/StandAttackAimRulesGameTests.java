@@ -3,6 +3,7 @@ package rotp.core.gametest;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
@@ -19,8 +20,11 @@ import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility.StandEntityPunch;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModEntityAttributes;
+import rotp.core.init.power.ModStandAbilities;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
+import rotp.core.powersystem.ability.AbilityId;
+import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.ability.AbilityUsageGroup;
 import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.ability.input.AbilityInput;
@@ -34,6 +38,7 @@ import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.entity.StandEntityAbility;
+import rotp.core.powersystem.standpower.entity.StandStatFormulas;
 import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.target.ActionTarget;
 
@@ -54,6 +59,7 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
@@ -74,6 +80,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 public final class StandAttackAimRulesGameTests {
 	private static final String BATCH = "stand_attack_aim_rules_";
 	private static final short KEY = 177;
+	private static final String HEAVY_ATTACK_PUNCH = "heavy_attack_punch_probe";
 
 	private StandAttackAimRulesGameTests() {}
 
@@ -313,6 +320,13 @@ public final class StandAttackAimRulesGameTests {
 		pressedMobStepsAside(helper, "heavy_punch");
 	}
 
+	// a punch standing for a 1.16 heavy attack (StandEntityPunchAbility.heavyAttack: King Crimson's Ground Punch and
+	// Desperate Eyejab) keeps the mob it was pressed at as StandEntityHeavyAttack.standKeepsTarget did
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "kept_mob_heavy_attack_punch")
+	public static void heavyAttackPunchStrikesTheMobItWasPressedAtThatStepsAsideAsIn116(GameTestHelper helper) {
+		pressedMobStepsAside(helper, HEAVY_ATTACK_PUNCH);
+	}
+
 	private static void pressedMobStepsAside(GameTestHelper helper, String name) {
 		Scene scene = new Scene(helper, true);
 		scene.precision(0);
@@ -324,7 +338,7 @@ public final class StandAttackAimRulesGameTests {
 		scene.run(tick -> {
 			if (tick == 3) {
 				scene.sendClientAims();
-				action[0] = scene.press(name, InputMethod.CLICK);
+				action[0] = name.equals(HEAVY_ATTACK_PUNCH) ? scene.startHeavyAttackPunch() : scene.press(name, InputMethod.CLICK);
 				helper.assertTrue((action[0] instanceof StandEntityPunch || action[0] instanceof StandEntityHeavyPunch)
 						&& action[0].punchedTarget == null, "Fixture: the " + name + " input started " + action[0]
 								+ ", or it struck at once");
@@ -396,6 +410,93 @@ public final class StandAttackAimRulesGameTests {
 							+ " the press kept");
 			return tick > 15;
 		}, 60, () -> "The punch pressed at the ground never struck it");
+	}
+
+	// 1.16 StandEntityHeavyAttack.standKeepsTarget kept only an entity, whatever the aim: a heavy punch pressed at the
+	// ground (the crosshair's pick without the aim assist) kept no target, so the Stand did not turn to the ground and
+	// StandEntity.punch aimed again at the strike: the cow its user turns to in the windup is struck
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "ground_then_cow_heavy_off")
+	public static void heavyPunchWithoutAimAssistPressedAtTheGroundStrikesTheCowItsUserTurnsToAsIn116(GameTestHelper helper) {
+		groundThenCow(helper, false, scene -> scene.press("heavy_punch", InputMethod.CLICK),
+				"heavy punch without the aim assist");
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "ground_then_cow_heavy_attack_punch")
+	public static void heavyAttackPunchPressedAtTheGroundStrikesTheCowItsUserTurnsToAsIn116(GameTestHelper helper) {
+		groundThenCow(helper, true, Scene::startHeavyAttackPunch, "punch standing for a 1.16 heavy attack");
+	}
+
+	private static void groundThenCow(GameTestHelper helper, boolean aimAssist, Function<Scene, EntityActionInstance> start,
+			String how) {
+		Scene scene = new Scene(helper, aimAssist);
+		scene.precision(0);
+		BlockPos ground = scene.groundStrip();
+		Cow cow = scene.cow(-1.0, 1.6);
+		scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, Vec3.upFromBottomCenterOf(ground, 1));
+		helper.assertTrue(scene.vanillaPick().getType() == ActionTarget.TargetType.BLOCK
+				&& ground.equals(scene.vanillaPick().getBlockPos()), "Fixture: the crosshair does not meet the ground at "
+						+ ground + ": " + scene.vanillaPick());
+		float health = cow.getHealth();
+		EntityActionInstance[] action = new EntityActionInstance[1];
+		scene.run(tick -> {
+			if (tick == 3) {
+				scene.sendClientAims();
+				action[0] = start.apply(scene);
+				helper.assertTrue((action[0] instanceof StandEntityPunch || action[0] instanceof StandEntityHeavyPunch)
+						&& action[0].punchedTarget == null, "Fixture: the " + how + " started " + action[0]
+								+ ", or it struck at once");
+				ActionTarget saved = savedTarget(action[0]);
+				ActionTarget turnedTo = action[0].standRotationTarget;
+				helper.assertTrue((saved == null || saved.getType() != ActionTarget.TargetType.BLOCK)
+						&& (turnedTo == null || turnedTo.getType() != ActionTarget.TargetType.BLOCK), "The " + how
+								+ " pressed at the ground saved " + saved + " and turns the Stand to " + turnedTo
+								+ "; 1.16 kept no block for a heavy attack (StandEntityHeavyAttack.standKeepsTarget)");
+				scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, cow.getBoundingBox().getCenter());
+				scene.sendClientAims();
+				helper.assertTrue(scene.vanillaPick().getMainEntity() == cow, "Fixture: the turned user's vanilla pick is "
+						+ scene.vanillaPick());
+				return false;
+			}
+			if (tick < 3) {
+				return false;
+			}
+			ActionTarget struck = action[0].punchedTarget;
+			if (struck == null) {
+				ActionTarget turnedTo = action[0].standRotationTarget;
+				helper.assertTrue(turnedTo == null || turnedTo.getType() != ActionTarget.TargetType.BLOCK, "The " + how
+						+ " turns the Stand to " + turnedTo + ", the ground it was pressed at; 1.16 kept no block for a heavy"
+						+ " attack");
+				return false;
+			}
+			helper.assertTrue(struck.getMainEntity() == cow && cow.getHealth() < health && scene.isStone(ground), "The "
+					+ how + " pressed at the ground struck " + struck + " after its user turned to the cow (Stand at "
+					+ scene.stand.position() + ", cow at " + cow.position() + "); 1.16 kept no block for a heavy attack and"
+					+ " aimed again at the strike (StandEntity.punch)");
+			return true;
+		}, 60, () -> "The " + how + " pressed at the ground never struck");
+	}
+
+	// a punch that stands for a 1.16 heavy attack, as an add-on's (King Crimson's Ground Punch) declares it
+	private static final class HeavyAttackPunchProbe extends StandEntityPunchAbility {
+		HeavyAttackPunchProbe(AbilityType<?> abilityType, AbilityId abilityId) {
+			super(abilityType, abilityId);
+		}
+
+		@Override
+		protected boolean heavyAttack() {
+			return true;
+		}
+
+		// 1.16 StandEntityHeavyAttack.getStandWindupTicks, as King Crimson's strikes set it
+		@Override
+		public void initActionFromConfig(EntityActionInstance action, Level level, LivingEntity standUser,
+				LivingEntity standEntity) {
+			super.initActionFromConfig(action, level, standUser, standEntity);
+			if (!level.isClientSide() && standEntity instanceof StandEntity stand) {
+				action.phasesLength.put(ActionPhase.WINDUP,
+						StandStatFormulas.getHeavyAttackWindup(stand.getAttackSpeed(), stand.getFinisherMeter()));
+			}
+		}
 	}
 
 	// the grab (a port move) takes only an entity the Stand can attack (StandEntityGrab picks with canStandHit); one that
@@ -1013,6 +1114,17 @@ public final class StandAttackAimRulesGameTests {
 			var held = AbilityInput.keyPress(KEY, selected.ability, user, null, method, 0, buffer, base.getAbilityId());
 			helper.assertTrue(buffer.isActionSuccess, "The " + name + " key press failed");
 			return held != null && held.action instanceof EntityActionInstance a ? a : stand.getCurStandAction();
+		}
+
+		// started on the Stand as its key's press starts a punch, its target from the aims the client sent
+		EntityActionInstance startHeavyAttackPunch() {
+			HeavyAttackPunchProbe probe = new HeavyAttackPunchProbe(ModStandAbilities.PUNCH.get(),
+					new AbilityId(PowerClass.STAND, type.getId(), HEAVY_ATTACK_PUNCH));
+			EntityActionInstance action = probe.initActionOnAbilityUse(helper.getLevel(), user, stand, null);
+			LivingComponentAction.getComponent(stand).setAction(action, user, SyncType.NO_SYNC);
+			helper.assertTrue(stand.getCurStandAction() == action, "Fixture: the punch standing for a heavy attack did not"
+					+ " start on the Stand");
+			return action;
 		}
 
 		// a held move started on the Stand and its key released, as StandSkillWallsGameTests drives the charged heavy punch

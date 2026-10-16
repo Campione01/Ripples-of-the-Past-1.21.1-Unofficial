@@ -197,7 +197,7 @@ public class StandEntityHeavyPunchChargedAbility extends StandEntityAbility {
 			Level level = stand.level();
 			boolean assist = StandEntityPunchAbility.aimAssist(stand.getUser());
 			ActionTarget aimed = stand.aimsWithoutUser() || assist
-					? StandEntityPunchAbility.throughWallsTarget(stand, CrosshairRule.ENTITY.keeps(
+					? StandEntityPunchAbility.throughWallsTarget(stand, CrosshairRule.ENTITY.takesFromAim(
 							StandEntityPunchAbility.validatePunchTarget(stand, captureActionTargetFromAim(stand)), assist),
 							CrosshairRule.ENTITY, false)
 					: ActionTarget.EMPTY;

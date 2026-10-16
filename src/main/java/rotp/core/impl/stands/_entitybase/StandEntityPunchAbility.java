@@ -132,6 +132,14 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		return this;
 	}
 
+	/**
+	 * Whether this punch stands for a 1.16 heavy attack (a StandEntityHeavyAttack such as King Crimson's Ground Punch):
+	 * it keeps and takes targets by the heavy punch's {@link CrosshairRule#ENTITY}. An add-on punch overrides it.
+	 */
+	protected boolean heavyAttack() {
+		return false;
+	}
+
 	@Override
 	protected ConditionCheck checkStandEntityConditions(StandPower standPower, StandEntity standEntity) {
 		ConditionCheck check = super.checkStandEntityConditions(standPower, standEntity);
@@ -273,7 +281,8 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 				}
 				double minOffset = Math.min(0.5, stand.getEffectiveRange());
 				double maxOffset = Math.min(2, stand.getMaxRange());
-				ActionTarget target = setActionTargetSnapshot(pressTarget(stand, getActionTargetSnapshot(stand.level())));
+				ActionTarget target = setActionTargetSnapshot(pressTarget(stand, getActionTargetSnapshot(stand.level()),
+						punchRule(ability)));
 				setStandFrontOffsetFromTarget(stand, target, minOffset, maxOffset);
 				keepStandAimedAtTarget(target);
 			}
@@ -562,7 +571,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 				return new ActionTarget(LivingComponentGrab.getEntityGrabbedBy(stand));
 			}
 			ActionTarget target = StandEntityPunchAbility.getFreshPunchTarget(
-					stand, getActionTargetSnapshot(stand.level()), shouldRetainPunchTarget(stand, ability));
+					stand, getActionTargetSnapshot(stand.level()), shouldRetainPunchTarget(stand, ability), punchRule(ability));
 			setActionTargetSnapshot(target);
 			return target;
 		}
@@ -623,7 +632,8 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	 * the heavy punch only such an entity (StandEntityHeavyAttack.standKeepsTarget), the barrage nothing
 	 * (StandEntityMeleeBarrage.checkStandTarget). An entity the attack cannot take is refused as 1.16's press refused it
 	 * (PowerBaseImpl.checkTarget, StandEntity.canAttack). What the attack does not take, 1.16's precision ray decides.
-	 * Without the assist every attack takes what the crosshair meets.
+	 * Without the assist every attack takes what the crosshair meets. What it keeps of its press ({@link #keeps}) does
+	 * not depend on the assist: a heavy punch pressed at a block keeps nothing, and its strike aims again.
 	 */
 	public enum CrosshairRule {
 		BLOCK_OR_ENTITY,
@@ -640,16 +650,32 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			};
 		}
 
-		ActionTarget keeps(ActionTarget target, boolean aimAssist) {
-			return aimAssist && this == ENTITY && target.getType() == TargetType.BLOCK ? ActionTarget.EMPTY : target;
+		/**
+		 * What the attack keeps of the target it was pressed at, as 1.16's task kept it by the attack's class whatever
+		 * the aim: the heavy punch only an entity (StandEntityHeavyAttack.standKeepsTarget), the others what it is.
+		 */
+		ActionTarget keeps(ActionTarget target) {
+			return this == ENTITY && target.getType() == TargetType.BLOCK ? ActionTarget.EMPTY : target;
+		}
+
+		// what a strike takes from a synced aim: with the assist, a block the heavy punch leaves to the precision ray
+		ActionTarget takesFromAim(ActionTarget target, boolean aimAssist) {
+			return aimAssist ? keeps(target) : target;
 		}
 	}
 
 	private static CrosshairRule crosshairRule(EntityActionType ability) {
-		if (ability instanceof StandEntityHeavyPunchAbility || ability instanceof StandEntityHeavyPunchChargedAbility) {
+		if (ability instanceof StandEntityHeavyPunchAbility || ability instanceof StandEntityHeavyPunchChargedAbility
+				|| ability instanceof StandEntityPunchAbility punch && punch.heavyAttack()) {
 			return CrosshairRule.ENTITY;
 		}
 		return isPunchOrBarrage(ability) ? CrosshairRule.BLOCK_OR_ENTITY : CrosshairRule.NONE;
+	}
+
+	// the rule of a punch action (StandEntityPunch), whatever ability started it
+	private static CrosshairRule punchRule(EntityActionType ability) {
+		CrosshairRule rule = crosshairRule(ability);
+		return rule == CrosshairRule.NONE ? CrosshairRule.BLOCK_OR_ENTITY : rule;
 	}
 
 	/**
@@ -710,7 +736,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		LivingEntity user = stand.getUser();
 		boolean assist = aimAssist(user);
 		ActionTarget target = retainPreferredTarget
-				? rule.keeps(validatePunchTarget(stand, preferredTarget), assist) : ActionTarget.EMPTY;
+				? rule.keeps(validatePunchTarget(stand, preferredTarget)) : ActionTarget.EMPTY;
 		if (!target.isEmpty(level)) {
 			return throughWallsTarget(stand, target, rule, true);
 		}
@@ -721,7 +747,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		// takes what the crosshair meets, whatever a client sent.
 		var standAim = !userAims || precisionAim && assist ? LivingComponentAction.getAim(stand) : null;
 		if (standAim != null) {
-			target = rule.keeps(validatePunchTarget(stand, standAim.getTarget()), assist);
+			target = rule.takesFromAim(validatePunchTarget(stand, standAim.getTarget()), assist);
 			if (!target.isEmpty(level)) {
 				return throughWallsTarget(stand, target, rule, true);
 			}
@@ -729,7 +755,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 
 		var userAim = userAims ? LivingComponentAction.getAim(user) : null;
 		if (userAim != null) {
-			target = rule.keeps(validatePunchTarget(stand, userAim.getTarget()), assist);
+			target = rule.takesFromAim(validatePunchTarget(stand, userAim.getTarget()), assist);
 			if (!target.isEmpty(level)) {
 				return throughWallsTarget(stand, target, rule, true);
 			}
@@ -794,8 +820,8 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	 * in for 1.16's precision ray there, or without the aim assist what the crosshair meets; under manual control the
 	 * Stand's aim. 1.16 refused a pressed entity the Stand cannot attack (PowerBaseImpl.checkTarget,
 	 * StandEntityAction.checkStandTarget, StandEntity.canAttack) and, with the {@link CrosshairRule#ENTITY} rule, a
-	 * pressed block: the task had no target, so the Stand did not turn to it, and the attack aimed again when it struck.
-	 * A client keeps what its server sent.
+	 * pressed block, with or without the aim assist: the task had no target, so the Stand did not turn to it, and the
+	 * attack aimed again when it struck. A client keeps what its server sent.
 	 */
 	public static ActionTarget pressTarget(StandEntity stand, ActionTarget sentByServer, CrosshairRule rule) {
 		Level level = stand.level();
@@ -810,21 +836,21 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			ActionTarget crosshair = userAim.getTarget().resolveEntityId(level);
 			// clientHitResult took a vanilla pick of the Stand itself for a miss
 			if (!crosshair.isEmpty(level) && crosshair.getEntity() != stand) {
-				return pressedTarget(stand, crosshair, rule, assist);
+				return pressedTarget(stand, crosshair, rule);
 			}
 		}
 		if (userAims && !assist) {
-			return userAimTarget(stand, user, 1.0F, entity -> entity != stand && canStandHit(stand, entity));
+			return rule.keeps(userAimTarget(stand, user, 1.0F, entity -> entity != stand && canStandHit(stand, entity)));
 		}
 		var standAim = LivingComponentAction.getAim(stand);
 		return standAim != null
-				? pressedTarget(stand, standAim.getTarget().resolveEntityId(level), rule, assist) : ActionTarget.EMPTY;
+				? pressedTarget(stand, standAim.getTarget().resolveEntityId(level), rule) : ActionTarget.EMPTY;
 	}
 
-	private static ActionTarget pressedTarget(StandEntity stand, ActionTarget target, CrosshairRule rule, boolean assist) {
+	private static ActionTarget pressedTarget(StandEntity stand, ActionTarget target, CrosshairRule rule) {
 		return switch (target.getType()) {
 			case ENTITY -> target.getEntity() != null && canStandHit(stand, target.getEntity()) ? target : ActionTarget.EMPTY;
-			case BLOCK -> throughWallsTarget(stand, rule.keeps(target, assist), rule, true);
+			case BLOCK -> throughWallsTarget(stand, rule.keeps(target), rule, true);
 			default -> ActionTarget.EMPTY;
 		};
 	}
