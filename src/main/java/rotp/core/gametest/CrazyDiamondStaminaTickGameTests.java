@@ -7,6 +7,7 @@ import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.impl.stands.crazydiamond.CrazyDBlockBulletEntity;
+import rotp.core.impl.stands.crazydiamond.CrazyDHealAbility;
 import rotp.core.impl.stands.crazydiamond.CrazyDHealAbility.HealingAction;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.powersystem.PowerClass;
@@ -226,8 +227,80 @@ public final class CrazyDiamondStaminaTickGameTests {
 			helper.assertTrue(!user.getOffhandItem().is(Items.ENCHANTED_BOOK) && user.getInventory().contains(new ItemStack(Items.BOOK)),
 					"1.16 Revert turned to the off-hand item once its target was dropped: off hand " + user.getOffhandItem()
 							+ ", book given " + user.getInventory().contains(new ItemStack(Items.BOOK)));
+			helper.assertTrue(revert.getPhase() == ActionPhase.PERFORM,
+					"1.16 kept the held Revert running after the one conversion: phase " + revert.getPhase());
 			creeper.discard();
 		});
+	}
+
+	/*
+	 * 1.16 CrazyDiamondPreviousState.standTickPerform default branch (no entity target), run on every perform tick of the
+	 * held task: repairTick, then on each item transformation tick the off-hand item converted by one recipe, the recipe's
+	 * result count taken from the stack. The hold is paid 0.2 a tick and ends only on release; an empty or unconvertible
+	 * off hand converts nothing and stops nothing.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 200)
+	public static void heldRevertWithoutATargetConvertsTheOffHandOnEachTransformationTickAndPaysUntilRelease(GameTestHelper helper) {
+		scene(helper, (user, power, stand, standAction) -> {
+			user.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.OAK_PLANKS, 64));
+			power.setStamina(power.getMaxStamina());
+			EntityActionInstance revert = start(helper, user, power, stand, standAction, "revert_state", true);
+			int period = (int) (10 / CrazyDHealAbility.crazyDRestorationSpeed(stand));
+			helper.assertTrue(period >= 1, "setup: transformation period " + period);
+
+			int conversions = 0;
+			for (int tick = 0; tick < 3 * period; tick++) {
+				int before = user.getOffhandItem().getCount();
+				setBooked(power, 0.0F);
+				standAction.tick();
+				helper.assertTrue(revert.getPhase() == ActionPhase.PERFORM && near(booked(power), -0.2F),
+						"1.16 held Revert paid 0.2 on each perform tick and kept running: tick " + tick + ", phase "
+								+ revert.getPhase() + ", booked " + booked(power) + "; " + describe(revert, helper));
+				int taken = before - user.getOffhandItem().getCount();
+				helper.assertTrue(taken == 0 || taken == 4, "1.16 took the recipe's result count (4 planks) per conversion: tick "
+						+ tick + " took " + taken);
+				if (taken == 4) {
+					conversions++;
+				}
+			}
+			helper.assertTrue(conversions == 3 && user.getOffhandItem().getCount() == 64 - 12,
+					"1.16 converted the off hand on each transformation tick, once per " + period + " ticks: 3 conversions in "
+							+ 3 * period + " ticks, got " + conversions + ", off hand " + user.getOffhandItem());
+			helper.assertTrue(logsInInventory(user) == 3,
+					"1.16 gave the recipe's ingredient for each conversion: logs " + logsInInventory(user));
+
+			// an off hand with nothing convertible, then an empty one: nothing converts, nothing stops, every tick is paid
+			for (ItemStack unconvertible : new ItemStack[] { new ItemStack(Items.DIRT, 5), ItemStack.EMPTY }) {
+				user.setItemInHand(InteractionHand.OFF_HAND, unconvertible.copy());
+				for (int tick = 0; tick < 2 * period; tick++) {
+					setBooked(power, 0.0F);
+					standAction.tick();
+					helper.assertTrue(revert.getPhase() == ActionPhase.PERFORM && near(booked(power), -0.2F),
+							"1.16 held Revert with " + unconvertible + " in the off hand went on and paid 0.2: tick " + tick
+									+ ", phase " + revert.getPhase() + ", booked " + booked(power));
+				}
+				helper.assertTrue(ItemStack.matches(user.getOffhandItem(), unconvertible),
+						"1.16 converted nothing from " + unconvertible + ": off hand " + user.getOffhandItem());
+			}
+
+			// and it converts again once a convertible item is back in the hand
+			user.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.OAK_PLANKS, 8));
+			for (int tick = 0; tick < period; tick++) {
+				standAction.tick();
+			}
+			helper.assertTrue(user.getOffhandItem().getCount() == 4 && revert.getPhase() == ActionPhase.PERFORM,
+					"1.16 held Revert converted a convertible item put in the off hand later: off hand " + user.getOffhandItem()
+							+ ", phase " + revert.getPhase());
+
+			revert.onButtonStopHold();
+			helper.assertTrue(revert.getPhase() == ActionPhase.RECOVERY || revert.isOver(),
+					"the release of the key ends the hold: phase " + revert.getPhase());
+		});
+	}
+
+	private static int logsInInventory(Player user) {
+		return user.getInventory().countItem(Items.OAK_LOG) + user.getInventory().countItem(Items.OAK_WOOD)
+				+ user.getInventory().countItem(Items.STRIPPED_OAK_LOG) + user.getInventory().countItem(Items.STRIPPED_OAK_WOOD);
 	}
 
 	private static void assertNoHealTick(GameTestHelper helper, EntityActionInstance heal, StandPower power,

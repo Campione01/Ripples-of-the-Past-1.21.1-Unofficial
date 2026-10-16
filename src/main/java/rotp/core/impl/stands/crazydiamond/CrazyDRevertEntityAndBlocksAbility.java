@@ -30,6 +30,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.animal.IronGolem;
 import net.minecraft.world.entity.animal.SnowGolem;
 import net.minecraft.world.entity.boss.wither.WitherBoss;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.item.PrimedTnt;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.monster.Creeper;
@@ -211,15 +212,13 @@ public class CrazyDRevertEntityAndBlocksAbility extends StandEntityAbility {
 					aimAs = AimingEntity.CAMERA_ENTITY;
 					return;
 				}
+				// 1.16 CrazyDiamondPreviousState.standTickPerform default branch: the hold runs until the key is
+				// released, an empty or unconvertible off hand only converts nothing, and every tick is paid
 				ItemStack heldItem = user.getOffhandItem();
-				if (heldItem.isEmpty() || CrazyDPreviousStateItemConversion.convertTo(heldItem, level, null, performer.getRandom(), false).isEmpty()) {
-					startRecovery();
-					return;
-				}
 				int tick = curPhaseTick;
 				boolean transformTick = CrazyDRepairItemAbility.isItemTransformationTick(tick, stand);
 				CrazyDRepairItemAbility.ItemRepairResult repairProgress = CrazyDRepairItemAbility.repairTick(user, stand, heldItem, tick);
-				if (!repairProgress.isRepairing && transformTick) {
+				if (!repairProgress.isRepairing && transformTick && user instanceof Player) {
 					CrazyDPreviousStateItemConversion.convertTo(heldItem, level, null, performer.getRandom(), true).ifPresent(itemsAndCount -> {
 						boolean gaveIngredients = false;
 						for (ItemStack ingredient : itemsAndCount.getFirst()) {
@@ -232,7 +231,6 @@ public class CrazyDRevertEntityAndBlocksAbility extends StandEntityAbility {
 							heldItem.shrink(itemsAndCount.getSecond());
 						}
 					});
-					startRecovery();
 				}
 			}
 			if (stand != null && !hasActiveTarget) {
