@@ -166,11 +166,8 @@ public class StandEntityHeavyPunchChargedAbility extends StandEntityAbility {
 				if (!level.isClientSide()) {
 					StandPower standPower = StandPower.get(getPowerUser());
 
-					if (StandEntityPunchAbility.playHitSound(target, level)) {
-						StandUtil.broadcastSound((ServerLevel) level, target.getCenterPos(),
-								ModSoundEvents.STAND_PUNCH_HEAVY_CHARGED, true, standPower,
-								stand.getSoundSource(), 1, 1);
-					}
+					// judged before the hit and played after it, as the heavy punch does (1.16 StandEntity.attackTarget)
+					Vec3 impactSoundPos = StandEntityPunchAbility.playHitSound(target, level) ? target.getCenterPos() : null;
 					DamageSource dmgSource = makePunchDamageSource();
 					float dmgAmount = StandStatFormulas.getChargedHeavyAttackDamage(stand.getAttackDamage());
 					float explRadius = Math.min((float) stand.getAttackDamage() * 0.25F, 10);
@@ -179,6 +176,11 @@ public class StandEntityHeavyPunchChargedAbility extends StandEntityAbility {
 					case ENTITY -> hitEntity(target, level, stand, dmgSource, dmgAmount);
 					case BLOCK -> hitBlock(target, level, stand, dmgSource, dmgAmount, explRadius);
 					default -> {}
+					}
+					if (impactSoundPos != null) {
+						StandUtil.broadcastSound((ServerLevel) level, impactSoundPos,
+								ModSoundEvents.STAND_PUNCH_HEAVY_CHARGED, true, standPower,
+								stand.getSoundSource(), 1, 1);
 					}
 
 					punchedTarget = target;
