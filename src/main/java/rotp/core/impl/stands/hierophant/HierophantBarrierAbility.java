@@ -230,7 +230,12 @@ public class HierophantBarrierAbility extends NoPoseStandEntityAbility {
 				startRecovery();
 				return;
 			}
-			standRotationTarget = target;
+			// 1.16 standPerform worked on task.getTarget(), and only the task's target turned the Stand: not a block the
+			// task dropped since
+			ActionTarget held = getTaskTarget(level);
+			if (held.getType() != TargetType.EMPTY) {
+				standRotationTarget = held;
+			}
 			hierophant.attachBarrier(target.getBlockPos());
 		}
 

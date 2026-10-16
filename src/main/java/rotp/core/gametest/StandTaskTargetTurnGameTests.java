@@ -7,7 +7,9 @@ import javax.annotation.Nullable;
 import rotp.core.core.JojoMod;
 import rotp.core.gametest.StandTaskTargetOffsetGameTests.Scene;
 import rotp.core.impl.stands.crazydiamond.CrazyDHealAbility.HealingAction;
+import rotp.core.impl.stands.hierophant.HGBarrierEntity;
 import rotp.core.impl.stands.hierophant.HGStringEntity;
+import rotp.core.impl.stands.hierophant.HierophantGreenEntity;
 import rotp.core.impl.stands.hierophant.HierophantStringAttackAbility.StringAttackShot;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
@@ -161,6 +163,58 @@ public final class StandTaskTargetTurnGameTests {
 					+ " cow past its range, dropped the near cow it took over along its user's look south (the action turns it to "
 					+ next.standRotationTarget + ")");
 		});
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 HierophantGreenBarrier.standPerform worked on task.getTarget(), and only the task's target turned the Stand
+	 * (StandEntityTask.rotateStand): a Barrier pressed at a block 3 blocks east of its user faces it on the tick it places
+	 * its barrier while its task holds the block, and looks along its user's look once its task dropped it (server code's
+	 * StandEntity.setTaskTarget(null)); the port still places that barrier.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void barrierTurnsTheStandOnlyToTheBlockItsTaskHoldsAsItPlacesItsBarrierAsIn116(GameTestHelper helper) {
+		for (boolean dropped : new boolean[] { false, true }) {
+			StandTaskTargetOffsetGameTests.withStand(helper, "hierophant_green", scene -> {
+				BlockPos block = BlockPos.containing(scene.user().getEyePosition().add(COW_FROM_USER));
+				try {
+					helper.getLevel().setBlockAndUpdate(block, Blocks.STONE.defaultBlockState());
+					LivingComponentAction.getComponent(scene.user()).entityAim.setTarget(new ActionTarget(block, Direction.WEST));
+					EntityActionInstance barrier = scene.set("barrier");
+					helper.assertTrue(block.equals(barrier.getTaskTarget(helper.getLevel()).getBlockPos()),
+							"setup: the Barrier holds " + barrier.getTaskTarget(helper.getLevel()) + ", not the block");
+					if (dropped) {
+						scene.stand().setTaskTarget(null);
+						helper.assertTrue(barrier.getTaskTarget(helper.getLevel()).getType() == ActionTarget.TargetType.EMPTY,
+								"setup: the Barrier still holds " + barrier.getTaskTarget(helper.getLevel()));
+					}
+					StandTaskTargetOffsetGameTests.turn(scene.user(), VIEW_YAW, VIEW_YAW);
+					// the action's own tick, before its Stand clears it, as StandEntity.tick turns the Stand by it
+					barrier._tickAction();
+					scene.spawned().addAll(helper.getLevel().getEntitiesOfClass(HGBarrierEntity.class,
+							scene.user().getBoundingBox().inflate(16.0D)));
+					helper.assertTrue(scene.stand() instanceof HierophantGreenEntity hierophant && hierophant.hasBarrierAttached()
+							&& scene.stand().getCurStandAction() == barrier, "setup: the Barrier placed no barrier on its perform");
+					scene.stand().updatePosition(scene.user());
+					if (dropped) {
+						assertLooksAlongItsUser(helper, scene, "1.16 turned a following hierophant_green whose Barrier's task had"
+								+ " dropped the block before it placed its barrier along its user's look south (the action turns"
+								+ " it to " + barrier.standRotationTarget + ")");
+					}
+					else {
+						Vec3 toBlock = Vec3.atCenterOf(block).subtract(scene.stand().getEyePosition()).normalize();
+						Vec3 look = scene.stand().getLookAngle();
+						helper.assertTrue(look.dot(toBlock) > 0.9999D, "1.16 turned a following hierophant_green whose Barrier"
+								+ " held the block east of its user to it as it placed its barrier: it looks along " + look
+								+ " instead of " + toBlock);
+					}
+				}
+				finally {
+					LivingComponentAction.getComponent(scene.stand()).setAction(null, scene.user(), SyncType.NO_SYNC);
+					helper.getLevel().setBlockAndUpdate(block, Blocks.AIR.defaultBlockState());
+				}
+			});
+		}
 		helper.succeed();
 	}
 
