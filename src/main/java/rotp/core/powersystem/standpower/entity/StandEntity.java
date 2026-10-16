@@ -13,6 +13,7 @@ import javax.annotation.Nullable;
 
 import rotp.core.JojoModLivingVariables;
 import rotp.core.JojoModConfig;
+import rotp.core.api.stand.StandDefaultRotationRules;
 import rotp.core.api.stand.StandManualMovementObservers;
 import rotp.core.api.stand.StandManualMovementObservers.LogicalSide;
 import rotp.core.api.stand.StandManualMovementObservers.MovePath;
@@ -579,7 +580,10 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 					pos = collideNextPos(pos);
 				}
 				setPos(pos.x, pos.y, pos.z);
-				copyStandUserRotation(user);
+				// 1.16 StandEntity.defaultRotation, which an add-on could replace for a user that is not a player
+				if (user instanceof Player || !StandDefaultRotationRules.rotate(this, user)) {
+					copyStandUserRotation(user);
+				}
 				EntityActionInstance curAction = standAction.getAction();
 				if (curAction != null) {
 					curAction.applyStandUserRotation(this, user);
