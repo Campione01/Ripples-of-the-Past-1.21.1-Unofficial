@@ -7,7 +7,10 @@ import rotp.core.core.JojoMod;
 import rotp.core.customobjects.entity_projectile.ModdedProjectileEntity;
 import rotp.core.impl.stands.crazydiamond.CrazyDBlockBulletEntity;
 import rotp.core.impl.stands.crazydiamond.CrazyDBloodCutterEntity;
+import rotp.core.impl.stands.hierophant.HGBarrierEntity;
+import rotp.core.impl.stands.hierophant.HGBarriersNet;
 import rotp.core.impl.stands.hierophant.HGEmeraldEntity;
+import rotp.core.impl.stands.hierophant.HierophantGreenEntity;
 import rotp.core.impl.stands.magiciansred.MRFireballEntity;
 import rotp.core.impl.stands.silverchariot.SCRapierEntity;
 import rotp.core.init.ModEntityAttributes;
@@ -16,6 +19,7 @@ import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.entity.StandStatFormulas;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.InteractionHand;
@@ -103,9 +107,7 @@ public final class StandShotSpreadGameTests {
 					}
 				}
 				helper.assertTrue(!shotsMade.isEmpty(), "setup: the " + skill + " of a " + shot[0] + " shot nothing");
-				// the most the noise turns the unit direction, all three axes at their bound
-				double noise = SPREAD_PER_AXIS * spread * Math.sqrt(3.0D);
-				double maxOff = noise / (1.0D - noise) + 1.0E-6D;
+				double maxOff = maxOffAim(spread);
 				for (int i = 0; i < shotsMade.size(); i++) {
 					ModdedProjectileEntity projectile = shotsMade.get(i);
 					Vec3 along = aims.get(i).normalize();
@@ -120,5 +122,66 @@ public final class StandShotSpreadGameTests {
 			});
 		}
 		helper.succeed();
+	}
+
+	/*
+	 * 1.16 HGBarriersNet.shootEmerald shot the emerald of each barrier at the net's target with getProjectileInaccuracy(2):
+	 * a spread of 0.2 at a precision of 20, where the port's own curve gave none, and none from 24 up. A barrier strung
+	 * between two blocks 8 apart above its user shoots at a point 8 blocks ahead.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void barrierEmeraldsSpreadByTheStandsPrecisionAsIn116(GameTestHelper helper) {
+		double[][] rows = { { 20.0D, 0.2D }, { 24.0D, 0.0D } };
+		for (double[] row : rows) {
+			double precision = row[0];
+			double spread = row[1];
+			StandTaskTargetOffsetGameTests.withStand(helper, "hierophant_green", scene -> {
+				scene.user().getAttribute(ModEntityAttributes.STAND_PRECISION).setBaseValue(precision);
+				StandEntity.updateStandStatAttributes(scene.stand(), scene.user());
+				scene.stand().getAttribute(ModEntityAttributes.STAND_PRECISION).setBaseValue(precision);
+				scene.power().setStamina(scene.power().getMaxStamina());
+				HierophantGreenEntity hierophant = (HierophantGreenEntity) scene.stand();
+				BlockPos above = BlockPos.containing(scene.user().position()).above(4);
+				hierophant.attachBarrier(above.west(4));
+				hierophant.attachBarrier(above.east(4));
+				scene.spawned().addAll(helper.getLevel().getEntitiesOfClass(HGBarrierEntity.class,
+						scene.user().getBoundingBox().inflate(16.0D)));
+				HGBarriersNet net = hierophant.getBarriersNet();
+				helper.assertTrue(net.getSize() == 1 && Math.abs(hierophant.getPrecision() - precision) < 1.0E-9D,
+						"setup: the hierophant_green placed " + net.getSize() + " barriers at a precision of "
+								+ hierophant.getPrecision() + ", not one at " + precision);
+				Vec3 target = scene.user().position().add(0.0D, 1.0D, 8.0D);
+				List<HGEmeraldEntity> emeralds = new ArrayList<>();
+				for (int shot = 0; shot < 4; shot++) {
+					net.tick();
+					net.shootEmeraldsFromBarriers(scene.power(), hierophant, target, 1, 1.0D, 0.0F, 8.0D, false);
+					for (HGEmeraldEntity emerald : helper.getLevel().getEntitiesOfClass(HGEmeraldEntity.class,
+							scene.user().getBoundingBox().inflate(16.0D))) {
+						if (!emeralds.contains(emerald)) {
+							emeralds.add(emerald);
+							scene.spawned().add(emerald);
+						}
+					}
+				}
+				helper.assertTrue(emeralds.size() == 4, "setup: the barrier shot " + emeralds.size() + " emeralds in 4 shots");
+				double maxOff = maxOffAim(spread);
+				for (HGEmeraldEntity emerald : emeralds) {
+					Vec3 along = target.subtract(emerald.position()).normalize();
+					Vec3 flies = emerald.getDeltaMovement().normalize();
+					double off = flies.cross(along).length();
+					boolean asIn116 = spread == 0 ? off < 1.0E-6D : off > 1.0E-6D && off <= maxOff;
+					helper.assertTrue(asIn116, "1.16 spread the emeralds of a hierophant_green's barrier at a precision of "
+							+ precision + " by " + spread + " (getProjectileInaccuracy(2)); one flies " + off + " off its aim "
+							+ along + " (at most " + maxOff + " for that spread)");
+				}
+			});
+		}
+		helper.succeed();
+	}
+
+	// the sine of the most the noise turns the unit direction of a shot by that spread, all three axes at their bound
+	private static double maxOffAim(double spread) {
+		double noise = SPREAD_PER_AXIS * spread * Math.sqrt(3.0D);
+		return noise / (1.0D - noise) + 1.0E-6D;
 	}
 }
