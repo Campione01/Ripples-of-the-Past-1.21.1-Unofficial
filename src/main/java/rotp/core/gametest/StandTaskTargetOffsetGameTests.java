@@ -13,6 +13,7 @@ import rotp.core.config.client.PlayerClientBroadcastedSettings;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.impl.stands.hierophant.HierophantStringAttackAbility.StringAttackShot;
+import rotp.core.impl.stands.silverchariot.SCRapierEntity;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModEntityAttributes;
 import rotp.core.powersystem.PowerClass;
@@ -417,6 +418,38 @@ public final class StandTaskTargetOffsetGameTests {
 						+ " starting its " + shot[1] + ", its user looking west with its body turned 50 degrees away (the view yaw)");
 			});
 		}
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 SilverChariotRapierLaunch.standPerform set the rapier at its following user's eyes and shot it with
+	 * standEntity.shootProjectile, along the Stand's own rotation, which StandEntityTask.rotateStand had turned to the
+	 * task's target before the task ticked: pressed at a cow east of its user who looks south, the rapier flies east
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void rapierLaunchShootsFromTheUsersEyesAlongTheStandsTurnToItsTargetAsIn116(GameTestHelper helper) {
+		withStand(helper, "silver_chariot", scene -> {
+			Cow cow = scene.cow(COW_FROM_USER);
+			standAims(scene.stand, cow);
+			EntityActionInstance launch = scene.start("rapier_launch", ActionPhase.PERFORM);
+			helper.assertTrue(launch.standRotationTarget != null && launch.standRotationTarget.getEntity() == cow,
+					"setup: the Rapier Launch turns the Stand to " + launch.standRotationTarget + ", not the cow");
+			// StandEntity.tick turns a following Stand to its action's target before the action ticks
+			scene.stand.updatePosition(scene.user);
+			Vec3 eyes = scene.user.getEyePosition();
+			LivingComponentAction.getComponent(scene.stand).tick();
+			List<SCRapierEntity> rapiers = helper.getLevel().getEntitiesOfClass(SCRapierEntity.class,
+					scene.user.getBoundingBox().inflate(6.0D));
+			scene.spawned().addAll(rapiers);
+			helper.assertTrue(rapiers.size() == 1, "setup: the Rapier Launch shot " + rapiers.size() + " rapiers");
+			SCRapierEntity rapier = rapiers.get(0);
+			Vec3 flies = rapier.getDeltaMovement().normalize();
+			Vec3 standToCow = cow.getEyePosition().subtract(scene.stand.getEyePosition()).normalize();
+			helper.assertTrue(rapier.position().distanceTo(eyes) < EPS && flies.dot(standToCow) > 0.9999D,
+					"1.16 shot the rapier of a silver_chariot pressed at a cow 3 blocks east of its user who looks south from"
+							+ " the user's eyes " + eyes + " along the Stand's turn to the cow " + standToCow + "; it starts at "
+							+ rapier.position() + " and flies along " + flies);
+		});
 		helper.succeed();
 	}
 
