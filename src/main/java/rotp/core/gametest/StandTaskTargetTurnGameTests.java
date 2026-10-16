@@ -1,11 +1,15 @@
 package rotp.core.gametest;
 
+import java.lang.reflect.Method;
 import java.util.List;
 
 import javax.annotation.Nullable;
 
+import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
+import rotp.core.core.JojoRegistries;
 import rotp.core.gametest.StandTaskTargetOffsetGameTests.Scene;
+import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility;
 import rotp.core.impl.stands.crazydiamond.CrazyDHealAbility.HealingAction;
 import rotp.core.impl.stands.hierophant.HGBarrierEntity;
 import rotp.core.impl.stands.hierophant.HGStringEntity;
@@ -21,11 +25,15 @@ import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.netcode.SyncType;
 import rotp.core.powersystem.entityaction.netcode.TrEntityActionTargetPacket;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
+import rotp.core.powersystem.standpower.StandInstance;
+import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.entity.StandEntityAbility;
+import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.AimingEntity;
 
+import net.minecraft.commands.arguments.EntityAnchorArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
@@ -33,8 +41,11 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.item.PrimedTnt;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.gametest.GameTestHolder;
@@ -502,6 +513,113 @@ public final class StandTaskTargetTurnGameTests {
 			});
 		}
 		helper.succeed();
+	}
+
+	/*
+	 * 1.16 StandEntityMeleeBarrage.checkStandTarget: a barrage's task kept an entity only while it was the Stand's barrage
+	 * clash opponent, whether the barrage was pressed at it (makeServerSideTask) or a hit met it (StandEntity.punch gave the
+	 * task each hit's target first); pressed at the opposing Stand before the clash, the task held nothing. The Stand then
+	 * faced it and stood in front toward it (StandEntity.taskOffset) wherever its user looked, until the clash ended and
+	 * StandEntityTask.tick dropped it.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aBarrageKeepsItsBarrageClashOpponentAsItsTaskTargetAsIn116(GameTestHelper helper) {
+		for (boolean pressedInClash : new boolean[] { true, false }) {
+			StandTaskTargetOffsetGameTests.withStand(helper, "star_platinum", scene -> {
+				StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("star_platinum"));
+				Player rival = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
+				StandPower rivalPower = null;
+				LivingComponentAction actions = LivingComponentAction.getComponent(scene.stand());
+				try {
+					Vec3 rivalPos = scene.user().position().add(0.0D, 0.0D, 4.0D);
+					rival.setNoGravity(true);
+					rival.getAttribute(Attributes.MAX_HEALTH).setBaseValue(500.0D);
+					rival.setHealth(500.0F);
+					rival.moveTo(rivalPos.x, rivalPos.y, rivalPos.z, 180.0F, 0.0F);
+					helper.assertTrue(helper.getLevel().addFreshEntity(rival), "Could not add the rival Stand user");
+					rivalPower = PowerClass.STAND.attachGet(rival);
+					helper.assertTrue(StandPowerTransitions.insert(rivalPower, new StandInstance(type)).status()
+							== StandPowerTransitions.Status.APPLIED && type.summon(rival, rivalPower),
+							"Could not give the rival Star Platinum");
+					StandEntity opponent = rivalPower.getSummonedStandEntity();
+					Vec3 opponentPos = scene.user().position().add(0.0D, 0.0D, 2.0D);
+					opponent.setNoGravity(true);
+					opponent.moveTo(opponentPos.x, opponentPos.y, opponentPos.z, 180.0F, 0.0F);
+					scene.user().lookAt(EntityAnchorArgument.Anchor.EYES, opponent.getBoundingBox().getCenter());
+					LivingComponentAction.getComponent(scene.user()).entityAim.setTarget(new ActionTarget(opponent));
+					if (pressedInClash) {
+						startBarrageClash(helper, scene.stand(), opponent);
+					}
+					EntityActionInstance barrage = scene.set("barrage");
+					helper.assertTrue(StandEntityBarrageAbility.clipDirectionalBarrageTarget(scene.stand(), barrage, 1.0F)
+							.getMainEntity() == opponent, "setup: the barrage does not aim at the opposing Stand its user looks at");
+					String how;
+					if (pressedInClash) {
+						how = "pressed at its clash opponent";
+					}
+					else {
+						helper.assertTrue(barrage.getTaskTarget(helper.getLevel()).getType() == ActionTarget.TargetType.EMPTY,
+								"1.16 StandEntityMeleeBarrage.checkStandTarget refused a barrage pressed at an opposing Stand before"
+										+ " their barrage clash; its task holds " + barrage.getTaskTarget(helper.getLevel()));
+						startBarrageClash(helper, scene.stand(), opponent);
+						for (int tick = 0; tick < 10 && (barrage.punchedTarget == null
+								|| barrage.punchedTarget.getMainEntity() != opponent); tick++) {
+							scene.stand().tickCount++;
+							actions.tick();
+						}
+						helper.assertTrue(barrage.punchedTarget != null && barrage.punchedTarget.getMainEntity() == opponent,
+								"setup: no hit of the barrage met the opposing Stand: " + barrage.punchedTarget);
+						how = "whose hit met its clash opponent";
+					}
+					helper.assertTrue(barrage.getTaskTarget(helper.getLevel()).getEntity() == opponent, "1.16 kept the"
+							+ " barrage clash opponent of a star_platinum's barrage " + how + " as its task's target; it holds "
+							+ barrage.getTaskTarget(helper.getLevel()));
+
+					StandTaskTargetOffsetGameTests.turn(scene.user(), -90.0F, -90.0F);
+					scene.stand().updatePosition(scene.user());
+					Vec3 toEyes = opponent.getEyePosition().subtract(scene.stand().getEyePosition()).normalize();
+					helper.assertTrue(scene.stand().getLookAngle().dot(toEyes) > 0.9999D, "1.16 turned a star_platinum whose"
+							+ " barrage held its clash opponent to it while its user looks east: it looks along "
+							+ scene.stand().getLookAngle() + " instead of " + toEyes);
+					Vec3 placed = scene.stand().position().subtract(scene.user().position()).multiply(1.0D, 0.0D, 1.0D);
+					Vec3 toOpponent = opponent.position().subtract(scene.user().position()).multiply(1.0D, 0.0D, 1.0D);
+					helper.assertTrue(placed.lengthSqr() > 0.01D && placed.normalize().dot(toOpponent.normalize()) > 0.999D,
+							"1.16 put a star_platinum whose barrage held its clash opponent in front toward it while its user"
+									+ " looks east (StandEntity.taskOffset): it is at its user's feet + " + placed);
+
+					scene.stand().barrageClashStopped();
+					scene.stand().tickCount++;
+					actions.tick();
+					helper.assertTrue(barrage.getTaskTarget(helper.getLevel()).getType() == ActionTarget.TargetType.EMPTY,
+							"1.16 dropped the opposing Stand from a barrage's task once their barrage clash ended; it holds "
+									+ barrage.getTaskTarget(helper.getLevel()));
+				}
+				finally {
+					actions.setAction(null, scene.user(), SyncType.NO_SYNC);
+					scene.stand().barrageClashStopped();
+					if (rivalPower != null && rivalPower.isSummoned()) {
+						type.forceUnsummon(rival, rivalPower);
+					}
+					rival.discard();
+				}
+			});
+		}
+		helper.succeed();
+	}
+
+	// as when each Stand has parried the other's barrage (StandEntity.barrageClashParryPunches)
+	private static void startBarrageClash(GameTestHelper helper, StandEntity stand, StandEntity opponent) {
+		try {
+			Method clash = StandEntity.class.getDeclaredMethod("setBarrageClashOpponent", Entity.class);
+			clash.setAccessible(true);
+			clash.invoke(stand, opponent);
+			clash.invoke(opponent, stand);
+		}
+		catch (ReflectiveOperationException e) {
+			throw new IllegalStateException("setup: could not start the barrage clash", e);
+		}
+		helper.assertTrue(stand.barrageClashOpponent().orElse(null) == opponent
+				&& opponent.barrageClashOpponent().orElse(null) == stand, "setup: the two Stands are not in a barrage clash");
 	}
 
 	// an action that gives the Stand its user's yaw after the task's turn, as 1.16 StunComboAttack.moveStandForward did
