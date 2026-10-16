@@ -2375,6 +2375,8 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		setBarrageClashOpponent(null);
 	}
 
+	// 1.16: the other Stand points back only through the previous opponent, so from this Stand's second parry of it, or
+	// once it parries in turn
 	private void setBarrageClashOpponent(@Nullable Entity opponent) {
 		Entity prevOpponent = barrageClashOpponent().orElse(null);
 		barrageClashOpponent = Optional.ofNullable(opponent);
@@ -2382,7 +2384,7 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 			entityData.set(BARRAGE_CLASH_OPPONENT_ID, opponent != null ? opponent.getId() : -1);
 		}
 
-		if (prevOpponent instanceof StandEntity prevStandOpponent && prevOpponent != opponent) {
+		if (prevOpponent instanceof StandEntity prevStandOpponent) {
 			if (opponent == null) {
 				if (prevStandOpponent.barrageClashOpponent().orElse(null) == this) {
 					prevStandOpponent.setBarrageClashOpponent(null);
@@ -2391,10 +2393,6 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 			else if (prevStandOpponent.barrageClashOpponent().orElse(null) != this) {
 				prevStandOpponent.setBarrageClashOpponent(this);
 			}
-		}
-		if (opponent instanceof StandEntity standOpponent
-				&& standOpponent.barrageClashOpponent().orElse(null) != this) {
-			standOpponent.setBarrageClashOpponent(this);
 		}
 	}
 

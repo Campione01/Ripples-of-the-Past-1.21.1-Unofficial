@@ -8,8 +8,11 @@ import rotp.core.client.standskin.StandSkin;
 import rotp.core.client.ui.utils.GuiIcon;
 import rotp.core.config.client.ClientModSettings;
 import rotp.core.core.JojoMod;
+import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 import rotp.core.powersystem.PowerClass;
+import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.standpower.StandPower;
+import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.subsystems.target.ActionTarget;
 import com.mojang.blaze3d.vertex.PoseStack;
 
@@ -32,9 +35,14 @@ public class StandAimMarker extends MarkerRenderer {
 		return standPower != null && standPower.getSummonedStandEntity() != null;
 	}
 
+	// while a punch winds up and strikes, the target it keeps; otherwise the aim the client syncs as its Stand's
 	@Override
 	protected void updatePositions(List<MarkerInstance> list, float partialTick) {
-		ActionTarget target = ClientsideAim.standAim.getTarget();
+		StandPower standPower = ClientPowerCache.getPower(PowerClass.STAND);
+		StandEntity stand = standPower != null ? standPower.getSummonedStandEntity() : null;
+		ActionTarget kept = stand != null
+				? StandEntityPunchAbility.keptStrikeTarget(stand, LivingComponentAction.getCurEntityAction(stand)) : null;
+		ActionTarget target = kept != null ? kept : ClientsideAim.standAim.getTarget();
 		switch (target.getType()) {
 			case BLOCK -> list.add(new MarkerInstance(Vec3.atCenterOf(target.getBlockPos())));
 			case ENTITY -> {

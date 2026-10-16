@@ -201,9 +201,9 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 
 	/**
 	 * Where the barrage places its Stand from: 1.16 StandEntityMeleeBarrage.getOffsetFromUser took front3dOffset of the
-	 * task target, which for the default barrage stayed empty but for a barrage-clash opponent a hit had met, so the Stand
-	 * stood along its user's look (StandEntityAction.front3dOffset) whatever each hit aimed at; a locked barrage places
-	 * from its target.
+	 * task target, which for the default barrage stayed empty but for a barrage-clash opponent a hit had met during the
+	 * clash, so the Stand stood along its user's look (StandEntityAction.front3dOffset) whatever each hit aimed at; a
+	 * locked barrage places from its target.
 	 */
 	static ActionTarget placementTarget(StandEntity stand, EntityActionInstance action, ActionTarget target, boolean directional) {
 		if (!directional) {
@@ -215,20 +215,14 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 
 	/**
 	 * The barrage-clash opponent the default barrage stays on. 1.16 StandEntityMeleeBarrage.checkStandTarget let only the
-	 * clash opponent become the task target, and only when a hit's aim met it (StandEntity.punch: setTaskTarget of what
-	 * aimWithThisOrUser found); aimWithThisOrUser then kept it while the Stand could reach it. So it is held once the
-	 * barrage's last hit met it, while it is alive and within the Stand's reach. Clients decide it from the entity the
-	 * last hit met, which the server sends with the action (1.16 sent the task target, TrStandTaskTargetPacket).
+	 * clash opponent become the task target, and only when a hit's aim met it while it was the Stand's clash opponent
+	 * (StandEntity.punch: setTaskTarget of what aimWithThisOrUser found, before the hit); aimWithThisOrUser then kept it
+	 * while the Stand could reach it. So it is held once the barrage's last hit met it during the clash, while it is alive
+	 * and within the Stand's reach. The server and every client decide it from the same synced data of the action (1.16
+	 * sent the task target, TrStandTaskTargetPacket).
 	 */
 	private static ActionTarget heldClashOpponent(StandEntity stand, EntityActionInstance action) {
-		if (stand.level().isClientSide()) {
-			return action instanceof StandEntityBarrage barrage ? barrage.heldClashOpponentAsSynced(stand) : ActionTarget.EMPTY;
-		}
-		Entity opponent = stand.barrageClashOpponent().orElse(null);
-		if (opponent == null || action.punchedTarget == null || !action.punchedTarget.sameTarget(new ActionTarget(opponent))) {
-			return ActionTarget.EMPTY;
-		}
-		return StandEntityPunchAbility.validatePunchTarget(stand, new ActionTarget(opponent));
+		return action instanceof StandEntityBarrage barrage ? barrage.heldClashOpponentAsSynced(stand) : ActionTarget.EMPTY;
 	}
 
 	// the stamina rule of a player's default barrage: paid on the server and ended before an unpaid hit
@@ -256,8 +250,9 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 	public static class StandEntityBarrage extends EntityActionInstance implements SyncedDataHolderExtended {
 		// apart, so that a barrage can be made without a bootstrapped game (the add-on API smoke tests)
 		private static final class SyncedData {
-			// the entity punchedTarget names, -1 for none: clients decide the clash lock from it
-			private static final EntityDataAccessor<Integer> PUNCHED_ENTITY_ID = SynchedEntityData.defineId(
+			// the entity the last hit met if it was the Stand's clash opponent when the hit was thrown, -1 for none: the
+			// clash lock is decided from it
+			private static final EntityDataAccessor<Integer> CLASH_HIT_ENTITY_ID = SynchedEntityData.defineId(
 					StandEntityBarrage.class, EntityDataSerializers.INT);
 		}
 		public int hitsThisTick;
@@ -277,26 +272,31 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 
 		@Override
 		public void defineSynchedData(SynchedDataBuilder builder) {
-			builder.define(SyncedData.PUNCHED_ENTITY_ID, -1);
+			builder.define(SyncedData.CLASH_HIT_ENTITY_ID, -1);
 		}
 
 		@Override
 		public <T> void onSyncedDataUpdated(T oldValue, T newValue, EntityDataAccessor<T> dataAccessor) {}
 
-		private void setPunchedTarget(@Nullable ActionTarget target) {
+		/**
+		 * @param clashOpponentAtHit the Stand's clash opponent when the hit was thrown, before the hit's own parry could
+		 *        change it
+		 */
+		private void setPunchedTarget(@Nullable ActionTarget target, @Nullable Entity clashOpponentAtHit) {
 			punchedTarget = target;
 			Entity entity = target != null && target.getType() == ActionTarget.TargetType.ENTITY
 					? target.copy().resolveEntityId(level()).getEntity() : null;
-			synchedData.set(SyncedData.PUNCHED_ENTITY_ID, entity != null ? entity.getId() : -1);
+			synchedData.set(SyncedData.CLASH_HIT_ENTITY_ID,
+					entity != null && entity == clashOpponentAtHit ? entity.getId() : -1);
 		}
 
 		/**
-		 * The clash opponent this barrage holds as a client decides it: the server's rule (heldClashOpponent) read from
-		 * the entity the last hit met, as the server sent it.
+		 * The clash opponent this barrage holds (heldClashOpponent), on the server and on every client alike: the Stand's
+		 * clash opponent, if the last hit met it while it was the clash opponent, as the server sent it.
 		 */
 		public ActionTarget heldClashOpponentAsSynced(StandEntity stand) {
 			Entity opponent = stand.barrageClashOpponent().orElse(null);
-			if (opponent == null || synchedData.get(SyncedData.PUNCHED_ENTITY_ID) != opponent.getId()) {
+			if (opponent == null || synchedData.get(SyncedData.CLASH_HIT_ENTITY_ID) != opponent.getId()) {
 				return ActionTarget.EMPTY;
 			}
 			return StandEntityPunchAbility.validatePunchTarget(stand, new ActionTarget(opponent));
@@ -389,7 +389,7 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 						|| paysAsDefault && (standPower == null || !standPower.consumeStamina(4, true)))) {
 					hitsThisTick = 0;
 					stand.setBarrageHitsThisTick(0);
-					setPunchedTarget(null);
+					setPunchedTarget(null, null);
 					startRecovery();
 					return;
 				}
@@ -418,7 +418,8 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 					boolean entityTarget = target.getType() == ActionTarget.TargetType.ENTITY;
 					boolean playSound = StandEntityPunchAbility.playHitSound(target, level);
 					Vec3 soundPos = playSound ? target.getCenterPos() : null;
-					
+					Entity clashOpponentAtHit = stand.barrageClashOpponent().orElse(null);
+
 					boolean deflectedTarget = StandEntityPunchAbility.deflectSilverChariotProjectiles(stand, target);
 					impactSoundDue = null;
 					switch (target.getType()) {
@@ -435,7 +436,7 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 						playSound = false;
 					}
 					TrBarrageHitSoundPacket.send(stand, playSound, getBarrageHitSound(), soundPos);
-					setPunchedTarget(target);
+					setPunchedTarget(target, clashOpponentAtHit);
 				}
 				if (standPower != null && (!paysAsDefault || level.isClientSide())) {
 					standPower.consumeStamina(4, true);
