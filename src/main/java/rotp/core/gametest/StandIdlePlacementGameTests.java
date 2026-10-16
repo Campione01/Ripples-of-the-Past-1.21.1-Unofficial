@@ -244,6 +244,13 @@ public final class StandIdlePlacementGameTests {
 		user.xRotO = 45.0F;
 		assertAt(helper, "1.16 kept a " + id + " winding up its Emerald Splash", true, user, stand, -0.75D, 0.2D, -0.75D,
 				"view yaw 0, pitch 45 (the idle offset)");
+		user.setPose(Pose.CROUCHING);
+		user.setShiftKeyDown(true);
+		assertAt(helper, "1.16 kept a " + id + " winding up its Emerald Splash", true, user, stand,
+				-0.75D, 0.2D * CROUCHING_UP, -0.75D,
+				"view yaw 0, a crouching sneaking user (taskOffset dropped the y only with no task)");
+		user.setShiftKeyDown(false);
+		user.setPose(Pose.STANDING);
 		splash.setPhase(ActionPhase.PERFORM, 0);
 		assertAt(helper, "1.16 put a " + id + " firing its Emerald Splash", false, user, stand, 0.0D, 0.2D, 0.5D,
 				"view yaw 0, pitch 45 (noYOffset(0, 0.5), turned by the yaw alone)");

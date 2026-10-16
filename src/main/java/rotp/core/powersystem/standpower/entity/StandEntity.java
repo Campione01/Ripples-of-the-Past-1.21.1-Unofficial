@@ -547,7 +547,8 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		if (isFollowingUser()) {
 			if (user != null) {
 				Vec3 pos = offsetFromUser.getPosition(user);
-				if (offsetFromUser.standAbility == null && user.isShiftKeyDown()) {
+				// 1.16 StandEntity.taskOffset: a sneaking user's Stand drops its y only while it has no task
+				if (getCurStandAction() == null && user.isShiftKeyDown()) {
 					pos = new Vec3(pos.x, user.getY(), pos.z);
 				}
 				if (!isArmsOnlyMode()) {
