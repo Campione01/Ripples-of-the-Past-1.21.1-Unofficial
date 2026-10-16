@@ -434,6 +434,9 @@ public final class CoreDetachedHeavyPulseGameTests {
                 premise(stop.shouldFreeze(primary) && !stop.shouldFreeze(caster.stand), "native target frozen and caster ticks");
             }
             LivingComponentAction.getComponent(caster.stand).entityAim.setTarget(new ActionTarget(primary));
+            // the crosshair a client sends: 1.16 kept no pressed entity that is not living (StandEntityAction.checkStandTarget),
+            // and the strike aimed again through the user's aim, so only that aim brings a heavy punch to a boat
+            LivingComponentAction.getComponent(caster.user).entityAim.setTarget(new ActionTarget(primary));
             action = press(caster, spec.move.ability(), ATTACK);
             premise(action instanceof StandEntityHeavyPunch, "registered RMB heavy action");
             premise((spec.move == Move.UPPERCUT) == (action instanceof Uppercut)

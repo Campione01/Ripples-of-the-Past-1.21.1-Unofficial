@@ -685,7 +685,8 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	 * (StandEntityMeleeBarrage.checkStandTarget). An entity the attack cannot take is refused as 1.16's press refused it
 	 * (PowerBaseImpl.checkTarget, StandEntity.canAttack). What the attack does not take, 1.16's precision ray decides.
 	 * Without the assist every attack takes what the crosshair meets. What it keeps of its press ({@link #keeps}) does
-	 * not depend on the assist: a heavy punch pressed at a block keeps nothing, and its strike aims again.
+	 * not depend on the assist: a heavy punch pressed at a block keeps nothing, nor does any attack pressed at an entity
+	 * that is not living, and its strike aims again.
 	 */
 	public enum CrosshairRule {
 		BLOCK_OR_ENTITY,
@@ -704,15 +705,22 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 
 		/**
 		 * What the attack keeps of the target it was pressed at, as 1.16's task kept it by the attack's class whatever
-		 * the aim: the heavy punch only an entity (StandEntityHeavyAttack.standKeepsTarget), the others what it is.
+		 * the aim: the heavy punch only an entity (StandEntityHeavyAttack.standKeepsTarget), the others what it is. Of an
+		 * entity, only a living one (StandEntityAction.checkStandTarget); the callers check that the Stand may attack it
+		 * (canStandTargetEntity, StandEntity.canAttack). A boat, minecart or item frame is not kept, and the strike aims
+		 * again (StandEntity.punch).
 		 */
 		ActionTarget keeps(ActionTarget target) {
-			return this == ENTITY && target.getType() == TargetType.BLOCK ? ActionTarget.EMPTY : target;
+			return switch (target.getType()) {
+				case BLOCK -> this == ENTITY ? ActionTarget.EMPTY : target;
+				case ENTITY -> this == NONE || target.getEntity() instanceof LivingEntity ? target : ActionTarget.EMPTY;
+				default -> target;
+			};
 		}
 
 		// what a strike takes from a synced aim: with the assist, a block the heavy punch leaves to the precision ray
 		ActionTarget takesFromAim(ActionTarget target, boolean aimAssist) {
-			return aimAssist ? keeps(target) : target;
+			return aimAssist && this == ENTITY && target.getType() == TargetType.BLOCK ? ActionTarget.EMPTY : target;
 		}
 	}
 
@@ -870,10 +878,10 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	 * The target a punch, heavy punch or barrage is pressed at: what the user's crosshair met (1.16
 	 * EntityStandType.clientHitResult kept the vanilla pick); when it met nothing, the Stand's synced aim, which stands
 	 * in for 1.16's precision ray there, or without the aim assist what the crosshair meets; under manual control the
-	 * Stand's aim. 1.16 refused a pressed entity the Stand cannot attack (PowerBaseImpl.checkTarget,
-	 * StandEntityAction.checkStandTarget, StandEntity.canAttack) and, with the {@link CrosshairRule#ENTITY} rule, a
-	 * pressed block, with or without the aim assist: the task had no target, so the Stand did not turn to it, and the
-	 * attack aimed again when it struck. A client keeps what its server sent.
+	 * Stand's aim. 1.16 refused a pressed entity that is not living or that the Stand cannot attack
+	 * (PowerBaseImpl.checkTarget, StandEntityAction.checkStandTarget, StandEntity.canAttack) and, with the
+	 * {@link CrosshairRule#ENTITY} rule, a pressed block, with or without the aim assist: the task had no target, so the
+	 * Stand did not turn to it, and the attack aimed again when it struck. A client keeps what its server sent.
 	 */
 	public static ActionTarget pressTarget(StandEntity stand, ActionTarget sentByServer, CrosshairRule rule) {
 		Level level = stand.level();
@@ -901,7 +909,8 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 
 	private static ActionTarget pressedTarget(StandEntity stand, ActionTarget target, CrosshairRule rule) {
 		return switch (target.getType()) {
-			case ENTITY -> target.getEntity() != null && canStandHit(stand, target.getEntity()) ? target : ActionTarget.EMPTY;
+			case ENTITY -> target.getEntity() != null && canStandHit(stand, target.getEntity())
+					? rule.keeps(target) : ActionTarget.EMPTY;
 			case BLOCK -> throughWallsTarget(stand, rule.keeps(target), rule, true);
 			default -> ActionTarget.EMPTY;
 		};

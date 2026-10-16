@@ -654,6 +654,98 @@ public final class StandAttackAimRulesGameTests {
 		}, 60, () -> "The " + how + " pressed at the ground never struck");
 	}
 
+	// 1.16 StandEntityAction.checkStandTarget kept only a living entity the Stand could attack: a punch or heavy punch
+	// pressed at a boat had no task target (PowerBaseImpl.checkTarget emptied it, StandEntityTask.keepTarget refused it),
+	// so the Stand did not turn to the boat and StandEntity.punch aimed again when it struck: the cow its user turns to
+	// before the swing is struck
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "boat_then_cow_punch")
+	public static void punchPressedAtABoatStrikesTheCowItsUserTurnsToAsIn116(GameTestHelper helper) {
+		pressedAtThenCow(helper, "punch", InputMethod.CLICK, EntityType.BOAT, false);
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "boat_then_cow_heavy")
+	public static void heavyPunchPressedAtABoatStrikesTheCowItsUserTurnsToAsIn116(GameTestHelper helper) {
+		pressedAtThenCow(helper, "heavy_punch", InputMethod.CLICK, EntityType.BOAT, false);
+	}
+
+	// keep attack target on: the locked barrage keeps the target it was pressed at (the owner's setting), but no entity
+	// 1.16 would not have kept as a task target, so its hits go where its user aims
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "boat_then_cow_locked_barrage")
+	public static void lockedBarragePressedAtABoatStrikesTheCowItsUserTurnsTo(GameTestHelper helper) {
+		pressedAtThenCow(helper, "barrage", InputMethod.HOLD, EntityType.BOAT, false);
+	}
+
+	// an armor stand is a living entity the Stand can attack (canStandTargetEntity, StandEntity.canAttack): 1.16 kept it,
+	// and the punch strikes it after its user turns to the cow
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "armor_stand_then_cow_punch")
+	public static void punchStrikesTheArmorStandItWasPressedAtAfterItsUserTurnsAsIn116(GameTestHelper helper) {
+		pressedAtThenCow(helper, "punch", InputMethod.CLICK, EntityType.ARMOR_STAND, true);
+	}
+
+	private static void pressedAtThenCow(GameTestHelper helper, String name, InputMethod method, EntityType<?> type,
+			boolean keptAsIn116) {
+		Scene scene = new Scene(helper, true);
+		boolean barrage = name.equals("barrage");
+		if (barrage) {
+			scene.user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get()).standAttackTargetLock = true;
+		}
+		scene.precision(0);
+		Cow cow = scene.cow(-1.0, 1.6);
+		Entity pressed = scene.entity(type, 0.8, 2.0);
+		String what = pressed.getType().getDescription().getString();
+		scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, pressed.getBoundingBox().getCenter());
+		helper.assertTrue(scene.vanillaPick().getMainEntity() == pressed
+				&& StandEntityPunchAbility.canStandHit(scene.stand, pressed), "Fixture: the vanilla pick is "
+						+ scene.vanillaPick() + ", or the Stand cannot hit the " + what);
+		String how = "The " + (barrage ? "locked barrage" : name) + " pressed at the " + what;
+		float health = cow.getHealth();
+		EntityActionInstance[] action = new EntityActionInstance[1];
+		scene.run(tick -> {
+			if (tick == 3) {
+				scene.sendClientAims();
+				action[0] = scene.press(name, method);
+				helper.assertTrue((action[0] instanceof StandEntityPunch || action[0] instanceof StandEntityHeavyPunch
+						|| action[0] instanceof StandEntityBarrage
+								&& !StandEntityBarrageAbility.isDirectionalBarrage(scene.stand, action[0]))
+						&& action[0].punchedTarget == null, "Fixture: the " + name + " input started " + action[0]
+								+ ", or it struck at once");
+				ActionTarget saved = savedTarget(action[0]);
+				ActionTarget turnedTo = action[0].standRotationTarget;
+				boolean kept = saved != null && saved.getMainEntity() == pressed;
+				boolean turned = turnedTo != null && turnedTo.getMainEntity() == pressed;
+				helper.assertTrue(kept == keptAsIn116 && turned == keptAsIn116, how + " saved " + saved + " and turns the Stand"
+						+ " to " + turnedTo + (keptAsIn116 ? "; 1.16 kept a living entity the Stand could attack as the task target"
+								: "; 1.16 kept only a living entity as the task target (StandEntityAction.checkStandTarget)"));
+				scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, cow.getBoundingBox().getCenter());
+				scene.sendClientAims();
+				helper.assertTrue(scene.vanillaPick().getMainEntity() == cow, "Fixture: the turned user's vanilla pick is "
+						+ scene.vanillaPick());
+				return false;
+			}
+			if (tick < 3) {
+				return false;
+			}
+			ActionTarget struck = action[0].punchedTarget;
+			if (struck == null) {
+				return false;
+			}
+			if (keptAsIn116) {
+				helper.assertTrue(struck.getMainEntity() == pressed && cow.getHealth() >= health, how + " struck " + struck
+						+ " after its user turned to the cow; 1.16 struck the living entity the press kept");
+				return true;
+			}
+			helper.assertTrue(struck.getMainEntity() != pressed, how + " struck it after its user turned to the cow; 1.16 kept"
+					+ " no entity that is not living and aimed again at the strike (StandEntity.punch)");
+			if (barrage) {
+				return struck.getMainEntity() == cow && cow.getHealth() < health && tick > 12;
+			}
+			helper.assertTrue(struck.getMainEntity() == cow && cow.getHealth() < health, how + " struck " + struck
+					+ " after its user turned to the cow (Stand at " + scene.stand.position() + ", cow at " + cow.position()
+					+ "); 1.16 aimed again at the strike and struck what its user aimed at");
+			return true;
+		}, 60, () -> how + " never struck the cow its user turned to");
+	}
+
 	// a punch that stands for a 1.16 heavy attack, as an add-on's (King Crimson's Ground Punch) declares it
 	private static final class HeavyAttackPunchProbe extends StandEntityPunchAbility {
 		HeavyAttackPunchProbe(AbilityType<?> abilityType, AbilityId abilityId) {
@@ -1224,6 +1316,16 @@ public final class StandAttackAimRulesGameTests {
 			helper.assertTrue(helper.getLevel().addFreshEntity(cow), "Could not add a cow");
 			entities.add(cow);
 			return cow;
+		}
+
+		<T extends Entity> T entity(EntityType<T> entityType, double x, double z) {
+			T entity = entityType.create(helper.getLevel());
+			helper.assertTrue(entity != null, "Could not create " + entityType);
+			entity.setNoGravity(true);
+			entity.moveTo(origin.x + x, origin.y, origin.z + z, 0, 0);
+			helper.assertTrue(helper.getLevel().addFreshEntity(entity), "Could not add " + entityType);
+			entities.add(entity);
+			return entity;
 		}
 
 		// within Star Platinum's precision boxes of the user's eyes, off the crosshair

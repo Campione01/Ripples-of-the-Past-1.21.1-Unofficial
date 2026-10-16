@@ -317,6 +317,9 @@ public final class TheWorldKickSweepGameTests {
                 caster.stand.getData(ModDataAttachmentTypes.LIVING_GRAB.get()).setGrabTarget((LivingEntity) primary);
             }
             LivingComponentAction.getComponent(caster.stand).entityAim.setTarget(new ActionTarget(primary));
+            // the crosshair a client sends: 1.16 kept no pressed entity that is not living (StandEntityAction.checkStandTarget),
+            // and the strike aimed again through the user's aim, so only that aim brings the Kick to a boat
+            LivingComponentAction.getComponent(caster.user).entityAim.setTarget(new ActionTarget(primary));
             primaryHealthBefore = health(primary, primaryActor); secondaryHealthBefore = health(secondary, secondaryActor);
             action = press(caster, "heavy_punch", InputMethod.CLICK, ATTACK);
             premise(action instanceof TheWorldKick && (action.ability.getAbilityUsageCategory() == AbilityUsageGroup.GRAB) == (spec.kind == Kind.GRAB), "real finisher/grab Kick selection");

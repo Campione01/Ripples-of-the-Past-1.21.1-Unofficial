@@ -226,6 +226,9 @@ public final class StandImpactSoundGameTests {
 			LivingComponentAction component = LivingComponentAction.getComponent(stand);
 			component.setAction(null, user, SyncType.NO_SYNC);
 			component.entityAim.setTarget(new ActionTarget(target));
+			// the crosshair a client sends: 1.16 kept no pressed entity that is not living (StandEntityAction.checkStandTarget),
+			// and the strike aimed again through the user's aim, so only that aim brings a punch to the boat
+			LivingComponentAction.getComponent(user).entityAim.setTarget(new ActionTarget(target));
 			Ability ability = power.getAbility(abilityName);
 			helper.assertTrue(ability instanceof EntityActionType, "Missing action " + abilityName);
 			power.setStamina(power.getMaxStamina());
