@@ -225,6 +225,14 @@ public class CrazyDHealAbility extends StandEntityAbility {
 		public ActionTarget getTaskTarget(Level level) {
 			return heldTarget(actionTarget, level);
 		}
+
+		// the previous action's target this one took over (1.16 StandEntity.setTask) is the entity it works on
+		@Override
+		protected void onTaskTargetInherited(ActionTarget target) {
+			setActionTarget(target);
+			standRotationTarget = target.copy().resolveEntityId(level());
+			aimAs = AimingEntity.STAND;
+		}
 		
 		@Override
 		public void onButtonStopHold() {

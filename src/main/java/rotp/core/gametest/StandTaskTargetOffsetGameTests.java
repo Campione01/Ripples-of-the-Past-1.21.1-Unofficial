@@ -28,6 +28,7 @@ import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.EntityStandType;
 import rotp.core.powersystem.standpower.entity.StandEntity;
+import rotp.core.powersystem.standpower.entity.StandEntityAbility;
 import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTargetRange;
@@ -45,9 +46,11 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.Mob;
-import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.animal.Cow;
+import net.minecraft.world.entity.animal.SnowGolem;
 import net.minecraft.world.entity.animal.Wolf;
+import net.minecraft.world.entity.item.PrimedTnt;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -449,6 +452,71 @@ public final class StandTaskTargetOffsetGameTests {
 					"1.16 shot the rapier of a silver_chariot pressed at a cow 3 blocks east of its user who looks south from"
 							+ " the user's eyes " + eyes + " along the Stand's turn to the cow " + standToCow + "; it starts at "
 							+ rapier.position() + " and flies along " + flies);
+		});
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 CrazyDiamondPreviousState had TargetRequirement.NONE, so pressed at nothing it took over an entity the previous
+	 * task held when its checkTarget kept it (StandEntity.setTask): a snow golem the Heal held, at Resolve level 3, is the
+	 * entity it reverts and the Stand turns to
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void revertPressedAtNothingTakesOverTheGolemTheHealHeldAsIn116(GameTestHelper helper) {
+		withStand(helper, "crazy_diamond", scene -> {
+			scene.power.setResolveLevel(3);
+			SnowGolem golem = scene.mob(EntityType.SNOW_GOLEM, new Vec3(2.5D, 0.0D, 0.0D));
+			LivingComponentAction.getComponent(scene.user).entityAim.setTarget(new ActionTarget(golem));
+			EntityActionInstance heal = scene.start("heal", ActionPhase.PERFORM);
+			helper.assertTrue(heal.getTaskTarget(helper.getLevel()).getEntity() == golem,
+					"setup: the heal holds " + heal.getTaskTarget(helper.getLevel()) + ", not the snow golem");
+			LivingComponentAction.getComponent(scene.user).entityAim.setTarget(ActionTarget.EMPTY);
+			EntityActionInstance revert = scene.start("revert_state", ActionPhase.PERFORM);
+			helper.assertTrue(revert.getTaskTarget(helper.getLevel()).getEntity() == golem
+					&& revert.standRotationTarget != null && revert.standRotationTarget.getEntity() == golem,
+					"1.16 StandEntity.setTask gave a Revert pressed at nothing the snow golem the Heal it replaced held; it"
+							+ " holds " + revert.getTaskTarget(helper.getLevel()) + " and turns the Stand to "
+							+ revert.standRotationTarget);
+
+			// CrazyDiamondPreviousState.checkStandTarget let its task keep primed TNT, which is not living
+			PrimedTnt tnt = EntityType.TNT.create(helper.getLevel());
+			helper.assertTrue(tnt != null, "Could not make primed TNT");
+			tnt.setFuse(1000);
+			tnt.setNoGravity(true);
+			Vec3 tntPos = scene.user.position().add(-2.0D, 0.0D, 0.0D);
+			tnt.moveTo(tntPos.x, tntPos.y, tntPos.z, 0.0F, 0.0F);
+			helper.assertTrue(helper.getLevel().addFreshEntity(tnt), "Could not add primed TNT");
+			scene.spawned().add(tnt);
+			helper.assertTrue(((StandEntityAbility) revert.ability).keepsTaskTarget(scene.stand, new ActionTarget(tnt)),
+					"1.16 CrazyDiamondPreviousState kept primed TNT 2 blocks from the Stand as its task's target; the Revert does not");
+		});
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 CrazyDiamondPreviousState.lockOnTargetPosition false: with an entity target its offset, offsetToTarget's front
+	 * one, turns by the view yaw (yRotForOffset) and pitch, never to the entity. A snow golem 2.5 blocks east of its user
+	 * who looks south: 2.5 - (1 + 0.35) = 1.15 in front, south.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void revertWithAnEntityTargetNeverTurnsItsOffsetToItAsIn116(GameTestHelper helper) {
+		withStand(helper, "crazy_diamond", scene -> {
+			scene.power.setResolveLevel(3);
+			scene.user.getAttribute(ModEntityAttributes.STAND_EFFECTIVE_RANGE).setBaseValue(3.5D);
+			StandEntity.updateStandStatAttributes(scene.stand, scene.user);
+			SnowGolem golem = scene.mob(EntityType.SNOW_GOLEM, new Vec3(2.5D, 0.0D, 0.0D));
+			// wounded, so that Revert heals it first and does not turn it back into blocks by chance
+			golem.setHealth(1.0F);
+			LivingComponentAction.getComponent(scene.user).entityAim.setTarget(new ActionTarget(golem));
+			EntityActionInstance revert = scene.start("revert_state", ActionPhase.PERFORM);
+			turn(scene.user, VIEW_YAW, BODY_YAW);
+			LivingComponentAction.getComponent(scene.stand).tick();
+			double front = 2.5D - (1.0D + golem.getBbWidth() / 2.0D);
+			helper.assertTrue(revert.getTaskTarget(helper.getLevel()).getEntity() == golem
+					&& front < scene.stand.getEffectiveRange(), "setup: the Revert holds " + revert.getTaskTarget(helper.getLevel())
+							+ ", not the snow golem, or " + front + " is past the effective range " + scene.stand.getEffectiveRange());
+			assertAt(helper, scene, new Vec3(0.0D, 0.0D, front), "1.16 put a crazy_diamond reverting a snow golem east of its"
+					+ " user who looks south " + front + " in front along the user's view, not toward the golem");
 		});
 		helper.succeed();
 	}
