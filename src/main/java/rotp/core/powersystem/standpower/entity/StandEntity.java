@@ -2963,6 +2963,7 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		}
 		buffer.writeFloat(standDimensions.width());
 		buffer.writeFloat(standDimensions.height());
+		buffer.writeFloat(standDimensions.eyeHeight());
 		buffer.writeVarInt(summonPoseRandomByte);
 	}
 
@@ -2976,7 +2977,10 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		yBodyRot = additionalData.readFloat();
 		yBodyRotO = yBodyRot;
 		tickCount = additionalData.readVarInt();
-		standDimensions = EntityDimensions.scalable(additionalData.readFloat(), additionalData.readFloat());
+		float width = additionalData.readFloat();
+		float height = additionalData.readFloat();
+		// scalable alone would give 0.85 of the height, not the server's eye height (the humanoid Stand's 1.62)
+		standDimensions = EntityDimensions.scalable(width, height).withEyeHeight(additionalData.readFloat());
 		this.refreshDimensions();
 		summonPoseRandomByte = additionalData.readVarInt();
 	}
