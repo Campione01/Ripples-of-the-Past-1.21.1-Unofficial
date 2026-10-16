@@ -470,6 +470,9 @@ public class EntityActionInstance implements HeldInput {
 		Level level = performer.level();
 		ActionTarget pressed = pressedTaskTarget();
 		ActionTarget kept = standAbility.keepsTaskTarget(stand, pressed) ? pressed.copy() : null;
+		if (kept == null) {
+			turnFromRefusedPressTarget(standAbility, stand, pressed);
+		}
 		if (kept == null && prevAction != null && prevAction.performer == performer) {
 			ActionTarget previous = prevAction.getTaskTarget(level);
 			if (standAbility.keepsTaskTarget(stand, previous)) {
@@ -478,6 +481,18 @@ public class EntityActionInstance implements HeldInput {
 			}
 		}
 		taskTarget = kept;
+	}
+
+	/*
+	 * 1.16 makeServerSideTask gave the task no target for a press target keepTarget refused (an entity past the action's
+	 * range, a block past 10), so the Stand did not turn to it (StandEntityTask.rotateStand). Only for an action that keeps
+	 * that kind of target: the others turn the Stand by their own rule.
+	 */
+	private void turnFromRefusedPressTarget(StandEntityAbility standAbility, StandEntity stand, ActionTarget pressed) {
+		if (standRotationTarget != null && pressed.getType() != ActionTarget.TargetType.EMPTY
+				&& pressed.sameTarget(standRotationTarget) && standAbility.keepsTaskTargetKind(stand, pressed)) {
+			standRotationTarget = null;
+		}
 	}
 
 	/**

@@ -641,20 +641,47 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 					stand.getAttackDamage(), finisherValue);
 		}
 		
-		protected void hitBlock(ActionTarget target, Level level, StandEntity stand, 
+		protected void hitBlock(ActionTarget target, Level level, StandEntity stand,
 				DamageSource dmgSource, float dmgAmount, float explRadius) {
+			punchBlock(target, level, stand, !isUserCreative(), makeBlastDamageSource(), explRadius);
+		}
+
+		/**
+		 * Server: 1.16 StandEntityHeavyAttack.punchBlock, a HeavyPunchBlockInstance, for a heavy attack of an add-on that
+		 * strikes a block as the heavy punch does (D4C's hand chop): the attack's impact sound at the block if it has one
+		 * (playImpactSound, on any block), the plain block punch (StandEntity.breakBlock: the block breaks if the Stand's
+		 * strength may break it, else only knocks), then the blast from the face hit along the Stand's look
+		 * ({@link StandEntityHeavyPunchAbility#calcExplosionRadius}, {@link StandEntityHeavyPunchAbility#calcExplosionDamage}),
+		 * which breaks blocks into shards by the Stand's strength and precision and hurts the mobs around. Nothing for a
+		 * target that is not a block.
+		 * @param dropBlock whether the block the punch breaks drops, false for a user in Creative
+		 * @param impactSound 1.16's punchSound of the attack, null for none
+		 */
+		public static void hitBlockAsHeavyPunch(ActionTarget target, Level level, StandEntity stand, boolean dropBlock,
+				@Nullable Holder<SoundEvent> impactSound) {
+			if (level.isClientSide() || target.getType() != TargetType.BLOCK) {
+				return;
+			}
+			if (impactSound != null && !target.isEmpty(level)) {
+				StandUtil.broadcastSound((ServerLevel) level, target.getCenterPos(), impactSound, true,
+						StandPower.get(stand.getUser()), stand.getSoundSource(), 1, 1);
+			}
+			punchBlock(target, level, stand, dropBlock, blastDamageSource(stand, stand.getUser()), calcExplosionRadius(stand));
+		}
+
+		// 1.16 HeavyPunchBlockInstance.doHit: the plain block punch (StandEntity.breakBlock) comes before the blast
+		private static void punchBlock(ActionTarget target, Level level, StandEntity stand, boolean dropBlock,
+				DamageSource aoeDmgSource, float explRadius) {
 			BlockPos blockPos = target.getBlockPos();
 			Direction face = target.getFace();
-			// 1.16 HeavyPunchBlockInstance.doHit: the plain block punch (StandEntity.breakBlock) comes before the blast
-			StandEntityPunchAbility.StandEntityPunch.breakStandBlock(level, blockPos, stand, !isUserCreative());
+			StandEntityPunchAbility.StandEntityPunch.breakStandBlock(level, blockPos, stand, dropBlock);
 			Vec3 pos = Vec3.atCenterOf(blockPos).add(Vec3.atLowerCornerOf(face.getNormal()).scale(0.6));
-			DamageSource aoeDmgSource = makeBlastDamageSource();
 			float aoeDmg = calcExplosionDamage(stand);
-			HeavyPunchExplosion explosion = new HeavyPunchExplosion(level, stand, 
-					new ActionTarget(blockPos, face), stand.getLookAngle(), 
-					aoeDmgSource, 
-					pos.x, pos.y, pos.z, 
-					explRadius, false, 
+			HeavyPunchExplosion explosion = new HeavyPunchExplosion(level, stand,
+					new ActionTarget(blockPos, face), stand.getLookAngle(),
+					aoeDmgSource,
+					pos.x, pos.y, pos.z,
+					explRadius, false,
 					JojoModUtil.breakingBlocksEnabled(level) ? Explosion.BlockInteraction.DESTROY : Explosion.BlockInteraction.KEEP)
 					.aoeDamage(aoeDmg)
 					.createBlockShards(stand.getAttackDamage(), stand.getPrecision());
@@ -666,9 +693,13 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 		 * without the punch's Stand invulnerability ticks.
 		 */
 		protected DamageSource makeBlastDamageSource() {
+			return blastDamageSource(performer, getPowerUser());
+		}
+
+		private static DamageSource blastDamageSource(LivingEntity performer, @Nullable LivingEntity powerUser) {
 			DamageSource dmgSource = new DamageSource(DamageUtil.type(performer.level(), ModDamageTypes.STAND_EXPLOSION), performer);
 			if (dmgSource instanceof DamageSourceModified modified) {
-				modified.jojo_ripples$setStandPower(StandPower.get(getPowerUser()));
+				modified.jojo_ripples$setStandPower(StandPower.get(powerUser));
 			}
 			return dmgSource;
 		}

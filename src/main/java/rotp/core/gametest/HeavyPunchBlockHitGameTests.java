@@ -10,6 +10,7 @@ import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.customobjects.DamageSourceModified;
+import rotp.core.customobjects.entity_projectile.BlockShardEntity;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility.StandEntityHeavyPunch;
 import rotp.core.impl.stands.theworld.TheWorldKickAbility.TheWorldKick;
 import rotp.core.init.ModDataAttachmentTypes;
@@ -82,6 +83,7 @@ public final class HeavyPunchBlockHitGameTests {
 	private static final String BATCH = "heavy_punch_block_hit";
 	private static final String IMMUNITY_BATCH = "heavy_punch_block_hit_blast_immunity";
 	private static final String PROTECTION_BATCH = "heavy_punch_block_hit_blast_protection";
+	private static final String ADDON_ATTACK_BATCH = "heavy_punch_block_hit_addon_attack";
 	private static final short KEY = 163;
 	private static final PowerSkillUnlocks.Owner UNLOCKS = PowerSkillUnlocks.register(
 			JojoMod.resLoc(HeavyPunchBlockHitGameTests.class.getSimpleName().toLowerCase(Locale.ROOT)));
@@ -121,6 +123,49 @@ public final class HeavyPunchBlockHitGameTests {
 	@AfterBatch(batch = PROTECTION_BATCH)
 	public static void restoreBlockBreakingAfterTheProtectionBlast(ServerLevel level) {
 		restoreBlockBreaking(level);
+	}
+
+	@BeforeBatch(batch = ADDON_ATTACK_BATCH)
+	public static void allowBlockBreakingForTheAddOnAttack(ServerLevel level) {
+		allowBlockBreaking(level);
+	}
+
+	@AfterBatch(batch = ADDON_ATTACK_BATCH)
+	public static void restoreBlockBreakingAfterTheAddOnAttack(ServerLevel level) {
+		restoreBlockBreaking(level);
+	}
+
+	/*
+	 * 1.16 StandEntityHeavyAttack.punchBlock gave every heavy attack a HeavyPunchBlockInstance, D4C's hand chop too: an
+	 * add-on's heavy attack hitting obsidian through StandEntityHeavyPunch.hitBlockAsHeavyPunch with a strength-16 Stand
+	 * breaks it as the heavy punch does (heavyPunchBreaksObsidianBeforeItsBlast), then blasts the glass on both sides of it
+	 * into shards, and plays the impact sound it was given at the block. Own batch: no neighbour's blast reaches the glass.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 80, batch = ADDON_ATTACK_BATCH)
+	public static void anAddOnHeavyAttackHitsABlockAsTheHeavyPunchDoes(GameTestHelper helper) {
+		Scene scene = new Scene(helper, "star_platinum", 16, false);
+		List<BlockPos> glass = List.of(scene.block.east(), scene.block.west());
+		AABB around = new AABB(scene.block).inflate(8);
+		try {
+			glass.forEach(pos -> scene.level().setBlock(pos, Blocks.GLASS.defaultBlockState(), Block.UPDATE_CLIENTS));
+			StandEntityHeavyPunch.hitBlockAsHeavyPunch(new ActionTarget(scene.block, Direction.NORTH), scene.level(), scene.stand,
+					true, ModSoundEvents.STAR_PLATINUM_PUNCH_HEAVY);
+			helper.assertTrue(scene.level().getBlockState(scene.block).isAir(),
+					"An add-on heavy attack of a strength-16 Stand left obsidian standing; 1.16 broke it before the blast");
+			List<BlockPos> standing = glass.stream().filter(pos -> !scene.level().getBlockState(pos).isAir()).toList();
+			helper.assertTrue(standing.isEmpty(), "The blast of an add-on heavy attack left the glass at " + standing
+					+ " beside the obsidian; 1.16's HeavyPunchExplosion broke it");
+			int shards = scene.level().getEntitiesOfClass(BlockShardEntity.class, around).size();
+			helper.assertTrue(shards > 0, "The blast of an add-on heavy attack broke the glass into no shards; 1.16 made them");
+			helper.assertTrue(scene.impactSounds == 1, "An add-on heavy attack on obsidian played " + scene.impactSounds
+					+ " impact sounds instead of the one it was given");
+		}
+		finally {
+			glass.forEach(pos -> scene.level().setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS));
+			scene.level().getEntitiesOfClass(BlockShardEntity.class, around).forEach(Entity::discard);
+			scene.close();
+		}
+		helper.succeed();
 	}
 
 	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH)

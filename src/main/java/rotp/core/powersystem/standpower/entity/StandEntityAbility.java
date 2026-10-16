@@ -229,6 +229,16 @@ public class StandEntityAbility extends EntityActionAbility {
 	}
 
 	/**
+	 * Whether the action's task keeps targets of this one's kind ({@link #keepsTaskTargetType}), whether or not it keeps
+	 * this one ({@link #keepsTaskTarget}). Server side.
+	 */
+	public final boolean keepsTaskTargetKind(StandEntity standEntity, @Nullable ActionTarget target) {
+		Level level = standEntity.level();
+		ActionTarget resolved = target != null ? target.resolveEntityId(level) : ActionTarget.EMPTY;
+		return !resolved.isEmpty(level) && keepsTaskTargetType(standEntity, resolved);
+	}
+
+	/**
 	 * 1.16 StandEntityAction.checkStandTarget and canStandTargetEntity: the entities the action's task keeps are the living
 	 * ones the Stand may attack. See {@link #keepsTaskTarget}.
 	 */

@@ -7,7 +7,9 @@ import javax.annotation.Nullable;
 import rotp.core.core.JojoMod;
 import rotp.core.gametest.StandTaskTargetOffsetGameTests.Scene;
 import rotp.core.impl.stands.crazydiamond.CrazyDHealAbility.HealingAction;
+import rotp.core.impl.stands.hierophant.HGBarrierEntity;
 import rotp.core.impl.stands.hierophant.HGStringEntity;
+import rotp.core.impl.stands.hierophant.HierophantGreenEntity;
 import rotp.core.impl.stands.hierophant.HierophantStringAttackAbility.StringAttackShot;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
@@ -17,6 +19,8 @@ import rotp.core.powersystem.entityaction.netcode.TrEntityActionTargetPacket;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.subsystems.target.ActionTarget;
 
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.util.Mth;
@@ -24,6 +28,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.item.PrimedTnt;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
@@ -81,6 +86,174 @@ public final class StandTaskTargetTurnGameTests {
 						+ stringAttack.standRotationTarget + ")");
 			});
 		}
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 StandEntityTask.makeServerSideTask gave the task no target for a press target keepTarget refused, so the
+	 * following Stand looked along its user's look (rotateStand): String Attack or Rapier Launch pressed at a cow 12 blocks
+	 * east, past Action.checkRangeAndTarget's 8, or Rapier Launch at a block 14 blocks above its user, past its 10.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aFollowingStandDoesNotTurnToAPressTargetItsTaskRefusedAsIn116(GameTestHelper helper) {
+		Object[][] rows = {
+				{ "hierophant_green", "string_attack", false },
+				{ "silver_chariot", "rapier_launch", false },
+				{ "silver_chariot", "rapier_launch", true } };
+		for (Object[] row : rows) {
+			String name = (String) row[1];
+			boolean atBlock = (boolean) row[2];
+			StandTaskTargetOffsetGameTests.withStand(helper, (String) row[0], scene -> {
+				BlockPos block = BlockPos.containing(scene.user().getEyePosition().add(0.0D, 14.0D, 0.0D));
+				try {
+					ActionTarget pressed;
+					if (atBlock) {
+						helper.getLevel().setBlockAndUpdate(block, Blocks.STONE.defaultBlockState());
+						pressed = new ActionTarget(block, Direction.DOWN);
+					}
+					else {
+						pressed = new ActionTarget(scene.cow(new Vec3(12.0D, 0.0D, 0.0D)));
+					}
+					LivingComponentAction.getComponent(scene.stand()).entityAim.setTarget(pressed);
+					EntityActionInstance action = scene.set(name);
+					helper.assertTrue(action.getTaskTarget(helper.getLevel()).getType() == ActionTarget.TargetType.EMPTY,
+							"setup: the " + name + " pressed at " + pressed + " holds " + action.getTaskTarget(helper.getLevel()));
+					StandTaskTargetOffsetGameTests.turn(scene.user(), VIEW_YAW, VIEW_YAW);
+					scene.stand().updatePosition(scene.user());
+					assertLooksAlongItsUser(helper, scene, "1.16 turned a following " + row[0] + " whose " + name + " was pressed at "
+							+ (atBlock ? "a block 14 blocks above" : "a cow 12 blocks east") + " of its user, which its task refused,"
+							+ " along its user's look south (the action turns it to " + action.standRotationTarget + ")");
+				}
+				finally {
+					if (atBlock) {
+						helper.getLevel().setBlockAndUpdate(block, Blocks.AIR.defaultBlockState());
+					}
+				}
+			});
+		}
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 StandEntity.setTask gave a task whose press target was refused the previous task's target, and only that one
+	 * turned the Stand: a String Attack pressed at a cow 12 blocks east takes over the near cow the String Attack before it
+	 * held, and once that cow has lain dead for 20 ticks the following Stand looks along its user's look, not at the far cow
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aStandWhoseTaskTookOverATargetForARefusedPressLooksAlongItsUserOnceItDropsItAsIn116(GameTestHelper helper) {
+		StandTaskTargetOffsetGameTests.withStand(helper, "hierophant_green", scene -> {
+			Cow near = scene.cow(COW_FROM_USER);
+			Cow far = scene.cow(new Vec3(12.0D, 0.0D, 0.0D));
+			LivingComponentAction.getComponent(scene.stand()).entityAim.setTarget(new ActionTarget(near));
+			scene.start("string_attack", ActionPhase.PERFORM);
+			discardStrings(scene);
+			LivingComponentAction.getComponent(scene.stand()).entityAim.setTarget(new ActionTarget(far));
+			EntityActionInstance next = scene.set("string_attack");
+			helper.assertTrue(next.getTaskTarget(helper.getLevel()).getEntity() == near, "setup: the String Attack pressed at"
+					+ " the far cow holds " + next.getTaskTarget(helper.getLevel()) + ", not the near cow the one before it held");
+			near.setHealth(0.0F);
+			near.deathTime = 20;
+			StandTaskTargetOffsetGameTests.turn(scene.user(), VIEW_YAW, VIEW_YAW);
+			LivingComponentAction.getComponent(scene.stand()).tick();
+			discardStrings(scene);
+			helper.assertTrue(next.getTaskTarget(helper.getLevel()).getType() == ActionTarget.TargetType.EMPTY,
+					"setup: the String Attack still holds " + next.getTaskTarget(helper.getLevel()) + " after the near cow died");
+			scene.stand().updatePosition(scene.user());
+			assertLooksAlongItsUser(helper, scene, "1.16 turned a following hierophant_green whose String Attack, pressed at a"
+					+ " cow past its range, dropped the near cow it took over along its user's look south (the action turns it to "
+					+ next.standRotationTarget + ")");
+		});
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 HierophantGreenBarrier.standPerform worked on task.getTarget(), and only the task's target turned the Stand
+	 * (StandEntityTask.rotateStand): a Barrier pressed at a block 3 blocks east of its user faces it on the tick it places
+	 * its barrier while its task holds the block, and looks along its user's look once its task dropped it (server code's
+	 * StandEntity.setTaskTarget(null)); the port still places that barrier.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void barrierTurnsTheStandOnlyToTheBlockItsTaskHoldsAsItPlacesItsBarrierAsIn116(GameTestHelper helper) {
+		for (boolean dropped : new boolean[] { false, true }) {
+			StandTaskTargetOffsetGameTests.withStand(helper, "hierophant_green", scene -> {
+				BlockPos block = BlockPos.containing(scene.user().getEyePosition().add(COW_FROM_USER));
+				try {
+					helper.getLevel().setBlockAndUpdate(block, Blocks.STONE.defaultBlockState());
+					LivingComponentAction.getComponent(scene.user()).entityAim.setTarget(new ActionTarget(block, Direction.WEST));
+					EntityActionInstance barrier = scene.set("barrier");
+					helper.assertTrue(block.equals(barrier.getTaskTarget(helper.getLevel()).getBlockPos()),
+							"setup: the Barrier holds " + barrier.getTaskTarget(helper.getLevel()) + ", not the block");
+					if (dropped) {
+						scene.stand().setTaskTarget(null);
+						helper.assertTrue(barrier.getTaskTarget(helper.getLevel()).getType() == ActionTarget.TargetType.EMPTY,
+								"setup: the Barrier still holds " + barrier.getTaskTarget(helper.getLevel()));
+					}
+					StandTaskTargetOffsetGameTests.turn(scene.user(), VIEW_YAW, VIEW_YAW);
+					// the action's own tick, before its Stand clears it, as StandEntity.tick turns the Stand by it
+					barrier._tickAction();
+					scene.spawned().addAll(helper.getLevel().getEntitiesOfClass(HGBarrierEntity.class,
+							scene.user().getBoundingBox().inflate(16.0D)));
+					helper.assertTrue(scene.stand() instanceof HierophantGreenEntity hierophant && hierophant.hasBarrierAttached()
+							&& scene.stand().getCurStandAction() == barrier, "setup: the Barrier placed no barrier on its perform");
+					scene.stand().updatePosition(scene.user());
+					if (dropped) {
+						assertLooksAlongItsUser(helper, scene, "1.16 turned a following hierophant_green whose Barrier's task had"
+								+ " dropped the block before it placed its barrier along its user's look south (the action turns"
+								+ " it to " + barrier.standRotationTarget + ")");
+					}
+					else {
+						Vec3 toBlock = Vec3.atCenterOf(block).subtract(scene.stand().getEyePosition()).normalize();
+						Vec3 look = scene.stand().getLookAngle();
+						helper.assertTrue(look.dot(toBlock) > 0.9999D, "1.16 turned a following hierophant_green whose Barrier"
+								+ " held the block east of its user to it as it placed its barrier: it looks along " + look
+								+ " instead of " + toBlock);
+					}
+				}
+				finally {
+					LivingComponentAction.getComponent(scene.stand()).setAction(null, scene.user(), SyncType.NO_SYNC);
+					helper.getLevel().setBlockAndUpdate(block, Blocks.AIR.defaultBlockState());
+				}
+			});
+		}
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 StandEntityTask.tick dropped the target keepTarget no longer passed before the action ticked, on every tick of the
+	 * task: on the tick a cow Crazy Diamond's Heal held went 12 blocks away, past its 8, the Heal no longer put the Stand in
+	 * front toward it (CrazyDiamondHeal.getOffsetFromUser, offsetToTarget of the task's target), and the following Stand
+	 * stood and looked as it does without a task
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void healDropsACowPastItsRangeBeforeItTicksAsIn116(GameTestHelper helper) {
+		StandTaskTargetOffsetGameTests.withStand(helper, "crazy_diamond", scene -> {
+			StandTaskTargetOffsetGameTests.turn(scene.user(), VIEW_YAW, VIEW_YAW);
+			scene.stand().updatePosition(scene.user());
+			Vec3 idle = scene.stand().position().subtract(scene.user().position());
+			Cow cow = scene.cow(COW_FROM_USER);
+			cow.setHealth(cow.getMaxHealth() - 4.0F);
+			LivingComponentAction.getComponent(scene.user()).entityAim.setTarget(new ActionTarget(cow));
+			EntityActionInstance heal = scene.start("heal", ActionPhase.PERFORM);
+			scene.stand().updatePosition(scene.user());
+			Vec3 healing = scene.stand().position().subtract(scene.user().position());
+			helper.assertTrue(heal.getTaskTarget(helper.getLevel()).getEntity() == cow && healing.distanceTo(idle) > 0.1D,
+					"setup: the Heal holds " + heal.getTaskTarget(helper.getLevel()) + " and puts the Stand at its user's feet + "
+							+ healing + ", where it stands without a task");
+			Vec3 far = scene.user().position().add(12.0D, 0.0D, 0.0D);
+			cow.moveTo(far.x, far.y, far.z, 0.0F, 0.0F);
+			StandTaskTargetOffsetGameTests.turn(scene.user(), VIEW_YAW, VIEW_YAW);
+			LivingComponentAction.getComponent(scene.stand()).tick();
+			helper.assertTrue(heal.getTaskTarget(helper.getLevel()).getType() == ActionTarget.TargetType.EMPTY
+					&& scene.stand().getCurStandAction() == heal, "setup: the Heal still holds "
+							+ heal.getTaskTarget(helper.getLevel()) + " after the cow went 12 blocks east, or it ended");
+			scene.stand().updatePosition(scene.user());
+			Vec3 placed = scene.stand().position().subtract(scene.user().position());
+			helper.assertTrue(placed.distanceTo(idle) < EPS, "1.16 put a following crazy_diamond whose Heal dropped a cow 12"
+					+ " blocks east of its user who looks south where it stands without a task, its user's feet + " + idle
+					+ ", on that tick; it is at + " + placed);
+			assertLooksAlongItsUser(helper, scene, "1.16 turned a following crazy_diamond whose Heal dropped the cow along its"
+					+ " user's look south (the action turns it to " + heal.standRotationTarget + ")");
+		});
 		helper.succeed();
 	}
 
