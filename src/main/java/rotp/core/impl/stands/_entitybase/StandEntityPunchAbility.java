@@ -323,7 +323,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			Level level = performer.level();
 			if (performer instanceof StandEntity stand) {
 				releaseUnlockedPunchTarget(stand, this);
-				if (!level.isClientSide() && getPhase() == ActionPhase.WINDUP && !isGrabVariation()) {
+				if (!takesTargetsFromServer() && !isGrabVariation()) {
 					releaseTargetOutOfRange(stand);
 				}
 			}
@@ -362,6 +362,8 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			Level level = level();
 			if (performer instanceof StandEntity stand) {
 				ActionTarget target = getPunchTarget(stand);
+				// judged before the hit, which may break the block or remove the entity, as 1.16 set the task target first
+				boolean keepsStruck = !takesTargetsFromServer() && keepsStrikeTarget(stand, target);
 				if (!level.isClientSide()) {
 					StandPower standPower = StandPower.get(getPowerUser());
 					
@@ -401,15 +403,21 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 				 *  During the punch, the Stand entity keeps rotating towards the target (keepStandAimedAtTarget()),
 				 *  and while it keeps one it aims as itself (aimAs == AimingEntity.STAND). From the recovery on
 				 *  (onSetPhase) it aims as its user's camera again, as 1.16 took the next press from the user's view
-				 *  (EntityStandType.clientHitResult); a strike that met no entity hands the aim back at once. A client
-				 *  sets them from the target it holds, and the server sends what its strike changed
-				 *  (sendsPerformStartTargets).
+				 *  (EntityStandType.clientHitResult); a strike that met no entity hands the aim back at once. The
+				 *  server's strike sets the targets by 1.16's task rule (takeStrikeTarget), again here for a
+				 *  getPunchTarget override of its own, and sends what it changed (sendsPerformStartTargets); a client
+				 *  sets them from the target it holds.
 				 */
-				if (target.getType() == TargetType.ENTITY) {
-					standRotationTarget = target;
+				if (takesTargetsFromServer() || isGrabVariation()) {
+					if (target.getType() == TargetType.ENTITY) {
+						standRotationTarget = target;
+					}
+					else {
+						aimAs = AimingEntity.CAMERA_ENTITY;
+					}
 				}
 				else {
-					aimAs = AimingEntity.CAMERA_ENTITY;
+					takeStrikeTarget(target, keepsStruck);
 				}
 				releaseUnlockedPunchTarget(stand, this);
 			}
@@ -577,8 +585,10 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		}
 		
 		/**
-		 * The target the punch strikes now. The server aims as 1.16's StandEntity.punch did and saves it; a client strikes
-		 * at the target the server last sent it, the kept one or the strike's own once the server sent it.
+		 * The target the punch strikes now. The server aims as 1.16's StandEntity.punch did and, at the strike, makes it the
+		 * target the punch keeps and turns to by the task rule ({@link #takeStrikeTarget}), so an action that strikes in an
+		 * actionPerformStart of its own gets it too; a client strikes at the target the server last sent it, the kept one
+		 * or the strike's own once the server sent it.
 		 */
 		protected ActionTarget getPunchTarget(StandEntity stand) {
 			if (isGrabVariation()) {
@@ -589,8 +599,19 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			}
 			ActionTarget target = StandEntityPunchAbility.getFreshPunchTarget(
 					stand, getActionTargetSnapshot(stand.level()), shouldRetainPunchTarget(stand, ability), punchRule(ability));
-			setActionTargetSnapshot(target);
+			if (isStartingPerform()) {
+				takeStrikeTarget(target, keepsStrikeTarget(stand, target));
+			}
+			else {
+				setActionTargetSnapshot(target);
+			}
 			return target;
+		}
+
+		// 1.16 StandEntityTask.keepTarget of the struck target: StandEntityLightAttack.standKeepsTarget kept a block,
+		// StandEntityHeavyAttack's refused it, and neither kept an entity that is not living (checkStandTarget)
+		private boolean keepsStrikeTarget(StandEntity stand, ActionTarget struck) {
+			return keepsTargetInRange(stand, struck, punchRule(ability));
 		}
 
 		@Override
@@ -598,12 +619,11 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			return true;
 		}
 
-		// 1.16 StandEntityTask.tick: setTaskTarget(EMPTY) once keepTarget failed, sent to tracking clients; the Stand stops
-		// turning to the target
+		// 1.16 StandEntityTask.tick, on every server tick of the task: setTaskTarget(EMPTY) once keepTarget failed, sent to
+		// tracking clients; the Stand stops turning to the target. Read as held, so that a block broken since (air) or an
+		// entity removed is dropped too.
 		private void releaseTargetOutOfRange(StandEntity stand) {
-			Level level = stand.level();
-			ActionTarget kept = getActionTargetSnapshot(level);
-			if (!kept.isEmpty(level) && !keepsTargetInRange(stand, kept, punchRule(ability))) {
+			if (actionTargetSnapshot != null && !keepsTargetInRange(stand, actionTargetSnapshot, punchRule(ability))) {
 				setActionTargetSnapshot(null);
 				standRotationTarget = null;
 				aimAs = AimingEntity.CAMERA_ENTITY;

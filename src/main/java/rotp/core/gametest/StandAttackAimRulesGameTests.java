@@ -21,6 +21,7 @@ import rotp.core.core.JojoRegistries;
 import rotp.core.entityattachment.syncheddata.SynchedDataExtended;
 import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility;
 import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility.StandEntityBarrage;
+import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility.StandEntityHeavyPunch;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchChargedAbility.StandEntityChargedHeavy;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
@@ -994,6 +995,389 @@ public final class StandAttackAimRulesGameTests {
 		}, 60, () -> how + " never struck");
 	}
 
+	// 1.16 StandEntity.punch made the strike's target the task target (setTaskTarget, StandEntityTask.setTarget and
+	// keepTarget) and sent it to tracking clients only when it changed. The cow a punch was pressed at steps out of the
+	// Stand's reach but stays within the action's range, so it is kept through the windup and the strike aims again, at
+	// the block its user aims at: the light attack took the block as its task target (StandEntityLightAttack
+	// .standKeepsTarget) and the Stand turned to it; the heavy attack refused it (StandEntityHeavyAttack.standKeepsTarget),
+	// so its task target stayed the cow and nothing was sent. Bedrock, so that the struck block stays to be turned to.
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "strike_block_punch")
+	public static void punchWhoseKeptMobLeftReachTurnsToTheBlockItStrikesAsIn116(GameTestHelper helper) {
+		keptMobOutOfReachAtTheStrike(helper, "punch", scene -> scene.press("punch", InputMethod.CLICK), false,
+				StrikeMeets.BLOCK, false);
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "strike_block_heavy")
+	public static void heavyPunchWhoseKeptMobLeftReachStaysOnItThoughItStrikesABlockAsIn116(GameTestHelper helper) {
+		keptMobOutOfReachAtTheStrike(helper, "heavy punch", scene -> scene.press("heavy_punch", InputMethod.CLICK), true,
+				StrikeMeets.BLOCK, false);
+	}
+
+	// nothing in reach at the strike: StandEntity.punch set the empty task target, which every attack kept and which was
+	// sent, and the Stand turned along its user's look again (StandEntityTask.rotateStand, StandEntity.defaultRotation)
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "strike_nothing_punch")
+	public static void punchThatStrikesNothingDropsItsTargetAndTurnsAlongTheUsersLookAsIn116(GameTestHelper helper) {
+		keptMobOutOfReachAtTheStrike(helper, "punch", scene -> scene.press("punch", InputMethod.CLICK), false,
+				StrikeMeets.NOTHING, false);
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "strike_nothing_heavy")
+	public static void heavyPunchThatStrikesNothingDropsItsTargetAndTurnsAlongTheUsersLookAsIn116(GameTestHelper helper) {
+		keptMobOutOfReachAtTheStrike(helper, "heavy punch", scene -> scene.press("heavy_punch", InputMethod.CLICK), true,
+				StrikeMeets.NOTHING, false);
+	}
+
+	// a struck entity became the task target only if the task kept it (StandEntityTask.setTarget, keepTarget,
+	// StandEntityAction.checkStandTarget): a boat is not living, so the light and the heavy attack alike left their task
+	// target the cow, the Stand turned to it, and sent nothing
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "strike_boat_punch")
+	public static void punchWhoseKeptMobLeftReachStaysOnItThoughItStrikesABoatAsIn116(GameTestHelper helper) {
+		keptMobOutOfReachAtTheStrike(helper, "punch", scene -> scene.press("punch", InputMethod.CLICK), false,
+				StrikeMeets.BOAT, false);
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "strike_boat_heavy")
+	public static void heavyPunchWhoseKeptMobLeftReachStaysOnItThoughItStrikesABoatAsIn116(GameTestHelper helper) {
+		keptMobOutOfReachAtTheStrike(helper, "heavy punch", scene -> scene.press("heavy_punch", InputMethod.CLICK), true,
+				StrikeMeets.BOAT, false);
+	}
+
+	// 1.16's StandEntityTask.tick ran keepTarget on every server tick of the task, not only through its windup: the block a
+	// light punch struck and broke is air the next tick (Action.checkRangeAndTarget), so the task target was dropped and
+	// the empty one sent (setTaskTarget), and the Stand turned along its user's look
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "strike_breaks_block_punch")
+	public static void punchDropsTheBlockItStruckAndBrokeTheNextTickAsIn116(GameTestHelper helper) {
+		keptMobOutOfReachAtTheStrike(helper, "punch", scene -> scene.press("punch", InputMethod.CLICK), false,
+				StrikeMeets.BREAKABLE_BLOCK, false);
+	}
+
+	// the same rule for a punch whose action strikes in an actionPerformStart of its own, as King Crimson's strikes
+	// (AbstractKingCrimsonStrikeAbility.KingCrimsonStrikeAction) do: Chop, Impale and Ground Slam as 1.16 light attacks,
+	// Ground Punch and Desperate Eyejab as heavy ones (heavyAttack)
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "strike_block_own_strike")
+	public static void punchStrikingInItsOwnPerformTurnsToTheBlockItStrikesAsIn116(GameTestHelper helper) {
+		keptMobOutOfReachAtTheStrike(helper, "punch striking in its own perform", scene -> scene.startOwnStrike(false),
+				false, StrikeMeets.BLOCK, true);
+	}
+
+	// the action's own line hands the aim back after a struck block, which the server sends; the task target stays the cow
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "strike_block_own_heavy_strike")
+	public static void heavyAttackPunchStrikingInItsOwnPerformStaysOnItsKeptMobThoughItStrikesABlockAsIn116(
+			GameTestHelper helper) {
+		keptMobOutOfReachAtTheStrike(helper, "heavy-attack punch striking in its own perform",
+				scene -> scene.startOwnStrike(true), true, StrikeMeets.BLOCK, true);
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "strike_nothing_own_heavy_strike")
+	public static void heavyAttackPunchStrikingInItsOwnPerformThatStrikesNothingDropsItsTargetAsIn116(
+			GameTestHelper helper) {
+		keptMobOutOfReachAtTheStrike(helper, "heavy-attack punch striking in its own perform",
+				scene -> scene.startOwnStrike(true), true, StrikeMeets.NOTHING, true);
+	}
+
+	// the action's own line turns the Stand to an entity it struck, and King Crimson's strikes hit a boat too; the task
+	// refused the boat, so the Stand stays on the cow and nothing is sent
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "strike_boat_own_strike")
+	public static void punchStrikingInItsOwnPerformStaysOnItsKeptMobThoughItStrikesABoatAsIn116(GameTestHelper helper) {
+		keptMobOutOfReachAtTheStrike(helper, "punch striking in its own perform", scene -> scene.startOwnStrike(false),
+				false, StrikeMeets.BOAT, true);
+	}
+
+	// an action whose getPunchTarget is its own and does not call the core's (Red Hot Chili Pepper's lock and counter
+	// targets, Magician's Red's kick at its red bind, Reworked's blinks) strikes through the core's actionPerformStart,
+	// which then sets the targets by the same task rule, judged before the hit as 1.16 set the task target before it
+	// attacked (StandEntity.punch)
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "own_target_block_punch")
+	public static void punchWithATargetOfItsOwnTurnsToTheBlockItStrikesAsIn116(GameTestHelper helper) {
+		keptMobOutOfReachAtTheStrike(helper, "punch with a target of its own", scene -> scene.startOwnTarget(false),
+				false, StrikeMeets.BLOCK, false);
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "own_target_breaks_block_punch")
+	public static void punchWithATargetOfItsOwnTakesTheBlockItBreaksThenDropsItAsIn116(GameTestHelper helper) {
+		keptMobOutOfReachAtTheStrike(helper, "punch with a target of its own", scene -> scene.startOwnTarget(false),
+				false, StrikeMeets.BREAKABLE_BLOCK, false);
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "own_target_nothing_punch")
+	public static void punchWithATargetOfItsOwnThatStrikesNothingDropsItsTargetAsIn116(GameTestHelper helper) {
+		keptMobOutOfReachAtTheStrike(helper, "punch with a target of its own", scene -> scene.startOwnTarget(false),
+				false, StrikeMeets.NOTHING, false);
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "own_target_nothing_heavy")
+	public static void heavyPunchWithATargetOfItsOwnThatStrikesNothingDropsItsTargetAsIn116(GameTestHelper helper) {
+		keptMobOutOfReachAtTheStrike(helper, "heavy punch with a target of its own", scene -> scene.startOwnTarget(true),
+				true, StrikeMeets.NOTHING, false);
+	}
+
+	// the keepTarget of every server tick (StandEntityTask.tick) went on after the strike: the cow a punch kept and struck
+	// steps beyond the action's range (8 blocks) in the punch's PERFORM, or the heavy punch's RECOVERY, which follows its
+	// strike, and is dropped the next tick, the empty task target sent once
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "kept_mob_punch_leaves_range_after_strike")
+	public static void punchDropsTheMobItStruckThatLeftTheActionsRangeInItsPerformAsIn116(GameTestHelper helper) {
+		struckMobLeavesTheRange(helper, "punch", ActionPhase.PERFORM);
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "kept_mob_heavy_leaves_range_after_strike")
+	public static void heavyPunchDropsTheMobItStruckThatLeftTheActionsRangeInItsRecoveryAsIn116(GameTestHelper helper) {
+		struckMobLeavesTheRange(helper, "heavy_punch", ActionPhase.RECOVERY);
+	}
+
+	private static void struckMobLeavesTheRange(GameTestHelper helper, String name, ActionPhase leavesIn) {
+		Scene scene = new Scene(helper, true);
+		scene.precision(0);
+		scene.groundStrip(Blocks.BEDROCK.defaultBlockState());
+		Cow cow = scene.cow(0, 2.0);
+		scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, cow.position().add(0, 0.4, 0));
+		helper.assertTrue(scene.vanillaPick().getMainEntity() == cow, "Fixture: the vanilla pick is " + scene.vanillaPick());
+		String how = "The " + name + " whose struck cow left the action's range in its " + leavesIn;
+		TargetWatcher watcher = scene.watchStand();
+		EntityActionInstance[] action = new EntityActionInstance[1];
+		List<ClientStrike> clients = new ArrayList<>();
+		boolean[] left = new boolean[1];
+		scene.run(tick -> {
+			if (tick == 3) {
+				scene.sendClientAims();
+				action[0] = scene.press(name, InputMethod.CLICK);
+				helper.assertTrue((action[0] instanceof StandEntityPunch || action[0] instanceof StandEntityHeavyPunch)
+						&& action[0].punchedTarget == null && entityOf(helper, savedTarget(action[0])) == cow,
+						"Fixture: the " + name + " input started " + action[0] + ", struck at once, or keeps "
+								+ savedTarget(action[0]));
+				return false;
+			}
+			if (tick < 3) {
+				return false;
+			}
+			ActionTarget struck = action[0].punchedTarget;
+			List<TrEntityActionTargetPacket> sent = watcher.sentFor(action[0]);
+			if (struck == null) {
+				return false;
+			}
+			if (!left[0]) {
+				helper.assertTrue(struck.getMainEntity() == cow && entityOf(helper, savedTarget(action[0])) == cow
+						&& entityOf(helper, action[0].standRotationTarget) == cow && sent.isEmpty()
+						&& action[0].getPhase() == leavesIn, "Fixture: the " + name + " struck " + struck + ", keeps "
+								+ savedTarget(action[0]) + ", turns the Stand to " + action[0].standRotationTarget + ", sent "
+								+ sent + " and is in its " + action[0].getPhase() + " instead of its " + leavesIn);
+				clients.addAll(clientCopies(action[0], scene.stand));
+				cow.moveTo(cow.getX(), cow.getY(), cow.getZ() + 12.0, 0, 0);
+				helper.assertTrue(!ActionTargetRange.isTargetWithinRange(scene.stand, new ActionTarget(cow), helper.getLevel()),
+						"Fixture: the cow 12 blocks further is within the action's range");
+				left[0] = true;
+				return false;
+			}
+			helper.assertTrue(action[0].getPhase() == leavesIn, "Fixture: the " + name + " left its " + leavesIn + " before the"
+					+ " next tick: " + action[0].getPhase());
+			ActionTarget saved = savedTarget(action[0]);
+			ActionTarget turnedTo = action[0].standRotationTarget;
+			helper.assertTrue(saved == null && turnedTo == null && action[0].aimAs == AimingEntity.CAMERA_ENTITY
+					&& sent.size() == 1 && sent.get(0).keptTarget() == null && sent.get(0).rotationTarget() == null
+					&& sent.get(0).aimAs() == AimingEntity.CAMERA_ENTITY, how + " keeps " + saved + ", turns the Stand to "
+							+ turnedTo + ", aims as " + action[0].aimAs + " and sent tracking clients " + sent + "; 1.16"
+							+ " checked the task target on every tick of the task (StandEntityTask.tick, keepTarget), dropped it"
+							+ " out of the action's range (Action.checkRangeAndTarget) and sent the empty one once");
+			TrEntityActionTargetPacket drop = received(helper, sent.get(0));
+			for (ClientStrike client : clients) {
+				EntityActionInstance copy = (EntityActionInstance) client;
+				copy.setTargetsFromServer(drop.keptTarget(), drop.rotationTarget(), drop.aimAs());
+				helper.assertTrue(copy.standRotationTarget == null && savedTarget(copy) == null && client.strikeTarget(
+						scene.stand).isEmpty(helper.getLevel()), "A client's " + copy.getClass().getSimpleName() + " that took"
+								+ " what the server sent turns the Stand to " + copy.standRotationTarget + " and keeps "
+								+ savedTarget(copy) + " instead of nothing");
+			}
+			return true;
+		}, 60, () -> "The " + name + " never struck the cow, or the test ended at its strike");
+	}
+
+	// what the strike of keptMobOutOfReachAtTheStrike meets: bedrock that stays, glass the strike breaks, nothing (the user
+	// looks up), or a boat in front of the cow
+	private enum StrikeMeets {
+		BLOCK, BREAKABLE_BLOCK, NOTHING, BOAT
+	}
+
+	private static void keptMobOutOfReachAtTheStrike(GameTestHelper helper, String name,
+			Function<Scene, EntityActionInstance> start, boolean heavy, StrikeMeets meets, boolean ownStrike) {
+		Scene scene = new Scene(helper, true);
+		scene.precision(0);
+		boolean atBlock = meets == StrikeMeets.BLOCK || meets == StrikeMeets.BREAKABLE_BLOCK;
+		scene.groundStrip((meets == StrikeMeets.BREAKABLE_BLOCK ? Blocks.GLASS : Blocks.BEDROCK).defaultBlockState());
+		Cow cow = scene.cow(0, 2.0);
+		// low on the cow, so that past it the crosshair meets the ground strip
+		scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, cow.position().add(0, 0.4, 0));
+		helper.assertTrue(scene.vanillaPick().getMainEntity() == cow, "Fixture: the vanilla pick is " + scene.vanillaPick());
+		String how = "The " + name + " whose kept cow left the Stand's reach and that " + switch (meets) {
+			case BLOCK -> "struck the block its user aims at";
+			case BREAKABLE_BLOCK -> "struck and broke the glass its user aims at";
+			case NOTHING -> "struck nothing";
+			case BOAT -> "struck the boat its user aims at";
+		};
+		Level level = helper.getLevel();
+		TargetWatcher watcher = scene.watchStand();
+		EntityActionInstance[] action = new EntityActionInstance[1];
+		List<ClientStrike> clients = new ArrayList<>();
+		ActionTarget[] struckAt = new ActionTarget[1];
+		Entity[] boat = new Entity[1];
+		int[] ticksAfterStrike = new int[1];
+		scene.run(tick -> {
+			if (tick == 3) {
+				scene.sendClientAims();
+				action[0] = start.apply(scene);
+				helper.assertTrue((action[0] instanceof StandEntityPunch || action[0] instanceof StandEntityHeavyPunch)
+						&& action[0].punchedTarget == null && entityOf(helper, savedTarget(action[0])) == cow
+						&& entityOf(helper, action[0].standRotationTarget) == cow, "Fixture: the " + name + " input started "
+								+ action[0] + ", struck at once, or keeps " + savedTarget(action[0]) + " and turns the Stand to "
+								+ action[0].standRotationTarget + " instead of the cow");
+				// out of the Stand's reach, within the action's range (8 blocks)
+				cow.moveTo(cow.getX(), cow.getY(), cow.getZ() + 4.0, 0, 0);
+				if (meets == StrikeMeets.NOTHING) {
+					scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, scene.user.getEyePosition().add(0, 10, 0.01));
+				}
+				else if (meets == StrikeMeets.BOAT) {
+					boat[0] = scene.entity(EntityType.BOAT, 0, 2.0);
+					scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, boat[0].getBoundingBox().getCenter());
+				}
+				scene.sendClientAims();
+				boolean meetsIt = switch (meets) {
+					case BLOCK, BREAKABLE_BLOCK -> scene.vanillaPick().getType() == ActionTarget.TargetType.BLOCK;
+					case NOTHING -> scene.vanillaPick().isEmpty(level);
+					case BOAT -> scene.vanillaPick().getMainEntity() == boat[0]
+							&& StandEntityPunchAbility.canStandHit(scene.stand, boat[0]);
+				};
+				helper.assertTrue(meetsIt, "Fixture: the user's crosshair meets " + scene.vanillaPick());
+				return false;
+			}
+			if (tick < 3) {
+				return false;
+			}
+			ActionTarget struck = action[0].punchedTarget;
+			List<TrEntityActionTargetPacket> sent = watcher.sentFor(action[0]);
+			if (struck == null) {
+				helper.assertTrue(sent.isEmpty(), how + " sent tracking clients " + sent + " before it struck, keeping the cow");
+				clients.clear();
+				clients.addAll(clientCopies(action[0], scene.stand));
+				return false;
+			}
+			if (struckAt[0] != null && meets == StrikeMeets.BREAKABLE_BLOCK && ++ticksAfterStrike[0] == 1) {
+				ActionTarget saved = savedTarget(action[0]);
+				ActionTarget turnedTo = action[0].standRotationTarget;
+				helper.assertTrue(saved == null && turnedTo == null && action[0].aimAs == AimingEntity.CAMERA_ENTITY
+						&& sent.size() == 2 && sent.get(1).keptTarget() == null && sent.get(1).rotationTarget() == null
+						&& sent.get(1).aimAs() == AimingEntity.CAMERA_ENTITY, how + " keeps " + saved + ", turns the Stand to "
+								+ turnedTo + " and aims as " + action[0].aimAs + " the tick after, in its " + action[0].getPhase()
+								+ ", and sent tracking clients " + sent + "; 1.16 checked the task target on every tick"
+								+ " (StandEntityTask.tick, keepTarget), dropped the broken block (Action.checkRangeAndTarget:"
+								+ " air) and sent the empty task target once (setTaskTarget)");
+				TrEntityActionTargetPacket drop = received(helper, sent.get(1));
+				for (ClientStrike client : clients) {
+					EntityActionInstance copy = (EntityActionInstance) client;
+					copy.setTargetsFromServer(drop.keptTarget(), drop.rotationTarget(), drop.aimAs());
+					setPhase(copy, ActionPhase.PERFORM);
+					ActionTarget shown = StandEntityPunchAbility.keptStrikeTarget(scene.stand, copy);
+					helper.assertTrue(shown == null && copy.standRotationTarget == null && savedTarget(copy) == null,
+							"A client's " + copy.getClass().getSimpleName() + " that took what the server sent shows " + shown
+									+ " and turns the Stand to " + copy.standRotationTarget + " instead of nothing");
+				}
+				return false;
+			}
+			if (struckAt[0] != null) {
+				// a tick on, what the Stand faces
+				if (meets == StrikeMeets.BLOCK || meets == StrikeMeets.BOAT) {
+					boolean facesCow = heavy || meets == StrikeMeets.BOAT;
+					Vec3 faced = facesCow ? scene.stand.getPosToLookAt(new ActionTarget(cow))
+							: Vec3.atCenterOf(struckAt[0].getBlockPos());
+					double off = degreesOff(scene.stand, faced);
+					helper.assertTrue(off < 3, how + " faces " + off + " degrees off the " + (facesCow ? "cow" : "block it struck")
+							+ "; 1.16 turned the Stand to its task target (StandEntityTask.rotateStand)");
+				}
+				else {
+					float yaw = Mth.wrapDegrees(scene.stand.getYRot() - scene.user.getYRot());
+					float pitch = scene.stand.getXRot() - scene.user.getXRot();
+					helper.assertTrue(Math.abs(yaw) < 0.5F && Math.abs(pitch) < 0.5F, how + " turns the Stand " + yaw
+							+ " degrees aside and " + pitch + " degrees up or down from its user's look; with no task target"
+							+ " 1.16 turned it along its user's look (StandEntity.defaultRotation)");
+				}
+				return true;
+			}
+			struckAt[0] = struck;
+			ActionTarget atCow = new ActionTarget(cow);
+			helper.assertTrue(StandEntityPunchAbility.validatePunchTarget(scene.stand, atCow).isEmpty(level)
+					&& ActionTargetRange.isTargetWithinRange(scene.stand, atCow, level), "Fixture: at the strike the cow is"
+							+ " within the Stand's reach or out of the action's range (Stand at " + scene.stand.position()
+							+ ", cow at " + cow.position() + ")");
+			boolean struckIt = switch (meets) {
+				case BLOCK -> struck.getType() == ActionTarget.TargetType.BLOCK;
+				case BREAKABLE_BLOCK -> struck.getType() == ActionTarget.TargetType.BLOCK
+						&& level.getBlockState(struck.getBlockPos()).isAir();
+				case NOTHING -> struck.getType() == ActionTarget.TargetType.EMPTY;
+				case BOAT -> struck.getMainEntity() == boat[0];
+			};
+			helper.assertTrue(struckIt, "Fixture: " + how + " struck " + struck + (struck.getType() == ActionTarget.TargetType.BLOCK
+					? ", where " + level.getBlockState(struck.getBlockPos()) + " is" : ""));
+			ActionTarget saved = savedTarget(action[0]);
+			ActionTarget turnedTo = action[0].standRotationTarget;
+			String state = how + " keeps " + saved + ", turns the Stand to " + turnedTo + ", aims as " + action[0].aimAs
+					+ " in its " + action[0].getPhase() + " and sent tracking clients " + sent;
+			if (atBlock && heavy || meets == StrikeMeets.BOAT) {
+				// an action's own line that hands the aim back after a block is sent with the targets, which must still be
+				// the cow
+				boolean sentOnlyTheCow = sent.stream().allMatch(packet -> entityOf(helper, packet.keptTarget()) == cow
+						&& entityOf(helper, packet.rotationTarget()) == cow);
+				helper.assertTrue(entityOf(helper, saved) == cow && entityOf(helper, turnedTo) == cow
+						&& (ownStrike && meets != StrikeMeets.BOAT ? sentOnlyTheCow : sent.isEmpty()), state
+								+ (meets == StrikeMeets.BOAT ? "; 1.16 refused the struck boat as the task target, an entity that"
+										+ " is not living (StandEntityTask.setTarget, keepTarget, StandEntityAction.checkStandTarget),"
+										+ " which stayed the cow, and sent nothing"
+										: "; 1.16's heavy attack refused the struck block as its task target"
+												+ " (StandEntityHeavyAttack.standKeepsTarget), which stayed the cow, and sent nothing"));
+				for (ClientStrike client : clients) {
+					EntityActionInstance copy = (EntityActionInstance) client;
+					ActionTarget held = client.strikeTarget(scene.stand);
+					helper.assertTrue(held.getMainEntity() == cow && entityOf(helper, copy.standRotationTarget) == cow,
+							"A client's " + copy.getClass().getSimpleName() + " holds " + held + " and turns the Stand to "
+									+ copy.standRotationTarget + " instead of the cow the server kept");
+				}
+				return false;
+			}
+			if (atBlock) {
+				helper.assertTrue(saved != null && saved.sameTarget(struck) && turnedTo != null && turnedTo.sameTarget(struck)
+						&& action[0].aimAs == AimingEntity.CAMERA_ENTITY && sent.size() == 1
+						&& struck.sameTarget(sent.get(0).keptTarget()) && struck.sameTarget(sent.get(0).rotationTarget())
+						&& sent.get(0).aimAs() == AimingEntity.CAMERA_ENTITY, state + "; 1.16's light attack took the struck"
+								+ " block as its task target (StandEntityLightAttack.standKeepsTarget), turned the Stand to it and"
+								+ " sent it once");
+			}
+			else {
+				helper.assertTrue(saved == null && turnedTo == null && action[0].aimAs == AimingEntity.CAMERA_ENTITY
+						&& sent.size() == 1 && sent.get(0).keptTarget() == null && sent.get(0).rotationTarget() == null
+						&& sent.get(0).aimAs() == AimingEntity.CAMERA_ENTITY, state + "; 1.16 set the empty task target,"
+								+ " which every attack kept, and sent it once (StandEntity.punch, setTaskTarget)");
+			}
+			TrEntityActionTargetPacket received = received(helper, sent.get(0));
+			helper.assertTrue(!clients.isEmpty(), "Fixture: no client copy of the " + name + " was taken before it struck");
+			for (ClientStrike client : clients) {
+				EntityActionInstance copy = (EntityActionInstance) client;
+				copy.setTargetsFromServer(received.keptTarget(), received.rotationTarget(), received.aimAs());
+				setPhase(copy, ActionPhase.PERFORM);
+				ActionTarget shown = StandEntityPunchAbility.keptStrikeTarget(scene.stand, copy);
+				// the marker shows no block that broke
+				boolean showsStruck = meets == StrikeMeets.BREAKABLE_BLOCK ? shown == null : shown != null && shown.sameTarget(struck);
+				helper.assertTrue(atBlock ? showsStruck && copy.standRotationTarget != null
+						&& copy.standRotationTarget.sameTarget(struck) : shown == null && copy.standRotationTarget == null
+								&& savedTarget(copy) == null, "A client's " + copy.getClass().getSimpleName() + " that took what"
+										+ " the server sent shows " + shown + " and turns the Stand to " + copy.standRotationTarget
+										+ " instead of " + (atBlock ? "the block the server struck" : "nothing"));
+			}
+			return false;
+		}, 60, () -> "The " + name + " never struck, or the test ended at its strike");
+	}
+
+	// how far the Stand's look is from the point
+	private static double degreesOff(StandEntity stand, Vec3 point) {
+		Vec3 toPoint = point.subtract(stand.getEyePosition()).normalize();
+		return Math.toDegrees(Math.acos(Mth.clamp(stand.getLookAngle().dot(toPoint), -1.0, 1.0)));
+	}
+
 	// a punch that stands for a 1.16 heavy attack, as an add-on's (King Crimson's Ground Punch) declares it
 	private static final class HeavyAttackPunchProbe extends StandEntityPunchAbility {
 		HeavyAttackPunchProbe(AbilityType<?> abilityType, AbilityId abilityId) {
@@ -1014,6 +1398,88 @@ public final class StandAttackAimRulesGameTests {
 				action.phasesLength.put(ActionPhase.WINDUP,
 						StandStatFormulas.getHeavyAttackWindup(stand.getAttackSpeed(), stand.getFinisherMeter()));
 			}
+		}
+	}
+
+	// a punch whose action strikes in an actionPerformStart of its own as King Crimson's do: it takes getPunchTarget's target,
+	// then turns the Stand to an entity it struck and otherwise hands the aim back
+	private static final class OwnStrikeProbe extends StandEntityPunchAbility {
+		private final boolean heavyAttack;
+
+		OwnStrikeProbe(AbilityType<?> abilityType, AbilityId abilityId, boolean heavyAttack) {
+			super(abilityType, abilityId, OwnStrike::new);
+			this.heavyAttack = heavyAttack;
+		}
+
+		@Override
+		protected boolean heavyAttack() {
+			return heavyAttack;
+		}
+	}
+
+	private static final class OwnStrike extends StandEntityPunch {
+		OwnStrike(EntityActionType ability) {
+			super(ability);
+		}
+
+		@Override
+		public void actionPerformStart() {
+			if (!(performer instanceof StandEntity stand)) {
+				return;
+			}
+			ActionTarget target = getPunchTarget(stand);
+			if (!stand.level().isClientSide()) {
+				punchedTarget = target;
+			}
+			if (target.getType() == ActionTarget.TargetType.ENTITY) {
+				standRotationTarget = target;
+			}
+			else {
+				aimAs = AimingEntity.CAMERA_ENTITY;
+			}
+		}
+	}
+
+	// punches whose getPunchTarget is their own and never calls the core's, as an add-on's lock target: a fresh aim that
+	// keeps nothing; they strike through the core's actionPerformStart
+	private static final class OwnTargetProbe extends StandEntityPunchAbility {
+		OwnTargetProbe(AbilityType<?> abilityType, AbilityId abilityId) {
+			super(abilityType, abilityId, OwnTarget::new);
+		}
+	}
+
+	private static final class OwnTarget extends StandEntityPunch {
+		OwnTarget(EntityActionType ability) {
+			super(ability);
+		}
+
+		@Override
+		protected ActionTarget getPunchTarget(StandEntity stand) {
+			return StandEntityPunchAbility.getFreshPunchTarget(stand, ActionTarget.EMPTY, false,
+					StandEntityPunchAbility.CrosshairRule.BLOCK_OR_ENTITY);
+		}
+	}
+
+	private static final class OwnTargetHeavyProbe extends StandEntityHeavyPunchAbility {
+		OwnTargetHeavyProbe(AbilityType<?> abilityType, AbilityId abilityId) {
+			super(abilityType, abilityId);
+		}
+
+		@Override
+		public EntityActionInstance createActionObj() {
+			return new OwnTargetHeavy(this);
+		}
+	}
+
+	private static final class OwnTargetHeavy extends StandEntityHeavyPunch {
+		OwnTargetHeavy(EntityActionType ability) {
+			super(ability);
+		}
+
+		@Override
+		protected ActionTarget getPunchTarget(StandEntity stand) {
+			return StandEntityPunchAbility.getFreshPunchTarget(stand, ActionTarget.EMPTY, false,
+					StandEntityPunchAbility.CrosshairRule.ENTITY);
 		}
 	}
 
@@ -1627,8 +2093,9 @@ public final class StandAttackAimRulesGameTests {
 	}
 
 	// a client tracking the Stand: what the server sends it of the targets of the Stand's action
-	private static final class TargetWatcher extends FakePlayer {
+	static final class TargetWatcher extends FakePlayer {
 		final List<TrEntityActionTargetPacket> targets = new ArrayList<>();
+		@Nullable private ChunkMap.TrackedEntity tracked;
 
 		TargetWatcher(ServerLevel level) {
 			super(level, new GameProfile(UUID.randomUUID(), "action-target-watcher"));
@@ -1638,6 +2105,20 @@ public final class StandAttackAimRulesGameTests {
 		List<TrEntityActionTargetPacket> sentFor(EntityActionInstance action) {
 			return targets.stream().filter(packet -> packet.actionGeneration() == action.networkGeneration()
 					&& packet.actionId() == action.id).toList();
+		}
+
+		// tracks the entity as a client would, until untrack
+		void track(GameTestHelper helper, Entity entity) {
+			tracked = helper.getLevel().getChunkSource().chunkMap.entityMap.get(entity.getId());
+			helper.assertTrue(tracked != null, "Fixture: " + entity + " is not tracked");
+			tracked.seenBy.add(connection);
+		}
+
+		void untrack() {
+			if (tracked != null) {
+				tracked.seenBy.remove(connection);
+				tracked = null;
+			}
 		}
 	}
 
@@ -1737,9 +2218,13 @@ public final class StandAttackAimRulesGameTests {
 
 		// stone at the user's feet level from 1 to 3 blocks ahead; returns the one 2 blocks ahead
 		BlockPos groundStrip() {
+			return groundStrip(Blocks.STONE.defaultBlockState());
+		}
+
+		BlockPos groundStrip(BlockState state) {
 			BlockPos feet = BlockPos.containing(origin.x, origin.y - 0.5, origin.z);
 			for (int z = 1; z <= 3; z++) {
-				block(feet.south(z), Blocks.STONE.defaultBlockState());
+				block(feet.south(z), state);
 			}
 			return feet.south(2);
 		}
@@ -1877,6 +2362,31 @@ public final class StandAttackAimRulesGameTests {
 			LivingComponentAction.getComponent(stand).setAction(action, user, SyncType.NO_SYNC);
 			helper.assertTrue(stand.getCurStandAction() == action, "Fixture: the punch standing for a heavy attack did not"
 					+ " start on the Stand");
+			return action;
+		}
+
+		// started on the Stand as its key's press starts a punch, its target from the aims the client sent
+		EntityActionInstance startOwnStrike(boolean heavyAttack) {
+			OwnStrikeProbe probe = new OwnStrikeProbe(ModStandAbilities.PUNCH.get(),
+					new AbilityId(PowerClass.STAND, type.getId(), "own_strike_probe"), heavyAttack);
+			EntityActionInstance action = probe.initActionOnAbilityUse(helper.getLevel(), user, stand, null);
+			LivingComponentAction.getComponent(stand).setAction(action, user, SyncType.NO_SYNC);
+			helper.assertTrue(stand.getCurStandAction() == action, "Fixture: the punch striking in its own perform did not"
+					+ " start on the Stand");
+			return action;
+		}
+
+		// started on the Stand as its key's press starts a punch or heavy punch, its target from the aims the client sent
+		EntityActionInstance startOwnTarget(boolean heavy) {
+			EntityActionType probe = heavy
+					? new OwnTargetHeavyProbe(ModStandAbilities.HEAVY_PUNCH.get(),
+							new AbilityId(PowerClass.STAND, type.getId(), "own_target_heavy_probe"))
+					: new OwnTargetProbe(ModStandAbilities.PUNCH.get(),
+							new AbilityId(PowerClass.STAND, type.getId(), "own_target_probe"));
+			EntityActionInstance action = probe.initActionOnAbilityUse(helper.getLevel(), user, stand, null);
+			LivingComponentAction.getComponent(stand).setAction(action, user, SyncType.NO_SYNC);
+			helper.assertTrue(stand.getCurStandAction() == action, "Fixture: the " + (heavy ? "heavy punch" : "punch")
+					+ " with a target of its own did not start on the Stand");
 			return action;
 		}
 

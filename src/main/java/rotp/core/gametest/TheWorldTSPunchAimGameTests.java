@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.IntPredicate;
+import java.util.function.Supplier;
 
 import rotp.core.api.power.PowerSkillUnlocks;
 import rotp.core.api.stand.StandPowerTransitions;
@@ -18,14 +20,18 @@ import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.ability.input.AbilityInput;
 import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
+import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
+import rotp.core.powersystem.entityaction.netcode.TrEntityActionTargetPacket;
 import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
+import rotp.core.subsystems.target.ActionTargetRange;
+import rotp.core.subsystems.target.AimingEntity;
 import rotp.core.subsystems.timestop.TimeStopLearning;
 
 import net.minecraft.core.BlockPos;
@@ -205,6 +211,154 @@ public final class TheWorldTSPunchAimGameTests {
 			scene.close();
 			throw failure;
 		}
+	}
+
+	// 1.16 StandEntity.punch made the strike's target the task target (setTaskTarget), and TheWorldTSHeavyAttack
+	// .standKeepsTarget kept whatever it was: the cow the punch blinked to steps out of the Stand's reach, within the
+	// action's range (8 blocks), so the strike aims again and meets nothing, its user looking up. The empty task target
+	// was set and sent, and the Stand no longer turned to the cow
+	@GameTest(template = "empty", timeoutTicks = 40, batch = "tw_ts_punch_strike_nothing")
+	public static void tsPunchThatStrikesNothingDropsItsTargetAsIn116(GameTestHelper helper) {
+		Scene scene = new Scene(helper, 0);
+		StandAttackAimRulesGameTests.TargetWatcher watcher = new StandAttackAimRulesGameTests.TargetWatcher(scene.level);
+		Runnable close = () -> {
+			watcher.untrack();
+			scene.close();
+		};
+		try {
+			Cow cow = scene.mob(EntityType.COW.create(scene.level), scene.start.add(0, 0.5, 4));
+			EntityActionInstance action = scene.press();
+			helper.assertTrue(blinkTarget(action) == cow, "fixture: the punch did not go for the cow ahead: " + describe(action));
+			watcher.track(helper, scene.stand);
+			cow.moveTo(cow.getX(), cow.getY(), cow.getZ() + 5, 0, 0);
+			scene.user.setXRot(-90);
+			String how = "The time-stop punch whose cow stepped out of reach and that struck nothing";
+			runSteps(helper, close, tick -> {
+				List<TrEntityActionTargetPacket> sent = watcher.sentFor(action);
+				if (action.punchedTarget == null) {
+					helper.assertTrue(sent.isEmpty() && blinkTarget(action) == cow, how + " sent tracking clients " + sent
+							+ " and turns the Stand to " + describe(action) + " before it struck, with the cow within the"
+							+ " action's range");
+					return false;
+				}
+				ActionTarget atCow = new ActionTarget(cow);
+				helper.assertTrue(action.punchedTarget.getType() == TargetType.EMPTY
+						&& StandEntityPunchAbility.validatePunchTarget(scene.stand, atCow).isEmpty(scene.level)
+						&& ActionTargetRange.isTargetWithinRange(scene.stand, atCow, scene.level), "fixture: the time-stop punch"
+								+ " struck " + action.punchedTarget + " with the Stand at " + scene.stand.position() + " and the cow"
+								+ " at " + cow.position() + ", not nothing with the cow out of reach within the action's range");
+				ActionTarget saved = StandAttackAimRulesGameTests.savedTarget(action);
+				helper.assertTrue(saved == null && action.standRotationTarget == null
+						&& action.aimAs == AimingEntity.CAMERA_ENTITY && sent.size() == 1 && sent.get(0).keptTarget() == null
+						&& sent.get(0).rotationTarget() == null && sent.get(0).aimAs() == AimingEntity.CAMERA_ENTITY,
+						how + " keeps " + saved + ", turns the Stand to " + describe(action) + ", aims as " + action.aimAs
+								+ " and sent tracking clients " + sent + "; 1.16 set the empty task target, which the time-stop"
+								+ " attack kept as it kept every target (TheWorldTSHeavyAttack.standKeepsTarget), and sent it once"
+								+ " (StandEntity.punch, setTaskTarget)");
+				return true;
+			}, 30, () -> "The time-stop punch never struck: " + action.getPhase());
+		}
+		catch (RuntimeException | Error failure) {
+			close.run();
+			throw failure;
+		}
+	}
+
+	// 1.16's StandEntityTask.tick checked the time-stop punch's task target on every tick too (keepTarget): the block it
+	// blinked to is kept while it stands, as TheWorldTSHeavyAttack.standKeepsTarget kept every target, and once it is gone
+	// (Action.checkRangeAndTarget: air) the task target was dropped and the empty one sent. Put back before the strike, it is
+	// no task target any more, so the strike aims again (StandEntity.punch) and meets nothing, its user looking up
+	@GameTest(template = "empty", timeoutTicks = 40, batch = "tw_ts_punch_kept_block_gone")
+	public static void tsPunchDropsTheBlockItBlinkedToOnceItIsGoneAsIn116(GameTestHelper helper) {
+		Scene scene = new Scene(helper, 90);
+		StandAttackAimRulesGameTests.TargetWatcher watcher = new StandAttackAimRulesGameTests.TargetWatcher(scene.level);
+		Runnable close = () -> {
+			watcher.untrack();
+			scene.close();
+		};
+		try {
+			BlockPos stone = BlockPos.containing(scene.start).below(3);
+			scene.block(stone, Blocks.STONE.defaultBlockState());
+			EntityActionInstance action = scene.press();
+			ActionTarget blinked = action.standRotationTarget;
+			helper.assertTrue(blinked != null && blinked.getType() == TargetType.BLOCK && stone.equals(blinked.getBlockPos()),
+					"fixture: the time-stop punch went for " + describe(action) + ", not the stone below");
+			watcher.track(helper, scene.stand);
+			String how = "The time-stop punch that blinked to the stone below";
+			runSteps(helper, close, tick -> {
+				List<TrEntityActionTargetPacket> sent = watcher.sentFor(action);
+				ActionTarget saved = StandAttackAimRulesGameTests.savedTarget(action);
+				ActionTarget turnedTo = action.standRotationTarget;
+				if (tick <= 3) {
+					helper.assertTrue(action.getPhase() == ActionPhase.WINDUP && action.punchedTarget == null,
+							"fixture: the time-stop punch left its windup by tick " + tick + ": " + action.getPhase());
+				}
+				if (tick <= 2) {
+					helper.assertTrue(saved != null && saved.getType() == TargetType.BLOCK && stone.equals(saved.getBlockPos())
+							&& turnedTo != null && turnedTo.getType() == TargetType.BLOCK && stone.equals(turnedTo.getBlockPos())
+							&& sent.isEmpty(), how + " keeps " + saved + ", turns the Stand to " + describe(action) + " and sent"
+									+ " tracking clients " + sent + " at tick " + tick + " while the stone stands; 1.16's time-stop"
+									+ " attack kept a block as its task target (TheWorldTSHeavyAttack.standKeepsTarget)");
+					if (tick == 2) {
+						scene.block(stone, Blocks.AIR.defaultBlockState());
+						scene.user.setXRot(-90);
+					}
+					return false;
+				}
+				if (tick == 3) {
+					helper.assertTrue(saved == null && turnedTo == null && action.aimAs == AimingEntity.CAMERA_ENTITY
+							&& sent.size() == 1 && sent.get(0).keptTarget() == null && sent.get(0).rotationTarget() == null
+							&& sent.get(0).aimAs() == AimingEntity.CAMERA_ENTITY, how + " keeps " + saved + ", turns the Stand to "
+									+ describe(action) + ", aims as " + action.aimAs + " and sent tracking clients " + sent
+									+ " once the stone is gone; 1.16 checked the task target on every tick (StandEntityTask.tick,"
+									+ " keepTarget), dropped the block that was air (Action.checkRangeAndTarget) and sent the empty"
+									+ " task target once");
+					scene.block(stone, Blocks.STONE.defaultBlockState());
+					return false;
+				}
+				if (action.punchedTarget == null) {
+					return false;
+				}
+				helper.assertTrue(action.punchedTarget.getType() == TargetType.EMPTY
+						&& scene.level.getBlockState(stone).is(Blocks.STONE), how + " struck " + action.punchedTarget
+								+ " after the stone it dropped was put back; 1.16 had dropped it as the task target and aimed again"
+								+ " at the strike (StandEntity.punch), meeting nothing");
+				return true;
+			}, 30, () -> "The time-stop punch never struck: " + action.getPhase());
+		}
+		catch (RuntimeException | Error failure) {
+			close.run();
+			throw failure;
+		}
+	}
+
+	// runs the step once a tick until it returns true, failing after lastTick ticks
+	private static void runSteps(GameTestHelper helper, Runnable close, IntPredicate step, int lastTick,
+			Supplier<String> timeoutMessage) {
+		int[] ticks = new int[1];
+		boolean[] finished = new boolean[1];
+		helper.onEachTick(() -> {
+			if (finished[0]) {
+				return;
+			}
+			try {
+				if (step.test(++ticks[0])) {
+					finished[0] = true;
+					close.run();
+					helper.succeed();
+				}
+				else if (ticks[0] >= lastTick) {
+					finished[0] = true;
+					close.run();
+					helper.fail(timeoutMessage.get());
+				}
+			}
+			catch (RuntimeException | Error failure) {
+				finished[0] = true;
+				close.run();
+				throw failure;
+			}
+		});
 	}
 
 	private static Entity blinkTarget(EntityActionInstance action) {
