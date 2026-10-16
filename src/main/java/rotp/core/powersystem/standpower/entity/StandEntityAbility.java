@@ -213,7 +213,8 @@ public class StandEntityAbility extends EntityActionAbility {
 	 * ({@link StandEntity#lookAtTaskTarget}): the Stand faces the target at once (MCUtil.rotateTowards by 360 degrees), at
 	 * the point the action looks at ({@link EntityActionInstance#getStandLookTargetPosition}, as Gold Experience's and
 	 * Crazy Diamond's heavy punches give) or else at ActionTarget.getTargetPos(true): the eyes of any entity, a boat, a
-	 * minecart or primed TNT too, a block's centre.
+	 * minecart or primed TNT too, a block's centre. The Stand's head keeps the yaw this leaves it (yHeadRot)
+	 * for the tick, so an override that turns only the Stand's yaw and body afterwards leaves the head on the target.
 	 */
 	public void rotateStandTowardsTarget(StandEntity standEntity, EntityActionInstance action, ActionTarget target) {
 		Vec3 actionPos = action.getStandLookTargetPosition(standEntity, target);

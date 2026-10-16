@@ -84,6 +84,7 @@ public final class HeavyPunchBlockHitGameTests {
 	private static final String IMMUNITY_BATCH = "heavy_punch_block_hit_blast_immunity";
 	private static final String PROTECTION_BATCH = "heavy_punch_block_hit_blast_protection";
 	private static final String ADDON_ATTACK_BATCH = "heavy_punch_block_hit_addon_attack";
+	private static final String IMPACT_ORDER_BATCH = "heavy_punch_block_hit_impact_order";
 	private static final short KEY = 163;
 	private static final PowerSkillUnlocks.Owner UNLOCKS = PowerSkillUnlocks.register(
 			JojoMod.resLoc(HeavyPunchBlockHitGameTests.class.getSimpleName().toLowerCase(Locale.ROOT)));
@@ -135,11 +136,44 @@ public final class HeavyPunchBlockHitGameTests {
 		restoreBlockBreaking(level);
 	}
 
+	@BeforeBatch(batch = IMPACT_ORDER_BATCH)
+	public static void allowBlockBreakingForTheImpactOrder(ServerLevel level) {
+		allowBlockBreaking(level);
+	}
+
+	@AfterBatch(batch = IMPACT_ORDER_BATCH)
+	public static void restoreBlockBreakingAfterTheImpactOrder(ServerLevel level) {
+		restoreBlockBreaking(level);
+	}
+
+	/*
+	 * 1.16 StandEntity.attackTarget played the impact sound after punchInstance.doHit, which for a heavy punch on a block
+	 * (HeavyPunchBlockInstance) broke it and made the blast: when a strength-16 heavy punch's impact sounds, the obsidian it
+	 * struck and the glass on both sides of it are already broken. Own batch: no neighbour's blast reaches the glass.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 80, batch = IMPACT_ORDER_BATCH)
+	public static void heavyPunchSoundsItsBlockImpactAfterTheBreakAndTheBlastAsIn116(GameTestHelper helper) {
+		Scene scene = new Scene(helper, "star_platinum", 16, false);
+		List<BlockPos> glass = List.of(scene.block.east(), scene.block.west());
+		AABB around = new AABB(scene.block).inflate(8);
+		glass.forEach(pos -> scene.level().setBlock(pos, Blocks.GLASS.defaultBlockState(), Block.UPDATE_CLIENTS));
+		scene.cleanup.add(() -> {
+			glass.forEach(pos -> scene.level().setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS));
+			scene.level().getEntitiesOfClass(BlockShardEntity.class, around).forEach(Entity::discard);
+		});
+		scene.watchedAtImpact = glass;
+		scene.run(s -> helper.assertTrue(scene.impactSounds == 1 && !scene.blockStoodAtImpact && scene.standingAtImpact.isEmpty(),
+				"1.16 played a strength-16 heavy punch's impact sound once, after the obsidian broke and the blast broke the glass"
+						+ " beside it; it played " + scene.impactSounds + ", with the obsidian " + (scene.blockStoodAtImpact
+								? "still standing" : "broken") + " and the glass at " + scene.standingAtImpact + " standing"));
+	}
+
 	/*
 	 * 1.16 StandEntityHeavyAttack.punchBlock gave every heavy attack a HeavyPunchBlockInstance, D4C's hand chop too: an
 	 * add-on's heavy attack hitting obsidian through StandEntityHeavyPunch.hitBlockAsHeavyPunch with a strength-16 Stand
 	 * breaks it as the heavy punch does (heavyPunchBreaksObsidianBeforeItsBlast), then blasts the glass on both sides of it
-	 * into shards, and plays the impact sound it was given at the block. Own batch: no neighbour's blast reaches the glass.
+	 * into shards, and then plays the impact sound it was given at the block (StandEntity.attackTarget, after doHit). Own
+	 * batch: no neighbour's blast reaches the glass.
 	 */
 	@GameTest(template = "empty", timeoutTicks = 80, batch = ADDON_ATTACK_BATCH)
 	public static void anAddOnHeavyAttackHitsABlockAsTheHeavyPunchDoes(GameTestHelper helper) {
@@ -148,6 +182,7 @@ public final class HeavyPunchBlockHitGameTests {
 		AABB around = new AABB(scene.block).inflate(8);
 		try {
 			glass.forEach(pos -> scene.level().setBlock(pos, Blocks.GLASS.defaultBlockState(), Block.UPDATE_CLIENTS));
+			scene.watchedAtImpact = glass;
 			StandEntityHeavyPunch.hitBlockAsHeavyPunch(new ActionTarget(scene.block, Direction.NORTH), scene.level(), scene.stand,
 					true, ModSoundEvents.STAR_PLATINUM_PUNCH_HEAVY);
 			helper.assertTrue(scene.level().getBlockState(scene.block).isAir(),
@@ -159,6 +194,10 @@ public final class HeavyPunchBlockHitGameTests {
 			helper.assertTrue(shards > 0, "The blast of an add-on heavy attack broke the glass into no shards; 1.16 made them");
 			helper.assertTrue(scene.impactSounds == 1, "An add-on heavy attack on obsidian played " + scene.impactSounds
 					+ " impact sounds instead of the one it was given");
+			helper.assertTrue(!scene.blockStoodAtImpact && scene.standingAtImpact.isEmpty(), "1.16 played an add-on heavy"
+					+ " attack's impact sound after the obsidian broke and the blast broke the glass beside it; it played with the"
+					+ " obsidian " + (scene.blockStoodAtImpact ? "still standing" : "broken") + " and the glass at "
+					+ scene.standingAtImpact + " standing");
 		}
 		finally {
 			glass.forEach(pos -> scene.level().setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS));
@@ -319,6 +358,10 @@ public final class HeavyPunchBlockHitGameTests {
 		EntityActionInstance action;
 		int hitSounds;
 		int impactSounds;
+		// what stood when the impact sound played
+		List<BlockPos> watchedAtImpact = List.of();
+		boolean blockStoodAtImpact;
+		List<BlockPos> standingAtImpact = List.of();
 		int ticks;
 		boolean finished;
 
@@ -373,6 +416,8 @@ public final class HeavyPunchBlockHitGameTests {
 						&& event.getSound().value() == ModSoundEvents.STAR_PLATINUM_PUNCH_HEAVY.get()
 						&& event.getPosition().distanceToSqr(centre) < 0.01) {
 					impactSounds++;
+					blockStoodAtImpact = !level().getBlockState(block).isAir();
+					standingAtImpact = watchedAtImpact.stream().filter(pos -> !level().getBlockState(pos).isAir()).toList();
 				}
 			};
 			NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, PlayLevelSoundEvent.AtPosition.class, sounds);
