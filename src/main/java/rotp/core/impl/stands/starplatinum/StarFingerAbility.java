@@ -29,7 +29,9 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
 public class StarFingerAbility extends StandEntityAbility {
-	private static final ActionAnimIdentifier STAR_FINGER_ANIM = ActionAnimIdentifier.getOrCreate("star_finger", false);
+	// 1.16 STAR_FINGER_POSE: a held pose with no finger of its own, the projectile is the finger;
+	// the "star_finger" clip stretches the model's hidden finger bone and would draw it twice
+	private static final ActionAnimIdentifier STAR_FINGER_ANIM = ActionAnimIdentifier.getOrCreate("starFinger", false);
 	private static final float STAR_FINGER_STAMINA_COST = 375F;
 
 	public StarFingerAbility(AbilityType<?> abilityType, AbilityId abilityId) {
