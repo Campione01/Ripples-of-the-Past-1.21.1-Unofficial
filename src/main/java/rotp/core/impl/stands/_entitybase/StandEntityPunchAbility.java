@@ -40,6 +40,7 @@ import rotp.core.powersystem.standpower.entity.StandStatFormulas;
 import rotp.core.powersystem.standpower.entity.StandStatFormulas.BlockMiningTier;
 import rotp.core.subsystems.entity_grab.LivingComponentGrab;
 import rotp.core.subsystems.target.ActionTarget;
+import rotp.core.subsystems.target.ActionTargetRange;
 import rotp.core.subsystems.target.AimingEntity;
 import rotp.core.subsystems.target.HitResultUtil;
 import rotp.core.subsystems.target.StandPrecisionRay;
@@ -611,6 +612,24 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 					&& StandEntityPunchAbility.canStandHit(stand, targetEntity) ? target : ActionTarget.EMPTY;
 		}
 		return target;
+	}
+
+	/**
+	 * 1.16 StandEntityTask.keepTarget, checked on every tick of the task: an attack keeps the target it was pressed at
+	 * while its class keeps that kind of target ({@link CrosshairRule#keeps}), the Stand can attack it and it stays within
+	 * the action's range of the Stand (Action.checkRangeAndTarget: 8 blocks to an entity, 4 when the Stand cannot see it,
+	 * 10 to a block). The Stand's reach is checked only at the strike (StandEntity.aimWithThisOrUser).
+	 */
+	public static boolean keepsTargetInRange(StandEntity stand, ActionTarget target, CrosshairRule rule) {
+		Level level = stand.level();
+		ActionTarget kept = target != null ? target.resolveEntityId(level) : ActionTarget.EMPTY;
+		if (kept.isEmpty(level) || rule.keeps(kept).isEmpty(level)) {
+			return false;
+		}
+		if (kept.getType() == TargetType.ENTITY && !canStandHit(stand, kept.getEntity())) {
+			return false;
+		}
+		return ActionTargetRange.isTargetWithinRange(stand, kept, level);
 	}
 
 	/**

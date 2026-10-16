@@ -41,6 +41,7 @@ import rotp.core.powersystem.standpower.entity.StandEntityAbility;
 import rotp.core.powersystem.standpower.entity.StandStatFormulas;
 import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.target.ActionTarget;
+import rotp.core.subsystems.target.ActionTargetRange;
 
 import net.minecraft.commands.arguments.EntityAnchorArgument;
 import net.minecraft.core.BlockPos;
@@ -371,6 +372,89 @@ public final class StandAttackAimRulesGameTests {
 					+ scene.stand.position() + ", cow at " + cow.position() + "); 1.16 struck the task target the press kept");
 			return true;
 		}, 60, () -> "The " + name + " never struck");
+	}
+
+	// 1.16 StandEntityTask.tick kept the task target while it stayed within the action's range (keepTarget,
+	// Action.checkRangeAndTarget: 8 blocks, 4 unseen), and StandEntity.punch struck it if it was in reach at the strike:
+	// the mob a heavy punch was pressed at leaves the Stand's reach for two ticks of the windup and comes back, off the
+	// crosshair, and is struck
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "kept_mob_heavy_leaves_reach")
+	public static void heavyPunchStrikesTheMobItWasPressedAtThatLeftTheStandsReachInTheWindupAsIn116(GameTestHelper helper) {
+		pressedMobLeavesInTheWindup(helper, 4.0, true);
+	}
+
+	// beyond the action's range 1.16 dropped the task target for good: the Stand no longer turns to the mob, and the strike
+	// aims again at what the crosshair meets, though the mob is back within reach
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "kept_mob_heavy_leaves_range")
+	public static void heavyPunchDropsTheMobItWasPressedAtThatLeftTheActionsRangeInTheWindupAsIn116(GameTestHelper helper) {
+		pressedMobLeavesInTheWindup(helper, 12.0, false);
+	}
+
+	private static void pressedMobLeavesInTheWindup(GameTestHelper helper, double away, boolean staysInRange) {
+		Scene scene = new Scene(helper, true);
+		scene.precision(0);
+		scene.groundStrip();
+		Cow cow = scene.cow(0, 2.0);
+		Vec3 pressedAt = cow.position();
+		scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, cow.position().add(0, 0.4, 0));
+		helper.assertTrue(scene.vanillaPick().getMainEntity() == cow, "Fixture: the vanilla pick is " + scene.vanillaPick());
+		String how = "The heavy punch whose pressed cow left " + (staysInRange ? "the Stand's reach" : "the action's range")
+				+ " in the windup";
+		float health = cow.getHealth();
+		EntityActionInstance[] action = new EntityActionInstance[1];
+		scene.run(tick -> {
+			if (tick == 3) {
+				scene.sendClientAims();
+				action[0] = scene.press("heavy_punch", InputMethod.CLICK);
+				helper.assertTrue(action[0] instanceof StandEntityHeavyPunch && action[0].punchedTarget == null,
+						"Fixture: the heavy punch input started " + action[0] + ", or it struck at once");
+				return false;
+			}
+			if (tick < 3) {
+				return false;
+			}
+			if (tick == 5) {
+				cow.moveTo(pressedAt.x, pressedAt.y, pressedAt.z + away, 0, 0);
+				ActionTarget atCow = new ActionTarget(cow);
+				helper.assertTrue(StandEntityPunchAbility.validatePunchTarget(scene.stand, atCow).isEmpty(helper.getLevel())
+						&& ActionTargetRange.isTargetWithinRange(scene.stand, atCow, helper.getLevel()) == staysInRange,
+						"Fixture: the cow " + away + " blocks further is within the Stand's reach, or "
+								+ (staysInRange ? "out of" : "within") + " the action's range");
+			}
+			if (tick == 7) {
+				helper.assertTrue(action[0].punchedTarget == null && action[0].getPhase() == ActionPhase.WINDUP,
+						"Fixture: the heavy punch struck, or left its windup, while the cow was away");
+				ActionTarget turnedTo = action[0].standRotationTarget;
+				if (staysInRange) {
+					helper.assertTrue(turnedTo != null && turnedTo.getMainEntity() == cow, how + " turns the Stand to "
+							+ turnedTo + "; 1.16 kept its task target while it was within the action's range");
+				}
+				else {
+					helper.assertTrue(turnedTo == null || turnedTo.getMainEntity() != cow, how + " still turns the Stand to"
+							+ " it; 1.16 dropped the task target out of the action's range (StandEntityTask.tick)");
+				}
+				// back within reach, off the crosshair, which meets the ground behind it
+				cow.moveTo(pressedAt.x + 0.9, pressedAt.y, pressedAt.z, 0, 0);
+				scene.sendClientAims();
+				helper.assertTrue(scene.vanillaPick().getType() == ActionTarget.TargetType.BLOCK,
+						"Fixture: the user's crosshair meets " + scene.vanillaPick() + ", not the ground behind the cow");
+				return false;
+			}
+			ActionTarget struck = action[0].punchedTarget;
+			if (struck == null) {
+				return false;
+			}
+			if (staysInRange) {
+				helper.assertTrue(struck.getMainEntity() == cow && cow.getHealth() < health, how + " and came back struck "
+						+ struck + " (Stand at " + scene.stand.position() + ", cow at " + cow.position() + "); 1.16 kept"
+						+ " the task target within the action's range and struck it in reach");
+			}
+			else {
+				helper.assertTrue(struck.getMainEntity() != cow, how + " and came back struck it; 1.16 had dropped it and"
+						+ " aimed again at the strike");
+			}
+			return true;
+		}, 60, () -> "The heavy punch never struck");
 	}
 
 	// 1.16 kept the block a light punch was pressed at too (StandEntityLightAttack.standKeepsTarget): its user turns from

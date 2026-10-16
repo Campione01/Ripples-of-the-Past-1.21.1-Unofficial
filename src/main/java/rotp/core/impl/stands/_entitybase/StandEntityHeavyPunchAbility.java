@@ -326,8 +326,9 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 			Level level = performer.level();
 			if (performer instanceof StandEntity stand) {
 				StandEntityPunchAbility.releaseUnlockedPunchTarget(stand, this);
-				// 1.16 StandEntityHeavyAttack.getOffsetFromUser: through the windup the Stand keeps its distance from
-				// the current target, so it steps after one that backs away
+				// 1.16 StandEntityTask.tick dropped the task target that left the action's range (getPunchTarget), and
+				// StandEntityHeavyAttack.getOffsetFromUser kept the Stand's distance from it through the windup, so it
+				// steps after one that backs away
 				if (!level.isClientSide() && getPhase() == ActionPhase.WINDUP && usesHeavyFinisherSetup() && !isGrabVariation()) {
 					getPunchTarget(stand);
 					StandEntityBarrageAbility.refreshFrontOffset(this, stand, windupPlacementTarget(),
@@ -644,15 +645,32 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 			return getPhase() == ActionPhase.RECOVERY && finisherValue >= 0.5F;
 		}
 
+		/**
+		 * The target the heavy punch would strike now. Through the windup the target it was pressed at stays its 1.16 task
+		 * target while within the action's range ({@link StandEntityPunchAbility#keepsTargetInRange}), even out of the
+		 * Stand's reach for a while, and no new aim takes its place; the strike takes it if in reach, otherwise aims again
+		 * (StandEntity.punch, aimWithThisOrUser).
+		 */
 		protected ActionTarget getPunchTarget(StandEntity stand) {
 			if (isGrabVariation()) {
 				return new ActionTarget(punchTarget);
 			}
-			ActionTarget target = StandEntityPunchAbility.getFreshPunchTarget(
-					stand, getActionTargetSnapshot(stand.level()),
+			Level level = stand.level();
+			ActionTarget kept = getActionTargetSnapshot(level);
+			boolean windup = getPhase() == ActionPhase.WINDUP;
+			if (windup && !level.isClientSide() && !kept.isEmpty(level)
+					&& !StandEntityPunchAbility.keepsTargetInRange(stand, kept, StandEntityPunchAbility.CrosshairRule.ENTITY)) {
+				setActionTargetSnapshot(null);
+				keptEntity = null;
+				standRotationTarget = null;
+				kept = ActionTarget.EMPTY;
+			}
+			ActionTarget target = StandEntityPunchAbility.getFreshPunchTarget(stand, kept,
 					StandEntityPunchAbility.shouldRetainPunchTarget(stand, ability),
 					StandEntityPunchAbility.CrosshairRule.ENTITY);
-			setActionTargetSnapshot(target);
+			if (!windup) {
+				setActionTargetSnapshot(target);
+			}
 			return target;
 		}
 
