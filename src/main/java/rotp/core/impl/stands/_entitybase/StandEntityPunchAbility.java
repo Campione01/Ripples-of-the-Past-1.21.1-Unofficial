@@ -323,8 +323,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			Level level = performer.level();
 			if (performer instanceof StandEntity stand) {
 				releaseUnlockedPunchTarget(stand, this);
-				// clients get no packet for the drop and judge it the same way, for the Stand's turn and the marker
-				if (getPhase() == ActionPhase.WINDUP && !isGrabVariation()) {
+				if (!level.isClientSide() && getPhase() == ActionPhase.WINDUP && !isGrabVariation()) {
 					releaseTargetOutOfRange(stand);
 				}
 			}
@@ -474,10 +473,13 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			return ModSoundEvents.STAND_PUNCH_LIGHT;
 		}
 
+		// 1.16 StandEntityLightAttack.getSounds: the cry when the task target the press kept is an entity, read as it is
 		protected boolean shouldPlayStandCrySound(Level level, StandEntity stand) {
+			ActionTarget kept = isGrabVariation()
+					? new ActionTarget(LivingComponentGrab.getEntityGrabbedBy(stand)) : getActionTargetSnapshot(level);
 			return !stand.isArmsOnlyMode()
 					&& stand.getFinisherMeter() <= 0
-					&& getPunchTarget(stand).getType() == TargetType.ENTITY;
+					&& kept.getType() == TargetType.ENTITY;
 		}
 
 		@Nullable
@@ -582,7 +584,8 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			return target;
 		}
 
-		// 1.16 StandEntityTask.tick: setTaskTarget(EMPTY) once keepTarget failed; the Stand stops turning to the target
+		// 1.16 StandEntityTask.tick: setTaskTarget(EMPTY) once keepTarget failed, sent to tracking clients; the Stand stops
+		// turning to the target
 		private void releaseTargetOutOfRange(StandEntity stand) {
 			Level level = stand.level();
 			ActionTarget kept = getActionTargetSnapshot(level);
@@ -590,6 +593,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 				setActionTargetSnapshot(null);
 				standRotationTarget = null;
 				aimAs = AimingEntity.CAMERA_ENTITY;
+				syncTargetsToTracking();
 			}
 		}
 		
@@ -631,10 +635,10 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	}
 
 	/**
-	 * 1.16 StandEntityTask.keepTarget, checked on every tick of the task: an attack keeps the target it was pressed at
-	 * while its class keeps that kind of target ({@link CrosshairRule#keeps}), the Stand can attack it and it stays within
-	 * the action's range of the Stand (Action.checkRangeAndTarget: 8 blocks to an entity, 4 when the Stand cannot see it,
-	 * 10 to a block). The Stand's reach is checked only at the strike (StandEntity.aimWithThisOrUser).
+	 * 1.16 StandEntityTask.keepTarget, checked by the server on every tick of the task: an attack keeps the target it was
+	 * pressed at while its class keeps that kind of target ({@link CrosshairRule#keeps}), the Stand can attack it and it
+	 * stays within the action's range of the Stand (Action.checkRangeAndTarget: 8 blocks to an entity, 4 when the Stand
+	 * cannot see it, 10 to a block). The Stand's reach is checked only at the strike (StandEntity.aimWithThisOrUser).
 	 */
 	public static boolean keepsTargetInRange(StandEntity stand, ActionTarget target, CrosshairRule rule) {
 		Level level = stand.level();

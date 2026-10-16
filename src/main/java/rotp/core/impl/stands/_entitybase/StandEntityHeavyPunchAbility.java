@@ -333,19 +333,14 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 			Level level = performer.level();
 			if (performer instanceof StandEntity stand) {
 				StandEntityPunchAbility.releaseUnlockedPunchTarget(stand, this);
-				// 1.16 StandEntityTask.tick dropped the task target that left the action's range (getPunchTarget), and
-				// StandEntityHeavyAttack.getOffsetFromUser kept the Stand's distance from it through the windup, so it
-				// steps after one that backs away
-				if (getPhase() == ActionPhase.WINDUP && usesHeavyFinisherSetup() && !isGrabVariation()) {
-					if (!level.isClientSide()) {
-						getPunchTarget(stand);
-						StandEntityBarrageAbility.refreshFrontOffset(this, stand, windupPlacementTarget(),
-								Math.min(0.5, stand.getEffectiveRange()), Math.min(2, stand.getMaxRange()));
-					}
-					else {
-						// no packet tells clients of the drop; they judge it the same way, for the Stand's turn and the marker
-						releaseTargetOutOfRange(stand);
-					}
+				// 1.16 StandEntityTask.tick dropped the task target that left the action's range (getPunchTarget), on the
+				// server only, and StandEntityHeavyAttack.getOffsetFromUser kept the Stand's distance from it through the
+				// windup, so it steps after one that backs away
+				if (getPhase() == ActionPhase.WINDUP && usesHeavyFinisherSetup() && !isGrabVariation()
+						&& !level.isClientSide()) {
+					getPunchTarget(stand);
+					StandEntityBarrageAbility.refreshFrontOffset(this, stand, windupPlacementTarget(),
+							Math.min(0.5, stand.getEffectiveRange()), Math.min(2, stand.getMaxRange()));
 				}
 			}
 			if (level.isClientSide() && !(playedSwingSound && playedStandCrySound)
@@ -681,7 +676,8 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 			return target;
 		}
 
-		// 1.16 StandEntityTask.tick: setTaskTarget(EMPTY) once keepTarget failed; the Stand stops turning to the target
+		// 1.16 StandEntityTask.tick: setTaskTarget(EMPTY) once keepTarget failed, sent to tracking clients; the Stand stops
+		// turning to the target
 		private void releaseTargetOutOfRange(StandEntity stand) {
 			Level level = stand.level();
 			ActionTarget kept = getActionTargetSnapshot(level);
@@ -691,6 +687,7 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 				keptEntity = null;
 				standRotationTarget = null;
 				aimAs = AimingEntity.CAMERA_ENTITY;
+				syncTargetsToTracking();
 			}
 		}
 

@@ -52,6 +52,8 @@ public final class ClientEntityActionSyncQueue {
 			PENDING_PHASE_TIMES = new LinkedHashMap<>();
 	private static final Map<EntityIdentity, List<Pending<TrEntityActionWithOBBSyncPacket>>>
 			PENDING_OBB_SYNCS = new LinkedHashMap<>();
+	private static final Map<EntityIdentity, List<Pending<TrEntityActionTargetPacket>>>
+			PENDING_TARGETS = new LinkedHashMap<>();
 	private static final GenerationLedgerRegistry GENERATIONS =
 			new GenerationLedgerRegistry(MAX_ORPHAN_GENERATION_LEDGERS);
 	private static final ConnectionEpoch CONNECTION_EPOCH = new ConnectionEpoch();
@@ -81,6 +83,8 @@ public final class ClientEntityActionSyncQueue {
 				ClientEntityActionSyncQueue::applyPhaseTime);
 		applyPendingList(PENDING_OBB_SYNCS,
 				ClientEntityActionSyncQueue::applyObbSync);
+		applyPendingList(PENDING_TARGETS,
+				ClientEntityActionSyncQueue::applyTarget);
 		expirePending();
 		if (pruneGenerationLedgers(mc) == CapacityResult.CAPACITY_EXHAUSTED) {
 			failCapacity(mc);
@@ -227,6 +231,29 @@ public final class ClientEntityActionSyncQueue {
 	public static void applyOrQueueObbSync(
 			TrEntityActionWithOBBSyncPacket packet) {
 		applyOrQueueObbSync(null, packet);
+	}
+
+	public static void applyOrQueueTarget(
+			ICommonPacketListener originListener,
+			TrEntityActionTargetPacket packet) {
+		if (!beginPacket(
+				Minecraft.getInstance(), originListener, "target")) {
+			return;
+		}
+		handleDependent(
+				PENDING_TARGETS,
+				new EntityIdentity(
+						packet.performerId(), packet.performerUuid()),
+				packet.actionGeneration(),
+				packet,
+				ClientEntityActionSyncQueue::applyTarget);
+	}
+
+	/** @deprecated Network handlers must pass their payload context listener. */
+	@Deprecated(forRemoval = false)
+	public static void applyOrQueueTarget(
+			TrEntityActionTargetPacket packet) {
+		applyOrQueueTarget(null, packet);
 	}
 
 	private static <T> void handleDependent(
@@ -423,6 +450,13 @@ public final class ClientEntityActionSyncQueue {
 		if (applyPendingFor(
 				PENDING_OBB_SYNCS, identity, generation,
 				ClientEntityActionSyncQueue::applyObbSync)
+				== ApplyResult.REJECTED) {
+			rejectGeneration(identity, generation);
+			return;
+		}
+		if (applyPendingFor(
+				PENDING_TARGETS, identity, generation,
+				ClientEntityActionSyncQueue::applyTarget)
 				== ApplyResult.REJECTED) {
 			rejectGeneration(identity, generation);
 		}
@@ -664,6 +698,38 @@ public final class ClientEntityActionSyncQueue {
 		}
 	}
 
+	private static ApplyResult applyTarget(
+			TrEntityActionTargetPacket packet) {
+		LivingEntity living = findLiving(new EntityIdentity(
+				packet.performerId(), packet.performerUuid()));
+		EntityActionInstance action = matchingAction(
+				living, packet.actionGeneration());
+		if (living == null || action == null) {
+			return ApplyResult.RETRY;
+		}
+		if (action.id != packet.actionId()) {
+			RuntimeException error = new IllegalStateException(
+					"Target sync action ID does not match its generation");
+			containDependentFailure(
+					living, action, packet.actionGeneration(),
+					"target", error);
+			return ApplyResult.REJECTED;
+		}
+		try {
+			action.setTargetsFromServer(
+					packet.keptTarget(), packet.rotationTarget(), packet.aimAs());
+			recordDependentApplied(
+					living, action, packet.actionGeneration(), "target");
+			return ApplyResult.APPLIED;
+		}
+		catch (RuntimeException error) {
+			containDependentFailure(
+					living, action, packet.actionGeneration(),
+					"target", error);
+			return ApplyResult.REJECTED;
+		}
+	}
+
 	@Nullable
 	private static EntityActionInstance matchingAction(
 			@Nullable LivingEntity living,
@@ -743,7 +809,7 @@ public final class ClientEntityActionSyncQueue {
 	static DependentSyncDiagnostic dependentSyncAppliedDiagnostic(
 			String syncType, long generation) {
 		String prefix = switch (syncType) {
-			case "synched_data", "phase_time", "obb" -> syncType;
+			case "synched_data", "phase_time", "obb", "target" -> syncType;
 			default -> throw new IllegalArgumentException(
 					"Unknown entity action dependent sync type " + syncType);
 		};
@@ -791,6 +857,7 @@ public final class ClientEntityActionSyncQueue {
 		expireListMap(PENDING_SYNCHED_DATA);
 		expireListMap(PENDING_PHASE_TIMES);
 		expireListMap(PENDING_OBB_SYNCS);
+		expireListMap(PENDING_TARGETS);
 	}
 
 	private static <T> void expireListMap(
@@ -811,6 +878,7 @@ public final class ClientEntityActionSyncQueue {
 		removePendingBefore(PENDING_SYNCHED_DATA, identity, generation);
 		removePendingBefore(PENDING_PHASE_TIMES, identity, generation);
 		removePendingBefore(PENDING_OBB_SYNCS, identity, generation);
+		removePendingBefore(PENDING_TARGETS, identity, generation);
 	}
 
 	private static void removePendingAction(
@@ -848,6 +916,7 @@ public final class ClientEntityActionSyncQueue {
 		removePendingGeneration(PENDING_SYNCHED_DATA, identity, generation);
 		removePendingGeneration(PENDING_PHASE_TIMES, identity, generation);
 		removePendingGeneration(PENDING_OBB_SYNCS, identity, generation);
+		removePendingGeneration(PENDING_TARGETS, identity, generation);
 	}
 
 	static <T> void removePendingGeneration(
@@ -930,6 +999,7 @@ public final class ClientEntityActionSyncQueue {
 		PENDING_SYNCHED_DATA.clear();
 		PENDING_PHASE_TIMES.clear();
 		PENDING_OBB_SYNCS.clear();
+		PENDING_TARGETS.clear();
 		GENERATIONS.clear();
 	}
 
@@ -973,7 +1043,8 @@ public final class ClientEntityActionSyncQueue {
 		return PENDING_ACTIONS.containsKey(identity)
 				|| PENDING_SYNCHED_DATA.containsKey(identity)
 				|| PENDING_PHASE_TIMES.containsKey(identity)
-				|| PENDING_OBB_SYNCS.containsKey(identity);
+				|| PENDING_OBB_SYNCS.containsKey(identity)
+				|| PENDING_TARGETS.containsKey(identity);
 	}
 
 	private static void trimPendingActions() {

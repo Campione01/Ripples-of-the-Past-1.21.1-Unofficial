@@ -50,6 +50,9 @@ public final class NetworkProtocolNegotiationSmokeTest {
 		// a v11 peer would stop reading a tracked Hamon user's data before the remembered aura technique
 		check(Integer.parseInt(PacketsRegister.NETWORK_PROTOCOL_VERSION) >= 12,
 				"the Hamon tracking sync's remembered aura technique requires core protocol v12 or later");
+		// a v12 peer has no actiontarget payload: its Stand would keep turning to a target the server dropped
+		check(Integer.parseInt(PacketsRegister.NETWORK_PROTOCOL_VERSION) >= 13,
+				"the clientbound actiontarget payload needs core protocol v13 or later");
 
 		var matching = NetworkComponentNegotiator.validateComponent(
 				requiredComponent(PacketsRegister.NETWORK_PROTOCOL_VERSION),
@@ -57,6 +60,13 @@ public final class NetworkProtocolNegotiationSmokeTest {
 				"client");
 		check(matching.isEmpty(),
 				"matching current peers must negotiate the required play payload");
+
+		var noActionTarget = NetworkComponentNegotiator.validateComponent(
+				requiredComponent(PacketsRegister.NETWORK_PROTOCOL_VERSION),
+				requiredComponent("12"),
+				"client");
+		check(noActionTarget.isPresent() && !noActionTarget.get().success(),
+				"a v12 peer must fail before it receives actiontarget");
 
 		var noAfkOwner = NetworkComponentNegotiator.validateComponent(
 				requiredComponent(PacketsRegister.NETWORK_PROTOCOL_VERSION),

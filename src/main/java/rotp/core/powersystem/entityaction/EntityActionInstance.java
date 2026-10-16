@@ -19,6 +19,7 @@ import rotp.core.network.NetworkPayloadValidation;
 import rotp.core.powersystem.ability.AbilityUsageGroup;
 import rotp.core.powersystem.ability.EntityActionAbility;
 import rotp.core.powersystem.entityaction.netcode.TrEntityActionPhaseTimePacket;
+import rotp.core.powersystem.entityaction.netcode.TrEntityActionTargetPacket;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.StandUtil;
 import rotp.core.powersystem.standpower.StandPower;
@@ -410,6 +411,29 @@ public class EntityActionInstance implements HeldInput {
 			return ActionTarget.EMPTY;
 		}
 		return actionTargetSnapshot;
+	}
+
+	/**
+	 * Server: tells the clients tracking the performer the target this action keeps now, the one its Stand turns to and
+	 * how the Stand aims, after the server changed them while the action runs (1.16 StandEntity.setTaskTarget sent
+	 * TrStandTaskTargetPacket). Clients take them as they are ({@link #setTargetsFromServer}).
+	 */
+	protected void syncTargetsToTracking() {
+		if (performer != null && !performer.level().isClientSide()) {
+			PacketDistributor.sendToPlayersTrackingEntityAndSelf(performer, new TrEntityActionTargetPacket(
+					performer.getId(), performer.getUUID(), networkGeneration, id,
+					actionTargetSnapshot, standRotationTarget, aimAs));
+		}
+	}
+
+	/** Client: the targets the server sent while this action runs ({@link #syncTargetsToTracking}). */
+	@ApiStatus.Internal
+	public void setTargetsFromServer(@Nullable ActionTarget keptTarget, @Nullable ActionTarget rotationTarget,
+			AimingEntity aimAs) {
+		setActionTargetSnapshot(keptTarget);
+		standRotationTarget = rotationTarget != null && rotationTarget.getType() != ActionTarget.TargetType.EMPTY
+				? rotationTarget.resolveEntityId(level()) : null;
+		this.aimAs = aimAs;
 	}
 	
 	// a punch's main target: a blocked hit wears the shield as in 1.16 StandEntityPunch.doHit

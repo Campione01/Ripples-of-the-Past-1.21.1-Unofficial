@@ -3,10 +3,16 @@ package rotp.core.gametest;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
+import javax.annotation.Nullable;
+
+import com.mojang.authlib.GameProfile;
+
+import io.netty.channel.embedded.EmbeddedChannel;
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.compat.v1_21_4.missingmethods._EntitySelector;
 import rotp.core.core.JojoMod;
@@ -26,6 +32,7 @@ import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.ability.AbilityUsageGroup;
+import rotp.core.powersystem.ability.EntityActionAbility;
 import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.ability.input.AbilityInput;
 import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
@@ -33,6 +40,7 @@ import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.netcode.SyncType;
+import rotp.core.powersystem.entityaction.netcode.TrEntityActionTargetPacket;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandPower;
@@ -48,7 +56,17 @@ import net.minecraft.commands.arguments.EntityAnchorArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.network.Connection;
+import net.minecraft.network.PacketSendListener;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket;
+import net.minecraft.network.protocol.game.ClientboundBundlePacket;
 import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.server.level.ChunkMap;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -65,6 +83,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -378,21 +397,24 @@ public final class StandAttackAimRulesGameTests {
 	// 1.16 StandEntityTask.tick kept the task target while it stayed within the action's range (keepTarget,
 	// Action.checkRangeAndTarget: 8 blocks, 4 unseen), and StandEntity.punch struck it if it was in reach at the strike:
 	// the mob a heavy punch was pressed at leaves the Stand's reach for two ticks of the windup and comes back, off the
-	// crosshair, and is struck
+	// crosshair, and is struck. Only the server judged it, and it sent tracking clients the task target only when it
+	// changed (StandEntity.setTaskTarget, TrStandTaskTargetPacket): nothing here
 	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "kept_mob_heavy_leaves_reach")
 	public static void heavyPunchStrikesTheMobItWasPressedAtThatLeftTheStandsReachInTheWindupAsIn116(GameTestHelper helper) {
 		pressedMobLeavesInTheWindup(helper, "heavy_punch", 4.0, true);
 	}
 
 	// beyond the action's range 1.16 dropped the task target for good: the Stand no longer turns to the mob, and the strike
-	// aims again at what the crosshair meets, though the mob is back within reach
+	// aims again at what the crosshair meets, though the mob is back within reach. Tracking clients were sent the empty
+	// task target, so their Stand stopped turning to the mob too
 	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "kept_mob_heavy_leaves_range")
 	public static void heavyPunchDropsTheMobItWasPressedAtThatLeftTheActionsRangeInTheWindupAsIn116(GameTestHelper helper) {
 		pressedMobLeavesInTheWindup(helper, "heavy_punch", 12.0, false);
 	}
 
 	// the same task rule on the punch action, through the long windup of a punch standing for a 1.16 heavy attack (King
-	// Crimson's Ground Punch and Desperate Eyejab)
+	// Crimson's Ground Punch and Desperate Eyejab). Its cry check reads the target the press kept as it is, as
+	// StandEntityLightAttack.getSounds read the task target, and never aims again or saves in its place
 	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "kept_mob_heavy_attack_punch_leaves_reach")
 	public static void heavyAttackPunchStrikesTheMobItWasPressedAtThatLeftTheStandsReachInTheWindupAsIn116(
 			GameTestHelper helper) {
@@ -416,7 +438,9 @@ public final class StandAttackAimRulesGameTests {
 		String how = "The " + name + " whose pressed cow left " + (staysInRange ? "the Stand's reach" : "the action's range")
 				+ " in the windup";
 		float health = cow.getHealth();
+		TargetWatcher watcher = scene.watchStand();
 		EntityActionInstance[] action = new EntityActionInstance[1];
+		EntityActionInstance[] client = new EntityActionInstance[1];
 		scene.run(tick -> {
 			if (tick == 3) {
 				scene.sendClientAims();
@@ -424,6 +448,10 @@ public final class StandAttackAimRulesGameTests {
 				helper.assertTrue((action[0] instanceof StandEntityPunch || action[0] instanceof StandEntityHeavyPunch)
 						&& action[0].punchedTarget == null, "Fixture: the " + name + " input started " + action[0]
 								+ ", or it struck at once");
+				client[0] = clientCopy(action[0], scene.stand);
+				ActionTarget shown = StandEntityPunchAbility.keptStrikeTarget(scene.stand, client[0]);
+				helper.assertTrue(shown != null && shown.getMainEntity() == cow, "Fixture: a client's copy of the " + name
+						+ " shows " + shown + ", not the cow it was pressed at");
 				return false;
 			}
 			if (tick < 3) {
@@ -436,18 +464,43 @@ public final class StandAttackAimRulesGameTests {
 						&& ActionTargetRange.isTargetWithinRange(scene.stand, atCow, helper.getLevel()) == staysInRange,
 						"Fixture: the cow " + away + " blocks further is within the Stand's reach, or "
 								+ (staysInRange ? "out of" : "within") + " the action's range");
+				if (staysInRange && action[0] instanceof StandEntityPunch) {
+					helper.assertTrue(!scene.stand.isArmsOnlyMode() && scene.stand.getFinisherMeter() <= 0,
+							"Fixture: the Stand is arms-only or has finisher, so the punch would cry at nothing");
+					boolean cries = playsStandCry(action[0], scene.stand);
+					ActionTarget saved = savedTarget(action[0]);
+					ActionTarget turnedTo = action[0].standRotationTarget;
+					helper.assertTrue(cries && saved != null && saved.getMainEntity() == cow && turnedTo != null
+							&& turnedTo.getMainEntity() == cow, how + ": checking its cry " + (cries ? "plays it" : "plays none")
+									+ ", and it then keeps " + saved + " and turns the Stand to " + turnedTo + "; 1.16 cried at the"
+									+ " task target the press kept, read as it was (StandEntityLightAttack.getSounds)");
+				}
 			}
 			if (tick == 7) {
 				helper.assertTrue(action[0].punchedTarget == null && action[0].getPhase() == ActionPhase.WINDUP,
 						"Fixture: the " + name + " struck, or left its windup, while the cow was away");
 				ActionTarget turnedTo = action[0].standRotationTarget;
+				List<TrEntityActionTargetPacket> sent = watcher.sentFor(action[0]);
 				if (staysInRange) {
 					helper.assertTrue(turnedTo != null && turnedTo.getMainEntity() == cow, how + " turns the Stand to "
 							+ turnedTo + "; 1.16 kept its task target while it was within the action's range");
+					helper.assertTrue(sent.isEmpty(), how + " sent tracking clients " + sent + " while it kept the cow; 1.16"
+							+ " sent the task target only when it changed (StandEntity.setTaskTarget)");
 				}
 				else {
 					helper.assertTrue(turnedTo == null || turnedTo.getMainEntity() != cow, how + " still turns the Stand to"
 							+ " it; 1.16 dropped the task target out of the action's range (StandEntityTask.tick)");
+					helper.assertTrue(sent.size() == 1 && sent.get(0).keptTarget() == null && sent.get(0).rotationTarget() == null
+							&& sent.get(0).aimAs() == AimingEntity.CAMERA_ENTITY, how + " sent tracking clients " + sent
+									+ "; 1.16 sent them the emptied task target once (StandEntity.setTaskTarget,"
+									+ " TrStandTaskTargetPacket)");
+					TrEntityActionTargetPacket drop = sent.get(0);
+					client[0].setTargetsFromServer(drop.keptTarget(), drop.rotationTarget(), drop.aimAs());
+					ActionTarget shown = StandEntityPunchAbility.keptStrikeTarget(scene.stand, client[0]);
+					helper.assertTrue(shown == null && client[0].standRotationTarget == null && savedTarget(client[0]) == null
+							&& client[0].aimAs == AimingEntity.CAMERA_ENTITY, "A client that took what the server sent still"
+									+ " shows " + shown + ", turns the Stand to " + client[0].standRotationTarget + " and aims as "
+									+ client[0].aimAs + "; 1.16 clients took the emptied task target");
 				}
 				// back within reach, off the crosshair, which meets the ground behind it
 				cow.moveTo(pressedAt.x + 0.9, pressedAt.y, pressedAt.z, 0, 0);
@@ -1208,6 +1261,88 @@ public final class StandAttackAimRulesGameTests {
 		}
 	}
 
+	// the punch's check whether its cry plays, which clients run on its first tick (StandEntityPunch.shouldPlayStandCrySound)
+	private static boolean playsStandCry(EntityActionInstance action, StandEntity stand) {
+		try {
+			Method check = StandEntityPunch.class.getDeclaredMethod("shouldPlayStandCrySound", Level.class, StandEntity.class);
+			check.setAccessible(true);
+			return (boolean) check.invoke(action, stand.level(), stand);
+		}
+		catch (ReflectiveOperationException e) {
+			throw new IllegalStateException("Fixture: cannot run the punch's cry check", e);
+		}
+	}
+
+	// what a client holds of an action the server sent it (EntityActionInstance.encode: its phase, the target it keeps and
+	// the one its Stand turns to, and so how the Stand aims)
+	private static EntityActionInstance clientCopy(EntityActionInstance action, StandEntity stand) {
+		EntityActionInstance copy = ((EntityActionAbility) action.ability).createActionObj();
+		try {
+			setActionField(copy, "performer", stand);
+			setActionField(copy, "phase", action.getPhase());
+			ActionTarget saved = savedTarget(action);
+			setActionField(copy, "actionTargetSnapshot", saved != null ? saved.copy() : null);
+		}
+		catch (ReflectiveOperationException e) {
+			throw new IllegalStateException("Fixture: cannot copy the action as a client holds it", e);
+		}
+		copy.standRotationTarget = action.standRotationTarget != null
+				? action.standRotationTarget.copy().resolveEntityId(stand.level()) : null;
+		copy.aimAs = action.aimAs;
+		return copy;
+	}
+
+	private static void setActionField(EntityActionInstance action, String name, Object value)
+			throws ReflectiveOperationException {
+		java.lang.reflect.Field field = EntityActionInstance.class.getDeclaredField(name);
+		field.setAccessible(true);
+		field.set(action, value);
+	}
+
+	// a client tracking the Stand: what the server sends it of the targets of the Stand's action
+	private static final class TargetWatcher extends FakePlayer {
+		final List<TrEntityActionTargetPacket> targets = new ArrayList<>();
+
+		TargetWatcher(ServerLevel level) {
+			super(level, new GameProfile(UUID.randomUUID(), "action-target-watcher"));
+			this.connection = new TargetRecordingConnection(level, this);
+		}
+
+		List<TrEntityActionTargetPacket> sentFor(EntityActionInstance action) {
+			return targets.stream().filter(packet -> packet.actionGeneration() == action.networkGeneration()
+					&& packet.actionId() == action.id).toList();
+		}
+	}
+
+	private static final class TargetRecordingConnection extends ServerGamePacketListenerImpl {
+		private final TargetWatcher watcher;
+
+		TargetRecordingConnection(ServerLevel level, TargetWatcher watcher) {
+			super(level.getServer(), openConnection(), watcher,
+					CommonListenerCookie.createInitial(watcher.getGameProfile(), false));
+			this.watcher = watcher;
+		}
+
+		// as GameTestHelper.makeMockServerPlayerInLevel: a live channel, so channel lookups do not fail
+		private static Connection openConnection() {
+			Connection connection = new Connection(PacketFlow.SERVERBOUND);
+			new EmbeddedChannel(connection);
+			return connection;
+		}
+
+		@Override
+		public void send(Packet<?> packet, @Nullable PacketSendListener listener) {
+			if (watcher == null) return;
+			if (packet instanceof ClientboundBundlePacket bundle) {
+				bundle.subPackets().forEach(sub -> send(sub, null));
+			}
+			else if (packet instanceof ClientboundCustomPayloadPacket custom
+					&& custom.payload() instanceof TrEntityActionTargetPacket target) {
+				watcher.targets.add(target);
+			}
+		}
+	}
+
 	private static Cow mobBarrageCow(GameTestHelper helper, List<Entity> entities, Vec3 pos) {
 		Cow cow = EntityType.COW.create(helper.getLevel());
 		helper.assertTrue(cow != null, "Fixture: could not create a cow");
@@ -1237,6 +1372,8 @@ public final class StandAttackAimRulesGameTests {
 		final Vec3 origin;
 		final List<Entity> entities = new ArrayList<>();
 		final List<PlacedBlock> placedBlocks = new ArrayList<>();
+		@Nullable TargetWatcher watcher;
+		@Nullable ChunkMap.TrackedEntity trackedStand;
 		int ticks;
 		boolean finished;
 		boolean closed;
@@ -1316,6 +1453,15 @@ public final class StandAttackAimRulesGameTests {
 			helper.assertTrue(helper.getLevel().addFreshEntity(cow), "Could not add a cow");
 			entities.add(cow);
 			return cow;
+		}
+
+		// a client that tracks the Stand
+		TargetWatcher watchStand() {
+			watcher = new TargetWatcher(helper.getLevel());
+			trackedStand = helper.getLevel().getChunkSource().chunkMap.entityMap.get(stand.getId());
+			helper.assertTrue(trackedStand != null, "Fixture: the Stand is not tracked");
+			trackedStand.seenBy.add(watcher.connection);
+			return watcher;
 		}
 
 		<T extends Entity> T entity(EntityType<T> entityType, double x, double z) {
@@ -1443,6 +1589,9 @@ public final class StandAttackAimRulesGameTests {
 		void close() {
 			if (closed) return;
 			closed = true;
+			if (trackedStand != null && watcher != null) {
+				trackedStand.seenBy.remove(watcher.connection);
+			}
 			AbilityInput.keyRelease(KEY, user);
 			if (power.isSummoned()) type.forceUnsummon(user, power);
 			entities.forEach(Entity::discard);

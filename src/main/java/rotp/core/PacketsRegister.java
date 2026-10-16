@@ -77,6 +77,7 @@ import rotp.core.network.s2c.TrStandSkinPacket;
 import rotp.core.network.s2c.TrSyncStandOffsetPacket;
 import rotp.core.powersystem.entityaction.netcode.TrEntityActionInstancePacket;
 import rotp.core.powersystem.entityaction.netcode.TrEntityActionPhaseTimePacket;
+import rotp.core.powersystem.entityaction.netcode.TrEntityActionTargetPacket;
 import rotp.core.powersystem.entityaction.netcode.TrEntityActionWithOBBSyncPacket;
 import rotp.core.powersystem.entityaction.syncdata.TrActionSynchedDataPacket;
 import rotp.core.powersystem.playerpower.packet.TrPlayerPowerLeapCooldownPacket;
@@ -141,7 +142,8 @@ public class PacketsRegister {
 	// 7: knockbackrestick (1.16 KnockbackResTickPacket), serverid (1.16 ServerIdPacket)
 	// 11: trafkmenacing carries the idle player's UUID
 	// 12: the Hamon tracking sync carries the technique the aura remembers
-	public static final String NETWORK_PROTOCOL_VERSION = "12";
+	// 13: actiontarget, the targets the server changes while an action runs (1.16 TrStandTaskTargetPacket)
+	public static final String NETWORK_PROTOCOL_VERSION = "13";
 
 	public static void register(RegisterPayloadHandlersEvent event) {
 		PayloadRegistrar registrar = event.registrar(NETWORK_PROTOCOL_VERSION);
@@ -193,6 +195,7 @@ public class PacketsRegister {
 		registerPacket(registrar, PayloadRegistrar::playToClient, new TrActionSynchedDataPacket.Handler(JojoMod.resLoc("actiondata")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new TrEntityActionPhaseTimePacket.Handler(JojoMod.resLoc("actionphase")));
         registerPacket(registrar, PayloadRegistrar::playToClient, new TrEntityActionWithOBBSyncPacket.Handler(JojoMod.resLoc("obbsync")));
+		registerPacket(registrar, PayloadRegistrar::playToClient, new TrEntityActionTargetPacket.Handler(JojoMod.resLoc("actiontarget")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new StandExpPacket.Handler(JojoMod.resLoc("standxp")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new TrPowerStandInstancePacket.Handler(JojoMod.resLoc("standinst")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new StandFullClearPacket.Handler(JojoMod.resLoc("standfullclear")));

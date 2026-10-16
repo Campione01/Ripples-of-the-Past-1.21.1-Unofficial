@@ -266,7 +266,7 @@ public final class ClientEntityActionSyncQueueSmokeTest {
 
 	private static void testDependentSyncAppliedDiagnostics() {
 		for (String prefix : List.of(
-				"synched_data", "phase_time", "obb")) {
+				"synched_data", "phase_time", "obb", "target")) {
 			DependentSyncDiagnostic diagnostic =
 					ClientEntityActionSyncQueue
 							.dependentSyncAppliedDiagnostic(prefix, 111L);
@@ -306,9 +306,14 @@ public final class ClientEntityActionSyncQueueSmokeTest {
 				"obbAction.extendableOBB().setIsRetracting(true)");
 		int obbReceipt = queue.indexOf(
 				"recordDependentApplied(", obbMutation);
+		int targetMutation = queue.indexOf(
+				"action.setTargetsFromServer(");
+		int targetReceipt = queue.indexOf(
+				"recordDependentApplied(", targetMutation);
 		check(synchedMutation >= 0 && synchedReceipt > synchedMutation
 				&& phaseMutation >= 0 && phaseReceipt > phaseMutation
-				&& obbMutation >= 0 && obbReceipt > obbMutation,
+				&& obbMutation >= 0 && obbReceipt > obbMutation
+				&& targetMutation >= 0 && targetReceipt > targetMutation,
 				"each dependent receipt must follow its successful production mutation");
 	}
 
@@ -628,6 +633,8 @@ public final class ClientEntityActionSyncQueueSmokeTest {
 				"src/main/java/rotp/core/powersystem/entityaction/netcode/TrEntityActionPhaseTimePacket.java");
 		String obb = read(
 				"src/main/java/rotp/core/powersystem/entityaction/netcode/TrEntityActionWithOBBSyncPacket.java");
+		String target = read(
+				"src/main/java/rotp/core/powersystem/entityaction/netcode/TrEntityActionTargetPacket.java");
 		check(normalize(action).contains(
 				"ClientEntityActionSyncQueue.applyOrQueueAction( context.listener(), payload.performerId")
 				&& normalize(data).contains(
@@ -635,8 +642,10 @@ public final class ClientEntityActionSyncQueueSmokeTest {
 				&& normalize(phase).contains(
 						"ClientEntityActionSyncQueue.applyOrQueuePhaseTime( context.listener(), payload)")
 				&& normalize(obb).contains(
-						"ClientEntityActionSyncQueue.applyOrQueueObbSync( context.listener(), payload)"),
-				"all four payload handlers must pass their immutable context listener origin");
+						"ClientEntityActionSyncQueue.applyOrQueueObbSync( context.listener(), payload)")
+				&& normalize(target).contains(
+						"ClientEntityActionSyncQueue.applyOrQueueTarget( context.listener(), payload)"),
+				"all five payload handlers must pass their immutable context listener origin");
 
 		String queue = read(
 				"src/main/java/rotp/core/powersystem/entityaction/netcode/ClientEntityActionSyncQueue.java");
@@ -657,7 +666,8 @@ public final class ClientEntityActionSyncQueueSmokeTest {
 						"null, performerId, performerUuid, generation, actionData")
 				&& queue.contains("applyOrQueueSynchedData(null, packet)")
 				&& queue.contains("applyOrQueuePhaseTime(null, packet)")
-				&& queue.contains("applyOrQueueObbSync(null, packet)"),
+				&& queue.contains("applyOrQueueObbSync(null, packet)")
+				&& queue.contains("applyOrQueueTarget(null, packet)"),
 				"stale-origin diagnostics must be bounded and legacy overloads fail closed");
 
 		assertPublicMethod(
@@ -675,6 +685,10 @@ public final class ClientEntityActionSyncQueueSmokeTest {
 				ICommonPacketListener.class,
 				TrEntityActionWithOBBSyncPacket.class);
 		assertPublicMethod(
+				"applyOrQueueTarget",
+				ICommonPacketListener.class,
+				TrEntityActionTargetPacket.class);
+		assertPublicMethod(
 				"applyOrQueueAction",
 				int.class, UUID.class, long.class, byte[].class);
 		assertPublicMethod(
@@ -683,6 +697,8 @@ public final class ClientEntityActionSyncQueueSmokeTest {
 				"applyOrQueuePhaseTime", TrEntityActionPhaseTimePacket.class);
 		assertPublicMethod(
 				"applyOrQueueObbSync", TrEntityActionWithOBBSyncPacket.class);
+		assertPublicMethod(
+				"applyOrQueueTarget", TrEntityActionTargetPacket.class);
 	}
 
 	private static void testOriginDropDiagnosticSourceContract() {
@@ -718,11 +734,13 @@ public final class ClientEntityActionSyncQueueSmokeTest {
 				"src/main/java/rotp/core/powersystem/entityaction/netcode/TrEntityActionPhaseTimePacket.java");
 		String obb = read(
 				"src/main/java/rotp/core/powersystem/entityaction/netcode/TrEntityActionWithOBBSyncPacket.java");
+		String target = read(
+				"src/main/java/rotp/core/powersystem/entityaction/netcode/TrEntityActionTargetPacket.java");
 		check(action.contains("UUID performerUuid")
 				&& action.contains("buf.writeUUID(packet.performerUuid)")
 				&& action.contains("UUID performerUuid = buf.readUUID()"),
 				"root action payload must round-trip the performer UUID");
-		for (String dependent : new String[] {data, phase, obb}) {
+		for (String dependent : new String[] {data, phase, obb, target}) {
 			check(dependent.contains("UUID performerUuid")
 					&& ((dependent.contains("writeUUID")
 							&& dependent.contains("readUUID"))
