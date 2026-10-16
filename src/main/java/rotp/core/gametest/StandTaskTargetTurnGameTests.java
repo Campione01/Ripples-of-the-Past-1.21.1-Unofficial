@@ -1,5 +1,7 @@
 package rotp.core.gametest;
 
+import java.util.List;
+
 import rotp.core.core.JojoMod;
 import rotp.core.gametest.StandTaskTargetOffsetGameTests.Scene;
 import rotp.core.impl.stands.hierophant.HGStringEntity;
@@ -11,7 +13,10 @@ import rotp.core.subsystems.target.ActionTarget;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.animal.Cow;
+import net.minecraft.world.entity.item.PrimedTnt;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
@@ -69,6 +74,67 @@ public final class StandTaskTargetTurnGameTests {
 						+ stringAttack.standRotationTarget + ")");
 			});
 		}
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 StandEntityAction.rotateStandTowardsTarget turned the Stand to target.getTargetPos(true), the eyes of any entity
+	 * its task held: Crazy Diamond's Revert (CrazyDiamondPreviousState, which kept primed TNT and a TNT minecart) faced their
+	 * eyes, low in their box, and not the middle of the box
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void revertFacesTheEyesOfTheTntItHoldsAsIn116(GameTestHelper helper) {
+		for (EntityType<?> type : List.<EntityType<?>>of(EntityType.TNT, EntityType.TNT_MINECART)) {
+			StandTaskTargetOffsetGameTests.withStand(helper, "crazy_diamond", scene -> {
+				scene.power().setResolveLevel(3);
+				Entity tnt = type.create(helper.getLevel());
+				helper.assertTrue(tnt != null, "Could not make a " + type);
+				if (tnt instanceof PrimedTnt primed) {
+					primed.setFuse(1000);
+				}
+				tnt.setNoGravity(true);
+				Vec3 pos = scene.user().position().add(2.5D, 0.0D, 0.0D);
+				tnt.moveTo(pos.x, pos.y, pos.z, 0.0F, 0.0F);
+				helper.assertTrue(helper.getLevel().addFreshEntity(tnt), "Could not add a " + type);
+				scene.spawned().add(tnt);
+				LivingComponentAction.getComponent(scene.user()).entityAim.setTarget(new ActionTarget(tnt));
+				EntityActionInstance revert = scene.set("revert_state");
+				StandTaskTargetOffsetGameTests.turn(scene.user(), VIEW_YAW, VIEW_YAW);
+				helper.assertTrue(revert.getTaskTarget(helper.getLevel()).getEntity() == tnt
+						&& Math.abs(tnt.getEyeY() - tnt.getBoundingBox().getCenter().y) > 0.2D,
+						"setup: the Revert holds " + revert.getTaskTarget(helper.getLevel()) + ", not the " + type
+								+ ", or its eyes are at the middle of its box");
+				scene.stand().updatePosition(scene.user());
+				Vec3 toEyes = tnt.getEyePosition().subtract(scene.stand().getEyePosition()).normalize();
+				Vec3 look = scene.stand().getLookAngle();
+				helper.assertTrue(look.dot(toEyes) > 0.9999D, "1.16 turned a crazy_diamond whose Revert held a " + type
+						+ " 2.5 blocks east of its user to its eyes " + tnt.getEyePosition() + ": it looks along " + look
+						+ " instead of " + toEyes);
+			});
+		}
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 GoldExperienceHeavyPunch.rotateStandTowardsTarget overrode that point: the Stand faced the top of the box of the
+	 * entity its task held, not its eyes
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void goldExperiencesHeavyPunchFacesTheTopOfTheCowItHoldsAsIn116(GameTestHelper helper) {
+		StandTaskTargetOffsetGameTests.withStand(helper, "gold_experience", scene -> {
+			Cow cow = scene.cow(new Vec3(2.0D, 0.0D, 0.0D));
+			LivingComponentAction.getComponent(scene.user()).entityAim.setTarget(new ActionTarget(cow));
+			EntityActionInstance heavyPunch = scene.set("heavy_punch");
+			StandTaskTargetOffsetGameTests.turn(scene.user(), VIEW_YAW, VIEW_YAW);
+			helper.assertTrue(heavyPunch.getTaskTarget(helper.getLevel()).getEntity() == cow,
+					"setup: the heavy punch holds " + heavyPunch.getTaskTarget(helper.getLevel()) + ", not the cow");
+			scene.stand().updatePosition(scene.user());
+			Vec3 top = new Vec3(cow.getX(), cow.getBoundingBox().maxY, cow.getZ());
+			Vec3 toTop = top.subtract(scene.stand().getEyePosition()).normalize();
+			Vec3 look = scene.stand().getLookAngle();
+			helper.assertTrue(look.dot(toTop) > 0.99999D, "1.16 turned a gold_experience whose heavy punch held a cow 2 blocks"
+					+ " east of its user to the top of the cow's box " + top + ": it looks along " + look + " instead of " + toTop);
+		});
 		helper.succeed();
 	}
 

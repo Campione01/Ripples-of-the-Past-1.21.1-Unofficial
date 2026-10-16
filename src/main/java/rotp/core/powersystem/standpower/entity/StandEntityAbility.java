@@ -26,6 +26,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 
 public class StandEntityAbility extends EntityActionAbility {
 	public boolean noFinisherBarDecay = false;
@@ -211,11 +212,12 @@ public class StandEntityAbility extends EntityActionAbility {
 	 * task held a target and the Stand was not manually controlled, following its user or not
 	 * ({@link StandEntity#lookAtTaskTarget}): the Stand faces the target at once (MCUtil.rotateTowards by 360 degrees), at
 	 * the point the action looks at ({@link EntityActionInstance#getStandLookTargetPosition}, as Gold Experience's and
-	 * Crazy Diamond's heavy punches give) or else where {@link StandEntity#getPosToLookAt} puts it: a living entity's
-	 * eyes, the middle of another entity's box, a block's centre.
+	 * Crazy Diamond's heavy punches give) or else at ActionTarget.getTargetPos(true): the eyes of any entity, a boat, a
+	 * minecart or primed TNT too, a block's centre.
 	 */
 	public void rotateStandTowardsTarget(StandEntity standEntity, EntityActionInstance action, ActionTarget target) {
-		standEntity.lookAtTarget(target, true);
+		Vec3 actionPos = action.getStandLookTargetPosition(standEntity, target);
+		standEntity.lookAtPos(actionPos != null ? actionPos : StandOffsetFromUser.taskTargetPos(target), true);
 	}
 
 	/**

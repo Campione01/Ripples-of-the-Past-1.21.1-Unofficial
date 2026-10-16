@@ -686,8 +686,10 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 	}
 	
 	public boolean lookAtTarget(ActionTarget target, boolean fullyRotateBody) {
-		Vec3 targetPos = getPosToLookAt(target);
-		
+		return lookAtPos(getPosToLookAt(target), fullyRotateBody);
+	}
+
+	public boolean lookAtPos(@Nullable Vec3 targetPos, boolean fullyRotateBody) {
 		if (targetPos != null) {
 			Vec2 rotations = MathUtil.lookAnglesTowards(targetPos, this, EntityAnchorArgument.Anchor.EYES);
 			if (fullyRotateBody) {
