@@ -3,6 +3,7 @@ package rotp.core.gametest;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import com.mojang.authlib.GameProfile;
@@ -13,6 +14,7 @@ import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.impl.stands.hierophant.HierophantStringAttackAbility.StringAttackShot;
 import rotp.core.init.ModDataAttachmentTypes;
+import rotp.core.init.ModEntityAttributes;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.EntityActionAbility;
@@ -94,6 +96,74 @@ public final class StandTaskTargetOffsetGameTests {
 			Vec3 expected = cow.getEyePosition().subtract(scene.user.getEyePosition()).normalize().scale(front);
 			assertAt(helper, scene, expected, "1.16 put a crazy_diamond healing a cow 3 blocks east of its user who looks"
 					+ " south, the offset turned from the user's eyes to the cow's (lockOnTargetPosition)");
+		});
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 CrazyDiamondHeal.getOffsetFromUser: offsetToTarget(task target, 0, getMaxEffectiveRange) whenever the task held
+	 * an entity, healing it or not. A cow at full health 6 blocks east, 4.55 from the user less its back-away, with an
+	 * effective range of 3.5: the Stand 3.5 in front, on the line from the user's eyes to the cow's.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void crazyDiamondHealStandsInFrontByItsEffectiveRangeWhileItHoldsAnUnhurtMobAsIn116(GameTestHelper helper) {
+		withStand(helper, "crazy_diamond", scene -> {
+			scene.user.getAttribute(ModEntityAttributes.STAND_EFFECTIVE_RANGE).setBaseValue(3.5D);
+			scene.user.getAttribute(ModEntityAttributes.STAND_MAX_RANGE).setBaseValue(8.0D);
+			StandEntity.updateStandStatAttributes(scene.stand, scene.user);
+			Cow cow = scene.cow(new Vec3(6.0D, 0.0D, 0.0D));
+			userAims(scene.user, cow);
+			EntityActionInstance heal = scene.start("heal", ActionPhase.PERFORM);
+			turn(scene.user, VIEW_YAW, BODY_YAW);
+			LivingComponentAction.getComponent(scene.stand).tick();
+			double reach = scene.stand.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE);
+			helper.assertTrue(heal.getTaskTarget(helper.getLevel()).getEntity() == cow && cow.getHealth() == cow.getMaxHealth()
+					&& scene.stand.getEffectiveRange() == 3.5D && Math.abs(reach - 3.5D) > 0.1D,
+					"setup: the heal holds " + heal.getTaskTarget(helper.getLevel()) + " with an effective range of "
+							+ scene.stand.getEffectiveRange() + " and a reach of " + reach + ", not the unhurt cow");
+			// withXRot(0, 3.5) turned by the pitch and yaw to the cow's eyes, as the offset turns, in degrees
+			Vec3 toCow = cow.getEyePosition().subtract(scene.user.getEyePosition());
+			Vec3 expected = new Vec3(0.0D, 0.0D, 3.5D).xRot(-MathUtil.xRotDegFromVec(toCow) * MathUtil.DEG_TO_RAD)
+					.yRot(-MathUtil.yRotDegFromVec(toCow) * MathUtil.DEG_TO_RAD);
+			assertAt(helper, scene, expected, "1.16 put a crazy_diamond holding an unhurt cow 6 blocks east of its user who"
+					+ " looks south 3.5 in front, its effective range, on the line from the user's eyes to the cow's");
+
+			// the task no longer holds the cow: getOffsetFromUser gave the default offset again
+			cow.discard();
+			LivingComponentAction.getComponent(scene.stand).tick();
+			helper.assertTrue(heal.getTaskTarget(helper.getLevel()).getType() == ActionTarget.TargetType.EMPTY
+					&& scene.stand.offsetFromUser.isIdle(), "1.16 gave a crazy_diamond whose heal no longer held the cow its"
+							+ " default offset; it holds " + heal.getTaskTarget(helper.getLevel()) + " with the offset "
+							+ scene.stand.offsetFromUser.getRelativeOffset() + " " + scene.stand.offsetFromUser.getRotations());
+		});
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 offsetToTarget measured to the target's getTargetPos(true), an entity's eyes, not to where the aim met its box:
+	 * a cow 4 blocks east, aimed at its near face, puts the Stand 4 - (1 + 0.45) = 2.55 in front
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void crazyDiamondHealMeasuresItsFrontOffsetToTheMobItselfAsIn116(GameTestHelper helper) {
+		withStand(helper, "crazy_diamond", scene -> {
+			scene.user.getAttribute(ModEntityAttributes.STAND_EFFECTIVE_RANGE).setBaseValue(3.5D);
+			scene.user.getAttribute(ModEntityAttributes.STAND_MAX_RANGE).setBaseValue(8.0D);
+			StandEntity.updateStandStatAttributes(scene.stand, scene.user);
+			Cow cow = scene.cow(new Vec3(4.0D, 0.0D, 0.0D));
+			Vec3 nearFace = new Vec3(cow.getBoundingBox().minX, cow.getEyeY(), cow.getZ());
+			LivingComponentAction.getComponent(scene.user).entityAim.setTarget(new ActionTarget(cow).withClipPos(Optional.of(nearFace)));
+			EntityActionInstance heal = scene.start("heal", ActionPhase.PERFORM);
+			turn(scene.user, VIEW_YAW, BODY_YAW);
+			LivingComponentAction.getComponent(scene.stand).tick();
+			double front = 4.0D - (1.0D + cow.getBbWidth() / 2.0D);
+			helper.assertTrue(heal.getTaskTarget(helper.getLevel()).getEntity() == cow && front < 3.5D,
+					"setup: the heal holds " + heal.getTaskTarget(helper.getLevel()) + ", not the cow, or " + front
+							+ " is past the effective range");
+			Vec3 toCow = cow.getEyePosition().subtract(scene.user.getEyePosition());
+			Vec3 expected = new Vec3(0.0D, 0.0D, front).xRot(-MathUtil.xRotDegFromVec(toCow) * MathUtil.DEG_TO_RAD)
+					.yRot(-MathUtil.yRotDegFromVec(toCow) * MathUtil.DEG_TO_RAD);
+			assertAt(helper, scene, expected, "1.16 put a crazy_diamond healing a cow 4 blocks east, aimed at its near face, "
+					+ front + " in front, measured to the cow itself less its back-away");
 		});
 		helper.succeed();
 	}
