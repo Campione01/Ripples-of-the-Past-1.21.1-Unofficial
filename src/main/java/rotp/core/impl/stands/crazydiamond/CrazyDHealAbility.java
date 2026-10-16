@@ -315,6 +315,9 @@ public class CrazyDHealAbility extends StandEntityAbility {
 
 		@Override
 		public void actionTick() {
+			if (!level().isClientSide()) {
+				releaseEntityTargetNoLongerKept();
+			}
 			StandEntity standEntity = performer instanceof StandEntity s ? s : null;
 			if (standEntity != null) {
 				placeStandByTarget(standEntity);
@@ -328,10 +331,6 @@ public class CrazyDHealAbility extends StandEntityAbility {
 			if (!level.isClientSide()) {
 				// 1.16 StandEntityTask paid each perform tick and ignored the result: an empty bar stays at 0
 				ActionTarget target = getActionTarget(level);
-				if (target.getType() == TargetType.ENTITY && !keepsEntityTarget(target, level)) {
-					setActionTarget(ActionTarget.EMPTY);
-					target = ActionTarget.EMPTY;
-				}
 				if (paysTickWithoutEntityTarget() || target.getType() == TargetType.ENTITY && !target.isEmpty(level)) {
 					consumeStaminaTick(standEntity);
 				}
@@ -375,6 +374,19 @@ public class CrazyDHealAbility extends StandEntityAbility {
 			}
 		}
 		
+		/*
+		 * 1.16 StandEntityTask.tick, on every server tick of the task in every phase and before the action ticked: an entity
+		 * keepTarget no longer passed was dropped (setTaskTarget(EMPTY)), sent to tracking clients, and the Stand neither
+		 * stood in front toward it nor turned to it any more
+		 */
+		private void releaseEntityTargetNoLongerKept() {
+			Level level = level();
+			ActionTarget target = getActionTarget(level);
+			if (target.getType() == TargetType.ENTITY && !keepsEntityTarget(target, level)) {
+				setTaskTarget(null);
+			}
+		}
+
 		public void onHealResultUpdated(HealResult.Synched old, HealResult.Synched cur) {
 			if (cur.isHealing && (old == null || !old.isHealing)) {
 				healingVisualsStartTick = curPhaseTick;

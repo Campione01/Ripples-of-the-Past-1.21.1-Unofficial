@@ -219,6 +219,45 @@ public final class StandTaskTargetTurnGameTests {
 	}
 
 	/*
+	 * 1.16 StandEntityTask.tick dropped the target keepTarget no longer passed before the action ticked, on every tick of the
+	 * task: on the tick a cow Crazy Diamond's Heal held went 12 blocks away, past its 8, the Heal no longer put the Stand in
+	 * front toward it (CrazyDiamondHeal.getOffsetFromUser, offsetToTarget of the task's target), and the following Stand
+	 * stood and looked as it does without a task
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void healDropsACowPastItsRangeBeforeItTicksAsIn116(GameTestHelper helper) {
+		StandTaskTargetOffsetGameTests.withStand(helper, "crazy_diamond", scene -> {
+			StandTaskTargetOffsetGameTests.turn(scene.user(), VIEW_YAW, VIEW_YAW);
+			scene.stand().updatePosition(scene.user());
+			Vec3 idle = scene.stand().position().subtract(scene.user().position());
+			Cow cow = scene.cow(COW_FROM_USER);
+			cow.setHealth(cow.getMaxHealth() - 4.0F);
+			LivingComponentAction.getComponent(scene.user()).entityAim.setTarget(new ActionTarget(cow));
+			EntityActionInstance heal = scene.start("heal", ActionPhase.PERFORM);
+			scene.stand().updatePosition(scene.user());
+			Vec3 healing = scene.stand().position().subtract(scene.user().position());
+			helper.assertTrue(heal.getTaskTarget(helper.getLevel()).getEntity() == cow && healing.distanceTo(idle) > 0.1D,
+					"setup: the Heal holds " + heal.getTaskTarget(helper.getLevel()) + " and puts the Stand at its user's feet + "
+							+ healing + ", where it stands without a task");
+			Vec3 far = scene.user().position().add(12.0D, 0.0D, 0.0D);
+			cow.moveTo(far.x, far.y, far.z, 0.0F, 0.0F);
+			StandTaskTargetOffsetGameTests.turn(scene.user(), VIEW_YAW, VIEW_YAW);
+			LivingComponentAction.getComponent(scene.stand()).tick();
+			helper.assertTrue(heal.getTaskTarget(helper.getLevel()).getType() == ActionTarget.TargetType.EMPTY
+					&& scene.stand().getCurStandAction() == heal, "setup: the Heal still holds "
+							+ heal.getTaskTarget(helper.getLevel()) + " after the cow went 12 blocks east, or it ended");
+			scene.stand().updatePosition(scene.user());
+			Vec3 placed = scene.stand().position().subtract(scene.user().position());
+			helper.assertTrue(placed.distanceTo(idle) < EPS, "1.16 put a following crazy_diamond whose Heal dropped a cow 12"
+					+ " blocks east of its user who looks south where it stands without a task, its user's feet + " + idle
+					+ ", on that tick; it is at + " + placed);
+			assertLooksAlongItsUser(helper, scene, "1.16 turned a following crazy_diamond whose Heal dropped the cow along its"
+					+ " user's look south (the action turns it to " + heal.standRotationTarget + ")");
+		});
+		helper.succeed();
+	}
+
+	/*
 	 * 1.16 StandEntityAction.rotateStandTowardsTarget turned the Stand to target.getTargetPos(true), the eyes of any entity
 	 * its task held: Crazy Diamond's Revert (CrazyDiamondPreviousState, which kept primed TNT and a TNT minecart) faced their
 	 * eyes, low in their box, and not the middle of the box
