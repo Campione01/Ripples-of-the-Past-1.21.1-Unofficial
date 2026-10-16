@@ -27,12 +27,15 @@ import rotp.core.powersystem.standpower.entity.EntityStandType;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.target.ActionTarget;
+import rotp.core.subsystems.target.ActionTargetRange;
 import rotp.core.util.functions.MathUtil;
 import io.netty.buffer.Unpooled;
 
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
@@ -40,11 +43,14 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.animal.Cow;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Wolf;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.neoforge.gametest.GameTestHolder;
@@ -145,6 +151,99 @@ public final class StandTaskTargetOffsetGameTests {
 					"Heal Other pressed at its user's own wounded wolf holds " + heal.getTaskTarget(helper.getLevel())
 							+ ", not the wolf it heals");
 		});
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 GoldExperienceBoneMeal.standPerform aimed again from its task's target (StandEntity.aimWithThisOrUser) and made
+	 * that its task's target (setTaskTarget), which the offset and the Stand turn to from then on. Pressed at grass 6 blocks
+	 * east, past the Stand's reach, the new aim runs along the user's look south to other grass 3 blocks ahead.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void goldExperienceBoneMealTakesItsNewAimAsItsTaskTargetAsIn116(GameTestHelper helper) {
+		withStand(helper, "gold_experience", scene -> {
+			BlockPos east = BlockPos.containing(scene.user.getEyePosition().add(6.0D, 0.0D, 0.0D));
+			BlockPos ahead = BlockPos.containing(scene.user.getEyePosition().add(0.0D, 0.0D, 3.0D));
+			try {
+				helper.getLevel().setBlockAndUpdate(east, Blocks.GRASS_BLOCK.defaultBlockState());
+				helper.getLevel().setBlockAndUpdate(ahead, Blocks.GRASS_BLOCK.defaultBlockState());
+				LivingComponentAction.getComponent(scene.user).entityAim.setTarget(new ActionTarget(east, Direction.WEST));
+				EntityActionInstance boneMeal = scene.set("bone_meal");
+				ActionTarget pressed = boneMeal.getTaskTarget(helper.getLevel());
+				double reach = scene.stand.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE);
+				helper.assertTrue(pressed.getType() == ActionTarget.TargetType.BLOCK && east.equals(pressed.getBlockPos())
+						&& ActionTargetRange.getDistance(scene.stand, new AABB(east)) > reach,
+						"setup: the Bone Meal holds " + pressed + ", not the grass east past the Stand's reach of " + reach);
+				LivingComponentAction.getComponent(scene.stand).tick();
+				ActionTarget held = boneMeal.getTaskTarget(helper.getLevel());
+				helper.assertTrue(held.getType() == ActionTarget.TargetType.BLOCK && ahead.equals(held.getBlockPos())
+						&& boneMeal.standRotationTarget != null && ahead.equals(boneMeal.standRotationTarget.getBlockPos()),
+						"1.16 GoldExperienceBoneMeal.standPerform set its new aim, the grass ahead on the user's look, as its"
+								+ " task's target; the task holds " + held + " and the Stand turns to " + boneMeal.standRotationTarget);
+				turn(scene.user, 45.0F, 45.0F);
+				Vec3 toAhead = Vec3.atCenterOf(ahead).subtract(scene.user.getEyePosition());
+				Vec3 expected = scene.stand.offsetFromUser.getRelativeOffset()
+						.yRot(-MathUtil.yRotDegFromVec(toAhead) * MathUtil.DEG_TO_RAD);
+				assertAt(helper, scene, expected, "1.16 put a gold_experience whose Bone Meal took the grass ahead as its new"
+						+ " target, its user turned away, with the offset turned by the yaw to that grass");
+			}
+			finally {
+				for (BlockPos pos : new BlockPos[] { east, east.above(), ahead, ahead.above() }) {
+					helper.getLevel().setBlockAndUpdate(pos, Blocks.AIR.defaultBlockState());
+				}
+			}
+		});
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 StandEntityTask.setTarget: a new aim the task does not keep (GoldExperienceBoneMeal.checkTarget refuses stone)
+	 * leaves it the target it held, and no aim at all (keepTarget passed an empty one) leaves it none; the Stand turns to
+	 * what it holds (StandEntityTask.rotateStand)
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void goldExperienceBoneMealKeepsItsTargetForAnAimItRefusesAndDropsItForNoAimAsIn116(GameTestHelper helper) {
+		for (boolean stoneAhead : new boolean[] { true, false }) {
+			withStand(helper, "gold_experience", scene -> {
+				BlockPos east = BlockPos.containing(scene.user.getEyePosition().add(6.0D, 0.0D, 0.0D));
+				BlockPos ahead = BlockPos.containing(scene.user.getEyePosition().add(0.0D, 0.0D, 3.0D));
+				try {
+					helper.getLevel().setBlockAndUpdate(east, Blocks.GRASS_BLOCK.defaultBlockState());
+					if (stoneAhead) {
+						helper.getLevel().setBlockAndUpdate(ahead, Blocks.STONE.defaultBlockState());
+					}
+					else {
+						// the new aims of the user and of the Stand go up into the open sky
+						scene.user.setXRot(-90.0F);
+						scene.stand.setXRot(-90.0F);
+					}
+					LivingComponentAction.getComponent(scene.user).entityAim.setTarget(new ActionTarget(east, Direction.WEST));
+					EntityActionInstance boneMeal = scene.set("bone_meal");
+					ActionTarget pressed = boneMeal.getTaskTarget(helper.getLevel());
+					helper.assertTrue(pressed.getType() == ActionTarget.TargetType.BLOCK && east.equals(pressed.getBlockPos()),
+							"setup: the Bone Meal holds " + pressed + ", not the grass east");
+					LivingComponentAction.getComponent(scene.stand).tick();
+					ActionTarget held = boneMeal.getTaskTarget(helper.getLevel());
+					ActionTarget turnedTo = boneMeal.standRotationTarget;
+					if (stoneAhead) {
+						helper.assertTrue(held.getType() == ActionTarget.TargetType.BLOCK && east.equals(held.getBlockPos())
+								&& turnedTo != null && east.equals(turnedTo.getBlockPos()),
+								"1.16 StandEntityTask.setTarget left a Bone Meal whose new aim met stone the grass it held; the"
+										+ " task holds " + held + " and the Stand turns to " + turnedTo);
+					}
+					else {
+						helper.assertTrue(held.getType() == ActionTarget.TargetType.EMPTY && turnedTo == null,
+								"1.16 StandEntityTask.setTarget left a Bone Meal whose new aim met nothing no target; the task"
+										+ " holds " + held + " and the Stand turns to " + turnedTo);
+					}
+				}
+				finally {
+					for (BlockPos pos : new BlockPos[] { east, east.above(), ahead, ahead.above() }) {
+						helper.getLevel().setBlockAndUpdate(pos, Blocks.AIR.defaultBlockState());
+					}
+				}
+			});
+		}
 		helper.succeed();
 	}
 

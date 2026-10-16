@@ -480,6 +480,32 @@ public class EntityActionInstance implements HeldInput {
 		taskTarget = kept;
 	}
 
+	/**
+	 * Server: 1.16 StandEntity.setTaskTarget, which an action called while it ran (StandEntityTask.setTarget): the task holds
+	 * the target if it keeps it ({@link StandEntityAbility#keepsTaskTarget}) and nothing for no target, else what it held.
+	 * Tracking clients get a change, at the end of a perform start that sends its targets
+	 * ({@link #sendsPerformStartTargets}), otherwise at once.
+	 */
+	protected final void setTaskTarget(@Nullable ActionTarget target) {
+		if (performer == null || takesTargetsFromServer() || !(ability instanceof StandEntityAbility standAbility)
+				|| !(performer instanceof StandEntity stand)) {
+			return;
+		}
+		ActionTarget kept = null;
+		if (target != null && target.getType() != ActionTarget.TargetType.EMPTY) {
+			if (!standAbility.keepsTaskTarget(stand, target)) {
+				return;
+			}
+			kept = target.copy().resolveEntityId(performer.level());
+		}
+		if (!sameTarget(taskTarget, kept)) {
+			taskTarget = kept;
+			if (!(startingPerform && sendsPerformStartTargets())) {
+				syncTargetsToTracking();
+			}
+		}
+	}
+
 	// 1.16 StandEntityTask.tick: on every server tick, before the action ticks, a target the task no longer keeps is dropped
 	private void releaseTaskTargetNoLongerKept() {
 		if (taskTarget != null && !takesTargetsFromServer() && ability instanceof StandEntityAbility standAbility
