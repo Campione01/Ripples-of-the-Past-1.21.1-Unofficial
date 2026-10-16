@@ -607,6 +607,67 @@ public final class StandTaskTargetTurnGameTests {
 		helper.succeed();
 	}
 
+	/*
+	 * 1.16 StandEntity.tickHeadTurn gave the body of a Stand with a task the yaw it started each tick with: an action whose
+	 * tick turned the Stand (setRot) showed its body along that yaw on the next tick, while StandEntityTask.rotateStand put
+	 * the yaw and head back on the user's look (defaultRotation) or on the task's target (MCUtil.rotateTowards), neither of
+	 * which moved the body. A Stand with no task kept the vanilla head turn: left where it is, its body stays.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aStandsBodyTakesTheYawItsActionLeftAsTheNextTickStartsAsIn116(GameTestHelper helper) {
+		for (String row : new String[] { "no target", "target", "no task" }) {
+			StandTaskTargetOffsetGameTests.withStand(helper, "hierophant_green", scene -> {
+				StandEntity stand = scene.stand();
+				StandTaskTargetOffsetGameTests.turn(scene.user(), VIEW_YAW, VIEW_YAW + 50.0F);
+				if (row.equals("no task")) {
+					stand.setCanFollowUser(false);
+					stand.setYRot(VIEW_YAW);
+					stand.yBodyRot = VIEW_YAW + 30.0F;
+					// at rest since the last tick, as the level marks it before ticking it
+					stand.setOldPosAndRot();
+					stand.tick();
+					helper.assertTrue(stand.getCurStandAction() == null
+							&& Math.abs(Mth.wrapDegrees(stand.yBodyRot - VIEW_YAW - 30.0F)) < EPS, "1.16 left the body of a"
+									+ " hierophant_green with no task, standing where it is, to the vanilla head turn, at "
+									+ (VIEW_YAW + 30.0F) + ": it is at " + stand.yBodyRot);
+					return;
+				}
+				YawAsideProbe probe = new YawAsideProbe(ModStandAbilities.HG_STRING_ATTACK.get(),
+						new AbilityId(PowerClass.STAND, JojoMod.resLoc("hierophant_green"), "yaw_aside_probe"));
+				EntityActionInstance action = probe.initActionOnAbilityUse(helper.getLevel(), scene.user(), stand, null);
+				LivingComponentAction actions = LivingComponentAction.getComponent(stand);
+				stand.summonLockTicks = 0;
+				actions.setAction(action, scene.user(), SyncType.NO_SYNC);
+				Cow cow = row.equals("target") ? scene.cow(COW_FROM_USER) : null;
+				if (cow != null) {
+					stand.setTaskTarget(new ActionTarget(cow));
+				}
+				ActionTarget held = action.getTaskTarget(helper.getLevel());
+				helper.assertTrue(stand.getCurStandAction() == action && (cow != null ? held.getEntity() == cow
+						: held.getType() == ActionTarget.TargetType.EMPTY), "setup: the probe holds " + held);
+				// StandEntity.tick, then its action's tick (EntityTickEvent.Post)
+				for (int tick = 0; tick < 2; tick++) {
+					stand.tick();
+					actions.tick();
+				}
+				helper.assertTrue(stand.getCurStandAction() == action && Math.abs(Mth.wrapDegrees(stand.getYRot()
+						- VIEW_YAW - YawAsideAction.ASIDE)) < EPS, "setup: the probe's tick left the Stand at yaw " + stand.getYRot());
+				float headYaw = VIEW_YAW;
+				if (cow != null) {
+					Vec3 toCow = cow.getEyePosition().subtract(stand.getEyePosition());
+					headYaw = (float) (Mth.atan2(toCow.z, toCow.x) * Mth.RAD_TO_DEG) - 90.0F;
+				}
+				helper.assertTrue(Math.abs(Mth.wrapDegrees(stand.yBodyRot - VIEW_YAW - YawAsideAction.ASIDE)) < EPS
+						&& Math.abs(Mth.wrapDegrees(stand.yHeadRot - headYaw)) < 1.0E-3F, "1.16 turned the body of a following"
+								+ " hierophant_green whose action's tick turned it " + YawAsideAction.ASIDE + " degrees off its user's"
+								+ " look to that yaw as the next tick started, and its head " + (cow != null ? "to the cow its task"
+										+ " holds" : "along its user's look") + " at " + headYaw + ": the body is at " + stand.yBodyRot
+								+ ", the head at " + stand.yHeadRot);
+			});
+		}
+		helper.succeed();
+	}
+
 	// as when each Stand has parried the other's barrage (StandEntity.barrageClashParryPunches)
 	private static void startBarrageClash(GameTestHelper helper, StandEntity stand, StandEntity opponent) {
 		try {
@@ -639,6 +700,34 @@ public final class StandTaskTargetTurnGameTests {
 			float yaw = standEntity.getUser().getYRot();
 			standEntity.setYRot(yaw);
 			standEntity.setYBodyRot(yaw);
+		}
+	}
+
+	// an action whose tick turns its Stand off its user's look, as a 1.16 action's setRot in its task's tick did
+	private static final class YawAsideProbe extends StandEntityAbility {
+		YawAsideProbe(AbilityType<?> abilityType, AbilityId abilityId) {
+			super(abilityType, abilityId, YawAsideAction::new);
+			setDefaultPhaseLength(ActionPhase.PERFORM, 40);
+		}
+
+		@Override
+		protected boolean keepsTaskTargetType(StandEntity standEntity, ActionTarget target) {
+			return target.getType() == ActionTarget.TargetType.ENTITY;
+		}
+	}
+
+	private static final class YawAsideAction extends EntityActionInstance {
+		static final float ASIDE = 40.0F;
+
+		YawAsideAction(EntityActionType ability) {
+			super(ability);
+		}
+
+		@Override
+		public void actionTick() {
+			if (getPerformer() instanceof StandEntity stand && stand.getUser() != null) {
+				stand.setYRot(stand.getUser().getYRot() + ASIDE);
+			}
 		}
 	}
 

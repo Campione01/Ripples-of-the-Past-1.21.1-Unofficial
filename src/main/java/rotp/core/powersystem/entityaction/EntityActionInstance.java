@@ -1101,7 +1101,8 @@ public class EntityActionInstance implements HeldInput {
 	
 	@ApiStatus.Internal
 	protected void _onTick() {
-		if (alignsBodyYawToLook()) {
+		// a Stand's body takes its yaw in its own head turn (StandEntity.tickHeadTurn)
+		if (alignsBodyYawToLook() && !(performer instanceof StandEntity)) {
 			performer.yBodyRot = performer.getYRot();
 		}
 		releaseTaskTargetNoLongerKept();

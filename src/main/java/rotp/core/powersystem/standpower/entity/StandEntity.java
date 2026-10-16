@@ -401,6 +401,20 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		}
 	}
 	
+	/*
+	 * 1.16 StandEntity.tickHeadTurn: while the Stand has a task its body takes the yaw it starts the tick with, the yaw an
+	 * action's tick left it, and that tick's turns leave the body alone (copyRotation, lookAtPos); without one, the
+	 * vanilla turn, which a following Stand's idle rule then overrides
+	 */
+	@Override
+	protected float tickHeadTurn(float yRot, float animStep) {
+		if (getCurStandAction() != null) {
+			yBodyRot = getYRot();
+			return animStep;
+		}
+		return super.tickHeadTurn(yRot, animStep);
+	}
+
 	@Override
 	public void aiStep() {
 		super.aiStep();
@@ -719,9 +733,12 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 			if (fullyRotateBody) {
 				this.setXRot(rotations.x);
 				this.setYRot(rotations.y);
-				
+
 				this.setYHeadRot(this.getYRot());
-				this.setYBodyRot(this.getYRot());
+				// with a task the body takes this yaw as the next tick starts (tickHeadTurn)
+				if (getCurStandAction() == null) {
+					this.setYBodyRot(this.getYRot());
+				}
 			}
 			else {
 				float maxHeadYRot = 75;
