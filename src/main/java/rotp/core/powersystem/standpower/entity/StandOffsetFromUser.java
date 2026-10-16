@@ -29,6 +29,7 @@ public class StandOffsetFromUser {
 	@Nullable public Vec3 grabIdleOffset;
 	
 	private Vec3 relativeOffset;
+	@Nullable private Vec3 offsetBeforeAction;
 	private Rotations rotations;
 	private boolean canInvertSide = true;
 	@Nullable public EntityActionType standAbility;
@@ -74,17 +75,20 @@ public class StandOffsetFromUser {
 		if (this.relativeOffset == null || this.rotations == null || 
 				offset.x != this.relativeOffset.x || offset.y != this.relativeOffset.y || offset.z != this.relativeOffset.z || 
 				rotations != this.rotations || canInvertSide != this.canInvertSide) {
-			LivingEntity userEntity = standEntity.getUser();
-			if (userEntity != null) {
-				this.prevAbsoluteOffset = getAbsoluteOffset(userEntity, false);
-				this.prevBodyRotDiff = userEntity.yBodyRot - userEntity.getYRot();
+			// a second change in one tick (a new action resets the offset, then sets its own) lerps from the first's start
+			if (changedTimestamp != standEntity.tickCount || prevAbsoluteOffset == null) {
+				LivingEntity userEntity = standEntity.getUser();
+				if (userEntity != null) {
+					this.prevAbsoluteOffset = getAbsoluteOffset(userEntity, false);
+					this.prevBodyRotDiff = userEntity.yBodyRot - userEntity.getYRot();
+				}
+				else {
+					this.prevAbsoluteOffset = null;
+				}
+				this.prevBodyTurnedWithUser = this.relativeOffset != null && this.rotations != null
+						? bodyTurnsWithUser(this.relativeOffset, this.rotations)
+						: bodyTurnsWithUser(offset, rotations);
 			}
-			else {
-				this.prevAbsoluteOffset = null;
-			}
-			this.prevBodyTurnedWithUser = this.relativeOffset != null && this.rotations != null
-					? bodyTurnsWithUser(this.relativeOffset, this.rotations)
-					: bodyTurnsWithUser(offset, rotations);
 			
 			this.relativeOffset = offset;
 			this.rotations = rotations;
@@ -102,6 +106,20 @@ public class StandOffsetFromUser {
 	public void resetToIdle() {
 		setOffset(getIdleOffset(), getIdleRotations());
 		this.standAbility = null;
+	}
+	
+	/*
+	 * 1.16 StandEntity.getOffsetFromUser: a task whose action gives no offset shows the default one. Called as an action
+	 * starts, before it sets an offset of its own.
+	 */
+	void resetForNewAction() {
+		offsetBeforeAction = relativeOffset;
+		resetToIdle();
+	}
+	
+	// the offset the action before the current one left, which the port's grab throw and charged heavy punch build on
+	public Vec3 getOffsetBeforeAction() {
+		return offsetBeforeAction != null ? offsetBeforeAction : relativeOffset;
 	}
 	
 	public boolean isIdle() {

@@ -134,7 +134,7 @@ public class StandEntityHeavyPunchChargedAbility extends StandEntityAbility {
 					keepStandAimedAtTarget(aimed);
 				}
 				else {
-					setStandOffset(0, Math.max(stand.offsetFromUser.getRelativeOffset().z, 0) + 2,
+					setStandOffset(0, Math.max(stand.offsetFromUser.getOffsetBeforeAction().z, 0) + 2,
 							StandOffsetFromUser.Rotations.HEAD_XY,
 							false);
 				}

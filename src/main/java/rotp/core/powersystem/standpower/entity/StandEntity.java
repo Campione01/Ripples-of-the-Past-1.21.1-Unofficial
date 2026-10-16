@@ -1392,6 +1392,7 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		}
 		if (action != null) {
 			setNoPhysics(false);
+			offsetFromUser.resetForNewAction();
 		}
 		else {
 			if (!level().isClientSide() && actionRetractsStandAfterClear(curAction)) {
