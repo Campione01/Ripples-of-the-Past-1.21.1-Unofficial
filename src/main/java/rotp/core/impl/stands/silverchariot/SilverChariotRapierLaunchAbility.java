@@ -75,7 +75,7 @@ public class SilverChariotRapierLaunchAbility extends StandEntityAbility {
 				keepStandAimedAtTarget(target);
 			}
 			aimAs = AimingEntity.STAND;
-			setStandOffset(0.0, 0.25, StandOffsetFromUser.Rotations.BODY, false);
+			setStandOffset(0.0, 0.25, StandOffsetFromUser.Rotations.HEAD, false);
 		}
 
 		@Override

@@ -118,7 +118,7 @@ public class CrazyDBlockBulletAbility extends StandEntityAbility {
 			HumanoidArm mainArm = user != null ? user.getMainArm() : HumanoidArm.RIGHT;
 			side = mainArm.getOpposite();
 			double left = mainArm == HumanoidArm.LEFT ? -0.25 : 0.25;
-			setStandOffset(new Vec3(left, 0.0, -0.5), StandOffsetFromUser.Rotations.BODY, false);
+			setStandOffset(new Vec3(left, 0.0, -0.5), StandOffsetFromUser.Rotations.HEAD, false);
 		}
 
 		@Override

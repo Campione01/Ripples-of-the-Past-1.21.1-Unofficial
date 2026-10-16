@@ -73,7 +73,7 @@ public class CrazyDBloodCutterAbility extends StandEntityAbility {
 
 		@Override
 		public void onActionSet(EntityActionInstance prevAction) {
-			setStandOffset(-0.1, -0.5, StandOffsetFromUser.Rotations.BODY, false);
+			setStandOffset(-0.1, -0.5, StandOffsetFromUser.Rotations.HEAD, false);
 		}
 
 		@Override

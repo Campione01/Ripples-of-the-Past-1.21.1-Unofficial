@@ -152,6 +152,31 @@ public final class StandTaskTargetOffsetGameTests {
 		helper.succeed();
 	}
 
+	/*
+	 * 1.16 gave these shots no yRotForOffset of their own, so their offsets turned by the view yaw: Rapier Launch
+	 * standOffsetFromUser(0, 0.25), Blood Cutter (-0.1, -0.5), Block Bullet (0.25, -0.5, 0), Flame Burst and Red Bind
+	 * standOffsetFront(); a noYOffset offset at the default 0.2 up
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void shotsTurnTheirOffsetByTheViewYawAsIn116(GameTestHelper helper) {
+		Object[][] shots = {
+				{ "silver_chariot", "rapier_launch", new Vec3(0.0D, 0.2D, 0.25D) },
+				{ "crazy_diamond", "blood_cutter", new Vec3(-0.1D, 0.2D, -0.5D) },
+				{ "crazy_diamond", "block_bullet", new Vec3(0.25D, 0.0D, -0.5D) },
+				{ "magicians_red", "flame_burst", new Vec3(0.0D, 0.2D, 0.5D) },
+				{ "magicians_red", "red_bind", new Vec3(0.0D, 0.2D, 0.5D) } };
+		float viewYaw = 90.0F;
+		for (Object[] shot : shots) {
+			withStand(helper, (String) shot[0], scene -> {
+				scene.set((String) shot[1]);
+				turn(scene.user, viewYaw, viewYaw - BODY_YAW);
+				assertAt(helper, scene, ((Vec3) shot[2]).yRot(-viewYaw * MathUtil.DEG_TO_RAD), "1.16 put a " + shot[0]
+						+ " starting its " + shot[1] + ", its user looking west with its body turned 50 degrees away (the view yaw)");
+			});
+		}
+		helper.succeed();
+	}
+
 	// Revert sets the item offset on its first perform tick; Repair Item as it starts, and stops on an empty hand
 	private static void startOnTheOffHandItem(Scene scene, String skill) {
 		scene.start(skill, ActionPhase.PERFORM);
@@ -269,6 +294,22 @@ public final class StandTaskTargetOffsetGameTests {
 			}
 			helper.assertTrue(stand.getCurStandAction() == action && action.getPhase() == until,
 					"setup: the " + name + " did not reach " + until + ": phase " + action.getPhase());
+			return action;
+		}
+
+		// the action set as it starts, before it ticks (a shot would fire)
+		EntityActionInstance set(String name) {
+			Ability found = power.getAbility(name);
+			if (!(found instanceof EntityActionAbility)) {
+				power.getCurTypeData()._setSkillUnlocked(name, true, false);
+				found = power.getAbility(name);
+			}
+			helper.assertTrue(found instanceof EntityActionAbility, "Missing registered " + name);
+			stand.summonLockTicks = 0;
+			EntityActionInstance action = ((EntityActionAbility) found).initActionOnAbilityUse(helper.getLevel(), user, stand, null);
+			LivingComponentAction.getComponent(stand).setAction(action, user, SyncType.NO_SYNC);
+			helper.assertTrue(stand.getCurStandAction() == action && stand.isFollowingUser(),
+					"setup: the " + name + " is not the following Stand's action");
 			return action;
 		}
 	}
