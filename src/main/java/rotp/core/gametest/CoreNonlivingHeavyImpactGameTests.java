@@ -394,6 +394,9 @@ public final class CoreNonlivingHeavyImpactGameTests {
                 stand.setFinisherMeter(0.75F);
             } else stand.setFinisherMeter(0);
             LivingComponentAction.getComponent(stand).entityAim.setTarget(new ActionTarget(primary));
+            // the crosshair a client sends: 1.16 kept no pressed entity that is not living (StandEntityAction.checkStandTarget),
+            // and the strike aimed again through the user's aim, so only that aim brings the heavy punch to the boat
+            LivingComponentAction.getComponent(user).entityAim.setTarget(new ActionTarget(primary));
             Ability base = power.getAbility("heavy_punch"); suite.premise(base != null, "registered heavy ability");
             var binding = power.getMoveset().controlScheme.defaultGroup.separateBinds.get("heavy_punch");
             suite.premise(binding != null && binding.getFirst() == InputMethod.CLICK && binding.getSecond() instanceof InputKey key

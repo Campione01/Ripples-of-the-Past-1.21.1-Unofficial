@@ -323,8 +323,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			Level level = performer.level();
 			if (performer instanceof StandEntity stand) {
 				releaseUnlockedPunchTarget(stand, this);
-				// clients get no packet for the drop and judge it the same way, for the Stand's turn and the marker
-				if (getPhase() == ActionPhase.WINDUP && !isGrabVariation()) {
+				if (!level.isClientSide() && getPhase() == ActionPhase.WINDUP && !isGrabVariation()) {
 					releaseTargetOutOfRange(stand);
 				}
 			}
@@ -474,10 +473,13 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			return ModSoundEvents.STAND_PUNCH_LIGHT;
 		}
 
+		// 1.16 StandEntityLightAttack.getSounds: the cry when the task target the press kept is an entity, read as it is
 		protected boolean shouldPlayStandCrySound(Level level, StandEntity stand) {
+			ActionTarget kept = isGrabVariation()
+					? new ActionTarget(LivingComponentGrab.getEntityGrabbedBy(stand)) : getActionTargetSnapshot(level);
 			return !stand.isArmsOnlyMode()
 					&& stand.getFinisherMeter() <= 0
-					&& getPunchTarget(stand).getType() == TargetType.ENTITY;
+					&& kept.getType() == TargetType.ENTITY;
 		}
 
 		@Nullable
@@ -582,7 +584,8 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			return target;
 		}
 
-		// 1.16 StandEntityTask.tick: setTaskTarget(EMPTY) once keepTarget failed; the Stand stops turning to the target
+		// 1.16 StandEntityTask.tick: setTaskTarget(EMPTY) once keepTarget failed, sent to tracking clients; the Stand stops
+		// turning to the target
 		private void releaseTargetOutOfRange(StandEntity stand) {
 			Level level = stand.level();
 			ActionTarget kept = getActionTargetSnapshot(level);
@@ -590,6 +593,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 				setActionTargetSnapshot(null);
 				standRotationTarget = null;
 				aimAs = AimingEntity.CAMERA_ENTITY;
+				syncTargetsToTracking();
 			}
 		}
 		
@@ -631,10 +635,10 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	}
 
 	/**
-	 * 1.16 StandEntityTask.keepTarget, checked on every tick of the task: an attack keeps the target it was pressed at
-	 * while its class keeps that kind of target ({@link CrosshairRule#keeps}), the Stand can attack it and it stays within
-	 * the action's range of the Stand (Action.checkRangeAndTarget: 8 blocks to an entity, 4 when the Stand cannot see it,
-	 * 10 to a block). The Stand's reach is checked only at the strike (StandEntity.aimWithThisOrUser).
+	 * 1.16 StandEntityTask.keepTarget, checked by the server on every tick of the task: an attack keeps the target it was
+	 * pressed at while its class keeps that kind of target ({@link CrosshairRule#keeps}), the Stand can attack it and it
+	 * stays within the action's range of the Stand (Action.checkRangeAndTarget: 8 blocks to an entity, 4 when the Stand
+	 * cannot see it, 10 to a block). The Stand's reach is checked only at the strike (StandEntity.aimWithThisOrUser).
 	 */
 	public static boolean keepsTargetInRange(StandEntity stand, ActionTarget target, CrosshairRule rule) {
 		Level level = stand.level();
@@ -685,7 +689,8 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	 * (StandEntityMeleeBarrage.checkStandTarget). An entity the attack cannot take is refused as 1.16's press refused it
 	 * (PowerBaseImpl.checkTarget, StandEntity.canAttack). What the attack does not take, 1.16's precision ray decides.
 	 * Without the assist every attack takes what the crosshair meets. What it keeps of its press ({@link #keeps}) does
-	 * not depend on the assist: a heavy punch pressed at a block keeps nothing, and its strike aims again.
+	 * not depend on the assist: a heavy punch pressed at a block keeps nothing, nor does any attack pressed at an entity
+	 * that is not living, and its strike aims again.
 	 */
 	public enum CrosshairRule {
 		BLOCK_OR_ENTITY,
@@ -704,15 +709,22 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 
 		/**
 		 * What the attack keeps of the target it was pressed at, as 1.16's task kept it by the attack's class whatever
-		 * the aim: the heavy punch only an entity (StandEntityHeavyAttack.standKeepsTarget), the others what it is.
+		 * the aim: the heavy punch only an entity (StandEntityHeavyAttack.standKeepsTarget), the others what it is. Of an
+		 * entity, only a living one (StandEntityAction.checkStandTarget); the callers check that the Stand may attack it
+		 * (canStandTargetEntity, StandEntity.canAttack). A boat, minecart or item frame is not kept, and the strike aims
+		 * again (StandEntity.punch).
 		 */
 		ActionTarget keeps(ActionTarget target) {
-			return this == ENTITY && target.getType() == TargetType.BLOCK ? ActionTarget.EMPTY : target;
+			return switch (target.getType()) {
+				case BLOCK -> this == ENTITY ? ActionTarget.EMPTY : target;
+				case ENTITY -> this == NONE || target.getEntity() instanceof LivingEntity ? target : ActionTarget.EMPTY;
+				default -> target;
+			};
 		}
 
 		// what a strike takes from a synced aim: with the assist, a block the heavy punch leaves to the precision ray
 		ActionTarget takesFromAim(ActionTarget target, boolean aimAssist) {
-			return aimAssist ? keeps(target) : target;
+			return aimAssist && this == ENTITY && target.getType() == TargetType.BLOCK ? ActionTarget.EMPTY : target;
 		}
 	}
 
@@ -870,10 +882,10 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	 * The target a punch, heavy punch or barrage is pressed at: what the user's crosshair met (1.16
 	 * EntityStandType.clientHitResult kept the vanilla pick); when it met nothing, the Stand's synced aim, which stands
 	 * in for 1.16's precision ray there, or without the aim assist what the crosshair meets; under manual control the
-	 * Stand's aim. 1.16 refused a pressed entity the Stand cannot attack (PowerBaseImpl.checkTarget,
-	 * StandEntityAction.checkStandTarget, StandEntity.canAttack) and, with the {@link CrosshairRule#ENTITY} rule, a
-	 * pressed block, with or without the aim assist: the task had no target, so the Stand did not turn to it, and the
-	 * attack aimed again when it struck. A client keeps what its server sent.
+	 * Stand's aim. 1.16 refused a pressed entity that is not living or that the Stand cannot attack
+	 * (PowerBaseImpl.checkTarget, StandEntityAction.checkStandTarget, StandEntity.canAttack) and, with the
+	 * {@link CrosshairRule#ENTITY} rule, a pressed block, with or without the aim assist: the task had no target, so the
+	 * Stand did not turn to it, and the attack aimed again when it struck. A client keeps what its server sent.
 	 */
 	public static ActionTarget pressTarget(StandEntity stand, ActionTarget sentByServer, CrosshairRule rule) {
 		Level level = stand.level();
@@ -901,7 +913,8 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 
 	private static ActionTarget pressedTarget(StandEntity stand, ActionTarget target, CrosshairRule rule) {
 		return switch (target.getType()) {
-			case ENTITY -> target.getEntity() != null && canStandHit(stand, target.getEntity()) ? target : ActionTarget.EMPTY;
+			case ENTITY -> target.getEntity() != null && canStandHit(stand, target.getEntity())
+					? rule.keeps(target) : ActionTarget.EMPTY;
 			case BLOCK -> throughWallsTarget(stand, rule.keeps(target), rule, true);
 			default -> ActionTarget.EMPTY;
 		};
