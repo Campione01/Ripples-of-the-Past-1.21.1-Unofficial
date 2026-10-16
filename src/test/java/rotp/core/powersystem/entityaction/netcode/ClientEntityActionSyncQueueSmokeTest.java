@@ -1,16 +1,23 @@
 package rotp.core.powersystem.entityaction.netcode;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
+import javax.annotation.Nullable;
+
 import rotp.core.api.network.AbilityNetworkDiagnostics.Stage;
+import rotp.core.compat.v1_21_4.missingmethods._Vec3;
+import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.netcode.ClientEntityActionSyncQueue.ApplyResult;
 import rotp.core.powersystem.entityaction.netcode.ClientEntityActionSyncQueue.ActionReservation;
 import rotp.core.powersystem.entityaction.netcode.ClientEntityActionSyncQueue.CapacityResult;
@@ -25,8 +32,19 @@ import rotp.core.powersystem.entityaction.netcode.ClientEntityActionSyncQueue.Le
 import rotp.core.powersystem.entityaction.netcode.ClientEntityActionSyncQueue.LedgerEntryState;
 import rotp.core.powersystem.entityaction.netcode.ClientEntityActionSyncQueue.SweepResult;
 import rotp.core.powersystem.entityaction.syncdata.TrActionSynchedDataPacket;
+import rotp.core.subsystems.target.ActionTarget;
+import rotp.core.subsystems.target.AimingEntity;
+import rotp.core.util.functions_network.NetworkUtil;
 
+import io.netty.buffer.Unpooled;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.extensions.ICommonPacketListener;
+import net.neoforged.neoforge.network.connection.ConnectionType;
 
 public final class ClientEntityActionSyncQueueSmokeTest {
 	private ClientEntityActionSyncQueueSmokeTest() {}
@@ -52,6 +70,179 @@ public final class ClientEntityActionSyncQueueSmokeTest {
 		testOriginAwareHandlerContract();
 		testOriginDropDiagnosticSourceContract();
 		testUuidWireSourceContract();
+		testTargetPacketCodecRoundTrip();
+		testTargetSyncReachesItsAction();
+		testTargetSyncForAnotherActionChangesNothing();
+		testTargetSyncQueuedBeforeItsAction();
+	}
+
+	// 1.16 TrStandTaskTargetPacket carried the task target the server changed; every field must come back as written
+	private static void testTargetPacketCodecRoundTrip() {
+		ActionTarget block = new ActionTarget(new BlockPos(3, -7, 11), Direction.WEST)
+				.withClipPos(Optional.of(new Vec3(3.5D, -6.25D, 11.0D)));
+		ActionTarget entity = entityTarget(4242, new Vec3(1.0D, 2.5D, -3.0D));
+		checkRoundTrip(new TrEntityActionTargetPacket(
+				1234, new UUID(5L, 6L), 77L, 9, block, entity, AimingEntity.STAND),
+				"a target sync keeping a block and turning to an entity");
+		checkRoundTrip(new TrEntityActionTargetPacket(
+				-8, new UUID(9L, 10L), 300L, 0, entity, block, AimingEntity.PLAYER),
+				"a target sync keeping an entity and turning to a block");
+		checkRoundTrip(new TrEntityActionTargetPacket(
+				1, new UUID(11L, 12L), 1L, 3, null, null, AimingEntity.CAMERA_ENTITY),
+				"a target sync that keeps and turns to nothing");
+	}
+
+	private static void testTargetSyncReachesItsAction() {
+		GenerationLedger ledger = new GenerationLedger();
+		check(ledger.reserveAction(120L, new byte[] {12})
+				== ActionReservation.FRESH,
+				"Fixture: the action generation was not reserved");
+		ledger.markApplied(120L, true);
+		EntityActionInstance action = clientAction(7);
+		TrEntityActionTargetPacket packet = targetSync(61, 120L, 7);
+		ClientEntityActionSyncQueue.applyOrQueueTarget(packet, ignored -> ledger,
+				sent -> ClientEntityActionSyncQueue.applyTargetTo(action, sent));
+		checkHolds(action, packet,
+				"a target sync for the client's action of its generation");
+		check(!ledger.rejected(),
+				"a target sync applied to its action must not reject the generation");
+	}
+
+	private static void testTargetSyncForAnotherActionChangesNothing() {
+		GenerationLedger ledger = new GenerationLedger();
+		ledger.reserveAction(140L, new byte[] {14});
+		ledger.markApplied(140L, true);
+		EntityActionInstance action = clientAction(8);
+		action.aimAs = AimingEntity.STAND;
+		ClientEntityActionSyncQueue.applyOrQueueTarget(targetSync(62, 140L, 9),
+				ignored -> ledger,
+				sent -> ClientEntityActionSyncQueue.applyTargetTo(action, sent));
+		check(savedTarget(action) == null && action.standRotationTarget == null
+				&& action.aimAs == AimingEntity.STAND && ledger.rejected(),
+				"a target sync for another action ID of the generation must change nothing and reject the generation: it"
+						+ " left " + describe(savedTarget(action)) + ", " + describe(action.standRotationTarget) + ", "
+						+ action.aimAs + ", rejected " + ledger.rejected());
+	}
+
+	// sent before its action reached the client, a target sync waits and reaches the action once it applied
+	private static void testTargetSyncQueuedBeforeItsAction() {
+		GenerationLedger ledger = new GenerationLedger();
+		ledger.reserveAction(160L, new byte[] {16});
+		EntityActionInstance action = clientAction(5);
+		TrEntityActionTargetPacket packet = targetSync(63, 160L, 5);
+		int[] applied = {0};
+		ClientEntityActionSyncQueue.PayloadApplier<TrEntityActionTargetPacket> applier = sent -> {
+			applied[0]++;
+			return ClientEntityActionSyncQueue.applyTargetTo(action, sent);
+		};
+		ClientEntityActionSyncQueue.applyOrQueueTarget(packet, ignored -> ledger, applier);
+		check(applied[0] == 0 && savedTarget(action) == null && action.standRotationTarget == null,
+				"a target sync that came before its action was applied at once");
+		ledger.markApplied(160L, true);
+		EntityIdentity identity = new EntityIdentity(packet.performerId(), packet.performerUuid());
+		ClientEntityActionSyncQueue.applyPendingFor(identity, 160L, applier);
+		check(applied[0] == 1, "a target sync that came before its action was applied " + applied[0]
+				+ " times once the action applied");
+		checkHolds(action, packet, "a target sync that came before its action, once the action applied");
+		ClientEntityActionSyncQueue.applyPendingFor(identity, 160L, applier);
+		check(applied[0] == 1, "a queued target sync was applied again");
+	}
+
+	private static TrEntityActionTargetPacket targetSync(int performerId, long generation, int actionId) {
+		return new TrEntityActionTargetPacket(performerId, new UUID(0L, performerId * 100L), generation, actionId,
+				entityTarget(900 + performerId, new Vec3(0.5D, 1.0D, 0.5D)),
+				new ActionTarget(new BlockPos(performerId, 64, -performerId), Direction.UP),
+				AimingEntity.CAMERA_ENTITY);
+	}
+
+	// a client's action of a generation, as the action packet installed it
+	private static EntityActionInstance clientAction(int id) {
+		EntityActionInstance action = new EntityActionInstance(null);
+		action.id = id;
+		return action;
+	}
+
+	private static void checkHolds(EntityActionInstance action, TrEntityActionTargetPacket packet, String what) {
+		check(Arrays.equals(targetBytes(savedTarget(action)), targetBytes(packet.keptTarget()))
+				&& Arrays.equals(targetBytes(action.standRotationTarget), targetBytes(packet.rotationTarget()))
+				&& action.aimAs == packet.aimAs(),
+				what + " must leave the action holding what the server sent: it holds " + describe(savedTarget(action))
+						+ ", turns to " + describe(action.standRotationTarget) + " and aims as " + action.aimAs);
+	}
+
+	private static void checkRoundTrip(TrEntityActionTargetPacket sent, String what) {
+		RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(
+				Unpooled.buffer(), RegistryAccess.EMPTY, ConnectionType.NEOFORGE);
+		try {
+			TrEntityActionTargetPacket.Handler.STREAM_CODEC.encode(buf, sent);
+			TrEntityActionTargetPacket read = TrEntityActionTargetPacket.Handler.STREAM_CODEC.decode(buf);
+			check(!buf.isReadable()
+					&& read.performerId() == sent.performerId()
+					&& read.performerUuid().equals(sent.performerUuid())
+					&& read.actionGeneration() == sent.actionGeneration()
+					&& read.actionId() == sent.actionId()
+					&& read.aimAs() == sent.aimAs()
+					&& Arrays.equals(targetBytes(read.keptTarget()), targetBytes(sent.keptTarget()))
+					&& Arrays.equals(targetBytes(read.rotationTarget()), targetBytes(sent.rotationTarget())),
+					what + " must read back as written: " + describe(sent) + " came back as " + describe(read)
+							+ (buf.isReadable() ? " with " + buf.readableBytes() + " bytes left" : ""));
+		}
+		finally {
+			buf.release();
+		}
+	}
+
+	// an entity target as a client decodes one, the entity not looked up
+	private static ActionTarget entityTarget(int entityId, Vec3 clip) {
+		FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+		try {
+			buf.writeEnum(ActionTarget.TargetType.ENTITY);
+			NetworkUtil.writeOptional(Optional.of(clip), buf, _Vec3.STREAM_CODEC);
+			buf.writeInt(entityId);
+			return ActionTarget.STREAM_CODEC_UNRESOLVED_ENTITY_ID.decode(buf);
+		}
+		finally {
+			buf.release();
+		}
+	}
+
+	@Nullable
+	private static byte[] targetBytes(@Nullable ActionTarget target) {
+		if (target == null) {
+			return null;
+		}
+		FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+		try {
+			ActionTarget.STREAM_CODEC_UNRESOLVED_ENTITY_ID.encode(buf, target);
+			byte[] bytes = new byte[buf.readableBytes()];
+			buf.readBytes(bytes);
+			return bytes;
+		}
+		finally {
+			buf.release();
+		}
+	}
+
+	private static String describe(TrEntityActionTargetPacket packet) {
+		return "[performer " + packet.performerId() + " " + packet.performerUuid() + ", generation "
+				+ packet.actionGeneration() + ", action " + packet.actionId() + ", kept " + describe(packet.keptTarget())
+				+ ", turned to " + describe(packet.rotationTarget()) + ", " + packet.aimAs() + "]";
+	}
+
+	private static String describe(@Nullable ActionTarget target) {
+		return target == null ? "nothing" : target.getType() + Arrays.toString(targetBytes(target));
+	}
+
+	@Nullable
+	private static ActionTarget savedTarget(EntityActionInstance action) {
+		try {
+			Field field = EntityActionInstance.class.getDeclaredField("actionTargetSnapshot");
+			field.setAccessible(true);
+			return (ActionTarget) field.get(action);
+		}
+		catch (ReflectiveOperationException error) {
+			throw new AssertionError("cannot read the action's saved target", error);
+		}
 	}
 
 	private static void testGenerationLedgerTombstones() {
@@ -307,7 +498,7 @@ public final class ClientEntityActionSyncQueueSmokeTest {
 		int obbReceipt = queue.indexOf(
 				"recordDependentApplied(", obbMutation);
 		int targetMutation = queue.indexOf(
-				"action.setTargetsFromServer(");
+				"result = applyTargetTo(action, packet)");
 		int targetReceipt = queue.indexOf(
 				"recordDependentApplied(", targetMutation);
 		check(synchedMutation >= 0 && synchedReceipt > synchedMutation

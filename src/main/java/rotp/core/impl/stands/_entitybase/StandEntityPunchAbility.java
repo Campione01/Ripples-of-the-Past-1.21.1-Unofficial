@@ -401,7 +401,9 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 				 *  During the punch, the Stand entity keeps rotating towards the target (keepStandAimedAtTarget()),
 				 *  and while it keeps one it aims as itself (aimAs == AimingEntity.STAND). From the recovery on
 				 *  (onSetPhase) it aims as its user's camera again, as 1.16 took the next press from the user's view
-				 *  (EntityStandType.clientHitResult); a strike that met no entity hands the aim back at once.
+				 *  (EntityStandType.clientHitResult); a strike that met no entity hands the aim back at once. A client
+				 *  sets them from the target it holds, and the server sends what its strike changed
+				 *  (sendsPerformStartTargets).
 				 */
 				if (target.getType() == TargetType.ENTITY) {
 					standRotationTarget = target;
@@ -574,14 +576,26 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 					(blockSounds.getVolume() + 1.0F) / 8.0F, blockSounds.getPitch() * 0.5F);
 		}
 		
+		/**
+		 * The target the punch strikes now. The server aims as 1.16's StandEntity.punch did and saves it; a client strikes
+		 * at the target the server last sent it, the kept one or the strike's own once the server sent it.
+		 */
 		protected ActionTarget getPunchTarget(StandEntity stand) {
 			if (isGrabVariation()) {
 				return new ActionTarget(LivingComponentGrab.getEntityGrabbedBy(stand));
+			}
+			if (takesTargetsFromServer()) {
+				return getActionTargetSnapshot(stand.level());
 			}
 			ActionTarget target = StandEntityPunchAbility.getFreshPunchTarget(
 					stand, getActionTargetSnapshot(stand.level()), shouldRetainPunchTarget(stand, ability), punchRule(ability));
 			setActionTargetSnapshot(target);
 			return target;
+		}
+
+		@Override
+		protected boolean sendsPerformStartTargets() {
+			return true;
 		}
 
 		// 1.16 StandEntityTask.tick: setTaskTarget(EMPTY) once keepTarget failed, sent to tracking clients; the Stand stops
@@ -636,9 +650,10 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 
 	/**
 	 * 1.16 StandEntityTask.keepTarget, checked by the server on every tick of the task: an attack keeps the target it was
-	 * pressed at while its class keeps that kind of target ({@link CrosshairRule#keeps}), the Stand can attack it and it
-	 * stays within the action's range of the Stand (Action.checkRangeAndTarget: 8 blocks to an entity, 4 when the Stand
-	 * cannot see it, 10 to a block). The Stand's reach is checked only at the strike (StandEntity.aimWithThisOrUser).
+	 * pressed at while its class keeps that kind of target ({@link CrosshairRule#keeps}), it is kept as an entity
+	 * ({@link #keepsEntity}: the Stand can attack it, a dying one too) and it stays within the action's range of the Stand
+	 * (Action.checkRangeAndTarget: 8 blocks to an entity, 4 when the Stand cannot see it, 10 to a block). The Stand's
+	 * reach is checked only at the strike (StandEntity.aimWithThisOrUser).
 	 */
 	public static boolean keepsTargetInRange(StandEntity stand, ActionTarget target, CrosshairRule rule) {
 		Level level = stand.level();
@@ -646,10 +661,44 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		if (kept.isEmpty(level) || rule.keeps(kept).isEmpty(level)) {
 			return false;
 		}
-		if (kept.getType() == TargetType.ENTITY && !canStandHit(stand, kept.getEntity())) {
+		if (kept.getType() == TargetType.ENTITY && !keepsEntity(stand, kept.getEntity())) {
 			return false;
 		}
 		return ActionTargetRange.isTargetWithinRange(stand, kept, level);
+	}
+
+	/**
+	 * Whether an attack keeps an entity as its target, as 1.16's StandEntityTask.keepTarget kept its task target: until it
+	 * is removed or has lain dead for 20 ticks (LivingEntity.deathTime), while the Stand may attack it
+	 * (StandEntityAction.checkStandTarget: canStandTargetEntity, StandEntity.canAttack). A dying entity stays kept, though
+	 * a strike hurts it no more.
+	 */
+	@SuppressWarnings("deprecation")
+	static boolean keepsEntity(StandEntity stand, Entity entity) {
+		if (entity.isRemoved() || entity instanceof LivingEntity dying && dying.deathTime >= 20) {
+			return false;
+		}
+		return canStandPick(stand, entity)
+				&& (entity instanceof LivingEntity living ? stand.canAttack(living) : stand.canAttackEntity(entity));
+	}
+
+	/**
+	 * The target an attack kept, while the Stand can reach it: 1.16's StandEntity.aimWithThisOrUser struck the task target
+	 * in reach whatever its health, so one dying is struck too as long as it is kept ({@link #keepsEntity}).
+	 */
+	private static ActionTarget keptInReach(StandEntity stand, @Nullable ActionTarget kept) {
+		Level level = stand.level();
+		ActionTarget target = kept != null ? kept.resolveEntityId(level) : ActionTarget.EMPTY;
+		if (target.isEmpty(level) || !HitResultUtil.isTargetWithinRange(target, stand, level,
+				stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE),
+				stand.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE))) {
+			return ActionTarget.EMPTY;
+		}
+		if (target.getType() == TargetType.ENTITY) {
+			Entity targetEntity = target.getMainEntity();
+			return targetEntity != null && keepsEntity(stand, targetEntity) ? target : ActionTarget.EMPTY;
+		}
+		return target;
 	}
 
 	/**
@@ -679,7 +728,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		boolean precisionAim = action != null && !isPunchOrBarrage(action.ability);
 		return getFreshPunchTarget(stand, preferredTarget,
 				action == null || shouldRetainPunchTarget(stand, action.ability),
-				action == null ? CrosshairRule.BLOCK_OR_ENTITY : crosshairRule(action.ability), precisionAim);
+				action == null ? CrosshairRule.BLOCK_OR_ENTITY : crosshairRule(action.ability), precisionAim, false);
 	}
 
 	/**
@@ -785,22 +834,25 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	public static ActionTarget getFreshPunchTarget(
 			StandEntity stand, ActionTarget preferredTarget, boolean retainPreferredTarget, boolean precisionAim) {
 		return getFreshPunchTarget(stand, preferredTarget, retainPreferredTarget,
-				precisionAim ? CrosshairRule.NONE : CrosshairRule.BLOCK_OR_ENTITY, precisionAim);
+				precisionAim ? CrosshairRule.NONE : CrosshairRule.BLOCK_OR_ENTITY, precisionAim, false);
 	}
 
-	/** A punch's or heavy punch's target, what it takes from the crosshair given by its {@link CrosshairRule}. */
+	/**
+	 * A punch's or heavy punch's target, what it takes from the crosshair given by its {@link CrosshairRule}. The target
+	 * it kept is struck while in reach, a dying one too as 1.16's task kept it ({@link #keptInReach}).
+	 */
 	public static ActionTarget getFreshPunchTarget(
 			StandEntity stand, ActionTarget preferredTarget, boolean retainPreferredTarget, CrosshairRule rule) {
-		return getFreshPunchTarget(stand, preferredTarget, retainPreferredTarget, rule, false);
+		return getFreshPunchTarget(stand, preferredTarget, retainPreferredTarget, rule, false, true);
 	}
 
 	private static ActionTarget getFreshPunchTarget(StandEntity stand, ActionTarget preferredTarget,
-			boolean retainPreferredTarget, CrosshairRule rule, boolean precisionAim) {
+			boolean retainPreferredTarget, CrosshairRule rule, boolean precisionAim, boolean keptByTask) {
 		Level level = stand.level();
 		LivingEntity user = stand.getUser();
 		boolean assist = aimAssist(user);
-		ActionTarget target = retainPreferredTarget
-				? rule.keeps(validatePunchTarget(stand, preferredTarget)) : ActionTarget.EMPTY;
+		ActionTarget target = !retainPreferredTarget ? ActionTarget.EMPTY
+				: rule.keeps(keptByTask ? keptInReach(stand, preferredTarget) : validatePunchTarget(stand, preferredTarget));
 		if (!target.isEmpty(level)) {
 			return throughWallsTarget(stand, target, rule, true);
 		}
@@ -883,7 +935,8 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	 * EntityStandType.clientHitResult kept the vanilla pick); when it met nothing, the Stand's synced aim, which stands
 	 * in for 1.16's precision ray there, or without the aim assist what the crosshair meets; under manual control the
 	 * Stand's aim. 1.16 refused a pressed entity that is not living or that the Stand cannot attack
-	 * (PowerBaseImpl.checkTarget, StandEntityAction.checkStandTarget, StandEntity.canAttack) and, with the
+	 * (PowerBaseImpl.checkTarget, StandEntityAction.checkStandTarget, StandEntity.canAttack), kept a dying one
+	 * (StandEntityTask.keepTarget, {@link #keepsEntity}) and, with the
 	 * {@link CrosshairRule#ENTITY} rule, a pressed block, with or without the aim assist: the task had no target, so the
 	 * Stand did not turn to it, and the attack aimed again when it struck. A client keeps what its server sent.
 	 */
@@ -913,7 +966,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 
 	private static ActionTarget pressedTarget(StandEntity stand, ActionTarget target, CrosshairRule rule) {
 		return switch (target.getType()) {
-			case ENTITY -> target.getEntity() != null && canStandHit(stand, target.getEntity())
+			case ENTITY -> target.getEntity() != null && keepsEntity(stand, target.getEntity())
 					? rule.keeps(target) : ActionTarget.EMPTY;
 			case BLOCK -> throughWallsTarget(stand, rule.keeps(target), rule, true);
 			default -> ActionTarget.EMPTY;

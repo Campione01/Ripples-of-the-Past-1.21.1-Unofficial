@@ -12,6 +12,7 @@ import javax.annotation.Nullable;
 
 import com.mojang.authlib.GameProfile;
 
+import io.netty.buffer.Unpooled;
 import io.netty.channel.embedded.EmbeddedChannel;
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.compat.v1_21_4.missingmethods._EntitySelector;
@@ -24,6 +25,7 @@ import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility.StandEntit
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchChargedAbility.StandEntityChargedHeavy;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility.StandEntityPunch;
+import rotp.core.impl.stands.theworld.TheWorldTSPunchAbility.TheWorldTSPunch;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModEntityAttributes;
 import rotp.core.init.power.ModStandAbilities;
@@ -58,6 +60,7 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.Connection;
 import net.minecraft.network.PacketSendListener;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket;
@@ -86,6 +89,7 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
+import net.neoforged.neoforge.network.connection.ConnectionType;
 
 /**
  * The aim assist per attack, as 1.16 kept or refused the target an attack was pressed at: the light punch keeps the
@@ -358,6 +362,7 @@ public final class StandAttackAimRulesGameTests {
 		scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, cow.position().add(0, 0.4, 0));
 		helper.assertTrue(scene.vanillaPick().getMainEntity() == cow, "Fixture: the vanilla pick is " + scene.vanillaPick());
 		float health = cow.getHealth();
+		TargetWatcher watcher = scene.watchStand();
 		EntityActionInstance[] action = new EntityActionInstance[1];
 		scene.run(tick -> {
 			if (tick == 3) {
@@ -390,6 +395,9 @@ public final class StandAttackAimRulesGameTests {
 			helper.assertTrue(struck.getMainEntity() == cow && cow.getHealth() < health, "The " + name + " struck " + struck
 					+ " instead of the cow it was pressed at, which stepped aside within the Stand's reach (Stand at "
 					+ scene.stand.position() + ", cow at " + cow.position() + "); 1.16 struck the task target the press kept");
+			List<TrEntityActionTargetPacket> sent = watcher.sentFor(action[0]);
+			helper.assertTrue(sent.isEmpty(), "The " + name + " that struck the cow it kept sent tracking clients " + sent
+					+ "; 1.16's StandEntity.setTaskTarget sent nothing when the strike's target was the task target");
 			return true;
 		}, 60, () -> "The " + name + " never struck");
 	}
@@ -657,6 +665,9 @@ public final class StandAttackAimRulesGameTests {
 		groundThenCow(helper, true, Scene::startHeavyAttackPunch, "punch standing for a 1.16 heavy attack");
 	}
 
+	// Only the server aimed the strike (StandEntity.punch) and sent tracking clients its target once it changed
+	// (setTaskTarget, TrStandTaskTargetPacket); a client struck at the task target as the server had sent it. So the
+	// copy a client holds strikes at nothing of its own, and turns the Stand to the cow once the server's target comes.
 	private static void groundThenCow(GameTestHelper helper, boolean aimAssist, Function<Scene, EntityActionInstance> start,
 			String how) {
 		Scene scene = new Scene(helper, aimAssist);
@@ -668,7 +679,9 @@ public final class StandAttackAimRulesGameTests {
 				&& ground.equals(scene.vanillaPick().getBlockPos()), "Fixture: the crosshair does not meet the ground at "
 						+ ground + ": " + scene.vanillaPick());
 		float health = cow.getHealth();
+		TargetWatcher watcher = scene.watchStand();
 		EntityActionInstance[] action = new EntityActionInstance[1];
+		List<ClientStrike> clients = new ArrayList<>();
 		scene.run(tick -> {
 			if (tick == 3) {
 				scene.sendClientAims();
@@ -692,17 +705,47 @@ public final class StandAttackAimRulesGameTests {
 				return false;
 			}
 			ActionTarget struck = action[0].punchedTarget;
+			List<TrEntityActionTargetPacket> sent = watcher.sentFor(action[0]);
 			if (struck == null) {
 				ActionTarget turnedTo = action[0].standRotationTarget;
 				helper.assertTrue(turnedTo == null || turnedTo.getType() != ActionTarget.TargetType.BLOCK, "The " + how
 						+ " turns the Stand to " + turnedTo + ", the ground it was pressed at; 1.16 kept no block for a heavy"
 						+ " attack");
+				helper.assertTrue(sent.isEmpty(), "The " + how + " sent tracking clients " + sent + " before it struck,"
+						+ " keeping and dropping nothing");
+				// what a client holds of the action until the server strikes
+				clients.clear();
+				clients.addAll(clientCopies(action[0], scene.stand));
 				return false;
 			}
 			helper.assertTrue(struck.getMainEntity() == cow && cow.getHealth() < health && scene.isStone(ground), "The "
 					+ how + " pressed at the ground struck " + struck + " after its user turned to the cow (Stand at "
 					+ scene.stand.position() + ", cow at " + cow.position() + "); 1.16 kept no block for a heavy attack and"
 					+ " aimed again at the strike (StandEntity.punch)");
+			helper.assertTrue(sent.size() == 1 && entityOf(helper, sent.get(0).keptTarget()) == cow
+					&& entityOf(helper, sent.get(0).rotationTarget()) == cow && sent.get(0).aimAs() == action[0].aimAs,
+					"The " + how + " that struck the cow sent tracking clients " + sent + "; 1.16 sent them the strike's"
+							+ " target once, as it changed the task target (StandEntity.setTaskTarget, TrStandTaskTargetPacket)");
+			TrEntityActionTargetPacket received = received(helper, sent.get(0));
+			helper.assertTrue(!clients.isEmpty(), "Fixture: no client copy of the " + how + " was taken before it struck");
+			for (ClientStrike client : clients) {
+				EntityActionInstance copy = (EntityActionInstance) client;
+				String who = "A client's " + copy.getClass().getSimpleName() + " of the " + how;
+				ActionTarget aimed = client.strikeTarget(scene.stand);
+				ActionTarget saved = savedTarget(copy);
+				helper.assertTrue(aimed.isEmpty(helper.getLevel()) && saved == null && copy.standRotationTarget == null,
+						who + " strikes at " + aimed + " of its own, then keeps " + saved + " and turns the Stand to "
+								+ copy.standRotationTarget + "; a 1.16 client struck at the task target the server had sent,"
+								+ " none here (StandEntity.punch aimed on the server only)");
+				copy.setTargetsFromServer(received.keptTarget(), received.rotationTarget(), received.aimAs());
+				setPhase(copy, ActionPhase.PERFORM);
+				ActionTarget shown = StandEntityPunchAbility.keptStrikeTarget(scene.stand, copy);
+				ActionTarget held = client.strikeTarget(scene.stand);
+				helper.assertTrue(shown != null && shown.getMainEntity() == cow && held.getMainEntity() == cow
+						&& copy.standRotationTarget != null && copy.standRotationTarget.getMainEntity() == cow,
+						who + " that took what the server sent shows " + shown + ", holds " + held + " and turns the Stand to "
+								+ copy.standRotationTarget + " instead of the cow the server struck");
+			}
 			return true;
 		}, 60, () -> "The " + how + " pressed at the ground never struck");
 	}
@@ -752,7 +795,9 @@ public final class StandAttackAimRulesGameTests {
 						+ scene.vanillaPick() + ", or the Stand cannot hit the " + what);
 		String how = "The " + (barrage ? "locked barrage" : name) + " pressed at the " + what;
 		float health = cow.getHealth();
+		TargetWatcher watcher = scene.watchStand();
 		EntityActionInstance[] action = new EntityActionInstance[1];
+		List<ClientStrike> clients = new ArrayList<>();
 		scene.run(tick -> {
 			if (tick == 3) {
 				scene.sendClientAims();
@@ -769,6 +814,8 @@ public final class StandAttackAimRulesGameTests {
 				helper.assertTrue(kept == keptAsIn116 && turned == keptAsIn116, how + " saved " + saved + " and turns the Stand"
 						+ " to " + turnedTo + (keptAsIn116 ? "; 1.16 kept a living entity the Stand could attack as the task target"
 								: "; 1.16 kept only a living entity as the task target (StandEntityAction.checkStandTarget)"));
+				// what a client holds of the locked barrage as the server sent it
+				clients.addAll(clientCopies(action[0], scene.stand));
 				scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, cow.getBoundingBox().getCenter());
 				scene.sendClientAims();
 				helper.assertTrue(scene.vanillaPick().getMainEntity() == cow, "Fixture: the turned user's vanilla pick is "
@@ -779,17 +826,44 @@ public final class StandAttackAimRulesGameTests {
 				return false;
 			}
 			ActionTarget struck = action[0].punchedTarget;
+			List<TrEntityActionTargetPacket> sent = watcher.sentFor(action[0]);
 			if (struck == null) {
+				helper.assertTrue(barrage || sent.isEmpty(), how + " sent tracking clients " + sent + " before it struck,"
+						+ " dropping nothing");
 				return false;
 			}
 			if (keptAsIn116) {
 				helper.assertTrue(struck.getMainEntity() == pressed && cow.getHealth() >= health, how + " struck " + struck
 						+ " after its user turned to the cow; 1.16 struck the living entity the press kept");
+				helper.assertTrue(sent.isEmpty(), how + " struck it and sent tracking clients " + sent + "; 1.16's"
+						+ " StandEntity.setTaskTarget sent nothing when the strike's target was the task target");
 				return true;
 			}
 			helper.assertTrue(struck.getMainEntity() != pressed, how + " struck it after its user turned to the cow; 1.16 kept"
 					+ " no entity that is not living and aimed again at the strike (StandEntity.punch)");
+			helper.assertTrue(struck.getMainEntity() != cow || sent.size() == 1
+					&& entityOf(helper, sent.get(0).keptTarget()) == cow
+					&& entityOf(helper, sent.get(0).rotationTarget()) == cow && sent.get(0).aimAs() == action[0].aimAs,
+					how + " that struck the cow its user turned to sent tracking clients " + sent + "; 1.16 sent them the"
+							+ " target the server took, once (StandEntity.setTaskTarget, TrStandTaskTargetPacket)");
 			if (barrage) {
+				// a client holds what the server sent: nothing of the boat, then the cow the server sent
+				TrEntityActionTargetPacket received = sent.isEmpty() ? null : received(helper, sent.get(0));
+				for (ClientStrike client : clients) {
+					EntityActionInstance copy = (EntityActionInstance) client;
+					ActionTarget aimed = client.strikeTarget(scene.stand);
+					ActionTarget saved = savedTarget(copy);
+					helper.assertTrue(aimed.isEmpty(helper.getLevel()) && saved == null, "A client's copy of the locked"
+							+ " barrage strikes at " + aimed + " of its own and keeps " + saved + "; the target the barrage"
+							+ " keeps is the server's, as a 1.16 task target was");
+					if (received != null) {
+						copy.setTargetsFromServer(received.keptTarget(), received.rotationTarget(), received.aimAs());
+						ActionTarget held = client.strikeTarget(scene.stand);
+						helper.assertTrue(held.getMainEntity() == cow, "A client's copy of the locked barrage that took what"
+								+ " the server sent holds " + held + " instead of the cow");
+					}
+				}
+				clients.clear();
 				return struck.getMainEntity() == cow && cow.getHealth() < health && tick > 12;
 			}
 			helper.assertTrue(struck.getMainEntity() == cow && cow.getHealth() < health, how + " struck " + struck
@@ -797,6 +871,127 @@ public final class StandAttackAimRulesGameTests {
 					+ "); 1.16 aimed again at the strike and struck what its user aimed at");
 			return true;
 		}, 60, () -> how + " never struck the cow its user turned to");
+	}
+
+	// 1.16 StandEntityTask.keepTarget kept a dying task target until it was removed or had lain dead for 20 ticks, and
+	// StandEntity.punch struck it in reach (aimWithThisOrUser), though no hit hurt it any more: the punch pressed at a
+	// dying cow turns the Stand to it and strikes it, not the ground its user's crosshair meets past it
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "dying_cow_punch")
+	public static void punchPressedAtADyingCowStrikesItAsIn116(GameTestHelper helper) {
+		Scene scene = new Scene(helper, true);
+		scene.precision(0);
+		BlockPos ground = scene.groundStrip();
+		Cow cow = scene.cow(0, 2.0);
+		// low on the cow, so that past it the crosshair meets the ground strip
+		scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, cow.position().add(0, 0.4, 0));
+		EntityActionInstance[] action = new EntityActionInstance[1];
+		scene.run(tick -> {
+			if (tick == 2) {
+				cow.setHealth(0);
+				return false;
+			}
+			if (tick == 3) {
+				helper.assertTrue(cow.isDeadOrDying() && !cow.isRemoved() && cow.deathTime < 20
+						&& scene.vanillaPick().getMainEntity() == cow, "Fixture: the cow on the crosshair (" + scene.vanillaPick()
+								+ ") is not dying: health " + cow.getHealth() + ", " + cow.deathTime + " ticks dead");
+				scene.sendClientAims();
+				action[0] = scene.press("punch", InputMethod.CLICK);
+				helper.assertTrue(action[0] instanceof StandEntityPunch && action[0].punchedTarget == null,
+						"Fixture: the punch input started " + action[0] + ", or it struck at once");
+				ActionTarget saved = savedTarget(action[0]);
+				ActionTarget turnedTo = action[0].standRotationTarget;
+				helper.assertTrue(entityOf(helper, saved) == cow && entityOf(helper, turnedTo) == cow, "The punch pressed at"
+						+ " a dying cow saved " + saved + " and turns the Stand to " + turnedTo + "; 1.16 kept a dying task"
+						+ " target until it was removed or had lain dead for 20 ticks (StandEntityTask.keepTarget)");
+				return false;
+			}
+			if (tick < 3) {
+				return false;
+			}
+			ActionTarget struck = action[0].punchedTarget;
+			if (struck == null) {
+				return false;
+			}
+			helper.assertTrue(struck.getMainEntity() == cow && scene.isStone(ground), "The punch pressed at a dying cow"
+					+ " struck " + struck + " and the ground behind it " + (scene.isStone(ground) ? "stands" : "broke")
+					+ "; 1.16 struck the dying task target in reach (StandEntity.aimWithThisOrUser), which no hit hurt any"
+					+ " more");
+			return true;
+		}, 60, () -> "The punch pressed at a dying cow never struck");
+	}
+
+	// the same through a heavy punch's windup: the mob it was pressed at dies on the way and stays its target, the Stand
+	// placed from it (StandEntityHeavyAttack.getOffsetFromUser), until the strike; one dead for 20 ticks would be dropped
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "dying_cow_heavy")
+	public static void heavyPunchKeepsTheMobItWasPressedAtThatDiesInTheWindupAsIn116(GameTestHelper helper) {
+		Scene scene = new Scene(helper, true);
+		scene.precision(0);
+		BlockPos ground = scene.groundStrip();
+		Cow cow = scene.cow(0, 2.0);
+		scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, cow.position().add(0, 0.4, 0));
+		helper.assertTrue(scene.vanillaPick().getMainEntity() == cow, "Fixture: the vanilla pick is " + scene.vanillaPick());
+		String how = "The heavy punch whose pressed cow died in its windup";
+		double farthest = Math.min(2, scene.stand.getMaxRange());
+		TargetWatcher watcher = scene.watchStand();
+		EntityActionInstance[] action = new EntityActionInstance[1];
+		Vec3[] placed = new Vec3[1];
+		boolean[] keptDying = new boolean[1];
+		scene.run(tick -> {
+			if (tick == 3) {
+				scene.sendClientAims();
+				action[0] = scene.press("heavy_punch", InputMethod.CLICK);
+				helper.assertTrue(action[0] instanceof StandEntityHeavyPunch && action[0].punchedTarget == null
+						&& entityOf(helper, savedTarget(action[0])) == cow, "Fixture: the heavy punch input started "
+								+ action[0] + ", struck at once or keeps " + savedTarget(action[0]));
+				return false;
+			}
+			if (tick < 3) {
+				return false;
+			}
+			if (tick == 4) {
+				placed[0] = action[0].getSyncedStandOffset();
+				helper.assertTrue(placed[0] != null && Math.abs(placed[0].z - farthest) > 0.1, "Fixture: the heavy punch"
+						+ " placed the Stand at " + placed[0] + ", as along its user's look, not from the cow");
+				cow.setHealth(0);
+				return false;
+			}
+			ActionTarget struck = action[0].punchedTarget;
+			if (struck == null) {
+				// the strike comes with the first action tick of the PERFORM the windup's last tick entered
+				helper.assertTrue(cow.isDeadOrDying() && !cow.isRemoved() && (action[0].getPhase() == ActionPhase.WINDUP
+						|| action[0].getPhase() == ActionPhase.PERFORM), "Fixture: at tick " + tick + " the cow has health "
+								+ cow.getHealth() + ", " + cow.deathTime + " ticks dead, removed " + cow.isRemoved()
+								+ ", and the heavy punch is in its " + action[0].getPhase() + " without striking");
+				ActionTarget saved = savedTarget(action[0]);
+				ActionTarget turnedTo = action[0].standRotationTarget;
+				List<TrEntityActionTargetPacket> sent = watcher.sentFor(action[0]);
+				helper.assertTrue(entityOf(helper, saved) == cow && entityOf(helper, turnedTo) == cow && sent.isEmpty(),
+						how + " keeps " + saved + ", turns the Stand to " + turnedTo + " and sent tracking clients " + sent
+								+ "; 1.16 kept a dying task target until it was removed or had lain dead for 20 ticks"
+								+ " (StandEntityTask.keepTarget)");
+				Vec3 offset = action[0].getSyncedStandOffset();
+				helper.assertTrue(offset != null && offset.distanceTo(placed[0]) < 0.01, how + " placed the Stand at "
+						+ offset + " instead of from the cow, at " + placed[0] + "; 1.16 placed it from the task target");
+				int deathTime = cow.deathTime;
+				ActionTarget atCow = new ActionTarget(cow);
+				boolean kept = StandEntityPunchAbility.keepsTargetInRange(scene.stand, atCow,
+						StandEntityPunchAbility.CrosshairRule.ENTITY);
+				cow.deathTime = 20;
+				boolean keptAt20 = StandEntityPunchAbility.keepsTargetInRange(scene.stand, atCow,
+						StandEntityPunchAbility.CrosshairRule.ENTITY);
+				cow.deathTime = deathTime;
+				helper.assertTrue(kept && !keptAt20, "A heavy punch's windup " + (kept ? "keeps" : "drops") + " a cow dead"
+						+ " for " + deathTime + " ticks and " + (keptAt20 ? "keeps" : "drops") + " one dead for 20; 1.16 kept"
+						+ " a dying task target until it had lain dead for 20 ticks (StandEntityTask.keepTarget)");
+				keptDying[0] = true;
+				return false;
+			}
+			helper.assertTrue(keptDying[0], "Fixture: the heavy punch struck before a windup tick with the cow dying");
+			helper.assertTrue(struck.getMainEntity() == cow && scene.isStone(ground), how + " struck " + struck + " and the"
+					+ " ground behind it " + (scene.isStone(ground) ? "stands" : "broke") + "; 1.16 struck the dying task"
+					+ " target in reach (StandEntity.aimWithThisOrUser)");
+			return true;
+		}, 60, () -> how + " never struck");
 	}
 
 	// a punch that stands for a 1.16 heavy attack, as an add-on's (King Crimson's Ground Punch) declares it
@@ -1297,6 +1492,138 @@ public final class StandAttackAimRulesGameTests {
 		java.lang.reflect.Field field = EntityActionInstance.class.getDeclaredField(name);
 		field.setAccessible(true);
 		field.set(action, value);
+	}
+
+	private static void setPhase(EntityActionInstance action, ActionPhase phase) {
+		try {
+			setActionField(action, "phase", phase);
+		}
+		catch (ReflectiveOperationException e) {
+			throw new IllegalStateException("Fixture: cannot set the phase of a client's copy", e);
+		}
+	}
+
+	// the copies a client holds of the action, which take their targets from the server: a heavy punch also as the
+	// time-stop punch, whose strike target is its own
+	private static List<ClientStrike> clientCopies(EntityActionInstance action, StandEntity stand) {
+		List<ClientStrike> copies = new ArrayList<>();
+		if (action instanceof StandEntityHeavyPunch) {
+			copies.add(clientSide(new ClientHeavyPunch(action.ability), action, stand));
+			copies.add(clientSide(new ClientTimeStopPunch(action.ability), action, stand));
+		}
+		else if (action instanceof StandEntityPunch) {
+			copies.add(clientSide(new ClientPunch(action.ability), action, stand));
+		}
+		else if (action instanceof StandEntityBarrage) {
+			copies.add(clientSide(new ClientBarrage(action.ability), action, stand));
+		}
+		return copies;
+	}
+
+	private static <T extends EntityActionInstance & ClientStrike> T clientSide(T copy, EntityActionInstance action,
+			StandEntity stand) {
+		try {
+			setActionField(copy, "performer", stand);
+			setActionField(copy, "phase", action.getPhase());
+			ActionTarget saved = savedTarget(action);
+			setActionField(copy, "actionTargetSnapshot", saved != null ? saved.copy() : null);
+		}
+		catch (ReflectiveOperationException e) {
+			throw new IllegalStateException("Fixture: cannot copy the action as a client holds it", e);
+		}
+		copy.id = action.id;
+		copy.standRotationTarget = action.standRotationTarget != null
+				? action.standRotationTarget.copy().resolveEntityId(stand.level()) : null;
+		copy.aimAs = action.aimAs;
+		return copy;
+	}
+
+	@Nullable
+	private static Entity entityOf(GameTestHelper helper, @Nullable ActionTarget target) {
+		return target != null ? target.copy().resolveEntityId(helper.getLevel()).getMainEntity() : null;
+	}
+
+	// the packet as a client decodes it
+	private static TrEntityActionTargetPacket received(GameTestHelper helper, TrEntityActionTargetPacket packet) {
+		RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), helper.getLevel().registryAccess(),
+				ConnectionType.NEOFORGE);
+		try {
+			TrEntityActionTargetPacket.Handler.STREAM_CODEC.encode(buf, packet);
+			return TrEntityActionTargetPacket.Handler.STREAM_CODEC.decode(buf);
+		}
+		finally {
+			buf.release();
+		}
+	}
+
+	// an action as a client holds it (EntityActionInstance.takesTargetsFromServer)
+	private interface ClientStrike {
+		// what the action strikes now (getPunchTarget)
+		ActionTarget strikeTarget(StandEntity stand);
+	}
+
+	private static final class ClientPunch extends StandEntityPunch implements ClientStrike {
+		ClientPunch(EntityActionType ability) {
+			super(ability);
+		}
+
+		@Override
+		protected boolean takesTargetsFromServer() {
+			return true;
+		}
+
+		@Override
+		public ActionTarget strikeTarget(StandEntity stand) {
+			return getPunchTarget(stand);
+		}
+	}
+
+	private static final class ClientHeavyPunch extends StandEntityHeavyPunch implements ClientStrike {
+		ClientHeavyPunch(EntityActionType ability) {
+			super(ability);
+		}
+
+		@Override
+		protected boolean takesTargetsFromServer() {
+			return true;
+		}
+
+		@Override
+		public ActionTarget strikeTarget(StandEntity stand) {
+			return getPunchTarget(stand);
+		}
+	}
+
+	private static final class ClientTimeStopPunch extends TheWorldTSPunch implements ClientStrike {
+		ClientTimeStopPunch(EntityActionType ability) {
+			super(ability);
+		}
+
+		@Override
+		protected boolean takesTargetsFromServer() {
+			return true;
+		}
+
+		@Override
+		public ActionTarget strikeTarget(StandEntity stand) {
+			return getPunchTarget(stand);
+		}
+	}
+
+	private static final class ClientBarrage extends StandEntityBarrage implements ClientStrike {
+		ClientBarrage(EntityActionType ability) {
+			super(ability);
+		}
+
+		@Override
+		protected boolean takesTargetsFromServer() {
+			return true;
+		}
+
+		@Override
+		public ActionTarget strikeTarget(StandEntity stand) {
+			return getPunchTarget(stand);
+		}
 	}
 
 	// a client tracking the Stand: what the server sends it of the targets of the Stand's action
