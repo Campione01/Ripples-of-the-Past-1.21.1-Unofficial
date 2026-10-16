@@ -13,6 +13,7 @@ import javax.annotation.Nullable;
 
 import rotp.core.JojoModLivingVariables;
 import rotp.core.JojoModConfig;
+import rotp.core.api.stand.StandDefaultRotationRules;
 import rotp.core.api.stand.StandManualMovementObservers;
 import rotp.core.api.stand.StandManualMovementObservers.LogicalSide;
 import rotp.core.api.stand.StandManualMovementObservers.MovePath;
@@ -383,8 +384,9 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		this.yBodyRotO = rotO.yBodyRot;
 
 		// 1.16 MCUtil.rotateTowards turned the head to the task's target, and an action that then gave the Stand another
-		// yaw left the head there; otherwise StandEntity.defaultRotation put the head on the yaw
-		if (headTurnedToTaskTarget) {
+		// yaw left the head there; StandEntityAction.rotateStand left the head of a Stand its action moves by itself where
+		// it was; otherwise StandEntity.defaultRotation put the head on the yaw
+		if (headTurnedToTaskTarget || !isManuallyControlled() && curActionDisablesUserOffset()) {
 			yHeadRotO = rotO.yHeadRot;
 		}
 		else {
@@ -401,6 +403,20 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		}
 	}
 	
+	/*
+	 * 1.16 StandEntity.tickHeadTurn: while the Stand has a task its body takes the yaw it starts the tick with, the yaw an
+	 * action's tick left it, and that tick's turns leave the body alone (copyRotation, lookAtPos); without one, the
+	 * vanilla turn, which a following Stand's idle rule then overrides
+	 */
+	@Override
+	protected float tickHeadTurn(float yRot, float animStep) {
+		if (getCurStandAction() != null) {
+			yBodyRot = getYRot();
+			return animStep;
+		}
+		return super.tickHeadTurn(yRot, animStep);
+	}
+
 	@Override
 	public void aiStep() {
 		super.aiStep();
@@ -564,7 +580,10 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 					pos = collideNextPos(pos);
 				}
 				setPos(pos.x, pos.y, pos.z);
-				copyStandUserRotation(user);
+				// 1.16 StandEntity.defaultRotation, which an add-on could replace for a user that is not a player
+				if (user instanceof Player || !StandDefaultRotationRules.rotate(this, user)) {
+					copyStandUserRotation(user);
+				}
 				EntityActionInstance curAction = standAction.getAction();
 				if (curAction != null) {
 					curAction.applyStandUserRotation(this, user);
@@ -719,9 +738,12 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 			if (fullyRotateBody) {
 				this.setXRot(rotations.x);
 				this.setYRot(rotations.y);
-				
+
 				this.setYHeadRot(this.getYRot());
-				this.setYBodyRot(this.getYRot());
+				// with a task the body takes this yaw as the next tick starts (tickHeadTurn)
+				if (getCurStandAction() == null) {
+					this.setYBodyRot(this.getYRot());
+				}
 			}
 			else {
 				float maxHeadYRot = 75;

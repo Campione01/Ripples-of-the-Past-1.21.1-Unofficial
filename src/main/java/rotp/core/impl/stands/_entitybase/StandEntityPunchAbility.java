@@ -388,13 +388,9 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 					
 					Holder<SoundEvent> impactSound = getPunchImpactSound(target);
 					boolean entityTarget = target.getType() == TargetType.ENTITY;
+					// judged before the hit, as 1.16's StandBlockPunch.playImpactSound read the hardness of the block struck
 					boolean playImpactSound = impactSound != null && playHitSound(target, level);
 					Vec3 impactSoundPos = playImpactSound ? target.getCenterPos() : null;
-					if (playImpactSound && !entityTarget) {
-						StandUtil.broadcastSound((ServerLevel) level, impactSoundPos, 
-								impactSound, true, standPower, 
-								stand.getSoundSource(), 1, 1);
-					}
 					
 					stand.addFinisherMeter(0.1f);
 					boolean deflectedTarget = deflectSilverChariotProjectiles(stand, target);
@@ -408,8 +404,9 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 						case BLOCK -> hitBlock(target, level, stand);
 						default -> {}
 					}
-					// 1.16 StandEntity.attackTarget: an entity's impact sound comes after the hit, if it landed
-					if (playImpactSound && entityTarget && (impactSoundDue == null || impactSoundDue)) {
+					// 1.16 StandEntity.attackTarget: the impact sound comes after the hit, which may have broken the block, and an
+					// entity's only if the hit landed
+					if (playImpactSound && (!entityTarget || impactSoundDue == null || impactSoundDue)) {
 						StandUtil.broadcastSound((ServerLevel) level, impactSoundPos, 
 								impactSound, true, standPower, 
 								stand.getSoundSource(), 1, 1);

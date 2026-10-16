@@ -265,7 +265,11 @@ public class StandOffsetFromUser {
 		standEntity.yRotO = userEntity.yRotO;
 		standEntity.yHeadRot = userEntity.yHeadRot;
 		standEntity.yHeadRotO = userEntity.yHeadRotO;
-		
+		// 1.16 StandEntity.defaultRotation left the body of a Stand with a task to its head turn (StandEntity.tickHeadTurn)
+		if (standEntity.getCurStandAction() != null) {
+			return;
+		}
+
 		// this shit so ass
 		boolean isBodyRot = bodyTurnsWithUser(relativeOffset, rotations);
 		float bodyRotAmount = isBodyRot ? 1 : 0;

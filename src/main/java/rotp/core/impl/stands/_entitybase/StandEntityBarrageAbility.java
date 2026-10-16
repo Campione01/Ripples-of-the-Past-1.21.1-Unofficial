@@ -178,6 +178,17 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 		return dmgAmount >= 4.0F && dmgSource instanceof StandLinkDamageSource;
 	}
 
+	/**
+	 * 1.16 StandEntityMeleeBarrage.checkStandTarget: a barrage's task keeps an entity only while it is the Stand's barrage
+	 * clash opponent, whether the barrage was pressed at it or a hit met it ({@link StandEntityBarrage#actionTick}); the
+	 * Stand then faces it and its offset turns to it until the clash ends.
+	 */
+	@Override
+	protected boolean keepsTaskTargetType(StandEntity standEntity, ActionTarget target) {
+		return target.getType() == ActionTarget.TargetType.ENTITY && target.getEntity() != null
+				&& standEntity.barrageClashOpponent().orElse(null) == target.getEntity();
+	}
+
 	// The barrage is held until it goes into recovery.
 	@Override
 	public boolean isActionHeld(EntityActionInstance action) {
@@ -265,9 +276,17 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 		 * the target is not living, or a barrage clash parried it). Null when a hitEntity override did not say: it plays.
 		 */
 		@Nullable protected Boolean impactSoundDue;
+		// server: what the barrage was pressed at, the user's crosshair (StandEntityPunchAbility.pressTarget)
+		@Nullable private ActionTarget pressedAt;
 
 		public StandEntityBarrage(EntityActionType ability) {
 			super(ability);
+		}
+
+		// 1.16 StandEntityTask.makeServerSideTask: the press target, which the task keeps only as the clash opponent
+		@Override
+		protected ActionTarget pressedTaskTarget() {
+			return pressedAt != null ? pressedAt : super.pressedTaskTarget();
 		}
 
 		@Override
@@ -330,10 +349,10 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 				double minOffset = Math.min(0.5, stand.getEffectiveRange());
 				double maxOffset = Math.min(1.5, stand.getEffectiveRange());
 				boolean directional = isDirectionalBarrage(stand, this);
+				pressedAt = StandEntityPunchAbility.pressTarget(stand, getActionTargetSnapshot(level));
 				// the default barrage keeps no pressed target (1.16 checkStandTarget): it starts at what its first hit aims at
 				ActionTarget target = setActionTargetSnapshot(directional && !level.isClientSide()
-						? clipDirectionalBarrageTarget(stand, this, 1.0F)
-						: StandEntityPunchAbility.pressTarget(stand, getActionTargetSnapshot(level)));
+						? clipDirectionalBarrageTarget(stand, this, 1.0F) : pressedAt);
 				setStandFrontOffsetFromTarget(stand, placementTarget(stand, this, target, directional), minOffset, maxOffset);
 				keepStandAimedAtTarget(target);
 				aimAs = AimingEntity.STAND;
@@ -425,6 +444,8 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 					boolean playSound = StandEntityPunchAbility.playHitSound(target, level);
 					Vec3 soundPos = playSound ? target.getCenterPos() : null;
 					Entity clashOpponentAtHit = stand.barrageClashOpponent().orElse(null);
+					// 1.16 StandEntity.punch: each hit's target, nothing for a miss, went to the task before the hit
+					setTaskTarget(target);
 
 					boolean deflectedTarget = StandEntityPunchAbility.deflectSilverChariotProjectiles(stand, target);
 					impactSoundDue = null;
