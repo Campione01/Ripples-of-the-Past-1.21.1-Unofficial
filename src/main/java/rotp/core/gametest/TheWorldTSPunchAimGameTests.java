@@ -271,6 +271,9 @@ public final class TheWorldTSPunchAimGameTests {
 	@GameTest(template = "empty", timeoutTicks = 40, batch = "tw_ts_punch_kept_block_gone")
 	public static void tsPunchDropsTheBlockItBlinkedToOnceItIsGoneAsIn116(GameTestHelper helper) {
 		Scene scene = new Scene(helper, 90);
+		// the Stand still faces the stone it turned to while it held it (StandEntityTask.rotateStand), so the assist's
+		// precision ray from its eyes would meet the stone put back; without the assist the new aim is the user's crosshair
+		scene.user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get()).standAimAssist = false;
 		StandAttackAimRulesGameTests.TargetWatcher watcher = new StandAttackAimRulesGameTests.TargetWatcher(scene.level);
 		Runnable close = () -> {
 			watcher.untrack();

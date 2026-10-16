@@ -67,9 +67,8 @@ public class GoldExperienceBoneMealAbility extends NoPoseStandEntityAbility {
     @Override
     public void initActionFromConfig(EntityActionInstance action, Level level, LivingEntity powerUser, LivingEntity performer) {
         super.initActionFromConfig(action, level, powerUser, performer);
-        if (action instanceof BoneMealAction boneMealAction) {
+        if (action instanceof BoneMealAction) {
             ActionTarget target = GoldExperienceCreateLifeformAbility.getClientLookTarget(level, powerUser);
-            boneMealAction.target = target;
             if (!target.isEmpty(level)) {
                 action.standRotationTarget = target;
             }
@@ -158,10 +157,14 @@ public class GoldExperienceBoneMealAbility extends NoPoseStandEntityAbility {
     }
 
     public static class BoneMealAction extends EntityActionInstance {
-        private ActionTarget target = ActionTarget.EMPTY;
 
         public BoneMealAction(EntityActionType ability) {
             super(ability);
+        }
+
+        @Override
+        protected boolean sendsPerformStartTargets() {
+            return true;
         }
 
         @Override
@@ -175,13 +178,14 @@ public class GoldExperienceBoneMealAbility extends NoPoseStandEntityAbility {
                 return;
             }
 
-            target = target.resolveEntityId(level);
+            // 1.16 standPerform: the new aim from the task's target became its target (setTaskTarget), which the Stand turns to
+            ActionTarget target = getTaskTarget(level);
             if (performer instanceof StandEntity stand) {
                 target = aimWithThisOrUser(level, user, stand, target);
             }
-            if (!target.isEmpty(level)) {
-                standRotationTarget = target;
-            }
+            setTaskTarget(target);
+            ActionTarget held = getTaskTarget(level);
+            standRotationTarget = held.getType() != ActionTarget.TargetType.EMPTY ? held : null;
             switch (target.getType()) {
                 case ENTITY -> {
                     // 1.16 standPerform ages any animal its aim meets; only the press wants a baby

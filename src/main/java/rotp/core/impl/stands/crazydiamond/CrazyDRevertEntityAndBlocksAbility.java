@@ -68,6 +68,23 @@ public class CrazyDRevertEntityAndBlocksAbility extends StandEntityAbility {
 		return action.getTaskTarget(user.level()).getType() != TargetType.EMPTY ? super.yRotForOffset(user, action) : user.yBodyRot;
 	}
 
+	/*
+	 * 1.16 CrazyDiamondPreviousState.checkTarget, which StandEntityTask.keepTarget asked too: an entity it reverts, no block.
+	 * With TargetRequirement.NONE a Revert pressed at nothing took over such an entity the previous task held
+	 * (StandEntity.setTask).
+	 */
+	@Override
+	protected boolean keepsTaskTargetType(StandEntity standEntity, ActionTarget target) {
+		LivingEntity user = standEntity.getUser();
+		return target.getType() == TargetType.ENTITY && user != null && canRevertEntity(target.getEntity(), user);
+	}
+
+	// 1.16 CrazyDiamondPreviousState.checkStandTarget: primed TNT and a TNT minecart too, which are not living
+	@Override
+	protected boolean keepsTaskTargetEntity(StandEntity standEntity, Entity entity) {
+		return entity instanceof PrimedTnt || entity instanceof MinecartTNT || super.keepsTaskTargetEntity(standEntity, entity);
+	}
+
 	@Override
 	public void initActionFromConfig(EntityActionInstance action, Level level, LivingEntity powerUser, LivingEntity performer) {
 		super.initActionFromConfig(action, level, powerUser, performer);

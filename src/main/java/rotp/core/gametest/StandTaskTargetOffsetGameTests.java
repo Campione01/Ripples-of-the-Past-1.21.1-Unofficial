@@ -3,13 +3,19 @@ package rotp.core.gametest;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import com.mojang.authlib.GameProfile;
 
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.config.client.PlayerClientBroadcastedSettings;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.impl.stands.hierophant.HierophantStringAttackAbility.StringAttackShot;
+import rotp.core.impl.stands.silverchariot.SCRapierEntity;
 import rotp.core.init.ModDataAttachmentTypes;
+import rotp.core.init.ModEntityAttributes;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.EntityActionAbility;
@@ -22,21 +28,38 @@ import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.EntityStandType;
 import rotp.core.powersystem.standpower.entity.StandEntity;
+import rotp.core.powersystem.standpower.entity.StandEntityAbility;
+import rotp.core.powersystem.standpower.entity.StandOffsetFromUser;
 import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.target.ActionTarget;
+import rotp.core.subsystems.target.ActionTargetRange;
 import rotp.core.util.functions.MathUtil;
 import io.netty.buffer.Unpooled;
 
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.HumanoidArm;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Cow;
+import net.minecraft.world.entity.animal.SnowGolem;
+import net.minecraft.world.entity.animal.Wolf;
+import net.minecraft.world.entity.item.PrimedTnt;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -79,6 +102,223 @@ public final class StandTaskTargetOffsetGameTests {
 			assertAt(helper, scene, expected, "1.16 put a crazy_diamond healing a cow 3 blocks east of its user who looks"
 					+ " south, the offset turned from the user's eyes to the cow's (lockOnTargetPosition)");
 		});
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 CrazyDiamondHeal.getOffsetFromUser: offsetToTarget(task target, 0, getMaxEffectiveRange) whenever the task held
+	 * an entity, healing it or not. A cow at full health 6 blocks east, 4.55 from the user less its back-away, with an
+	 * effective range of 3.5: the Stand 3.5 in front, on the line from the user's eyes to the cow's.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void crazyDiamondHealStandsInFrontByItsEffectiveRangeWhileItHoldsAnUnhurtMobAsIn116(GameTestHelper helper) {
+		withStand(helper, "crazy_diamond", scene -> {
+			scene.user.getAttribute(ModEntityAttributes.STAND_EFFECTIVE_RANGE).setBaseValue(3.5D);
+			scene.user.getAttribute(ModEntityAttributes.STAND_MAX_RANGE).setBaseValue(8.0D);
+			StandEntity.updateStandStatAttributes(scene.stand, scene.user);
+			Cow cow = scene.cow(new Vec3(6.0D, 0.0D, 0.0D));
+			userAims(scene.user, cow);
+			EntityActionInstance heal = scene.start("heal", ActionPhase.PERFORM);
+			turn(scene.user, VIEW_YAW, BODY_YAW);
+			LivingComponentAction.getComponent(scene.stand).tick();
+			double reach = scene.stand.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE);
+			helper.assertTrue(heal.getTaskTarget(helper.getLevel()).getEntity() == cow && cow.getHealth() == cow.getMaxHealth()
+					&& scene.stand.getEffectiveRange() == 3.5D && Math.abs(reach - 3.5D) > 0.1D,
+					"setup: the heal holds " + heal.getTaskTarget(helper.getLevel()) + " with an effective range of "
+							+ scene.stand.getEffectiveRange() + " and a reach of " + reach + ", not the unhurt cow");
+			// withXRot(0, 3.5) turned by the pitch and yaw to the cow's eyes, as the offset turns, in degrees
+			Vec3 toCow = cow.getEyePosition().subtract(scene.user.getEyePosition());
+			Vec3 expected = new Vec3(0.0D, 0.0D, 3.5D).xRot(-MathUtil.xRotDegFromVec(toCow) * MathUtil.DEG_TO_RAD)
+					.yRot(-MathUtil.yRotDegFromVec(toCow) * MathUtil.DEG_TO_RAD);
+			assertAt(helper, scene, expected, "1.16 put a crazy_diamond holding an unhurt cow 6 blocks east of its user who"
+					+ " looks south 3.5 in front, its effective range, on the line from the user's eyes to the cow's");
+
+			// the task no longer holds the cow: getOffsetFromUser gave the default offset again
+			cow.discard();
+			LivingComponentAction.getComponent(scene.stand).tick();
+			helper.assertTrue(heal.getTaskTarget(helper.getLevel()).getType() == ActionTarget.TargetType.EMPTY
+					&& scene.stand.offsetFromUser.isIdle(), "1.16 gave a crazy_diamond whose heal no longer held the cow its"
+							+ " default offset; it holds " + heal.getTaskTarget(helper.getLevel()) + " with the offset "
+							+ scene.stand.offsetFromUser.getRelativeOffset() + " " + scene.stand.offsetFromUser.getRotations());
+		});
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 offsetToTarget measured to the target's getTargetPos(true), an entity's eyes, not to where the aim met its box:
+	 * a cow 4 blocks east, aimed at its near face, puts the Stand 4 - (1 + 0.45) = 2.55 in front
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void crazyDiamondHealMeasuresItsFrontOffsetToTheMobItselfAsIn116(GameTestHelper helper) {
+		withStand(helper, "crazy_diamond", scene -> {
+			scene.user.getAttribute(ModEntityAttributes.STAND_EFFECTIVE_RANGE).setBaseValue(3.5D);
+			scene.user.getAttribute(ModEntityAttributes.STAND_MAX_RANGE).setBaseValue(8.0D);
+			StandEntity.updateStandStatAttributes(scene.stand, scene.user);
+			Cow cow = scene.cow(new Vec3(4.0D, 0.0D, 0.0D));
+			Vec3 nearFace = new Vec3(cow.getBoundingBox().minX, cow.getEyeY(), cow.getZ());
+			LivingComponentAction.getComponent(scene.user).entityAim.setTarget(new ActionTarget(cow).withClipPos(Optional.of(nearFace)));
+			EntityActionInstance heal = scene.start("heal", ActionPhase.PERFORM);
+			turn(scene.user, VIEW_YAW, BODY_YAW);
+			LivingComponentAction.getComponent(scene.stand).tick();
+			double front = 4.0D - (1.0D + cow.getBbWidth() / 2.0D);
+			helper.assertTrue(heal.getTaskTarget(helper.getLevel()).getEntity() == cow && front < 3.5D,
+					"setup: the heal holds " + heal.getTaskTarget(helper.getLevel()) + ", not the cow, or " + front
+							+ " is past the effective range");
+			Vec3 toCow = cow.getEyePosition().subtract(scene.user.getEyePosition());
+			Vec3 expected = new Vec3(0.0D, 0.0D, front).xRot(-MathUtil.xRotDegFromVec(toCow) * MathUtil.DEG_TO_RAD)
+					.yRot(-MathUtil.yRotDegFromVec(toCow) * MathUtil.DEG_TO_RAD);
+			assertAt(helper, scene, expected, "1.16 put a crazy_diamond healing a cow 4 blocks east, aimed at its near face, "
+					+ front + " in front, measured to the cow itself less its back-away");
+		});
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 GoldExperienceHealOther (TargetRequirement.ENTITY): its task held the entity it was pressed at, the default
+	 * offset turned to it, and standPerform healed that entity (task.getTarget()), whatever the crosshair met by then
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void goldExperienceHealsTheMobItWasPressedAtWithItsOffsetTurnedToItAsIn116(GameTestHelper helper) {
+		withStand(helper, "gold_experience", scene -> {
+			Cow pressedAt = scene.cow(COW_FROM_USER);
+			Cow aimedAfter = scene.cow(new Vec3(-3.0D, 0.0D, 1.0D));
+			pressedAt.setHealth(pressedAt.getMaxHealth() - 4.0F);
+			aimedAfter.setHealth(aimedAfter.getMaxHealth() - 4.0F);
+			scene.user.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.IRON_INGOT, 2));
+			userAims(scene.user, pressedAt);
+			EntityActionInstance heal = scene.set("heal_other");
+			turn(scene.user, VIEW_YAW, BODY_YAW);
+			helper.assertTrue(heal.getTaskTarget(helper.getLevel()).getEntity() == pressedAt,
+					"1.16 GoldExperienceHealOther's task held the wounded cow it was pressed at; it holds "
+							+ heal.getTaskTarget(helper.getLevel()));
+			Vec3 toCow = pressedAt.getEyePosition().subtract(scene.user.getEyePosition());
+			Vec3 expected = scene.stand.offsetFromUser.getRelativeOffset()
+					.yRot(-MathUtil.yRotDegFromVec(toCow) * MathUtil.DEG_TO_RAD);
+			assertAt(helper, scene, expected, "1.16 put a gold_experience healing a cow 3 blocks east of its user who looks"
+					+ " south, the default offset turned by the yaw to the cow");
+
+			userAims(scene.user, aimedAfter);
+			LivingComponentAction.getComponent(scene.stand).tick();
+			helper.assertTrue(pressedAt.hasEffect(MobEffects.REGENERATION) && !aimedAfter.hasEffect(MobEffects.REGENERATION),
+					"1.16 GoldExperienceHealOther.standPerform healed the cow its task held, not the one aimed at since;"
+							+ " regeneration on the pressed cow " + pressedAt.hasEffect(MobEffects.REGENERATION)
+							+ ", on the one aimed at after " + aimedAfter.hasEffect(MobEffects.REGENERATION));
+		});
+		helper.succeed();
+	}
+
+	// the port heals the user's own pets, which 1.16 refused (canStandTargetEntity); its task holds what it heals
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void goldExperienceHealOtherHoldsTheUsersOwnWolfItHeals(GameTestHelper helper) {
+		// a server player, which the level finds as the wolf's owner
+		FakePlayer owner = new FakePlayer(helper.getLevel(), new GameProfile(UUID.randomUUID(), "StandTaskTargetOwner"));
+		owner.setGameMode(GameType.SURVIVAL);
+		withStand(helper, "gold_experience", owner, scene -> {
+			Wolf wolf = scene.mob(EntityType.WOLF, COW_FROM_USER);
+			wolf.setTame(true, false);
+			wolf.setOwnerUUID(scene.user.getUUID());
+			wolf.setHealth(wolf.getMaxHealth() - 4.0F);
+			helper.assertTrue(wolf.getOwner() == scene.user && !scene.stand.canAttack(wolf),
+					"setup: the wolf is not the user's own one the Stand may not attack");
+			LivingComponentAction.getComponent(scene.user).entityAim.setTarget(new ActionTarget(wolf));
+			EntityActionInstance heal = scene.set("heal_other");
+			helper.assertTrue(heal.getTaskTarget(helper.getLevel()).getEntity() == wolf,
+					"Heal Other pressed at its user's own wounded wolf holds " + heal.getTaskTarget(helper.getLevel())
+							+ ", not the wolf it heals");
+		});
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 GoldExperienceBoneMeal.standPerform aimed again from its task's target (StandEntity.aimWithThisOrUser) and made
+	 * that its task's target (setTaskTarget), which the offset and the Stand turn to from then on. Pressed at grass 6 blocks
+	 * east, past the Stand's reach, the new aim runs along the user's look south to other grass 3 blocks ahead.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void goldExperienceBoneMealTakesItsNewAimAsItsTaskTargetAsIn116(GameTestHelper helper) {
+		withStand(helper, "gold_experience", scene -> {
+			BlockPos east = BlockPos.containing(scene.user.getEyePosition().add(6.0D, 0.0D, 0.0D));
+			BlockPos ahead = BlockPos.containing(scene.user.getEyePosition().add(0.0D, 0.0D, 3.0D));
+			try {
+				helper.getLevel().setBlockAndUpdate(east, Blocks.GRASS_BLOCK.defaultBlockState());
+				helper.getLevel().setBlockAndUpdate(ahead, Blocks.GRASS_BLOCK.defaultBlockState());
+				LivingComponentAction.getComponent(scene.user).entityAim.setTarget(new ActionTarget(east, Direction.WEST));
+				EntityActionInstance boneMeal = scene.set("bone_meal");
+				ActionTarget pressed = boneMeal.getTaskTarget(helper.getLevel());
+				double reach = scene.stand.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE);
+				helper.assertTrue(pressed.getType() == ActionTarget.TargetType.BLOCK && east.equals(pressed.getBlockPos())
+						&& ActionTargetRange.getDistance(scene.stand, new AABB(east)) > reach,
+						"setup: the Bone Meal holds " + pressed + ", not the grass east past the Stand's reach of " + reach);
+				LivingComponentAction.getComponent(scene.stand).tick();
+				ActionTarget held = boneMeal.getTaskTarget(helper.getLevel());
+				helper.assertTrue(held.getType() == ActionTarget.TargetType.BLOCK && ahead.equals(held.getBlockPos())
+						&& boneMeal.standRotationTarget != null && ahead.equals(boneMeal.standRotationTarget.getBlockPos()),
+						"1.16 GoldExperienceBoneMeal.standPerform set its new aim, the grass ahead on the user's look, as its"
+								+ " task's target; the task holds " + held + " and the Stand turns to " + boneMeal.standRotationTarget);
+				turn(scene.user, 45.0F, 45.0F);
+				Vec3 toAhead = Vec3.atCenterOf(ahead).subtract(scene.user.getEyePosition());
+				Vec3 expected = scene.stand.offsetFromUser.getRelativeOffset()
+						.yRot(-MathUtil.yRotDegFromVec(toAhead) * MathUtil.DEG_TO_RAD);
+				assertAt(helper, scene, expected, "1.16 put a gold_experience whose Bone Meal took the grass ahead as its new"
+						+ " target, its user turned away, with the offset turned by the yaw to that grass");
+			}
+			finally {
+				for (BlockPos pos : new BlockPos[] { east, east.above(), ahead, ahead.above() }) {
+					helper.getLevel().setBlockAndUpdate(pos, Blocks.AIR.defaultBlockState());
+				}
+			}
+		});
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 StandEntityTask.setTarget: a new aim the task does not keep (GoldExperienceBoneMeal.checkTarget refuses stone)
+	 * leaves it the target it held, and no aim at all (keepTarget passed an empty one) leaves it none; the Stand turns to
+	 * what it holds (StandEntityTask.rotateStand)
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void goldExperienceBoneMealKeepsItsTargetForAnAimItRefusesAndDropsItForNoAimAsIn116(GameTestHelper helper) {
+		for (boolean stoneAhead : new boolean[] { true, false }) {
+			withStand(helper, "gold_experience", scene -> {
+				BlockPos east = BlockPos.containing(scene.user.getEyePosition().add(6.0D, 0.0D, 0.0D));
+				BlockPos ahead = BlockPos.containing(scene.user.getEyePosition().add(0.0D, 0.0D, 3.0D));
+				try {
+					helper.getLevel().setBlockAndUpdate(east, Blocks.GRASS_BLOCK.defaultBlockState());
+					if (stoneAhead) {
+						helper.getLevel().setBlockAndUpdate(ahead, Blocks.STONE.defaultBlockState());
+					}
+					else {
+						// the new aims of the user and of the Stand go up into the open sky
+						scene.user.setXRot(-90.0F);
+						scene.stand.setXRot(-90.0F);
+					}
+					LivingComponentAction.getComponent(scene.user).entityAim.setTarget(new ActionTarget(east, Direction.WEST));
+					EntityActionInstance boneMeal = scene.set("bone_meal");
+					ActionTarget pressed = boneMeal.getTaskTarget(helper.getLevel());
+					helper.assertTrue(pressed.getType() == ActionTarget.TargetType.BLOCK && east.equals(pressed.getBlockPos()),
+							"setup: the Bone Meal holds " + pressed + ", not the grass east");
+					LivingComponentAction.getComponent(scene.stand).tick();
+					ActionTarget held = boneMeal.getTaskTarget(helper.getLevel());
+					ActionTarget turnedTo = boneMeal.standRotationTarget;
+					if (stoneAhead) {
+						helper.assertTrue(held.getType() == ActionTarget.TargetType.BLOCK && east.equals(held.getBlockPos())
+								&& turnedTo != null && east.equals(turnedTo.getBlockPos()),
+								"1.16 StandEntityTask.setTarget left a Bone Meal whose new aim met stone the grass it held; the"
+										+ " task holds " + held + " and the Stand turns to " + turnedTo);
+					}
+					else {
+						helper.assertTrue(held.getType() == ActionTarget.TargetType.EMPTY && turnedTo == null,
+								"1.16 StandEntityTask.setTarget left a Bone Meal whose new aim met nothing no target; the task"
+										+ " holds " + held + " and the Stand turns to " + turnedTo);
+					}
+				}
+				finally {
+					for (BlockPos pos : new BlockPos[] { east, east.above(), ahead, ahead.above() }) {
+						helper.getLevel().setBlockAndUpdate(pos, Blocks.AIR.defaultBlockState());
+					}
+				}
+			});
+		}
 		helper.succeed();
 	}
 
@@ -136,6 +376,63 @@ public final class StandTaskTargetOffsetGameTests {
 		helper.succeed();
 	}
 
+	/*
+	 * 1.16 lockOnTargetPosition (true for these): Hierophant Green's Barrier and Crazy Diamond's Block Anchor kept the block
+	 * they were pressed at (TargetRequirement.BLOCK), the entity Grapple the entity (standKeepsTarget of its shift
+	 * variation) and Rapier Launch any target, and every offset of the task turned from the user's eyes to it: pressed at a
+	 * block or a cow 3 blocks east of its user who looks south, the action's offset (Rapier Launch's 0.25 in front, the
+	 * default one for the others) turns by the yaw to the target's centre or eyes.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void barrierBlockAnchorEntityGrappleAndRapierLaunchTurnTheirOffsetToTheirKeptTargetAsIn116(GameTestHelper helper) {
+		// Stand, ability, its skill, pressed at a block (else the cow)
+		Object[][] rows = {
+				{ "hierophant_green", "barrier", "barrier", true },
+				{ "crazy_diamond", "block_anchor_make", "block_anchor", true },
+				{ "hierophant_green", "grapple_entity", "grapple", false },
+				{ "silver_chariot", "rapier_launch", "rapier_launch", false } };
+		for (Object[] row : rows) {
+			String name = (String) row[1];
+			boolean atBlock = (boolean) row[3];
+			withStand(helper, (String) row[0], scene -> {
+				scene.power.getCurTypeData()._setSkillUnlocked((String) row[2], true, false);
+				BlockPos block = BlockPos.containing(scene.user.getEyePosition().add(COW_FROM_USER));
+				Cow cow = atBlock ? null : scene.cow(COW_FROM_USER);
+				try {
+					Vec3 targetPos;
+					if (atBlock) {
+						helper.getLevel().setBlockAndUpdate(block, Blocks.STONE.defaultBlockState());
+						LivingComponentAction.getComponent(scene.user).entityAim.setTarget(new ActionTarget(block, Direction.WEST));
+						targetPos = Vec3.atCenterOf(block);
+					}
+					else {
+						userAims(scene.user, cow);
+						standAims(scene.stand, cow);
+						targetPos = cow.getEyePosition();
+					}
+					EntityActionInstance action = scene.set(name);
+					ActionTarget held = action.getTaskTarget(helper.getLevel());
+					helper.assertTrue(atBlock ? held.getType() == ActionTarget.TargetType.BLOCK && block.equals(held.getBlockPos())
+							: held.getEntity() == cow, "setup: the " + name + " holds " + held + ", not what it was pressed at");
+					turn(scene.user, VIEW_YAW, BODY_YAW);
+					Vec3 toTarget = targetPos.subtract(scene.user.getEyePosition());
+					Vec3 relative = scene.stand.offsetFromUser.getRelativeOffset();
+					Vec3 expected = scene.stand.offsetFromUser.getRotations() == StandOffsetFromUser.Rotations.HEAD_XY
+							? relative.xRot(-MathUtil.xRotDegFromVec(toTarget) * MathUtil.DEG_TO_RAD) : relative;
+					expected = expected.yRot(-MathUtil.yRotDegFromVec(toTarget) * MathUtil.DEG_TO_RAD);
+					assertAt(helper, scene, expected, "1.16 put a " + row[0] + " whose " + name + " held " + held
+							+ " east of its user who looks south with its offset turned to it (lockOnTargetPosition)");
+				}
+				finally {
+					if (atBlock) {
+						helper.getLevel().setBlockAndUpdate(block, Blocks.AIR.defaultBlockState());
+					}
+				}
+			});
+		}
+		helper.succeed();
+	}
+
 	@GameTest(template = "empty", timeoutTicks = 100)
 	public static void repairItemAndRevertWithoutATargetTurnByTheBodyYawAsIn116(GameTestHelper helper) {
 		for (String skill : new String[] { "repair_item", "revert_state" }) {
@@ -185,6 +482,131 @@ public final class StandTaskTargetOffsetGameTests {
 		helper.succeed();
 	}
 
+	/*
+	 * 1.16 SilverChariotRapierLaunch.standPerform set the rapier at its following user's eyes and shot it with
+	 * standEntity.shootProjectile, along the Stand's own rotation, which StandEntityTask.rotateStand had turned to the
+	 * task's target before the task ticked: pressed at a cow east of its user who looks south, the rapier flies east
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void rapierLaunchShootsFromTheUsersEyesAlongTheStandsTurnToItsTargetAsIn116(GameTestHelper helper) {
+		withStand(helper, "silver_chariot", scene -> {
+			Cow cow = scene.cow(COW_FROM_USER);
+			standAims(scene.stand, cow);
+			EntityActionInstance launch = scene.start("rapier_launch", ActionPhase.PERFORM);
+			helper.assertTrue(launch.standRotationTarget != null && launch.standRotationTarget.getEntity() == cow,
+					"setup: the Rapier Launch turns the Stand to " + launch.standRotationTarget + ", not the cow");
+			// StandEntity.tick turns a following Stand to its action's target before the action ticks
+			scene.stand.updatePosition(scene.user);
+			Vec3 eyes = scene.user.getEyePosition();
+			LivingComponentAction.getComponent(scene.stand).tick();
+			List<SCRapierEntity> rapiers = helper.getLevel().getEntitiesOfClass(SCRapierEntity.class,
+					scene.user.getBoundingBox().inflate(6.0D));
+			scene.spawned().addAll(rapiers);
+			helper.assertTrue(rapiers.size() == 1, "setup: the Rapier Launch shot " + rapiers.size() + " rapiers");
+			SCRapierEntity rapier = rapiers.get(0);
+			Vec3 flies = rapier.getDeltaMovement().normalize();
+			Vec3 standToCow = cow.getEyePosition().subtract(scene.stand.getEyePosition()).normalize();
+			helper.assertTrue(rapier.position().distanceTo(eyes) < EPS && flies.dot(standToCow) > 0.9999D,
+					"1.16 shot the rapier of a silver_chariot pressed at a cow 3 blocks east of its user who looks south from"
+							+ " the user's eyes " + eyes + " along the Stand's turn to the cow " + standToCow + "; it starts at "
+							+ rapier.position() + " and flies along " + flies);
+		});
+		helper.succeed();
+	}
+
+	// the same shot of a Stand that does not follow its user starts at the Stand's own eyes, which turned to the cow
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void rapierLaunchOfAStandAwayShootsFromTheStandsEyesAtItsTargetAsIn116(GameTestHelper helper) {
+		withStand(helper, "silver_chariot", scene -> {
+			Cow cow = scene.cow(COW_FROM_USER);
+			standAims(scene.stand, cow);
+			scene.start("rapier_launch", ActionPhase.PERFORM);
+			scene.stand.setCanFollowUser(false);
+			Vec3 away = scene.user.position().add(0.0D, 0.0D, 2.0D);
+			scene.stand.moveTo(away.x, away.y, away.z, 180.0F, 0.0F);
+			scene.stand.updatePosition(scene.user);
+			Vec3 eyes = scene.stand.getEyePosition();
+			LivingComponentAction.getComponent(scene.stand).tick();
+			List<SCRapierEntity> rapiers = helper.getLevel().getEntitiesOfClass(SCRapierEntity.class,
+					scene.user.getBoundingBox().inflate(6.0D));
+			scene.spawned().addAll(rapiers);
+			helper.assertTrue(rapiers.size() == 1 && !scene.stand.isFollowingUser(),
+					"setup: the Rapier Launch of the Stand away shot " + rapiers.size() + " rapiers");
+			SCRapierEntity rapier = rapiers.get(0);
+			Vec3 flies = rapier.getDeltaMovement().normalize();
+			Vec3 toCow = cow.getEyePosition().subtract(eyes).normalize();
+			helper.assertTrue(rapier.position().distanceTo(eyes) < EPS && flies.dot(toCow) > 0.9999D,
+					"1.16 shot the rapier of a silver_chariot away from its user, pressed at a cow, from the Stand's eyes " + eyes
+							+ " toward the cow " + toCow + "; it starts at " + rapier.position() + " and flies along " + flies);
+		});
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 CrazyDiamondPreviousState had TargetRequirement.NONE, so pressed at nothing it took over an entity the previous
+	 * task held when its checkTarget kept it (StandEntity.setTask): a snow golem the Heal held, at Resolve level 3, is the
+	 * entity it reverts and the Stand turns to
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void revertPressedAtNothingTakesOverTheGolemTheHealHeldAsIn116(GameTestHelper helper) {
+		withStand(helper, "crazy_diamond", scene -> {
+			scene.power.setResolveLevel(3);
+			SnowGolem golem = scene.mob(EntityType.SNOW_GOLEM, new Vec3(2.5D, 0.0D, 0.0D));
+			LivingComponentAction.getComponent(scene.user).entityAim.setTarget(new ActionTarget(golem));
+			EntityActionInstance heal = scene.start("heal", ActionPhase.PERFORM);
+			helper.assertTrue(heal.getTaskTarget(helper.getLevel()).getEntity() == golem,
+					"setup: the heal holds " + heal.getTaskTarget(helper.getLevel()) + ", not the snow golem");
+			LivingComponentAction.getComponent(scene.user).entityAim.setTarget(ActionTarget.EMPTY);
+			EntityActionInstance revert = scene.start("revert_state", ActionPhase.PERFORM);
+			helper.assertTrue(revert.getTaskTarget(helper.getLevel()).getEntity() == golem
+					&& revert.standRotationTarget != null && revert.standRotationTarget.getEntity() == golem,
+					"1.16 StandEntity.setTask gave a Revert pressed at nothing the snow golem the Heal it replaced held; it"
+							+ " holds " + revert.getTaskTarget(helper.getLevel()) + " and turns the Stand to "
+							+ revert.standRotationTarget);
+
+			// CrazyDiamondPreviousState.checkStandTarget let its task keep primed TNT, which is not living
+			PrimedTnt tnt = EntityType.TNT.create(helper.getLevel());
+			helper.assertTrue(tnt != null, "Could not make primed TNT");
+			tnt.setFuse(1000);
+			tnt.setNoGravity(true);
+			Vec3 tntPos = scene.user.position().add(-2.0D, 0.0D, 0.0D);
+			tnt.moveTo(tntPos.x, tntPos.y, tntPos.z, 0.0F, 0.0F);
+			helper.assertTrue(helper.getLevel().addFreshEntity(tnt), "Could not add primed TNT");
+			scene.spawned().add(tnt);
+			helper.assertTrue(((StandEntityAbility) revert.ability).keepsTaskTarget(scene.stand, new ActionTarget(tnt)),
+					"1.16 CrazyDiamondPreviousState kept primed TNT 2 blocks from the Stand as its task's target; the Revert does not");
+		});
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 CrazyDiamondPreviousState.lockOnTargetPosition false: with an entity target its offset, offsetToTarget's front
+	 * one, turns by the view yaw (yRotForOffset) and pitch, never to the entity. A snow golem 2.5 blocks east of its user
+	 * who looks south: 2.5 - (1 + 0.35) = 1.15 in front, south.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void revertWithAnEntityTargetNeverTurnsItsOffsetToItAsIn116(GameTestHelper helper) {
+		withStand(helper, "crazy_diamond", scene -> {
+			scene.power.setResolveLevel(3);
+			scene.user.getAttribute(ModEntityAttributes.STAND_EFFECTIVE_RANGE).setBaseValue(3.5D);
+			StandEntity.updateStandStatAttributes(scene.stand, scene.user);
+			SnowGolem golem = scene.mob(EntityType.SNOW_GOLEM, new Vec3(2.5D, 0.0D, 0.0D));
+			// wounded, so that Revert heals it first and does not turn it back into blocks by chance
+			golem.setHealth(1.0F);
+			LivingComponentAction.getComponent(scene.user).entityAim.setTarget(new ActionTarget(golem));
+			EntityActionInstance revert = scene.start("revert_state", ActionPhase.PERFORM);
+			turn(scene.user, VIEW_YAW, BODY_YAW);
+			LivingComponentAction.getComponent(scene.stand).tick();
+			double front = 2.5D - (1.0D + golem.getBbWidth() / 2.0D);
+			helper.assertTrue(revert.getTaskTarget(helper.getLevel()).getEntity() == golem
+					&& front < scene.stand.getEffectiveRange(), "setup: the Revert holds " + revert.getTaskTarget(helper.getLevel())
+							+ ", not the snow golem, or " + front + " is past the effective range " + scene.stand.getEffectiveRange());
+			assertAt(helper, scene, new Vec3(0.0D, 0.0D, front), "1.16 put a crazy_diamond reverting a snow golem east of its"
+					+ " user who looks south " + front + " in front along the user's view, not toward the golem");
+		});
+		helper.succeed();
+	}
+
 	// Revert sets the item offset on its first perform tick; Repair Item as it starts, and stops on an empty hand
 	private static void startOnTheOffHandItem(Scene scene, String skill) {
 		scene.start(skill, ActionPhase.PERFORM);
@@ -230,6 +652,108 @@ public final class StandTaskTargetOffsetGameTests {
 		helper.succeed();
 	}
 
+	/*
+	 * 1.16 StandEntityTask.rotateStand: while the task held a target and the Stand was not manually controlled, the action
+	 * turned the Stand to it on every tick (rotateStandTowardsTarget), whatever else the action did. A following Stand whose
+	 * action holds the cow but names no target of its own to turn to, its user looking away, faces the cow.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aFollowingStandFacesItsTaskTargetAsIn116(GameTestHelper helper) {
+		withStand(helper, "hierophant_green", scene -> {
+			Cow cow = scene.cow(COW_FROM_USER);
+			standAims(scene.stand, cow);
+			EntityActionInstance stringAttack = scene.start("string_attack", ActionPhase.PERFORM);
+			stringAttack.standRotationTarget = null;
+			turn(scene.user, VIEW_YAW, BODY_YAW);
+			helper.assertTrue(stringAttack.getTaskTarget(helper.getLevel()).getEntity() == cow && scene.stand.isFollowingUser(),
+					"setup: the following Stand's String Attack holds " + stringAttack.getTaskTarget(helper.getLevel()));
+			scene.stand.updatePosition(scene.user);
+			assertFaces(helper, scene.stand, cow, "1.16 turned a following hierophant_green whose String Attack held a cow 3"
+					+ " blocks east of its user who looks south to the cow");
+		});
+		helper.succeed();
+	}
+
+	/*
+	 * The same while the Stand does not follow its user (left where it is, as an action that moves the Stand by itself
+	 * leaves it): 1.16 still turned it to the task's target.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aStandAwayFromItsUserFacesItsTaskTargetAsIn116(GameTestHelper helper) {
+		withStand(helper, "hierophant_green", scene -> {
+			Cow cow = scene.cow(COW_FROM_USER);
+			standAims(scene.stand, cow);
+			EntityActionInstance stringAttack = scene.start("string_attack", ActionPhase.PERFORM);
+			scene.stand.setCanFollowUser(false);
+			turn(scene.user, VIEW_YAW, BODY_YAW);
+			scene.stand.setYRot(180.0F);
+			scene.stand.setXRot(0.0F);
+			helper.assertTrue(stringAttack.getTaskTarget(helper.getLevel()).getEntity() == cow && !scene.stand.isFollowingUser()
+					&& !scene.stand.isManuallyControlled(), "setup: the String Attack of the Stand away from its user holds "
+							+ stringAttack.getTaskTarget(helper.getLevel()));
+			scene.stand.updatePosition(scene.user);
+			assertFaces(helper, scene.stand, cow, "1.16 turned a hierophant_green that does not follow its user, whose String"
+					+ " Attack held a cow east of it, to the cow");
+		});
+		helper.succeed();
+	}
+
+	// a client's copy holds only the task target the server sent, no target of its own to turn to, and its own aim is elsewhere
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aClientStandFacesTheTaskTargetTheServerSent(GameTestHelper helper) {
+		withStand(helper, "hierophant_green", scene -> {
+			Cow pressedAt = scene.cow(COW_FROM_USER);
+			Cow clientAim = scene.cow(new Vec3(-3.0D, 0.0D, 1.0D));
+			standAims(scene.stand, pressedAt);
+			EntityActionInstance server = scene.start("string_attack", ActionPhase.PERFORM);
+			EntityActionInstance received = received(helper, server);
+			ClientStringAttack client = new ClientStringAttack(server.ability);
+			copyAsSent(received, client);
+			standAims(scene.stand, clientAim);
+			LivingComponentAction actions = LivingComponentAction.getComponent(scene.stand);
+			actions.setAction(null, scene.user, SyncType.NO_SYNC);
+			actions.setAction(client, scene.user, SyncType.NO_SYNC);
+			// what the copy's onActionSet took from the test level, which is the server's, is not what a client holds
+			client.standRotationTarget = null;
+			turn(scene.user, VIEW_YAW, BODY_YAW);
+			helper.assertTrue(scene.stand.getCurStandAction() == client && client.standRotationTarget == null,
+					"setup: the client's String Attack is not the Stand's action or names a target to turn to: "
+							+ client.standRotationTarget);
+			scene.stand.updatePosition(scene.user);
+			assertFaces(helper, scene.stand, pressedAt, "A client given the server's String Attack, which holds the cow east of"
+					+ " the user, while its own aim is on another cow west of it, turned the hierophant_green to the held cow"
+					+ " (the client's task holds " + client.getTaskTarget(helper.getLevel()) + ")");
+		});
+		helper.succeed();
+	}
+
+	// the grab (a port move): its punch keeps the cow it was pressed at as its task target, but strikes and faces the held one
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aGrabPunchFacesTheEntityItHoldsNotWhatItWasPressedAt(GameTestHelper helper) {
+		withStand(helper, "star_platinum", scene -> {
+			Cow pressedAt = scene.cow(new Vec3(1.5D, 0.0D, 0.5D));
+			Cow held = scene.cow(new Vec3(-1.5D, 0.0D, 0.5D));
+			scene.stand.getData(ModDataAttachmentTypes.LIVING_GRAB.get()).setGrabTarget(held);
+			userAims(scene.user, pressedAt);
+			EntityActionInstance punch = scene.start("grab_punch", ActionPhase.RECOVERY);
+			turn(scene.user, VIEW_YAW, BODY_YAW);
+			helper.assertTrue(punch.getTaskTarget(helper.getLevel()).getEntity() == pressedAt
+					&& punch.standRotationTarget != null && punch.standRotationTarget.getEntity() == held,
+					"setup: the grab punch keeps " + punch.getTaskTarget(helper.getLevel()) + " and struck "
+							+ punch.standRotationTarget + ", not the pressed cow and the held one");
+			scene.stand.updatePosition(scene.user);
+			assertFaces(helper, scene.stand, held, "A star_platinum whose grab punch struck the cow it holds faced it");
+		});
+		helper.succeed();
+	}
+
+	private static void assertFaces(GameTestHelper helper, StandEntity stand, Entity target, String claim) {
+		Vec3 toTarget = target.getEyePosition().subtract(stand.getEyePosition()).normalize();
+		Vec3 look = stand.getLookAngle();
+		helper.assertTrue(look.dot(toTarget) > 0.9999D, claim + ": it looks along " + look + " (yaw " + stand.getYRot()
+				+ ", pitch " + stand.getXRot() + ") instead of " + toTarget);
+	}
+
 	// a client's copy of the action (EntityActionInstance.takesTargetsFromServer)
 	private static final class ClientStringAttack extends StringAttackShot {
 		ClientStringAttack(EntityActionType ability) {
@@ -273,21 +797,25 @@ public final class StandTaskTargetOffsetGameTests {
 		client.standRotationTarget = received.standRotationTarget;
 	}
 
-	private interface StandCheck {
+	interface StandCheck {
 		void check(Scene scene);
 	}
 
-	private record Scene(GameTestHelper helper, Player user, StandPower power, StandEntity stand, List<Entity> spawned) {
+	record Scene(GameTestHelper helper, Player user, StandPower power, StandEntity stand, List<Entity> spawned) {
 		Cow cow(Vec3 fromUser) {
-			Cow cow = EntityType.COW.create(helper.getLevel());
-			helper.assertTrue(cow != null, "Could not make a cow");
+			return mob(EntityType.COW, fromUser);
+		}
+
+		<T extends Mob> T mob(EntityType<T> type, Vec3 fromUser) {
+			T mob = type.create(helper.getLevel());
+			helper.assertTrue(mob != null, "Could not make a " + type);
 			Vec3 pos = user.position().add(fromUser);
-			cow.moveTo(pos.x, pos.y, pos.z, 0.0F, 0.0F);
-			cow.setNoAi(true);
-			cow.setNoGravity(true);
-			helper.assertTrue(helper.getLevel().addFreshEntity(cow), "Could not add a cow");
-			spawned.add(cow);
-			return cow;
+			mob.moveTo(pos.x, pos.y, pos.z, 0.0F, 0.0F);
+			mob.setNoAi(true);
+			mob.setNoGravity(true);
+			helper.assertTrue(helper.getLevel().addFreshEntity(mob), "Could not add a " + type);
+			spawned.add(mob);
+			return mob;
 		}
 
 		EntityActionInstance start(String name, ActionPhase until) {
@@ -322,8 +850,11 @@ public final class StandTaskTargetOffsetGameTests {
 		}
 	}
 
-	private static void withStand(GameTestHelper helper, String id, StandCheck check) {
-		Player user = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
+	static void withStand(GameTestHelper helper, String id, StandCheck check) {
+		withStand(helper, id, GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL), check);
+	}
+
+	private static void withStand(GameTestHelper helper, String id, Player user, StandCheck check) {
 		StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc(id));
 		StandPower power = null;
 		List<Entity> spawned = new ArrayList<>();
@@ -364,7 +895,7 @@ public final class StandTaskTargetOffsetGameTests {
 		LivingComponentAction.getComponent(stand).entityAim.setTarget(cow != null ? new ActionTarget(cow) : ActionTarget.EMPTY);
 	}
 
-	private static void turn(Player user, float viewYaw, float bodyYaw) {
+	static void turn(Player user, float viewYaw, float bodyYaw) {
 		user.setYRot(viewYaw);
 		user.yRotO = viewYaw;
 		user.setYHeadRot(viewYaw);

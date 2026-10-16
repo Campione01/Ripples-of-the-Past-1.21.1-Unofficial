@@ -212,7 +212,7 @@ public class HierophantEmeraldSplashAbility extends StandEntityAbility implement
 			float inaccuracy = concentrated ? CONCENTRATED_INACCURACY : NORMAL_INACCURACY;
 			emerald.shootFromRotation(stand, stand.getXRot(), stand.getYRot(), 0,
 					velocity,
-					StandStatFormulas.projectileInaccuracyScaling(stand.getPrecision(), inaccuracy));
+					stand.getProjectileInaccuracy(inaccuracy));
 			addProjectileWithStandStats(emerald);
 		}
 

@@ -1,5 +1,7 @@
 package rotp.core.impl.stands.crazydiamond;
 
+import javax.annotation.Nullable;
+
 import rotp.core.powersystem.standpower.StandInstance.StandPart;
 
 import org.spongepowered.include.com.google.common.base.Objects;
@@ -59,7 +61,6 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.vehicle.Boat;
 import net.minecraft.world.level.Level;
 
@@ -206,6 +207,7 @@ public class CrazyDHealAbility extends StandEntityAbility {
 	public static class HealingAction extends EntityActionInstance implements SyncedDataHolderExtended {
 		public BleedingTimer bleedingTimer;
 		private ActionTarget actionTarget = ActionTarget.EMPTY;
+		private boolean placedInFront;
 		private int healingVisualsStartTick = -1;
 
 		public HealingAction(EntityActionType ability) {
@@ -224,6 +226,32 @@ public class CrazyDHealAbility extends StandEntityAbility {
 		@Override
 		public ActionTarget getTaskTarget(Level level) {
 			return heldTarget(actionTarget, level);
+		}
+
+		@Override
+		@Nullable
+		protected ActionTarget storedTaskTarget() {
+			return actionTarget.getType() != TargetType.EMPTY ? actionTarget : null;
+		}
+
+		// it aims as itself while it holds an entity, as initActionFromConfig and onHealResultUpdated set it
+		@Override
+		protected void storeTaskTarget(@Nullable ActionTarget target) {
+			setActionTarget(target);
+			aimAs = target != null ? AimingEntity.STAND : AimingEntity.CAMERA_ENTITY;
+		}
+
+		@Override
+		protected boolean keepsAsTaskTarget(StandEntity stand, ActionTarget target) {
+			return target.getType() == TargetType.ENTITY && keepsEntityTarget(target, level());
+		}
+
+		// the previous action's target this one took over (1.16 StandEntity.setTask) is the entity it works on
+		@Override
+		protected void onTaskTargetInherited(ActionTarget target) {
+			setActionTarget(target);
+			standRotationTarget = target.copy().resolveEntityId(level());
+			aimAs = AimingEntity.STAND;
 		}
 		
 		@Override
@@ -279,13 +307,23 @@ public class CrazyDHealAbility extends StandEntityAbility {
 		}
 
 		@Override
+		public void onActionSet(EntityActionInstance prevAction) {
+			if (performer instanceof StandEntity standEntity) {
+				placeStandByTarget(standEntity);
+			}
+		}
+
+		@Override
 		public void actionTick() {
+			StandEntity standEntity = performer instanceof StandEntity s ? s : null;
+			if (standEntity != null) {
+				placeStandByTarget(standEntity);
+			}
 			if (getPhase() != ActionPhase.PERFORM) {
 				return;
 			}
 			Level level = level();
-			StandEntity standEntity = performer instanceof StandEntity s ? s : null;
-			
+
 			HealResult.Synched curHealing;
 			if (!level.isClientSide()) {
 				// 1.16 StandEntityTask paid each perform tick and ignored the result: an empty bar stays at 0
@@ -353,27 +391,9 @@ public class CrazyDHealAbility extends StandEntityAbility {
 			}
 			cur.target.resolveEntityId(level);
 			setBarrageHitSoundsActive(getPhase() == ActionPhase.PERFORM && cur.isHealing && cur.barrageVisuals);
-			boolean healingStateChanged = old == null || cur.isHealing != old.isHealing;
 			boolean targetChanged = old == null || !cur.target.equals(old.target);
-			StandEntity standEntity = performer instanceof StandEntity __ ? __ : null;
-			
-			if (healingStateChanged) {
-				if (cur.isHealing) {
-					if (standEntity != null) {
-						updateHealingStandOffset(standEntity, cur.target);
-					}
-				}
-				else if (old == null || old.isHealing) {
-					if (standEntity != null) {
-						standEntity.offsetFromUser.resetToIdle();
-					}
-				}
-			}
 
 			if (targetChanged) {
-				if (cur.isHealing && !healingStateChanged && standEntity != null) {
-					updateHealingStandOffset(standEntity, cur.target);
-				}
 				if (cur.target.getType() == TargetType.ENTITY) {
 					standRotationTarget = cur.target;
 					aimAs = AimingEntity.STAND;
@@ -391,11 +411,20 @@ public class CrazyDHealAbility extends StandEntityAbility {
 			}
 		}
 
-		private void updateHealingStandOffset(StandEntity standEntity, ActionTarget target) {
-			double range = standEntity.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE);
-			if (!setStandFrontOffsetFromTarget(standEntity, target, 0, range)) {
+		/*
+		 * 1.16 CrazyDiamondHeal and CrazyDiamondPreviousState.getOffsetFromUser: offsetToTarget(task target, 0,
+		 * getMaxEffectiveRange) in front while the task holds an entity, healing it or not; the action's own offset
+		 * otherwise. Both sides, from the target each holds.
+		 */
+		private void placeStandByTarget(StandEntity standEntity) {
+			Entity targetEntity = getTaskTarget(level()).getEntity();
+			// the entity's own position as 1.16 getTargetPos took it, not where the aim met its box
+			boolean inFront = targetEntity != null && setStandFrontOffsetFromTarget(standEntity, new ActionTarget(targetEntity),
+					0, standEntity.getEffectiveRange());
+			if (!inFront && placedInFront) {
 				standEntity.offsetFromUser.resetToIdle();
 			}
+			placedInFront = inFront;
 		}
 
 		@Override

@@ -26,6 +26,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 
 public class StandEntityAbility extends EntityActionAbility {
 	public boolean noFinisherBarDecay = false;
@@ -207,6 +208,19 @@ public class StandEntityAbility extends EntityActionAbility {
 	}
 
 	/**
+	 * 1.16 StandEntityAction.rotateStandTowardsTarget, which StandEntityTask.rotateStand called on every tick the action's
+	 * task held a target and the Stand was not manually controlled, following its user or not
+	 * ({@link StandEntity#lookAtTaskTarget}): the Stand faces the target at once (MCUtil.rotateTowards by 360 degrees), at
+	 * the point the action looks at ({@link EntityActionInstance#getStandLookTargetPosition}, as Gold Experience's and
+	 * Crazy Diamond's heavy punches give) or else at ActionTarget.getTargetPos(true): the eyes of any entity, a boat, a
+	 * minecart or primed TNT too, a block's centre.
+	 */
+	public void rotateStandTowardsTarget(StandEntity standEntity, EntityActionInstance action, ActionTarget target) {
+		Vec3 actionPos = action.getStandLookTargetPosition(standEntity, target);
+		standEntity.lookAtPos(actionPos != null ? actionPos : StandOffsetFromUser.taskTargetPos(target), true);
+	}
+
+	/**
 	 * The kinds of target the action's task keeps, 1.16's getTargetRequirement, standKeepsTarget and checkTarget: none,
 	 * as for a 1.16 action with neither. See {@link #keepsTaskTarget}.
 	 */
@@ -215,12 +229,20 @@ public class StandEntityAbility extends EntityActionAbility {
 	}
 
 	/**
+	 * 1.16 StandEntityAction.checkStandTarget and canStandTargetEntity: the entities the action's task keeps are the living
+	 * ones the Stand may attack. See {@link #keepsTaskTarget}.
+	 */
+	protected boolean keepsTaskTargetEntity(StandEntity standEntity, Entity entity) {
+		return entity instanceof LivingEntity living && standEntity.canAttack(living);
+	}
+
+	/**
 	 * 1.16 StandEntityTask.keepTarget, which the server asked as the task started (makeServerSideTask, setTask taking the
 	 * previous task's target) and on every tick of it: no target is kept from nothing; an entity is kept until it is
-	 * removed or has lain dead for 20 ticks, never the Stand itself, only a living one the Stand may attack
-	 * (StandEntityAction.checkStandTarget, canStandTargetEntity); the action keeps that kind of target
-	 * ({@link #keepsTaskTargetType}); and it is within the action's range of the Stand (Action.checkRangeAndTarget: 8
-	 * blocks to an entity, 4 without a line of sight, 10 to a block that is not air). Server side.
+	 * removed or has lain dead for 20 ticks, never the Stand itself, only one the action keeps
+	 * ({@link #keepsTaskTargetEntity}); the action keeps that kind of target ({@link #keepsTaskTargetType}); and it is
+	 * within the action's range of the Stand (Action.checkRangeAndTarget: 8 blocks to an entity, 4 without a line of
+	 * sight, 10 to a block that is not air). Server side.
 	 */
 	public boolean keepsTaskTarget(StandEntity standEntity, @Nullable ActionTarget target) {
 		Level level = standEntity.level();
@@ -230,8 +252,8 @@ public class StandEntityAbility extends EntityActionAbility {
 		}
 		if (kept.getType() == ActionTarget.TargetType.ENTITY) {
 			Entity entity = kept.getEntity();
-			if (entity == standEntity || !(entity instanceof LivingEntity living) || living.deathTime >= 20
-					|| !standEntity.canAttack(living)) {
+			if (entity == standEntity || entity instanceof LivingEntity living && living.deathTime >= 20
+					|| !keepsTaskTargetEntity(standEntity, entity)) {
 				return false;
 			}
 		}

@@ -249,9 +249,9 @@ public class StandOffsetFromUser {
 		return relativeToAbsolute(relativeVec, rotations, yRot, xRot, standEntity.getUserBroadcastedSettings(), canInvertSide);
 	}
 
-	// 1.16 ActionTarget.getTargetPos(true): an entity's eyes, a block's centre
+	// 1.16 ActionTarget.getTargetPos(true): an entity's eyes, whatever entity it is, a block's centre
 	@Nullable
-	private static Vec3 taskTargetPos(ActionTarget target) {
+	static Vec3 taskTargetPos(ActionTarget target) {
 		return switch (target.getType()) {
 			case ENTITY -> target.getEntity() != null ? target.getEntity().getEyePosition() : null;
 			case BLOCK -> Vec3.atCenterOf(target.getBlockPos());

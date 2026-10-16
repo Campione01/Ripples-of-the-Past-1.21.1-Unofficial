@@ -16,7 +16,6 @@ import java.util.stream.Stream;
 import rotp.core.init.ModSoundEvents;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.StandUtil;
-import rotp.core.powersystem.standpower.entity.StandStatFormulas;
 import rotp.core.impl.stands._entitybase.StandAbilityStamina;
 
 import net.minecraft.resources.ResourceLocation;
@@ -146,7 +145,7 @@ public class HGBarriersNet {
 			emerald.setLowerKnockback(true);
 			Vec3 shootVec = targetPos.subtract(shootingPos);
 			emerald.shoot(shootVec.x, shootVec.y, shootVec.z, 1.5F,
-					StandStatFormulas.projectileInaccuracyScaling(stand.getPrecision(), 2.0F));
+					stand.getProjectileInaccuracy(2.0F));
 			emerald.setDamageFactor(0.75F * (float) stand.getAttackDamage() / 8F);
 			emerald.setSpeedFactor(emerald.getSpeedFactor() * stand.getAttackSpeed() / 8D);
 			stand.level().addFreshEntity(emerald);

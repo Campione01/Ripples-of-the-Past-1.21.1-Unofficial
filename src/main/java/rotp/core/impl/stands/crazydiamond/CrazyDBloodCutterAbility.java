@@ -18,7 +18,6 @@ import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.entity.StandEntityAbility;
 import rotp.core.powersystem.standpower.entity.StandOffsetFromUser;
-import rotp.core.powersystem.standpower.entity.StandStatFormulas;
 import rotp.core.impl.stands._entitybase.StandAbilityStamina;
 
 import net.minecraft.util.Mth;
@@ -86,7 +85,7 @@ public class CrazyDBloodCutterAbility extends StandEntityAbility {
 				cutter.setShootingPosOf(user);
 
 				float inaccuracy = performer instanceof StandEntity stand
-						? StandStatFormulas.projectileInaccuracyScaling(stand.getPrecision(), SHOT_INACCURACY)
+						? stand.getProjectileInaccuracy(SHOT_INACCURACY)
 						: SHOT_INACCURACY;
 				cutter.shootFromRotation(user, SHOT_VELOCITY, inaccuracy);
 				addProjectileWithStandStats(cutter);

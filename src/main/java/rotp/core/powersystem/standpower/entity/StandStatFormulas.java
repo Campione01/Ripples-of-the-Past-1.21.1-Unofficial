@@ -216,6 +216,16 @@ public class StandStatFormulas {
 		return velocity;
 	}
 	
+	/**
+	 * 1.16 StandEntity.getProjectileInaccuracy, which every Stand shot took (shootProjectile and its own calls): no spread
+	 * from a precision of 8 times one more than the base up, a spread below it, a base of 0 included, and the most below
+	 * a precision of 4. The precision is the Stand's own, its efficiency included ({@link StandEntity#getPrecision}).
+	 */
+	public static float standShotInaccuracy(double precision, float inaccuracyBase) {
+		return Math.max((inaccuracyBase + 1) * 8 / Math.max((float) precision, 4) - 1, 0);
+	}
+
+	// the port's own curve, for the items a Stand throws or shoots (a port move)
 	public static float projectileInaccuracyScaling(double precision, float inaccuracy) {
 		// 8 - 1; 12 - 2/3; 16 - 1/3; 20 - 0
 		float inaccuracyMultiplier = (float) Math.max((-precision / 12.0 + 5.0 / 3.0), 0);
@@ -227,10 +237,6 @@ public class StandStatFormulas {
 		return baseSpeed > 0 ? standEntity.getAttackSpeed() / baseSpeed : 1;
 	}
 
-//	public float getProjectileInaccuracy(double precision, float inaccuracyBase) {
-//		return Math.max((inaccuracyBase + 1) * 8 / Math.max((float) precision, 4) - 1, 0);
-//	}
-//
 //	public static double projectileFireRateScaling(StandEntity standEntity, StandPower standPower) {
 //		return standEntity.getAttackSpeed() / standPower.getPowerType().getStandStats().speed();
 //	}

@@ -566,6 +566,9 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		else if (isManuallyControlled()) {
 			moveStandManualControl();
 		}
+		else {
+			lookAtTaskTarget();
+		}
 		if (isBeingRetracted() && user != null) {
 			if (!isCloseToUser()) {
 				Vec3 targetPos = offsetFromUser.getPosition(user);
@@ -606,6 +609,9 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 	}
 	
 	public boolean lookAtCurTarget(PrevRotations rotO) {
+		if (lookAtTaskTarget()) {
+			return true;
+		}
 		ActionTarget lookTarget;
 		EntityActionInstance curAction = standAction.getAction();
 		boolean fullyRotateBody = curAction != null;
@@ -631,7 +637,40 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		
 		return lookAtTarget(lookTarget, fullyRotateBody);
 	}
-	
+
+	/**
+	 * 1.16 StandEntityTask.rotateStand: on every tick the current action's task holds a target
+	 * ({@link EntityActionInstance#getTaskTarget}) and the Stand is not manually controlled, the action turns the Stand to
+	 * it ({@link StandEntityAbility#rotateStandTowardsTarget}), whether the Stand follows its user or moves by itself. Each
+	 * side turns by the target it holds, a client by the one its server sent.
+	 * @return whether the task held a target
+	 */
+	public boolean lookAtTaskTarget() {
+		EntityActionInstance curAction = standAction.getAction();
+		if (curAction == null || isManuallyControlled() || !(curAction.ability instanceof StandEntityAbility standAbility)) {
+			return false;
+		}
+		ActionTarget taskTarget = curAction.getTaskTarget(level());
+		if (taskTarget.getType() == TargetType.EMPTY) {
+			return false;
+		}
+		standAbility.rotateStandTowardsTarget(this, curAction, taskTarget);
+		return true;
+	}
+
+	/**
+	 * Server: 1.16 StandEntity.setTaskTarget, which server code called on any Stand, another's too (RHCP's counterattack
+	 * dropped the target of the Stand it hit with setTaskTarget(new ActionTarget(null))): the task of the current action
+	 * holds the target if it keeps it, nothing for null or {@link ActionTarget#EMPTY}; the Stand turns as its task holds,
+	 * and tracking clients get the change ({@link EntityActionInstance#setTaskTarget}). Nothing without an action.
+	 */
+	public void setTaskTarget(@Nullable ActionTarget target) {
+		EntityActionInstance curAction = standAction.getAction();
+		if (curAction != null) {
+			curAction.setTaskTarget(target);
+		}
+	}
+
 	public Vec3 getPosToLookAt(ActionTarget target) {
 		EntityActionInstance curAction = standAction.getAction();
 		if (curAction != null) {
@@ -660,8 +699,10 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 	}
 	
 	public boolean lookAtTarget(ActionTarget target, boolean fullyRotateBody) {
-		Vec3 targetPos = getPosToLookAt(target);
-		
+		return lookAtPos(getPosToLookAt(target), fullyRotateBody);
+	}
+
+	public boolean lookAtPos(@Nullable Vec3 targetPos, boolean fullyRotateBody) {
 		if (targetPos != null) {
 			Vec2 rotations = MathUtil.lookAnglesTowards(targetPos, this, EntityAnchorArgument.Anchor.EYES);
 			if (fullyRotateBody) {
@@ -1524,6 +1565,11 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 	public double getPrecision() {
 		double precision = getAttributeValue(ModEntityAttributes.STAND_PRECISION);
 		return precision * getStandEfficiency();
+	}
+
+	/** The spread of this Stand's shot of the given base spread ({@link StandStatFormulas#standShotInaccuracy}). */
+	public float getProjectileInaccuracy(float inaccuracyBase) {
+		return StandStatFormulas.standShotInaccuracy(getPrecision(), inaccuracyBase);
 	}
 	
 	public double getEffectiveRange() {
