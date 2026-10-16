@@ -309,7 +309,8 @@ public final class StandAttackAimRulesGameTests {
 	// (StandEntityTask.keepTarget, standKeepsTarget of StandEntityLightAttack and StandEntityHeavyAttack), turned the Stand
 	// to it (StandEntityTask.rotateStand) and struck it while the Stand could reach it (StandEntity.aimWithThisOrUser), not
 	// what the crosshair met by then. "Keep attack target" is off. Small precision boxes, so that only the kept target
-	// finds the mob once it is off the crosshair.
+	// finds the mob once it is off the crosshair, and ground behind it: a strike that aimed again would take the ground
+	// the crosshair meets then, never the Stand's own eye ray, which faces the pressed mob.
 	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "kept_mob_punch")
 	public static void punchStrikesTheMobItWasPressedAtThatStepsAsideAsIn116(GameTestHelper helper) {
 		pressedMobStepsAside(helper, "punch");
@@ -330,8 +331,10 @@ public final class StandAttackAimRulesGameTests {
 	private static void pressedMobStepsAside(GameTestHelper helper, String name) {
 		Scene scene = new Scene(helper, true);
 		scene.precision(0);
+		scene.groundStrip();
 		Cow cow = scene.cow(0, 2.0);
-		scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, cow.getBoundingBox().getCenter());
+		// low on the cow, so that past it the crosshair meets the ground strip
+		scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, cow.position().add(0, 0.4, 0));
 		helper.assertTrue(scene.vanillaPick().getMainEntity() == cow, "Fixture: the vanilla pick is " + scene.vanillaPick());
 		float health = cow.getHealth();
 		EntityActionInstance[] action = new EntityActionInstance[1];
@@ -345,9 +348,12 @@ public final class StandAttackAimRulesGameTests {
 				// a step aside within the Stand's reach, off the crosshair; the client sends its aims again
 				cow.moveTo(cow.getX() + 0.9, cow.getY(), cow.getZ(), 0, 0);
 				scene.sendClientAims();
-				helper.assertTrue(scene.vanillaPick().getMainEntity() != cow
-						&& StandEntityPunchAbility.userPrecisionRayTarget(scene.stand, scene.user).getMainEntity() != cow,
-						"Fixture: the user's aims still meet the cow that stepped aside");
+				helper.assertTrue(scene.vanillaPick().getType() == ActionTarget.TargetType.BLOCK
+						&& StandEntityPunchAbility.userPrecisionRayTarget(scene.stand, scene.user).getType()
+								== ActionTarget.TargetType.BLOCK,
+						"Fixture: the user's aims meet " + scene.vanillaPick() + " and "
+								+ StandEntityPunchAbility.userPrecisionRayTarget(scene.stand, scene.user)
+								+ ", not the ground behind the cow that stepped aside");
 				return false;
 			}
 			if (tick < 3) {
