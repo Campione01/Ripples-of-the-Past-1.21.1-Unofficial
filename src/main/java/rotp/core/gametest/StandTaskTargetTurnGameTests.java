@@ -468,6 +468,42 @@ public final class StandTaskTargetTurnGameTests {
 		helper.succeed();
 	}
 
+	/*
+	 * 1.16 PowerBaseImpl.checkTarget emptied a target GoldExperienceBoneMeal.checkTarget refused, an adult cow, so a player's
+	 * press at it failed, and a Bone Meal started at it anyway (a mob's press, whose aim moved after its check) held no
+	 * target: the following Stand looked along its user's look. A calf, which it accepts, turns the Stand to it.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void goldExperiencesBoneMealDoesNotTurnTheStandToATargetItsCheckRefusesAsIn116(GameTestHelper helper) {
+		for (boolean calf : new boolean[] { false, true }) {
+			StandTaskTargetOffsetGameTests.withStand(helper, "gold_experience", scene -> {
+				Cow cow = scene.cow(COW_FROM_USER);
+				cow.setBaby(calf);
+				LivingComponentAction.getComponent(scene.user()).entityAim.setTarget(new ActionTarget(cow));
+				EntityActionInstance boneMeal = scene.set("bone_meal");
+				String what = calf ? "a calf" : "an adult cow";
+				helper.assertTrue((boneMeal.getTaskTarget(helper.getLevel()).getEntity() == cow) == calf,
+						"setup: the Bone Meal pressed at " + what + " holds " + boneMeal.getTaskTarget(helper.getLevel()));
+				helper.assertTrue(calf || !scene.power().getAbility("bone_meal").checkSpecificConditions(scene.power()).isPositive(),
+						"1.16 refused a player's Bone Meal pressed at an adult cow (GoldExperienceBoneMeal.checkTarget)");
+				StandTaskTargetOffsetGameTests.turn(scene.user(), VIEW_YAW, VIEW_YAW);
+				scene.stand().updatePosition(scene.user());
+				if (calf) {
+					Vec3 toEyes = cow.getEyePosition().subtract(scene.stand().getEyePosition()).normalize();
+					Vec3 look = scene.stand().getLookAngle();
+					helper.assertTrue(look.dot(toEyes) > 0.9999D, "1.16 turned a gold_experience whose Bone Meal held a calf 3"
+							+ " blocks east of its user to its eyes: it looks along " + look + " instead of " + toEyes);
+				}
+				else {
+					assertLooksAlongItsUser(helper, scene, "1.16 turned a following gold_experience whose Bone Meal was started at an"
+							+ " adult cow, which GoldExperienceBoneMeal.checkTarget refused, along its user's look south (the action"
+							+ " turns it to " + boneMeal.standRotationTarget + ")");
+				}
+			});
+		}
+		helper.succeed();
+	}
+
 	// an action that gives the Stand its user's yaw after the task's turn, as 1.16 StunComboAttack.moveStandForward did
 	private static final class YawToUserProbe extends StandEntityAbility {
 		YawToUserProbe(AbilityType<?> abilityType, AbilityId abilityId) {

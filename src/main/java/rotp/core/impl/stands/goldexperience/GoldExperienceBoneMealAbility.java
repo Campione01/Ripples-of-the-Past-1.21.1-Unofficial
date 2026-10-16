@@ -69,7 +69,9 @@ public class GoldExperienceBoneMealAbility extends NoPoseStandEntityAbility {
         super.initActionFromConfig(action, level, powerUser, performer);
         if (action instanceof BoneMealAction) {
             ActionTarget target = GoldExperienceCreateLifeformAbility.getClientLookTarget(level, powerUser);
-            if (!target.isEmpty(level)) {
+            // 1.16 PowerBaseImpl.checkTarget emptied a target checkTarget refused, so the Stand did not turn to it; a
+            // press that skips checkSpecificConditions (a mob's) still gets here
+            if (!target.isEmpty(level) && isValidBoneMealTarget(level, target)) {
                 action.standRotationTarget = target;
             }
         }
