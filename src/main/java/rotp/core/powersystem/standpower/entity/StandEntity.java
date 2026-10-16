@@ -330,11 +330,13 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 	
 
 	public PrevRotations rotO = new PrevRotations();
+	private boolean headTurnedToTaskTarget;
 	@Override
 	public void tick() {
 		fallDistance = 0;
 		modelAlpha.set(1, true);
 		rotO.rememberAngles(this);
+		headTurnedToTaskTarget = false;
 		LivingEntity user = getUser();
 		Level level = level();
 		if (!level.isClientSide()) {
@@ -379,9 +381,16 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		this.xRotO = rotO.xRot;
 		this.yRotO = rotO.yRot;
 		this.yBodyRotO = rotO.yBodyRot;
-		
-		yHeadRot = getYRot();
-		yHeadRotO = yRotO;
+
+		// 1.16 MCUtil.rotateTowards turned the head to the task's target, and an action that then gave the Stand another
+		// yaw left the head there; otherwise StandEntity.defaultRotation put the head on the yaw
+		if (headTurnedToTaskTarget) {
+			yHeadRotO = rotO.yHeadRot;
+		}
+		else {
+			yHeadRot = getYRot();
+			yHeadRotO = yRotO;
+		}
 
         updateStrengthMultipliers();
 		tickFinisherMeter();
@@ -642,7 +651,8 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 	 * 1.16 StandEntityTask.rotateStand: on every tick the current action's task holds a target
 	 * ({@link EntityActionInstance#getTaskTarget}) and the Stand is not manually controlled, the action turns the Stand to
 	 * it ({@link StandEntityAbility#rotateStandTowardsTarget}), whether the Stand follows its user or moves by itself. Each
-	 * side turns by the target it holds, a client by the one its server sent.
+	 * side turns by the target it holds, a client by the one its server sent. The head stays where that turn left it for the
+	 * rest of the tick, as 1.16's MCUtil.rotateTowards set it, even if the Stand's yaw is turned elsewhere after it.
 	 * @return whether the task held a target
 	 */
 	public boolean lookAtTaskTarget() {
@@ -654,6 +664,7 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		if (taskTarget.getType() == TargetType.EMPTY) {
 			return false;
 		}
+		headTurnedToTaskTarget = true;
 		standAbility.rotateStandTowardsTarget(this, curAction, taskTarget);
 		return true;
 	}

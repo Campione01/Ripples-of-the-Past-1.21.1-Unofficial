@@ -11,13 +11,20 @@ import rotp.core.impl.stands.hierophant.HGBarrierEntity;
 import rotp.core.impl.stands.hierophant.HGStringEntity;
 import rotp.core.impl.stands.hierophant.HierophantGreenEntity;
 import rotp.core.impl.stands.hierophant.HierophantStringAttackAbility.StringAttackShot;
+import rotp.core.init.power.ModStandAbilities;
+import rotp.core.powersystem.PowerClass;
+import rotp.core.powersystem.ability.AbilityId;
+import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.netcode.SyncType;
 import rotp.core.powersystem.entityaction.netcode.TrEntityActionTargetPacket;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
+import rotp.core.powersystem.standpower.entity.StandEntity;
+import rotp.core.powersystem.standpower.entity.StandEntityAbility;
 import rotp.core.subsystems.target.ActionTarget;
+import rotp.core.subsystems.target.AimingEntity;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -409,6 +416,87 @@ public final class StandTaskTargetTurnGameTests {
 			});
 		}
 		helper.succeed();
+	}
+
+	/*
+	 * 1.16 StandEntityTask.rotateStand turned the Stand and its head to its task's target (MCUtil.rotateTowards set
+	 * yHeadRot), and an action that then gave the Stand its user's yaw, as Shadow the World's StunComboAttack.moveStandForward
+	 * did with setRot, left the head on the target: on the server, and on a client turning by the target its server sent. A
+	 * Stand whose task held no target got its head on its yaw (StandEntity.defaultRotation), not its user's head yaw.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void theHeadStaysOnTheTaskTargetWhenTheActionThenTurnsTheStandsYawAsIn116(GameTestHelper helper) {
+		for (String row : new String[] { "server", "client", "no target" }) {
+			StandTaskTargetOffsetGameTests.withStand(helper, "hierophant_green", scene -> {
+				Cow cow = scene.cow(COW_FROM_USER);
+				YawToUserProbe probe = new YawToUserProbe(ModStandAbilities.HG_STRING_ATTACK.get(),
+						new AbilityId(PowerClass.STAND, JojoMod.resLoc("hierophant_green"), "yaw_to_user_probe"));
+				LivingComponentAction actions = LivingComponentAction.getComponent(scene.stand());
+				EntityActionInstance action = row.equals("client") ? new ClientProbeAction(probe)
+						: probe.initActionOnAbilityUse(helper.getLevel(), scene.user(), scene.stand(), null);
+				actions.setAction(action, scene.user(), SyncType.NO_SYNC);
+				if (row.equals("server")) {
+					scene.stand().setTaskTarget(new ActionTarget(cow));
+				}
+				else if (row.equals("client")) {
+					action.setTargetsFromServer(null, null, AimingEntity.STAND, new ActionTarget(cow));
+				}
+				boolean held = !row.equals("no target");
+				helper.assertTrue(scene.stand().getCurStandAction() == action
+						&& (action.getTaskTarget(helper.getLevel()).getEntity() == cow) == held,
+						"setup: the " + row + " probe holds " + action.getTaskTarget(helper.getLevel()));
+				StandTaskTargetOffsetGameTests.turn(scene.user(), VIEW_YAW, VIEW_YAW);
+				scene.user().setYHeadRot(VIEW_YAW + 30.0F);
+				scene.stand().tick();
+				scene.stand().tick();
+				StandEntity stand = scene.stand();
+				helper.assertTrue(Math.abs(Mth.wrapDegrees(stand.getYRot() - VIEW_YAW)) < EPS
+						&& Math.abs(Mth.wrapDegrees(stand.yBodyRot - VIEW_YAW)) < EPS, "setup: the " + row + " probe's Stand has"
+								+ " yaw " + stand.getYRot() + " and body yaw " + stand.yBodyRot + ", not its user's " + VIEW_YAW);
+				Vec3 toCow = cow.getEyePosition().subtract(stand.getEyePosition());
+				float headYaw = held ? (float) (Mth.atan2(toCow.z, toCow.x) * Mth.RAD_TO_DEG) - 90.0F : VIEW_YAW;
+				helper.assertTrue(Math.abs(Mth.wrapDegrees(stand.yHeadRot - headYaw)) < 1.0E-3F
+						&& Math.abs(Mth.wrapDegrees(stand.yHeadRotO - headYaw)) < 1.0E-3F, (held
+								? "1.16 left the head of a hierophant_green whose action turned it to its user's yaw after its task's"
+										+ " turn (" + row + ") on the cow 3 blocks east"
+								: "1.16 put the head of a hierophant_green whose task held no target on its yaw, not its user's"
+										+ " head yaw")
+								+ ", at yaw " + headYaw + " on both ticks: it is at " + stand.yHeadRot + ", " + stand.yHeadRotO
+								+ " before");
+			});
+		}
+		helper.succeed();
+	}
+
+	// an action that gives the Stand its user's yaw after the task's turn, as 1.16 StunComboAttack.moveStandForward did
+	private static final class YawToUserProbe extends StandEntityAbility {
+		YawToUserProbe(AbilityType<?> abilityType, AbilityId abilityId) {
+			super(abilityType, abilityId, EntityActionInstance::new);
+		}
+
+		@Override
+		protected boolean keepsTaskTargetType(StandEntity standEntity, ActionTarget target) {
+			return target.getType() == ActionTarget.TargetType.ENTITY;
+		}
+
+		@Override
+		public void rotateStandTowardsTarget(StandEntity standEntity, EntityActionInstance action, ActionTarget target) {
+			super.rotateStandTowardsTarget(standEntity, action, target);
+			float yaw = standEntity.getUser().getYRot();
+			standEntity.setYRot(yaw);
+			standEntity.setYBodyRot(yaw);
+		}
+	}
+
+	private static final class ClientProbeAction extends EntityActionInstance {
+		ClientProbeAction(EntityActionType ability) {
+			super(ability);
+		}
+
+		@Override
+		protected boolean takesTargetsFromServer() {
+			return true;
+		}
 	}
 
 	// StandEntity.setTaskTarget called by other server code, with a client tracking the Stand
