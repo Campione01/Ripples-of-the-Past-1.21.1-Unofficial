@@ -608,6 +608,76 @@ public final class StandTaskTargetTurnGameTests {
 	}
 
 	/*
+	 * 1.16 StandEntityMeleeBarrage.onTaskStopped stopped the barrage clash only for another action (newAction != this
+	 * compared actions, not tasks): the same barrage set again during a clash kept it, on both Stands, and its new task held
+	 * the opponent, pressed at it (makeServerSideTask) or taken over from the task it replaced (StandEntity.setTask); a punch
+	 * set instead, or the barrage's end, stopped the clash on both Stands.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void theSameBarrageSetAgainDuringItsBarrageClashKeepsTheClashAsIn116(GameTestHelper helper) {
+		for (String row : new String[] { "pressed at the opponent", "pressed at nothing", "a punch", "the end" }) {
+			StandTaskTargetOffsetGameTests.withStand(helper, "star_platinum", scene -> {
+				StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("star_platinum"));
+				Player rival = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
+				StandPower rivalPower = null;
+				LivingComponentAction actions = LivingComponentAction.getComponent(scene.stand());
+				try {
+					Vec3 rivalPos = scene.user().position().add(0.0D, 0.0D, 4.0D);
+					rival.setNoGravity(true);
+					rival.moveTo(rivalPos.x, rivalPos.y, rivalPos.z, 180.0F, 0.0F);
+					helper.assertTrue(helper.getLevel().addFreshEntity(rival), "Could not add the rival Stand user");
+					rivalPower = PowerClass.STAND.attachGet(rival);
+					helper.assertTrue(StandPowerTransitions.insert(rivalPower, new StandInstance(type)).status()
+							== StandPowerTransitions.Status.APPLIED && type.summon(rival, rivalPower),
+							"Could not give the rival Star Platinum");
+					StandEntity opponent = rivalPower.getSummonedStandEntity();
+					Vec3 opponentPos = scene.user().position().add(0.0D, 0.0D, 2.0D);
+					opponent.setNoGravity(true);
+					opponent.moveTo(opponentPos.x, opponentPos.y, opponentPos.z, 180.0F, 0.0F);
+					scene.user().lookAt(EntityAnchorArgument.Anchor.EYES, opponent.getBoundingBox().getCenter());
+					LivingComponentAction.getComponent(scene.user()).entityAim.setTarget(new ActionTarget(opponent));
+					startBarrageClash(helper, scene.stand(), opponent);
+					EntityActionInstance first = scene.set("barrage");
+					helper.assertTrue(first.getTaskTarget(helper.getLevel()).getEntity() == opponent,
+							"setup: the barrage pressed at its clash opponent holds " + first.getTaskTarget(helper.getLevel()));
+					String what = "a star_platinum whose barrage in a barrage clash was followed by " + row;
+					switch (row) {
+						case "a punch" -> scene.set("punch");
+						case "the end" -> actions.setAction(null, scene.user(), SyncType.NO_SYNC);
+						default -> {
+							if (row.equals("pressed at nothing")) {
+								LivingComponentAction.getComponent(scene.user()).entityAim.setTarget(ActionTarget.EMPTY);
+								LivingComponentAction.getComponent(scene.stand()).entityAim.setTarget(ActionTarget.EMPTY);
+							}
+							EntityActionInstance again = scene.set("barrage");
+							helper.assertTrue(scene.stand().barrageClashOpponent().orElse(null) == opponent
+									&& opponent.barrageClashOpponent().orElse(null) == scene.stand(), "1.16 kept the barrage clash"
+											+ " of " + what + ", the same barrage " + row + ", on both Stands; the clash opponents are "
+											+ scene.stand().barrageClashOpponent() + " and " + opponent.barrageClashOpponent());
+							helper.assertTrue(again.getTaskTarget(helper.getLevel()).getEntity() == opponent, "1.16 gave the task of "
+									+ what + ", the same barrage " + row + ", the clash opponent; it holds "
+									+ again.getTaskTarget(helper.getLevel()));
+							return;
+						}
+					}
+					helper.assertTrue(scene.stand().barrageClashOpponent().isEmpty() && opponent.barrageClashOpponent().isEmpty(),
+							"1.16 stopped the barrage clash of " + what + " on both Stands; the clash opponents are "
+									+ scene.stand().barrageClashOpponent() + " and " + opponent.barrageClashOpponent());
+				}
+				finally {
+					actions.setAction(null, scene.user(), SyncType.NO_SYNC);
+					scene.stand().barrageClashStopped();
+					if (rivalPower != null && rivalPower.isSummoned()) {
+						type.forceUnsummon(rival, rivalPower);
+					}
+					rival.discard();
+				}
+			});
+		}
+		helper.succeed();
+	}
+
+	/*
 	 * 1.16 StandEntity.tickHeadTurn gave the body of a Stand with a task the yaw it started each tick with: an action whose
 	 * tick turned the Stand (setRot) showed its body along that yaw on the next tick, while StandEntityTask.rotateStand put
 	 * the yaw and head back on the user's look (defaultRotation) or on the task's target (MCUtil.rotateTowards), neither of
