@@ -9,6 +9,8 @@ import rotp.core.impl.powers.hamon.HamonData;
 import rotp.core.impl.powers.hamon.ModHamonSkills;
 import rotp.core.impl.powers.pillarman.PillarmanData;
 import rotp.core.impl.powers.pillarman.PillarmanMode;
+import rotp.core.impl.powers.vampirism.VampirismData;
+import rotp.core.impl.powers.vampirism.VampirismState;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.powersystem.PowerClass;
@@ -148,6 +150,44 @@ public final class HeldActionRecheck116GameTests {
 		}
 	}
 
+	// VampirismSpaceRipperStingyEyes held its charge (holdToFire 20, continueHolding): NonStandAction.checkEnergy ran each tick.
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void stingyEyesChargeEndsUnfiredWhenTheBloodRunsShort(GameTestHelper helper) {
+		try (PowerScene s = new PowerScene(helper, "HeldStingyEyesBlood", ModPlayerPowers.VAMPIRISM.get())) {
+			s.vampire(500.0F);
+			EntityActionInstance charge = s.start("vampirism_space_ripper_stingy_eyes");
+			s.tick(3);
+			helper.assertTrue(charge.getPhase() == ActionPhase.WINDUP && !charge.isOver(),
+					"setup: Space Ripper Stingy Eyes is not charging: phase " + charge.getPhase());
+			s.setBlood(10.0F);
+			s.tick(1);
+			helper.assertTrue(charge.isOver(),
+					"1.16 ended the held Space Ripper Stingy Eyes once the blood was short of a shot's 20: phase " + charge.getPhase());
+			helper.assertTrue(s.user.keys().contains(CONDITION + "no_energy_vampirism"), "1.16 said why: messages " + s.user.keys());
+			helper.succeed();
+		}
+	}
+
+	// VampirismBloodGift (holdToFire 60) ended the hold on a failed check with that check's message.
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void bloodGiftEndedByAFilledHandSaysWhy(GameTestHelper helper) {
+		try (PowerScene s = new PowerScene(helper, "HeldBloodGiftHand", ModPlayerPowers.VAMPIRISM.get())) {
+			s.vampire(500.0F);
+			RecordingPlayer recipient = s.player("HeldBloodGiftRecipient", 1.5D);
+			recipient.setHealth(6.0F);
+			s.aim(recipient);
+			EntityActionInstance gift = s.start("vampirism_blood_gift");
+			s.tick(3);
+			helper.assertTrue(gift.getPhase() == ActionPhase.WINDUP && !gift.isOver(),
+					"setup: the Blood Gift is not charging at the weak player: phase " + gift.getPhase());
+			s.user.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.STICK));
+			s.tick(1);
+			helper.assertTrue(gift.isOver(), "a filled main hand did not end the held Blood Gift: phase " + gift.getPhase());
+			helper.assertTrue(s.user.keys().contains(CONDITION + "hand"), "1.16 said why: messages " + s.user.keys());
+			helper.succeed();
+		}
+	}
+
 	/** A server player that keeps the action bar messages it is sent. */
 	private static final class RecordingPlayer extends FakePlayer {
 		private final List<Component> actionBar = new ArrayList<>();
@@ -210,6 +250,31 @@ public final class HeldActionRecheck116GameTests {
 			data.setMode(mode, user);
 			data.setEnergy(user, 100.0F);
 			helper.assertTrue(!data.isStoneFormEnabled(), "setup: Pillar Man stone form is on");
+		}
+
+		private void vampire(float blood) {
+			VampirismData data = PlayerPower.getPowerData(user, ModPlayerPowers.VAMPIRISM).orElseThrow();
+			data.setVampireFullPower(true, user);
+			setBlood(blood);
+			helper.assertTrue(data.getCuringStage(user) == 0 && data.hasBlood(user, blood),
+					"setup: the vampire is being cured or has not got its blood: stage " + data.getCuringStage(user));
+		}
+
+		private void setBlood(float blood) {
+			VampirismData data = PlayerPower.getPowerData(user, ModPlayerPowers.VAMPIRISM).orElseThrow();
+			VampirismState.get(user).blood().setCurrent(blood);
+			data.setBloodLevel(VampirismState.get(user).blood().current());
+		}
+
+		// a player with no power yet, facing the user
+		private RecordingPlayer player(String name, double ahead) {
+			RecordingPlayer other = new RecordingPlayer(helper.getLevel(), name);
+			other.moveTo(origin.x, origin.y, origin.z + ahead, 180.0F, 0.0F);
+			other.setNoGravity(true);
+			helper.assertTrue(helper.getLevel().addFreshEntity(other), "Could not add " + name);
+			spawned.add(other);
+			PowerClass.PLAYER_POWER.attachGet(other);
+			return other;
 		}
 
 		private void aim(Entity target) {

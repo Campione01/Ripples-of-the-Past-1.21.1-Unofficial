@@ -50,6 +50,11 @@ public class VampirismBloodGiftAbility extends VampirismActionAbility {
 
 	@Override
 	public ConditionCheck checkSpecificConditions(Power<?> context) {
+		return checkGiftConditions(context, 0);
+	}
+
+	// heldTicks: the ticks of the charge already held, which the blood still needed for the rest of it counts down
+	private ConditionCheck checkGiftConditions(Power<?> context, int heldTicks) {
 		ConditionCheck check = super.checkSpecificConditions(context);
 		if (!check.isPositive()) {
 			return check;
@@ -79,7 +84,7 @@ public class VampirismBloodGiftAbility extends VampirismActionAbility {
 		if (target.getHealth() > 6.0F) {
 			return ConditionCheck.createNegative("target_too_many_health");
 		}
-		if (!hasRemainingChargeBlood(context, 0)) {
+		if (!hasRemainingChargeBlood(context, heldTicks)) {
 			return ConditionCheck.createNegative("no_energy_vampirism");
 		}
 		if (!user.getMainHandItem().isEmpty()) {
@@ -115,13 +120,13 @@ public class VampirismBloodGiftAbility extends VampirismActionAbility {
 			LivingEntity user = getPowerUser();
 			if (user != null && ability instanceof VampirismBloodGiftAbility giftAbility) {
 				Power<?> context = giftAbility.getUserPower(user);
-				// 1.16 PowerBaseImpl.checkRequirements ran every held tick: a stun ends the hold with its message.
-				ConditionCheck check = context != null ? giftAbility.checkMainModLogicConditions(context) : ConditionCheck.POSITIVE;
+				// 1.16 PowerBaseImpl.checkRequirements ran every held tick, the press's checks in the press's order (the
+				// blood counting only the rest of the charge); holdToFire is not hold-only, so any failure, the target's
+				// too, ended the hold with its message.
+				ConditionCheck check = context != null ? giftAbility.checkMainModLogicConditions(context) : ConditionCheck.NEGATIVE;
 				int heldTicks = Math.min(Mth.floor(getPhaseTick()) + 1, HOLD_TO_FIRE_TICKS);
-				if (check.isPositive() && !giftAbility.hasRemainingChargeBlood(context, heldTicks)) {
-					// 1.16 checked the target before the blood, so a lost recipient is not reported as hunger.
-					check = context != null && hasGiftableTarget(user)
-							? ConditionCheck.createNegative("no_energy_vampirism") : ConditionCheck.NEGATIVE;
+				if (check.isPositive()) {
+					check = giftAbility.checkGiftConditions(context, heldTicks);
 				}
 				if (!check.isPositive()) {
 					ConditionCheck.sendActionFailedMessage(giftAbility, check, user);
@@ -132,11 +137,6 @@ public class VampirismBloodGiftAbility extends VampirismActionAbility {
 			}
 			if (user == null || !canContinueWindup(user)
 					|| getPhaseTick() < HOLD_TO_FIRE_TICKS - 1 && !consumeBlood(user, HOLD_BLOOD_COST_PER_TICK)) {
-				// 1.16 holdToFire is not hold-only: a target out of range on a held tick stops the hold with its message
-				if (user != null && ability instanceof VampirismBloodGiftAbility giftAbility
-						&& ActionTargetRange.isEntityTargetOutOfRange(user, getAimTarget(level(), user), MAX_RANGE_SQ_ENTITY_TARGET)) {
-					ConditionCheck.sendActionFailedMessage(giftAbility, ConditionCheck.createNegative("target_too_far"), user);
-				}
 				forceStop();
 				syncPhaseChanges();
 				return;
