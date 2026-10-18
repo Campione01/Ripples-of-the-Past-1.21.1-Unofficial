@@ -7,6 +7,8 @@ import java.util.UUID;
 import rotp.core.core.JojoMod;
 import rotp.core.impl.powers.hamon.HamonData;
 import rotp.core.impl.powers.hamon.ModHamonSkills;
+import rotp.core.impl.powers.pillarman.PillarmanData;
+import rotp.core.impl.powers.pillarman.PillarmanMode;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.powersystem.PowerClass;
@@ -29,9 +31,12 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.neoforge.gametest.GameTestHolder;
@@ -73,6 +78,72 @@ public final class HeldActionRecheck116GameTests {
 							+ " phase " + charge.getPhase());
 			helper.assertTrue(s.user.keys().contains(CONDITION + "target_too_far"),
 					"1.16 sent target_too_far as the hold ended: messages " + s.user.keys());
+			helper.succeed();
+		}
+	}
+
+	// PillarmanBladeBarrage.checkHeldItems failed on a held tick: the hold ended with "hand".
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void bladeBarrageEndedByAFilledHandSaysWhy(GameTestHelper helper) {
+		try (PowerScene s = new PowerScene(helper, "HeldBladeBarrageHand", ModPlayerPowers.PILLAR_MAN.get())) {
+			s.pillarman(2, PillarmanMode.LIGHT);
+			EntityActionInstance barrage = s.start("pillarman_blade_barrage");
+			s.tick(2);
+			helper.assertTrue(barrage.getPhase() == ActionPhase.PERFORM && !barrage.isOver(),
+					"setup: the Blade Barrage is not held: phase " + barrage.getPhase());
+			s.user.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.STICK));
+			s.tick(1);
+			helper.assertTrue(barrage.isOver(), "a filled main hand did not end the held Blade Barrage: phase " + barrage.getPhase());
+			helper.assertTrue(s.user.keys().contains(CONDITION + "hand"),
+					"1.16 sent the failed check's message as the hold ended: messages " + s.user.keys());
+			helper.succeed();
+		}
+	}
+
+	// PillarmanAbsorption is hold-only with an ENTITY target: no target in reach let the hold go on before the conditions.
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void absorptionWaitsWithoutATargetAndEndsOnAFilledHandWithOne(GameTestHelper helper) {
+		try (PowerScene s = new PowerScene(helper, "HeldAbsorptionHand", ModPlayerPowers.PILLAR_MAN.get())) {
+			s.pillarman(2, PillarmanMode.NONE);
+			Mob cow = s.mob(EntityType.COW, 1.5D);
+			s.aim(cow);
+			EntityActionInstance absorption = s.start("pillarman_absorption");
+			s.tick(2);
+			helper.assertTrue(absorption.getPhase() == ActionPhase.PERFORM && !absorption.isOver(),
+					"setup: the Absorption is not held: phase " + absorption.getPhase());
+			s.aim(null);
+			s.user.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.STICK));
+			float health = cow.getHealth();
+			s.tick(3);
+			helper.assertTrue(absorption.getPhase() == ActionPhase.PERFORM && !absorption.isOver() && cow.getHealth() == health,
+					"1.16 kept the Absorption held, absorbing nothing, while no target was in reach, whatever the hand held: phase "
+							+ absorption.getPhase() + ", cow health " + health + " -> " + cow.getHealth());
+			s.aim(cow);
+			s.tick(1);
+			helper.assertTrue(absorption.isOver() && cow.getHealth() == health,
+					"1.16 ended the held Absorption on a filled hand once a target was back in reach: phase " + absorption.getPhase()
+							+ ", cow health " + health + " -> " + cow.getHealth());
+			helper.assertTrue(s.user.keys().contains(CONDITION + "hand"), "1.16 said why: messages " + s.user.keys());
+			helper.succeed();
+		}
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void hideInEntityChargeEndsWhenItsTargetIsPastItsRange(GameTestHelper helper) {
+		try (PowerScene s = new PowerScene(helper, "HeldHideInEntityRange", ModPlayerPowers.PILLAR_MAN.get())) {
+			s.pillarman(2, PillarmanMode.NONE);
+			Mob near = s.mob(EntityType.COW, 2.0D);
+			Mob far = s.mob(EntityType.COW, 12.0D);
+			s.aim(near);
+			EntityActionInstance charge = s.start("pillarman_hide_in_entity");
+			s.tick(3);
+			helper.assertTrue(charge.getPhase() == ActionPhase.BUTTON_CHARGE && !charge.isOver(),
+					"setup: Hide in Entity is not charging at the cow 2 blocks away: phase " + charge.getPhase());
+			s.aim(far);
+			s.tick(1);
+			helper.assertTrue(charge.isOver(),
+					"1.16 ended the Hide in Entity charge once the cow under the crosshair was past 8 blocks: phase " + charge.getPhase());
+			helper.assertTrue(s.user.keys().contains(CONDITION + "target_too_far"), "1.16 said why: messages " + s.user.keys());
 			helper.succeed();
 		}
 	}
@@ -131,6 +202,14 @@ public final class HeldActionRecheck116GameTests {
 			helper.assertTrue(helper.getLevel().addFreshEntity(mob), "Could not add " + type);
 			spawned.add(mob);
 			return mob;
+		}
+
+		private void pillarman(int stage, PillarmanMode mode) {
+			PillarmanData data = PlayerPower.getPowerData(user, ModPlayerPowers.PILLAR_MAN).orElseThrow();
+			data.setEvolutionStage(stage, user);
+			data.setMode(mode, user);
+			data.setEnergy(user, 100.0F);
+			helper.assertTrue(!data.isStoneFormEnabled(), "setup: Pillar Man stone form is on");
 		}
 
 		private void aim(Entity target) {

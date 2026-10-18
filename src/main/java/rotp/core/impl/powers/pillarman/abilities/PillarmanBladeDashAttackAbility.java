@@ -170,7 +170,7 @@ public class PillarmanBladeDashAttackAbility extends PillarmanActionAbility {
 			if (getPhase() == ActionPhase.BUTTON_CHARGE) {
 				PillarmanBladeDashAttackAbility dashAbility = ability instanceof PillarmanBladeDashAttackAbility dash ? dash : null;
 				if (getPhaseTick() < HOLD_TO_FIRE_TICKS
-						|| !level().isClientSide() && (dashAbility == null || !dashAbility.canContinueAction(this))) {
+						|| !level().isClientSide() && (dashAbility == null || !dashAbility.checkOngoingConditions(this).isPositive())) {
 					forceStop();
 				}
 				else {
