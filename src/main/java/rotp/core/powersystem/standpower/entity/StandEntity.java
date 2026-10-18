@@ -580,10 +580,7 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 					pos = collideNextPos(pos);
 				}
 				setPos(pos.x, pos.y, pos.z);
-				// 1.16 StandEntity.defaultRotation, which an add-on could replace for a user that is not a player
-				if (user instanceof Player || !StandDefaultRotationRules.rotate(this, user)) {
-					copyStandUserRotation(user);
-				}
+				defaultRotation(user);
 				EntityActionInstance curAction = standAction.getAction();
 				if (curAction != null) {
 					curAction.applyStandUserRotation(this, user);
@@ -594,8 +591,11 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		else if (isManuallyControlled()) {
 			moveStandManualControl();
 		}
-		else {
-			lookAtTaskTarget();
+		// 1.16 StandEntity.defaultRotation turned any Stand neither manually controlled nor remote-fixed, one being
+		// retracted too, unless its task's target turned it or its action moved it by itself (StandEntityAction.rotateStand)
+		else if (!lookAtTaskTarget() && user != null && isBeingRetracted() && followingUserIsEnabled()
+				&& !curActionDisablesUserOffset()) {
+			defaultRotation(user);
 		}
 		if (isBeingRetracted() && user != null) {
 			if (!isCloseToUser()) {
@@ -632,6 +632,13 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		return position().add(collision.x, collision.y, collision.z);
 	}
 	
+	// 1.16 StandEntity.defaultRotation, which an add-on could replace for a user that is not a player
+	private void defaultRotation(LivingEntity user) {
+		if (user instanceof Player || !StandDefaultRotationRules.rotate(this, user)) {
+			copyStandUserRotation(user);
+		}
+	}
+
 	public void copyStandUserRotation(LivingEntity user) {
 		offsetFromUser.copyRotation(user, level().isClientSide());
 	}

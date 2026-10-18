@@ -15,12 +15,12 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.LivingEntity;
 
 /**
- * Owner-keyed rules for the default rotation of a following Stand whose user is not a player: 1.16's
- * StandEntity.defaultRotation, which an add-on could replace for a mob user (Mobs with Powers faced the mob's target, or
- * set no rotation without one).
+ * Owner-keyed rules for the default rotation of a following Stand whose user is not a player, or of one being retracted
+ * to it: 1.16's StandEntity.defaultRotation, which an add-on could replace for a mob user (Mobs with Powers faced the
+ * mob's target, or set no rotation without one).
  *
- * <p>Asked on both logical sides on every tick a following Stand of such a user would copy its user's yaw, pitch and head,
- * and with no action its body ({@link StandEntity#updatePosition}). The Stand's action and its task's target turn it
+ * <p>Asked on both logical sides on every tick such a Stand would copy its user's yaw, pitch and head, and with no action
+ * its body ({@link StandEntity#updatePosition}). The Stand's action and its task's target turn it
  * after that, and the head goes on the yaw as usual. Rules run in registration order until one takes the rotation over;
  * with none, the core copies it. A player's Stand and the copy as a Stand is summoned are never asked. A rule that fails
  * leaves the copy to the core. Register from common setup, so that clients have the rule too.</p>

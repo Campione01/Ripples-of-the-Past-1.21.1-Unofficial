@@ -5,8 +5,8 @@ import rotp.core.powersystem.standpower.entity.StandEntity;
 import net.minecraft.world.entity.LivingEntity;
 
 /**
- * An add-on's default rotation for a following Stand whose user is not a player, in place of the core's copy of the
- * user's rotation. See {@link StandDefaultRotationRules}.
+ * An add-on's default rotation for a following Stand whose user is not a player, or one being retracted to it, in place
+ * of the core's copy of the user's rotation. See {@link StandDefaultRotationRules}.
  */
 @FunctionalInterface
 public interface StandDefaultRotationRule {

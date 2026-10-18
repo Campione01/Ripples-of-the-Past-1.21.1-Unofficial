@@ -781,6 +781,61 @@ public final class StandTaskTargetTurnGameTests {
 		helper.succeed();
 	}
 
+	/*
+	 * 1.16 StandEntity.defaultRotation gave any Stand neither manually controlled nor remote-fixed its user's yaw and pitch,
+	 * so a Stand being retracted looked along its user's look as it flew back; a remote-fixed one kept its rotation, one its
+	 * action moved by itself too (StandEntityAction.rotateStand), and one whose task held a target faced it.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aStandBeingRetractedLooksAlongItsUsersLookAsIn116(GameTestHelper helper) {
+		for (String row : new String[] { "retracted", "remote-fixed", "moved by its action", "holding a target" }) {
+			StandTaskTargetOffsetGameTests.withStand(helper, "hierophant_green", scene -> {
+				StandEntity stand = scene.stand();
+				Cow cow = null;
+				if (row.equals("moved by its action") || row.equals("holding a target")) {
+					StandEntityAbility probe = row.equals("moved by its action")
+							? new SelfMovingProbe(ModStandAbilities.HG_STRING_ATTACK.get(),
+									new AbilityId(PowerClass.STAND, JojoMod.resLoc("hierophant_green"), "self_moving_probe"))
+							: new YawAsideProbe(ModStandAbilities.HG_STRING_ATTACK.get(),
+									new AbilityId(PowerClass.STAND, JojoMod.resLoc("hierophant_green"), "yaw_aside_probe"));
+					EntityActionInstance action = probe.initActionOnAbilityUse(helper.getLevel(), scene.user(), stand, null);
+					LivingComponentAction.getComponent(stand).setAction(action, scene.user(), SyncType.NO_SYNC);
+					if (row.equals("holding a target")) {
+						cow = scene.cow(COW_FROM_USER);
+						stand.setTaskTarget(new ActionTarget(cow));
+						helper.assertTrue(action.getTaskTarget(helper.getLevel()).getEntity() == cow,
+								"setup: the probe holds " + action.getTaskTarget(helper.getLevel()));
+					}
+				}
+				Vec3 away = scene.user().position().add(-5.0D, 0.0D, 0.0D);
+				stand.moveTo(away.x, away.y, away.z, VIEW_YAW - 40.0F, 20.0F);
+				if (row.equals("remote-fixed")) {
+					stand.setCanFollowUser(false);
+				}
+				stand.retract();
+				StandTaskTargetOffsetGameTests.turn(scene.user(), VIEW_YAW + 60.0F, VIEW_YAW + 60.0F);
+				scene.user().setXRot(10.0F);
+				helper.assertTrue(stand.isBeingRetracted() && !stand.isManuallyControlled() && !stand.isFollowingUser(),
+						"setup: the " + row + " hierophant_green is not being retracted");
+				stand.updatePosition(scene.user());
+				String what = "a hierophant_green being retracted, " + row + ", whose user looks at yaw " + (VIEW_YAW + 60.0F)
+						+ ", pitch 10";
+				switch (row) {
+					case "retracted" -> assertLooksAlongItsUser(helper, scene, "1.16 turned " + what + " along its user's look");
+					case "holding a target" -> {
+						Vec3 toEyes = cow.getEyePosition().subtract(stand.getEyePosition()).normalize();
+						helper.assertTrue(stand.getLookAngle().dot(toEyes) > 0.9999D, "1.16 turned " + what + " to the cow its task"
+								+ " holds: it looks along " + stand.getLookAngle() + " instead of " + toEyes);
+					}
+					default -> helper.assertTrue(Math.abs(Mth.wrapDegrees(stand.getYRot() - VIEW_YAW + 40.0F)) < EPS
+							&& Math.abs(stand.getXRot() - 20.0F) < EPS, "1.16 left " + what + " at yaw " + (VIEW_YAW - 40.0F)
+									+ ", pitch 20: yaw " + stand.getYRot() + ", pitch " + stand.getXRot());
+				}
+			});
+		}
+		helper.succeed();
+	}
+
 	// as when each Stand has parried the other's barrage (StandEntity.barrageClashParryPunches)
 	private static void startBarrageClash(GameTestHelper helper, StandEntity stand, StandEntity opponent) {
 		try {
