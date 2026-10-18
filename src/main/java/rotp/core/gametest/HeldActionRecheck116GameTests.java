@@ -4,7 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
+import rotp.core.core.JojoRegistries;
 import rotp.core.impl.powers.hamon.HamonData;
 import rotp.core.impl.powers.hamon.ModHamonSkills;
 import rotp.core.impl.powers.pillarman.PillarmanData;
@@ -24,6 +26,11 @@ import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.netcode.SyncType;
 import rotp.core.powersystem.playerpower.PlayerPower;
 import rotp.core.powersystem.playerpower.PlayerPowerType;
+import rotp.core.powersystem.standpower.StandInstance;
+import rotp.core.powersystem.standpower.StandInstance.StandPart;
+import rotp.core.powersystem.standpower.StandPower;
+import rotp.core.powersystem.standpower.entity.StandEntity;
+import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.target.ActionTarget;
 import com.mojang.authlib.GameProfile;
 
@@ -188,6 +195,23 @@ public final class HeldActionRecheck116GameTests {
 		}
 	}
 
+	// StarPlatinumInhale (holdType 80, partsRequired MAIN_BODY): a held tick without the body stopped the hold.
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void inhaleEndsWhenTheStandLosesItsBody(GameTestHelper helper) {
+		try (StandScene s = new StandScene(helper, "HeldInhaleBody", "star_platinum")) {
+			EntityActionInstance inhale = s.start("inhale");
+			s.tick(3);
+			helper.assertTrue(inhale.getPhase() == ActionPhase.PERFORM, "setup: the Inhale is not held: phase " + inhale.getPhase());
+			s.instance.removePart(StandPart.MAIN_BODY);
+			s.tick(1);
+			helper.assertTrue(inhale.isOver() || inhale.getPhase() == ActionPhase.RECOVERY,
+					"1.16 ended the held Inhale once the Stand lost its body: phase " + inhale.getPhase());
+			helper.assertTrue(s.user.keys().contains(CONDITION + "no_stand_part.main_body"),
+					"1.16 said why: messages " + s.user.keys());
+			helper.succeed();
+		}
+	}
+
 	/** A server player that keeps the action bar messages it is sent. */
 	private static final class RecordingPlayer extends FakePlayer {
 		private final List<Component> actionBar = new ArrayList<>();
@@ -208,6 +232,89 @@ public final class HeldActionRecheck116GameTests {
 					.map(message -> message.getContents() instanceof TranslatableContents contents
 							? contents.getKey() : message.getString())
 					.toList();
+		}
+	}
+
+	/** A Stand user looking south (+z) with no gravity, its Stand summoned, and the mobs it aims at. */
+	private static final class StandScene implements AutoCloseable {
+		private final GameTestHelper helper;
+		private final RecordingPlayer user;
+		private final StandType standType;
+		private final Vec3 origin;
+		private final List<Entity> spawned = new ArrayList<>();
+		private StandPower power;
+		private StandInstance instance;
+		private StandEntity stand;
+		private LivingComponentAction standAction;
+
+		private StandScene(GameTestHelper helper, String name, String standId) {
+			this.helper = helper;
+			user = new RecordingPlayer(helper.getLevel(), name);
+			standType = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc(standId));
+			origin = Vec3.atCenterOf(helper.absolutePos(new BlockPos(2, 2, 2)));
+			try {
+				helper.assertTrue(standType != null, "Missing Stand type " + standId);
+				user.moveTo(origin.x, origin.y, origin.z, 0.0F, 0.0F);
+				user.setYHeadRot(0.0F);
+				user.setNoGravity(true);
+				helper.assertTrue(helper.getLevel().addFreshEntity(user), "Could not add the Stand user");
+				power = PowerClass.STAND.attachGet(user);
+				StandPowerTransitions.Result inserted = StandPowerTransitions.insert(power, new StandInstance(standType));
+				helper.assertTrue(inserted.status() == StandPowerTransitions.Status.APPLIED,
+						"Could not grant " + standId + ": " + inserted.status());
+				instance = power.getStandInstance().orElse(null);
+				helper.assertTrue(instance != null, "Granted " + standId + " has no Stand instance");
+				power.setResolveLevel(4);
+				helper.assertTrue(standType.summon(user, power), "Could not summon " + standId);
+				stand = power.getSummonedStandEntity();
+				helper.assertTrue(stand != null, "Summoned " + standId + " entity is missing");
+				standAction = LivingComponentAction.getComponent(stand);
+				// The summon lock skips the action tick, and StandEntity.tick, which counts it down, does not run here.
+				stand.summonLockTicks = 0;
+				power.setStamina(power.getMaxStamina());
+			}
+			catch (RuntimeException | Error e) {
+				close();
+				throw e;
+			}
+		}
+
+		private EntityActionAbility ability(String name) {
+			Ability found = power.getAbility(name);
+			helper.assertTrue(found instanceof EntityActionAbility, "Missing Stand ability " + name);
+			return (EntityActionAbility) found;
+		}
+
+		// set on the Stand as a press sets it and held by its key
+		private EntityActionInstance start(String name) {
+			standAction.setAction(null, user, SyncType.NO_SYNC);
+			EntityActionInstance action = ability(name).initActionOnAbilityUse(helper.getLevel(), user, stand, null);
+			standAction.setAction(action, user, SyncType.NO_SYNC);
+			EntityActionInputState input = user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get());
+			input.heldKeys.put(KEY, new HeldInputEntry(KEY, 1L, PowerClass.STAND, action));
+			return action;
+		}
+
+		private void tick(int count) {
+			for (int tick = 0; tick < count; tick++) {
+				standAction.tick();
+			}
+		}
+
+		@Override
+		public void close() {
+			user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get()).heldKeys.clear();
+			LivingComponentAction.getComponent(user).entityAim.setTarget(ActionTarget.EMPTY);
+			if (instance != null) {
+				for (StandPart part : StandPart.values()) {
+					instance.addPart(part);
+				}
+			}
+			if (power != null && power.isSummoned() && standType != null) {
+				standType.forceUnsummon(user, power);
+			}
+			spawned.forEach(Entity::discard);
+			user.discard();
 		}
 	}
 
