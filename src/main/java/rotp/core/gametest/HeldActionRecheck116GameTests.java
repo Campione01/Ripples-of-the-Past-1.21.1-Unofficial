@@ -524,6 +524,34 @@ public final class HeldActionRecheck116GameTests {
 		}
 	}
 
+	/*
+	 * A charge run to its end while its key holds it, as stand-bearing-creatures' fireHeldAction runs a mob's on losing its
+	 * target: 1.16 stopHeldAction(true) fired it only if checkRequirements passed, isUnlocked last, so an unlearned
+	 * Sunlight Yellow Overdrive (its 1.16 HamonAction has no target requirement) fires nothing; a learned one punches
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aChargeRunToItsEndFiresOnlyIfItsTechniqueIsLearnedAsIn116(GameTestHelper helper) {
+		try (PowerScene s = new PowerScene(helper, "FullChargeUnlearned", ModPlayerPowers.HAMON.get())) {
+			HamonData hamon = PlayerPower.getPowerData(s.user, ModPlayerPowers.HAMON).orElseThrow();
+			hamon.setEnergy(hamon.getMaxEnergy());
+			helper.assertTrue(!hamon.isSkillLearned(ModHamonSkills.SUNLIGHT_YELLOW_OVERDRIVE.get()),
+					"setup: Sunlight Yellow Overdrive is learned from the start");
+			EntityActionInstance unlearned = s.start("sunlight_yellow_overdrive");
+			helper.assertTrue(unlearned.getPhase() == ActionPhase.WINDUP, "setup: S.Y.O. is not charging: " + unlearned.getPhase());
+			s.runToEndAndRelease(unlearned);
+			helper.assertTrue(unlearned.isOver(), "1.16 stopHeldAction(true) fired nothing for a technique not learned: phase "
+					+ unlearned.getPhase());
+
+			hamon.learnSkill(ModHamonSkills.SUNLIGHT_YELLOW_OVERDRIVE.get());
+			helper.assertTrue(hamon.isSkillLearned(ModHamonSkills.SUNLIGHT_YELLOW_OVERDRIVE.get()), "setup: S.Y.O. is not learned");
+			EntityActionInstance learned = s.start("sunlight_yellow_overdrive");
+			s.runToEndAndRelease(learned);
+			helper.assertTrue(!learned.isOver() && learned.getPhase() == ActionPhase.PERFORM,
+					"a learned S.Y.O. run to the end of its charge did not punch: phase " + learned.getPhase());
+			helper.succeed();
+		}
+	}
+
 	/** A server player that keeps the action bar messages it is sent. */
 	private static final class RecordingPlayer extends FakePlayer {
 		private final List<Component> actionBar = new ArrayList<>();
@@ -756,6 +784,13 @@ public final class HeldActionRecheck116GameTests {
 				user.tickCount++;
 				component.tick();
 			}
+		}
+
+		// as stand-bearing-creatures' releaseOnTargetLoss: fireHeldAction runs the charge to its end, then the key is let go
+		private void runToEndAndRelease(EntityActionInstance action) {
+			action.setPhase(action.getPhase(), Mth.ceil(action.getCurPhaseLength()));
+			user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get()).heldKeys.clear();
+			action.onKeyRelease(user);
 		}
 
 		@Override
