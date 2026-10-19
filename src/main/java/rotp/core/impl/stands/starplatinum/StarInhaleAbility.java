@@ -50,6 +50,13 @@ public class StarInhaleAbility extends StandEntityAbility {
     	return false;
     }
 
+    // 1.16 holdType(80): PowerBaseImpl.tickHeldAction rechecked the inhale on each of its held ticks, the Stand's
+    // body (partsRequired) among them, and a failed check sent the task into its recovery.
+    @Override
+    public boolean isActionHeld(EntityActionInstance action) {
+    	return action.getPhase() == ActionPhase.PERFORM || super.isActionHeld(action);
+    }
+
     @Override
     public int getCooldown(Power<?> context, int ticksHeld) {
     	int cooldown = super.getCooldown(context, ticksHeld);

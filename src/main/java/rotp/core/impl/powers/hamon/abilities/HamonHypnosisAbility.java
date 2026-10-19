@@ -15,6 +15,7 @@ import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
+import rotp.core.subsystems.target.ActionTargetRange;
 import rotp.core.impl.powers.hamon.HamonData;
 import rotp.core.impl.powers.hamon.HamonHypnosisState;
 import rotp.core.impl.powers.hamon.HamonHypnosisState.HypnosisTargetCheck;
@@ -108,6 +109,10 @@ public class HamonHypnosisAbility extends HamonActionRuntimeAbility {
 		// 1.16 PowerBaseImpl.checkTarget: with no entity aimed at (sky, block) an ENTITY action failed without a message
 		if (target.getType() != TargetType.ENTITY || target.getMainEntity() == null) {
 			return ConditionCheck.NEGATIVE;
+		}
+		// 1.16 Action.checkRangeAndTarget, before HamonHypnosis.checkTarget
+		if (!ActionTargetRange.isEntityWithinRange(user, target.getMainEntity(), ActionTargetRange.DEFAULT_ENTITY_RANGE_SQ)) {
+			return ConditionCheck.createNegative("target_too_far");
 		}
 		if (!(target.getMainEntity() instanceof LivingEntity livingTarget)) {
 			return ConditionCheck.createNegative("hypnosis");

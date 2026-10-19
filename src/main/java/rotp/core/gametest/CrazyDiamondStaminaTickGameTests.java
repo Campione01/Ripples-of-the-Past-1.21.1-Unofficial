@@ -156,6 +156,7 @@ public final class CrazyDiamondStaminaTickGameTests {
 			release(user);
 
 			// Control: Revert's first perform tick without a target is paid (0.2), on its item path.
+			user.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.OAK_PLANKS, 64));
 			setBooked(power, 0.0F);
 			EntityActionInstance revert = start(helper, user, power, stand, standAction, "revert_state", true);
 			standAction.tick();
@@ -257,8 +258,8 @@ public final class CrazyDiamondStaminaTickGameTests {
 	/*
 	 * 1.16 CrazyDiamondPreviousState.standTickPerform default branch (no entity target), run on every perform tick of the
 	 * held task: repairTick, then on each item transformation tick the off-hand item converted by one recipe, the recipe's
-	 * result count taken from the stack. The hold is paid 0.2 a tick and ends only on release; an empty or unconvertible
-	 * off hand converts nothing and stops nothing.
+	 * result count taken from the stack. The hold is paid 0.2 a tick while the off hand holds something convertible; an
+	 * empty or unconvertible off hand ends it (PowerBaseImpl.tickHeldAction with CrazyDiamondPreviousState's conditions).
 	 */
 	@GameTest(template = "empty", timeoutTicks = 200)
 	public static void heldRevertWithoutATargetConvertsTheOffHandOnEachTransformationTickAndPaysUntilRelease(GameTestHelper helper) {
@@ -290,21 +291,7 @@ public final class CrazyDiamondStaminaTickGameTests {
 			helper.assertTrue(logsInInventory(user) == 3,
 					"1.16 gave the recipe's ingredient for each conversion: logs " + logsInInventory(user));
 
-			// an off hand with nothing convertible, then an empty one: nothing converts, nothing stops, every tick is paid
-			for (ItemStack unconvertible : new ItemStack[] { new ItemStack(Items.DIRT, 5), ItemStack.EMPTY }) {
-				user.setItemInHand(InteractionHand.OFF_HAND, unconvertible.copy());
-				for (int tick = 0; tick < 2 * period; tick++) {
-					setBooked(power, 0.0F);
-					standAction.tick();
-					helper.assertTrue(revert.getPhase() == ActionPhase.PERFORM && near(booked(power), -0.2F),
-							"1.16 held Revert with " + unconvertible + " in the off hand went on and paid 0.2: tick " + tick
-									+ ", phase " + revert.getPhase() + ", booked " + booked(power));
-				}
-				helper.assertTrue(ItemStack.matches(user.getOffhandItem(), unconvertible),
-						"1.16 converted nothing from " + unconvertible + ": off hand " + user.getOffhandItem());
-			}
-
-			// and it converts again once a convertible item is back in the hand
+			// another convertible item put in the off hand is converted in turn
 			user.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.OAK_PLANKS, 8));
 			for (int tick = 0; tick < period; tick++) {
 				standAction.tick();
@@ -313,9 +300,27 @@ public final class CrazyDiamondStaminaTickGameTests {
 					"1.16 held Revert converted a convertible item put in the off hand later: off hand " + user.getOffhandItem()
 							+ ", phase " + revert.getPhase());
 
-			revert.onButtonStopHold();
-			helper.assertTrue(revert.getPhase() == ActionPhase.RECOVERY || revert.isOver(),
-					"the release of the key ends the hold: phase " + revert.getPhase());
+			/*
+			 * 1.16 tickHeldAction: with no entity target the held tick asked checkSpecificConditions for a convertible
+			 * off-hand item, so one with nothing convertible, or an empty one, ends the hold unpaid and unconverted.
+			 */
+			ItemStack dirt = new ItemStack(Items.DIRT, 5);
+			user.setItemInHand(InteractionHand.OFF_HAND, dirt.copy());
+			setBooked(power, 0.0F);
+			standAction.tick();
+			helper.assertTrue((revert.getPhase() == ActionPhase.RECOVERY || revert.isOver()) && near(booked(power), 0.0F)
+					&& ItemStack.matches(user.getOffhandItem(), dirt),
+					"1.16 ended the held Revert, unpaid, once the off hand held nothing convertible: phase " + revert.getPhase()
+							+ ", booked " + booked(power) + ", off hand " + user.getOffhandItem());
+
+			user.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.OAK_PLANKS, 8));
+			EntityActionInstance empty = start(helper, user, power, stand, standAction, "revert_state", true);
+			user.setItemInHand(InteractionHand.OFF_HAND, ItemStack.EMPTY);
+			setBooked(power, 0.0F);
+			standAction.tick();
+			helper.assertTrue((empty.getPhase() == ActionPhase.RECOVERY || empty.isOver()) && near(booked(power), 0.0F),
+					"1.16 ended the held Revert, unpaid, once the off hand was empty: phase " + empty.getPhase()
+							+ ", booked " + booked(power));
 		});
 	}
 
@@ -344,6 +349,7 @@ public final class CrazyDiamondStaminaTickGameTests {
 
 				assertRegenerationAloneSendsNothing(helper, power, survivalUser, observer, "before the hold");
 
+				user.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.OAK_PLANKS, 64));
 				EntityActionInstance revert = start(helper, user, power, stand, standAction, "revert_state", true);
 				setBooked(power, 0.0F);
 				for (int tick = 0; tick < 5; tick++) {

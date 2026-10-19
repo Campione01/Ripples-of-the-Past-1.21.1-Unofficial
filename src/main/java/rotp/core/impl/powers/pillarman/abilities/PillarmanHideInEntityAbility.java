@@ -11,6 +11,7 @@ import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.subsystems.entity_possessionv2.LivingComponentPossession;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
+import rotp.core.subsystems.target.ActionTargetRange;
 import rotp.core.impl.powers.pillarman.PillarmanMode;
 
 import net.minecraft.world.entity.LivingEntity;
@@ -28,26 +29,36 @@ public class PillarmanHideInEntityAbility extends PillarmanActionAbility {
 		setDefaultPhaseLength(ActionPhase.RECOVERY, 0);
 	}
 
+	// 1.16 PowerBaseImpl.checkRequirements asked for the target before the conditions, on the press and on every tick
+	// of the charge: an entity, within 8 blocks or 4 without a line of sight (target_too_far), living and not the user.
 	@Override
 	public ConditionCheck checkSpecificConditions(Power<?> context) {
-		ConditionCheck check = super.checkSpecificConditions(context);
-		if (!check.isPositive()) {
-			return check;
-		}
 		LivingEntity user = context.getUser();
-		return user != null && getValidTarget(user, user.level()) != null
-				? ConditionCheck.POSITIVE
-				: ConditionCheck.NEGATIVE;
+		if (user == null) {
+			return ConditionCheck.NEGATIVE;
+		}
+		ActionTarget target = getAimTarget(user, user.level());
+		if (target.getType() == TargetType.ENTITY && target.getMainEntity() != null
+				&& !ActionTargetRange.isEntityWithinRange(user, target.getMainEntity(), ActionTargetRange.DEFAULT_ENTITY_RANGE_SQ)) {
+			return ConditionCheck.createNegative("target_too_far");
+		}
+		if (getValidTarget(user, user.level()) == null) {
+			return ConditionCheck.NEGATIVE;
+		}
+		return super.checkSpecificConditions(context);
+	}
+
+	private static ActionTarget getAimTarget(LivingEntity user, Level level) {
+		var aim = LivingComponentAction.getAim(user);
+		return aim != null ? aim.getTarget().resolveEntityId(level) : ActionTarget.EMPTY;
 	}
 
 	private static LivingEntity getValidTarget(LivingEntity user, Level level) {
-		var aim = LivingComponentAction.getAim(user);
-		if (aim == null) {
-			return null;
-		}
-		ActionTarget target = aim.getTarget().resolveEntityId(level);
+		ActionTarget target = getAimTarget(user, level);
 		return target.getType() == TargetType.ENTITY && target.getMainEntity() instanceof LivingEntity livingTarget
-				&& !livingTarget.is(user) ? livingTarget : null;
+				&& !livingTarget.is(user)
+				&& ActionTargetRange.isEntityWithinRange(user, livingTarget, ActionTargetRange.DEFAULT_ENTITY_RANGE_SQ)
+				? livingTarget : null;
 	}
 
 	public static class HideInEntityInstance extends EntityActionInstance {

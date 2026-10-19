@@ -3,8 +3,10 @@ package rotp.core.impl.powers.vampirism.abilities;
 import rotp.core.customobjects.entity_projectile.SpaceRipperStingyEyesEntity;
 import rotp.core.impl.powers.vampirism.VampirismData;
 import rotp.core.impl.powers.vampirism.VampirismState;
+import rotp.core.powersystem.Power;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
+import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
@@ -26,6 +28,27 @@ public class VampirismSpaceRipperStingyEyesAbility extends VampirismActionAbilit
 	@Override
 	protected float getWindupHoldToFireIndicatorLength() {
 		return HOLD_TO_FIRE_TICKS;
+	}
+
+	/*
+	 * 1.16 PowerBaseImpl.tickHeldAction rechecked the eyes on every tick of the charge, past its 20 ticks too: the curing
+	 * stage, the 20 blood a shot costs (no_energy_vampirism) and full vampire power. A failed check dropped the charge
+	 * unfired.
+	 */
+	@Override
+	public boolean isActionHeld(EntityActionInstance action) {
+		return action.getPhase() == ActionPhase.WINDUP || super.isActionHeld(action);
+	}
+
+	@Override
+	protected ConditionCheck checkHeldSpecificConditions(EntityActionInstance action, Power<?> context) {
+		return checkSpecificConditions(context);
+	}
+
+	@Override
+	public void stopHeldActionOnFailedCheck(EntityActionInstance action) {
+		action.forceStop();
+		action.syncPhaseChanges();
 	}
 
 	public static class SpaceRipperInstance extends EntityActionInstance {

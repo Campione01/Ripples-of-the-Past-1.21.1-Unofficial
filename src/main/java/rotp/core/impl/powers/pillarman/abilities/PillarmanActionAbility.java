@@ -88,18 +88,39 @@ abstract class PillarmanActionAbility extends EntityActionAbility {
 		return ConditionCheck.POSITIVE;
 	}
 
+	// 1.16 PowerBaseImpl.tickHeldAction: a failed check ended the hold with its message.
 	@Override
 	public boolean canContinueAction(EntityActionInstance action) {
+		ConditionCheck check = checkOngoingConditions(action);
+		if (check.isPositive()) {
+			return true;
+		}
+		LivingEntity user = action.getPowerUser();
+		if (user != null) {
+			ConditionCheck.sendActionFailedMessage(this, check, user);
+		}
+		return false;
+	}
+
+	// 1.16 checkRequirements as it ran on every held tick: the conditions, then isUnlocked.
+	ConditionCheck checkOngoingConditions(EntityActionInstance action) {
 		rotp.core.powersystem.entityaction.ActionPhase phase = action.getPhase();
 		boolean checkOngoingRequirements = phase == rotp.core.powersystem.entityaction.ActionPhase.BUTTON_CHARGE
 				|| phase == rotp.core.powersystem.entityaction.ActionPhase.PERFORM
 						&& action instanceof PillarmanHeldActionInstance;
 		if (!checkOngoingRequirements) {
-			return true;
+			return ConditionCheck.POSITIVE;
 		}
 		LivingEntity user = action.getPowerUser();
 		Power<?> context = user != null ? getUserPower(user) : null;
-		return context != null && isAbilityAvailable(context) && checkConditions(context).isPositive();
+		if (context == null) {
+			return ConditionCheck.NEGATIVE;
+		}
+		ConditionCheck check = checkConditions(context);
+		if (check.isPositive() && !isAbilityAvailable(context)) {
+			return ConditionCheck.createNegative("not_unlocked");
+		}
+		return check;
 	}
 
 	protected boolean hasEnergy(Power<?> context) {

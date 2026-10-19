@@ -63,6 +63,12 @@ public class CrazyDAnchorBlockAbility extends NoPoseStandEntityAbility {
 		return super.checkSpecificConditions(context);
 	}
 
+	// 1.16 tickHeldAction: an anchor item no longer held ended the hold with item_block_origin.
+	@Override
+	protected ConditionCheck checkHeldSpecificConditions(EntityActionInstance action, Power<?> context) {
+		return checkSpecificConditions(context);
+	}
+
 	@Override
 	public Component getName(Power<?> context) {
 		StandPower standPower = PowerClass.STAND.cast(context);

@@ -71,6 +71,23 @@ public class PillarmanAbsorptionAbility extends PillarmanActionAbility {
 		return ConditionCheck.POSITIVE;
 	}
 
+	/*
+	 * 1.16 PowerBaseImpl.checkRequirements on every held tick checked the target first: with no living one in reach the
+	 * hold-only Absorption went on without absorbing (continueHold) and nothing else was asked; with one, a filled hand
+	 * or Peaceful ended the hold with its message.
+	 */
+	@Override
+	protected ConditionCheck checkHeldSpecificConditions(EntityActionInstance action, rotp.core.powersystem.Power<?> context) {
+		LivingEntity user = context.getUser();
+		if (user == null) {
+			return ConditionCheck.NEGATIVE;
+		}
+		if (findAbsorptionTarget(user, user.level()) == null) {
+			return ConditionCheck.NEGATIVE_CONTINUE_HOLD;
+		}
+		return checkSpecificConditions(context);
+	}
+
 	public static boolean absorb(LivingEntity attacker, LivingEntity target, float absorbDamage) {
 		Level level = attacker.level();
 		if (level.isClientSide()) {
