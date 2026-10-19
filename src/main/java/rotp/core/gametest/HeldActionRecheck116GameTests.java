@@ -272,6 +272,30 @@ public final class HeldActionRecheck116GameTests {
 		}
 	}
 
+	// Action.checkRangeAndTarget measured the creeper under the crosshair from the Stand: once it is past 8 blocks from the
+	// Stand, checkTarget dropped it and, with nothing in the off hand, the hold ended with item_offhand
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void revertEndsOnceTheEntityUnderTheCrosshairIsPastTheStandsRange(GameTestHelper helper) {
+		try (StandScene s = new StandScene(helper, "HeldRevertRange", "crazy_diamond")) {
+			Creeper creeper = (Creeper) s.mob(EntityType.CREEPER, 2.0D);
+			CommonReflection.setCreeperPowered(creeper, true);
+			creeper.setHealth(creeper.getMaxHealth() - 6.0F);
+			s.aim(creeper);
+			s.unlock("revert_state");
+			EntityActionInstance revert = s.startUntilPerform("revert_state");
+			s.tick(2);
+			helper.assertTrue(revert.getPhase() == ActionPhase.PERFORM && !revert.isOver(),
+					"setup: the held Revert is not on the charged creeper: phase " + revert.getPhase() + ", messages " + s.user.keys());
+			s.stand.moveTo(s.origin.x, s.origin.y, s.origin.z - 14.0D, 0.0F, 0.0F);
+			s.tick(1);
+			helper.assertTrue(revert.isOver() || revert.getPhase() == ActionPhase.RECOVERY,
+					"1.16 ended the held Revert once the creeper under the crosshair was past 8 blocks from the Stand and the off"
+							+ " hand was empty: phase " + revert.getPhase() + ", Stand " + s.stand.position());
+			helper.assertTrue(s.user.keys().contains(CONDITION + "item_offhand"), "1.16 said why: messages " + s.user.keys());
+			helper.succeed();
+		}
+	}
+
 	// CrazyDiamondRestoreTerrain.checkSpecificConditions: the Angelo Rock effect on the user ended the hold, no message.
 	@GameTest(template = "empty", timeoutTicks = 100)
 	public static void restoreTerrainEndsOnceAngeloRockIsUnderWay(GameTestHelper helper) {
