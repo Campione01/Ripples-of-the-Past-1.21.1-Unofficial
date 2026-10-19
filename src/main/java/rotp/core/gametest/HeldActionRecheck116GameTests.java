@@ -12,6 +12,7 @@ import rotp.core.impl.powers.hamon.ModHamonSkills;
 import rotp.core.impl.powers.pillarman.PillarmanData;
 import rotp.core.impl.powers.pillarman.PillarmanMode;
 import rotp.core.impl.powers.vampirism.VampirismData;
+import rotp.core.impl.powers.vampirism.abilities.VampirismBloodDrainAbility;
 import rotp.core.impl.powers.vampirism.VampirismState;
 import rotp.core.impl.stands.crazydiamond.CrazyDAngeloRockPunchEffect;
 import rotp.core.impl.stands.magiciansred.MagiciansRedCrossfireHurricaneAbility;
@@ -60,7 +61,9 @@ import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.common.damagesource.DamageContainer;
 import net.neoforged.neoforge.common.util.FakePlayer;
+import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -742,6 +745,91 @@ public final class HeldActionRecheck116GameTests {
 		helper.succeed();
 	}
 
+	/*
+	 * 1.16 held an action from its press (PowerBaseImpl.setHeldAction): Star Platinum's Inhale (holdType 80) started in its
+	 * held PERFORM, rechecked from then on. A windup given to it before that phase, which only its isActionHeld override
+	 * holds, is rechecked too, so the Stand losing its body ends it there. A windup after a charge that fired is no longer
+	 * held: 1.16's hold ended as the charge fired.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aPhaseBeforeTheFirstHeldOneIsRecheckedFromThePressAsIn116(GameTestHelper helper) {
+		try (StandScene s = new StandScene(helper, "HeldBeforeFirstPhase", "star_platinum")) {
+			EntityActionInstance inhale = s.hold(s.prepared("inhale", ActionPhase.WINDUP, 10.0F));
+			s.tick(2);
+			helper.assertTrue(inhale.getPhase() == ActionPhase.WINDUP && !inhale.isOver(),
+					"setup: the Inhale is not in the windup given to it: phase " + inhale.getPhase());
+			s.instance.removePart(StandPart.MAIN_BODY);
+			s.tick(1);
+			helper.assertTrue(inhale.isOver() || inhale.getPhase() == ActionPhase.RECOVERY,
+					"1.16 held the Inhale from its press, so the Stand losing its body in the windup before its held perform"
+							+ " ended it: phase " + inhale.getPhase());
+			helper.assertTrue(s.user.keys().contains(CONDITION + "no_stand_part.main_body"), "1.16 said why: messages " + s.user.keys());
+		}
+		try (StandScene s = new StandScene(helper, "HeldAfterFirstPhase", "magicians_red")) {
+			s.unlock("crossfire_hurricane");
+			EntityActionInstance charge = s.hold(s.prepared("crossfire_hurricane", ActionPhase.WINDUP, 10.0F));
+			s.tick(2);
+			s.runPhaseToItsEnd(charge);
+			helper.assertTrue(charge.getPhase() == ActionPhase.WINDUP && !charge.isOver(),
+					"setup: the full Crossfire Hurricane charge did not go on into the windup given to it: phase " + charge.getPhase());
+			s.instance.removePart(StandPart.MAIN_BODY);
+			s.tick(1);
+			helper.assertTrue(!charge.isOver() && charge.getPhase() != ActionPhase.BUTTON_CHARGE && s.user.keys().isEmpty(),
+					"a windup after the charge fired is not held (1.16's hold ended as it fired), so it is not rechecked: phase "
+							+ charge.getPhase() + ", messages " + s.user.keys());
+		}
+		helper.succeed();
+	}
+
+	/*
+	 * PowerBaseImpl.onUserGettingAttacked stopped getHeldAction(), the action held from its press (setHeldAction) until it
+	 * fired or its key was let go, with stopHeldAction(false), which always ended the hold. Blood Drain
+	 * (cancelHeldOnGettingAttacked, held in its PERFORM) given a windup is stopped by a hit there too; one no key holds
+	 * (set by code) is not; one whose release handling leaves its windup running still ends. The hit is the
+	 * LivingDamageEvent.Post a pig's attack posts (a fake player takes no damage).
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aHitEndsAHoldFromItsPressAsIn116(GameTestHelper helper) {
+		for (String row : new String[] { "windup before the held perform", "held perform", "no key holds it",
+				"release leaves the windup running" }) {
+			try (PowerScene s = new PowerScene(helper, "HeldHitFromPress", ModPlayerPowers.VAMPIRISM.get())) {
+				s.vampire(500.0F);
+				Mob pig = s.mob(EntityType.PIG, 1.5D);
+				EntityActionAbility drain = s.ability("vampirism_blood_drain");
+				EntityActionInstance held = row.equals("release leaves the windup running")
+						? new VampirismBloodDrainAbility.BloodDrainInstance(drain) {
+							@Override
+							public void onButtonStopHold() {}
+						}
+						: drain.createActionObj();
+				boolean windup = !row.equals("held perform") && !row.equals("no key holds it");
+				drain.initActionFromConfig(held, helper.getLevel(), s.user, s.user);
+				held.phasesLength.put(ActionPhase.WINDUP, windup ? 10.0F : 0.0F);
+				held.setStartingPhase();
+				s.hold(held);
+				if (row.equals("no key holds it")) {
+					s.user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get()).heldKeys.clear();
+				}
+				s.tick(2);
+				ActionPhase phase = windup ? ActionPhase.WINDUP : ActionPhase.PERFORM;
+				helper.assertTrue(held.getPhase() == phase && !held.isOver(),
+						"setup (" + row + "): Blood Drain is not in its " + phase + ": phase " + held.getPhase() + ", messages "
+								+ s.user.keys());
+				EntityActionAbility.onUserGettingAttacked(new LivingDamageEvent.Post(s.user,
+						new DamageContainer(s.user.damageSources().mobAttack(pig), 2.0F)));
+				if (row.equals("no key holds it")) {
+					helper.assertTrue(!held.isOver() && held.getPhase() == ActionPhase.PERFORM,
+							"1.16 had no held action to stop for a Blood Drain no key holds: phase " + held.getPhase());
+				}
+				else {
+					helper.assertTrue(held.isOver(), "1.16 stopped the Blood Drain held from its press on a hit (" + row
+							+ "), and the hold ended: phase " + held.getPhase());
+				}
+			}
+		}
+		helper.succeed();
+	}
+
 	/** A server player that keeps the action bar messages it is sent. */
 	private static final class RecordingPlayer extends FakePlayer {
 		private final List<Component> actionBar = new ArrayList<>();
@@ -824,6 +912,16 @@ public final class HeldActionRecheck116GameTests {
 		// set on the Stand as a press sets it and held by its key
 		private EntityActionInstance start(String name) {
 			return hold(ability(name).initActionOnAbilityUse(helper.getLevel(), user, stand, null));
+		}
+
+		// set up as initActionOnAbilityUse sets it up, with one phase given its own length
+		private EntityActionInstance prepared(String name, ActionPhase phase, float length) {
+			EntityActionAbility ability = ability(name);
+			EntityActionInstance action = ability.createActionObj();
+			ability.initActionFromConfig(action, helper.getLevel(), user, stand);
+			action.phasesLength.put(phase, length);
+			action.setStartingPhase();
+			return action;
 		}
 
 		private EntityActionInstance hold(EntityActionInstance action) {
@@ -965,7 +1063,10 @@ public final class HeldActionRecheck116GameTests {
 
 		// set as a press sets it and held by its key
 		private EntityActionInstance start(String name) {
-			EntityActionInstance action = ability(name).initActionOnAbilityUse(helper.getLevel(), user, user, null);
+			return hold(ability(name).initActionOnAbilityUse(helper.getLevel(), user, user, null));
+		}
+
+		private EntityActionInstance hold(EntityActionInstance action) {
 			component.setAction(action, user, SyncType.NO_SYNC);
 			EntityActionInputState input = user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get());
 			input.heldKeys.put(KEY, new HeldInputEntry(KEY, 1L, PowerClass.PLAYER_POWER, action));

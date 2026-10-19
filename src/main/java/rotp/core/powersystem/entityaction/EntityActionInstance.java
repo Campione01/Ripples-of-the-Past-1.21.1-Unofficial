@@ -1202,6 +1202,33 @@ public class EntityActionInstance implements HeldInput {
 				&& firesAfterHeldPhase(entityAbility) && entityAbility.stopFullChargeIfConditionsFail(this);
 	}
 
+	/**
+	 * Whether a phase with a length that the ability holds ({@link EntityActionAbility#isActionHeld}) comes after the
+	 * current one and none came before it: 1.16 held an action from its press, so the phases before its first held one
+	 * are held too. Each other phase is asked without entering it, as {@link #firesAfterHeldPhase} asks.
+	 */
+	@ApiStatus.Internal
+	public boolean isBeforeFirstHeldPhase(EntityActionAbility entityAbility) {
+		ActionPhase current = phase;
+		if (current == null) {
+			return false;
+		}
+		try {
+			for (ActionPhase other : ActionPhase.values()) {
+				if (other != current && phasesLength.getFloat(other) > 0) {
+					phase = other;
+					if (entityAbility.isActionHeld(this)) {
+						return other.ordinal() > current.ordinal();
+					}
+				}
+			}
+			return false;
+		}
+		finally {
+			phase = current;
+		}
+	}
+
 	// whether the phase the action goes on to is no longer held, asked without entering it (onSetPhase does not run)
 	private boolean firesAfterHeldPhase(EntityActionAbility entityAbility) {
 		ActionPhase next = null;
