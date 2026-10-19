@@ -6,6 +6,7 @@ import rotp.core.core.JojoMod;
 import rotp.core.gametest.StandTaskTargetOffsetGameTests.Scene;
 import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility.StandEntityBarrage;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility.StandEntityHeavyPunch;
+import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchChargedAbility.StandEntityChargedHeavy;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility.StandEntityPunch;
 import rotp.core.impl.stands.silverchariot.SilverChariotDashAttackAbility.DashStrike;
 import rotp.core.impl.stands.theworld.TheWorldTSPunchAbility.TheWorldTSPunch;
@@ -52,7 +53,8 @@ public final class StandStrikeTurnGameTests {
 	@GameTest(template = "empty", timeoutTicks = 100)
 	public static void eachStrikeTurnsTheStandTowardItsAimByAtMostItsAttackSpeedBeforeTheHitAsIn116(GameTestHelper helper) {
 		String[][] rows = { { "star_platinum", "punch" }, { "star_platinum", "heavy_punch" }, { "star_platinum", "barrage" },
-				{ "the_world", "ts_punch" }, { "silver_chariot", "dash_attack" }, { "star_platinum", "punch at a cow beyond its reach" } };
+				{ "the_world", "ts_punch" }, { "silver_chariot", "dash_attack" }, { "star_platinum", "punch at a cow beyond its reach" },
+				{ "star_platinum", "heavy_charged" } };
 		for (String[] row : rows) {
 			StandTaskTargetOffsetGameTests.withStand(helper, row[0], scene -> strike(helper, scene, row[0], row[1]));
 		}
@@ -90,6 +92,15 @@ public final class StandStrikeTurnGameTests {
 						float dmgAmount, float explRadius) {
 					noteStrike(atHit, performer);
 					super.hitEntity(target, level, performer, dmgSource, dmgAmount, explRadius);
+				}
+			};
+			// the port's charged heavy punch turns at its strike as the heavy punch it is modelled on (owner, wave 21)
+			case "heavy_charged" -> new StandEntityChargedHeavy(type) {
+				@Override
+				protected void hitEntity(ActionTarget target, Level level, StandEntity performer, DamageSource dmgSource,
+						float dmgAmount) {
+					noteStrike(atHit, performer);
+					super.hitEntity(target, level, performer, dmgSource, dmgAmount);
 				}
 			};
 			case "barrage" -> new StandEntityBarrage(type) {
@@ -159,6 +170,11 @@ public final class StandStrikeTurnGameTests {
 				action.actionTick();
 			}
 			case "dash_attack" -> dashTargets(action, stand);
+			// its strike comes at the end of its lunge
+			case "heavy_charged" -> {
+				action.actionPerformStart();
+				action.actionPerformEnd();
+			}
 			default -> action.actionPerformStart();
 		}
 		String what = "a " + standId + "'s " + row + " (yaw " + yaw0 + ", pitch " + pitch0 + ", turning by up to " + max
