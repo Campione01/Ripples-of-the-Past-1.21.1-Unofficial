@@ -14,7 +14,9 @@ import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.EntityActionAbility;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
+import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.ability.input.AbilityInput;
+import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInputState;
 import rotp.core.powersystem.entityaction.EntityActionInputState.HeldInputEntry;
@@ -43,6 +45,8 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -303,6 +307,70 @@ public final class HeldConditionRecheckGameTests {
 			f.standAction.tick();
 			helper.assertTrue(held.getPhase() == ActionPhase.RECOVERY,
 					"losing the Stand's arms did not end the held barrage" + f.state(barrage, held));
+			helper.succeed();
+		}
+	}
+
+	// 1.16 StandEntityMeleeBarrage.checkStandConditions (!stand.canAttackMelee(), no message) ran on every held tick too
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void aStandThatCanNoLongerAttackInMeleeEndsItsHeldBarrageAsIn116(GameTestHelper helper) {
+		try (StandFixture f = new StandFixture(helper, "HeldBarrageMelee", "star_platinum")) {
+			EntityActionAbility barrage = f.ability("barrage");
+			EntityActionInstance held = startBarrage(helper, barrage, f.user, f.stand, f.standAction);
+			holdByKey(f.user, held, PowerClass.STAND);
+			f.standAction.tick();
+			helper.assertTrue(held.getPhase() == ActionPhase.PERFORM && barrage.canFireReleasedHold(held),
+					"the held barrage did not go on while the Stand could attack" + f.state(barrage, held));
+			AttributeInstance reach = f.stand.getAttribute(Attributes.ENTITY_INTERACTION_RANGE);
+			double baseReach = reach.getBaseValue();
+			reach.setBaseValue(0);
+			try {
+				helper.assertTrue(!f.stand.canAttackMelee(), "fixture: the Stand can still attack in melee");
+				ConditionCheck check = barrage.checkHeldActionConditions(held, f.power);
+				helper.assertTrue(!check.isPositive() && !check.shouldContinueHold() && check.getWarning() == null,
+						"1.16 rechecked the barrage's canAttackMelee on every held tick and stopped the hold without a"
+								+ " message once it failed" + f.state(barrage, held));
+				f.standAction.tick();
+				helper.assertTrue(held.getPhase() == ActionPhase.RECOVERY,
+						"a Stand that can no longer attack in melee did not end its held barrage" + f.state(barrage, held));
+			}
+			finally {
+				reach.setBaseValue(baseReach);
+			}
+			helper.succeed();
+		}
+	}
+
+	// 1.16 StandEntityLightAttack, StandEntityHeavyAttack and StandEntityMeleeBarrage.checkStandConditions refused the press
+	// of a Stand that cannot attack in melee; every add-on punch, heavy punch and barrage built on them inherits it
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void aStandThatCannotAttackInMeleeRefusesThePunchHeavyPunchAndBarragePressAsIn116(GameTestHelper helper) {
+		try (StandFixture f = new StandFixture(helper, "MeleePressRefused", "star_platinum")) {
+			AttributeInstance reach = f.stand.getAttribute(Attributes.ENTITY_INTERACTION_RANGE);
+			double baseReach = reach.getBaseValue();
+			try {
+				for (String name : new String[] { "punch", "heavy_punch", "barrage" }) {
+					EntityActionAbility ability = f.ability(name);
+					reach.setBaseValue(0);
+					helper.assertTrue(!f.stand.canAttackMelee(), "fixture: the Stand can still attack in melee");
+					BufferingState refused = BufferingState.clickOnly();
+					AbilityInput.keyPress(KEY, ability, f.user, null, InputMethod.CLICK, 0, refused, ability.getAbilityId());
+					AbilityInput.keyRelease(KEY, f.user);
+					helper.assertTrue(!refused.isActionSuccess && f.stand.getCurStandAction() == null, "1.16 refused the "
+							+ name + " of a Stand that cannot attack in melee (checkStandConditions, canAttackMelee); it started "
+							+ f.stand.getCurStandAction());
+					reach.setBaseValue(baseReach);
+					BufferingState pressed = BufferingState.clickOnly();
+					AbilityInput.keyPress(KEY, ability, f.user, null, InputMethod.CLICK, 0, pressed, ability.getAbilityId());
+					AbilityInput.keyRelease(KEY, f.user);
+					helper.assertTrue(pressed.isActionSuccess && f.stand.getCurStandAction() != null,
+							"fixture: the " + name + " did not start with the Stand's reach back");
+					f.standAction.setAction(null, f.user, SyncType.NO_SYNC);
+				}
+			}
+			finally {
+				reach.setBaseValue(baseReach);
+			}
 			helper.succeed();
 		}
 	}
