@@ -76,6 +76,8 @@ public class StandEntityHeavyPunchChargedAbility extends StandEntityAbility {
 		protected float buttonChargeRatio;
 		// the key went up during BUTTON_CHARGE (server state)
 		protected boolean releasedInCharge;
+		// whether hitEntity hurt its target (server state, set by each strike)
+		protected boolean entityHitLanded;
 
 		public StandEntityChargedHeavy(EntityActionType ability) {
 			super(ability);
@@ -172,12 +174,14 @@ public class StandEntityHeavyPunchChargedAbility extends StandEntityAbility {
 					float dmgAmount = StandStatFormulas.getChargedHeavyAttackDamage(stand.getAttackDamage());
 					float explRadius = Math.min((float) stand.getAttackDamage() * 0.25F, 10);
 
+					entityHitLanded = false;
 					switch (target.getType()) {
 					case ENTITY -> hitEntity(target, level, stand, dmgSource, dmgAmount);
 					case BLOCK -> hitBlock(target, level, stand, dmgSource, dmgAmount, explRadius);
 					default -> {}
 					}
-					if (impactSoundPos != null) {
+					// an entity's only if the hit landed, as the heavy punch's
+					if (impactSoundPos != null && (target.getType() != TargetType.ENTITY || entityHitLanded)) {
 						StandUtil.broadcastSound((ServerLevel) level, impactSoundPos,
 								ModSoundEvents.STAND_PUNCH_HEAVY_CHARGED, true, standPower,
 								stand.getSoundSource(), 1, 1);
@@ -234,7 +238,7 @@ public class StandEntityHeavyPunchChargedAbility extends StandEntityAbility {
 			Entity targetEntity = target.getMainEntity();
 			if (targetEntity instanceof LivingEntity targetLiving) {
 				addKnockback(dmgSource);
-				standEntityAttack(stand, targetLiving, dmgSource, dmgAmount);
+				entityHitLanded = standEntityAttack(stand, targetLiving, dmgSource, dmgAmount);
 			}
 		}
 

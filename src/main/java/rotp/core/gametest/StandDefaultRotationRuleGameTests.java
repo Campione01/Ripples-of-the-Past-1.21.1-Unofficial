@@ -5,6 +5,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import rotp.core.api.RotpAddonApi;
 import rotp.core.api.stand.StandDefaultRotationRules;
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
@@ -182,6 +183,16 @@ public final class StandDefaultRotationRuleGameTests {
 				RULED.remove(user.getUUID());
 			}
 		});
+		helper.succeed();
+	}
+
+	// an add-on built against the rules checks the flag's value, which its compiler inlined, against the running core
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void anAddOnCanRequireTheDefaultRotationRulesByTheirFeatureFlag(GameTestHelper helper) {
+		helper.assertTrue(RotpAddonApi.supportsFeature("stand_default_rotation_rules_v1")
+				&& "stand_default_rotation_rules_v1".equals(RotpAddonApi.FEATURE_STAND_DEFAULT_ROTATION_RULES_V1),
+				"The core does not advertise StandDefaultRotationRules as feature stand_default_rotation_rules_v1"
+						+ " (RotpAddonApi.FEATURE_STAND_DEFAULT_ROTATION_RULES_V1), so an add-on cannot require it");
 		helper.succeed();
 	}
 

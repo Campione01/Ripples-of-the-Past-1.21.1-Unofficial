@@ -267,13 +267,24 @@ public final class TheWorldTSPunchAimGameTests {
 	// 1.16's StandEntityTask.tick checked the time-stop punch's task target on every tick too (keepTarget): the block it
 	// blinked to is kept while it stands, as TheWorldTSHeavyAttack.standKeepsTarget kept every target, and once it is gone
 	// (Action.checkRangeAndTarget: air) the task target was dropped and the empty one sent. Put back before the strike, it is
-	// no task target any more, so the strike aims again (StandEntity.punch) and meets nothing, its user looking up
+	// no task target any more, so the strike aims again (StandEntity.punch). This row: the owner's aim assist setting off,
+	// where the new aim is the user's crosshair only, which looks up and meets nothing
 	@GameTest(template = "empty", timeoutTicks = 40, batch = "tw_ts_punch_kept_block_gone")
 	public static void tsPunchDropsTheBlockItBlinkedToOnceItIsGoneAsIn116(GameTestHelper helper) {
+		blockItBlinkedToGoneAndPutBack(helper, false);
+	}
+
+	// the same with the aim assist on, its default: 1.16 aimWithThisOrUser aimed again with the Stand's own precision ray
+	// (precisionRayTrace(this)), and the Stand still faces the stone it turned to while it held it (StandEntityTask
+	// .rotateStand), so the strike meets the stone put back
+	@GameTest(template = "empty", timeoutTicks = 40, batch = "tw_ts_punch_kept_block_gone_assist")
+	public static void tsPunchWithTheAimAssistStrikesTheBlockItDroppedOncePutBackAsIn116(GameTestHelper helper) {
+		blockItBlinkedToGoneAndPutBack(helper, true);
+	}
+
+	private static void blockItBlinkedToGoneAndPutBack(GameTestHelper helper, boolean aimAssist) {
 		Scene scene = new Scene(helper, 90);
-		// the Stand still faces the stone it turned to while it held it (StandEntityTask.rotateStand), so the assist's
-		// precision ray from its eyes would meet the stone put back; without the assist the new aim is the user's crosshair
-		scene.user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get()).standAimAssist = false;
+		scene.user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get()).standAimAssist = aimAssist;
 		StandAttackAimRulesGameTests.TargetWatcher watcher = new StandAttackAimRulesGameTests.TargetWatcher(scene.level);
 		Runnable close = () -> {
 			watcher.untrack();
@@ -322,10 +333,19 @@ public final class TheWorldTSPunchAimGameTests {
 				if (action.punchedTarget == null) {
 					return false;
 				}
-				helper.assertTrue(action.punchedTarget.getType() == TargetType.EMPTY
-						&& scene.level.getBlockState(stone).is(Blocks.STONE), how + " struck " + action.punchedTarget
-								+ " after the stone it dropped was put back; 1.16 had dropped it as the task target and aimed again"
-								+ " at the strike (StandEntity.punch), meeting nothing");
+				if (aimAssist) {
+					helper.assertTrue(action.punchedTarget.getType() == TargetType.BLOCK
+							&& stone.equals(action.punchedTarget.getBlockPos()), how + " struck " + action.punchedTarget
+									+ " after the stone it dropped was put back, with the aim assist on; 1.16 aimed again at the"
+									+ " strike with the Stand's own precision ray (StandEntity.punch, aimWithThisOrUser,"
+									+ " precisionRayTrace(this)), which meets the stone the Stand still faces");
+				}
+				else {
+					helper.assertTrue(action.punchedTarget.getType() == TargetType.EMPTY
+							&& scene.level.getBlockState(stone).is(Blocks.STONE), how + " struck " + action.punchedTarget
+									+ " after the stone it dropped was put back, with the aim assist off; the owner's aim assist"
+									+ " setting off aims again with the user's crosshair only, which looks up and meets nothing");
+				}
 				return true;
 			}, 30, () -> "The time-stop punch never struck: " + action.getPhase());
 		}

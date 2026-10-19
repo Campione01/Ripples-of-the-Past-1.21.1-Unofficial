@@ -222,6 +222,12 @@ public final class RotpAddonApi {
 	/** StandStaminaModifiers: add-on factors on any Stand user's max stamina and tick gain (1.16 D4C corpse mixins). */
 	public static final String FEATURE_STAND_STAMINA_MODIFIERS_V1 =
 			"stand_stamina_modifiers_v1";
+	/**
+	 * rotp.core.api.stand.StandDefaultRotationRules#register: an add-on's default rotation of a mob user's Stand (1.16
+	 * Mobs with Powers' StandEntityMixin.defaultRotation).
+	 */
+	public static final String FEATURE_STAND_DEFAULT_ROTATION_RULES_V1 =
+			"stand_default_rotation_rules_v1";
 
 	public static final Set<String> FEATURES = Set.of(
 			FEATURE_ABILITY_RESOURCE_NAMESPACE_V1,
@@ -304,7 +310,8 @@ public final class RotpAddonApi {
 			FEATURE_TIME_STOP_PUNCH_DONOR_OPTIONS_V1,
 			FEATURE_INTEGRATED_STAND_V1,
 			FEATURE_ABILITY_PERFORMER_STUN_V1,
-			FEATURE_STAND_STAMINA_MODIFIERS_V1);
+			FEATURE_STAND_STAMINA_MODIFIERS_V1,
+			FEATURE_STAND_DEFAULT_ROTATION_RULES_V1);
 
 	private RotpAddonApi() {}
 
