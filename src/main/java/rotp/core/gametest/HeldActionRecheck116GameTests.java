@@ -363,6 +363,57 @@ public final class HeldActionRecheck116GameTests {
 		}
 	}
 
+	/*
+	 * 1.16 StandAction.isUnlocked was the action's learning entry, which StandType.onNewResolveLevel added once the Resolve
+	 * level reached the action's and only a full Stand clear took away; the Resolve effect raised the stored level for
+	 * good (ResolveCounter.onResolveEffectStarted) and /standlevel never relocked anything. So a held Crossfire Hurricane
+	 * (Resolve level 4) went on, and fired at its full length, after the stored level dropped or after the effect that
+	 * alone gave the level lapsed, though a new press would now be refused.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aHeldActionIsNotRelockedByItsResolveLevelAsIn116(GameTestHelper helper) {
+		for (String row : new String[] { "stored level dropped", "Resolve effect lapsed", "stored level dropped, full charge" }) {
+			try (StandScene s = new StandScene(helper, "HeldResolveUnlock", "magicians_red")) {
+				s.unlock("crossfire_hurricane");
+				boolean byEffect = row.equals("Resolve effect lapsed");
+				if (byEffect) {
+					s.user.addEffect(new MobEffectInstance(ModStatusEffects.RESOLVE, 400, 4));
+					s.power.setResolveLevel(0);
+				}
+				helper.assertTrue(s.ability("crossfire_hurricane").isAbilityUnlocked(s.power),
+						"setup (" + row + "): Crossfire Hurricane is not unlocked");
+				EntityActionInstance charge = s.start("crossfire_hurricane");
+				s.tick(3);
+				helper.assertTrue(charge.getPhase() == ActionPhase.BUTTON_CHARGE && !charge.isOver(),
+						"setup (" + row + "): Crossfire Hurricane is not charging: phase " + charge.getPhase() + ", messages "
+								+ s.user.keys());
+				if (byEffect) {
+					s.user.removeEffect(ModStatusEffects.RESOLVE);
+				}
+				else {
+					s.power.setResolveLevel(0);
+				}
+				helper.assertTrue(!s.ability("crossfire_hurricane").isAbilityUnlocked(s.power),
+						"setup (" + row + "): Crossfire Hurricane is still unlocked for a new press at Resolve level "
+								+ s.power.getResolveLevel());
+				if (row.endsWith("full charge")) {
+					s.runPhaseToItsEnd(charge);
+					helper.assertTrue(!charge.isOver() && charge.getPhase() != ActionPhase.BUTTON_CHARGE,
+							"1.16 stopHeldAction(true) fired a full Crossfire Hurricane charge whose Resolve level dropped, isUnlocked"
+									+ " being its learning entry: phase " + charge.getPhase() + ", messages " + s.user.keys());
+				}
+				else {
+					s.tick(1);
+					helper.assertTrue(charge.getPhase() == ActionPhase.BUTTON_CHARGE && !charge.isOver()
+							&& !s.user.keys().contains(CONDITION + "not_unlocked"), "1.16 kept the held Crossfire Hurricane"
+									+ " charging (" + row + "), isUnlocked being its learning entry: phase " + charge.getPhase()
+									+ ", messages " + s.user.keys());
+				}
+			}
+		}
+		helper.succeed();
+	}
+
 	// isUnlocked came after the action's own conditions: a repair that needs no repair and is locked says no_repair
 	@GameTest(template = "empty", timeoutTicks = 100)
 	public static void theHeldUnlockIsAskedAfterTheActionsOwnConditionsAsIn116(GameTestHelper helper) {

@@ -290,6 +290,37 @@ public class Ability {
 		return getUnlockConditionCheck(context).isPositive();
 	}
 
+	private static final ThreadLocal<Boolean> RESOLVE_LEVEL_HELD = ThreadLocal.withInitial(() -> Boolean.FALSE);
+
+	/**
+	 * {@link #isAbilityUnlocked} as 1.16's isUnlocked answered it for a running hold (PowerBaseImpl.checkRequirements): a
+	 * Stand action stayed unlocked once it had been, whatever its user's Resolve level did afterwards (its
+	 * StandActionLearningProgress entry, which only a full Stand clear took away; the Resolve effect raised the stored
+	 * level for good), so the Resolve level is not asked again ({@link #isResolveLevelHeld}). A skill taken away still
+	 * locks the ability.
+	 */
+	public final boolean isAbilityStillUnlocked(Power<?> context) {
+		if (RESOLVE_LEVEL_HELD.get()) {
+			return isAbilityUnlocked(context);
+		}
+		RESOLVE_LEVEL_HELD.set(Boolean.TRUE);
+		try {
+			return isAbilityUnlocked(context);
+		}
+		finally {
+			RESOLVE_LEVEL_HELD.set(Boolean.FALSE);
+		}
+	}
+
+	/**
+	 * Whether the unlock is asked for a running hold ({@link #isAbilityStillUnlocked}), which does not ask the Resolve
+	 * level again: {@link #hasRequiredResolveLevel} passes, and an override that asks the Resolve level by itself should
+	 * pass too.
+	 */
+	public static boolean isResolveLevelHeld() {
+		return RESOLVE_LEVEL_HELD.get();
+	}
+
 	public ConditionCheck getUnlockConditionCheck(Power<?> context) {
 		PowerData skillsData =
 				context != null ? context.getDataForAbility(this) : null;
@@ -320,7 +351,7 @@ public class Ability {
 		if (standPower == null) {
 			return false;
 		}
-		if (StandPower.playerSkipsActionTraining(standPower.getUser())
+		if (isResolveLevelHeld() || StandPower.playerSkipsActionTraining(standPower.getUser())
 				|| standPower.wasProgressionSkipped()) {
 			return true;
 		}

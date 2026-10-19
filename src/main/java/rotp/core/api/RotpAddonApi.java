@@ -168,7 +168,8 @@ public final class RotpAddonApi {
 	 * EntityActionAbility held-action rechecks and hit hooks: checkHeldActionConditions (each held tick and, through
 	 * canFireReleasedHold, before a released hold fires: power usable, performer alive and not stunned, a Stand action's
 	 * checkStandEntityConditions (checkHeldPerformerConditions), the Stand parts the action needs, the ability's own
-	 * checkHeldSpecificConditions, then isAbilityUnlocked ("not_unlocked"); not the cooldown or a busy performer),
+	 * checkHeldSpecificConditions, then Ability#isAbilityStillUnlocked ("not_unlocked"; the Resolve level is not asked
+	 * again, see Ability#isResolveLevelHeld); not the cooldown or a busy performer),
 	 * canFireReleasedHold (also false for a user frozen in someone else's stopped time, unless the ability works in
 	 * stopped time), stopsOnHeavyAttack / onHitByHeavyAttack, setResetsAttackStrengthOnPerform.
 	 */

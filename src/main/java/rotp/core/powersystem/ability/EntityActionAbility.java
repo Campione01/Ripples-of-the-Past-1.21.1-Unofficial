@@ -256,8 +256,8 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 	 * StandEntityAction.checkStandConditions), the Stand still has the parts the action needs (1.16 StandAction
 	 * partsRequired), then {@link #checkHeldSpecificConditions}, the ability's own (items, target, stamina and so on;
 	 * an ability that does not override it rechecks none of those), and last whether the ability is still unlocked
-	 * (1.16 isUnlocked, "not_unlocked"). Not rechecked: the cooldown and a busy performer, which the running hold already
-	 * went through.
+	 * (1.16 isUnlocked, "not_unlocked"), without its Resolve level ({@link #isAbilityStillUnlocked}). Not rechecked: the
+	 * cooldown and a busy performer, which the running hold already went through.
 	 */
 	public ConditionCheck checkHeldActionConditions(EntityActionInstance action, Power<?> context) {
 		if (!context.canUsePower()) {
@@ -285,7 +285,7 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 		if (!check.isPositive()) {
 			return check;
 		}
-		return isAbilityUnlocked(context) ? check : ConditionCheck.createNegative("not_unlocked");
+		return isAbilityStillUnlocked(context) ? check : ConditionCheck.createNegative("not_unlocked");
 	}
 
 	/**
