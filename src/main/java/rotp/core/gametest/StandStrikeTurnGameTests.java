@@ -199,6 +199,52 @@ public final class StandStrikeTurnGameTests {
 		LivingComponentAction.getComponent(stand).setAction(null, user, SyncType.NO_SYNC);
 	}
 
+	/*
+	 * 1.16 StandEntity.punch set each dash strike's target as the task's (setTaskTarget), but StandEntityTask.keepTarget kept
+	 * none for the dash: checkRangeAndTarget asked standKeepsTarget, false for SilverChariotDashAttack, and its
+	 * checkStandTarget was always NEGATIVE. So the task held no target and StandEntityAction.rotateStand left a Stand that
+	 * moves by itself as its strike turned it, wherever the entity it struck went next.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void theDashHoldsNoTargetAfterItsStrikeAndKeepsItsStrikeTurnAsIn116(GameTestHelper helper) {
+		StandTaskTargetOffsetGameTests.withStand(helper, "silver_chariot", scene -> {
+			StandEntity stand = scene.stand();
+			Player user = scene.user();
+			StandPower power = scene.power();
+			power.setResolveLevel(power.getMaxResolveLevel());
+			power.setStamina(power.getMaxStamina());
+			stand.summonLockTicks = 0;
+			stand.gradualSummonWeaknessTicks = 0;
+			stand.updatePosition(user);
+			EntityActionType type = strikeType(helper, scene, "dash_attack");
+			EntityActionInstance dash = type.createActionObj();
+			type.initActionFromConfig(dash, helper.getLevel(), user, stand);
+			dash.setStartingPhase();
+			LivingComponentAction.getComponent(stand).setAction(dash, user, SyncType.NO_SYNC);
+			helper.assertTrue(stand.getCurStandAction() == dash && dash instanceof DashStrike && !stand.isFollowingUser(),
+					"setup: the dash is not the Silver Chariot's action, or its Stand still follows its user");
+			stand.setYRot(0.0F);
+			stand.setXRot(0.0F);
+			stand.setYHeadRot(0.0F);
+			Cow cow = scene.cow(new Vec3(stand.getX() + 0.5D, stand.getEyeY() - 0.7D, stand.getZ() + 2.0D).subtract(user.position()));
+			dashTargets(dash, stand);
+			float yaw = stand.getYRot();
+			float pitch = stand.getXRot();
+			helper.assertTrue(cow.getHealth() < cow.getMaxHealth() && Math.abs(yaw) > EPS,
+					"setup: the dash did not strike the cow, or did not turn toward it: yaw " + yaw);
+			helper.assertTrue(dash.getTaskTarget(helper.getLevel()).getType() == ActionTarget.TargetType.EMPTY,
+					"1.16's dash task held no target after its strike; it holds " + dash.getTaskTarget(helper.getLevel()));
+
+			cow.moveTo(cow.getX() + 3.0D, cow.getY() + 1.0D, cow.getZ(), 0.0F, 0.0F);
+			stand.updatePosition(user);
+			helper.assertTrue(Math.abs(Mth.degreesDifference(stand.getYRot(), yaw)) < EPS && Math.abs(stand.getXRot() - pitch) < EPS,
+					"1.16 left the dashing Stand as its strike turned it (yaw " + yaw + ", pitch " + pitch + ") once the cow it struck"
+							+ " moved; it is at yaw " + stand.getYRot() + ", pitch " + stand.getXRot());
+			LivingComponentAction.getComponent(stand).setAction(null, user, SyncType.NO_SYNC);
+		});
+		helper.succeed();
+	}
+
 	private static void noteStrike(float[] atHit, StandEntity stand) {
 		if (Float.isNaN(atHit[0])) {
 			atHit[0] = stand.getYRot();
