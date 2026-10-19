@@ -11,6 +11,8 @@ import java.util.function.Predicate;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import org.jetbrains.annotations.ApiStatus;
+
 import rotp.core.JojoModLivingVariables;
 import rotp.core.JojoModConfig;
 import rotp.core.api.stand.StandDefaultRotationRules;
@@ -59,6 +61,7 @@ import rotp.core.subsystems.entity_externalcontainer._stand.StandHandsContainerM
 import rotp.core.subsystems.entity_puppetcontrol.client.ClientEntityController;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
+import rotp.core.subsystems.target.ActionTargetRange;
 import rotp.core.subsystems.timestop.TimeStopLearning;
 import rotp.core.subsystems.timestop.TimeStopState;
 import rotp.core.util.functions.AttributeUtil;
@@ -332,6 +335,7 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 
 	public PrevRotations rotO = new PrevRotations();
 	private boolean headTurnedToTaskTarget;
+	private boolean summonPoseEnded;
 	@Override
 	public void tick() {
 		fallDistance = 0;
@@ -404,17 +408,39 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 	}
 	
 	/*
-	 * 1.16 StandEntity.tickHeadTurn: while the Stand has a task its body takes the yaw it starts the tick with, the yaw an
-	 * action's tick left it, and that tick's turns leave the body alone (copyRotation, lookAtPos); without one, the
-	 * vanilla turn, which a following Stand's idle rule then overrides
+	 * 1.16 StandEntity.tickHeadTurn: while the Stand has a task or is in its summon pose its body takes the yaw it starts
+	 * the tick with, the yaw an action's tick left it, and that tick's turns leave the body alone (copyRotation,
+	 * lookAtPos); otherwise 1.16's LivingEntity.tickHeadTurn, from the Stand's own yaw and movement: the body stays put
+	 * within 50 degrees of the yaw, beyond that it closes a fifth of the gap each tick and never trails it by more than
+	 * 75 (1.21's turn holds it at 50)
 	 */
 	@Override
 	protected float tickHeadTurn(float yRot, float animStep) {
-		if (getCurStandAction() != null) {
+		if (getCurStandAction() != null || isInSummonPose()) {
 			yBodyRot = getYRot();
 			return animStep;
 		}
-		return super.tickHeadTurn(yRot, animStep);
+		yBodyRot += Mth.wrapDegrees(yRot - yBodyRot) * 0.3F;
+		float bodyToYaw = Mth.wrapDegrees(getYRot() - yBodyRot);
+		boolean backwards = bodyToYaw < -90.0F || bodyToYaw >= 90.0F;
+		bodyToYaw = Mth.clamp(bodyToYaw, -75.0F, 75.0F);
+		yBodyRot = getYRot() - bodyToYaw;
+		if (bodyToYaw * bodyToYaw > 2500.0F) {
+			yBodyRot += bodyToYaw * 0.2F;
+		}
+		return backwards ? -animStep : animStep;
+	}
+
+	// 1.16 StandPose.SUMMON: on the server until the Stand's first task, on a client until its summon animation ended, at
+	// once for an arms-only Stand (StandEntity.getCurPose)
+	private boolean isInSummonPose() {
+		return !summonPoseEnded && !(level().isClientSide() && isArmsOnlyMode());
+	}
+
+	/** Client: the Stand's summon animation is over or it has none (1.16 StandEntity.onSetPoseAnimEnded). */
+	@ApiStatus.Internal
+	public void endSummonPose() {
+		summonPoseEnded = true;
 	}
 
 	@Override
@@ -580,10 +606,7 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 					pos = collideNextPos(pos);
 				}
 				setPos(pos.x, pos.y, pos.z);
-				// 1.16 StandEntity.defaultRotation, which an add-on could replace for a user that is not a player
-				if (user instanceof Player || !StandDefaultRotationRules.rotate(this, user)) {
-					copyStandUserRotation(user);
-				}
+				defaultRotation(user);
 				EntityActionInstance curAction = standAction.getAction();
 				if (curAction != null) {
 					curAction.applyStandUserRotation(this, user);
@@ -594,8 +617,11 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		else if (isManuallyControlled()) {
 			moveStandManualControl();
 		}
-		else {
-			lookAtTaskTarget();
+		// 1.16 StandEntity.defaultRotation turned any Stand neither manually controlled nor remote-fixed, one being
+		// retracted too, unless its task's target turned it or its action moved it by itself (StandEntityAction.rotateStand)
+		else if (!lookAtTaskTarget() && user != null && isBeingRetracted() && followingUserIsEnabled()
+				&& !curActionDisablesUserOffset()) {
+			defaultRotation(user);
 		}
 		if (isBeingRetracted() && user != null) {
 			if (!isCloseToUser()) {
@@ -632,6 +658,13 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		return position().add(collision.x, collision.y, collision.z);
 	}
 	
+	// 1.16 StandEntity.defaultRotation, which an add-on could replace for a user that is not a player
+	private void defaultRotation(LivingEntity user) {
+		if (user instanceof Player || !StandDefaultRotationRules.rotate(this, user)) {
+			copyStandUserRotation(user);
+		}
+	}
+
 	public void copyStandUserRotation(LivingEntity user) {
 		offsetFromUser.copyRotation(user, level().isClientSide());
 	}
@@ -763,6 +796,29 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		return false;
 	}
 	
+	/**
+	 * Server: 1.16 StandEntity.aimWithThisOrUser turned the Stand toward what a punch, a heavy punch or a barrage hit aimed
+	 * at, just before the hit (MCUtil.rotateTowards): its yaw and its pitch each by at most attackSpeed / 16 x 18 degrees,
+	 * toward an entity's eyes or a block's centre, and its head onto the new yaw; never toward the Stand itself. The Stand
+	 * keeps that rotation for the rest of the tick, until its next tick turns it as usual.
+	 */
+	public void turnTowardsStrike(ActionTarget aimed) {
+		if (aimed.getType() == TargetType.EMPTY || aimed.getEntity() == this) {
+			return;
+		}
+		Vec3 targetPos = StandOffsetFromUser.taskTargetPos(aimed);
+		if (targetPos == null) {
+			return;
+		}
+		float maxAngle = (float) getAttackSpeed() / 16.0F * 18.0F;
+		Vec3 toTarget = targetPos.subtract(getEyePosition());
+		float yRot = getYRot() + Mth.clamp(Mth.degreesDifference(getYRot(), MathUtil.yRotDegFromVec(toTarget)), -maxAngle, maxAngle);
+		float xRot = getXRot() + Mth.clamp(Mth.degreesDifference(getXRot(), MathUtil.xRotDegFromVec(toTarget)), -maxAngle, maxAngle);
+		setYRot(yRot % 360.0F);
+		setXRot(xRot % 360.0F);
+		setYHeadRot(yRot);
+	}
+
 	protected Vec3 _offsetFromUserVec;
 	protected Vec3 _manualControlInput = Vec3.ZERO;
 	protected void updateUserOffset(LivingEntity user) {
@@ -1465,6 +1521,7 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 			rollGuardCounterDamage();
 		}
 		if (action != null) {
+			summonPoseEnded = true;
 			setNoPhysics(false);
 			offsetFromUser.resetForNewAction();
 		}
@@ -1672,6 +1729,9 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 	}
 
 	void prepareFreshSummonState(LivingEntity user) {
+		// in its summon pose a Stand's body takes its yaw (1.16 StandEntity.tickHeadTurn), from its spawn on
+		yBodyRot = getYRot();
+		yBodyRotO = yBodyRot;
 		if (!level().isClientSide() && isSilverChariotStand()) {
 			SilverChariotState state = SilverChariotState.get(user);
 			state.resetEquipmentForSummon();
@@ -2477,6 +2537,7 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		}
 	}
 
+	// 1.16 StandEntity.tick: the clash ends once the opponent is dead or out of the Stand's reach (isTargetInReach)
 	private boolean barrageClashOpponentOutOfReach() {
 		Entity opponent = barrageClashOpponent().orElse(null);
 		if (opponent == null) {
@@ -2485,7 +2546,7 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		if (!opponent.isAlive()) {
 			return true;
 		}
-		return MathUtil.getAABBDistanceDetailed(getBoundingBox(), opponent.getBoundingBox()).distance() > getMaxRange();
+		return ActionTargetRange.getDistance(this, opponent.getBoundingBox()) > getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE);
 	}
 
 	@Override

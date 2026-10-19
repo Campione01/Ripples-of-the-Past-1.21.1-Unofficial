@@ -126,13 +126,14 @@ public final class StandIdlePlacementGameTests {
 			PlayerClientBroadcastedSettings settings, StandPower power, StandEntity stand) {
 		// view yaw 0 faces south (+z), so the user's right is -x; the body is turned away from the view
 		turn(user, 0.0F, 50.0F);
+		stand.yBodyRot = 25.0F;
 		assertIdleAt(helper, id, user, stand, -0.75D, 0.2D, -0.75D, "view yaw 0, body yaw 50, side RIGHT");
 		helper.assertTrue(near(stand.getYRot(), 0.0F) && near(stand.getYHeadRot(), 0.0F),
 				"1.16 turned an idle " + id + " and its head to the user's view yaw 0: yaw " + stand.getYRot()
 						+ ", head " + stand.getYHeadRot());
-		helper.assertTrue(near(stand.yBodyRot, 50.0F),
-				"the idle " + id + "'s body lags the view as 1.16's head turn let it, by taking the user's body yaw 50: body "
-						+ stand.yBodyRot);
+		helper.assertTrue(near(stand.yBodyRot, 25.0F),
+				"1.16 left the body of an idle " + id + " to its own head turn (StandEntity.defaultRotation never set it), not"
+						+ " to the user's body yaw 50: body " + stand.yBodyRot);
 
 		turn(user, 0.0F, 120.0F);
 		assertIdleAt(helper, id, user, stand, -0.75D, 0.2D, -0.75D, "view yaw 0, body yaw 120 (the body alone turned)");

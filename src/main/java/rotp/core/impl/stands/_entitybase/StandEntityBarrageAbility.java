@@ -444,6 +444,7 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 					boolean playSound = StandEntityPunchAbility.playHitSound(target, level);
 					Vec3 soundPos = playSound ? target.getCenterPos() : null;
 					Entity clashOpponentAtHit = stand.barrageClashOpponent().orElse(null);
+					stand.turnTowardsStrike(strikeAim(stand, target, directional));
 					// 1.16 StandEntity.punch: each hit's target, nothing for a miss, went to the task before the hit
 					setTaskTarget(target);
 
@@ -471,6 +472,18 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 			}
 		}
 
+		// what the hit's aim met, the target it strikes or one out of the Stand's reach, by the rule its target was aimed with
+		private ActionTarget strikeAim(StandEntity stand, ActionTarget target, boolean directional) {
+			if (isGrabVariation()) {
+				return target;
+			}
+			if (directional && ability instanceof StandEntityAbility standAbility) {
+				return StandEntityPunchAbility.strikeAim(stand, target, StandEntityPunchAbility.CrosshairRule.NONE,
+						entity -> standAbility.canTargetEntityForAiming(stand, entity) && StandEntityPunchAbility.canStandHit(stand, entity));
+			}
+			return StandEntityPunchAbility.strikeAim(stand, target, StandEntityPunchAbility.CrosshairRule.BLOCK_OR_ENTITY);
+		}
+
 		private boolean canRefreshFrontOffset(StandEntity stand) {
 			return StandEntityBarrageAbility.canRefreshFrontOffset(this, stand);
 		}
@@ -489,7 +502,8 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 		public void onActionCleared(EntityActionInstance newAction) {
 			if (performer instanceof StandEntity stand && newAction != this) {
 				stand.resetBarrageParry();
-				if (!level().isClientSide()) {
+				// 1.16 StandEntityMeleeBarrage.onTaskStopped compared actions: the same barrage pressed again keeps the clash
+				if (!level().isClientSide() && (newAction == null || newAction.ability != ability)) {
 					stand.barrageClashStopped();
 				}
 				else if (stand.clientStuff != null) {

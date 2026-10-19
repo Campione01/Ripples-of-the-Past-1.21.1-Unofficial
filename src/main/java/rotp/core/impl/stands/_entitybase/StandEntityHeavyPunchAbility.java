@@ -407,6 +407,8 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 				boolean keepsStruck = !takesTargetsFromServer() && keepsStrikeTarget(stand, target);
 				if (!level.isClientSide()) {
 					StandPower standPower = StandPower.get(getPowerUser());
+					stand.turnTowardsStrike(isGrabVariation() ? target
+							: StandEntityPunchAbility.strikeAim(stand, target, StandEntityPunchAbility.CrosshairRule.ENTITY));
 					playHeavyPunchPerformSound(stand);
 
 					boolean entityTarget = target.getType() == TargetType.ENTITY;
