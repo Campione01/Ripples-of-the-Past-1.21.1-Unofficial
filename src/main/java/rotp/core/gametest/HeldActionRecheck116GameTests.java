@@ -16,6 +16,7 @@ import rotp.core.impl.powers.vampirism.VampirismState;
 import rotp.core.impl.stands.crazydiamond.CrazyDAngeloRockPunchEffect;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModItemDataComponents;
+import rotp.core.init.ModStatusEffects;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.init.power.ModStandAbilities;
 import rotp.core.powersystem.PowerClass;
@@ -46,7 +47,9 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
@@ -419,6 +422,108 @@ public final class HeldActionRecheck116GameTests {
 		}
 	}
 
+	/*
+	 * PowerBaseImpl.tickHeldAction ended a hold at its length with stopHeldAction(true), which checked the requirements once
+	 * more and, when they failed, fired nothing and said nothing. Each charge here is run to its end at once, as a mob's
+	 * held press is (stand-bearing-creatures' fireHeldAction).
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aFullLengthChargeIsCheckedOnceMoreBeforeItFiresAsIn116(GameTestHelper helper) {
+		try (StandScene s = new StandScene(helper, "FullChargeRecheck", "magicians_red")) {
+			s.unlock("crossfire_hurricane");
+			EntityActionInstance fires = s.start("crossfire_hurricane");
+			s.tick(3);
+			helper.assertTrue(fires.getPhase() == ActionPhase.BUTTON_CHARGE, "setup: Crossfire Hurricane is not charging: phase "
+					+ fires.getPhase());
+			s.runPhaseToItsEnd(fires);
+			helper.assertTrue(!fires.isOver() && fires.getPhase() != ActionPhase.BUTTON_CHARGE,
+					"setup: a full charge that passes its checks did not go on to fire: phase " + fires.getPhase());
+
+			EntityActionInstance dropped = s.start("crossfire_hurricane");
+			s.tick(3);
+			s.instance.removePart(StandPart.MAIN_BODY);
+			float stamina = s.power.getStamina();
+			s.runPhaseToItsEnd(dropped);
+			helper.assertTrue(dropped.isOver(),
+					"1.16 stopHeldAction(true) fired nothing once the Stand had lost its body at the end of the charge: phase "
+							+ dropped.getPhase());
+			s.tick(2);
+			helper.assertTrue(s.user.keys().isEmpty() && s.power.getStamina() == stamina,
+					"the dropped full charge said nothing and spent nothing: messages " + s.user.keys() + ", stamina " + stamina
+							+ " -> " + s.power.getStamina());
+
+			// no key holds it (set by code): not checked, as on its held ticks
+			EntityActionInstance unheld = s.start("crossfire_hurricane");
+			s.user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get()).heldKeys.clear();
+			s.runPhaseToItsEnd(unheld);
+			helper.assertTrue(!unheld.isOver() && unheld.getPhase() != ActionPhase.BUTTON_CHARGE,
+					"a charge no key holds is not rechecked at its end: phase " + unheld.getPhase());
+			helper.succeed();
+		}
+	}
+
+	// a hold-only action at its length ended through stopHeldAction(true)'s holdOnly branch, which rechecked nothing
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aHoldOnlyActionAtItsLengthEndsWithoutTheFireRecheckAsIn116(GameTestHelper helper) {
+		try (StandScene s = new StandScene(helper, "HoldOnlyAtLength", "star_platinum")) {
+			EntityActionInstance inhale = s.startUntilPerform("inhale");
+			inhale.phasesLength.put(ActionPhase.RECOVERY, 10.0F);
+			s.instance.removePart(StandPart.MAIN_BODY);
+			s.runPhaseToItsEnd(inhale);
+			helper.assertTrue(inhale.getPhase() == ActionPhase.RECOVERY,
+					"1.16 ended a hold-only action at its length into its recovery without the fire's recheck: phase "
+							+ inhale.getPhase());
+			helper.succeed();
+		}
+	}
+
+	// a charge that goes on into a phase the key still holds does not fire, so 1.16 checked it on its next held tick
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aChargeThatGoesOnHeldIsCheckedOnItsNextHeldTickAsIn116(GameTestHelper helper) {
+		try (StandScene s = new StandScene(helper, "ChargeGoesOnHeld", "star_platinum")) {
+			EntityActionInstance charge = s.start("heavy_charged");
+			s.tick(1);
+			helper.assertTrue(charge.getPhase() == ActionPhase.BUTTON_CHARGE, "setup: the charged heavy punch is not charging: phase "
+					+ charge.getPhase());
+			s.stand.addEffect(new MobEffectInstance(ModStatusEffects.STUN, 40));
+			try {
+				s.runPhaseToItsEnd(charge);
+				helper.assertTrue(charge.getPhase() == ActionPhase.WINDUP,
+						"the end of the charge led into the held windup, which fires nothing: phase " + charge.getPhase());
+				s.tick(1);
+				helper.assertTrue(charge.isOver() && s.user.keys().contains(CONDITION + "stun"),
+						"its next held tick ended it with the check's message: phase " + charge.getPhase() + ", messages "
+								+ s.user.keys());
+			}
+			finally {
+				s.stand.removeEffect(ModStatusEffects.STUN);
+			}
+			helper.succeed();
+		}
+	}
+
+	// 1.16 held an action from its press: a windup played before a held perform is rechecked too
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aWindupBeforeAHeldPerformIsRecheckedAsIn116(GameTestHelper helper) {
+		try (PowerScene s = new PowerScene(helper, "HeldDetectorWindup", ModPlayerPowers.HAMON.get())) {
+			HamonData hamon = PlayerPower.getPowerData(s.user, ModPlayerPowers.HAMON).orElseThrow();
+			hamon.learnSkill(ModHamonSkills.DETECTOR.get());
+			helper.assertTrue(hamon.isSkillLearned(ModHamonSkills.DETECTOR.get()), "setup: the Detector is not learned");
+			hamon.setBreathStability(hamon.getMaxBreathStability());
+			hamon.setEnergy(hamon.getMaxEnergy());
+			EntityActionInstance detector = s.start("hamon_detector");
+			s.tick(2);
+			helper.assertTrue(detector.getPhase() == ActionPhase.WINDUP && !detector.isOver(),
+					"setup: the Detector is not in its windup: phase " + detector.getPhase());
+			s.user.addEffect(new MobEffectInstance(ModStatusEffects.STUN, 40));
+			s.tick(1);
+			helper.assertTrue(detector.isOver(),
+					"1.16 checked the held Detector from its press on, so a stun in its windup ended it: phase " + detector.getPhase());
+			helper.assertTrue(s.user.keys().contains(CONDITION + "stun"), "1.16 said why: messages " + s.user.keys());
+			helper.succeed();
+		}
+	}
+
 	/** A server player that keeps the action bar messages it is sent. */
 	private static final class RecordingPlayer extends FakePlayer {
 		private final List<Component> actionBar = new ArrayList<>();
@@ -522,6 +627,11 @@ public final class HeldActionRecheck116GameTests {
 			for (int tick = 0; tick < count; tick++) {
 				standAction.tick();
 			}
+		}
+
+		// the current phase run to its length at once, as stand-bearing-creatures' fireHeldAction runs a mob's charge
+		private void runPhaseToItsEnd(EntityActionInstance action) {
+			action.setPhase(action.getPhase(), Mth.ceil(action.getCurPhaseLength()));
 		}
 
 		private Mob mob(EntityType<? extends Mob> type, double ahead) {

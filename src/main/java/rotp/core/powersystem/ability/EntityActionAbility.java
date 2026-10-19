@@ -208,7 +208,20 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 		ActionPhase phase = action.getPhase();
 		return phase != null && (phase == ActionPhase.BUTTON_CHARGE || phase == buttonHoldingPhase);
 	}
-	
+
+	/**
+	 * Whether the held recheck covers the action now. 1.16 held an action from its press until it fired or was let go
+	 * (PowerBaseImpl.setHeldAction to stopHeldAction), so besides the phases {@link #isActionHeld} counts, the phases
+	 * before the button-holding phase count too, such as a windup played before a held perform.
+	 */
+	public boolean isHeldSincePress(EntityActionInstance action) {
+		if (isActionHeld(action)) {
+			return true;
+		}
+		ActionPhase phase = action.getPhase();
+		return phase != null && buttonHoldingPhase != null && phase.ordinal() < buttonHoldingPhase.ordinal();
+	}
+
 	/**
 	 * Whether releasing the key still reaches an action a CLICK input started. 1.16 performed an action without a
 	 * hold on the click and never let the release cancel it; a click-bound action that holds (a button charge,
@@ -303,8 +316,9 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 	/**
 	 * 1.16 stopHeldAction(true): a released hold that no longer passes its checks ends without firing, and without
 	 * a message. The checks are those of {@link #checkHeldActionConditions}. The server decides; the client follows
-	 * the synced phase. Only release code that calls this rechecks: in the core, the Bearing Shot, the charged heavy
-	 * punch, the grab throw, the time stop and the Hamon holds (held Hamon moves and Sunlight Yellow Overdrive).
+	 * the synced phase. Release code that calls this rechecks: in the core, the Bearing Shot, the charged heavy
+	 * punch, the grab throw, the time stop and the Hamon holds (held Hamon moves and Sunlight Yellow Overdrive); a held
+	 * charge that fires as its length ends is rechecked through {@link #stopFullChargeIfConditionsFail}.
 	 * Also, as 1.16 checkConditions did (!user.canUpdate()), a user frozen in someone else's stopped time cannot fire
 	 * the release unless the ability works in stopped time. Only here: 1.16 never ticked a frozen user's hold.
 	 */
@@ -324,15 +338,16 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 	}
 	
 	/**
-	 * Server side, every tick the held action ticks (and while its Stand is stunned). Only a hold whose key is still
-	 * down is checked, as 1.16 kept a held action only while its key was held.
+	 * Server side, every tick the held action ticks (and while its Stand is stunned), from the press on
+	 * ({@link #isHeldSincePress}). Only a hold whose key is still down is checked, as 1.16 kept a held action only while
+	 * its key was held.
 	 * @return whether a failed check stopped the hold
 	 */
 	@ApiStatus.Internal
 	public boolean stopHeldActionIfConditionsFail(EntityActionInstance action) {
 		LivingEntity user = action.getPowerUser();
 		if (action.isOver() || user == null || user.level().isClientSide() || abilityId.powerClass() == null
-				|| !isActionHeld(action) || !AbilityInput.isHeldByKey(user, action)) {
+				|| !isHeldSincePress(action) || !AbilityInput.isHeldByKey(user, action)) {
 			return false;
 		}
 		Power<?> context = getUserPower(user);
@@ -346,13 +361,32 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 		ConditionCheck.sendActionFailedMessage(this, check, user);
 		stopHeldActionOnFailedCheck(action);
 		// 1.16 always ended the hold, even for an action whose release leaves it held.
-		if (!action.isOver() && isActionHeld(action)) {
+		if (!action.isOver() && isHeldSincePress(action)) {
 			action.forceStop();
 			action.syncPhaseChanges();
 		}
 		return true;
 	}
-	
+
+	/**
+	 * 1.16 PowerBaseImpl.tickHeldAction ended a hold that reached its length with stopHeldAction(true), which checked the
+	 * requirements once more and, when they failed, fired nothing, silently (the Stand's task was stopped): a held charge
+	 * that ends by its length and fires as it does is checked here as a released hold is ({@link #canFireReleasedHold}),
+	 * by {@link EntityActionInstance} before it leaves the charge. Server side, only while a key holds the action.
+	 * @return whether the failed check ended the action
+	 */
+	@ApiStatus.Internal
+	public boolean stopFullChargeIfConditionsFail(EntityActionInstance action) {
+		LivingEntity user = action.getPowerUser();
+		if (action.isOver() || user == null || user.level().isClientSide() || abilityId.powerClass() == null
+				|| !AbilityInput.isHeldByKey(user, action) || canFireReleasedHold(action)) {
+			return false;
+		}
+		action.forceStop();
+		action.syncPhaseChanges();
+		return true;
+	}
+
 	
 	/**
 	 * 1.16 StandEntityAction.stopOnHeavyAttack: whether a heavy attack that hurts the Stand performing this action
