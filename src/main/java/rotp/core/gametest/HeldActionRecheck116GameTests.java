@@ -13,8 +13,11 @@ import rotp.core.impl.powers.pillarman.PillarmanData;
 import rotp.core.impl.powers.pillarman.PillarmanMode;
 import rotp.core.impl.powers.vampirism.VampirismData;
 import rotp.core.impl.powers.vampirism.VampirismState;
+import rotp.core.impl.stands.crazydiamond.CrazyDAngeloRockPunchEffect;
 import rotp.core.init.ModDataAttachmentTypes;
+import rotp.core.init.ModItemDataComponents;
 import rotp.core.init.power.ModPlayerPowers;
+import rotp.core.init.power.ModStandAbilities;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.EntityActionAbility;
@@ -31,7 +34,9 @@ import rotp.core.powersystem.standpower.StandInstance.StandPart;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.type.StandType;
+import rotp.core.subsystems.itemtracking.OriginalItemPosComponent;
 import rotp.core.subsystems.target.ActionTarget;
+import rotp.core.util.reflection.CommonReflection;
 import com.mojang.authlib.GameProfile;
 
 import net.minecraft.core.BlockPos;
@@ -44,6 +49,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.Vec3;
@@ -212,6 +218,96 @@ public final class HeldActionRecheck116GameTests {
 		}
 	}
 
+	// CrazyDiamondRepairItem.checkSpecificConditions ran on every held tick: an item that needs no repair ended it with no_repair.
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void repairEndedByAnOffHandItemThatNeedsNoRepairSaysWhy(GameTestHelper helper) {
+		try (StandScene s = new StandScene(helper, "HeldRepairItem", "crazy_diamond")) {
+			ItemStack sword = new ItemStack(Items.IRON_SWORD);
+			sword.setDamageValue(sword.getMaxDamage() - 10);
+			s.user.setItemInHand(InteractionHand.OFF_HAND, sword);
+			EntityActionInstance repair = s.startUntilPerform("repair_item");
+			s.tick(1);
+			helper.assertTrue(repair.getPhase() == ActionPhase.PERFORM && !repair.isOver(),
+					"setup: the Repair is not held on the damaged sword: phase " + repair.getPhase());
+			s.user.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.STICK));
+			s.tick(1);
+			helper.assertTrue(repair.isOver() || repair.getPhase() == ActionPhase.RECOVERY,
+					"1.16 ended the held Repair once the off hand held an item that needs no repair: phase " + repair.getPhase());
+			helper.assertTrue(s.user.keys().contains(CONDITION + "no_repair"), "1.16 said why: messages " + s.user.keys());
+			helper.succeed();
+		}
+	}
+
+	/*
+	 * CrazyDiamondPreviousState: an entity it reverts under the crosshair kept the hold whatever the off hand held; without
+	 * one, PowerBaseImpl.checkTarget emptied the target and checkSpecificConditions asked for a convertible off-hand item.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void revertOnAnEntityHoldsWithAnEmptyOffHandAndEndsWhenTheEntityCannotBeReverted(GameTestHelper helper) {
+		try (StandScene s = new StandScene(helper, "HeldRevertState", "crazy_diamond")) {
+			Creeper creeper = (Creeper) s.mob(EntityType.CREEPER, 2.0D);
+			CommonReflection.setCreeperPowered(creeper, true);
+			// hurt, so the Revert heals it and never uncharges it by chance
+			creeper.setHealth(creeper.getMaxHealth() - 6.0F);
+			s.aim(creeper);
+			EntityActionInstance revert = s.startUntilPerform("revert_state");
+			s.tick(3);
+			helper.assertTrue(revert.getPhase() == ActionPhase.PERFORM && !revert.isOver(),
+					"1.16 kept the held Revert on the charged creeper with nothing in the off hand: phase " + revert.getPhase()
+							+ ", messages " + s.user.keys());
+			CommonReflection.setCreeperPowered(creeper, false);
+			s.tick(1);
+			helper.assertTrue(revert.isOver() || revert.getPhase() == ActionPhase.RECOVERY,
+					"1.16 ended the held Revert once the creeper under the crosshair could no longer be reverted and the off"
+							+ " hand was empty: phase " + revert.getPhase());
+			helper.assertTrue(s.user.keys().contains(CONDITION + "item_offhand"), "1.16 said why: messages " + s.user.keys());
+			helper.succeed();
+		}
+	}
+
+	// CrazyDiamondRestoreTerrain.checkSpecificConditions: the Angelo Rock effect on the user ended the hold, no message.
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void restoreTerrainEndsOnceAngeloRockIsUnderWay(GameTestHelper helper) {
+		try (StandScene s = new StandScene(helper, "HeldRestoreTerrain", "crazy_diamond")) {
+			EntityActionInstance restore = s.startUntilPerform("restore_terrain");
+			s.tick(2);
+			helper.assertTrue(restore.getPhase() == ActionPhase.PERFORM && !restore.isOver(),
+					"setup: Restore Terrain is not held with no block to restore: phase " + restore.getPhase());
+			CrazyDAngeloRockPunchEffect angelo = s.power.userStandEffects.getOrCreateEffect(
+					ModStandAbilities.EFFECT_CD_PUNCH_ANGELO_ROCK.get());
+			try {
+				s.tick(1);
+				helper.assertTrue(restore.isOver() || restore.getPhase() == ActionPhase.RECOVERY,
+						"1.16 ended the held Restore Terrain once the Angelo Rock effect was on its user: phase " + restore.getPhase());
+			}
+			finally {
+				s.power.userStandEffects.removeEffect(angelo);
+			}
+			helper.succeed();
+		}
+	}
+
+	// CrazyDiamondBlockCheckpointMove.checkSpecificConditions: an anchor no longer in hand ended the hold with item_block_origin.
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void anchorMoveEndedByTheAnchorLeavingTheHandSaysWhy(GameTestHelper helper) {
+		try (StandScene s = new StandScene(helper, "HeldAnchorMove", "crazy_diamond")) {
+			ItemStack anchor = new ItemStack(Items.STONE);
+			anchor.set(ModItemDataComponents.ORIGINAL_POS, new OriginalItemPosComponent(
+					BlockPos.containing(s.origin).offset(0, 0, 20), helper.getLevel().dimension()));
+			s.user.setItemInHand(InteractionHand.MAIN_HAND, anchor);
+			EntityActionInstance move = s.startUntilPerform("block_anchor");
+			s.tick(1);
+			helper.assertTrue(move.getPhase() == ActionPhase.PERFORM && !move.isOver(),
+					"setup: the anchor move is not held toward the anchor 20 blocks away: phase " + move.getPhase());
+			s.user.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+			s.tick(1);
+			helper.assertTrue(move.isOver() || move.getPhase() == ActionPhase.RECOVERY,
+					"1.16 ended the held anchor move once the anchor left the hand: phase " + move.getPhase());
+			helper.assertTrue(s.user.keys().contains(CONDITION + "item_block_origin"), "1.16 said why: messages " + s.user.keys());
+			helper.succeed();
+		}
+	}
+
 	/** A server player that keeps the action bar messages it is sent. */
 	private static final class RecordingPlayer extends FakePlayer {
 		private final List<Component> actionBar = new ArrayList<>();
@@ -295,10 +391,35 @@ public final class HeldActionRecheck116GameTests {
 			return action;
 		}
 
+		private EntityActionInstance startUntilPerform(String name) {
+			EntityActionInstance action = start(name);
+			for (int tick = 0; tick < 40 && action.getPhase() != ActionPhase.PERFORM && !action.isOver(); tick++) {
+				standAction.tick();
+			}
+			helper.assertTrue(action.getPhase() == ActionPhase.PERFORM && !action.isOver(),
+					"setup: the held " + name + " did not reach PERFORM: phase " + action.getPhase() + ", messages " + user.keys());
+			return action;
+		}
+
 		private void tick(int count) {
 			for (int tick = 0; tick < count; tick++) {
 				standAction.tick();
 			}
+		}
+
+		private Mob mob(EntityType<? extends Mob> type, double ahead) {
+			Mob mob = type.create(helper.getLevel());
+			helper.assertTrue(mob != null, "Could not create " + type);
+			mob.setNoAi(true);
+			mob.setNoGravity(true);
+			mob.moveTo(origin.x, origin.y, origin.z + ahead, 180.0F, 0.0F);
+			helper.assertTrue(helper.getLevel().addFreshEntity(mob), "Could not add " + type);
+			spawned.add(mob);
+			return mob;
+		}
+
+		private void aim(Entity target) {
+			LivingComponentAction.getComponent(user).entityAim.setTarget(target != null ? new ActionTarget(target) : ActionTarget.EMPTY);
 		}
 
 		@Override

@@ -83,6 +83,13 @@ public class CrazyDRepairItemAbility extends StandEntityAbility implements Train
 		return super.checkSpecificConditions(context);
 	}
 
+	// 1.16 tickHeldAction ran checkSpecificConditions on every held tick: an empty off hand, or an item that cannot be or
+	// no longer needs to be repaired, ended the hold with its message.
+	@Override
+	protected ConditionCheck checkHeldSpecificConditions(EntityActionInstance action, Power<?> context) {
+		return checkSpecificConditions(context);
+	}
+
 	@Override
 	public ActionAnimIdentifier getEntityAnim(EntityActionInstance action) {
 		return ITEM_FIX_ANIM;

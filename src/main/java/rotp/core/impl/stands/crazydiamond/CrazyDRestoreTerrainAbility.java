@@ -124,8 +124,7 @@ public class CrazyDRestoreTerrainAbility extends NoPoseStandEntityAbility {
 	@Override
 	public ConditionCheck checkSpecificConditions(Power<?> context) {
 		StandPower standPower = PowerClass.STAND.cast(context);
-		if (standPower != null && standPower.userStandEffects
-				.getEffectsOfType(ModStandAbilities.EFFECT_CD_PUNCH_ANGELO_ROCK.get()).findAny().isPresent()) {
+		if (hasAngeloRockEffect(standPower)) {
 			return ConditionCheck.NEGATIVE;
 		}
 		LivingEntity user = context.getUser();
@@ -143,8 +142,22 @@ public class CrazyDRestoreTerrainAbility extends NoPoseStandEntityAbility {
 		}
 		return super.checkSpecificConditions(context);
 	}
-	
-	
+
+	/*
+	 * 1.16 tickHeldAction: Angelo Rock's effect on the user ended the hold. No block left to restore only let the hold go
+	 * on (NEGATIVE_CONTINUE_HOLD), which the Stand's task did not notice, so the block scan is not repeated here.
+	 */
+	@Override
+	protected ConditionCheck checkHeldSpecificConditions(EntityActionInstance action, Power<?> context) {
+		return hasAngeloRockEffect(PowerClass.STAND.cast(context)) ? ConditionCheck.NEGATIVE : ConditionCheck.POSITIVE;
+	}
+
+	private static boolean hasAngeloRockEffect(StandPower standPower) {
+		return standPower != null && standPower.userStandEffects
+				.getEffectsOfType(ModStandAbilities.EFFECT_CD_PUNCH_ANGELO_ROCK.get()).findAny().isPresent();
+	}
+
+
 	public static class TerrainRestoration extends EntityActionInstance {
 		public boolean useOtherPlayersInventories = false;
 		public CrazyDRestoreTerrainAbility terrainRestoreAbility;

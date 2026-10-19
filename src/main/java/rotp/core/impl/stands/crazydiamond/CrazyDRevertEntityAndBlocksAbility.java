@@ -114,13 +114,33 @@ public class CrazyDRevertEntityAndBlocksAbility extends StandEntityAbility {
 		if (aimTarget.getType() == TargetType.BLOCK) {
 			return ConditionCheck.NEGATIVE;
 		}
-		
+
+		ConditionCheck itemCheck = checkOffhandItem(user);
+		return itemCheck.isPositive() ? checkRevertStateStartConditions(context) : itemCheck;
+	}
+
+	/*
+	 * 1.16 tickHeldAction: with no entity Revert works on under the crosshair (a block, nothing, another entity, one out
+	 * of range), PowerBaseImpl.checkTarget emptied the target and checkSpecificConditions asked for a convertible off-hand
+	 * item; without one the hold ended with item_offhand or item_revert.
+	 */
+	@Override
+	protected ConditionCheck checkHeldSpecificConditions(EntityActionInstance action, Power<?> context) {
+		LivingEntity user = context.getUser();
+		if (user == null) {
+			return ConditionCheck.NEGATIVE;
+		}
+		return getCurrentRevertEntityTarget(user, user.level()).getType() == TargetType.ENTITY
+				? ConditionCheck.POSITIVE : checkOffhandItem(user);
+	}
+
+	private static ConditionCheck checkOffhandItem(LivingEntity user) {
 		ItemStack offhandItem = user.getOffhandItem();
 		if (offhandItem.isEmpty()) {
 			return ConditionCheck.createNegative("item_offhand");
 		}
 		return CrazyDPreviousStateItemConversion.convertTo(offhandItem, user.level(), null, user.getRandom(), false).isPresent()
-				? checkRevertStateStartConditions(context) : ConditionCheck.createNegative("item_revert");
+				? ConditionCheck.POSITIVE : ConditionCheck.createNegative("item_revert");
 	}
 
 	private ConditionCheck checkRevertStateStartConditions(Power<?> context) {
