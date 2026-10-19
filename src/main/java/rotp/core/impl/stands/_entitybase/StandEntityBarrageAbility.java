@@ -110,6 +110,8 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 		return this;
 	}
 
+	// 1.16 StandEntityMeleeBarrage.checkStandConditions, which PowerBaseImpl.tickHeldAction also ran on every held tick: a
+	// Stand that can no longer attack in melee ends the hold, without a message
 	@Override
 	protected ConditionCheck checkStandEntityConditions(StandPower standPower, StandEntity standEntity) {
 		ConditionCheck check = super.checkStandEntityConditions(standPower, standEntity);
@@ -121,16 +123,6 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 			return ConditionCheck.NEGATIVE;
 		}
 		return ConditionCheck.noMessage(standEntity.canAttackMelee());
-	}
-
-	// 1.16 PowerBaseImpl.tickHeldAction ran StandEntityMeleeBarrage.checkStandConditions on every held tick: a Stand that
-	// can no longer attack in melee ends the hold, without a message
-	@Override
-	protected ConditionCheck checkHeldSpecificConditions(EntityActionInstance action, Power<?> context) {
-		if (action.getPerformer() instanceof StandEntity standEntity && !standEntity.canAttackMelee()) {
-			return ConditionCheck.NEGATIVE;
-		}
-		return super.checkHeldSpecificConditions(action, context);
 	}
 
 	@Override

@@ -16,6 +16,7 @@ import rotp.core.impl.powers.vampirism.VampirismState;
 import rotp.core.impl.stands.crazydiamond.CrazyDAngeloRockPunchEffect;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModItemDataComponents;
+import rotp.core.init.ModStatusEffects;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.init.power.ModStandAbilities;
 import rotp.core.powersystem.PowerClass;
@@ -34,6 +35,7 @@ import rotp.core.powersystem.standpower.StandInstance.StandPart;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.type.StandType;
+import rotp.core.subsystems.entity_grab.LivingComponentGrab;
 import rotp.core.subsystems.itemtracking.OriginalItemPosComponent;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.util.reflection.CommonReflection;
@@ -45,10 +47,14 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -250,6 +256,7 @@ public final class HeldActionRecheck116GameTests {
 			// hurt, so the Revert heals it and never uncharges it by chance
 			creeper.setHealth(creeper.getMaxHealth() - 6.0F);
 			s.aim(creeper);
+			s.unlock("revert_state");
 			EntityActionInstance revert = s.startUntilPerform("revert_state");
 			s.tick(3);
 			helper.assertTrue(revert.getPhase() == ActionPhase.PERFORM && !revert.isOver(),
@@ -304,6 +311,215 @@ public final class HeldActionRecheck116GameTests {
 			helper.assertTrue(move.isOver() || move.getPhase() == ActionPhase.RECOVERY,
 					"1.16 ended the held anchor move once the anchor left the hand: phase " + move.getPhase());
 			helper.assertTrue(s.user.keys().contains(CONDITION + "item_block_origin"), "1.16 said why: messages " + s.user.keys());
+			helper.succeed();
+		}
+	}
+
+	// PowerBaseImpl.checkRequirements asked isUnlocked last on every held tick: a barrage whose unlock is taken ends with
+	// not_unlocked
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aHeldActionNoLongerUnlockedEndsWithNotUnlockedAsIn116(GameTestHelper helper) {
+		try (StandScene s = new StandScene(helper, "HeldBarrageUnlock", "star_platinum")) {
+			EntityActionInstance barrage = s.startUntilPerform("barrage");
+			s.tick(2);
+			helper.assertTrue(barrage.getPhase() == ActionPhase.PERFORM && !barrage.isOver(),
+					"setup: the barrage is not held: phase " + barrage.getPhase() + ", messages " + s.user.keys());
+			s.power.getCurTypeData()._lockedAbilities.add("barrage");
+			try {
+				helper.assertTrue(!s.ability("barrage").isAbilityUnlocked(s.power), "setup: the barrage is still unlocked");
+				s.tick(1);
+				helper.assertTrue(barrage.isOver() || barrage.getPhase() == ActionPhase.RECOVERY,
+						"1.16 ended the held barrage once it was no longer unlocked: phase " + barrage.getPhase());
+				helper.assertTrue(s.user.keys().contains(CONDITION + "not_unlocked"), "1.16 said why: messages " + s.user.keys());
+			}
+			finally {
+				s.power.getCurTypeData()._lockedAbilities.remove("barrage");
+			}
+			helper.succeed();
+		}
+	}
+
+	// isUnlocked came after the action's own conditions: a repair that needs no repair and is locked says no_repair
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void theHeldUnlockIsAskedAfterTheActionsOwnConditionsAsIn116(GameTestHelper helper) {
+		try (StandScene s = new StandScene(helper, "HeldRepairUnlock", "crazy_diamond")) {
+			ItemStack sword = new ItemStack(Items.IRON_SWORD);
+			sword.setDamageValue(sword.getMaxDamage() - 10);
+			s.user.setItemInHand(InteractionHand.OFF_HAND, sword);
+			EntityActionInstance repair = s.startUntilPerform("repair_item");
+			s.tick(1);
+			helper.assertTrue(repair.getPhase() == ActionPhase.PERFORM && !repair.isOver(),
+					"setup: the Repair is not held on the damaged sword: phase " + repair.getPhase());
+			s.user.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.STICK));
+			s.power.getCurTypeData()._lockedAbilities.add("repair_item");
+			try {
+				s.tick(1);
+				helper.assertTrue(repair.isOver() || repair.getPhase() == ActionPhase.RECOVERY,
+						"setup: the held Repair did not end: phase " + repair.getPhase());
+				helper.assertTrue(s.user.keys().contains(CONDITION + "no_repair") && !s.user.keys().contains(CONDITION + "not_unlocked"),
+						"1.16 PowerBaseImpl.checkRequirements asked the action's conditions before isUnlocked: messages " + s.user.keys());
+			}
+			finally {
+				s.power.getCurTypeData()._lockedAbilities.remove("repair_item");
+			}
+			helper.succeed();
+		}
+	}
+
+	// StandEntityAction.checkConditions ran checkStandConditions on every held tick: the guard's own Stand conditions (a
+	// Stand holding an entity it grabbed may not guard) end the held guard, without a message
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aHeldStandActionEndsOnceItsStandConditionsFailAsIn116(GameTestHelper helper) {
+		try (StandScene s = new StandScene(helper, "HeldGuardStandConditions", "star_platinum")) {
+			Mob cow = s.mob(EntityType.COW, 1.5D);
+			EntityActionInstance guard = s.startUntilPerform("guard");
+			s.tick(2);
+			helper.assertTrue(guard.getPhase() == ActionPhase.PERFORM && !guard.isOver(),
+					"setup: the guard is not held: phase " + guard.getPhase());
+			LivingComponentGrab standGrab = s.stand.getData(ModDataAttachmentTypes.LIVING_GRAB.get());
+			standGrab.setGrabTarget(cow);
+			try {
+				helper.assertTrue(LivingComponentGrab.getEntityGrabbedBy(s.stand) == cow, "setup: the Stand did not grab the cow");
+				s.tick(1);
+				helper.assertTrue(guard.isOver() || guard.getPhase() == ActionPhase.RECOVERY,
+						"1.16 asked the Stand's conditions again on every held tick, so the held guard ends once its Stand holds a"
+								+ " grabbed entity, which its press refuses: phase " + guard.getPhase());
+				helper.assertTrue(s.user.keys().isEmpty(), "the guard's Stand condition has no message: messages " + s.user.keys());
+			}
+			finally {
+				standGrab.setGrabTarget(null);
+			}
+			helper.succeed();
+		}
+	}
+
+	// StandEntityMeleeBarrage.checkStandConditions (canAttackMelee, no message) came before StandAction's parts
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aHeldBarragesStandConditionsComeBeforeItsPartsAsIn116(GameTestHelper helper) {
+		try (StandScene s = new StandScene(helper, "HeldBarrageConditionOrder", "star_platinum")) {
+			EntityActionInstance barrage = s.startUntilPerform("barrage");
+			s.tick(2);
+			helper.assertTrue(barrage.getPhase() == ActionPhase.PERFORM && !barrage.isOver(),
+					"setup: the barrage is not held: phase " + barrage.getPhase());
+			AttributeInstance reach = s.stand.getAttribute(Attributes.ENTITY_INTERACTION_RANGE);
+			double baseReach = reach.getBaseValue();
+			reach.setBaseValue(0);
+			s.instance.removePart(StandPart.ARMS);
+			try {
+				helper.assertTrue(!s.stand.canAttackMelee(), "setup: the Stand can still attack in melee");
+				s.tick(1);
+				helper.assertTrue(barrage.isOver() || barrage.getPhase() == ActionPhase.RECOVERY,
+						"setup: the held barrage did not end: phase " + barrage.getPhase());
+				helper.assertTrue(s.user.keys().isEmpty(),
+						"1.16 StandEntityAction.checkConditions asked checkStandConditions (canAttackMelee, no message) before"
+								+ " StandAction.checkConditions (the arms): messages " + s.user.keys());
+			}
+			finally {
+				reach.setBaseValue(baseReach);
+				s.instance.addPart(StandPart.ARMS);
+			}
+			helper.succeed();
+		}
+	}
+
+	/*
+	 * PowerBaseImpl.tickHeldAction ended a hold at its length with stopHeldAction(true), which checked the requirements once
+	 * more and, when they failed, fired nothing and said nothing. Each charge here is run to its end at once, as a mob's
+	 * held press is (stand-bearing-creatures' fireHeldAction).
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aFullLengthChargeIsCheckedOnceMoreBeforeItFiresAsIn116(GameTestHelper helper) {
+		try (StandScene s = new StandScene(helper, "FullChargeRecheck", "magicians_red")) {
+			s.unlock("crossfire_hurricane");
+			EntityActionInstance fires = s.start("crossfire_hurricane");
+			s.tick(3);
+			helper.assertTrue(fires.getPhase() == ActionPhase.BUTTON_CHARGE, "setup: Crossfire Hurricane is not charging: phase "
+					+ fires.getPhase());
+			s.runPhaseToItsEnd(fires);
+			helper.assertTrue(!fires.isOver() && fires.getPhase() != ActionPhase.BUTTON_CHARGE,
+					"setup: a full charge that passes its checks did not go on to fire: phase " + fires.getPhase());
+
+			EntityActionInstance dropped = s.start("crossfire_hurricane");
+			s.tick(3);
+			s.instance.removePart(StandPart.MAIN_BODY);
+			float stamina = s.power.getStamina();
+			s.runPhaseToItsEnd(dropped);
+			helper.assertTrue(dropped.isOver(),
+					"1.16 stopHeldAction(true) fired nothing once the Stand had lost its body at the end of the charge: phase "
+							+ dropped.getPhase());
+			s.tick(2);
+			helper.assertTrue(s.user.keys().isEmpty() && s.power.getStamina() == stamina,
+					"the dropped full charge said nothing and spent nothing: messages " + s.user.keys() + ", stamina " + stamina
+							+ " -> " + s.power.getStamina());
+
+			// no key holds it (set by code): not checked, as on its held ticks
+			EntityActionInstance unheld = s.start("crossfire_hurricane");
+			s.user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get()).heldKeys.clear();
+			s.runPhaseToItsEnd(unheld);
+			helper.assertTrue(!unheld.isOver() && unheld.getPhase() != ActionPhase.BUTTON_CHARGE,
+					"a charge no key holds is not rechecked at its end: phase " + unheld.getPhase());
+			helper.succeed();
+		}
+	}
+
+	// a hold-only action at its length ended through stopHeldAction(true)'s holdOnly branch, which rechecked nothing
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aHoldOnlyActionAtItsLengthEndsWithoutTheFireRecheckAsIn116(GameTestHelper helper) {
+		try (StandScene s = new StandScene(helper, "HoldOnlyAtLength", "star_platinum")) {
+			EntityActionInstance inhale = s.startUntilPerform("inhale");
+			inhale.phasesLength.put(ActionPhase.RECOVERY, 10.0F);
+			s.instance.removePart(StandPart.MAIN_BODY);
+			s.runPhaseToItsEnd(inhale);
+			helper.assertTrue(inhale.getPhase() == ActionPhase.RECOVERY,
+					"1.16 ended a hold-only action at its length into its recovery without the fire's recheck: phase "
+							+ inhale.getPhase());
+			helper.succeed();
+		}
+	}
+
+	// a charge that goes on into a phase the key still holds does not fire, so 1.16 checked it on its next held tick
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aChargeThatGoesOnHeldIsCheckedOnItsNextHeldTickAsIn116(GameTestHelper helper) {
+		try (StandScene s = new StandScene(helper, "ChargeGoesOnHeld", "star_platinum")) {
+			EntityActionInstance charge = s.start("heavy_charged");
+			s.tick(1);
+			helper.assertTrue(charge.getPhase() == ActionPhase.BUTTON_CHARGE, "setup: the charged heavy punch is not charging: phase "
+					+ charge.getPhase());
+			s.stand.addEffect(new MobEffectInstance(ModStatusEffects.STUN, 40));
+			try {
+				s.runPhaseToItsEnd(charge);
+				helper.assertTrue(charge.getPhase() == ActionPhase.WINDUP,
+						"the end of the charge led into the held windup, which fires nothing: phase " + charge.getPhase());
+				s.tick(1);
+				helper.assertTrue(charge.isOver() && s.user.keys().contains(CONDITION + "stun"),
+						"its next held tick ended it with the check's message: phase " + charge.getPhase() + ", messages "
+								+ s.user.keys());
+			}
+			finally {
+				s.stand.removeEffect(ModStatusEffects.STUN);
+			}
+			helper.succeed();
+		}
+	}
+
+	// 1.16 held an action from its press: a windup played before a held perform is rechecked too
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aWindupBeforeAHeldPerformIsRecheckedAsIn116(GameTestHelper helper) {
+		try (PowerScene s = new PowerScene(helper, "HeldDetectorWindup", ModPlayerPowers.HAMON.get())) {
+			HamonData hamon = PlayerPower.getPowerData(s.user, ModPlayerPowers.HAMON).orElseThrow();
+			hamon.learnSkill(ModHamonSkills.DETECTOR.get());
+			helper.assertTrue(hamon.isSkillLearned(ModHamonSkills.DETECTOR.get()), "setup: the Detector is not learned");
+			hamon.setBreathStability(hamon.getMaxBreathStability());
+			hamon.setEnergy(hamon.getMaxEnergy());
+			EntityActionInstance detector = s.start("hamon_detector");
+			s.tick(2);
+			helper.assertTrue(detector.getPhase() == ActionPhase.WINDUP && !detector.isOver(),
+					"setup: the Detector is not in its windup: phase " + detector.getPhase());
+			s.user.addEffect(new MobEffectInstance(ModStatusEffects.STUN, 40));
+			s.tick(1);
+			helper.assertTrue(detector.isOver(),
+					"1.16 checked the held Detector from its press on, so a stun in its windup ended it: phase " + detector.getPhase());
+			helper.assertTrue(s.user.keys().contains(CONDITION + "stun"), "1.16 said why: messages " + s.user.keys());
 			helper.succeed();
 		}
 	}
@@ -381,6 +597,12 @@ public final class HeldActionRecheck116GameTests {
 			return (EntityActionAbility) found;
 		}
 
+		// as a player who can press it has it; the scene does not run the user's tick, whose Resolve rule unlocks skills
+		private void unlock(String name) {
+			power.getCurTypeData()._lockedAbilities.remove(name);
+			helper.assertTrue(ability(name).isAbilityUnlocked(power), "setup: " + name + " is still locked");
+		}
+
 		// set on the Stand as a press sets it and held by its key
 		private EntityActionInstance start(String name) {
 			standAction.setAction(null, user, SyncType.NO_SYNC);
@@ -405,6 +627,11 @@ public final class HeldActionRecheck116GameTests {
 			for (int tick = 0; tick < count; tick++) {
 				standAction.tick();
 			}
+		}
+
+		// the current phase run to its length at once, as stand-bearing-creatures' fireHeldAction runs a mob's charge
+		private void runPhaseToItsEnd(EntityActionInstance action) {
+			action.setPhase(action.getPhase(), Mth.ceil(action.getCurPhaseLength()));
 		}
 
 		private Mob mob(EntityType<? extends Mob> type, double ahead) {

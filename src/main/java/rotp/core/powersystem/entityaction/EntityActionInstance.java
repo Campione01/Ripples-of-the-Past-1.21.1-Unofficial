@@ -1153,10 +1153,45 @@ public class EntityActionInstance implements HeldInput {
 			if (curPhaseTick == 0 && curPhaseLength > 0 && curPhaseLength <= 1) {
 				_onTick();
 			}
-			
+			if (stopFullChargeIfConditionsFail()) {
+				return;
+			}
+
 			int ordinal = phase.ordinal() + 1;
 			ActionPhase nextPhase = ordinal < ActionPhase.values().length ? ActionPhase.values()[ordinal] : null;
 			setPhaseStart(nextPhase);
+		}
+	}
+
+	/*
+	 * 1.16 stopHeldAction(true) as a hold reached its length: a held charge (a phase before the perform) that fires as it
+	 * ends is checked once more before it leaves the charge, so a failed check leaves no trace of the next phase. Server.
+	 */
+	private boolean stopFullChargeIfConditionsFail() {
+		return !isOver() && performer != null && !level().isClientSide() && curPhaseLength > 0
+				&& phase.ordinal() < ActionPhase.PERFORM.ordinal()
+				&& ability instanceof EntityActionAbility entityAbility && entityAbility.isHeldSincePress(this)
+				&& firesAfterHeldPhase(entityAbility) && entityAbility.stopFullChargeIfConditionsFail(this);
+	}
+
+	// whether the phase the action goes on to is no longer held, asked without entering it (onSetPhase does not run)
+	private boolean firesAfterHeldPhase(EntityActionAbility entityAbility) {
+		ActionPhase next = null;
+		for (int i = phase.ordinal() + 1; i < ActionPhase.values().length && next == null; i++) {
+			if (phasesLength.getFloat(ActionPhase.values()[i]) > 0) {
+				next = ActionPhase.values()[i];
+			}
+		}
+		if (next == null) {
+			return false;
+		}
+		ActionPhase held = phase;
+		phase = next;
+		try {
+			return !entityAbility.isHeldSincePress(this);
+		}
+		finally {
+			phase = held;
 		}
 	}
 
