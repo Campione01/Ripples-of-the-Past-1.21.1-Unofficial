@@ -773,10 +773,8 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 				this.setYRot(rotations.y);
 
 				this.setYHeadRot(this.getYRot());
-				// with a task the body takes this yaw as the next tick starts (tickHeadTurn)
-				if (getCurStandAction() == null) {
-					this.setYBodyRot(this.getYRot());
-				}
+				// the body is left as 1.16's MCUtil.rotateTowards left it; with a task it takes this yaw as the next tick
+				// starts (tickHeadTurn)
 			}
 			else {
 				float maxHeadYRot = 75;

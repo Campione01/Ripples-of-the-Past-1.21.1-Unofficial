@@ -906,6 +906,37 @@ public final class StandTaskTargetTurnGameTests {
 		helper.succeed();
 	}
 
+	/*
+	 * 1.16 MCUtil.rotateTowards, the turn to a target, set the yaw, the pitch and the head and never the body, with a task
+	 * or without one. StandEntity.lookAtPos(pos, true) turns a Stand with no action that way too, as add-ons call it (RHCP
+	 * facing its lock under manual control, Wonder of U's aim).
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aFullTurnToAPositionLeavesTheBodyOfAStandWithNoActionAsIn116(GameTestHelper helper) {
+		StandTaskTargetOffsetGameTests.withStand(helper, "hierophant_green", scene -> {
+			StandEntity stand = scene.stand();
+			stand.setCanFollowUser(false);
+			stand.setYRot(VIEW_YAW);
+			stand.setXRot(0.0F);
+			stand.setYHeadRot(VIEW_YAW);
+			stand.yBodyRot = VIEW_YAW + 30.0F;
+			Cow cow = scene.cow(COW_FROM_USER.add(0.0D, 1.5D, 0.0D));
+			Vec3 toEyes = cow.getEyePosition().subtract(stand.getEyePosition());
+			float yaw = MathUtil.yRotDegFromVec(toEyes);
+			float pitch = MathUtil.xRotDegFromVec(toEyes);
+			helper.assertTrue(stand.getCurStandAction() == null && Math.abs(Mth.wrapDegrees(yaw - VIEW_YAW - 30.0F)) > 1.0F
+					&& Math.abs(pitch) > 1.0F, "setup: the Stand has an action, or the cow's eyes lie along its body or level"
+							+ " with its eyes: yaw " + yaw + ", pitch " + pitch);
+			helper.assertTrue(stand.lookAtPos(cow.getEyePosition(), true), "setup: the Stand did not turn to the cow's eyes");
+			helper.assertTrue(Math.abs(Mth.wrapDegrees(stand.getYRot() - yaw)) < 1.0E-3F && Math.abs(stand.getXRot() - pitch) < 1.0E-3F
+					&& Math.abs(Mth.wrapDegrees(stand.yHeadRot - yaw)) < 1.0E-3F, "the Stand did not face the cow's eyes (yaw " + yaw
+							+ ", pitch " + pitch + "): yaw " + stand.getYRot() + ", pitch " + stand.getXRot() + ", head " + stand.yHeadRot);
+			helper.assertTrue(Math.abs(Mth.wrapDegrees(stand.yBodyRot - VIEW_YAW - 30.0F)) < EPS, "1.16 MCUtil.rotateTowards left"
+					+ " the body of a Stand with no task it turned at " + (VIEW_YAW + 30.0F) + ": it is at " + stand.yBodyRot);
+		});
+		helper.succeed();
+	}
+
 	// as when each Stand has parried the other's barrage (StandEntity.barrageClashParryPunches)
 	private static void startBarrageClash(GameTestHelper helper, StandEntity stand, StandEntity opponent) {
 		try {
