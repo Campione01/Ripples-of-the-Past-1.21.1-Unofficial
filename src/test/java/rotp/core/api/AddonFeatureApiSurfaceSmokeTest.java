@@ -108,6 +108,14 @@ public final class AddonFeatureApiSurfaceSmokeTest {
 		Method stun = find(ability, "checkPerformerStun", power);
 		check(Modifier.isPublic(stun.getModifiers()) && Modifier.isStatic(stun.getModifiers()),
 				ability + "#checkPerformerStun must stay public static");
+
+		check(RotpAddonApi.supportsFeature(RotpAddonApi.FEATURE_STAND_DEFAULT_ROTATION_RULES_V1),
+				"the Stand default rotation rules are not advertised");
+		String rules = "rotp.core.api.stand.StandDefaultRotationRules";
+		Method register = find(rules, "register", "net.minecraft.resources.ResourceLocation",
+				"rotp.core.api.stand.StandDefaultRotationRule");
+		check(Modifier.isPublic(register.getModifiers()) && Modifier.isStatic(register.getModifiers()),
+				rules + "#register must stay public static");
 	}
 
 	private static void requirePublicStaticField(String owner, String name) {

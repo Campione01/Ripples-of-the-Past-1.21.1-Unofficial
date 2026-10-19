@@ -23,7 +23,8 @@ import net.minecraft.world.entity.LivingEntity;
  * its body ({@link StandEntity#updatePosition}). The Stand's action and its task's target turn it
  * after that, and the head goes on the yaw as usual. Rules run in registration order until one takes the rotation over;
  * with none, the core copies it. A player's Stand and the copy as a Stand is summoned are never asked. A rule that fails
- * leaves the copy to the core. Register from common setup, so that clients have the rule too.</p>
+ * leaves the copy to the core. Register from common setup, so that clients have the rule too. Feature flag:
+ * {@link rotp.core.api.RotpAddonApi#FEATURE_STAND_DEFAULT_ROTATION_RULES_V1}.</p>
  */
 public final class StandDefaultRotationRules {
 	private static final Map<ResourceLocation, StandDefaultRotationRule> RULES = new LinkedHashMap<>();
