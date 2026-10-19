@@ -151,6 +151,45 @@ public final class StrikeImpactSoundOrderGameTests {
 		helper.succeed();
 	}
 
+	// as the heavy punch sounds an entity's impact only for a landed hit: a cow it does not hurt, and a boat, which the
+	// charged heavy punch does not strike at all
+	@GameTest(template = "empty", timeoutTicks = 40, batch = BATCH)
+	public static void aChargedHeavyPunchSoundsNoImpactForAnEntityHitThatDoesNotLand(GameTestHelper helper) {
+		for (boolean boat : new boolean[] { false, true }) {
+			Scene scene = new Scene(helper, ModSoundEvents.STAND_PUNCH_HEAVY_CHARGED);
+			try {
+				Entity struck = (boat ? EntityType.BOAT : EntityType.COW).create(scene.level());
+				helper.assertTrue(struck != null, "setup: could not create the target");
+				struck.setNoGravity(true);
+				struck.moveTo(scene.origin.x, scene.origin.y, scene.origin.z + 2.0D, 0.0F, 0.0F);
+				if (struck instanceof Cow cow) {
+					cow.setNoAi(true);
+					cow.setInvulnerable(true);
+					scene.cow = cow;
+				}
+				helper.assertTrue(scene.level().addFreshEntity(struck), "setup: could not add the target");
+				scene.other = struck;
+				ActionTarget target = new ActionTarget(struck);
+				StandEntityChargedHeavy heavy = new StandEntityChargedHeavy((EntityActionType) scene.power.getAbility("heavy_charged")) {
+					@Override
+					protected ActionTarget getPerformTarget(StandEntity stand) {
+						return target;
+					}
+				};
+				scene.strike(heavy);
+				heavy.actionPerformEnd();
+				helper.assertTrue(boat || scene.cow.getHealth() >= scene.cow.getMaxHealth(), "setup: the invulnerable cow was hurt");
+				helper.assertTrue(scene.sounds == 0, "The charged heavy punch played its impact sound " + scene.sounds
+						+ " time(s) for " + (boat ? "a boat it does not strike" : "a cow its hit did not hurt") + "; as the"
+						+ " heavy punch it sounds an entity's impact only for a hit that lands");
+			}
+			finally {
+				scene.close();
+			}
+		}
+		helper.succeed();
+	}
+
 	private static final class Scene {
 		final GameTestHelper helper;
 		final Holder<SoundEvent> sound;
@@ -163,6 +202,7 @@ public final class StrikeImpactSoundOrderGameTests {
 		final BlockState oldBlock;
 		final Consumer<PlayLevelSoundEvent.AtPosition> listener;
 		Cow cow;
+		Entity other;
 		int sounds;
 		// whether the block still stood, or the cow was not yet hurt, as the sound played
 		boolean stoodAtSound;
@@ -222,6 +262,9 @@ public final class StrikeImpactSoundOrderGameTests {
 			}
 			if (cow != null) {
 				cow.discard();
+			}
+			if (other != null) {
+				other.discard();
 			}
 			user.discard();
 			level().getEntitiesOfClass(Entity.class, new AABB(pos).inflate(8),
