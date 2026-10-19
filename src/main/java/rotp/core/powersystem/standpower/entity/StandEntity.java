@@ -59,6 +59,7 @@ import rotp.core.subsystems.entity_externalcontainer._stand.StandHandsContainerM
 import rotp.core.subsystems.entity_puppetcontrol.client.ClientEntityController;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
+import rotp.core.subsystems.target.ActionTargetRange;
 import rotp.core.subsystems.timestop.TimeStopLearning;
 import rotp.core.subsystems.timestop.TimeStopState;
 import rotp.core.util.functions.AttributeUtil;
@@ -2484,6 +2485,7 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		}
 	}
 
+	// 1.16 StandEntity.tick: the clash ends once the opponent is dead or out of the Stand's reach (isTargetInReach)
 	private boolean barrageClashOpponentOutOfReach() {
 		Entity opponent = barrageClashOpponent().orElse(null);
 		if (opponent == null) {
@@ -2492,7 +2494,7 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		if (!opponent.isAlive()) {
 			return true;
 		}
-		return MathUtil.getAABBDistanceDetailed(getBoundingBox(), opponent.getBoundingBox()).distance() > getMaxRange();
+		return ActionTargetRange.getDistance(this, opponent.getBoundingBox()) > getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE);
 	}
 
 	@Override

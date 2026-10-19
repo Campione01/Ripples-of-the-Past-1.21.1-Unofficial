@@ -31,7 +31,9 @@ import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.entity.StandEntityAbility;
 import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.target.ActionTarget;
+import rotp.core.subsystems.target.ActionTargetRange;
 import rotp.core.subsystems.target.AimingEntity;
+import rotp.core.util.functions.MathUtil;
 
 import net.minecraft.commands.arguments.EntityAnchorArgument;
 import net.minecraft.core.BlockPos;
@@ -776,6 +778,72 @@ public final class StandTaskTargetTurnGameTests {
 								+ " and pitch 10 with its head at " + headYaw + ", its user looking at " + (VIEW_YAW + 60.0F)
 								+ ": yaw " + stand.getYRot() + ", pitch " + stand.getXRot() + ", head " + stand.yHeadRot + " from "
 								+ stand.yHeadRotO);
+			});
+		}
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 StandEntity.tick ended a barrage clash, on both Stands, once the opponent was out of the Stand's reach
+	 * (isTargetInReach: JojoModUtil.getDistance from the Stand's eyes to where the line toward the opponent's box enters it,
+	 * less half the Stand's width, against REACH_DISTANCE, 2.5 for Star Platinum), not its max range: an opponent 2.8
+	 * blocks away, past the max range box to box, stays; one 3.5 away or 2.9 away and 1.5 higher ends it.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aBarrageClashEndsOnceTheOpponentLeavesTheStandsReachAsIn116(GameTestHelper helper) {
+		double[][] rows = { { 2.8D, 0.0D, 0.0D }, { 3.5D, 0.0D, 1.0D }, { 2.9D, 1.5D, 1.0D } };
+		for (double[] row : rows) {
+			boolean ends = row[2] > 0.0D;
+			StandTaskTargetOffsetGameTests.withStand(helper, "star_platinum", scene -> {
+				StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("star_platinum"));
+				Player rival = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
+				StandPower rivalPower = null;
+				StandEntity stand = scene.stand();
+				try {
+					Vec3 rivalPos = scene.user().position().add(0.0D, 0.0D, 6.0D);
+					rival.setNoGravity(true);
+					rival.moveTo(rivalPos.x, rivalPos.y, rivalPos.z, 180.0F, 0.0F);
+					helper.assertTrue(helper.getLevel().addFreshEntity(rival), "Could not add the rival Stand user");
+					rivalPower = PowerClass.STAND.attachGet(rival);
+					helper.assertTrue(StandPowerTransitions.insert(rivalPower, new StandInstance(type)).status()
+							== StandPowerTransitions.Status.APPLIED && type.summon(rival, rivalPower),
+							"Could not give the rival Star Platinum");
+					StandEntity opponent = rivalPower.getSummonedStandEntity();
+					stand.setCanFollowUser(false);
+					stand.setNoGravity(true);
+					opponent.setNoGravity(true);
+					Vec3 at = stand.position().add(0.0D, row[1], row[0]);
+					opponent.moveTo(at.x, at.y, at.z, 180.0F, 0.0F);
+					startBarrageClash(helper, stand, opponent);
+					double reach = stand.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE);
+					double fromEyes = ActionTargetRange.getDistance(stand, opponent.getBoundingBox());
+					double boxToBox = MathUtil.getAABBDistanceDetailed(stand.getBoundingBox(), opponent.getBoundingBox()).distance();
+					helper.assertTrue((fromEyes > reach) == ends && (ends || boxToBox > stand.getMaxRange())
+							&& (row[1] == 0.0D || boxToBox <= reach),
+							"setup: the opponent " + row[0] + " south and " + row[1] + " up is " + fromEyes + " from the Stand's eyes and "
+									+ boxToBox + " box to box, the reach " + reach + ", the max range " + stand.getMaxRange());
+					stand.tick();
+					String what = "a star_platinum's barrage clash with an opponent " + row[0] + " blocks south and " + row[1]
+							+ " up, " + fromEyes + " from its eyes, with a reach of " + reach;
+					if (ends) {
+						helper.assertTrue(stand.barrageClashOpponent().isEmpty() && opponent.barrageClashOpponent().isEmpty(),
+								"1.16 ended " + what + " on both Stands; the clash opponents are " + stand.barrageClashOpponent()
+										+ " and " + opponent.barrageClashOpponent());
+					}
+					else {
+						helper.assertTrue(stand.barrageClashOpponent().orElse(null) == opponent
+								&& opponent.barrageClashOpponent().orElse(null) == stand, "1.16 kept " + what
+										+ "; the clash opponents are " + stand.barrageClashOpponent() + " and "
+										+ opponent.barrageClashOpponent());
+					}
+				}
+				finally {
+					stand.barrageClashStopped();
+					if (rivalPower != null && rivalPower.isSummoned()) {
+						type.forceUnsummon(rival, rivalPower);
+					}
+					rival.discard();
+				}
 			});
 		}
 		helper.succeed();
