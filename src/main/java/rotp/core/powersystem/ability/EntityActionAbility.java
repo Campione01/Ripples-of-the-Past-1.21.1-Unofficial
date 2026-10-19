@@ -237,11 +237,14 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 	
 	/**
 	 * 1.16 PowerBaseImpl.tickHeldAction re-ran checkRequirements on every tick of a held action, and stopHeldAction(true)
-	 * ran it once more before a released hold fired. Rechecked here, per tick and on release: the power is usable,
-	 * the performer is alive and, unless the action ignores it, not stunned, and the Stand still has the parts the
-	 * action needs (1.16 StandAction partsRequired). {@link #checkHeldSpecificConditions} adds the ability's own
-	 * (items, target, stamina and so on); an ability that does not override it rechecks none of those.
-	 * Not rechecked: the cooldown and a busy performer, which the running hold already went through.
+	 * ran it once more before a released or full-length hold fired. Rechecked here, per tick and before such a hold fires,
+	 * in 1.16's order: the power is usable, the performer is alive and, unless the action ignores it, not stunned, what
+	 * the action asks of its performer ({@link #checkHeldPerformerConditions}: a Stand's conditions, 1.16
+	 * StandEntityAction.checkStandConditions), the Stand still has the parts the action needs (1.16 StandAction
+	 * partsRequired), then {@link #checkHeldSpecificConditions}, the ability's own (items, target, stamina and so on;
+	 * an ability that does not override it rechecks none of those), and last whether the ability is still unlocked
+	 * (1.16 isUnlocked, "not_unlocked"). Not rechecked: the cooldown and a busy performer, which the running hold already
+	 * went through.
 	 */
 	public ConditionCheck checkHeldActionConditions(EntityActionInstance action, Power<?> context) {
 		if (!context.canUsePower()) {
@@ -256,14 +259,31 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 				return ConditionCheck.NEGATIVE;
 			}
 		}
+		ConditionCheck performerCheck = checkHeldPerformerConditions(action, context);
+		if (!performerCheck.isPositive()) {
+			return performerCheck;
+		}
 		// 1.16 StandAction.checkConditions ran on every held tick: a lost Stand part ends the hold.
 		ConditionCheck partsCheck = checkStandPartsRequired(context);
 		if (!partsCheck.isPositive()) {
 			return partsCheck;
 		}
-		return checkHeldSpecificConditions(action, context);
+		ConditionCheck check = checkHeldSpecificConditions(action, context);
+		if (!check.isPositive()) {
+			return check;
+		}
+		return isAbilityUnlocked(context) ? check : ConditionCheck.createNegative("not_unlocked");
 	}
-	
+
+	/**
+	 * What the held recheck asks of the action's performer before the Stand parts, as 1.16 StandEntityAction.checkConditions
+	 * asked checkStandConditions before StandAction's; nothing by default. StandEntityAbility asks its Stand's press
+	 * conditions again ({@code checkStandEntityConditions}).
+	 */
+	protected ConditionCheck checkHeldPerformerConditions(EntityActionInstance action, Power<?> context) {
+		return ConditionCheck.POSITIVE;
+	}
+
 	/**
 	 * What 1.16 Action.checkConditions checked again during a hold: the held items, soap, a target and so on.
 	 * Unlike {@link #checkConditions}, it must not ask again what the running hold already went through

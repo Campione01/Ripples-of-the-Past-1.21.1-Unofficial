@@ -378,7 +378,7 @@ public final class HeldConditionRecheckGameTests {
 	@GameTest(template = "empty", timeoutTicks = 80)
 	public static void lostStandBodyDropsCrossfireCharge(GameTestHelper helper) {
 		try (StandFixture f = new StandFixture(helper, "HeldCrossfireBody", "magicians_red")) {
-			EntityActionAbility crossfire = f.ability("crossfire_hurricane");
+			EntityActionAbility crossfire = f.unlocked("crossfire_hurricane");
 			EntityActionInstance charge = crossfire.initActionOnAbilityUse(helper.getLevel(), f.user, f.stand, null);
 			f.standAction.setAction(charge, f.user, SyncType.NO_SYNC);
 			holdByKey(f.user, charge, PowerClass.STAND);
@@ -404,7 +404,7 @@ public final class HeldConditionRecheckGameTests {
 	public static void lostStandBodyStopsEarlyTimeStopRelease(GameTestHelper helper) {
 		TimeStopState timeStops = helper.getLevel().getData(ModDataAttachmentTypes.TIME_STOP.get());
 		try (StandFixture f = new StandFixture(helper, "HeldTimeStopBody", "star_platinum")) {
-			EntityActionAbility timeStop = f.ability("time_stop");
+			EntityActionAbility timeStop = f.unlocked("time_stop");
 			int stopId = f.user.getId();
 			try {
 				// Released on the tick the body is lost: the per-tick recheck never saw it.
@@ -777,6 +777,18 @@ public final class HeldConditionRecheckGameTests {
 			Ability found = power.getAbility(name);
 			helper.assertTrue(found instanceof EntityActionAbility, "Missing Stand ability " + name);
 			return (EntityActionAbility) found;
+		}
+
+		// as a player who can press it has it; the held recheck asks isAbilityUnlocked as 1.16 asked isUnlocked
+		private EntityActionAbility unlocked(String name) {
+			EntityActionAbility ability = ability(name);
+			power.getCurTypeData()._lockedAbilities.remove(name);
+			int resolve = ability.getRequiredResolveLevel(power);
+			if (resolve > power.getResolveLevel()) {
+				power.setResolveLevel(resolve);
+			}
+			helper.assertTrue(ability.isAbilityUnlocked(power), "Fixture: " + name + " is still locked");
+			return ability;
 		}
 
 		private void tick(int count) {

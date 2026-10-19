@@ -4,6 +4,7 @@ import java.util.function.Function;
 
 import javax.annotation.Nullable;
 
+import rotp.core.powersystem.Power;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
@@ -161,10 +162,22 @@ public class StandEntityAbility extends EntityActionAbility {
 		return canDefaultTargetEntityForAiming(standEntity, target);
 	}
 
+	/**
+	 * 1.16 StandEntityAction.checkStandConditions: what the Stand must be able to do for the action, asked at the press
+	 * and, as 1.16 PowerBaseImpl.tickHeldAction asked it, on every tick a key holds the action and before such a hold fires.
+	 */
 	protected ConditionCheck checkStandEntityConditions(StandPower standPower, StandEntity standEntity) {
 		return ConditionCheck.POSITIVE;
 	}
-	
+
+	@Override
+	protected ConditionCheck checkHeldPerformerConditions(EntityActionInstance action, Power<?> context) {
+		if (action.getPerformer() instanceof StandEntity standEntity && context instanceof StandPower standPower) {
+			return checkStandEntityConditions(standPower, standEntity);
+		}
+		return ConditionCheck.POSITIVE;
+	}
+
 	
 	@Override
 	protected LivingEntity getPerformer(LivingEntity user) {
