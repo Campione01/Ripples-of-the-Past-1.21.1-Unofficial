@@ -14,6 +14,7 @@ import rotp.core.impl.powers.pillarman.PillarmanMode;
 import rotp.core.impl.powers.vampirism.VampirismData;
 import rotp.core.impl.powers.vampirism.VampirismState;
 import rotp.core.impl.stands.crazydiamond.CrazyDAngeloRockPunchEffect;
+import rotp.core.impl.stands.magiciansred.MagiciansRedCrossfireHurricaneAbility;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModItemDataComponents;
 import rotp.core.init.ModStatusEffects;
@@ -627,6 +628,120 @@ public final class HeldActionRecheck116GameTests {
 		}
 	}
 
+	/*
+	 * PowerBaseImpl.checkRequirements asked isActionOnCooldown right after canUsePower on every held tick and before a
+	 * full-length hold fired, and its plain NEGATIVE ended the hold without a message. 1.16 set a held action's own
+	 * cooldown only as it fired or its hold ended, so what ended it was a cooldown set from elsewhere during the hold,
+	 * here by the test.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aCooldownSetDuringAHoldEndsItSilentlyAsIn116(GameTestHelper helper) {
+		for (String row : new String[] { "charge", "hold-only", "full charge", "after the press's own", "with a stun" }) {
+			try (StandScene s = new StandScene(helper, "HeldCooldownSet", row.equals("hold-only") ? "star_platinum" : "magicians_red")) {
+				String name = row.equals("hold-only") ? "inhale" : "crossfire_hurricane";
+				EntityActionInstance held;
+				if (row.equals("hold-only")) {
+					held = s.startUntilPerform(name);
+				}
+				else {
+					s.unlock(name);
+					held = s.start(name);
+					if (row.equals("after the press's own")) {
+						s.power.setAbilityCooldown(name, 100);
+					}
+				}
+				s.tick(2);
+				ActionPhase heldPhase = row.equals("hold-only") ? ActionPhase.PERFORM : ActionPhase.BUTTON_CHARGE;
+				helper.assertTrue(held.getPhase() == heldPhase && !held.isOver(),
+						"setup (" + row + "): " + name + " is not held: phase " + held.getPhase() + ", messages " + s.user.keys());
+				float stamina = s.power.getStamina();
+				s.power.setAbilityCooldown(name, 100);
+				if (row.equals("with a stun")) {
+					s.stand.addEffect(new MobEffectInstance(ModStatusEffects.STUN, 40));
+				}
+				try {
+					if (row.equals("full charge")) {
+						s.runPhaseToItsEnd(held);
+						s.tick(1);
+					}
+					else {
+						s.tick(1);
+					}
+					helper.assertTrue(held.isOver() || row.equals("hold-only") && held.getPhase() == ActionPhase.RECOVERY,
+							"1.16 ended the held " + name + " (" + row + ") once a cooldown was set on it during the hold: phase "
+									+ held.getPhase());
+					helper.assertTrue(s.user.keys().isEmpty(), "1.16 said nothing for the cooldown (" + row
+							+ "), which it asked before the stun: messages " + s.user.keys());
+					helper.assertTrue(row.equals("hold-only") || s.power.getStamina() == stamina,
+							"the " + name + " ended by a cooldown (" + row + ") fired: stamina " + stamina + " -> " + s.power.getStamina());
+				}
+				finally {
+					s.stand.removeEffect(ModStatusEffects.STUN);
+				}
+			}
+		}
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16's held cooldown recheck never saw the hold's own cooldown, which it set only as the hold fired or ended. The
+	 * port sets a Stand ability's at its press, after the press started the action (AbilityInput.keyPress,
+	 * shouldSetCooldownOnKeyPress), and an action may set its own while it runs, also on the tick its charge ends and is
+	 * checked before it fires: none of these ends the hold, which fires at its full length.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aHoldIsNotEndedByTheCooldownItSetItselfAsIn116(GameTestHelper helper) {
+		for (String row : new String[] { "set at its press", "set in its own tick", "set on its last charge tick" }) {
+			try (StandScene s = new StandScene(helper, "HeldOwnCooldown", "magicians_red")) {
+				s.unlock("crossfire_hurricane");
+				EntityActionAbility crossfire = s.ability("crossfire_hurricane");
+				boolean onLastTick = row.equals("set on its last charge tick");
+				EntityActionInstance charge;
+				if (row.equals("set at its press")) {
+					charge = s.start("crossfire_hurricane");
+					s.power.setAbilityCooldown("crossfire_hurricane", 100);
+				}
+				else {
+					charge = new MagiciansRedCrossfireHurricaneAbility.CrossfireShot(crossfire) {
+						private boolean cooldownSet;
+
+						@Override
+						public void actionTick() {
+							super.actionTick();
+							if (!cooldownSet && !level().isClientSide() && getPhase() == ActionPhase.BUTTON_CHARGE
+									&& (onLastTick ? getPhaseTick() + 1 >= getCurPhaseLength() : getPhaseTick() >= 2)) {
+								cooldownSet = true;
+								s.power.setAbilityCooldown("crossfire_hurricane", 100);
+							}
+						}
+					};
+					crossfire.initActionFromConfig(charge, helper.getLevel(), s.user, s.stand);
+					charge.setStartingPhase();
+					s.hold(charge);
+				}
+				if (onLastTick) {
+					float chargeTicks = charge.getCurPhaseLength();
+					s.tick(Mth.ceil(chargeTicks));
+					helper.assertTrue(s.power.isAbilityOnCooldown("crossfire_hurricane"),
+							"setup (" + row + "): Crossfire Hurricane is not on cooldown");
+				}
+				else {
+					s.tick(5);
+					helper.assertTrue(s.power.isAbilityOnCooldown("crossfire_hurricane"),
+							"setup (" + row + "): Crossfire Hurricane is not on cooldown");
+					helper.assertTrue(charge.getPhase() == ActionPhase.BUTTON_CHARGE && !charge.isOver(),
+							"a cooldown the hold set itself (" + row + ") ended the Crossfire Hurricane charge, which 1.16's recheck"
+									+ " never saw: phase " + charge.getPhase() + ", messages " + s.user.keys());
+					s.runPhaseToItsEnd(charge);
+				}
+				helper.assertTrue(!charge.isOver() && charge.getPhase() != ActionPhase.BUTTON_CHARGE,
+						"the full Crossfire Hurricane charge did not fire with the cooldown it set itself (" + row + "): phase "
+								+ charge.getPhase());
+			}
+		}
+		helper.succeed();
+	}
+
 	/** A server player that keeps the action bar messages it is sent. */
 	private static final class RecordingPlayer extends FakePlayer {
 		private final List<Component> actionBar = new ArrayList<>();
@@ -708,8 +823,11 @@ public final class HeldActionRecheck116GameTests {
 
 		// set on the Stand as a press sets it and held by its key
 		private EntityActionInstance start(String name) {
+			return hold(ability(name).initActionOnAbilityUse(helper.getLevel(), user, stand, null));
+		}
+
+		private EntityActionInstance hold(EntityActionInstance action) {
 			standAction.setAction(null, user, SyncType.NO_SYNC);
-			EntityActionInstance action = ability(name).initActionOnAbilityUse(helper.getLevel(), user, stand, null);
 			standAction.setAction(action, user, SyncType.NO_SYNC);
 			EntityActionInputState input = user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get());
 			input.heldKeys.put(KEY, new HeldInputEntry(KEY, 1L, PowerClass.STAND, action));

@@ -92,6 +92,7 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 	private int leapCooldown;
 	private final Map<String, Integer> abilityCooldowns = new HashMap<>();
 	private final Map<String, Integer> abilityCooldownTotals = new HashMap<>();
+	private final Map<String, Integer> abilityCooldownSets = new HashMap<>();
 	private boolean willSoulSpawn;
 	
 	public ResolveCounter resolveCounter = new ResolveCounter();
@@ -594,6 +595,15 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 		return getAbilityCooldown(abilityName) > 0;
 	}
 
+	/**
+	 * How many times the ability's cooldown has been set or cleared in this power: the held cooldown recheck
+	 * (EntityActionAbility#checkHeldActionConditions) tells a cooldown set during a hold from one it already saw.
+	 */
+	@ApiStatus.Internal
+	public int getAbilityCooldownSets(String abilityName) {
+		return abilityCooldownSets.getOrDefault(abilityName, 0);
+	}
+
 	public float getAbilityCooldownRatio(String abilityName, float partialTick) {
 		int cooldown = getAbilityCooldown(abilityName);
 		if (cooldown <= 0) {
@@ -616,6 +626,7 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 		}
 		int newCooldown = Math.max(cooldown, 0);
 		int newTotalCooldown = Math.max(totalCooldown, newCooldown);
+		abilityCooldownSets.merge(abilityName, 1, Integer::sum);
 		if (newCooldown > 0) {
 			abilityCooldowns.put(abilityName, newCooldown);
 			abilityCooldownTotals.put(abilityName, newTotalCooldown);

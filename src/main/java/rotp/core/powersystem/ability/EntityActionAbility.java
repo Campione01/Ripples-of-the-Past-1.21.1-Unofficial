@@ -10,6 +10,7 @@ import org.jetbrains.annotations.ApiStatus;
 import rotp.core.client.ui.hud_power.WindupIndicator;
 import rotp.core.customobjects.DamageSourceModified;
 import rotp.core.config.MolangValue;
+import rotp.core.config.client.PlayerClientBroadcastedSettings;
 import rotp.core.init.ModStatusEffects;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.ability.controls.InputMethod;
@@ -251,16 +252,20 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 	/**
 	 * 1.16 PowerBaseImpl.tickHeldAction re-ran checkRequirements on every tick of a held action, and stopHeldAction(true)
 	 * ran it once more before a released or full-length hold fired. Rechecked here, per tick and before such a hold fires,
-	 * in 1.16's order: the power is usable, the performer is alive and, unless the action ignores it, not stunned, what
-	 * the action asks of its performer ({@link #checkHeldPerformerConditions}: a Stand's conditions, 1.16
+	 * in 1.16's order: the power is usable, the ability is not on a cooldown set during the hold (1.16 isActionOnCooldown,
+	 * no message; see {@link #getHeldCooldownSets}), the performer is alive and, unless the action ignores it, not
+	 * stunned, what the action asks of its performer ({@link #checkHeldPerformerConditions}: a Stand's conditions, 1.16
 	 * StandEntityAction.checkStandConditions), the Stand still has the parts the action needs (1.16 StandAction
 	 * partsRequired), then {@link #checkHeldSpecificConditions}, the ability's own (items, target, stamina and so on;
 	 * an ability that does not override it rechecks none of those), and last whether the ability is still unlocked
-	 * (1.16 isUnlocked, "not_unlocked"), without its Resolve level ({@link #isAbilityStillUnlocked}). Not rechecked: the
-	 * cooldown and a busy performer, which the running hold already went through.
+	 * (1.16 isUnlocked, "not_unlocked"), without its Resolve level ({@link #isAbilityStillUnlocked}). Not rechecked: a
+	 * busy performer, which the running hold already went through.
 	 */
 	public ConditionCheck checkHeldActionConditions(EntityActionInstance action, Power<?> context) {
 		if (!context.canUsePower()) {
+			return ConditionCheck.NEGATIVE;
+		}
+		if (isCooldownSetDuringHold(action, context)) {
 			return ConditionCheck.NEGATIVE;
 		}
 		LivingEntity performer = action.getPerformer();
@@ -288,6 +293,54 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 		return isAbilityStillUnlocked(context) ? check : ConditionCheck.createNegative("not_unlocked");
 	}
 
+	/*
+	 * 1.16 set an action's own cooldown only as it fired (PowerBaseImpl.performAction) or as a hold-only action's hold
+	 * ended (stopHeldAction), so the held recheck's isActionOnCooldown saw only a cooldown set from elsewhere. The port
+	 * sets a Stand ability's at its press (shouldSetCooldownOnKeyPress), and an action may set its own as it runs: a
+	 * cooldown counts only if it was set since the hold last saw it, which it does when first rechecked and after each of
+	 * its own ticks (EntityActionInstance). Server side.
+	 */
+	private boolean isCooldownSetDuringHold(EntityActionInstance action, Power<?> context) {
+		LivingEntity user = context.getUser();
+		if (user == null || user.level().isClientSide()) {
+			return false;
+		}
+		int sets = getHeldCooldownSets(context);
+		if (action.ownCooldownSets() == EntityActionInstance.OWN_COOLDOWN_UNSEEN) {
+			action.setOwnCooldownSets(sets);
+			return false;
+		}
+		return sets >= 0 && sets != action.ownCooldownSets();
+	}
+
+	/**
+	 * For the held cooldown recheck ({@link #checkHeldActionConditions}): how many times this ability's cooldown has been
+	 * set in the power, while it is cooling down there, and -1 while it is not. By default a Stand ability's StandPower
+	 * cooldown, unless its user turned Stand cooldowns off, as the press asks it ({@link #checkMainModLogicConditions}).
+	 * An ability whose power keeps its own cooldowns returns -1 unless it gives those here.
+	 */
+	protected int getHeldCooldownSets(Power<?> context) {
+		if (context instanceof StandPower standPower
+				&& !PlayerClientBroadcastedSettings.isNoStandAbilityCooldownEnabled(standPower)
+				&& standPower.isAbilityOnCooldown(name())) {
+			return standPower.getAbilityCooldownSets(name());
+		}
+		return -1;
+	}
+
+	/** The cooldown sets the action made in its own tick become its own; called by EntityActionInstance. Server side. */
+	@ApiStatus.Internal
+	public void noteOwnCooldownSets(EntityActionInstance action) {
+		LivingEntity user = action.getPowerUser();
+		if (user == null || user.level().isClientSide() || abilityId.powerClass() == null) {
+			return;
+		}
+		Power<?> context = getUserPower(user);
+		if (context != null) {
+			action.setOwnCooldownSets(getHeldCooldownSets(context));
+		}
+	}
+
 	/**
 	 * What the held recheck asks of the action's performer before the Stand parts, as 1.16 StandEntityAction.checkConditions
 	 * asked checkStandConditions before StandAction's; nothing by default. StandEntityAbility asks its Stand's press
@@ -299,8 +352,8 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 
 	/**
 	 * What 1.16 Action.checkConditions checked again during a hold: the held items, soap, a target and so on.
-	 * Unlike {@link #checkConditions}, it must not ask again what the running hold already went through
-	 * (its cooldown, a busy performer).
+	 * Unlike {@link #checkConditions}, it must not ask again what the running hold already went through (its cooldown,
+	 * which {@link #checkHeldActionConditions} asks its own way, a busy performer).
 	 */
 	protected ConditionCheck checkHeldSpecificConditions(EntityActionInstance action, Power<?> context) {
 		return ConditionCheck.POSITIVE;

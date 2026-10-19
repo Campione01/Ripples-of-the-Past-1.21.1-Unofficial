@@ -76,7 +76,8 @@ public class EntityActionInstance implements HeldInput {
 	protected float phasePartialTick;
 	protected boolean stoppedHolding = false;
 	private boolean startedByClick;
-	
+	private int ownCooldownSets = OWN_COOLDOWN_UNSEEN;
+
 	protected LivingEntity performer;
 	protected EntityResolver powerUser = new EntityResolver();
 	
@@ -1068,8 +1069,35 @@ public class EntityActionInstance implements HeldInput {
 				return;
 			}
 			_onTick();
+			noteOwnCooldownSets();
 			_incPhaseTick();
 			checkNextPhase();
+			noteOwnCooldownSets();
+		}
+	}
+
+	/** {@link #ownCooldownSets()} before any {@link EntityActionAbility} held recheck saw this action. */
+	@ApiStatus.Internal
+	public static final int OWN_COOLDOWN_UNSEEN = Integer.MIN_VALUE;
+
+	/**
+	 * The ability's cooldown sets this action counts as its own, as EntityActionAbility#getHeldCooldownSets gives them:
+	 * those of its press and those its own tick made, which the held cooldown recheck does not end the hold on.
+	 */
+	@ApiStatus.Internal
+	public int ownCooldownSets() {
+		return ownCooldownSets;
+	}
+
+	@ApiStatus.Internal
+	public void setOwnCooldownSets(int sets) {
+		ownCooldownSets = sets;
+	}
+
+	// a cooldown the action set in its own tick is its own, as one set at its press is
+	private void noteOwnCooldownSets() {
+		if (!isOver() && ability instanceof EntityActionAbility entityAbility) {
+			entityAbility.noteOwnCooldownSets(this);
 		}
 	}
 	
