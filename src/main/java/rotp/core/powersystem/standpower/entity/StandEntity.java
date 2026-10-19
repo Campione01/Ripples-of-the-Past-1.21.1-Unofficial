@@ -771,6 +771,29 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		return false;
 	}
 	
+	/**
+	 * Server: 1.16 StandEntity.aimWithThisOrUser turned the Stand toward what a punch, a heavy punch or a barrage hit aimed
+	 * at, just before the hit (MCUtil.rotateTowards): its yaw and its pitch each by at most attackSpeed / 16 x 18 degrees,
+	 * toward an entity's eyes or a block's centre, and its head onto the new yaw; never toward the Stand itself. The Stand
+	 * keeps that rotation for the rest of the tick, until its next tick turns it as usual.
+	 */
+	public void turnTowardsStrike(ActionTarget aimed) {
+		if (aimed.getType() == TargetType.EMPTY || aimed.getEntity() == this) {
+			return;
+		}
+		Vec3 targetPos = StandOffsetFromUser.taskTargetPos(aimed);
+		if (targetPos == null) {
+			return;
+		}
+		float maxAngle = (float) getAttackSpeed() / 16.0F * 18.0F;
+		Vec3 toTarget = targetPos.subtract(getEyePosition());
+		float yRot = getYRot() + Mth.clamp(Mth.degreesDifference(getYRot(), MathUtil.yRotDegFromVec(toTarget)), -maxAngle, maxAngle);
+		float xRot = getXRot() + Mth.clamp(Mth.degreesDifference(getXRot(), MathUtil.xRotDegFromVec(toTarget)), -maxAngle, maxAngle);
+		setYRot(yRot % 360.0F);
+		setXRot(xRot % 360.0F);
+		setYHeadRot(yRot);
+	}
+
 	protected Vec3 _offsetFromUserVec;
 	protected Vec3 _manualControlInput = Vec3.ZERO;
 	protected void updateUserOffset(LivingEntity user) {

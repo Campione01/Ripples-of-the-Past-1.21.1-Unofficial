@@ -385,6 +385,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 				boolean keepsStruck = !takesTargetsFromServer() && keepsStrikeTarget(stand, target);
 				if (!level.isClientSide()) {
 					StandPower standPower = StandPower.get(getPowerUser());
+					stand.turnTowardsStrike(isGrabVariation() ? target : strikeAim(stand, target, punchRule(ability)));
 					
 					Holder<SoundEvent> impactSound = getPunchImpactSound(target);
 					boolean entityTarget = target.getType() == TargetType.ENTITY;
@@ -976,6 +977,25 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			target = validatePunchTarget(stand, pickWithThisOrUser(stand, user, partialTick, canTarget, rule, true));
 		}
 		return target;
+	}
+
+	/**
+	 * Server: what 1.16's StandEntity.aimWithThisOrUser aimed a strike at, which the Stand turned toward before the hit
+	 * ({@link StandEntity#turnTowardsStrike}): the target the strike takes or, with none in the Stand's reach, what the
+	 * aim met beyond it (the user's aim, else the Stand's own, as {@link #aimWithThisOrUser} picks it), which the strike
+	 * then misses.
+	 */
+	public static ActionTarget strikeAim(StandEntity stand, ActionTarget struck, CrosshairRule rule, Predicate<Entity> canTarget) {
+		if (!struck.isEmpty(stand.level())) {
+			return struck;
+		}
+		LivingEntity user = stand.getUser();
+		return pickWithThisOrUser(stand, user != null && !stand.aimsWithoutUser() ? user : null, 1.0F, canTarget, rule,
+				StandSkillWalls.wallsHideEntities(stand));
+	}
+
+	public static ActionTarget strikeAim(StandEntity stand, ActionTarget struck, CrosshairRule rule) {
+		return strikeAim(stand, struck, rule, entity -> entity != stand && canStandHit(stand, entity));
 	}
 
 	private static ActionTarget pickWithThisOrUser(StandEntity stand, @Nullable LivingEntity user, float partialTick,

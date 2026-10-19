@@ -444,6 +444,7 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 					boolean playSound = StandEntityPunchAbility.playHitSound(target, level);
 					Vec3 soundPos = playSound ? target.getCenterPos() : null;
 					Entity clashOpponentAtHit = stand.barrageClashOpponent().orElse(null);
+					stand.turnTowardsStrike(strikeAim(stand, target, directional));
 					// 1.16 StandEntity.punch: each hit's target, nothing for a miss, went to the task before the hit
 					setTaskTarget(target);
 
@@ -469,6 +470,18 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 					standPower.consumeStamina(4, true);
 				}
 			}
+		}
+
+		// what the hit's aim met, the target it strikes or one out of the Stand's reach, by the rule its target was aimed with
+		private ActionTarget strikeAim(StandEntity stand, ActionTarget target, boolean directional) {
+			if (isGrabVariation()) {
+				return target;
+			}
+			if (directional && ability instanceof StandEntityAbility standAbility) {
+				return StandEntityPunchAbility.strikeAim(stand, target, StandEntityPunchAbility.CrosshairRule.NONE,
+						entity -> standAbility.canTargetEntityForAiming(stand, entity) && StandEntityPunchAbility.canStandHit(stand, entity));
+			}
+			return StandEntityPunchAbility.strikeAim(stand, target, StandEntityPunchAbility.CrosshairRule.BLOCK_OR_ENTITY);
 		}
 
 		private boolean canRefreshFrontOffset(StandEntity stand) {

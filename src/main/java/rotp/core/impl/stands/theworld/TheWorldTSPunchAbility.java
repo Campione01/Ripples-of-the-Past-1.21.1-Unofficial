@@ -347,6 +347,8 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 					if (standPower == null || getPowerUser() == null) {
 						return;
 					}
+					stand.turnTowardsStrike(isGrabVariation() ? target
+							: StandEntityPunchAbility.strikeAim(stand, target, StandEntityPunchAbility.CrosshairRule.NONE));
 
 					boolean entityTarget = target.getType() == TargetType.ENTITY;
 					Vec3 impactSoundPos = target.isEmpty(level) ? null : target.getCenterPos();

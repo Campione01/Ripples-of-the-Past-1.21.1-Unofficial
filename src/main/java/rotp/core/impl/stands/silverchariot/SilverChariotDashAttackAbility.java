@@ -343,6 +343,8 @@ public class SilverChariotDashAttackAbility extends StandEntityAbility {
 			if (target.isEmpty(level)) {
 				return;
 			}
+			// 1.16 SilverChariotDashAttack struck each target through StandEntity.punch
+			stand.turnTowardsStrike(target);
 			switch (target.getType()) {
 				case ENTITY -> {
 					if (!(target.getMainEntity() instanceof LivingEntity candidate)) {
