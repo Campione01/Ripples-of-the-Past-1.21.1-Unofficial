@@ -365,9 +365,6 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 				entityData.set(NO_BLOCKING_TICKS, noBlockingTicks - 1);
 			}
 			barrageParryAccumulating = false;
-			if (barrageClashOpponentOutOfReach()) {
-				setBarrageClashOpponent(null);
-			}
 			// standBodyThroughWalls can change while the server runs
 			if (isManuallyControlled() && getCurStandAction() == null) {
 				updateNoPhysics();
@@ -382,6 +379,11 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 				syncSilverChariotState(user);
 			}
 			updateUserOffset(user);
+		}
+		// 1.16 checked the reach from where updatePosition put the Stand, before the task's tick (here the action's, after
+		// this tick)
+		if (!level.isClientSide() && barrageClashOpponentOutOfReach()) {
+			setBarrageClashOpponent(null);
 		}
 		this.xRotO = rotO.xRot;
 		this.yRotO = rotO.yRot;
@@ -773,10 +775,8 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 				this.setYRot(rotations.y);
 
 				this.setYHeadRot(this.getYRot());
-				// with a task the body takes this yaw as the next tick starts (tickHeadTurn)
-				if (getCurStandAction() == null) {
-					this.setYBodyRot(this.getYRot());
-				}
+				// the body is left as 1.16's MCUtil.rotateTowards left it; with a task it takes this yaw as the next tick
+				// starts (tickHeadTurn)
 			}
 			else {
 				float maxHeadYRot = 75;

@@ -14,6 +14,7 @@ import rotp.core.impl.powers.pillarman.PillarmanMode;
 import rotp.core.impl.powers.vampirism.VampirismData;
 import rotp.core.impl.powers.vampirism.VampirismState;
 import rotp.core.impl.stands.crazydiamond.CrazyDAngeloRockPunchEffect;
+import rotp.core.impl.stands.magiciansred.MagiciansRedCrossfireHurricaneAbility;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModItemDataComponents;
 import rotp.core.init.ModStatusEffects;
@@ -272,6 +273,30 @@ public final class HeldActionRecheck116GameTests {
 		}
 	}
 
+	// Action.checkRangeAndTarget measured the creeper under the crosshair from the Stand: once it is past 8 blocks from the
+	// Stand, checkTarget dropped it and, with nothing in the off hand, the hold ended with item_offhand
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void revertEndsOnceTheEntityUnderTheCrosshairIsPastTheStandsRange(GameTestHelper helper) {
+		try (StandScene s = new StandScene(helper, "HeldRevertRange", "crazy_diamond")) {
+			Creeper creeper = (Creeper) s.mob(EntityType.CREEPER, 2.0D);
+			CommonReflection.setCreeperPowered(creeper, true);
+			creeper.setHealth(creeper.getMaxHealth() - 6.0F);
+			s.aim(creeper);
+			s.unlock("revert_state");
+			EntityActionInstance revert = s.startUntilPerform("revert_state");
+			s.tick(2);
+			helper.assertTrue(revert.getPhase() == ActionPhase.PERFORM && !revert.isOver(),
+					"setup: the held Revert is not on the charged creeper: phase " + revert.getPhase() + ", messages " + s.user.keys());
+			s.stand.moveTo(s.origin.x, s.origin.y, s.origin.z - 14.0D, 0.0F, 0.0F);
+			s.tick(1);
+			helper.assertTrue(revert.isOver() || revert.getPhase() == ActionPhase.RECOVERY,
+					"1.16 ended the held Revert once the creeper under the crosshair was past 8 blocks from the Stand and the off"
+							+ " hand was empty: phase " + revert.getPhase() + ", Stand " + s.stand.position());
+			helper.assertTrue(s.user.keys().contains(CONDITION + "item_offhand"), "1.16 said why: messages " + s.user.keys());
+			helper.succeed();
+		}
+	}
+
 	// CrazyDiamondRestoreTerrain.checkSpecificConditions: the Angelo Rock effect on the user ended the hold, no message.
 	@GameTest(template = "empty", timeoutTicks = 100)
 	public static void restoreTerrainEndsOnceAngeloRockIsUnderWay(GameTestHelper helper) {
@@ -337,6 +362,57 @@ public final class HeldActionRecheck116GameTests {
 			}
 			helper.succeed();
 		}
+	}
+
+	/*
+	 * 1.16 StandAction.isUnlocked was the action's learning entry, which StandType.onNewResolveLevel added once the Resolve
+	 * level reached the action's and only a full Stand clear took away; the Resolve effect raised the stored level for
+	 * good (ResolveCounter.onResolveEffectStarted) and /standlevel never relocked anything. So a held Crossfire Hurricane
+	 * (Resolve level 4) went on, and fired at its full length, after the stored level dropped or after the effect that
+	 * alone gave the level lapsed, though a new press would now be refused.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aHeldActionIsNotRelockedByItsResolveLevelAsIn116(GameTestHelper helper) {
+		for (String row : new String[] { "stored level dropped", "Resolve effect lapsed", "stored level dropped, full charge" }) {
+			try (StandScene s = new StandScene(helper, "HeldResolveUnlock", "magicians_red")) {
+				s.unlock("crossfire_hurricane");
+				boolean byEffect = row.equals("Resolve effect lapsed");
+				if (byEffect) {
+					s.user.addEffect(new MobEffectInstance(ModStatusEffects.RESOLVE, 400, 4));
+					s.power.setResolveLevel(0);
+				}
+				helper.assertTrue(s.ability("crossfire_hurricane").isAbilityUnlocked(s.power),
+						"setup (" + row + "): Crossfire Hurricane is not unlocked");
+				EntityActionInstance charge = s.start("crossfire_hurricane");
+				s.tick(3);
+				helper.assertTrue(charge.getPhase() == ActionPhase.BUTTON_CHARGE && !charge.isOver(),
+						"setup (" + row + "): Crossfire Hurricane is not charging: phase " + charge.getPhase() + ", messages "
+								+ s.user.keys());
+				if (byEffect) {
+					s.user.removeEffect(ModStatusEffects.RESOLVE);
+				}
+				else {
+					s.power.setResolveLevel(0);
+				}
+				helper.assertTrue(!s.ability("crossfire_hurricane").isAbilityUnlocked(s.power),
+						"setup (" + row + "): Crossfire Hurricane is still unlocked for a new press at Resolve level "
+								+ s.power.getResolveLevel());
+				if (row.endsWith("full charge")) {
+					s.runPhaseToItsEnd(charge);
+					helper.assertTrue(!charge.isOver() && charge.getPhase() != ActionPhase.BUTTON_CHARGE,
+							"1.16 stopHeldAction(true) fired a full Crossfire Hurricane charge whose Resolve level dropped, isUnlocked"
+									+ " being its learning entry: phase " + charge.getPhase() + ", messages " + s.user.keys());
+				}
+				else {
+					s.tick(1);
+					helper.assertTrue(charge.getPhase() == ActionPhase.BUTTON_CHARGE && !charge.isOver()
+							&& !s.user.keys().contains(CONDITION + "not_unlocked"), "1.16 kept the held Crossfire Hurricane"
+									+ " charging (" + row + "), isUnlocked being its learning entry: phase " + charge.getPhase()
+									+ ", messages " + s.user.keys());
+				}
+			}
+		}
+		helper.succeed();
 	}
 
 	// isUnlocked came after the action's own conditions: a repair that needs no repair and is locked says no_repair
@@ -524,6 +600,148 @@ public final class HeldActionRecheck116GameTests {
 		}
 	}
 
+	/*
+	 * A charge run to its end while its key holds it, as stand-bearing-creatures' fireHeldAction runs a mob's on losing its
+	 * target: 1.16 stopHeldAction(true) fired it only if checkRequirements passed, isUnlocked last, so an unlearned
+	 * Sunlight Yellow Overdrive (its 1.16 HamonAction has no target requirement) fires nothing; a learned one punches
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aChargeRunToItsEndFiresOnlyIfItsTechniqueIsLearnedAsIn116(GameTestHelper helper) {
+		try (PowerScene s = new PowerScene(helper, "FullChargeUnlearned", ModPlayerPowers.HAMON.get())) {
+			HamonData hamon = PlayerPower.getPowerData(s.user, ModPlayerPowers.HAMON).orElseThrow();
+			hamon.setEnergy(hamon.getMaxEnergy());
+			helper.assertTrue(!hamon.isSkillLearned(ModHamonSkills.SUNLIGHT_YELLOW_OVERDRIVE.get()),
+					"setup: Sunlight Yellow Overdrive is learned from the start");
+			EntityActionInstance unlearned = s.start("sunlight_yellow_overdrive");
+			helper.assertTrue(unlearned.getPhase() == ActionPhase.WINDUP, "setup: S.Y.O. is not charging: " + unlearned.getPhase());
+			s.runToEndAndRelease(unlearned);
+			helper.assertTrue(unlearned.isOver(), "1.16 stopHeldAction(true) fired nothing for a technique not learned: phase "
+					+ unlearned.getPhase());
+
+			hamon.learnSkill(ModHamonSkills.SUNLIGHT_YELLOW_OVERDRIVE.get());
+			helper.assertTrue(hamon.isSkillLearned(ModHamonSkills.SUNLIGHT_YELLOW_OVERDRIVE.get()), "setup: S.Y.O. is not learned");
+			EntityActionInstance learned = s.start("sunlight_yellow_overdrive");
+			s.runToEndAndRelease(learned);
+			helper.assertTrue(!learned.isOver() && learned.getPhase() == ActionPhase.PERFORM,
+					"a learned S.Y.O. run to the end of its charge did not punch: phase " + learned.getPhase());
+			helper.succeed();
+		}
+	}
+
+	/*
+	 * PowerBaseImpl.checkRequirements asked isActionOnCooldown right after canUsePower on every held tick and before a
+	 * full-length hold fired, and its plain NEGATIVE ended the hold without a message. 1.16 set a held action's own
+	 * cooldown only as it fired or its hold ended, so what ended it was a cooldown set from elsewhere during the hold,
+	 * here by the test.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aCooldownSetDuringAHoldEndsItSilentlyAsIn116(GameTestHelper helper) {
+		for (String row : new String[] { "charge", "hold-only", "full charge", "after the press's own", "with a stun" }) {
+			try (StandScene s = new StandScene(helper, "HeldCooldownSet", row.equals("hold-only") ? "star_platinum" : "magicians_red")) {
+				String name = row.equals("hold-only") ? "inhale" : "crossfire_hurricane";
+				EntityActionInstance held;
+				if (row.equals("hold-only")) {
+					held = s.startUntilPerform(name);
+				}
+				else {
+					s.unlock(name);
+					held = s.start(name);
+					if (row.equals("after the press's own")) {
+						s.power.setAbilityCooldown(name, 100);
+					}
+				}
+				s.tick(2);
+				ActionPhase heldPhase = row.equals("hold-only") ? ActionPhase.PERFORM : ActionPhase.BUTTON_CHARGE;
+				helper.assertTrue(held.getPhase() == heldPhase && !held.isOver(),
+						"setup (" + row + "): " + name + " is not held: phase " + held.getPhase() + ", messages " + s.user.keys());
+				float stamina = s.power.getStamina();
+				s.power.setAbilityCooldown(name, 100);
+				if (row.equals("with a stun")) {
+					s.stand.addEffect(new MobEffectInstance(ModStatusEffects.STUN, 40));
+				}
+				try {
+					if (row.equals("full charge")) {
+						s.runPhaseToItsEnd(held);
+						s.tick(1);
+					}
+					else {
+						s.tick(1);
+					}
+					helper.assertTrue(held.isOver() || row.equals("hold-only") && held.getPhase() == ActionPhase.RECOVERY,
+							"1.16 ended the held " + name + " (" + row + ") once a cooldown was set on it during the hold: phase "
+									+ held.getPhase());
+					helper.assertTrue(s.user.keys().isEmpty(), "1.16 said nothing for the cooldown (" + row
+							+ "), which it asked before the stun: messages " + s.user.keys());
+					helper.assertTrue(row.equals("hold-only") || s.power.getStamina() == stamina,
+							"the " + name + " ended by a cooldown (" + row + ") fired: stamina " + stamina + " -> " + s.power.getStamina());
+				}
+				finally {
+					s.stand.removeEffect(ModStatusEffects.STUN);
+				}
+			}
+		}
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16's held cooldown recheck never saw the hold's own cooldown, which it set only as the hold fired or ended. The
+	 * port sets a Stand ability's at its press, after the press started the action (AbilityInput.keyPress,
+	 * shouldSetCooldownOnKeyPress), and an action may set its own while it runs, also on the tick its charge ends and is
+	 * checked before it fires: none of these ends the hold, which fires at its full length.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aHoldIsNotEndedByTheCooldownItSetItselfAsIn116(GameTestHelper helper) {
+		for (String row : new String[] { "set at its press", "set in its own tick", "set on its last charge tick" }) {
+			try (StandScene s = new StandScene(helper, "HeldOwnCooldown", "magicians_red")) {
+				s.unlock("crossfire_hurricane");
+				EntityActionAbility crossfire = s.ability("crossfire_hurricane");
+				boolean onLastTick = row.equals("set on its last charge tick");
+				EntityActionInstance charge;
+				if (row.equals("set at its press")) {
+					charge = s.start("crossfire_hurricane");
+					s.power.setAbilityCooldown("crossfire_hurricane", 100);
+				}
+				else {
+					charge = new MagiciansRedCrossfireHurricaneAbility.CrossfireShot(crossfire) {
+						private boolean cooldownSet;
+
+						@Override
+						public void actionTick() {
+							super.actionTick();
+							if (!cooldownSet && !level().isClientSide() && getPhase() == ActionPhase.BUTTON_CHARGE
+									&& (onLastTick ? getPhaseTick() + 1 >= getCurPhaseLength() : getPhaseTick() >= 2)) {
+								cooldownSet = true;
+								s.power.setAbilityCooldown("crossfire_hurricane", 100);
+							}
+						}
+					};
+					crossfire.initActionFromConfig(charge, helper.getLevel(), s.user, s.stand);
+					charge.setStartingPhase();
+					s.hold(charge);
+				}
+				if (onLastTick) {
+					float chargeTicks = charge.getCurPhaseLength();
+					s.tick(Mth.ceil(chargeTicks));
+					helper.assertTrue(s.power.isAbilityOnCooldown("crossfire_hurricane"),
+							"setup (" + row + "): Crossfire Hurricane is not on cooldown");
+				}
+				else {
+					s.tick(5);
+					helper.assertTrue(s.power.isAbilityOnCooldown("crossfire_hurricane"),
+							"setup (" + row + "): Crossfire Hurricane is not on cooldown");
+					helper.assertTrue(charge.getPhase() == ActionPhase.BUTTON_CHARGE && !charge.isOver(),
+							"a cooldown the hold set itself (" + row + ") ended the Crossfire Hurricane charge, which 1.16's recheck"
+									+ " never saw: phase " + charge.getPhase() + ", messages " + s.user.keys());
+					s.runPhaseToItsEnd(charge);
+				}
+				helper.assertTrue(!charge.isOver() && charge.getPhase() != ActionPhase.BUTTON_CHARGE,
+						"the full Crossfire Hurricane charge did not fire with the cooldown it set itself (" + row + "): phase "
+								+ charge.getPhase());
+			}
+		}
+		helper.succeed();
+	}
+
 	/** A server player that keeps the action bar messages it is sent. */
 	private static final class RecordingPlayer extends FakePlayer {
 		private final List<Component> actionBar = new ArrayList<>();
@@ -605,8 +823,11 @@ public final class HeldActionRecheck116GameTests {
 
 		// set on the Stand as a press sets it and held by its key
 		private EntityActionInstance start(String name) {
+			return hold(ability(name).initActionOnAbilityUse(helper.getLevel(), user, stand, null));
+		}
+
+		private EntityActionInstance hold(EntityActionInstance action) {
 			standAction.setAction(null, user, SyncType.NO_SYNC);
-			EntityActionInstance action = ability(name).initActionOnAbilityUse(helper.getLevel(), user, stand, null);
 			standAction.setAction(action, user, SyncType.NO_SYNC);
 			EntityActionInputState input = user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get());
 			input.heldKeys.put(KEY, new HeldInputEntry(KEY, 1L, PowerClass.STAND, action));
@@ -756,6 +977,13 @@ public final class HeldActionRecheck116GameTests {
 				user.tickCount++;
 				component.tick();
 			}
+		}
+
+		// as stand-bearing-creatures' releaseOnTargetLoss: fireHeldAction runs the charge to its end, then the key is let go
+		private void runToEndAndRelease(EntityActionInstance action) {
+			action.setPhase(action.getPhase(), Mth.ceil(action.getCurPhaseLength()));
+			user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get()).heldKeys.clear();
+			action.onKeyRelease(user);
 		}
 
 		@Override

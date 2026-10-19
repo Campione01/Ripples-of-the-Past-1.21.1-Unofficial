@@ -176,7 +176,7 @@ public class CrazyDRevertEntityAndBlocksAbility extends StandEntityAbility {
 				entity -> canPickEntityForAiming(entity) && canRevertEntity(entity, user),
 				user,
 				0);
-		return target.getType() == TargetType.ENTITY ? target : ActionTarget.EMPTY;
+		return isValidRevertEntityTarget(user, target, level) ? target : ActionTarget.EMPTY;
 	}
 
 	private static boolean isValidRevertEntityTarget(LivingEntity user, ActionTarget target, Level level) {
@@ -187,7 +187,9 @@ public class CrazyDRevertEntityAndBlocksAbility extends StandEntityAbility {
 		return targetEntity != null
 				&& canPickEntityForAiming(targetEntity)
 				&& canRevertEntity(targetEntity, user)
-				&& targetEntity.getBoundingBox().distanceToSqr(user.getEyePosition()) <= REVERT_ENTITY_TARGET_RANGE * REVERT_ENTITY_TARGET_RANGE;
+				// 1.16 Action.checkRangeAndTarget: from the Stand while it is out, less without a line of sight
+				&& ActionTargetRange.isEntityWithinRange(ActionTargetRange.standPerformer(user), targetEntity,
+						ActionTargetRange.DEFAULT_ENTITY_RANGE_SQ);
 	}
 
 	public static class RevertStateAction extends CrazyDHealAbility.HealingAction {

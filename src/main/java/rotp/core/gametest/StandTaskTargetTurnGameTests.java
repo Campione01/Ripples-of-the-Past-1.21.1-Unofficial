@@ -906,6 +906,101 @@ public final class StandTaskTargetTurnGameTests {
 		helper.succeed();
 	}
 
+	/*
+	 * 1.16 MCUtil.rotateTowards, the turn to a target, set the yaw, the pitch and the head and never the body, with a task
+	 * or without one. StandEntity.lookAtPos(pos, true) turns a Stand with no action that way too, as add-ons call it (RHCP
+	 * facing its lock under manual control, Wonder of U's aim).
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aFullTurnToAPositionLeavesTheBodyOfAStandWithNoActionAsIn116(GameTestHelper helper) {
+		StandTaskTargetOffsetGameTests.withStand(helper, "hierophant_green", scene -> {
+			StandEntity stand = scene.stand();
+			stand.setCanFollowUser(false);
+			stand.setYRot(VIEW_YAW);
+			stand.setXRot(0.0F);
+			stand.setYHeadRot(VIEW_YAW);
+			stand.yBodyRot = VIEW_YAW + 30.0F;
+			Cow cow = scene.cow(COW_FROM_USER.add(0.0D, 1.5D, 0.0D));
+			Vec3 toEyes = cow.getEyePosition().subtract(stand.getEyePosition());
+			float yaw = MathUtil.yRotDegFromVec(toEyes);
+			float pitch = MathUtil.xRotDegFromVec(toEyes);
+			helper.assertTrue(stand.getCurStandAction() == null && Math.abs(Mth.wrapDegrees(yaw - VIEW_YAW - 30.0F)) > 1.0F
+					&& Math.abs(pitch) > 1.0F, "setup: the Stand has an action, or the cow's eyes lie along its body or level"
+							+ " with its eyes: yaw " + yaw + ", pitch " + pitch);
+			helper.assertTrue(stand.lookAtPos(cow.getEyePosition(), true), "setup: the Stand did not turn to the cow's eyes");
+			helper.assertTrue(Math.abs(Mth.wrapDegrees(stand.getYRot() - yaw)) < 1.0E-3F && Math.abs(stand.getXRot() - pitch) < 1.0E-3F
+					&& Math.abs(Mth.wrapDegrees(stand.yHeadRot - yaw)) < 1.0E-3F, "the Stand did not face the cow's eyes (yaw " + yaw
+							+ ", pitch " + pitch + "): yaw " + stand.getYRot() + ", pitch " + stand.getXRot() + ", head " + stand.yHeadRot);
+			helper.assertTrue(Math.abs(Mth.wrapDegrees(stand.yBodyRot - VIEW_YAW - 30.0F)) < EPS, "1.16 MCUtil.rotateTowards left"
+					+ " the body of a Stand with no task it turned at " + (VIEW_YAW + 30.0F) + ": it is at " + stand.yBodyRot);
+		});
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 StandEntity.tick ended a barrage clash once the opponent was out of the Stand's reach (isTargetInReach), measured
+	 * after updatePosition had put the Stand where it stands that tick: a Stand its user's offset brings back into reach
+	 * keeps the clash, one its user takes out of reach ends it on that tick.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void theBarrageClashReachIsMeasuredWhereTheStandStandsThatTickAsIn116(GameTestHelper helper) {
+		for (boolean backInReach : new boolean[] { true, false }) {
+			StandTaskTargetOffsetGameTests.withStand(helper, "star_platinum", scene -> {
+				StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("star_platinum"));
+				Player rival = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
+				StandPower rivalPower = null;
+				StandEntity stand = scene.stand();
+				Player user = scene.user();
+				try {
+					Vec3 rivalPos = user.position().add(0.0D, 0.0D, 4.0D);
+					rival.setNoGravity(true);
+					rival.moveTo(rivalPos.x, rivalPos.y, rivalPos.z, 180.0F, 0.0F);
+					helper.assertTrue(helper.getLevel().addFreshEntity(rival), "Could not add the rival Stand user");
+					rivalPower = PowerClass.STAND.attachGet(rival);
+					helper.assertTrue(StandPowerTransitions.insert(rivalPower, new StandInstance(type)).status()
+							== StandPowerTransitions.Status.APPLIED && type.summon(rival, rivalPower),
+							"Could not give the rival Star Platinum");
+					StandEntity opponent = rivalPower.getSummonedStandEntity();
+					Vec3 opponentPos = user.position().add(0.0D, 0.0D, 2.0D);
+					opponent.setNoGravity(true);
+					opponent.moveTo(opponentPos.x, opponentPos.y, opponentPos.z, 180.0F, 0.0F);
+					stand.summonLockTicks = 0;
+					stand.updatePosition(user);
+					double reach = stand.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE);
+					helper.assertTrue(stand.isFollowingUser() && ActionTargetRange.getDistance(stand, opponent.getBoundingBox()) <= reach,
+							"setup: the star_platinum does not follow its user within reach of the opposing Stand");
+					startBarrageClash(helper, stand, opponent);
+					if (backInReach) {
+						stand.moveTo(stand.getX(), stand.getY(), stand.getZ() - 12.0D, stand.getYRot(), stand.getXRot());
+					}
+					else {
+						user.moveTo(user.getX(), user.getY(), user.getZ() - 12.0D, user.getYRot(), user.getXRot());
+					}
+					double before = ActionTargetRange.getDistance(stand, opponent.getBoundingBox());
+					stand.setOldPosAndRot();
+					stand.tick();
+					double after = ActionTargetRange.getDistance(stand, opponent.getBoundingBox());
+					String what = backInReach ? "a star_platinum " + before + " blocks from its clash opponent that its user's offset"
+							+ " put back " + after + " blocks from it" : "a star_platinum " + before + " blocks from its clash opponent"
+									+ " that its user took " + after + " blocks from it";
+					helper.assertTrue((before > reach) == backInReach && (after > reach) != backInReach,
+							"setup: " + what + " (reach " + reach + ")");
+					helper.assertTrue(stand.barrageClashOpponent().isPresent() == backInReach, "1.16 measured the reach of " + what
+							+ " (reach " + reach + ") after updatePosition, so it " + (backInReach ? "kept" : "ended") + " the clash"
+							+ " on that tick; the clash opponent is " + stand.barrageClashOpponent().orElse(null));
+				}
+				finally {
+					stand.barrageClashStopped();
+					if (rivalPower != null && rivalPower.isSummoned()) {
+						type.forceUnsummon(rival, rivalPower);
+					}
+					rival.discard();
+				}
+			});
+		}
+		helper.succeed();
+	}
+
 	// as when each Stand has parried the other's barrage (StandEntity.barrageClashParryPunches)
 	private static void startBarrageClash(GameTestHelper helper, StandEntity stand, StandEntity opponent) {
 		try {

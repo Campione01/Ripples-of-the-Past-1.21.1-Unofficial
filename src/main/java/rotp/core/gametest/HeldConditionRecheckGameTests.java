@@ -375,6 +375,51 @@ public final class HeldConditionRecheckGameTests {
 		}
 	}
 
+	// The port's charged heavy punch asks what the heavy punch it is modelled on asks (owner, wave 21; 1.16
+	// StandEntityHeavyAttack.checkStandConditions, canAttackMelee, no message): at its press and on every tick its key holds
+	// its charge
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void theChargedHeavyPunchNeedsAStandThatCanAttackInMeleeAsTheHeavyPunchDoes(GameTestHelper helper) {
+		try (StandFixture f = new StandFixture(helper, "ChargedHeavyMelee", "star_platinum")) {
+			EntityActionAbility heavy = f.ability("heavy_charged");
+			AttributeInstance reach = f.stand.getAttribute(Attributes.ENTITY_INTERACTION_RANGE);
+			double baseReach = reach.getBaseValue();
+			try {
+				reach.setBaseValue(0);
+				helper.assertTrue(!f.stand.canAttackMelee(), "fixture: the Stand can still attack in melee");
+				BufferingState refused = BufferingState.clickOnly();
+				AbilityInput.keyPress(KEY, heavy, f.user, null, InputMethod.HOLD, 0, refused, heavy.getAbilityId());
+				AbilityInput.keyRelease(KEY, f.user);
+				helper.assertTrue(!refused.isActionSuccess && f.stand.getCurStandAction() == null, "the charged heavy punch of"
+						+ " a Stand that cannot attack in melee started, which the heavy punch's press refuses: "
+						+ f.stand.getCurStandAction());
+
+				reach.setBaseValue(baseReach);
+				BufferingState pressed = BufferingState.clickOnly();
+				AbilityInput.keyPress(KEY, heavy, f.user, null, InputMethod.HOLD, 0, pressed, heavy.getAbilityId());
+				EntityActionInstance charge = f.stand.getCurStandAction();
+				helper.assertTrue(pressed.isActionSuccess && charge != null && AbilityInput.isHeldByKey(f.user, charge),
+						"fixture: the charged heavy punch did not start with the Stand's reach back");
+				f.tick(1);
+				helper.assertTrue(charge.getPhase() == ActionPhase.BUTTON_CHARGE && !charge.isOver(),
+						"fixture: the charged heavy punch is not charging" + f.state(heavy, charge));
+				reach.setBaseValue(0);
+				ConditionCheck check = heavy.checkHeldActionConditions(charge, f.power);
+				helper.assertTrue(!check.isPositive() && !check.shouldContinueHold() && check.getWarning() == null,
+						"the held charge did not fail, without a message, once its Stand could no longer attack in melee"
+								+ f.state(heavy, charge));
+				f.tick(1);
+				helper.assertTrue(charge.isOver() && f.standAction.getAction() == null,
+						"the charge of a Stand that can no longer attack in melee went on" + f.state(heavy, charge));
+			}
+			finally {
+				reach.setBaseValue(baseReach);
+				AbilityInput.keyRelease(KEY, f.user);
+			}
+			helper.succeed();
+		}
+	}
+
 	@GameTest(template = "empty", timeoutTicks = 80)
 	public static void lostStandBodyDropsCrossfireCharge(GameTestHelper helper) {
 		try (StandFixture f = new StandFixture(helper, "HeldCrossfireBody", "magicians_red")) {

@@ -11,6 +11,7 @@ import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.ability.AbilityUsageGroup;
 import rotp.core.powersystem.ability.EntityActionAbility;
+import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
@@ -58,6 +59,17 @@ public class StandEntityHeavyPunchChargedAbility extends StandEntityAbility {
 	@Override
 	public boolean isAbilityAvailable(Power<?> context) {
 		return super.isAbilityAvailable(context) && StandUtil.getStandGrabTarget(context) == null;
+	}
+
+	// as the heavy punch it is modelled on (1.16 StandEntityHeavyAttack.checkStandConditions): asked at the press and,
+	// through the held recheck, while it charges and before it fires
+	@Override
+	protected ConditionCheck checkStandEntityConditions(StandPower standPower, StandEntity standEntity) {
+		ConditionCheck check = super.checkStandEntityConditions(standPower, standEntity);
+		if (!check.isPositive()) {
+			return check;
+		}
+		return ConditionCheck.noMessage(standEntity.canAttackMelee());
 	}
 
 	@Override
@@ -167,6 +179,7 @@ public class StandEntityHeavyPunchChargedAbility extends StandEntityAbility {
 				ActionTarget target = getPerformTarget(stand);
 				if (!level.isClientSide()) {
 					StandPower standPower = StandPower.get(getPowerUser());
+					stand.turnTowardsStrike(StandEntityPunchAbility.strikeAim(stand, target, CrosshairRule.ENTITY));
 
 					// judged before the hit and played after it, as the heavy punch does (1.16 StandEntity.attackTarget)
 					Vec3 impactSoundPos = StandEntityPunchAbility.playHitSound(target, level) ? target.getCenterPos() : null;

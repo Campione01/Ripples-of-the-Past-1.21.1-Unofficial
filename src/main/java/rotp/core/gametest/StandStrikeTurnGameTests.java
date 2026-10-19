@@ -6,6 +6,7 @@ import rotp.core.core.JojoMod;
 import rotp.core.gametest.StandTaskTargetOffsetGameTests.Scene;
 import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility.StandEntityBarrage;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility.StandEntityHeavyPunch;
+import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchChargedAbility.StandEntityChargedHeavy;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility.StandEntityPunch;
 import rotp.core.impl.stands.silverchariot.SilverChariotDashAttackAbility.DashStrike;
 import rotp.core.impl.stands.theworld.TheWorldTSPunchAbility.TheWorldTSPunch;
@@ -52,7 +53,8 @@ public final class StandStrikeTurnGameTests {
 	@GameTest(template = "empty", timeoutTicks = 100)
 	public static void eachStrikeTurnsTheStandTowardItsAimByAtMostItsAttackSpeedBeforeTheHitAsIn116(GameTestHelper helper) {
 		String[][] rows = { { "star_platinum", "punch" }, { "star_platinum", "heavy_punch" }, { "star_platinum", "barrage" },
-				{ "the_world", "ts_punch" }, { "silver_chariot", "dash_attack" }, { "star_platinum", "punch at a cow beyond its reach" } };
+				{ "the_world", "ts_punch" }, { "silver_chariot", "dash_attack" }, { "star_platinum", "punch at a cow beyond its reach" },
+				{ "star_platinum", "heavy_charged" } };
 		for (String[] row : rows) {
 			StandTaskTargetOffsetGameTests.withStand(helper, row[0], scene -> strike(helper, scene, row[0], row[1]));
 		}
@@ -90,6 +92,15 @@ public final class StandStrikeTurnGameTests {
 						float dmgAmount, float explRadius) {
 					noteStrike(atHit, performer);
 					super.hitEntity(target, level, performer, dmgSource, dmgAmount, explRadius);
+				}
+			};
+			// the port's charged heavy punch turns at its strike as the heavy punch it is modelled on (owner, wave 21)
+			case "heavy_charged" -> new StandEntityChargedHeavy(type) {
+				@Override
+				protected void hitEntity(ActionTarget target, Level level, StandEntity performer, DamageSource dmgSource,
+						float dmgAmount) {
+					noteStrike(atHit, performer);
+					super.hitEntity(target, level, performer, dmgSource, dmgAmount);
 				}
 			};
 			case "barrage" -> new StandEntityBarrage(type) {
@@ -159,6 +170,11 @@ public final class StandStrikeTurnGameTests {
 				action.actionTick();
 			}
 			case "dash_attack" -> dashTargets(action, stand);
+			// its strike comes at the end of its lunge
+			case "heavy_charged" -> {
+				action.actionPerformStart();
+				action.actionPerformEnd();
+			}
 			default -> action.actionPerformStart();
 		}
 		String what = "a " + standId + "'s " + row + " (yaw " + yaw0 + ", pitch " + pitch0 + ", turning by up to " + max
@@ -181,6 +197,52 @@ public final class StandStrikeTurnGameTests {
 						+ " and its head onto that yaw; it is at yaw " + stand.getYRot() + ", pitch " + stand.getXRot() + ", head "
 						+ stand.getYHeadRot());
 		LivingComponentAction.getComponent(stand).setAction(null, user, SyncType.NO_SYNC);
+	}
+
+	/*
+	 * 1.16 StandEntity.punch set each dash strike's target as the task's (setTaskTarget), but StandEntityTask.keepTarget kept
+	 * none for the dash: checkRangeAndTarget asked standKeepsTarget, false for SilverChariotDashAttack, and its
+	 * checkStandTarget was always NEGATIVE. So the task held no target and StandEntityAction.rotateStand left a Stand that
+	 * moves by itself as its strike turned it, wherever the entity it struck went next.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void theDashHoldsNoTargetAfterItsStrikeAndKeepsItsStrikeTurnAsIn116(GameTestHelper helper) {
+		StandTaskTargetOffsetGameTests.withStand(helper, "silver_chariot", scene -> {
+			StandEntity stand = scene.stand();
+			Player user = scene.user();
+			StandPower power = scene.power();
+			power.setResolveLevel(power.getMaxResolveLevel());
+			power.setStamina(power.getMaxStamina());
+			stand.summonLockTicks = 0;
+			stand.gradualSummonWeaknessTicks = 0;
+			stand.updatePosition(user);
+			EntityActionType type = strikeType(helper, scene, "dash_attack");
+			EntityActionInstance dash = type.createActionObj();
+			type.initActionFromConfig(dash, helper.getLevel(), user, stand);
+			dash.setStartingPhase();
+			LivingComponentAction.getComponent(stand).setAction(dash, user, SyncType.NO_SYNC);
+			helper.assertTrue(stand.getCurStandAction() == dash && dash instanceof DashStrike && !stand.isFollowingUser(),
+					"setup: the dash is not the Silver Chariot's action, or its Stand still follows its user");
+			stand.setYRot(0.0F);
+			stand.setXRot(0.0F);
+			stand.setYHeadRot(0.0F);
+			Cow cow = scene.cow(new Vec3(stand.getX() + 0.5D, stand.getEyeY() - 0.7D, stand.getZ() + 2.0D).subtract(user.position()));
+			dashTargets(dash, stand);
+			float yaw = stand.getYRot();
+			float pitch = stand.getXRot();
+			helper.assertTrue(cow.getHealth() < cow.getMaxHealth() && Math.abs(yaw) > EPS,
+					"setup: the dash did not strike the cow, or did not turn toward it: yaw " + yaw);
+			helper.assertTrue(dash.getTaskTarget(helper.getLevel()).getType() == ActionTarget.TargetType.EMPTY,
+					"1.16's dash task held no target after its strike; it holds " + dash.getTaskTarget(helper.getLevel()));
+
+			cow.moveTo(cow.getX() + 3.0D, cow.getY() + 1.0D, cow.getZ(), 0.0F, 0.0F);
+			stand.updatePosition(user);
+			helper.assertTrue(Math.abs(Mth.degreesDifference(stand.getYRot(), yaw)) < EPS && Math.abs(stand.getXRot() - pitch) < EPS,
+					"1.16 left the dashing Stand as its strike turned it (yaw " + yaw + ", pitch " + pitch + ") once the cow it struck"
+							+ " moved; it is at yaw " + stand.getYRot() + ", pitch " + stand.getXRot());
+			LivingComponentAction.getComponent(stand).setAction(null, user, SyncType.NO_SYNC);
+		});
+		helper.succeed();
 	}
 
 	private static void noteStrike(float[] atHit, StandEntity stand) {

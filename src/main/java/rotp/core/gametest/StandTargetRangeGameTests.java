@@ -935,6 +935,100 @@ public final class StandTargetRangeGameTests {
 		helper.succeed();
 	}
 
+	/*
+	 * 1.16 CrazyDiamondPreviousState has TargetRequirement.NONE: PowerBaseImpl.checkTarget drops an entity that
+	 * Action.checkRangeAndTarget finds out of range (8 blocks from the Stand while it is out, 4 without a line of sight)
+	 * and the press goes on to the off-hand item, so with an empty off hand it answers item_offhand.
+	 */
+	@GameTest(template = "empty", batch = BATCH)
+	public static void crazyDiamondRevertReachesAnEntityNearTheDistantStand(GameTestHelper helper) {
+		try (Fixture fixture = Fixture.open(helper, Kind.CD_REVERT)) {
+			fixture.stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z + 12.0D, 0.0F, 0.0F);
+			SnowGolem golem = revertibleGolem(helper, fixture, 15.0D);
+			fixture.aim(new ActionTarget(golem));
+			double fromUser = Math.sqrt(golem.getBoundingBox().distanceToSqr(fixture.user.getEyePosition()));
+			double fromStand = Math.sqrt(golem.getBoundingBox().distanceToSqr(fixture.stand.getEyePosition()));
+			helper.assertTrue(fromUser > 8.0D && fromStand < 4.0D && fixture.stand.hasLineOfSight(golem)
+					&& fixture.user.getOffhandItem().isEmpty(),
+					"STAND-RANGE premise: the snow golem is not near the Stand only, or the off hand holds an item: fromUser="
+							+ fromUser + " fromStand=" + fromStand);
+			String answered = fixture.refusal();
+			helper.assertTrue("accepted".equals(answered), "CD_REVERT on a snow golem " + fromStand + " blocks from the Stand"
+					+ " and " + fromUser + " from its user, with an empty off hand: answered " + answered
+					+ "; 1.16 measures from the Stand and reverts the golem");
+		}
+		helper.succeed();
+	}
+
+	@GameTest(template = "empty", batch = BATCH)
+	public static void crazyDiamondRevertDoesNotReachBeyondAWallPastTheQuarteredRange(GameTestHelper helper) {
+		try (Fixture fixture = Fixture.open(helper, Kind.CD_REVERT)) {
+			fixture.stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z + 0.5D, 0.0F, 0.0F);
+			SnowGolem golem = revertibleGolem(helper, fixture, 6.5D);
+			fixture.aim(new ActionTarget(golem));
+			String open = fixture.refusal();
+			BlockPos wall = BlockPos.containing(fixture.origin.x, fixture.origin.y, fixture.origin.z + 3.0D);
+			for (int x = -1; x <= 1; x++) {
+				for (int y = -1; y <= 2; y++) {
+					fixture.block(wall.offset(x, y, 0));
+				}
+			}
+			double fromUser = Math.sqrt(golem.getBoundingBox().distanceToSqr(fixture.user.getEyePosition()));
+			double fromStand = Math.sqrt(golem.getBoundingBox().distanceToSqr(fixture.stand.getEyePosition()));
+			helper.assertTrue(fromUser < 8.0D && fromStand > 4.5D && fromStand < 7.0D && !fixture.stand.hasLineOfSight(golem)
+					&& "accepted".equals(open),
+					"STAND-RANGE premise: the snow golem is not within 8 blocks behind a wall, or was refused without the wall:"
+							+ " fromUser=" + fromUser + " fromStand=" + fromStand + " withoutWall=" + open);
+			String answered = fixture.refusal();
+			helper.assertTrue(ITEM_OFFHAND.equals(answered), "CD_REVERT on a snow golem " + fromStand + " blocks from the Stand"
+					+ " behind a wall, with an empty off hand: answered " + answered + "; 1.16 quarters the squared range without"
+					+ " a line of sight, drops the golem and asks for an item (" + ITEM_OFFHAND + ")");
+		}
+		helper.succeed();
+	}
+
+	// the golem 5 blocks ahead of the user, the Stand 14 blocks behind it: out of range aimed at, and on the server's ray
+	@GameTest(template = "empty", batch = BATCH)
+	public static void crazyDiamondRevertDoesNotReachAnEntityFarFromTheStand(GameTestHelper helper) {
+		try (Fixture fixture = Fixture.open(helper, Kind.CD_REVERT)) {
+			SnowGolem golem = revertibleGolem(helper, fixture, 5.0D);
+			fixture.stand.moveTo(fixture.origin.x + 1.5D, fixture.origin.y, fixture.origin.z, 0.0F, 0.0F);
+			fixture.aim(new ActionTarget(golem));
+			String nearAimed = fixture.refusal();
+			fixture.aim(ActionTarget.EMPTY);
+			String nearOnTheRay = fixture.refusal();
+			fixture.stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z - 14.0D, 0.0F, 0.0F);
+			double fromUser = Math.sqrt(golem.getBoundingBox().distanceToSqr(fixture.user.getEyePosition()));
+			double fromStand = Math.sqrt(golem.getBoundingBox().distanceToSqr(fixture.stand.getEyePosition()));
+			helper.assertTrue(fromUser < 8.0D && fromStand > 9.0D && "accepted".equals(nearAimed) && "accepted".equals(nearOnTheRay),
+					"STAND-RANGE premise: the snow golem is not near the user only, or was refused with the Stand beside the"
+							+ " user: fromUser=" + fromUser + " fromStand=" + fromStand + " aimed=" + nearAimed + " onTheRay="
+							+ nearOnTheRay);
+			fixture.aim(new ActionTarget(golem));
+			String aimed = fixture.refusal();
+			fixture.aim(ActionTarget.EMPTY);
+			String onTheRay = fixture.refusal();
+			helper.assertTrue(ITEM_OFFHAND.equals(aimed) && ITEM_OFFHAND.equals(onTheRay), "CD_REVERT on a snow golem "
+					+ fromUser + " blocks ahead of the user and " + fromStand + " from the Stand, with an empty off hand: answered "
+					+ aimed + " aimed at it and " + onTheRay + " with it on the look ray; 1.16 measures from the Stand, drops"
+					+ " the golem and asks for an item (" + ITEM_OFFHAND + ")");
+		}
+		helper.succeed();
+	}
+
+	// a snow golem, which Revert works on from Resolve level 3, standing on the user's look line
+	private static SnowGolem revertibleGolem(GameTestHelper helper, Fixture fixture, double separation) {
+		fixture.power.setResolveLevel(4);
+		SnowGolem golem = EntityType.SNOW_GOLEM.create(fixture.level);
+		helper.assertTrue(golem != null, "STAND-RANGE premise: could not create the snow golem");
+		golem.setNoAi(true);
+		golem.setNoGravity(true);
+		golem.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z + separation, 180.0F, 0.0F);
+		fixture.extras.add(golem);
+		helper.assertTrue(fixture.level.addFreshEntity(golem), "STAND-RANGE premise: could not add the snow golem");
+		return golem;
+	}
+
 	// the same for the block anchor: no ray of the server's own takes the stone on the look ray in place of the entity gone
 	@GameTest(template = "empty", batch = BATCH)
 	public static void crazyDiamondAnchorDoesNotTakeABlockWhenTheAimedEntityIsGoneOnThePress(GameTestHelper helper) {
