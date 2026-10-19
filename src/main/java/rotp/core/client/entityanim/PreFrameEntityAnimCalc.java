@@ -201,6 +201,7 @@ public class PreFrameEntityAnimCalc {
 						animVariables.time = standTicks;
 					}
 					else {
+						stand.endSummonPose();
 						float idleTime = stand.tickCount - stand.nonIdlePoseTimeStamp + partialTick;
 						animVariables.animId = idleAnim;
 						animVariables.time = idleTime;

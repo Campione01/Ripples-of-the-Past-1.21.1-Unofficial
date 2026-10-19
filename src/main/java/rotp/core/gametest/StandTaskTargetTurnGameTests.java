@@ -693,6 +693,8 @@ public final class StandTaskTargetTurnGameTests {
 				StandTaskTargetOffsetGameTests.turn(scene.user(), VIEW_YAW, VIEW_YAW + 50.0F);
 				if (row.equals("no task")) {
 					stand.setCanFollowUser(false);
+					// past its summon pose, which took the yaw as the body (1.16 StandEntity.tickHeadTurn), as its first task ended it
+					stand.endSummonPose();
 					stand.setYRot(VIEW_YAW);
 					stand.yBodyRot = VIEW_YAW + 30.0F;
 					// at rest since the last tick, as the level marks it before ticking it

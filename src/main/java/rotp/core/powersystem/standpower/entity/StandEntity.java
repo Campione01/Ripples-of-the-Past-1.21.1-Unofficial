@@ -11,6 +11,8 @@ import java.util.function.Predicate;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import org.jetbrains.annotations.ApiStatus;
+
 import rotp.core.JojoModLivingVariables;
 import rotp.core.JojoModConfig;
 import rotp.core.api.stand.StandDefaultRotationRules;
@@ -333,6 +335,7 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 
 	public PrevRotations rotO = new PrevRotations();
 	private boolean headTurnedToTaskTarget;
+	private boolean summonPoseEnded;
 	@Override
 	public void tick() {
 		fallDistance = 0;
@@ -405,17 +408,39 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 	}
 	
 	/*
-	 * 1.16 StandEntity.tickHeadTurn: while the Stand has a task its body takes the yaw it starts the tick with, the yaw an
-	 * action's tick left it, and that tick's turns leave the body alone (copyRotation, lookAtPos); without one, the
-	 * vanilla turn, which a following Stand's idle rule then overrides
+	 * 1.16 StandEntity.tickHeadTurn: while the Stand has a task or is in its summon pose its body takes the yaw it starts
+	 * the tick with, the yaw an action's tick left it, and that tick's turns leave the body alone (copyRotation,
+	 * lookAtPos); otherwise 1.16's LivingEntity.tickHeadTurn, from the Stand's own yaw and movement: the body stays put
+	 * within 50 degrees of the yaw, beyond that it closes a fifth of the gap each tick and never trails it by more than
+	 * 75 (1.21's turn holds it at 50)
 	 */
 	@Override
 	protected float tickHeadTurn(float yRot, float animStep) {
-		if (getCurStandAction() != null) {
+		if (getCurStandAction() != null || isInSummonPose()) {
 			yBodyRot = getYRot();
 			return animStep;
 		}
-		return super.tickHeadTurn(yRot, animStep);
+		yBodyRot += Mth.wrapDegrees(yRot - yBodyRot) * 0.3F;
+		float bodyToYaw = Mth.wrapDegrees(getYRot() - yBodyRot);
+		boolean backwards = bodyToYaw < -90.0F || bodyToYaw >= 90.0F;
+		bodyToYaw = Mth.clamp(bodyToYaw, -75.0F, 75.0F);
+		yBodyRot = getYRot() - bodyToYaw;
+		if (bodyToYaw * bodyToYaw > 2500.0F) {
+			yBodyRot += bodyToYaw * 0.2F;
+		}
+		return backwards ? -animStep : animStep;
+	}
+
+	// 1.16 StandPose.SUMMON: on the server until the Stand's first task, on a client until its summon animation ended, at
+	// once for an arms-only Stand (StandEntity.getCurPose)
+	private boolean isInSummonPose() {
+		return !summonPoseEnded && !(level().isClientSide() && isArmsOnlyMode());
+	}
+
+	/** Client: the Stand's summon animation is over or it has none (1.16 StandEntity.onSetPoseAnimEnded). */
+	@ApiStatus.Internal
+	public void endSummonPose() {
+		summonPoseEnded = true;
 	}
 
 	@Override
@@ -1496,6 +1521,7 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 			rollGuardCounterDamage();
 		}
 		if (action != null) {
+			summonPoseEnded = true;
 			setNoPhysics(false);
 			offsetFromUser.resetForNewAction();
 		}
@@ -1703,6 +1729,9 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 	}
 
 	void prepareFreshSummonState(LivingEntity user) {
+		// in its summon pose a Stand's body takes its yaw (1.16 StandEntity.tickHeadTurn), from its spawn on
+		yBodyRot = getYRot();
+		yBodyRotO = yBodyRot;
 		if (!level().isClientSide() && isSilverChariotStand()) {
 			SilverChariotState state = SilverChariotState.get(user);
 			state.resetEquipmentForSummon();

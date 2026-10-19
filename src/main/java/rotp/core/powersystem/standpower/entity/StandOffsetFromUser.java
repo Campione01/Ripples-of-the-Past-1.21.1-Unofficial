@@ -37,8 +37,6 @@ public class StandOffsetFromUser {
 	@Nullable public EntityActionType standAbility;
 	
 	private Vec3 prevAbsoluteOffset;
-	private boolean prevBodyTurnedWithUser;
-	private float prevBodyRotDiff;
 	private int changedTimestamp;
 	
 	public static StandOffsetFromUser createDefault(StandEntity standEntity) {
@@ -82,14 +80,10 @@ public class StandOffsetFromUser {
 				LivingEntity userEntity = standEntity.getUser();
 				if (userEntity != null) {
 					this.prevAbsoluteOffset = getAbsoluteOffset(userEntity, false);
-					this.prevBodyRotDiff = userEntity.yBodyRot - userEntity.getYRot();
 				}
 				else {
 					this.prevAbsoluteOffset = null;
 				}
-				this.prevBodyTurnedWithUser = this.relativeOffset != null && this.rotations != null
-						? bodyTurnsWithUser(this.relativeOffset, this.rotations)
-						: bodyTurnsWithUser(offset, rotations);
 			}
 			
 			this.relativeOffset = offset;
@@ -259,48 +253,14 @@ public class StandOffsetFromUser {
 		};
 	}
 	
+	// 1.16 StandEntity.defaultRotation set the yaw, the pitch and the head and left the body to the Stand's own head turn
+	// (StandEntity.tickHeadTurn)
 	public void copyRotation(LivingEntity userEntity, boolean lerp) {
 		standEntity.setYRot(userEntity.getYRot());
 		standEntity.setXRot(userEntity.getXRot());
 		standEntity.yRotO = userEntity.yRotO;
 		standEntity.yHeadRot = userEntity.yHeadRot;
 		standEntity.yHeadRotO = userEntity.yHeadRotO;
-		// 1.16 StandEntity.defaultRotation left the body of a Stand with a task to its head turn (StandEntity.tickHeadTurn)
-		if (standEntity.getCurStandAction() != null) {
-			return;
-		}
-
-		// this shit so ass
-		boolean isBodyRot = bodyTurnsWithUser(relativeOffset, rotations);
-		float bodyRotAmount = isBodyRot ? 1 : 0;
-		if (lerp) {
-			boolean wasBodyRot = prevBodyTurnedWithUser;
-			if (isBodyRot != wasBodyRot) {
-				float lerpAmount = getLerpAmount();
-				bodyRotAmount = isBodyRot ? lerpAmount : (1 - lerpAmount);
-			}
-		}
-		
-		if (bodyRotAmount == 1) {
-			standEntity.yBodyRot = userEntity.yBodyRot;
-			standEntity.yBodyRotO = userEntity.yBodyRotO;
-		}
-		else if (bodyRotAmount == 0) {
-			standEntity.yBodyRot = userEntity.getYRot();
-			standEntity.yBodyRotO = userEntity.yRotO;
-		}
-		else {
-			standEntity.yBodyRot = Mth.lerp(bodyRotAmount, userEntity.getYRot(), userEntity.yBodyRot);
-			standEntity.yBodyRotO = standEntity.yBodyRot + prevBodyRotDiff / (isBodyRot ? -LERP_TIME : LERP_TIME);
-		}
-	}
-	
-	/*
-	 * 1.16 left an idle Stand's body to the vanilla head turn, so it lagged behind the view as its user's body does;
-	 * the idle Stand takes its user's body yaw for that, while its place and head turn with the view.
-	 */
-	private boolean bodyTurnsWithUser(Vec3 offset, Rotations rotations) {
-		return rotations == Rotations.BODY || rotations == idleRotations && idleOffset.equals(offset);
 	}
 	
 //	public float getLerpAmount() {

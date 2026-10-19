@@ -101,8 +101,9 @@ public final class StandDefaultRotationRuleGameTests {
 			assertRotation(helper, stand, 90.0F, 20.0F, "A Stand summoned for a mob whose Stand a rule keeps took the mob's"
 					+ " rotation as it was summoned (EntityStandType.summon)");
 			helper.assertTrue(Math.abs(Mth.wrapDegrees(stand.yHeadRot - 100.0F)) < EPS
-					&& Math.abs(Mth.wrapDegrees(stand.yBodyRot - 80.0F)) < EPS, "A Stand summoned for a mob whose Stand a"
-							+ " rule keeps took the mob's head 100 and body 80 as it was summoned (copyStandUserRotation): head "
+					&& Math.abs(Mth.wrapDegrees(stand.yBodyRot - 90.0F)) < EPS, "A Stand summoned for a mob whose Stand a"
+							+ " rule keeps took the mob's head 100 as it was summoned (copyStandUserRotation) and, in its summon"
+							+ " pose, its own yaw 90 as its body, not the mob's body 80 (1.16 StandEntity.tickHeadTurn): head "
 							+ stand.yHeadRot + ", body " + stand.yBodyRot);
 
 			turn(stand, 30.0F, 5.0F);
