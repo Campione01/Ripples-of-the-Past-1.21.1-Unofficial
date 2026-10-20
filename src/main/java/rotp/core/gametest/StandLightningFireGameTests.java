@@ -1,15 +1,26 @@
 package rotp.core.gametest;
 
+import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
+import rotp.core.core.JojoRegistries;
+import rotp.core.init.ModDamageTypes;
+import rotp.core.powersystem.PowerClass;
+import rotp.core.powersystem.standpower.StandInstance;
+import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
+import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.util.functions.DamageUtil;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LightningBolt;
 import net.minecraft.world.entity.animal.Cow;
+import net.minecraft.world.entity.monster.Zombie;
+import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.gametest.GameTestHolder;
@@ -108,6 +119,61 @@ public final class StandLightningFireGameTests {
 						+ " alight by " + row + ": it burns for " + stand.getRemainingFireTicks() + " ticks");
 				stand.clearFire();
 			});
+		}
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 StandEntity.isInvulnerableTo refused every fire damage to a Stand while the fireDamage gamerule was off, whoever
+	 * its user was: a zombie's Star Platinum a Stand's fire burns takes no damage from that burning (on_fire) or from a
+	 * Stand's fire projectile (stand_projectile_fire) with the rule off, and both can hurt it again with the rule on.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aStandTakesNoFireDamageWhileTheFireDamageRuleIsOffWhoeverItsUserIsAsIn116(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		Zombie zombie = EntityType.ZOMBIE.create(level);
+		helper.assertTrue(zombie != null, "setup: could not create the zombie");
+		StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("star_platinum"));
+		Vec3 origin = Vec3.atCenterOf(helper.absolutePos(new BlockPos(2, 2, 2)));
+		zombie.setNoAi(true);
+		zombie.setNoGravity(true);
+		zombie.moveTo(origin.x, origin.y, origin.z, 0.0F, 0.0F);
+		helper.assertTrue(level.addFreshEntity(zombie), "setup: could not add the zombie");
+		StandPower power = PowerClass.STAND.attachGet(zombie);
+		GameRules.BooleanValue fireDamage = level.getGameRules().getRule(GameRules.RULE_FIRE_DAMAGE);
+		boolean ruleBefore = fireDamage.get();
+		try {
+			helper.assertTrue(type != null && StandPowerTransitions.insert(power, new StandInstance(type)).status()
+					== StandPowerTransitions.Status.APPLIED && type.summon(zombie, power),
+					"setup: could not give the zombie Star Platinum and summon it");
+			StandEntity stand = power.getSummonedStandEntity();
+			helper.assertTrue(stand != null, "setup: the zombie's Stand is missing");
+			DamageUtil.setOnFire(stand, 100, true);
+			helper.assertTrue(stand.isOnFire(), "setup: a Stand's fire did not set the zombie's Star Platinum alight");
+			DamageSource[] fires = { level.damageSources().onFire(),
+					new DamageSource(DamageUtil.type(level, ModDamageTypes.STAND_PROJECTILE_FIRE)) };
+			for (boolean ruleOn : new boolean[] { false, true }) {
+				fireDamage.set(ruleOn, level.getServer());
+				for (DamageSource fire : fires) {
+					helper.assertTrue(stand.isInvulnerableTo(fire) != ruleOn, "1.16 " + (ruleOn ? "let " : "kept ")
+							+ fire.typeHolder().unwrapKey().map(key -> key.location().toString()).orElse(fire.getMsgId())
+							+ " damage " + (ruleOn ? "hurt" : "from") + " a zombie's Star Platinum with the fireDamage gamerule "
+							+ (ruleOn ? "on" : "off") + "; isInvulnerableTo answers " + stand.isInvulnerableTo(fire));
+				}
+			}
+			fireDamage.set(false, level.getServer());
+			float userHealth = zombie.getHealth();
+			float standHealth = stand.getHealth();
+			helper.assertTrue(!stand.hurt(level.damageSources().onFire(), 1.0F) && zombie.getHealth() == userHealth
+					&& stand.getHealth() == standHealth, "1.16 kept its burning from hurting a zombie's Star Platinum with the"
+							+ " fireDamage gamerule off; the zombie has " + zombie.getHealth() + " of " + userHealth);
+		}
+		finally {
+			fireDamage.set(ruleBefore, level.getServer());
+			if (power.isSummoned() && type != null) {
+				type.forceUnsummon(zombie, power);
+			}
+			zombie.discard();
 		}
 		helper.succeed();
 	}

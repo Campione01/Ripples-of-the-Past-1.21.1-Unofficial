@@ -135,6 +135,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ProjectileWeaponItem;
 import net.minecraft.world.item.Tiers;
+import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
@@ -2193,6 +2194,8 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 					|| user instanceof Player player && player.getAbilities().invulnerable && !damageSource.is(DamageTypeTags.BYPASSES_INVULNERABILITY))
 				|| canOnlyHurtFromStands && !damageSource.is(DamageTypes.ON_FIRE)
 						&& !DamageUtil.canHurtStands(damageSource)
+				// 1.16: whoever the user, no fire damage to a Stand while the fireDamage gamerule is off
+				|| damageSource.is(DamageTypeTags.IS_FIRE) && !level().getGameRules().getBoolean(GameRules.RULE_FIRE_DAMAGE)
 				|| super.isInvulnerableTo(/*level, */damageSource);
 	}
 
