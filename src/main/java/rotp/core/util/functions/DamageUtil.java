@@ -137,14 +137,13 @@ public class DamageUtil {
 		return dealtDamage;
 	}
 
-	// TODO canSetStandOnFire parameter
 	public static void setOnFire(Entity entity, int fireTicks, boolean canSetStandOnFire) {
-//		if (canSetStandOnFire && entity instanceof StandEntity standEntity) {
-//			standEntity.setFireFromStand(fireSeconds);
-//		}
-//		else {
+		if (canSetStandOnFire && entity instanceof StandEntity standEntity) {
+			standEntity.setFireFromStand(fireTicks);
+		}
+		else {
 			entity.igniteForTicks(fireTicks);
-//		}
+		}
 	}
 
 	/**

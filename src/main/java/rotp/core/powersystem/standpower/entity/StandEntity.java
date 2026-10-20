@@ -115,6 +115,7 @@ import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.HumanoidArm;
+import net.minecraft.world.entity.LightningBolt;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.entity.Pose;
@@ -2195,6 +2196,22 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 				|| canOnlyHurtFromStands && !damageSource.is(DamageTypes.ON_FIRE)
 						&& !DamageUtil.canHurtStands(damageSource)
 				|| super.isInvulnerableTo(/*level, */damageSource);
+	}
+
+	// 1.16 StandEntity: a lightning bolt and lava leave a Stand as it is, and only a Stand's fire sets it alight
+	@Override
+	public void thunderHit(ServerLevel level, LightningBolt lightning) {}
+
+	@Override
+	public void lavaHurt() {}
+
+	@Override
+	public void igniteForTicks(int ticks) {
+		setRemainingFireTicks(-1);
+	}
+
+	public void setFireFromStand(int ticks) {
+		super.igniteForTicks(ticks);
 	}
 
 	@Override
