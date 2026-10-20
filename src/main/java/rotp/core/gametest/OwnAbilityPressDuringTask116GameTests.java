@@ -9,12 +9,17 @@ import java.util.function.Consumer;
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
+import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility;
+import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility.StandEntityHeavyPunch;
 import rotp.core.impl.stands.hierophant.HierophantEmeraldSplashAbility;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModStatusEffects;
+import rotp.core.init.power.ModStandAbilities;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
+import rotp.core.powersystem.ability.AbilityId;
+import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.ability.EntityActionAbility;
 import rotp.core.powersystem.ability.condition.AvailableAbilities.AbilityConditionCheck;
 import rotp.core.powersystem.ability.controls.InputMethod;
@@ -24,6 +29,7 @@ import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.netcode.SyncType;
+import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
@@ -197,6 +203,46 @@ public final class OwnAbilityPressDuringTask116GameTests {
 				s.standAction.setAction(null, s.user, SyncType.NO_SYNC);
 			}
 			helper.succeed();
+		}
+	}
+
+	/*
+	 * 1.16 StandEntityHeavyAttack was not chainable (StandEntityAction.canClickDuringTask): a heavy attack whose recovery
+	 * let other actions through still refused its own press. The core's free recoveries are finisher variations, which
+	 * StandFinisherCheck.refuseRunningFinisher refuses too; an add-on heavy punch with a free recovery of its own that is
+	 * not a finisher variation has only StandEntityHeavyPunch.refusesOwnAbilityPressedAgain.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aHeavyPunchWhoseOwnRecoveryIsFreeRefusesItsOwnPressAsIn116(GameTestHelper helper) {
+		try (Scene s = new Scene(helper, "OwnPressFreeRecoveryHeavy", "star_platinum", 4)) {
+			Ability heavy = new FreeRecoveryHeavyPunchAbility(ModStandAbilities.HEAVY_PUNCH.get(),
+					new AbilityId(PowerClass.STAND, s.standType.getId(), FREE_RECOVERY_HEAVY));
+			s.power.getMoveset().abilities.put(FREE_RECOVERY_HEAVY, heavy);
+			helper.assertTrue(s.power.getAbility(FREE_RECOVERY_HEAVY) == heavy && heavy.isAbilityUnlocked(s.power)
+					&& heavy.isStandFinisherOf == null, "setup: the test heavy punch is not an unlocked moveset ability, or is a finisher");
+			s.refusedDuringItself(FREE_RECOVERY_HEAVY, InputMethod.CLICK, EntityActionInstance::startRecovery);
+			helper.succeed();
+		}
+	}
+
+	private static final String FREE_RECOVERY_HEAVY = "own_press_free_recovery_heavy";
+
+	// an add-on's heavy punch whose recovery takes any press at once, without being a finisher variation
+	private static final class FreeRecoveryHeavyPunchAbility extends StandEntityHeavyPunchAbility {
+		private FreeRecoveryHeavyPunchAbility(AbilityType<?> abilityType, AbilityId abilityId) {
+			super(abilityType, abilityId);
+			createActionObj = FreeRecoveryHeavyPunch::new;
+		}
+	}
+
+	private static final class FreeRecoveryHeavyPunch extends StandEntityHeavyPunch {
+		private FreeRecoveryHeavyPunch(EntityActionType ability) {
+			super(ability);
+		}
+
+		@Override
+		public boolean canBeCancelledInto(EntityActionType cancellingAbility) {
+			return getPhase() == ActionPhase.RECOVERY;
 		}
 	}
 

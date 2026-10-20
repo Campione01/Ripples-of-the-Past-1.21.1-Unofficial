@@ -711,7 +711,9 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 			return getPhase() == ActionPhase.RECOVERY && ability instanceof Ability punch && punch.isStandFinisherOf != null;
 		}
 
-		// 1.16 StandEntityHeavyAttack was not chainable: its free recovery took any action but itself
+		// 1.16 StandEntityHeavyAttack was not chainable: its free recovery took any action but itself. The core's free
+		// recoveries are finisher variations, which StandFinisherCheck.refuseRunningFinisher refuses as well; this is what
+		// refuses it for an add-on heavy punch whose canBeCancelledInto lets its own ability in otherwise.
 		@Override
 		public boolean refusesOwnAbilityPressedAgain() {
 			return true;
