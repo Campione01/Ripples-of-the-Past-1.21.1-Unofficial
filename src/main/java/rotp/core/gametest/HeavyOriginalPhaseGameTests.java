@@ -24,6 +24,7 @@ import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility.StandEntit
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchChargedAbility.StandEntityChargedHeavy;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility.StandEntityPunch;
 import rotp.core.impl.stands.crazydiamond.CrazyDiamondHeavyPunchAbility.CrazyDiamondHeavyPunch;
+import rotp.core.impl.stands.crazydiamond.CrazyDiamondMisshapingPunchAbility.CrazyDiamondMisshapingPunch;
 import rotp.core.impl.stands.goldexperience.GoldExperienceHeavyPunchAbility.ToothKnockingHeavyPunch;
 import rotp.core.impl.stands.magiciansred.MagiciansRedKickAbility.MagiciansRedKick;
 import rotp.core.impl.stands.starplatinum.HeavyPunchUppercutAbility.Uppercut;
@@ -377,8 +378,9 @@ public final class HeavyOriginalPhaseGameTests {
 
         boolean correctClass() {
             return switch (spec.family) {
-                case SP_HEAVY, GRAB_HEAVY, CD_FINISHER, MR_HEAVY -> action.getClass() == StandEntityHeavyPunch.class;
+                case SP_HEAVY, GRAB_HEAVY, MR_HEAVY -> action.getClass() == StandEntityHeavyPunch.class;
                 case CD_HEAVY -> action.getClass() == CrazyDiamondHeavyPunch.class;
+                case CD_FINISHER -> action.getClass() == CrazyDiamondMisshapingPunch.class;
                 case GE_HEAVY, GE_LIFESHOT -> action.getClass() == ToothKnockingHeavyPunch.class;
                 case MR_KICK -> action.getClass() == MagiciansRedKick.class;
                 case TW_HEAVY -> action.getClass() == TheWorldHeavyPunch.class;

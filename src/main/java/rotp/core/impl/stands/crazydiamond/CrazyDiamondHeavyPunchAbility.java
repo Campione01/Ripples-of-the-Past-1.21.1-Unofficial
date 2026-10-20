@@ -2,8 +2,6 @@ package rotp.core.impl.stands.crazydiamond;
 
 import javax.annotation.Nullable;
 
-import rotp.core.entityattachment.syncheddata.SynchedDataBuilder;
-import rotp.core.entityattachment.syncheddata.SyncedDataHolderExtended;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
@@ -19,14 +17,9 @@ import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility;
 
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.phys.Vec3;
-import net.minecraft.network.syncher.EntityDataAccessor;
-import net.minecraft.network.syncher.EntityDataSerializers;
-import net.minecraft.network.syncher.SynchedEntityData;
 
 public class CrazyDiamondHeavyPunchAbility extends StandEntityHeavyPunchAbility {
 
@@ -54,9 +47,7 @@ public class CrazyDiamondHeavyPunchAbility extends StandEntityHeavyPunchAbility 
 		return key != null && key.getAbilityId().equals(punch.ability.getAbilityId());
 	}
 
-	public static class CrazyDiamondHeavyPunch extends StandEntityHeavyPunchAbility.StandEntityHeavyPunch implements SyncedDataHolderExtended {
-		private static final EntityDataAccessor<Integer> MISSHAPING_TARGET_HIT_PART = SynchedEntityData.defineId(
-				CrazyDiamondHeavyPunch.class, EntityDataSerializers.INT);
+	public static class CrazyDiamondHeavyPunch extends StandEntityHeavyPunchAbility.StandEntityHeavyPunch {
 
 		public CrazyDiamondHeavyPunch(EntityActionType ability) {
 			super(ability);
@@ -74,39 +65,6 @@ public class CrazyDiamondHeavyPunchAbility extends StandEntityHeavyPunchAbility 
 					}
 				}
 			}
-		}
-
-		public void updateMisshapingTargetPart(StandEntity stand, LivingEntity user) {
-			ActionTarget target = standRotationTarget != null ? standRotationTarget.resolveEntityId(stand.level()) : getPunchTarget(stand);
-			Entity targetEntity = target.getMainEntity();
-			if (targetEntity instanceof LivingEntity livingTarget) {
-				LivingEntity aimingEntity = user != null ? user : stand;
-				setMisshapingTargetPart(CrazyDTargetHitPart.getHitTarget(livingTarget, aimingEntity));
-			}
-			else {
-				setMisshapingTargetPart(null);
-			}
-		}
-
-		@Nullable
-		public CrazyDTargetHitPart getMisshapingTargetPart() {
-			return CrazyDTargetHitPart.fromSyncId(synchedData.get(MISSHAPING_TARGET_HIT_PART));
-		}
-
-		private void setMisshapingTargetPart(@Nullable CrazyDTargetHitPart hitPart) {
-			synchedData.set(MISSHAPING_TARGET_HIT_PART,
-					hitPart != null ? hitPart.syncId() : CrazyDTargetHitPart.NONE_SYNC_ID);
-		}
-
-		@Override
-		@Nullable
-		public Vec3 getStandLookTargetPosition(StandEntity standEntity, ActionTarget target) {
-			CrazyDTargetHitPart hitPart = getMisshapingTargetPart();
-			Entity targetEntity = target.getMainEntity();
-			if (hitPart != null && targetEntity instanceof LivingEntity livingTarget) {
-				return hitPart.getPartCenter(livingTarget);
-			}
-			return super.getStandLookTargetPosition(standEntity, target);
 		}
 
 		@Override
@@ -158,13 +116,5 @@ public class CrazyDiamondHeavyPunchAbility extends StandEntityHeavyPunchAbility 
 				ItemUtil.giveItemTo(user != null ? user : stand, heldItem, true);
 			}
 		}
-
-		@Override
-		public void defineSynchedData(SynchedDataBuilder builder) {
-			builder.define(MISSHAPING_TARGET_HIT_PART, CrazyDTargetHitPart.NONE_SYNC_ID);
-		}
-
-		@Override
-		public <T> void onSyncedDataUpdated(T oldValue, T newValue, EntityDataAccessor<T> dataAccessor) {}
 	}
 }

@@ -12,6 +12,7 @@ import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility.StandEntityHeavyPunch;
 import rotp.core.init.ModDataAttachmentTypes;
+import rotp.core.init.ModStatusEffects;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
@@ -34,6 +35,7 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.animal.Cow;
@@ -221,6 +223,212 @@ public final class CrazyDiamondFollowUpKey116GameTests {
 			user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get()).heldKeys.clear();
 			user.discard();
 			enemy.discard();
+		}
+	}
+
+	/*
+	 * 1.16 CrazyDiamondMisshapingPunch.onTaskSet recorded the part of a living task target its user aimed at
+	 * (TargetHitPart.getHitTarget from the user's look), turned the Stand to that part (rotateStandTowardsTarget) and the
+	 * misshape follow-up worked on that part, not on where the punch landed. The user looks 28 degrees down at another
+	 * player 3 blocks ahead, its look line entering the legs.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 200)
+	public static void theFinisherMisshapesThePartItsUserAimedAtWhenItStartedAsIn116(GameTestHelper helper) {
+		MisshapeScene scene = MisshapeScene.open(helper, "CrazyDiamondMisshapePart", 28.0F);
+		try {
+			Vec3 eyes = scene.user.getEyePosition();
+			Vec3 entry = scene.enemy.getBoundingBox().clip(eyes, eyes.add(scene.user.getLookAngle().scale(6.0D))).orElse(null);
+			helper.assertTrue(entry != null && entry.y - scene.enemy.getY() < scene.enemy.getBbHeight() * 0.375D,
+					"fixture: the user's look line does not enter the other player's legs: " + entry);
+			// Crazy Diamond itself looks above the player's head: only its user's aim gives the legs
+			scene.stand.moveTo(scene.user.getX() - 0.75D, scene.user.getY(), scene.user.getZ() - 0.75D, 0.0F, -20.0F);
+			scene.stand.setYHeadRot(0.0F);
+			Vec3 standEyes = scene.stand.getEyePosition();
+			Vec3 standLook = scene.stand.getLookAngle();
+			double standAimY = standEyes.y + standLook.y * (scene.enemy.getBoundingBox().minZ - standEyes.z) / standLook.z;
+			helper.assertTrue(standAimY > scene.enemy.getBoundingBox().maxY, "fixture: Crazy Diamond's own look line does not"
+					+ " pass above the other player's head: " + standAimY);
+			scene.aimAt(scene.enemy);
+			EntityActionInstance action = scene.pressFinisher(helper);
+			Vec3 lookedAt = action.getStandLookTargetPosition(scene.stand, new ActionTarget(scene.enemy));
+			helper.assertTrue(lookedAt != null && lookedAt.distanceTo(scene.enemy.position()) < 1.0E-6D, "1.16 turned Crazy"
+					+ " Diamond to the legs of the player its finisher started at, the part its user aimed at (their centre "
+					+ scene.enemy.position() + "): it looks at " + lookedAt);
+			AbilityConditionCheck followUp = resolve(scene.power, scene.heavy);
+			helper.assertTrue(followUp != null && followUp.ability == scene.misshaping && followUp.conditionCheck.isPositive(),
+					"fixture: the misshaping punch is not on the heavy key during the finisher: " + describe(followUp));
+			press(scene.power, scene.user, scene.heavy);
+			int[] ticks = new int[1];
+			helper.onEachTick(() -> {
+				if (scene.closed) return;
+				try {
+					boolean face = scene.enemy.hasEffect(ModStatusEffects.MISSHAPEN_FACE);
+					boolean arms = scene.enemy.hasEffect(ModStatusEffects.MISSHAPEN_ARMS);
+					boolean legs = scene.enemy.hasEffect(ModStatusEffects.MISSHAPEN_LEGS);
+					if (face || arms || legs || action.isOver()) {
+						helper.assertTrue(legs && !face && !arms, "1.16 misshaped the legs, the part the user aimed at when the"
+								+ " finisher started: face " + face + ", arms " + arms + ", legs " + legs + " (the punch struck "
+								+ action.punchedTarget + ")");
+						scene.close();
+						helper.succeed();
+					}
+					else if (++ticks[0] > 150) {
+						scene.close();
+						helper.fail("The finisher with the misshaping punch did not end");
+					}
+				}
+				catch (RuntimeException | Error error) {
+					scene.close();
+					throw error;
+				}
+			});
+		}
+		catch (RuntimeException | Error error) {
+			scene.close();
+			throw error;
+		}
+	}
+
+	/*
+	 * A finisher pressed at nothing recorded no part (1.16 onTaskSet found no living task target), so even once its strike
+	 * took a player as its task target the heavy key offered no misshape follow-up (CrazyDiamondMisshapeBodyPart: no part).
+	 */
+	@GameTest(template = "empty", timeoutTicks = 200)
+	public static void aFinisherStartedAtNothingOffersNoMisshapingAsIn116(GameTestHelper helper) {
+		MisshapeScene scene = MisshapeScene.open(helper, "CrazyDiamondMisshapeNoPart", 0.0F);
+		try {
+			scene.aimAt(null);
+			EntityActionInstance action = scene.pressFinisher(helper);
+			helper.assertTrue(action instanceof StandEntityHeavyPunch punch && punch.getTaskTarget(scene.stand.level()).isEmpty(
+					scene.stand.level()), "fixture: the finisher pressed at nothing has a target");
+			// the client's crosshair now on the other player, which the strike takes
+			LivingComponentAction.getComponent(scene.user).entityAim.setTarget(new ActionTarget(scene.enemy));
+			int[] ticks = new int[1];
+			helper.onEachTick(() -> {
+				if (scene.closed) return;
+				try {
+					StandEntityHeavyPunch punch = (StandEntityHeavyPunch) action;
+					if (punch.punchedTarget != null) {
+						helper.assertTrue(punch.punchedTarget.getEntity() == scene.enemy
+								&& punch.getTaskTarget(scene.stand.level()).getEntity() == scene.enemy && !punch.isOver(),
+								"fixture: the strike did not take the other player as the finisher's target: " + punch.punchedTarget);
+						AbilityConditionCheck key = resolve(scene.power, scene.heavy);
+						helper.assertTrue(key != null && key.ability == scene.finisher, "1.16 offered no misshape follow-up for a"
+								+ " finisher that started without a living target, even once it struck a player: the heavy key"
+								+ " resolves to " + describe(key));
+						scene.close();
+						helper.succeed();
+					}
+					else if (++ticks[0] > 150 || punch.isOver()) {
+						scene.close();
+						helper.fail("The finisher pressed at nothing never struck the other player");
+					}
+				}
+				catch (RuntimeException | Error error) {
+					scene.close();
+					throw error;
+				}
+			});
+		}
+		catch (RuntimeException | Error error) {
+			scene.close();
+			throw error;
+		}
+	}
+
+	// Crazy Diamond's user floating 4 blocks up, facing south at the given pitch, another player 3 blocks ahead
+	private static final class MisshapeScene {
+		final GameTestHelper helper;
+		final StandType standType;
+		final Player user;
+		final Player enemy;
+		StandPower power;
+		StandEntity stand;
+		Ability heavy;
+		Ability finisher;
+		Ability misshaping;
+		boolean closed;
+
+		private MisshapeScene(GameTestHelper helper, String name) {
+			this.helper = helper;
+			this.standType = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("crazy_diamond"));
+			this.user = FakePlayerFactory.get(helper.getLevel(), new GameProfile(UUID.randomUUID(), name));
+			this.enemy = FakePlayerFactory.get(helper.getLevel(), new GameProfile(UUID.randomUUID(), name + "Target"));
+		}
+
+		static MisshapeScene open(GameTestHelper helper, String name, float pitch) {
+			MisshapeScene scene = new MisshapeScene(helper, name);
+			try {
+				scene.setUp(pitch);
+				return scene;
+			}
+			catch (RuntimeException | Error error) {
+				scene.close();
+				throw error;
+			}
+		}
+
+		private void setUp(float pitch) {
+			ServerLevel level = helper.getLevel();
+			helper.assertTrue(standType != null, "Missing Crazy Diamond Stand type");
+			user.getAbilities().instabuild = false;
+			Vec3 userPos = Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(2, 5, 1)));
+			user.moveTo(userPos.x, userPos.y, userPos.z, 0.0F, pitch);
+			user.setNoGravity(true);
+			helper.assertTrue(level.addFreshEntity(user), "Could not add the Crazy Diamond player");
+			enemy.moveTo(userPos.x, userPos.y, userPos.z + 3.0D, 180.0F, 0.0F);
+			enemy.setNoGravity(true);
+			helper.assertTrue(level.addFreshEntity(enemy), "Could not add the other player");
+			power = PowerClass.STAND.attachGet(user);
+			helper.assertTrue(StandPowerTransitions.insert(power, new StandInstance(standType)).status()
+					== StandPowerTransitions.Status.APPLIED, "Could not grant Crazy Diamond");
+			power.setResolveLevel(4);
+			for (String ability : new String[] { "heavy_punch", "finisher", "disfiguring_punch" }) {
+				power.getCurTypeData()._lockedAbilities.remove(ability);
+			}
+			heavy = power.getAbility("heavy_punch");
+			finisher = power.getAbility("finisher");
+			misshaping = power.getAbility("disfiguring_punch");
+			helper.assertTrue(heavy != null && finisher != null && misshaping != null && finisher.isAbilityUnlocked(power)
+					&& misshaping.isAbilityUnlocked(power), "fixture: Crazy Diamond's heavy punch, finisher or misshaping punch"
+							+ " is missing or locked");
+			helper.assertTrue(standType.summon(user, power), "Could not summon Crazy Diamond");
+			stand = power.getSummonedStandEntity();
+			helper.assertTrue(stand != null, "Summoned Crazy Diamond is missing");
+			stand.summonLockTicks = 0;
+		}
+
+		void aimAt(@Nullable Entity target) {
+			ActionTarget aim = target != null ? new ActionTarget(target) : ActionTarget.EMPTY;
+			LivingComponentAction.getComponent(user).entityAim.setTarget(aim);
+			LivingComponentAction.getComponent(stand).entityAim.setTarget(aim.copy());
+		}
+
+		// the heavy key pressed with a full meter, which starts the finisher
+		EntityActionInstance pressFinisher(GameTestHelper helper) {
+			power.setStamina(power.getMaxStamina());
+			stand.setFinisherMeter(1.0F);
+			AbilityConditionCheck pressed = press(power, user, heavy);
+			EntityActionInstance action = LivingComponentAction.getComponent(stand).getAction();
+			helper.assertTrue(pressed != null && pressed.ability == finisher && action instanceof StandEntityHeavyPunch
+					&& action.ability == finisher, "fixture: a full meter did not make the heavy key start the finisher: "
+							+ describe(pressed) + ", action " + action);
+			return action;
+		}
+
+		void close() {
+			if (closed) return;
+			closed = true;
+			try {
+				if (power != null && power.isSummoned()) {
+					standType.forceUnsummon(user, power);
+				}
+			}
+			finally {
+				user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get()).heldKeys.clear();
+				user.discard();
+				enemy.discard();
+			}
 		}
 	}
 
