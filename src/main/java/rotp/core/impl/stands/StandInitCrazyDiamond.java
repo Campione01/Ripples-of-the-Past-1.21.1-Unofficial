@@ -61,7 +61,7 @@ public class StandInitCrazyDiamond {
 					punch.recoveryPhaseEntryTiming();
 				})
 				.addAbility("heavy_charged", ModStandAbilities.HEAVY_CHARGED)
-				.addAbility("finisher", ModStandAbilities.HEAVY_PUNCH, punch -> {
+				.addAbility("finisher", ModStandAbilities.CD_MISSHAPING_PUNCH, punch -> {
 					punch.heavyPunchImpactSound(ModSoundEvents.CRAZY_DIAMOND_PUNCH_HEAVY).heavyPunchCrySound(ModSoundEvents.CRAZY_DIAMOND_DORA_LONG);
 					punch.initIsFinisher();
 					punch.resolveLevelToUnlock(1);
@@ -83,7 +83,7 @@ public class StandInitCrazyDiamond {
 					punch.heavyPunchImpactSound(ModSoundEvents.CRAZY_DIAMOND_PUNCH_HEAVY).heavyPunchCrySound(ModSoundEvents.CRAZY_DIAMOND_DORA_LONG);
 					punch.initIsGrabVariation();
 				})
-				.addAbility("grab_finisher", ModStandAbilities.HEAVY_PUNCH, punch -> {
+				.addAbility("grab_finisher", ModStandAbilities.CD_MISSHAPING_PUNCH, punch -> {
 					punch.heavyPunchImpactSound(ModSoundEvents.CRAZY_DIAMOND_PUNCH_HEAVY).heavyPunchCrySound(ModSoundEvents.CRAZY_DIAMOND_DORA_LONG);
 					punch.initIsGrabVariation();
 					punch.initIsFinisher("grab_heavy_punch");

@@ -18,6 +18,7 @@ import javax.annotation.Nullable;
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
+import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 import rotp.core.impl.stands.goldexperience.GEGrowthSparkles;
 import rotp.core.impl.stands.goldexperience.GEItemMarkEffect;
 import rotp.core.impl.stands.goldexperience.GETransformationEntity;
@@ -40,10 +41,13 @@ import rotp.core.init.ModGamerules;
 import rotp.core.init.ModStatusEffects;
 import rotp.core.init.power.ModStandAbilities;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
+import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.netcode.SyncType;
+import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
+import rotp.core.powersystem.standpower.entity.StandEntityAbility;
 import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.itemtracking.ItemTracker;
 import rotp.core.subsystems.itemtracking.ItemTracking;
@@ -85,9 +89,12 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Cod;
 import net.minecraft.world.entity.animal.Cow;
+import net.minecraft.world.entity.animal.Wolf;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.entity.npc.Villager;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.entity.vehicle.Boat;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -97,6 +104,8 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.TrapDoorBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import net.neoforged.bus.api.EventPriority;
@@ -1239,6 +1248,184 @@ public final class StandTargetRangeGameTests {
 			}
 		}
 		helper.succeed();
+	}
+
+	/*
+	 * 1.16's client took a manually controlled Stand's target from the crosshair with the Stand as the camera
+	 * (InputHandler.pickMouseTarget): the vanilla pick (a block within the player's 4.5, any entity within 3) and, behind a
+	 * miss, EntityStandType.clientHitResult's precision ray from the Stand as far as its own reach (getAimDistance under
+	 * manual control) over any entity but the Stand and its user; no action the Stand ran filtered it. Without the aim
+	 * assist setting the Stand's crosshair line within that reach takes its place. Crazy Diamond under manual control, 2.4
+	 * blocks behind its user and turned away from it; the vanilla pick is GameRenderer.pick's from the Stand's eyes.
+	 */
+	@GameTest(template = "empty", batch = BATCH)
+	public static void aManuallyControlledStandAimsWithItsCrosshairWhateverActionItRunsAsIn116(GameTestHelper helper) {
+		String[] rows = { "a held Revert: a cow before a snow golem on the Stand's look",
+				"a held Revert: a cow and a snow golem beside the Stand's look, in its precision boxes",
+				"a held Revert: the vanilla pick on a cow, a charged creeper beside the Stand's look behind it, in its precision box",
+				"no action: a cow on the Stand's look past its reach, within the vanilla pick",
+				"no action: a stone block on the Stand's look past its reach, within the vanilla pick",
+				"no action: the user's tamed wolf before a cow beside the Stand's look, in their precision boxes",
+				"no action: a snow golem beside the Stand's look past its reach, in its precision box",
+				"the aim assist off, a held Revert: a cow before a snow golem on the Stand's look",
+				"the aim assist off, no action: a cow beside the Stand's look, in its precision box" };
+		List<String> wrong = new ArrayList<>();
+		for (String row : rows) {
+			try (Fixture fixture = Fixture.open(helper, Kind.CD_REVERT)) {
+				fixture.power.setResolveLevel(4);
+				StandEntity stand = fixture.stand;
+				stand.setManuallyControlled(true);
+				stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z - 2.4D, 180.0F, 0.0F);
+				stand.setYHeadRot(180.0F);
+				LivingComponentAction.getComponent(stand).entityAim.setTarget(ActionTarget.EMPTY);
+				if (row.startsWith("the aim assist off")) {
+					fixture.user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get()).standAimAssist = false;
+				}
+				double reach = stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE);
+				Object expected;
+				String layout;
+				boolean premise;
+				if (row.contains("a cow before a snow golem") || row.contains("a cow and a snow golem")) {
+					double side = row.contains("beside") ? 0.6D : 0.0D;
+					Cow cow = placed(helper, fixture, EntityType.COW, aheadOfStand(stand, side, side > 0.0D ? 1.2D : 1.0D));
+					SnowGolem golem = placed(helper, fixture, EntityType.SNOW_GOLEM, aheadOfStand(stand, side, 2.0D));
+					double cowEntry = entry(stand, cow.getBoundingBox());
+					double golemEntry = entry(stand, golem.getBoundingBox());
+					double cowGrown = entry(stand, grownBox(stand, cow));
+					double golemGrown = entry(stand, grownBox(stand, golem));
+					premise = side > 0.0D ? cowEntry < 0.0D && golemEntry < 0.0D && cowGrown > 0.0D && golemGrown > cowGrown
+							&& golemGrown < reach : cowEntry > 0.0D && golemEntry > cowEntry && golemEntry < reach;
+					layout = "the cow " + cowEntry + " (precision box " + cowGrown + ") and the golem " + golemEntry
+							+ " (precision box " + golemGrown + ") blocks along the Stand's look (reach " + reach + ")";
+					premise &= heldRevertTakesOnly(fixture, stand, cow, golem);
+					layout += ", the held Revert taking only the golem";
+					expected = cow;
+				}
+				else if (row.contains("a charged creeper")) {
+					Cow cow = placed(helper, fixture, EntityType.COW, aheadOfStand(stand, 0.0D, 1.0D));
+					Creeper creeper = placed(helper, fixture, EntityType.CREEPER, aheadOfStand(stand, 0.6D, 2.0D));
+					CommonReflection.setCreeperPowered(creeper, true);
+					double cowEntry = entry(stand, cow.getBoundingBox());
+					double creeperGrown = entry(stand, grownBox(stand, creeper));
+					premise = cowEntry > 0.0D && cowEntry < fixture.user.entityInteractionRange() && entry(stand, creeper.getBoundingBox()) < 0.0D
+							&& creeperGrown > cowEntry && creeperGrown < reach
+							&& StandPrecisionRay.trace(stand, stand, reach, 0.0D, true, true).getEntity() == creeper
+							&& heldRevertTakesOnly(fixture, stand, cow, creeper);
+					layout = "the cow " + cowEntry + " blocks along the Stand's look and the charged creeper's precision box " + creeperGrown
+							+ ", off the exact line (reach " + reach + "), which the precision ray takes, the held Revert taking only the creeper";
+					expected = cow;
+				}
+				else if (row.contains("a cow on the Stand's look past its reach")) {
+					Cow cow = placed(helper, fixture, EntityType.COW, aheadOfStand(stand, 0.0D, 3.0D));
+					double cowEntry = entry(stand, cow.getBoundingBox());
+					premise = cowEntry > reach && cowEntry < fixture.user.entityInteractionRange();
+					layout = "the cow " + cowEntry + " blocks along the Stand's look (reach " + reach + ", the player's entity pick "
+							+ fixture.user.entityInteractionRange() + ")";
+					expected = cow;
+				}
+				else if (row.contains("a stone block")) {
+					BlockPos block = fixture.block(BlockPos.containing(fixture.origin.x, stand.getEyeY(), stand.getZ() - 3.6D));
+					double blockEntry = entry(stand, new AABB(block));
+					premise = blockEntry > reach && blockEntry < fixture.user.blockInteractionRange();
+					layout = "the block " + blockEntry + " blocks along the Stand's look (reach " + reach + ", the player's block pick "
+							+ fixture.user.blockInteractionRange() + ")";
+					expected = block;
+				}
+				else if (row.contains("tamed wolf")) {
+					Wolf wolf = placed(helper, fixture, EntityType.WOLF, aheadOfStand(stand, 0.5D, 1.0D));
+					wolf.setTame(true, false);
+					wolf.setOwnerUUID(fixture.user.getUUID());
+					Cow cow = placed(helper, fixture, EntityType.COW, aheadOfStand(stand, 0.6D, 2.0D));
+					double wolfGrown = entry(stand, grownBox(stand, wolf));
+					double cowGrown = entry(stand, grownBox(stand, cow));
+					premise = wolf.getOwner() == fixture.user && !stand.canAttackEntity(wolf) && entry(stand, wolf.getBoundingBox()) < 0.0D
+							&& entry(stand, cow.getBoundingBox()) < 0.0D && wolfGrown > 0.0D && cowGrown > wolfGrown && cowGrown < reach;
+					layout = "the wolf's precision box " + wolfGrown + " and the cow's " + cowGrown + " blocks along the Stand's look,"
+							+ " both off the exact line (reach " + reach + "), a wolf the Stand may not attack";
+					expected = wolf;
+				}
+				else if (row.contains("past its reach, in its precision box")) {
+					SnowGolem golem = placed(helper, fixture, EntityType.SNOW_GOLEM, aheadOfStand(stand, 0.6D, 3.6D));
+					double golemGrown = entry(stand, grownBox(stand, golem));
+					premise = entry(stand, golem.getBoundingBox()) < 0.0D && golemGrown > reach
+							&& golemGrown < StandEntityPunchAbility.userAimReach(fixture.user, stand);
+					layout = "the golem's precision box " + golemGrown + " blocks along the Stand's look, off the exact line (reach "
+							+ reach + ")";
+					expected = ActionTarget.EMPTY;
+				}
+				else {
+					Cow cow = placed(helper, fixture, EntityType.COW, aheadOfStand(stand, 0.6D, 1.2D));
+					double cowGrown = entry(stand, grownBox(stand, cow));
+					premise = entry(stand, cow.getBoundingBox()) < 0.0D && cowGrown > 0.0D && cowGrown < reach;
+					layout = "the cow's precision box " + cowGrown + " blocks along the Stand's look, off the exact line (reach " + reach
+							+ ")";
+					expected = ActionTarget.EMPTY;
+				}
+				ActionTarget vanillaPick = vanillaPick(stand, fixture.user);
+				helper.assertTrue(premise && stand.isManuallyControlled() && entry(fixture.user, stand.getBoundingBox()) < 0.0D,
+						"STAND-AIM premise: " + row + ": " + layout + "; the vanilla pick " + describe(vanillaPick, stand));
+				ActionTarget aim = StandEntityPunchAbility.manualStandAim(stand, vanillaPick);
+				boolean matches = expected instanceof Entity entity ? aim.getType() == TargetType.ENTITY && aim.getEntity() == entity
+						: expected instanceof BlockPos pos ? aim.getType() == TargetType.BLOCK && pos.equals(aim.getBlockPos())
+						: aim.getType() == TargetType.EMPTY;
+				if (!matches) wrong.add("STAND-AIM " + row + " (" + layout + "; the vanilla pick " + describe(vanillaPick, stand)
+						+ "): the manually controlled Stand's aim is " + describe(aim, stand) + "; 1.16's crosshair with the Stand as"
+						+ " the camera took " + (expected instanceof Entity entity ? entity.getType().getDescription().getString()
+								: expected instanceof BlockPos pos ? "the block at " + pos.toShortString() : "nothing"));
+				LivingComponentAction.getComponent(stand).setAction(null, fixture.user, SyncType.NO_SYNC);
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), String.join("; ", wrong));
+		helper.succeed();
+	}
+
+	// a held Revert running on the Stand, which takes the second entity for its aim and not the first
+	private static boolean heldRevertTakesOnly(Fixture fixture, StandEntity stand, Entity refused, Entity taken) {
+		EntityActionInstance revert = ((EntityActionType) fixture.ability).initActionOnAbilityUse(fixture.level, fixture.user, stand,
+				null);
+		LivingComponentAction.getComponent(stand).setAction(revert, fixture.user, SyncType.NO_SYNC);
+		return LivingComponentAction.getCurEntityAction(stand) == revert && revert.ability instanceof StandEntityAbility revertAbility
+				&& !revertAbility.canTargetEntityForAiming(stand, refused) && revertAbility.canTargetEntityForAiming(stand, taken);
+	}
+
+	// on the look line of a Stand turned north, at its eye height, side blocks to the east and ahead blocks along it
+	private static Vec3 aheadOfStand(StandEntity stand, double side, double ahead) {
+		return new Vec3(stand.getX() + side, stand.getEyeY(), stand.getZ() - ahead);
+	}
+
+	private static AABB grownBox(StandEntity stand, Entity entity) {
+		return HitResultUtil.standPrecisionTargetHitbox(entity.getBoundingBox().inflate(entity.getPickRadius()), stand.getPrecision());
+	}
+
+	// GameRenderer.pick with the given camera entity and the player's interaction ranges
+	private static ActionTarget vanillaPick(Entity camera, Player player) {
+		double blockRange = player.blockInteractionRange();
+		double entityRange = player.entityInteractionRange();
+		double range = Math.max(blockRange, entityRange);
+		double rangeSqr = range * range;
+		Vec3 eyes = camera.getEyePosition(1.0F);
+		HitResult block = camera.pick(range, 1.0F, false);
+		double blockSqr = block.getLocation().distanceToSqr(eyes);
+		if (block.getType() != HitResult.Type.MISS) {
+			rangeSqr = blockSqr;
+			range = Math.sqrt(blockSqr);
+		}
+		Vec3 view = camera.getViewVector(1.0F);
+		EntityHitResult entity = ProjectileUtil.getEntityHitResult(camera, eyes, eyes.add(view.scale(range)),
+				camera.getBoundingBox().expandTowards(view.scale(range)).inflate(1.0D),
+				candidate -> !candidate.isSpectator() && candidate.isPickable(), rangeSqr);
+		HitResult hit = entity != null && entity.getLocation().distanceToSqr(eyes) < blockSqr ? entity : block;
+		return hit.getLocation().closerThan(eyes, hit == entity ? entityRange : blockRange)
+				? ActionTarget.fromVanilla(hit) : ActionTarget.EMPTY;
+	}
+
+	private static String describe(ActionTarget target, Entity from) {
+		return switch (target.getType()) {
+			case ENTITY -> target.getEntity().getType().getDescription().getString() + " "
+					+ Math.sqrt(target.getEntity().getBoundingBox().distanceToSqr(from.getEyePosition())) + " blocks from the eyes";
+			case BLOCK -> "the block at " + target.getBlockPos().toShortString();
+			default -> "nothing";
+		};
 	}
 
 	// a still entity whose box is centred on the given height

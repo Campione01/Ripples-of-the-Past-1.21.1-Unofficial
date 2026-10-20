@@ -1189,6 +1189,27 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 				? standPrecisionRayTarget(stand, canTarget, StandSkillWalls.wallsHideEntities(stand)) : aim;
 	}
 
+	/**
+	 * The Stand's aim a client keeps while its user controls it manually, whatever action the Stand runs: 1.16's
+	 * crosshair target with the Stand as the camera (InputHandler.pickMouseTarget, EntityStandType.clientHitResult), the
+	 * vanilla pick from the Stand's eyes (a block within the player's block reach, any entity within its entity reach)
+	 * when it met a block or an entity other than the Stand, otherwise the precision ray from the Stand as far as its own
+	 * reach (getAimDistance under manual control) over any entity but the Stand, its user and their projectiles. Without
+	 * the aim assist, what the Stand's crosshair line meets first within that reach. Its readers judge the target.
+	 */
+	public static ActionTarget manualStandAim(StandEntity stand, ActionTarget vanillaPick) {
+		double reach = stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE);
+		boolean wallsHideEntities = StandSkillWalls.wallsHideEntities(stand);
+		if (!aimAssist(stand.getUser())) {
+			return StandPrecisionRay.crosshair(stand, stand, reach, true, wallsHideEntities);
+		}
+		if (vanillaPick.getType() == TargetType.BLOCK || vanillaPick.getType() == TargetType.ENTITY
+				&& vanillaPick.getEntity() != null && vanillaPick.getEntity() != stand) {
+			return vanillaPick;
+		}
+		return StandPrecisionRay.trace(stand, stand, reach, 0.0D, true, wallsHideEntities);
+	}
+
 	// the strict crosshair of 2026-09-13: from the user's eyes at the user's reach, blocks stopping the ray
 	private static ActionTarget strictCrosshairTarget(StandEntity stand, LivingEntity user, float partialTick,
 			Predicate<Entity> canTarget, boolean wallsHideEntities) {

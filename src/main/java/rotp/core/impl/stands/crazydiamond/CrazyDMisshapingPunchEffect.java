@@ -8,13 +8,12 @@ import rotp.core.init.ModStatusEffects;
 import rotp.core.powersystem.standpower.StandUtil;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.effect.StandEffectInstance;
-import rotp.core.impl.stands.crazydiamond.CrazyDiamondHeavyPunchAbility.CrazyDiamondHeavyPunch;
+import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility.StandEntityHeavyPunch;
 
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.phys.Vec3;
 
 public class CrazyDMisshapingPunchEffect extends StandEffectInstance {
 	private static final int EFFECT_DURATION = 60;
@@ -36,9 +35,13 @@ public class CrazyDMisshapingPunchEffect extends StandEffectInstance {
 				return;
 			}
 			else if (standAction.getActionTicksLeft() <= 1 && standAction.punchedTarget != null && standAction.punchedTarget.getEntity() instanceof LivingEntity target) {
-				LivingEntity affected = StandUtil.getStandUser(target);
-				applyMisshaping(affected, targetHitPart(target));
-				affected.heal(standAction.lastDamageDealtToLiving * 0.5F);
+				CrazyDTargetHitPart hitPart = standAction instanceof StandEntityHeavyPunch punch ? CrazyDMisshapingPunchInput.recordedPart(punch) : null;
+				// 1.16 standTickRecovery did nothing without the part the finisher recorded
+				if (hitPart != null) {
+					LivingEntity affected = StandUtil.getStandUser(target);
+					applyMisshaping(affected, hitPart);
+					affected.heal(standAction.lastDamageDealtToLiving * 0.5F);
+				}
 				remove();
 			}
 			else if (standAction.isOver()) {
@@ -69,18 +72,6 @@ public class CrazyDMisshapingPunchEffect extends StandEffectInstance {
 			target.addEffect(new MobEffectInstance(ModStatusEffects.MISSHAPEN_LEGS, MISSHAPEN_DURATION, 0, false, false, true));
 		}
 		}
-	}
-
-	private CrazyDTargetHitPart targetHitPart(LivingEntity target) {
-		if (standAction instanceof CrazyDiamondHeavyPunch cdPunch) {
-			CrazyDTargetHitPart hitPart = cdPunch.getMisshapingTargetPart();
-			if (hitPart != null) {
-				return hitPart;
-			}
-		}
-		Vec3 hitPos = standAction.punchedTarget.getClipPos()
-				.orElseGet(() -> target.position().add(0, target.getBoundingBox().getYsize() * 0.5D, 0));
-		return CrazyDTargetHitPart.getHitTarget(target, hitPos.y - target.getY());
 	}
 
 	private void tickClientRestorationVisuals() {

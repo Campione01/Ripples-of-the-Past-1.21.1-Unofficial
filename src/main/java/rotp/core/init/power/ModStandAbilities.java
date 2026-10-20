@@ -31,6 +31,7 @@ import rotp.core.impl.stands.crazydiamond.CrazyDRestoreTerrainAbility;
 import rotp.core.impl.stands.crazydiamond.CrazyDRevertEntityAndBlocksAbility;
 import rotp.core.impl.stands.crazydiamond.CrazyDUncraftItemAbility;
 import rotp.core.impl.stands.crazydiamond.CrazyDiamondHeavyPunchAbility;
+import rotp.core.impl.stands.crazydiamond.CrazyDiamondMisshapingPunchAbility;
 import rotp.core.impl.stands.crazydiamond.DriedBloodDropsEffect;
 import rotp.core.impl.stands.boyiiman.BoyIIManStandPartTakenEffect;
 import rotp.core.impl.stands.goldexperience.GECreatedLifeformEffect;
@@ -278,6 +279,9 @@ public final class ModStandAbilities {
 	
 	public static final DeferredHolder<AbilityType<?>, AbilityType<CrazyDiamondHeavyPunchAbility>> CD_HEAVY_PUNCH = ABILITY_TYPES.register(
 			"crazy_diamond_heavy_punch", key -> new AbilityType<>(key, CrazyDiamondHeavyPunchAbility::new));
+
+	public static final DeferredHolder<AbilityType<?>, AbilityType<CrazyDiamondMisshapingPunchAbility>> CD_MISSHAPING_PUNCH = ABILITY_TYPES.register(
+			"crazy_diamond_misshaping_punch", key -> new AbilityType<>(key, CrazyDiamondMisshapingPunchAbility::new));
 
 	public static final DeferredHolder<AbilityType<?>, AbilityType<CrazyDBloodCutterAbility>> CD_BLOOD_CUTTER = ABILITY_TYPES.register(
 			"blood_cutter", key -> new AbilityType<>(key, CrazyDBloodCutterAbility::new));

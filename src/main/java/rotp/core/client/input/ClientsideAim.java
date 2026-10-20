@@ -67,7 +67,12 @@ public class ClientsideAim {
 				 * to still be out of reach for the stand, until it's completely in front of me
 				 */
 				boolean standOffsetLerping = aiming == stand && isPlayerCameraEntity && stand.isFollowingUser() && stand.offsetFromUser.getLerpAmount() < 1;
-				if (!standOffsetLerping) {
+				if (aiming == stand && stand.isManuallyControlled()) {
+					// the vanilla pick is the Stand's only while the Stand is the camera
+					standAim.setTarget(StandEntityPunchAbility.manualStandAim(stand,
+							mc.cameraEntity == stand ? cameraEntityAimTarget : ActionTarget.EMPTY));
+				}
+				else if (!standOffsetLerping) {
 					Vec3 lookPos = aiming.getEyePosition(partialTick);
 					Vec3 lookVec = aiming.getViewVector(partialTick);
 					Predicate<Entity> targetFilter = curAction != null && curAction.ability instanceof StandEntityAbility standAbility
