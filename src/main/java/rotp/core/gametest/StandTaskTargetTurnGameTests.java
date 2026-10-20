@@ -1,5 +1,6 @@
 package rotp.core.gametest;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
 
@@ -40,6 +41,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -610,13 +612,15 @@ public final class StandTaskTargetTurnGameTests {
 	}
 
 	/*
-	 * 1.16 StandEntityMeleeBarrage.onTaskStopped stopped the barrage clash only for another action (newAction != this
-	 * compared actions, not tasks): the same barrage set again during a clash kept it, on both Stands, and its new task held
-	 * the opponent, pressed at it (makeServerSideTask) or taken over from the task it replaced (StandEntity.setTask); a punch
-	 * set instead, or the barrage's end, stopped the clash on both Stands.
+	 * 1.16 StandEntity.clearTask ran BarrageHandler.reset on every change of a Stand's task, before the old task's
+	 * onTaskStopped: the Stand's own clash opponent was emptied with its synced id left as it was, and the other Stand was
+	 * not told. StandEntityMeleeBarrage.onTaskStopped then stopped the clash only for another action or none (newAction !=
+	 * this), finding no opponent left, so it synced the end for this Stand alone. So the same barrage set again held no
+	 * clash: its task dropped the opponent by its first tick (checkStandTarget), and since the field changed only with the
+	 * synced id (onSyncedDataUpdated), the opponent's later parries did not bring it back. The opponent kept its side.
 	 */
 	@GameTest(template = "empty", timeoutTicks = 100)
-	public static void theSameBarrageSetAgainDuringItsBarrageClashKeepsTheClashAsIn116(GameTestHelper helper) {
+	public static void anActionChangeDuringABarrageClashDropsOnlyThatStandsSideAsIn116(GameTestHelper helper) {
 		for (String row : new String[] { "pressed at the opponent", "pressed at nothing", "a punch", "the end" }) {
 			StandTaskTargetOffsetGameTests.withStand(helper, "star_platinum", scene -> {
 				StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("star_platinum"));
@@ -626,6 +630,8 @@ public final class StandTaskTargetTurnGameTests {
 				try {
 					Vec3 rivalPos = scene.user().position().add(0.0D, 0.0D, 4.0D);
 					rival.setNoGravity(true);
+					rival.getAttribute(Attributes.MAX_HEALTH).setBaseValue(500.0D);
+					rival.setHealth(500.0F);
 					rival.moveTo(rivalPos.x, rivalPos.y, rivalPos.z, 180.0F, 0.0F);
 					helper.assertTrue(helper.getLevel().addFreshEntity(rival), "Could not add the rival Stand user");
 					rivalPower = PowerClass.STAND.attachGet(rival);
@@ -643,6 +649,8 @@ public final class StandTaskTargetTurnGameTests {
 					helper.assertTrue(first.getTaskTarget(helper.getLevel()).getEntity() == opponent,
 							"setup: the barrage pressed at its clash opponent holds " + first.getTaskTarget(helper.getLevel()));
 					String what = "a star_platinum whose barrage in a barrage clash was followed by " + row;
+					boolean sameBarrage = row.startsWith("pressed");
+					EntityActionInstance again = null;
 					switch (row) {
 						case "a punch" -> scene.set("punch");
 						case "the end" -> actions.setAction(null, scene.user(), SyncType.NO_SYNC);
@@ -651,20 +659,32 @@ public final class StandTaskTargetTurnGameTests {
 								LivingComponentAction.getComponent(scene.user()).entityAim.setTarget(ActionTarget.EMPTY);
 								LivingComponentAction.getComponent(scene.stand()).entityAim.setTarget(ActionTarget.EMPTY);
 							}
-							EntityActionInstance again = scene.set("barrage");
-							helper.assertTrue(scene.stand().barrageClashOpponent().orElse(null) == opponent
-									&& opponent.barrageClashOpponent().orElse(null) == scene.stand(), "1.16 kept the barrage clash"
-											+ " of " + what + ", the same barrage " + row + ", on both Stands; the clash opponents are "
-											+ scene.stand().barrageClashOpponent() + " and " + opponent.barrageClashOpponent());
-							helper.assertTrue(again.getTaskTarget(helper.getLevel()).getEntity() == opponent, "1.16 gave the task of "
-									+ what + ", the same barrage " + row + ", the clash opponent; it holds "
-									+ again.getTaskTarget(helper.getLevel()));
-							return;
+							again = scene.set("barrage");
 						}
 					}
-					helper.assertTrue(scene.stand().barrageClashOpponent().isEmpty() && opponent.barrageClashOpponent().isEmpty(),
-							"1.16 stopped the barrage clash of " + what + " on both Stands; the clash opponents are "
+					helper.assertTrue(scene.stand().barrageClashOpponent().isEmpty()
+							&& opponent.barrageClashOpponent().orElse(null) == scene.stand(), "1.16 dropped only the clash side of "
+									+ what + " (BarrageHandler.reset), the opponent kept pointing at it; the clash opponents are "
 									+ scene.stand().barrageClashOpponent() + " and " + opponent.barrageClashOpponent());
+					int syncedId = syncedClashOpponentId(scene.stand());
+					int expectedId = sameBarrage ? opponent.getId() : -1;
+					helper.assertTrue(syncedId == expectedId, "1.16 " + (sameBarrage ? "left the synced clash opponent of " + what
+							+ " as it was, so its clients kept it" : "synced the end of the clash of " + what) + ": the synced id is "
+									+ syncedId + ", not " + expectedId);
+					if (again != null) {
+						scene.stand().tickCount++;
+						actions.tick();
+						helper.assertTrue(again.getTaskTarget(helper.getLevel()).getType() == ActionTarget.TargetType.EMPTY,
+								"1.16 StandEntityMeleeBarrage.checkStandTarget left the task of " + what + " no clash opponent to"
+										+ " hold after its first tick; it holds " + again.getTaskTarget(helper.getLevel()));
+						// the opponent parries this barrage's hits again
+						setBarrageClashOpponent(opponent, scene.stand());
+						helper.assertTrue(scene.stand().barrageClashOpponent().isEmpty()
+								&& opponent.barrageClashOpponent().orElse(null) == scene.stand(), "1.16 assigned the clash"
+										+ " opponent only as its synced id changed, so the opponent's next parry did not give " + what
+										+ " its clash back; the clash opponents are " + scene.stand().barrageClashOpponent() + " and "
+										+ opponent.barrageClashOpponent());
+					}
 				}
 				finally {
 					actions.setAction(null, scene.user(), SyncType.NO_SYNC);
@@ -1003,17 +1023,35 @@ public final class StandTaskTargetTurnGameTests {
 
 	// as when each Stand has parried the other's barrage (StandEntity.barrageClashParryPunches)
 	private static void startBarrageClash(GameTestHelper helper, StandEntity stand, StandEntity opponent) {
+		setBarrageClashOpponent(stand, opponent);
+		setBarrageClashOpponent(opponent, stand);
+		helper.assertTrue(stand.barrageClashOpponent().orElse(null) == opponent
+				&& opponent.barrageClashOpponent().orElse(null) == stand, "setup: the two Stands are not in a barrage clash");
+	}
+
+	// what a Stand's parry of the opponent's barrage does (StandEntity.barrageClashParryPunches)
+	private static void setBarrageClashOpponent(StandEntity stand, Entity opponent) {
 		try {
 			Method clash = StandEntity.class.getDeclaredMethod("setBarrageClashOpponent", Entity.class);
 			clash.setAccessible(true);
 			clash.invoke(stand, opponent);
-			clash.invoke(opponent, stand);
 		}
 		catch (ReflectiveOperationException e) {
-			throw new IllegalStateException("setup: could not start the barrage clash", e);
+			throw new IllegalStateException("setup: could not set the barrage clash opponent", e);
 		}
-		helper.assertTrue(stand.barrageClashOpponent().orElse(null) == opponent
-				&& opponent.barrageClashOpponent().orElse(null) == stand, "setup: the two Stands are not in a barrage clash");
+	}
+
+	// the clash opponent id the server syncs to clients, which set their copy's opponent from it
+	@SuppressWarnings("unchecked")
+	private static int syncedClashOpponentId(StandEntity stand) {
+		try {
+			Field key = StandEntity.class.getDeclaredField("BARRAGE_CLASH_OPPONENT_ID");
+			key.setAccessible(true);
+			return stand.getEntityData().get((EntityDataAccessor<Integer>) key.get(null));
+		}
+		catch (ReflectiveOperationException e) {
+			throw new IllegalStateException("could not read the synced barrage clash opponent", e);
+		}
 	}
 
 	// an action that gives the Stand its user's yaw after the task's turn, as 1.16 StunComboAttack.moveStandForward did

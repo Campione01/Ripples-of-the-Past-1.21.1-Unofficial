@@ -1,12 +1,14 @@
 package rotp.core.gametest;
 
 import java.lang.reflect.Method;
+import java.util.List;
 
 import rotp.core.core.JojoMod;
 import rotp.core.gametest.StandTaskTargetOffsetGameTests.Scene;
 import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility.StandEntityBarrage;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility.StandEntityHeavyPunch;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchChargedAbility.StandEntityChargedHeavy;
+import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility.StandEntityPunch;
 import rotp.core.impl.stands.silverchariot.SilverChariotDashAttackAbility.DashStrike;
 import rotp.core.impl.stands.theworld.TheWorldTSPunchAbility.TheWorldTSPunch;
@@ -19,6 +21,7 @@ import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.subsystems.target.ActionTarget;
+import rotp.core.subsystems.target.HitResultUtil;
 import rotp.core.util.functions.MathUtil;
 
 import net.minecraft.commands.arguments.EntityAnchorArgument;
@@ -26,6 +29,7 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
@@ -242,6 +246,102 @@ public final class StandStrikeTurnGameTests {
 							+ " moved; it is at yaw " + stand.getYRot() + ", pitch " + stand.getXRot());
 			LivingComponentAction.getComponent(stand).setAction(null, user, SyncType.NO_SYNC);
 		});
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 SilverChariotDashAttack called StandEntity.punch on every tick it moved forward, with each entity its ray met or,
+	 * when the ray met nothing in the air, with that miss, and on its first tick after that with its task's target, which
+	 * the dash never kept. punch with no target aimed again (aimWithThisOrUser: the user's precision ray at the user's
+	 * reach, else the Stand's own), turned the Stand toward what that met by at most attackSpeed / 16 x 18 degrees and
+	 * struck it if it lay in the Stand's reach. Rows: a forward tick whose ray meets nothing, the user aiming at a cow off
+	 * the dash line in the Stand's reach, and at one beyond it but within the user's; the tick after the forward half,
+	 * the user's aim moved from the cow the dash started at to another one.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void theDashAimsAgainThroughItsUserWhenItsRayMeetsNothingAsIn116(GameTestHelper helper) {
+		for (String row : new String[] { "forward, in reach", "forward, beyond reach", "after the forward half" }) {
+			StandTaskTargetOffsetGameTests.withStand(helper, "silver_chariot", scene -> {
+				StandEntity stand = scene.stand();
+				Player user = scene.user();
+				StandPower power = scene.power();
+				Level level = helper.getLevel();
+				boolean secondHalf = row.startsWith("after");
+				boolean inReach = !row.endsWith("beyond reach");
+				power.setResolveLevel(power.getMaxResolveLevel());
+				power.setStamina(power.getMaxStamina());
+				stand.summonLockTicks = 0;
+				stand.gradualSummonWeaknessTicks = 0;
+				stand.updatePosition(user);
+				EntityActionType type = strikeType(helper, scene, "dash_attack");
+				Cow started = null;
+				if (secondHalf) {
+					// the dash starts at a cow its Stand's aim holds, in its reach, well off the user's later aim
+					started = scene.cow(new Vec3(stand.getX() - 3.0D, stand.getEyeY() - 0.7D, stand.getZ() + 0.5D)
+							.subtract(user.position()));
+					LivingComponentAction.getComponent(stand).entityAim.setTarget(new ActionTarget(started));
+				}
+				EntityActionInstance dash = type.createActionObj();
+				type.initActionFromConfig(dash, level, user, stand);
+				dash.setStartingPhase();
+				LivingComponentAction.getComponent(stand).setAction(dash, user, SyncType.NO_SYNC);
+				helper.assertTrue(stand.getCurStandAction() == dash && dash instanceof DashStrike
+						&& dash.getPhase() == ActionPhase.PERFORM, "setup: the dash is not the Silver Chariot's action in PERFORM");
+				if (secondHalf) {
+					int tick = (int) (dash.getCurPhaseLength() / 2.0F) + 1;
+					dash.setPhase(ActionPhase.PERFORM, tick);
+					helper.assertTrue(dash.getPhase() == ActionPhase.PERFORM && dash.getPhaseRatio() > 0.5F,
+							"setup: the dash is not past the forward half of its PERFORM: tick " + tick + " of " + dash.getCurPhaseLength());
+				}
+				// dashing south, two blocks ahead of its user; the cow beside its path, clear of the dash ray's precision boxes
+				Vec3 at = user.position().add(0.0D, stand.getY() - user.getY(), 2.0D);
+				stand.setPos(at.x, at.y, at.z);
+				stand.setYRot(0.0F);
+				stand.setXRot(0.0F);
+				stand.setYHeadRot(0.0F);
+				Vec3 cowFromStand = inReach ? new Vec3(2.9D, 0.0D, 0.3D) : new Vec3(4.3D, 0.0D, 0.5D);
+				Cow cow = scene.cow(new Vec3(stand.getX(), stand.getEyeY() - 0.7D, stand.getZ()).add(cowFromStand)
+						.subtract(user.position()));
+				user.lookAt(EntityAnchorArgument.Anchor.EYES, cow.getEyePosition());
+				user.yRotO = user.getYRot();
+				user.xRotO = user.getXRot();
+				user.setYHeadRot(user.getYRot());
+
+				double reach = stand.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE);
+				List<ActionTarget> onRay = HitResultUtil.clipMultipleTargets(stand, reach,
+						entity -> StandEntityPunchAbility.canStandHit(stand, entity), 0.25D, stand.getPrecision());
+				helper.assertTrue(onRay.isEmpty(), "setup: the dash's ray meets " + onRay + " (" + row + ", the Stand's eyes at "
+						+ stand.getEyePosition() + ", its user at " + user.position() + ")");
+				helper.assertTrue(StandEntityPunchAbility.userPrecisionRayTarget(stand, user).getEntity() == cow,
+						"setup: the user's precision ray does not meet the cow");
+				helper.assertTrue(StandEntityPunchAbility.validatePunchTarget(stand, new ActionTarget(cow)).isEmpty(level) != inReach,
+						"setup: the cow is " + (inReach ? "not " : "") + "in the Stand's reach " + reach);
+				Vec3 toEyes = cow.getEyePosition().subtract(stand.getEyePosition());
+				float aimYaw = MathUtil.yRotDegFromVec(toEyes);
+				float aimPitch = MathUtil.xRotDegFromVec(toEyes);
+				float max = (float) stand.getAttackSpeed() / 16.0F * 18.0F;
+				float yaw = Mth.clamp(Mth.degreesDifference(0.0F, aimYaw), -max, max);
+				float pitch = Mth.clamp(aimPitch, -max, max);
+				helper.assertTrue(max > 0.0F && Math.abs(Mth.degreesDifference(0.0F, aimYaw)) > max + 1.0F,
+						"setup: the Stand turns by up to " + max + " degrees and faces the cow within that: yaw " + aimYaw);
+
+				stand.setDeltaMovement(secondHalf ? new Vec3(0.0D, 0.0D, 0.5D) : Vec3.ZERO);
+				dash.actionTick();
+				String what = "a silver_chariot's dash, " + row + ", whose ray met nothing while its user aimed at a cow "
+						+ (inReach ? "in" : "beyond") + " its reach (yaw 0, pitch 0, turning by up to " + max + " degrees)";
+				helper.assertTrue(Math.abs(Mth.degreesDifference(stand.getYRot(), yaw)) < EPS && Math.abs(stand.getXRot() - pitch) < EPS
+						&& Math.abs(Mth.degreesDifference(stand.getYHeadRot(), yaw)) < EPS, "1.16 aimed " + what + " again through its"
+								+ " user and turned it toward the cow's eyes, to yaw " + yaw + ", pitch " + pitch + "; it is at yaw "
+								+ stand.getYRot() + ", pitch " + stand.getXRot() + ", head " + stand.getYHeadRot());
+				helper.assertTrue((cow.getHealth() < cow.getMaxHealth()) == inReach, "1.16 " + (inReach ? "struck" : "missed")
+						+ " the cow of " + what + ": its health is " + cow.getHealth() + " of " + cow.getMaxHealth());
+				if (started != null) {
+					helper.assertTrue(started.getHealth() == started.getMaxHealth(), "1.16 aimed " + what + " afresh, not at the"
+							+ " cow it started at: that one was struck");
+				}
+				LivingComponentAction.getComponent(stand).setAction(null, user, SyncType.NO_SYNC);
+			});
+		}
 		helper.succeed();
 	}
 
