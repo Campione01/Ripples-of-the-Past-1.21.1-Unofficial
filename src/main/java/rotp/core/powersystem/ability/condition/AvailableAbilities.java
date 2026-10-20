@@ -12,9 +12,14 @@ import org.jetbrains.annotations.ApiStatus;
 
 import rotp.core.powersystem.Moveset;
 import rotp.core.powersystem.Power;
+import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.finisher.StandFinisherCheck;
+import rotp.core.powersystem.entityaction.EntityActionInstance;
+import rotp.core.powersystem.entityaction.LivingComponentAction;
+import rotp.core.powersystem.standpower.StandPower;
+import rotp.core.powersystem.standpower.entity.StandEntity;
 
 public class AvailableAbilities {
 	public final Map<String, AbilityConditionCheck> _inMoveset = new HashMap<>();
@@ -60,7 +65,8 @@ public class AvailableAbilities {
 			}
 		}
 		standFinisherCheckLast.refuseRunningFinisher(context, baseMoveset, this);
-		
+		refuseRunningActionPressedAgain(context);
+
 		inMovesetAndCanBeUsed.clear();
 		for (var abilityEntry : _inMoveset.entrySet()) {
 			AbilityConditionCheck ability = abilityEntry.getValue();
@@ -70,7 +76,28 @@ public class AvailableAbilities {
 		}
 	}
 	private final Collection<AbilityConditionCheck> __visibleIter = new ArrayList<>();
-	
+
+	/**
+	 * 1.16 StandEntityAction.canClickDuringTask: the Stand's current action's own ability pressed again, by whichever key,
+	 * was refused with no message and not queued unless the action was chainable. Refused here where the action would
+	 * let that press cancel it and says it was not chainable ({@link EntityActionInstance#refusesOwnAbilityPressedAgain});
+	 * a press the action holds back is buffered instead, as before.
+	 */
+	private void refuseRunningActionPressedAgain(Power<?> context) {
+		StandPower standPower = PowerClass.STAND.cast(context);
+		StandEntity standEntity = standPower != null ? standPower.getSummonedStandEntity() : null;
+		EntityActionInstance action = standEntity != null ? LivingComponentAction.getCurEntityAction(standEntity) : null;
+		if (action == null || action.isOver() || !action.refusesOwnAbilityPressedAgain()
+				|| !action.canBeCancelledInto(action.ability)) {
+			return;
+		}
+		for (AbilityConditionCheck container : _inMoveset.values()) {
+			if (container.ability == action.ability && container.conditionCheck.isPositive()) {
+				container.conditionCheck = ConditionCheck.NEGATIVE;
+			}
+		}
+	}
+
 	
 	public void replaceOtherAbilityWith(Power<?> context, String baseAbilityName, Ability subAbility) {
 		if (subAbility.isAbilityAvailable(context)) {

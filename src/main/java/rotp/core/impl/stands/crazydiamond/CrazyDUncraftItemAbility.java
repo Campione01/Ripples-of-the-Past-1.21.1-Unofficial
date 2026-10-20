@@ -172,6 +172,12 @@ public class CrazyDUncraftItemAbility extends StandEntityAbility {
 		public boolean canBeCancelledInto(EntityActionType cancellingAbility) {
 			return true;
 		}
+
+		// 1.16 CrazyDiamondPreviousState, which turned items back too, was not chainable
+		@Override
+		public boolean refusesOwnAbilityPressedAgain() {
+			return true;
+		}
 	}
 
 	private static boolean canBeUncrafted(ItemStack itemStack, Level level, LivingEntity user) {

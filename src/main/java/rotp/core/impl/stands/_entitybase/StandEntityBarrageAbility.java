@@ -527,6 +527,12 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 			return recoveryNow() <= 0 && cancellingAbility != this.ability;
 		}
 
+		// 1.16 StandEntityMeleeBarrage was not chainable: a clash or a Resolve-free recovery took any action but itself
+		@Override
+		public boolean refusesOwnAbilityPressedAgain() {
+			return true;
+		}
+
 		/**
 		 * 1.16 StandEntityAction.isCancelable read getStandRecoveryTicks live during PERFORM. Server: the base rule's
 		 * recovery is read again now, as when RECOVERY starts; an ability that put its own length keeps it.

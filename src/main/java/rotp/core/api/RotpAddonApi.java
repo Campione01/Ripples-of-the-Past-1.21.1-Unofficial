@@ -174,7 +174,9 @@ public final class RotpAddonApi {
 	 * canFireReleasedHold (also false for a user frozen in someone else's stopped time, unless the ability works in
 	 * stopped time), stopsOnHeavyAttack / onHitByHeavyAttack, setResetsAttackStrengthOnPerform, setsCooldownAfterHold
 	 * (a held action takes its press's cooldown as it fires or, hold-only, as its hold ends, with the ticks held;
-	 * EntityActionInstance#isCooldownTakenAfterHold).
+	 * EntityActionInstance#isCooldownTakenAfterHold), EntityActionInstance#refusesOwnAbilityPressedAgain (a Stand
+	 * action that was not chainable in 1.16 refuses its own ability pressed again where canBeCancelledInto would let it
+	 * cancel the action).
 	 */
 	public static final String FEATURE_ENTITY_ACTION_HOOKS_V1 =
 			"entity_action_hooks_v1";

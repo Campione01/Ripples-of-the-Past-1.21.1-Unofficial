@@ -79,5 +79,11 @@ public class StarPlatinumZoomAbility extends NoPoseStandEntityAbility {
 		public boolean canBeCancelledInto(EntityActionType cancellingAbility) {
 			return true;
 		}
+
+		// 1.16 StarPlatinumZoom was not chainable
+		@Override
+		public boolean refusesOwnAbilityPressedAgain() {
+			return true;
+		}
 	}
 }

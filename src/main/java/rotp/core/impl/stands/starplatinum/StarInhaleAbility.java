@@ -239,6 +239,12 @@ public class StarInhaleAbility extends StandEntityAbility {
     	public boolean canBeCancelledInto(EntityActionType cancellingAbility) {
     		return true;
     	}
+
+        // 1.16 StarPlatinumInhale was not chainable
+        @Override
+        public boolean refusesOwnAbilityPressedAgain() {
+            return true;
+        }
     }
 
 }
