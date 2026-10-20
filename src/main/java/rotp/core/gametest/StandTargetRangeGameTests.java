@@ -1026,6 +1026,93 @@ public final class StandTargetRangeGameTests {
 	}
 
 	/*
+	 * 1.16 took Heal's target under the crosshair as it took Revert's: the vanilla pick, and behind it, only while the
+	 * Stand was out, the precision ray from the camera entity as far as the user's reach of 5, or under manual control
+	 * the Stand's own 2.5 along the Stand's view. With the client's aim empty, a wounded cow whose box the user's look
+	 * enters 4.55 blocks from the eyes is healed, one 5.55 away is not, nor one 4.55 away while Crazy Diamond is not out;
+	 * under manual control the Stand's aim and its look within its own reach count, not its user's look.
+	 */
+	@GameTest(template = "empty", batch = BATCH)
+	public static void crazyDiamondHealTakesAnEntityOnlyWithinItsCrosshairsReachAsIn116(GameTestHelper helper) {
+		String[] rows = { "within the user's reach", "past the user's reach", "within the user's reach, the Stand not out",
+				"under manual control, in the Stand's aim", "under manual control, on the Stand's look",
+				"under manual control, past the Stand's reach on its look", "under manual control, on the user's look only" };
+		for (String row : rows) {
+			try (Fixture fixture = Fixture.open(helper, Kind.CD_HEAL)) {
+				fixture.aim(ActionTarget.EMPTY);
+				Cow wounded = fixture.cow(5.0D);
+				Vec3 userEyes = fixture.user.getEyePosition();
+				Vec3 userLookEnd = userEyes.add(fixture.user.getLookAngle().scale(8.0D));
+				String where;
+				String expected;
+				if (!row.startsWith("under manual control")) {
+					// the user's look ray runs at eye height, above a cow standing on the user's level
+					wounded.moveTo(fixture.origin.x, fixture.origin.y + 0.6D,
+							fixture.origin.z + (row.startsWith("past") ? 6.0D : 5.0D), 180.0F, 0.0F);
+					fixture.stand.updatePosition(fixture.user);
+					double fromUser = wounded.getBoundingBox().clip(userEyes, userLookEnd).map(userEyes::distanceTo).orElse(-1.0D);
+					double fromStand = ActionTargetRange.getDistance(fixture.stand, wounded.getBoundingBox());
+					helper.assertTrue(fixture.stand.isFollowingUser() && fixture.stand.offsetFromUser.isIdle()
+							&& fromUser > fixture.user.entityInteractionRange() && fromStand < 8.0D
+							&& fixture.stand.hasLineOfSight(wounded),
+							"STAND-RANGE premise: the idle Stand, the cow on the user's look past the crosshair pick and within 8"
+									+ " blocks of the Stand in its sight: fromUser=" + fromUser + " fromStand=" + fromStand);
+					where = "on the look ray " + fromUser + " blocks from the user's eyes";
+					if (row.endsWith("the Stand not out")) {
+						fixture.standType.forceUnsummon(fixture.user, fixture.power);
+						helper.assertTrue(fixture.power.getSummonedStandEntity() == null,
+								"STAND-RANGE premise: Crazy Diamond is still out");
+						where += ", Crazy Diamond not out";
+					}
+					expected = row.equals("within the user's reach") ? "accepted" : HEAL_TARGET;
+				}
+				else {
+					// its user moved it 2.4 blocks behind (north) and turned it north, as the O key does
+					StandEntity stand = fixture.stand;
+					stand.setManuallyControlled(true);
+					stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z - 2.4D, 180.0F, 0.0F);
+					stand.setYHeadRot(180.0F);
+					boolean userLookOnly = row.endsWith("the user's look only");
+					boolean inAim = row.endsWith("in the Stand's aim");
+					boolean pastReach = row.contains("past the Stand's reach");
+					Vec3 feet = userLookOnly ? new Vec3(fixture.origin.x, fixture.origin.y + 0.6D, fixture.origin.z + 5.0D)
+							: new Vec3(fixture.origin.x + (inAim ? 0.6D : 0.0D), stand.getEyeY() - wounded.getBbHeight() / 2.0D,
+									stand.getZ() - (pastReach ? 4.0D : 2.2D));
+					wounded.moveTo(feet.x, feet.y, feet.z, 180.0F, 0.0F);
+					LivingComponentAction.getComponent(stand).entityAim.setTarget(inAim ? new ActionTarget(wounded) : ActionTarget.EMPTY);
+					double gap = MathUtil.getAABBDistance(stand.getBoundingBox(), fixture.user.getBoundingBox());
+					double fromStandEyes = Math.sqrt(wounded.getBoundingBox().distanceToSqr(stand.getEyePosition()));
+					double fromUser = Math.sqrt(wounded.getBoundingBox().distanceToSqr(userEyes));
+					double standReach = stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE);
+					Vec3 standEyes = stand.getEyePosition();
+					Vec3 standLookEnd = standEyes.add(stand.getLookAngle().scale(8.0D));
+					boolean onUsersLook = wounded.getBoundingBox().clip(userEyes, userLookEnd).isPresent();
+					boolean onStandsLook = wounded.getBoundingBox().clip(standEyes, standLookEnd).isPresent();
+					boolean inStandsPrecisionBox = HitResultUtil.standPrecisionTargetHitbox(wounded.getBoundingBox(), stand.getPrecision())
+							.clip(standEyes, standLookEnd).isPresent();
+					boolean layout = userLookOnly ? onUsersLook && !onStandsLook && fromUser < 5.0D
+							: !onUsersLook && (inAim ? !onStandsLook && inStandsPrecisionBox && fromStandEyes < standReach
+									: onStandsLook && (pastReach ? fromStandEyes > 3.0D && fromStandEyes < 5.0D : fromStandEyes < standReach));
+					helper.assertTrue(stand.isManuallyControlled() && gap <= stand.getMaxRange() && layout,
+							"STAND-RANGE premise: the manually controlled Stand " + gap + " blocks from its user (max range "
+									+ stand.getMaxRange() + "), the cow " + fromStandEyes + " from the Stand's eyes (reach " + standReach
+									+ ", on its look " + onStandsLook + ", its precision box on it " + inStandsPrecisionBox + ") and "
+									+ fromUser + " from the user's (on its look " + onUsersLook + ")");
+					where = userLookOnly ? "on its user's look ray " + fromUser + " blocks away, the Stand looking aside"
+							: (inAim ? "in the Stand's aim, off its exact look" : "on the Stand's look ray") + ", " + fromStandEyes
+									+ " blocks from the Stand's eyes (its reach " + standReach + ")";
+					expected = userLookOnly || pastReach ? HEAL_TARGET : "accepted";
+				}
+				String answered = fixture.refusal(Kind.CD_HEAL, wounded);
+				helper.assertTrue(expected.equals(answered), "CD_HEAL " + row + ", a wounded cow " + where + ": answered "
+						+ answered + "; 1.16's crosshair " + ("accepted".equals(expected) ? "took the cow"
+								: "did not reach the cow, so there was nothing to heal") + " (" + expected + ")");
+			}
+		}
+		helper.succeed();
+	}
+
+	/*
 	 * Action.checkRangeAndTarget quartered the squared range when the performer, the Stand while it is out, had no line of
 	 * sight to the target, whatever its user saw. As a player's press makes it: Crazy Diamond where it stands as summoned,
 	 * behind its user's right, and a snow golem on the user's look ray past the 3 blocks of a Survival player's crosshair
