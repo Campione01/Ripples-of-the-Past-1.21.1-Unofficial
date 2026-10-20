@@ -355,6 +355,10 @@ public class Ability {
 				|| standPower.wasProgressionSkipped()) {
 			return true;
 		}
+		// 1.16 StandAction.isUnlocked: unlocked once the stored level reached it, whatever the level did afterwards
+		if (standPower.getHighestResolveLevel() >= requiredLevel) {
+			return true;
+		}
 		LivingEntity user = standPower.getUser();
 		return user != null && ResolveModeEffect.getEffectiveResolveLevel(user, standPower) >= requiredLevel;
 	}

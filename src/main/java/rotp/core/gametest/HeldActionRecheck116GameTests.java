@@ -34,6 +34,7 @@ import rotp.core.powersystem.playerpower.PlayerPower;
 import rotp.core.powersystem.playerpower.PlayerPowerType;
 import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandInstance.StandPart;
+import rotp.core.powersystem.standpower.StandAwakening.AwakeningStage;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.type.StandType;
@@ -371,8 +372,10 @@ public final class HeldActionRecheck116GameTests {
 	 * 1.16 StandAction.isUnlocked was the action's learning entry, which StandType.onNewResolveLevel added once the Resolve
 	 * level reached the action's and only a full Stand clear took away; the Resolve effect raised the stored level for
 	 * good (ResolveCounter.onResolveEffectStarted) and /standlevel never relocked anything. So a held Crossfire Hurricane
-	 * (Resolve level 4) went on, and fired at its full length, after the stored level dropped or after the effect that
-	 * alone gave the level lapsed, though a new press would now be refused.
+	 * (Resolve level 4) went on, and fired at its full length, after the stored level dropped, and a new press stayed
+	 * unlocked too. The port's Resolve effect alone also unlocks it for a Stand that does not use Resolve (here one not
+	 * in full control yet); once that effect lapses a new press is refused, but the hold it gave goes on, no 1.16 hold
+	 * being relocked by its Resolve level.
 	 */
 	@GameTest(template = "empty", timeoutTicks = 100)
 	public static void aHeldActionIsNotRelockedByItsResolveLevelAsIn116(GameTestHelper helper) {
@@ -381,8 +384,10 @@ public final class HeldActionRecheck116GameTests {
 				s.unlock("crossfire_hurricane");
 				boolean byEffect = row.equals("Resolve effect lapsed");
 				if (byEffect) {
+					s.power.userStandAwakeningState.stage = AwakeningStage.PARTIALLY_AWAKENED;
+					helper.assertTrue(!s.power.usesResolve() && !s.ability("crossfire_hurricane").isAbilityUnlocked(s.power),
+							"setup (" + row + "): a Stand not in full control has Crossfire Hurricane unlocked without a Resolve effect");
 					s.user.addEffect(new MobEffectInstance(ModStatusEffects.RESOLVE, 400, 4));
-					s.power.setResolveLevel(0);
 				}
 				helper.assertTrue(s.ability("crossfire_hurricane").isAbilityUnlocked(s.power),
 						"setup (" + row + "): Crossfire Hurricane is not unlocked");
@@ -393,13 +398,15 @@ public final class HeldActionRecheck116GameTests {
 								+ s.user.keys());
 				if (byEffect) {
 					s.user.removeEffect(ModStatusEffects.RESOLVE);
+					helper.assertTrue(!s.ability("crossfire_hurricane").isAbilityUnlocked(s.power),
+							"setup (" + row + "): Crossfire Hurricane is still unlocked for a new press once the Resolve effect lapsed");
 				}
 				else {
 					s.power.setResolveLevel(0);
+					helper.assertTrue(s.ability("crossfire_hurricane").isAbilityUnlocked(s.power),
+							"1.16 kept Crossfire Hurricane unlocked for a new press (its learning entry) after the Resolve level"
+									+ " dropped to " + s.power.getResolveLevel());
 				}
-				helper.assertTrue(!s.ability("crossfire_hurricane").isAbilityUnlocked(s.power),
-						"setup (" + row + "): Crossfire Hurricane is still unlocked for a new press at Resolve level "
-								+ s.power.getResolveLevel());
 				if (row.endsWith("full charge")) {
 					s.runPhaseToItsEnd(charge);
 					helper.assertTrue(!charge.isOver() && charge.getPhase() != ActionPhase.BUTTON_CHARGE,

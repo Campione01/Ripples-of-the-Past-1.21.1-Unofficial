@@ -143,7 +143,8 @@ public class PacketsRegister {
 	// 11: trafkmenacing carries the idle player's UUID
 	// 12: the Hamon tracking sync carries the technique the aura remembers
 	// 13: actiontarget, the targets the server changes while an action runs (1.16 TrStandTaskTargetPacket)
-	public static final String NETWORK_PROTOCOL_VERSION = "13";
+	// 14: the Stand data sync carries the highest Resolve level reached
+	public static final String NETWORK_PROTOCOL_VERSION = "14";
 
 	public static void register(RegisterPayloadHandlersEvent event) {
 		PayloadRegistrar registrar = event.registrar(NETWORK_PROTOCOL_VERSION);

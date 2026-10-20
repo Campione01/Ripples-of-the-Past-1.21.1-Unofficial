@@ -207,6 +207,11 @@ public final class LightComboTimingGameTests {
             type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc(spec.stand));
             premise(type != null && StandPowerTransitions.insert(power, new StandInstance(type)).status() == StandPowerTransitions.Status.APPLIED,
                     "registered Stand granted");
+            if (spec.kind == Kind.FINISHER) {
+                // 1.16 unlocked the finisher once the Resolve level reached 1 and never relocked it, so it is refused only before
+                unlock("uppercut");
+                suite.check(!power.getAbility("finisher_uppercut").isAbilityAvailable(power), "real Resolve0 finisher refusal");
+            }
             power.setResolveLevel(2);
             premise(type.summon(user, power), "registered full Stand summon");
             stand = power.getSummonedStandEntity(); premise(stand != null && stand.getUser() == user, "native owner binding");
@@ -228,8 +233,7 @@ public final class LightComboTimingGameTests {
                         && prefix.getClass() == StandEntityHeavyPunchAbility.StandEntityHeavyPunch.class, "actual ordinary heavy class, not a fabricated light-family predecessor");
             }
             else if (spec.kind == Kind.FINISHER) {
-                power.setResolveLevel(0); unlock("uppercut");
-                suite.check(!power.getAbility("finisher_uppercut").isAbilityAvailable(power), "real Resolve0 finisher refusal");
+                power.setResolveLevel(0);
                 power.setResolveLevel(1); unlock("uppercut");
                 premise(power.getAbility("finisher_uppercut").isAbilityAvailable(power), "actual unlocked finisher skill/Resolve1");
                 stand.setFinisherMeter(0.75F);
