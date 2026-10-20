@@ -13,9 +13,11 @@ import rotp.core.api.healing.ExternalRestoreContext;
 import rotp.core.api.healing.ExternalRestoreResult;
 import rotp.core.api.healing.LivingRestoreContext;
 import rotp.core.api.healing.RestoreAugmentation;
+import rotp.core.api.stand.StandSkillWalls;
 import rotp.core.client.entityanim.PreFrameEntityAnimCalc.LivingAnimState;
 import rotp.core.client.ClientGlobals;
 import rotp.core.client.ClientProxy;
+import rotp.core.client.input.ClientsideAim;
 import rotp.core.client.sound.ClientsideSoundsHelper;
 import rotp.core.client.sound.sounds.EntityLingeringSoundInstance;
 import rotp.core.client.sound.sounds.EntityStoppableSoundInstance;
@@ -48,7 +50,7 @@ import rotp.core.subsystems.target.ActionTargetRange;
 import rotp.core.subsystems.target.ActionTargetAim;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
 import rotp.core.subsystems.target.AimingEntity;
-import rotp.core.subsystems.target.HitResultUtil;
+import rotp.core.subsystems.target.StandPrecisionRay;
 import rotp.core.util.functions.JojoModUtil;
 import rotp.core.util.functions.StatusEffectUtil;
 import rotp.core.impl.stands._entitybase.StandAbilityStamina;
@@ -95,7 +97,7 @@ public class CrazyDHealAbility extends StandEntityAbility {
 		}
 
 		Level level = user.level();
-		ActionTarget aimedTarget = getAimedTarget(crosshairAimingEntity(user, summonedStand(user)), level);
+		ActionTarget aimedTarget = getAimedTarget(user, crosshairAimingEntity(user, summonedStand(user)), level);
 		if (aimedTarget.getType() == TargetType.ENTITY
 				&& !ActionTargetRange.isTargetWithinRange(ActionTargetRange.standPerformer(user), aimedTarget, level)) {
 			return ConditionCheck.createNegative("target_too_far");
@@ -142,9 +144,12 @@ public class CrazyDHealAbility extends StandEntityAbility {
 
 	/*
 	 * 1.16 took Heal's and Revert's target under the crosshair (InputHandler.pickMouseTarget): the vanilla pick, which the
-	 * client's aim carries, and only while the Stand was out EntityStandType.clientHitResult's precision ray behind it,
-	 * from the camera entity (the Stand under manual control) as far as StandEntity.getAimDistance: the user's
-	 * REACH_DISTANCE, or the Stand's own under manual control. The server's own look ray stands in for that precision ray.
+	 * client's aim carries, and only where that met nothing and the Stand was out, EntityStandType.clientHitResult's
+	 * precision ray from the camera entity (the Stand under manual control) as far as StandEntity.getAimDistance: the
+	 * user's REACH_DISTANCE, or the Stand's own under manual control. That ray (StandEntity.precisionRayTrace) took any
+	 * entity, by the Stand's precision boxes and its player / hostile / other priority, and the action refused it only
+	 * then, so an entity it does not work on hid one behind. That ray is cast here, on either side, from the same eyes;
+	 * without the user's aim assist setting, the crosshair line instead, as for the punches.
 	 */
 	static ActionTarget getCrosshairEntityTarget(LivingEntity user, Level level, Predicate<Entity> worksOn) {
 		if (user == null) {
@@ -155,24 +160,15 @@ public class CrazyDHealAbility extends StandEntityAbility {
 		if (isClientEntityMissing(aiming, level)) {
 			return ActionTarget.EMPTY;
 		}
-		ActionTarget target = getAimedTarget(aiming, level);
-		if (isValidEntityTarget(user, target, level, worksOn)) {
-			return target;
+		ActionTarget target = getAimedTarget(user, aiming, level);
+		if (target.getType() == TargetType.EMPTY && stand != null) {
+			double reach = aiming == stand
+					? stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE) : StandEntityPunchAbility.userAimReach(user, stand);
+			boolean wallsHideEntities = StandSkillWalls.wallsHideEntities(aiming);
+			target = StandEntityPunchAbility.aimAssist(user)
+					? StandPrecisionRay.trace(aiming, stand, reach, 0.0D, true, wallsHideEntities)
+					: StandPrecisionRay.crosshair(aiming, stand, reach, true, wallsHideEntities);
 		}
-		if (stand == null) {
-			return ActionTarget.EMPTY;
-		}
-		double reach = aiming == stand
-				? stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE) : StandEntityPunchAbility.userAimReach(user, stand);
-		target = HitResultUtil.clip(
-				aiming.getEyePosition(),
-				aiming.getLookAngle(),
-				reach,
-				reach,
-				level,
-				entity -> canPickEntityForAiming(entity) && worksOn.test(entity),
-				aiming,
-				0);
 		return isValidEntityTarget(user, target, level, worksOn) ? target : ActionTarget.EMPTY;
 	}
 
@@ -196,8 +192,11 @@ public class CrazyDHealAbility extends StandEntityAbility {
 		return aim != null && aim.isClientEntityMissing();
 	}
 
-	private static ActionTarget getAimedTarget(LivingEntity aiming, Level level) {
-		ActionTargetAim aim = LivingComponentAction.getAim(aiming);
+	// the aims go only from the user's client to the server, so that client reads the ones it sends
+	private static ActionTarget getAimedTarget(LivingEntity user, LivingEntity aiming, Level level) {
+		ActionTargetAim aim = level.isClientSide() && user == ClientProxy.getClientPlayer()
+				? (aiming == user ? ClientsideAim.playerAim : ClientsideAim.standAim)
+				: LivingComponentAction.getAim(aiming);
 		ActionTarget target = aim != null ? aim.getTarget() : ActionTarget.EMPTY;
 		return target != null ? target.resolveEntityId(level) : ActionTarget.EMPTY;
 	}

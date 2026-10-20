@@ -43,6 +43,7 @@ import rotp.core.subsystems.entity_grab.LivingComponentGrab;
 import rotp.core.subsystems.itemtracking.OriginalItemPosComponent;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTargetRange;
+import rotp.core.subsystems.target.HitResultUtil;
 import rotp.core.subsystems.timestop.TimeStopState;
 import rotp.core.util.reflection.CommonReflection;
 import com.mojang.authlib.GameProfile;
@@ -380,8 +381,9 @@ public final class HeldActionRecheck116GameTests {
 	}
 
 	// 1.16's crosshair (the vanilla pick, then while the Stand was out the precision ray to the user's 5-block reach) lost
-	// a charged creeper that walked away: past 3 blocks the client's aim no longer holds it, past 5 the server's look ray
-	// does not find it either, so checkTarget had no entity and, with nothing in the off hand, the hold ended with
+	// a charged creeper that walked away: past 3 blocks the client's aim no longer holds it, once its box grown by the
+	// Stand's precision is past 5 the server's look ray does not find it either, so checkTarget had no entity and, with
+	// nothing in the off hand, the hold ended with
 	// item_offhand. (With Crazy Diamond in front of its user during the hold, no creeper within that reach is past the
 	// Stand's range, even quartered.)
 	@GameTest(template = "empty", timeoutTicks = 100)
@@ -405,11 +407,14 @@ public final class HeldActionRecheck116GameTests {
 			helper.assertTrue(revert.getPhase() == ActionPhase.PERFORM && !revert.isOver(), "1.16 kept the held Revert on the"
 					+ " charged creeper " + near + " blocks from the user's eyes, within the reach of its crosshair: phase "
 					+ revert.getPhase() + ", messages " + s.user.keys());
-			creeper.moveTo(s.origin.x, s.origin.y, s.origin.z + 5.6D, 180.0F, 0.0F);
+			creeper.moveTo(s.origin.x, s.origin.y, s.origin.z + 6.2D, 180.0F, 0.0F);
 			double far = Math.sqrt(creeper.getBoundingBox().distanceToSqr(s.user.getEyePosition()));
-			helper.assertTrue(far > 5.0D && far < 8.0D && s.user.hasLineOfSight(creeper)
+			double farGrown = Math.sqrt(HitResultUtil.standPrecisionTargetHitbox(creeper.getBoundingBox()
+					.inflate(creeper.getPickRadius()), s.stand.getPrecision()).distanceToSqr(s.user.getEyePosition()));
+			helper.assertTrue(farGrown > 5.0D && far < 8.0D && s.user.hasLineOfSight(creeper)
 					&& ActionTargetRange.isEntityWithinRange(s.stand, creeper, ActionTargetRange.DEFAULT_ENTITY_RANGE_SQ),
-					"setup: the creeper is not past the reach, in sight and within the Stand's range: " + far);
+					"setup: the creeper's box grown by the Stand's precision is not past the reach, or the creeper is not in"
+							+ " sight and within the Stand's range: " + far + ", grown " + farGrown);
 			s.tick(1);
 			helper.assertTrue(revert.isOver() || revert.getPhase() == ActionPhase.RECOVERY,
 					"1.16 ended the held Revert once the creeper was " + far + " blocks from the user's eyes, past the reach of its"
