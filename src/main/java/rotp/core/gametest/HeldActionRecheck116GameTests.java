@@ -42,6 +42,7 @@ import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.entity_grab.LivingComponentGrab;
 import rotp.core.subsystems.itemtracking.OriginalItemPosComponent;
 import rotp.core.subsystems.target.ActionTarget;
+import rotp.core.subsystems.timestop.TimeStopState;
 import rotp.core.util.reflection.CommonReflection;
 import com.mojang.authlib.GameProfile;
 
@@ -62,6 +63,7 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.damagesource.DamageContainer;
 import net.neoforged.neoforge.common.util.FakePlayer;
@@ -243,6 +245,52 @@ public final class HeldActionRecheck116GameTests {
 			helper.assertTrue(s.user.keys().contains(CONDITION + "no_energy_vampirism"), "1.16 said why: messages " + s.user.keys());
 			helper.succeed();
 		}
+	}
+
+	// 1.16 stopHeldAction(true) fired the released full charge only if checkRequirements still held: a user frozen in
+	// someone else's stopped time (Action.checkConditions, !canUpdate) fired nothing; a stun did not stop the eyes
+	// (ignoresPerformerStun). The stop is removed before the level ticks, so no neighbouring test is frozen.
+	@GameTest(template = "empty", timeoutTicks = 100, batch = GameTestBatches.TIME_STOP)
+	public static void stingyEyesReleasedWhileFrozenInStoppedTimeFiresNothingAsIn116(GameTestHelper helper) {
+		TimeStopState timeStops = helper.getLevel().getData(ModDataAttachmentTypes.TIME_STOP.get());
+		try (PowerScene s = new PowerScene(helper, "StingyEyesFrozenRelease", ModPlayerPowers.VAMPIRISM.get())) {
+			int stopId = -(s.user.getId() * 4 + 1);
+			try {
+				s.vampire(500.0F);
+				EntityActionInstance frozen = fullStingyEyesCharge(helper, s);
+				helper.assertTrue(timeStops.tryPutInstance(new TimeStopState.Instance(stopId, 200, 200,
+						new ChunkPos(s.user.blockPosition()), 1, -1, "stingy_eyes_frozen_release_test"))
+						&& timeStops.shouldFreeze(s.user), "setup: the vampire did not freeze in the stopped time");
+				s.runToEndAndRelease(frozen);
+				timeStops.removeInstance(stopId);
+				helper.assertTrue(frozen.isOver() && frozen.getPhase() != ActionPhase.PERFORM && s.bloodIs(500.0F),
+						"1.16 fired nothing for a full Stingy Eyes charge released while frozen in someone else's stopped time:"
+								+ " phase " + frozen.getPhase() + ", over " + frozen.isOver() + ", blood " + s.blood());
+
+				EntityActionInstance stunned = fullStingyEyesCharge(helper, s);
+				s.user.addEffect(new MobEffectInstance(ModStatusEffects.STUN, 40, 0));
+				s.runToEndAndRelease(stunned);
+				s.user.removeEffect(ModStatusEffects.STUN);
+				helper.assertTrue(stunned.getPhase() == ActionPhase.PERFORM && s.bloodIs(480.0F),
+						"1.16 fired the full charge released while stunned (the eyes ignored a stun): phase " + stunned.getPhase()
+								+ ", blood " + s.blood());
+			}
+			finally {
+				timeStops.removeInstance(stopId);
+			}
+			helper.succeed();
+		}
+	}
+
+	// held by its key to the end of its 20-tick charge, where it waits for the release
+	private static EntityActionInstance fullStingyEyesCharge(GameTestHelper helper, PowerScene s) {
+		s.component.setAction(null, SyncType.NO_SYNC);
+		s.setBlood(500.0F);
+		EntityActionInstance charge = s.start("vampirism_space_ripper_stingy_eyes");
+		s.tick(3);
+		helper.assertTrue(charge.getPhase() == ActionPhase.WINDUP && !charge.isOver(),
+				"setup: Space Ripper Stingy Eyes is not charging: phase " + charge.getPhase());
+		return charge;
 	}
 
 	// VampirismBloodGift (holdToFire 60) ended the hold on a failed check with that check's message.
@@ -1093,6 +1141,14 @@ public final class HeldActionRecheck116GameTests {
 			VampirismData data = PlayerPower.getPowerData(user, ModPlayerPowers.VAMPIRISM).orElseThrow();
 			VampirismState.get(user).blood().setCurrent(blood);
 			data.setBloodLevel(VampirismState.get(user).blood().current());
+		}
+
+		private float blood() {
+			return VampirismState.get(user).blood().current();
+		}
+
+		private boolean bloodIs(float expected) {
+			return Math.abs(blood() - expected) < 0.01F;
 		}
 
 		// a player with no power yet, facing the user
