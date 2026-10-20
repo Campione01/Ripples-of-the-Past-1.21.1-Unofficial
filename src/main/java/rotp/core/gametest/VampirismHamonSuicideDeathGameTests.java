@@ -146,6 +146,12 @@ public final class VampirismHamonSuicideDeathGameTests {
                 putBlock(new BlockPos(x + dx, y + 3, z + dz));
                 putBlock(new BlockPos(x + dx, y - 1, z + dz));
             }
+            // walls on the chunk's edge: every self-Hamon pulse knocks the actor back in a random direction (LivingEntity.hurt
+            // with the attacker on the victim), which must not carry it out of its naturally ticking chunk
+            for (int i = 0; i < 16; i++) for (int dy = 0; dy < 3; dy++) {
+                putBlock(new BlockPos(x + i, y + dy, z)); putBlock(new BlockPos(x + i, y + dy, z + 15));
+                if (i > 0 && i < 15) { putBlock(new BlockPos(x, y + dy, z + i)); putBlock(new BlockPos(x + 15, y + dy, z + i)); }
+            }
             // the light engine runs on a thread of its own and can be many ticks behind: the shade is read only after it
             // has lit the roof
             light = new GameTestLight.Wait(level, chunk);
