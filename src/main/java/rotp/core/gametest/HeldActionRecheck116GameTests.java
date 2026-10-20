@@ -41,6 +41,7 @@ import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.entity_grab.LivingComponentGrab;
 import rotp.core.subsystems.itemtracking.OriginalItemPosComponent;
 import rotp.core.subsystems.target.ActionTarget;
+import rotp.core.subsystems.target.ActionTargetRange;
 import rotp.core.util.reflection.CommonReflection;
 import com.mojang.authlib.GameProfile;
 
@@ -277,11 +278,14 @@ public final class HeldActionRecheck116GameTests {
 		}
 	}
 
-	// Action.checkRangeAndTarget measured the creeper under the crosshair from the Stand: once it is past 8 blocks from the
-	// Stand, checkTarget dropped it and, with nothing in the off hand, the hold ended with item_offhand
+	// 1.16's crosshair (the vanilla pick, then while the Stand was out the precision ray to the user's 5-block reach) lost
+	// a charged creeper that walked away: past 3 blocks the client's aim no longer holds it, past 5 the server's look ray
+	// does not find it either, so checkTarget had no entity and, with nothing in the off hand, the hold ended with
+	// item_offhand. (With Crazy Diamond in front of its user during the hold, no creeper within that reach is past the
+	// Stand's range, even quartered.)
 	@GameTest(template = "empty", timeoutTicks = 100)
-	public static void revertEndsOnceTheEntityUnderTheCrosshairIsPastTheStandsRange(GameTestHelper helper) {
-		try (StandScene s = new StandScene(helper, "HeldRevertRange", "crazy_diamond")) {
+	public static void revertEndsOnceTheEntityUnderTheCrosshairIsPastTheUsersReach(GameTestHelper helper) {
+		try (StandScene s = new StandScene(helper, "HeldRevertReach", "crazy_diamond")) {
 			Creeper creeper = (Creeper) s.mob(EntityType.CREEPER, 2.0D);
 			CommonReflection.setCreeperPowered(creeper, true);
 			creeper.setHealth(creeper.getMaxHealth() - 6.0F);
@@ -291,11 +295,24 @@ public final class HeldActionRecheck116GameTests {
 			s.tick(2);
 			helper.assertTrue(revert.getPhase() == ActionPhase.PERFORM && !revert.isOver(),
 					"setup: the held Revert is not on the charged creeper: phase " + revert.getPhase() + ", messages " + s.user.keys());
-			s.stand.moveTo(s.origin.x, s.origin.y, s.origin.z - 14.0D, 0.0F, 0.0F);
+			creeper.moveTo(s.origin.x, s.origin.y, s.origin.z + 4.5D, 180.0F, 0.0F);
+			s.aim(null);
+			double near = Math.sqrt(creeper.getBoundingBox().distanceToSqr(s.user.getEyePosition()));
+			helper.assertTrue(near > s.user.entityInteractionRange() && near < 5.0D && s.user.hasLineOfSight(creeper),
+					"setup: the creeper is not on the look ray past the crosshair pick and within the reach: " + near);
+			s.tick(1);
+			helper.assertTrue(revert.getPhase() == ActionPhase.PERFORM && !revert.isOver(), "1.16 kept the held Revert on the"
+					+ " charged creeper " + near + " blocks from the user's eyes, within the reach of its crosshair: phase "
+					+ revert.getPhase() + ", messages " + s.user.keys());
+			creeper.moveTo(s.origin.x, s.origin.y, s.origin.z + 5.6D, 180.0F, 0.0F);
+			double far = Math.sqrt(creeper.getBoundingBox().distanceToSqr(s.user.getEyePosition()));
+			helper.assertTrue(far > 5.0D && far < 8.0D && s.user.hasLineOfSight(creeper)
+					&& ActionTargetRange.isEntityWithinRange(s.stand, creeper, ActionTargetRange.DEFAULT_ENTITY_RANGE_SQ),
+					"setup: the creeper is not past the reach, in sight and within the Stand's range: " + far);
 			s.tick(1);
 			helper.assertTrue(revert.isOver() || revert.getPhase() == ActionPhase.RECOVERY,
-					"1.16 ended the held Revert once the creeper under the crosshair was past 8 blocks from the Stand and the off"
-							+ " hand was empty: phase " + revert.getPhase() + ", Stand " + s.stand.position());
+					"1.16 ended the held Revert once the creeper was " + far + " blocks from the user's eyes, past the reach of its"
+							+ " crosshair, and the off hand was empty: phase " + revert.getPhase());
 			helper.assertTrue(s.user.keys().contains(CONDITION + "item_offhand"), "1.16 said why: messages " + s.user.keys());
 			helper.succeed();
 		}

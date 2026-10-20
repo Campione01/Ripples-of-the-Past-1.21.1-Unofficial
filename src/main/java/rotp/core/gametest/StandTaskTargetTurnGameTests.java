@@ -1021,6 +1021,122 @@ public final class StandTaskTargetTurnGameTests {
 		helper.succeed();
 	}
 
+	/*
+	 * 1.16 StandEntity.setBarrageClashOpponent(null) also ended the clash of the Stand's previous opponent whenever that
+	 * one had any clash opponent (barrageClashOpponent().isPresent()), not only one pointing back at the Stand, and that
+	 * one's previous opponent in turn: a clash that ends (here by reach, StandEntity.tick) ends its opponent's clash with a
+	 * third Stand and the third Stand's with it, and every client gets the ends. A third Stand pointing at an opponent that
+	 * points back at the Stand is no previous opponent of anyone and keeps its clash; an opponent whose own side its barrage
+	 * pressed again dropped (BarrageHandler.reset) has no clash opponent, so it is not told and keeps its synced id.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aBarrageClashEndAlsoEndsTheOpponentsClashWithAThirdStandAsIn116(GameTestHelper helper) {
+		for (String row : new String[] { "with a third Stand", "pointing back", "dropped by its barrage pressed again" }) {
+			StandTaskTargetOffsetGameTests.withStand(helper, "star_platinum", scene -> {
+				StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("star_platinum"));
+				Player[] rivals = new Player[2];
+				StandPower[] rivalPowers = new StandPower[2];
+				StandEntity stand = scene.stand();
+				StandEntity[] others = new StandEntity[2];
+				try {
+					for (int i = 0; i < 2; i++) {
+						rivals[i] = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
+						Vec3 rivalPos = scene.user().position().add(0.0D, 0.0D, 8.0D + 2.0D * i);
+						rivals[i].setNoGravity(true);
+						rivals[i].moveTo(rivalPos.x, rivalPos.y, rivalPos.z, 180.0F, 0.0F);
+						helper.assertTrue(helper.getLevel().addFreshEntity(rivals[i]), "Could not add a rival Stand user");
+						rivalPowers[i] = PowerClass.STAND.attachGet(rivals[i]);
+						helper.assertTrue(StandPowerTransitions.insert(rivalPowers[i], new StandInstance(type)).status()
+								== StandPowerTransitions.Status.APPLIED && type.summon(rivals[i], rivalPowers[i]),
+								"Could not give a rival Star Platinum");
+						others[i] = rivalPowers[i].getSummonedStandEntity();
+						others[i].setNoGravity(true);
+					}
+					StandEntity opponent = others[0];
+					StandEntity third = others[1];
+					stand.setCanFollowUser(false);
+					stand.setNoGravity(true);
+					Vec3 opponentAt = stand.position().add(0.0D, 0.0D, 3.5D);
+					opponent.moveTo(opponentAt.x, opponentAt.y, opponentAt.z, 180.0F, 0.0F);
+					Vec3 thirdAt = opponentAt.add(0.0D, 0.0D, 2.0D);
+					third.moveTo(thirdAt.x, thirdAt.y, thirdAt.z, 0.0F, 0.0F);
+					boolean withThird = row.equals("with a third Stand");
+					boolean dropped = row.startsWith("dropped");
+					// the parries, in order: the Stand's of the opponent, the opponent's of the third Stand (or of the Stand), the
+					// third Stand's of the opponent
+					setBarrageClashOpponent(stand, opponent);
+					setBarrageClashOpponent(opponent, withThird ? third : stand);
+					if (!dropped) {
+						setBarrageClashOpponent(third, opponent);
+					}
+					helper.assertTrue(stand.barrageClashOpponent().orElse(null) == opponent
+							&& opponent.barrageClashOpponent().orElse(null) == (withThird ? third : stand)
+							&& third.barrageClashOpponent().orElse(null) == (dropped ? null : opponent), "setup: the clash opponents are "
+									+ stand.barrageClashOpponent() + ", " + opponent.barrageClashOpponent() + " and "
+									+ third.barrageClashOpponent());
+					if (dropped) {
+						// the opponent's user presses its barrage twice: the second press drops its side (StandEntity.onActionSet)
+						EntityActionType barrage = (EntityActionType) rivalPowers[0].getAbility("barrage");
+						for (int press = 0; press < 2; press++) {
+							LivingComponentAction.getComponent(opponent).setAction(
+									barrage.initActionOnAbilityUse(helper.getLevel(), rivals[0], opponent, null), rivals[0], SyncType.NO_SYNC);
+						}
+						helper.assertTrue(opponent.barrageClashOpponent().isEmpty() && syncedClashOpponentId(opponent) == stand.getId(),
+								"setup: the opponent's barrage pressed again left it " + opponent.barrageClashOpponent()
+										+ " with the synced id " + syncedClashOpponentId(opponent));
+					}
+					double reach = stand.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE);
+					double fromEyes = ActionTargetRange.getDistance(stand, opponent.getBoundingBox());
+					helper.assertTrue(fromEyes > reach, "setup: the opponent is " + fromEyes + " from the Stand's eyes, in its reach "
+							+ reach);
+					stand.tick();
+					String what = "a star_platinum's barrage clash with an opponent that left its reach, the opponent " + switch (row) {
+						case "with a third Stand" -> "in a clash with a third Stand that points back at it";
+						case "pointing back" -> "pointing back at it, a third Stand pointing at the opponent";
+						default -> "pointing back at it until its barrage pressed again dropped its side";
+					};
+					helper.assertTrue(stand.barrageClashOpponent().isEmpty() && opponent.barrageClashOpponent().isEmpty(),
+							"1.16 ended " + what + " for the Stand and the opponent; the clash opponents are "
+									+ stand.barrageClashOpponent() + " and " + opponent.barrageClashOpponent());
+					int[] synced = { syncedClashOpponentId(stand), syncedClashOpponentId(opponent), syncedClashOpponentId(third) };
+					switch (row) {
+						case "with a third Stand" -> {
+							helper.assertTrue(third.barrageClashOpponent().isEmpty(), "1.16 ended " + what + " for the third Stand"
+									+ " too, the opponent's previous opponent; its clash opponent is " + third.barrageClashOpponent());
+							helper.assertTrue(synced[0] == -1 && synced[1] == -1 && synced[2] == -1, "1.16 synced the end of " + what
+									+ " for all three Stands; the synced ids are " + synced[0] + ", " + synced[1] + " and " + synced[2]);
+						}
+						case "pointing back" -> {
+							helper.assertTrue(third.barrageClashOpponent().orElse(null) == opponent, "1.16 left " + what + " its clash"
+									+ " with the opponent; its clash opponent is " + third.barrageClashOpponent());
+							helper.assertTrue(synced[0] == -1 && synced[1] == -1 && synced[2] == opponent.getId(), "1.16 synced the end"
+									+ " of " + what + " for the Stand and the opponent only; the synced ids are " + synced[0] + ", "
+									+ synced[1] + " and " + synced[2]);
+						}
+						default -> helper.assertTrue(synced[0] == -1 && synced[1] == stand.getId(), "1.16 did not tell the opponent"
+								+ " without a clash opponent of " + what + ", so its clients kept showing the clash; the synced ids are "
+								+ synced[0] + " and " + synced[1] + ", not -1 and " + stand.getId());
+					}
+				}
+				finally {
+					stand.barrageClashStopped();
+					if (others[0] != null) {
+						LivingComponentAction.getComponent(others[0]).setAction(null, rivals[0], SyncType.NO_SYNC);
+					}
+					for (int i = 0; i < 2; i++) {
+						if (rivalPowers[i] != null && rivalPowers[i].isSummoned()) {
+							type.forceUnsummon(rivals[i], rivalPowers[i]);
+						}
+						if (rivals[i] != null) {
+							rivals[i].discard();
+						}
+					}
+				}
+			});
+		}
+		helper.succeed();
+	}
+
 	// as when each Stand has parried the other's barrage (StandEntity.barrageClashParryPunches)
 	private static void startBarrageClash(GameTestHelper helper, StandEntity stand, StandEntity opponent) {
 		setBarrageClashOpponent(stand, opponent);

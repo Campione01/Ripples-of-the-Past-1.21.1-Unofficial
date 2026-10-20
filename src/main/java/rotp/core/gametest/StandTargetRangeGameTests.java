@@ -52,8 +52,10 @@ import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
 import rotp.core.subsystems.target.ActionTargetAim;
 import rotp.core.subsystems.target.ActionTargetRange;
+import rotp.core.subsystems.target.HitResultUtil;
 import rotp.core.subsystems.target.StandPrecisionRay;
 import rotp.core.subsystems.timestop.TimeStopState;
+import rotp.core.util.functions.MathUtil;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -936,112 +938,189 @@ public final class StandTargetRangeGameTests {
 	}
 
 	/*
-	 * 1.16 CrazyDiamondPreviousState has TargetRequirement.NONE: PowerBaseImpl.checkTarget drops an entity that
-	 * Action.checkRangeAndTarget finds out of range (8 blocks from the Stand while it is out, 4 without a line of sight)
-	 * and the press goes on to the off-hand item, so with an empty off hand it answers item_offhand. As a player's press
-	 * makes it: Crazy Diamond where it stands as summoned, behind its user's right (its range lets it no further than 2
-	 * blocks), and a snow golem the user looks at, past the 3 blocks of a Survival player's crosshair pick, so the client's
-	 * aim is empty and the server's own 8-block look ray finds the golem. Within 8 blocks of the Stand it is reverted; a
-	 * little past them it is dropped, though it is still within 8 blocks of the user.
+	 * 1.16 took Revert's target from the crosshair (InputHandler.pickMouseTarget): the vanilla pick, and behind it, only
+	 * while the Stand was out, EntityStandType.clientHitResult's precision ray from the camera entity as far as
+	 * StandEntity.getAimDistance: the user's REACH_DISTANCE of 5, or under manual control, the Stand being the camera, the
+	 * Stand's own 2.5. With the client's aim empty (a Survival player's pick ends at 3 blocks; under manual control the
+	 * user is not the camera), the server's own look ray stands in for that precision ray: a snow golem 4.3 blocks from
+	 * the user's eyes is reverted, one 5.45 blocks away is not, nor one 4.3 away while Crazy Diamond is not out; under
+	 * manual control the Stand's aim (here one its precision box let a client's aim assist take, off the exact look) and
+	 * its look within its own reach count, not its user's look.
 	 */
 	@GameTest(template = "empty", batch = BATCH)
-	public static void crazyDiamondRevertTakesTheEntityOnTheLookRayOnlyWithinRangeOfTheStand(GameTestHelper helper) {
-		for (double separation : new double[] { 6.7D, 8.1D }) {
-			boolean nearStand = separation < 7.0D;
+	public static void crazyDiamondRevertTakesAnEntityOnlyWithinItsCrosshairsReachAsIn116(GameTestHelper helper) {
+		String[] rows = { "within the user's reach", "past the user's reach", "within the user's reach, the Stand not out",
+				"under manual control, in the Stand's aim", "under manual control, on the Stand's look",
+				"under manual control, past the Stand's reach on its look", "under manual control, on the user's look only" };
+		for (String row : rows) {
 			try (Fixture fixture = Fixture.open(helper, Kind.CD_REVERT)) {
-				SnowGolem golem = revertibleGolem(helper, fixture, separation);
-				fixture.user.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES,
-						golem.getBoundingBox().getCenter());
-				fixture.user.setYHeadRot(fixture.user.getYRot());
-				fixture.stand.updatePosition(fixture.user);
 				fixture.aim(ActionTarget.EMPTY);
-				double fromUser = Math.sqrt(golem.getBoundingBox().distanceToSqr(fixture.user.getEyePosition()));
-				double fromStand = ActionTargetRange.getDistance(fixture.stand, golem.getBoundingBox());
-				helper.assertTrue(fixture.stand.isFollowingUser() && fixture.stand.offsetFromUser.isIdle()
-						&& fromUser > fixture.user.entityInteractionRange() && fromUser < 8.0D
-						&& (fromStand <= 8.0D) == nearStand && fixture.stand.hasLineOfSight(golem)
-						&& fixture.user.getOffhandItem().isEmpty(),
-						"STAND-RANGE premise: the idle Stand, the snow golem past the crosshair pick and within the look ray's 8"
-								+ " blocks, " + (nearStand ? "within" : "past") + " 8 blocks of the Stand, or the off hand: fromUser="
-								+ fromUser + " fromStand=" + fromStand);
+				SnowGolem golem;
+				String where;
+				String expected;
+				if (!row.startsWith("under manual control")) {
+					golem = revertibleGolem(helper, fixture, row.startsWith("past") ? 5.8D : 4.65D);
+					fixture.stand.updatePosition(fixture.user);
+					double fromUser = Math.sqrt(golem.getBoundingBox().distanceToSqr(fixture.user.getEyePosition()));
+					double fromStand = ActionTargetRange.getDistance(fixture.stand, golem.getBoundingBox());
+					helper.assertTrue(fixture.stand.isFollowingUser() && fixture.stand.offsetFromUser.isIdle()
+							&& fromUser > fixture.user.entityInteractionRange() && fromUser < 8.0D && fromStand < 8.0D
+							&& fixture.stand.hasLineOfSight(golem) && fixture.user.getOffhandItem().isEmpty(),
+							"STAND-RANGE premise: the idle Stand, the snow golem past the crosshair pick and within 8 blocks of the"
+									+ " user and of the Stand in its sight, or the off hand: fromUser=" + fromUser + " fromStand=" + fromStand);
+					where = "on the look ray " + fromUser + " blocks from the user's eyes";
+					if (row.endsWith("the Stand not out")) {
+						fixture.standType.forceUnsummon(fixture.user, fixture.power);
+						helper.assertTrue(fixture.power.getSummonedStandEntity() == null,
+								"STAND-RANGE premise: Crazy Diamond is still out");
+						where += ", Crazy Diamond not out";
+					}
+					expected = row.equals("within the user's reach") ? "accepted" : ITEM_OFFHAND;
+				}
+				else {
+					// its user moved it 2.4 blocks behind (north) and turned it north, as the O key does
+					StandEntity stand = fixture.stand;
+					stand.setManuallyControlled(true);
+					stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z - 2.4D, 180.0F, 0.0F);
+					stand.setYHeadRot(180.0F);
+					boolean userLookOnly = row.endsWith("the user's look only");
+					boolean inAim = row.endsWith("in the Stand's aim");
+					boolean pastReach = row.contains("past the Stand's reach");
+					golem = userLookOnly ? revertibleGolem(helper, fixture, 4.65D) : golemAt(helper, fixture,
+							new Vec3(fixture.origin.x + (inAim ? 0.6D : 0.0D), stand.getEyeY() - 0.95D,
+									stand.getZ() - (pastReach ? 4.0D : 2.2D)));
+					LivingComponentAction.getComponent(stand).entityAim.setTarget(inAim ? new ActionTarget(golem) : ActionTarget.EMPTY);
+					double gap = MathUtil.getAABBDistance(stand.getBoundingBox(), fixture.user.getBoundingBox());
+					double fromStandEyes = Math.sqrt(golem.getBoundingBox().distanceToSqr(stand.getEyePosition()));
+					double fromUser = Math.sqrt(golem.getBoundingBox().distanceToSqr(fixture.user.getEyePosition()));
+					double standReach = stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE);
+					Vec3 userEyes = fixture.user.getEyePosition();
+					Vec3 standEyes = stand.getEyePosition();
+					Vec3 standLookEnd = standEyes.add(stand.getLookAngle().scale(8.0D));
+					boolean onUsersLook = golem.getBoundingBox().clip(userEyes, userEyes.add(fixture.user.getLookAngle().scale(8.0D)))
+							.isPresent();
+					boolean onStandsLook = golem.getBoundingBox().clip(standEyes, standLookEnd).isPresent();
+					boolean inStandsPrecisionBox = HitResultUtil.standPrecisionTargetHitbox(golem.getBoundingBox(), stand.getPrecision())
+							.clip(standEyes, standLookEnd).isPresent();
+					boolean layout = userLookOnly ? onUsersLook && !onStandsLook && fromUser < 5.0D
+							: !onUsersLook && (inAim ? !onStandsLook && inStandsPrecisionBox && fromStandEyes < standReach
+									: onStandsLook && (pastReach ? fromStandEyes > 3.0D && fromStandEyes < 5.0D : fromStandEyes < standReach));
+					helper.assertTrue(stand.isManuallyControlled() && gap <= stand.getMaxRange() && layout
+							&& fixture.user.getOffhandItem().isEmpty(),
+							"STAND-RANGE premise: the manually controlled Stand " + gap + " blocks from its user (max range "
+									+ stand.getMaxRange() + "), the golem " + fromStandEyes + " from the Stand's eyes (reach " + standReach
+									+ ", on its look " + onStandsLook + ", its precision box on it " + inStandsPrecisionBox + ") and "
+									+ fromUser + " from the user's (on its look " + onUsersLook + ")");
+					where = userLookOnly ? "on its user's look ray " + fromUser + " blocks away, the Stand looking aside"
+							: (inAim ? "in the Stand's aim, off its exact look" : "on the Stand's look ray") + ", " + fromStandEyes
+									+ " blocks from the Stand's eyes (its reach " + standReach + ")";
+					expected = userLookOnly || pastReach ? ITEM_OFFHAND : "accepted";
+				}
 				String answered = fixture.refusal();
-				String expected = nearStand ? "accepted" : ITEM_OFFHAND;
-				helper.assertTrue(expected.equals(answered), "CD_REVERT on a snow golem on the look ray " + fromUser + " blocks"
-						+ " from the user and " + fromStand + " from the idle Stand, with an empty off hand: answered " + answered
-						+ "; 1.16 measures from the Stand and " + (nearStand ? "reverts the golem" : "drops the golem and asks for an"
-								+ " item") + " (" + expected + ")");
+				helper.assertTrue(expected.equals(answered), "CD_REVERT " + row + ", a snow golem " + where + ", with an empty"
+						+ " off hand: answered " + answered + "; 1.16's crosshair " + ("accepted".equals(expected)
+								? "took the golem" : "did not reach the golem, so it asked for an item") + " (" + expected + ")");
 			}
 		}
 		helper.succeed();
 	}
 
+	/*
+	 * Action.checkRangeAndTarget quartered the squared range when the performer, the Stand while it is out, had no line of
+	 * sight to the target, whatever its user saw. As a player's press makes it: Crazy Diamond where it stands as summoned,
+	 * behind its user's right, and a snow golem on the user's look ray past the 3 blocks of a Survival player's crosshair
+	 * pick and within the 5-block reach, so the server's look ray finds it about 4.8 blocks from the Stand; a block that
+	 * cuts only the Stand's line to the golem leaves it past the quartered 4 blocks.
+	 */
 	@GameTest(template = "empty", batch = BATCH)
 	public static void crazyDiamondRevertDoesNotReachBeyondAWallPastTheQuarteredRange(GameTestHelper helper) {
 		try (Fixture fixture = Fixture.open(helper, Kind.CD_REVERT)) {
-			fixture.stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z + 0.5D, 0.0F, 0.0F);
-			SnowGolem golem = revertibleGolem(helper, fixture, 6.5D);
-			fixture.aim(new ActionTarget(golem));
+			SnowGolem golem = revertibleGolem(helper, fixture, 4.65D);
+			fixture.stand.updatePosition(fixture.user);
+			fixture.aim(ActionTarget.EMPTY);
 			String open = fixture.refusal();
-			BlockPos wall = BlockPos.containing(fixture.origin.x, fixture.origin.y, fixture.origin.z + 3.0D);
-			for (int x = -1; x <= 1; x++) {
-				for (int y = -1; y <= 2; y++) {
-					fixture.block(wall.offset(x, y, 0));
-				}
-			}
+			wallCuttingOnlyTheStandsSight(helper, fixture, golem);
 			double fromUser = Math.sqrt(golem.getBoundingBox().distanceToSqr(fixture.user.getEyePosition()));
-			double fromStand = Math.sqrt(golem.getBoundingBox().distanceToSqr(fixture.stand.getEyePosition()));
-			helper.assertTrue(fromUser < 8.0D && fromStand > 4.5D && fromStand < 7.0D && !fixture.stand.hasLineOfSight(golem)
+			double fromStand = ActionTargetRange.getDistance(fixture.stand, golem.getBoundingBox());
+			helper.assertTrue(fixture.stand.isFollowingUser() && fixture.stand.offsetFromUser.isIdle()
+					&& fromUser > fixture.user.entityInteractionRange() && fromUser < 5.0D && fromStand > 4.0D && fromStand < 8.0D
 					&& "accepted".equals(open),
-					"STAND-RANGE premise: the snow golem is not within 8 blocks behind a wall, or was refused without the wall:"
-							+ " fromUser=" + fromUser + " fromStand=" + fromStand + " withoutWall=" + open);
+					"STAND-RANGE premise: the snow golem is not past the crosshair pick and within the reach, between the Stand's"
+							+ " quartered and full range, or was refused before the block: fromUser=" + fromUser + " fromStand="
+							+ fromStand + " withoutTheBlock=" + open);
 			String answered = fixture.refusal();
-			helper.assertTrue(ITEM_OFFHAND.equals(answered), "CD_REVERT on a snow golem " + fromStand + " blocks from the Stand"
-					+ " behind a wall, with an empty off hand: answered " + answered + "; 1.16 quarters the squared range without"
-					+ " a line of sight, drops the golem and asks for an item (" + ITEM_OFFHAND + ")");
+			helper.assertTrue(ITEM_OFFHAND.equals(answered), "CD_REVERT on a snow golem on the look ray " + fromUser
+					+ " blocks from the user, " + fromStand + " from the idle Stand behind a block that hides it from the Stand only,"
+					+ " with an empty off hand: answered " + answered + "; 1.16 quarters the squared range without the Stand's line"
+					+ " of sight, drops the golem and asks for an item (" + ITEM_OFFHAND + ")");
 		}
 		helper.succeed();
 	}
 
-	// the golem 5 blocks ahead of the user, the Stand 14 blocks behind it: out of range aimed at, and on the server's ray
+	/*
+	 * The same measure for the entity the client's aim holds: a Creative player's crosshair pick reaches 5 blocks and holds
+	 * the snow golem 4.3 blocks ahead, which is dropped behind a block that cuts only the Stand's line to it. (No press a
+	 * player makes reaches an entity past Crazy Diamond's full 8 blocks: the Stand stays within 2 blocks of its user, the
+	 * crosshair within 5, and under manual control the Stand aims itself.)
+	 */
 	@GameTest(template = "empty", batch = BATCH)
-	public static void crazyDiamondRevertDoesNotReachAnEntityFarFromTheStand(GameTestHelper helper) {
+	public static void crazyDiamondRevertMeasuresTheAimedEntityFromTheStand(GameTestHelper helper) {
 		try (Fixture fixture = Fixture.open(helper, Kind.CD_REVERT)) {
-			SnowGolem golem = revertibleGolem(helper, fixture, 5.0D);
-			fixture.stand.moveTo(fixture.origin.x + 1.5D, fixture.origin.y, fixture.origin.z, 0.0F, 0.0F);
+			fixture.user.setGameMode(GameType.CREATIVE);
+			SnowGolem golem = revertibleGolem(helper, fixture, 4.65D);
+			fixture.stand.updatePosition(fixture.user);
 			fixture.aim(new ActionTarget(golem));
-			String nearAimed = fixture.refusal();
-			fixture.aim(ActionTarget.EMPTY);
-			String nearOnTheRay = fixture.refusal();
-			fixture.stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z - 14.0D, 0.0F, 0.0F);
+			String open = fixture.refusal();
+			wallCuttingOnlyTheStandsSight(helper, fixture, golem);
 			double fromUser = Math.sqrt(golem.getBoundingBox().distanceToSqr(fixture.user.getEyePosition()));
-			double fromStand = Math.sqrt(golem.getBoundingBox().distanceToSqr(fixture.stand.getEyePosition()));
-			helper.assertTrue(fromUser < 8.0D && fromStand > 9.0D && "accepted".equals(nearAimed) && "accepted".equals(nearOnTheRay),
-					"STAND-RANGE premise: the snow golem is not near the user only, or was refused with the Stand beside the"
-							+ " user: fromUser=" + fromUser + " fromStand=" + fromStand + " aimed=" + nearAimed + " onTheRay="
-							+ nearOnTheRay);
-			fixture.aim(new ActionTarget(golem));
-			String aimed = fixture.refusal();
-			fixture.aim(ActionTarget.EMPTY);
-			String onTheRay = fixture.refusal();
-			helper.assertTrue(ITEM_OFFHAND.equals(aimed) && ITEM_OFFHAND.equals(onTheRay), "CD_REVERT on a snow golem "
-					+ fromUser + " blocks ahead of the user and " + fromStand + " from the Stand, with an empty off hand: answered "
-					+ aimed + " aimed at it and " + onTheRay + " with it on the look ray; 1.16 measures from the Stand, drops"
-					+ " the golem and asks for an item (" + ITEM_OFFHAND + ")");
+			double fromStand = ActionTargetRange.getDistance(fixture.stand, golem.getBoundingBox());
+			helper.assertTrue(fixture.user.isCreative() && fromUser < 5.0D && fromStand > 4.0D && fromStand < 8.0D
+					&& "accepted".equals(open),
+					"STAND-RANGE premise: the snow golem is not within a Creative crosshair pick, between the Stand's quartered and"
+							+ " full range, or was refused before the block: fromUser=" + fromUser + " fromStand=" + fromStand
+							+ " withoutTheBlock=" + open);
+			String answered = fixture.refusal();
+			helper.assertTrue(ITEM_OFFHAND.equals(answered), "CD_REVERT aimed at a snow golem " + fromUser + " blocks from a"
+					+ " Creative user, " + fromStand + " from the idle Stand behind a block that hides it from the Stand only, with"
+					+ " an empty off hand: answered " + answered + "; 1.16 measures from the Stand, drops the golem and asks for an"
+					+ " item (" + ITEM_OFFHAND + ")");
 		}
 		helper.succeed();
 	}
 
 	// a snow golem, which Revert works on from Resolve level 3, standing on the user's look line
 	private static SnowGolem revertibleGolem(GameTestHelper helper, Fixture fixture, double separation) {
+		return golemAt(helper, fixture, new Vec3(fixture.origin.x, fixture.origin.y, fixture.origin.z + separation));
+	}
+
+	private static SnowGolem golemAt(GameTestHelper helper, Fixture fixture, Vec3 feet) {
 		fixture.power.setResolveLevel(4);
 		SnowGolem golem = EntityType.SNOW_GOLEM.create(fixture.level);
 		helper.assertTrue(golem != null, "STAND-RANGE premise: could not create the snow golem");
 		golem.setNoAi(true);
 		golem.setNoGravity(true);
-		golem.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z + separation, 180.0F, 0.0F);
+		golem.moveTo(feet.x, feet.y, feet.z, 180.0F, 0.0F);
 		fixture.extras.add(golem);
 		helper.assertTrue(fixture.level.addFreshEntity(golem), "STAND-RANGE premise: could not add the snow golem");
 		return golem;
+	}
+
+	// a stone block on the line from the Stand's eyes to the golem's (LivingEntity.hasLineOfSight), off its user's
+	private static void wallCuttingOnlyTheStandsSight(GameTestHelper helper, Fixture fixture, SnowGolem golem) {
+		Vec3 from = fixture.stand.getEyePosition();
+		Vec3 to = golem.getEyePosition();
+		BlockPos userBlock = fixture.user.blockPosition();
+		BlockPos wall = null;
+		for (int step = 2; step <= 12 && wall == null; step++) {
+			BlockPos pos = BlockPos.containing(from.lerp(to, step / 20.0D));
+			if (pos.getX() != userBlock.getX() && pos.getZ() > userBlock.getZ()
+					&& !new AABB(pos).intersects(fixture.stand.getBoundingBox())) {
+				wall = fixture.block(pos);
+			}
+		}
+		helper.assertTrue(wall != null && !fixture.stand.hasLineOfSight(golem) && fixture.user.hasLineOfSight(golem),
+				"STAND-RANGE premise: no block cuts only the Stand's line of sight to the golem: " + wall + ", Stand at "
+						+ fixture.stand.position());
 	}
 
 	// the same for the block anchor: no ray of the server's own takes the stone on the look ray in place of the entity gone

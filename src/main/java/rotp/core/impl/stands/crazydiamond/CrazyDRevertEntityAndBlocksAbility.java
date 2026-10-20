@@ -3,6 +3,7 @@ package rotp.core.impl.stands.crazydiamond;
 import rotp.core.powersystem.standpower.StandInstance.StandPart;
 
 import rotp.core.client.particle.CustomParticlesHelper;
+import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 import rotp.core.mechanics.resolve.ResolveModeEffect;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.ability.AbilityId;
@@ -28,6 +29,7 @@ import rotp.core.util.functions.ItemUtil;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.IronGolem;
 import net.minecraft.world.entity.animal.SnowGolem;
 import net.minecraft.world.entity.boss.wither.WitherBoss;
@@ -46,7 +48,6 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
 public class CrazyDRevertEntityAndBlocksAbility extends StandEntityAbility {
-	private static final double REVERT_ENTITY_TARGET_RANGE = 8.0D;
 	private static final ActionAnimIdentifier ITEM_FIX_ANIM = ActionAnimIdentifier.getOrCreate("itemFix", false);
 
 	public CrazyDRevertEntityAndBlocksAbility(AbilityType<?> abilityType, AbilityId abilityId) {
@@ -158,23 +159,40 @@ public class CrazyDRevertEntityAndBlocksAbility extends StandEntityAbility {
 		return user != null && canPickEntityForAiming(target) && canRevertEntity(target, user);
 	}
 
+	/*
+	 * 1.16 took the target under the crosshair (InputHandler.pickMouseTarget): the vanilla pick, which the client's aim
+	 * carries, and only while the Stand was out EntityStandType.clientHitResult's precision ray behind it, from the camera
+	 * entity (the Stand under manual control) as far as StandEntity.getAimDistance: the user's REACH_DISTANCE, or the
+	 * Stand's own under manual control. The server's own look ray stands in for that precision ray.
+	 */
 	private static ActionTarget getCurrentRevertEntityTarget(LivingEntity user, Level level) {
-		if (user == null || CrazyDHealAbility.isClientEntityMissing(user, level)) {
+		if (user == null) {
 			return ActionTarget.EMPTY;
 		}
-		ActionTargetAim aim = LivingComponentAction.getAim(user);
+		StandPower power = StandPower.get(user);
+		StandEntity stand = power != null ? power.getSummonedStandEntity() : null;
+		LivingEntity aiming = stand != null && stand.isManuallyControlled() ? stand : user;
+		if (CrazyDHealAbility.isClientEntityMissing(aiming, level)) {
+			return ActionTarget.EMPTY;
+		}
+		ActionTargetAim aim = LivingComponentAction.getAim(aiming);
 		ActionTarget target = aim != null ? aim.getTarget().resolveEntityId(level) : ActionTarget.EMPTY;
 		if (isValidRevertEntityTarget(user, target, level)) {
 			return target;
 		}
+		if (stand == null) {
+			return ActionTarget.EMPTY;
+		}
+		double reach = aiming == stand
+				? stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE) : StandEntityPunchAbility.userAimReach(user, stand);
 		target = HitResultUtil.clip(
-				user.getEyePosition(),
-				user.getLookAngle(),
-				REVERT_ENTITY_TARGET_RANGE,
-				REVERT_ENTITY_TARGET_RANGE,
+				aiming.getEyePosition(),
+				aiming.getLookAngle(),
+				reach,
+				reach,
 				level,
 				entity -> canPickEntityForAiming(entity) && canRevertEntity(entity, user),
-				user,
+				aiming,
 				0);
 		return isValidRevertEntityTarget(user, target, level) ? target : ActionTarget.EMPTY;
 	}
