@@ -9,6 +9,7 @@ import java.util.function.Consumer;
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
+import rotp.core.impl.stands.hierophant.HierophantEmeraldSplashAbility;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModStatusEffects;
 import rotp.core.powersystem.Power;
@@ -151,6 +152,57 @@ public final class OwnAbilityPressDuringTask116GameTests {
 			helper.assertTrue(chained.isActionSuccess && second != null && second != first && second.ability == splash,
 					"1.16 restarted the emerald splash pressed in its recovery (chainable): success " + chained.isActionSuccess
 							+ ", the Stand's action " + second);
+			helper.succeed();
+		}
+	}
+
+	/*
+	 * 1.16 HierophantGreenEmeraldSplash.isCancelable allowed a cancel only in RECOVERY, for any action pressed, the other
+	 * splash variant (hierophant_green_es_concentrated, a SHIFT variation in 1.16, its own slot here) included: pressed
+	 * in the windup or perform it was queued (the input buffer here) and replaced the splash in its recovery.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void theEmeraldSplashTakesItsOtherVariantOnlyInItsRecoveryAsIn116(GameTestHelper helper) {
+		// below Resolve 3 and with no Resolve effect the splash has its windup and recovery (noPhases)
+		try (Scene s = new Scene(helper, "VariantPressEmeraldSplash", "hierophant_green", 2)) {
+			s.unlock("emerald_splash");
+			s.unlock("emerald_splash_concentrated");
+			s.power.getCurTypeData().setAbilityLearningProgressPoints(HierophantEmeraldSplashAbility.EMERALD_SPLASH_LEARNING_ABILITY,
+					HierophantEmeraldSplashAbility.EMERALD_SPLASH_MAX_TRAINING, HierophantEmeraldSplashAbility.EMERALD_SPLASH_MAX_TRAINING,
+					s.power);
+			helper.assertTrue(HierophantEmeraldSplashAbility.isEmeraldSplashFullyTrained(s.power),
+					"setup: Emerald Splash is not fully trained, so the concentrated splash is hidden");
+			for (String[] variants : new String[][] { { "emerald_splash", "emerald_splash_concentrated" },
+					{ "emerald_splash_concentrated", "emerald_splash" } }) {
+				for (ActionPhase phase : new ActionPhase[] { ActionPhase.WINDUP, ActionPhase.PERFORM }) {
+					s.power.setStamina(s.power.getMaxStamina());
+					EntityActionInstance running = s.start(variants[0]);
+					for (int tick = 0; tick < 60 && running.getPhase() != phase && !running.isOver(); tick++) {
+						s.standAction.tick();
+					}
+					helper.assertTrue(running.getPhase() == phase && s.standAction.getAction() == running,
+							"setup: " + variants[0] + " did not reach its " + phase + ": " + running.getPhase());
+					AbilityConditionCheck other = s.resolve(variants[1]);
+					helper.assertTrue(other != null && other.ability == s.power.getAbility(variants[1]) && other.conditionCheck.isPositive(),
+							"setup: " + variants[1] + " cannot be pressed during " + variants[0] + ": " + describe(other));
+					BufferingState queued = s.press(variants[1], InputMethod.HOLD);
+					helper.assertTrue(queued.shouldBuffer && !queued.isActionSuccess && s.standAction.getAction() == running,
+							"1.16 queued " + variants[1] + " pressed in the " + phase + " of " + variants[0] + " (isCancelable only in"
+									+ " RECOVERY): buffered " + queued.shouldBuffer + ", started " + queued.isActionSuccess
+									+ ", the Stand's action " + s.standAction.getAction() + " (was " + running + ")");
+					s.user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get()).heldKeys.clear();
+					s.standAction.setAction(null, s.user, SyncType.NO_SYNC);
+				}
+				s.power.setStamina(s.power.getMaxStamina());
+				EntityActionInstance running = s.start(variants[0]);
+				running.startRecovery();
+				BufferingState replaced = s.press(variants[1], InputMethod.HOLD);
+				EntityActionInstance next = s.standAction.getAction();
+				helper.assertTrue(replaced.isActionSuccess && next != null && next != running
+						&& next.ability == s.power.getAbility(variants[1]), "1.16 let " + variants[1] + " pressed in the recovery of "
+								+ variants[0] + " replace it: started " + replaced.isActionSuccess + ", the Stand's action " + next);
+				s.standAction.setAction(null, s.user, SyncType.NO_SYNC);
+			}
 			helper.succeed();
 		}
 	}
