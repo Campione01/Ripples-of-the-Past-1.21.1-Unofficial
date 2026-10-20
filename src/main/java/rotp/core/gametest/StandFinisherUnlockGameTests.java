@@ -74,6 +74,16 @@ public final class StandFinisherUnlockGameTests {
 			helper.assertTrue(!stand.willHeavyPunchBeFinisher() && !stand.willHeavyFinisherVariationFire(),
 					"A locked finisher meter still makes the heavy punch a finisher");
 
+			// Resolve 0 with the finisher variation unlocked (creative): unlocked, as in 1.16
+			user.getAbilities().instabuild = true;
+			helper.assertTrue(finisher.isAbilityUnlocked(power), "Fixture: creative did not unlock the finisher uppercut");
+			helper.assertTrue(StandEntity.isFinisherMechanicUnlocked(power),
+					"An unlocked finisher variation did not unlock the finisher mechanic");
+			helper.assertTrue(stand.getFinisherMeter() == 1.0F,
+					"Finisher meter with an unlocked variation reads " + stand.getFinisherMeter());
+			user.getAbilities().instabuild = false;
+			helper.assertTrue(stand.getFinisherMeter() == 0, "fixture: leaving creative left the meter readable at Resolve 0");
+
 			// Resolve 1: the stored meter shows again
 			power.setResolveLevel(1);
 			helper.assertTrue(StandEntity.isFinisherMechanicUnlocked(power), "Resolve 1 did not unlock the finisher mechanic");
@@ -85,16 +95,13 @@ public final class StandFinisherUnlockGameTests {
 			helper.assertTrue(!stand.willHeavyFinisherVariationFire(), "The finisher tint shows below a 0.5 meter");
 			stand.setFinisherMeter(1.0F);
 
-			// Resolve 0 with the finisher variation unlocked (creative): still unlocked, as in 1.16
+			// Resolve 0 again: the finisher uppercut keeps the learning Resolve 1 gave it (1.16 StandAction.isUnlocked), so
+			// the finisher mechanic and its meter stay
 			power.setResolveLevel(0);
-			helper.assertTrue(stand.getFinisherMeter() == 0, "Dropping back to Resolve 0 left the meter readable");
-			power.getCurTypeData()._lockedAbilities.remove("finisher_uppercut"); // a level change may relock skills
-			user.getAbilities().instabuild = true;
-			helper.assertTrue(finisher.isAbilityUnlocked(power), "Fixture: creative did not unlock the finisher uppercut");
-			helper.assertTrue(StandEntity.isFinisherMechanicUnlocked(power),
-					"An unlocked finisher variation did not unlock the finisher mechanic");
+			helper.assertTrue(finisher.isAbilityUnlocked(power) && StandEntity.isFinisherMechanicUnlocked(power),
+					"1.16 kept the finisher uppercut unlocked, and the finisher mechanic with it, after Resolve 1 dropped to 0");
 			helper.assertTrue(stand.getFinisherMeter() == 1.0F,
-					"Finisher meter with an unlocked variation reads " + stand.getFinisherMeter());
+					"Dropping back to Resolve 0 hid the finisher meter: " + stand.getFinisherMeter());
 			helper.succeed();
 		}
 		finally {

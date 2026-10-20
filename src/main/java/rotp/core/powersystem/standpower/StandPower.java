@@ -764,6 +764,15 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 		return data != null ? data.getResolveLevel() : 0;
 	}
 
+	/** The highest Resolve level this Stand has had (StandTypePersistentData#getHighestResolveLevel). */
+	public int getHighestResolveLevel() {
+		if (!usesResolve()) {
+			return 0;
+		}
+		StandTypePersistentData data = getCurTypeData();
+		return data != null ? data.getHighestResolveLevel() : 0;
+	}
+
 	public int getMaxResolveLevel() {
 		if (!usesResolve()) {
 			return 0;

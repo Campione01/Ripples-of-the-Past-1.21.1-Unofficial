@@ -59,6 +59,7 @@ public class AvailableAbilities {
 				_inMoveset.put(abilityEntry.getKey(), getCheckedContainerFor(context, contextVariation));
 			}
 		}
+		standFinisherCheckLast.refuseRunningFinisher(context, baseMoveset, this);
 		
 		inMovesetAndCanBeUsed.clear();
 		for (var abilityEntry : _inMoveset.entrySet()) {

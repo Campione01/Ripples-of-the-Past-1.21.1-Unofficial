@@ -39,7 +39,7 @@ public final class SPHeavyRecoveryEntryGameTests {
 
     private static final class Suite extends PhaseEntryGameTestSupport.Suite {
         Suite(GameTestHelper helper) {
-            super(helper, SUBJECT, List.of("sp_cold_followup", "sp_warm_followup", "sp_stable",
+            super(helper, SUBJECT, List.of("sp_perform_refused_followup", "sp_recovery_refused_followup", "sp_stable",
                     "sp_expiring_resolve", "sp_uppercut", "tw_heavy", "tw_kick"));
         }
         @Override PhaseEntryGameTestSupport.Scene create(String id) { return new Scene(this, id); }
@@ -50,12 +50,12 @@ public final class SPHeavyRecoveryEntryGameTests {
         StandEntityHeavyPunch action;
         double initialSpeed, predecessorSpeed, recoverySpeed;
         float savedFinisher, initialStamina, cachedRecovery, recoveryLength, predecessorStamina;
-        int readyTicks, predecessorRecoveryTicks;
-        boolean queued, started, recoverySeen, freezeObserved, ownDebitSeen;
+        int readyTicks, predecessorRecoveryTicks, afterPredecessorTicks;
+        boolean refused, started, recoverySeen, freezeObserved, ownDebitSeen;
 
         Scene(Suite suite, String id) { super(suite, id); }
         boolean followup() { return id.endsWith("followup"); }
-        boolean cold() { return id.equals("sp_cold_followup"); }
+        boolean refusedInPerform() { return id.equals("sp_perform_refused_followup"); }
         boolean expires() { return id.equals("sp_expiring_resolve") || finisher() || id.equals("tw_heavy"); }
         boolean finisher() { return id.equals("sp_uppercut") || id.equals("tw_kick"); }
 
@@ -83,10 +83,6 @@ public final class SPHeavyRecoveryEntryGameTests {
         @Override void post(Entity entity) {
             super.post(entity);
             if (done) return;
-            if (entity == user && cold() && queued && action == null) {
-                var installed = stand.getCurStandAction();
-                if (installed != null && installed != predecessor) capture(installed);
-            }
             if (entity != stand) return;
             if (!started) {
                 if (++readyTicks < 2) return;
@@ -97,8 +93,7 @@ public final class SPHeavyRecoveryEntryGameTests {
                     var press = press("heavy_punch", PhaseEntryGameTestSupport.ATTACK, false, 0);
                     premise(press.success() && press.action() instanceof Uppercut, "Legal registered finisher uppercut predecessor");
                     predecessor = press.action();
-                    premise(((StandEntityHeavyPunch) predecessor).finisherValue >= 0.5F,
-                            "Predecessor saved finisher permits RECOVERY cancellation, not an ordinary-heavy queue");
+                    premise(((StandEntityHeavyPunch) predecessor).finisherValue >= 0.5F, "Predecessor saved its finisher value");
                     PhaseEntryGameTestSupport.log("PREDECESSOR " + id + " speed=" + predecessorSpeed + " stamina=" + predecessorStamina
                             + " saved=" + ((StandEntityHeavyPunch) predecessor).finisherValue + " current=" + stand.getFinisherMeter());
                     started = true; return;
@@ -110,16 +105,22 @@ public final class SPHeavyRecoveryEntryGameTests {
                 started = true; return;
             }
             if (followup() && action == null) {
-                if (cold() && !queued && predecessor.getPhase() == ActionPhase.PERFORM && predecessor.getPhaseTick() == 0) {
-                    var press = press("heavy_punch", PhaseEntryGameTestSupport.FOLLOW, true, 0);
-                    premise(press.buffered() && !press.success() && press.action() == predecessor
-                            && press.selected().name().equals("heavy_punch"), "Legal ordinary-heavy input queued without replacing uppercut PERFORM");
-                    queued = true;
+                // 1.16 StandEntityHeavyAttack.getFinisherVariationIfPresent kept the heavy key on the uppercut while it was
+                // the Stand's task, and StandEntityAction.canClickDuringTask refused it, unqueued: the ordinary heavy
+                // follows only once the uppercut is over
+                if (!refused && (refusedInPerform()
+                        ? predecessor.getPhase() == ActionPhase.PERFORM && predecessor.getPhaseTick() == 0
+                        : predecessor.getPhase() == ActionPhase.RECOVERY && ++predecessorRecoveryTicks >= 2)) {
+                    var selected = power.updateAvailableMoves().getContextVariationContainer(power.getAbility("heavy_punch"));
+                    premise(selected != null && selected.ability == predecessor.ability && !selected.conditionCheck.isPositive()
+                            && stand.getCurStandAction() == predecessor, "Heavy key kept on the running uppercut and refused in "
+                                    + predecessor.getPhase() + ": " + (selected != null ? selected.ability.name() : null));
+                    refused = true;
                 }
-                if (!cold() && predecessor.getPhase() == ActionPhase.RECOVERY && ++predecessorRecoveryTicks >= 2) {
-                    premise(stand.getAttackSpeed() < predecessorSpeed, "Warm control sees previous debit through a real Stand refresh");
+                if (refused && predecessor.isOver() && ++afterPredecessorTicks >= 2) {
+                    premise(stand.getAttackSpeed() < predecessorSpeed, "Follow-up sees previous debit through a real Stand refresh");
                     var press = press("heavy_punch", PhaseEntryGameTestSupport.FOLLOW, false, 0);
-                    premise(press.success(), "Warm registered RECOVERY follow-up admitted");
+                    premise(press.success(), "Registered ordinary-heavy follow-up admitted after the uppercut");
                     capture(press.action());
                 }
                 return;
@@ -137,12 +138,8 @@ public final class SPHeavyRecoveryEntryGameTests {
                 check(PhaseEntryGameTestSupport.near(action.finisherValue, savedFinisher), "Action finisher was neither resnapshotted nor consumed twice");
                 check(PhaseEntryGameTestSupport.near(initialStamina - power.getStamina(), 50), "One impact debit before RECOVERY; no forced multiplier refresh");
                 ownDebitSeen = true;
-                if (cold() || expires()) premise(expected != cachedRecovery, "Changed-speed rounded oracle distinguishes entry from initial cache");
-                else check(expected == cachedRecovery, "Stable/warm control preserves existing result despite own one-tick debit");
-                if (cold()) {
-                    premise(PhaseEntryGameTestSupport.near(initialSpeed, predecessorSpeed) && recoverySpeed < initialSpeed,
-                            "Real user replay captured cold previous-debit speed, then native Stand ticks refreshed it");
-                }
+                if (expires()) premise(expected != cachedRecovery, "Changed-speed rounded oracle distinguishes entry from initial cache");
+                else check(expected == cachedRecovery, "Stable/follow-up control preserves existing result despite own one-tick debit");
                 if (expires()) premise(!user.hasEffect(ModStatusEffects.RESOLVE) && recoverySpeed < initialSpeed,
                         "Resolve expired naturally during WINDUP before RECOVERY");
                 // 1.16 kept the builder's 1-tick perform for every one of these heavies.
@@ -169,7 +166,7 @@ public final class SPHeavyRecoveryEntryGameTests {
             check(PhaseEntryGameTestSupport.near(action.phasesLength.getFloat(ActionPhase.RECOVERY), cachedRecovery),
                     "Startup cache retains initial speed/saved finisher before later entry");
             check(savedFinisher > stand.getFinisherMeter(), "Saved pre-consumption finisher differs from current meter");
-            if (followup()) premise(predecessor != action && predecessor.isOver(), "Actual admitted follow-up replaced its finisher predecessor");
+            if (followup()) premise(predecessor != action && predecessor.isOver(), "Actual admitted follow-up after its finisher predecessor");
             PhaseEntryGameTestSupport.log("START heavy/" + id + " phase=" + action.getPhase() + " speed=" + initialSpeed
                     + " stamina=" + initialStamina + " max=" + power.getMaxStamina() + " saved=" + savedFinisher
                     + " meter=" + stand.getFinisherMeter() + " cachedRecovery=" + cachedRecovery);

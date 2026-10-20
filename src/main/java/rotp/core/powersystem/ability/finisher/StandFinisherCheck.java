@@ -10,7 +10,10 @@ import rotp.core.powersystem.Power;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.condition.AvailableAbilities;
+import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.ability.condition.AvailableAbilities.AbilityConditionCheck;
+import rotp.core.powersystem.entityaction.EntityActionInstance;
+import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandInstance.StandPart;
 import rotp.core.powersystem.standpower.StandPower;
@@ -51,6 +54,69 @@ public class StandFinisherCheck {
 				}
 			}
 		}
+
+		keepKeyOnRunningFinisher(context, movesetAbilities, abilities);
+	}
+
+	/**
+	 * 1.16 StandEntityHeavyAttack.getFinisherVariationIfPresent returned the finisher variation while it was the Stand's
+	 * current task (getCurrentTaskAction), whatever the finisher meter, unless it needed a part the Stand had lost: the
+	 * base's key stays on the running variation ({@link #refuseRunningFinisher} then refuses it).
+	 */
+	protected void keepKeyOnRunningFinisher(Power<?> context, Map<String, Ability> movesetAbilities, AvailableAbilities abilities) {
+		Ability running = getRunningFinisher(context, movesetAbilities);
+		if (running == null) {
+			return;
+		}
+		String baseAbilityName = getAbilityFinisherOf(running).baseAbilityName();
+		if (abilities._inMoveset.containsKey(baseAbilityName) && !needsMissingPart(context, running)
+				&& running.isAbilityAvailable(context)) {
+			abilities._inMoveset.put(baseAbilityName, abilities.getCheckedContainerFor(context, running));
+		}
+	}
+
+	/**
+	 * 1.16 StandEntityAction.canClickDuringTask: the finisher variation pressed again while it is the Stand's task, by
+	 * whichever key, was refused with no message and not queued (a heavy attack is not chainable). Called once the
+	 * abilities are resolved.
+	 */
+	public void refuseRunningFinisher(Power<?> context, Moveset baseMoveset, AvailableAbilities abilities) {
+		Ability running = getRunningFinisher(context, baseMoveset.abilities);
+		if (running == null) {
+			return;
+		}
+		for (AbilityConditionCheck container : abilities._inMoveset.values()) {
+			if (container.ability == running && container.conditionCheck.isPositive()) {
+				container.conditionCheck = ConditionCheck.NEGATIVE;
+			}
+		}
+	}
+
+	/** The finisher variation the summoned Stand is performing now, as it is in the moveset. */
+	@Nullable
+	protected Ability getRunningFinisher(Power<?> context, Map<String, Ability> movesetAbilities) {
+		StandPower standPower = PowerClass.STAND.cast(context);
+		StandEntity standEntity = standPower != null ? standPower.getSummonedStandEntity() : null;
+		EntityActionInstance action = standEntity != null ? LivingComponentAction.getCurEntityAction(standEntity) : null;
+		if (action == null || action.isOver() || !(action.ability instanceof Ability performed)) {
+			return null;
+		}
+		Ability ability = movesetAbilities.get(performed.name());
+		return ability != null && ability.getAbilityId().equals(performed.getAbilityId())
+				&& getAbilityFinisherOf(ability) != null ? ability : null;
+	}
+
+	protected boolean needsMissingPart(Power<?> context, Ability ability) {
+		StandPower standPower = PowerClass.STAND.cast(context);
+		StandInstance standInstance = standPower != null ? standPower.getStandInstance().orElse(null) : null;
+		if (standInstance != null) {
+			for (StandPart part : StandPart.values()) {
+				if (!standInstance.hasPart(part) && ability.isPartRequired(part)) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 	
 	/**

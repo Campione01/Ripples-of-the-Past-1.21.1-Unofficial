@@ -53,6 +53,9 @@ public final class NetworkProtocolNegotiationSmokeTest {
 		// a v12 peer has no actiontarget payload: its Stand would keep turning to a target the server dropped
 		check(Integer.parseInt(PacketsRegister.NETWORK_PROTOCOL_VERSION) >= 13,
 				"the clientbound actiontarget payload needs core protocol v13 or later");
+		// a v13 peer would read the Stand data's highest Resolve level as the next field
+		check(Integer.parseInt(PacketsRegister.NETWORK_PROTOCOL_VERSION) >= 14,
+				"the Stand data's highest Resolve level needs core protocol v14 or later");
 
 		var matching = NetworkComponentNegotiator.validateComponent(
 				requiredComponent(PacketsRegister.NETWORK_PROTOCOL_VERSION),

@@ -211,16 +211,22 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 	}
 
 	/**
-	 * Whether the held recheck covers the action now. 1.16 held an action from its press until it fired or was let go
-	 * (PowerBaseImpl.setHeldAction to stopHeldAction), so besides the phases {@link #isActionHeld} counts, the phases
-	 * before the button-holding phase count too, such as a windup played before a held perform.
+	 * Whether the action is held the way 1.16 held it, from its press until it fired or was let go
+	 * (PowerBaseImpl.setHeldAction to stopHeldAction): the held recheck and the getting-attacked cancel cover it now.
+	 * Besides the phases {@link #isActionHeld} counts, the phases before the button-holding phase count, and the phases
+	 * before the first phase with a length that isActionHeld counts (an override's), such as a windup played before a
+	 * held perform.
 	 */
 	public boolean isHeldSincePress(EntityActionInstance action) {
 		if (isActionHeld(action)) {
 			return true;
 		}
 		ActionPhase phase = action.getPhase();
-		return phase != null && buttonHoldingPhase != null && phase.ordinal() < buttonHoldingPhase.ordinal();
+		if (phase == null) {
+			return false;
+		}
+		return buttonHoldingPhase != null && phase.ordinal() < buttonHoldingPhase.ordinal()
+				|| action.isBeforeFirstHeldPhase(this);
 	}
 
 	/**
@@ -400,7 +406,7 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 	public boolean stopHeldActionIfConditionsFail(EntityActionInstance action) {
 		LivingEntity user = action.getPowerUser();
 		if (action.isOver() || user == null || user.level().isClientSide() || abilityId.powerClass() == null
-				|| !isHeldSincePress(action) || !AbilityInput.isHeldByKey(user, action)) {
+				|| !AbilityInput.isHeldByKey(user, action) || !isHeldSincePress(action)) {
 			return false;
 		}
 		Power<?> context = getUserPower(user);
@@ -413,12 +419,16 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 		}
 		ConditionCheck.sendActionFailedMessage(this, check, user);
 		stopHeldActionOnFailedCheck(action);
-		// 1.16 always ended the hold, even for an action whose release leaves it held.
+		endHoldLeftHeld(action);
+		return true;
+	}
+
+	// 1.16 stopHeldAction always ended the hold, even for an action whose release leaves it held.
+	private void endHoldLeftHeld(EntityActionInstance action) {
 		if (!action.isOver() && isHeldSincePress(action)) {
 			action.forceStop();
 			action.syncPhaseChanges();
 		}
-		return true;
 	}
 
 	/**
@@ -482,7 +492,8 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 	
 	/**
 	 * 1.16 GameplayEventHandler.onLivingDamage -> PowerBaseImpl.onUserGettingAttacked: a hit with a direct entity
-	 * stops the user's held actions (its own and its Stand's) whose cancelHeldOnGettingAttacked says so.
+	 * stops the user's held actions (its own and its Stand's) whose cancelHeldOnGettingAttacked says so, held as 1.16's
+	 * getHeldAction() was, from the press on ({@link #isHeldSincePress}) while a key holds them, and the hold ends.
 	 * A hit that a shield or an incoming-damage reduction brought to nothing, or that a counter cancelled at
 	 * LivingHurtEvent (DamageSourceModified#isCountered), never reached that event.
 	 */
@@ -508,9 +519,10 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 		// A hit on the Stand itself is not its user's (a linked hit reaches the user as its own damage).
 		if (action != null && !action.isOver() && action.getPowerUser() == user
 				&& action.ability instanceof EntityActionAbility ability
-				&& ability.isActionHeld(action)
+				&& AbilityInput.isHeldByKey(user, action) && ability.isHeldSincePress(action)
 				&& ability.cancelHeldOnGettingAttacked(action, dmgSource, dmgAmount)) {
 			ability.stopHeldActionOnGettingAttacked(action);
+			ability.endHoldLeftHeld(action);
 		}
 	}
 	

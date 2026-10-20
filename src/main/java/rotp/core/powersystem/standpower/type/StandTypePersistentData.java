@@ -46,6 +46,7 @@ public class StandTypePersistentData extends PowerData {
 	private static final String USED_TIME_STOP_NBT = "UsedTimeStop";
 	private static final String LAST_TIME_STOP_DAY_NBT = "LastTimeStopDay";
 	private static final String RESOLVE_LEVEL_NBT = "ResolveLevel";
+	private static final String HIGHEST_RESOLVE_LEVEL_NBT = "HighestResolveLevel";
 	public static final int MAX_RESOLVE_LEVEL = 4;
 
 	protected float exp;
@@ -53,6 +54,7 @@ public class StandTypePersistentData extends PowerData {
 	public Set<ResourceLocation> defeatedStands = new HashSet<>();
 	protected final Map<String, Float> abilityLearningProgress = new HashMap<>();
 	private int resolveLevel;
+	private int highestResolveLevel;
 	private boolean hasUsedTimeStopToday;
 	private long lastTimeStopDay = Long.MIN_VALUE;
 	
@@ -350,10 +352,20 @@ public class StandTypePersistentData extends PowerData {
 		return MAX_RESOLVE_LEVEL;
 	}
 
+	/**
+	 * The highest Resolve level this Stand has had. 1.16 StandAction.isUnlocked was a learning entry that
+	 * StandType.onNewResolveLevel added once the stored level reached the action's, and a lower level never took it away
+	 * (only a full Stand clear did, which discards this data).
+	 */
+	public int getHighestResolveLevel() {
+		return Mth.clamp(Math.max(highestResolveLevel, resolveLevel), 0, getMaxResolveLevel());
+	}
+
 	public boolean setResolveLevel(StandPower userPower, int level) {
 		int clamped = Mth.clamp(level, 0, getMaxResolveLevel());
 		if (resolveLevel != clamped) {
 			resolveLevel = clamped;
+			highestResolveLevel = Math.max(highestResolveLevel, clamped);
 			LivingEntity user = userPower.getUser();
 			if (user != null && !user.level().isClientSide()) {
 				syncOnUpdate(user);
@@ -369,6 +381,7 @@ public class StandTypePersistentData extends PowerData {
 		CompoundTag nbt = super.serializeNBT(provider);
 		nbt.putFloat("exp", exp);
 		nbt.putInt(RESOLVE_LEVEL_NBT, getResolveLevel());
+		nbt.putInt(HIGHEST_RESOLVE_LEVEL_NBT, getHighestResolveLevel());
 		nbt.put("defeatedChars", NBTUtil.toList(defeatedCharacters, NbtUtils::createUUID));
 		nbt.put("defeatedStands", NBTUtil.toList(defeatedStands, ResourceLocation.CODEC));
 		CompoundTag learningNbt = new CompoundTag();
@@ -386,6 +399,8 @@ public class StandTypePersistentData extends PowerData {
 		super.deserializeNBT(provider, nbt);
 		this.exp = nbt.getFloat("exp");
 		this.resolveLevel = Mth.clamp(nbt.getInt(RESOLVE_LEVEL_NBT), 0, getMaxResolveLevel());
+		this.highestResolveLevel = nbt.contains(HIGHEST_RESOLVE_LEVEL_NBT)
+				? Mth.clamp(nbt.getInt(HIGHEST_RESOLVE_LEVEL_NBT), 0, getMaxResolveLevel()) : resolveLevel;
 		NBTUtil.fromList(nbt, "defeatedChars", defeatedCharacters::add, NbtUtils::loadUUID);
 		NBTUtil.fromList(nbt, "defeatedStands", defeatedStands, ResourceLocation.CODEC);
 		abilityLearningProgress.clear();
@@ -402,6 +417,7 @@ public class StandTypePersistentData extends PowerData {
 	public void toBuf(FriendlyByteBuf buf, boolean isSentToTracking) {
 		super.toBuf(buf, isSentToTracking);
 		buf.writeVarInt(getResolveLevel());
+		buf.writeVarInt(getHighestResolveLevel());
 		if (!isSentToTracking) {
 			buf.writeFloat(exp);
 			NetworkPayloadValidation.requireOutboundCollectionSize(
@@ -421,6 +437,7 @@ public class StandTypePersistentData extends PowerData {
 	public void fromBuf(FriendlyByteBuf buf, boolean isSentToTracking) {
 		super.fromBuf(buf, isSentToTracking);
 		resolveLevel = Mth.clamp(buf.readVarInt(), 0, getMaxResolveLevel());
+		highestResolveLevel = Mth.clamp(buf.readVarInt(), 0, getMaxResolveLevel());
 		if (!isSentToTracking) {
 			exp = buf.readFloat();
 			abilityLearningProgress.clear();
