@@ -22,7 +22,6 @@ import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
-import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
@@ -35,6 +34,7 @@ import rotp.core.util.functions.MathUtil;
 import rotp.core.impl.stands._entitybase.StandAbilityStamina;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
+import rotp.core.impl.stands._entitybase.StandEntityPunchAbility.CrosshairRule;
 
 import net.minecraft.util.Mth;
 import net.minecraft.server.level.ServerLevel;
@@ -151,7 +151,6 @@ public class SilverChariotDashAttackAbility extends StandEntityAbility {
 		private final Set<Integer> hitEntities = new HashSet<>();
 		private Vec3 dashStep = Vec3.ZERO;
 		private Vec3 dashForward = Vec3.ZERO;
-		private ActionTarget dashTarget = ActionTarget.EMPTY;
 		private boolean retractAfterDash;
 		private boolean recoveryReread;
 
@@ -206,7 +205,6 @@ public class SilverChariotDashAttackAbility extends StandEntityAbility {
 						stand.getSoundSource(), 1.0F, 1.0F);
 			}
 			dashForward = dashLook(stand, user);
-			dashTarget = !level().isClientSide() ? captureDashTarget(level(), stand) : ActionTarget.EMPTY;
 			hitEntities.clear();
 			if (!level().isClientSide() && retractAfterDash && stand.getAttackSpeed() < 24 && user != null) {
 				Vec3 userForward = horizontalLook(user, null, 0.0);
@@ -229,8 +227,9 @@ public class SilverChariotDashAttackAbility extends StandEntityAbility {
 				if (moveForward) {
 					hitDashTargets(level, stand);
 				}
-				else if (hadForwardMovement && !wallHidesDashTarget(level, stand, dashTarget)) {
-					hitDashTarget(level, stand, dashTarget);
+				else if (hadForwardMovement) {
+					// 1.16 struck the task's target here, which the dash never kept
+					hitReaimedDashTarget(level, stand);
 				}
 			}
 			if (!level.isClientSide() && getPhaseTicksLeft() <= 1 && retractAfterDash) {
@@ -262,44 +261,33 @@ public class SilverChariotDashAttackAbility extends StandEntityAbility {
 			return getPhase() == ActionPhase.RECOVERY && cancellingAbility == ability;
 		}
 
-		private ActionTarget captureDashTarget(Level level, StandEntity stand) {
-			ActionTarget target = getActionTargetSnapshot(level);
-			double blockReach = stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE);
-			double entityReach = stand.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE);
-			if (!target.isEmpty(level)
-					&& !HitResultUtil.isTargetWithinRange(target, stand, level, blockReach, entityReach)) {
-				target = ActionTarget.EMPTY;
-			}
-			if (target.isEmpty(level)) {
-				var aim = LivingComponentAction.getAim(stand);
-				target = aim != null ? aim.getTarget().resolveEntityId(level) : ActionTarget.EMPTY;
-			}
-			if (!target.isEmpty(level)
-					&& !HitResultUtil.isTargetWithinRange(target, stand, level, blockReach, entityReach)) {
-				target = ActionTarget.EMPTY;
-			}
-			if (target.isEmpty(level)) {
-				target = HitResultUtil.clip(
-						stand.getEyePosition(),
-						stand.getLookAngle(),
-						blockReach,
-						entityReach,
-						level,
-						entity -> StandEntityPunchAbility.canStandHit(stand, entity),
-						stand,
-						0);
-			}
-			return target.isEmpty(level) ? ActionTarget.EMPTY : target.copy().resolveEntityId(level);
-		}
-
 		private void hitDashTargets(Level level, StandEntity stand) {
 			double reach = stand.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE);
 			Predicate<Entity> canHit = entity -> StandEntityPunchAbility.canStandHit(stand, entity);
 			List<ActionTarget> targets = StandSkillWalls.wallsHideEntities(level, this)
 					? dashTargetsBeforeWalls(level, stand, reach, canHit)
 					: HitResultUtil.clipMultipleTargets(stand, reach, canHit, 0.25D, stand.getPrecision());
+			if (targets.isEmpty()) {
+				// 1.16 punched the miss of a ray that met nothing in the air
+				hitReaimedDashTarget(level, stand);
+				return;
+			}
 			for (ActionTarget target : targets) {
 				hitDashTarget(level, stand, target);
+			}
+		}
+
+		/**
+		 * 1.16 StandEntity.punch with no target: aimWithThisOrUser aimed again (the user's precision ray, else the Stand's
+		 * own, under manual control only the Stand's), turned the Stand toward what that met and struck it if it lay in
+		 * the Stand's reach.
+		 */
+		private void hitReaimedDashTarget(Level level, StandEntity stand) {
+			ActionTarget aimed = StandEntityPunchAbility.strikeAim(stand, ActionTarget.EMPTY, CrosshairRule.NONE);
+			stand.turnTowardsStrike(aimed);
+			ActionTarget inReach = StandEntityPunchAbility.validatePunchTarget(stand, aimed);
+			if (!inReach.isEmpty(level) && !wallHidesDashTarget(level, stand, inReach)) {
+				strikeDashTarget(level, stand, inReach);
 			}
 		}
 
@@ -345,6 +333,10 @@ public class SilverChariotDashAttackAbility extends StandEntityAbility {
 			}
 			// 1.16 SilverChariotDashAttack struck each target through StandEntity.punch
 			stand.turnTowardsStrike(target);
+			strikeDashTarget(level, stand, target);
+		}
+
+		private void strikeDashTarget(Level level, StandEntity stand, ActionTarget target) {
 			switch (target.getType()) {
 				case ENTITY -> {
 					if (!(target.getMainEntity() instanceof LivingEntity candidate)) {
