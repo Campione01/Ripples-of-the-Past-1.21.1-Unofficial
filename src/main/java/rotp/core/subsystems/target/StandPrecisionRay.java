@@ -66,10 +66,15 @@ public final class StandPrecisionRay {
 				aiming, 0, wallsHideEntities);
 	}
 
+	/** 1.16 StandEntity.canTarget: any entity that is alive but the Stand, its user and the Stand's own projectiles. */
+	public static Predicate<Entity> canTarget(StandEntity stand) {
+		return entity -> entity != stand && entity != stand.getUser() && entity.isAlive()
+				&& !(entity instanceof Projectile projectile && projectile.getOwner() == stand);
+	}
+
 	// 1.16 StandEntity.canTarget, and canHarm without friendly fire
 	private static Predicate<Entity> targetFilter(StandEntity stand, boolean friendlyFire) {
-		Predicate<Entity> filter = entity -> entity != stand && entity != stand.getUser() && entity.isAlive()
-				&& !(entity instanceof Projectile projectile && projectile.getOwner() == stand);
+		Predicate<Entity> filter = canTarget(stand);
 		return friendlyFire ? filter : filter.and(stand::canAttackEntity);
 	}
 

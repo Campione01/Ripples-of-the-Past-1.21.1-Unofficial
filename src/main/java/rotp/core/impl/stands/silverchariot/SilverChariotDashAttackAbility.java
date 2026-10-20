@@ -29,6 +29,7 @@ import rotp.core.powersystem.standpower.entity.StandEntityAbility;
 import rotp.core.powersystem.standpower.entity.StandStatFormulas;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.HitResultUtil;
+import rotp.core.subsystems.target.StandPrecisionRay;
 import rotp.core.subsystems.timestop.TimeStopState;
 import rotp.core.util.functions.MathUtil;
 import rotp.core.impl.stands._entitybase.StandAbilityStamina;
@@ -263,10 +264,11 @@ public class SilverChariotDashAttackAbility extends StandEntityAbility {
 
 		private void hitDashTargets(Level level, StandEntity stand) {
 			double reach = stand.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE);
-			Predicate<Entity> canHit = entity -> StandEntityPunchAbility.canStandHit(stand, entity);
+			// 1.16's ray took what StandEntity.canTarget took; the strike's own harm check spares what the Stand may not harm
+			Predicate<Entity> canTarget = StandPrecisionRay.canTarget(stand);
 			List<ActionTarget> targets = StandSkillWalls.wallsHideEntities(level, this)
-					? dashTargetsBeforeWalls(level, stand, reach, canHit)
-					: HitResultUtil.clipMultipleTargets(stand, reach, canHit, 0.25D, stand.getPrecision());
+					? dashTargetsBeforeWalls(level, stand, reach, canTarget)
+					: HitResultUtil.clipMultipleTargets(stand, reach, canTarget, 0.25D, stand.getPrecision());
 			if (targets.isEmpty()) {
 				// 1.16 punched the miss of a ray that met nothing in the air
 				hitReaimedDashTarget(level, stand);
@@ -303,7 +305,7 @@ public class SilverChariotDashAttackAbility extends StandEntityAbility {
 		 * rapier's path ends at the first block it meets, and an entity a wall hides from the Stand is not hit.
 		 */
 		private static List<ActionTarget> dashTargetsBeforeWalls(Level level, StandEntity stand, double reach,
-				Predicate<Entity> canHit) {
+				Predicate<Entity> canTarget) {
 			Vec3 start = stand.getEyePosition();
 			Vec3 look = stand.getLookAngle();
 			if (look.lengthSqr() < 1.0E-7) {
@@ -313,7 +315,7 @@ public class SilverChariotDashAttackAbility extends StandEntityAbility {
 			BlockHitResult wall = HitResultUtil.clipBlocks(new ClipContext(start, end,
 					ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, stand), level);
 			double pathSqr = wall.getType() == HitResult.Type.MISS ? Double.MAX_VALUE : start.distanceToSqr(wall.getLocation());
-			List<ActionTarget> entities = HitResultUtil.clipMultipleEntities(stand, reach, canHit, 0.25D, stand.getPrecision())
+			List<ActionTarget> entities = HitResultUtil.clipMultipleEntities(stand, reach, canTarget, 0.25D, stand.getPrecision())
 					.stream()
 					.filter(target -> target.getClipPos().map(clip -> start.distanceToSqr(clip) <= pathSqr).orElse(true)
 							&& !StandEntityHeavyPunchAbility.wallHidesFromStand(stand, target.getEntity()))

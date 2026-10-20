@@ -2,6 +2,9 @@ package rotp.core.gametest;
 
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.UUID;
+
+import com.mojang.authlib.GameProfile;
 
 import rotp.core.core.JojoMod;
 import rotp.core.gametest.StandTaskTargetOffsetGameTests.Scene;
@@ -22,18 +25,22 @@ import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.HitResultUtil;
+import rotp.core.subsystems.target.StandPrecisionRay;
 import rotp.core.util.functions.MathUtil;
 
 import net.minecraft.commands.arguments.EntityAnchorArgument;
+import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.scores.PlayerTeam;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -308,8 +315,8 @@ public final class StandStrikeTurnGameTests {
 				user.setYHeadRot(user.getYRot());
 
 				double reach = stand.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE);
-				List<ActionTarget> onRay = HitResultUtil.clipMultipleTargets(stand, reach,
-						entity -> StandEntityPunchAbility.canStandHit(stand, entity), 0.25D, stand.getPrecision());
+				List<ActionTarget> onRay = HitResultUtil.clipMultipleTargets(stand, reach, StandPrecisionRay.canTarget(stand), 0.25D,
+						stand.getPrecision());
 				helper.assertTrue(onRay.isEmpty(), "setup: the dash's ray meets " + onRay + " (" + row + ", the Stand's eyes at "
 						+ stand.getEyePosition() + ", its user at " + user.position() + ")");
 				helper.assertTrue(StandEntityPunchAbility.userPrecisionRayTarget(stand, user).getEntity() == cow,
@@ -340,6 +347,120 @@ public final class StandStrikeTurnGameTests {
 							+ " cow it started at: that one was struck");
 				}
 				LivingComponentAction.getComponent(stand).setAction(null, user, SyncType.NO_SYNC);
+			});
+		}
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16's dash ray took any entity but the Stand, its user and the Stand's own projectiles (StandEntity.canTarget), so
+	 * StandEntity.punch turned the Stand toward an entity the Stand may not harm on that ray as toward any other, and only
+	 * the strike's own harm check (StandEntity.attackEntity, canHarm) left it unhurt; with an entity on the ray the forward
+	 * tick did not aim again through the user. Rows: a cow and a player on the user's team without friendly fire, on the
+	 * dash ray beside its middle, while the user aims at another cow off the dash line in the Stand's reach.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void theDashTurnsTowardAnEntityItMayNotHarmOnItsRayAndLeavesItUnhurtAsIn116(GameTestHelper helper) {
+		for (String row : new String[] { "a cow on its user's team", "a player on its user's team" }) {
+			StandTaskTargetOffsetGameTests.withStand(helper, "silver_chariot", scene -> {
+				StandEntity stand = scene.stand();
+				Player user = scene.user();
+				StandPower power = scene.power();
+				Level level = helper.getLevel();
+				power.setResolveLevel(power.getMaxResolveLevel());
+				power.setStamina(power.getMaxStamina());
+				stand.summonLockTicks = 0;
+				stand.gradualSummonWeaknessTicks = 0;
+				stand.updatePosition(user);
+				EntityActionType type = strikeType(helper, scene, "dash_attack");
+				EntityActionInstance dash = type.createActionObj();
+				type.initActionFromConfig(dash, level, user, stand);
+				dash.setStartingPhase();
+				LivingComponentAction.getComponent(stand).setAction(dash, user, SyncType.NO_SYNC);
+				helper.assertTrue(stand.getCurStandAction() == dash && dash instanceof DashStrike
+						&& dash.getPhase() == ActionPhase.PERFORM, "setup: the dash is not the Silver Chariot's action in PERFORM");
+				// dashing south, two blocks ahead of its user
+				Vec3 at = user.position().add(0.0D, stand.getY() - user.getY(), 2.0D);
+				stand.setPos(at.x, at.y, at.z);
+				stand.setYRot(0.0F);
+				stand.setXRot(0.0F);
+				stand.setYHeadRot(0.0F);
+				PlayerTeam team = null;
+				try {
+					LivingEntity spared;
+					if (row.startsWith("a player")) {
+						Player teammate = new Player(level, BlockPos.ZERO, 0.0F, new GameProfile(UUID.randomUUID(), "dash-teammate")) {
+							@Override
+							public boolean isSpectator() {
+								return false;
+							}
+
+							@Override
+							public boolean isCreative() {
+								return false;
+							}
+						};
+						teammate.setNoGravity(true);
+						helper.assertTrue(level.addFreshEntity(teammate), "setup: could not add the teammate player");
+						scene.spawned().add(teammate);
+						spared = teammate;
+					}
+					else {
+						spared = scene.cow(Vec3.ZERO);
+					}
+					team = level.getScoreboard().addPlayerTeam("dash_teammate_" + user.getId());
+					team.setAllowFriendlyFire(false);
+					level.getScoreboard().addPlayerToTeam(user.getScoreboardName(), team);
+					level.getScoreboard().addPlayerToTeam(spared.getScoreboardName(), team);
+					// on the Stand's look south, its middle at the Stand's eyes, half a block west of the dash line (the aimed cow
+					// is east of it)
+					spared.moveTo(stand.getX() - 0.5D, stand.getEyeY() - spared.getBbHeight() / 2.0D, stand.getZ() + 2.0D, 0.0F, 0.0F);
+					Cow aimed = scene.cow(new Vec3(stand.getX(), stand.getEyeY() - 0.7D, stand.getZ()).add(2.9D, 0.0D, 0.3D)
+							.subtract(user.position()));
+					user.lookAt(EntityAnchorArgument.Anchor.EYES, aimed.getEyePosition());
+					user.yRotO = user.getYRot();
+					user.xRotO = user.getXRot();
+					user.setYHeadRot(user.getYRot());
+
+					double reach = stand.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE);
+					List<ActionTarget> onRay = HitResultUtil.clipMultipleTargets(stand, reach, StandPrecisionRay.canTarget(stand), 0.25D,
+							stand.getPrecision());
+					helper.assertTrue(!stand.canAttackEntity(spared) && stand.canAttackEntity(aimed),
+							"setup: the Stand may harm " + row + ", or may not harm the cow its user aims at");
+					helper.assertTrue(onRay.size() == 1 && onRay.get(0).getEntity() == spared, "setup: the dash's ray meets " + onRay
+							+ ", not only " + row);
+					helper.assertTrue(StandEntityPunchAbility.userPrecisionRayTarget(stand, user).getEntity() == aimed
+							&& !StandEntityPunchAbility.validatePunchTarget(stand, new ActionTarget(aimed)).isEmpty(level),
+							"setup: the user's precision ray does not meet the cow it aims at, or that cow is not in the Stand's reach");
+					float max = (float) stand.getAttackSpeed() / 16.0F * 18.0F;
+					Vec3 toSpared = spared.getEyePosition().subtract(stand.getEyePosition());
+					float yaw = Mth.clamp(Mth.degreesDifference(0.0F, MathUtil.yRotDegFromVec(toSpared)), -max, max);
+					float pitch = Mth.clamp(MathUtil.xRotDegFromVec(toSpared), -max, max);
+					Vec3 toAimed = aimed.getEyePosition().subtract(stand.getEyePosition());
+					float aimedYaw = Mth.clamp(Mth.degreesDifference(0.0F, MathUtil.yRotDegFromVec(toAimed)), -max, max);
+					helper.assertTrue(Math.abs(yaw) > 1.0F && Math.abs(Mth.degreesDifference(yaw, aimedYaw)) > 1.0F,
+							"setup: the turn toward " + row + " (yaw " + yaw + ") does not tell it from no turn or from the turn toward"
+									+ " the aimed cow (yaw " + aimedYaw + ")");
+
+					stand.setDeltaMovement(Vec3.ZERO);
+					dash.actionTick();
+					String what = "a silver_chariot's dash whose ray met only " + row + ", while its user aimed at a cow off the dash"
+							+ " line in its reach (yaw 0, pitch 0, turning by up to " + max + " degrees)";
+					helper.assertTrue(Math.abs(Mth.degreesDifference(stand.getYRot(), yaw)) < EPS && Math.abs(stand.getXRot() - pitch) < EPS
+							&& Math.abs(Mth.degreesDifference(stand.getYHeadRot(), yaw)) < EPS, "1.16 turned " + what + " toward the eyes of "
+									+ row + ", to yaw " + yaw + ", pitch " + pitch + ", as it struck it; it is at yaw " + stand.getYRot()
+									+ ", pitch " + stand.getXRot() + ", head " + stand.getYHeadRot());
+					helper.assertTrue(spared.getHealth() == spared.getMaxHealth() && aimed.getHealth() == aimed.getMaxHealth(),
+							"1.16 struck " + row + " unhurt and did not aim " + what + " again through its user: " + row + " has "
+									+ spared.getHealth() + " of " + spared.getMaxHealth() + ", the aimed cow " + aimed.getHealth() + " of "
+									+ aimed.getMaxHealth());
+				}
+				finally {
+					if (team != null) {
+						level.getScoreboard().removePlayerTeam(team);
+					}
+					LivingComponentAction.getComponent(stand).setAction(null, user, SyncType.NO_SYNC);
+				}
 			});
 		}
 		helper.succeed();
