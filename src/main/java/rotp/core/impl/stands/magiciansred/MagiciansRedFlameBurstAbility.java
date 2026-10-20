@@ -5,7 +5,6 @@ import rotp.core.client.sound.ClientsideSoundsHelper;
 import rotp.core.init.ModSoundEvents;
 import rotp.core.powersystem.standpower.StandInstance.StandPart;
 
-import rotp.core.mechanics.resolve.ResolveModeEffect;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.entityaction.ActionAnimIdentifier;
@@ -78,9 +77,11 @@ public class MagiciansRedFlameBurstAbility extends StandEntityAbility {
 			StandAbilityStamina.consume(ability, StandPower.get(user), STAMINA_COST_TICK, true);
 		}
 
+		// 1.16 MagiciansRedFlameBurst.standTickPerform: twice as fast from the stored Resolve level 3
 		private static float flameVelocity(StandEntity stand, LivingEntity user) {
 			float velocity = (float) stand.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE) / 5F;
-			if (ResolveModeEffect.getEffectiveResolveLevel(user) >= 3) {
+			StandPower standPower = StandPower.get(user);
+			if (standPower != null && standPower.getResolveLevel() >= 3) {
 				velocity *= 2F;
 			}
 			return velocity;

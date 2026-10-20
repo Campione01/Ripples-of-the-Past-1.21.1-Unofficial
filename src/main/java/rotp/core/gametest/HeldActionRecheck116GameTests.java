@@ -373,22 +373,16 @@ public final class HeldActionRecheck116GameTests {
 	 * level reached the action's and only a full Stand clear took away; the Resolve effect raised the stored level for
 	 * good (ResolveCounter.onResolveEffectStarted) and /standlevel never relocked anything. So a held Crossfire Hurricane
 	 * (Resolve level 4) went on, and fired at its full length, after the stored level dropped, and a new press stayed
-	 * unlocked too. The port's Resolve effect alone also unlocks it for a Stand that does not use Resolve (here one not
-	 * in full control yet); once that effect lapses a new press is refused, but the hold it gave goes on, no 1.16 hold
-	 * being relocked by its Resolve level.
+	 * unlocked too. A Resolve gate that fails during a hold all the same (here the Stand drops out of full control, so it
+	 * no longer uses Resolve and its level reads 0) refuses a new press, but the hold goes on, no 1.16 hold being relocked
+	 * by its Resolve level.
 	 */
 	@GameTest(template = "empty", timeoutTicks = 100)
 	public static void aHeldActionIsNotRelockedByItsResolveLevelAsIn116(GameTestHelper helper) {
-		for (String row : new String[] { "stored level dropped", "Resolve effect lapsed", "stored level dropped, full charge" }) {
+		for (String row : new String[] { "stored level dropped", "out of full control", "stored level dropped, full charge" }) {
 			try (StandScene s = new StandScene(helper, "HeldResolveUnlock", "magicians_red")) {
 				s.unlock("crossfire_hurricane");
-				boolean byEffect = row.equals("Resolve effect lapsed");
-				if (byEffect) {
-					s.power.userStandAwakeningState.stage = AwakeningStage.PARTIALLY_AWAKENED;
-					helper.assertTrue(!s.power.usesResolve() && !s.ability("crossfire_hurricane").isAbilityUnlocked(s.power),
-							"setup (" + row + "): a Stand not in full control has Crossfire Hurricane unlocked without a Resolve effect");
-					s.user.addEffect(new MobEffectInstance(ModStatusEffects.RESOLVE, 400, 4));
-				}
+				boolean outOfControl = row.equals("out of full control");
 				helper.assertTrue(s.ability("crossfire_hurricane").isAbilityUnlocked(s.power),
 						"setup (" + row + "): Crossfire Hurricane is not unlocked");
 				EntityActionInstance charge = s.start("crossfire_hurricane");
@@ -396,10 +390,11 @@ public final class HeldActionRecheck116GameTests {
 				helper.assertTrue(charge.getPhase() == ActionPhase.BUTTON_CHARGE && !charge.isOver(),
 						"setup (" + row + "): Crossfire Hurricane is not charging: phase " + charge.getPhase() + ", messages "
 								+ s.user.keys());
-				if (byEffect) {
-					s.user.removeEffect(ModStatusEffects.RESOLVE);
-					helper.assertTrue(!s.ability("crossfire_hurricane").isAbilityUnlocked(s.power),
-							"setup (" + row + "): Crossfire Hurricane is still unlocked for a new press once the Resolve effect lapsed");
+				if (outOfControl) {
+					s.power.userStandAwakeningState.stage = AwakeningStage.PARTIALLY_AWAKENED;
+					helper.assertTrue(!s.power.usesResolve() && !s.ability("crossfire_hurricane").isAbilityUnlocked(s.power),
+							"setup (" + row + "): Crossfire Hurricane is still unlocked for a new press once the Stand left full"
+									+ " control");
 				}
 				else {
 					s.power.setResolveLevel(0);

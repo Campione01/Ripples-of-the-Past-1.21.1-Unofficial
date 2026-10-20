@@ -14,7 +14,6 @@ import rotp.core.init.ModCustomExplosions;
 import rotp.core.init.ModDamageTypes;
 import rotp.core.init.ModEntityTypes;
 import rotp.core.mechanics.resolve.ResolveCounter;
-import rotp.core.mechanics.resolve.ResolveModeEffect;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.StandUtil;
 import rotp.core.powersystem.standpower.entity.StandEntity;
@@ -288,7 +287,8 @@ public class MRCrossfireHurricaneEntity extends ModdedProjectileEntity {
 				if (standUser != null) {
 					StandPower standPower = StandPower.get(standUser);
 					if (standPower != null) {
-						canAffectStandUser = ResolveModeEffect.getEffectiveResolveLevel(standUser, standPower) < 4;
+						// 1.16 CrossfireHurricaneExplosion.filterEntities: the stored Resolve level
+						canAffectStandUser = standPower.getResolveLevel() < 4;
 					}
 				}
 				Iterator<Entity> it = entities.iterator();

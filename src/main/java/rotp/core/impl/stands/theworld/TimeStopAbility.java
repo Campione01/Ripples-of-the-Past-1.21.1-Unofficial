@@ -20,7 +20,6 @@ import rotp.core.init.ModSoundEvents;
 import rotp.core.init.ModStatusEffects;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.init.power.ModStands;
-import rotp.core.mechanics.resolve.ResolveModeEffect;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.AbilityId;
@@ -216,10 +215,10 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 		return false;
 	}
 
+	// 1.16 TheWorldTimeStop.autoSummonStand: no Stand summoned from the stored Resolve level 3
 	@Override
 	protected AutoSummonMode getAutoSummonMode(StandPower standPower, LivingEntity user) {
-		if (standPower.getPowerType() == ModStands.THE_WORLD.get()
-				&& ResolveModeEffect.getEffectiveResolveLevel(user, standPower) >= 3) {
+		if (standPower.getPowerType() == ModStands.THE_WORLD.get() && standPower.getResolveLevel() >= 3) {
 			return AutoSummonMode.DISABLED;
 		}
 		return super.getAutoSummonMode(standPower, user);
@@ -228,7 +227,7 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 	private boolean canStartWithoutStand(StandPower power, LivingEntity user) {
 		return power != null
 				&& power.getPowerType() == ModStands.THE_WORLD.get()
-				&& ResolveModeEffect.getEffectiveResolveLevel(user, power) >= 3;
+				&& power.getResolveLevel() >= 3;
 	}
 
 	@Override
@@ -305,8 +304,7 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 		if (power != null && power.getPowerType() == ModStands.STAR_PLATINUM.get()) {
 			return STAR_PLATINUM_HOLD_TO_FIRE_TICKS;
 		}
-		if (power != null && shortensChargeAtResolveFour(power)
-				&& ResolveModeEffect.getEffectiveResolveLevel(user, power) >= 4) {
+		if (power != null && shortensChargeAtResolveFour(power) && power.getResolveLevel() >= 4) {
 			return THE_WORLD_RESOLVE_HOLD_TO_FIRE_TICKS;
 		}
 		return THE_WORLD_HOLD_TO_FIRE_TICKS;

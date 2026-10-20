@@ -123,10 +123,10 @@ public class HierophantEmeraldSplashAbility extends StandEntityAbility implement
 		}
 	}
 
+	// 1.16 HierophantGreenEmeraldSplash.noPhases: the stored Resolve level above 2, or any Resolve effect
 	private static boolean noPhases(StandPower standPower, LivingEntity user) {
 		return standPower != null && user != null
-				&& (ResolveModeEffect.getEffectiveResolveLevel(user, standPower) > 2
-						|| ResolveModeEffect.getResolveEffectLvl(user) >= 0);
+				&& (standPower.getResolveLevel() > 2 || ResolveModeEffect.getResolveEffectLvl(user) >= 0);
 	}
 
 	@Override

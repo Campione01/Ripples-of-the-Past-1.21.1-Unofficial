@@ -24,7 +24,6 @@ import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.impl.powers.vampirism.VampirismState;
 import rotp.core.impl.stands.theworld.TimeStopAbility;
 import rotp.core.impl.stands.theworld.TimeStopBlinkAbility;
-import rotp.core.mechanics.resolve.ResolveModeEffect;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.standpower.StandInstance;
@@ -204,8 +203,7 @@ public final class TimeAbilityAdvancementGameTests {
 		helper.assertTrue(unlocked == PowerSkillUnlocks.Result.UNLOCKED || unlocked == PowerSkillUnlocks.Result.ALREADY_UNLOCKED,
 				"Could not unlock The World's time stop: " + unlocked);
 		power.setResolveLevel(power.getMaxResolveLevel());
-		helper.assertTrue(ResolveModeEffect.getEffectiveResolveLevel(player, power) >= 3,
-				"The World's resolve did not reach 3: " + ResolveModeEffect.getEffectiveResolveLevel(player, power));
+		helper.assertTrue(power.getResolveLevel() >= 3, "The World's resolve did not reach 3: " + power.getResolveLevel());
 		PowerClass.PLAYER_POWER.attachGet(player).setPowerType(ModPlayerPowers.VAMPIRISM.get());
 		var blood = VampirismState.get(player).blood();
 		blood.setCurrent(blood.max());

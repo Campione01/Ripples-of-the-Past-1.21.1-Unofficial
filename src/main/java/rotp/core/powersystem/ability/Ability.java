@@ -20,7 +20,6 @@ import rotp.core.config.client.PlayerClientBroadcastedSettings;
 import rotp.core.core.JojoMod;
 import rotp.core.init.ModStatusEffects;
 import rotp.core.init.ModDataAttachmentTypes;
-import rotp.core.mechanics.resolve.ResolveModeEffect;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.PowerData;
 import rotp.core.powersystem.PowerClass;
@@ -355,12 +354,9 @@ public class Ability {
 				|| standPower.wasProgressionSkipped()) {
 			return true;
 		}
-		// 1.16 StandAction.isUnlocked: unlocked once the stored level reached it, whatever the level did afterwards
-		if (standPower.getHighestResolveLevel() >= requiredLevel) {
-			return true;
-		}
-		LivingEntity user = standPower.getUser();
-		return user != null && ResolveModeEffect.getEffectiveResolveLevel(user, standPower) >= requiredLevel;
+		// 1.16 StandAction.isUnlocked: unlocked once the stored level reached it, whatever the level did afterwards; the
+		// Resolve effect unlocked nothing by its own level
+		return standPower.getHighestResolveLevel() >= requiredLevel;
 	}
 	
 	/**

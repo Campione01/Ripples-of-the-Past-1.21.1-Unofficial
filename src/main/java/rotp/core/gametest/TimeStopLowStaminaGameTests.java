@@ -233,7 +233,7 @@ public final class TimeStopLowStaminaGameTests {
 			power.getCurTypeData().setAbilityLearningProgressPoints(TimeStopLearning.TIME_STOP, maxPoints, maxPoints, power);
 			Ability ability = power.getMoveset().getAbility(TimeStopLearning.TIME_STOP);
 			helper.assertTrue(ability instanceof TimeStopAbility
-							&& ResolveModeEffect.getEffectiveResolveLevel(player, power) >= 3
+							&& power.getResolveLevel() >= 3
 							&& ResolveModeEffect.getResolveEffectLvl(player) < 0 && !power.isStaminaInfinite()
 							&& TimeStopLearning.getTimeStopTicks(power) == TimeStopLearning.HUMAN_MAX_TIME_STOP_TICKS
 							&& level.getEntity(player.getId()) == player,
