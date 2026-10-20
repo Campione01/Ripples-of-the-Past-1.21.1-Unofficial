@@ -41,6 +41,12 @@ public class StandEntityManualControlToggle extends Ability {
 		}
 	}
 
+	// 1.16 toggled manual control from its own key, not as an action, so a held action went on
+	@Override
+	public boolean endsOtherHoldOnPress() {
+		return false;
+	}
+
 	@Override
 	public boolean isAbilityAvailable(Power<?> context) {
 		return super.isAbilityAvailable(context) && canUseManualControl(context);

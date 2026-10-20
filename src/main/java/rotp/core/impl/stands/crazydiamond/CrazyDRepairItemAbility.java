@@ -183,6 +183,12 @@ public class CrazyDRepairItemAbility extends StandEntityAbility implements Train
 			applyItemFixStandRotation(standEntity, user);
 		}
 
+		// 1.16 CrazyDiamondRepairItem was a holdType Stand action
+		@Override
+		public boolean isHoldTypeStandAction() {
+			return true;
+		}
+
 		@Override
 		public void onButtonStopHold() {
 			startRecovery();

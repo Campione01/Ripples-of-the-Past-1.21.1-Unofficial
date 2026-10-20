@@ -126,6 +126,12 @@ public class CrazyDAnchorBlockAbility extends NoPoseStandEntityAbility {
 			super(ability);
 		}
 
+		// 1.16 CrazyDiamondBlockCheckpointMove was a holdType Stand action
+		@Override
+		public boolean isHoldTypeStandAction() {
+			return true;
+		}
+
 		@Override
 		public void onButtonStopHold() {
 			startRecovery();

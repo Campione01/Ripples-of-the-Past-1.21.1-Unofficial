@@ -254,6 +254,12 @@ public class CrazyDHealAbility extends StandEntityAbility {
 			aimAs = AimingEntity.STAND;
 		}
 		
+		// 1.16 CrazyDiamondHeal and CrazyDiamondPreviousState was a holdType Stand action
+		@Override
+		public boolean isHoldTypeStandAction() {
+			return true;
+		}
+
 		@Override
 		public void onButtonStopHold() {
 			startRecovery();

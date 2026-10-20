@@ -217,6 +217,16 @@ public class Ability {
 		return true;
 	}
 
+	/**
+	 * Whether this ability's press, once it goes off, ends a hold-type Stand action of another ability its user holds
+	 * (EntityActionInstance#isHoldTypeStandAction), as the key's release ends it: 1.16 PowerBaseImpl ended the power's
+	 * held action after every action it performed on a click (stopHeldAction(false)) and before every hold it started
+	 * (setHeldAction). False for a press that was no 1.16 action, such as the manual control key.
+	 */
+	public boolean endsOtherHoldOnPress() {
+		return true;
+	}
+
 	public boolean sendsConditionMessage() {
 		return true;
 	}

@@ -129,6 +129,12 @@ public class HierophantGrappleAbility extends StandEntityAbility {
 			StandAbilityStamina.consume(ability, StandPower.get(user), STAMINA_COST_TICK, true);
 		}
 
+		// 1.16 HierophantGreenGrapple was a holdType Stand action
+		@Override
+		public boolean isHoldTypeStandAction() {
+			return true;
+		}
+
 		@Override
 		public void onButtonStopHold() {
 			startRecovery();

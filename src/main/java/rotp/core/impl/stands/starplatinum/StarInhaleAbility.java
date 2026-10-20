@@ -58,6 +58,11 @@ public class StarInhaleAbility extends StandEntityAbility {
     }
 
     @Override
+    public boolean isHoldAction() {
+    	return true;
+    }
+
+    @Override
     public int getCooldown(Power<?> context, int ticksHeld) {
     	int cooldown = super.getCooldown(context, ticksHeld);
     	if (cooldown <= 0) {
@@ -180,6 +185,12 @@ public class StarInhaleAbility extends StandEntityAbility {
                 return !serverLevel.getData(ModDataAttachmentTypes.TIME_STOP.get()).shouldFreeze(entity);
             }
             return !level.isClientSide() || !TimeStopState.shouldFreezeClientEntity(entity);
+        }
+
+        // 1.16 StarPlatinumInhale was a holdType Stand action
+        @Override
+        public boolean isHoldTypeStandAction() {
+            return true;
         }
 
         @Override

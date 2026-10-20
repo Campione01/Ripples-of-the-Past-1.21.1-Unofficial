@@ -1,0 +1,394 @@
+package rotp.core.gametest;
+
+import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+import rotp.core.api.stand.StandPowerTransitions;
+import rotp.core.core.JojoMod;
+import rotp.core.core.JojoRegistries;
+import rotp.core.impl.stands._entitybase.StandEntityManualControlToggle;
+import rotp.core.impl.stands.magiciansred.MRDetectorEntity;
+import rotp.core.init.ModDataAttachmentTypes;
+import rotp.core.init.ModItemDataComponents;
+import rotp.core.powersystem.Power;
+import rotp.core.powersystem.PowerClass;
+import rotp.core.powersystem.ability.Ability;
+import rotp.core.powersystem.ability.EntityActionAbility;
+import rotp.core.powersystem.ability.condition.AvailableAbilities.AbilityConditionCheck;
+import rotp.core.powersystem.ability.controls.InputMethod;
+import rotp.core.powersystem.ability.input.AbilityInput;
+import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
+import rotp.core.powersystem.entityaction.ActionPhase;
+import rotp.core.powersystem.entityaction.EntityActionInputState;
+import rotp.core.powersystem.entityaction.EntityActionInstance;
+import rotp.core.powersystem.entityaction.HeldInput;
+import rotp.core.powersystem.entityaction.LivingComponentAction;
+import rotp.core.powersystem.entityaction.netcode.SyncType;
+import rotp.core.powersystem.standpower.StandInstance;
+import rotp.core.powersystem.standpower.StandPower;
+import rotp.core.powersystem.standpower.entity.StandEntity;
+import rotp.core.powersystem.standpower.type.StandType;
+import rotp.core.subsystems.itemtracking.OriginalItemPosComponent;
+import com.mojang.authlib.GameProfile;
+
+import net.minecraft.core.BlockPos;
+import net.minecraft.gametest.framework.GameTest;
+import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.monster.Zombie;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.common.util.FakePlayer;
+import net.neoforged.neoforge.gametest.GameTestHolder;
+import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
+
+/**
+ * 1.16 hold-type Stand actions (Action.Builder#holdType: held from the press, nothing to fire): StandEntityAction
+ * .heldAllowsOtherAction was true, so PowerBaseImpl.checkRequirements let any other action of the power through the hold;
+ * an action the Stand performs went through checkTaskCancelling, where isCancelable (a hold, not in its recovery, no
+ * recovery for a pressed action) let it replace the task at once, and every action that went off ended the hold
+ * (stopHeldAction(false) after a click, setHeldAction before a hold). Presses 1.16 refused (the hold's own action, any
+ * action during a hold-to-fire charge, a player's held action while the power held one, which its client never sent) stay
+ * in the port's input buffer (owner decision N2).
+ */
+@GameTestHolder(JojoMod.MOD_ID)
+@PrefixGameTestTemplate(false)
+public final class HoldTypeActionPress116GameTests {
+	private static final short HOLD_KEY = 41;
+	private static final short OTHER_KEY = 42;
+	private static final short SECOND_BINDING_KEY = 43;
+
+	private HoldTypeActionPress116GameTests() {}
+
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aHoldTypeStandActionLetsAnotherStandActionThroughAtOnceAsIn116(GameTestHelper helper) {
+		try (Scene s = new Scene(helper, "HoldTypeMagiciansRed", "magicians_red", 4)) {
+			s.unlock("red_bind", "flame_burst", "fireball", "crossfire_hurricane");
+			s.goesThrough("red_bind", "punch", InputMethod.CLICK);
+			s.goesThrough("flame_burst", "heavy_punch", InputMethod.CLICK);
+
+			// 1.16 refused the hold's own action pressed again (onClickAction, getHeldAction() == action): buffered (N2)
+			EntityActionInstance redBind = s.hold("red_bind");
+			BufferingState again = s.press("red_bind", InputMethod.HOLD, SECOND_BINDING_KEY);
+			helper.assertTrue(again.shouldBuffer && !again.isActionSuccess && s.standAction.getAction() == redBind
+					&& redBind.getPhase() == ActionPhase.PERFORM,
+					"1.16 refused the Red Bind pressed again by a second binding during its own hold, which the input buffer"
+							+ " keeps: buffered " + again.shouldBuffer + ", the Stand's action " + s.standAction.getAction());
+			AbilityInput.keyRelease(SECOND_BINDING_KEY, s.user);
+
+			// 1.16's client sent no press of a held action while the power held one (onActionClick): buffered (N2)
+			BufferingState heldPress = s.press("flame_burst", InputMethod.HOLD, OTHER_KEY);
+			helper.assertTrue(heldPress.shouldBuffer && !heldPress.isActionSuccess && s.standAction.getAction() == redBind
+					&& redBind.getPhase() == ActionPhase.PERFORM,
+					"1.16's client sent no flame burst (a held action) pressed while the Red Bind was held, which the input"
+							+ " buffer keeps: buffered " + heldPress.shouldBuffer + ", the Stand's action "
+							+ s.standAction.getAction());
+			AbilityInput.keyRelease(OTHER_KEY, s.user);
+			s.clear();
+
+			// a Red Bind no key holds any more (one let go at a finisher with a landed bind stays) took a held press, but
+			// not its own (canClickDuringTask: not chainable)
+			redBind = s.hold("red_bind");
+			s.input().heldKeys.remove(HOLD_KEY);
+			BufferingState ownLetGo = s.press("red_bind", InputMethod.HOLD, SECOND_BINDING_KEY);
+			helper.assertTrue(ownLetGo.shouldBuffer && s.standAction.getAction() == redBind,
+					"1.16 refused the Red Bind pressed again during its own task, which the input buffer keeps: buffered "
+							+ ownLetGo.shouldBuffer + ", the Stand's action " + s.standAction.getAction());
+			AbilityInput.keyRelease(SECOND_BINDING_KEY, s.user);
+			BufferingState afterLetGo = s.press("flame_burst", InputMethod.HOLD, OTHER_KEY);
+			EntityActionInstance flameBurst = s.standAction.getAction();
+			helper.assertTrue(afterLetGo.isActionSuccess && redBind.isOver() && flameBurst != null
+					&& flameBurst.ability == s.power.getAbility("flame_burst"),
+					"1.16 let a held flame burst through a Red Bind its key no longer held (the power held no action):"
+							+ " started " + afterLetGo.isActionSuccess + ", the Stand's action " + flameBurst);
+			AbilityInput.keyRelease(OTHER_KEY, s.user);
+			s.clear();
+
+			// 1.16 isCancelable: a hold with a recovery queued the pressed action
+			redBind = s.hold("red_bind");
+			redBind.phasesLength.put(ActionPhase.RECOVERY, 20F);
+			BufferingState queued = s.press("punch", InputMethod.CLICK, OTHER_KEY);
+			helper.assertTrue(queued.shouldBuffer && s.standAction.getAction() == redBind,
+					"1.16 queued a punch pressed during a hold-type action with a recovery (isCancelable): buffered "
+							+ queued.shouldBuffer + ", the Stand's action " + s.standAction.getAction());
+			s.clear();
+
+			// a hold-to-fire charge refused other actions in 1.16 (heldAllowsOtherAction false): buffered (N2)
+			EntityActionInstance charge = s.hold("crossfire_hurricane");
+			helper.assertTrue(charge.getPhase() == ActionPhase.BUTTON_CHARGE,
+					"setup: Crossfire Hurricane is not charging: " + charge.getPhase());
+			BufferingState duringCharge = s.press("punch", InputMethod.CLICK, OTHER_KEY);
+			helper.assertTrue(duringCharge.shouldBuffer && s.standAction.getAction() == charge,
+					"1.16 refused a punch pressed while Crossfire Hurricane charged (hold-to-fire): buffered "
+							+ duringCharge.shouldBuffer + ", the Stand's action " + s.standAction.getAction());
+			s.clear();
+
+			// an action that is not held (the fireball) was not cancelable in 1.16: the punch waits behind it
+			EntityActionInstance fireball = s.start("fireball");
+			BufferingState afterFireball = s.press("punch", InputMethod.CLICK, OTHER_KEY);
+			helper.assertTrue(afterFireball.shouldBuffer && s.standAction.getAction() == fireball,
+					"1.16 queued a punch pressed during the fireball (not a hold): buffered " + afterFireball.shouldBuffer
+							+ ", the Stand's action " + s.standAction.getAction());
+			s.clear();
+		}
+		try (Scene s = new Scene(helper, "HoldTypeHierophant", "hierophant_green", 4)) {
+			s.unlock("grapple", "emerald_splash");
+			s.goesThrough("grapple", "emerald_splash", InputMethod.HOLD);
+		}
+		try (Scene s = new Scene(helper, "HoldTypeGoldExperience", "gold_experience", 4)) {
+			s.unlock("life_detector");
+			s.goesThrough("life_detector", "punch", InputMethod.CLICK);
+		}
+		try (Scene s = new Scene(helper, "HoldTypeCrazyDiamond", "crazy_diamond", 4)) {
+			s.unlock("restore_terrain", "block_anchor");
+			s.goesThrough("restore_terrain", "punch", InputMethod.CLICK);
+			ItemStack anchor = new ItemStack(Items.COBBLESTONE);
+			anchor.set(ModItemDataComponents.ORIGINAL_POS,
+					new OriginalItemPosComponent(BlockPos.containing(s.origin).above(3), helper.getLevel().dimension()));
+			s.user.setItemInHand(InteractionHand.OFF_HAND, anchor);
+			s.goesThrough("block_anchor", "punch", InputMethod.CLICK);
+		}
+		helper.succeed();
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aMobsStandActionGoesThroughItsHoldTypeActionAsIn116(GameTestHelper helper) {
+		Zombie zombie = EntityType.ZOMBIE.create(helper.getLevel());
+		helper.assertTrue(zombie != null, "setup: could not create the zombie");
+		StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("magicians_red"));
+		Vec3 origin = Vec3.atCenterOf(helper.absolutePos(new BlockPos(2, 2, 2)));
+		zombie.setNoAi(true);
+		zombie.setNoGravity(true);
+		zombie.moveTo(origin.x, origin.y, origin.z, 0.0F, 0.0F);
+		helper.assertTrue(helper.getLevel().addFreshEntity(zombie), "setup: could not add the zombie");
+		StandPower power = PowerClass.STAND.attachGet(zombie);
+		try {
+			helper.assertTrue(type != null && StandPowerTransitions.insert(power, new StandInstance(type)).status()
+					== StandPowerTransitions.Status.APPLIED, "setup: could not give the zombie Magician's Red");
+			power.setResolveLevel(4);
+			power.getCurTypeData()._lockedAbilities.remove("red_bind");
+			power.getCurTypeData()._lockedAbilities.remove("flame_burst");
+			helper.assertTrue(type.summon(zombie, power), "setup: could not summon the zombie's Magician's Red");
+			StandEntity stand = power.getSummonedStandEntity();
+			helper.assertTrue(stand != null, "setup: the zombie's Stand is missing");
+			stand.summonLockTicks = 0;
+			LivingComponentAction standAction = LivingComponentAction.getComponent(stand);
+			// a punch (a click in 1.16), then a flame burst (a held action, which a mob pressed on the server too)
+			for (String pressed : new String[] { "punch", "flame_burst" }) {
+				power.setStamina(power.getMaxStamina());
+				AbilityInput.keyPressMob(power.getAbility("red_bind"), zombie, null, InputMethod.HOLD);
+				EntityActionInstance redBind = standAction.getAction();
+				helper.assertTrue(redBind != null && redBind.ability == power.getAbility("red_bind")
+						&& redBind.getPhase() == ActionPhase.PERFORM, "setup: the zombie's Red Bind is not held: " + redBind);
+				AbilityInput.keyPressMob(power.getAbility(pressed), zombie, null,
+						pressed.equals("punch") ? InputMethod.CLICK : InputMethod.HOLD);
+				EntityActionInstance now = standAction.getAction();
+				helper.assertTrue(now != null && now != redBind && now.ability == power.getAbility(pressed)
+						&& redBind.isOver(), "1.16 let a mob's " + pressed + " through its Stand's Red Bind hold at once (a"
+								+ " mob's press cannot wait in the buffer, so it was lost): the Stand's action " + now
+								+ ", the Red Bind over " + redBind.isOver());
+				zombie.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get()).heldKeys.clear();
+				standAction.setAction(null, zombie, SyncType.NO_SYNC);
+			}
+		}
+		finally {
+			zombie.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get()).heldKeys.clear();
+			if (power.isSummoned() && type != null) {
+				type.forceUnsummon(zombie, power);
+			}
+			zombie.discard();
+		}
+		helper.succeed();
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aStandPressThatDoesNotReplaceAHoldTypeActionEndsItsHoldAsIn116(GameTestHelper helper) {
+		try (Scene s = new Scene(helper, "HoldTypeDetector", "magicians_red", 4)) {
+			s.unlock("red_bind", "mr_detector");
+			for (String held : new String[] { "red_bind", "guard" }) {
+				EntityActionInstance hold = s.hold(held);
+				BufferingState detector = s.press("mr_detector", InputMethod.CLICK, OTHER_KEY);
+				AbilityInput.keyRelease(OTHER_KEY, s.user);
+				helper.assertTrue(detector.isActionSuccess && !s.detectors().isEmpty(),
+						"setup: the detector pressed during " + held + " did not go off");
+				helper.assertTrue(hold.isOver() || hold.getPhase() == ActionPhase.RECOVERY,
+						"1.16 ended the " + held + " hold once the detector pressed during it went off (stopHeldAction(false)):"
+								+ " it is still in " + hold.getPhase());
+				helper.assertTrue(!s.isHeldByKey(HOLD_KEY),
+						"1.16 ended the " + held + " hold, so its key held nothing more, but it still holds " + hold);
+				s.detectors().forEach(MRDetectorEntity::discard);
+				s.clear();
+			}
+
+			// the manual control key was no action in 1.16 (StandUtil.setManualControl) and left a hold as it was
+			EntityActionInstance redBind = s.hold("red_bind");
+			BufferingState manual = s.press("manual_control", InputMethod.CLICK, OTHER_KEY);
+			AbilityInput.keyRelease(OTHER_KEY, s.user);
+			helper.assertTrue(manual.isActionSuccess && s.stand.isManuallyControlled(),
+					"setup: the manual control key did not take the Stand over");
+			helper.assertTrue(redBind.getPhase() == ActionPhase.PERFORM && s.standAction.getAction() == redBind
+					&& s.isHeldByKey(HOLD_KEY), "1.16 kept the Red Bind held when its user took the Stand over (the manual"
+							+ " control key was no action): phase " + redBind.getPhase());
+			StandEntityManualControlToggle.off(helper.getLevel(), s.stand, false);
+			s.clear();
+		}
+		// 1.16 StandEntityMeleeBarrage was a holdType action too: the hold went into its recovery
+		try (Scene s = new Scene(helper, "HoldTypeBarrage", "gold_experience", 4)) {
+			EntityActionInstance barrage = s.hold("barrage");
+			BufferingState choose = s.press("choose_lifeform", InputMethod.CLICK, OTHER_KEY);
+			AbilityInput.keyRelease(OTHER_KEY, s.user);
+			helper.assertTrue(choose.isActionSuccess, "setup: choosing a lifeform during the barrage did not go off");
+			helper.assertTrue((barrage.isOver() || barrage.getPhase() == ActionPhase.RECOVERY) && !s.isHeldByKey(HOLD_KEY),
+					"1.16 sent the barrage into its recovery once a lifeform choice pressed during it went off: phase "
+							+ barrage.getPhase() + ", its key holds it " + s.isHeldByKey(HOLD_KEY));
+			s.clear();
+		}
+		helper.succeed();
+	}
+
+	private static final class Scene implements AutoCloseable {
+		private final GameTestHelper helper;
+		private final FakePlayer user;
+		private final StandType standType;
+		private final Vec3 origin;
+		private StandPower power;
+		private StandEntity stand;
+		private LivingComponentAction standAction;
+
+		private Scene(GameTestHelper helper, String name, String standId, int resolveLevel) {
+			this.helper = helper;
+			user = new FakePlayer(helper.getLevel(), new GameProfile(UUID.randomUUID(), name));
+			standType = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc(standId));
+			origin = Vec3.atCenterOf(helper.absolutePos(new BlockPos(2, 2, 2)));
+			try {
+				helper.assertTrue(standType != null, "Missing Stand type " + standId);
+				user.moveTo(origin.x, origin.y, origin.z, 0.0F, 0.0F);
+				user.setNoGravity(true);
+				user.getAbilities().instabuild = false;
+				helper.assertTrue(helper.getLevel().addFreshEntity(user), "Could not add the Stand user");
+				power = PowerClass.STAND.attachGet(user);
+				helper.assertTrue(StandPowerTransitions.insert(power, new StandInstance(standType)).status()
+						== StandPowerTransitions.Status.APPLIED, "Could not grant " + standId);
+				power.setResolveLevel(resolveLevel);
+				helper.assertTrue(standType.summon(user, power), "Could not summon " + standId);
+				stand = power.getSummonedStandEntity();
+				helper.assertTrue(stand != null, "Summoned " + standId + " is missing");
+				standAction = LivingComponentAction.getComponent(stand);
+				// the summon lock skips the action tick, and StandEntity.tick, which counts it down, does not run here
+				stand.summonLockTicks = 0;
+				power.setStamina(power.getMaxStamina());
+			}
+			catch (RuntimeException | Error e) {
+				close();
+				throw e;
+			}
+		}
+
+		// as a player who can press them has them; the scene does not run the user's tick
+		private void unlock(String... names) {
+			for (String name : names) {
+				power.getCurTypeData()._lockedAbilities.remove(name);
+				helper.assertTrue(power.getAbility(name).isAbilityUnlocked(power), "setup: " + name + " is still locked");
+			}
+		}
+
+		/*
+		 * The hold is pressed and kept held; the other action pressed by another key goes off at once and replaces it,
+		 * neither buffered nor waiting for the hold's key.
+		 */
+		private void goesThrough(String holdName, String otherName, InputMethod otherInput) {
+			EntityActionInstance hold = hold(holdName);
+			BufferingState pressed = press(otherName, otherInput, OTHER_KEY);
+			EntityActionInstance now = standAction.getAction();
+			helper.assertTrue(pressed.isActionSuccess && !pressed.shouldBuffer && now != null && now != hold
+					&& now.ability == power.getAbility(otherName) && hold.isOver(),
+					"1.16 let " + otherName + " pressed during the hold-type " + holdName + " through at once"
+							+ " (heldAllowsOtherAction, isCancelable): started " + pressed.isActionSuccess + ", buffered "
+							+ pressed.shouldBuffer + ", the Stand's action " + now + ", the " + holdName + " over "
+							+ hold.isOver() + " in " + hold.getPhase());
+			AbilityInput.keyRelease(OTHER_KEY, user);
+			clear();
+		}
+
+		// pressed as a held key and kept held
+		private EntityActionInstance hold(String name) {
+			power.setStamina(power.getMaxStamina());
+			BufferingState state = press(name, InputMethod.HOLD, HOLD_KEY);
+			EntityActionInstance action = standAction.getAction();
+			helper.assertTrue(state.isActionSuccess && action != null && action.ability == power.getAbility(name)
+					&& isHeldByKey(HOLD_KEY), "setup: " + name + " is not held: started " + state.isActionSuccess
+							+ ", the Stand's action " + action);
+			helper.assertTrue(action.getPhase() == ActionPhase.PERFORM || action.getPhase() == ActionPhase.BUTTON_CHARGE,
+					"setup: the held " + name + " is in " + action.getPhase());
+			return action;
+		}
+
+		// set on the Stand as a press sets it, without a key
+		private EntityActionInstance start(String name) {
+			Ability ability = power.getAbility(name);
+			EntityActionInstance action = ((EntityActionAbility) ability).initActionOnAbilityUse(helper.getLevel(), user, stand, null);
+			standAction.setAction(action, user, SyncType.NO_SYNC);
+			helper.assertTrue(standAction.getAction() == action, "setup: " + name + " is not the Stand's action");
+			return action;
+		}
+
+		// as ClAbilityInputPacket handles a press: the key's resolved ability, its condition check, then the press
+		private BufferingState press(String name, InputMethod inputMethod, short key) {
+			BufferingState state = BufferingState.clickCanBuffer();
+			Ability base = power.getAbility(name);
+			helper.assertTrue(base != null, "Missing ability " + name);
+			AbilityConditionCheck container = resolve(name);
+			if (container != null && AbilityInput.withConditionCheck(container, user, inputMethod)) {
+				AbilityInput.keyPress(key, container.ability, user, null, inputMethod, 0, state, base.getAbilityId());
+			}
+			return state;
+		}
+
+		private boolean isHeldByKey(short key) {
+			HeldInput held = input().heldKeys.containsKey(key) ? input().heldKeys.get(key).action : null;
+			return held != null;
+		}
+
+		private EntityActionInputState input() {
+			return user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get());
+		}
+
+		private List<MRDetectorEntity> detectors() {
+			return new ArrayList<>(helper.getLevel().getEntitiesOfClass(MRDetectorEntity.class,
+					user.getBoundingBox().inflate(8.0D)));
+		}
+
+		// a press left buffered stays there: the test does not tick, and the next press decides by the Stand's action
+		private void clear() {
+			input().heldKeys.clear();
+			standAction.setAction(null, user, SyncType.NO_SYNC);
+		}
+
+		// the power resolves its keys once a tick (Power.updateAvailableMoves), and the test does not tick it
+		private AbilityConditionCheck resolve(String name) {
+			try {
+				Field cached = Power.class.getDeclaredField("cachedMovesThisTick");
+				cached.setAccessible(true);
+				cached.setBoolean(power, false);
+			}
+			catch (ReflectiveOperationException e) {
+				throw new IllegalStateException("Power.cachedMovesThisTick is not reachable", e);
+			}
+			return power.updateAvailableMoves().getContextVariationContainer(power.getAbility(name));
+		}
+
+		@Override
+		public void close() {
+			user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get()).heldKeys.clear();
+			if (power != null && power.isSummoned() && standType != null) {
+				standType.forceUnsummon(user, power);
+			}
+			user.discard();
+		}
+	}
+
+}

@@ -82,6 +82,12 @@ public class MagiciansRedRedBindAbility extends StandEntityAbility {
 			StandAbilityStamina.consume(ability, StandPower.get(user), STAMINA_COST_TICK, true);
 		}
 
+		// 1.16 MagiciansRedRedBind was a holdType Stand action
+		@Override
+		public boolean isHoldTypeStandAction() {
+			return true;
+		}
+
 		@Override
 		public void onButtonStopHold() {
 			if (performer instanceof StandEntity stand
@@ -90,18 +96,6 @@ public class MagiciansRedRedBindAbility extends StandEntityAbility {
 				return;
 			}
 			startRecovery();
-		}
-
-		@Override
-		public boolean canBeCancelledInto(EntityActionType cancellingAbility) {
-			if (performer instanceof StandEntity stand
-					&& stand.willHeavyPunchBeFinisher()
-					&& MRRedBindEntity.getLandedRedBind(stand).isPresent()
-					&& cancellingAbility.getAbilityId() != null
-					&& "kick".equals(cancellingAbility.getAbilityId().nameInMoveset())) {
-				return true;
-			}
-			return super.canBeCancelledInto(cancellingAbility);
 		}
 	}
 }

@@ -221,6 +221,9 @@ public class AbilityInput {
 			if (holdTakingCooldown != null) {
 				holdTakingCooldown.takeCooldownAfterHold();
 			}
+			if (!level.isClientSide() && bufferingState.isActionSuccess && ability.endsOtherHoldOnPress()) {
+				endOtherHoldTypeStandActions(transaction.inputState, user, keyId, ability, action);
+			}
 			return heldInput;
 		}
 		catch (RuntimeException error) {
@@ -525,6 +528,56 @@ public class AbilityInput {
 										user.getId(),
 										keyId,
 										generation)));
+	}
+
+	/*
+	 * 1.16 PowerBaseImpl let every action of a power through the power's held hold-type Stand action
+	 * (StandEntityAction.heldAllowsOtherAction) and ended that hold with stopHeldAction(false) once the action went off: an
+	 * action the Stand performs has already replaced it here (EntityActionInstance#givesWayToOtherAbilities), any other
+	 * press ends its hold as letting go of its key does. Server side.
+	 */
+	private static void endOtherHoldTypeStandActions(
+			@Nullable EntityActionInputState input,
+			LivingEntity user,
+			short keyId,
+			Ability pressed,
+			@Nullable HeldInput started) {
+		PowerClass<?> powerClass = pressed.abilityId.powerClass();
+		if (input == null || powerClass == null) {
+			return;
+		}
+		List<HeldInputEntry> holds = new ArrayList<>();
+		for (HeldInputEntry entry : input.heldKeys.values()) {
+			if (entry.keyId != keyId && entry.powerClass == powerClass
+					&& entry.action instanceof EntityActionInstance held && held != started && !held.isOver()
+					&& held.ability != pressed && held.ability instanceof EntityActionAbility heldAbility
+					&& held.isHoldTypeStandAction() && heldAbility.isHeldSincePress(held)) {
+				holds.add(entry);
+			}
+		}
+		for (HeldInputEntry entry : holds) {
+			if (input.heldKeys.get(entry.keyId) != entry) {
+				continue;
+			}
+			input.heldKeys.remove(entry.keyId);
+			try {
+				entry.action.onKeyRelease(user);
+			}
+			catch (RuntimeException error) {
+				JojoMod.getLogger().error(
+						"Held {} input {} release failed for {}.",
+						powerClass,
+						entry.keyId,
+						user,
+						error);
+			}
+			if (entry.generation > 0L) {
+				PacketDistributor.sendToPlayersTrackingEntityAndSelf(
+						user,
+						TrAbilityUsePacket.releaseHold(
+								user.getId(), entry.keyId, entry.generation));
+			}
+		}
 	}
 
 	/**

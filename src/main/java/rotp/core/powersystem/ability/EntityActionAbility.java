@@ -175,6 +175,15 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 		setDefaultPhaseLength(buttonHoldingPhase, 999999);
 	}
 
+	/**
+	 * Whether this ability's action is held from its press, as a 1.16 action whose getHoldDurationMax was above 0 (built
+	 * with holdType or holdToFire): a button charge or a button-holding phase. An ability that holds its action another
+	 * way ({@link #isActionHeld}) returns true.
+	 */
+	public boolean isHoldAction() {
+		return buttonHoldingPhase != null || buttonChargePhase.getAsFloat() > 0;
+	}
+
 	public boolean canBeStoppedByOriginalHoldCancel(EntityActionInstance action) {
 		ActionPhase phase = action != null ? action.getPhase() : null;
 		return phase != null && phase != ActionPhase.RECOVERY
