@@ -938,24 +938,39 @@ public final class StandTargetRangeGameTests {
 	/*
 	 * 1.16 CrazyDiamondPreviousState has TargetRequirement.NONE: PowerBaseImpl.checkTarget drops an entity that
 	 * Action.checkRangeAndTarget finds out of range (8 blocks from the Stand while it is out, 4 without a line of sight)
-	 * and the press goes on to the off-hand item, so with an empty off hand it answers item_offhand.
+	 * and the press goes on to the off-hand item, so with an empty off hand it answers item_offhand. As a player's press
+	 * makes it: Crazy Diamond where it stands as summoned, behind its user's right (its range lets it no further than 2
+	 * blocks), and a snow golem the user looks at, past the 3 blocks of a Survival player's crosshair pick, so the client's
+	 * aim is empty and the server's own 8-block look ray finds the golem. Within 8 blocks of the Stand it is reverted; a
+	 * little past them it is dropped, though it is still within 8 blocks of the user.
 	 */
 	@GameTest(template = "empty", batch = BATCH)
-	public static void crazyDiamondRevertReachesAnEntityNearTheDistantStand(GameTestHelper helper) {
-		try (Fixture fixture = Fixture.open(helper, Kind.CD_REVERT)) {
-			fixture.stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z + 12.0D, 0.0F, 0.0F);
-			SnowGolem golem = revertibleGolem(helper, fixture, 15.0D);
-			fixture.aim(new ActionTarget(golem));
-			double fromUser = Math.sqrt(golem.getBoundingBox().distanceToSqr(fixture.user.getEyePosition()));
-			double fromStand = Math.sqrt(golem.getBoundingBox().distanceToSqr(fixture.stand.getEyePosition()));
-			helper.assertTrue(fromUser > 8.0D && fromStand < 4.0D && fixture.stand.hasLineOfSight(golem)
-					&& fixture.user.getOffhandItem().isEmpty(),
-					"STAND-RANGE premise: the snow golem is not near the Stand only, or the off hand holds an item: fromUser="
-							+ fromUser + " fromStand=" + fromStand);
-			String answered = fixture.refusal();
-			helper.assertTrue("accepted".equals(answered), "CD_REVERT on a snow golem " + fromStand + " blocks from the Stand"
-					+ " and " + fromUser + " from its user, with an empty off hand: answered " + answered
-					+ "; 1.16 measures from the Stand and reverts the golem");
+	public static void crazyDiamondRevertTakesTheEntityOnTheLookRayOnlyWithinRangeOfTheStand(GameTestHelper helper) {
+		for (double separation : new double[] { 6.7D, 8.1D }) {
+			boolean nearStand = separation < 7.0D;
+			try (Fixture fixture = Fixture.open(helper, Kind.CD_REVERT)) {
+				SnowGolem golem = revertibleGolem(helper, fixture, separation);
+				fixture.user.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES,
+						golem.getBoundingBox().getCenter());
+				fixture.user.setYHeadRot(fixture.user.getYRot());
+				fixture.stand.updatePosition(fixture.user);
+				fixture.aim(ActionTarget.EMPTY);
+				double fromUser = Math.sqrt(golem.getBoundingBox().distanceToSqr(fixture.user.getEyePosition()));
+				double fromStand = ActionTargetRange.getDistance(fixture.stand, golem.getBoundingBox());
+				helper.assertTrue(fixture.stand.isFollowingUser() && fixture.stand.offsetFromUser.isIdle()
+						&& fromUser > fixture.user.entityInteractionRange() && fromUser < 8.0D
+						&& (fromStand <= 8.0D) == nearStand && fixture.stand.hasLineOfSight(golem)
+						&& fixture.user.getOffhandItem().isEmpty(),
+						"STAND-RANGE premise: the idle Stand, the snow golem past the crosshair pick and within the look ray's 8"
+								+ " blocks, " + (nearStand ? "within" : "past") + " 8 blocks of the Stand, or the off hand: fromUser="
+								+ fromUser + " fromStand=" + fromStand);
+				String answered = fixture.refusal();
+				String expected = nearStand ? "accepted" : ITEM_OFFHAND;
+				helper.assertTrue(expected.equals(answered), "CD_REVERT on a snow golem on the look ray " + fromUser + " blocks"
+						+ " from the user and " + fromStand + " from the idle Stand, with an empty off hand: answered " + answered
+						+ "; 1.16 measures from the Stand and " + (nearStand ? "reverts the golem" : "drops the golem and asks for an"
+								+ " item") + " (" + expected + ")");
+			}
 		}
 		helper.succeed();
 	}
