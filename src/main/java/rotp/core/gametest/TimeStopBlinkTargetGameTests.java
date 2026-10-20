@@ -147,9 +147,15 @@ public final class TimeStopBlinkTargetGameTests {
 		try (Scene scene = new Scene(helper, 0)) {
 			Player spectator = GameTestPlayers.makeServerMockPlayer(helper, GameType.SPECTATOR);
 			scene.add(spectator, scene.start.add(0, 0, 3.5));
+			// the ray ends at this stone, inside the test's own cell: past it lies the next row of tests, where a mob of
+			// another test can stand on the look line (TheWorldTSPunchAimGameTests moves a cow 30 blocks along it)
+			BlockPos stone = BlockPos.containing(scene.user.getEyePosition()).south(5);
+			scene.block(stone, Blocks.STONE.defaultBlockState());
 			scene.blink();
-			helper.assertTrue(scene.user.position().z > scene.start.z + 5,
-					"1.16's ray ignores a spectator on the look line: landed at " + scene.user.position());
+			Vec3 onTheStone = Vec3.atBottomCenterOf(stone.above());
+			helper.assertTrue(scene.user.position().distanceTo(onTheStone) < 0.01,
+					"1.16's ray ignores a spectator on the look line and goes on to the stone past it: landed at "
+							+ scene.user.position() + ", expected on the stone at " + onTheStone);
 		}
 		helper.succeed();
 	}
