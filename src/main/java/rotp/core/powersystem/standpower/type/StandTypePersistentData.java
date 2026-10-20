@@ -11,6 +11,8 @@ import java.util.stream.Collectors;
 
 import javax.annotation.Nullable;
 
+import org.jetbrains.annotations.ApiStatus;
+
 import rotp.core.client.ui.hud_misc.BottomLeftNotifications;
 import rotp.core.client.ui.text.StandSkillText;
 import rotp.core.init.ModStatusEffects;
@@ -148,9 +150,10 @@ public class StandTypePersistentData extends PowerData {
 		}
 		boolean changed = false;
 		boolean fullyTrained = StandPower.playerSkipsActionTraining(standPower.getUser());
+		boolean creative = standPower.isUserCreative();
 		for (UnlockableSkill skill : getAllSkills().values()) {
 			if (!(skill instanceof StandUnlockableSkill standSkill)
-					|| skill.hidden
+					|| !isUnlockedByResolveOrCreative(standSkill, creative)
 					|| isSkillUnlocked(skill.skillName)
 					|| !canUnlockByOriginalResolve(standPower, standSkill)) {
 				continue;
@@ -163,6 +166,16 @@ public class StandTypePersistentData extends PowerData {
 			}
 		}
 		return changed;
+	}
+
+	/**
+	 * Whether {@link #unlockOriginalResolveSkills} may unlock this skill: 1.16 StandAction.canBeUnlocked unlocked an action
+	 * by the Resolve level unless it had noResolveUnlock (a hidden skill here), and every action, those included, for a
+	 * user in creative mode ({@link StandUnlockableSkill#unlockedByTraining}); other hidden skills only by their own means.
+	 */
+	@ApiStatus.Internal
+	public static boolean isUnlockedByResolveOrCreative(StandUnlockableSkill skill, boolean creative) {
+		return !skill.hidden || creative && skill.unlockedByTraining;
 	}
 
 	// 1.16 StandPower.unlockAction: an action unlocked while its user skips training starts fully trained.

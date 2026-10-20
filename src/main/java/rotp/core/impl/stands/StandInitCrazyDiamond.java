@@ -175,8 +175,8 @@ public class StandInitCrazyDiamond {
 				
 				.addSkill(StandUnlockableSkill.startingAbility("repair_item"))
 				.addSkill(new StandUnlockableSkill("revert_state")
+						.setUnlockedByTraining()
 						.withAbility("revert_state")
-						.setHidden()
 						.prerequisiteSkill("repair_item"))
 				.addSkill(StandUnlockableSkill.unlockableAbility("uncraft", 0)
 						.prerequisiteSkill("repair_item", "revert_state"))

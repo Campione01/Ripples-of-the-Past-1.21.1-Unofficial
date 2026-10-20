@@ -14,6 +14,11 @@ import net.minecraft.network.chat.Component;
 
 public class StandUnlockableSkill extends UnlockableSkill {
 	public int expToUnlock;
+	/**
+	 * A hidden skill for a 1.16 action with noResolveUnlock, which its training unlocked (onMaxTraining) and no Resolve
+	 * level did; 1.16 StandAction.canBeUnlocked also unlocked it, as every action, for a user in creative mode.
+	 */
+	public boolean unlockedByTraining;
 
 	public StandUnlockableSkill(String name) {
 		super(name);
@@ -71,6 +76,13 @@ public class StandUnlockableSkill extends UnlockableSkill {
 	
 	public StandUnlockableSkill setExpToUnlock(int exp) {
 		this.expToUnlock = exp;
+		return this;
+	}
+
+	/** Hidden, and unlocked by its training or, as 1.16 did, for a creative user. See {@link #unlockedByTraining}. */
+	public StandUnlockableSkill setUnlockedByTraining() {
+		setHidden();
+		this.unlockedByTraining = true;
 		return this;
 	}
 	
