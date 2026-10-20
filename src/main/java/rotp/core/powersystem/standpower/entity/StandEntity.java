@@ -696,8 +696,12 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 			else {
 				lookTarget = ActionTarget.EMPTY;
 			}
+			// the 75 degrees from where the user faces, as when the idle Stand took its user's body: the Stand's own body
+			// trails the yaw this look gives it, so the look would never let the entity go
+			LivingEntity user = getUser();
+			return lookAtPos(getPosToLookAt(lookTarget), false, user != null ? user.yBodyRot : yBodyRot);
 		}
-		
+
 		return lookAtTarget(lookTarget, fullyRotateBody);
 	}
 
@@ -768,6 +772,10 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 	}
 
 	public boolean lookAtPos(@Nullable Vec3 targetPos, boolean fullyRotateBody) {
+		return lookAtPos(targetPos, fullyRotateBody, yBodyRot);
+	}
+
+	private boolean lookAtPos(@Nullable Vec3 targetPos, boolean fullyRotateBody, float headTurnFromYaw) {
 		if (targetPos != null) {
 			Vec2 rotations = MathUtil.lookAnglesTowards(targetPos, this, EntityAnchorArgument.Anchor.EYES);
 			if (fullyRotateBody) {
@@ -780,7 +788,7 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 			}
 			else {
 				float maxHeadYRot = 75;
-				float f2 = Mth.wrapDegrees(yBodyRot - rotations.y);
+				float f2 = Mth.wrapDegrees(headTurnFromYaw - rotations.y);
 				if (Math.abs(f2) < maxHeadYRot) {
 					this.setXRot(rotations.x);
 					this.setYRot(rotations.y);
