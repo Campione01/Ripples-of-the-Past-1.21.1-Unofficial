@@ -24,6 +24,7 @@ import rotp.core.init.power.ModStandAbilities;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.EntityActionAbility;
+import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInputState;
 import rotp.core.powersystem.entityaction.EntityActionInputState.HeldInputEntry;
@@ -42,6 +43,7 @@ import rotp.core.subsystems.entity_grab.LivingComponentGrab;
 import rotp.core.subsystems.itemtracking.OriginalItemPosComponent;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTargetRange;
+import rotp.core.subsystems.timestop.TimeStopState;
 import rotp.core.util.reflection.CommonReflection;
 import com.mojang.authlib.GameProfile;
 
@@ -62,6 +64,7 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.damagesource.DamageContainer;
 import net.neoforged.neoforge.common.util.FakePlayer;
@@ -107,6 +110,58 @@ public final class HeldActionRecheck116GameTests {
 					"1.16 sent target_too_far as the hold ended: messages " + s.user.keys());
 			helper.succeed();
 		}
+	}
+
+	// 1.16 PowerBaseImpl.checkRequirements asked the target (Action.checkRangeAndTarget, HamonHypnosis.checkTarget) before
+	// the action's conditions (HamonAction.checkConditions, NonStandAction.checkEnergy), at the press and on every held tick
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void hypnosisAsksItsTargetBeforeItsHamonConditionsAsIn116(GameTestHelper helper) {
+		try (PowerScene s = new PowerScene(helper, "HypnosisTargetFirst", ModPlayerPowers.HAMON.get())) {
+			HamonData hamon = PlayerPower.getPowerData(s.user, ModPlayerPowers.HAMON).orElseThrow();
+			hamon.learnSkill(ModHamonSkills.HYPNOSIS.get());
+			helper.assertTrue(hamon.isSkillLearned(ModHamonSkills.HYPNOSIS.get()), "setup: Hypnosis is not learned");
+			Mob near = s.mob(EntityType.WOLF, 2.0D);
+			Mob far = s.mob(EntityType.WOLF, 12.0D);
+			EntityActionAbility hypnosis = s.ability("hypnosis");
+
+			hamon.setEnergy(0.0F);
+			hamon.setBreathStability(0.0F);
+			s.aim(near);
+			String noEnergy = warningKey(hypnosis.checkConditions(s.power));
+			helper.assertTrue((CONDITION + "no_energy_hamon").equals(noEnergy),
+					"setup: with no Hamon energy or breath Hypnosis at the wolf 2 blocks away is not refused for its energy: "
+							+ noEnergy);
+			s.aim(far);
+			String press = warningKey(hypnosis.checkConditions(s.power));
+			helper.assertTrue((CONDITION + "target_too_far").equals(press),
+					"1.16 asked the target before the Hamon energy at the press: the wolf 12 blocks away is refused with "
+							+ press);
+
+			hamon.setBreathStability(hamon.getMaxBreathStability());
+			hamon.setEnergy(hamon.getMaxEnergy());
+			s.aim(near);
+			EntityActionInstance charge = s.start("hypnosis");
+			s.tick(3);
+			helper.assertTrue(charge.getPhase() == ActionPhase.WINDUP && !charge.isOver(),
+					"setup: Hypnosis is not charging at the wolf 2 blocks away: phase " + charge.getPhase());
+			hamon.setEnergy(0.0F);
+			hamon.setBreathStability(0.0F);
+			s.aim(far);
+			s.tick(1);
+			helper.assertTrue(charge.isOver(), "setup: the held Hypnosis went on with no energy at the far wolf: phase "
+					+ charge.getPhase());
+			helper.assertTrue(s.user.keys().contains(CONDITION + "target_too_far")
+					&& !s.user.keys().contains(CONDITION + "no_energy_hamon"),
+					"1.16 asked the target before the Hamon energy on the held tick, so the hold ended with target_too_far:"
+							+ " messages " + s.user.keys());
+			helper.succeed();
+		}
+	}
+
+	private static String warningKey(ConditionCheck check) {
+		Component warning = check.getWarning();
+		return warning == null ? (check.isPositive() ? "positive" : "silent")
+				: warning.getContents() instanceof TranslatableContents contents ? contents.getKey() : warning.getString();
 	}
 
 	// PillarmanBladeBarrage.checkHeldItems failed on a held tick: the hold ended with "hand".
@@ -191,6 +246,52 @@ public final class HeldActionRecheck116GameTests {
 			helper.assertTrue(s.user.keys().contains(CONDITION + "no_energy_vampirism"), "1.16 said why: messages " + s.user.keys());
 			helper.succeed();
 		}
+	}
+
+	// 1.16 stopHeldAction(true) fired the released full charge only if checkRequirements still held: a user frozen in
+	// someone else's stopped time (Action.checkConditions, !canUpdate) fired nothing; a stun did not stop the eyes
+	// (ignoresPerformerStun). The stop is removed before the level ticks, so no neighbouring test is frozen.
+	@GameTest(template = "empty", timeoutTicks = 100, batch = GameTestBatches.TIME_STOP)
+	public static void stingyEyesReleasedWhileFrozenInStoppedTimeFiresNothingAsIn116(GameTestHelper helper) {
+		TimeStopState timeStops = helper.getLevel().getData(ModDataAttachmentTypes.TIME_STOP.get());
+		try (PowerScene s = new PowerScene(helper, "StingyEyesFrozenRelease", ModPlayerPowers.VAMPIRISM.get())) {
+			int stopId = -(s.user.getId() * 4 + 1);
+			try {
+				s.vampire(500.0F);
+				EntityActionInstance frozen = fullStingyEyesCharge(helper, s);
+				helper.assertTrue(timeStops.tryPutInstance(new TimeStopState.Instance(stopId, 200, 200,
+						new ChunkPos(s.user.blockPosition()), 1, -1, "stingy_eyes_frozen_release_test"))
+						&& timeStops.shouldFreeze(s.user), "setup: the vampire did not freeze in the stopped time");
+				s.runToEndAndRelease(frozen);
+				timeStops.removeInstance(stopId);
+				helper.assertTrue(frozen.isOver() && frozen.getPhase() != ActionPhase.PERFORM && s.bloodIs(500.0F),
+						"1.16 fired nothing for a full Stingy Eyes charge released while frozen in someone else's stopped time:"
+								+ " phase " + frozen.getPhase() + ", over " + frozen.isOver() + ", blood " + s.blood());
+
+				EntityActionInstance stunned = fullStingyEyesCharge(helper, s);
+				s.user.addEffect(new MobEffectInstance(ModStatusEffects.STUN, 40, 0));
+				s.runToEndAndRelease(stunned);
+				s.user.removeEffect(ModStatusEffects.STUN);
+				helper.assertTrue(stunned.getPhase() == ActionPhase.PERFORM && s.bloodIs(480.0F),
+						"1.16 fired the full charge released while stunned (the eyes ignored a stun): phase " + stunned.getPhase()
+								+ ", blood " + s.blood());
+			}
+			finally {
+				timeStops.removeInstance(stopId);
+			}
+			helper.succeed();
+		}
+	}
+
+	// held by its key to the end of its 20-tick charge, where it waits for the release
+	private static EntityActionInstance fullStingyEyesCharge(GameTestHelper helper, PowerScene s) {
+		s.component.setAction(null, SyncType.NO_SYNC);
+		s.setBlood(500.0F);
+		EntityActionInstance charge = s.start("vampirism_space_ripper_stingy_eyes");
+		s.tick(3);
+		helper.assertTrue(charge.getPhase() == ActionPhase.WINDUP && !charge.isOver(),
+				"setup: Space Ripper Stingy Eyes is not charging: phase " + charge.getPhase());
+		return charge;
 	}
 
 	// VampirismBloodGift (holdToFire 60) ended the hold on a failed check with that check's message.
@@ -390,22 +491,16 @@ public final class HeldActionRecheck116GameTests {
 	 * level reached the action's and only a full Stand clear took away; the Resolve effect raised the stored level for
 	 * good (ResolveCounter.onResolveEffectStarted) and /standlevel never relocked anything. So a held Crossfire Hurricane
 	 * (Resolve level 4) went on, and fired at its full length, after the stored level dropped, and a new press stayed
-	 * unlocked too. The port's Resolve effect alone also unlocks it for a Stand that does not use Resolve (here one not
-	 * in full control yet); once that effect lapses a new press is refused, but the hold it gave goes on, no 1.16 hold
-	 * being relocked by its Resolve level.
+	 * unlocked too. A Resolve gate that fails during a hold all the same (here the Stand drops out of full control, so it
+	 * no longer uses Resolve and its level reads 0) refuses a new press, but the hold goes on, no 1.16 hold being relocked
+	 * by its Resolve level.
 	 */
 	@GameTest(template = "empty", timeoutTicks = 100)
 	public static void aHeldActionIsNotRelockedByItsResolveLevelAsIn116(GameTestHelper helper) {
-		for (String row : new String[] { "stored level dropped", "Resolve effect lapsed", "stored level dropped, full charge" }) {
+		for (String row : new String[] { "stored level dropped", "out of full control", "stored level dropped, full charge" }) {
 			try (StandScene s = new StandScene(helper, "HeldResolveUnlock", "magicians_red")) {
 				s.unlock("crossfire_hurricane");
-				boolean byEffect = row.equals("Resolve effect lapsed");
-				if (byEffect) {
-					s.power.userStandAwakeningState.stage = AwakeningStage.PARTIALLY_AWAKENED;
-					helper.assertTrue(!s.power.usesResolve() && !s.ability("crossfire_hurricane").isAbilityUnlocked(s.power),
-							"setup (" + row + "): a Stand not in full control has Crossfire Hurricane unlocked without a Resolve effect");
-					s.user.addEffect(new MobEffectInstance(ModStatusEffects.RESOLVE, 400, 4));
-				}
+				boolean outOfControl = row.equals("out of full control");
 				helper.assertTrue(s.ability("crossfire_hurricane").isAbilityUnlocked(s.power),
 						"setup (" + row + "): Crossfire Hurricane is not unlocked");
 				EntityActionInstance charge = s.start("crossfire_hurricane");
@@ -413,10 +508,11 @@ public final class HeldActionRecheck116GameTests {
 				helper.assertTrue(charge.getPhase() == ActionPhase.BUTTON_CHARGE && !charge.isOver(),
 						"setup (" + row + "): Crossfire Hurricane is not charging: phase " + charge.getPhase() + ", messages "
 								+ s.user.keys());
-				if (byEffect) {
-					s.user.removeEffect(ModStatusEffects.RESOLVE);
-					helper.assertTrue(!s.ability("crossfire_hurricane").isAbilityUnlocked(s.power),
-							"setup (" + row + "): Crossfire Hurricane is still unlocked for a new press once the Resolve effect lapsed");
+				if (outOfControl) {
+					s.power.userStandAwakeningState.stage = AwakeningStage.PARTIALLY_AWAKENED;
+					helper.assertTrue(!s.power.usesResolve() && !s.ability("crossfire_hurricane").isAbilityUnlocked(s.power),
+							"setup (" + row + "): Crossfire Hurricane is still unlocked for a new press once the Stand left full"
+									+ " control");
 				}
 				else {
 					s.power.setResolveLevel(0);
@@ -711,10 +807,10 @@ public final class HeldActionRecheck116GameTests {
 	}
 
 	/*
-	 * 1.16's held cooldown recheck never saw the hold's own cooldown, which it set only as the hold fired or ended. The
-	 * port sets a Stand ability's at its press, after the press started the action (AbilityInput.keyPress,
-	 * shouldSetCooldownOnKeyPress), and an action may set its own while it runs, also on the tick its charge ends and is
-	 * checked before it fires: none of these ends the hold, which fires at its full length.
+	 * 1.16's held cooldown recheck never saw the hold's own cooldown, which it set only as the hold fired or ended. In the
+	 * port an ability that keeps its press's cooldown (EntityActionAbility#setsCooldownAfterHold false) has it set right
+	 * after its press started the action (AbilityInput.keyPress), and an action may set its own while it runs, also on the
+	 * tick its charge ends and is checked before it fires: none of these ends the hold, which fires at its full length.
 	 */
 	@GameTest(template = "empty", timeoutTicks = 100)
 	public static void aHoldIsNotEndedByTheCooldownItSetItselfAsIn116(GameTestHelper helper) {
@@ -1062,6 +1158,14 @@ public final class HeldActionRecheck116GameTests {
 			VampirismData data = PlayerPower.getPowerData(user, ModPlayerPowers.VAMPIRISM).orElseThrow();
 			VampirismState.get(user).blood().setCurrent(blood);
 			data.setBloodLevel(VampirismState.get(user).blood().current());
+		}
+
+		private float blood() {
+			return VampirismState.get(user).blood().current();
+		}
+
+		private boolean bloodIs(float expected) {
+			return Math.abs(blood() - expected) < 0.01F;
 		}
 
 		// a player with no power yet, facing the user

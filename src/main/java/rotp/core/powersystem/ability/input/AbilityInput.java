@@ -19,6 +19,7 @@ import rotp.core.powersystem.Power;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.AbilityId;
+import rotp.core.powersystem.ability.EntityActionAbility;
 import rotp.core.powersystem.ability.condition.AvailableAbilities;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.ability.condition.AvailableAbilities.AbilityConditionCheck;
@@ -26,6 +27,7 @@ import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
 import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferedInputEntry;
 import rotp.core.powersystem.entityaction.EntityActionInputState;
+import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.HeldInput;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.LivingComponentAction.TransactionSnapshot;
@@ -193,12 +195,16 @@ public class AbilityInput {
 				transaction.inputState.heldKeys.put(keyId, heldInput);
 			}
 
+			EntityActionInstance holdTakingCooldown = null;
 			if (!level.isClientSide() && bufferingState.isActionSuccess
 					&& ability.abilityId.powerClass() != null) {
 				Power<?> power = ability.abilityId.powerClass().get(user);
 				if (power != null && ability.shouldSetCooldownOnKeyPress(inputMethod)) {
-					transaction.cooldownAttempted = true;
-					ability.setCooldownOnUse(power);
+					holdTakingCooldown = EntityActionAbility.getHoldTakingCooldown(ability, action);
+					if (holdTakingCooldown == null) {
+						transaction.cooldownAttempted = true;
+						ability.setCooldownOnUse(power);
+					}
 				}
 			}
 			// a buffered press reaches tracking players once, when ActionInputBuffer replays it and it starts
@@ -210,6 +216,10 @@ public class AbilityInput {
 								user.getId(), keyId, inputGeneration,
 								ability, inputMethod,
 								clickHoldResolveTime, user));
+			}
+			// last: a press that fails before here is rolled back, and the action it removes owes no cooldown
+			if (holdTakingCooldown != null) {
+				holdTakingCooldown.takeCooldownAfterHold();
 			}
 			return heldInput;
 		}

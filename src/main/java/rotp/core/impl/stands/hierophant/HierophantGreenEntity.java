@@ -4,7 +4,6 @@ import java.util.Optional;
 
 import rotp.core.core.JojoMod;
 import rotp.core.init.ModSoundEvents;
-import rotp.core.mechanics.resolve.ResolveModeEffect;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.StandUtil;
 import rotp.core.powersystem.standpower.entity.StandEntity;
@@ -85,12 +84,9 @@ public class HierophantGreenEntity extends StandEntity {
 		return getPlacedBarriersCount() < getMaxBarriersPlaceable(getUserPower());
 	}
 
+	// 1.16 HierophantGreenBarrier.getMaxBarriersPlaceable: the stored Resolve level
 	public static int getMaxBarriersPlaceable(StandPower power) {
-		if (power != null && power.getUser() != null) {
-			int resolveLevel = ResolveModeEffect.getEffectiveResolveLevel(power.getUser(), power);
-			return resolveLevel >= 4 ? 100 : 15;
-		}
-		return 15;
+		return power != null && power.getResolveLevel() >= 4 ? 100 : 15;
 	}
 
 	public boolean hasBarrierAttached() {

@@ -16,6 +16,7 @@ import rotp.core.customobjects.entity_projectile.DamagingEntity;
 import rotp.core.entityattachment.syncheddata.SynchedDataHelper;
 import rotp.core.init.ModDamageTypes;
 import rotp.core.network.NetworkPayloadValidation;
+import rotp.core.powersystem.Power;
 import rotp.core.powersystem.ability.AbilityUsageGroup;
 import rotp.core.powersystem.ability.EntityActionAbility;
 import rotp.core.powersystem.entityaction.netcode.TrEntityActionPhaseTimePacket;
@@ -77,6 +78,8 @@ public class EntityActionInstance implements HeldInput {
 	protected boolean stoppedHolding = false;
 	private boolean startedByClick;
 	private int ownCooldownSets = OWN_COOLDOWN_UNSEEN;
+	private int heldCooldownTicks = NO_HELD_COOLDOWN;
+	private boolean heldCooldownOnFire;
 
 	protected LivingEntity performer;
 	protected EntityResolver powerUser = new EntityResolver();
@@ -267,6 +270,17 @@ public class EntityActionInstance implements HeldInput {
 	
 	@ApiStatus.OverrideOnly
 	public boolean canBeCancelledInto(EntityActionType cancellingAbility) {
+		return false;
+	}
+
+	/**
+	 * 1.16 StandEntityAction.canClickDuringTask: whether this action's own ability, pressed again while this action is
+	 * the Stand's current action, is refused (no message, not buffered) where {@link #canBeCancelledInto} would let that
+	 * press cancel it. 1.16 refused it unless the action was chainable (its light attacks, Hierophant Green's emerald
+	 * splash, Silver Chariot's dash attack); a press this action holds back is buffered as any other.
+	 */
+	@ApiStatus.OverrideOnly
+	public boolean refusesOwnAbilityPressedAgain() {
 		return false;
 	}
 
@@ -995,12 +1009,13 @@ public class EntityActionInstance implements HeldInput {
 	public void setPhase(ActionPhase phase, int tick) {
 		if (phase == null) {
 			this.phase = null;
+			takeHeldCooldownIfHoldEnded();
 			return;
 		}
-		
+
 		float prevPhaseTick = getPhaseTick();
 		float prevTickLength = this.curPhaseLength;
-		
+
 		if (this.performer != null && this.phase != phase) {
 			applyStandUserWalkSpeed(phase);
 			onSetPhase(phase);
@@ -1008,9 +1023,10 @@ public class EntityActionInstance implements HeldInput {
 		this.phase = phase;
 		this.curPhaseTick = tick;
 		this.curPhaseLength = phase != null ? phasesLength.getFloat(phase) : -1;
-		
+
 		this.phasePartialTick = Mth.clamp(prevPhaseTick - prevTickLength, 0, 0.9999f);
-		
+
+		takeHeldCooldownIfHoldEnded();
 		checkNextPhase();
 	}
 	
@@ -1055,11 +1071,15 @@ public class EntityActionInstance implements HeldInput {
 	public void _beforeActionRemoved(@Nullable EntityActionInstance newAction) {
 		onActionCleared(newAction);
 		this.phase = null;
+		takeHeldCooldownIfHoldEnded();
 	}
-	
+
 	@ApiStatus.Internal
 	public void _tickAction() {
 		if (!isOver()) {
+			if (heldCooldownTicks != NO_HELD_COOLDOWN) {
+				++heldCooldownTicks;
+			}
 			if (!level().isClientSide() && !ability.canContinueAction(this)) {
 				forceStop();
 				syncPhaseChanges();
@@ -1073,6 +1093,80 @@ public class EntityActionInstance implements HeldInput {
 			_incPhaseTick();
 			checkNextPhase();
 			noteOwnCooldownSets();
+			takeHeldCooldownIfHoldEnded();
+		}
+	}
+
+	private static final int NO_HELD_COOLDOWN = -1;
+
+	/**
+	 * The press left its ability's cooldown to this action's hold (EntityActionAbility#setsCooldownAfterHold), as 1.16
+	 * set it: an action whose perform is not held (a charge, 1.16 hold-to-fire) takes it as it fires, leaving its held
+	 * phases for one that is not the recovery (PowerBaseImpl.performAction), and none if it ends unfired; any other (1.16
+	 * hold-only) takes it with the ticks it was held as its hold ends (stopHeldAction): the key is let go, a failed check
+	 * or a hit ends it, its held phases run out or the action ends. Called by AbilityInput on the server.
+	 */
+	@ApiStatus.Internal
+	public void takeCooldownAfterHold() {
+		if (!level().isClientSide() && ability instanceof EntityActionAbility entityAbility) {
+			heldCooldownTicks = 0;
+			heldCooldownOnFire = !isHeldInPerform(entityAbility);
+		}
+	}
+
+	/** Whether the ability's cooldown is still waiting for this action's hold ({@link #takeCooldownAfterHold}). */
+	public boolean isCooldownTakenAfterHold() {
+		return heldCooldownTicks != NO_HELD_COOLDOWN;
+	}
+
+	// whether the perform is still inside the hold, asked without entering it (onSetPhase does not run)
+	private boolean isHeldInPerform(EntityActionAbility entityAbility) {
+		ActionPhase current = phase;
+		phase = ActionPhase.PERFORM;
+		try {
+			return entityAbility.isHeldSincePress(this);
+		}
+		finally {
+			phase = current;
+		}
+	}
+
+	private void takeHeldCooldownIfHoldEnded() {
+		if (heldCooldownTicks == NO_HELD_COOLDOWN || !(ability instanceof EntityActionAbility entityAbility)
+				|| phase != null && entityAbility.isHeldSincePress(this)) {
+			return;
+		}
+		boolean fired = phase != null && phase != ActionPhase.RECOVERY;
+		int ticksHeld = heldCooldownTicks;
+		heldCooldownTicks = NO_HELD_COOLDOWN;
+		if (fired || !heldCooldownOnFire) {
+			takeHeldCooldown(entityAbility, ticksHeld);
+		}
+	}
+
+	// 1.16 stopHeldAction: letting go of the key ended a hold-only action's hold, whatever its release handling left running
+	private void takeHoldOnlyCooldownOnRelease() {
+		if (heldCooldownTicks != NO_HELD_COOLDOWN && !heldCooldownOnFire && ability instanceof EntityActionAbility entityAbility) {
+			int ticksHeld = heldCooldownTicks;
+			heldCooldownTicks = NO_HELD_COOLDOWN;
+			takeHeldCooldown(entityAbility, ticksHeld);
+		}
+	}
+
+	private void takeHeldCooldown(EntityActionAbility entityAbility, int ticksHeld) {
+		LivingEntity user = getPowerUser();
+		Power<?> power = user != null && entityAbility.abilityId.powerClass() != null ? entityAbility.getUserPower(user) : null;
+		if (power == null) {
+			return;
+		}
+		if (heldCooldownOnFire) {
+			entityAbility.setCooldownOnUse(power);
+		}
+		else {
+			entityAbility.setCooldownOnUse(power, ticksHeld);
+		}
+		if (!isOver()) {
+			entityAbility.noteOwnCooldownSets(this);
 		}
 	}
 
@@ -1256,6 +1350,7 @@ public class EntityActionInstance implements HeldInput {
 	public void onKeyRelease(LivingEntity user) {
 		if (!this.isOver() && !ignoresClickRelease()) {
 			onButtonStopHold();
+			takeHoldOnlyCooldownOnRelease();
 		}
 	}
 	

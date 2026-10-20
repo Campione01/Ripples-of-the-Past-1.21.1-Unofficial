@@ -1882,8 +1882,8 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		if (!isSilverChariotStand() || !isSilverChariotRapierVisible()) {
 			return false;
 		}
-		LivingEntity user = getUser();
-		return userPower == null || user != null && ResolveModeEffect.getEffectiveResolveLevel(user, userPower) >= 4;
+		// 1.16 SilverChariotEntity.canDeflectProjectiles: the stored Resolve level
+		return userPower == null || userPower.getResolveLevel() >= 4;
 	}
 
 	private boolean deflectSilverChariotProjectile(Projectile projectile) {
@@ -2082,9 +2082,10 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 	}
 
 	public float getUserWalkSpeed(float baseWalkSpeed) {
-		if (isSilverChariotStand() && getUserPower() != null) {
+		// 1.16 SilverChariotEntity.getUserWalkSpeed: the stored Resolve level
+		if (isSilverChariotStand() && getUserPower() != null && getUserPower().getResolveLevel() >= 4) {
 			LivingEntity user = getUser();
-			if (user != null && ResolveModeEffect.getEffectiveResolveLevel(user, getUserPower()) >= 4) {
+			if (user != null) {
 				SilverChariotState state = SilverChariotState.get(user);
 				boolean hasArmor = state == null || state.hasArmor();
 				return baseWalkSpeed + (1.0F - baseWalkSpeed) * (hasArmor ? 0.5F : 1.0F);

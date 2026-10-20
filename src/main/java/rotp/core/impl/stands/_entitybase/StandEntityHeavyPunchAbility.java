@@ -709,6 +709,12 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 			return getPhase() == ActionPhase.RECOVERY && finisherValue >= 0.5F;
 		}
 
+		// 1.16 StandEntityHeavyAttack was not chainable: its free recovery took any action but itself
+		@Override
+		public boolean refusesOwnAbilityPressedAgain() {
+			return true;
+		}
+
 		/**
 		 * The target the heavy punch would strike now. Through the windup the target it was pressed at stays its 1.16 task
 		 * target while within the action's range ({@link StandEntityPunchAbility#keepsTargetInRange}), even out of the

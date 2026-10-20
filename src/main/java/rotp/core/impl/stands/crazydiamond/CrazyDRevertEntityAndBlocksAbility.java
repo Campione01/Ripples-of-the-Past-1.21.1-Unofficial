@@ -443,8 +443,10 @@ public class CrazyDRevertEntityAndBlocksAbility extends StandEntityAbility {
 
 	}
 
+	// 1.16 CrazyDiamondPreviousState.checkTarget: the stored Resolve level, not the highest reached or the Resolve effect's
 	public static boolean canRevertEntity(Entity targetEntity, LivingEntity user) {
-		int resolveLevel = ResolveModeEffect.getEffectiveResolveLevel(user);
+		StandPower standPower = StandPower.get(user);
+		int resolveLevel = standPower != null ? standPower.getResolveLevel() : 0;
 		if (resolveLevel >= 3) {
 			if (targetEntity instanceof PrimedTnt || targetEntity instanceof MinecartTNT || targetEntity instanceof SnowGolem) {
 				return true;

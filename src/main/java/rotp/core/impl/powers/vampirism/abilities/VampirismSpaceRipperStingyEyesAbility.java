@@ -142,7 +142,8 @@ public class VampirismSpaceRipperStingyEyesAbility extends VampirismActionAbilit
 		@Override
 		public void onButtonStopHold() {
 			if (getPhase() == ActionPhase.WINDUP) {
-				if (getPhaseTick() >= getCurPhaseLength() && canPayForRelease()) {
+				if (getPhaseTick() >= getCurPhaseLength() && canPayForRelease()
+						&& ability instanceof VampirismSpaceRipperStingyEyesAbility eyes && eyes.canFireReleasedHold(this)) {
 					setPhaseStart(ActionPhase.PERFORM);
 					// 1.16 NonStandAction.onPerform: perform() added the beams, then the action's cost was taken once.
 					addLasers();
@@ -158,7 +159,9 @@ public class VampirismSpaceRipperStingyEyesAbility extends VampirismActionAbilit
 			}
 		}
 
-		// 1.16 PowerBaseImpl.stopHeldAction fired only when the requirements, the action's cost among them, still held.
+		// 1.16 PowerBaseImpl.stopHeldAction fired only when the requirements, the action's cost among them, still held;
+		// canFireReleasedHold asks the rest (a user frozen in someone else's stopped time, the curing stage, full power,
+		// the unlock; not a stun, which the eyes ignored)
 		private boolean canPayForRelease() {
 			if (level().isClientSide()) {
 				return true;

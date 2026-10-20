@@ -212,6 +212,12 @@ public class CrazyDRepairItemAbility extends StandEntityAbility implements Train
 			return true;
 		}
 
+		// 1.16 CrazyDiamondRepairItem was not chainable
+		@Override
+		public boolean refusesOwnAbilityPressedAgain() {
+			return true;
+		}
+
 		private void tickClientRepairEffects() {
 			startClientRepairEffects();
 			if (performer instanceof StandEntity standEntity) {

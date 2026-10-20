@@ -47,13 +47,23 @@ public class GoldExperienceEntityLifeshotAbility extends NoPoseStandEntityAbilit
         isSubAbility = true;
     }
 
+    // 1.16 GoldExperienceLifeshotPunch.attackRecoveryFollowup: the heavy key that resolved to the running Life Shot punch
+    // gave its Life Shot (StandEntityHeavyAttack.replaceAction asked the variation's replaceAction), whichever heavy
+    // attack the punch was the finisher variation of
     @Override
     public Ability replaceWithSubAbility(Power<?> context, AvailableAbilities abilities) {
         StandPower standPower = PowerClass.STAND.cast(context);
-        if (abilities != null && hasCompatibleLifeshotPunch(standPower)) {
-            abilities.replaceOtherAbilityWith(standPower, "heavy_punch", this);
+        ToothKnockingHeavyPunch punch = getCurrentGoldExperiencePunch(standPower);
+        if (abilities != null && punch != null && punch.canAcceptLifeshotFollowup()) {
+            abilities.replaceOtherAbilityWith(standPower, getLifeshotPunchBase(punch), this);
         }
         return super.replaceWithSubAbility(context, abilities);
+    }
+
+    private static String getLifeshotPunchBase(ToothKnockingHeavyPunch punch) {
+        return punch.ability instanceof Ability lifeshotPunch && lifeshotPunch.isStandFinisherOf != null
+                ? lifeshotPunch.isStandFinisherOf.baseAbilityName()
+                : "heavy_punch";
     }
     
     @Override
@@ -107,11 +117,6 @@ public class GoldExperienceEntityLifeshotAbility extends NoPoseStandEntityAbilit
             return null;
         }
         return super.onKeyPress(level, user, extraClientInput, inputMethod, clickHoldResolveTime, bufferingState);
-    }
-
-    private static boolean hasCompatibleLifeshotPunch(StandPower standPower) {
-        ToothKnockingHeavyPunch punch = getCurrentGoldExperiencePunch(standPower);
-        return punch != null && punch.canAcceptLifeshotFollowup();
     }
 
     private static ToothKnockingHeavyPunch getCurrentGoldExperiencePunch(StandPower standPower) {

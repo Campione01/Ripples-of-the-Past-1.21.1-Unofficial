@@ -36,7 +36,8 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 /**
  * 1.16 StandEntityHeavyAttack.getFinisherVariationIfPresent: the heavy key resolved to the finisher variation while it
  * was the Stand's current task, whatever the finisher meter, unless the variation needed a part the Stand had lost; and
- * StandEntityAction.canClickDuringTask refused it there (a heavy attack is not chainable), silently and not queued.
+ * StandEntityAction.canClickDuringTask refused it there (a heavy attack is not chainable), silently and not queued. By
+ * the meter it resolved to the variation whatever the variation's conditions.
  */
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -122,6 +123,94 @@ public final class StandFinisherKeyGameTests {
 			AbilityConditionCheck after = resolve(power, heavy);
 			helper.assertTrue(after != null && after.ability == heavy && after.conditionCheck.isPositive(),
 					"with the finisher over and the meter empty the heavy key is the heavy punch again: " + describe(after));
+			helper.succeed();
+		}
+		finally {
+			if (power != null && power.isSummoned()) {
+				standType.forceUnsummon(user, power);
+			}
+			user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get()).heldKeys.clear();
+			user.discard();
+		}
+	}
+
+	/*
+	 * 1.16 getFinisherVariationIfPresent gave the heavy key to the finisher variation by the meter whatever the variation's
+	 * conditions, which its press then asked (PowerBaseImpl.checkRequirements: one on cooldown was refused silently), so a
+	 * full meter with a variation that could not be used refused the key; getVisibleAction gave it back to the base only
+	 * for a locked variation, and a variation needing a lost part never took it.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aFullMeterKeepsTheHeavyKeyOnTheFinisherWhateverItsConditionsAsIn116(GameTestHelper helper) {
+		StandType standType = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("star_platinum"));
+		helper.assertTrue(standType != null, "Missing Star Platinum Stand type");
+		Player user = FakePlayerFactory.get(helper.getLevel(), new GameProfile(UUID.randomUUID(), "FinisherConditions"));
+		StandPower power = null;
+		try {
+			user.getAbilities().instabuild = false;
+			Vec3 userPos = Vec3.atCenterOf(helper.absolutePos(new BlockPos(2, 2, 2)));
+			user.moveTo(userPos.x, userPos.y, userPos.z, 0.0F, 0.0F);
+			user.setNoGravity(true);
+			helper.assertTrue(helper.getLevel().addFreshEntity(user), "Could not add the finisher player");
+			power = PowerClass.STAND.attachGet(user);
+			helper.assertTrue(StandPowerTransitions.insert(power, new StandInstance(standType)).status()
+					== StandPowerTransitions.Status.APPLIED, "Could not grant Star Platinum");
+			power.setResolveLevel(4);
+			power.getCurTypeData()._lockedAbilities.remove("heavy_punch");
+			power.getCurTypeData()._lockedAbilities.remove("finisher_uppercut");
+			Ability heavy = power.getAbility("heavy_punch");
+			Ability uppercut = power.getAbility("finisher_uppercut");
+			helper.assertTrue(heavy != null && uppercut != null && uppercut.isAbilityUnlocked(power),
+					"fixture: Star Platinum's heavy punch or unlocked finisher uppercut is missing");
+			helper.assertTrue(standType.summon(user, power), "Could not summon Star Platinum");
+			StandEntity stand = power.getSummonedStandEntity();
+			helper.assertTrue(stand != null, "Summoned Star Platinum is missing");
+			stand.summonLockTicks = 0;
+			power.setStamina(power.getMaxStamina());
+			LivingComponentAction standAction = LivingComponentAction.getComponent(stand);
+			stand.setFinisherMeter(1.0F);
+
+			AbilityConditionCheck usable = resolve(power, heavy);
+			helper.assertTrue(usable != null && usable.ability == uppercut && usable.conditionCheck.isPositive(),
+					"fixture: a full meter does not give the heavy key to the usable finisher uppercut: " + describe(usable));
+
+			power.setAbilityCooldown("finisher_uppercut", 100);
+			try {
+				AbilityConditionCheck onCooldown = resolve(power, heavy);
+				helper.assertTrue(onCooldown != null && onCooldown.ability == uppercut && !onCooldown.conditionCheck.isPositive(),
+						"1.16 kept the heavy key on the finisher variation by the meter whatever its conditions (the uppercut on"
+								+ " cooldown): it resolves to " + describe(onCooldown));
+				press(power, user, heavy);
+				helper.assertTrue(standAction.getAction() == null,
+						"1.16 refused the heavy key while the finisher uppercut could not be used: the Stand started "
+								+ standAction.getAction());
+			}
+			finally {
+				power.setAbilityCooldown("finisher_uppercut", 0);
+			}
+
+			power.getCurTypeData()._lockedAbilities.add("finisher_uppercut");
+			try {
+				AbilityConditionCheck locked = resolve(power, heavy);
+				helper.assertTrue(locked != null && locked.ability == heavy,
+						"1.16 getVisibleAction gave the heavy key back to the base for a locked finisher variation: "
+								+ describe(locked));
+			}
+			finally {
+				power.getCurTypeData()._lockedAbilities.remove("finisher_uppercut");
+			}
+
+			StandInstance instance = power.getStandInstance().orElseThrow();
+			instance.removePart(StandPart.ARMS);
+			try {
+				AbilityConditionCheck noArms = resolve(power, heavy);
+				helper.assertTrue(noArms != null && noArms.ability == heavy,
+						"1.16 never gave the heavy key to a finisher variation needing a lost part, whatever the meter: "
+								+ describe(noArms));
+			}
+			finally {
+				instance.addPart(StandPart.ARMS);
+			}
 			helper.succeed();
 		}
 		finally {

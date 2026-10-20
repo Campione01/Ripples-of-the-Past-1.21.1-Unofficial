@@ -264,6 +264,12 @@ public class CrazyDHealAbility extends StandEntityAbility {
 			return true;
 		}
 
+		// 1.16 CrazyDiamondHeal and CrazyDiamondPreviousState were not chainable
+		@Override
+		public boolean refusesOwnAbilityPressedAgain() {
+			return true;
+		}
+
 		@Override
 		public void extractAnim(LivingAnimState animVariables, LivingEntity performer, float partialTick) {
 			super.extractAnim(animVariables, performer, partialTick);

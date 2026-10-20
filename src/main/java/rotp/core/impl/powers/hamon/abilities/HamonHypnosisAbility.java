@@ -40,12 +40,22 @@ public class HamonHypnosisAbility extends HamonActionRuntimeAbility {
 		setCancelHeldOnGettingAttacked();
 	}
 
+	// 1.16 PowerBaseImpl.checkRequirements asked the target (Action.checkRangeAndTarget, HamonHypnosis.checkTarget)
+	// before the action's conditions (HamonAction.checkConditions, NonStandAction.checkEnergy)
 	@Override
 	public ConditionCheck checkSpecificConditions(Power<?> context) {
-		ConditionCheck check = super.checkSpecificConditions(context);
-		if (!check.isPositive()) {
-			return check;
-		}
+		ConditionCheck target = checkAimTarget(context);
+		return target.isPositive() ? super.checkSpecificConditions(context) : target;
+	}
+
+	// and so on every held tick and before a released hold fired
+	@Override
+	protected ConditionCheck checkHeldSpecificConditions(EntityActionInstance action, Power<?> context) {
+		ConditionCheck target = checkAimTarget(context);
+		return target.isPositive() ? super.checkHeldSpecificConditions(action, context) : target;
+	}
+
+	private static ConditionCheck checkAimTarget(Power<?> context) {
 		LivingEntity user = context != null ? context.getUser() : null;
 		return user != null ? checkHypnosisTarget(HamonAbilityHelpers.getAimTarget(user, user.level()), user)
 				: ConditionCheck.NEGATIVE;
