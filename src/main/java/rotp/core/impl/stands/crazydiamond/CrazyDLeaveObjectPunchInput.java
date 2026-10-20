@@ -8,10 +8,8 @@ import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.ability.condition.AvailableAbilities;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
-import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.effect.StandEffectInstance;
-import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.impl.stands._entitybase.StandAbilityStamina;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility.StandEntityHeavyPunch;
 
@@ -27,18 +25,15 @@ public class CrazyDLeaveObjectPunchInput extends Ability {
 		isSubAbility = true;
 	}
 	
+	// 1.16 CRAZY_DIAMOND_HEAVY_PUNCH.attackRecoveryFollowup(CRAZY_DIAMOND_LEAVE_OBJECT): a follow-up of the base heavy only
 	@Override
 	public Ability replaceWithSubAbility(Power<?> context, AvailableAbilities abilities) {
 		StandPower standPower = PowerClass.STAND.cast(context);		if (standPower == null) return null;
 		LivingEntity user = standPower.getUser();				if (user == null || !CrazyDLeaveObjectPunchEffect.canUseItem(user.getOffhandItem())) return null;
-		StandEntity stand = standPower.getSummonedStandEntity();	if (stand == null) return null;
-		EntityActionInstance curAction = stand.getCurStandAction();	if (curAction == null) return null;
-
-		if (curAction instanceof StandEntityHeavyPunch punch
-				&& punch.getPunchModifiers().isEmpty()) {
+		StandEntityHeavyPunch punch = CrazyDiamondHeavyPunchAbility.runningHeavyPunch(standPower, false);
+		if (abilities != null && punch != null && CrazyDiamondHeavyPunchAbility.heavyKeyResolvesTo(abilities, punch)) {
 			abilities.replaceOtherAbilityWith(standPower, "heavy_punch", this);
 		}
-
 		return null;
 	}
 
@@ -60,11 +55,8 @@ public class CrazyDLeaveObjectPunchInput extends Ability {
 		if (!level.isClientSide()) {
 			if (!CrazyDLeaveObjectPunchEffect.canUseItem(user.getOffhandItem())) return;
 			StandPower standPower = StandPower.get(user);				if (standPower == null) return;
-			StandEntity stand = standPower.getSummonedStandEntity();	if (stand == null) return;
-			EntityActionInstance curAction = stand.getCurStandAction();	if (curAction == null) return;
 
-			if (curAction instanceof StandEntityHeavyPunch punch
-					&& punch.getPunchModifiers().isEmpty()) {
+			if (CrazyDiamondHeavyPunchAbility.runningHeavyPunch(standPower, false) != null) {
 				// 1.16 StandAction.onPerform paid the follow-up's cost on the click and ignored the result
 				StandAbilityStamina.consume(this, standPower, STAMINA_COST, false);
 				StandEffectInstance punchEffect = ModStandAbilities.EFFECT_CD_PUNCH_LEAVE_OBJECT.get().create(level);
@@ -74,12 +66,7 @@ public class CrazyDLeaveObjectPunchInput extends Ability {
 	}
 
 	private static boolean hasCompatibleHeavyPunch(StandPower standPower) {
-		StandEntity stand = standPower.getSummonedStandEntity();
-		if (stand == null) {
-			return false;
-		}
-		EntityActionInstance curAction = stand.getCurStandAction();
-		return curAction instanceof StandEntityHeavyPunch punch && punch.getPunchModifiers().isEmpty();
+		return CrazyDiamondHeavyPunchAbility.runningHeavyPunch(standPower, false) != null;
 	}
 
 }

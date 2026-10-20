@@ -8,7 +8,6 @@ import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.ability.condition.AvailableAbilities;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
-import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.effect.StandEffectInstance;
 import rotp.core.powersystem.standpower.entity.StandEntity;
@@ -27,59 +26,43 @@ public class CrazyDMisshapingPunchInput extends Ability {
 		super(abilityType, abilityId);
 		isSubAbility = true;
 	}
-	
+
+	// 1.16 CRAZY_DIAMOND_FINISHER_PUNCH.attackRecoveryFollowup(CRAZY_DIAMOND_MISSHAPE_FACE, _ARMS, _LEGS): follow-ups of
+	// the finisher variation only, whatever finisher value made the heavy key that variation
 	@Override
 	public Ability replaceWithSubAbility(Power<?> context, AvailableAbilities abilities) {
-		StandPower standPower = PowerClass.STAND.cast(context);		if (standPower == null) return null;
-		StandEntity stand = standPower.getSummonedStandEntity();	if (stand == null) return null;
-		EntityActionInstance curAction = stand.getCurStandAction();	if (curAction == null) return null;
-
-		if (curAction instanceof StandEntityHeavyPunch punch 
-				&& stand.getLastHeavyFinisherValue() >= 1
-				&& punch.getPunchModifiers().isEmpty()) {
+		StandPower standPower = PowerClass.STAND.cast(context);
+		StandEntityHeavyPunch punch = CrazyDiamondHeavyPunchAbility.runningHeavyPunch(standPower, true);
+		if (abilities != null && punch != null && CrazyDiamondHeavyPunchAbility.heavyKeyResolvesTo(abilities, punch)) {
 			abilities.replaceOtherAbilityWith(standPower, "heavy_punch", this);
 		}
-		
 		return null;
 	}
 
 	@Override
 	public ConditionCheck checkSpecificConditions(Power<?> context) {
 		StandPower standPower = PowerClass.STAND.cast(context);
-		if (standPower == null || !hasCompatibleFinisherPunch(standPower)) {
+		if (CrazyDiamondHeavyPunchAbility.runningHeavyPunch(standPower, true) == null) {
 			return ConditionCheck.NEGATIVE;
 		}
 		return super.checkSpecificConditions(context);
 	}
-	
+
 	@Override
 	public void onClick(Level level, LivingEntity user, FriendlyByteBuf extraClientInput) {
 		if (!level.isClientSide()) {
-			StandPower standPower = StandPower.get(user);				if (standPower == null) return;
-			StandEntity stand = standPower.getSummonedStandEntity();	if (stand == null) return;
-			EntityActionInstance curAction = stand.getCurStandAction();	if (curAction == null) return;
-
-			if (curAction instanceof StandEntityHeavyPunch punch
-					&& stand.getLastHeavyFinisherValue() >= 1
-					&& punch.getPunchModifiers().isEmpty()) {
+			StandPower standPower = StandPower.get(user);
+			StandEntityHeavyPunch punch = CrazyDiamondHeavyPunchAbility.runningHeavyPunch(standPower, true);
+			if (punch != null) {
 				// 1.16 StandAction.onPerform paid the follow-up's cost on the click and ignored the result
 				StandAbilityStamina.consume(this, standPower, STAMINA_COST, false);
-				if (punch instanceof CrazyDiamondHeavyPunch cdPunch) {
+				if (punch instanceof CrazyDiamondHeavyPunch cdPunch && punch.getPerformer() instanceof StandEntity stand) {
 					cdPunch.updateMisshapingTargetPart(stand, user);
 				}
 				StandEffectInstance punchEffect = ModStandAbilities.EFFECT_CD_PUNCH_MISSHAPING.get().create(level);
 				standPower.userStandEffects.addEffect(punchEffect);
 			}
 		}
-	}
-
-	private static boolean hasCompatibleFinisherPunch(StandPower standPower) {
-		StandEntity stand = standPower.getSummonedStandEntity();
-		if (stand == null || stand.getLastHeavyFinisherValue() < 1) {
-			return false;
-		}
-		EntityActionInstance curAction = stand.getCurStandAction();
-		return curAction instanceof StandEntityHeavyPunch punch && punch.getPunchModifiers().isEmpty();
 	}
 
 }

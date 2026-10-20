@@ -4,10 +4,13 @@ import javax.annotation.Nullable;
 
 import rotp.core.entityattachment.syncheddata.SynchedDataBuilder;
 import rotp.core.entityattachment.syncheddata.SyncedDataHolderExtended;
+import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
+import rotp.core.powersystem.ability.condition.AvailableAbilities;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
+import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.util.functions.DamageUtil;
@@ -30,6 +33,25 @@ public class CrazyDiamondHeavyPunchAbility extends StandEntityHeavyPunchAbility 
 	public CrazyDiamondHeavyPunchAbility(AbilityType<?> abilityType, AbilityId abilityId) {
 		super(abilityType, abilityId);
 		this.createActionObj = CrazyDiamondHeavyPunch::new;
+	}
+
+	/*
+	 * 1.16 ModStandsInit: the leave-object follow-up belonged to the base heavy punch (CRAZY_DIAMOND_HEAVY_PUNCH) and the
+	 * misshape follow-ups to its finisher variation (CRAZY_DIAMOND_FINISHER_PUNCH); StandAction.replaceActionKostyl gave
+	 * them only while that action was the Stand's task and the one the heavy key resolved to.
+	 */
+	@Nullable
+	static StandEntityHeavyPunch runningHeavyPunch(@Nullable StandPower standPower, boolean finisher) {
+		StandEntity stand = standPower != null ? standPower.getSummonedStandEntity() : null;
+		EntityActionInstance action = stand != null ? stand.getCurStandAction() : null;
+		return action instanceof StandEntityHeavyPunch punch && punch.getPunchModifiers().isEmpty()
+				&& punch.ability instanceof Ability punchAbility && (punchAbility.isStandFinisherOf != null) == finisher
+						? punch : null;
+	}
+
+	static boolean heavyKeyResolvesTo(AvailableAbilities abilities, StandEntityHeavyPunch punch) {
+		Ability key = abilities.getContextVariation("heavy_punch");
+		return key != null && key.getAbilityId().equals(punch.ability.getAbilityId());
 	}
 
 	public static class CrazyDiamondHeavyPunch extends StandEntityHeavyPunchAbility.StandEntityHeavyPunch implements SyncedDataHolderExtended {
