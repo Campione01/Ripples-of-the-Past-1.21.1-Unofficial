@@ -15,6 +15,7 @@ import rotp.core.powersystem.ability.EntityActionAbility;
 import rotp.core.powersystem.ability.condition.AvailableAbilities;
 import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.entityaction.EntityActionInputState;
+import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.HeldInput;
 import rotp.core.powersystem.entityaction.EntityActionInputState.HeldInputEntry;
 
@@ -128,8 +129,9 @@ public class ActionInputBuffer {
 	/**
 	 * 1.16 replayed a queued action through clickAction, as a new click: its conditions, its cooldown on perform
 	 * (PowerBaseImpl.performAction) and its sync. Here the replay is asked to the key press listeners again, marked
-	 * as a replay (a listener may still cancel or replace it), and a press that starts gets its cooldown and reaches
-	 * tracking players, which AbilityInput.keyPress left to this moment. A replay its own checks refuse is dropped.
+	 * as a replay (a listener may still cancel or replace it), and a press that starts gets its cooldown (a held action
+	 * takes it after its hold, as from a press) and reaches tracking players, which AbilityInput.keyPress left to this
+	 * moment. A replay its own checks refuse is dropped.
 	 */
 	private void replay(EntityActionInputState userInput, BufferedInputEntry replaying, Ability ability) {
 		LivingEntity user = userInput.user;
@@ -167,7 +169,13 @@ public class ActionInputBuffer {
 				Power<?> abilityPower = ability.abilityId.powerClass() != null
 						? ability.abilityId.powerClass().get(user) : null;
 				if (abilityPower != null && ability.shouldSetCooldownOnKeyPress(replaying.inputMethod)) {
-					ability.setCooldownOnUse(abilityPower);
+					EntityActionInstance holdTakingCooldown = EntityActionAbility.getHoldTakingCooldown(ability, newAction);
+					if (holdTakingCooldown != null) {
+						holdTakingCooldown.takeCooldownAfterHold();
+					}
+					else {
+						ability.setCooldownOnUse(abilityPower);
+					}
 				}
 				rebindHeldKey(userInput, replaying, newAction);
 				sendReplayToTracking(userInput, replaying, ability);

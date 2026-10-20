@@ -40,6 +40,8 @@ public final class AddonFeatureApiSurfaceSmokeTest {
 		requirePublic(entityAction, "stopsOnHeavyAttack", instance);
 		requirePublic(entityAction, "onHitByHeavyAttack", "net.minecraft.world.entity.Entity");
 		requirePublic(entityAction, "setResetsAttackStrengthOnPerform");
+		requireOverridable(entityAction, "setsCooldownAfterHold", instance);
+		requirePublic(instance, "isCooldownTakenAfterHold");
 
 		check(RotpAddonApi.supportsFeature(RotpAddonApi.FEATURE_STAND_USER_GUARD_V1),
 				"the Stand's guard of its user is not advertised");

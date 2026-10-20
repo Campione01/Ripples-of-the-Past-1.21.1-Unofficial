@@ -172,7 +172,9 @@ public final class RotpAddonApi {
 	 * checkHeldSpecificConditions, then Ability#isAbilityStillUnlocked ("not_unlocked"; the Resolve level is not asked
 	 * again, see Ability#isResolveLevelHeld); not a busy performer),
 	 * canFireReleasedHold (also false for a user frozen in someone else's stopped time, unless the ability works in
-	 * stopped time), stopsOnHeavyAttack / onHitByHeavyAttack, setResetsAttackStrengthOnPerform.
+	 * stopped time), stopsOnHeavyAttack / onHitByHeavyAttack, setResetsAttackStrengthOnPerform, setsCooldownAfterHold
+	 * (a held action takes its press's cooldown as it fires or, hold-only, as its hold ends, with the ticks held;
+	 * EntityActionInstance#isCooldownTakenAfterHold).
 	 */
 	public static final String FEATURE_ENTITY_ACTION_HOOKS_V1 =
 			"entity_action_hooks_v1";

@@ -689,10 +689,10 @@ public final class HeldActionRecheck116GameTests {
 	}
 
 	/*
-	 * 1.16's held cooldown recheck never saw the hold's own cooldown, which it set only as the hold fired or ended. The
-	 * port sets a Stand ability's at its press, after the press started the action (AbilityInput.keyPress,
-	 * shouldSetCooldownOnKeyPress), and an action may set its own while it runs, also on the tick its charge ends and is
-	 * checked before it fires: none of these ends the hold, which fires at its full length.
+	 * 1.16's held cooldown recheck never saw the hold's own cooldown, which it set only as the hold fired or ended. In the
+	 * port an ability that keeps its press's cooldown (EntityActionAbility#setsCooldownAfterHold false) has it set right
+	 * after its press started the action (AbilityInput.keyPress), and an action may set its own while it runs, also on the
+	 * tick its charge ends and is checked before it fires: none of these ends the hold, which fires at its full length.
 	 */
 	@GameTest(template = "empty", timeoutTicks = 100)
 	public static void aHoldIsNotEndedByTheCooldownItSetItselfAsIn116(GameTestHelper helper) {

@@ -230,6 +230,27 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 	}
 
 	/**
+	 * Whether the press of this ability that started this action leaves the ability's cooldown to the action's hold, as
+	 * 1.16 set a held action's cooldown only as it fired (PowerBaseImpl.performAction, a hold-to-fire action) or as its
+	 * hold ended (stopHeldAction, a hold-only action, with the ticks it was held), never at its press: see
+	 * EntityActionInstance#takeCooldownAfterHold. Asked on the server right after the press set the action, only when
+	 * the press would set the cooldown ({@link #shouldSetCooldownOnKeyPress}). By default an action held from its press
+	 * ({@link #isHeldSincePress}); an ability whose 1.16 action was not held returns false to keep the press's cooldown.
+	 */
+	public boolean setsCooldownAfterHold(EntityActionInstance action) {
+		return isHeldSincePress(action);
+	}
+
+	/** The action a press of this ability started, if it takes the ability's cooldown after its hold, else null. */
+	@ApiStatus.Internal
+	@Nullable
+	public static EntityActionInstance getHoldTakingCooldown(Ability ability, @Nullable HeldInput pressed) {
+		return pressed instanceof EntityActionInstance action && action.ability == ability && !action.isOver()
+				&& ability instanceof EntityActionAbility entityAbility && entityAbility.setsCooldownAfterHold(action)
+				? action : null;
+	}
+
+	/**
 	 * Whether releasing the key still reaches an action a CLICK input started. 1.16 performed an action without a
 	 * hold on the click and never let the release cancel it; a click-bound action that holds (a button charge,
 	 * a button-holding phase, or whatever {@link #isActionHeld} counts) keeps the release as a held one does.
@@ -302,9 +323,9 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 	/*
 	 * 1.16 set an action's own cooldown only as it fired (PowerBaseImpl.performAction) or as a hold-only action's hold
 	 * ended (stopHeldAction), so the held recheck's isActionOnCooldown saw only a cooldown set from elsewhere. The port
-	 * sets a Stand ability's at its press (shouldSetCooldownOnKeyPress), and an action may set its own as it runs: a
-	 * cooldown counts only if it was set since the hold last saw it, which it does when first rechecked and after each of
-	 * its own ticks (EntityActionInstance). Server side.
+	 * leaves a held action's to its hold too (setsCooldownAfterHold), but an ability that keeps the press's cooldown has
+	 * it set at its press, and an action may set its own as it runs: a cooldown counts only if it was set since the hold
+	 * last saw it, which it does when first rechecked and after each of its own ticks (EntityActionInstance). Server side.
 	 */
 	private boolean isCooldownSetDuringHold(EntityActionInstance action, Power<?> context) {
 		LivingEntity user = context.getUser();
