@@ -2529,7 +2529,8 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 
 	// 1.16: the other Stand points back only through the previous opponent, so from this Stand's second parry of it, or
 	// once it parries in turn. The server takes the opponent only from a change of the synced id (onSyncedDataUpdated), so
-	// a side an action change dropped (onActionSet) does not come back under the same id
+	// a side an action change dropped (onActionSet) does not come back under the same id. An end also ends the previous
+	// opponent's clash with whatever Stand it has, and so on along the chain
 	private void setBarrageClashOpponent(@Nullable Entity opponent) {
 		Entity prevOpponent = barrageClashOpponent().orElse(null);
 		if (!level().isClientSide()) {
@@ -2541,7 +2542,7 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 
 		if (prevOpponent instanceof StandEntity prevStandOpponent) {
 			if (opponent == null) {
-				if (prevStandOpponent.barrageClashOpponent().orElse(null) == this) {
+				if (prevStandOpponent.barrageClashOpponent().isPresent()) {
 					prevStandOpponent.setBarrageClashOpponent(null);
 				}
 			}
