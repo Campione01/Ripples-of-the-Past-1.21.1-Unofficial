@@ -9,6 +9,7 @@ import java.util.function.Consumer;
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
+import rotp.core.impl.stands.hierophant.HierophantEmeraldSplashAbility;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModStatusEffects;
 import rotp.core.powersystem.Power;
@@ -74,10 +75,11 @@ public final class OwnAbilityPressDuringTask116GameTests {
 			s.refusedDuringItself("barrage", InputMethod.HOLD, EntityActionInstance::startRecovery);
 			s.user.removeEffect(ModStatusEffects.RESOLVE);
 
-			// with the uppercut locked a full meter gives the plain heavy punch a finisher's strength and free recovery
-			s.power.getCurTypeData()._lockedAbilities.add("finisher_uppercut");
+			// the finisher variation's free recovery (1.16 StandEntityHeavyAttack.isFreeRecovery: isFinisher) takes any
+			// action but itself
+			s.unlock("finisher_uppercut");
 			s.stand.setFinisherMeter(1.0F);
-			s.refusedDuringItself("heavy_punch", InputMethod.CLICK, EntityActionInstance::startRecovery);
+			s.refusedDuringItself("finisher_uppercut", InputMethod.CLICK, EntityActionInstance::startRecovery);
 
 			// before its recovery the heavy punch holds its own press back, which the input buffer keeps (N2)
 			s.stand.setFinisherMeter(0.0F);
@@ -151,6 +153,100 @@ public final class OwnAbilityPressDuringTask116GameTests {
 			helper.assertTrue(chained.isActionSuccess && second != null && second != first && second.ability == splash,
 					"1.16 restarted the emerald splash pressed in its recovery (chainable): success " + chained.isActionSuccess
 							+ ", the Stand's action " + second);
+			helper.succeed();
+		}
+	}
+
+	/*
+	 * 1.16 StandEntityHeavyAttack.isFreeRecovery was isFinisher(): only the finisher variation's recovery let another
+	 * action replace it at once (StandEntityAction.canBeCanceled), whatever the finisher meter (a variation the missing-part
+	 * rule chose could run at any meter); a plain heavy punch's recovery held a press back until it ended, even at a
+	 * finisher's strength (its finisher variation locked).
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void onlyTheFinisherVariationHasAFreeRecoveryAsIn116(GameTestHelper helper) {
+		try (Scene s = new Scene(helper, "HeavyFreeRecovery", "star_platinum", 4)) {
+			EntityActionAbility punch = (EntityActionAbility) s.power.getAbility("punch");
+			s.power.getCurTypeData()._lockedAbilities.add("finisher_uppercut");
+			s.stand.setFinisherMeter(1.0F);
+			EntityActionInstance heavy = s.start("heavy_punch");
+			heavy.startRecovery();
+			helper.assertTrue(heavy.getPhase() == ActionPhase.RECOVERY && heavy.ability == s.power.getAbility("heavy_punch")
+					&& ((Ability) heavy.ability).isStandFinisherOf == null, "setup: the plain heavy punch is not in its recovery");
+			BufferingState held = s.press("punch", InputMethod.CLICK);
+			helper.assertTrue(held.shouldBuffer && !held.isActionSuccess && s.standAction.getAction() == heavy,
+					"1.16 held a punch pressed in the recovery of a plain heavy punch at a full meter back (no free recovery): buffered "
+							+ held.shouldBuffer + ", started " + held.isActionSuccess + ", the Stand's action " + s.standAction.getAction());
+			s.standAction.setAction(null, s.user, SyncType.NO_SYNC);
+
+			s.unlock("finisher_uppercut");
+			for (float meter : new float[] { 1.0F, 0.0F }) {
+				s.power.setStamina(s.power.getMaxStamina());
+				s.stand.setFinisherMeter(meter);
+				EntityActionInstance uppercut = s.start("finisher_uppercut");
+				uppercut.startRecovery();
+				helper.assertTrue(uppercut.getPhase() == ActionPhase.RECOVERY && uppercut.canBeCancelledInto(punch),
+						"1.16 let any other action replace the uppercut (the finisher variation) in its recovery at a finisher meter of "
+								+ meter + " (isFreeRecovery: isFinisher): phase " + uppercut.getPhase() + ", cancelled into a punch "
+								+ uppercut.canBeCancelledInto(punch));
+				BufferingState replaced = s.press("punch", InputMethod.CLICK);
+				EntityActionInstance next = s.standAction.getAction();
+				helper.assertTrue(replaced.isActionSuccess && next != null && next != uppercut && next.ability == punch,
+						"1.16 started a punch pressed in the uppercut's recovery at once (meter " + meter + "): started "
+								+ replaced.isActionSuccess + ", the Stand's action " + next);
+				s.standAction.setAction(null, s.user, SyncType.NO_SYNC);
+			}
+			helper.succeed();
+		}
+	}
+
+	/*
+	 * 1.16 HierophantGreenEmeraldSplash.isCancelable allowed a cancel only in RECOVERY, for any action pressed, the other
+	 * splash variant (hierophant_green_es_concentrated, a SHIFT variation in 1.16, its own slot here) included: pressed
+	 * in the windup or perform it was queued (the input buffer here) and replaced the splash in its recovery.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void theEmeraldSplashTakesItsOtherVariantOnlyInItsRecoveryAsIn116(GameTestHelper helper) {
+		// below Resolve 3 and with no Resolve effect the splash has its windup and recovery (noPhases)
+		try (Scene s = new Scene(helper, "VariantPressEmeraldSplash", "hierophant_green", 2)) {
+			s.unlock("emerald_splash");
+			s.unlock("emerald_splash_concentrated");
+			s.power.getCurTypeData().setAbilityLearningProgressPoints(HierophantEmeraldSplashAbility.EMERALD_SPLASH_LEARNING_ABILITY,
+					HierophantEmeraldSplashAbility.EMERALD_SPLASH_MAX_TRAINING, HierophantEmeraldSplashAbility.EMERALD_SPLASH_MAX_TRAINING,
+					s.power);
+			helper.assertTrue(HierophantEmeraldSplashAbility.isEmeraldSplashFullyTrained(s.power),
+					"setup: Emerald Splash is not fully trained, so the concentrated splash is hidden");
+			for (String[] variants : new String[][] { { "emerald_splash", "emerald_splash_concentrated" },
+					{ "emerald_splash_concentrated", "emerald_splash" } }) {
+				for (ActionPhase phase : new ActionPhase[] { ActionPhase.WINDUP, ActionPhase.PERFORM }) {
+					s.power.setStamina(s.power.getMaxStamina());
+					EntityActionInstance running = s.start(variants[0]);
+					for (int tick = 0; tick < 60 && running.getPhase() != phase && !running.isOver(); tick++) {
+						s.standAction.tick();
+					}
+					helper.assertTrue(running.getPhase() == phase && s.standAction.getAction() == running,
+							"setup: " + variants[0] + " did not reach its " + phase + ": " + running.getPhase());
+					AbilityConditionCheck other = s.resolve(variants[1]);
+					helper.assertTrue(other != null && other.ability == s.power.getAbility(variants[1]) && other.conditionCheck.isPositive(),
+							"setup: " + variants[1] + " cannot be pressed during " + variants[0] + ": " + describe(other));
+					BufferingState queued = s.press(variants[1], InputMethod.HOLD);
+					helper.assertTrue(queued.shouldBuffer && !queued.isActionSuccess && s.standAction.getAction() == running,
+							"1.16 queued " + variants[1] + " pressed in the " + phase + " of " + variants[0] + " (isCancelable only in"
+									+ " RECOVERY): buffered " + queued.shouldBuffer + ", started " + queued.isActionSuccess
+									+ ", the Stand's action " + s.standAction.getAction() + " (was " + running + ")");
+					s.user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get()).heldKeys.clear();
+					s.standAction.setAction(null, s.user, SyncType.NO_SYNC);
+				}
+				s.power.setStamina(s.power.getMaxStamina());
+				EntityActionInstance running = s.start(variants[0]);
+				running.startRecovery();
+				BufferingState replaced = s.press(variants[1], InputMethod.HOLD);
+				EntityActionInstance next = s.standAction.getAction();
+				helper.assertTrue(replaced.isActionSuccess && next != null && next != running
+						&& next.ability == s.power.getAbility(variants[1]), "1.16 let " + variants[1] + " pressed in the recovery of "
+								+ variants[0] + " replace it: started " + replaced.isActionSuccess + ", the Stand's action " + next);
+				s.standAction.setAction(null, s.user, SyncType.NO_SYNC);
+			}
 			helper.succeed();
 		}
 	}

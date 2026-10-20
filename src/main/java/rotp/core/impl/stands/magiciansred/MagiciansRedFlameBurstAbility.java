@@ -87,6 +87,12 @@ public class MagiciansRedFlameBurstAbility extends StandEntityAbility {
 			return velocity;
 		}
 
+		// 1.16 MagiciansRedFlameBurst was a holdType Stand action
+		@Override
+		public boolean isHoldTypeStandAction() {
+			return true;
+		}
+
 		@Override
 		public void onButtonStopHold() {
 			if (getPhase() != ActionPhase.RECOVERY) {

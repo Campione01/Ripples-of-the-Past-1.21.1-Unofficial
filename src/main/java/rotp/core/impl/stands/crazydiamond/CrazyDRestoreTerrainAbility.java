@@ -168,6 +168,12 @@ public class CrazyDRestoreTerrainAbility extends NoPoseStandEntityAbility {
 			this.terrainRestoreAbility = (CrazyDRestoreTerrainAbility) ability;
 		}
 
+		// 1.16 CrazyDiamondRestoreTerrain was a holdType Stand action
+		@Override
+		public boolean isHoldTypeStandAction() {
+			return true;
+		}
+
 		@Override
 		public void onButtonStopHold() {
 			startRecovery();

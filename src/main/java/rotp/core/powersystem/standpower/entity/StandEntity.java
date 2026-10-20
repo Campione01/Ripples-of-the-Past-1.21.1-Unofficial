@@ -70,7 +70,6 @@ import rotp.core.util.functions.CollisionHelper;
 import rotp.core.util.functions.JojoModUtil;
 import rotp.core.util.functions.MathUtil;
 import rotp.core.util.functions.UtilFunctions;
-import rotp.core.util.functions.MathUtil.AABBDist;
 import rotp.core.util.objects_java.Lerp;
 import rotp.core.util.objects_mc.PrevRotations;
 import rotp.core.util.sound.MultiSoundEventResolver;
@@ -922,18 +921,17 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		boolean rangeCorrectionApplied = false;
 		double rangeCorrectionDeltaSqr = 0.0D;
 		if (user != null && user.level() == level) {
-			AABBDist bbDistance = MathUtil.getAABBDistanceDetailed(this.getBoundingBox(), user.getBoundingBox());
-			double distance = bbDistance.distance();
+			// 1.16 StandEntity.move: the Stand's feet are held within the max range of its user's
+			double distanceSqr = distanceToSqr(user);
+			double distance = Math.sqrt(distanceSqr);
 			double range = getMaxRangeForMovement(user);
 			if (observingMovement) {
 				ownerDistanceAfterSuperBeforeClamp = distance;
 				maxMovementRange = range;
 			}
-			warnManualControlBeyondViewDistance(user, distanceToSqr(user));
+			warnManualControlBeyondViewDistance(user, distanceSqr);
 			if (distance > range) {
-				Vec3 standPos = bbDistance.posBB1();
-				Vec3 userPos = bbDistance.posBB2();
-				Vec3 vecToUser = userPos.subtract(standPos).scale(1 - range / distance);
+				Vec3 vecToUser = user.position().subtract(position()).scale(1 - range / distance);
 				moveWithoutCollision(vecToUser);
 				if (observingMovement) {
 					rangeCorrectionApplied = true;
@@ -951,8 +949,7 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 			double actualZ = postPosition.z - prePosition.z;
 			double finalOwnerDistance = user != null
 					&& user.level() == level
-						? MathUtil.getAABBDistance(
-								getBoundingBox(), user.getBoundingBox())
+						? distanceTo(user)
 						: Double.NaN;
 			LogicalSide logicalSide = level.isClientSide()
 					? LogicalSide.CLIENT : LogicalSide.SERVER;
@@ -1701,10 +1698,10 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 	public void updateStrengthMultipliers() {
 		LivingEntity user = getUser();
 
+		// 1.16 measured it feet to feet (distanceTo(user)); the port decays only under manual control (D-core-03)
 		rangeEfficiency = user != null ? StandStatFormulas.rangeStrengthFactor(
 				distanceStrengthDecayEnabled && isManuallyControlled(),
-				getEffectiveRange(), getMaxRange(),
-				MathUtil.getAABBDistance(this.getBoundingBox(), user.getBoundingBox())) : 1;
+				getEffectiveRange(), getMaxRange(), distanceTo(user)) : 1;
 
 		if (user != null && userPower != null) {
 			staminaCondition = StandUtil.staminaCondition(userPower);

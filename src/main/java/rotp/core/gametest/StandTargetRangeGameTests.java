@@ -56,6 +56,7 @@ import rotp.core.subsystems.target.HitResultUtil;
 import rotp.core.subsystems.target.StandPrecisionRay;
 import rotp.core.subsystems.timestop.TimeStopState;
 import rotp.core.util.functions.MathUtil;
+import rotp.core.util.reflection.CommonReflection;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -79,10 +80,13 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.animal.SnowGolem;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Cod;
 import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.vehicle.Boat;
 import net.minecraft.world.item.ItemStack;
@@ -943,7 +947,8 @@ public final class StandTargetRangeGameTests {
 	 * StandEntity.getAimDistance: the user's REACH_DISTANCE of 5, or under manual control, the Stand being the camera, the
 	 * Stand's own 2.5. With the client's aim empty (a Survival player's pick ends at 3 blocks; under manual control the
 	 * user is not the camera), the server's own look ray stands in for that precision ray: a snow golem 4.3 blocks from
-	 * the user's eyes is reverted, one 5.45 blocks away is not, nor one 4.3 away while Crazy Diamond is not out; under
+	 * the user's eyes is reverted, one whose box grown by the Stand's precision is past 5 blocks is not, nor one 4.3 away
+	 * while Crazy Diamond is not out; under
 	 * manual control the Stand's aim (here one its precision box let a client's aim assist take, off the exact look) and
 	 * its look within its own reach count, not its user's look.
 	 */
@@ -959,16 +964,20 @@ public final class StandTargetRangeGameTests {
 				String where;
 				String expected;
 				if (!row.startsWith("under manual control")) {
-					golem = revertibleGolem(helper, fixture, row.startsWith("past") ? 5.8D : 4.65D);
+					boolean past = row.startsWith("past");
+					golem = revertibleGolem(helper, fixture, past ? 6.4D : 4.65D);
 					fixture.stand.updatePosition(fixture.user);
 					double fromUser = Math.sqrt(golem.getBoundingBox().distanceToSqr(fixture.user.getEyePosition()));
+					double grown = entry(fixture.user, HitResultUtil.standPrecisionTargetHitbox(
+							golem.getBoundingBox().inflate(golem.getPickRadius()), fixture.stand.getPrecision()));
 					double fromStand = ActionTargetRange.getDistance(fixture.stand, golem.getBoundingBox());
 					helper.assertTrue(fixture.stand.isFollowingUser() && fixture.stand.offsetFromUser.isIdle()
-							&& fromUser > fixture.user.entityInteractionRange() && fromUser < 8.0D && fromStand < 8.0D
-							&& fixture.stand.hasLineOfSight(golem) && fixture.user.getOffhandItem().isEmpty(),
-							"STAND-RANGE premise: the idle Stand, the snow golem past the crosshair pick and within 8 blocks of the"
-									+ " user and of the Stand in its sight, or the off hand: fromUser=" + fromUser + " fromStand=" + fromStand);
-					where = "on the look ray " + fromUser + " blocks from the user's eyes";
+							&& fromUser > fixture.user.entityInteractionRange() && (past ? grown > 5.0D : fromUser < 5.0D)
+							&& fromStand < 8.0D && fixture.stand.hasLineOfSight(golem) && fixture.user.getOffhandItem().isEmpty(),
+							"STAND-RANGE premise: the idle Stand, the snow golem past the crosshair pick, within the reach or its"
+									+ " precision box past it, and within 8 blocks of the Stand in its sight, or the off hand: fromUser="
+									+ fromUser + " precisionBox=" + grown + " fromStand=" + fromStand);
+					where = "on the look ray " + fromUser + " blocks from the user's eyes (its precision box " + grown + ")";
 					if (row.endsWith("the Stand not out")) {
 						fixture.standType.forceUnsummon(fixture.user, fixture.power);
 						helper.assertTrue(fixture.power.getSummonedStandEntity() == null,
@@ -1023,6 +1032,238 @@ public final class StandTargetRangeGameTests {
 			}
 		}
 		helper.succeed();
+	}
+
+	/*
+	 * 1.16 took Heal's target under the crosshair as it took Revert's: the vanilla pick, and behind it, only while the
+	 * Stand was out, the precision ray from the camera entity as far as the user's reach of 5, or under manual control
+	 * the Stand's own 2.5 along the Stand's view. With the client's aim empty, a wounded cow whose box the user's look
+	 * enters 4.55 blocks from the eyes is healed, one whose box grown by the Stand's precision the look enters past 5 is
+	 * not, nor one 4.55 away while Crazy Diamond is not out; under manual control the Stand's aim and its look within its
+	 * own reach count, not its user's look.
+	 */
+	@GameTest(template = "empty", batch = BATCH)
+	public static void crazyDiamondHealTakesAnEntityOnlyWithinItsCrosshairsReachAsIn116(GameTestHelper helper) {
+		String[] rows = { "within the user's reach", "past the user's reach", "within the user's reach, the Stand not out",
+				"under manual control, in the Stand's aim", "under manual control, on the Stand's look",
+				"under manual control, past the Stand's reach on its look", "under manual control, on the user's look only" };
+		for (String row : rows) {
+			try (Fixture fixture = Fixture.open(helper, Kind.CD_HEAL)) {
+				fixture.aim(ActionTarget.EMPTY);
+				Cow wounded = fixture.cow(5.0D);
+				Vec3 userEyes = fixture.user.getEyePosition();
+				Vec3 userLookEnd = userEyes.add(fixture.user.getLookAngle().scale(8.0D));
+				String where;
+				String expected;
+				if (!row.startsWith("under manual control")) {
+					boolean past = row.startsWith("past");
+					// the user's look ray runs at eye height, above a cow standing on the user's level
+					wounded.moveTo(fixture.origin.x, fixture.origin.y + 0.6D, fixture.origin.z + (past ? 6.7D : 5.0D), 180.0F, 0.0F);
+					fixture.stand.updatePosition(fixture.user);
+					double fromUser = wounded.getBoundingBox().clip(userEyes, userLookEnd).map(userEyes::distanceTo).orElse(-1.0D);
+					double grown = entry(fixture.user, HitResultUtil.standPrecisionTargetHitbox(
+							wounded.getBoundingBox().inflate(wounded.getPickRadius()), fixture.stand.getPrecision()));
+					double fromStand = ActionTargetRange.getDistance(fixture.stand, wounded.getBoundingBox());
+					helper.assertTrue(fixture.stand.isFollowingUser() && fixture.stand.offsetFromUser.isIdle()
+							&& fromUser > fixture.user.entityInteractionRange() && (past ? grown > 5.0D : fromUser < 5.0D)
+							&& fromStand < 8.0D && fixture.stand.hasLineOfSight(wounded),
+							"STAND-RANGE premise: the idle Stand, the cow on the user's look past the crosshair pick, within the reach"
+									+ " or its precision box past it, and within 8 blocks of the Stand in its sight: fromUser=" + fromUser
+									+ " precisionBox=" + grown + " fromStand=" + fromStand);
+					where = "on the look ray " + fromUser + " blocks from the user's eyes (its precision box " + grown + ")";
+					if (row.endsWith("the Stand not out")) {
+						fixture.standType.forceUnsummon(fixture.user, fixture.power);
+						helper.assertTrue(fixture.power.getSummonedStandEntity() == null,
+								"STAND-RANGE premise: Crazy Diamond is still out");
+						where += ", Crazy Diamond not out";
+					}
+					expected = row.equals("within the user's reach") ? "accepted" : HEAL_TARGET;
+				}
+				else {
+					// its user moved it 2.4 blocks behind (north) and turned it north, as the O key does
+					StandEntity stand = fixture.stand;
+					stand.setManuallyControlled(true);
+					stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z - 2.4D, 180.0F, 0.0F);
+					stand.setYHeadRot(180.0F);
+					boolean userLookOnly = row.endsWith("the user's look only");
+					boolean inAim = row.endsWith("in the Stand's aim");
+					boolean pastReach = row.contains("past the Stand's reach");
+					Vec3 feet = userLookOnly ? new Vec3(fixture.origin.x, fixture.origin.y + 0.6D, fixture.origin.z + 5.0D)
+							: new Vec3(fixture.origin.x + (inAim ? 0.6D : 0.0D), stand.getEyeY() - wounded.getBbHeight() / 2.0D,
+									stand.getZ() - (pastReach ? 4.0D : 2.2D));
+					wounded.moveTo(feet.x, feet.y, feet.z, 180.0F, 0.0F);
+					LivingComponentAction.getComponent(stand).entityAim.setTarget(inAim ? new ActionTarget(wounded) : ActionTarget.EMPTY);
+					double gap = MathUtil.getAABBDistance(stand.getBoundingBox(), fixture.user.getBoundingBox());
+					double fromStandEyes = Math.sqrt(wounded.getBoundingBox().distanceToSqr(stand.getEyePosition()));
+					double fromUser = Math.sqrt(wounded.getBoundingBox().distanceToSqr(userEyes));
+					double standReach = stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE);
+					Vec3 standEyes = stand.getEyePosition();
+					Vec3 standLookEnd = standEyes.add(stand.getLookAngle().scale(8.0D));
+					boolean onUsersLook = wounded.getBoundingBox().clip(userEyes, userLookEnd).isPresent();
+					boolean onStandsLook = wounded.getBoundingBox().clip(standEyes, standLookEnd).isPresent();
+					boolean inStandsPrecisionBox = HitResultUtil.standPrecisionTargetHitbox(wounded.getBoundingBox(), stand.getPrecision())
+							.clip(standEyes, standLookEnd).isPresent();
+					boolean layout = userLookOnly ? onUsersLook && !onStandsLook && fromUser < 5.0D
+							: !onUsersLook && (inAim ? !onStandsLook && inStandsPrecisionBox && fromStandEyes < standReach
+									: onStandsLook && (pastReach ? fromStandEyes > 3.0D && fromStandEyes < 5.0D : fromStandEyes < standReach));
+					helper.assertTrue(stand.isManuallyControlled() && gap <= stand.getMaxRange() && layout,
+							"STAND-RANGE premise: the manually controlled Stand " + gap + " blocks from its user (max range "
+									+ stand.getMaxRange() + "), the cow " + fromStandEyes + " from the Stand's eyes (reach " + standReach
+									+ ", on its look " + onStandsLook + ", its precision box on it " + inStandsPrecisionBox + ") and "
+									+ fromUser + " from the user's (on its look " + onUsersLook + ")");
+					where = userLookOnly ? "on its user's look ray " + fromUser + " blocks away, the Stand looking aside"
+							: (inAim ? "in the Stand's aim, off its exact look" : "on the Stand's look ray") + ", " + fromStandEyes
+									+ " blocks from the Stand's eyes (its reach " + standReach + ")";
+					expected = userLookOnly || pastReach ? HEAL_TARGET : "accepted";
+				}
+				String answered = fixture.refusal(Kind.CD_HEAL, wounded);
+				helper.assertTrue(expected.equals(answered), "CD_HEAL " + row + ", a wounded cow " + where + ": answered "
+						+ answered + "; 1.16's crosshair " + ("accepted".equals(expected) ? "took the cow"
+								: "did not reach the cow, so there was nothing to heal") + " (" + expected + ")");
+			}
+		}
+		helper.succeed();
+	}
+
+	/*
+	 * Behind an empty vanilla pick, with the Stand out, 1.16's crosshair was the Stand's precision ray
+	 * (StandEntity.precisionRayTrace): any entity but the Stand and its user, its box grown by the Stand's precision, the
+	 * closest player or Stand first, then hostile mob, then any other; Heal and Revert refused the one it took only then
+	 * (checkTarget), so an entity they do not work on hid one behind it. EntityStandType.clientHitResult cast that ray only
+	 * where the vanilla pick met nothing: a picked entity or block was the target. Without the user's aim assist setting
+	 * the crosshair line takes its place. On the user's look, every entity is past the 3 blocks of a Survival player's
+	 * vanilla pick and within the 5-block reach, unless the row puts it under the vanilla pick.
+	 */
+	@GameTest(template = "empty", batch = BATCH)
+	public static void crazyDiamondHealAndRevertTakeThePrecisionRayTargetAsIn116(GameTestHelper helper) {
+		String[] rows = { "revert: a cow before a snow golem", "revert: a charged creeper behind a cow",
+				"revert: a snow golem beside the look line, in the Stand's precision box",
+				"revert, the aim assist off: a snow golem beside the look line, in the Stand's precision box",
+				"revert, the aim assist off: a cow before a snow golem",
+				"revert: the vanilla pick on a cow, a charged creeper behind it",
+				"revert under manual control: a cow before a snow golem on the Stand's look",
+				"heal: a minecart before a wounded cow", "heal: a wounded cow beside the look line, in the Stand's precision box",
+				"heal: the vanilla pick on a block, a wounded baby cow before it" };
+		for (String row : rows) {
+			boolean heal = row.startsWith("heal");
+			try (Fixture fixture = Fixture.open(helper, heal ? Kind.CD_HEAL : Kind.CD_REVERT)) {
+				fixture.power.setResolveLevel(4);
+				fixture.stand.updatePosition(fixture.user);
+				fixture.aim(ActionTarget.EMPTY);
+				if (row.contains("the aim assist off")) {
+					fixture.user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get()).standAimAssist = false;
+				}
+				Cow wounded = null;
+				String layout;
+				boolean premise;
+				String expected;
+				if (row.contains("under manual control")) {
+					StandEntity stand = fixture.stand;
+					stand.setManuallyControlled(true);
+					stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z - 2.4D, 180.0F, 0.0F);
+					stand.setYHeadRot(180.0F);
+					LivingComponentAction.getComponent(stand).entityAim.setTarget(ActionTarget.EMPTY);
+					Cow cow = placed(helper, fixture, EntityType.COW, new Vec3(fixture.origin.x, stand.getEyeY(), stand.getZ() - 1.0D));
+					SnowGolem golem = placed(helper, fixture, EntityType.SNOW_GOLEM,
+							new Vec3(fixture.origin.x, stand.getEyeY(), stand.getZ() - 2.0D));
+					double reach = stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE);
+					double cowEntry = entry(stand, cow.getBoundingBox());
+					double golemEntry = entry(stand, golem.getBoundingBox());
+					premise = cowEntry > 0.0D && golemEntry > cowEntry && golemEntry < reach && entry(fixture.user, golem.getBoundingBox()) < 0.0D;
+					layout = "on the Stand's look, the cow " + cowEntry + " and the golem " + golemEntry + " blocks from its eyes (reach "
+							+ reach + ")";
+					expected = ITEM_OFFHAND;
+				}
+				else if (row.contains("beside the look line")) {
+					Entity beside;
+					if (heal) {
+						wounded = placed(helper, fixture, EntityType.COW, onLook(fixture, 0.75D, 4.0D));
+						beside = wounded;
+					}
+					else {
+						beside = placed(helper, fixture, EntityType.SNOW_GOLEM, onLook(fixture, 0.6D, 4.0D));
+					}
+					double exact = entry(fixture.user, beside.getBoundingBox());
+					double grown = entry(fixture.user, HitResultUtil.standPrecisionTargetHitbox(
+							beside.getBoundingBox().inflate(beside.getPickRadius()), fixture.stand.getPrecision()));
+					premise = exact < 0.0D && grown > 0.0D && grown < 5.0D;
+					layout = "beside the look line (the line misses its box), its box grown by the Stand's precision "
+							+ fixture.stand.getPrecision() + " met " + grown + " blocks from the eyes";
+					expected = row.contains("the aim assist off") ? (heal ? HEAL_TARGET : ITEM_OFFHAND) : "accepted";
+				}
+				else if (row.contains("the vanilla pick on a block")) {
+					BlockPos block = fixture.block(BlockPos.containing(fixture.origin.x, fixture.user.getEyeY(), fixture.origin.z + 3.6D));
+					fixture.aim(new ActionTarget(block, Direction.NORTH));
+					wounded = fixture.babyCow(0.0D, 3.27D);
+					double cowEntry = entry(fixture.user, wounded.getBoundingBox());
+					double blockEntry = entry(fixture.user, new AABB(block));
+					premise = cowEntry > fixture.user.entityInteractionRange() && blockEntry > cowEntry
+							&& blockEntry <= fixture.user.blockInteractionRange();
+					layout = "the baby cow " + cowEntry + " blocks along the look line, past the vanilla pick's entities, and the block "
+							+ blockEntry + ", within its blocks";
+					expected = HEAL_TARGET;
+				}
+				else {
+					boolean picked = row.contains("the vanilla pick on a cow");
+					Entity front = heal ? placed(helper, fixture, EntityType.MINECART, onLook(fixture, 0.0D, 3.7D))
+							: placed(helper, fixture, EntityType.COW, onLook(fixture, 0.0D, picked ? 2.3D : 3.7D));
+					Entity behind;
+					if (heal) {
+						wounded = placed(helper, fixture, EntityType.COW, onLook(fixture, 0.0D, 4.6D));
+						behind = wounded;
+					}
+					else if (row.contains("creeper")) {
+						Creeper creeper = placed(helper, fixture, EntityType.CREEPER, onLook(fixture, 0.0D, 4.6D));
+						CommonReflection.setCreeperPowered(creeper, true);
+						behind = creeper;
+					}
+					else {
+						behind = placed(helper, fixture, EntityType.SNOW_GOLEM, onLook(fixture, 0.0D, 4.6D));
+					}
+					if (picked) {
+						fixture.aim(new ActionTarget(front));
+					}
+					double frontEntry = entry(fixture.user, front.getBoundingBox());
+					double behindEntry = entry(fixture.user, behind.getBoundingBox());
+					premise = (picked ? frontEntry > 0.0D && frontEntry < fixture.user.entityInteractionRange()
+							: frontEntry > fixture.user.entityInteractionRange()) && behindEntry > frontEntry && behindEntry < 5.0D;
+					layout = "on the look line, the " + front.getType().getDescription().getString() + " " + frontEntry + " and the "
+							+ behind.getType().getDescription().getString() + " " + behindEntry + " blocks from the eyes";
+					boolean creeperTaken = row.equals("revert: a charged creeper behind a cow");
+					expected = heal ? HEAL_TARGET : creeperTaken ? "accepted" : ITEM_OFFHAND;
+				}
+				helper.assertTrue(premise && fixture.user.getOffhandItem().isEmpty(), "STAND-RANGE premise: " + row + ": " + layout);
+				String answered = heal ? fixture.refusal(Kind.CD_HEAL, wounded) : fixture.refusal();
+				helper.assertTrue(expected.equals(answered), (heal ? "CD_HEAL " : "CD_REVERT ") + row + " (" + layout
+						+ ")" + (heal ? "" : ", an empty off hand") + ": answered " + answered + "; 1.16 answered " + expected);
+			}
+		}
+		helper.succeed();
+	}
+
+	// a still entity whose box is centred on the given height
+	private static <T extends Entity> T placed(GameTestHelper helper, Fixture fixture, EntityType<T> type, Vec3 centre) {
+		T entity = type.create(fixture.level);
+		helper.assertTrue(entity != null, "STAND-RANGE premise: could not create " + type);
+		entity.setNoGravity(true);
+		if (entity instanceof Mob mob) {
+			mob.setNoAi(true);
+		}
+		entity.moveTo(centre.x, centre.y - entity.getBbHeight() / 2.0D, centre.z, 180.0F, 0.0F);
+		fixture.extras.add(entity);
+		helper.assertTrue(fixture.level.addFreshEntity(entity), "STAND-RANGE premise: could not add " + type);
+		return entity;
+	}
+
+	// on the user's look line at eye height, side blocks to the east and ahead blocks along it
+	private static Vec3 onLook(Fixture fixture, double side, double ahead) {
+		return new Vec3(fixture.origin.x + side, fixture.user.getEyeY(), fixture.origin.z + ahead);
+	}
+
+	// how far along the entity's look its line enters the box within 8 blocks, or -1
+	private static double entry(LivingEntity looking, AABB box) {
+		Vec3 eyes = looking.getEyePosition();
+		return box.clip(eyes, eyes.add(looking.getLookAngle().scale(8.0D))).map(eyes::distanceTo).orElse(-1.0D);
 	}
 
 	/*

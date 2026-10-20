@@ -58,6 +58,12 @@ public class StarPlatinumZoomAbility extends NoPoseStandEntityAbility {
 			}
 		}
 
+		// 1.16 StarPlatinumZoom was a holdType Stand action
+		@Override
+		public boolean isHoldTypeStandAction() {
+			return true;
+		}
+
 		@Override
 		public void onButtonStopHold() {
 			clearClientZoom();

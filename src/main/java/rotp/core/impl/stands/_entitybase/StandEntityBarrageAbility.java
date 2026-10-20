@@ -198,6 +198,11 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 		return phase != null && phase != ActionPhase.RECOVERY;
 	}
 
+	@Override
+	public boolean isHoldAction() {
+		return true;
+	}
+
 	// 1.16 StandEntityMeleeBarrage.stopOnHeavyAttack: an enemy heavy attack that hurts the Stand stops the barrage.
 	@Override
 	public boolean stopsOnHeavyAttack(EntityActionInstance action) {
@@ -495,6 +500,12 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 					Math.min(0.5, stand.getEffectiveRange()), Math.min(1.5, stand.getEffectiveRange()));
 		}
 		
+		// 1.16 StandEntityMeleeBarrage was a holdType Stand action
+		@Override
+		public boolean isHoldTypeStandAction() {
+			return true;
+		}
+
 		@Override
 		public void onButtonStopHold() {
 			startRecovery();

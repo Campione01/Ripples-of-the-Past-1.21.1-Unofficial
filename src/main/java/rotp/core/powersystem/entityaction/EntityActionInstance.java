@@ -19,6 +19,7 @@ import rotp.core.network.NetworkPayloadValidation;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.ability.AbilityUsageGroup;
 import rotp.core.powersystem.ability.EntityActionAbility;
+import rotp.core.powersystem.ability.input.AbilityInput;
 import rotp.core.powersystem.entityaction.netcode.TrEntityActionPhaseTimePacket;
 import rotp.core.powersystem.entityaction.netcode.TrEntityActionTargetPacket;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
@@ -268,9 +269,40 @@ public class EntityActionInstance implements HeldInput {
 		}
 	}
 	
+	/**
+	 * Whether a press of this ability, while this action is its performer's action, starts at once and replaces this
+	 * action; otherwise the press waits in the input buffer until the action ends. By default only a hold-type Stand action
+	 * gives way ({@link #givesWayToOtherAbilities}), to every ability but its own, except, while a player's key still holds
+	 * it, to an ability that holds too: 1.16's client sent no press of a held action while the power held one
+	 * (ActionsOverlayGui.onActionClick), and a mob's press went through.
+	 */
 	@ApiStatus.OverrideOnly
 	public boolean canBeCancelledInto(EntityActionType cancellingAbility) {
+		return cancellingAbility != ability && givesWayToOtherAbilities()
+				&& !(cancellingAbility instanceof EntityActionAbility pressed && pressed.isHoldAction()
+						&& getPowerUser() instanceof Player user && AbilityInput.isHeldByKey(user, this));
+	}
+
+	/**
+	 * Whether this action is a Stand's hold-type action as 1.16 had them: a StandEntityAction built with holdType (held
+	 * from its press with nothing to fire, so heldAllowsOtherAction was true), performed by the Stand and held in its
+	 * perform. 1.16 let every other action of the Stand's power through it: one the Stand performs replaced it at once
+	 * ({@link #givesWayToOtherAbilities}), any other ended its hold as letting go of its key does (PowerBaseImpl
+	 * .stopHeldAction(false); AbilityInput). False by default; an action whose 1.16 counterpart was one returns true.
+	 */
+	@ApiStatus.OverrideOnly
+	public boolean isHoldTypeStandAction() {
 		return false;
+	}
+
+	/**
+	 * 1.16 StandEntityAction.isCancelable for a hold-type Stand action ({@link #isHoldTypeStandAction}): any other Stand
+	 * action pressed before its recovery replaces it at once, if it has no recovery (1.16 asked for none for a pressed
+	 * action; one with a recovery queued it, as the input buffer does here).
+	 */
+	public boolean givesWayToOtherAbilities() {
+		return phase != null && phase != ActionPhase.RECOVERY && phasesLength.getFloat(ActionPhase.RECOVERY) <= 0
+				&& isHoldTypeStandAction();
 	}
 
 	/**

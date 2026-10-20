@@ -94,6 +94,12 @@ public class StandEntityBlockAbility extends StandEntityAbility {
 			}
 		}
 
+		// 1.16 StandEntityBlock was a holdType Stand action
+		@Override
+		public boolean isHoldTypeStandAction() {
+			return true;
+		}
+
 		@Override
 		public void onButtonStopHold() {
 			startRecovery();

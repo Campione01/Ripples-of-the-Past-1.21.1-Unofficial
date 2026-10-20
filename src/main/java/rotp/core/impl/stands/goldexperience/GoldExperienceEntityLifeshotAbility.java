@@ -47,15 +47,30 @@ public class GoldExperienceEntityLifeshotAbility extends NoPoseStandEntityAbilit
         isSubAbility = true;
     }
 
-    // 1.16 GoldExperienceLifeshotPunch.attackRecoveryFollowup: the heavy key that resolved to the running Life Shot punch
-    // gave its Life Shot (StandEntityHeavyAttack.replaceAction asked the variation's replaceAction), whichever heavy
-    // attack the punch was the finisher variation of
+    /*
+     * 1.16 GoldExperienceLifeshotPunch.attackRecoveryFollowup: the heavy key that resolved to the running Life Shot punch
+     * (StandEntityHeavyAttack.replaceAction asked the variation's replaceAction; a key the punch gave back to the base
+     * heavy for a lost part did not) gave its Life Shot, whichever heavy attack the punch was the finisher variation of,
+     * only if the Life Shot's requirements passed (StandAction.canSetFollowUp); otherwise the key stayed the running
+     * punch, whose press is refused. A refusal message the Life Shot gives stays on that press (owner: the port's
+     * refusal messages are kept).
+     */
     @Override
     public Ability replaceWithSubAbility(Power<?> context, AvailableAbilities abilities) {
         StandPower standPower = PowerClass.STAND.cast(context);
         ToothKnockingHeavyPunch punch = getCurrentGoldExperiencePunch(standPower);
-        if (abilities != null && punch != null && punch.canAcceptLifeshotFollowup()) {
-            abilities.replaceOtherAbilityWith(standPower, getLifeshotPunchBase(punch), this);
+        if (abilities != null && punch != null && punch.canAcceptLifeshotFollowup() && isAbilityAvailable(context)) {
+            String base = getLifeshotPunchBase(punch);
+            Ability key = abilities.getContextVariation(base);
+            if (key != null && key.getAbilityId().equals(punch.ability.getAbilityId())) {
+                ConditionCheck check = checkConditions(context);
+                if (check.isPositive()) {
+                    abilities.replaceOtherAbilityWith(standPower, base, this);
+                }
+                else if (check.getWarning() != null) {
+                    abilities.setConditionCheck(base, check);
+                }
+            }
         }
         return super.replaceWithSubAbility(context, abilities);
     }

@@ -298,20 +298,11 @@ public class HierophantEmeraldSplashAbility extends StandEntityAbility implement
 			}
 		}
 
-		// 1.16 HierophantGreenEmeraldSplash was chainable, but pressed again before its recovery it was queued
-		// (isCancelable only in RECOVERY, canBeQueued), which the input buffer does here
+		// 1.16 HierophantGreenEmeraldSplash.isCancelable: only in RECOVERY, for any action, the other variant and the
+		// chainable splash itself included; pressed before that it was queued (canBeQueued), which the input buffer does
 		@Override
 		public boolean canBeCancelledInto(EntityActionType cancellingAbility) {
-			return getPhase() == ActionPhase.RECOVERY || isEmeraldSplash(cancellingAbility) && cancellingAbility != ability;
-		}
-
-		private static boolean isEmeraldSplash(EntityActionType cancellingAbility) {
-			if (cancellingAbility.getAbilityId() == null) {
-				return false;
-			}
-			String abilityName = cancellingAbility.getAbilityId().nameInMoveset();
-			return "emerald_splash".equals(abilityName)
-					|| "emerald_splash_concentrated".equals(abilityName);
+			return getPhase() == ActionPhase.RECOVERY;
 		}
 
 		private static void runFractionalTimes(Runnable action, double times, RandomDouble random) {

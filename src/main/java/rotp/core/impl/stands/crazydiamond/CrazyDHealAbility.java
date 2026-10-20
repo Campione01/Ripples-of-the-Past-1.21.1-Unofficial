@@ -1,5 +1,7 @@
 package rotp.core.impl.stands.crazydiamond;
 
+import java.util.function.Predicate;
+
 import javax.annotation.Nullable;
 
 import rotp.core.powersystem.standpower.StandInstance.StandPart;
@@ -11,9 +13,11 @@ import rotp.core.api.healing.ExternalRestoreContext;
 import rotp.core.api.healing.ExternalRestoreResult;
 import rotp.core.api.healing.LivingRestoreContext;
 import rotp.core.api.healing.RestoreAugmentation;
+import rotp.core.api.stand.StandSkillWalls;
 import rotp.core.client.entityanim.PreFrameEntityAnimCalc.LivingAnimState;
 import rotp.core.client.ClientGlobals;
 import rotp.core.client.ClientProxy;
+import rotp.core.client.input.ClientsideAim;
 import rotp.core.client.sound.ClientsideSoundsHelper;
 import rotp.core.client.sound.sounds.EntityLingeringSoundInstance;
 import rotp.core.client.sound.sounds.EntityStoppableSoundInstance;
@@ -46,10 +50,11 @@ import rotp.core.subsystems.target.ActionTargetRange;
 import rotp.core.subsystems.target.ActionTargetAim;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
 import rotp.core.subsystems.target.AimingEntity;
-import rotp.core.subsystems.target.HitResultUtil;
+import rotp.core.subsystems.target.StandPrecisionRay;
 import rotp.core.util.functions.JojoModUtil;
 import rotp.core.util.functions.StatusEffectUtil;
 import rotp.core.impl.stands._entitybase.StandAbilityStamina;
+import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -61,6 +66,7 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.vehicle.Boat;
 import net.minecraft.world.level.Level;
 
@@ -69,7 +75,6 @@ public class CrazyDHealAbility extends StandEntityAbility {
 	private static final ActionAnimIdentifier REPAIR_ITEM_ANIM = ActionAnimIdentifier.getOrCreate("itemFix", false);
 	private static final ActionAnimIdentifier BARRAGE_ANIM = ActionAnimIdentifier.getOrCreate("barrage", false);
 	public static final float HEAL_STAMINA_COST_TICK = 1F;
-	private static final double ENTITY_TARGET_RANGE = 8.0D;
 	private static final double HEAL_SPEED_MULTIPLIER = 1;
 
 	public CrazyDHealAbility(AbilityType<?> abilityType, AbilityId abilityId) {
@@ -92,7 +97,7 @@ public class CrazyDHealAbility extends StandEntityAbility {
 		}
 
 		Level level = user.level();
-		ActionTarget aimedTarget = getAimedTarget(user, level);
+		ActionTarget aimedTarget = getAimedTarget(user, crosshairAimingEntity(user, summonedStand(user)), level);
 		if (aimedTarget.getType() == TargetType.ENTITY
 				&& !ActionTargetRange.isTargetWithinRange(ActionTargetRange.standPerformer(user), aimedTarget, level)) {
 			return ConditionCheck.createNegative("target_too_far");
@@ -134,23 +139,48 @@ public class CrazyDHealAbility extends StandEntityAbility {
 	}
 
 	protected static ActionTarget getCurrentEntityTarget(LivingEntity user, Level level) {
-		if (user == null || isClientEntityMissing(user, level)) {
+		return getCrosshairEntityTarget(user, level, CrazyDHealAbility::canHealEntityTarget);
+	}
+
+	/*
+	 * 1.16 took Heal's and Revert's target under the crosshair (InputHandler.pickMouseTarget): the vanilla pick, which the
+	 * client's aim carries, and only where that met nothing and the Stand was out, EntityStandType.clientHitResult's
+	 * precision ray from the camera entity (the Stand under manual control) as far as StandEntity.getAimDistance: the
+	 * user's REACH_DISTANCE, or the Stand's own under manual control. That ray (StandEntity.precisionRayTrace) took any
+	 * entity, by the Stand's precision boxes and its player / hostile / other priority, and the action refused it only
+	 * then, so an entity it does not work on hid one behind. That ray is cast here, on either side, from the same eyes;
+	 * without the user's aim assist setting, the crosshair line instead, as for the punches.
+	 */
+	static ActionTarget getCrosshairEntityTarget(LivingEntity user, Level level, Predicate<Entity> worksOn) {
+		if (user == null) {
 			return ActionTarget.EMPTY;
 		}
-		ActionTarget target = getAimedTarget(user, level);
-		if (isValidHealEntityTarget(user, target, level)) {
-			return target;
+		StandEntity stand = summonedStand(user);
+		LivingEntity aiming = crosshairAimingEntity(user, stand);
+		if (isClientEntityMissing(aiming, level)) {
+			return ActionTarget.EMPTY;
 		}
-		target = HitResultUtil.clip(
-				user.getEyePosition(),
-				user.getLookAngle(),
-				ENTITY_TARGET_RANGE,
-				ENTITY_TARGET_RANGE,
-				level,
-				CrazyDHealAbility::canHealEntityTarget,
-				user,
-				0);
-		return isValidHealEntityTarget(user, target, level) ? target : ActionTarget.EMPTY;
+		ActionTarget target = getAimedTarget(user, aiming, level);
+		if (target.getType() == TargetType.EMPTY && stand != null) {
+			double reach = aiming == stand
+					? stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE) : StandEntityPunchAbility.userAimReach(user, stand);
+			boolean wallsHideEntities = StandSkillWalls.wallsHideEntities(aiming);
+			target = StandEntityPunchAbility.aimAssist(user)
+					? StandPrecisionRay.trace(aiming, stand, reach, 0.0D, true, wallsHideEntities)
+					: StandPrecisionRay.crosshair(aiming, stand, reach, true, wallsHideEntities);
+		}
+		return isValidEntityTarget(user, target, level, worksOn) ? target : ActionTarget.EMPTY;
+	}
+
+	// the camera entity of 1.16's crosshair: the Stand under manual control, otherwise its user
+	private static LivingEntity crosshairAimingEntity(LivingEntity user, @Nullable StandEntity stand) {
+		return stand != null && stand.isManuallyControlled() ? stand : user;
+	}
+
+	@Nullable
+	private static StandEntity summonedStand(LivingEntity user) {
+		StandPower power = StandPower.get(user);
+		return power != null ? power.getSummonedStandEntity() : null;
 	}
 
 	/**
@@ -162,8 +192,11 @@ public class CrazyDHealAbility extends StandEntityAbility {
 		return aim != null && aim.isClientEntityMissing();
 	}
 
-	private static ActionTarget getAimedTarget(LivingEntity user, Level level) {
-		ActionTargetAim aim = LivingComponentAction.getAim(user);
+	// the aims go only from the user's client to the server, so that client reads the ones it sends
+	private static ActionTarget getAimedTarget(LivingEntity user, LivingEntity aiming, Level level) {
+		ActionTargetAim aim = level.isClientSide() && user == ClientProxy.getClientPlayer()
+				? (aiming == user ? ClientsideAim.playerAim : ClientsideAim.standAim)
+				: LivingComponentAction.getAim(aiming);
 		ActionTarget target = aim != null ? aim.getTarget() : ActionTarget.EMPTY;
 		return target != null ? target.resolveEntityId(level) : ActionTarget.EMPTY;
 	}
@@ -177,13 +210,15 @@ public class CrazyDHealAbility extends StandEntityAbility {
 								.canTarget(target));
 	}
 
-	private static boolean isValidHealEntityTarget(LivingEntity user, ActionTarget target, Level level) {
+	private static boolean isValidEntityTarget(LivingEntity user, ActionTarget target, Level level,
+			Predicate<Entity> worksOn) {
 		if (target.getType() != TargetType.ENTITY || target.isEmpty(level)) {
 			return false;
 		}
 		Entity targetEntity = target.getEntity();
 		return targetEntity != null
-				&& canHealEntityTarget(targetEntity)
+				&& canPickEntityForAiming(targetEntity)
+				&& worksOn.test(targetEntity)
 				// 1.16 Action.checkRangeAndTarget: from the Stand while it is out, less without a line of sight
 				&& ActionTargetRange.isEntityWithinRange(ActionTargetRange.standPerformer(user), targetEntity,
 						ActionTargetRange.DEFAULT_ENTITY_RANGE_SQ);
@@ -254,6 +289,12 @@ public class CrazyDHealAbility extends StandEntityAbility {
 			aimAs = AimingEntity.STAND;
 		}
 		
+		// 1.16 CrazyDiamondHeal and CrazyDiamondPreviousState was a holdType Stand action
+		@Override
+		public boolean isHoldTypeStandAction() {
+			return true;
+		}
+
 		@Override
 		public void onButtonStopHold() {
 			startRecovery();
@@ -309,7 +350,7 @@ public class CrazyDHealAbility extends StandEntityAbility {
 			LivingEntity user = getPowerUser();
 			return targetEntity != null && targetEntity != performer
 					&& !(targetEntity instanceof LivingEntity living && living.deathTime >= 20)
-					&& user != null && isValidHealEntityTarget(user, target, level);
+					&& user != null && isValidEntityTarget(user, target, level, CrazyDHealAbility::canHealEntityTarget);
 		}
 
 		@Override

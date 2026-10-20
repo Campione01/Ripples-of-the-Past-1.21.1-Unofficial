@@ -176,7 +176,11 @@ public final class RotpAddonApi {
 	 * (a held action takes its press's cooldown as it fires or, hold-only, as its hold ends, with the ticks held;
 	 * EntityActionInstance#isCooldownTakenAfterHold), EntityActionInstance#refusesOwnAbilityPressedAgain (a Stand
 	 * action that was not chainable in 1.16 refuses its own ability pressed again where canBeCancelledInto would let it
-	 * cancel the action).
+	 * cancel the action), EntityActionInstance#isHoldTypeStandAction (false by default; true for an action whose 1.16
+	 * counterpart was a holdType Stand action: the default canBeCancelledInto then lets every other ability replace it
+	 * before its recovery if it has none, #givesWayToOtherAbilities, but not, while a player's key holds it, one whose
+	 * action holds too, EntityActionAbility#isHoldAction; and a press of another ability of its power that goes off,
+	 * Ability#endsOtherHoldOnPress, ends its hold).
 	 */
 	public static final String FEATURE_ENTITY_ACTION_HOOKS_V1 =
 			"entity_action_hooks_v1";

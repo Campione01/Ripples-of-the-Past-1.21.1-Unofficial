@@ -43,6 +43,10 @@ public final class AddonFeatureApiSurfaceSmokeTest {
 		requireOverridable(entityAction, "setsCooldownAfterHold", instance);
 		requirePublic(instance, "isCooldownTakenAfterHold");
 		requireOverridable(instance, "refusesOwnAbilityPressedAgain");
+		requireOverridable(instance, "isHoldTypeStandAction");
+		requireOverridable(instance, "givesWayToOtherAbilities");
+		requireOverridable("rotp.core.powersystem.ability.Ability", "endsOtherHoldOnPress");
+		requireOverridable(entityAction, "isHoldAction");
 
 		check(RotpAddonApi.supportsFeature(RotpAddonApi.FEATURE_STAND_USER_GUARD_V1),
 				"the Stand's guard of its user is not advertised");

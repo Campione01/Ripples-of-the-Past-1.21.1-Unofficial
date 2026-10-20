@@ -140,15 +140,9 @@ public class StandOffsetFromUser {
 		EntityDimensions defaultSize = userEntity.getType().getDimensions();
 		offset = scaleOffsetForUser(offset, userEntity.getBbWidth(), userEntity.getBbHeight(),
 				defaultSize.width(), defaultSize.height());
-		
-		double maxRange = standEntity.getMaxRangeForMovement(userEntity);
-		double offsetDist = offset.lengthSqr();
-		if (offsetDist > maxRange * maxRange) {
-			offsetDist = Math.sqrt(offsetDist);
-			offset = offset.scale(maxRange / offsetDist);
-		}
-		
-		// 1.16 StandEntity.updatePosition measured every offset from the user's feet
+
+		// 1.16 StandEntity.updatePosition measured every offset from the user's feet and did not shorten one longer than
+		// the max range: only StandEntity.move held the Stand within it
 		return AlignBy.BOTTOM.align(userEntity, standEntity, offset);
 	}
 

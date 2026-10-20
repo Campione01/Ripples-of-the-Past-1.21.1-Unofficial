@@ -49,6 +49,12 @@ public class GoldExperienceLifeDetectorAbility extends NoPoseStandEntityAbility 
 			StandAbilityStamina.consume(ability, StandPower.get(user), STAMINA_COST_TICK, true);
 		}
 
+		// 1.16 GoldExperienceLifeDetector was a holdType Stand action
+		@Override
+		public boolean isHoldTypeStandAction() {
+			return true;
+		}
+
 		@Override
 		public void onButtonStopHold() {
 			if (getPhase() == ActionPhase.PERFORM) {

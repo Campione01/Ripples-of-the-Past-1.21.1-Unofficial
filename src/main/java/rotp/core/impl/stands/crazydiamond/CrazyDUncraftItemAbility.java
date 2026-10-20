@@ -163,6 +163,12 @@ public class CrazyDUncraftItemAbility extends StandEntityAbility {
 			CrazyDRepairItemAbility.applyItemFixStandRotation(standEntity, user);
 		}
 
+		// 1.16 CrazyDiamondPreviousState, which turned items back too, was a holdType Stand action
+		@Override
+		public boolean isHoldTypeStandAction() {
+			return true;
+		}
+
 		@Override
 		public void onButtonStopHold() {
 			startRecovery();
