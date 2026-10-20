@@ -36,7 +36,6 @@ import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.api.leap.LeapAccessPolicies;
 import rotp.core.api.leap.LeapSource;
 import rotp.core.init.ModStatusEffects;
-import rotp.core.util.functions.MathUtil;
 import rotp.core.impl.powers.hamon.HamonData;
 import rotp.core.impl.powers.pillarman.PillarmanData;
 import rotp.core.impl.powers.pillarman.PillarmanPowerType;
@@ -1334,7 +1333,8 @@ public class PowerHud {
 		@Override
 		public void renderElement(GuiGraphics guiGraphics, DeltaTracker deltaTracker) {
 			StandEntity stand = ClientGlobals.playerStandEntity;
-			double distance = MathUtil.getAABBDistance(stand.getBoundingBox(), stand.getUser().getBoundingBox());
+			// 1.16 ActionsOverlayGui: stand.distanceTo(player), the measure the strength decay takes
+			double distance = stand.distanceTo(stand.getUser());
 			double damageFactor = stand.rangeEfficiency;
 			Font font = Minecraft.getInstance().font;
 
