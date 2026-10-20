@@ -25,17 +25,24 @@ import it.unimi.dsi.fastutil.floats.Float2ObjectSortedMap;
 public class StandFinisherCheck {
 	protected final Map<String, Float2ObjectSortedMap<AbilityConditionCheck>> curFinishers = new HashMap<>();
 	
+	/**
+	 * 1.16 StandEntityHeavyAttack.getFinisherVariationIfPresent: the base's key goes to its finisher variation by the
+	 * finisher meter, unless the variation needs a part the Stand lost, or by the missing-part rule, whatever the
+	 * variation's conditions, which its press then asks (a full meter with a variation that cannot be used refused the
+	 * key); Action.getVisibleAction gave the key back to the base only for a variation that is not unlocked.
+	 */
 	public void update(Power<?> context, Moveset baseMoveset, AvailableAbilities abilities) {
 		Map<String, Float2ObjectSortedMap<AbilityConditionCheck>> finishers = this.curFinishers;
 		finishers.values().forEach(Map::clear);
 
 		float curFinisherValue = getFinisherValue(context);
-		
+
 		Map<String, Ability> movesetAbilities = baseMoveset.abilities;
 		for (var baseAbilityEntry : movesetAbilities.entrySet()) {
 			Ability ability = baseAbilityEntry.getValue();
 			AbilityStandFinisherData isFinisherOf = getAbilityFinisherOf(ability);
 			if (isFinisherOf != null && (curFinisherValue >= 0 && isFinisherOf.minFinisherValue() <= curFinisherValue
+							&& !needsMissingPart(context, ability)
 					|| replacesBaseMissingPart(context, movesetAbilities.get(isFinisherOf.baseAbilityName()), ability))) {
 				Float2ObjectSortedMap<AbilityConditionCheck> finishersOf = finishers.computeIfAbsent(isFinisherOf.baseAbilityName(), 
 						__ -> new Float2ObjectRBTreeMap<>());
@@ -48,7 +55,7 @@ public class StandFinisherCheck {
 			Float2ObjectSortedMap<AbilityConditionCheck> finishersOf = finisherEntries.getValue();
 			for (var finisherEntry : finishersOf.reversed().entrySet()) {
 				AbilityConditionCheck ability = finisherEntry.getValue();
-				if (ability.ability.isAbilityAvailable(context) && ability.conditionCheck.isPositive()) {
+				if (ability.ability.isAbilityAvailable(context)) {
 					abilities._inMoveset.put(baseAbilityName, ability);
 					break;
 				}
