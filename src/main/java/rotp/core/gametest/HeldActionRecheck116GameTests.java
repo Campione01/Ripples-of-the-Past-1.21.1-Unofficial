@@ -24,6 +24,7 @@ import rotp.core.init.power.ModStandAbilities;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.EntityActionAbility;
+import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInputState;
 import rotp.core.powersystem.entityaction.EntityActionInputState.HeldInputEntry;
@@ -106,6 +107,58 @@ public final class HeldActionRecheck116GameTests {
 					"1.16 sent target_too_far as the hold ended: messages " + s.user.keys());
 			helper.succeed();
 		}
+	}
+
+	// 1.16 PowerBaseImpl.checkRequirements asked the target (Action.checkRangeAndTarget, HamonHypnosis.checkTarget) before
+	// the action's conditions (HamonAction.checkConditions, NonStandAction.checkEnergy), at the press and on every held tick
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void hypnosisAsksItsTargetBeforeItsHamonConditionsAsIn116(GameTestHelper helper) {
+		try (PowerScene s = new PowerScene(helper, "HypnosisTargetFirst", ModPlayerPowers.HAMON.get())) {
+			HamonData hamon = PlayerPower.getPowerData(s.user, ModPlayerPowers.HAMON).orElseThrow();
+			hamon.learnSkill(ModHamonSkills.HYPNOSIS.get());
+			helper.assertTrue(hamon.isSkillLearned(ModHamonSkills.HYPNOSIS.get()), "setup: Hypnosis is not learned");
+			Mob near = s.mob(EntityType.WOLF, 2.0D);
+			Mob far = s.mob(EntityType.WOLF, 12.0D);
+			EntityActionAbility hypnosis = s.ability("hypnosis");
+
+			hamon.setEnergy(0.0F);
+			hamon.setBreathStability(0.0F);
+			s.aim(near);
+			String noEnergy = warningKey(hypnosis.checkConditions(s.power));
+			helper.assertTrue((CONDITION + "no_energy_hamon").equals(noEnergy),
+					"setup: with no Hamon energy or breath Hypnosis at the wolf 2 blocks away is not refused for its energy: "
+							+ noEnergy);
+			s.aim(far);
+			String press = warningKey(hypnosis.checkConditions(s.power));
+			helper.assertTrue((CONDITION + "target_too_far").equals(press),
+					"1.16 asked the target before the Hamon energy at the press: the wolf 12 blocks away is refused with "
+							+ press);
+
+			hamon.setBreathStability(hamon.getMaxBreathStability());
+			hamon.setEnergy(hamon.getMaxEnergy());
+			s.aim(near);
+			EntityActionInstance charge = s.start("hypnosis");
+			s.tick(3);
+			helper.assertTrue(charge.getPhase() == ActionPhase.WINDUP && !charge.isOver(),
+					"setup: Hypnosis is not charging at the wolf 2 blocks away: phase " + charge.getPhase());
+			hamon.setEnergy(0.0F);
+			hamon.setBreathStability(0.0F);
+			s.aim(far);
+			s.tick(1);
+			helper.assertTrue(charge.isOver(), "setup: the held Hypnosis went on with no energy at the far wolf: phase "
+					+ charge.getPhase());
+			helper.assertTrue(s.user.keys().contains(CONDITION + "target_too_far")
+					&& !s.user.keys().contains(CONDITION + "no_energy_hamon"),
+					"1.16 asked the target before the Hamon energy on the held tick, so the hold ended with target_too_far:"
+							+ " messages " + s.user.keys());
+			helper.succeed();
+		}
+	}
+
+	private static String warningKey(ConditionCheck check) {
+		Component warning = check.getWarning();
+		return warning == null ? (check.isPositive() ? "positive" : "silent")
+				: warning.getContents() instanceof TranslatableContents contents ? contents.getKey() : warning.getString();
 	}
 
 	// PillarmanBladeBarrage.checkHeldItems failed on a held tick: the hold ended with "hand".
