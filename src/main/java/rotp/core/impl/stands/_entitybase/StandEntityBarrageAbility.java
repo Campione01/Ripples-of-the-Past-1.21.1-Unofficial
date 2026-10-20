@@ -504,7 +504,9 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 		public void onActionCleared(EntityActionInstance newAction) {
 			if (performer instanceof StandEntity stand && newAction != this) {
 				stand.resetBarrageParry();
-				// 1.16 StandEntityMeleeBarrage.onTaskStopped compared actions: the same barrage pressed again keeps the clash
+				// 1.16 StandEntityMeleeBarrage.onTaskStopped compared actions, after clearTask had already dropped this Stand's
+				// side of the clash (StandEntity.onActionSet): another action or none synced its end, the same barrage pressed
+				// again left the synced id; neither told the opponent
 				if (!level().isClientSide() && (newAction == null || newAction.ability != ability)) {
 					stand.barrageClashStopped();
 				}

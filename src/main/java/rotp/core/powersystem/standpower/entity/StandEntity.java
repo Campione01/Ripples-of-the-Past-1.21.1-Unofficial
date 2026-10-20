@@ -1527,6 +1527,9 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		EntityActionInstance curAction = getCurStandAction();
 		if (!level().isClientSide() && curAction != null) {
 			rollGuardCounterDamage();
+			// 1.16 StandEntity.clearTask ran BarrageHandler.reset before the old task's onTaskStopped: this Stand's side of a
+			// barrage clash is gone, the opponent is not told and the synced id stays (setBarrageClashOpponent)
+			barrageClashOpponent = Optional.empty();
 		}
 		if (action != null) {
 			summonPoseEnded = true;
@@ -2525,12 +2528,15 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 	}
 
 	// 1.16: the other Stand points back only through the previous opponent, so from this Stand's second parry of it, or
-	// once it parries in turn
+	// once it parries in turn. The server takes the opponent only from a change of the synced id (onSyncedDataUpdated), so
+	// a side an action change dropped (onActionSet) does not come back under the same id
 	private void setBarrageClashOpponent(@Nullable Entity opponent) {
 		Entity prevOpponent = barrageClashOpponent().orElse(null);
-		barrageClashOpponent = Optional.ofNullable(opponent);
 		if (!level().isClientSide()) {
 			entityData.set(BARRAGE_CLASH_OPPONENT_ID, opponent != null ? opponent.getId() : -1);
+		}
+		else {
+			barrageClashOpponent = Optional.ofNullable(opponent);
 		}
 
 		if (prevOpponent instanceof StandEntity prevStandOpponent) {
