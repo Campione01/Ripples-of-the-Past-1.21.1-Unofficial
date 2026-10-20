@@ -75,10 +75,11 @@ public final class OwnAbilityPressDuringTask116GameTests {
 			s.refusedDuringItself("barrage", InputMethod.HOLD, EntityActionInstance::startRecovery);
 			s.user.removeEffect(ModStatusEffects.RESOLVE);
 
-			// with the uppercut locked a full meter gives the plain heavy punch a finisher's strength and free recovery
-			s.power.getCurTypeData()._lockedAbilities.add("finisher_uppercut");
+			// the finisher variation's free recovery (1.16 StandEntityHeavyAttack.isFreeRecovery: isFinisher) takes any
+			// action but itself
+			s.unlock("finisher_uppercut");
 			s.stand.setFinisherMeter(1.0F);
-			s.refusedDuringItself("heavy_punch", InputMethod.CLICK, EntityActionInstance::startRecovery);
+			s.refusedDuringItself("finisher_uppercut", InputMethod.CLICK, EntityActionInstance::startRecovery);
 
 			// before its recovery the heavy punch holds its own press back, which the input buffer keeps (N2)
 			s.stand.setFinisherMeter(0.0F);
@@ -152,6 +153,49 @@ public final class OwnAbilityPressDuringTask116GameTests {
 			helper.assertTrue(chained.isActionSuccess && second != null && second != first && second.ability == splash,
 					"1.16 restarted the emerald splash pressed in its recovery (chainable): success " + chained.isActionSuccess
 							+ ", the Stand's action " + second);
+			helper.succeed();
+		}
+	}
+
+	/*
+	 * 1.16 StandEntityHeavyAttack.isFreeRecovery was isFinisher(): only the finisher variation's recovery let another
+	 * action replace it at once (StandEntityAction.canBeCanceled), whatever the finisher meter (a variation the missing-part
+	 * rule chose could run at any meter); a plain heavy punch's recovery held a press back until it ended, even at a
+	 * finisher's strength (its finisher variation locked).
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void onlyTheFinisherVariationHasAFreeRecoveryAsIn116(GameTestHelper helper) {
+		try (Scene s = new Scene(helper, "HeavyFreeRecovery", "star_platinum", 4)) {
+			EntityActionAbility punch = (EntityActionAbility) s.power.getAbility("punch");
+			s.power.getCurTypeData()._lockedAbilities.add("finisher_uppercut");
+			s.stand.setFinisherMeter(1.0F);
+			EntityActionInstance heavy = s.start("heavy_punch");
+			heavy.startRecovery();
+			helper.assertTrue(heavy.getPhase() == ActionPhase.RECOVERY && heavy.ability == s.power.getAbility("heavy_punch")
+					&& ((Ability) heavy.ability).isStandFinisherOf == null, "setup: the plain heavy punch is not in its recovery");
+			BufferingState held = s.press("punch", InputMethod.CLICK);
+			helper.assertTrue(held.shouldBuffer && !held.isActionSuccess && s.standAction.getAction() == heavy,
+					"1.16 held a punch pressed in the recovery of a plain heavy punch at a full meter back (no free recovery): buffered "
+							+ held.shouldBuffer + ", started " + held.isActionSuccess + ", the Stand's action " + s.standAction.getAction());
+			s.standAction.setAction(null, s.user, SyncType.NO_SYNC);
+
+			s.unlock("finisher_uppercut");
+			for (float meter : new float[] { 1.0F, 0.0F }) {
+				s.power.setStamina(s.power.getMaxStamina());
+				s.stand.setFinisherMeter(meter);
+				EntityActionInstance uppercut = s.start("finisher_uppercut");
+				uppercut.startRecovery();
+				helper.assertTrue(uppercut.getPhase() == ActionPhase.RECOVERY && uppercut.canBeCancelledInto(punch),
+						"1.16 let any other action replace the uppercut (the finisher variation) in its recovery at a finisher meter of "
+								+ meter + " (isFreeRecovery: isFinisher): phase " + uppercut.getPhase() + ", cancelled into a punch "
+								+ uppercut.canBeCancelledInto(punch));
+				BufferingState replaced = s.press("punch", InputMethod.CLICK);
+				EntityActionInstance next = s.standAction.getAction();
+				helper.assertTrue(replaced.isActionSuccess && next != null && next != uppercut && next.ability == punch,
+						"1.16 started a punch pressed in the uppercut's recovery at once (meter " + meter + "): started "
+								+ replaced.isActionSuccess + ", the Stand's action " + next);
+				s.standAction.setAction(null, s.user, SyncType.NO_SYNC);
+			}
 			helper.succeed();
 		}
 	}

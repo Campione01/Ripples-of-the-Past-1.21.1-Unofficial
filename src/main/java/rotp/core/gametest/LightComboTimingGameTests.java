@@ -18,6 +18,7 @@ import rotp.core.init.power.ModStandAbilities;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.AbilityUsageGroup;
+import rotp.core.powersystem.ability.EntityActionAbility;
 import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.ability.input.AbilityInput;
 import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
@@ -182,6 +183,7 @@ public final class LightComboTimingGameTests {
         int worldTicks;
         boolean queued;
         boolean replayed;
+        boolean heavyRecoveryChecked;
         boolean done;
         boolean closed;
 
@@ -297,7 +299,19 @@ public final class LightComboTimingGameTests {
                 }
                 lastWatchPhase = watch.getPhase();
             }
-            if (spec.kind == Kind.HEAVY || spec.kind == Kind.FINISHER) {
+            if (spec.kind == Kind.HEAVY) {
+                // 1.16 StandEntityHeavyAttack.isFreeRecovery was isFinisher(): an ordinary heavy punch's recovery takes no
+                // punch, so the combo starts afresh once the heavy punch is over
+                if (watch == null && !heavyRecoveryChecked && prefix.getPhase() == ActionPhase.RECOVERY && !prefix.isOver()) {
+                    suite.check(!prefix.canBeCancelledInto((EntityActionAbility) power.getAbility("punch")),
+                            "ordinary heavy recovery holds a punch back");
+                    heavyRecoveryChecked = true;
+                }
+                if (watch == null && heavyRecoveryChecked && prefix.isOver() && stand.getCurStandAction() == null) {
+                    beginLight("punch", 1, 0);
+                }
+            }
+            else if (spec.kind == Kind.FINISHER) {
                 if (watch == null && prefix.getPhase() == ActionPhase.RECOVERY) {
                     suite.check(prefix.ability != power.getAbility("punch") && !prefix.isOver(), "real unrelated predecessor remains installed during initialization");
                     beginLight("punch", 1, 0);

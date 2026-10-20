@@ -704,9 +704,11 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 			return dmgSource;
 		}
 
+		// 1.16 StandEntityHeavyAttack.isFreeRecovery was isFinisher(): the finisher variation's recovery took another
+		// action at once, whatever the meter; a plain heavy punch's did not, even at a finisher's strength
 		@Override
 		public boolean canBeCancelledInto(EntityActionType cancellingAbility) {
-			return getPhase() == ActionPhase.RECOVERY && finisherValue >= 0.5F;
+			return getPhase() == ActionPhase.RECOVERY && ability instanceof Ability punch && punch.isStandFinisherOf != null;
 		}
 
 		// 1.16 StandEntityHeavyAttack was not chainable: its free recovery took any action but itself
