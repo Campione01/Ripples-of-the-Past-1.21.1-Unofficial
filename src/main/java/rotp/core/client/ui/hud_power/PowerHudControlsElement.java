@@ -804,10 +804,13 @@ public class PowerHudControlsElement extends HudElement {
 	 * (Ability#isHeldBackByHeldAction), which the press itself still waits out in the input buffer.
 	 */
 	public static ConditionCheck drawnCondition(AbilityConditionCheck ability) {
-		Player player = Minecraft.getInstance().player;
-		return ability.conditionCheck.isPositive() && player != null && ability.ability.isHeldBackByHeldAction(player)
-				? ConditionCheck.NEGATIVE
-				: ability.conditionCheck;
+		if (!ability.conditionCheck.isPositive()) {
+			return ability.conditionCheck;
+		}
+		// no game instance when the colour rule runs on its own (UnusableAbilityIconTintSmokeTest)
+		Minecraft mc = Minecraft.getInstance();
+		Player player = mc != null ? mc.player : null;
+		return player != null && ability.ability.isHeldBackByHeldAction(player) ? ConditionCheck.NEGATIVE : ability.conditionCheck;
 	}
 
 	public static final Component NOT_BOUND = Component.translatable("key.keyboard.unknown");
