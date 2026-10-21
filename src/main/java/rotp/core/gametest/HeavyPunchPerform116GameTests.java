@@ -101,7 +101,7 @@ public final class HeavyPunchPerform116GameTests {
 	private record HeavyClip(String asset, String clip, String bone, float impact, String stand, String ability) {}
 
 	private static final List<HeavyClip> HEAVY_CLIPS = List.of(
-			new HeavyClip(DEFAULT_ANIMS, "heavy_punch", "right_arm_bend", 0.6F, null, null),
+			new HeavyClip(DEFAULT_ANIMS, "heavy_punch", "right_arm_bend", 0.4667F, null, null),
 			new HeavyClip(DEFAULT_ANIMS, "finisher_uppercut", "right_arm", 0.45F, null, null),
 			new HeavyClip(DEFAULT_ANIMS, "grab_uppercut", "right_arm", 0.5F, null, null),
 			new HeavyClip(SP_ANIMS, "heavy_punch", "right_arm_bend", 0.4667F, "star_platinum", "heavy_punch"),
@@ -146,7 +146,6 @@ public final class HeavyPunchPerform116GameTests {
 
 	private static final List<HeldImpactClip> HELD_IMPACT_CLIPS = List.of(
 			// HumanoidStandModel :577-586, the default heavy: impact -> idle eased max(2(pr - 1) + 1, 0)
-			new HeldImpactClip(DEFAULT_ANIMS, "heavy_punch", "right_arm_bend", 0.6F),
 			new HeldImpactClip(MR_ANIMS, "heavy_punch", "right_arm_bend", 0.6F));
 
 	// a 1.16 head at a clip time (0, PERFORM, RECOVERY, FIFTH a fifth into the perform, MIDDLE the recovery's middle, or
@@ -167,12 +166,7 @@ public final class HeavyPunchPerform116GameTests {
 			new HeadPose(MR_ANIMS, "heavy_punch", "W0.5", null),
 			new HeadPose(MR_ANIMS, "heavy_punch", "W0.97", null),
 			new HeadPose(MR_ANIMS, "heavy_punch", "PERFORM", null),
-			new HeadPose(MR_ANIMS, "heavy_punch", "MIDDLE", null),
-			new HeadPose(DEFAULT_ANIMS, "heavy_punch", "0", null),
-			new HeadPose(DEFAULT_ANIMS, "heavy_punch", "W0.5", null),
-			new HeadPose(DEFAULT_ANIMS, "heavy_punch", "W0.97", null),
-			new HeadPose(DEFAULT_ANIMS, "heavy_punch", "PERFORM", null),
-			new HeadPose(DEFAULT_ANIMS, "heavy_punch", "MIDDLE", null));
+			new HeadPose(MR_ANIMS, "heavy_punch", "MIDDLE", null));
 
 	// a heavy clip of the official 1.21.1 port (StandoByte/Ripples-of-the-Past-1-21-1 at 1a681255): the first 16 hex
 	// digits of the SHA-256 of the official clip without its timeline (keyframeDigest), the PERFORM and RECOVERY markers
@@ -198,14 +192,15 @@ public final class HeavyPunchPerform116GameTests {
 
 	// AnimationSet's aliases that reach these clips when a Stand's file has no clip of the ability's own name
 	private static final Map<String, String> CLIP_ALIASES = Map.of("grab_heavy_punch", "heavy_punch");
+	// Star Platinum's bones that no stand_default clip has
+	private static final String[] STAR_PLATINUM_ONLY_BONES = { "back_fabric", "front_fabric", "left_item", "right_item",
+			"left_shoulder", "right_shoulder" };
 
 	// a clip of HumanoidStandModel's heavyAttackAnim (:569-586) and the bone carrying upperPart's angles
 	private record HumanoidHeavyClip(String asset, String clip, String upperPartBone) {}
 
 	private static final List<HumanoidHeavyClip> HUMANOID_HEAVY_CLIPS = List.of(
-			new HumanoidHeavyClip(MR_ANIMS, "heavy_punch", "torso_bend"),
-			// the clip a humanoid Stand without its own heavy punch clip falls back to
-			new HumanoidHeavyClip(DEFAULT_ANIMS, "heavy_punch", "torso"));
+			new HumanoidHeavyClip(MR_ANIMS, "heavy_punch", "torso_bend"));
 
 	// heavyRightStart, heavyRightBackswing, heavyRightImpact for body (body_rot), upperPart, the arms and forearms
 	private static final String[] HUMANOID_HEAVY_BONES = { "body_rot", null, "right_arm", "right_arm_bend", "left_arm", "left_arm_bend" };
@@ -509,7 +504,8 @@ public final class HeavyPunchPerform116GameTests {
 	 * poses only where it has none. Of the official heavy clips only the markers moved, to land the impact on 1.16's
 	 * one-tick perform (theHeavyClipsLandTheirImpactOnTheOneTickPerformAsIn116Clips): each clip here carries the official
 	 * keyframes and those markers, and its Stand's abilities play it (Star Platinum's grab heavy punch, with no clip of
-	 * its own, through AnimationSet's alias).
+	 * its own, through AnimationSet's alias). stand_default's heavy punch, the fallback of humanoid Stands without one,
+	 * is the port's copy of Star Platinum's official clip without Star Platinum's own bones, with the same markers.
 	 */
 	@GameTest(template = "empty", timeoutTicks = 20)
 	public static void theOfficialHeavyClipsKeepTheOfficialKeyframesWithTheOneTickMarkers(GameTestHelper helper) {
@@ -536,6 +532,18 @@ public final class HeavyPunchPerform116GameTests {
 						+ official.digest() + ", markers " + clip.get("timeline") + " where the one-tick perform put PERFORM "
 						+ official.perform() + " and RECOVERY " + official.recovery());
 			}
+		}
+		JsonObject fallback = readJson(helper, DEFAULT_ANIMS).getAsJsonObject("animations").getAsJsonObject("heavy_punch");
+		JsonObject starPlatinums = files.computeIfAbsent(SP_ANIMS, asset -> readJson(helper, asset)).getAsJsonObject("animations")
+				.getAsJsonObject("heavy_punch").deepCopy();
+		for (String bone : STAR_PLATINUM_ONLY_BONES) {
+			starPlatinums.getAsJsonObject("bones").remove(bone);
+		}
+		helper.assertTrue(fallback != null && fallback.has("timeline") && fallback.has("bones"), DEFAULT_ANIMS + " lost heavy_punch");
+		if (!keyframeDigest(fallback).equals(keyframeDigest(starPlatinums)) || !fallback.get("timeline").equals(starPlatinums.get("timeline"))) {
+			wrong.add("heavy_punch of " + DEFAULT_ANIMS + ": keyframes " + keyframeDigest(fallback) + ", markers "
+					+ fallback.get("timeline") + " where Star Platinum's official clip on the default rig has "
+					+ keyframeDigest(starPlatinums) + ", " + starPlatinums.get("timeline"));
 		}
 		helper.assertTrue(wrong.isEmpty(), "The official port's heavy clips keep their keyframes; only the one-tick perform's"
 				+ " markers moved: " + wrong);
