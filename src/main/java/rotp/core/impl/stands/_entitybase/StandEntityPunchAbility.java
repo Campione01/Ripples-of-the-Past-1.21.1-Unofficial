@@ -1235,7 +1235,8 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	 * (InputHandler.pickMouseTarget, EntityStandType.clientHitResult), whatever action the Stand ran. Under manual control,
 	 * while the Stand aims as itself (EntityActionInstance#aimAs), the Stand's crosshair ({@link #manualStandAim});
 	 * otherwise its user's ({@link #userStandAim}), also while an action aims as the Stand, which turns to its own target
-	 * on the server. The vanilla pick counts only while the aiming entity is the camera.
+	 * on the server, and during a directional barrage, whose every hit aims again on the server (StandEntity.punch,
+	 * aimWithThisOrUser without friendly fire). The vanilla pick counts only while the aiming entity is the camera.
 	 */
 	public static ActionTarget clientStandAim(StandEntity stand, LivingEntity user, @Nullable Entity camera,
 			ActionTarget vanillaPick) {

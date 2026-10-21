@@ -21,6 +21,7 @@ import javax.annotation.Nullable;
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
+import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 import rotp.core.impl.stands.goldexperience.GEGrowthSparkles;
 import rotp.core.impl.stands.goldexperience.GEItemMarkEffect;
@@ -1646,6 +1647,162 @@ public final class StandTargetRangeGameTests {
 					+ " Stand into a miss, without the precision ray: the Stand's aim is " + describe(aim, fixture.user));
 		}
 		helper.succeed();
+	}
+
+	/*
+	 * 1.16's client kept its one mouse target during a barrage as at any other time (InputHandler.pickMouseTarget,
+	 * EntityStandType.clientHitResult: the vanilla pick, else the precision ray with friendly fire), while each hit aimed
+	 * again on the server (StandEntityMeleeBarrage.standTickPerform, StandEntity.punch: aimWithThisOrUser without friendly
+	 * fire). The port's client sent the barrage's own hit aim as its Stand's aim during a directional barrage
+	 * (StandEntityBarrageAbility.clipDirectionalBarrageTarget). Crazy Diamond beside its user, a directional barrage
+	 * running (keep attack target off); the client's choice (StandEntityPunchAbility.clientStandAim, ClientsideAim's one
+	 * call, client-only and so pinned from its class file) with GameRenderer.pick's vanilla pick from the camera, then the
+	 * barrage's hits with that aim synced.
+	 */
+	@GameTest(template = "empty", batch = BATCH)
+	public static void aDirectionalBarrageLeavesItsStandsClientAimOnTheMouseTargetAsIn116(GameTestHelper helper) {
+		String[] rows = { "the user's own tamed wolf on the crosshair, a cow beside the look in its precision box",
+				"a stone block on the crosshair, a cow beside the look before it in its precision box",
+				"nothing on the crosshair, the user's own tamed wolf and a cow beside the look in their precision boxes",
+				"the aim assist off: the user's own tamed wolf on the crosshair line, a cow behind it on the line",
+				"under manual control, the Stand the camera: the user's own tamed wolf on the Stand's crosshair, a cow beside"
+						+ " its look in its precision box" };
+		List<String> wrong = new ArrayList<>();
+		for (String row : rows) {
+			try (Fixture fixture = Fixture.open(helper, Kind.CD_REVERT)) {
+				StandEntity stand = fixture.stand;
+				boolean manual = row.startsWith("under manual control");
+				if (manual) {
+					stand.setManuallyControlled(true);
+					stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z - 2.4D, 180.0F, 0.0F);
+					stand.setYHeadRot(180.0F);
+				}
+				else {
+					// beside its user, off the user's look, the cow within its reach
+					stand.moveTo(fixture.origin.x - 1.0D, fixture.origin.y, fixture.origin.z + 0.6D, 0.0F, 0.0F);
+				}
+				LivingComponentAction standActions = LivingComponentAction.getComponent(stand);
+				standActions.entityAim.setTarget(ActionTarget.EMPTY);
+				if (row.startsWith("the aim assist off")) {
+					fixture.user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get()).standAimAssist = false;
+				}
+				LivingEntity camera = manual ? stand : fixture.user;
+				Wolf wolf = null;
+				BlockPos block = null;
+				Cow cow;
+				if (manual) {
+					wolf = ownWolf(helper, fixture, aheadOfStand(stand, 0.0D, 2.0D));
+					cow = placed(helper, fixture, EntityType.COW, aheadOfStand(stand, 0.6D, 1.2D));
+				}
+				else if (row.startsWith("a stone block")) {
+					block = fixture.block(BlockPos.containing(fixture.origin.x, fixture.user.getEyeY(), fixture.origin.z + 2.6D));
+					cow = placed(helper, fixture, EntityType.COW, onLook(fixture, 0.6D, 1.2D));
+				}
+				else if (row.startsWith("nothing on the crosshair")) {
+					wolf = ownWolf(helper, fixture, onLook(fixture, 0.5D, 1.0D));
+					cow = placed(helper, fixture, EntityType.COW, onLook(fixture, 0.6D, 2.0D));
+				}
+				else if (row.startsWith("the aim assist off")) {
+					wolf = ownWolf(helper, fixture, onLook(fixture, 0.0D, 1.4D));
+					cow = placed(helper, fixture, EntityType.COW, onLook(fixture, 0.0D, 2.6D));
+				}
+				else {
+					wolf = ownWolf(helper, fixture, onLook(fixture, 0.0D, 2.2D));
+					cow = placed(helper, fixture, EntityType.COW, onLook(fixture, 0.6D, 1.2D));
+				}
+				// as summoned long before, so that its actions tick
+				stand.summonLockTicks = 0;
+				stand.gradualSummonWeaknessTicks = 0;
+				EntityActionInstance barrage = ((EntityActionType) fixture.power.getAbility("barrage")).initActionOnAbilityUse(
+						fixture.level, fixture.user, stand, null);
+				standActions.setAction(barrage, fixture.user, SyncType.NO_SYNC);
+				ActionTarget vanillaPick = vanillaPick(camera, fixture.user);
+				ActionTarget barrageAim = StandEntityBarrageAbility.clipDirectionalBarrageTarget(stand, barrage, 1.0F);
+				String layout = (wolf != null ? "the wolf " + entry(camera, wolf.getBoundingBox()) + ", " : "")
+						+ (block != null ? "the block " + entry(camera, new AABB(block)) + ", " : "")
+						+ "the cow " + entry(camera, cow.getBoundingBox()) + " (precision box " + entry(camera, grownBox(stand, cow))
+						+ ") blocks along the " + (manual ? "Stand's" : "user's") + " look";
+				boolean premise = LivingComponentAction.getCurEntityAction(stand) == barrage
+						&& StandEntityBarrageAbility.isDirectionalBarrage(stand, barrage) && stand.isManuallyControlled() == manual
+						&& (manual || entry(fixture.user, stand.getBoundingBox()) < 0.0D)
+						&& barrageAim.getType() == TargetType.ENTITY && barrageAim.getEntity() == cow
+						&& (wolf == null || wolf.getOwner() == fixture.user && !stand.canAttackEntity(wolf));
+				Object expected;
+				if (block != null) {
+					premise &= vanillaPick.getType() == TargetType.BLOCK && block.equals(vanillaPick.getBlockPos())
+							&& entry(camera, cow.getBoundingBox()) < 0.0D;
+					expected = block;
+				}
+				else if (row.startsWith("nothing on the crosshair")) {
+					premise &= vanillaPick.getType() == TargetType.EMPTY && entry(camera, wolf.getBoundingBox()) < 0.0D
+							&& entry(camera, cow.getBoundingBox()) < 0.0D && StandEntityPunchAbility.userPrecisionRayTarget(stand,
+									fixture.user, entity -> StandEntityPunchAbility.canUserAimTarget(stand, entity)).getEntity() == wolf;
+					expected = wolf;
+				}
+				else {
+					premise &= vanillaPick.getType() == TargetType.ENTITY && vanillaPick.getEntity() == wolf
+							&& (row.startsWith("the aim assist off") ? entry(camera, cow.getBoundingBox()) > entry(camera, wolf.getBoundingBox())
+									: entry(camera, cow.getBoundingBox()) < 0.0D);
+					expected = wolf;
+				}
+				helper.assertTrue(premise, "DIRECTIONAL-BARRAGE premise: " + row + ": " + layout + "; the vanilla pick "
+						+ describe(vanillaPick, camera) + ", the barrage's own aim " + describe(barrageAim, camera));
+				ActionTarget aim = StandEntityPunchAbility.clientStandAim(stand, fixture.user, camera, vanillaPick);
+				boolean matches = expected instanceof Entity entity ? aim.getType() == TargetType.ENTITY && aim.getEntity() == entity
+						: aim.getType() == TargetType.BLOCK && expected.equals(aim.getBlockPos());
+				if (!matches) {
+					wrong.add("DIRECTIONAL-BARRAGE " + row + " (" + layout + "; the vanilla pick " + describe(vanillaPick, camera)
+							+ ", the barrage's own aim " + describe(barrageAim, camera) + "): the Stand's aim is "
+							+ describe(aim, camera) + "; 1.16's one mouse target, the " + (manual ? "Stand's" : "user's")
+							+ " crosshair, took " + (expected instanceof Entity entity ? entity.getType().getDescription().getString()
+									: "the block at " + ((BlockPos) expected).toShortString()));
+				}
+				// the aims the client now syncs; each hit still aims again, as 1.16's did
+				standActions.entityAim.setTargetFromClient(aim, fixture.level);
+				LivingComponentAction.getComponent(fixture.user).entityAim.setTargetFromClient(
+						manual ? ActionTarget.EMPTY : vanillaPick, fixture.level);
+				float cowHealth = cow.getHealth();
+				float wolfHealth = wolf != null ? wolf.getHealth() : 0.0F;
+				for (int tick = 0; tick < 12 && cow.getHealth() >= cowHealth; tick++) {
+					fixture.power.setStamina(fixture.power.getMaxStamina());
+					stand.tickCount++;
+					standActions.tick();
+				}
+				if (cow.getHealth() >= cowHealth || wolf != null && wolf.getHealth() < wolfHealth
+						|| block != null && !fixture.level.getBlockState(block).is(Blocks.STONE)) {
+					wrong.add("DIRECTIONAL-BARRAGE " + row + ": with the client's aim synced the barrage struck "
+							+ (barrage.punchedTarget != null ? describe(barrage.punchedTarget, camera) : "nothing") + " (the cow "
+							+ cowHealth + " -> " + cow.getHealth() + (wolf != null ? ", the wolf " + wolfHealth + " -> " + wolf.getHealth() : "")
+							+ (block != null ? ", the block " + fixture.level.getBlockState(block) : "") + "); 1.16's hits aimed"
+							+ " again without friendly fire and struck the cow");
+				}
+				standActions.setAction(null, fixture.user, SyncType.NO_SYNC);
+			}
+		}
+		String clientAim = "rotp/core/client/input/ClientsideAim.class";
+		try (InputStream in = StandTargetRangeGameTests.class.getClassLoader().getResourceAsStream(clientAim)) {
+			helper.assertTrue(in != null, "Missing class file " + clientAim);
+			String pool = new String(in.readAllBytes(), StandardCharsets.ISO_8859_1);
+			if (!pool.contains("clientStandAim") || !pool.contains(CLIENT_STAND_AIM)
+					|| pool.contains("clipDirectionalBarrageTarget") || pool.contains("isDirectionalBarrage")) {
+				wrong.add("DIRECTIONAL-BARRAGE the client still sends its barrage's own hit aim as its Stand's aim"
+						+ " (StandEntityBarrageAbility.clipDirectionalBarrageTarget) instead of clientStandAim(stand, user, camera,"
+						+ " vanillaPick), 1.16's one mouse target");
+			}
+		}
+		catch (IOException e) {
+			wrong.add("DIRECTIONAL-BARRAGE cannot read " + clientAim + ": " + e);
+		}
+		helper.assertTrue(wrong.isEmpty(), String.join("; ", wrong));
+		helper.succeed();
+	}
+
+	// the user's own tamed wolf, which its Stand may not attack (StandEntity.canAttack), with its box centred there
+	private static Wolf ownWolf(GameTestHelper helper, Fixture fixture, Vec3 centre) {
+		Wolf wolf = placed(helper, fixture, EntityType.WOLF, centre);
+		wolf.setTame(true, false);
+		wolf.setOwnerUUID(fixture.user.getUUID());
+		return wolf;
 	}
 
 	// a held Revert running on the Stand, which takes the second entity for its aim (none if null) and not the first

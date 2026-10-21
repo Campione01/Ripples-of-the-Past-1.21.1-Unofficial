@@ -2,12 +2,9 @@ package rotp.core.client.input;
 
 import rotp.core.client.ClientGlobals;
 import rotp.core.network.c2s.ClAimTargetPacket;
-import rotp.core.powersystem.entityaction.EntityActionInstance;
-import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTargetAim;
-import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 
 import net.minecraft.client.Minecraft;
@@ -32,11 +29,6 @@ public class ClientsideAim {
 			
 			StandEntity stand = ClientGlobals.playerStandEntity;
 			if (stand != null) {
-				EntityActionInstance curAction = LivingComponentAction.getCurEntityAction(stand);
-				if (StandEntityBarrageAbility.isDirectionalBarrage(stand, curAction)) {
-					standAim.setTarget(StandEntityBarrageAbility.clipDirectionalBarrageTarget(stand, curAction, partialTick));
-					return;
-				}
 				standAim.setTarget(StandEntityPunchAbility.clientStandAim(stand, mc.player, mc.cameraEntity, cameraEntityAimTarget));
 			}
 			else {
