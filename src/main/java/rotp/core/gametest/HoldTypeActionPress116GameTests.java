@@ -654,6 +654,54 @@ public final class HoldTypeActionPress116GameTests {
 		helper.succeed();
 	}
 
+	/*
+	 * 1.16's HUD drew each slot from PowerBaseImpl.checkRequirements, which refused every other action of the power while
+	 * its held action let none through (heldAllowsOtherAction false: a charge, a hold that was no holdType Stand action), so
+	 * their slots were drawn unavailable until the release. The port holds the Stand-performed presses back in its buffer
+	 * (N2) instead of refusing them, and draws their slots as 1.16 did (Ability#isHeldBackByHeldAction, the HUD's
+	 * drawnCondition); a hold-type hold, which let them through, leaves every slot as it is, and so does a press that was no
+	 * 1.16 action (manual control) or that the held action gives way to (a punch cutting the port's charged heavy punch).
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void theSlotsAHeldChargeHoldsBackAreDrawnUnavailableAsIn116(GameTestHelper helper) {
+		try (Scene s = new Scene(helper, "HeldBackSlotsMagiciansRed", "magicians_red", 4)) {
+			s.unlock("crossfire_hurricane", "red_bind", "flame_burst", "mr_detector");
+			EntityActionInstance charge = s.hold("crossfire_hurricane");
+			helper.assertTrue(charge.getPhase() == ActionPhase.BUTTON_CHARGE, "setup: Crossfire Hurricane is not charging: "
+					+ charge.getPhase());
+			s.drawnUnavailable("Crossfire Hurricane's charge", true, "punch", "heavy_punch", "red_bind", "flame_burst",
+					"mr_detector");
+			s.drawnUnavailable("Crossfire Hurricane's charge", false, "manual_control");
+			helper.assertFalse(s.power.getAbility("crossfire_hurricane").isHeldBackByHeldAction(s.user),
+					"1.16 refused only the other actions of the power, not the held one, while it was charging");
+			BufferingState punch = s.press("punch", InputMethod.CLICK, OTHER_KEY);
+			helper.assertTrue(punch.shouldBuffer && !punch.isActionSuccess && s.standAction.getAction() == charge,
+					"the punch drawn unavailable during the charge still waits in the input buffer (N2): buffered "
+							+ punch.shouldBuffer + ", started " + punch.isActionSuccess);
+			s.clear();
+
+			EntityActionInstance redBind = s.hold("red_bind");
+			s.drawnUnavailable("the held Red Bind (hold-type)", false, "punch", "heavy_punch", "flame_burst", "mr_detector",
+					"crossfire_hurricane");
+			helper.assertTrue(s.standAction.getAction() == redBind, "setup: the Red Bind is no longer held");
+			s.clear();
+		}
+		try (Scene s = new Scene(helper, "HeldBackSlotsStarPlatinum", "star_platinum", 4)) {
+			s.unlock("heavy_charged");
+			EntityActionInstance charged = s.hold("heavy_charged");
+			helper.assertTrue(charged.getPhase() == ActionPhase.BUTTON_CHARGE, "setup: the charged heavy punch is not charging: "
+					+ charged.getPhase());
+			s.drawnUnavailable("the charged heavy punch's charge", true, "barrage");
+			s.drawnUnavailable("the charged heavy punch's charge", false, "punch", "heavy_punch");
+			s.clear();
+
+			s.hold("guard");
+			s.drawnUnavailable("the held guard (hold-type)", false, "punch", "heavy_punch", "barrage");
+			s.clear();
+		}
+		helper.succeed();
+	}
+
 	private static final String[] COOLDOWN_FIELDS = { "cooldownTicks", "cooldownTechnicalTicks", "cooldownAdditionalTicks",
 			"cooldownResolveMultiplier", "cooldownResolveMultiplierApplies" };
 
@@ -873,6 +921,24 @@ public final class HoldTypeActionPress116GameTests {
 			helper.assertTrue(held.getPhase() == ActionPhase.PERFORM, "the " + chargeName + " let go in its charge fires at its"
 					+ " end: " + held.getPhase());
 			clear();
+		}
+
+		/*
+		 * Each key, resolved as the HUD resolves it, is drawn unavailable (its check refused, or held back by the held action
+		 * as the HUD's drawnCondition asks) or as its check alone draws it, while the given hold is held.
+		 */
+		private void drawnUnavailable(String during, boolean unavailable, String... names) {
+			for (String name : names) {
+				AbilityConditionCheck key = resolve(name);
+				helper.assertTrue(key != null, "setup: no key gives " + name);
+				boolean heldBack = key.ability.isHeldBackByHeldAction(user);
+				boolean drawnUnavailable = !key.conditionCheck.isPositive() || heldBack;
+				helper.assertTrue(unavailable ? heldBack : !drawnUnavailable, (unavailable
+								? "1.16 drew " + name + " unavailable during " + during + " (checkRequirements refused every other"
+										+ " action while the held one let none through)"
+								: "1.16 drew " + name + " as its own check drew it during " + during)
+								+ ": held back " + heldBack + ", its check " + (key.conditionCheck.isPositive() ? "usable" : "refused"));
+			}
 		}
 
 		// the other ability, pressed by another key during the held charge, is refused without a message and not buffered

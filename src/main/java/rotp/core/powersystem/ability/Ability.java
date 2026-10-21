@@ -465,6 +465,29 @@ public class Ability {
 	}
 
 	/**
+	 * Whether the user's HUD draws this ability's slot unavailable for the Stand power's held action, as 1.16's HUD drew
+	 * it from PowerBaseImpl.checkRequirements: while the power holds an action that lets no other through (not hold-type:
+	 * a charge, a hold that was no holdType Stand action), a press of another of its abilities that was a 1.16 action
+	 * (endsOtherHoldOnPress) is refused or, if that action's performer takes it, waits in the input buffer (owner decision
+	 * N2) unless the held action gives way to it. Only the drawing follows 1.16 here; the press is unchanged. A client goes
+	 * by its copy of the held action (AbilityInput#getHeldAction).
+	 */
+	@ApiStatus.Internal
+	public boolean isHeldBackByHeldAction(LivingEntity user) {
+		if (user == null || abilityId.powerClass() != PowerClass.STAND || !endsOtherHoldOnPress()) {
+			return false;
+		}
+		EntityActionInstance held = AbilityInput.getHeldAction(user, PowerClass.STAND);
+		if (held == null || held.ability == this || held.isHoldTypeStandAction()) {
+			return false;
+		}
+		if (this instanceof EntityActionAbility entityAbility && entityAbility.getPerformer(user) == held.getPerformer()) {
+			return entityAbility.wouldBufferInput(user);
+		}
+		return true;
+	}
+
+	/**
 	 * 1.16 StandAction.checkConditions: a Stand that lost a part the action needs (partsRequired) cannot use it.
 	 * Also re-checked during a hold by EntityActionAbility#checkHeldActionConditions.
 	 */

@@ -191,6 +191,28 @@ public final class HeldReadyToFireSlot116GameTests {
 		helper.succeed();
 	}
 
+	/*
+	 * 1.16 renderActionIcon drew a slot from checkRequirements, which refused every other action of the power while its held
+	 * action let none through: dimmed (brightness 0.2, alpha 0.5) and, greenSelection reading the same result, without a
+	 * finisher's green frame. The HUD draws a slot whose press the Stand power's held action holds back
+	 * (Ability#isHeldBackByHeldAction, HoldTypeActionPress116GameTests) the same, in the key-bound slots, the hotbars and the
+	 * selection wheel: abilityColor and both selection frames go by drawnCondition, which asks it.
+	 */
+	@GameTest(template = "empty")
+	public static void hudDrawsASlotTheHeldActionHoldsBackUnavailableAsIn116(GameTestHelper helper) {
+		List<String> drawn = codeRefs(helper, HUD, "drawnCondition");
+		helper.assertTrue(drawn.contains("rotp/core/powersystem/ability/Ability.isHeldBackByHeldAction(Lnet/minecraft/world/entity/LivingEntity;)Z"),
+				"The HUD's drawn condition no longer asks Ability.isHeldBackByHeldAction (1.16 checkRequirements, heldAllowsOtherAction)");
+		helper.assertTrue(calls(codeRefs(helper, HUD, "abilityColor"), HUD + ".drawnCondition("),
+				"1.16 dimmed a slot the held action held back: abilityColor no longer goes by drawnCondition");
+		List<String> render = codeRefs(helper, HUD, "renderControls");
+		helper.assertTrue(count(render, HUD + ".drawnCondition(") == 2 && !calls(render,
+				"rotp/core/powersystem/ability/condition/AvailableAbilities$AbilityConditionCheck.conditionCheck:"),
+				"1.16 greenSelection(power, result) read the same result: both selection frames (key binds, hotbars) must go by"
+						+ " drawnCondition, not the bare condition check");
+		helper.succeed();
+	}
+
 	// held by its key from the press: not ready one tick short of its charge, ready from it while held, not once let go;
 	// another ability of the power is not ready meanwhile
 	private static void assertReadyFromItsChargeUntilReleased(GameTestHelper helper, Scene s, String name, int ticksToFire,
