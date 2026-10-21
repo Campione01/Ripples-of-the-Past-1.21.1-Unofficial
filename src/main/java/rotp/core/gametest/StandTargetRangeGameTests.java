@@ -1566,6 +1566,33 @@ public final class StandTargetRangeGameTests {
 		helper.succeed();
 	}
 
+	/*
+	 * 1.16 EntityStandType.clientHitResult (:137-143) turned a vanilla pick of the Stand itself into a miss, without the
+	 * precision ray behind it. On its user's own client the Stand is never picked (StandEntity.isPickable, the port's the
+	 * same), so there the crosshair passes it; only a pick made on the server, where the Stand is pickable, meets it, as
+	 * here: Crazy Diamond 1.2 blocks ahead on its user's look, a cow beside the look behind it, in its precision box.
+	 */
+	@GameTest(template = "empty", batch = BATCH)
+	public static void aVanillaPickOfTheUsersOwnStandLeavesTheStandsAimEmptyAsIn116(GameTestHelper helper) {
+		try (Fixture fixture = Fixture.open(helper, Kind.CD_REVERT)) {
+			StandEntity stand = fixture.stand;
+			stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z + 1.2D, 0.0F, 0.0F);
+			LivingComponentAction.getComponent(stand).entityAim.setTarget(ActionTarget.EMPTY);
+			Cow cow = placed(helper, fixture, EntityType.COW, onLook(fixture, 0.6D, 2.4D));
+			ActionTarget vanillaPick = vanillaPick(fixture.user, fixture.user);
+			ActionTarget behind = StandEntityPunchAbility.userPrecisionRayTarget(stand, fixture.user,
+					entity -> StandEntityPunchAbility.canUserAimTarget(stand, entity));
+			helper.assertTrue(vanillaPick.getType() == TargetType.ENTITY && vanillaPick.getEntity() == stand
+					&& behind.getType() == TargetType.ENTITY && behind.getEntity() == cow && StandEntityPunchAbility.aimAssist(fixture.user),
+					"OWN-STAND premise: the vanilla pick " + describe(vanillaPick, fixture.user) + ", the precision ray behind it "
+							+ describe(behind, fixture.user));
+			ActionTarget aim = StandEntityPunchAbility.userStandAim(stand, fixture.user, vanillaPick);
+			helper.assertTrue(aim.getType() == TargetType.EMPTY, "1.16 clientHitResult turned a vanilla pick of the user's own"
+					+ " Stand into a miss, without the precision ray: the Stand's aim is " + describe(aim, fixture.user));
+		}
+		helper.succeed();
+	}
+
 	// a held Revert running on the Stand, which takes the second entity for its aim (none if null) and not the first
 	private static boolean heldRevertTakesOnly(Fixture fixture, StandEntity stand, Entity refused, @Nullable Entity taken) {
 		EntityActionInstance revert = ((EntityActionType) fixture.ability).initActionOnAbilityUse(fixture.level, fixture.user, stand,
