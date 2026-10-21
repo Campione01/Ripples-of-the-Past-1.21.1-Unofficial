@@ -1292,8 +1292,20 @@ public class EntityActionInstance implements HeldInput {
 				actionPerformEnd();
 			}
 		}
+		tickModifiers();
 	}
-	
+
+	// 1.16 StandEntityTask.tick: the task's modifier actions ticked right after its own action
+	private void tickModifiers() {
+		if (punchModifiers != null && !punchModifiers.isEmpty() && !isOver()) {
+			for (StandEffectInstance modifier : List.copyOf(punchModifiers)) {
+				if (!modifier.isStopped()) {
+					modifier.onModifiedActionTick(this);
+				}
+			}
+		}
+	}
+
 	/**
 	 * Whether the action tick turns the performer's body to its look yaw before the action runs.
 	 * An action whose 1.16 logic reads the body yaw the vanilla tick left opts out.

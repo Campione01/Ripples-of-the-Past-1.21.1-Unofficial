@@ -374,6 +374,9 @@ public final class RotpAddonApiSmokeTest {
 		check(RotpAddonApi.supportsFeature(
 				RotpAddonApi.FEATURE_ENTITY_ACTION_HOOKS_V1),
 				"entity action hooks feature missing");
+		check(RotpAddonApi.supportsFeature(
+				RotpAddonApi.FEATURE_STAND_ACTION_MODIFIERS_V1),
+				"Stand action modifiers feature missing");
 
 		AbilityType<Ability> addonType = new AbilityType<>(
 				id("rotp_test", "freeze"), Ability::new);
@@ -534,6 +537,7 @@ public final class RotpAddonApiSmokeTest {
 		GoldExperienceExternalHealingTargetsSmokeTest.run();
 		StarFingerVisualOwnershipSmokeTest.run();
 		LivingHandUseBlockersSmokeTest.run();
+		StandActionModifiersSmokeTest.run();
 	}
 
 	private static ResourceLocation id(String namespace, String path) {
