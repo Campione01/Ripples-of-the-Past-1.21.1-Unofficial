@@ -627,10 +627,18 @@
                 0
               ]
             },
+            "0.375": {
+              "vector": [
+                -7.5,
+                0,
+                0
+              ],
+              "easing": "linear"
+            },
             "0.5": {
               "vector": [
                 0,
-                0,
+                -20,
                 0
               ],
               "easing": "linear"
@@ -788,6 +796,60 @@
               "easing": "linear"
             }
           }
+        },
+        "body_rot": {
+          "rotation": {
+            "0": {
+              "vector": [
+                0,
+                0,
+                0
+              ]
+            },
+            "0.375": {
+              "vector": [
+                0,
+                0,
+                0
+              ],
+              "easing": "linear"
+            },
+            "0.5": {
+              "vector": [
+                0,
+                20,
+                0
+              ],
+              "easing": "linear"
+            }
+          }
+        },
+        "right_arm_bend": {
+          "rotation": {
+            "0": {
+              "vector": [
+                0,
+                0,
+                0
+              ]
+            },
+            "0.375": {
+              "vector": [
+                0,
+                0,
+                0
+              ],
+              "easing": "linear"
+            },
+            "0.5": {
+              "vector": [
+                -110,
+                -32.5,
+                55
+              ],
+              "easing": "linear"
+            }
+          }
         }
       }
     },
@@ -890,6 +952,42 @@
             "vector": [
               0,
               0,
+              0
+            ]
+          }
+        },
+        "left_leg": {
+          "rotation": {
+            "vector": [
+              -32.5,
+              -35,
+              -7.5
+            ]
+          }
+        },
+        "left_leg_bend": {
+          "rotation": {
+            "vector": [
+              75,
+              -7.5,
+              0
+            ]
+          }
+        },
+        "right_leg": {
+          "rotation": {
+            "vector": [
+              12.5,
+              7.5,
+              7.5
+            ]
+          }
+        },
+        "right_leg_bend": {
+          "rotation": {
+            "vector": [
+              12.5,
+              7.5,
               0
             ]
           }
@@ -1500,6 +1598,60 @@
             "vector": [
               "query.head_x_rotation",
               "query.head_y_rotation",
+              0
+            ]
+          }
+        },
+        "left_arm": {
+          "rotation": {
+            "vector": [
+              0,
+              0,
+              -12.5
+            ]
+          }
+        },
+        "left_arm_bend": {
+          "rotation": {
+            "vector": [
+              -25,
+              0,
+              0
+            ]
+          }
+        },
+        "left_leg": {
+          "rotation": {
+            "vector": [
+              -32.5,
+              -35,
+              -7.5
+            ]
+          }
+        },
+        "left_leg_bend": {
+          "rotation": {
+            "vector": [
+              75,
+              -7.5,
+              0
+            ]
+          }
+        },
+        "right_leg": {
+          "rotation": {
+            "vector": [
+              12.5,
+              7.5,
+              7.5
+            ]
+          }
+        },
+        "right_leg_bend": {
+          "rotation": {
+            "vector": [
+              12.5,
+              7.5,
               0
             ]
           }

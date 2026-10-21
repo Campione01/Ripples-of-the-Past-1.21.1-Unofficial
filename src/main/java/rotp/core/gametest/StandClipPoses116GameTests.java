@@ -48,11 +48,12 @@ public final class StandClipPoses116GameTests {
 	// a look the head checks are also made at: pitch and yaw in degrees
 	private static final float[] LOOK = { 20, -35 };
 
-	// a 1.16 head at a clip time (0, PERFORM, RECOVERY, END, W<f> a fraction of the windup, or seconds): its root-space
-	// angles, LOOK where it followed the look, HALF the given angles plus half the look (1.16 half way from a posed head
-	// to the look), TURNED the look turned by the given angles (an official 1.21.1 clip's head), or IDLE where the clip
-	// hands over to the idle and the head is the idle's own
-	private enum Head { POSED, LOOK, HALF, TURNED, IDLE }
+	// a 1.16 head at a clip time (0, PERFORM, RECOVERY, END, W<f> a fraction of the windup, R<f> of the recovery, or
+	// seconds): its root-space angles, LOOK where it followed the look, HALF the given angles plus half the look (1.16 half
+	// way from a posed head to the look), TURNED the look turned by the given angles (an official 1.21.1 clip's head),
+	// IDLE where the clip hands over to the idle and the head is the idle's own, or TO_IDLE the given angles lerped angle
+	// by angle to the idle's head by the recovery's completion (1.16's recovery transition with HEAD_ROTATION)
+	private enum Head { POSED, LOOK, HALF, TURNED, IDLE, TO_IDLE }
 
 	private record HeadPose(String asset, String clip, String at, Head kind, float[] head) {
 		HeadPose(String asset, String clip, String at) {
@@ -76,6 +77,14 @@ public final class StandClipPoses116GameTests {
 			// MagiciansRedModel :233-257, summon poses 1 and 2 (LegacyStandAnimator.poseSummon), then the idle's look
 			posed(MR_ANIMS, "summon1", "0", 0, 7.5F, 0), idle(MR_ANIMS, "summon1"),
 			posed(MR_ANIMS, "summon2", "0", -45, 0, 0), idle(MR_ANIMS, "summon2"),
+			// MagiciansRedModel :287-322, the kick: kickPose1 -> kickPose2 over the windup, kickPose2 -> kickPose3 over the
+			// perform, then to the idle copy's HEAD_ROTATION over the recovery
+			posed(MR_ANIMS, "kick", "0", -15, 0, 0), posed(MR_ANIMS, "kick", "W0.5", -22.5F, -7.5F, 0),
+			posed(MR_ANIMS, "kick", "PERFORM", -30, -15, 0), posed(MR_ANIMS, "kick", "0.55", -37.5F, -12.5F, 0),
+			posed(MR_ANIMS, "kick", "RECOVERY", -45, -10, 0),
+			new HeadPose(MR_ANIMS, "kick", "R0.25", Head.TO_IDLE, new float[] { -45, -10, 0 }),
+			new HeadPose(MR_ANIMS, "kick", "R0.5", Head.TO_IDLE, new float[] { -45, -10, 0 }),
+			new HeadPose(MR_ANIMS, "kick", "R0.75", Head.TO_IDLE, new float[] { -45, -10, 0 }), idle(MR_ANIMS, "kick"),
 			// SilverChariotModel :245-372: the rapier stab, the barrage stab loop, the rapier heavy (dash), the jab without
 			// the rapier, no head in any of them; RANGED_ATTACK (the rapier launch) was drawn as the idle
 			new HeadPose(SC_ANIMS, "light_attack", "0"), new HeadPose(SC_ANIMS, "light_attack", "PERFORM"),
@@ -95,10 +104,11 @@ public final class StandClipPoses116GameTests {
 			// other two idles (initBaseIdlePose: HEAD_ROTATION)
 			new HeadPose(SC_ANIMS, "idle", "0", Head.TURNED, new float[] { 0, -5, 0 }),
 			new HeadPose(SC_ANIMS, "no_rapier_idle", "0"), new HeadPose(SC_ANIMS, "no_armor_idle", "0"),
-			// SilverChariotModel :100-136, summon poses 1-3 (pose 2 has no head: the reset head, the root's forward)
-			posed(SC_ANIMS, "summon1", "0", -10, 0, -5), idle(SC_ANIMS, "summon1"),
+			// SilverChariotModel :211-241, summon poses 1-3 (pose 2 has no head: the reset head, the root's forward), their
+			// head rolls zeroed by the idle's HEAD_ROTATION every frame (StandEntityModel :244, LegacyStandAnimator :119)
+			posed(SC_ANIMS, "summon1", "0", -10, 0, 0), idle(SC_ANIMS, "summon1"),
 			posed(SC_ANIMS, "summon2", "0", 0, 0, 0), idle(SC_ANIMS, "summon2"),
-			posed(SC_ANIMS, "summon3", "0", 5, 2.5F, -10), idle(SC_ANIMS, "summon3"),
+			posed(SC_ANIMS, "summon3", "0", 5, 2.5F, 0), idle(SC_ANIMS, "summon3"),
 			// HierophantGreenModel :176-219, Emerald Splash: esPose1-2 without a head (the look), esPose3's head at .85 and
 			// .9 of the windup, esPose4 with HEAD_ROTATION at the end of the windup, the idle in the recovery
 			new HeadPose(HG_ANIMS, "emerald_splash", "0"), new HeadPose(HG_ANIMS, "emerald_splash", "W0.6"),
@@ -136,6 +146,13 @@ public final class StandClipPoses116GameTests {
 					case HALF -> rotationMatrix(new float[] { pose.head()[0] + look[0] / 2, pose.head()[1] + look[1] / 2, 0 });
 					case TURNED -> rotationMatrix(new float[] { look[0] + pose.head()[0], look[1] + pose.head()[1], pose.head()[2] });
 					case IDLE -> composedHead(anims.getAsJsonObject(idleOf(pose)), 0, look);
+					case TO_IDLE -> {
+						float[] idleHead = eulerOf(composedHead(anims.getAsJsonObject(idleOf(pose)), 0, look));
+						float recovery = marker(clip, "phase=RECOVERY;");
+						float f = (time - recovery) / (clip.get("animation_length").getAsFloat() - recovery);
+						yield rotationMatrix(new float[] { pose.head()[0] + (idleHead[0] - pose.head()[0]) * f,
+								pose.head()[1] + (idleHead[1] - pose.head()[1]) * f, pose.head()[2] + (idleHead[2] - pose.head()[2]) * f });
+					}
 				};
 				double off = angleBetween(composedHead(clip, time, look), expected);
 				if (off > 1) {
@@ -146,9 +163,27 @@ public final class StandClipPoses116GameTests {
 				}
 			}
 		}
+		// LegacyStandAnimator.poseSummon ran the idle's HEAD_ROTATION every frame of a summon, which set head.zRot = 0 at any
+		// rotationAmount: no summon head rolls at any clip time
+		for (String[] summon : SUMMON_CLIPS) {
+			JsonObject clip = files.computeIfAbsent(summon[0], asset -> readJson(helper, asset)).getAsJsonObject("animations")
+					.getAsJsonObject(summon[1]);
+			float end = clip.get("animation_length").getAsFloat();
+			for (float time = 0; time <= end + 0.00001F; time += 0.01F) {
+				double[][] head = composedHead(clip, Math.min(time, end), new float[2]);
+				double roll = Math.toDegrees(Math.atan2(head[1][0], head[0][0]));
+				if (Math.abs(roll) > 0.5) {
+					wrong.add(summon[1] + " of " + summon[0] + " at " + time + ": the head rolls " + String.format("%.1f", roll) + " degrees");
+					break;
+				}
+			}
+		}
 		helper.assertTrue(wrong.isEmpty(), "A 1.16 pose's head kept its root-space angles, the look where the pose had none: " + wrong);
 		helper.succeed();
 	}
+
+	private static final String[][] SUMMON_CLIPS = { { MR_ANIMS, "summon1" }, { MR_ANIMS, "summon2" }, { SC_ANIMS, "summon1" },
+			{ SC_ANIMS, "summon2" }, { SC_ANIMS, "summon3" }, { HG_ANIMS, "summon1" } };
 
 	private static final String CD_ANIMS =
 			"stand_skins/crazy_diamond/assets/jojo_ripples/animations/crazy_diamond.animation.json";
@@ -173,15 +208,17 @@ public final class StandClipPoses116GameTests {
 			new ArmLook(SC_ANIMS, "melee_barrage", new String[] { "0", "0.2999", "PERFORM", "1.0", "RECOVERY", "2.3001", "END" },
 					new float[] { 0, 0, 1, 1, 1, 0, 0 }));
 
-	// a clip whose joints turn by half their forearm or lower leg, the limbs to check
-	private record JointClip(String asset, String clip, String... limbs) {}
+	// a clip whose joints turn by half their forearm or lower leg, the limbs to check; one whose windup starts on the idle
+	// starts on the idle's own joints and turns them by half the forearm from its second key
+	private record JointClip(String asset, String clip, boolean fromIdle, String... limbs) {}
 
 	private static final List<JointClip> JOINT_CLIPS = List.of(
-			new JointClip(SC_ANIMS, "light_attack", "left_arm", "right_arm"),
-			new JointClip(SC_ANIMS, "no_rapier_light_attack", "left_arm", "right_arm"),
-			new JointClip(SC_ANIMS, "melee_barrage", "left_arm", "right_arm"),
-			new JointClip(SC_ANIMS, "dash_attack", "left_arm", "right_arm"),
-			new JointClip(SC_ANIMS, "sweeping_attack", "left_arm", "right_arm"));
+			new JointClip(SC_ANIMS, "light_attack", false, "left_arm", "right_arm"),
+			new JointClip(SC_ANIMS, "no_rapier_light_attack", false, "left_arm", "right_arm"),
+			new JointClip(SC_ANIMS, "melee_barrage", false, "left_arm", "right_arm"),
+			new JointClip(SC_ANIMS, "dash_attack", false, "left_arm", "right_arm"),
+			// SilverChariotModel :330, the sweep's windup: ModelPoseTransition(idlePose, sweepPose1)
+			new JointClip(SC_ANIMS, "sweeping_attack", true, "left_arm", "right_arm"));
 
 	/*
 	 * 1.16's humanoid Java-model poses pitched both arms with the look (setSecondXRot, applied after the pose as a parent
@@ -228,9 +265,23 @@ public final class StandClipPoses116GameTests {
 				List<Map.Entry<Float, JsonElement>> bendKeys = keys(clip, limb + "_bend");
 				helper.assertTrue(bendKeys.size() > 1, "setup: " + joints.clip() + " of " + joints.asset() + " keys no " + limb + "_bend");
 				float until = bendKeys.get(bendKeys.size() - 2).getKey();
+				float from = 0;
+				if (joints.fromIdle()) {
+					JsonObject idle = clipOf(helper, files, joints.asset(), "idle");
+					float[] idleJoint = rotationAt(idle, limb + "_joint", 0, LOOK);
+					float[] startJoint = rotationAt(clip, limb + "_joint", 0, LOOK);
+					for (int axis = 0; axis < 3; axis++) {
+						if (Math.abs(startJoint[axis] - idleJoint[axis]) > 0.05F) {
+							wrong.add(joints.clip() + " of " + joints.asset() + " starts " + limb + "_joint on " + Arrays.toString(startJoint)
+									+ " where the idle it starts from has " + Arrays.toString(idleJoint));
+							break;
+						}
+					}
+					from = bendKeys.get(1).getKey();
+				}
 				int off = 0;
 				String first = null;
-				for (float time = 0; time <= until + 0.00001F; time += 0.01F) {
+				for (float time = from; time <= until + 0.00001F; time += 0.01F) {
 					float[] bend = rotationAt(clip, limb + "_bend", time, LOOK);
 					float[] joint = rotationAt(clip, limb + "_joint", time, LOOK);
 					for (int axis = 0; axis < 3; axis++) {
@@ -251,6 +302,218 @@ public final class StandClipPoses116GameTests {
 		}
 		helper.assertTrue(wrong.isEmpty(), "1.16's humanoid models pitched the arms with the look in these poses and turned the"
 				+ " joints by half their forearm or lower leg: " + wrong);
+		helper.succeed();
+	}
+
+	// bones no 1.16 pose of the clip named, so they stayed on the idle pose: on the clip's idle's t=0 value from one clip
+	// time to another, or, for a summon (from null), on the reset pose to the clip's last quarter and lerped to the idle
+	// by its end
+	private record IdleBones(String asset, String clip, String idle, String from, String to, String... bones) {}
+
+	private static IdleBones held(String asset, String clip, String... bones) {
+		return new IdleBones(asset, clip, "idle", "0", "END", bones);
+	}
+
+	private static IdleBones summonReset(String asset, String clip, String... bones) {
+		return new IdleBones(asset, clip, "idle", null, null, bones);
+	}
+
+	private static final String[] LEGS = { "left_leg", "left_leg_bend", "right_leg", "right_leg_bend" };
+
+	private static String[] and(String[] bones, String... more) {
+		String[] all = Arrays.copyOf(more, more.length + bones.length);
+		System.arraycopy(bones, 0, all, more.length, bones.length);
+		return all;
+	}
+
+	private static final List<IdleBones> IDLE_BONES = List.of(
+			// HumanoidStandModel :449-607: the jab, heavyAttackAnim and the block name no leg
+			held(MR_ANIMS, "punch", LEGS), held(MR_ANIMS, "heavy_punch", LEGS), held(MR_ANIMS, "block", LEGS),
+			// MagiciansRedModel :287-322: no kick pose names upperPart or leftLowerLeg, kickPose1 no arm or forearm
+			held(MR_ANIMS, "kick", "torso_bend", "left_leg_bend"),
+			new IdleBones(MR_ANIMS, "kick", "idle", "0", "0", "left_arm", "left_arm_bend", "right_arm", "right_arm_bend"),
+			// :269-285, FLAME_BURST_POSE (Flame Burst, Fireball, Crossfire Hurricane): no body, upperPart or rightLowerLeg
+			held(MR_ANIMS, "flame_burst", "body_rot", "torso_bend", "right_leg_bend"),
+			held(MR_ANIMS, "flameBurst", "body_rot", "torso_bend", "right_leg_bend"),
+			held(MR_ANIMS, "fireball", "body_rot", "torso_bend", "right_leg_bend"),
+			held(MR_ANIMS, "crossfire_hurricane", "body_rot", "torso_bend", "right_leg_bend"),
+			// :324-331, RED_BIND_POSE: the arms and forearms only, the head on the idle's look
+			held(MR_ANIMS, "red_bind", and(LEGS, "body_rot", "torso_bend", "head", "head_rot")),
+			held(MR_ANIMS, "redBind", and(LEGS, "body_rot", "torso_bend", "head", "head_rot")),
+			// :233-257, summon poses 1 and 2
+			summonReset(MR_ANIMS, "summon1", "left_arm_bend", "right_arm_bend", "torso_bend", "left_leg_bend"),
+			summonReset(MR_ANIMS, "summon2", "body_rot", "torso_bend", "left_leg_bend", "right_leg_bend"),
+			// SilverChariotModel :354-361, the rapier block: arms, forearms and the rapier; the humanoid block without it
+			held(SC_ANIMS, "block", and(LEGS, "body_rot", "torso_bend", "head", "head_rot")),
+			new IdleBones(SC_ANIMS, "no_rapier_block", "no_rapier_idle", "0", "END", LEGS),
+			// :245-352: the stab, the barrage stab loop, the dash, the sweep and the jab name no leg; RANGED_ATTACK (the
+			// rapier launch) was drawn as the idle
+			held(SC_ANIMS, "light_attack", LEGS), held(SC_ANIMS, "melee_barrage", LEGS), held(SC_ANIMS, "dash_attack", LEGS),
+			held(SC_ANIMS, "sweeping_attack", LEGS), held(SC_ANIMS, "rapier_launch", LEGS), held(SC_ANIMS, "rangedAttack", LEGS),
+			new IdleBones(SC_ANIMS, "no_rapier_light_attack", "no_rapier_idle", "0", "END", LEGS),
+			// :211-241, summon poses 1-3
+			summonReset(SC_ANIMS, "summon1", "body_rot", "left_arm_bend", "right_arm_bend", "left_leg_bend", "right_leg_bend"),
+			summonReset(SC_ANIMS, "summon2", and(LEGS, "torso_bend", "right_arm_bend")),
+			summonReset(SC_ANIMS, "summon3", "left_arm_bend", "left_leg_bend"),
+			// HierophantGreenModel :161-228: the block, the grapple (rightArm, rightForeArm and body), the summon pose (no
+			// body or rightForeArm)
+			held(HG_ANIMS, "block", LEGS), held(HG_ANIMS, "grapple", and(LEGS, "left_arm", "left_arm_bend")),
+			summonReset(HG_ANIMS, "summon1", "body_rot", "right_arm_bend"));
+
+	// the converted clips that hand over to their idle when they end, and the idle's bones they may leave off it
+	private record HandOver(String asset, String clip, String idle, String... except) {}
+
+	private static final List<HandOver> HAND_OVERS = List.of(
+			new HandOver(MR_ANIMS, "summon1", "idle"), new HandOver(MR_ANIMS, "summon2", "idle"),
+			new HandOver(MR_ANIMS, "punch", "idle"), new HandOver(MR_ANIMS, "heavy_punch", "idle"),
+			new HandOver(MR_ANIMS, "kick", "idle"), new HandOver(MR_ANIMS, "red_bind", "idle"),
+			new HandOver(MR_ANIMS, "redBind", "idle"),
+			// the flame poses set the head themselves (head.xRot = xRot - 22.5 degrees), the port's clips have none
+			new HandOver(MR_ANIMS, "flame_burst", "idle", "head", "head_rot"),
+			new HandOver(MR_ANIMS, "flameBurst", "idle", "head", "head_rot"),
+			new HandOver(MR_ANIMS, "fireball", "idle", "head", "head_rot"),
+			new HandOver(MR_ANIMS, "crossfire_hurricane", "idle", "head", "head_rot"),
+			new HandOver(SC_ANIMS, "summon1", "idle"), new HandOver(SC_ANIMS, "summon2", "idle"),
+			new HandOver(SC_ANIMS, "summon3", "idle"), new HandOver(SC_ANIMS, "light_attack", "idle"),
+			new HandOver(SC_ANIMS, "melee_barrage", "idle"), new HandOver(SC_ANIMS, "dash_attack", "idle"),
+			new HandOver(SC_ANIMS, "sweeping_attack", "idle"), new HandOver(SC_ANIMS, "rapier_launch", "idle"),
+			new HandOver(SC_ANIMS, "rangedAttack", "idle"), new HandOver(SC_ANIMS, "no_rapier_light_attack", "no_rapier_idle"),
+			new HandOver(HG_ANIMS, "summon1", "idle"), new HandOver(HG_ANIMS, "emerald_splash", "idle"),
+			new HandOver(HG_ANIMS, "rangedAttack", "idle"), new HandOver(HG_ANIMS, "grapple", "idle"));
+
+	/*
+	 * LegacyStandAnimator.poseStand applied the idle pose at full weight before an action's poses, and those lerped only
+	 * the parts they named, so a bone no active pose named stayed on the idle; poseSummon reset the model, applied the
+	 * summon pose and lerped the idle in over ticks 15-20 of 20. The port draws one clip at a time on the geo's rest
+	 * pose: a converted clip keys those bones with its idle's values (an official idle where the official port has one),
+	 * a summon keeps them on the reset pose to its last quarter, and every clip ends on its idle bone by bone, so nothing
+	 * snaps where the clip starts or hands over.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void theBones116KeptOnTheIdleKeepTheIdlesValuesInTheConvertedClips(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		Map<String, JsonObject> files = new HashMap<>();
+		float[][] looks = { { 0, 0 }, LOOK };
+		for (IdleBones row : IDLE_BONES) {
+			JsonObject clip = clipOf(helper, files, row.asset(), row.clip());
+			JsonObject idle = clipOf(helper, files, row.asset(), row.idle());
+			float end = clip.get("animation_length").getAsFloat();
+			List<float[]> samples = new ArrayList<>();
+			if (row.from() != null) {
+				float from = clipTime(clip, row.from()), to = clipTime(clip, row.to());
+				for (float time = from; time < to; time += 0.01F) {
+					samples.add(new float[] { time, 1 });
+				}
+				samples.add(new float[] { to, 1 });
+			}
+			else {
+				for (float time = 0; time < end * 0.75F; time += 0.01F) {
+					samples.add(new float[] { time, 0 });
+				}
+				samples.add(new float[] { end * 0.75F, 0 });
+				samples.add(new float[] { end * 0.875F, 0.5F });
+				samples.add(new float[] { end, 1 });
+			}
+			for (String bone : row.bones()) {
+				helper.assertTrue(idle.getAsJsonObject("bones").has(bone), "setup: " + row.idle() + " of " + row.asset() + " has no " + bone);
+				String first = null;
+				for (float[] sample : samples) {
+					for (float[] look : looks) {
+						float[] idleAt0 = rotationAt(idle, bone, 0, look);
+						float[] want = { idleAt0[0] * sample[1], idleAt0[1] * sample[1], idleAt0[2] * sample[1] };
+						float[] got = rotationAt(clip, bone, sample[0], look);
+						for (int axis = 0; axis < 3 && first == null; axis++) {
+							if (Math.abs(got[axis] - want[axis]) > 0.05F) {
+								first = "at " + sample[0] + " looking " + Arrays.toString(look) + " " + Arrays.toString(got) + " where 1.16 had "
+										+ (sample[1] == 1 ? "the idle's " : sample[1] == 0 ? "the reset pose's " : "half the idle's ")
+										+ Arrays.toString(want);
+							}
+						}
+					}
+				}
+				if (first != null) {
+					wrong.add(row.clip() + " of " + row.asset() + " " + bone + " " + first);
+				}
+			}
+		}
+		for (HandOver row : HAND_OVERS) {
+			JsonObject clip = clipOf(helper, files, row.asset(), row.clip());
+			JsonObject idle = clipOf(helper, files, row.asset(), row.idle());
+			float end = clip.get("animation_length").getAsFloat();
+			List<String> except = List.of(row.except());
+			for (String bone : idle.getAsJsonObject("bones").keySet()) {
+				if (bone.endsWith("_joint") || bone.endsWith("_xrot") || except.contains(bone)) {
+					continue;
+				}
+				for (float[] look : looks) {
+					float[] want = rotationAt(idle, bone, 0, look);
+					float[] got = rotationAt(clip, bone, end, look);
+					if (Math.abs(got[0] - want[0]) > 0.05F || Math.abs(got[1] - want[1]) > 0.05F || Math.abs(got[2] - want[2]) > 0.05F) {
+						wrong.add(row.clip() + " of " + row.asset() + " ends " + bone + " on " + Arrays.toString(got) + " looking "
+								+ Arrays.toString(look) + " where its " + row.idle() + " starts on " + Arrays.toString(want));
+						break;
+					}
+				}
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), "1.16 kept the bones a pose did not name on the idle pose, and the converted clips"
+				+ " hand over to their idle: " + wrong);
+		helper.succeed();
+	}
+
+	// SilverChariotModel :252-270, barrageRightStart and barrageRightImpact: the rapier arm and its forearm
+	private static final String[] STAB_BONES = { "right_arm", "right_arm_bend" };
+	private static final float[][] STAB_START = { { 89, 0, 90 }, { -135, 0, 0 } };
+	private static final float[][] STAB_IMPACT = { { -90, 45, 0 }, { 0, 0, 0 } };
+	// the bones the stab poses and the idle move, held over the recovery's first 75%
+	private static final String[] STAB_HELD = { "right_arm", "right_arm_bend", "right_arm_joint", "rapier", "left_arm",
+			"left_arm_bend", "left_arm_joint", "torso_bend", "body_rot", "head" };
+
+	/*
+	 * 1.16's rapier stab (SilverChariotModel :280-288) eased its windup from barrageStabStart to barrageStabImpact by
+	 * sw < 0.75 ? 16 / 9 * sw * sw - 8 / 3 * sw + 1 : 16 * sw * sw - 24 * sw + 9, with Java's integer division (1 - sw)^2
+	 * and then (4sw - 3)^2: the arm starts extended on the impact, draws back to the start pose by 0.75 of the windup and
+	 * thrusts to the impact by its end; the recovery's transition to the idle, eased max(4(pr - 1) + 1, 0), held the
+	 * thrust over 75% of the recovery and then returned linearly.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void silverChariotsRapierStabWindsUpAndHoldsItsThrustAs116(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		JsonObject clip = clipOf(helper, new HashMap<>(), SC_ANIMS, "light_attack");
+		float perform = marker(clip, "phase=PERFORM;"), recovery = marker(clip, "phase=RECOVERY;");
+		float end = clip.get("animation_length").getAsFloat();
+		float[] level = { 0, 0 };
+		for (float sw : new float[] { 0, 0.1F, 0.25F, 0.4F, 0.5F, 0.6F, 0.7F, 0.74F, 0.76F, 0.8F, 0.9F, 0.95F, 1 }) {
+			float w = sw < 0.75F ? (1 - sw) * (1 - sw) : (4 * sw - 3) * (4 * sw - 3);
+			for (int b = 0; b < STAB_BONES.length; b++) {
+				float[] got = rotationAt(clip, STAB_BONES[b], sw * perform, level);
+				for (int axis = 0; axis < 3; axis++) {
+					float want = STAB_START[b][axis] + (STAB_IMPACT[b][axis] - STAB_START[b][axis]) * w;
+					if (Math.abs(got[axis] - want) > 2) {
+						wrong.add(STAB_BONES[b] + " at " + sw + " of the windup " + Arrays.toString(got) + " where 1.16 had " + want + " on axis "
+								+ axis + " (" + w + " of the impact)");
+						break;
+					}
+				}
+			}
+		}
+		for (String bone : STAB_HELD) {
+			float[] thrust = rotationAt(clip, bone, recovery, level);
+			float[] last = rotationAt(clip, bone, end, level);
+			for (float pr : new float[] { 0.25F, 0.5F, 0.74F, 0.875F }) {
+				float[] got = rotationAt(clip, bone, recovery + pr * (end - recovery), level);
+				float f = Math.max(4 * (pr - 1) + 1, 0);
+				for (int axis = 0; axis < 3; axis++) {
+					float want = thrust[axis] + (last[axis] - thrust[axis]) * f;
+					if (Math.abs(got[axis] - want) > 0.05F) {
+						wrong.add(bone + " at " + pr + " of the recovery " + Arrays.toString(got) + " where 1.16 had " + f
+								+ " of the way from the thrust " + Arrays.toString(thrust) + " to " + Arrays.toString(last));
+						break;
+					}
+				}
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), "Silver Chariot's rapier stab winds up and recovers on 1.16's curves: " + wrong);
 		helper.succeed();
 	}
 
@@ -419,8 +682,18 @@ public final class StandClipPoses116GameTests {
 			case "PERFORM" -> performAt;
 			case "RECOVERY" -> marker(clip, "phase=RECOVERY;");
 			case "END" -> clip.get("animation_length").getAsFloat();
-			default -> at.startsWith("W") ? Float.parseFloat(at.substring(1)) * performAt : Float.parseFloat(at);
+			default -> at.startsWith("W") ? Float.parseFloat(at.substring(1)) * performAt
+					: at.startsWith("R") ? marker(clip, "phase=RECOVERY;") + Float.parseFloat(at.substring(1))
+							* (clip.get("animation_length").getAsFloat() - marker(clip, "phase=RECOVERY;"))
+					: Float.parseFloat(at);
 		};
+	}
+
+	// the angles of a ModelPart rotation Rz * Ry * Rx, in degrees
+	static float[] eulerOf(double[][] m) {
+		double y = Math.asin(Math.max(-1, Math.min(1, -m[2][0])));
+		return new float[] { (float) Math.toDegrees(Math.atan2(m[2][1], m[2][2])), (float) Math.toDegrees(y),
+				(float) Math.toDegrees(Math.atan2(m[1][0], m[0][0])) };
 	}
 
 	static float marker(JsonObject clip, String instruction) {
