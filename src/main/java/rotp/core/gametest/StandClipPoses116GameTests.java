@@ -323,6 +323,69 @@ public final class StandClipPoses116GameTests {
 		helper.succeed();
 	}
 
+	private static final String SP_ANIMS =
+			"stand_skins/star_platinum/assets/jojo_ripples/animations/star_platinum.animation.json";
+	// 1.16 star_platinum.animation.json uppercut: body (a root child at the neck) and upperPart (under the body, at the
+	// waist), time, angles, the easing into the key
+	private static final float[] UPPERCUT_BODY_116 = { -4.73827F, -22.58344F, -0.01776F };
+	private static final float[] UPPERCUT_UPPER_PART_TIMES = { 0, 0.4F, 0.45F, 0.8F, 1.1F };
+	private static final float[] UPPERCUT_UPPER_PART_YAWS = { 0, 15, -30, -30, 0 };
+	private static final boolean[] UPPERCUT_UPPER_PART_CUBIC = { false, false, true, false, false };
+
+	/*
+	 * 1.16's Star Platinum played star_platinum.animation.json's uppercut for its finisher: the body, pivoting at the neck,
+	 * held its lean and twist while the upperPart, pivoting at the waist under it, wound up to 15 degrees and snapped to
+	 * -30 (easeInCubic) on PERFORM; the head, a root child, kept the look. The port's uppercut clips carry the body on
+	 * body_rot (the neck pivot) and the upperPart on torso (the waist pivot), the port-only body and torso_bend at 0, and
+	 * the head on the look under that chain.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void starPlatinumsUppercutTurnsAt116sNeckAndWaist(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		JsonObject anims = readJson(helper, SP_ANIMS).getAsJsonObject("animations");
+		float[] level = { 0, 0 };
+		for (String name : new String[] { "finisher_uppercut", "uppercut" }) {
+			JsonObject clip = anims.getAsJsonObject(name);
+			helper.assertTrue(clip != null && clip.has("bones"), SP_ANIMS + " lost " + name);
+			List<String> off = new ArrayList<>();
+			for (int step = 0; step <= 110; step++) {
+				float time = step / 100F;
+				float upper = UPPERCUT_UPPER_PART_YAWS[0];
+				for (int i = 1; i < UPPERCUT_UPPER_PART_TIMES.length; i++) {
+					if (time <= UPPERCUT_UPPER_PART_TIMES[i] + 0.00001F) {
+						float f = (time - UPPERCUT_UPPER_PART_TIMES[i - 1]) / (UPPERCUT_UPPER_PART_TIMES[i] - UPPERCUT_UPPER_PART_TIMES[i - 1]);
+						f = UPPERCUT_UPPER_PART_CUBIC[i] ? f * f * f : f;
+						upper = UPPERCUT_UPPER_PART_YAWS[i - 1] + (UPPERCUT_UPPER_PART_YAWS[i] - UPPERCUT_UPPER_PART_YAWS[i - 1]) * f;
+						break;
+					}
+				}
+				float[][] expected = { UPPERCUT_BODY_116, { 0, upper, 0 }, new float[3], new float[3] };
+				String[] bones = { "body_rot", "torso", "body", "torso_bend" };
+				for (int b = 0; b < bones.length; b++) {
+					float[] at = rotationAt(clip, bones[b], time, level);
+					for (int axis = 0; axis < 3; axis++) {
+						if (Math.abs(at[axis] - expected[b][axis]) > 0.01F) {
+							off.add(bones[b] + " at " + time + " " + Arrays.toString(at) + " where 1.16 had " + Arrays.toString(expected[b]));
+							break;
+						}
+					}
+				}
+				for (float[] look : new float[][] { level, LOOK }) {
+					double head = angleBetween(composedHead(clip, time, look), rotationMatrix(new float[] { look[0], look[1], 0 }));
+					if (head > 1) {
+						off.add("head at " + time + " looking " + Arrays.toString(look) + " " + String.format("%.1f", head) + " degrees off the look");
+					}
+				}
+			}
+			if (!off.isEmpty()) {
+				wrong.add(name + " (" + off.size() + " samples): " + off.subList(0, Math.min(6, off.size())));
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), "1.16's uppercut turned the body at the neck and the upperPart at the waist, the head on the look: "
+				+ wrong);
+		helper.succeed();
+	}
+
 	private static EntityActionInstance actionOf(GameTestHelper helper, String abilityName) {
 		Ability ability = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("crazy_diamond")).getBaseMoveset().getAbility(abilityName);
 		helper.assertTrue(ability instanceof EntityActionAbility, "setup: Crazy Diamond has no " + abilityName);
