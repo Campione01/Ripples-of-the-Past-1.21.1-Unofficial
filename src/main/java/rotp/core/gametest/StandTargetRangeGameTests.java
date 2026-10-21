@@ -1315,7 +1315,8 @@ public final class StandTargetRangeGameTests {
 				"no action: the user's tamed wolf before a cow beside the Stand's look, in their precision boxes",
 				"no action: a snow golem beside the Stand's look past its reach, in its precision box",
 				"the aim assist off, a held Revert: a cow before a snow golem on the Stand's look",
-				"the aim assist off, no action: a cow beside the Stand's look, in its precision box" };
+				"the aim assist off, no action: a cow beside the Stand's look, in its precision box",
+				"the aim assist off, no action: a stone block on the Stand's look past its reach, within the vanilla pick" };
 		List<String> wrong = new ArrayList<>();
 		for (String row : rows) {
 			try (Fixture fixture = Fixture.open(helper, Kind.CD_REVERT)) {

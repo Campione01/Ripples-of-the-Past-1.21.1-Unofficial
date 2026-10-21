@@ -1217,17 +1217,18 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	 * vanilla pick from the Stand's eyes (a block within the player's block reach, any entity within its entity reach)
 	 * when it met a block or an entity other than the Stand, otherwise the precision ray from the Stand as far as its own
 	 * reach (getAimDistance under manual control) over any entity but the Stand, its user and their projectiles. Without
-	 * the aim assist, what the Stand's crosshair line meets first within that reach. Its readers judge the target.
+	 * the aim assist only what the crosshair meets: that vanilla pick, else the Stand's crosshair line within its reach.
+	 * Its readers judge the target.
 	 */
 	public static ActionTarget manualStandAim(StandEntity stand, ActionTarget vanillaPick) {
 		double reach = stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE);
 		boolean wallsHideEntities = StandSkillWalls.wallsHideEntities(stand);
-		if (!aimAssist(stand.getUser())) {
-			return StandPrecisionRay.crosshair(stand, stand, reach, true, wallsHideEntities);
-		}
 		if (vanillaPick.getType() == TargetType.BLOCK || vanillaPick.getType() == TargetType.ENTITY
 				&& vanillaPick.getEntity() != null && vanillaPick.getEntity() != stand) {
 			return vanillaPick;
+		}
+		if (!aimAssist(stand.getUser())) {
+			return StandPrecisionRay.crosshair(stand, stand, reach, true, wallsHideEntities);
 		}
 		return StandPrecisionRay.trace(stand, stand, reach, 0.0D, true, wallsHideEntities);
 	}
