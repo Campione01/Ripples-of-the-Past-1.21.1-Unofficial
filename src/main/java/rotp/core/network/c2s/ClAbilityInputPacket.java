@@ -541,10 +541,14 @@ public class ClAbilityInputPacket implements CustomPacketPayload {
 				ActionTarget playerBefore = copyTargetOrEmpty(
 						playerAction.entityAim.getTarget());
 				boolean playerSentEntity = payload.playerAimTarget.getType() == ActionTarget.TargetType.ENTITY;
-				ActionTarget playerTarget = copyTargetOrEmpty(
-						payload.playerAimTarget.resolveEntityId(player.level()));
+				ActionTarget playerResolved = payload.playerAimTarget.resolveEntityId(player.level());
+				ActionTarget playerTarget = copyTargetOrEmpty(playerResolved);
 				boolean playerMissing = playerSentEntity
 						&& playerTarget.getType() == ActionTarget.TargetType.EMPTY;
+				// never the player, as ClAimTargetPacket stores it (LivingComponentAction.setUserAimFromClient)
+				if (playerAction.isUserItself(playerResolved)) {
+					playerTarget = ActionTarget.EMPTY;
+				}
 				StandEntity stand = StandUtil.getSummonedStand(player);
 				LivingComponentAction standAction = stand != null
 						? LivingComponentAction.getComponent(stand) : null;

@@ -3,6 +3,7 @@ package rotp.core.gametest;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -32,12 +33,14 @@ import rotp.core.impl.stands.goldexperience.GoldExperienceLifeformState;
 import rotp.core.impl.stands.goldexperience.GoldExperienceMarkItemAbility;
 import rotp.core.impl.stands.hierophant.HGBarrierEntity;
 import rotp.core.impl.stands.hierophant.HierophantBarrierAbility;
+import rotp.core.network.c2s.ClAbilityInputPacket;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.condition.AvailableAbilities;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.ability.input.AbilityInput;
+import rotp.core.powersystem.ability.input.AbilityInput.InputEventType;
 import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
 import rotp.core.powersystem.entityaction.EntityActionInputState.HeldInputEntry;
 import rotp.core.init.ModDataAttachmentTypes;
@@ -80,6 +83,7 @@ import net.minecraft.gametest.framework.GameTestRunner;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.Connection;
 import net.minecraft.network.PacketSendListener;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.PacketFlow;
@@ -123,6 +127,7 @@ import net.neoforged.neoforge.event.entity.player.BonemealEvent;
 import net.neoforged.neoforge.event.tick.LevelTickEvent;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 /*
  * 1.16 Action.checkRangeAndTarget measures a Stand action's target from its performer, and StandAction.getPerformer is
@@ -2344,7 +2349,8 @@ public final class StandTargetRangeGameTests {
 	 * actions took the camera's pick unchanged (IPowerType.clientHitResult): another camera's pick (a manually controlled
 	 * Stand's, a member's view) on the user's own body left the user's aim empty, so Hamon Shock, Sunlight Yellow Overdrive
 	 * and Vampirism's Freeze never targeted the user. The aim the user's client sends, stored as the server stores it, is
-	 * no aim when it is the user, and a cow under it is the aim the non-Stand readers take.
+	 * no aim when it is the user, and a cow under it is the aim the non-Stand readers take; the same for the aim a press
+	 * packet carries, sent through its codec and handler.
 	 */
 	@GameTest(template = "empty", batch = BATCH)
 	public static void theUsersAimIsNeverTheUserAsIn116(GameTestHelper helper) {
@@ -2368,15 +2374,99 @@ public final class StandTargetRangeGameTests {
 			helper.assertTrue(self.getType() == TargetType.EMPTY && other.getEntity() == cow, "1.16 Action.checkTarget emptied"
 					+ " a target that was the user: the user's aim at the user's own body is " + describe(self, user)
 					+ ", at a cow " + describe(other, user));
+
+			// a press packet carries the user's aim too (ClAbilityInputPacket): a Star Platinum punch sent through the
+			// packet's codec and handler, its Stand out; the Stand's aim, sent empty, takes the user's
+			component.entityAim.setTarget(ActionTarget.EMPTY);
+			StandPower power = PowerClass.STAND.attachGet(user);
+			StandType starPlatinum = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("star_platinum"));
+			helper.assertTrue(starPlatinum != null && StandPowerTransitions.insert(power, new StandInstance(starPlatinum)).status()
+					== StandPowerTransitions.Status.APPLIED && starPlatinum.summon(user, power)
+					&& power.getSummonedStandEntity() != null, "SELF-AIM premise: could not summon the user's Star Platinum");
+			power.setStamina(power.getMaxStamina());
+			StandEntity stand = power.getSummonedStandEntity();
+			String pressedSelf = pressWithUserAim(helper, user, stand, new ActionTarget(user));
+			ActionTarget pressedSelfAim = HamonAbilityHelpers.getAimTarget(user, helper.getLevel());
+			ActionTarget pressedSelfStandAim = LivingComponentAction.getComponent(stand).entityAim.getTarget()
+					.resolveEntityId(helper.getLevel());
+			String pressedCow = pressWithUserAim(helper, user, stand, new ActionTarget(cow));
+			ActionTarget pressedCowAim = HamonAbilityHelpers.getAimTarget(user, helper.getLevel());
+			ActionTarget pressedCowStandAim = LivingComponentAction.getComponent(stand).entityAim.getTarget()
+					.resolveEntityId(helper.getLevel());
+			helper.assertTrue(pressedSelf == null && pressedCow == null, "SELF-AIM premise: the punch pressed through the"
+					+ " packet did not start: " + pressedSelf + ", " + pressedCow);
+			helper.assertTrue(pressedSelfAim.getType() == TargetType.EMPTY && pressedSelfStandAim.getType() == TargetType.EMPTY
+					&& pressedCowAim.getEntity() == cow && pressedCowStandAim.getEntity() == cow, "1.16 Action.checkTarget"
+							+ " emptied a target that was the user, for a press too: the press packet's aim at the user's own"
+							+ " body left the user's aim " + describe(pressedSelfAim, user) + " and its Stand's "
+							+ describe(pressedSelfStandAim, user) + ", at a cow " + describe(pressedCowAim, user) + " and "
+							+ describe(pressedCowStandAim, user));
 		}
 		finally {
 			LivingComponentAction.getComponent(user).entityAim.setTarget(ActionTarget.EMPTY);
+			StandPower power = PowerClass.STAND.get(user);
+			if (power != null && power.isSummoned() && power.getPowerType() instanceof StandType type) {
+				type.forceUnsummon(user, power);
+			}
 			if (cow != null) {
 				cow.discard();
 			}
 			user.discard();
 		}
 		helper.succeed();
+	}
+
+	private static final short SELF_AIM_KEY = 77;
+
+	/*
+	 * A punch pressed as the user's client sends it, with the given aim as the user's and none as the Stand's, through the
+	 * press packet's codec and handler; null once it started on the Stand (the press went through, so the aims it brought
+	 * are kept), else what the Stand holds. The Stand's action and the key are let go after it.
+	 */
+	@Nullable
+	private static String pressWithUserAim(GameTestHelper helper, FakePlayer user, StandEntity stand, ActionTarget aim) {
+		Ability punch = StandPower.get(user).getAbility("punch");
+		long generation = user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get()).latestInputGeneration(SELF_AIM_KEY) + 1;
+		ClAbilityInputPacket sent = ClAbilityInputPacket.keyPress(SELF_AIM_KEY, generation, user, punch, punch,
+				InputEventType.PRESS_CLICK, 0, aim, ActionTarget.EMPTY);
+		IPayloadContext context = (IPayloadContext) Proxy.newProxyInstance(IPayloadContext.class.getClassLoader(),
+				new Class<?>[] { IPayloadContext.class }, (proxy, method, args) -> {
+					if (method.getName().equals("player")) {
+						return user;
+					}
+					throw new UnsupportedOperationException("SELF-AIM fixture: the handler asked the context for " + method.getName());
+				});
+		java.lang.reflect.Field typeField;
+		Object registeredType;
+		try {
+			typeField = ClAbilityInputPacket.class.getDeclaredField("type");
+			typeField.setAccessible(true);
+			registeredType = typeField.get(null);
+		}
+		catch (ReflectiveOperationException e) {
+			throw new IllegalStateException("SELF-AIM fixture: cannot read the packet type", e);
+		}
+		LivingComponentAction standAction = LivingComponentAction.getComponent(stand);
+		RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), helper.getLevel().registryAccess());
+		try {
+			// the Handler constructor sets the packet's static type; the registered one is put back
+			ClAbilityInputPacket.Handler handler = new ClAbilityInputPacket.Handler(JojoMod.resLoc("clkey"));
+			handler.encode(sent, buf);
+			handler.handle(handler.decode(buf), context);
+			EntityActionInstance started = standAction.getAction();
+			return started != null && started.ability == punch ? null : String.valueOf(started);
+		}
+		finally {
+			buf.release();
+			try {
+				typeField.set(null, registeredType);
+			}
+			catch (ReflectiveOperationException e) {
+				throw new IllegalStateException("SELF-AIM fixture: cannot restore the packet type", e);
+			}
+			AbilityInput.keyRelease(SELF_AIM_KEY, user);
+			standAction.setAction(null, SyncType.NO_SYNC);
+		}
 	}
 
 	// the point a special Crossfire Hurricane shot homes on (MRCrossfireHurricaneEntity.targetPos, private)
