@@ -101,7 +101,7 @@ public final class HeavyPunchPerform116GameTests {
 			new HeavyClip(DEFAULT_ANIMS, "heavy_punch", "right_arm_bend", 0.4667F, null, null),
 			new HeavyClip(DEFAULT_ANIMS, "finisher_uppercut", "right_arm", 0.45F, null, null),
 			new HeavyClip(DEFAULT_ANIMS, "grab_uppercut", "right_arm", 0.5F, null, null),
-			new HeavyClip(SP_ANIMS, "heavy_punch", "right_arm_bend", 0.4667F, "star_platinum", "heavy_punch"),
+			new HeavyClip(SP_ANIMS, "heavy_punch", "right_arm_bend", 0.6F, "star_platinum", "heavy_punch"),
 			new HeavyClip(SP_ANIMS, "finisher_uppercut", "right_arm", 0.45F, "star_platinum", "finisher_uppercut"),
 			new HeavyClip(SP_ANIMS, "grab_uppercut", "right_arm", 0.5F, "star_platinum", "grab_uppercut"),
 			new HeavyClip(TW_ANIMS, "heavy_punch", "right_arm", 0.6F, "the_world", "heavy_punch"),
@@ -146,7 +146,8 @@ public final class HeavyPunchPerform116GameTests {
 	private static final List<HeldImpactClip> HELD_IMPACT_CLIPS = List.of(
 			// HumanoidStandModel :577-586, the default heavy: impact -> idle eased max(2(pr - 1) + 1, 0)
 			new HeldImpactClip(DEFAULT_ANIMS, "heavy_punch", "right_arm_bend", 0.4667F),
-			new HeldImpactClip(SP_ANIMS, "heavy_punch", "right_arm_bend", 0.4667F),
+			// 1.16 star_platinum.animation.json heavyPunch, the same poses: the impact held to 1.0, the recovery's middle
+			new HeldImpactClip(SP_ANIMS, "heavy_punch", "right_arm_bend", 0.6F),
 			new HeldImpactClip(MR_ANIMS, "heavy_punch", "right_arm_bend", 0.6F),
 			// CrazyDiamondModel :669-680: pose8 held to half the recovery
 			new HeldImpactClip(CD_ANIMS, "heavy_punch", "right_arm_bend", 0.5833F));
@@ -174,7 +175,35 @@ public final class HeavyPunchPerform116GameTests {
 			new HeadPose(CD_ANIMS, "finisher", "0", new float[] { 5, 0, 6.36F }),
 			new HeadPose(CD_ANIMS, "finisher", "PERFORM", new float[] { -6.9176F, 15.7939F, 16.6495F }),
 			new HeadPose(CD_ANIMS, "finisher", "RECOVERY", null),
-			new HeadPose(CD_ANIMS, "finisher", "MIDDLE", null));
+			new HeadPose(CD_ANIMS, "finisher", "MIDDLE", null),
+			// 1.16 star_platinum.animation.json heavyPunch: the head (a root child) on the look throughout
+			new HeadPose(SP_ANIMS, "heavy_punch", "0", null),
+			new HeadPose(SP_ANIMS, "heavy_punch", "W0.5", null),
+			new HeadPose(SP_ANIMS, "heavy_punch", "PERFORM", null),
+			new HeadPose(SP_ANIMS, "heavy_punch", "MIDDLE", null));
+
+	// a key of a 1.16 JSON clip as the port's clip must carry it: bone, time, vector and the easing towards it
+	private record Key116(String asset, String clip, String bone, float time, float[] vector, String easing) {}
+
+	// 1.16 star_platinum.animation.json heavyPunch (:2162-2420), played for StandPose HEAVY_ATTACK by GeckoStandAnimator;
+	// body on body_rot and upperPart on torso, the pivots 1.16 gave them
+	private static final List<Key116> SP_HEAVY_PUNCH_116 = List.of(
+			new Key116(SP_ANIMS, "heavy_punch", "right_arm", 0, new float[] { 22.5F, 0, 60 }, "linear"),
+			new Key116(SP_ANIMS, "heavy_punch", "right_arm", 0.55F, new float[] { 22.5F, 0, 60 }, "easeInQuad"),
+			new Key116(SP_ANIMS, "heavy_punch", "right_arm", 0.6F, new float[] { -67.5F, 0, 90 }, "easeInCubic"),
+			new Key116(SP_ANIMS, "heavy_punch", "right_arm", 1.0F, new float[] { -67.5F, 0, 90 }, "easeInCubic"),
+			new Key116(SP_ANIMS, "heavy_punch", "right_arm_bend", 0.55F, new float[] { -135, 0, 0 }, "easeInQuad"),
+			new Key116(SP_ANIMS, "heavy_punch", "right_arm_bend", 0.6F, new float[] { 0, 0, 0 }, "easeInCubic"),
+			new Key116(SP_ANIMS, "heavy_punch", "left_arm", 0.55F, new float[] { -67.5F, 0, -90 }, "easeInQuad"),
+			new Key116(SP_ANIMS, "heavy_punch", "left_arm", 0.6F, new float[] { 22.5F, 0, -60 }, "easeInCubic"),
+			new Key116(SP_ANIMS, "heavy_punch", "left_arm_bend", 0.6F, new float[] { -135, 0, 0 }, "easeInCubic"),
+			new Key116(SP_ANIMS, "heavy_punch", "body_rot", 0, new float[] { 0, 15, 0 }, "linear"),
+			new Key116(SP_ANIMS, "heavy_punch", "body_rot", 0.55F, new float[] { 0, 26.25F, 0 }, "linear"),
+			new Key116(SP_ANIMS, "heavy_punch", "body_rot", 0.6F, new float[] { 0, -26.25F, 0 }, "linear"),
+			new Key116(SP_ANIMS, "heavy_punch", "body_rot", 1.0F, new float[] { 0, -26.25F, 0 }, "linear"),
+			new Key116(SP_ANIMS, "heavy_punch", "torso", 0.55F, new float[] { 0, 26.25F, 0 }, "easeInQuad"),
+			new Key116(SP_ANIMS, "heavy_punch", "torso", 0.6F, new float[] { 0, -26.25F, 0 }, "easeInCubic"),
+			new Key116(SP_ANIMS, "heavy_punch", "torso", 1.0F, new float[] { 0, -26.25F, 0 }, "easeInCubic"));
 
 	// the port's bones from the model root to the head; head_rot carries the look
 	private static final String[] HEAD_CHAIN = { "stand_pos", "body_rot", "body", "torso", "torso_bend", "head" };
@@ -463,6 +492,52 @@ public final class HeavyPunchPerform116GameTests {
 			}
 		}
 		helper.assertTrue(wrong.isEmpty(), "A 1.16 pose's head kept its root-space angles, or the look where the pose had no head: " + wrong);
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16's Star Platinum was drawn by GeckoStandAnimator, which played star_platinum.animation.json's heavyPunch for
+	 * StandPose HEAVY_ATTACK, its grab-free heavy punch included: the backswing at 0.55 (easeInQuad), the snap to the
+	 * impact at 0.6 (easeInCubic) on PERFORM, RECOVERY a tick later, the impact held to 1.0 and the return by 1.35. Star
+	 * Platinum's heavy punch plays heavy_punch, which carries those keys, and its grab heavy punch has no clip of its own
+	 * (AnimationSet's grab_heavy_punch alias takes heavy_punch).
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void starPlatinumsHeavyPunchPlays116sHeavyPunchClip(GameTestHelper helper) {
+		StandType starPlatinum = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("star_platinum"));
+		for (String abilityName : new String[] { "heavy_punch", "grab_heavy_punch" }) {
+			helper.assertTrue(starPlatinum.getBaseMoveset().getAbility(abilityName) instanceof EntityActionAbility ability
+					&& abilityName.equals(ability.getEntityAnim(null).name()),
+					"setup: Star Platinum's " + abilityName + " does not play " + abilityName);
+		}
+		JsonObject anims = readJson(helper, SP_ANIMS).getAsJsonObject("animations");
+		JsonObject clip = anims.getAsJsonObject("heavy_punch");
+		List<String> wrong = new ArrayList<>();
+		if (anims.has("grab_heavy_punch")) {
+			wrong.add("the file has a grab_heavy_punch clip of its own");
+		}
+		if (marker(clip, "phase=PERFORM;") != 0.6F || marker(clip, "phase=RECOVERY;") != 0.65F
+				|| clip.get("animation_length").getAsFloat() != 1.35F) {
+			wrong.add("markers " + clip.get("timeline") + ", length " + clip.get("animation_length"));
+		}
+		for (Key116 key : SP_HEAVY_PUNCH_116) {
+			JsonObject bone = clip.getAsJsonObject("bones").getAsJsonObject(key.bone());
+			JsonElement found = null;
+			if (bone != null && bone.has("rotation") && bone.get("rotation").isJsonObject()) {
+				for (Map.Entry<String, JsonElement> entry : bone.getAsJsonObject("rotation").entrySet()) {
+					if (!entry.getKey().equals("vector") && Math.abs(Float.parseFloat(entry.getKey()) - key.time()) < 0.00005F) {
+						found = entry.getValue();
+					}
+				}
+			}
+			String easing = found != null && found.isJsonObject() && found.getAsJsonObject().has("easing")
+					? found.getAsJsonObject().get("easing").getAsString() : "linear";
+			if (found == null || !near(numbers(found), key.vector()) || !easing.equals(key.easing())) {
+				wrong.add(key.bone() + " at " + key.time() + ": " + found + " where 1.16 had " + Arrays.toString(key.vector())
+						+ " " + key.easing());
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), "1.16's Star Platinum played its JSON heavyPunch for the heavy punch: " + wrong);
 		helper.succeed();
 	}
 
