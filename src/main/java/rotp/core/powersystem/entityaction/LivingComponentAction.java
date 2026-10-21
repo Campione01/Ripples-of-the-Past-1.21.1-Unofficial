@@ -405,8 +405,9 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 		if (entity.level().isClientSide()) {
 			getClientRebuffTail(0);
 		}
+		boolean summonLocked = entity instanceof StandEntity standEntity && standEntity.takeSummonLockedTick();
 		if (action != null) {
-			if (entity instanceof StandEntity standEntity && standEntity.summonLockTicks > 0) {
+			if (summonLocked) {
 				syncDirtyActionData();
 				return;
 			}
