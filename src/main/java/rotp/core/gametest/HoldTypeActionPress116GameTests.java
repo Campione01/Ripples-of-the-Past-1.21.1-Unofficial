@@ -4,10 +4,12 @@ import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
+import rotp.core.event.RipplesAbilityKeyPressEvent;
 import rotp.core.impl.stands._entitybase.StandEntityManualControlToggle;
 import rotp.core.impl.stands.magiciansred.MRDetectorEntity;
 import rotp.core.init.ModDataAttachmentTypes;
@@ -26,11 +28,14 @@ import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.HeldInput;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.netcode.SyncType;
+import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.itemtracking.OriginalItemPosComponent;
+import rotp.core.subsystems.target.ActionTarget;
+import rotp.core.util.reflection.CommonReflection;
 import com.mojang.authlib.GameProfile;
 
 import net.minecraft.core.BlockPos;
@@ -38,10 +43,13 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.bus.api.EventPriority;
+import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
@@ -151,6 +159,117 @@ public final class HoldTypeActionPress116GameTests {
 					new OriginalItemPosComponent(BlockPos.containing(s.origin).above(3), helper.getLevel().dimension()));
 			s.user.setItemInHand(InteractionHand.OFF_HAND, anchor);
 			s.goesThrough("block_anchor", "punch", InputMethod.CLICK);
+		}
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16's client sent no press of a held action while the power held one (ActionsOverlayGui.onActionClick), also where
+	 * the held action let every other action replace it at once (the guard, Star Platinum's zoom and inhale, Crazy
+	 * Diamond's heal, revert and repair): the input buffer keeps such a press (N2) and starts it once the hold is let go;
+	 * a click goes through the hold as before, and so does a mob's held press.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aPlayersHeldPressWaitsWhileTheStandPowerHoldsAnActionAsIn116(GameTestHelper helper) {
+		try (Scene s = new Scene(helper, "HeldPressStarPlatinum", "star_platinum", 4)) {
+			s.unlock("inhale", "enhanced_eyesight");
+			s.heldPressWaits("guard", "barrage");
+			s.heldPressWaits("enhanced_eyesight", "barrage");
+			s.heldPressWaits("inhale", "guard");
+			s.goesThrough("guard", "punch", InputMethod.CLICK);
+
+			// let go, the guard holds nothing: the barrage still held goes through
+			EntityActionInstance guard = s.hold("guard");
+			BufferingState waiting = s.press("barrage", InputMethod.HOLD, OTHER_KEY);
+			helper.assertTrue(waiting.shouldBuffer && s.standAction.getAction() == guard, "setup: the barrage pressed during the"
+					+ " held guard was not buffered");
+			List<Ability> replays = new ArrayList<>();
+			Consumer<RipplesAbilityKeyPressEvent> listener = event -> {
+				if (event.getEntity() == s.user && event.isBufferedReplay()) {
+					replays.add(event.getAbility());
+				}
+			};
+			NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, RipplesAbilityKeyPressEvent.class, listener);
+			try {
+				s.input().inputBuffer.tickInputBuffer(s.input());
+			}
+			finally {
+				NeoForge.EVENT_BUS.unregister(listener);
+			}
+			helper.assertTrue(s.standAction.getAction() == guard && guard.getPhase() == ActionPhase.PERFORM && replays.isEmpty(),
+					"the buffered barrage waits while the guard is held, and is not tried again before it can start (1.16"
+							+ " StandEntity.checkInputBuffer): the Stand's action " + s.standAction.getAction() + ", replays "
+							+ replays);
+			AbilityInput.keyRelease(HOLD_KEY, s.user);
+			helper.assertTrue(guard.isOver() || guard.getPhase() == ActionPhase.RECOVERY, "setup: the guard let go still holds: "
+					+ guard.getPhase());
+			s.input().inputBuffer.tickInputBuffer(s.input());
+			EntityActionInstance barrage = s.standAction.getAction();
+			helper.assertTrue(barrage != null && barrage.ability == s.power.getAbility("barrage") && s.isHeldByKey(OTHER_KEY),
+					"the barrage key still held once the guard was let go starts the barrage (the power holds nothing): the"
+							+ " Stand's action " + barrage);
+			AbilityInput.keyRelease(OTHER_KEY, s.user);
+			s.clear();
+		}
+		try (Scene s = new Scene(helper, "HeldPressCrazyDiamond", "crazy_diamond", 4)) {
+			s.unlock("heal", "revert_state", "repair_item");
+			Creeper creeper = EntityType.CREEPER.create(helper.getLevel());
+			helper.assertTrue(creeper != null, "setup: could not create the creeper");
+			try {
+				creeper.setNoAi(true);
+				creeper.setNoGravity(true);
+				creeper.moveTo(s.origin.x, s.origin.y, s.origin.z + 2.0D, 180.0F, 0.0F);
+				helper.assertTrue(helper.getLevel().addFreshEntity(creeper), "setup: could not add the creeper");
+				CommonReflection.setCreeperPowered(creeper, true);
+				creeper.setHealth(creeper.getMaxHealth() - 6.0F);
+				LivingComponentAction.getComponent(s.user).entityAim.setTarget(new ActionTarget(creeper));
+				s.heldPressWaits("heal", "revert_state");
+				s.heldPressWaits("revert_state", "heal");
+				ItemStack sword = new ItemStack(Items.IRON_SWORD);
+				sword.setDamageValue(sword.getMaxDamage() - 10);
+				s.user.setItemInHand(InteractionHand.OFF_HAND, sword);
+				s.heldPressWaits("repair_item", "heal");
+			}
+			finally {
+				creeper.discard();
+			}
+		}
+
+		// a mob's held press went to the server, through the guard
+		Zombie zombie = EntityType.ZOMBIE.create(helper.getLevel());
+		helper.assertTrue(zombie != null, "setup: could not create the zombie");
+		StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("star_platinum"));
+		Vec3 origin = Vec3.atCenterOf(helper.absolutePos(new BlockPos(2, 2, 2)));
+		zombie.setNoAi(true);
+		zombie.setNoGravity(true);
+		zombie.moveTo(origin.x, origin.y, origin.z, 0.0F, 0.0F);
+		helper.assertTrue(helper.getLevel().addFreshEntity(zombie), "setup: could not add the zombie");
+		StandPower power = PowerClass.STAND.attachGet(zombie);
+		try {
+			helper.assertTrue(type != null && StandPowerTransitions.insert(power, new StandInstance(type)).status()
+					== StandPowerTransitions.Status.APPLIED, "setup: could not give the zombie Star Platinum");
+			power.setResolveLevel(4);
+			helper.assertTrue(type.summon(zombie, power), "setup: could not summon the zombie's Star Platinum");
+			StandEntity stand = power.getSummonedStandEntity();
+			helper.assertTrue(stand != null, "setup: the zombie's Stand is missing");
+			stand.summonLockTicks = 0;
+			LivingComponentAction standAction = LivingComponentAction.getComponent(stand);
+			power.setStamina(power.getMaxStamina());
+			AbilityInput.keyPressMob(power.getAbility("guard"), zombie, null, InputMethod.HOLD);
+			EntityActionInstance guard = standAction.getAction();
+			helper.assertTrue(guard != null && guard.ability == power.getAbility("guard"), "setup: the zombie's guard is not held: "
+					+ guard);
+			AbilityInput.keyPressMob(power.getAbility("barrage"), zombie, null, InputMethod.HOLD);
+			EntityActionInstance now = standAction.getAction();
+			helper.assertTrue(now != null && now != guard && now.ability == power.getAbility("barrage"), "1.16 let a mob's"
+					+ " barrage through its Stand's held guard at once: the Stand's action " + now);
+		}
+		finally {
+			zombie.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get()).heldKeys.clear();
+			if (power.isSummoned() && type != null) {
+				type.forceUnsummon(zombie, power);
+			}
+			zombie.discard();
 		}
 		helper.succeed();
 	}
@@ -310,6 +429,25 @@ public final class HoldTypeActionPress116GameTests {
 							+ " (heldAllowsOtherAction, isCancelable): started " + pressed.isActionSuccess + ", buffered "
 							+ pressed.shouldBuffer + ", the Stand's action " + now + ", the " + holdName + " over "
 							+ hold.isOver() + " in " + hold.getPhase());
+			AbilityInput.keyRelease(OTHER_KEY, user);
+			clear();
+		}
+
+		/*
+		 * The hold, whose canBeCancelledInto would let the other action replace it, is pressed and kept held; the other
+		 * action, which holds too, pressed by another key waits in the buffer and the hold goes on.
+		 */
+		private void heldPressWaits(String holdName, String otherName) {
+			EntityActionInstance hold = hold(holdName);
+			helper.assertTrue(hold.canBeCancelledInto((EntityActionType) power.getAbility(otherName))
+					&& ((EntityActionAbility) power.getAbility(otherName)).isHoldAction(), "setup: the held " + holdName
+							+ " would not let " + otherName + " replace it, or " + otherName + " does not hold");
+			BufferingState pressed = press(otherName, InputMethod.HOLD, OTHER_KEY);
+			helper.assertTrue(pressed.shouldBuffer && !pressed.isActionSuccess && standAction.getAction() == hold
+					&& hold.getPhase() == ActionPhase.PERFORM && isHeldByKey(HOLD_KEY),
+					"1.16's client sent no " + otherName + " (a held action) pressed while " + holdName + " was held, which the"
+							+ " input buffer keeps: buffered " + pressed.shouldBuffer + ", started " + pressed.isActionSuccess
+							+ ", the Stand's action " + standAction.getAction() + ", the " + holdName + " in " + hold.getPhase());
 			AbilityInput.keyRelease(OTHER_KEY, user);
 			clear();
 		}

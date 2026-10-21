@@ -597,6 +597,32 @@ public class AbilityInput {
 		return input != null && isHeldByKey(input.heldKeys, action);
 	}
 
+	/**
+	 * The action of the power that its user holds now, as 1.16's power held one from its press until it fired or was let
+	 * go (PowerBaseImpl.getHeldAction): the user's or its Stand's action of an ability of that power, held since its press
+	 * (EntityActionAbility#isHeldSincePress) and, on the server, by a key. A client, which does not know the server's
+	 * keys, goes by the action's phase alone.
+	 */
+	@ApiStatus.Internal
+	@Nullable
+	public static EntityActionInstance getHeldAction(@Nullable LivingEntity user, @Nullable PowerClass<?> powerClass) {
+		if (user == null || powerClass == null) {
+			return null;
+		}
+		EntityActionInstance held = heldActionOf(user, user, powerClass);
+		StandEntity stand = held == null ? StandUtil.getSummonedStand(user) : null;
+		return stand != null && stand != user ? heldActionOf(stand, user, powerClass) : held;
+	}
+
+	@Nullable
+	private static EntityActionInstance heldActionOf(LivingEntity performer, LivingEntity user, PowerClass<?> powerClass) {
+		EntityActionInstance action = LivingComponentAction.getCurEntityAction(performer);
+		return action != null && !action.isOver() && action.getPowerUser() == user
+				&& action.ability instanceof EntityActionAbility ability && ability.abilityId.powerClass() == powerClass
+				&& ability.isHeldSincePress(action) && (user.level().isClientSide() || isHeldByKey(user, action))
+				? action : null;
+	}
+
 	static boolean isHeldByKey(
 			Int2ObjectMap<HeldInputEntry> heldInputs,
 			HeldInput action) {

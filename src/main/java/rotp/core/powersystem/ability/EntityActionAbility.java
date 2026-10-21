@@ -13,6 +13,7 @@ import rotp.core.config.MolangValue;
 import rotp.core.config.client.PlayerClientBroadcastedSettings;
 import rotp.core.init.ModStatusEffects;
 import rotp.core.powersystem.Power;
+import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.ability.input.AbilityInput;
@@ -31,6 +32,7 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.common.damagesource.DamageContainer;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
@@ -106,7 +108,7 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 		action.setStartedByClick(inputMethod == InputMethod.CLICK);
 		
 		LivingComponentAction actionComponent = LivingComponentAction.getComponent(performer);
-		boolean toBuffer = holdsBackInput(action.ability, actionComponent);
+		boolean toBuffer = holdsBackInput(action.ability, user, actionComponent);
 
 		HeldInput actionOrQueue = null;
 		if (toBuffer) {
@@ -126,17 +128,30 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 
 	/**
 	 * Whether a buffered press of this ability would still be buffered now, as {@link #setOrBufferAction} decides:
-	 * the performer's current action holds it back. The input buffer waits instead of replaying it.
+	 * the performer's current action holds it back, or a held action of the Stand power holds back a player's held press.
+	 * The input buffer waits instead of replaying it.
 	 */
 	@ApiStatus.Internal
 	public boolean wouldBufferInput(LivingEntity user) {
 		LivingEntity performer = user != null ? getPerformer(user) : null;
-		return performer != null && holdsBackInput(this, LivingComponentAction.getComponent(performer));
+		return performer != null && holdsBackInput(this, user, LivingComponentAction.getComponent(performer));
 	}
 
-	private static boolean holdsBackInput(EntityActionType ability, LivingComponentAction performerAction) {
+	private static boolean holdsBackInput(EntityActionType ability, LivingEntity user, LivingComponentAction performerAction) {
 		// A paused action (performer frozen in stopped time) does not advance, so it must not hold back new input.
-		return ability.shouldBufferInput(performerAction) && !performerAction.isActionPausedInStoppedTime();
+		return ability.shouldBufferInput(performerAction) && !performerAction.isActionPausedInStoppedTime()
+				|| isHeldPressHeldBack(ability, user);
+	}
+
+	/*
+	 * 1.16's client sent no press of a held action (getHoldDurationMax above 0) while the power held one
+	 * (ActionsOverlayGui.onActionClick), whatever the held action let through; the input buffer keeps such a press of a
+	 * Stand ability until the hold ends (owner decision N2). A mob's press went to the server and through.
+	 */
+	private static boolean isHeldPressHeldBack(EntityActionType ability, LivingEntity user) {
+		return user instanceof Player && ability instanceof EntityActionAbility pressed && pressed.isHoldAction()
+				&& pressed.abilityId.powerClass() == PowerClass.STAND
+				&& AbilityInput.getHeldAction(user, PowerClass.STAND) != null;
 	}
 
 

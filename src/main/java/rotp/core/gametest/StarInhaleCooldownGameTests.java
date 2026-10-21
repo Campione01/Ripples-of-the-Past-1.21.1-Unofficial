@@ -65,7 +65,7 @@ public final class StarInhaleCooldownGameTests {
 
     private StarInhaleCooldownGameTests() {}
 
-    private enum Stop { GUARD, ZOOM, RELEASE, TIMEOUT, STAMINA, FORCE, LOCKED, EMPTY_STAMINA, REFUSED_REPLACE, ROLLBACK }
+    private enum Stop { PUNCH, HEAVY_PUNCH, RELEASE, TIMEOUT, STAMINA, FORCE, LOCKED, EMPTY_STAMINA, REFUSED_REPLACE, ROLLBACK }
     private record Spec(Stop stop, int ticks) {}
 
     @GameTest(template = "empty", timeoutTicks = 1000, batch = "star_inhale_cooldown")
@@ -88,9 +88,9 @@ public final class StarInhaleCooldownGameTests {
 
     private static List<Spec> cases() {
         return List.of(new Spec(Stop.LOCKED, 0), new Spec(Stop.EMPTY_STAMINA, 10),
-                new Spec(Stop.GUARD, 0), new Spec(Stop.RELEASE, 0),
-                new Spec(Stop.GUARD, 1), new Spec(Stop.GUARD, 7), new Spec(Stop.GUARD, 40),
-                new Spec(Stop.ZOOM, 7), new Spec(Stop.RELEASE, 1), new Spec(Stop.RELEASE, 7),
+                new Spec(Stop.PUNCH, 0), new Spec(Stop.RELEASE, 0),
+                new Spec(Stop.PUNCH, 1), new Spec(Stop.PUNCH, 7), new Spec(Stop.PUNCH, 40),
+                new Spec(Stop.HEAVY_PUNCH, 7), new Spec(Stop.RELEASE, 1), new Spec(Stop.RELEASE, 7),
                 new Spec(Stop.RELEASE, 40), new Spec(Stop.TIMEOUT, 80), new Spec(Stop.STAMINA, 7),
                 new Spec(Stop.FORCE, 7), new Spec(Stop.FORCE, 40),
                 new Spec(Stop.REFUSED_REPLACE, 7), new Spec(Stop.ROLLBACK, 7), new Spec(Stop.ROLLBACK, 40));
@@ -131,7 +131,7 @@ public final class StarInhaleCooldownGameTests {
             };
             Consumer<RipplesAbilityKeyPressEvent> refuse = event -> {
                 if (scene != null && !closed && scene.refuseReplacement && event.getEntity() == scene.user
-                        && event.ability == scene.power.getAbility("guard")) {
+                        && event.ability == scene.replacement) {
                     scene.refusedEvents++;
                     event.setCanceled(true);
                 }
@@ -211,6 +211,7 @@ public final class StarInhaleCooldownGameTests {
         boolean starved;
         boolean refuseReplacement;
         boolean failReplacementSend;
+        Ability replacement;
         boolean done;
         boolean closed;
 
@@ -323,8 +324,10 @@ public final class StarInhaleCooldownGameTests {
             stopTicks = (int) Math.floor(action.getFullTicksPassed());
             expected = ability.getCooldown(power, stopTicks);
             premise(stopTicks == spec.ticks && stand.getCurStandAction() == action, "actual native held clock=" + stopTicks);
-            if (spec.stop == Stop.GUARD || spec.stop == Stop.ZOOM) {
-                pressReplacement(spec.stop == Stop.ZOOM ? "enhanced_eyesight" : "guard");
+            // 1.16 ended the held Inhale with a click that went off (stopHeldAction(false)); a held guard or zoom pressed
+            // during it never reached the server (ActionsOverlayGui.onActionClick)
+            if (spec.stop == Stop.PUNCH || spec.stop == Stop.HEAVY_PUNCH) {
+                pressReplacement(spec.stop == Stop.HEAVY_PUNCH ? "heavy_punch" : "punch");
                 suite.check(stand.getCurStandAction() != action && action.isOver(), "registered replacement clears old action identity");
                 observeSettlement("registered replacement");
             }
@@ -347,7 +350,7 @@ public final class StarInhaleCooldownGameTests {
             }
             else if (spec.stop == Stop.REFUSED_REPLACE) {
                 refuseReplacement = true;
-                boolean success = pressReplacement("guard");
+                boolean success = pressReplacement("punch");
                 refuseReplacement = false;
                 suite.check(!success && refusedEvents == 1 && stand.getCurStandAction() == action && !action.isOver()
                         && power.getAbilityCooldown("inhale") == 0, "canceled registered press leaves original hold and zero cooldown");
@@ -355,7 +358,7 @@ public final class StarInhaleCooldownGameTests {
             }
             else if (spec.stop == Stop.ROLLBACK) {
                 failReplacementSend = true;
-                try { pressReplacement("guard"); premise(false, "expected actual replacement-packet failure did not occur"); }
+                try { pressReplacement("punch"); premise(false, "expected actual replacement-packet failure did not occur"); }
                 catch (InjectedSendFailure expectedFailure) { log("EXPECTED-FAULT " + id() + " " + expectedFailure.getMessage()); }
                 finally { failReplacementSend = false; }
                 suite.check(rollbackFailures == 1 && stand.getCurStandAction() == action && action.getPhase() == ActionPhase.PERFORM
@@ -367,11 +370,12 @@ public final class StarInhaleCooldownGameTests {
         }
 
         boolean pressReplacement(String name) {
-            Ability replacement = power.getAbility(name);
-            var selected = power.updateAvailableMoves().getContextVariationContainer(replacement);
-            premise(selected != null && AbilityInput.withConditionCheck(selected, user, InputMethod.HOLD), "registered replacement admission " + name);
+            Ability base = power.getAbility(name);
+            var selected = power.updateAvailableMoves().getContextVariationContainer(base);
+            premise(selected != null && AbilityInput.withConditionCheck(selected, user, InputMethod.CLICK), "registered replacement admission " + name);
+            replacement = selected.ability;
             BufferingState input = BufferingState.clickOnly();
-            AbilityInput.keyPress(KEY_B, selected.ability, user, null, InputMethod.HOLD, 0, input, replacement.getAbilityId());
+            AbilityInput.keyPress(KEY_B, selected.ability, user, null, InputMethod.CLICK, 0, input, base.getAbilityId());
             return input.isActionSuccess;
         }
 
@@ -417,9 +421,9 @@ public final class StarInhaleCooldownGameTests {
                 scene.rollbackFailures++;
                 scene.cooldownAtFailedSend = scene.power.getAbilityCooldown("inhale");
                 EntityActionInstance replacement = scene.stand.getCurStandAction();
-                scene.premise(replacement != null && replacement.ability == scene.power.getAbility("guard"),
-                        "fault must observe the actual installed registered guard");
-                throw new InjectedSendFailure("registered guard installed before tracking send; inhaleCooldown=" + scene.cooldownAtFailedSend);
+                scene.premise(replacement != null && replacement.ability == scene.replacement,
+                        "fault must observe the actual installed registered replacement");
+                throw new InjectedSendFailure("registered replacement installed before tracking send; inhaleCooldown=" + scene.cooldownAtFailedSend);
             }
         }
         @Override public void send(Packet<?> packet, PacketSendListener listener) { send(packet); }

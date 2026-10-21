@@ -19,7 +19,6 @@ import rotp.core.network.NetworkPayloadValidation;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.ability.AbilityUsageGroup;
 import rotp.core.powersystem.ability.EntityActionAbility;
-import rotp.core.powersystem.ability.input.AbilityInput;
 import rotp.core.powersystem.entityaction.netcode.TrEntityActionPhaseTimePacket;
 import rotp.core.powersystem.entityaction.netcode.TrEntityActionTargetPacket;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
@@ -272,15 +271,13 @@ public class EntityActionInstance implements HeldInput {
 	/**
 	 * Whether a press of this ability, while this action is its performer's action, starts at once and replaces this
 	 * action; otherwise the press waits in the input buffer until the action ends. By default only a hold-type Stand action
-	 * gives way ({@link #givesWayToOtherAbilities}), to every ability but its own, except, while a player's key still holds
-	 * it, to an ability that holds too: 1.16's client sent no press of a held action while the power held one
-	 * (ActionsOverlayGui.onActionClick), and a mob's press went through.
+	 * gives way ({@link #givesWayToOtherAbilities}), to every ability but its own. Whatever this says, a player's press of
+	 * an ability that holds waits while the Stand power holds an action, as 1.16's client sent none
+	 * (ActionsOverlayGui.onActionClick; EntityActionAbility#wouldBufferInput).
 	 */
 	@ApiStatus.OverrideOnly
 	public boolean canBeCancelledInto(EntityActionType cancellingAbility) {
-		return cancellingAbility != ability && givesWayToOtherAbilities()
-				&& !(cancellingAbility instanceof EntityActionAbility pressed && pressed.isHoldAction()
-						&& getPowerUser() instanceof Player user && AbilityInput.isHeldByKey(user, this));
+		return cancellingAbility != ability && givesWayToOtherAbilities();
 	}
 
 	/**
