@@ -165,7 +165,8 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 		}
 		StandPower power = !level.isClientSide() ? PowerClass.STAND.get(user) : null;
 		boolean standAlreadySummoned = power != null && power.getSummonedStandEntity() != null;
-		if (power != null && !isCurrentlyInStoppedTime(user)) {
+		// a press held back while the Stand power holds an action leaves that hold to setOrBufferAction's buffer
+		if (power != null && !isCurrentlyInStoppedTime(user) && !isHeldPressHeldBack(user)) {
 			clearCurrentStandAction(power);
 		}
 

@@ -276,6 +276,79 @@ public final class HoldTypeActionPress116GameTests {
 	}
 
 	/*
+	 * 1.16's client sent no time stop (hold-to-fire) pressed while the power held the guard, a barrage, Star Platinum's zoom
+	 * or inhale (ActionsOverlayGui.onActionClick), so the hold went on and no charge started (TimeStop.startedHolding stopped
+	 * the Stand's task only for a press the server got): the press waits in the input buffer (N2) instead of the time stop
+	 * ending the hold before its own press is held back, and its charge starts once the hold is let go. A mob's time stop,
+	 * pressed on the server in 1.16 too, still replaces its Stand's guard or barrage at once. No charge here is let go (no
+	 * time stop starts).
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100, batch = GameTestBatches.TIME_STOP)
+	public static void aTimeStopPressedWhileTheStandPowerHoldsAnActionWaitsAsIn116(GameTestHelper helper) {
+		try (Scene s = new Scene(helper, "HeldTimeStopStarPlatinum", "star_platinum", 4)) {
+			s.unlock("time_stop", "inhale", "enhanced_eyesight");
+			for (String held : new String[] { "guard", "barrage", "enhanced_eyesight", "inhale" }) {
+				s.timeStopWaits(held);
+			}
+		}
+		try (Scene s = new Scene(helper, "HeldTimeStopTheWorld", "the_world", 2)) {
+			s.unlock("time_stop");
+			for (String held : new String[] { "guard", "barrage" }) {
+				s.timeStopWaits(held);
+			}
+		}
+
+		Zombie zombie = EntityType.ZOMBIE.create(helper.getLevel());
+		helper.assertTrue(zombie != null, "setup: could not create the zombie");
+		StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("star_platinum"));
+		Vec3 origin = Vec3.atCenterOf(helper.absolutePos(new BlockPos(2, 2, 2)));
+		zombie.setNoAi(true);
+		zombie.setNoGravity(true);
+		zombie.moveTo(origin.x, origin.y, origin.z, 0.0F, 0.0F);
+		helper.assertTrue(helper.getLevel().addFreshEntity(zombie), "setup: could not add the zombie");
+		StandPower power = PowerClass.STAND.attachGet(zombie);
+		LivingComponentAction standAction = null;
+		try {
+			helper.assertTrue(type != null && StandPowerTransitions.insert(power, new StandInstance(type)).status()
+					== StandPowerTransitions.Status.APPLIED, "setup: could not give the zombie Star Platinum");
+			power.setResolveLevel(4);
+			power.getCurTypeData()._lockedAbilities.remove("time_stop");
+			helper.assertTrue(type.summon(zombie, power), "setup: could not summon the zombie's Star Platinum");
+			StandEntity stand = power.getSummonedStandEntity();
+			helper.assertTrue(stand != null, "setup: the zombie's Stand is missing");
+			stand.summonLockTicks = 0;
+			standAction = LivingComponentAction.getComponent(stand);
+			// the barrage gives way to no other ability before its recovery: the time stop ends it itself (startedHolding)
+			for (String held : new String[] { "guard", "barrage" }) {
+				power.setStamina(power.getMaxStamina());
+				AbilityInput.keyPressMob(power.getAbility(held), zombie, null, InputMethod.HOLD);
+				EntityActionInstance hold = standAction.getAction();
+				helper.assertTrue(hold != null && hold.ability == power.getAbility(held) && hold.getPhase() == ActionPhase.PERFORM,
+						"setup: the zombie's " + held + " is not held: " + hold);
+				AbilityInput.keyPressMob(power.getAbility("time_stop"), zombie, null, InputMethod.HOLD);
+				EntityActionInstance now = standAction.getAction();
+				helper.assertTrue(now != null && now.ability == power.getAbility("time_stop")
+						&& now.getPhase() == ActionPhase.BUTTON_CHARGE && hold.isOver(), "1.16 let a mob's time stop replace its"
+								+ " Stand's held " + held + " at once (a mob pressed on the server): the Stand's action " + now
+								+ ", the " + held + " over " + hold.isOver());
+				zombie.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get()).heldKeys.clear();
+				standAction.setAction(null, zombie, SyncType.NO_SYNC);
+			}
+		}
+		finally {
+			zombie.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get()).heldKeys.clear();
+			if (standAction != null) {
+				standAction.setAction(null, zombie, SyncType.NO_SYNC);
+			}
+			if (power.isSummoned() && type != null) {
+				type.forceUnsummon(zombie, power);
+			}
+			zombie.discard();
+		}
+		helper.succeed();
+	}
+
+	/*
 	 * 1.16 PowerBaseImpl.checkRequirements refused, without a message, every other action of the power while it held an
 	 * action that let none through (heldAllowsOtherAction false: a hold-to-fire charge), the ones the Stand does not perform
 	 * too: Magician's Red's detector during Crossfire Hurricane's charge is refused, not buffered, and goes off again once
@@ -509,6 +582,39 @@ public final class HoldTypeActionPress116GameTests {
 							+ " input buffer keeps: buffered " + pressed.shouldBuffer + ", started " + pressed.isActionSuccess
 							+ ", the Stand's action " + standAction.getAction() + ", the " + holdName + " in " + hold.getPhase());
 			AbilityInput.keyRelease(OTHER_KEY, user);
+			clear();
+		}
+
+		/*
+		 * The hold is pressed and kept held, then the time stop by another key: it waits in the buffer and the hold goes on
+		 * with its key. Once the hold is let go, the buffer, tried every tick, starts the time stop's charge as soon as the
+		 * hold (and its recovery) no longer holds it back, its key still down. The charge is dropped without a release.
+		 */
+		private void timeStopWaits(String holdName) {
+			EntityActionInstance hold = hold(holdName);
+			BufferingState pressed = press("time_stop", InputMethod.HOLD, OTHER_KEY);
+			helper.assertTrue(pressed.shouldBuffer && !pressed.isActionSuccess && standAction.getAction() == hold
+					&& hold.getPhase() == ActionPhase.PERFORM && isHeldByKey(HOLD_KEY),
+					"1.16's client sent no time stop (hold-to-fire) pressed while " + holdName + " was held, so the hold went on:"
+							+ " buffered " + pressed.shouldBuffer + ", started " + pressed.isActionSuccess + ", the Stand's action "
+							+ standAction.getAction() + ", the " + holdName + " in " + hold.getPhase());
+			AbilityInput.keyRelease(HOLD_KEY, user);
+			EntityActionInstance timeStop = null;
+			for (int tick = 0; tick < 100 && timeStop == null; tick++) {
+				resolve("time_stop");
+				input().inputBuffer.tickInputBuffer(input());
+				EntityActionInstance now = standAction.getAction();
+				if (now != null && now.ability == power.getAbility("time_stop")) {
+					timeStop = now;
+				}
+				else {
+					standAction.tick();
+				}
+			}
+			helper.assertTrue(timeStop != null && timeStop.getPhase() == ActionPhase.BUTTON_CHARGE && hold.isOver()
+					&& isHeldByKey(OTHER_KEY) && input().heldKeys.get(OTHER_KEY).action == timeStop,
+					"the time stop key still held once the " + holdName + " was let go starts its charge from the buffer: the"
+							+ " Stand's action " + standAction.getAction() + ", the " + holdName + " over " + hold.isOver());
 			clear();
 		}
 

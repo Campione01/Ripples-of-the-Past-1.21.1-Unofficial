@@ -143,6 +143,17 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 				|| isHeldPressHeldBack(ability, user);
 	}
 
+	/**
+	 * Whether a player's press of this ability waits in the input buffer because the Stand power holds an action, the
+	 * held-press rule of {@link #setOrBufferAction} alone (not the performer's current action, which a press may end
+	 * itself). A press that ends the Stand's current action before it sets its own (the time stop) asks this first, so
+	 * that it does not end the hold 1.16's client never sent it to.
+	 */
+	@ApiStatus.Internal
+	public boolean isHeldPressHeldBack(LivingEntity user) {
+		return isHeldPressHeldBack(this, user);
+	}
+
 	/*
 	 * 1.16's client sent no press of a held action (getHoldDurationMax above 0) while the power held one
 	 * (ActionsOverlayGui.onActionClick), whatever the held action let through; the input buffer keeps such a press of a
