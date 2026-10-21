@@ -113,6 +113,16 @@ public class MagiciansRedCrossfireHurricaneAbility extends StandEntityAbility im
 		return SPECIAL_ABILITY.equals(name()) ? CROSSFIRE_HURRICANE_SPECIAL_ANIM : CROSSFIRE_HURRICANE_ANIM;
 	}
 
+	/**
+	 * 1.16 MagiciansRedCrossfireHurricane had no target requirement and no standKeepsTarget, so PowerBaseImpl.checkTarget
+	 * emptied every press target (StandEntityAction.checkTarget) and the Stand charged along its user's look; the special
+	 * aimed only as it shot (aimWithThisOrUser(64, EMPTY, false)).
+	 */
+	@Override
+	public boolean takesPressedTarget(StandEntity standEntity, ActionTarget target) {
+		return false;
+	}
+
 	public static class CrossfireShot extends EntityActionInstance {
 		// server only: the press shout is said once per charge
 		private boolean pressShoutSaid;
@@ -224,9 +234,9 @@ public class MagiciansRedCrossfireHurricaneAbility extends StandEntityAbility im
 			return target;
 		}
 
+		// 1.16 precisionRayTrace grew the hitboxes by the Stand's precision for the user's ray and the Stand's alike
 		private static ActionTarget clipAim(Level level, LivingEntity aiming, StandEntity stand) {
-			double standPrecision = aiming == stand && StandEntityPunchAbility.aimAssist(stand.getUser())
-					? stand.getPrecision() : 0.0D;
+			double standPrecision = StandEntityPunchAbility.aimAssist(stand.getUser()) ? stand.getPrecision() : 0.0D;
 			return HitResultUtil.clip(aiming.getEyePosition(), aiming.getLookAngle(),
 					SPECIAL_AIM_RANGE, SPECIAL_AIM_RANGE, level,
 					entity -> StandEntityPunchAbility.canStandHit(stand, entity),
