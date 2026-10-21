@@ -128,6 +128,18 @@ public final class HeavyPunchPerform116GameTests {
 			new PerformStrikeClip(CD_ANIMS, "finisher", "right_arm", new float[] { 37.9264F, 14.6364F, 103.3191F },
 					new float[] { -72.6819F, 35.6647F, 53.5229F }, true, "crazy_diamond", "finisher", "block_anchor_make"));
 
+	// a heavy clip converted from a 1.16 Java model whose recovery held the impact pose to its middle, the striking bone and
+	// the clip time its impact pose is reached
+	private record HeldImpactClip(String asset, String clip, String bone, float impactPoseAt) {}
+
+	private static final List<HeldImpactClip> HELD_IMPACT_CLIPS = List.of(
+			// HumanoidStandModel :577-586, the default heavy: impact -> idle eased max(2(pr - 1) + 1, 0)
+			new HeldImpactClip(DEFAULT_ANIMS, "heavy_punch", "right_arm_bend", 0.4667F),
+			new HeldImpactClip(SP_ANIMS, "heavy_punch", "right_arm_bend", 0.4667F),
+			new HeldImpactClip(MR_ANIMS, "heavy_punch", "right_arm_bend", 0.6F),
+			// CrazyDiamondModel :669-680: pose8 held to half the recovery
+			new HeldImpactClip(CD_ANIMS, "heavy_punch", "right_arm_bend", 0.5833F));
+
 	/*
 	 * Every heavy punch the core Stands' movesets hold, their grab variations included, and every core heavy type as an
 	 * add-on registers it (no perform of its own) stores 1.16's one-tick perform. The port's charged heavy punch and grab
@@ -348,9 +360,40 @@ public final class HeavyPunchPerform116GameTests {
 		return keys.get(keys.size() - 1).getValue();
 	}
 
+	/*
+	 * 1.16's Java-model heavies kept the impact pose over the first half of the recovery before returning to the idle
+	 * (HumanoidStandModel's heavy, Crazy Diamond's heavy punch): their clips' striking bone stays within a few degrees of
+	 * its impact pose from RECOVERY to the recovery's middle.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void theJavaModelHeaviesHoldTheirImpactToTheRecoverysMiddleAsIn116(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		Map<String, JsonObject> files = new HashMap<>();
+		for (HeldImpactClip held : HELD_IMPACT_CLIPS) {
+			JsonObject clip = files.computeIfAbsent(held.asset(), asset -> readJson(helper, asset))
+					.getAsJsonObject("animations").getAsJsonObject(held.clip());
+			helper.assertTrue(clip != null && clip.has("timeline") && clip.has("bones"), held.asset() + " lost " + held.clip());
+			List<Map.Entry<Float, float[]>> keys = rotationKeys(helper, clip, held.clip() + " of " + held.asset(), held.bone());
+			float recoveryAt = marker(clip, "phase=RECOVERY;");
+			float middle = (recoveryAt + clip.get("animation_length").getAsFloat()) / 2;
+			float[] impact = rotationAt(keys, held.impactPoseAt());
+			if (!near(rotationAt(keys, recoveryAt), impact, 10) || !near(rotationAt(keys, middle), impact, 10)) {
+				wrong.add(held.clip() + " of " + held.asset() + ": " + held.bone() + " impact pose " + Arrays.toString(impact)
+						+ ", at RECOVERY " + recoveryAt + " " + Arrays.toString(rotationAt(keys, recoveryAt))
+						+ ", at the recovery's middle " + middle + " " + Arrays.toString(rotationAt(keys, middle)));
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), "1.16's Java-model heavies held the impact pose to the middle of the recovery: " + wrong);
+		helper.succeed();
+	}
+
 	private static boolean near(float[] a, float[] b) {
+		return near(a, b, 0.01F);
+	}
+
+	private static boolean near(float[] a, float[] b, float degrees) {
 		for (int i = 0; i < 3; i++) {
-			if (Math.abs(a[i] - b[i]) > 0.01F) {
+			if (Math.abs(a[i] - b[i]) > degrees) {
 				return false;
 			}
 		}
