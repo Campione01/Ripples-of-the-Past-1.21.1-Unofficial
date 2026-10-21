@@ -429,6 +429,62 @@ public final class StandClipPoses116GameTests {
 		helper.succeed();
 	}
 
+	// SilverChariotModel :252-270, barrageRightStart and barrageRightImpact: the rapier arm and its forearm
+	private static final String[] STAB_BONES = { "right_arm", "right_arm_bend" };
+	private static final float[][] STAB_START = { { 89, 0, 90 }, { -135, 0, 0 } };
+	private static final float[][] STAB_IMPACT = { { -90, 45, 0 }, { 0, 0, 0 } };
+	// the bones the stab poses and the idle move, held over the recovery's first 75%
+	private static final String[] STAB_HELD = { "right_arm", "right_arm_bend", "right_arm_joint", "rapier", "left_arm",
+			"left_arm_bend", "left_arm_joint", "torso_bend", "body_rot", "head" };
+
+	/*
+	 * 1.16's rapier stab (SilverChariotModel :280-288) eased its windup from barrageStabStart to barrageStabImpact by
+	 * sw < 0.75 ? 16 / 9 * sw * sw - 8 / 3 * sw + 1 : 16 * sw * sw - 24 * sw + 9, with Java's integer division (1 - sw)^2
+	 * and then (4sw - 3)^2: the arm starts extended on the impact, draws back to the start pose by 0.75 of the windup and
+	 * thrusts to the impact by its end; the recovery's transition to the idle, eased max(4(pr - 1) + 1, 0), held the
+	 * thrust over 75% of the recovery and then returned linearly.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void silverChariotsRapierStabWindsUpAndHoldsItsThrustAs116(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		JsonObject clip = clipOf(helper, new HashMap<>(), SC_ANIMS, "light_attack");
+		float perform = marker(clip, "phase=PERFORM;"), recovery = marker(clip, "phase=RECOVERY;");
+		float end = clip.get("animation_length").getAsFloat();
+		float[] level = { 0, 0 };
+		for (float sw : new float[] { 0, 0.1F, 0.25F, 0.4F, 0.5F, 0.6F, 0.7F, 0.74F, 0.76F, 0.8F, 0.9F, 0.95F, 1 }) {
+			float w = sw < 0.75F ? (1 - sw) * (1 - sw) : (4 * sw - 3) * (4 * sw - 3);
+			for (int b = 0; b < STAB_BONES.length; b++) {
+				float[] got = rotationAt(clip, STAB_BONES[b], sw * perform, level);
+				for (int axis = 0; axis < 3; axis++) {
+					float want = STAB_START[b][axis] + (STAB_IMPACT[b][axis] - STAB_START[b][axis]) * w;
+					if (Math.abs(got[axis] - want) > 2) {
+						wrong.add(STAB_BONES[b] + " at " + sw + " of the windup " + Arrays.toString(got) + " where 1.16 had " + want + " on axis "
+								+ axis + " (" + w + " of the impact)");
+						break;
+					}
+				}
+			}
+		}
+		for (String bone : STAB_HELD) {
+			float[] thrust = rotationAt(clip, bone, recovery, level);
+			float[] last = rotationAt(clip, bone, end, level);
+			for (float pr : new float[] { 0.25F, 0.5F, 0.74F, 0.875F }) {
+				float[] got = rotationAt(clip, bone, recovery + pr * (end - recovery), level);
+				float f = Math.max(4 * (pr - 1) + 1, 0);
+				for (int axis = 0; axis < 3; axis++) {
+					float want = thrust[axis] + (last[axis] - thrust[axis]) * f;
+					if (Math.abs(got[axis] - want) > 0.05F) {
+						wrong.add(bone + " at " + pr + " of the recovery " + Arrays.toString(got) + " where 1.16 had " + f
+								+ " of the way from the thrust " + Arrays.toString(thrust) + " to " + Arrays.toString(last));
+						break;
+					}
+				}
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), "Silver Chariot's rapier stab winds up and recovers on 1.16's curves: " + wrong);
+		helper.succeed();
+	}
+
 	/*
 	 * Crazy Diamond's heavy punch and finisher are the official 1.21.1 port's clips (OfficialClips1211GameTests); this
 	 * checks how they meet the clips around them. The heavy punch keeps body_rot within half a turn of the idle's yaw and
