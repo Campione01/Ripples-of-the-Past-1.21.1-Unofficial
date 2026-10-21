@@ -254,6 +254,162 @@ public final class StandClipPoses116GameTests {
 		helper.succeed();
 	}
 
+	// bones no 1.16 pose of the clip named, so they stayed on the idle pose: on the clip's idle's t=0 value from one clip
+	// time to another, or, for a summon (from null), on the reset pose to the clip's last quarter and lerped to the idle
+	// by its end
+	private record IdleBones(String asset, String clip, String idle, String from, String to, String... bones) {}
+
+	private static IdleBones held(String asset, String clip, String... bones) {
+		return new IdleBones(asset, clip, "idle", "0", "END", bones);
+	}
+
+	private static IdleBones summonReset(String asset, String clip, String... bones) {
+		return new IdleBones(asset, clip, "idle", null, null, bones);
+	}
+
+	private static final String[] LEGS = { "left_leg", "left_leg_bend", "right_leg", "right_leg_bend" };
+
+	private static String[] and(String[] bones, String... more) {
+		String[] all = Arrays.copyOf(more, more.length + bones.length);
+		System.arraycopy(bones, 0, all, more.length, bones.length);
+		return all;
+	}
+
+	private static final List<IdleBones> IDLE_BONES = List.of(
+			// HumanoidStandModel :449-607: the jab, heavyAttackAnim and the block name no leg
+			held(MR_ANIMS, "punch", LEGS), held(MR_ANIMS, "heavy_punch", LEGS), held(MR_ANIMS, "block", LEGS),
+			// MagiciansRedModel :287-322: no kick pose names upperPart or leftLowerLeg, kickPose1 no arm or forearm
+			held(MR_ANIMS, "kick", "torso_bend", "left_leg_bend"),
+			new IdleBones(MR_ANIMS, "kick", "idle", "0", "0", "left_arm", "left_arm_bend", "right_arm", "right_arm_bend"),
+			// :269-285, FLAME_BURST_POSE (Flame Burst, Fireball, Crossfire Hurricane): no body, upperPart or rightLowerLeg
+			held(MR_ANIMS, "flame_burst", "body_rot", "torso_bend", "right_leg_bend"),
+			held(MR_ANIMS, "flameBurst", "body_rot", "torso_bend", "right_leg_bend"),
+			held(MR_ANIMS, "fireball", "body_rot", "torso_bend", "right_leg_bend"),
+			held(MR_ANIMS, "crossfire_hurricane", "body_rot", "torso_bend", "right_leg_bend"),
+			// :324-331, RED_BIND_POSE: the arms and forearms only, the head on the idle's look
+			held(MR_ANIMS, "red_bind", and(LEGS, "body_rot", "torso_bend", "head", "head_rot")),
+			held(MR_ANIMS, "redBind", and(LEGS, "body_rot", "torso_bend", "head", "head_rot")),
+			// :233-257, summon poses 1 and 2
+			summonReset(MR_ANIMS, "summon1", "left_arm_bend", "right_arm_bend", "torso_bend", "left_leg_bend"),
+			summonReset(MR_ANIMS, "summon2", "body_rot", "torso_bend", "left_leg_bend", "right_leg_bend"),
+			// SilverChariotModel :354-361, the rapier block: arms, forearms and the rapier; the humanoid block without it
+			held(SC_ANIMS, "block", and(LEGS, "body_rot", "torso_bend", "head", "head_rot")),
+			new IdleBones(SC_ANIMS, "no_rapier_block", "no_rapier_idle", "0", "END", LEGS),
+			// :245-352: the stab, the barrage stab loop, the dash, the sweep and the jab name no leg; RANGED_ATTACK (the
+			// rapier launch) was drawn as the idle
+			held(SC_ANIMS, "light_attack", LEGS), held(SC_ANIMS, "melee_barrage", LEGS), held(SC_ANIMS, "dash_attack", LEGS),
+			held(SC_ANIMS, "sweeping_attack", LEGS), held(SC_ANIMS, "rapier_launch", LEGS), held(SC_ANIMS, "rangedAttack", LEGS),
+			new IdleBones(SC_ANIMS, "no_rapier_light_attack", "no_rapier_idle", "0", "END", LEGS),
+			// :211-241, summon poses 1-3
+			summonReset(SC_ANIMS, "summon1", "body_rot", "left_arm_bend", "right_arm_bend", "left_leg_bend", "right_leg_bend"),
+			summonReset(SC_ANIMS, "summon2", and(LEGS, "torso_bend", "right_arm_bend")),
+			summonReset(SC_ANIMS, "summon3", "left_arm_bend", "left_leg_bend"),
+			// HierophantGreenModel :161-228: the block, the grapple (rightArm, rightForeArm and body), the summon pose (no
+			// body or rightForeArm)
+			held(HG_ANIMS, "block", LEGS), held(HG_ANIMS, "grapple", and(LEGS, "left_arm", "left_arm_bend")),
+			summonReset(HG_ANIMS, "summon1", "body_rot", "right_arm_bend"));
+
+	// the converted clips that hand over to their idle when they end, and the idle's bones they may leave off it
+	private record HandOver(String asset, String clip, String idle, String... except) {}
+
+	private static final List<HandOver> HAND_OVERS = List.of(
+			new HandOver(MR_ANIMS, "summon1", "idle"), new HandOver(MR_ANIMS, "summon2", "idle"),
+			new HandOver(MR_ANIMS, "punch", "idle"), new HandOver(MR_ANIMS, "heavy_punch", "idle"),
+			new HandOver(MR_ANIMS, "kick", "idle"), new HandOver(MR_ANIMS, "red_bind", "idle"),
+			new HandOver(MR_ANIMS, "redBind", "idle"),
+			// the flame poses set the head themselves (head.xRot = xRot - 22.5 degrees), the port's clips have none
+			new HandOver(MR_ANIMS, "flame_burst", "idle", "head", "head_rot"),
+			new HandOver(MR_ANIMS, "flameBurst", "idle", "head", "head_rot"),
+			new HandOver(MR_ANIMS, "fireball", "idle", "head", "head_rot"),
+			new HandOver(MR_ANIMS, "crossfire_hurricane", "idle", "head", "head_rot"),
+			new HandOver(SC_ANIMS, "summon1", "idle"), new HandOver(SC_ANIMS, "summon2", "idle"),
+			new HandOver(SC_ANIMS, "summon3", "idle"), new HandOver(SC_ANIMS, "light_attack", "idle"),
+			new HandOver(SC_ANIMS, "melee_barrage", "idle"), new HandOver(SC_ANIMS, "dash_attack", "idle"),
+			new HandOver(SC_ANIMS, "sweeping_attack", "idle"), new HandOver(SC_ANIMS, "rapier_launch", "idle"),
+			new HandOver(SC_ANIMS, "rangedAttack", "idle"), new HandOver(SC_ANIMS, "no_rapier_light_attack", "no_rapier_idle"),
+			new HandOver(HG_ANIMS, "summon1", "idle"), new HandOver(HG_ANIMS, "emerald_splash", "idle"),
+			new HandOver(HG_ANIMS, "rangedAttack", "idle"), new HandOver(HG_ANIMS, "grapple", "idle"));
+
+	/*
+	 * LegacyStandAnimator.poseStand applied the idle pose at full weight before an action's poses, and those lerped only
+	 * the parts they named, so a bone no active pose named stayed on the idle; poseSummon reset the model, applied the
+	 * summon pose and lerped the idle in over ticks 15-20 of 20. The port draws one clip at a time on the geo's rest
+	 * pose: a converted clip keys those bones with its idle's values (an official idle where the official port has one),
+	 * a summon keeps them on the reset pose to its last quarter, and every clip ends on its idle bone by bone, so nothing
+	 * snaps where the clip starts or hands over.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void theBones116KeptOnTheIdleKeepTheIdlesValuesInTheConvertedClips(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		Map<String, JsonObject> files = new HashMap<>();
+		float[][] looks = { { 0, 0 }, LOOK };
+		for (IdleBones row : IDLE_BONES) {
+			JsonObject clip = clipOf(helper, files, row.asset(), row.clip());
+			JsonObject idle = clipOf(helper, files, row.asset(), row.idle());
+			float end = clip.get("animation_length").getAsFloat();
+			List<float[]> samples = new ArrayList<>();
+			if (row.from() != null) {
+				float from = clipTime(clip, row.from()), to = clipTime(clip, row.to());
+				for (float time = from; time < to; time += 0.01F) {
+					samples.add(new float[] { time, 1 });
+				}
+				samples.add(new float[] { to, 1 });
+			}
+			else {
+				for (float time = 0; time < end * 0.75F; time += 0.01F) {
+					samples.add(new float[] { time, 0 });
+				}
+				samples.add(new float[] { end * 0.75F, 0 });
+				samples.add(new float[] { end * 0.875F, 0.5F });
+				samples.add(new float[] { end, 1 });
+			}
+			for (String bone : row.bones()) {
+				helper.assertTrue(idle.getAsJsonObject("bones").has(bone), "setup: " + row.idle() + " of " + row.asset() + " has no " + bone);
+				String first = null;
+				for (float[] sample : samples) {
+					for (float[] look : looks) {
+						float[] idleAt0 = rotationAt(idle, bone, 0, look);
+						float[] want = { idleAt0[0] * sample[1], idleAt0[1] * sample[1], idleAt0[2] * sample[1] };
+						float[] got = rotationAt(clip, bone, sample[0], look);
+						for (int axis = 0; axis < 3 && first == null; axis++) {
+							if (Math.abs(got[axis] - want[axis]) > 0.05F) {
+								first = "at " + sample[0] + " looking " + Arrays.toString(look) + " " + Arrays.toString(got) + " where 1.16 had "
+										+ (sample[1] == 1 ? "the idle's " : sample[1] == 0 ? "the reset pose's " : "half the idle's ")
+										+ Arrays.toString(want);
+							}
+						}
+					}
+				}
+				if (first != null) {
+					wrong.add(row.clip() + " of " + row.asset() + " " + bone + " " + first);
+				}
+			}
+		}
+		for (HandOver row : HAND_OVERS) {
+			JsonObject clip = clipOf(helper, files, row.asset(), row.clip());
+			JsonObject idle = clipOf(helper, files, row.asset(), row.idle());
+			float end = clip.get("animation_length").getAsFloat();
+			List<String> except = List.of(row.except());
+			for (String bone : idle.getAsJsonObject("bones").keySet()) {
+				if (bone.endsWith("_joint") || bone.endsWith("_xrot") || except.contains(bone)) {
+					continue;
+				}
+				for (float[] look : looks) {
+					float[] want = rotationAt(idle, bone, 0, look);
+					float[] got = rotationAt(clip, bone, end, look);
+					if (Math.abs(got[0] - want[0]) > 0.05F || Math.abs(got[1] - want[1]) > 0.05F || Math.abs(got[2] - want[2]) > 0.05F) {
+						wrong.add(row.clip() + " of " + row.asset() + " ends " + bone + " on " + Arrays.toString(got) + " looking "
+								+ Arrays.toString(look) + " where its " + row.idle() + " starts on " + Arrays.toString(want));
+						break;
+					}
+				}
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), "1.16 kept the bones a pose did not name on the idle pose, and the converted clips"
+				+ " hand over to their idle: " + wrong);
+		helper.succeed();
+	}
+
 	/*
 	 * Crazy Diamond's heavy punch and finisher are the official 1.21.1 port's clips (OfficialClips1211GameTests); this
 	 * checks how they meet the clips around them. The heavy punch keeps body_rot within half a turn of the idle's yaw and
