@@ -50,6 +50,12 @@ public class PillarmanAtmosphericRiftAbility extends PillarmanActionAbility {
 		return action.getPhase() == ActionPhase.PERFORM || super.isActionHeldReadyToFire(action);
 	}
 
+	// the charge goes on into the held waves; it does not fire as it ends
+	@Override
+	public boolean chargeFiresAsItsLengthEnds(EntityActionInstance action) {
+		return false;
+	}
+
 	public static class AtmosphericRiftInstance extends PillarmanHeldActionInstance {
 		public AtmosphericRiftInstance(EntityActionType ability) {
 			super(ability);

@@ -147,10 +147,10 @@ public final class HamonTechniquePhases116GameTests {
 		}
 	}
 
-	// 1.16 PowerBaseImpl.tickHeldAction fired a holdToFire(20, false) hold as it reached 20 ticks (stopHeldAction(true)) and
-	// the hold was over, the key still down.
+	// 1.16 PowerBaseImpl.tickHeldAction fired a holdToFire(20, false) hold as its held ticks reached 20 (stopHeldAction(true)),
+	// in the 20th tick from the press (the press's own tick the first), and the hold was over, the key still down.
 	@GameTest(template = "empty", timeoutTicks = 60)
-	public static void bubbleBarrierIsOverInTheTickItFiresAsIn116(GameTestHelper helper) {
+	public static void bubbleBarrierFiresOnItsTwentiethTickAndIsOverAsIn116(GameTestHelper helper) {
 		try (Fixture f = new Fixture(helper)) {
 			f.hamon.learnSkill(ModHamonSkills.BUBBLE_BARRIER.get());
 			f.hamon.setHamonStatPoints(HamonData.HamonStat.CONTROL, HamonData.pointsAtLevel(10), true, true);
@@ -159,21 +159,20 @@ public final class HamonTechniquePhases116GameTests {
 			EntityActionInstance action = f.start("bubble_barrier", true);
 			helper.assertTrue(action.getPhase() == ActionPhase.WINDUP && action.phasesLength.getFloat(ActionPhase.WINDUP) == 20,
 					"setup: the Bubble Barrier does not charge for 20 ticks: " + action.getPhase() + " " + action.phasesLength);
+			// the shot takes its soap: the first tick (from the press, its own tick the first) without soap in hand
 			int firesOnTick = -1;
 			int overOnTick = -1;
 			for (int tick = 1; tick <= 40 && overOnTick < 0; tick++) {
 				f.tick(1);
-				if (firesOnTick < 0 && action.getPhase() == ActionPhase.PERFORM) {
-					firesOnTick = tick + 1;
+				if (firesOnTick < 0 && !f.user.getMainHandItem().is(ModItems.SOAP.get())) {
+					firesOnTick = tick;
 				}
 				if (action.isOver()) {
 					overOnTick = tick;
 				}
 			}
-			helper.assertTrue(firesOnTick == 21, "setup: the held Bubble Barrier did not fire on its 21st tick: " + firesOnTick
-					+ ", over on " + overOnTick);
-			helper.assertTrue(overOnTick == firesOnTick && f.component.getAction() == null,
-					"1.16 Bubble Barrier fired as its 20 held ticks ended and the hold was over: fired on tick " + firesOnTick
+			helper.assertTrue(firesOnTick == 20 && overOnTick == 20 && f.component.getAction() == null,
+					"1.16 Bubble Barrier fired in the 20th tick from its press and the hold was over: fired on tick " + firesOnTick
 							+ ", over on tick " + overOnTick);
 			helper.succeed();
 		}

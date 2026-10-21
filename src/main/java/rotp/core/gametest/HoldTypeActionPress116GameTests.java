@@ -439,6 +439,22 @@ public final class HoldTypeActionPress116GameTests {
 		helper.succeed();
 	}
 
+	/*
+	 * 1.16 PowerBaseImpl.tickHeldAction counted the held ticks and fired a holdToFire(20, false) charge (Crossfire
+	 * Hurricane) as the count reached 20, in the 20th tick from the press, instead of a 20th held tick; the task it fired
+	 * straight into performed in that tick.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aFullChargeFiresInTheTickItsLengthEndsAsIn116(GameTestHelper helper) {
+		try (Scene s = new Scene(helper, "ChargeFireTickMagiciansRed", "magicians_red", 4)) {
+			s.unlock("crossfire_hurricane");
+			int shotTick = s.crossfireShotTick();
+			helper.assertTrue(shotTick == 20, "1.16 shot a held Crossfire Hurricane (holdToFire(20, false)) in the 20th tick"
+					+ " from its press: shot in tick " + shotTick);
+		}
+		helper.succeed();
+	}
+
 	@GameTest(template = "empty", timeoutTicks = 100)
 	public static void aMobsStandActionGoesThroughItsHoldTypeActionAsIn116(GameTestHelper helper) {
 		Zombie zombie = EntityType.ZOMBIE.create(helper.getLevel());
@@ -1010,6 +1026,23 @@ public final class HoldTypeActionPress116GameTests {
 		 * down, to the start of its perform; a punch pressed then by another key replaces it before its shot, or waits while
 		 * the shot goes off on the next tick.
 		 */
+		// the tick from the press (the press's own tick the first) in which the held charge's shot is out
+		private int crossfireShotTick() {
+			power.setAbilityCooldown("crossfire_hurricane", 0, 0);
+			EntityActionInstance charge = hold("crossfire_hurricane");
+			charge.phasesLength.put(ActionPhase.WINDUP, 0F);
+			int shotTick = -1;
+			for (int tick = 1; tick <= 60 && shotTick < 0; tick++) {
+				standAction.tick();
+				if (!shots().isEmpty()) {
+					shotTick = tick;
+				}
+			}
+			shots().forEach(shot -> shot.discard());
+			clear();
+			return shotTick;
+		}
+
 		private void punchAtPerformStart(float windup, boolean goesThrough) {
 			power.setAbilityCooldown("crossfire_hurricane", 0, 0);
 			EntityActionInstance charge = hold("crossfire_hurricane");
@@ -1020,6 +1053,18 @@ public final class HoldTypeActionPress116GameTests {
 				if (phases.isEmpty() || phases.get(phases.size() - 1) != charge.getPhase()) {
 					phases.add(charge.getPhase());
 				}
+			}
+			if (!goesThrough) {
+				// 1.16 fired the charge and performed the task it fired straight into in the same tick: the shot is out
+				// before any press after the charge could reach it
+				int shots = shots().size();
+				helper.assertTrue(shots == 1 && phases.contains(ActionPhase.WINDUP) == windup > 0,
+						"1.16 performed a hold-to-fire task the charge fired straight into in the tick it fired, so no press"
+								+ " right after the charge could cost the shot: windup " + windup + ", phases " + phases
+								+ ", shots " + shots);
+				shots().forEach(shot -> shot.discard());
+				clear();
+				return;
 			}
 			helper.assertTrue(charge.getPhase() == ActionPhase.PERFORM && charge.getPhaseTick() < 1
 					&& standAction.getAction() == charge && shots().isEmpty()

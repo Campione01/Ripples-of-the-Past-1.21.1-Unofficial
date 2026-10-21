@@ -1164,6 +1164,10 @@ public class EntityActionInstance implements HeldInput {
 			if (_stopHeldIfConditionsFail() && isOver()) {
 				return;
 			}
+			leaveFiringChargeOnItsLastTick();
+			if (isOver()) {
+				return;
+			}
 			_onTick();
 			noteOwnCooldownSets();
 			_incPhaseTick();
@@ -1404,6 +1408,27 @@ public class EntityActionInstance implements HeldInput {
 			}
 			setPhaseStart(nextPhase);
 		}
+	}
+
+	/*
+	 * 1.16 PowerBaseImpl.tickHeldAction counted a held tick and, as the count reached getHoldDurationMax, fired the hold in
+	 * that tick instead of running its holdTick: a holdToFire(N, false) charge ran N - 1 held ticks and fired in the N-th
+	 * tick from the press, and a release before that tick fired nothing. A held charge (a phase before the perform) of N
+	 * ticks that fires as it ends (EntityActionAbility#chargeFiresAsItsLengthEnds) therefore leaves it at the start of its
+	 * N-th tick, before that tick runs, which then runs the next phase's first tick.
+	 */
+	private void leaveFiringChargeOnItsLastTick() {
+		if (isOver() || getPhaseTick() < curPhaseLength - 1 || shouldHoldPhaseAtEnd() || !firesAsChargeEnds()
+				|| stopFullChargeIfConditionsFail()) {
+			return;
+		}
+		setPhaseStart(ActionPhase.values()[phase.ordinal() + 1]);
+	}
+
+	private boolean firesAsChargeEnds() {
+		return curPhaseLength >= 1 && phase.ordinal() < ActionPhase.PERFORM.ordinal()
+				&& ability instanceof EntityActionAbility entityAbility && entityAbility.isHeldSincePress(this)
+				&& firesAfterHeldPhase(entityAbility) && entityAbility.chargeFiresAsItsLengthEnds(this);
 	}
 
 	/*

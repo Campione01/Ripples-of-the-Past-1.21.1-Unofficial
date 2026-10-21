@@ -15,6 +15,7 @@ import rotp.core.impl.powers.vampirism.VampirismData;
 import rotp.core.impl.powers.vampirism.abilities.VampirismBloodDrainAbility;
 import rotp.core.impl.powers.vampirism.VampirismState;
 import rotp.core.impl.stands.crazydiamond.CrazyDAngeloRockPunchEffect;
+import rotp.core.impl.stands.magiciansred.MRCrossfireHurricaneEntity;
 import rotp.core.impl.stands.magiciansred.MagiciansRedCrossfireHurricaneAbility;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModItemDataComponents;
@@ -837,7 +838,7 @@ public final class HeldActionRecheck116GameTests {
 						public void actionTick() {
 							super.actionTick();
 							if (!cooldownSet && !level().isClientSide() && getPhase() == ActionPhase.BUTTON_CHARGE
-									&& (onLastTick ? getPhaseTick() + 1 >= getCurPhaseLength() : getPhaseTick() >= 2)) {
+									&& (onLastTick ? getPhaseTick() + 2 >= getCurPhaseLength() : getPhaseTick() >= 2)) {
 								cooldownSet = true;
 								s.power.setAbilityCooldown("crossfire_hurricane", 100);
 							}
@@ -861,10 +862,15 @@ public final class HeldActionRecheck116GameTests {
 							"a cooldown the hold set itself (" + row + ") ended the Crossfire Hurricane charge, which 1.16's recheck"
 									+ " never saw: phase " + charge.getPhase() + ", messages " + s.user.keys());
 					s.runPhaseToItsEnd(charge);
+					s.tick(1);
 				}
-				helper.assertTrue(!charge.isOver() && charge.getPhase() != ActionPhase.BUTTON_CHARGE,
+				// 1.16 performed the shot in the tick the charge fired, so the action may be over by now
+				List<MRCrossfireHurricaneEntity> shots = helper.getLevel().getEntitiesOfClass(MRCrossfireHurricaneEntity.class,
+						s.user.getBoundingBox().inflate(16.0D));
+				helper.assertTrue(charge.getPhase() != ActionPhase.BUTTON_CHARGE && !shots.isEmpty(),
 						"the full Crossfire Hurricane charge did not fire with the cooldown it set itself (" + row + "): phase "
-								+ charge.getPhase());
+								+ charge.getPhase() + ", shots " + shots.size());
+				shots.forEach(MRCrossfireHurricaneEntity::discard);
 			}
 		}
 		helper.succeed();

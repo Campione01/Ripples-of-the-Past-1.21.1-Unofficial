@@ -119,7 +119,8 @@ public final class HeldCooldownTiming116GameTests {
 							s.tick(1);
 							ticks++;
 						}
-						helper.assertTrue(!charge.isOver() && charge.getPhase() != ActionPhase.BUTTON_CHARGE,
+						// 1.16 fired the full charge and performed its shot in the same tick: the action may be over by now
+						helper.assertTrue(charge.getPhase() != ActionPhase.BUTTON_CHARGE,
 								"setup: the full Crossfire Hurricane charge did not fire: phase " + charge.getPhase());
 						helper.assertTrue(s.power.getAbilityCooldown(CROSSFIRE) == COOLDOWN
 										&& s.power.getAbilityCooldownTotal(CROSSFIRE) == COOLDOWN && !charge.isCooldownTakenAfterHold(),
