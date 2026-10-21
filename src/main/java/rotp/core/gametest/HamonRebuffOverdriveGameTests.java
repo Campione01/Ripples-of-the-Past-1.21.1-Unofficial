@@ -35,6 +35,7 @@ import rotp.core.impl.powers.hamon.abilities.HamonRebuffOverdriveAbility.HamonRe
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.entity.EntityType;
@@ -43,6 +44,7 @@ import net.minecraft.world.entity.animal.Pig;
 import net.minecraft.world.entity.monster.Husk;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.EventPriority;
@@ -265,7 +267,7 @@ public final class HamonRebuffOverdriveGameTests {
 	 * as the action stopped only if above 0. A husk's hit inside the counter window: a Survival user counters it and is
 	 * left no cooldown; a Creative user takes no hit at all (Player.hurt refuses a mob's hit to an invulnerable player), so
 	 * the charge runs on. Then the strike at the husk the user aims at as the charge ends: 50 ticks in Survival, none in
-	 * Creative.
+	 * Creative. Each read once the action has stopped, when its recovery would start.
 	 */
 	@GameTest(template = "empty", timeoutTicks = 80)
 	public static void aMobsHitInTheCounterWindowAndTheEndStrikeLeave116sCooldownInSurvivalAndCreative(GameTestHelper helper) {
@@ -301,11 +303,15 @@ public final class HamonRebuffOverdriveGameTests {
 						for (int tick = 0; tick < 20 && husk.getHealth() >= husk.getMaxHealth(); tick++) {
 							f.tick(1);
 						}
+						for (int tick = 0; tick < 20 && f.component.getAction() == action; tick++) {
+							f.tick(1);
+						}
 						int cooldown = f.hamon.getAbilityCooldown("rebuff_overdrive");
 						int expected = creative || mobHits ? 0 : 50;
-						if (husk.getHealth() >= husk.getMaxHealth() || cooldown != expected) {
+						if (husk.getHealth() >= husk.getMaxHealth() || f.component.getAction() == action || cooldown != expected) {
 							wrong.add(row + ": the husk at " + husk.getHealth() + " of " + husk.getMaxHealth()
-									+ ", a cooldown of " + cooldown + ", 1.16's " + expected);
+									+ ", the action stopped " + (f.component.getAction() != action) + ", a cooldown of "
+									+ cooldown + ", 1.16's " + expected);
 						}
 					}
 					finally {
@@ -315,6 +321,52 @@ public final class HamonRebuffOverdriveGameTests {
 			}
 		}
 		helper.assertTrue(wrong.isEmpty(), String.join("; ", wrong));
+		helper.succeed();
+	}
+
+	private static final int HANDS_TAKEN_TICK = 5;
+
+	/*
+	 * 1.16 ContinuousActionInstance set the cooldown left as the action stopped, whatever stopped it (onStop): Rebuff
+	 * Overdrive took cooldown(100) as it started (0 in Creative), so one that struck nothing left the full 100 as it ended
+	 * at its recovery's start, so did one stopped in its windup from outside (another action, death), and one whose hands
+	 * were taken in its windup was cancelled there (playerTick: cancel), leaving (int) (100 x (5 / 14)^2) = 12 at its 5th
+	 * tick. None in Creative.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void aRebuffOverdriveThatStrikesNothingOrIsStoppedLeaves116sCooldownInSurvivalAndCreative(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		String[] rows = { "striking nothing", "stopped from outside in its windup", "its hands taken in its windup" };
+		int[] survival = { 100, 100, 12 };
+		for (GameType mode : new GameType[] { GameType.SURVIVAL, GameType.CREATIVE }) {
+			for (int row = 0; row < rows.length; row++) {
+				try (Fixture f = new Fixture(helper, mode)) {
+					EntityActionInstance action = f.start();
+					if (row == 0) {
+						for (int tick = 0; tick < 40 && f.component.getAction() == action; tick++) {
+							f.tick(1);
+						}
+					}
+					else {
+						f.tick(HANDS_TAKEN_TICK);
+						if (row == 1) {
+							f.component.setAction(null, SyncType.NO_SYNC);
+						}
+						else {
+							f.user.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.STICK));
+							f.tick(1);
+						}
+					}
+					int cooldown = f.hamon.getAbilityCooldown("rebuff_overdrive");
+					int expected = mode == GameType.CREATIVE ? 0 : survival[row];
+					if (f.component.getAction() == action || cooldown != expected) {
+						wrong.add(mode.getName() + " Rebuff Overdrive " + rows[row] + ": stopped " + (f.component.getAction() != action)
+								+ ", a cooldown of " + cooldown + ", 1.16's " + expected);
+					}
+				}
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), "1.16 set the cooldown left as Rebuff Overdrive stopped: " + String.join("; ", wrong));
 		helper.succeed();
 	}
 

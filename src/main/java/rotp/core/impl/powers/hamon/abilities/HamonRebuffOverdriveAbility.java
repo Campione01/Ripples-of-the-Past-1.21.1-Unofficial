@@ -116,7 +116,7 @@ public class HamonRebuffOverdriveAbility extends HamonActionRuntimeAbility {
 			return false;
 		}
 		if (!hasFreeHands(target)) {
-			rebuff.stopWithCooldown(COOLDOWN_TICKS);
+			rebuff.stopAction();
 			return false;
 		}
 		DamageSource source = event.getSource();
@@ -130,12 +130,12 @@ public class HamonRebuffOverdriveAbility extends HamonActionRuntimeAbility {
 		}
 		if (!rebuff.isCounterTiming()) {
 			rebuff.sayMistimedCounter();
-			rebuff.stopWithCooldown(COOLDOWN_TICKS);
+			rebuff.stopAction();
 			return false;
 		}
 		if (!rebuff.canCounterDamage(event.getAmount())) {
 			rebuff.playSwingSound(target);
-			rebuff.stopWithCooldown(COOLDOWN_TICKS);
+			rebuff.stopAction();
 			return false;
 		}
 		// 1.16: a Stand that passes its damage on to its user sends the counter to that user
@@ -203,6 +203,9 @@ public class HamonRebuffOverdriveAbility extends HamonActionRuntimeAbility {
 		// the hit the charge let through, for Hamon Protection's cut (server only)
 		@Nullable
 		private DamageContainer reduceDamageFor;
+		// 1.16 ContinuousActionInstance.actionCooldown (server): taken as the action starts, changed by a punch or a
+		// cancel, and set once as the action ends, whatever ends it (onStop)
+		private int pendingCooldown;
 
 		public HamonRebuffOverdrive(EntityActionType ability) { super(ability); }
 
@@ -236,6 +239,9 @@ public class HamonRebuffOverdriveAbility extends HamonActionRuntimeAbility {
 			LivingEntity user = getPowerUser();
 			if (user != null && !level().isClientSide()) {
 				applyKnockbackResistance(user);
+				if (!isRestoringInputLifecycle()) {
+					pendingCooldown = isCreative(user) ? 0 : COOLDOWN_TICKS;
+				}
 			}
 		}
 
@@ -244,6 +250,7 @@ public class HamonRebuffOverdriveAbility extends HamonActionRuntimeAbility {
 			LivingEntity user = getPowerUser();
 			if (user != null && !level().isClientSide()) {
 				removeKnockbackResistance(user);
+				takePendingCooldown(user);
 			}
 		}
 
@@ -262,13 +269,13 @@ public class HamonRebuffOverdriveAbility extends HamonActionRuntimeAbility {
 			// 1.16 onWASDInput (every input tick, on the client): the action ended once it reached its recovery.
 			// Its didAttack test never held there, the flag was only set on the server, so a strike ran its 10 ticks.
 			if (getPhase() == ActionPhase.RECOVERY) {
-				forceStop();
-				syncPhaseChanges();
+				stopAction();
 				return;
 			}
 			if (isInWindup()) {
+				// 1.16 playerTick: hands no longer free in the windup cancel the charge
 				if (!hasFreeHands(user)) {
-					stopWithCooldown(COOLDOWN_TICKS);
+					cancel();
 					return;
 				}
 				if (!didSwing && getPhaseTick() >= WINDUP_TICKS - 3) {
@@ -320,7 +327,8 @@ public class HamonRebuffOverdriveAbility extends HamonActionRuntimeAbility {
 				return;
 			}
 			float progress = WINDUP_TICKS > 0 ? getPhaseTick() / (float) WINDUP_TICKS : 1.0F;
-			stopWithCooldown(Math.round(COOLDOWN_TICKS * progress * progress));
+			pendingCooldown = (int) (pendingCooldown * (progress * progress));
+			stopAction();
 		}
 
 		public void sayMistimedCounter() {
@@ -391,25 +399,25 @@ public class HamonRebuffOverdriveAbility extends HamonActionRuntimeAbility {
 				hamon.consumeEnergy(ENERGY_COST, user);
 				hamon.hamonPointsFromAction(HamonData.HamonStat.STRENGTH, Math.min(ENERGY_COST, preEnergy) * efficiency);
 			}
-			if (!isCreative(user)) {
-				hamon.setAbilityCooldown(hamonAbility().name(), properCounter ? 0 : COOLDOWN_TICKS / 2, COOLDOWN_TICKS);
-			}
+			pendingCooldown = properCounter ? 0 : pendingCooldown / 2;
 			hamon.syncOnUpdate(user);
 			didAttack = true;
 			return true;
 		}
 
-		private void stopWithCooldown(int cooldown) {
-			setCooldown(cooldown);
+		// 1.16 stopAction: onStop set the cooldown left at once
+		private void stopAction() {
+			takePendingCooldown(getPowerUser());
 			forceStop();
 			syncPhaseChanges();
 		}
 
-		private void setCooldown(int cooldown) {
-			LivingEntity user = getPowerUser();
+		private void takePendingCooldown(@Nullable LivingEntity user) {
+			int cooldown = pendingCooldown;
+			pendingCooldown = 0;
 			HamonData hamon = getHamonData(user);
 			HamonActionRuntimeAbility ability = hamonAbility();
-			if (hamon != null && ability != null && !isCreative(user)) {
+			if (cooldown > 0 && hamon != null && ability != null && !level().isClientSide()) {
 				hamon.setAbilityCooldown(ability.name(), cooldown, COOLDOWN_TICKS);
 				hamon.syncOnUpdate(user);
 			}
