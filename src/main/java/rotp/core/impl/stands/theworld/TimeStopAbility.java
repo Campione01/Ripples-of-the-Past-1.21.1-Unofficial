@@ -647,4 +647,9 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 		}
 	}
 
+	// 1.16 TimeStop.Builder staminaCost(225), a full charge's start
+	@Override
+	public float getStaminaCost(Power<?> context) {
+		return TimeStopLearning.BASE_STAMINA_COST;
+	}
 }

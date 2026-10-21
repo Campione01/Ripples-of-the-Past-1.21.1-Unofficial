@@ -222,4 +222,9 @@ public class GoldExperienceBoneMealAbility extends NoPoseStandEntityAbility {
             StandAbilityStamina.consume(ability, StandPower.get(user), STAMINA_COST, false);
         }
     }
+
+    @Override
+    public float getStaminaCost(Power<?> context) {
+        return STAMINA_COST;
+    }
 }

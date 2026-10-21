@@ -240,4 +240,9 @@ public class GoldExperienceEntityLifeshotAbility extends NoPoseStandEntityAbilit
 		}
 
 	}
+
+    @Override
+    public float getStaminaCost(Power<?> context) {
+        return STAMINA_COST;
+    }
 }

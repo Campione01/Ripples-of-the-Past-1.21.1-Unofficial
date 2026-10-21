@@ -1057,4 +1057,9 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 		}
 	}
 
+	// 1.16 StandEntityHeavyAttack.DEFAULT_STAMINA_COST, every heavy attack's
+	@Override
+	public float getStaminaCost(Power<?> context) {
+		return 50.0F;
+	}
 }

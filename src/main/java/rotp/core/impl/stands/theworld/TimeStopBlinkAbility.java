@@ -486,4 +486,9 @@ public class TimeStopBlinkAbility extends Ability {
 		}
 		return false;
 	}
+
+	@Override
+	public float getStaminaCost(Power<?> context) {
+		return TimeStopLearning.getTimeStopBlinkStaminaCost(context instanceof StandPower standPower ? standPower : null, baseStaminaCost);
+	}
 }

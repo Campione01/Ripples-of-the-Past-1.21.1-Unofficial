@@ -274,4 +274,9 @@ public class GoldExperienceHealOtherAbility extends NoPoseStandEntityAbility {
             LivingEntity classificationOwner,
             LivingEntity healingTarget) {
     }
+
+    @Override
+    public float getStaminaCost(Power<?> context) {
+        return STAMINA_COST;
+    }
 }

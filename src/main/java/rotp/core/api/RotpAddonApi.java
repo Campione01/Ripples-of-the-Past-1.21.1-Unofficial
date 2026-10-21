@@ -267,6 +267,13 @@ public final class RotpAddonApi {
 	 */
 	public static final String FEATURE_STAND_ACTION_MODIFIERS_V1 =
 			"stand_action_modifiers_v1";
+	/**
+	 * Ability#getStaminaCost(Power): the stamina an ability takes as it performs, 1.16's Action.getStaminaCost, which a
+	 * 1.16 Stand-bearing mob compared with its stamina before it picked an action; the core's abilities report 1.16's
+	 * costs, an add-on ability overrides it with its donor's. 0 by default.
+	 */
+	public static final String FEATURE_ABILITY_STAMINA_COST_V1 =
+			"ability_stamina_cost_v1";
 
 	public static final Set<String> FEATURES = Set.of(
 			FEATURE_ABILITY_RESOURCE_NAMESPACE_V1,
@@ -352,7 +359,8 @@ public final class RotpAddonApi {
 			FEATURE_STAND_STAMINA_MODIFIERS_V1,
 			FEATURE_STAND_DEFAULT_ROTATION_RULES_V1,
 			FEATURE_ABILITY_HELD_READY_TO_FIRE_V1,
-			FEATURE_STAND_ACTION_MODIFIERS_V1);
+			FEATURE_STAND_ACTION_MODIFIERS_V1,
+			FEATURE_ABILITY_STAMINA_COST_V1);
 
 	private RotpAddonApi() {}
 

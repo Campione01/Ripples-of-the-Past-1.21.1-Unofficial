@@ -1466,4 +1466,9 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		return names;
 	}
 
+	// 1.16 StandEntityLightAttack.Builder: staminaCost(10), every light attack's
+	@Override
+	public float getStaminaCost(Power<?> context) {
+		return 10.0F;
+	}
 }

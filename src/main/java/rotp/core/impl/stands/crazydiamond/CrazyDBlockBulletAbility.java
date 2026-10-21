@@ -243,4 +243,8 @@ public class CrazyDBlockBulletAbility extends StandEntityAbility {
     	return soundType == SoundType.GLASS;
     }
 
+	@Override
+	public float getStaminaCost(Power<?> context) {
+		return STAMINA_COST;
+	}
 }
