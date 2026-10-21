@@ -12,6 +12,7 @@ import rotp.core.init.power.ModStandAbilities;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
+import rotp.core.powersystem.ability.EntityActionAbility;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
@@ -39,7 +40,8 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * tick (StandEntityTask.tick: tickAction(action), then each modifier), its standPerform in the task's PERFORM's first tick,
  * after the action's own standPerform. FEATURE_STAND_ACTION_MODIFIERS_V1 gives an add-on the same: a Stand effect with
  * isFromStandAction attaches to the Stand's current action as it starts, and its onModifiedActionTick runs right after the
- * action's own tick until the effect is stopped or the action is over.
+ * action's own tick until the effect is stopped or the action is over; once a tick, as 1.16's task kept its modifiers in a
+ * set, also where a client initializes the effect twice as it adds it from its add packet.
  */
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -79,6 +81,7 @@ public final class StandActionModifierGameTests {
 					"modifier RECOVERY 1")), "1.16 ran a task's modifier right after its action on each tick, its standPerform"
 							+ " after the action's: " + events);
 			helper.assertTrue(modifier.standAction == action, "setup: the modifier is not the action's");
+			List<String> run = List.copyOf(events);
 
 			// a modifier stopped no longer runs
 			events.clear();
@@ -99,6 +102,27 @@ public final class StandActionModifierGameTests {
 			helper.assertTrue(events.equals(List.of("action WINDUP 0", "modifier WINDUP 0", "action WINDUP 1",
 					"modifier WINDUP 1", "action PERFORM 0", "perform start")),
 					"the modifier of an action that ended in its own tick still ran: " + events);
+
+			// added as a client adds it from the effect's add packet, which initializes it twice, it is on the action once and
+			// runs once a tick, as 1.16's client added it to its task's set (TrStandTaskModifierPacket)
+			events.clear();
+			action = start(helper, power, user, stand, events, false);
+			modifier = addAsAClientDoes(helper, power, user, events, false);
+			helper.assertTrue(modifier.standAction == action, "setup: the Stand effect did not attach to the Stand's running action");
+			tickUntilOver(standAction, action);
+			helper.assertTrue(events.equals(run) && timesOn(action, modifier) == 1, "1.16 kept a task's modifier once (a set, on"
+					+ " the client too), so it ran once a tick: on the action " + timesOn(action, modifier) + " times, " + events);
+			power.userStandEffects.removeEffect(modifier);
+
+			// the same for a modifier of the user's own running action (isFromUserAction)
+			events.clear();
+			EntityActionInstance userAction = startUserAction(helper, power, user, events);
+			modifier = addAsAClientDoes(helper, power, user, events, true);
+			helper.assertTrue(modifier.userAction == userAction, "setup: the Stand effect did not attach to the user's running action");
+			tickUntilOver(LivingComponentAction.getComponent(user), userAction);
+			helper.assertTrue(events.equals(run) && timesOn(userAction, modifier) == 1, "a modifier of the user's running action"
+					+ " ran other than once a tick: on the action " + timesOn(userAction, modifier) + " times, " + events);
+			power.userStandEffects.removeEffect(modifier);
 		}
 		finally {
 			if (power != null && power.isSummoned() && standType != null) {
@@ -132,6 +156,35 @@ public final class StandActionModifierGameTests {
 		return modifier;
 	}
 
+	// as a client adds it from the effect's add packet (TrEntityCustomEffectsPacket.tryApplyClient): initialized with its
+	// user, then added to the user's Stand effects, whose putEffectInstance initializes it again
+	private static RecordingModifier addAsAClientDoes(GameTestHelper helper, StandPower power, FakePlayer user,
+			List<String> events, boolean ofUserAction) {
+		RecordingModifier modifier = MODIFIER.create(helper.getLevel());
+		modifier.events = events;
+		modifier.isFromStandAction = !ofUserAction;
+		modifier.isFromUserAction = ofUserAction;
+		modifier.withEntity(user);
+		power.userStandEffects.addEffect(modifier);
+		return modifier;
+	}
+
+	// set on the user as a press of an action of the user's own sets it, with the same phases
+	private static EntityActionInstance startUserAction(GameTestHelper helper, StandPower power, FakePlayer user,
+			List<String> events) {
+		RecordingUserAbility ability = new RecordingUserAbility(ModStandAbilities.PUNCH.get(),
+				new AbilityId(PowerClass.STAND, power.getPowerType().getId(), "stand_action_modifier_user_test"), events);
+		EntityActionInstance action = ability.initActionOnAbilityUse(helper.getLevel(), user, user, null);
+		LivingComponentAction.getComponent(user).setAction(action, user, SyncType.NO_SYNC);
+		helper.assertTrue(action.getPhase() == ActionPhase.WINDUP && LivingComponentAction.getComponent(user).getAction() == action,
+				"setup: the test action is not the user's, in its windup: " + action.getPhase());
+		return action;
+	}
+
+	private static long timesOn(EntityActionInstance action, StandEffectInstance modifier) {
+		return action.getPunchModifiers().stream().filter(attached -> attached == modifier).count();
+	}
+
 	private static void tickUntilOver(LivingComponentAction standAction, EntityActionInstance action) {
 		for (int tick = 0; tick < 20 && !action.isOver(); tick++) {
 			standAction.tick();
@@ -141,6 +194,15 @@ public final class StandActionModifierGameTests {
 	private static final class RecordingAbility extends StandEntityAbility {
 		private RecordingAbility(AbilityType<?> abilityType, AbilityId abilityId, List<String> events, boolean endsAtPerform) {
 			super(abilityType, abilityId, ability -> new RecordingAction(ability, events, endsAtPerform));
+			setDefaultPhaseLength(ActionPhase.WINDUP, 2);
+			setDefaultPhaseLength(ActionPhase.PERFORM, 2);
+			setDefaultPhaseLength(ActionPhase.RECOVERY, 2);
+		}
+	}
+
+	private static final class RecordingUserAbility extends EntityActionAbility {
+		private RecordingUserAbility(AbilityType<?> abilityType, AbilityId abilityId, List<String> events) {
+			super(abilityType, abilityId, ability -> new RecordingAction(ability, events, false));
 			setDefaultPhaseLength(ActionPhase.WINDUP, 2);
 			setDefaultPhaseLength(ActionPhase.PERFORM, 2);
 			setDefaultPhaseLength(ActionPhase.RECOVERY, 2);
