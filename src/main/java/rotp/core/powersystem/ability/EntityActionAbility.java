@@ -510,8 +510,9 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 	 * Whether a held charge (a held phase before the perform, whose next phase is not held) fires as its length ends, as
 	 * a 1.16 holdToFire(N, false) action did: it fired on the N-th held tick from the press, after N - 1 held ticks
 	 * (PowerBaseImpl.tickHeldAction), so the port's charge of N ticks leaves on its (N - 1)-th tick and performs on the
-	 * N-th. True by default; an ability whose charge only readies a hold that fires on its release (1.16 holdToFire(N,
-	 * true), modelled as a held charge going on into a waiting perform) returns false.
+	 * N-th. True by default, also for a 1.16 holdToFire(N, true) modelled as a held charge going on into a held perform
+	 * that acts from its first tick (Atmospheric Rift, Divine Sandstorm: 1.16 holdTick sent the first wave on the N-th
+	 * held tick); an ability whose next phase must start only after the charge's N full ticks returns false.
 	 */
 	public boolean chargeFiresAsItsLengthEnds(EntityActionInstance action) {
 		return true;

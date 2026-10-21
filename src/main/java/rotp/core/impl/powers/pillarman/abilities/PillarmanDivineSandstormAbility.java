@@ -47,12 +47,6 @@ public class PillarmanDivineSandstormAbility extends PillarmanActionAbility {
 		return action.getPhase() == ActionPhase.PERFORM || super.isActionHeldReadyToFire(action);
 	}
 
-	// the charge goes on into the held waves; it does not fire as it ends
-	@Override
-	public boolean chargeFiresAsItsLengthEnds(EntityActionInstance action) {
-		return false;
-	}
-
 	protected PillarmanDivineSandstormEntity createSandstormWave(Level level, LivingEntity user) {
 		return new PillarmanDivineSandstormEntity(level, user, 0)
 				.setAtmospheric(false)
