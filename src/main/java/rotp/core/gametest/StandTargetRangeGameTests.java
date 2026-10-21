@@ -21,6 +21,7 @@ import javax.annotation.Nullable;
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
+import rotp.core.impl.powers.hamon.abilities.HamonAbilityHelpers;
 import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 import rotp.core.impl.stands.goldexperience.GEGrowthSparkles;
@@ -2041,6 +2042,98 @@ public final class StandTargetRangeGameTests {
 							+ "; what the camera's crosshair meets, its vanilla pick first as 1.16's mouse target, is "
 							+ (expected instanceof Entity entity ? entity.getType().getDescription().getString()
 									: "the block at " + ((BlockPos) expected).toShortString()));
+				}
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), String.join("; ", wrong));
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 had one mouse target, the camera entity's vanilla pick (InputHandler.pickMouseTarget), whatever the camera, given
+	 * to the HUD power's clientHitResult: a power other than a Stand took it unchanged (IPowerType.clientHitResult), and a
+	 * click sent it whatever power it pressed. The port's client kept no aim of its user's own (ClientsideAim.playerAim
+	 * EMPTY) while the player was not the camera: manual control, the soul, the split consciousness, a puppet, an add-on
+	 * camera. ClientsideAim is client-only, so its choice is pinned from its class file: updateTarget gives the user aim
+	 * the camera's pick without asking first whether the player is the camera. Then the server, as such a client now syncs
+	 * the aims (the camera's pick as the user's, clientStandAim's as the Stand's): a power other than a Stand reads that
+	 * pick, and with the aim assist off a Stand press takes it (pressTarget reads the user's aim first) where the empty user
+	 * aim left the strict crosshair from the user's eyes; under manual control, the Stand the camera, the Stand press still
+	 * goes by the Stand's own aim.
+	 */
+	@GameTest(template = "empty", batch = BATCH)
+	public static void theUsersAimIsTheCameraEntitysVanillaPickWhateverTheCameraAsIn116(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		String clientAim = "rotp/core/client/input/ClientsideAim";
+		List<String> refs = HeldReadyToFireSlot116GameTests.codeRefs(helper, clientAim, "updateTarget");
+		String userAim = clientAim + ".playerAim:";
+		int first = -1;
+		int emptied = 0;
+		for (int i = 0; i < refs.size(); i++) {
+			if (refs.get(i).startsWith(userAim)) {
+				if (first < 0) {
+					first = i;
+				}
+				if (i + 1 < refs.size() && refs.get(i + 1).startsWith("rotp/core/subsystems/target/ActionTarget.EMPTY:")) {
+					emptied++;
+				}
+			}
+		}
+		boolean pickFirst = first >= 0 && first + 2 < refs.size()
+				&& refs.get(first + 1).startsWith(clientAim + ".cameraEntityAimTarget:")
+				&& refs.get(first + 2).startsWith("rotp/core/subsystems/target/ActionTargetAim.setTarget(")
+				&& refs.subList(0, first).stream().noneMatch(ref -> ref.startsWith("net/minecraft/client/Minecraft.cameraEntity:"));
+		if (!pickFirst || emptied != 1) {
+			wrong.add("USER-AIM the client's user aim (ClientsideAim.updateTarget) is not the camera's vanilla pick whatever"
+					+ " the camera: the pick set first without asking for the camera " + pickFirst + ", emptied " + emptied
+					+ " times (once: no level or player); 1.16's one mouse target was the camera's pick, which a power other"
+					+ " than a Stand took unchanged");
+		}
+		for (boolean manual : new boolean[] { false, true }) {
+			String row = manual ? "under manual control, the Stand the camera: its vanilla pick on a cow"
+					: "a player camera beside the user: its vanilla pick on a cow";
+			try (Fixture fixture = Fixture.open(helper, Kind.CD_REVERT)) {
+				StandEntity stand = fixture.stand;
+				fixture.user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get()).standAimAssist = false;
+				Entity camera;
+				if (manual) {
+					stand.setManuallyControlled(true);
+					helper.assertTrue(steerBehind(fixture, stand), "USER-AIM premise: the manually controlled Stand is past its"
+							+ " max range of its user");
+					camera = stand;
+				}
+				else {
+					stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z - 3.0D, 0.0F, 0.0F);
+					stand.setYHeadRot(0.0F);
+					camera = new FakePlayer(fixture.level, new GameProfile(UUID.randomUUID(), "StandTargetCamera"));
+					camera.moveTo(fixture.origin.x + 3.0D, fixture.origin.y, fixture.origin.z + 1.0D, 0.0F, 0.0F);
+					camera.setYHeadRot(0.0F);
+				}
+				Cow cow = placed(helper, fixture, EntityType.COW,
+						manual ? aheadOfStand(stand, 0.0D, 2.0D) : onCameraLook(camera, 0.0D, 2.0D));
+				ActionTarget vanillaPick = vanillaPick(camera, fixture.user);
+				ActionTarget standAim = StandEntityPunchAbility.clientStandAim(stand, fixture.user, camera, vanillaPick);
+				LivingComponentAction userActions = LivingComponentAction.getComponent(fixture.user);
+				LivingComponentAction standActions = LivingComponentAction.getComponent(stand);
+				standActions.entityAim.setTargetFromClient(standAim, fixture.level);
+				// what the port's client sent before: no user aim while the player is not the camera
+				userActions.entityAim.setTargetFromClient(ActionTarget.EMPTY, fixture.level);
+				ActionTarget pressedBefore = StandEntityPunchAbility.pressTarget(stand, ActionTarget.EMPTY);
+				helper.assertTrue(vanillaPick.getType() == TargetType.ENTITY && vanillaPick.getEntity() == cow
+						&& stand.isManuallyControlled() == manual && !StandEntityPunchAbility.aimAssist(fixture.user)
+						&& (manual || pressedBefore.getEntity() != cow), "USER-AIM premise: " + row + ": the vanilla pick "
+								+ describe(vanillaPick, camera) + ", the press with no user aim takes " + describe(pressedBefore, stand));
+				userActions.entityAim.setTargetFromClient(vanillaPick, fixture.level);
+				ActionTarget read = HamonAbilityHelpers.getAimTarget(fixture.user, fixture.level);
+				ActionTarget pressed = StandEntityPunchAbility.pressTarget(stand, ActionTarget.EMPTY);
+				if (read.getType() != TargetType.ENTITY || read.getEntity() != cow) {
+					wrong.add("USER-AIM " + row + ": a power other than a Stand reads " + describe(read, camera)
+							+ " from the user aim the client syncs; 1.16's click carried the camera's pick, the cow");
+				}
+				if (pressed.getType() != TargetType.ENTITY || pressed.getEntity() != cow) {
+					wrong.add("USER-AIM the aim assist off, " + row + ": a Stand press takes " + describe(pressed, stand)
+							+ " (with no user aim " + describe(pressedBefore, stand) + "); 1.16's one mouse target, the camera's"
+							+ " pick, was the cow");
 				}
 			}
 		}
