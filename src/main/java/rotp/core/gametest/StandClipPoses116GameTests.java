@@ -16,6 +16,10 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import rotp.core.core.JojoMod;
+import rotp.core.core.JojoRegistries;
+import rotp.core.powersystem.ability.Ability;
+import rotp.core.powersystem.ability.EntityActionAbility;
+import rotp.core.powersystem.entityaction.EntityActionInstance;
 
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -249,6 +253,82 @@ public final class StandClipPoses116GameTests {
 		helper.assertTrue(wrong.isEmpty(), "1.16's humanoid models pitched the arms with the look in these poses and turned the"
 				+ " joints by half their forearm or lower leg: " + wrong);
 		helper.succeed();
+	}
+
+	/*
+	 * 1.16 snapped from pose to pose: an action ended mid-windup showed the next pose at once, and the finisher's perform
+	 * switched poses in no time. Crazy Diamond's heavy punch keeps body_rot within half a turn of the idle's yaw at every
+	 * clip time, so the body never sits a turn away from the next clip, and the punch that may follow it does not start
+	 * from its pose (only a punch after a punch does); where its or the finisher's keys jump, the two keys are one float
+	 * apart, so no clip time draws a pose between them (Float.parseFloat reads the port's key times), and the heavy
+	 * punch's body turns smoothly at every other time.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void crazyDiamondsSpinAndSnapsLeaveNoLongTurnAndNoInBetweenFrame(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		JsonObject anims = readJson(helper, CD_ANIMS).getAsJsonObject("animations");
+		JsonObject heavy = anims.getAsJsonObject("heavy_punch");
+		float[] level = { 0, 0 };
+		float idleYaw = rotationAt(anims.getAsJsonObject("idle"), "body_rot", 0, level)[1];
+		float end = heavy.get("animation_length").getAsFloat();
+		List<Float> times = new ArrayList<>();
+		for (float time = 0; time <= end; time += 0.0005F) {
+			times.add(time);
+		}
+		keys(heavy, "body_rot").forEach(key -> times.add(key.getKey()));
+		times.sort(null);
+		float farthest = 0, farthestAt = 0, fastest = 0, fastestAt = 0;
+		float[] prev = null;
+		float prevAt = 0;
+		for (float time : times) {
+			float[] body = rotationAt(heavy, "body_rot", time, level);
+			if (Math.abs(body[1] - idleYaw) > farthest) {
+				farthest = Math.abs(body[1] - idleYaw);
+				farthestAt = time;
+			}
+			if (prev != null && time > prevAt) {
+				float turn = (float) angleBetween(rotationMatrix(prev), rotationMatrix(body));
+				if (turn > fastest) {
+					fastest = turn;
+					fastestAt = time;
+				}
+			}
+			prev = body;
+			prevAt = time;
+		}
+		if (farthest > 180.01F) {
+			wrong.add("heavy_punch's body_rot yaw is " + farthest + " degrees from the idle's " + idleYaw + " at " + farthestAt);
+		}
+		if (fastest > 2) {
+			wrong.add("heavy_punch's body turns " + fastest + " degrees within half a millisecond at " + fastestAt);
+		}
+		for (String name : new String[] { "heavy_punch", "finisher" }) {
+			JsonObject clip = anims.getAsJsonObject(name);
+			for (String bone : clip.getAsJsonObject("bones").keySet()) {
+				List<Map.Entry<Float, JsonElement>> keys = keys(clip, bone);
+				for (int i = 1; i < keys.size(); i++) {
+					float t0 = keys.get(i - 1).getKey(), t1 = keys.get(i).getKey();
+					if (t1 - t0 < 0.001F && t1 != Math.nextUp(t0)) {
+						wrong.add(name + " " + bone + " jumps between " + t0 + " and " + t1 + ", where a frame can fall");
+					}
+				}
+			}
+		}
+		EntityActionInstance heavyAction = actionOf(helper, "heavy_punch");
+		EntityActionInstance punchAction = actionOf(helper, "punch");
+		if (punchAction.savePrevPoseForAnimTransition(heavyAction) || !punchAction.savePrevPoseForAnimTransition(punchAction)) {
+			wrong.add("Crazy Diamond's punch starts from the heavy punch's pose (or not from a punch's)");
+		}
+		helper.assertTrue(wrong.isEmpty(), "1.16 snapped Crazy Diamond's poses: " + wrong);
+		helper.succeed();
+	}
+
+	private static EntityActionInstance actionOf(GameTestHelper helper, String abilityName) {
+		Ability ability = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("crazy_diamond")).getBaseMoveset().getAbility(abilityName);
+		helper.assertTrue(ability instanceof EntityActionAbility, "setup: Crazy Diamond has no " + abilityName);
+		EntityActionInstance action = ((EntityActionAbility) ability).initActionOnAbilityUse(helper.getLevel(), null, null, null);
+		helper.assertTrue(action != null, "setup: " + abilityName + " made no action");
+		return action;
 	}
 
 	private static JsonObject clipOf(GameTestHelper helper, Map<String, JsonObject> files, String asset, String name) {
