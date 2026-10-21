@@ -628,7 +628,10 @@ public final class HeavyPunchPerform116GameTests {
 		}
 		keys.sort(null);
 		for (int i = 1; i < keys.size() && keys.get(i) <= performAt + 0.0001F; i++) {
-			turned += channelAt(clip, "body_rot", keys.get(i))[1] - channelAt(clip, "body_rot", keys.get(i - 1))[1];
+			// two keys one float apart re-base the yaw by whole turns: no clip time lies between them
+			if (keys.get(i) != Math.nextUp(keys.get(i - 1))) {
+				turned += channelAt(clip, "body_rot", keys.get(i))[1] - channelAt(clip, "body_rot", keys.get(i - 1))[1];
+			}
 		}
 		if (turned > -400) {
 			wrong.add("body_rot turned " + turned + " degrees over the windup, where 1.16 turned the body -412.5");

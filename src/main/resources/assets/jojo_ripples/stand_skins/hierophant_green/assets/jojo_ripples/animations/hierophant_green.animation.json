@@ -630,7 +630,26 @@
             "0.5": {
               "vector": [
                 0,
-                -20,
+                0,
+                0
+              ],
+              "easing": "linear"
+            }
+          }
+        },
+        "head_rot": {
+          "rotation": {
+            "0": {
+              "vector": [
+                0,
+                0,
+                0
+              ]
+            },
+            "0.5": {
+              "vector": [
+                "query.head_x_rotation",
+                "query.head_y_rotation",
                 0
               ],
               "easing": "linear"
@@ -916,31 +935,132 @@
         },
         "head": {
           "rotation": {
+            "0": {
+              "vector": [
+                0,
+                -90,
+                0
+              ]
+            },
+            "0.18": {
+              "vector": [
+                0,
+                -90,
+                0
+              ],
+              "easing": "linear"
+            },
             "0.255": {
               "vector": [
                 0,
-                22.5,
+                -67.5,
                 0
-              ]
+              ],
+              "easing": "linear"
+            },
+            "0.27": {
+              "vector": [
+                0,
+                -37.5,
+                0
+              ],
+              "easing": "linear"
+            },
+            "0.285": {
+              "vector": [
+                0,
+                -24.375,
+                0
+              ],
+              "easing": "linear"
             },
             "0.3": {
               "vector": [
                 0,
                 0,
                 0
-              ]
+              ],
+              "easing": "linear"
             },
             "0.35": {
               "vector": [
                 0,
                 0,
                 0
-              ]
+              ],
+              "easing": "linear"
             },
             "0.75": {
               "vector": [
                 0,
                 -20,
+                0
+              ],
+              "easing": "linear"
+            }
+          }
+        },
+        "head_rot": {
+          "rotation": {
+            "0": {
+              "vector": [
+                "query.head_x_rotation",
+                "query.head_y_rotation",
+                0
+              ]
+            },
+            "0.18": {
+              "vector": [
+                "query.head_x_rotation",
+                "query.head_y_rotation",
+                0
+              ],
+              "easing": "linear"
+            },
+            "0.255": {
+              "vector": [
+                0,
+                0,
+                0
+              ],
+              "easing": "linear"
+            },
+            "0.27": {
+              "vector": [
+                0,
+                0,
+                0
+              ],
+              "easing": "linear"
+            },
+            "0.285": {
+              "vector": [
+                "query.head_x_rotation * 0.5",
+                "query.head_y_rotation * 0.5",
+                0
+              ],
+              "easing": "linear"
+            },
+            "0.3": {
+              "vector": [
+                "query.head_x_rotation",
+                "query.head_y_rotation",
+                0
+              ],
+              "easing": "linear"
+            },
+            "0.35": {
+              "vector": [
+                "query.head_x_rotation",
+                "query.head_y_rotation",
+                0
+              ],
+              "easing": "linear"
+            },
+            "0.75": {
+              "vector": [
+                "query.head_x_rotation",
+                "query.head_y_rotation",
                 0
               ],
               "easing": "linear"
@@ -1339,6 +1459,50 @@
               "easing": "linear"
             }
           }
+        },
+        "head": {
+          "rotation": {
+            "0": {
+              "vector": [
+                0,
+                0,
+                0
+              ]
+            },
+            "0.25": {
+              "vector": [
+                0,
+                0,
+                0
+              ],
+              "easing": "linear"
+            },
+            "0.3": {
+              "vector": [
+                0,
+                0,
+                0
+              ],
+              "easing": "linear"
+            },
+            "0.6": {
+              "vector": [
+                0,
+                -20,
+                0
+              ],
+              "easing": "linear"
+            }
+          }
+        },
+        "head_rot": {
+          "rotation": {
+            "vector": [
+              "query.head_x_rotation",
+              "query.head_y_rotation",
+              0
+            ]
+          }
         }
       },
       "timeline": {
@@ -1386,31 +1550,132 @@
         },
         "head": {
           "rotation": {
+            "0": {
+              "vector": [
+                0,
+                -90,
+                0
+              ]
+            },
+            "0.18": {
+              "vector": [
+                0,
+                -90,
+                0
+              ],
+              "easing": "linear"
+            },
             "0.255": {
               "vector": [
                 0,
-                22.5,
+                -67.5,
                 0
-              ]
+              ],
+              "easing": "linear"
+            },
+            "0.27": {
+              "vector": [
+                0,
+                -37.5,
+                0
+              ],
+              "easing": "linear"
+            },
+            "0.285": {
+              "vector": [
+                0,
+                -24.375,
+                0
+              ],
+              "easing": "linear"
             },
             "0.3": {
               "vector": [
                 0,
                 0,
                 0
-              ]
+              ],
+              "easing": "linear"
             },
             "0.35": {
               "vector": [
                 0,
                 0,
                 0
-              ]
+              ],
+              "easing": "linear"
             },
             "0.75": {
               "vector": [
                 0,
                 -20,
+                0
+              ],
+              "easing": "linear"
+            }
+          }
+        },
+        "head_rot": {
+          "rotation": {
+            "0": {
+              "vector": [
+                "query.head_x_rotation",
+                "query.head_y_rotation",
+                0
+              ]
+            },
+            "0.18": {
+              "vector": [
+                "query.head_x_rotation",
+                "query.head_y_rotation",
+                0
+              ],
+              "easing": "linear"
+            },
+            "0.255": {
+              "vector": [
+                0,
+                0,
+                0
+              ],
+              "easing": "linear"
+            },
+            "0.27": {
+              "vector": [
+                0,
+                0,
+                0
+              ],
+              "easing": "linear"
+            },
+            "0.285": {
+              "vector": [
+                "query.head_x_rotation * 0.5",
+                "query.head_y_rotation * 0.5",
+                0
+              ],
+              "easing": "linear"
+            },
+            "0.3": {
+              "vector": [
+                "query.head_x_rotation",
+                "query.head_y_rotation",
+                0
+              ],
+              "easing": "linear"
+            },
+            "0.35": {
+              "vector": [
+                "query.head_x_rotation",
+                "query.head_y_rotation",
+                0
+              ],
+              "easing": "linear"
+            },
+            "0.75": {
+              "vector": [
+                "query.head_x_rotation",
+                "query.head_y_rotation",
                 0
               ],
               "easing": "linear"

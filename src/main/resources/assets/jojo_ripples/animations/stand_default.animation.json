@@ -34974,7 +34974,7 @@
 				"left_arm_xrot": {
 					"rotation": {
 						"vector": [
-							0,
+							"query.head_x_rotation",
 							0,
 							0
 						]
@@ -35025,7 +35025,7 @@
 				"right_arm_xrot": {
 					"rotation": {
 						"vector": [
-							0,
+							"query.head_x_rotation",
 							0,
 							0
 						]
@@ -35414,38 +35414,124 @@
 				},
 				"left_arm_joint": {
 					"rotation": {
-						"vector": [
-							0,
-							0,
-							0
-						]
+						"0.0": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.57": {
+							"vector": [
+								0,
+								0,
+								0
+							],
+							"easing": "easeInQuad"
+						},
+						"0.6": {
+							"vector": [
+								-67.5,
+								1.875,
+								6.565
+							],
+							"easing": "easeInCubic"
+						},
+						"0.9251": {
+							"vector": [
+								-67.5,
+								1.875,
+								6.565
+							]
+						},
+						"1.2": {
+							"vector": [
+								-45,
+								-30,
+								45
+							],
+							"easing": "linear"
+						}
 					}
 				},
 				"right_arm_joint": {
 					"rotation": {
-						"vector": [
-							0,
-							0,
-							0
-						]
+						"0.0": {
+							"vector": [
+								-67.5,
+								0,
+								0
+							]
+						},
+						"0.57": {
+							"vector": [
+								-60,
+								0,
+								0
+							],
+							"easing": "easeInQuad"
+						},
+						"0.6": {
+							"vector": [
+								0,
+								0,
+								0
+							],
+							"easing": "easeInCubic"
+						},
+						"0.9251": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"1.2": {
+							"vector": [
+								-48.45472,
+								14.73419,
+								-29.41035
+							],
+							"easing": "linear"
+						}
 					}
 				},
 				"left_leg_joint": {
 					"rotation": {
-						"vector": [
-							0,
-							0,
-							0
-						]
+						"0.0": {
+							"vector": [
+								11,
+								0,
+								0
+							]
+						},
+						"1.2": {
+							"vector": [
+								11,
+								0,
+								0
+							],
+							"easing": "linear"
+						}
 					}
 				},
 				"right_leg_joint": {
 					"rotation": {
-						"vector": [
-							0,
-							0,
-							0
-						]
+						"0.0": {
+							"vector": [
+								8.5,
+								0,
+								0
+							]
+						},
+						"1.2": {
+							"vector": [
+								8.5,
+								0,
+								0
+							],
+							"easing": "linear"
+						}
 					}
 				}
 			},
