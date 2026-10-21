@@ -19664,7 +19664,7 @@
       "timeline": {
         "0.0": "phase = WINDUP;",
         "0.5417": "phase = PERFORM;",
-        "0.7083": "phase = RECOVERY;"
+        "0.5917": "phase = RECOVERY;"
       }
     },
     "grab_heavy_punch": {
@@ -20377,7 +20377,7 @@
       "timeline": {
         "0.0": "phase = WINDUP;",
         "0.5": "phase = PERFORM;",
-        "0.7083": "phase = RECOVERY;"
+        "0.55": "phase = RECOVERY;"
       }
     },
     "grab_miss": {

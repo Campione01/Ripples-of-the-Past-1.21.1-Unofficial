@@ -100,6 +100,8 @@ public final class HeavyOriginalPhaseGameTests {
         final String finisherSkill;
         Family(String stand, String finisherSkill) { this.stand = stand; this.finisherSkill = finisherSkill; }
         boolean original() { return ordinal() <= MR_KICK.ordinal(); }
+        // the port's grab heavy punch is a heavy punch too: 1.16's one-tick perform, the recovery from its impact tick
+        boolean recoversOnImpactTick() { return original() || this == GRAB_HEAVY; }
         boolean finisher() { return finisherSkill != null; }
     }
 
@@ -321,7 +323,7 @@ public final class HeavyOriginalPhaseGameTests {
             float speed = (float) caster.stand.getAttackSpeed();
             expectedWindup = heavyWindup(speed, meterAtPress);
             expectedRecovery = heavyRecovery(speed, meterAtPress);
-            expectedPerform = spec.family.original() || spec.family == Family.TS_PUNCH ? 1 : 6;
+            expectedPerform = 1;
             String name = spec.family == Family.CHARGED ? "heavy_charged" : spec.family == Family.TS_PUNCH ? "ts_punch" : "heavy_punch";
             InputMethod method = spec.family == Family.CHARGED ? InputMethod.HOLD : InputMethod.CLICK;
             Press input = press(name, method, ATTACK, spec.clickDelay, false);
@@ -471,7 +473,7 @@ public final class HeavyOriginalPhaseGameTests {
                         "one first-PERFORM callback performs actual hit/empty attempt");
                 check(windupCallbacks == (int) Math.ceil(expectedWindup - expectedSkip), "natural windup callbacks=" + windupCallbacks + " skip=" + expectedSkip);
             }
-            if (spec.family.original()) check(action.getPhase() == ActionPhase.RECOVERY,
+            if (spec.family.recoversOnImpactTick()) check(action.getPhase() == ActionPhase.RECOVERY,
                     "RECOVERY begins at the end of the impact/empty-perform tick, post=" + action.getPhase());
             log("STAMP " + spec.id() + " age=" + stampAge + " cost=" + cost + " post=" + action.getPhase());
         }
@@ -479,7 +481,7 @@ public final class HeavyOriginalPhaseGameTests {
         void observeRecovery() {
             recoveryAge = caster.stand.tickCount;
             check(performCallbacks == (int) Math.ceil(expectedPerform), "PERFORM-to-RECOVERY natural callback count=" + performCallbacks);
-            if (spec.family.original()) check(stampSeen && recoveryAge == stampAge,
+            if (spec.family.recoversOnImpactTick()) check(stampSeen && recoveryAge == stampAge,
                     "same performer tick stamp=" + stampAge + " recovery=" + recoveryAge);
             check(near(action.userWalkSpeed, 1), "full movement returns on real RECOVERY boundary");
             if (spec.follow == Follow.NONE && (spec.family == Family.SP_HEAVY || spec.family == Family.TW_HEAVY)) {
