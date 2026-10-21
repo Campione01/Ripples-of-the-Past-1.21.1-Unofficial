@@ -148,7 +148,6 @@ public final class StandClipPoses116GameTests {
 
 	private static final String CD_ANIMS =
 			"stand_skins/crazy_diamond/assets/jojo_ripples/animations/crazy_diamond.animation.json";
-	private static final String DEFAULT_ANIMS = "animations/stand_default.animation.json";
 
 	// how much of the look pitch a pose put on both arms (StandEntityModel.setSecondXRot) at clip times
 	private record ArmLook(String asset, String clip, String[] at, float[] share) {}
@@ -157,7 +156,6 @@ public final class StandClipPoses116GameTests {
 			// HumanoidStandModel :565-584, heavyAttackAnim: armsRotationFull in every pose, the recovery's transition from
 			// heavyImpact keeps it to the end of the action
 			new ArmLook(MR_ANIMS, "heavy_punch", new String[] { "0", "W0.5", "PERFORM", "RECOVERY", "END" }, new float[] { 1, 1, 1, 1, 1 }),
-			new ArmLook(DEFAULT_ANIMS, "heavy_punch", new String[] { "0", "W0.5", "PERFORM", "RECOVERY", "END" }, new float[] { 1, 1, 1, 1, 1 }),
 			// HumanoidStandModel :482-536, the jab: xRot * t to jabArmTurn, the full look at jabImpact, xRot * (1 - t) to
 			// jabArmTurnBack, none after (the clip's keys 0, 0.1, PERFORM, RECOVERY, 0.4667, the end)
 			new ArmLook(MR_ANIMS, "punch", new String[] { "0", "0.05", "0.1", "PERFORM", "RECOVERY", "0.35", "0.4667", "END" },
@@ -179,10 +177,7 @@ public final class StandClipPoses116GameTests {
 			new JointClip(SC_ANIMS, "no_rapier_light_attack", "left_arm", "right_arm"),
 			new JointClip(SC_ANIMS, "melee_barrage", "left_arm", "right_arm"),
 			new JointClip(SC_ANIMS, "dash_attack", "left_arm", "right_arm"),
-			new JointClip(SC_ANIMS, "sweeping_attack", "left_arm", "right_arm"),
-			new JointClip(CD_ANIMS, "heavy_punch", "left_arm", "right_arm", "left_leg", "right_leg"),
-			new JointClip(CD_ANIMS, "finisher", "left_arm", "right_arm", "left_leg", "right_leg"),
-			new JointClip(DEFAULT_ANIMS, "heavy_punch", "left_arm", "right_arm", "left_leg", "right_leg"));
+			new JointClip(SC_ANIMS, "sweeping_attack", "left_arm", "right_arm"));
 
 	/*
 	 * 1.16's humanoid Java-model poses pitched both arms with the look (setSecondXRot, applied after the pose as a parent
