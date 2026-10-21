@@ -35,6 +35,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
 public class StandEntityGrabThrowAbility extends StandEntityAbility {
+	private static final float STAMINA_COST = 50.0F;
 
 	public StandEntityGrabThrowAbility(AbilityType<?> abilityType, AbilityId abilityId) {
 		super(abilityType, abilityId, StandEntityGrabThrow::new);
@@ -164,7 +165,7 @@ public class StandEntityGrabThrowAbility extends StandEntityAbility {
 				}
 				StandPower standPower = StandPower.get(getPowerUser());
 				if (standPower != null) {
-					standPower.consumeStamina(50);
+					standPower.consumeStamina(STAMINA_COST);
 				}
 			}
 			aimAs = AimingEntity.CAMERA_ENTITY;
@@ -192,5 +193,10 @@ public class StandEntityGrabThrowAbility extends StandEntityAbility {
 
 		@Override
 		public <T> void onSyncedDataUpdated(T oldValue, T newValue, EntityDataAccessor<T> dataAccessor) {}
+	}
+
+	@Override
+	public float getStaminaCost(Power<?> context) {
+		return STAMINA_COST;
 	}
 }

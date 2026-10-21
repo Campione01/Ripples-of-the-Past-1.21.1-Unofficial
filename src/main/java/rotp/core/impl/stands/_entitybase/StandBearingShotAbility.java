@@ -30,6 +30,7 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.Tags;
 
 public class StandBearingShotAbility extends StandEntityAbility {
+	private static final float STAMINA_COST = 10.0F;
 
 	public StandBearingShotAbility(AbilityType<?> abilityType, AbilityId abilityId) {
 		super(abilityType, abilityId, StandBearingShot::new);
@@ -124,7 +125,7 @@ public class StandBearingShotAbility extends StandEntityAbility {
 
 					// a Creative user keeps the nugget, as 1.16 Stand item use did (!abilities.instabuild)
 					itemStack.consume(1, getPowerUser());
-					StandPower.get(getPowerUser()).consumeStamina(10);
+					StandPower.get(getPowerUser()).consumeStamina(STAMINA_COST);
 				}
 			}
 		}
@@ -134,5 +135,10 @@ public class StandBearingShotAbility extends StandEntityAbility {
 			return this.phase != ActionPhase.RECOVERY
 					|| this.getPhaseTick() >= (phasesLength.getFloat(ActionPhase.WINDUP) * 2 / 3 - 1);
 		}
+	}
+
+	@Override
+	public float getStaminaCost(Power<?> context) {
+		return STAMINA_COST;
 	}
 }

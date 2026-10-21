@@ -47,6 +47,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
 public class StandEntityGrabAbility extends StandEntityAbility {
+	private static final float STAMINA_COST = 10.0F;
 
 	public StandEntityGrabAbility(AbilityType<?> abilityType, AbilityId abilityId) {
 		super(abilityType, abilityId, StandEntityGrab::new);
@@ -103,7 +104,7 @@ public class StandEntityGrabAbility extends StandEntityAbility {
 
 					StandPower standPower = StandPower.get(getPowerUser());
 					if (standPower != null) {
-						standPower.consumeStamina(10);
+						standPower.consumeStamina(STAMINA_COST);
 					}
 				}
 
@@ -160,5 +161,10 @@ public class StandEntityGrabAbility extends StandEntityAbility {
 				item.getHoverName(),
 				ComponentUtils.wrapInSquareBrackets(Component.translatable("chat.coordinates", blockPos.getX(), blockPos.getY(), blockPos.getZ()))
 						.withStyle(ChatFormatting.BOLD, ChatFormatting.GREEN)));
+	}
+
+	@Override
+	public float getStaminaCost(Power<?> context) {
+		return STAMINA_COST;
 	}
 }

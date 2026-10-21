@@ -270,7 +270,8 @@ public final class RotpAddonApi {
 	/**
 	 * Ability#getStaminaCost(Power): the stamina an ability takes as it performs, 1.16's Action.getStaminaCost, which a
 	 * 1.16 Stand-bearing mob compared with its stamina before it picked an action; the core's abilities report 1.16's
-	 * costs, an add-on ability overrides it with its donor's. 0 by default.
+	 * costs and the port's own (the grab, the grab throw, the charged heavy punch, the Bearing Shot) what a use of them
+	 * takes, an add-on ability overrides it with its donor's. 0 by default.
 	 */
 	public static final String FEATURE_ABILITY_STAMINA_COST_V1 =
 			"ability_stamina_cost_v1";
