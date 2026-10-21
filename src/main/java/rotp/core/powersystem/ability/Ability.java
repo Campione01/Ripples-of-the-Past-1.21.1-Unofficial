@@ -169,8 +169,10 @@ public class Ability {
 
 	/**
 	 * 1.16's Action.Builder.cooldown(n) was cooldown(0, n), and StandAction's Resolve multiplier
-	 * defaulted to 0, so a plain Stand cooldown is gone while the user has Resolve.
-	 * A cooldown Resolve must not shorten is cooldown(n, 0) or cooldown(0, n, 1.0F).
+	 * defaulted to 0, so a plain Stand cooldown is gone while the user has Resolve, and none is set in Creative.
+	 * Register a donor's split as the donor had it: the technical part (cooldown(n, 0)) is kept by a Creative user
+	 * and is what a mob waits on, as 1.16's getCooldownTechnical was; a cooldown Resolve must not shorten and Creative
+	 * skips (a donor's setCooldownTimer under !isCreative) is cooldown(0, n, 1.0F).
 	 */
 	public Ability cooldown(int ticks) {
 		return cooldown(0, ticks);
