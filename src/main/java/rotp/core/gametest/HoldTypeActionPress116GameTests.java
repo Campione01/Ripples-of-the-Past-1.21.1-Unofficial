@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
 
+import javax.annotation.Nullable;
+
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
@@ -41,9 +43,12 @@ import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.util.reflection.CommonReflection;
 import com.mojang.authlib.GameProfile;
 
+import io.netty.buffer.Unpooled;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.animal.Cow;
@@ -569,6 +574,148 @@ public final class HoldTypeActionPress116GameTests {
 		helper.succeed();
 	}
 
+	/*
+	 * 1.16 cleared the power's held action on both sides as its key went up (InputHandler.stopHeldAction, PowerBaseImpl
+	 * .stopHeldAction). A port charge let go before it is full (the charged heavy punch, the grab throw) charges on and fires
+	 * at its end, but is held no more: on the server, whose key is gone, and on the user's client, which goes by the action
+	 * it was sent: the copy decoded as the client decodes it, with the synced data the server sends it, no longer counts as
+	 * held, so the client lets through the plain abilities the server already takes (Magician's Red's detector).
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aPortChargeLetGoDuringItsChargeIsHeldNoMoreOnTheUsersClientAsIn116(GameTestHelper helper) {
+		try (Scene s = new Scene(helper, "LetGoChargeMagiciansRed", "magicians_red", 4)) {
+			s.unlock("heavy_charged", "mr_detector");
+			s.letGoChargeIsHeldNoMore("heavy_charged", "mr_detector");
+		}
+		try (Scene s = new Scene(helper, "LetGoChargeStarPlatinum", "star_platinum", 4)) {
+			s.unlock("grab_throw");
+			Cow cow = EntityType.COW.create(helper.getLevel());
+			helper.assertTrue(cow != null, "setup: could not create the cow");
+			LivingComponentGrab standGrab = s.stand.getData(ModDataAttachmentTypes.LIVING_GRAB.get());
+			try {
+				cow.setNoAi(true);
+				cow.setNoGravity(true);
+				cow.moveTo(s.origin.x, s.origin.y, s.origin.z + 1.5D, 180.0F, 0.0F);
+				helper.assertTrue(helper.getLevel().addFreshEntity(cow), "setup: could not add the cow");
+				standGrab.setGrabTarget(cow);
+				s.letGoChargeIsHeldNoMore("grab_throw", null);
+			}
+			finally {
+				standGrab.setGrabTarget(null);
+				cow.discard();
+			}
+		}
+		helper.succeed();
+	}
+
+	/*
+	 * A held charge takes its press's cooldown as it fires and none if it ends unfired (1.16 PowerBaseImpl.performAction for
+	 * a hold-to-fire action): a port charge let go before it is full, held no more, still takes it only as it fires at its
+	 * end, not at the release, and none if its release check stops it there. The charged heavy punch is given a cooldown
+	 * here (it has none) and has it taken back after.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aPortChargeLetGoDuringItsChargeTakesItsCooldownOnlyAsItFires(GameTestHelper helper) {
+		try (Scene s = new Scene(helper, "LetGoChargeCooldown", "star_platinum", 4)) {
+			s.unlock("heavy_charged");
+			Ability charge = s.power.getAbility("heavy_charged");
+			Object[] noCooldown = cooldownOf(charge);
+			try {
+				charge.cooldown(0, 40, 1.0F);
+				for (boolean fires : new boolean[] { true, false }) {
+					s.power.setAbilityCooldown("heavy_charged", 0, 0);
+					EntityActionInstance held = s.hold("heavy_charged");
+					AbilityInput.keyRelease(HOLD_KEY, s.user);
+					s.standAction.tick();
+					helper.assertTrue(held.getPhase() == ActionPhase.BUTTON_CHARGE
+							&& s.power.getAbilityCooldown("heavy_charged") == 0, "the charged heavy punch let go in its charge"
+									+ " takes no cooldown before it fires: phase " + held.getPhase() + ", cooldown "
+									+ s.power.getAbilityCooldown("heavy_charged"));
+					if (!fires) {
+						// its release check at the charge's end fails ("not_unlocked")
+						s.power.getCurTypeData()._lockedAbilities.add("heavy_charged");
+					}
+					for (int tick = 0; tick < 60 && held.getPhase() == ActionPhase.BUTTON_CHARGE; tick++) {
+						s.standAction.tick();
+					}
+					int cooldown = s.power.getAbilityCooldown("heavy_charged");
+					helper.assertTrue(fires ? held.getPhase() == ActionPhase.PERFORM && cooldown > 0 : held.isOver() && cooldown == 0,
+							"the charged heavy punch let go in its charge takes its cooldown as it fires at its end, and none if"
+									+ " its release check stops it there (fires " + fires + "): phase " + held.getPhase()
+									+ ", cooldown " + cooldown);
+					s.power.getCurTypeData()._lockedAbilities.remove("heavy_charged");
+					s.clear();
+				}
+			}
+			finally {
+				restoreCooldown(charge, noCooldown);
+			}
+		}
+		helper.succeed();
+	}
+
+	private static final String[] COOLDOWN_FIELDS = { "cooldownTicks", "cooldownTechnicalTicks", "cooldownAdditionalTicks",
+			"cooldownResolveMultiplier", "cooldownResolveMultiplierApplies" };
+
+	private static Object[] cooldownOf(Ability ability) {
+		try {
+			Object[] values = new Object[COOLDOWN_FIELDS.length];
+			for (int i = 0; i < COOLDOWN_FIELDS.length; i++) {
+				Field field = Ability.class.getDeclaredField(COOLDOWN_FIELDS[i]);
+				field.setAccessible(true);
+				values[i] = field.get(ability);
+			}
+			return values;
+		}
+		catch (ReflectiveOperationException e) {
+			throw new IllegalStateException("setup: cannot read the ability's cooldown", e);
+		}
+	}
+
+	private static void restoreCooldown(Ability ability, Object[] values) {
+		try {
+			for (int i = 0; i < COOLDOWN_FIELDS.length; i++) {
+				Field field = Ability.class.getDeclaredField(COOLDOWN_FIELDS[i]);
+				field.setAccessible(true);
+				field.set(ability, values[i]);
+			}
+		}
+		catch (ReflectiveOperationException e) {
+			throw new IllegalStateException("cannot put the ability's cooldown back", e);
+		}
+	}
+
+	// the action as the user's client holds it: decoded from the action the server sends it (EntityActionInstance.encode)
+	private static EntityActionInstance clientCopy(GameTestHelper helper, EntityActionInstance action, StandEntity stand) {
+		RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), helper.getLevel().registryAccess());
+		try {
+			EntityActionInstance.encode(buf, action);
+			EntityActionInstance copy = EntityActionInstance.decode(helper.getLevel(), buf);
+			helper.assertTrue(copy != null && copy.getClass() == action.getClass(), "setup: the action decodes as " + copy);
+			Field performer = EntityActionInstance.class.getDeclaredField("performer");
+			performer.setAccessible(true);
+			performer.set(copy, stand);
+			return copy;
+		}
+		catch (ReflectiveOperationException e) {
+			throw new IllegalStateException("setup: cannot give the client's copy its Stand", e);
+		}
+		finally {
+			buf.release();
+		}
+	}
+
+	// the action's synced data the server sends the clients tracking the Stand on its next tick (tickSyncDirtyData)
+	private static void receiveSyncedData(EntityActionInstance client, EntityActionInstance server) {
+		if (server.synchedData.getDataSyncher() == null) {
+			return;
+		}
+		List<SynchedEntityData.DataValue<?>> sent = server.synchedData.getDataSyncher().syncDirtyData();
+		if (sent != null) {
+			client.synchedData.getDataSyncher().assignValues(sent);
+		}
+	}
+
 	private static final class Scene implements AutoCloseable {
 		private final GameTestHelper helper;
 		private final FakePlayer user;
@@ -682,6 +829,49 @@ public final class HoldTypeActionPress116GameTests {
 					&& isHeldByKey(OTHER_KEY) && input().heldKeys.get(OTHER_KEY).action == timeStop,
 					"the time stop key still held once the " + holdName + " was let go starts its charge from the buffer: the"
 							+ " Stand's action " + standAction.getAction() + ", the " + holdName + " over " + hold.isOver());
+			clear();
+		}
+
+		/*
+		 * The charge is pressed and kept held, then let go in its charge: it charges on (and fires at its end), held no more by
+		 * the server and by the user's client's copy of it, which takes what the server sends it; the plain ability, if any,
+		 * refused during the held charge, is taken by the server once it is let go.
+		 */
+		private void letGoChargeIsHeldNoMore(String chargeName, @Nullable String plainName) {
+			EntityActionAbility charge = (EntityActionAbility) power.getAbility(chargeName);
+			EntityActionInstance held = hold(chargeName);
+			helper.assertTrue(held.getPhase() == ActionPhase.BUTTON_CHARGE, "setup: the held " + chargeName + " is in "
+					+ held.getPhase());
+			EntityActionInstance client = clientCopy(helper, held, stand);
+			receiveSyncedData(client, held);
+			helper.assertTrue(charge.isHeldSincePress(client) && AbilityInput.getHeldAction(user, PowerClass.STAND) == held,
+					"setup: the " + chargeName + " held by its key is not held on both sides: the client's copy "
+							+ charge.isHeldSincePress(client) + ", the server's held action " + AbilityInput.getHeldAction(user, PowerClass.STAND));
+			if (plainName != null) {
+				AbilityConditionCheck during = resolve(plainName);
+				helper.assertTrue(during != null && during.conditionCheck == ConditionCheck.NEGATIVE, "setup: " + plainName
+						+ " is not refused during the held " + chargeName);
+			}
+			AbilityInput.keyRelease(HOLD_KEY, user);
+			receiveSyncedData(client, held);
+			helper.assertTrue(held.getPhase() == ActionPhase.BUTTON_CHARGE && standAction.getAction() == held,
+					"setup: the " + chargeName + " let go in its charge does not charge on: " + held.getPhase());
+			helper.assertTrue(!charge.isHeldSincePress(client) && !charge.isHeldSincePress(held)
+					&& AbilityInput.getHeldAction(user, PowerClass.STAND) == null,
+					"1.16 cleared the held action on both sides as its key went up: the user's client's copy of the " + chargeName
+							+ " let go in its charge, with what the server sends it, counts as held " + charge.isHeldSincePress(client)
+							+ ", the server's " + charge.isHeldSincePress(held) + ", the server's held action "
+							+ AbilityInput.getHeldAction(user, PowerClass.STAND));
+			if (plainName != null) {
+				AbilityConditionCheck after = resolve(plainName);
+				helper.assertTrue(after != null && after.conditionCheck.isPositive(), "the server takes " + plainName
+						+ " once the " + chargeName + " is let go: " + (after != null ? after.conditionCheck : null));
+			}
+			for (int tick = 0; tick < 60 && held.getPhase() == ActionPhase.BUTTON_CHARGE; tick++) {
+				standAction.tick();
+			}
+			helper.assertTrue(held.getPhase() == ActionPhase.PERFORM, "the " + chargeName + " let go in its charge fires at its"
+					+ " end: " + held.getPhase());
 			clear();
 		}
 

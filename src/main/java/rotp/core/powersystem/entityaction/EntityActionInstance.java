@@ -1172,8 +1172,10 @@ public class EntityActionInstance implements HeldInput {
 	}
 
 	private void takeHeldCooldownIfHoldEnded() {
+		// a charge let go before it was full and charging on (the charged heavy punch, the grab throw) has not fired yet
 		if (heldCooldownTicks == NO_HELD_COOLDOWN || !(ability instanceof EntityActionAbility entityAbility)
-				|| phase != null && entityAbility.isHeldSincePress(this)) {
+				|| phase != null && entityAbility.isHeldSincePress(this)
+				|| phase == ActionPhase.BUTTON_CHARGE && heldCooldownOnFire) {
 			return;
 		}
 		boolean fired = phase != null && phase != ActionPhase.RECOVERY;
