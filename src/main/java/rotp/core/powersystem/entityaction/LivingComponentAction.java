@@ -407,6 +407,7 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 		}
 		if (action != null) {
 			if (entity instanceof StandEntity standEntity && standEntity.summonLockTicks > 0) {
+				syncDirtyActionData();
 				return;
 			}
 			if (entity instanceof StandEntity standEntity
@@ -416,6 +417,7 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 				if (!isActionPausedInStoppedTime() && action._stopHeldIfConditionsFail() && action.isOver()) {
 					setAction(null, null, SyncType.NO_SYNC);
 				}
+				syncDirtyActionData();
 				return;
 			}
 			if (!isActionPausedInStoppedTime()) {
@@ -425,11 +427,16 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 				// Stopped from outside while paused (key release, damage): clear it as tickAction does.
 				setAction(null, null, SyncType.NO_SYNC);
 			}
-			if (action != null && !entity.level().isClientSide()) {
-				SyncActionInstanceData.tickSyncDirtyData(
-						entity, actionGeneration,
-						action.synchedData.getDataSyncher());
-			}
+			syncDirtyActionData();
+		}
+	}
+
+	// also while the action waits (a stunned or summon-locked Stand): a release flag set meanwhile reaches the clients
+	private void syncDirtyActionData() {
+		if (action != null && !entity.level().isClientSide()) {
+			SyncActionInstanceData.tickSyncDirtyData(
+					entity, actionGeneration,
+					action.synchedData.getDataSyncher());
 		}
 	}
 	

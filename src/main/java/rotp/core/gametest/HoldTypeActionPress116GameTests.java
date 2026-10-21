@@ -54,6 +54,7 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.monster.Creeper;
@@ -675,6 +676,23 @@ public final class HoldTypeActionPress116GameTests {
 	}
 
 	/*
+	 * 1.16 cleared the held action on both sides as its key went up, stun or not. A port charge let go in its charge is held
+	 * no more on the user's client by the synced data its server sends: while its Stand is stunned (its action not ticked)
+	 * or summon-locked, the Stand's tick still sends that data, so the client does not keep the let-go charge held for the
+	 * whole stun.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aPortChargeLetGoWhileItsStandWaitsIsHeldNoMoreOnTheUsersClientAsIn116(GameTestHelper helper) {
+		try (Scene s = new Scene(helper, "LetGoWaitingChargeMagiciansRed", "magicians_red", 4)) {
+			s.unlock("heavy_charged");
+			for (boolean stunned : new boolean[] { true, false }) {
+				s.letGoChargeIsSentWhileTheStandWaits("heavy_charged", stunned);
+			}
+		}
+		helper.succeed();
+	}
+
+	/*
 	 * A held charge takes its press's cooldown as it fires and none if it ends unfired (1.16 PowerBaseImpl.performAction for
 	 * a hold-to-fire action): a port charge let go before it is full, held no more, still takes it only as it fires at its
 	 * end, not at the release, and none if its release check stops it there. The charged heavy punch is given a cooldown
@@ -987,6 +1005,43 @@ public final class HoldTypeActionPress116GameTests {
 			helper.assertTrue(held.getPhase() == ActionPhase.PERFORM, "the " + chargeName + " let go in its charge fires at its"
 					+ " end: " + held.getPhase());
 			clear();
+		}
+
+		/*
+		 * The charge is pressed and kept held, then let go in its charge while its Stand is stunned or summon-locked: the
+		 * Stand's tick, which does not tick the action then, still sends its synced data, which the user's client takes.
+		 */
+		private void letGoChargeIsSentWhileTheStandWaits(String chargeName, boolean stunned) {
+			EntityActionAbility charge = (EntityActionAbility) power.getAbility(chargeName);
+			EntityActionInstance held = hold(chargeName);
+			EntityActionInstance client = clientCopy(helper, held, stand);
+			receiveSyncedData(client, held);
+			String waits = stunned ? "stunned" : "summon-locked";
+			helper.assertTrue(held.getPhase() == ActionPhase.BUTTON_CHARGE && charge.isHeldSincePress(client),
+					"setup: the held " + chargeName + " is not held on its user's client: " + held.getPhase());
+			if (stunned) {
+				stand.addEffect(new MobEffectInstance(ModStatusEffects.STUN, 40));
+			}
+			else {
+				stand.summonLockTicks = 20;
+			}
+			try {
+				AbilityInput.keyRelease(HOLD_KEY, user);
+				standAction.tick();
+				List<SynchedEntityData.DataValue<?>> unsent = held.synchedData.getDataSyncher().syncDirtyData();
+				helper.assertTrue(held.getPhase() == ActionPhase.BUTTON_CHARGE && standAction.getAction() == held && unsent == null,
+						"1.16 cleared the held action on both sides as its key went up: the " + chargeName + " let go in its charge"
+								+ " while its Stand is " + waits + " (" + held.getPhase() + ") left its synced data unsent: " + unsent);
+			}
+			finally {
+				if (stunned) {
+					stand.removeEffect(ModStatusEffects.STUN);
+				}
+				else {
+					stand.summonLockTicks = 0;
+				}
+				clear();
+			}
 		}
 
 		/*
