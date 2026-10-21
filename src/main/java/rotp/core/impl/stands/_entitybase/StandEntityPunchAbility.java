@@ -925,9 +925,11 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 
 		boolean userAims = user != null && !stand.aimsWithoutUser();
 		// 1.16 EntityStandType.clientHitResult sent what the user's crosshair met. The Stand's synced aim speaks first only
-		// under manual control and, with the aim assist, for an action that is not a punch; without the assist the server
-		// takes what the crosshair meets, whatever a client sent.
-		var standAim = !userAims || precisionAim && assist ? LivingComponentAction.getAim(stand) : null;
+		// under manual control; without the assist the server takes what the crosshair meets, whatever a client sent. With
+		// the assist an action that is not a punch strikes as 1.16's StandEntity.punch aimed it, aimWithThisOrUser with the
+		// precision ray and its priority, never a vanilla pick.
+		boolean precisionRayOnly = userAims && precisionAim && assist;
+		var standAim = !userAims ? LivingComponentAction.getAim(stand) : null;
 		if (standAim != null) {
 			target = rule.takesFromAim(validatePunchTarget(stand, standAim.getTarget()), assist);
 			if (!target.isEmpty(level)) {
@@ -935,7 +937,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			}
 		}
 
-		var userAim = userAims ? LivingComponentAction.getAim(user) : null;
+		var userAim = userAims && !precisionRayOnly ? LivingComponentAction.getAim(user) : null;
 		if (userAim != null) {
 			target = rule.takesFromAim(validatePunchTarget(stand, userAim.getTarget()), assist);
 			if (!target.isEmpty(level)) {
