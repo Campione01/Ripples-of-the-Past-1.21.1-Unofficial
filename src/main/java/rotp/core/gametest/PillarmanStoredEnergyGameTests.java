@@ -120,6 +120,28 @@ public final class PillarmanStoredEnergyGameTests {
         helper.succeed();
     }
 
+    /*
+     * 1.16 holdToFire(40, true) with holdTick sending a wave on every even held tick from the 40th and its 3 energy a
+     * tick from then on: the first wave and the first cost came on the 40th held tick from the press, so a release just
+     * after it kept that wave.
+     */
+    @GameTest(template = "empty", batch = "pillarman_stored_energy")
+    public static void theFirstWaveComesOnTheFortiethHeldTickAsIn116(GameTestHelper helper) {
+        for (String name : ABILITIES) {
+            try (Fixture fixture = new Fixture(helper, name, GameType.SURVIVAL, 100.0F)) {
+                fixture.charge();
+                fixture.assertEnergy(100.0F);
+                fixture.tick();
+                helper.assertTrue(fixture.waves().size() == 1 && Float.compare(fixture.data.getEnergy(), 97.0F) == 0,
+                        "1.16 sent the " + name + " hold's first wave, and took its first 3 energy, on its 40th held tick:"
+                                + " waves " + fixture.waves().size() + ", energy " + fixture.data.getEnergy());
+                fixture.release();
+                fixture.assertStoppedWithWaves(1, "The release right after the 40th held tick lost its wave");
+            }
+        }
+        helper.succeed();
+    }
+
     @GameTest(template = "empty", batch = "pillarman_stored_energy")
     public static void windModePowerAndUnrestrictedStageRemainUnchanged(GameTestHelper helper) {
         for (String name : ABILITIES) {
@@ -187,15 +209,16 @@ public final class PillarmanStoredEnergyGameTests {
             return held != null && held.action == component.getAction();
         }
 
+        // pressed and held for the 39 ticks before the 40th, in which 1.16's holdTick sent the first wave
         private void charge() {
             helper.assertTrue(press(), "Registered Wind HOLD was not admitted");
-            for (int tick = 0; tick < 40; tick++) {
+            for (int tick = 0; tick < 39; tick++) {
                 tick();
             }
             EntityActionInstance action = component.getAction();
-            helper.assertTrue(action != null && action.getPhase() == ActionPhase.PERFORM,
-                    "Real forty-tick charge did not reach perform");
-            helper.assertTrue(waves().isEmpty(), "A wave was emitted before the first perform tick");
+            helper.assertTrue(action != null && action.getPhase() == ActionPhase.BUTTON_CHARGE,
+                    "Real charge did not last its 39 ticks before the first wave");
+            helper.assertTrue(waves().isEmpty(), "A wave was emitted before the 40th held tick");
         }
 
         private void tick() {

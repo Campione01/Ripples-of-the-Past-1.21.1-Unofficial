@@ -77,16 +77,19 @@ public class HamonWallClimbingAbility extends HamonActionRuntimeAbility {
 				return;
 			}
 			Direction face = target.getFace();
+			float yRot = 180F - face.toYRot();
+			HamonData hamon = PlayerPower.getPowerData(user, ModPlayerPowers.HAMON).orElse(null);
+			// 1.16 HamonWallClimbing2.perform: clicked on the wall already being climbed, nothing happens
+			if (hamon == null || hamon.isWallClimbing() && hamon.getWallClimbYRot(yRot) == yRot) {
+				return;
+			}
 			Vec3 vecToBlock = Vec3.atLowerCornerOf(face.getOpposite().getNormal())
 					.scale(HamonWallClimbingHelper.MAX_WALL_DISTANCE);
 			Vec3 collided = HamonWallClimbingHelper.collide(user, user.getBoundingBox(), vecToBlock, true);
 			double distanceFromWall = user.getBbWidth() * 0.15D;
 			Vec3 moveTo = user.position().add(collided).add(Vec3.atLowerCornerOf(face.getNormal()).scale(distanceFromWall));
 			user.teleportTo(moveTo.x, moveTo.y, moveTo.z);
-			float yRot = 180F - face.toYRot();
-			PlayerPower.getPowerData(user, ModPlayerPowers.HAMON).ifPresent(hamon -> {
-				hamon.startWallClimbing(user, yRot);
-			});
+			hamon.startWallClimbing(user, yRot);
 			if (user instanceof Player player) {
 				player.displayClientMessage(Component.translatable(
 						"jojo.message.wall_climb.hint_jump", Component.keybind("key.jump")), true);

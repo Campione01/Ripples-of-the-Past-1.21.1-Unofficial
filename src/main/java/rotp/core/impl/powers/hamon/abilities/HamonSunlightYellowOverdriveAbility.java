@@ -258,9 +258,7 @@ public class HamonSunlightYellowOverdriveAbility extends HamonActionRuntimeAbili
 				return;
 			}
 			if (getPhase() == ActionPhase.WINDUP) {
-				if (ticksHeld >= ability.maxChargeTicks) {
-					return;
-				}
+				// 1.16 onHoldTick drained min(max / 40, energy) on every held tick, also past the 40 (32) that fill the charge
 				if (!level().isClientSide() && !ability.consumeChargeTick(user, ticksHeld)) {
 					forceStop();
 					syncPhaseChanges();

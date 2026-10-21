@@ -9,9 +9,17 @@ import rotp.core.api.power.PowerSkillUnlocks;
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
+import rotp.core.impl.powers.hamon.HamonData;
+import rotp.core.impl.powers.pillarman.PillarmanData;
+import rotp.core.impl.powers.pillarman.PillarmanMode;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
+import rotp.core.powersystem.ability.EntityActionAbility;
+import rotp.core.powersystem.entityaction.ActionPhase;
+import rotp.core.powersystem.entityaction.EntityActionInstance;
+import rotp.core.powersystem.entityaction.LivingComponentAction;
+import rotp.core.powersystem.entityaction.netcode.SyncType;
 import rotp.core.powersystem.playerpower.PlayerPower;
 import rotp.core.powersystem.playerpower.PlayerPowerType;
 import rotp.core.powersystem.standpower.StandInstance;
@@ -23,6 +31,9 @@ import com.mojang.authlib.GameProfile;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.neoforge.gametest.GameTestHolder;
@@ -112,6 +123,107 @@ public final class AbilityCooldownTechnical116GameTests {
 		helper.succeed();
 	}
 
+	/*
+	 * 1.16 Action.getCooldown was getCooldownTechnical + getCooldownAdditional, and getCooldownAdditional was 0 for a
+	 * Creative user (Action :373-375): a Creative user kept Star Finger's 20 ticks, the string bind's 25, the concentrated
+	 * Emerald Splash's 5, the Zoom Punch's 14 and Ribs Blades' 80, and had none for a plain cooldown(n). The Stand rows
+	 * set the cooldown as a press does; the Hamon and Pillar Man rows perform the move, in Survival first to show the
+	 * perform sets its cooldown.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 40)
+	public static void aCreativeUserKeepsTheTechnicalPartOfACooldownAsIn116(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		List<FakePlayer> users = new ArrayList<>();
+		try {
+			StandPower power = null;
+			String current = null;
+			for (Row row : STAND_ROWS) {
+				if (row.full() == NO_FULL_CHECK) {
+					continue;
+				}
+				if (!row.power().equals(current)) {
+					current = row.power();
+					power = standUser(helper, users, current);
+					((FakePlayer) power.getUser()).setGameMode(GameType.CREATIVE);
+					helper.assertTrue(power.isUserCreative(), "setup: the " + current + " user is not in Creative");
+				}
+				Ability ability = power.getAbility(row.ability());
+				helper.assertTrue(ability != null, "setup: " + current + " has no " + row.ability());
+				int cooldown = ability.getCooldown(power, -1);
+				ability.setCooldownOnUse(power);
+				int set = power.getAbilityCooldown(row.ability());
+				power.setAbilityCooldown(row.ability(), 0);
+				if (cooldown != row.technical() || set != row.technical()) {
+					wrong.add("Creative " + row.power() + " " + row.ability() + " gets a cooldown of " + cooldown + ", set "
+							+ set + ", 1.16's technical " + row.technical() + " of " + row.full());
+				}
+			}
+
+			for (PerformRow row : PERFORM_ROWS) {
+				for (GameType mode : new GameType[] { GameType.SURVIVAL, GameType.CREATIVE }) {
+					int cooldown = performedCooldown(helper, users, row, mode);
+					int expected = mode == GameType.CREATIVE ? row.technical() : row.full();
+					if (cooldown != expected) {
+						wrong.add(mode.getName() + " " + row.power() + " " + row.ability() + " left a cooldown of " + cooldown
+								+ ", 1.16's " + expected + " (technical " + row.technical() + " of " + row.full() + ")");
+					}
+				}
+			}
+		}
+		finally {
+			users.forEach(FakePlayer::discard);
+		}
+		helper.assertTrue(wrong.isEmpty(), "1.16 kept the technical part of a cooldown for a Creative user: "
+				+ String.join("; ", wrong));
+		helper.succeed();
+	}
+
+	private record PerformRow(String power, String ability, int technical, int full) {}
+
+	private static final List<PerformRow> PERFORM_ROWS = List.of(
+			new PerformRow("hamon", "zoom_punch", 14, 14), new PerformRow("hamon", "turquoise_blue_overdrive", 0, 10),
+			new PerformRow("pillar_man", "pillarman_ribs_blades", 80, 80),
+			new PerformRow("pillar_man", "pillarman_horn_attack", 0, 60));
+
+	// the move set as a press sets it and run to its end; the cooldown its perform left, its own entities discarded
+	private static int performedCooldown(GameTestHelper helper, List<FakePlayer> users, PerformRow row, GameType mode) {
+		FakePlayer user = addUser(helper, users);
+		user.setGameMode(mode);
+		PlayerPower power = playerPowerUser(user, row.power());
+		helper.assertTrue(power != null, "setup: could not give " + row.power());
+		boolean hamon = "hamon".equals(row.power());
+		if (hamon) {
+			HamonData data = PlayerPower.getPowerData(user, ModPlayerPowers.HAMON).orElseThrow();
+			data.setBreathStability(data.getMaxBreathStability());
+			data.setEnergy(data.getMaxEnergy());
+		}
+		else {
+			PillarmanData data = PlayerPower.getPowerData(user, ModPlayerPowers.PILLAR_MAN).orElseThrow();
+			data.setEvolutionStage(2, user);
+			data.setMode(PillarmanMode.NONE, user);
+			data.setEnergy(user, 100.0F);
+		}
+		Ability ability = power.getAbility(row.ability());
+		helper.assertTrue(ability instanceof EntityActionAbility, "setup: " + row.power() + " has no " + row.ability());
+		LivingComponentAction component = LivingComponentAction.getComponent(user);
+		EntityActionInstance action = ((EntityActionAbility) ability).initActionOnAbilityUse(helper.getLevel(), user, user, null);
+		helper.assertTrue(action != null, "setup: " + row.ability() + " did not start");
+		component.setAction(action, user, SyncType.NO_SYNC);
+		boolean performed = false;
+		for (int tick = 0; tick < 20 && !action.isOver(); tick++) {
+			performed |= action.getPhase() == ActionPhase.PERFORM;
+			component.tick();
+		}
+		helper.assertTrue(action.isOver() && (performed || action.phasesLength.getFloat(ActionPhase.PERFORM) > 0),
+				"setup: " + mode.getName() + " " + row.ability() + " did not perform and end: phase " + action.getPhase());
+		int cooldown = hamon
+				? PlayerPower.getPowerData(user, ModPlayerPowers.HAMON).orElseThrow().getAbilityCooldown(row.ability())
+				: PlayerPower.getPowerData(user, ModPlayerPowers.PILLAR_MAN).orElseThrow().getAbilityCooldown(row.ability());
+		helper.getLevel().getEntities((Entity) null, user.getBoundingBox().inflate(32.0D),
+				entity -> entity instanceof Projectile projectile && projectile.getOwner() == user).forEach(Entity::discard);
+		return cooldown;
+	}
+
 	private static void check(List<String> wrong, Row row, int technical, int full) {
 		if (technical != row.technical() || row.full() != NO_FULL_CHECK && full != row.full()) {
 			wrong.add(row.power() + " " + row.ability() + " reports technical " + technical
@@ -140,10 +252,15 @@ public final class AbilityCooldownTechnical116GameTests {
 	}
 
 	private static PlayerPower playerPowerUser(GameTestHelper helper, List<FakePlayer> users, String name) {
-		PlayerPowerType<?> type = "hamon".equals(name) ? ModPlayerPowers.HAMON.get() : ModPlayerPowers.PILLAR_MAN.get();
-		PlayerPower power = PowerClass.PLAYER_POWER.attachGet(addUser(helper, users));
-		power.setPowerType(type);
-		helper.assertTrue(power.getPowerType() == type, "setup: could not give " + name);
+		PlayerPower power = playerPowerUser(addUser(helper, users), name);
+		helper.assertTrue(power != null, "setup: could not give " + name);
 		return power;
+	}
+
+	private static PlayerPower playerPowerUser(FakePlayer user, String name) {
+		PlayerPowerType<?> type = "hamon".equals(name) ? ModPlayerPowers.HAMON.get() : ModPlayerPowers.PILLAR_MAN.get();
+		PlayerPower power = PowerClass.PLAYER_POWER.attachGet(user);
+		power.setPowerType(type);
+		return power.getPowerType() == type ? power : null;
 	}
 }

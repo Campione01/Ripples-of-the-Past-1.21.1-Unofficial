@@ -88,7 +88,8 @@ abstract class PillarmanActionAbility extends EntityActionAbility {
 		return ConditionCheck.POSITIVE;
 	}
 
-	// 1.16 PowerBaseImpl.tickHeldAction: a failed check ended the hold with its message.
+	// 1.16 PowerBaseImpl.tickHeldAction: a failed check ended the hold with its message, but in the tick a charge fired in
+	// by its length, stopHeldAction(true)'s check ended it without one.
 	@Override
 	public boolean canContinueAction(EntityActionInstance action) {
 		ConditionCheck check = checkOngoingConditions(action);
@@ -96,7 +97,7 @@ abstract class PillarmanActionAbility extends EntityActionAbility {
 			return true;
 		}
 		LivingEntity user = action.getPowerUser();
-		if (user != null) {
+		if (user != null && !action.isChargeFiringTick()) {
 			ConditionCheck.sendActionFailedMessage(this, check, user);
 		}
 		return false;
@@ -183,9 +184,13 @@ abstract class PillarmanActionAbility extends EntityActionAbility {
 		}
 	}
 
+	// 1.16 Action.getCooldownAdditional was 0 for a Creative user, getCooldownTechnical was not
 	protected void setPillarmanFixedCooldown(Power<?> context, int cooldown) {
-		if (context == null || isCreative(context)) {
+		if (context == null) {
 			return;
+		}
+		if (isCreative(context)) {
+			cooldown = getCooldownTechnical(context);
 		}
 		PillarmanData data = getPillarmanData(context);
 		if (data != null && cooldown > 0) {

@@ -31,17 +31,11 @@ public final class HamonOverdriveChargeReleaseSmokeTest {
 				sunlight,
 				"public void actionTick()",
 				"public void actionPerformStart()");
-		int capGuard = actionTick.indexOf("if (ticksHeld >= ability.maxChargeTicks)");
 		int charge = actionTick.indexOf("ability.consumeChargeTick(user, ticksHeld)");
 		int increment = actionTick.indexOf("ticksHeld++");
-		check(capGuard >= 0 && capGuard < charge && charge < increment,
-				"the charge cap must be checked before energy consumption and tick advancement");
-		check(between(
-				actionTick,
-				"if (ticksHeld >= ability.maxChargeTicks)",
-				"if (!level().isClientSide()")
-				.contains("return;"),
-				"a fully charged hold must leave the WINDUP tick without consuming energy");
+		// 1.16 onHoldTick drained on every held tick, past the full charge too
+		check(!actionTick.contains("ticksHeld >= ability.maxChargeTicks") && charge >= 0 && charge < increment,
+				"every held WINDUP tick must consume energy before the tick advances, also past the full charge");
 		check(count(actionTick, "ability.consumeChargeTick(user, ticksHeld)") == 1
 				&& count(actionTick, "ticksHeld++") == 1,
 				"the WINDUP loop must have one charge and one effective-tick path");
@@ -49,7 +43,7 @@ public final class HamonOverdriveChargeReleaseSmokeTest {
 				"the aura/UI charge estimate must remain clamped at the configured maximum");
 		check(sunlight.contains(
 				"getActualMaxEnergy(hamon) / Math.max(maxChargeTicks, 1)"),
-				"the configured full-charge energy cost must remain spread across the capped ticks");
+				"the per-tick cost must remain the full-charge energy spread over the charge's ticks");
 
 		String release = between(
 				sunlight,
@@ -115,12 +109,10 @@ public final class HamonOverdriveChargeReleaseSmokeTest {
 		for (int tick = 0; tick < 100; tick++) {
 			sunlight.holdTick();
 		}
-		check(sunlight.effectiveChargeTicks == SUNLIGHT_MAX_CHARGE_TICKS,
-				"Sunlight effective charge exceeded 40 ticks");
-		check(sunlight.energyConsumeCalls == SUNLIGHT_MAX_CHARGE_TICKS,
-				"Sunlight consumed energy after reaching full charge");
+		check(sunlight.energyConsumeCalls == 100,
+				"Sunlight stopped consuming energy at its full charge (1.16 drained every held tick)");
 		check(close(sunlight.energy, 0.0F) && close(sunlight.spentEnergy, 100.0F),
-				"Sunlight full-charge cost changed while holding beyond the cap");
+				"Sunlight spent more than the energy there was while holding beyond the full charge");
 	}
 
 	private static void verifyScarletInheritanceAndCap() {
@@ -131,18 +123,17 @@ public final class HamonOverdriveChargeReleaseSmokeTest {
 				&& compact.contains("classScarletOverdriveInstanceextendsHamonSunlightYellowOverdriveAbility.SYOverdrive")
 				&& compact.contains("ScarletOverdriveInstance::new,8,32,9")
 				&& !scarlet.contains("void actionTick()"),
-				"Scarlet Overdrive must inherit the capped Sunlight charge loop with its 32-tick maximum");
+				"Scarlet Overdrive must inherit the Sunlight charge loop with its 32-tick charge");
 
 		ChargeReleaseModel scarletModel = new ChargeReleaseModel(
 				SCARLET_MIN_CHARGE_TICKS, SCARLET_MAX_CHARGE_TICKS, 100.0F, 3.125F);
 		for (int tick = 0; tick < 96; tick++) {
 			scarletModel.holdTick();
 		}
-		check(scarletModel.effectiveChargeTicks == SCARLET_MAX_CHARGE_TICKS
-				&& scarletModel.energyConsumeCalls == SCARLET_MAX_CHARGE_TICKS
+		check(scarletModel.energyConsumeCalls == 96
 				&& close(scarletModel.energy, 0.0F)
 				&& close(scarletModel.spentEnergy, 100.0F),
-				"Scarlet inherited charging did not stop at 32 ticks");
+				"Scarlet inherited charging did not drain on every held tick, past its 32-tick charge");
 	}
 
 	private static void verifyLowEnergyChargeBehavior() {
@@ -198,7 +189,7 @@ public final class HamonOverdriveChargeReleaseSmokeTest {
 		}
 
 		private void holdTick() {
-			if (!windup || effectiveChargeTicks >= maxChargeTicks) {
+			if (!windup) {
 				return;
 			}
 			energyConsumeCalls++;

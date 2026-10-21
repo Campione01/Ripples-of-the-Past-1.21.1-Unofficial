@@ -1279,11 +1279,15 @@ public class EntityActionInstance implements HeldInput {
 	
 	/**
 	 * 1.16 PowerBaseImpl.tickHeldAction: a held action's requirements were checked again on every tick,
-	 * and a failed check ended the hold. Server side.
+	 * and a failed check ended the hold. The tick a charge fires in as its length ends ({@link #isChargeFiringTick}) it
+	 * gave to stopHeldAction(true) instead, whose check fired nothing on a failure and said nothing. Server side.
 	 * @return whether a failed check stopped the hold
 	 */
 	@ApiStatus.Internal
 	public boolean _stopHeldIfConditionsFail() {
+		if (isChargeFiringTick()) {
+			return stopFullChargeIfConditionsFail();
+		}
 		return !isOver() && !level().isClientSide() && ability instanceof EntityActionAbility entityAbility
 				&& entityAbility.stopHeldActionIfConditionsFail(this);
 	}
@@ -1415,14 +1419,26 @@ public class EntityActionInstance implements HeldInput {
 	 * that tick instead of running its holdTick: a holdToFire(N, false) charge ran N - 1 held ticks and fired in the N-th
 	 * tick from the press, and a release before that tick fired nothing. A held charge (a phase before the perform) of N
 	 * ticks that fires as it ends (EntityActionAbility#chargeFiresAsItsLengthEnds) therefore leaves it at the start of its
-	 * N-th tick, before that tick runs, which then runs the next phase's first tick.
+	 * N-th tick, before that tick runs, which then runs the next phase's first tick. The tick's check ran just before
+	 * (_stopHeldIfConditionsFail): the full-charge check, or the held recheck where the hold goes on past the charge.
 	 */
 	private void leaveFiringChargeOnItsLastTick() {
-		if (isOver() || getPhaseTick() < curPhaseLength - 1 || shouldHoldPhaseAtEnd() || !firesAsChargeEnds()
-				|| stopFullChargeIfConditionsFail()) {
+		if (isOver() || getPhaseTick() < curPhaseLength - 1 || shouldHoldPhaseAtEnd() || !firesAsChargeEnds()) {
 			return;
 		}
 		setPhaseStart(ActionPhase.values()[phase.ordinal() + 1]);
+	}
+
+	/**
+	 * Whether this tick, not yet run, is the one a held charge fires in as its length ends and its hold ends with it
+	 * (EntityActionAbility#chargeEndsTheHold): 1.16 PowerBaseImpl.tickHeldAction gave that tick to stopHeldAction(true),
+	 * whose check, unlike a held tick's, fired nothing on a failure and said nothing. An ability's own held checks with a
+	 * message stay silent in it.
+	 */
+	@ApiStatus.NonExtendable
+	public boolean isChargeFiringTick() {
+		return !isOver() && getPhaseTick() >= curPhaseLength - 1 && !shouldHoldPhaseAtEnd() && firesAsChargeEnds()
+				&& ((EntityActionAbility) ability).chargeEndsTheHold(this);
 	}
 
 	private boolean firesAsChargeEnds() {

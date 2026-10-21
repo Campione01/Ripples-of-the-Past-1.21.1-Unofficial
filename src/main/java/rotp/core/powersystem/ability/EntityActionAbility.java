@@ -454,8 +454,9 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 	
 	/**
 	 * Server side, every tick the held action ticks (and while its Stand is stunned), from the press on
-	 * ({@link #isHeldSincePress}). Only a hold whose key is still down is checked, as 1.16 kept a held action only while
-	 * its key was held.
+	 * ({@link #isHeldSincePress}), but the tick a charge that ends its hold fires in ({@link #chargeEndsTheHold}), which
+	 * {@link #stopFullChargeIfConditionsFail} checks instead. Only a hold whose key is still down is checked, as 1.16 kept
+	 * a held action only while its key was held.
 	 * @return whether a failed check stopped the hold
 	 */
 	@ApiStatus.Internal
@@ -491,7 +492,8 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 	 * 1.16 PowerBaseImpl.tickHeldAction ended a hold that reached its length with stopHeldAction(true), which checked the
 	 * requirements once more and, when they failed, fired nothing, silently (the Stand's task was stopped): a held charge
 	 * that ends by its length and fires as it does is checked here as a released hold is ({@link #canFireReleasedHold}),
-	 * by {@link EntityActionInstance} before it leaves the charge. Server side, only while a key holds the action.
+	 * by {@link EntityActionInstance} before it leaves the charge, and in its last tick instead of the held recheck when
+	 * the hold ends with it ({@link #chargeEndsTheHold}). Server side, only while a key holds the action.
 	 * @return whether the failed check ended the action
 	 */
 	@ApiStatus.Internal
@@ -510,10 +512,25 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 	 * Whether a held charge (a held phase before the perform, whose next phase is not held) fires as its length ends, as
 	 * a 1.16 holdToFire(N, false) action did: it fired on the N-th held tick from the press, after N - 1 held ticks
 	 * (PowerBaseImpl.tickHeldAction), so the port's charge of N ticks leaves on its (N - 1)-th tick and performs on the
-	 * N-th. True by default; an ability whose charge only readies a hold that fires on its release (1.16 holdToFire(N,
-	 * true), modelled as a held charge going on into a waiting perform) returns false.
+	 * N-th. True by default, also for a 1.16 holdToFire(N, true) modelled as a held charge going on into a held perform
+	 * that acts from its first tick (Atmospheric Rift, Divine Sandstorm: 1.16 holdTick sent the first wave on the N-th
+	 * held tick; see {@link #chargeEndsTheHold}); an ability whose next phase must start only after the charge's N full
+	 * ticks returns false.
 	 */
 	public boolean chargeFiresAsItsLengthEnds(EntityActionInstance action) {
+		return true;
+	}
+
+	/**
+	 * Whether a held charge that fires as its length ends ({@link #chargeFiresAsItsLengthEnds}) ends its hold there too, as
+	 * a 1.16 holdToFire(N, false) action's did (getHoldDurationMax was N): PowerBaseImpl.tickHeldAction gave the N-th tick
+	 * to stopHeldAction(true), whose check fired nothing on a failure and said nothing, so the charge's last tick is
+	 * checked by {@link #stopFullChargeIfConditionsFail} alone, without the held recheck and its message
+	 * (EntityActionInstance#isChargeFiringTick). True by default. A 1.16 holdToFire(N, true) modelled as a charge going on
+	 * into a perform that acts from its first tick (Atmospheric Rift, Divine Sandstorm) returns false: its hold went on
+	 * past N (getHoldDurationMax Integer.MAX_VALUE), so its N-th held tick was an ordinary one, checked with the message.
+	 */
+	public boolean chargeEndsTheHold(EntityActionInstance action) {
 		return true;
 	}
 

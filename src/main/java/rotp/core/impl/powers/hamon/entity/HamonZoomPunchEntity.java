@@ -43,6 +43,7 @@ public class HamonZoomPunchEntity extends OwnerBoundProjectileEntity {
 	private static final Vec3 RIGHT_HAND_OFFSET = new Vec3(-0.35D, -0.47D, 0.0D);
 	private static final Vec3 LEFT_HAND_OFFSET = new Vec3(-RIGHT_HAND_OFFSET.x, RIGHT_HAND_OFFSET.y, RIGHT_HAND_OFFSET.z);
 	private static final double ORIGIN_FORWARD_OFFSET = 0.75D;
+	private static final String ZOOM_PUNCH = "zoom_punch";
 
 	private HumanoidArm side = HumanoidArm.RIGHT;
 	private float speed;
@@ -383,7 +384,26 @@ public class HamonZoomPunchEntity extends OwnerBoundProjectileEntity {
 	@Override
 	public void remove(RemovalReason reason) {
 		setOwnerZoomPunch(false);
+		endZoomPunchCooldownIfRemovedEarly();
 		super.remove(reason);
+	}
+
+	// 1.16 ZoomPunchEntity.onRemovedFromWorld: a punch that left the world before its lifespan ended its owner's Zoom
+	// Punch cooldown, which ran over the punch's flight (1.16 cleared its fixed HAMON_ZOOM_PUNCH action, here the move's
+	// moveset name)
+	private void endZoomPunchCooldownIfRemovedEarly() {
+		if (level().isClientSide() || isRemoved() || tickCount >= lifeSpan) {
+			return;
+		}
+		LivingEntity owner = getOwner();
+		if (owner != null) {
+			PlayerPower.getPowerData(owner, ModPlayerPowers.HAMON).ifPresent(hamon -> {
+				if (hamon.isAbilityOnCooldown(ZOOM_PUNCH)) {
+					hamon.setAbilityCooldown(ZOOM_PUNCH, 0);
+					hamon.syncOnUpdate(owner);
+				}
+			});
+		}
 	}
 
 	private void setOwnerZoomPunch(boolean value) {

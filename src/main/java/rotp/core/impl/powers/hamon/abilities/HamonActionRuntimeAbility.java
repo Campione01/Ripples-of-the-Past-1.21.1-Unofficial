@@ -155,6 +155,11 @@ public class HamonActionRuntimeAbility extends EntityActionAbility {
 			return false;
 		}
 		if (isCreative(context)) {
+			int cooldown = getHamonCooldown(context, -1);
+			if (cooldown > 0) {
+				hamon.setAbilityCooldown(name(), cooldown);
+				hamon.syncOnUpdate(user);
+			}
 			playHamonShout(user, hamon);
 			return true;
 		}
@@ -227,8 +232,9 @@ public class HamonActionRuntimeAbility extends EntityActionAbility {
 	}
 
 	protected int getHamonCooldown(Power<?> context, int ticksHeld) {
+		// 1.16 Action.getCooldownAdditional was 0 for a Creative user, getCooldownTechnical was not
 		if (isCreative(context)) {
-			return 0;
+			return getCooldownTechnical(context);
 		}
 		return hamonCooldownTicks;
 	}

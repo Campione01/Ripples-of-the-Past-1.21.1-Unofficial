@@ -7,9 +7,11 @@ import java.util.UUID;
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
+import rotp.core.customobjects.entity_projectile.ThrownNuggetBearingEntity;
 import rotp.core.impl.powers.hamon.HamonData;
 import rotp.core.impl.powers.hamon.ModHamonSkills;
 import rotp.core.impl.powers.pillarman.PillarmanData;
+import rotp.core.impl.powers.pillarman.PillarmanDivineSandstormEntity;
 import rotp.core.impl.powers.pillarman.PillarmanMode;
 import rotp.core.impl.powers.vampirism.VampirismData;
 import rotp.core.impl.powers.vampirism.abilities.VampirismBloodDrainAbility;
@@ -22,8 +24,11 @@ import rotp.core.init.ModItemDataComponents;
 import rotp.core.init.ModStatusEffects;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.init.power.ModStandAbilities;
+import rotp.core.powersystem.Power;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
+import rotp.core.powersystem.ability.AbilityId;
+import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.ability.EntityActionAbility;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.entityaction.ActionPhase;
@@ -60,6 +65,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -707,6 +713,198 @@ public final class HeldActionRecheck116GameTests {
 		}
 	}
 
+	/*
+	 * PowerBaseImpl.tickHeldAction let a held tick whose check failed with continueHold go on, and the stopHeldAction(true)
+	 * of a charge that reached its length asked the requirements once more and fired nothing on any failure: a Crossfire
+	 * Hurricane whose own check fails that way charges to its end, silently, and ends there without its shot.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aFullChargeWhoseCheckFailsButKeepsTheHoldFiresNothingAsIn116(GameTestHelper helper) {
+		try (StandScene s = new StandScene(helper, "FullChargeContinueHold", "magicians_red")) {
+			s.unlock("crossfire_hurricane");
+			ContinueHoldCrossfireAbility crossfire = new ContinueHoldCrossfireAbility(
+					s.ability("crossfire_hurricane").abilityType, new AbilityId(PowerClass.STAND, s.standType.getId(), CONTINUE_HOLD_CROSSFIRE));
+			s.power.getMoveset().abilities.put(CONTINUE_HOLD_CROSSFIRE, crossfire);
+			helper.assertTrue(s.power.getAbility(CONTINUE_HOLD_CROSSFIRE) == crossfire && crossfire.isAbilityUnlocked(s.power),
+					"setup: the test Crossfire Hurricane is not an unlocked moveset ability");
+			EntityActionInstance charge = s.hold(crossfire.initActionOnAbilityUse(helper.getLevel(), s.user, s.stand, null));
+			int length = Mth.ceil(charge.getCurPhaseLength());
+			helper.assertTrue(charge.getPhase() == ActionPhase.BUTTON_CHARGE && length == 20,
+					"setup: the test Crossfire Hurricane does not charge for 20 ticks: " + charge.getPhase() + " " + length);
+			ConditionCheck check = crossfire.checkHeldActionConditions(charge, s.power);
+			helper.assertTrue(!check.isPositive() && check.shouldContinueHold(),
+					"setup: the test check does not fail with continueHold: " + check.isPositive());
+			int heldTicks = 0;
+			for (int tick = 1; tick <= 40 && !charge.isOver() && charge.getPhase() == ActionPhase.BUTTON_CHARGE; tick++) {
+				s.tick(1);
+				if (!charge.isOver() && charge.getPhase() == ActionPhase.BUTTON_CHARGE) {
+					heldTicks = tick;
+				}
+			}
+			List<MRCrossfireHurricaneEntity> shots = helper.getLevel().getEntitiesOfClass(MRCrossfireHurricaneEntity.class,
+					s.user.getBoundingBox().inflate(16.0D));
+			int shotCount = shots.size();
+			shots.forEach(Entity::discard);
+			helper.assertTrue(heldTicks == length - 1, "1.16 kept a charge whose held check failed with continueHold going to"
+					+ " its length: held " + heldTicks + " ticks of " + length + ", phase " + charge.getPhase());
+			helper.assertTrue(charge.isOver() && shotCount == 0 && s.user.keys().isEmpty(), "1.16 stopHeldAction(true) checked the"
+					+ " full charge once more and fired nothing, silently, on a check that failed with continueHold: over "
+					+ charge.isOver() + ", phase " + charge.getPhase() + ", shots " + shotCount + ", messages " + s.user.keys());
+			helper.succeed();
+		}
+	}
+
+	private static final String CONTINUE_HOLD_CROSSFIRE = "held_check_continue_hold_crossfire";
+
+	// an add-on charge whose own held check can fail without ending the hold (1.16 createNegativeContinueHold)
+	private static final class ContinueHoldCrossfireAbility extends MagiciansRedCrossfireHurricaneAbility {
+		private ContinueHoldCrossfireAbility(AbilityType<?> abilityType, AbilityId abilityId) {
+			super(abilityType, abilityId);
+		}
+
+		@Override
+		protected ConditionCheck checkHeldSpecificConditions(EntityActionInstance action, Power<?> context) {
+			return ConditionCheck.NEGATIVE.setContinueHold();
+		}
+	}
+
+	/*
+	 * PowerBaseImpl.tickHeldAction gave the tick a holdToFire(N, false) charge reached its length in to stopHeldAction(true),
+	 * whose check fired nothing on a failure and said nothing, where a held tick before it ended the hold with the failed
+	 * check's message. A Crossfire Hurricane whose Stand loses its body or is stunned (the user's held tick checked a
+	 * stunned Stand too) as its last charge tick starts ends there without its shot, silently, and so does a Pillar Man's
+	 * Hide in Entity whose cow is out of range then; one tick earlier the same failure ends either with its message.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aChargeWhoseCheckFailsInItsFiringTickEndsSilentlyAsIn116(GameTestHelper helper) {
+		for (boolean firingTick : new boolean[] { true, false }) {
+			String when = firingTick ? "as the tick its charge fired in started" : "a tick before its charge fired";
+			for (String row : new String[] { "the Stand lost its body", "the Stand was stunned" }) {
+				try (StandScene s = new StandScene(helper, "FiringTickCheck", "magicians_red")) {
+					s.unlock("crossfire_hurricane");
+					EntityActionInstance charge = s.start("crossfire_hurricane");
+					int length = Mth.ceil(charge.getCurPhaseLength());
+					s.tick(firingTick ? length - 1 : length - 2);
+					helper.assertTrue(charge.getPhase() == ActionPhase.BUTTON_CHARGE && !charge.isOver() && s.user.keys().isEmpty(),
+							"setup (" + row + ", " + when + "): Crossfire Hurricane is not charging: phase " + charge.getPhase()
+									+ ", messages " + s.user.keys());
+					boolean stun = row.equals("the Stand was stunned");
+					float stamina = s.power.getStamina();
+					if (stun) {
+						s.stand.addEffect(new MobEffectInstance(ModStatusEffects.STUN, 40));
+					}
+					else {
+						s.instance.removePart(StandPart.MAIN_BODY);
+					}
+					try {
+						s.tick(1);
+					}
+					finally {
+						s.stand.removeEffect(ModStatusEffects.STUN);
+					}
+					List<MRCrossfireHurricaneEntity> shots = helper.getLevel().getEntitiesOfClass(MRCrossfireHurricaneEntity.class,
+							s.user.getBoundingBox().inflate(16.0D));
+					int shotCount = shots.size();
+					shots.forEach(Entity::discard);
+					helper.assertTrue(charge.isOver() && shotCount == 0 && s.power.getStamina() == stamina,
+							"1.16 fired no Crossfire Hurricane once " + row + " " + when + ": over " + charge.isOver() + ", phase "
+									+ charge.getPhase() + ", shots " + shotCount + ", stamina " + stamina + " -> " + s.power.getStamina());
+					String message = CONDITION + (stun ? "stun" : "no_stand_part.main_body");
+					helper.assertTrue(firingTick ? s.user.keys().isEmpty() : s.user.keys().contains(message),
+							(firingTick ? "1.16 stopHeldAction(true) said nothing" : "1.16's held tick said why") + " once " + row + " "
+									+ when + ": messages " + s.user.keys());
+				}
+			}
+			try (PowerScene s = new PowerScene(helper, "FiringTickHideCheck", ModPlayerPowers.PILLAR_MAN.get())) {
+				s.pillarman(2, PillarmanMode.NONE);
+				Mob near = s.mob(EntityType.COW, 2.0D);
+				Mob far = s.mob(EntityType.COW, 12.0D);
+				s.aim(near);
+				EntityActionInstance charge = s.start("pillarman_hide_in_entity");
+				int length = Mth.ceil(charge.getCurPhaseLength());
+				s.tick(firingTick ? length - 1 : length - 2);
+				helper.assertTrue(charge.getPhase() == ActionPhase.BUTTON_CHARGE && !charge.isOver() && s.user.keys().isEmpty(),
+						"setup (" + when + "): Hide in Entity is not charging at the cow 2 blocks away: phase " + charge.getPhase()
+								+ ", messages " + s.user.keys());
+				s.aim(far);
+				s.tick(1);
+				helper.assertTrue(charge.isOver(), "1.16 ended the Hide in Entity charge once the cow under the crosshair was"
+						+ " past 8 blocks " + when + ": phase " + charge.getPhase());
+				helper.assertTrue(firingTick ? s.user.keys().isEmpty() : s.user.keys().contains(CONDITION + "target_too_far"),
+						(firingTick ? "1.16 stopHeldAction(true) said nothing" : "1.16's held tick said why") + " once the cow was"
+								+ " out of range " + when + ": messages " + s.user.keys());
+			}
+		}
+		helper.succeed();
+	}
+
+	/*
+	 * Atmospheric Rift and Divine Sandstorm were holdToFire(40, true): their hold went on past its 40th tick
+	 * (getHoldDurationMax Integer.MAX_VALUE), so that tick was an ordinary held tick, checked with the message before its
+	 * holdTick sent the first wave, and a user whose stored energy ran out as it started got no_energy_pillarman and no wave.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void riftAndSandstormCheckTheirFortiethHeldTickWithTheMessageAsIn116(GameTestHelper helper) {
+		for (String name : new String[] { "pillarman_atmospheric_rift", "pillarman_divine_sandstorm" }) {
+			try (PowerScene s = new PowerScene(helper, "FortiethTickCheck", ModPlayerPowers.PILLAR_MAN.get())) {
+				s.pillarman(2, PillarmanMode.WIND);
+				PillarmanData data = PlayerPower.getPowerData(s.user, ModPlayerPowers.PILLAR_MAN).orElseThrow();
+				EntityActionInstance hold = s.start(name);
+				s.tick(39);
+				helper.assertTrue(hold.getPhase() == ActionPhase.BUTTON_CHARGE && !hold.isOver() && s.waves().isEmpty()
+						&& s.user.keys().isEmpty(), "setup: the " + name + " hold is not charging for its 39 ticks before the first"
+								+ " wave: phase " + hold.getPhase() + ", waves " + s.waves().size() + ", messages " + s.user.keys());
+				data.setEnergy(s.user, 0.0F);
+				s.tick(1);
+				List<PillarmanDivineSandstormEntity> waves = s.waves();
+				int waveCount = waves.size();
+				waves.forEach(Entity::discard);
+				helper.assertTrue(hold.isOver() && waveCount == 0, "1.16 ended the " + name + " hold out of stored energy on its 40th"
+						+ " held tick, before its first wave: over " + hold.isOver() + ", phase " + hold.getPhase() + ", waves "
+						+ waveCount);
+				helper.assertTrue(s.user.keys().contains(CONDITION + "no_energy_pillarman"), "1.16 checked the " + name
+						+ " hold's 40th held tick as any other, with the message: messages " + s.user.keys());
+			}
+		}
+		helper.succeed();
+	}
+
+	/*
+	 * The port's Bearing Shot plays a 10-tick windup before its held perform (its button-holding phase); 1.16 held an action
+	 * from its press, so the windup is held too and rechecked on every tick: a Stand stunned in it ends the hold there, with
+	 * the check's message, and its release handling, which rechecks the shot, shoots nothing.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void theBearingShotsWindupBeforeItsHeldPerformIsRecheckedAsIn116(GameTestHelper helper) {
+		try (StandScene s = new StandScene(helper, "BearingShotWindupRecheck", "star_platinum")) {
+			s.unlock("bearing_shot");
+			s.stand.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.IRON_NUGGET, 2));
+			EntityActionAbility bearingShot = s.ability("bearing_shot");
+			EntityActionInstance shot = s.start("bearing_shot");
+			s.tick(2);
+			helper.assertTrue(shot.getPhase() == ActionPhase.WINDUP && !shot.isOver() && bearingShot.isHeldSincePress(shot),
+					"1.16 held the Bearing Shot from its press, its windup before the held perform included: phase "
+							+ shot.getPhase() + ", held " + bearingShot.isHeldSincePress(shot));
+			s.stand.addEffect(new MobEffectInstance(ModStatusEffects.STUN, 40));
+			try {
+				s.tick(1);
+				List<ThrownNuggetBearingEntity> bearings = helper.getLevel().getEntitiesOfClass(ThrownNuggetBearingEntity.class,
+						s.user.getBoundingBox().inflate(16.0D));
+				int bearingCount = bearings.size();
+				bearings.forEach(Entity::discard);
+				helper.assertTrue((shot.isOver() || shot.getPhase() == ActionPhase.RECOVERY) && bearingCount == 0
+						&& s.stand.getMainHandItem().getCount() == 2, "1.16 rechecked the held Bearing Shot in its windup, so a"
+								+ " stunned Stand ended it there without a shot: phase " + shot.getPhase() + ", bearings "
+								+ bearingCount + ", nuggets " + s.stand.getMainHandItem().getCount());
+				helper.assertTrue(s.user.keys().contains(CONDITION + "stun"), "1.16 said why: messages " + s.user.keys());
+			}
+			finally {
+				s.stand.removeEffect(ModStatusEffects.STUN);
+			}
+			helper.succeed();
+		}
+	}
+
 	// 1.16 held an action from its press (the Detector, a holdType, from its first tick) and rechecked it on every held tick
 	@GameTest(template = "empty", timeoutTicks = 100)
 	public static void aHeldDetectorIsRecheckedFromItsPressAsIn116(GameTestHelper helper) {
@@ -1173,6 +1371,11 @@ public final class HeldActionRecheck116GameTests {
 
 		private float blood() {
 			return VampirismState.get(user).blood().current();
+		}
+
+		private List<PillarmanDivineSandstormEntity> waves() {
+			return helper.getLevel().getEntitiesOfClass(PillarmanDivineSandstormEntity.class, user.getBoundingBox().inflate(32.0D),
+					wave -> wave.getOwner() == user);
 		}
 
 		private boolean bloodIs(float expected) {
