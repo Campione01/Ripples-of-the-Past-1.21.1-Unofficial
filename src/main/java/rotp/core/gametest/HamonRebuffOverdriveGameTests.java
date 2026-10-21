@@ -25,6 +25,7 @@ import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.type.StandType;
+import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.util.functions.DamageUtil;
 import rotp.core.impl.powers.hamon.HamonData;
 import rotp.core.impl.powers.hamon.ModHamonSkills;
@@ -39,6 +40,7 @@ import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.animal.Pig;
+import net.minecraft.world.entity.monster.Husk;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameType;
@@ -257,6 +259,65 @@ public final class HamonRebuffOverdriveGameTests {
 		}
 	}
 
+	/*
+	 * 1.16 ContinuousActionInstance took Rebuff Overdrive's cooldown(100) from getCooldown as it started, 0 in Creative,
+	 * and its punch set actionCooldown to 0 for a counter and to half for the strike at the end of the charge (:372), set
+	 * as the action stopped only if above 0. A husk's hit inside the counter window: a Survival user counters it and is
+	 * left no cooldown; a Creative user takes no hit at all (Player.hurt refuses a mob's hit to an invulnerable player), so
+	 * the charge runs on. Then the strike at the husk the user aims at as the charge ends: 50 ticks in Survival, none in
+	 * Creative.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void aMobsHitInTheCounterWindowAndTheEndStrikeLeave116sCooldownInSurvivalAndCreative(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		for (GameType mode : new GameType[] { GameType.SURVIVAL, GameType.CREATIVE }) {
+			boolean creative = mode == GameType.CREATIVE;
+			for (boolean mobHits : new boolean[] { true, false }) {
+				String row = mode.getName() + (mobHits ? " user hit by a husk in the counter window" : " user striking a husk as the charge ends");
+				try (Fixture f = new Fixture(helper, mode)) {
+					Husk husk = EntityType.HUSK.create(helper.getLevel());
+					helper.assertTrue(husk != null, "Could not create the husk");
+					husk.setNoAi(true);
+					husk.moveTo(f.pos.x, f.pos.y, f.pos.z + 1.5D, 180.0F, 0.0F);
+					try {
+						helper.assertTrue(helper.getLevel().addFreshEntity(husk), "Could not add the husk");
+						helper.assertTrue(f.user.getAbilities().instabuild == creative,
+								"setup: the " + mode.getName() + " user's abilities are not its game mode's");
+						f.component.entityAim.setTarget(new ActionTarget(husk));
+						EntityActionInstance action = f.start();
+						f.tick(COUNTER_TIMING_TICK);
+						helper.assertTrue(((HamonRebuffOverdrive) action).isCounterTiming(), "setup: " + row + ": not in the counter window");
+						float userHealth = f.user.getHealth();
+						if (mobHits) {
+							boolean hurt = f.user.hurt(helper.getLevel().damageSources().mobAttack(husk), 3.0F);
+							boolean countered = action.getPhase() == ActionPhase.PERFORM && husk.getHealth() < husk.getMaxHealth();
+							if (creative ? hurt || countered : !countered || f.user.getHealth() != userHealth) {
+								wrong.add(row + ": hurt " + hurt + ", phase " + action.getPhase() + ", husk " + husk.getHealth()
+										+ ", user " + f.user.getHealth() + " of " + userHealth + "; 1.16 "
+										+ (creative ? "let no mob hit a Creative player" : "countered it"));
+								continue;
+							}
+						}
+						for (int tick = 0; tick < 20 && husk.getHealth() >= husk.getMaxHealth(); tick++) {
+							f.tick(1);
+						}
+						int cooldown = f.hamon.getAbilityCooldown("rebuff_overdrive");
+						int expected = creative || mobHits ? 0 : 50;
+						if (husk.getHealth() >= husk.getMaxHealth() || cooldown != expected) {
+							wrong.add(row + ": the husk at " + husk.getHealth() + " of " + husk.getMaxHealth()
+									+ ", a cooldown of " + cooldown + ", 1.16's " + expected);
+						}
+					}
+					finally {
+						husk.discard();
+					}
+				}
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), String.join("; ", wrong));
+		helper.succeed();
+	}
+
 	@GameTest(template = "empty", timeoutTicks = 80)
 	public static void recoveryEndsTheAction(GameTestHelper helper) {
 		try (Fixture f = new Fixture(helper)) {
@@ -281,12 +342,21 @@ public final class HamonRebuffOverdriveGameTests {
 		Player attacker;
 
 		Fixture(GameTestHelper helper) {
+			this(helper, GameType.SURVIVAL);
+		}
+
+		Fixture(GameTestHelper helper, GameType mode) {
 			this.helper = helper;
 			pos = Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(2, 2, 2)));
-			user = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
+			user = GameTestPlayers.makeServerMockPlayer(helper, mode);
 			user.moveTo(pos.x, pos.y, pos.z, 0.0F, 0.0F);
 			user.setYHeadRot(0.0F);
-			user.getAbilities().invulnerable = false;
+			if (mode == GameType.CREATIVE) {
+				GameType.CREATIVE.updatePlayerAbilities(user.getAbilities());
+			}
+			else {
+				user.getAbilities().invulnerable = false;
+			}
 			helper.assertTrue(helper.getLevel().addFreshEntity(user), "Could not add the Rebuff Overdrive user");
 			power = PowerClass.PLAYER_POWER.attachGet(user);
 			power.setPowerType(ModPlayerPowers.HAMON.get());
