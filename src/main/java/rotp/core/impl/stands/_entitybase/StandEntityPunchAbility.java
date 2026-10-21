@@ -1229,6 +1229,16 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		return StandPrecisionRay.trace(stand, stand, reach, 0.0D, true, wallsHideEntities);
 	}
 
+	/**
+	 * The Stand's aim a client keeps while an action aims as the Stand without manual control (EntityActionInstance#aimAs):
+	 * 1.16 aimed from a Stand only as the camera entity (EntityStandType.clientHitResult, StandEntity.precisionRayTrace),
+	 * whatever action it ran, so this is {@link #manualStandAim} with no vanilla pick, the Stand not being the camera. The
+	 * running action's own checks refuse what it cannot take, as 1.16's checkTarget did.
+	 */
+	public static ActionTarget actionStandAim(StandEntity stand) {
+		return manualStandAim(stand, ActionTarget.EMPTY);
+	}
+
 	// the strict crosshair of 2026-09-13: from the user's eyes at the user's reach, blocks stopping the ray
 	private static ActionTarget strictCrosshairTarget(StandEntity stand, LivingEntity user, float partialTick,
 			Predicate<Entity> canTarget, boolean wallsHideEntities) {

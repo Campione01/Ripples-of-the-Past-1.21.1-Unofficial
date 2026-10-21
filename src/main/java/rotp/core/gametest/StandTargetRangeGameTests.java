@@ -59,6 +59,7 @@ import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
 import rotp.core.subsystems.target.ActionTargetAim;
 import rotp.core.subsystems.target.ActionTargetRange;
+import rotp.core.subsystems.target.AimingEntity;
 import rotp.core.subsystems.target.HitResultUtil;
 import rotp.core.subsystems.target.StandPrecisionRay;
 import rotp.core.subsystems.timestop.TimeStopState;
@@ -1472,13 +1473,107 @@ public final class StandTargetRangeGameTests {
 		helper.succeed();
 	}
 
-	// a held Revert running on the Stand, which takes the second entity for its aim and not the first
-	private static boolean heldRevertTakesOnly(Fixture fixture, StandEntity stand, Entity refused, Entity taken) {
+	/*
+	 * 1.16 aimed from a Stand only as the camera entity (EntityStandType.clientHitResult, StandEntity.precisionRayTrace over
+	 * StandEntity.canTarget, friendly fire allowed), whatever action it ran, and that action's checkTarget judged the target
+	 * afterwards. The port's client aim for an action aiming as the Stand without manual control (EntityActionInstance.aimAs
+	 * STAND: Heal and Revert holding an entity, a punch kept on its target, Hierophant Green's string attack, add-ons'
+	 * bombs) clipped from the Stand with the action's own filter. Crazy Diamond at Resolve 4, 2.4 blocks behind its user and
+	 * turned away from it, not manually controlled, a held Revert aiming as the Stand; ClientsideAim is client-only, so its
+	 * call is pinned from its class file, read as a resource.
+	 */
+	@GameTest(template = "empty", batch = BATCH)
+	public static void aStandAimingAsItselfTakesWhatItsCrosshairMeetsWhateverActionItRunsAsIn116(GameTestHelper helper) {
+		String[] rows = { "a held Revert: a cow and a snow golem beside the Stand's look, in their precision boxes",
+				"a held Revert: the user's tamed wolf before a cow beside the Stand's look, in their precision boxes",
+				"the aim assist off, a held Revert: a cow before a snow golem on the Stand's look" };
+		List<String> wrong = new ArrayList<>();
+		for (String row : rows) {
+			try (Fixture fixture = Fixture.open(helper, Kind.CD_REVERT)) {
+				fixture.power.setResolveLevel(4);
+				StandEntity stand = fixture.stand;
+				stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z - 2.4D, 180.0F, 0.0F);
+				stand.setYHeadRot(180.0F);
+				LivingComponentAction.getComponent(stand).entityAim.setTarget(ActionTarget.EMPTY);
+				if (row.startsWith("the aim assist off")) {
+					fixture.user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get()).standAimAssist = false;
+				}
+				double reach = stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE);
+				Entity expected;
+				String layout;
+				boolean premise;
+				if (row.contains("tamed wolf")) {
+					Wolf wolf = placed(helper, fixture, EntityType.WOLF, aheadOfStand(stand, 0.5D, 1.0D));
+					wolf.setTame(true, false);
+					wolf.setOwnerUUID(fixture.user.getUUID());
+					Cow cow = placed(helper, fixture, EntityType.COW, aheadOfStand(stand, 0.6D, 2.0D));
+					double wolfGrown = entry(stand, grownBox(stand, wolf));
+					double cowGrown = entry(stand, grownBox(stand, cow));
+					premise = wolf.getOwner() == fixture.user && !stand.canAttackEntity(wolf) && entry(stand, wolf.getBoundingBox()) < 0.0D
+							&& entry(stand, cow.getBoundingBox()) < 0.0D && wolfGrown > 0.0D && cowGrown > wolfGrown && cowGrown < reach
+							&& heldRevertTakesOnly(fixture, stand, wolf, null) && heldRevertTakesOnly(fixture, stand, cow, null);
+					layout = "the wolf's precision box " + wolfGrown + " and the cow's " + cowGrown + " blocks along the Stand's look,"
+							+ " both off the exact line (reach " + reach + "), a wolf the Stand may not attack, the held Revert taking"
+							+ " neither";
+					expected = wolf;
+				}
+				else {
+					boolean beside = row.contains("beside");
+					double side = beside ? 0.6D : 0.0D;
+					Cow cow = placed(helper, fixture, EntityType.COW, aheadOfStand(stand, side, beside ? 1.2D : 1.0D));
+					SnowGolem golem = placed(helper, fixture, EntityType.SNOW_GOLEM, aheadOfStand(stand, side, 2.0D));
+					double cowEntry = entry(stand, cow.getBoundingBox());
+					double golemEntry = entry(stand, golem.getBoundingBox());
+					double cowGrown = entry(stand, grownBox(stand, cow));
+					double golemGrown = entry(stand, grownBox(stand, golem));
+					premise = beside ? cowEntry < 0.0D && golemEntry < 0.0D && cowGrown > 0.0D && golemGrown > cowGrown
+							&& golemGrown < reach : cowEntry > 0.0D && golemEntry > cowEntry && golemEntry < reach;
+					premise &= heldRevertTakesOnly(fixture, stand, cow, golem);
+					layout = "the cow " + cowEntry + " (precision box " + cowGrown + ") and the golem " + golemEntry
+							+ " (precision box " + golemGrown + ") blocks along the Stand's look (reach " + reach + "), the held Revert"
+							+ " taking only the golem";
+					expected = cow;
+				}
+				EntityActionInstance revert = LivingComponentAction.getCurEntityAction(stand);
+				if (revert != null) {
+					revert.aimAs = AimingEntity.STAND;
+				}
+				premise &= revert != null && !stand.isManuallyControlled() && entry(fixture.user, stand.getBoundingBox()) < 0.0D;
+				helper.assertTrue(premise, "STAND-AS-ITSELF premise: " + row + ": " + layout);
+				ActionTarget aim = StandEntityPunchAbility.actionStandAim(stand);
+				if (aim.getType() != TargetType.ENTITY || aim.getEntity() != expected) {
+					wrong.add("STAND-AS-ITSELF " + row + " (" + layout + "): the Stand's aim is " + describe(aim, stand)
+							+ "; 1.16's crosshair with the Stand as the camera took " + expected.getType().getDescription().getString());
+				}
+				LivingComponentAction.getComponent(stand).setAction(null, fixture.user, SyncType.NO_SYNC);
+			}
+		}
+		String clientAim = "rotp/core/client/input/ClientsideAim.class";
+		try (InputStream in = StandTargetRangeGameTests.class.getClassLoader().getResourceAsStream(clientAim)) {
+			helper.assertTrue(in != null, "Missing class file " + clientAim);
+			String pool = new String(in.readAllBytes(), StandardCharsets.ISO_8859_1);
+			if (!pool.contains("actionStandAim") || !pool.contains(
+					"(Lrotp/core/powersystem/standpower/entity/StandEntity;)Lrotp/core/subsystems/target/ActionTarget;")
+					|| pool.contains("canTargetEntityForAiming") || pool.contains("canDefaultTargetEntityForAiming")) {
+				wrong.add("STAND-AS-ITSELF the client no longer takes the aim of a Stand aiming as itself from actionStandAim(stand),"
+						+ " the 1.16 filter, or still asks the running action's own filter");
+			}
+		}
+		catch (IOException e) {
+			wrong.add("STAND-AS-ITSELF cannot read " + clientAim + ": " + e);
+		}
+		helper.assertTrue(wrong.isEmpty(), String.join("; ", wrong));
+		helper.succeed();
+	}
+
+	// a held Revert running on the Stand, which takes the second entity for its aim (none if null) and not the first
+	private static boolean heldRevertTakesOnly(Fixture fixture, StandEntity stand, Entity refused, @Nullable Entity taken) {
 		EntityActionInstance revert = ((EntityActionType) fixture.ability).initActionOnAbilityUse(fixture.level, fixture.user, stand,
 				null);
 		LivingComponentAction.getComponent(stand).setAction(revert, fixture.user, SyncType.NO_SYNC);
 		return LivingComponentAction.getCurEntityAction(stand) == revert && revert.ability instanceof StandEntityAbility revertAbility
-				&& !revertAbility.canTargetEntityForAiming(stand, refused) && revertAbility.canTargetEntityForAiming(stand, taken);
+				&& !revertAbility.canTargetEntityForAiming(stand, refused)
+				&& (taken == null || revertAbility.canTargetEntityForAiming(stand, taken));
 	}
 
 	// on the look line of a Stand turned north, at its eye height, side blocks to the east and ahead blocks along it
