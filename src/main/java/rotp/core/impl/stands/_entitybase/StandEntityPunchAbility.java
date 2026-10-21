@@ -1231,16 +1231,45 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	}
 
 	/**
+	 * The Stand's aim a client keeps while its camera is an entity that is neither its user nor the Stand (the soul out of
+	 * its body, Gold Experience's split consciousness, a puppet): 1.16's EntityStandType.clientHitResult with that camera
+	 * entity, its vanilla pick when it met a block or an entity other than the Stand, a miss when it met the Stand,
+	 * otherwise the precision ray from the camera over any entity but the Stand and its user, as far as getAimDistance of
+	 * the camera: its own reach when it is a living entity that has one (a player), otherwise and under manual control the
+	 * Stand's. Without the aim assist, what the camera's crosshair line meets first within that reach.
+	 */
+	public static ActionTarget cameraStandAim(StandEntity stand, Entity camera, ActionTarget vanillaPick) {
+		double reach = !stand.isManuallyControlled() && camera instanceof LivingEntity living
+				? userAimReach(living, stand) : stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE);
+		boolean wallsHideEntities = StandSkillWalls.wallsHideEntities(stand);
+		if (!aimAssist(stand.getUser())) {
+			return StandPrecisionRay.crosshair(camera, stand, reach, true, wallsHideEntities);
+		}
+		if (vanillaPick.getType() == TargetType.BLOCK) {
+			return vanillaPick;
+		}
+		Entity picked = vanillaPick.getType() == TargetType.ENTITY ? vanillaPick.getEntity() : null;
+		if (picked != null) {
+			return picked != stand ? vanillaPick : ActionTarget.EMPTY;
+		}
+		return StandPrecisionRay.trace(camera, stand, reach, 0.0D, true, wallsHideEntities);
+	}
+
+	/**
 	 * The Stand's aim a client keeps (ClientsideAim): 1.16's one mouse target, what the camera entity's crosshair met
 	 * (InputHandler.pickMouseTarget, EntityStandType.clientHitResult), whatever action the Stand ran. Under manual control,
 	 * while the Stand aims as itself (EntityActionInstance#aimAs), the Stand's crosshair ({@link #manualStandAim});
 	 * otherwise its user's ({@link #userStandAim}), also while an action aims as the Stand, which turns to its own target
 	 * on the server, and during a directional barrage, whose every hit aims again on the server (StandEntity.punch,
-	 * aimWithThisOrUser without friendly fire). The vanilla pick counts only while the aiming entity is the camera.
+	 * aimWithThisOrUser without friendly fire). The vanilla pick counts only while the aiming entity is the camera. With
+	 * a camera that is neither the user nor the Stand, that camera's crosshair ({@link #cameraStandAim}).
 	 */
 	public static ActionTarget clientStandAim(StandEntity stand, LivingEntity user, @Nullable Entity camera,
 			ActionTarget vanillaPick) {
 		boolean userIsCamera = camera == null || camera == user;
+		if (!userIsCamera && camera != stand) {
+			return cameraStandAim(stand, camera, vanillaPick);
+		}
 		EntityActionInstance action = LivingComponentAction.getCurEntityAction(stand);
 		AimingEntity aimAs = action != null ? action.aimAs : AimingEntity.CAMERA_ENTITY;
 		boolean standAims = aimAs == AimingEntity.STAND || aimAs == AimingEntity.CAMERA_ENTITY && !userIsCamera;

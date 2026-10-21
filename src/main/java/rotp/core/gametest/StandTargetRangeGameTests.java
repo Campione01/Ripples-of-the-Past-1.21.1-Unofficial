@@ -56,6 +56,7 @@ import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.itemtracking.ItemTracker;
 import rotp.core.subsystems.itemtracking.ItemTracking;
 import rotp.core.subsystems.itemtracking.KnownItemState;
+import rotp.core.subsystems.soul.SoulEntity;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
 import rotp.core.subsystems.target.ActionTargetAim;
@@ -1805,6 +1806,142 @@ public final class StandTargetRangeGameTests {
 		return wolf;
 	}
 
+	/*
+	 * 1.16's mouse target came from the camera entity, whatever it was (InputHandler.pickMouseTarget gave
+	 * mc.getCameraEntity() to EntityStandType.clientHitResult): with the soul out of its body (ControllerSoul), Gold
+	 * Experience's split consciousness on its victim's client (ControllerConsciousness, a client-only copy of the player)
+	 * or any other camera, that camera's vanilla pick, else the precision ray from it as far as getAimDistance(camera).
+	 * The port aimed from the user then, or from the Stand under manual control. The client's choice
+	 * (StandEntityPunchAbility.clientStandAim, which ClientsideAim gives mc.cameraEntity) run with such a camera: a soul,
+	 * a player standing for the consciousness, a villager for a puppet, three blocks beside the user and looking the
+	 * same way, with GameRenderer.pick's vanilla pick from the camera; Crazy Diamond three blocks behind its user.
+	 */
+	@GameTest(template = "empty", batch = BATCH)
+	public static void aStandAimsFromACameraThatIsNeitherItsUserNorItselfAsIn116(GameTestHelper helper) {
+		String[] rows = { "the soul: its vanilla pick on a cow, a creeper beside its look behind it in its precision box",
+				"the soul: nothing on its crosshair, a cow beside its look in its precision box",
+				"the soul: nothing on its crosshair, a cow beside its look in its precision box past the Stand's reach",
+				"a player camera: nothing on its crosshair, a cow beside its look in its precision box past the Stand's reach",
+				"a player camera: its vanilla pick on the Stand, a cow beside its look behind it in its precision box",
+				"a player camera: its vanilla pick on the user",
+				"the aim assist off, a player camera: a cow on its look",
+				"the aim assist off, a player camera: a cow beside its look in its precision box",
+				"under manual control, a villager the camera: its vanilla pick on a cow",
+				"under manual control, a player camera: nothing on its crosshair, a cow beside its look in its precision box"
+						+ " past the Stand's reach" };
+		List<String> wrong = new ArrayList<>();
+		for (String row : rows) {
+			try (Fixture fixture = Fixture.open(helper, Kind.CD_REVERT)) {
+				StandEntity stand = fixture.stand;
+				boolean manual = row.startsWith("under manual control");
+				if (manual) {
+					stand.setManuallyControlled(true);
+				}
+				stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z - 3.0D, 0.0F, 0.0F);
+				stand.setYHeadRot(0.0F);
+				LivingComponentAction.getComponent(stand).entityAim.setTarget(ActionTarget.EMPTY);
+				if (row.startsWith("the aim assist off")) {
+					fixture.user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get()).standAimAssist = false;
+				}
+				boolean onUser = row.endsWith("on the user");
+				double cameraX = fixture.origin.x + (onUser ? 2.0D : 3.0D);
+				double cameraZ = fixture.origin.z + (onUser ? 0.0D : 1.0D);
+				float cameraYaw = onUser ? 90.0F : 0.0F;
+				Entity camera;
+				if (row.startsWith("the soul")) {
+					camera = new SoulEntity(fixture.level, fixture.user, 100);
+				}
+				else if (row.contains("a villager the camera")) {
+					camera = placed(helper, fixture, EntityType.VILLAGER,
+							new Vec3(cameraX, fixture.origin.y + EntityType.VILLAGER.getHeight() / 2.0D, cameraZ));
+				}
+				else {
+					camera = new FakePlayer(fixture.level, new GameProfile(UUID.randomUUID(), "StandTargetCamera"));
+				}
+				camera.moveTo(cameraX, fixture.origin.y, cameraZ, cameraYaw, 0.0F);
+				camera.setYHeadRot(cameraYaw);
+				double standReach = stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE);
+				double cameraReach = camera instanceof LivingEntity living ? StandEntityPunchAbility.userAimReach(living, stand)
+						: standReach;
+				Object expected;
+				String layout;
+				boolean premise;
+				if (onUser) {
+					premise = entry(camera, fixture.user.getBoundingBox()) > 0.0D;
+					layout = "the user " + entry(camera, fixture.user.getBoundingBox()) + " blocks along the camera's look";
+					expected = fixture.user;
+				}
+				else if (row.contains("on the Stand")) {
+					stand.moveTo(cameraX, fixture.origin.y, cameraZ + 1.5D, 0.0F, 0.0F);
+					Cow cow = placed(helper, fixture, EntityType.COW, onCameraLook(camera, 0.6D, 2.4D));
+					premise = entry(camera, stand.getBoundingBox()) > 0.0D && entry(camera, cow.getBoundingBox()) < 0.0D
+							&& StandPrecisionRay.trace(camera, stand, cameraReach, 0.0D, true, true).getEntity() == cow;
+					layout = "the Stand " + entry(camera, stand.getBoundingBox()) + " blocks along the camera's look, the cow's"
+							+ " precision box " + entry(camera, grownBox(stand, cow)) + ", which the camera's precision ray takes";
+					expected = ActionTarget.EMPTY;
+				}
+				else if (row.contains("a creeper")) {
+					Cow cow = placed(helper, fixture, EntityType.COW, onCameraLook(camera, 0.0D, 1.6D));
+					Creeper creeper = placed(helper, fixture, EntityType.CREEPER, onCameraLook(camera, 0.6D, 2.0D));
+					premise = entry(camera, creeper.getBoundingBox()) < 0.0D
+							&& StandPrecisionRay.trace(camera, stand, cameraReach, 0.0D, true, true).getEntity() == creeper;
+					layout = "the cow " + entry(camera, cow.getBoundingBox()) + " blocks along the camera's look and the creeper's"
+							+ " precision box " + entry(camera, grownBox(stand, creeper)) + ", which its precision ray takes";
+					expected = cow;
+				}
+				else if (row.endsWith("a cow on its look")) {
+					Cow cow = placed(helper, fixture, EntityType.COW, onCameraLook(camera, 0.0D, 1.6D));
+					premise = entry(camera, cow.getBoundingBox()) > 0.0D;
+					layout = "the cow " + entry(camera, cow.getBoundingBox()) + " blocks along the camera's look";
+					expected = cow;
+				}
+				else if (row.contains("a villager the camera")) {
+					Cow cow = placed(helper, fixture, EntityType.COW, onCameraLook(camera, 0.0D, 1.6D));
+					premise = entry(camera, cow.getBoundingBox()) > 0.0D;
+					layout = "the cow " + entry(camera, cow.getBoundingBox()) + " blocks along the villager's look";
+					expected = cow;
+				}
+				else {
+					boolean far = row.endsWith("past the Stand's reach");
+					Cow cow = placed(helper, fixture, EntityType.COW, onCameraLook(camera, 0.6D, far ? 4.0D : 1.2D));
+					double grown = entry(camera, grownBox(stand, cow));
+					premise = entry(camera, cow.getBoundingBox()) < 0.0D && grown > 0.0D
+							&& (far ? grown > standReach && grown < StandEntityPunchAbility.userAimReach(fixture.user, stand)
+									: grown < standReach);
+					layout = "the cow's precision box " + grown + " blocks along the camera's look, off the exact line (the"
+							+ " Stand's reach " + standReach + ", the camera's " + cameraReach + ")";
+					expected = !far || row.startsWith("a player camera") ? cow : ActionTarget.EMPTY;
+					if (row.startsWith("the aim assist off")) {
+						expected = ActionTarget.EMPTY;
+					}
+				}
+				ActionTarget vanillaPick = vanillaPick(camera, fixture.user);
+				premise &= stand.isManuallyControlled() == manual && camera != fixture.user && camera != stand
+						&& (row.contains("nothing on its crosshair") || row.contains("beside its look in its precision box")
+								? vanillaPick.getType() == TargetType.EMPTY
+								: row.contains("on the Stand") ? vanillaPick.getEntity() == stand
+								: vanillaPick.getType() == TargetType.ENTITY && vanillaPick.getEntity() == expected);
+				helper.assertTrue(premise, "CAMERA-AIM premise: " + row + ": " + layout + "; the vanilla pick "
+						+ describe(vanillaPick, camera));
+				ActionTarget aim = StandEntityPunchAbility.clientStandAim(stand, fixture.user, camera, vanillaPick);
+				boolean matches = expected instanceof Entity entity ? aim.getType() == TargetType.ENTITY && aim.getEntity() == entity
+						: aim.getType() == TargetType.EMPTY;
+				if (!matches) {
+					wrong.add("CAMERA-AIM " + row + " (" + layout + "; the vanilla pick " + describe(vanillaPick, camera)
+							+ "): the Stand's aim is " + describe(aim, camera) + "; 1.16's clientHitResult with that camera took "
+							+ (expected instanceof Entity entity ? entity.getType().getDescription().getString() : "nothing"));
+				}
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), String.join("; ", wrong));
+		helper.succeed();
+	}
+
+	// on the look line of a camera turned south, at its eye height, side blocks to the east and ahead blocks along it
+	private static Vec3 onCameraLook(Entity camera, double side, double ahead) {
+		return new Vec3(camera.getX() + side, camera.getEyeY(), camera.getZ() + ahead);
+	}
+
 	// a held Revert running on the Stand, which takes the second entity for its aim (none if null) and not the first
 	private static boolean heldRevertTakesOnly(Fixture fixture, StandEntity stand, Entity refused, @Nullable Entity taken) {
 		EntityActionInstance revert = ((EntityActionType) fixture.ability).initActionOnAbilityUse(fixture.level, fixture.user, stand,
@@ -1875,7 +2012,7 @@ public final class StandTargetRangeGameTests {
 	}
 
 	// how far along the entity's look its line enters the box within 8 blocks, or -1
-	private static double entry(LivingEntity looking, AABB box) {
+	private static double entry(Entity looking, AABB box) {
 		Vec3 eyes = looking.getEyePosition();
 		return box.clip(eyes, eyes.add(looking.getLookAngle().scale(8.0D))).map(eyes::distanceTo).orElse(-1.0D);
 	}
