@@ -45,6 +45,12 @@ public class SilverChariotSweepingAttackAbility extends StandEntityAbility {
 		setDefaultPhaseLength(ActionPhase.PERFORM, PERFORM_TICKS);
 	}
 
+	/** 1.16 SilverChariotSweepingAttack was a StandEntityHeavyAttack, whose standKeepsTarget kept only an entity. */
+	@Override
+	public boolean takesPressedTarget(StandEntity standEntity, ActionTarget target) {
+		return target.getType() == ActionTarget.TargetType.ENTITY && super.takesPressedTarget(standEntity, target);
+	}
+
 	@Override
 	public void initActionFromConfig(EntityActionInstance action, Level level, 
 			LivingEntity powerUser, LivingEntity performer) {

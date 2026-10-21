@@ -64,6 +64,12 @@ public class SilverChariotDashAttackAbility extends StandEntityAbility {
 		setDefaultPhaseLength(ActionPhase.PERFORM, 2);
 	}
 
+	/** 1.16 SilverChariotDashAttack: standKeepsTarget false and checkStandTarget NEGATIVE, so the press took no target. */
+	@Override
+	public boolean takesPressedTarget(StandEntity standEntity, ActionTarget target) {
+		return false;
+	}
+
 	@Override
 	public void initActionFromConfig(EntityActionInstance action, Level level,
 			LivingEntity powerUser, LivingEntity performer) {

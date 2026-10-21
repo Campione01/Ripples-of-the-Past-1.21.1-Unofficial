@@ -391,7 +391,9 @@ public class HamonRebuffOverdriveAbility extends HamonActionRuntimeAbility {
 				hamon.consumeEnergy(ENERGY_COST, user);
 				hamon.hamonPointsFromAction(HamonData.HamonStat.STRENGTH, Math.min(ENERGY_COST, preEnergy) * efficiency);
 			}
-			hamon.setAbilityCooldown(hamonAbility().name(), properCounter ? 0 : COOLDOWN_TICKS / 2, COOLDOWN_TICKS);
+			if (!isCreative(user)) {
+				hamon.setAbilityCooldown(hamonAbility().name(), properCounter ? 0 : COOLDOWN_TICKS / 2, COOLDOWN_TICKS);
+			}
 			hamon.syncOnUpdate(user);
 			didAttack = true;
 			return true;
@@ -407,10 +409,15 @@ public class HamonRebuffOverdriveAbility extends HamonActionRuntimeAbility {
 			LivingEntity user = getPowerUser();
 			HamonData hamon = getHamonData(user);
 			HamonActionRuntimeAbility ability = hamonAbility();
-			if (hamon != null && ability != null) {
+			if (hamon != null && ability != null && !isCreative(user)) {
 				hamon.setAbilityCooldown(ability.name(), cooldown, COOLDOWN_TICKS);
 				hamon.syncOnUpdate(user);
 			}
+		}
+
+		// 1.16 ContinuousActionInstance took the plain cooldown(100) from getCooldown as it started: none in Creative
+		private static boolean isCreative(LivingEntity user) {
+			return user instanceof Player player && player.getAbilities().instabuild;
 		}
 
 		private HamonData getHamonData(LivingEntity user) {

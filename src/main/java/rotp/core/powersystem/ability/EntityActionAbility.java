@@ -509,20 +509,22 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 	}
 
 	/**
-	 * Whether a held charge (a held phase before the perform, whose next phase is not held) fires as its length ends, as
-	 * a 1.16 holdToFire(N, false) action did: it fired on the N-th held tick from the press, after N - 1 held ticks
-	 * (PowerBaseImpl.tickHeldAction), so the port's charge of N ticks leaves on its (N - 1)-th tick and performs on the
-	 * N-th. True by default, also for a 1.16 holdToFire(N, true) modelled as a held charge going on into a held perform
-	 * that acts from its first tick (Atmospheric Rift, Divine Sandstorm: 1.16 holdTick sent the first wave on the N-th
-	 * held tick; see {@link #chargeEndsTheHold}); an ability whose next phase must start only after the charge's N full
-	 * ticks returns false.
+	 * Whether a held charge (a held phase before the perform, whose next phase is not held) takes effect in the tick it
+	 * fires in, as a 1.16 holdToFire(N, false) action its user performed did: PowerBaseImpl.tickHeldAction fired it on the
+	 * N-th held tick from the press, after N - 1 held ticks, and performed it there, so the port's charge of N ticks
+	 * leaves on its (N - 1)-th tick and performs on the N-th. True by default: a non-Stand power's charge, and a 1.16
+	 * holdToFire(N, true) modelled as a held charge going on into a held perform that acts from its first tick
+	 * (Atmospheric Rift, Divine Sandstorm: 1.16 holdTick sent the first wave on the N-th held tick; see
+	 * {@link #chargeEndsTheHold}). A charge the Stand's task performs runs its N full ticks and starts its next phase in
+	 * the next tick (StandEntityAbility). Either way its last tick is checked as the firing tick
+	 * (EntityActionInstance#isChargeFiringTick).
 	 */
 	public boolean chargeFiresAsItsLengthEnds(EntityActionInstance action) {
 		return true;
 	}
 
 	/**
-	 * Whether a held charge that fires as its length ends ({@link #chargeFiresAsItsLengthEnds}) ends its hold there too, as
+	 * Whether a held charge that fires as its length ends ends its hold there too, as
 	 * a 1.16 holdToFire(N, false) action's did (getHoldDurationMax was N): PowerBaseImpl.tickHeldAction gave the N-th tick
 	 * to stopHeldAction(true), whose check fired nothing on a failure and said nothing, so the charge's last tick is
 	 * checked by {@link #stopFullChargeIfConditionsFail} alone, without the held recheck and its message

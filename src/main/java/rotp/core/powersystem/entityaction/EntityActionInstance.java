@@ -308,9 +308,10 @@ public class EntityActionInstance implements HeldInput {
 
 	/*
 	 * Past its charge and no longer held (1.16: no longer the power's held action). A perform that came straight after the
-	 * charge gives way only after its first tick, so the shot is not lost: 1.16 ran it in the tick the charge fired. After a
-	 * windup the action does not hold (1.16 standWindupDuration after the hold), the perform began a tick after the
-	 * windup's last, where 1.16's isCancelable let a press cancel it before it performed.
+	 * charge gives way only after its first tick, so the shot is not lost (the port's rule: 1.16 ran that tick in the
+	 * Stand's tick after the fire, and isCancelable let a press between the two cancel it). After a windup the action does
+	 * not hold (1.16 standWindupDuration after the hold), the perform began a tick after the windup's last, where 1.16's
+	 * isCancelable let a press cancel it before it performed.
 	 */
 	private boolean isFiredStandCharge() {
 		return ability instanceof StandEntityAbility standAbility && phasesLength.getFloat(ActionPhase.BUTTON_CHARGE) > 0
@@ -1416,14 +1417,15 @@ public class EntityActionInstance implements HeldInput {
 
 	/*
 	 * 1.16 PowerBaseImpl.tickHeldAction counted a held tick and, as the count reached getHoldDurationMax, fired the hold in
-	 * that tick instead of running its holdTick: a holdToFire(N, false) charge ran N - 1 held ticks and fired in the N-th
-	 * tick from the press, and a release before that tick fired nothing. A held charge (a phase before the perform) of N
-	 * ticks that fires as it ends (EntityActionAbility#chargeFiresAsItsLengthEnds) therefore leaves it at the start of its
-	 * N-th tick, before that tick runs, which then runs the next phase's first tick. The tick's check ran just before
-	 * (_stopHeldIfConditionsFail): the full-charge check, or the held recheck where the hold goes on past the charge.
+	 * that tick instead of running its holdTick: a holdToFire(N, false) charge fired in the N-th tick from the press, and a
+	 * release before that tick fired nothing. An action its user performs takes effect in that tick: its held charge of N
+	 * ticks that fires as it ends (EntityActionAbility#chargeFiresAsItsLengthEnds) leaves it at the start of its N-th tick,
+	 * before that tick runs, which then runs the next phase's first tick. A charge the Stand's task performs runs its N
+	 * ticks and goes on to its next phase in checkNextPhase. The tick's check ran just before (_stopHeldIfConditionsFail):
+	 * the full-charge check, or the held recheck where the hold goes on past the charge.
 	 */
 	private void leaveFiringChargeOnItsLastTick() {
-		if (isOver() || getPhaseTick() < curPhaseLength - 1 || shouldHoldPhaseAtEnd() || !firesAsChargeEnds()) {
+		if (!isOnFiringChargesLastTick() || !((EntityActionAbility) ability).chargeFiresAsItsLengthEnds(this)) {
 			return;
 		}
 		setPhaseStart(ActionPhase.values()[phase.ordinal() + 1]);
@@ -1432,19 +1434,21 @@ public class EntityActionInstance implements HeldInput {
 	/**
 	 * Whether this tick, not yet run, is the one a held charge fires in as its length ends and its hold ends with it
 	 * (EntityActionAbility#chargeEndsTheHold): 1.16 PowerBaseImpl.tickHeldAction gave that tick to stopHeldAction(true),
-	 * whose check, unlike a held tick's, fired nothing on a failure and said nothing. An ability's own held checks with a
-	 * message stay silent in it.
+	 * whose check, unlike a held tick's, fired nothing on a failure and said nothing. That is the charge's last tick,
+	 * whether its next phase runs in it or in the next tick (EntityActionAbility#chargeFiresAsItsLengthEnds). An ability's
+	 * own held checks with a message stay silent in it.
 	 */
 	@ApiStatus.NonExtendable
 	public boolean isChargeFiringTick() {
-		return !isOver() && getPhaseTick() >= curPhaseLength - 1 && !shouldHoldPhaseAtEnd() && firesAsChargeEnds()
-				&& ((EntityActionAbility) ability).chargeEndsTheHold(this);
+		return isOnFiringChargesLastTick() && ((EntityActionAbility) ability).chargeEndsTheHold(this);
 	}
 
-	private boolean firesAsChargeEnds() {
-		return curPhaseLength >= 1 && phase.ordinal() < ActionPhase.PERFORM.ordinal()
+	// the last tick of a held charge (a phase before the perform) whose next phase is not held, not yet run
+	private boolean isOnFiringChargesLastTick() {
+		return !isOver() && getPhaseTick() >= curPhaseLength - 1 && !shouldHoldPhaseAtEnd() && curPhaseLength >= 1
+				&& phase.ordinal() < ActionPhase.PERFORM.ordinal()
 				&& ability instanceof EntityActionAbility entityAbility && entityAbility.isHeldSincePress(this)
-				&& firesAfterHeldPhase(entityAbility) && entityAbility.chargeFiresAsItsLengthEnds(this);
+				&& firesAfterHeldPhase(entityAbility);
 	}
 
 	/*

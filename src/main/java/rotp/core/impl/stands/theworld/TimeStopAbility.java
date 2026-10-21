@@ -99,6 +99,12 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 		return false;
 	}
 
+	/** 1.16 TimeStop was a StandAction the user's power performed in the tick its hold fired, the charge's N-th. */
+	@Override
+	public boolean chargeFiresAsItsLengthEnds(EntityActionInstance action) {
+		return true;
+	}
+
 	/**
 	 * 1.16 TimeStop.getCooldownTechnical: the ticks of the stop this time stop starts; its additional part was 0 and its
 	 * cooldown proper is set as the stop ends.

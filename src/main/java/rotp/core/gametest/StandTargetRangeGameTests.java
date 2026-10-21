@@ -49,6 +49,7 @@ import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.netcode.SyncType;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
+import rotp.core.impl.stands.magiciansred.MRCrossfireHurricaneEntity;
 import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
@@ -89,6 +90,7 @@ import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.animal.SnowGolem;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.monster.Husk;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
@@ -2083,11 +2085,11 @@ public final class StandTargetRangeGameTests {
 				&& refs.get(first + 1).startsWith(clientAim + ".cameraEntityAimTarget:")
 				&& refs.get(first + 2).startsWith("rotp/core/subsystems/target/ActionTargetAim.setTarget(")
 				&& refs.subList(0, first).stream().noneMatch(ref -> ref.startsWith("net/minecraft/client/Minecraft.cameraEntity:"));
-		if (!pickFirst || emptied != 1) {
+		if (!pickFirst || emptied != 2) {
 			wrong.add("USER-AIM the client's user aim (ClientsideAim.updateTarget) is not the camera's vanilla pick whatever"
 					+ " the camera: the pick set first without asking for the camera " + pickFirst + ", emptied " + emptied
-					+ " times (once: no level or player); 1.16's one mouse target was the camera's pick, which a power other"
-					+ " than a Stand took unchanged");
+					+ " times (twice: no level or player, and a pick on the user, which 1.16's Action.checkTarget emptied);"
+					+ " 1.16's one mouse target was the camera's pick, which a power other than a Stand took unchanged");
 		}
 		for (boolean manual : new boolean[] { false, true }) {
 			String row = manual ? "under manual control, the Stand the camera: its vanilla pick on a cow"
@@ -2148,7 +2150,11 @@ public final class StandTargetRangeGameTests {
 	 * left the action without one, so its Stand faced its user's look. The port's synced Stand aim is that unfiltered target
 	 * again, and the actions that take it at their press (captureActionTargetFromAim, keepStandAimedAtTarget) turned to,
 	 * dashed at or homed on the user's own pet, as the idle Stand looked at it. The user's own tamed wolf on the look past
-	 * the vanilla pick's reach, which the precision ray of a client takes; a husk in its place is the control.
+	 * the vanilla pick's reach, which the precision ray of a client takes; a husk in its place is the control. Before
+	 * checkStandTarget, StandEntityAction.checkTarget refused any target of an action with no target requirement unless its
+	 * standKeepsTarget kept it: Silver Chariot's sweep (a heavy attack, which kept an entity) turns to the husk, its dash
+	 * (standKeepsTarget false) and Crossfire Hurricane (no standKeepsTarget) take no target, a husk or a block; the grab is
+	 * the port's own. A block as the synced aim is taken by none of them.
 	 */
 	@GameTest(template = "empty", batch = BATCH)
 	public static void aStandActionPressedAtTheUsersOwnPetTakesNoTargetAsIn116(GameTestHelper helper) {
@@ -2192,20 +2198,143 @@ public final class StandTargetRangeGameTests {
 					ActionTarget turned = action.standRotationTarget;
 					boolean turnedToIt = turned != null && turned.getEntity() == aimed;
 					boolean keptIt = snapshot.getEntity() == aimed;
-					boolean expected = pet ? !turnedToIt && !keptIt && snapshot.getType() == TargetType.EMPTY
+					boolean takesNone = pet || kind == Kind.SC_DASH || kind == Kind.MR_CROSSFIRE || kind == Kind.MR_CROSSFIRE_SPECIAL;
+					boolean expected = takesNone ? !turnedToIt && !keptIt && snapshot.getType() == TargetType.EMPTY
 							: turnedToIt && (kind == Kind.CD_GRAB || keptIt);
 					if (!expected) {
 						wrong.add("OWN-PET " + row + ": the action turns to " + (turned != null ? describe(turned, stand) : "nothing")
-								+ " and keeps " + describe(snapshot, stand) + "; 1.16's checkStandTarget "
-								+ (pet ? "refused the user's own pet, so the action had no target and its Stand faced the user's look"
-										: "kept a husk the Stand may attack, and the Stand turned to it"));
+								+ " and keeps " + describe(snapshot, stand) + "; "
+								+ (pet ? "1.16's checkStandTarget refused the user's own pet, so the action had no target and its Stand"
+										+ " faced the user's look"
+										: takesNone ? "1.16's checkTarget refused any target of an action that kept none"
+												+ " (standKeepsTarget false), so its Stand faced the user's look"
+												: kind == Kind.CD_GRAB ? "the port's grab turns to a husk the Stand may attack"
+														: "1.16's heavy attack kept a husk the Stand may attack, and the Stand turned to it"));
 					}
 					standActions.setAction(null, fixture.user, SyncType.NO_SYNC);
+				}
+			}
+			if (kind == null || kind == Kind.CD_GRAB) {
+				continue;
+			}
+			String row = kind.stand + " " + kind.ability + " pressed with a block as the synced aim";
+			try (Fixture fixture = Fixture.open(helper, kind)) {
+				StandEntity stand = fixture.stand;
+				stand.summonLockTicks = 0;
+				stand.gradualSummonWeaknessTicks = 0;
+				stand.moveTo(fixture.origin.x - 1.0D, fixture.origin.y, fixture.origin.z, 0.0F, 0.0F);
+				BlockPos wall = BlockPos.containing(onLook(fixture, 0.0D, 3.5D));
+				fixture.level.setBlockAndUpdate(wall, Blocks.STONE.defaultBlockState());
+				try {
+					LivingComponentAction standActions = LivingComponentAction.getComponent(stand);
+					standActions.entityAim.setTargetFromClient(new ActionTarget(wall, Direction.NORTH), fixture.level);
+					EntityActionInstance action = ((EntityActionType) fixture.ability).initActionOnAbilityUse(fixture.level,
+							fixture.user, stand, null);
+					standActions.setAction(action, fixture.user, SyncType.NO_SYNC);
+					ActionTarget snapshot = snapshotOf(action, fixture.level);
+					ActionTarget turned = action.standRotationTarget;
+					if (turned != null && turned.getType() != TargetType.EMPTY || snapshot.getType() != TargetType.EMPTY) {
+						wrong.add("OWN-PET " + row + ": the action turns to " + (turned != null ? describe(turned, stand) : "nothing")
+								+ " and keeps " + describe(snapshot, stand) + "; 1.16's checkTarget refused a block for an action"
+								+ " whose standKeepsTarget did not keep one, so its Stand faced the user's look");
+					}
+					standActions.setAction(null, fixture.user, SyncType.NO_SYNC);
+				}
+				finally {
+					fixture.level.setBlockAndUpdate(wall, Blocks.AIR.defaultBlockState());
 				}
 			}
 		}
 		helper.assertTrue(wrong.isEmpty(), String.join("; ", wrong));
 		helper.succeed();
+	}
+
+	/*
+	 * 1.16's special Crossfire Hurricane, which took no target at its press, aimed as it shot (MagiciansRedCrossfireHurricane
+	 * :55-58, StandEntity.aimWithThisOrUser(64, EMPTY, false)): the user's precisionRayTrace first, whose hitboxes grew by the
+	 * Stand's precision as the Stand's own ray's did (:1736-1745), with the aim assist on (the owner's setting). A husk
+	 * beside the user's look, off the exact line but inside its precision box, is what the special's shots home on.
+	 */
+	@GameTest(template = "empty", batch = BATCH)
+	public static void theSpecialCrossfireHurricaneAimsAsItShootsWithTheStandsPrecisionAsIn116(GameTestHelper helper) {
+		try (Fixture fixture = Fixture.open(helper, Kind.MR_CROSSFIRE_SPECIAL)) {
+			StandEntity stand = fixture.stand;
+			stand.summonLockTicks = 0;
+			stand.gradualSummonWeaknessTicks = 0;
+			stand.moveTo(fixture.origin.x - 1.0D, fixture.origin.y, fixture.origin.z, 0.0F, 0.0F);
+			Husk husk = placed(helper, fixture, EntityType.HUSK, onLook(fixture, 0.4D, 4.0D));
+			double exact = entry(fixture.user, husk.getBoundingBox());
+			double grown = entry(fixture.user, grownBox(stand, husk));
+			helper.assertTrue(exact < 0.0D && grown > 0.0D, "SPECIAL-AIM premise: the husk is not off the user's exact look"
+					+ " line and inside its precision box: exact " + exact + ", grown " + grown);
+			LivingComponentAction standActions = LivingComponentAction.getComponent(stand);
+			standActions.entityAim.setTargetFromClient(new ActionTarget(husk), fixture.level);
+			EntityActionInstance action = ((EntityActionType) fixture.ability).initActionOnAbilityUse(fixture.level,
+					fixture.user, stand, null);
+			standActions.setAction(action, fixture.user, SyncType.NO_SYNC);
+			action.actionPerformStart();
+			List<MRCrossfireHurricaneEntity> shots = fixture.level.getEntitiesOfClass(MRCrossfireHurricaneEntity.class,
+					fixture.user.getBoundingBox().inflate(16.0D));
+			Vec3 homesOn = shots.isEmpty() ? null : specialTargetOf(shots.get(0));
+			shots.forEach(Entity::discard);
+			standActions.setAction(null, fixture.user, SyncType.NO_SYNC);
+			helper.assertTrue(homesOn != null && homesOn.distanceTo(husk.getEyePosition()) < 1.0E-4D, "1.16's special Crossfire"
+					+ " Hurricane aimed with the user's precision ray as it shot, so its shots home on the husk inside the"
+					+ " precision box: " + shots.size() + " shots homing on " + homesOn + ", the husk's eyes " + husk.getEyePosition());
+		}
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 Action.checkTarget (:205-208) emptied a target that was the user, for a power other than a Stand too, whose
+	 * actions took the camera's pick unchanged (IPowerType.clientHitResult): another camera's pick (a manually controlled
+	 * Stand's, a member's view) on the user's own body left the user's aim empty, so Hamon Shock, Sunlight Yellow Overdrive
+	 * and Vampirism's Freeze never targeted the user. The aim the user's client sends, stored as the server stores it, is
+	 * no aim when it is the user, and a cow under it is the aim the non-Stand readers take.
+	 */
+	@GameTest(template = "empty", batch = BATCH)
+	public static void theUsersAimIsNeverTheUserAsIn116(GameTestHelper helper) {
+		FakePlayer user = new FakePlayer(helper.getLevel(), new GameProfile(UUID.randomUUID(), "SelfAim"));
+		Vec3 origin = Vec3.atCenterOf(helper.absolutePos(new BlockPos(2, 2, 2)));
+		user.moveTo(origin.x, origin.y, origin.z, 0.0F, 0.0F);
+		user.setNoGravity(true);
+		helper.assertTrue(helper.getLevel().addFreshEntity(user), "SELF-AIM premise: could not add the user");
+		Cow cow = EntityType.COW.create(helper.getLevel());
+		try {
+			helper.assertTrue(cow != null, "SELF-AIM premise: could not create the cow");
+			cow.setNoAi(true);
+			cow.setNoGravity(true);
+			cow.moveTo(origin.x, origin.y, origin.z + 2.0D, 180.0F, 0.0F);
+			helper.assertTrue(helper.getLevel().addFreshEntity(cow), "SELF-AIM premise: could not add the cow");
+			LivingComponentAction component = LivingComponentAction.getComponent(user);
+			component.setUserAimFromClient(new ActionTarget(user));
+			ActionTarget self = HamonAbilityHelpers.getAimTarget(user, helper.getLevel());
+			component.setUserAimFromClient(new ActionTarget(cow));
+			ActionTarget other = HamonAbilityHelpers.getAimTarget(user, helper.getLevel());
+			helper.assertTrue(self.getType() == TargetType.EMPTY && other.getEntity() == cow, "1.16 Action.checkTarget emptied"
+					+ " a target that was the user: the user's aim at the user's own body is " + describe(self, user)
+					+ ", at a cow " + describe(other, user));
+		}
+		finally {
+			LivingComponentAction.getComponent(user).entityAim.setTarget(ActionTarget.EMPTY);
+			if (cow != null) {
+				cow.discard();
+			}
+			user.discard();
+		}
+		helper.succeed();
+	}
+
+	// the point a special Crossfire Hurricane shot homes on (MRCrossfireHurricaneEntity.targetPos, private)
+	private static Vec3 specialTargetOf(MRCrossfireHurricaneEntity shot) {
+		try {
+			java.lang.reflect.Field targetPos = MRCrossfireHurricaneEntity.class.getDeclaredField("targetPos");
+			targetPos.setAccessible(true);
+			return (Vec3) targetPos.get(shot);
+		}
+		catch (ReflectiveOperationException e) {
+			throw new IllegalStateException("SPECIAL-AIM fixture: cannot read the shot's target", e);
+		}
 	}
 
 	// the target an action took at its press (EntityActionInstance.getActionTargetSnapshot, protected)

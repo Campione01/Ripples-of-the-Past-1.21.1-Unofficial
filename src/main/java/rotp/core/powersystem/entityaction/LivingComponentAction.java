@@ -22,6 +22,7 @@ import rotp.core.powersystem.entityaction.netcode.SyncType;
 import rotp.core.powersystem.entityaction.netcode.TrEntityActionInstancePacket;
 import rotp.core.powersystem.entityaction.syncdata.SyncActionInstanceData;
 import rotp.core.powersystem.standpower.entity.StandEntity;
+import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTargetAim;
 
 import net.minecraft.core.HolderLookup.Provider;
@@ -406,6 +407,7 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 		}
 		if (action != null) {
 			if (entity instanceof StandEntity standEntity && standEntity.summonLockTicks > 0) {
+				syncDirtyActionData();
 				return;
 			}
 			if (entity instanceof StandEntity standEntity
@@ -415,6 +417,7 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 				if (!isActionPausedInStoppedTime() && action._stopHeldIfConditionsFail() && action.isOver()) {
 					setAction(null, null, SyncType.NO_SYNC);
 				}
+				syncDirtyActionData();
 				return;
 			}
 			if (!isActionPausedInStoppedTime()) {
@@ -424,11 +427,16 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 				// Stopped from outside while paused (key release, damage): clear it as tickAction does.
 				setAction(null, null, SyncType.NO_SYNC);
 			}
-			if (action != null && !entity.level().isClientSide()) {
-				SyncActionInstanceData.tickSyncDirtyData(
-						entity, actionGeneration,
-						action.synchedData.getDataSyncher());
-			}
+			syncDirtyActionData();
+		}
+	}
+
+	// also while the action waits (a stunned or summon-locked Stand): a release flag set meanwhile reaches the clients
+	private void syncDirtyActionData() {
+		if (action != null && !entity.level().isClientSide()) {
+			SyncActionInstanceData.tickSyncDirtyData(
+					entity, actionGeneration,
+					action.synchedData.getDataSyncher());
 		}
 	}
 	
@@ -577,6 +585,18 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 	public static ActionTargetAim getAim(LivingEntity entity) {
 		LivingComponentAction existingData = getExistingComponent(entity);
 		return existingData != null ? existingData.entityAim : null;
+	}
+
+	/**
+	 * Server: stores the aim a player's client sent for the player itself (its camera's pick, ClientsideAim), as
+	 * {@link ActionTargetAim#setTargetFromClient} does, but never the player: 1.16 Action.checkTarget emptied a target that
+	 * was the user, which another camera's pick (a manually controlled Stand's, a member's view) may meet.
+	 */
+	public void setUserAimFromClient(ActionTarget received) {
+		entityAim.setTargetFromClient(received, entity.level());
+		if (entityAim.getTarget().getType() == ActionTarget.TargetType.ENTITY && entityAim.getTarget().getEntity() == entity) {
+			entityAim.setTarget(ActionTarget.EMPTY);
+		}
 	}
 
 }

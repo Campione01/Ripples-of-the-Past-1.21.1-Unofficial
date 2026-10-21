@@ -119,9 +119,10 @@ public final class HeldCooldownTiming116GameTests {
 							s.tick(1);
 							ticks++;
 						}
-						// 1.16 fired the full charge and performed its shot in the same tick: the action may be over by now
-						helper.assertTrue(charge.getPhase() != ActionPhase.BUTTON_CHARGE,
-								"setup: the full Crossfire Hurricane charge did not fire: phase " + charge.getPhase());
+						// 1.16's power fired the full charge after the Stand's tick, whose next tick performed the shot
+						helper.assertTrue(!charge.isOver() && charge.getPhase() == ActionPhase.PERFORM && charge.getPhaseTick() < 1,
+								"setup: the full Crossfire Hurricane charge did not fire into its perform's start: phase "
+										+ charge.getPhase() + " tick " + charge.getPhaseTick());
 						helper.assertTrue(s.power.getAbilityCooldown(CROSSFIRE) == COOLDOWN
 										&& s.power.getAbilityCooldownTotal(CROSSFIRE) == COOLDOWN && !charge.isCooldownTakenAfterHold(),
 								"1.16 performAction set the cooldown as the charge fired: " + s.power.getAbilityCooldown(CROSSFIRE)
