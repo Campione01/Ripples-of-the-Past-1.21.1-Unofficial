@@ -691,7 +691,9 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		}
 		else {
 			ActionTarget crosshairTarget = standAction.entityAim.getTarget();
-			if (crosshairTarget.getType() == TargetType.ENTITY) {
+			// the synced aim may be the user's pet, mount or ally (1.16's mouse target); the idle look stays off them
+			if (crosshairTarget.getType() == TargetType.ENTITY && crosshairTarget.getEntity() != null
+					&& canAttackEntity(crosshairTarget.getEntity())) {
 				lookTarget = crosshairTarget;
 			}
 			else {

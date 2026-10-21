@@ -451,7 +451,15 @@ public class EntityActionInstance implements HeldInput {
 		if (aim != null) {
 			target = aim.getTarget();
 		}
-		return setActionTargetSnapshot(target);
+		return setActionTargetSnapshot(takesPressedTarget(target) ? target : ActionTarget.EMPTY);
+	}
+
+	// a Stand action's press target passes 1.16's checkStandTarget (StandEntityAbility#takesPressedTarget); others any
+	private boolean takesPressedTarget(@Nullable ActionTarget target) {
+		if (target == null || !(ability instanceof StandEntityAbility standAbility) || !(performer instanceof StandEntity stand)) {
+			return true;
+		}
+		return standAbility.takesPressedTarget(stand, target.copy().resolveEntityId(stand.level()));
 	}
 
 	protected ActionTarget setActionTargetSnapshot(@Nullable ActionTarget target) {
@@ -811,7 +819,7 @@ public class EntityActionInstance implements HeldInput {
 		Level level = level();
 		if (!level.isClientSide()) {
 			ActionTarget aimTarget = target != null ? target.resolveEntityId(level) : ActionTarget.EMPTY;
-			if (!aimTarget.isEmpty(level)) {
+			if (!aimTarget.isEmpty(level) && takesPressedTarget(aimTarget)) {
 				standRotationTarget = aimTarget;
 			}
 		}

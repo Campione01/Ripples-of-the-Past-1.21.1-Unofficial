@@ -925,9 +925,11 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 
 		boolean userAims = user != null && !stand.aimsWithoutUser();
 		// 1.16 EntityStandType.clientHitResult sent what the user's crosshair met. The Stand's synced aim speaks first only
-		// under manual control and, with the aim assist, for an action that is not a punch; without the assist the server
-		// takes what the crosshair meets, whatever a client sent.
-		var standAim = !userAims || precisionAim && assist ? LivingComponentAction.getAim(stand) : null;
+		// under manual control; without the assist the server takes what the crosshair meets, whatever a client sent. With
+		// the assist an action that is not a punch strikes as 1.16's StandEntity.punch aimed it, aimWithThisOrUser with the
+		// precision ray and its priority, never a vanilla pick.
+		boolean precisionRayOnly = userAims && precisionAim && assist;
+		var standAim = !userAims ? LivingComponentAction.getAim(stand) : null;
 		if (standAim != null) {
 			target = rule.takesFromAim(validatePunchTarget(stand, standAim.getTarget()), assist);
 			if (!target.isEmpty(level)) {
@@ -935,7 +937,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			}
 		}
 
-		var userAim = userAims ? LivingComponentAction.getAim(user) : null;
+		var userAim = userAims && !precisionRayOnly ? LivingComponentAction.getAim(user) : null;
 		if (userAim != null) {
 			target = rule.takesFromAim(validatePunchTarget(stand, userAim.getTarget()), assist);
 			if (!target.isEmpty(level)) {
@@ -1215,19 +1217,45 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	 * vanilla pick from the Stand's eyes (a block within the player's block reach, any entity within its entity reach)
 	 * when it met a block or an entity other than the Stand, otherwise the precision ray from the Stand as far as its own
 	 * reach (getAimDistance under manual control) over any entity but the Stand, its user and their projectiles. Without
-	 * the aim assist, what the Stand's crosshair line meets first within that reach. Its readers judge the target.
+	 * the aim assist only what the crosshair meets: that vanilla pick, else the Stand's crosshair line within its reach.
+	 * Its readers judge the target.
 	 */
 	public static ActionTarget manualStandAim(StandEntity stand, ActionTarget vanillaPick) {
 		double reach = stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE);
 		boolean wallsHideEntities = StandSkillWalls.wallsHideEntities(stand);
-		if (!aimAssist(stand.getUser())) {
-			return StandPrecisionRay.crosshair(stand, stand, reach, true, wallsHideEntities);
-		}
 		if (vanillaPick.getType() == TargetType.BLOCK || vanillaPick.getType() == TargetType.ENTITY
 				&& vanillaPick.getEntity() != null && vanillaPick.getEntity() != stand) {
 			return vanillaPick;
 		}
+		if (!aimAssist(stand.getUser())) {
+			return StandPrecisionRay.crosshair(stand, stand, reach, true, wallsHideEntities);
+		}
 		return StandPrecisionRay.trace(stand, stand, reach, 0.0D, true, wallsHideEntities);
+	}
+
+	/**
+	 * The Stand's aim a client keeps while its camera is an entity that is neither its user nor the Stand (the soul out of
+	 * its body, Gold Experience's split consciousness, a puppet): 1.16's EntityStandType.clientHitResult with that camera
+	 * entity, its vanilla pick when it met a block or an entity other than the Stand, a miss when it met the Stand,
+	 * otherwise the precision ray from the camera over any entity but the Stand and its user, as far as getAimDistance of
+	 * the camera: its own reach when it is a living entity that has one (a player), otherwise and under manual control the
+	 * Stand's. Without the aim assist, what the camera's crosshair line meets first within that reach.
+	 */
+	public static ActionTarget cameraStandAim(StandEntity stand, Entity camera, ActionTarget vanillaPick) {
+		double reach = !stand.isManuallyControlled() && camera instanceof LivingEntity living
+				? userAimReach(living, stand) : stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE);
+		boolean wallsHideEntities = StandSkillWalls.wallsHideEntities(stand);
+		if (!aimAssist(stand.getUser())) {
+			return StandPrecisionRay.crosshair(camera, stand, reach, true, wallsHideEntities);
+		}
+		if (vanillaPick.getType() == TargetType.BLOCK) {
+			return vanillaPick;
+		}
+		Entity picked = vanillaPick.getType() == TargetType.ENTITY ? vanillaPick.getEntity() : null;
+		if (picked != null) {
+			return picked != stand ? vanillaPick : ActionTarget.EMPTY;
+		}
+		return StandPrecisionRay.trace(camera, stand, reach, 0.0D, true, wallsHideEntities);
 	}
 
 	/**
@@ -1235,11 +1263,16 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	 * (InputHandler.pickMouseTarget, EntityStandType.clientHitResult), whatever action the Stand ran. Under manual control,
 	 * while the Stand aims as itself (EntityActionInstance#aimAs), the Stand's crosshair ({@link #manualStandAim});
 	 * otherwise its user's ({@link #userStandAim}), also while an action aims as the Stand, which turns to its own target
-	 * on the server. The vanilla pick counts only while the aiming entity is the camera.
+	 * on the server, and during a directional barrage, whose every hit aims again on the server (StandEntity.punch,
+	 * aimWithThisOrUser without friendly fire). The vanilla pick counts only while the aiming entity is the camera. With
+	 * a camera that is neither the user nor the Stand, that camera's crosshair ({@link #cameraStandAim}).
 	 */
 	public static ActionTarget clientStandAim(StandEntity stand, LivingEntity user, @Nullable Entity camera,
 			ActionTarget vanillaPick) {
 		boolean userIsCamera = camera == null || camera == user;
+		if (!userIsCamera && camera != stand) {
+			return cameraStandAim(stand, camera, vanillaPick);
+		}
 		EntityActionInstance action = LivingComponentAction.getCurEntityAction(stand);
 		AimingEntity aimAs = action != null ? action.aimAs : AimingEntity.CAMERA_ENTITY;
 		boolean standAims = aimAs == AimingEntity.STAND || aimAs == AimingEntity.CAMERA_ENTITY && !userIsCamera;

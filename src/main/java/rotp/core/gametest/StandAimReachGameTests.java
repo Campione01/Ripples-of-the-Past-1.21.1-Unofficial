@@ -463,10 +463,43 @@ public final class StandAimReachGameTests {
 			ActionTarget aim = scene.sendClientAims();
 			helper.assertTrue(aim.getMainEntity() == crosshair, "A client's Stand aim took " + aim
 					+ "; 1.16 kept the vanilla pick, the cow on the crosshair, before the nearer cow beside it");
+			// a strike of an action that is not a punch aimed as 1.16's StandEntity.punch did, with the precision ray only
 			component.setAction(action(helper, scene, "star_finger"), scene.user, SyncType.NO_SYNC);
 			ActionTarget finger = StandEntityPunchAbility.getFreshPunchTarget(scene.stand, ActionTarget.EMPTY);
-			helper.assertTrue(finger.getMainEntity() == crosshair,
-					"An action that is not a punch took " + finger + " from the Stand aim a client sends");
+			Entity ray = StandEntityPunchAbility.userPrecisionRayTarget(scene.stand, scene.user).getMainEntity();
+			helper.assertTrue(ray != null && finger.getMainEntity() == ray, "An action that is not a punch took " + finger
+					+ "; 1.16's StandEntity.punch aimed with the precision ray, which takes " + ray);
+			helper.succeed();
+		}
+		finally {
+			component.setAction(null, scene.user, SyncType.NO_SYNC);
+			scene.close();
+		}
+	}
+
+	// 1.16 StandEntity.punch aimed a strike with aimWithThisOrUser: the precision ray and its priority (a player or Stand,
+	// then a hostile mob, then the rest), never the vanilla pick, so a precision-aimed strike (The World's time-stop punch,
+	// an add-on's bomb punch or Erase, here Star Finger) takes the husk beside the crosshair before the cow on it
+	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH + "_alone_1")
+	public static void aPrecisionAimedStrikeTakesTheHostileMobBesideTheCrosshairCowAsIn116(GameTestHelper helper) {
+		Scene scene = new Scene(helper, GameType.SURVIVAL, false, 16);
+		LivingComponentAction component = LivingComponentAction.getComponent(scene.stand);
+		try {
+			Cow cow = scene.cow(0, 2.0);
+			Husk husk = scene.husk(-0.8, 2.2);
+			scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, cow.getBoundingBox().getCenter());
+			ActionTarget aim = scene.sendClientAims();
+			Vec3 eyes = scene.user.getEyePosition();
+			helper.assertTrue(aim.getMainEntity() == cow && husk.getBoundingBox().clip(eyes, eyes.add(scene.user.getViewVector(1)
+					.scale(5))).isEmpty() && StandEntityPunchAbility.userPrecisionRayTarget(scene.stand, scene.user)
+							.getMainEntity() == husk, "Fixture: the client's aims are " + aim + ", the husk on the crosshair or not"
+									+ " the precision ray's pick");
+			component.setAction(action(helper, scene, "star_finger"), scene.user, SyncType.NO_SYNC);
+			ActionTarget fresh = StandEntityPunchAbility.getFreshPunchTarget(scene.stand, ActionTarget.EMPTY);
+			ActionTarget tsPunchShape = StandEntityPunchAbility.getFreshPunchTarget(scene.stand, ActionTarget.EMPTY, true, true);
+			helper.assertTrue(fresh.getMainEntity() == husk && tsPunchShape.getMainEntity() == husk, "A precision-aimed strike"
+					+ " took " + fresh + " (as the time-stop punch asks it, " + tsPunchShape + ") with the cow on the crosshair;"
+					+ " 1.16's aimWithThisOrUser took the husk beside it, the precision ray's hostile mob");
 			helper.succeed();
 		}
 		finally {

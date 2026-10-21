@@ -261,6 +261,21 @@ public class StandEntityAbility extends EntityActionAbility {
 	}
 
 	/**
+	 * 1.16 StandEntityAction.checkStandTarget as PowerBaseImpl.checkTarget asked it of the target an action was pressed
+	 * at: an entity is the action's target only if its task keeps that entity ({@link #keepsTaskTargetEntity}: a living one
+	 * the Stand may attack, any one an action with friendly fire takes); a refused one left the action without a target, so
+	 * its Stand did not turn to it. Other targets pass. Asked where a Stand action takes the synced aim at its press
+	 * (EntityActionInstance#captureActionTargetFromAim, #keepStandAimedAtTarget).
+	 */
+	public boolean takesPressedTarget(StandEntity standEntity, ActionTarget target) {
+		if (target.getType() != ActionTarget.TargetType.ENTITY) {
+			return true;
+		}
+		Entity entity = target.getEntity();
+		return entity != null && keepsTaskTargetEntity(standEntity, entity);
+	}
+
+	/**
 	 * 1.16 StandEntityTask.keepTarget, which the server asked as the task started (makeServerSideTask, setTask taking the
 	 * previous task's target) and on every tick of it: no target is kept from nothing; an entity is kept until it is
 	 * removed or has lain dead for 20 ticks, never the Stand itself, only one the action keeps

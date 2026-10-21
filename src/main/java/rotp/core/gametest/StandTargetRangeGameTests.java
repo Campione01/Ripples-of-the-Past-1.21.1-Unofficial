@@ -21,6 +21,7 @@ import javax.annotation.Nullable;
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
+import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 import rotp.core.impl.stands.goldexperience.GEGrowthSparkles;
 import rotp.core.impl.stands.goldexperience.GEItemMarkEffect;
@@ -55,6 +56,7 @@ import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.itemtracking.ItemTracker;
 import rotp.core.subsystems.itemtracking.ItemTracking;
 import rotp.core.subsystems.itemtracking.KnownItemState;
+import rotp.core.subsystems.soul.SoulEntity;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
 import rotp.core.subsystems.target.ActionTargetAim;
@@ -1313,15 +1315,15 @@ public final class StandTargetRangeGameTests {
 				"no action: the user's tamed wolf before a cow beside the Stand's look, in their precision boxes",
 				"no action: a snow golem beside the Stand's look past its reach, in its precision box",
 				"the aim assist off, a held Revert: a cow before a snow golem on the Stand's look",
-				"the aim assist off, no action: a cow beside the Stand's look, in its precision box" };
+				"the aim assist off, no action: a cow beside the Stand's look, in its precision box",
+				"the aim assist off, no action: a stone block on the Stand's look past its reach, within the vanilla pick" };
 		List<String> wrong = new ArrayList<>();
 		for (String row : rows) {
 			try (Fixture fixture = Fixture.open(helper, Kind.CD_REVERT)) {
 				fixture.power.setResolveLevel(4);
 				StandEntity stand = fixture.stand;
 				stand.setManuallyControlled(true);
-				stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z - 2.4D, 180.0F, 0.0F);
-				stand.setYHeadRot(180.0F);
+				boolean held = steerBehind(fixture, stand);
 				LivingComponentAction.getComponent(stand).entityAim.setTarget(ActionTarget.EMPTY);
 				if (row.startsWith("the aim assist off")) {
 					fixture.user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get()).standAimAssist = false;
@@ -1407,7 +1409,7 @@ public final class StandTargetRangeGameTests {
 					expected = ActionTarget.EMPTY;
 				}
 				ActionTarget vanillaPick = vanillaPick(stand, fixture.user);
-				helper.assertTrue(premise && stand.isManuallyControlled() && entry(fixture.user, stand.getBoundingBox()) < 0.0D,
+				helper.assertTrue(premise && held && stand.isManuallyControlled() && entry(fixture.user, stand.getBoundingBox()) < 0.0D,
 						"STAND-AIM premise: " + row + ": " + layout + "; the vanilla pick " + describe(vanillaPick, stand));
 				ActionTarget aim = StandEntityPunchAbility.manualStandAim(stand, vanillaPick);
 				boolean matches = expected instanceof Entity entity ? aim.getType() == TargetType.ENTITY && aim.getEntity() == entity
@@ -1540,8 +1542,11 @@ public final class StandTargetRangeGameTests {
 				boolean manual = row.startsWith("under manual control");
 				boolean noAction = row.contains("no action");
 				stand.setManuallyControlled(manual);
-				stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z - 2.4D, 180.0F, 0.0F);
-				stand.setYHeadRot(180.0F);
+				boolean held = !manual || steerBehind(fixture, stand);
+				if (!manual) {
+					stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z - 2.4D, 180.0F, 0.0F);
+					stand.setYHeadRot(180.0F);
+				}
 				LivingComponentAction.getComponent(stand).entityAim.setTarget(ActionTarget.EMPTY);
 				if (row.startsWith("the aim assist off")) {
 					fixture.user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get()).standAimAssist = false;
@@ -1550,7 +1555,7 @@ public final class StandTargetRangeGameTests {
 				double userReach = StandEntityPunchAbility.userAimReach(fixture.user, stand);
 				SnowGolem golem = placed(helper, fixture, EntityType.SNOW_GOLEM, aheadOfStand(stand, 0.0D, 1.2D));
 				double golemEntry = entry(stand, golem.getBoundingBox());
-				boolean premise = golemEntry > 0.0D && golemEntry < standReach && entry(fixture.user, grownBox(stand, golem)) < 0.0D
+				boolean premise = held && golemEntry > 0.0D && golemEntry < standReach && entry(fixture.user, grownBox(stand, golem)) < 0.0D
 						&& entry(fixture.user, stand.getBoundingBox()) < 0.0D;
 				String layout = "the golem " + golemEntry + " blocks along the Stand's look (reach " + standReach + ")";
 				Cow cow;
@@ -1648,6 +1653,387 @@ public final class StandTargetRangeGameTests {
 		helper.succeed();
 	}
 
+	/*
+	 * 1.16's client kept its one mouse target during a barrage as at any other time (InputHandler.pickMouseTarget,
+	 * EntityStandType.clientHitResult: the vanilla pick, else the precision ray with friendly fire), while each hit aimed
+	 * again on the server (StandEntityMeleeBarrage.standTickPerform, StandEntity.punch: aimWithThisOrUser without friendly
+	 * fire). The port's client sent the barrage's own hit aim as its Stand's aim during a directional barrage
+	 * (StandEntityBarrageAbility.clipDirectionalBarrageTarget). Crazy Diamond beside its user, a directional barrage
+	 * running (keep attack target off); the client's choice (StandEntityPunchAbility.clientStandAim, ClientsideAim's one
+	 * call, client-only and so pinned from its class file) with GameRenderer.pick's vanilla pick from the camera, then the
+	 * barrage's hits with that aim synced.
+	 */
+	@GameTest(template = "empty", batch = BATCH)
+	public static void aDirectionalBarrageLeavesItsStandsClientAimOnTheMouseTargetAsIn116(GameTestHelper helper) {
+		String[] rows = { "the user's own tamed wolf on the crosshair, a cow beside the look in its precision box",
+				"a stone block on the crosshair, a cow beside the look before it in its precision box",
+				"nothing on the crosshair, the user's own tamed wolf and a cow beside the look in their precision boxes",
+				"the aim assist off: the user's own tamed wolf on the crosshair line, a cow behind it on the line",
+				"under manual control, the Stand the camera: the user's own tamed wolf on the Stand's crosshair, a cow beside"
+						+ " its look in its precision box" };
+		List<String> wrong = new ArrayList<>();
+		for (String row : rows) {
+			try (Fixture fixture = Fixture.open(helper, Kind.CD_REVERT)) {
+				StandEntity stand = fixture.stand;
+				boolean manual = row.startsWith("under manual control");
+				if (manual) {
+					stand.setManuallyControlled(true);
+					helper.assertTrue(steerBehind(fixture, stand), "DIRECTIONAL-BARRAGE premise: the manually controlled Stand is past its max range of its user");
+				}
+				else {
+					// beside its user, off the user's look, the cow within its reach
+					stand.moveTo(fixture.origin.x - 1.0D, fixture.origin.y, fixture.origin.z + 0.6D, 0.0F, 0.0F);
+				}
+				LivingComponentAction standActions = LivingComponentAction.getComponent(stand);
+				standActions.entityAim.setTarget(ActionTarget.EMPTY);
+				if (row.startsWith("the aim assist off")) {
+					fixture.user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get()).standAimAssist = false;
+				}
+				LivingEntity camera = manual ? stand : fixture.user;
+				Wolf wolf = null;
+				BlockPos block = null;
+				Cow cow;
+				if (manual) {
+					wolf = ownWolf(helper, fixture, aheadOfStand(stand, 0.0D, 2.0D));
+					cow = placed(helper, fixture, EntityType.COW, aheadOfStand(stand, 0.6D, 1.2D));
+				}
+				else if (row.startsWith("a stone block")) {
+					block = fixture.block(BlockPos.containing(fixture.origin.x, fixture.user.getEyeY(), fixture.origin.z + 2.6D));
+					cow = placed(helper, fixture, EntityType.COW, onLook(fixture, 0.6D, 1.2D));
+				}
+				else if (row.startsWith("nothing on the crosshair")) {
+					wolf = ownWolf(helper, fixture, onLook(fixture, 0.5D, 1.0D));
+					cow = placed(helper, fixture, EntityType.COW, onLook(fixture, 0.6D, 2.0D));
+				}
+				else if (row.startsWith("the aim assist off")) {
+					wolf = ownWolf(helper, fixture, onLook(fixture, 0.0D, 1.4D));
+					cow = placed(helper, fixture, EntityType.COW, onLook(fixture, 0.0D, 2.6D));
+				}
+				else {
+					wolf = ownWolf(helper, fixture, onLook(fixture, 0.0D, 2.2D));
+					cow = placed(helper, fixture, EntityType.COW, onLook(fixture, 0.6D, 1.2D));
+				}
+				// as summoned long before, so that its actions tick
+				stand.summonLockTicks = 0;
+				stand.gradualSummonWeaknessTicks = 0;
+				EntityActionInstance barrage = ((EntityActionType) fixture.power.getAbility("barrage")).initActionOnAbilityUse(
+						fixture.level, fixture.user, stand, null);
+				standActions.setAction(barrage, fixture.user, SyncType.NO_SYNC);
+				ActionTarget vanillaPick = vanillaPick(camera, fixture.user);
+				ActionTarget barrageAim = StandEntityBarrageAbility.clipDirectionalBarrageTarget(stand, barrage, 1.0F);
+				String layout = (wolf != null ? "the wolf " + entry(camera, wolf.getBoundingBox()) + ", " : "")
+						+ (block != null ? "the block " + entry(camera, new AABB(block)) + ", " : "")
+						+ "the cow " + entry(camera, cow.getBoundingBox()) + " (precision box " + entry(camera, grownBox(stand, cow))
+						+ ") blocks along the " + (manual ? "Stand's" : "user's") + " look";
+				boolean premise = LivingComponentAction.getCurEntityAction(stand) == barrage
+						&& StandEntityBarrageAbility.isDirectionalBarrage(stand, barrage) && stand.isManuallyControlled() == manual
+						&& (manual || entry(fixture.user, stand.getBoundingBox()) < 0.0D)
+						&& barrageAim.getType() == TargetType.ENTITY && barrageAim.getEntity() == cow
+						&& (wolf == null || wolf.getOwner() == fixture.user && !stand.canAttackEntity(wolf));
+				Object expected;
+				if (block != null) {
+					premise &= vanillaPick.getType() == TargetType.BLOCK && block.equals(vanillaPick.getBlockPos())
+							&& entry(camera, cow.getBoundingBox()) < 0.0D;
+					expected = block;
+				}
+				else if (row.startsWith("nothing on the crosshair")) {
+					premise &= vanillaPick.getType() == TargetType.EMPTY && entry(camera, wolf.getBoundingBox()) < 0.0D
+							&& entry(camera, cow.getBoundingBox()) < 0.0D && StandEntityPunchAbility.userPrecisionRayTarget(stand,
+									fixture.user, entity -> StandEntityPunchAbility.canUserAimTarget(stand, entity)).getEntity() == wolf;
+					expected = wolf;
+				}
+				else {
+					premise &= vanillaPick.getType() == TargetType.ENTITY && vanillaPick.getEntity() == wolf
+							&& (row.startsWith("the aim assist off") ? entry(camera, cow.getBoundingBox()) > entry(camera, wolf.getBoundingBox())
+									: entry(camera, cow.getBoundingBox()) < 0.0D);
+					expected = wolf;
+				}
+				helper.assertTrue(premise, "DIRECTIONAL-BARRAGE premise: " + row + ": " + layout + "; the vanilla pick "
+						+ describe(vanillaPick, camera) + ", the barrage's own aim " + describe(barrageAim, camera));
+				ActionTarget aim = StandEntityPunchAbility.clientStandAim(stand, fixture.user, camera, vanillaPick);
+				boolean matches = expected instanceof Entity entity ? aim.getType() == TargetType.ENTITY && aim.getEntity() == entity
+						: aim.getType() == TargetType.BLOCK && expected.equals(aim.getBlockPos());
+				if (!matches) {
+					wrong.add("DIRECTIONAL-BARRAGE " + row + " (" + layout + "; the vanilla pick " + describe(vanillaPick, camera)
+							+ ", the barrage's own aim " + describe(barrageAim, camera) + "): the Stand's aim is "
+							+ describe(aim, camera) + "; 1.16's one mouse target, the " + (manual ? "Stand's" : "user's")
+							+ " crosshair, took " + (expected instanceof Entity entity ? entity.getType().getDescription().getString()
+									: "the block at " + ((BlockPos) expected).toShortString()));
+				}
+				// the aims the client now syncs; each hit still aims again, as 1.16's did
+				standActions.entityAim.setTargetFromClient(aim, fixture.level);
+				LivingComponentAction.getComponent(fixture.user).entityAim.setTargetFromClient(
+						manual ? ActionTarget.EMPTY : vanillaPick, fixture.level);
+				float cowHealth = cow.getHealth();
+				float wolfHealth = wolf != null ? wolf.getHealth() : 0.0F;
+				for (int tick = 0; tick < 12 && cow.getHealth() >= cowHealth; tick++) {
+					fixture.power.setStamina(fixture.power.getMaxStamina());
+					stand.tickCount++;
+					standActions.tick();
+				}
+				if (cow.getHealth() >= cowHealth || wolf != null && wolf.getHealth() < wolfHealth
+						|| block != null && !fixture.level.getBlockState(block).is(Blocks.STONE)) {
+					wrong.add("DIRECTIONAL-BARRAGE " + row + ": with the client's aim synced the barrage struck "
+							+ (barrage.punchedTarget != null ? describe(barrage.punchedTarget, camera) : "nothing") + " (the cow "
+							+ cowHealth + " -> " + cow.getHealth() + (wolf != null ? ", the wolf " + wolfHealth + " -> " + wolf.getHealth() : "")
+							+ (block != null ? ", the block " + fixture.level.getBlockState(block) : "") + "); 1.16's hits aimed"
+							+ " again without friendly fire and struck the cow");
+				}
+				standActions.setAction(null, fixture.user, SyncType.NO_SYNC);
+			}
+		}
+		String clientAim = "rotp/core/client/input/ClientsideAim.class";
+		try (InputStream in = StandTargetRangeGameTests.class.getClassLoader().getResourceAsStream(clientAim)) {
+			helper.assertTrue(in != null, "Missing class file " + clientAim);
+			String pool = new String(in.readAllBytes(), StandardCharsets.ISO_8859_1);
+			if (!pool.contains("clientStandAim") || !pool.contains(CLIENT_STAND_AIM)
+					|| pool.contains("clipDirectionalBarrageTarget") || pool.contains("isDirectionalBarrage")) {
+				wrong.add("DIRECTIONAL-BARRAGE the client still sends its barrage's own hit aim as its Stand's aim"
+						+ " (StandEntityBarrageAbility.clipDirectionalBarrageTarget) instead of clientStandAim(stand, user, camera,"
+						+ " vanillaPick), 1.16's one mouse target");
+			}
+		}
+		catch (IOException e) {
+			wrong.add("DIRECTIONAL-BARRAGE cannot read " + clientAim + ": " + e);
+		}
+		helper.assertTrue(wrong.isEmpty(), String.join("; ", wrong));
+		helper.succeed();
+	}
+
+	// the user's own tamed wolf, which its Stand may not attack (StandEntity.canAttack), with its box centred there
+	private static Wolf ownWolf(GameTestHelper helper, Fixture fixture, Vec3 centre) {
+		Wolf wolf = placed(helper, fixture, EntityType.WOLF, centre);
+		wolf.setTame(true, false);
+		wolf.setOwnerUUID(fixture.user.getUUID());
+		return wolf;
+	}
+
+	/*
+	 * 1.16's mouse target came from the camera entity, whatever it was (InputHandler.pickMouseTarget gave
+	 * mc.getCameraEntity() to EntityStandType.clientHitResult): with the soul out of its body (ControllerSoul), Gold
+	 * Experience's split consciousness on its victim's client (ControllerConsciousness, a client-only copy of the player)
+	 * or any other camera, that camera's vanilla pick, else the precision ray from it as far as getAimDistance(camera).
+	 * The port aimed from the user then, or from the Stand under manual control. The client's choice
+	 * (StandEntityPunchAbility.clientStandAim, which ClientsideAim gives mc.cameraEntity) run with such a camera: a soul,
+	 * a player standing for the consciousness, a villager for a puppet, three blocks beside the user and looking the
+	 * same way, with GameRenderer.pick's vanilla pick from the camera; Crazy Diamond three blocks behind its user.
+	 */
+	@GameTest(template = "empty", batch = BATCH)
+	public static void aStandAimsFromACameraThatIsNeitherItsUserNorItselfAsIn116(GameTestHelper helper) {
+		String[] rows = { "the soul: its vanilla pick on a cow, a creeper beside its look behind it in its precision box",
+				"the soul: nothing on its crosshair, a cow beside its look in its precision box",
+				"the soul: nothing on its crosshair, a cow beside its look in its precision box past the Stand's reach",
+				"a player camera: nothing on its crosshair, a cow beside its look in its precision box past the Stand's reach",
+				"a player camera: its vanilla pick on the Stand, a cow beside its look behind it in its precision box",
+				"a player camera: its vanilla pick on the user",
+				"the aim assist off, a player camera: a cow on its look",
+				"the aim assist off, a player camera: a cow beside its look in its precision box",
+				"under manual control, a villager the camera: its vanilla pick on a cow",
+				"under manual control, a player camera: nothing on its crosshair, a cow beside its look in its precision box"
+						+ " past the Stand's reach" };
+		List<String> wrong = new ArrayList<>();
+		for (String row : rows) {
+			try (Fixture fixture = Fixture.open(helper, Kind.CD_REVERT)) {
+				StandEntity stand = fixture.stand;
+				boolean manual = row.startsWith("under manual control");
+				if (manual) {
+					stand.setManuallyControlled(true);
+				}
+				stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z - 3.0D, 0.0F, 0.0F);
+				stand.setYHeadRot(0.0F);
+				LivingComponentAction.getComponent(stand).entityAim.setTarget(ActionTarget.EMPTY);
+				if (row.startsWith("the aim assist off")) {
+					fixture.user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get()).standAimAssist = false;
+				}
+				boolean onUser = row.endsWith("on the user");
+				double cameraX = fixture.origin.x + (onUser ? 2.0D : 3.0D);
+				double cameraZ = fixture.origin.z + (onUser ? 0.0D : 1.0D);
+				float cameraYaw = onUser ? 90.0F : 0.0F;
+				Entity camera;
+				if (row.startsWith("the soul")) {
+					camera = new SoulEntity(fixture.level, fixture.user, 100);
+				}
+				else if (row.contains("a villager the camera")) {
+					camera = placed(helper, fixture, EntityType.VILLAGER,
+							new Vec3(cameraX, fixture.origin.y + EntityType.VILLAGER.getHeight() / 2.0D, cameraZ));
+				}
+				else {
+					camera = new FakePlayer(fixture.level, new GameProfile(UUID.randomUUID(), "StandTargetCamera"));
+				}
+				camera.moveTo(cameraX, fixture.origin.y, cameraZ, cameraYaw, 0.0F);
+				camera.setYHeadRot(cameraYaw);
+				double standReach = stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE);
+				double cameraReach = camera instanceof LivingEntity living ? StandEntityPunchAbility.userAimReach(living, stand)
+						: standReach;
+				Object expected;
+				String layout;
+				boolean premise;
+				if (onUser) {
+					premise = entry(camera, fixture.user.getBoundingBox()) > 0.0D;
+					layout = "the user " + entry(camera, fixture.user.getBoundingBox()) + " blocks along the camera's look";
+					expected = fixture.user;
+				}
+				else if (row.contains("on the Stand")) {
+					stand.moveTo(cameraX, fixture.origin.y, cameraZ + 1.5D, 0.0F, 0.0F);
+					Cow cow = placed(helper, fixture, EntityType.COW, onCameraLook(camera, 0.6D, 2.4D));
+					premise = entry(camera, stand.getBoundingBox()) > 0.0D && entry(camera, cow.getBoundingBox()) < 0.0D
+							&& StandPrecisionRay.trace(camera, stand, cameraReach, 0.0D, true, true).getEntity() == cow;
+					layout = "the Stand " + entry(camera, stand.getBoundingBox()) + " blocks along the camera's look, the cow's"
+							+ " precision box " + entry(camera, grownBox(stand, cow)) + ", which the camera's precision ray takes";
+					expected = ActionTarget.EMPTY;
+				}
+				else if (row.contains("a creeper")) {
+					Cow cow = placed(helper, fixture, EntityType.COW, onCameraLook(camera, 0.0D, 1.6D));
+					Creeper creeper = placed(helper, fixture, EntityType.CREEPER, onCameraLook(camera, 0.6D, 2.0D));
+					premise = entry(camera, creeper.getBoundingBox()) < 0.0D
+							&& StandPrecisionRay.trace(camera, stand, cameraReach, 0.0D, true, true).getEntity() == creeper;
+					layout = "the cow " + entry(camera, cow.getBoundingBox()) + " blocks along the camera's look and the creeper's"
+							+ " precision box " + entry(camera, grownBox(stand, creeper)) + ", which its precision ray takes";
+					expected = cow;
+				}
+				else if (row.endsWith("a cow on its look")) {
+					Cow cow = placed(helper, fixture, EntityType.COW, onCameraLook(camera, 0.0D, 1.6D));
+					premise = entry(camera, cow.getBoundingBox()) > 0.0D;
+					layout = "the cow " + entry(camera, cow.getBoundingBox()) + " blocks along the camera's look";
+					expected = cow;
+				}
+				else if (row.contains("a villager the camera")) {
+					Cow cow = placed(helper, fixture, EntityType.COW, onCameraLook(camera, 0.0D, 1.6D));
+					premise = entry(camera, cow.getBoundingBox()) > 0.0D;
+					layout = "the cow " + entry(camera, cow.getBoundingBox()) + " blocks along the villager's look";
+					expected = cow;
+				}
+				else {
+					boolean far = row.endsWith("past the Stand's reach");
+					Cow cow = placed(helper, fixture, EntityType.COW, onCameraLook(camera, 0.6D, far ? 4.0D : 1.2D));
+					double grown = entry(camera, grownBox(stand, cow));
+					premise = entry(camera, cow.getBoundingBox()) < 0.0D && grown > 0.0D
+							&& (far ? grown > standReach && grown < StandEntityPunchAbility.userAimReach(fixture.user, stand)
+									: grown < standReach);
+					layout = "the cow's precision box " + grown + " blocks along the camera's look, off the exact line (the"
+							+ " Stand's reach " + standReach + ", the camera's " + cameraReach + ")";
+					expected = !far || row.startsWith("a player camera") ? cow : ActionTarget.EMPTY;
+					if (row.startsWith("the aim assist off")) {
+						expected = ActionTarget.EMPTY;
+					}
+				}
+				ActionTarget vanillaPick = vanillaPick(camera, fixture.user);
+				premise &= stand.isManuallyControlled() == manual && camera != fixture.user && camera != stand
+						&& (row.contains("nothing on its crosshair") || row.contains("beside its look in its precision box")
+								? vanillaPick.getType() == TargetType.EMPTY
+								: row.contains("on the Stand") ? vanillaPick.getEntity() == stand
+								: vanillaPick.getType() == TargetType.ENTITY && vanillaPick.getEntity() == expected);
+				helper.assertTrue(premise, "CAMERA-AIM premise: " + row + ": " + layout + "; the vanilla pick "
+						+ describe(vanillaPick, camera));
+				ActionTarget aim = StandEntityPunchAbility.clientStandAim(stand, fixture.user, camera, vanillaPick);
+				boolean matches = expected instanceof Entity entity ? aim.getType() == TargetType.ENTITY && aim.getEntity() == entity
+						: aim.getType() == TargetType.EMPTY;
+				if (!matches) {
+					wrong.add("CAMERA-AIM " + row + " (" + layout + "; the vanilla pick " + describe(vanillaPick, camera)
+							+ "): the Stand's aim is " + describe(aim, camera) + "; 1.16's clientHitResult with that camera took "
+							+ (expected instanceof Entity entity ? entity.getType().getDescription().getString() : "nothing"));
+				}
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), String.join("; ", wrong));
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16's mouse target was unfiltered (EntityStandType.clientHitResult, friendly fire on), and PowerBaseImpl.checkTarget
+	 * then asked the pressed action's StandEntityAction.checkStandTarget (:171-176; canStandTargetEntity :199-201: a living
+	 * entity the Stand may attack, StandEntity.canAttack :1932-1949, unless the action had friendly fire): a refused target
+	 * left the action without one, so its Stand faced its user's look. The port's synced Stand aim is that unfiltered target
+	 * again, and the actions that take it at their press (captureActionTargetFromAim, keepStandAimedAtTarget) turned to,
+	 * dashed at or homed on the user's own pet, as the idle Stand looked at it. The user's own tamed wolf on the look past
+	 * the vanilla pick's reach, which the precision ray of a client takes; a husk in its place is the control.
+	 */
+	@GameTest(template = "empty", batch = BATCH)
+	public static void aStandActionPressedAtTheUsersOwnPetTakesNoTargetAsIn116(GameTestHelper helper) {
+		Kind[] kinds = { Kind.SC_DASH, Kind.SC_SWEEP, Kind.MR_CROSSFIRE, Kind.MR_CROSSFIRE_SPECIAL, Kind.CD_GRAB, null };
+		List<String> wrong = new ArrayList<>();
+		for (Kind kind : kinds) {
+			for (boolean pet : new boolean[] { true, false }) {
+				String row = (kind != null ? kind.stand + " " + kind.ability + " pressed" : "the idle Stand") + " with "
+						+ (pet ? "the user's own tamed wolf" : "a husk") + " as the synced aim";
+				try (Fixture fixture = Fixture.open(helper, kind != null ? kind : Kind.CD_REVERT)) {
+					StandEntity stand = fixture.stand;
+					stand.summonLockTicks = 0;
+					stand.gradualSummonWeaknessTicks = 0;
+					stand.moveTo(fixture.origin.x - 1.0D, fixture.origin.y, fixture.origin.z, 0.0F, 0.0F);
+					stand.setYHeadRot(0.0F);
+					LivingComponentAction standActions = LivingComponentAction.getComponent(stand);
+					// on the look past the vanilla pick's 3 blocks, within the precision ray's 5
+					LivingEntity aimed = pet ? ownWolf(helper, fixture, onLook(fixture, 0.0D, 3.8D))
+							: placed(helper, fixture, EntityType.HUSK, onLook(fixture, 0.0D, 3.8D));
+					ActionTarget vanillaPick = vanillaPick(fixture.user, fixture.user);
+					ActionTarget sent = StandEntityPunchAbility.clientStandAim(stand, fixture.user, fixture.user, vanillaPick);
+					helper.assertTrue(vanillaPick.getType() == TargetType.EMPTY && sent.getEntity() == aimed
+							&& stand.canAttackEntity(aimed) != pet && (!pet || ((Wolf) aimed).getOwner() == fixture.user),
+							"OWN-PET premise: " + row + ": the vanilla pick " + describe(vanillaPick, fixture.user)
+									+ ", the client sends " + describe(sent, fixture.user));
+					standActions.entityAim.setTargetFromClient(sent, fixture.level);
+					LivingComponentAction.getComponent(fixture.user).entityAim.setTargetFromClient(vanillaPick, fixture.level);
+					if (kind == null) {
+						boolean looked = stand.lookAtCurTarget(stand.rotO);
+						if (looked == pet) {
+							wrong.add("OWN-PET " + row + ": the idle Stand " + (looked ? "looks at it" : "does not look at it")
+									+ "; " + (pet ? "the port's idle look kept off what the Stand may not attack"
+											: "the idle look turns to an aimed entity the Stand may attack"));
+						}
+						continue;
+					}
+					EntityActionInstance action = ((EntityActionType) fixture.ability).initActionOnAbilityUse(fixture.level,
+							fixture.user, stand, null);
+					standActions.setAction(action, fixture.user, SyncType.NO_SYNC);
+					ActionTarget snapshot = snapshotOf(action, fixture.level);
+					ActionTarget turned = action.standRotationTarget;
+					boolean turnedToIt = turned != null && turned.getEntity() == aimed;
+					boolean keptIt = snapshot.getEntity() == aimed;
+					boolean expected = pet ? !turnedToIt && !keptIt && snapshot.getType() == TargetType.EMPTY
+							: turnedToIt && (kind == Kind.CD_GRAB || keptIt);
+					if (!expected) {
+						wrong.add("OWN-PET " + row + ": the action turns to " + (turned != null ? describe(turned, stand) : "nothing")
+								+ " and keeps " + describe(snapshot, stand) + "; 1.16's checkStandTarget "
+								+ (pet ? "refused the user's own pet, so the action had no target and its Stand faced the user's look"
+										: "kept a husk the Stand may attack, and the Stand turned to it"));
+					}
+					standActions.setAction(null, fixture.user, SyncType.NO_SYNC);
+				}
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), String.join("; ", wrong));
+		helper.succeed();
+	}
+
+	// the target an action took at its press (EntityActionInstance.getActionTargetSnapshot, protected)
+	private static ActionTarget snapshotOf(EntityActionInstance action, ServerLevel level) {
+		try {
+			Method getter = EntityActionInstance.class.getDeclaredMethod("getActionTargetSnapshot", net.minecraft.world.level.Level.class);
+			getter.setAccessible(true);
+			return (ActionTarget) getter.invoke(action, level);
+		}
+		catch (ReflectiveOperationException e) {
+			throw new IllegalStateException("OWN-PET fixture: cannot read the action's press target", e);
+		}
+	}
+
+	// on the look line of a camera turned south, at its eye height, side blocks to the east and ahead blocks along it
+	private static Vec3 onCameraLook(Entity camera, double side, double ahead) {
+		return new Vec3(camera.getX() + side, camera.getEyeY(), camera.getZ() + ahead);
+	}
+
+	// its user steers the manually controlled Stand behind (north) toward 2.4 blocks, as the O key does through
+	// StandEntity.move, which holds its feet within its max range of its user's, and turns it north
+	private static boolean steerBehind(Fixture fixture, StandEntity stand) {
+		stand.move(net.minecraft.world.entity.MoverType.SELF,
+				new Vec3(fixture.origin.x, fixture.origin.y, fixture.origin.z - 2.4D).subtract(stand.position()));
+		stand.setYRot(180.0F);
+		stand.setXRot(0.0F);
+		stand.setYHeadRot(180.0F);
+		return stand.distanceTo(fixture.user) <= stand.getMaxRange() + 1.0E-6D;
+	}
+
 	// a held Revert running on the Stand, which takes the second entity for its aim (none if null) and not the first
 	private static boolean heldRevertTakesOnly(Fixture fixture, StandEntity stand, Entity refused, @Nullable Entity taken) {
 		EntityActionInstance revert = ((EntityActionType) fixture.ability).initActionOnAbilityUse(fixture.level, fixture.user, stand,
@@ -1718,7 +2104,7 @@ public final class StandTargetRangeGameTests {
 	}
 
 	// how far along the entity's look its line enters the box within 8 blocks, or -1
-	private static double entry(LivingEntity looking, AABB box) {
+	private static double entry(Entity looking, AABB box) {
 		Vec3 eyes = looking.getEyePosition();
 		return box.clip(eyes, eyes.add(looking.getLookAngle().scale(8.0D))).map(eyes::distanceTo).orElse(-1.0D);
 	}
@@ -2634,6 +3020,8 @@ public final class StandTargetRangeGameTests {
 
 	private enum Kind {
 		CD_HEAL("crazy_diamond", "heal"), CD_ANCHOR("crazy_diamond", "block_anchor_make"), CD_REVERT("crazy_diamond", "revert_state"),
+		CD_GRAB("crazy_diamond", "grab"), SC_DASH("silver_chariot", "dash_attack"), SC_SWEEP("silver_chariot", "sweeping_attack"),
+		MR_CROSSFIRE("magicians_red", "crossfire_hurricane"), MR_CROSSFIRE_SPECIAL("magicians_red", "crossfire_hurricane_special"),
 		GE_HEAL_OTHER("gold_experience", "heal_other"), GE_LIFESHOT("gold_experience", "lifeshot"),
 		GE_CREATE_LIFEFORM("gold_experience", "create_lifeform"), GE_BONE_MEAL("gold_experience", "bone_meal"),
 		HG_BARRIER("hierophant_green", "barrier");
