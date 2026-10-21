@@ -43262,7 +43262,7 @@
       "timeline": {
         "0.0": "phase = WINDUP;",
         "0.4583": "phase = PERFORM;",
-        "0.75": "phase = RECOVERY;"
+        "0.5083": "phase = RECOVERY;"
       }
     },
     "heavy_charged": {

@@ -94,7 +94,9 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 		super(abilityType, abilityId, StandEntityHeavyPunch::new);
 		usageGroup = AbilityUsageGroup.COMBAT;
 		setDefaultPhaseLength(ActionPhase.WINDUP, StandStatFormulas.getHeavyAttackWindup(12, 0) /* 17 */);
-		setDefaultPhaseLength(ActionPhase.PERFORM, 6);
+		// 1.16 StandEntityHeavyAttack kept the builder's standPerformDuration, 1, as no core or add-on heavy attack set
+		// another: it hit on the perform's only tick and the recovery began at the end of that tick
+		setDefaultPhaseLength(ActionPhase.PERFORM, 1);
 		setDefaultPhaseLength(ActionPhase.RECOVERY, 12);
 		noFinisherBarDecay = true;
 		partsRequired(StandPart.ARMS);
