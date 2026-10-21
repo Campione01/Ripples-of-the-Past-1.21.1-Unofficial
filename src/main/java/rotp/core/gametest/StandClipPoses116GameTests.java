@@ -180,7 +180,6 @@ public final class StandClipPoses116GameTests {
 			new JointClip(SC_ANIMS, "melee_barrage", "left_arm", "right_arm"),
 			new JointClip(SC_ANIMS, "dash_attack", "left_arm", "right_arm"),
 			new JointClip(SC_ANIMS, "sweeping_attack", "left_arm", "right_arm"),
-			new JointClip(CD_ANIMS, "finisher", "left_arm", "right_arm", "left_leg", "right_leg"),
 			new JointClip(DEFAULT_ANIMS, "heavy_punch", "left_arm", "right_arm", "left_leg", "right_leg"));
 
 	/*

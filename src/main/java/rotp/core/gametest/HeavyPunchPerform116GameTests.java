@@ -114,6 +114,8 @@ public final class HeavyPunchPerform116GameTests {
 			new HeavyClip(GE_ANIMS, "heavy_punch", "right_arm", 0.7F, "gold_experience", "heavy_punch"),
 			new HeavyClip(GE_ANIMS, "finisher", "right_arm", 0.8F, "gold_experience", "lifeshot_punch"),
 			new HeavyClip(CD_ANIMS, "heavy_punch", "right_arm_bend", 0.5417F, "crazy_diamond", "heavy_punch"),
+			new HeavyClip(CD_ANIMS, "finisher", "left_arm", 0.4167F, "crazy_diamond", "finisher"),
+			new HeavyClip(CD_ANIMS, "finisher", "left_arm", 0.4167F, "crazy_diamond", "block_anchor_make"),
 			new HeavyClip(CD_ANIMS, "grab_heavy_punch", "right_arm", 0.5F, "crazy_diamond", "grab_heavy_punch"),
 			new HeavyClip(CD_ANIMS, "grab_finisher", "right_arm", 0.5833F, "crazy_diamond", "grab_finisher"));
 
@@ -132,10 +134,6 @@ public final class HeavyPunchPerform116GameTests {
 			// MagiciansRedModel :287-322: windup kickPose1 -> kickPose2, perform kickPose2 -> kickPose3, then to the idle
 			new PerformStrikeClip(MR_ANIMS, "kick", "right_leg", new float[] { -105, 30, 30 },
 					new float[] { -42.6168F, 9.6867F, 44.9391F }, false, false, null, 1, "magicians_red", "kick"),
-			// CrazyDiamondModel :685-737: windup pose1 -> pose2, perform pose2 -> pose3 -> pose4, pose4 held to half the recovery
-			new PerformStrikeClip(CD_ANIMS, "finisher", "right_arm", new float[] { 37.9264F, 14.6364F, 103.3191F },
-					new float[] { -72.6819F, 35.6647F, 53.5229F }, true, false, null, 1, "crazy_diamond", "finisher",
-					"block_anchor_make"),
 			// SilverChariotModel :305-334: windup idle -> sweepPose1, perform sweepPose1 -> sweepPose2 (0.2) -> sweepPose3,
 			// standPerformDuration 3
 			new PerformStrikeClip(SC_ANIMS, "sweeping_attack", "right_arm", new float[] { 0, 45, 75 },
@@ -174,12 +172,7 @@ public final class HeavyPunchPerform116GameTests {
 			new HeadPose(DEFAULT_ANIMS, "heavy_punch", "W0.5", null),
 			new HeadPose(DEFAULT_ANIMS, "heavy_punch", "W0.97", null),
 			new HeadPose(DEFAULT_ANIMS, "heavy_punch", "PERFORM", null),
-			new HeadPose(DEFAULT_ANIMS, "heavy_punch", "MIDDLE", null),
-			// CrazyDiamondModel :685-737: heavyFinisherPose1-2, no head in pose3-4
-			new HeadPose(CD_ANIMS, "finisher", "0", new float[] { 5, 0, 6.36F }),
-			new HeadPose(CD_ANIMS, "finisher", "PERFORM", new float[] { -6.9176F, 15.7939F, 16.6495F }),
-			new HeadPose(CD_ANIMS, "finisher", "RECOVERY", null),
-			new HeadPose(CD_ANIMS, "finisher", "MIDDLE", null));
+			new HeadPose(DEFAULT_ANIMS, "heavy_punch", "MIDDLE", null));
 
 	// a heavy clip of the official 1.21.1 port (StandoByte/Ripples-of-the-Past-1-21-1 at 1a681255): the first 16 hex
 	// digits of the SHA-256 of the official clip without its timeline (keyframeDigest), the PERFORM and RECOVERY markers
@@ -195,6 +188,9 @@ public final class HeavyPunchPerform116GameTests {
 			new OfficialClip(SP_ANIMS, "grab_uppercut", "4773e8c39fb6aee0", 0.4583F, 0.5083F, "star_platinum", "grab_uppercut"),
 			// official 0.5 / 0.7083
 			new OfficialClip(CD_ANIMS, "heavy_punch", "457ee23cc1b757db", 0.5F, 0.55F, "crazy_diamond", "heavy_punch"),
+			// official 0.375 / 0.625
+			new OfficialClip(CD_ANIMS, "finisher", "7a0401d17a21d17c", 0.375F, 0.425F, "crazy_diamond", "finisher",
+					"block_anchor_make"),
 			// official 0.5 / 0.7083
 			new OfficialClip(CD_ANIMS, "grab_heavy_punch", "d7c38d07efd351fc", 0.5F, 0.55F, "crazy_diamond", "grab_heavy_punch"),
 			// official 0.5417 / 0.7083
@@ -337,10 +333,10 @@ public final class HeavyPunchPerform116GameTests {
 	}
 
 	/*
-	 * Magician's Red's kick and Crazy Diamond's finisher struck inside their one perform tick in 1.16 (PosedActionAnimation
-	 * with a PERFORM pose): the windup ended on the chambered pose and the perform swung to the strike's end pose. Their
-	 * clips keep that phase structure: the striking bone shows 1.16's windup end pose at PERFORM and the strike's end pose
-	 * at RECOVERY, and where 1.16 held that pose over the first half of the recovery the clip holds it to the middle.
+	 * Magician's Red's kick struck inside its one perform tick in 1.16 (PosedActionAnimation with a PERFORM pose): the
+	 * windup ended on the chambered pose and the perform swung to the strike's end pose. The clip keeps that phase
+	 * structure: the striking bone shows 1.16's windup end pose at PERFORM and the strike's end pose at RECOVERY, and
+	 * where 1.16 held that pose over the first half of the recovery a clip holds it to the middle.
 	 * Silver Chariot's sweeping attack swung the whole sweep over its 3-tick perform after a windup from the idle pose.
 	 */
 	@GameTest(template = "empty", timeoutTicks = 20)
