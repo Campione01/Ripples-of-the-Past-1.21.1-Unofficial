@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -107,13 +108,48 @@ public final class HeavyPunchPerform116GameTests {
 			new HeavyClip(TW_ANIMS, "kick", "right_leg", 0.5F, "the_world", "kick"),
 			new HeavyClip(TW_ANIMS, "ts_punch", "right_arm", 0.3F, "the_world", "ts_punch"),
 			new HeavyClip(MR_ANIMS, "heavy_punch", "right_arm_bend", 0.6F, "magicians_red", "heavy_punch"),
-			new HeavyClip(MR_ANIMS, "kick", "right_leg_bend", 0.65F, "magicians_red", "kick"),
 			new HeavyClip(GE_ANIMS, "heavy_punch", "right_arm", 0.7F, "gold_experience", "heavy_punch"),
 			new HeavyClip(GE_ANIMS, "finisher", "right_arm", 0.8F, "gold_experience", "lifeshot_punch"),
 			new HeavyClip(CD_ANIMS, "heavy_punch", "right_arm_bend", 0.5417F, "crazy_diamond", "heavy_punch"),
-			new HeavyClip(CD_ANIMS, "finisher", "left_arm", 0.4167F, "crazy_diamond", "finisher"),
 			new HeavyClip(CD_ANIMS, "grab_heavy_punch", "right_arm", 0.5F, "crazy_diamond", "grab_heavy_punch"),
 			new HeavyClip(CD_ANIMS, "grab_finisher", "right_arm", 0.5833F, "crazy_diamond", "grab_finisher"));
+
+	// a clip of a strike 1.16's Java model played inside the one-tick perform: the striking bone with its 1.16 pose at the
+	// end of the windup and at the end of the perform, whether 1.16 held that pose over the first half of the recovery,
+	// and the Stand's abilities that play the clip with that perform; for a windup 1.16 began from the idle pose, the clip
+	// starts on its own idle (end) pose, and a pose 1.16 reached at a fifth of the perform is checked there
+	private record PerformStrikeClip(String asset, String clip, String bone, float[] windupEnd, float[] performEnd,
+			boolean holdsHalfRecovery, boolean windupFromIdle, float[] performFifth, int perform, String stand,
+			String... abilities) {}
+
+	private static final String SC_ANIMS =
+			"stand_skins/silver_chariot/assets/jojo_ripples/animations/silver_chariot.animation.json";
+
+	private static final List<PerformStrikeClip> PERFORM_STRIKE_CLIPS = List.of(
+			// MagiciansRedModel :287-322: windup kickPose1 -> kickPose2, perform kickPose2 -> kickPose3, then to the idle
+			new PerformStrikeClip(MR_ANIMS, "kick", "right_leg", new float[] { -105, 30, 30 },
+					new float[] { -42.6168F, 9.6867F, 44.9391F }, false, false, null, 1, "magicians_red", "kick"),
+			// CrazyDiamondModel :685-737: windup pose1 -> pose2, perform pose2 -> pose3 -> pose4, pose4 held to half the recovery
+			new PerformStrikeClip(CD_ANIMS, "finisher", "right_arm", new float[] { 37.9264F, 14.6364F, 103.3191F },
+					new float[] { -72.6819F, 35.6647F, 53.5229F }, true, false, null, 1, "crazy_diamond", "finisher",
+					"block_anchor_make"),
+			// SilverChariotModel :305-334: windup idle -> sweepPose1, perform sweepPose1 -> sweepPose2 (0.2) -> sweepPose3,
+			// standPerformDuration 3
+			new PerformStrikeClip(SC_ANIMS, "sweeping_attack", "right_arm", new float[] { 0, 45, 75 },
+					new float[] { 12.5F, 0, 120 }, false, true, new float[] { 2.5F, 36, 84 }, 3, "silver_chariot",
+					"sweeping_attack"));
+
+	// a heavy clip converted from a 1.16 Java model whose recovery held the impact pose to its middle, the striking bone and
+	// the clip time its impact pose is reached
+	private record HeldImpactClip(String asset, String clip, String bone, float impactPoseAt) {}
+
+	private static final List<HeldImpactClip> HELD_IMPACT_CLIPS = List.of(
+			// HumanoidStandModel :577-586, the default heavy: impact -> idle eased max(2(pr - 1) + 1, 0)
+			new HeldImpactClip(DEFAULT_ANIMS, "heavy_punch", "right_arm_bend", 0.4667F),
+			new HeldImpactClip(SP_ANIMS, "heavy_punch", "right_arm_bend", 0.4667F),
+			new HeldImpactClip(MR_ANIMS, "heavy_punch", "right_arm_bend", 0.6F),
+			// CrazyDiamondModel :669-680: pose8 held to half the recovery
+			new HeldImpactClip(CD_ANIMS, "heavy_punch", "right_arm_bend", 0.5833F));
 
 	/*
 	 * Every heavy punch the core Stands' movesets hold, their grab variations included, and every core heavy type as an
@@ -189,7 +225,7 @@ public final class HeavyPunchPerform116GameTests {
 	 * of the PERFORM marker (star_platinum heavyPunch 0.6 / 0.65, uppercut 0.45 / 0.5, the_world kick 0.5 / 0.5417,
 	 * timeBreaker 0.25 / 0.3 with the punch landing on 0.3, gold_experience heavyPunch 0.7 / 0.75), so the windup led into
 	 * the impact on the hit tick and the follow-through played over the recovery. Every clip a core heavy plays with its
-	 * one-tick perform does the same: the striking bone ends its fastest move (the impact) within a tick of PERFORM and
+	 * one-tick perform, but the strikes 1.16's Java models played inside that tick (PERFORM_STRIKE_CLIPS), does the same: the striking bone ends its fastest move (the impact) within a tick of PERFORM and
 	 * RECOVERY follows PERFORM by at most a tick. The grab heavy clips, made for the six-tick perform, also keep their
 	 * PERFORM marker and give the perform one tick of clip.
 	 */
@@ -230,6 +266,55 @@ public final class HeavyPunchPerform116GameTests {
 		helper.succeed();
 	}
 
+	/*
+	 * Magician's Red's kick and Crazy Diamond's finisher struck inside their one perform tick in 1.16 (PosedActionAnimation
+	 * with a PERFORM pose): the windup ended on the chambered pose and the perform swung to the strike's end pose. Their
+	 * clips keep that phase structure: the striking bone shows 1.16's windup end pose at PERFORM and the strike's end pose
+	 * at RECOVERY, and where 1.16 held that pose over the first half of the recovery the clip holds it to the middle.
+	 * Silver Chariot's sweeping attack swung the whole sweep over its 3-tick perform after a windup from the idle pose.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void theStrikesOf116PerformPosesPlayBetweenPerformAndRecovery(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		Map<String, JsonObject> files = new HashMap<>();
+		for (PerformStrikeClip strike : PERFORM_STRIKE_CLIPS) {
+			for (String abilityName : strike.abilities()) {
+				Ability ability = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc(strike.stand())).getBaseMoveset()
+						.getAbility(abilityName);
+				helper.assertTrue(ability instanceof EntityActionAbility entityAbility
+						&& strike.clip().equals(entityAbility.getEntityAnim(null).name())
+						&& storedPhase(helper, entityAbility, ActionPhase.PERFORM) == strike.perform(),
+						"setup: " + strike.stand() + "'s " + abilityName + " does not play " + strike.clip()
+								+ " with a perform of " + strike.perform());
+			}
+			JsonObject clip = files.computeIfAbsent(strike.asset(), asset -> readJson(helper, asset))
+					.getAsJsonObject("animations").getAsJsonObject(strike.clip());
+			helper.assertTrue(clip != null && clip.has("timeline") && clip.has("bones"), strike.asset() + " lost " + strike.clip());
+			List<Map.Entry<Float, float[]>> keys = rotationKeys(helper, clip, strike.clip() + " of " + strike.asset(),
+					strike.bone());
+			float performAt = marker(clip, "phase=PERFORM;");
+			float recoveryAt = marker(clip, "phase=RECOVERY;");
+			float middle = (recoveryAt + clip.get("animation_length").getAsFloat()) / 2;
+			boolean held = !strike.holdsHalfRecovery() || near(rotationAt(keys, middle), strike.performEnd());
+			boolean fromIdle = !strike.windupFromIdle()
+					|| near(rotationAt(keys, 0), rotationAt(keys, clip.get("animation_length").getAsFloat()));
+			float fifth = performAt + (recoveryAt - performAt) / 5;
+			boolean atFifth = strike.performFifth() == null || near(rotationAt(keys, fifth), strike.performFifth());
+			if (!(recoveryAt > performAt && near(rotationAt(keys, performAt), strike.windupEnd())
+					&& near(rotationAt(keys, recoveryAt), strike.performEnd()) && held && fromIdle && atFifth)) {
+				wrong.add(strike.clip() + " of " + strike.asset() + ": PERFORM " + performAt + ", RECOVERY " + recoveryAt + ", "
+						+ strike.bone() + " at the start " + Arrays.toString(rotationAt(keys, 0)) + ", at PERFORM "
+						+ Arrays.toString(rotationAt(keys, performAt)) + ", at a fifth of the perform "
+						+ Arrays.toString(rotationAt(keys, fifth)) + ", at RECOVERY "
+						+ Arrays.toString(rotationAt(keys, recoveryAt)) + ", at the recovery's middle "
+						+ Arrays.toString(rotationAt(keys, middle)));
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), "These strikes played inside 1.16's perform, from the windup's end pose to the"
+				+ " strike's end pose (held to the recovery's middle where 1.16 held it): " + wrong);
+		helper.succeed();
+	}
+
 	// the phase lengths a press stores before the action is set: the ability's own, without a performer's stat formulas
 	private static float storedPhase(GameTestHelper helper, EntityActionAbility ability, ActionPhase phase) {
 		EntityActionInstance action = ability.initActionOnAbilityUse(helper.getLevel(), null, null, null);
@@ -259,20 +344,7 @@ public final class HeavyPunchPerform116GameTests {
 
 	// the key where the striking bone's fastest key-to-key rotation ends: the strike lands there
 	private static float fastestMoveEnd(GameTestHelper helper, HeavyClip heavy, JsonObject clip) {
-		JsonObject bone = clip.getAsJsonObject("bones").getAsJsonObject(heavy.bone());
-		helper.assertTrue(bone != null && bone.has("rotation") && bone.get("rotation").isJsonObject(),
-				"setup: " + heavy.clip() + " of " + heavy.asset() + " has no keyed " + heavy.bone() + " rotation");
-		List<Map.Entry<Float, float[]>> keys = new ArrayList<>();
-		for (Map.Entry<String, JsonElement> key : bone.getAsJsonObject("rotation").entrySet()) {
-			JsonElement value = key.getValue();
-			if (value.isJsonObject()) {
-				value = value.getAsJsonObject().has("vector") ? value.getAsJsonObject().get("vector") : value.getAsJsonObject().get("post");
-			}
-			JsonArray vector = value.getAsJsonArray();
-			keys.add(Map.entry(Float.parseFloat(key.getKey()),
-					new float[] { vector.get(0).getAsFloat(), vector.get(1).getAsFloat(), vector.get(2).getAsFloat() }));
-		}
-		keys.sort(Map.Entry.comparingByKey());
+		List<Map.Entry<Float, float[]>> keys = rotationKeys(helper, clip, heavy.clip() + " of " + heavy.asset(), heavy.bone());
 		float end = Float.NaN;
 		double fastest = -1;
 		for (int i = 1; i < keys.size(); i++) {
@@ -286,6 +358,83 @@ public final class HeavyPunchPerform116GameTests {
 			}
 		}
 		return end;
+	}
+
+	// the bone's linearly interpolated rotation at a clip time (the checked keys carry no easing)
+	private static float[] rotationAt(List<Map.Entry<Float, float[]>> keys, float time) {
+		if (time <= keys.get(0).getKey()) {
+			return keys.get(0).getValue();
+		}
+		for (int i = 1; i < keys.size(); i++) {
+			float t1 = keys.get(i).getKey();
+			if (time <= t1) {
+				float t0 = keys.get(i - 1).getKey();
+				float f = (time - t0) / (t1 - t0);
+				float[] a = keys.get(i - 1).getValue();
+				float[] b = keys.get(i).getValue();
+				return new float[] { a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f };
+			}
+		}
+		return keys.get(keys.size() - 1).getValue();
+	}
+
+	/*
+	 * 1.16's Java-model heavies kept the impact pose over the first half of the recovery before returning to the idle
+	 * (HumanoidStandModel's heavy, Crazy Diamond's heavy punch): their clips' striking bone stays within a few degrees of
+	 * its impact pose from RECOVERY to the recovery's middle.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void theJavaModelHeaviesHoldTheirImpactToTheRecoverysMiddleAsIn116(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		Map<String, JsonObject> files = new HashMap<>();
+		for (HeldImpactClip held : HELD_IMPACT_CLIPS) {
+			JsonObject clip = files.computeIfAbsent(held.asset(), asset -> readJson(helper, asset))
+					.getAsJsonObject("animations").getAsJsonObject(held.clip());
+			helper.assertTrue(clip != null && clip.has("timeline") && clip.has("bones"), held.asset() + " lost " + held.clip());
+			List<Map.Entry<Float, float[]>> keys = rotationKeys(helper, clip, held.clip() + " of " + held.asset(), held.bone());
+			float recoveryAt = marker(clip, "phase=RECOVERY;");
+			float middle = (recoveryAt + clip.get("animation_length").getAsFloat()) / 2;
+			float[] impact = rotationAt(keys, held.impactPoseAt());
+			if (!near(rotationAt(keys, recoveryAt), impact, 10) || !near(rotationAt(keys, middle), impact, 10)) {
+				wrong.add(held.clip() + " of " + held.asset() + ": " + held.bone() + " impact pose " + Arrays.toString(impact)
+						+ ", at RECOVERY " + recoveryAt + " " + Arrays.toString(rotationAt(keys, recoveryAt))
+						+ ", at the recovery's middle " + middle + " " + Arrays.toString(rotationAt(keys, middle)));
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), "1.16's Java-model heavies held the impact pose to the middle of the recovery: " + wrong);
+		helper.succeed();
+	}
+
+	private static boolean near(float[] a, float[] b) {
+		return near(a, b, 0.01F);
+	}
+
+	private static boolean near(float[] a, float[] b, float degrees) {
+		for (int i = 0; i < 3; i++) {
+			if (Math.abs(a[i] - b[i]) > degrees) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	private static List<Map.Entry<Float, float[]>> rotationKeys(GameTestHelper helper, JsonObject clip, String clipName,
+			String boneName) {
+		JsonObject bone = clip.getAsJsonObject("bones").getAsJsonObject(boneName);
+		helper.assertTrue(bone != null && bone.has("rotation") && bone.get("rotation").isJsonObject(),
+				"setup: " + clipName + " has no keyed " + boneName + " rotation");
+		List<Map.Entry<Float, float[]>> keys = new ArrayList<>();
+		for (Map.Entry<String, JsonElement> key : bone.getAsJsonObject("rotation").entrySet()) {
+			JsonElement value = key.getValue();
+			if (value.isJsonObject()) {
+				value = value.getAsJsonObject().has("vector") ? value.getAsJsonObject().get("vector") : value.getAsJsonObject().get("post");
+			}
+			JsonArray vector = value.getAsJsonArray();
+			keys.add(Map.entry(Float.parseFloat(key.getKey()),
+					new float[] { vector.get(0).getAsFloat(), vector.get(1).getAsFloat(), vector.get(2).getAsFloat() }));
+		}
+		keys.sort(Map.Entry.comparingByKey());
+		return keys;
 	}
 
 	private static double square(float value) {
