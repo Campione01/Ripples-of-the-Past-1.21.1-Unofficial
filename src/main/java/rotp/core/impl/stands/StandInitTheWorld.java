@@ -10,7 +10,6 @@ import rotp.core.init.power.ModStandAbilities;
 import rotp.core.powersystem.MovesetBuilder;
 import rotp.core.powersystem.ability.controls.InputKey;
 import rotp.core.powersystem.ability.controls.InputMethod;
-import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.standpower.StandStats;
 import rotp.core.powersystem.standpower.StandUnlockableSkill;
 import rotp.core.powersystem.standpower.entity.StandControlType;
@@ -50,7 +49,6 @@ public class StandInitTheWorld {
 					barrage.barrageHitSound(ModSoundEvents.THE_WORLD_PUNCH_BARRAGE).barrageCrySound(ModSoundEvents.THE_WORLD_MUDA_MUDA_MUDA);
 				})
 				.addAbility("heavy_punch", ModStandAbilities.TW_HEAVY_PUNCH, punch -> {
-					punch.setDefaultPhaseLength(ActionPhase.PERFORM, 1);
 					punch.detachedPunchKnockback();
 					punch.recoveryPhaseEntryTiming();
 				})
@@ -58,7 +56,6 @@ public class StandInitTheWorld {
 				.addAbility("kick", ModStandAbilities.TW_KICK, kick -> {
 					kick.initIsFinisher("heavy_punch");
 					kick.resolveLevelToUnlock(1);
-					kick.setDefaultPhaseLength(ActionPhase.PERFORM, 1);
 					kick.detachedPunchKnockback();
 					kick.recoveryPhaseEntryTiming();
 				})

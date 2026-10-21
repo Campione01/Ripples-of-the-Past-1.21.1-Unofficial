@@ -64,7 +64,6 @@ public class StandInitStarPlatinum {
 
 				.addAbility("heavy_punch", ModStandAbilities.HEAVY_PUNCH, punch -> {
 					punch.heavyPunchImpactSound(ModSoundEvents.STAR_PLATINUM_PUNCH_HEAVY).heavyPunchCrySound(ModSoundEvents.STAR_PLATINUM_ORA_LONG);
-					punch.setDefaultPhaseLength(ActionPhase.PERFORM, 1);
 					punch.detachedPunchKnockback();
 					punch.recoveryPhaseEntryTiming();
 				})
@@ -73,7 +72,6 @@ public class StandInitStarPlatinum {
 					punch.heavyPunchImpactSound(ModSoundEvents.STAR_PLATINUM_PUNCH_HEAVY).heavyPunchCrySound(ModSoundEvents.STAR_PLATINUM_ORA_LONG);
 					punch.initIsFinisher();
 					punch.resolveLevelToUnlock(1);
-					punch.setDefaultPhaseLength(ActionPhase.PERFORM, 1);
 					punch.detachedPunchKnockback();
 					punch.recoveryPhaseEntryTiming();
 				})

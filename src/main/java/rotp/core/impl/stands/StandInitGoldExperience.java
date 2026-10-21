@@ -10,7 +10,6 @@ import rotp.core.init.power.ModStandAbilities;
 import rotp.core.powersystem.MovesetBuilder;
 import rotp.core.powersystem.ability.controls.InputKey;
 import rotp.core.powersystem.ability.controls.InputMethod;
-import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.standpower.StandStats;
 import rotp.core.powersystem.standpower.StandUnlockableSkill;
 import rotp.core.powersystem.standpower.entity.StandControlType;
@@ -50,7 +49,6 @@ public class StandInitGoldExperience {
 					punch.heavyPunchImpactSound(ModSoundEvents.GOLD_EXPERIENCE_PUNCH_HEAVY)
 					.heavyPunchCrySound(ModSoundEvents.GOLD_EXPERIENCE_MUDA_LONG)
 					.heavyPunchPerformSound(ModSoundEvents.GOLD_EXPERIENCE_PUNCH_HEAVY_EXTRA);
-					punch.setDefaultPhaseLength(ActionPhase.PERFORM, 1);
 					punch.detachedPunchKnockback();
 					punch.recoveryPhaseEntryTiming();
 				})
@@ -79,7 +77,6 @@ public class StandInitGoldExperience {
 					.heavyPunchPerformSound(ModSoundEvents.GOLD_EXPERIENCE_PUNCH_HEAVY_EXTRA);
 					punch.initIsFinisher("heavy_punch");
 					punch.resolveLevelToUnlock(1);
-					punch.setDefaultPhaseLength(ActionPhase.PERFORM, 1);
 					punch.detachedPunchKnockback();
 					punch.recoveryPhaseEntryTiming();
 				})
