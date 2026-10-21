@@ -48,11 +48,12 @@ public final class StandClipPoses116GameTests {
 	// a look the head checks are also made at: pitch and yaw in degrees
 	private static final float[] LOOK = { 20, -35 };
 
-	// a 1.16 head at a clip time (0, PERFORM, RECOVERY, END, W<f> a fraction of the windup, or seconds): its root-space
-	// angles, LOOK where it followed the look, HALF the given angles plus half the look (1.16 half way from a posed head
-	// to the look), TURNED the look turned by the given angles (an official 1.21.1 clip's head), or IDLE where the clip
-	// hands over to the idle and the head is the idle's own
-	private enum Head { POSED, LOOK, HALF, TURNED, IDLE }
+	// a 1.16 head at a clip time (0, PERFORM, RECOVERY, END, W<f> a fraction of the windup, R<f> of the recovery, or
+	// seconds): its root-space angles, LOOK where it followed the look, HALF the given angles plus half the look (1.16 half
+	// way from a posed head to the look), TURNED the look turned by the given angles (an official 1.21.1 clip's head),
+	// IDLE where the clip hands over to the idle and the head is the idle's own, or TO_IDLE the given angles lerped angle
+	// by angle to the idle's head by the recovery's completion (1.16's recovery transition with HEAD_ROTATION)
+	private enum Head { POSED, LOOK, HALF, TURNED, IDLE, TO_IDLE }
 
 	private record HeadPose(String asset, String clip, String at, Head kind, float[] head) {
 		HeadPose(String asset, String clip, String at) {
@@ -76,6 +77,14 @@ public final class StandClipPoses116GameTests {
 			// MagiciansRedModel :233-257, summon poses 1 and 2 (LegacyStandAnimator.poseSummon), then the idle's look
 			posed(MR_ANIMS, "summon1", "0", 0, 7.5F, 0), idle(MR_ANIMS, "summon1"),
 			posed(MR_ANIMS, "summon2", "0", -45, 0, 0), idle(MR_ANIMS, "summon2"),
+			// MagiciansRedModel :287-322, the kick: kickPose1 -> kickPose2 over the windup, kickPose2 -> kickPose3 over the
+			// perform, then to the idle copy's HEAD_ROTATION over the recovery
+			posed(MR_ANIMS, "kick", "0", -15, 0, 0), posed(MR_ANIMS, "kick", "W0.5", -22.5F, -7.5F, 0),
+			posed(MR_ANIMS, "kick", "PERFORM", -30, -15, 0), posed(MR_ANIMS, "kick", "0.55", -37.5F, -12.5F, 0),
+			posed(MR_ANIMS, "kick", "RECOVERY", -45, -10, 0),
+			new HeadPose(MR_ANIMS, "kick", "R0.25", Head.TO_IDLE, new float[] { -45, -10, 0 }),
+			new HeadPose(MR_ANIMS, "kick", "R0.5", Head.TO_IDLE, new float[] { -45, -10, 0 }),
+			new HeadPose(MR_ANIMS, "kick", "R0.75", Head.TO_IDLE, new float[] { -45, -10, 0 }), idle(MR_ANIMS, "kick"),
 			// SilverChariotModel :245-372: the rapier stab, the barrage stab loop, the rapier heavy (dash), the jab without
 			// the rapier, no head in any of them; RANGED_ATTACK (the rapier launch) was drawn as the idle
 			new HeadPose(SC_ANIMS, "light_attack", "0"), new HeadPose(SC_ANIMS, "light_attack", "PERFORM"),
@@ -137,6 +146,13 @@ public final class StandClipPoses116GameTests {
 					case HALF -> rotationMatrix(new float[] { pose.head()[0] + look[0] / 2, pose.head()[1] + look[1] / 2, 0 });
 					case TURNED -> rotationMatrix(new float[] { look[0] + pose.head()[0], look[1] + pose.head()[1], pose.head()[2] });
 					case IDLE -> composedHead(anims.getAsJsonObject(idleOf(pose)), 0, look);
+					case TO_IDLE -> {
+						float[] idleHead = eulerOf(composedHead(anims.getAsJsonObject(idleOf(pose)), 0, look));
+						float recovery = marker(clip, "phase=RECOVERY;");
+						float f = (time - recovery) / (clip.get("animation_length").getAsFloat() - recovery);
+						yield rotationMatrix(new float[] { pose.head()[0] + (idleHead[0] - pose.head()[0]) * f,
+								pose.head()[1] + (idleHead[1] - pose.head()[1]) * f, pose.head()[2] + (idleHead[2] - pose.head()[2]) * f });
+					}
 				};
 				double off = angleBetween(composedHead(clip, time, look), expected);
 				if (off > 1) {
@@ -650,8 +666,18 @@ public final class StandClipPoses116GameTests {
 			case "PERFORM" -> performAt;
 			case "RECOVERY" -> marker(clip, "phase=RECOVERY;");
 			case "END" -> clip.get("animation_length").getAsFloat();
-			default -> at.startsWith("W") ? Float.parseFloat(at.substring(1)) * performAt : Float.parseFloat(at);
+			default -> at.startsWith("W") ? Float.parseFloat(at.substring(1)) * performAt
+					: at.startsWith("R") ? marker(clip, "phase=RECOVERY;") + Float.parseFloat(at.substring(1))
+							* (clip.get("animation_length").getAsFloat() - marker(clip, "phase=RECOVERY;"))
+					: Float.parseFloat(at);
 		};
+	}
+
+	// the angles of a ModelPart rotation Rz * Ry * Rx, in degrees
+	static float[] eulerOf(double[][] m) {
+		double y = Math.asin(Math.max(-1, Math.min(1, -m[2][0])));
+		return new float[] { (float) Math.toDegrees(Math.atan2(m[2][1], m[2][2])), (float) Math.toDegrees(y),
+				(float) Math.toDegrees(Math.atan2(m[1][0], m[0][0])) };
 	}
 
 	static float marker(JsonObject clip, String instruction) {
