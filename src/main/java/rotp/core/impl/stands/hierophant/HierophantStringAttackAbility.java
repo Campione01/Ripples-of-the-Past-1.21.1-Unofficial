@@ -1,5 +1,6 @@
 package rotp.core.impl.stands.hierophant;
 
+import rotp.core.powersystem.Power;
 import rotp.core.init.ModSoundEvents;
 import rotp.core.powersystem.standpower.StandInstance.StandPart;
 
@@ -157,5 +158,10 @@ public class HierophantStringAttackAbility extends NoPoseStandEntityAbility {
 			}
 			return new Vec2((float) Math.toDegrees(angleYZ), (float) Math.toDegrees(angleXZ));
 		}
+	}
+
+	@Override
+	public float getStaminaCost(Power<?> context) {
+		return STAMINA_COST;
 	}
 }

@@ -69,4 +69,8 @@ public class CrazyDLeaveObjectPunchInput extends Ability {
 		return CrazyDiamondHeavyPunchAbility.runningHeavyPunch(standPower, false) != null;
 	}
 
+	@Override
+	public float getStaminaCost(Power<?> context) {
+		return STAMINA_COST;
+	}
 }

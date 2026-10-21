@@ -1,5 +1,6 @@
 package rotp.core.impl.stands.magiciansred;
 
+import rotp.core.powersystem.Power;
 import rotp.core.powersystem.standpower.StandInstance.StandPart;
 
 import rotp.core.init.ModSoundEvents;
@@ -60,5 +61,10 @@ public class MagiciansRedFireballAbility extends StandEntityAbility {
 			// 1.16 StandEntityTask paid after the shot and ignored the result: a short bar just drops to 0
 			StandAbilityStamina.consume(ability, StandPower.get(user), STAMINA_COST, false);
 		}
+	}
+
+	@Override
+	public float getStaminaCost(Power<?> context) {
+		return STAMINA_COST;
 	}
 }

@@ -180,7 +180,8 @@ public final class RotpAddonApi {
 	 * EntityActionInstance#isHoldTypeStandAction (false by default; true for an action whose 1.16 counterpart was a
 	 * holdType Stand action: the default canBeCancelledInto then lets every other ability replace it before its recovery
 	 * if it has none, #givesWayToOtherAbilities, as it does for a Stand action with a charge once it fired (from its
-	 * perform's second tick if it fired straight into it); and a press of another ability of its power that goes off,
+	 * perform's second tick if it fired straight into it, with no windup it does not hold between); and a press of
+	 * another ability of its power that goes off,
 	 * Ability#endsOtherHoldOnPress, ends its hold), and, whatever canBeCancelledInto says, a player's press of a Stand
 	 * ability whose action holds (EntityActionAbility#isHoldAction) waits in the input buffer while the Stand power holds
 	 * an action (AbilityInput#getHeldAction); while that held action is no hold-type one (a charge), the power's other
@@ -257,11 +258,22 @@ public final class RotpAddonApi {
 	 * (EntityActionInstance#getPunchModifiers): on the server when it is added to StandPower#userStandEffects, on every
 	 * client that gets it with the effect's add packet. StandEffectInstance#onModifiedActionTick is called on every tick of
 	 * that action, on both sides, right after the action's own tick (and its perform start on its PERFORM's first tick),
-	 * while the effect is not stopped and the action is not over. 1.16 hasModifierAction is getPunchModifiers() holding an
-	 * effect of its type, canSetFollowUp that and the modifier ability's own checks.
+	 * while the effect is not stopped, also in the tick where the action ended itself, which then reads the phase it ended
+	 * in (1.16 StandEntityTask.tick). StandEffectInstance#onModifiedActionPhaseTransition(action, prevPhase, nextPhase) is
+	 * called right after the action's own onSetPhase as it enters a phase with a length, and with nextPhase null as it runs
+	 * out its last phase, not when it is stopped or replaced (1.16 StandEntityTask.phaseTransition, moveToPhase). 1.16
+	 * hasModifierAction is getPunchModifiers() holding an effect of its type, canSetFollowUp that and the modifier
+	 * ability's own checks.
 	 */
 	public static final String FEATURE_STAND_ACTION_MODIFIERS_V1 =
 			"stand_action_modifiers_v1";
+	/**
+	 * Ability#getStaminaCost(Power): the stamina an ability takes as it performs, 1.16's Action.getStaminaCost, which a
+	 * 1.16 Stand-bearing mob compared with its stamina before it picked an action; the core's abilities report 1.16's
+	 * costs, an add-on ability overrides it with its donor's. 0 by default.
+	 */
+	public static final String FEATURE_ABILITY_STAMINA_COST_V1 =
+			"ability_stamina_cost_v1";
 
 	public static final Set<String> FEATURES = Set.of(
 			FEATURE_ABILITY_RESOURCE_NAMESPACE_V1,
@@ -347,7 +359,8 @@ public final class RotpAddonApi {
 			FEATURE_STAND_STAMINA_MODIFIERS_V1,
 			FEATURE_STAND_DEFAULT_ROTATION_RULES_V1,
 			FEATURE_ABILITY_HELD_READY_TO_FIRE_V1,
-			FEATURE_STAND_ACTION_MODIFIERS_V1);
+			FEATURE_STAND_ACTION_MODIFIERS_V1,
+			FEATURE_ABILITY_STAMINA_COST_V1);
 
 	private RotpAddonApi() {}
 

@@ -293,4 +293,9 @@ public class CrazyDAnchorMakeAbility extends StandEntityAbility {
 							.withStyle(ChatFormatting.BOLD, ChatFormatting.GREEN)));
 		}
 	}
+
+	@Override
+	public float getStaminaCost(Power<?> context) {
+		return STAMINA_COST;
+	}
 }

@@ -653,4 +653,9 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 			}
 		}
 	}
+
+	@Override
+	public float getStaminaCost(Power<?> context) {
+		return getStaminaCost();
+	}
 }

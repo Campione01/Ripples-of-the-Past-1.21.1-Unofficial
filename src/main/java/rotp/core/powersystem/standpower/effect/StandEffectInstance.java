@@ -11,6 +11,7 @@ import org.jetbrains.annotations.ApiStatus;
 import rotp.core.entityattachment.custom_effect.EntityCustomEffect;
 import rotp.core.entityattachment.custom_effect.EntityCustomEffectType;
 import rotp.core.entityattachment.custom_effect.TrEntityCustomEffectsPacket;
+import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.standpower.StandPower;
@@ -104,12 +105,27 @@ public abstract class StandEffectInstance extends EntityCustomEffect {
 	 * A modifier of the action it attached to as it started (isFromStandAction: the Stand's current action, isFromUserAction:
 	 * the user's; EntityActionInstance#getPunchModifiers), as 1.16's StandEntityActionModifier added to the running task
 	 * (StandEntityTask.addModifierAction): called once on every tick of that action, on both sides, right after the action's
-	 * own tick and, on its PERFORM's first tick, after its perform start, while this effect is not stopped and the action is
-	 * not over, as 1.16 StandEntityTask.tick ran each modifier's phase hooks (standTickWindup, standPerform, standTickPerform,
-	 * standTickRecovery) right after its action's. Nothing by default.
+	 * own tick and, on its PERFORM's first tick, after its perform start, while this effect is not stopped, as 1.16
+	 * StandEntityTask.tick ran each modifier's phase hooks (standTickWindup, standPerform, standTickPerform,
+	 * standTickRecovery) right after its action's. Also in the tick where the action ended itself (its tick or perform start
+	 * stopped it): the action then reads the phase it ended in until this returns, as 1.16's stopped task kept its phase
+	 * for the rest of that tick. Nothing by default.
 	 */
 	@ApiStatus.OverrideOnly
 	public void onModifiedActionTick(EntityActionInstance action) {}
+
+	/**
+	 * A modifier of the action (see {@link #onModifiedActionTick}) told of the action's phase change, as 1.16's
+	 * StandEntityTask.phaseTransition called each modifier's phaseTransition right after the action's own: on both sides,
+	 * right after the action's own EntityActionInstance#onSetPhase, with the action already in its new phase, whenever the
+	 * action enters a phase with a length (one without is passed over, as 1.16 moveToPhase did; prevPhase is then the last
+	 * phase with a length it was in); and with nextPhase null when the action runs out its last phase (1.16 moveToPhase(null)),
+	 * still in it, but not when it is stopped or replaced (1.16 stopTask told no modifier). While this effect is not stopped.
+	 * Nothing by default.
+	 */
+	@ApiStatus.OverrideOnly
+	public void onModifiedActionPhaseTransition(EntityActionInstance action, @Nullable ActionPhase prevPhase,
+			@Nullable ActionPhase nextPhase) {}
 
 	public LivingEntity getStandUser() {
 		return (LivingEntity) getEntity();

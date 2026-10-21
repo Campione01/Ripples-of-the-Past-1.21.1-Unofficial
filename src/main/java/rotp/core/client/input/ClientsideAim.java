@@ -19,13 +19,9 @@ public class ClientsideAim {
 		cameraEntityAimTarget = mc.hitResult != null ? ActionTarget.fromVanilla(mc.hitResult) : ActionTarget.EMPTY;
 
 		if (mc.level != null && mc.player != null) {
-			boolean isPlayerCameraEntity = mc.player == mc.cameraEntity || mc.cameraEntity == null;
-			if (isPlayerCameraEntity) {
-				playerAim.setTarget(cameraEntityAimTarget);
-			}
-			else {
-				playerAim.setTarget(ActionTarget.EMPTY);
-			}
+			// 1.16 had one mouse target, the camera entity's pick (InputHandler.pickMouseTarget), whatever the camera was,
+			// and a power other than a Stand took it unchanged (IPowerType.clientHitResult)
+			playerAim.setTarget(cameraEntityAimTarget);
 			
 			StandEntity stand = ClientGlobals.playerStandEntity;
 			if (stand != null) {

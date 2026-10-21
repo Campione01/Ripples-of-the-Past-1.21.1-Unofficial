@@ -536,6 +536,16 @@ public class Ability {
 	}
 
 	/**
+	 * The stamina this ability takes as it performs, 1.16's Action.getStaminaCost (StandAction.Builder staminaCost: 10
+	 * for a light attack, 50 for a heavy one, none for a cost that only ticks), which a 1.16 Stand-bearing mob compared with
+	 * its stamina before it picked an action (rotp_mwp StandAI.isActionAvailable). Only a report: the ability takes its
+	 * stamina by its own code. 0 by default.
+	 */
+	public float getStaminaCost(Power<?> context) {
+		return 0.0F;
+	}
+
+	/**
 	 * 1.16 PowerBaseImpl.checkRequirements: an action whose performer is stunned cannot start, unless it ignoresPerformerStun.
 	 * The performer is the summoned Stand (1.16 StandAction.getPerformer), else the user.
 	 * Plain abilities call this from checkSpecificConditions; EntityActionAbility checks its own performer.

@@ -121,4 +121,8 @@ public class CrazyDMisshapingPunchInput extends Ability {
 		}
 	}
 
+	@Override
+	public float getStaminaCost(Power<?> context) {
+		return STAMINA_COST;
+	}
 }

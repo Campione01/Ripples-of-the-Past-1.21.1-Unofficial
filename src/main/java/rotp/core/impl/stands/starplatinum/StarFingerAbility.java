@@ -2,6 +2,7 @@ package rotp.core.impl.stands.starplatinum;
 
 import org.jetbrains.annotations.Nullable;
 
+import rotp.core.powersystem.Power;
 import rotp.core.client.ClientGlobals;
 import rotp.core.client.sound.ClientsideSoundsHelper;
 import rotp.core.init.ModSoundEvents;
@@ -118,4 +119,9 @@ public class StarFingerAbility extends StandEntityAbility {
             return starFingerBB;
         }
     }
+
+	@Override
+	public float getStaminaCost(Power<?> context) {
+		return STAR_FINGER_STAMINA_COST;
+	}
 }

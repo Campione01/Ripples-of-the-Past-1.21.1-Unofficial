@@ -105,6 +105,44 @@ public final class StunVanillaControlGameTests {
 		helper.succeed();
 	}
 
+	/*
+	 * 1.16 StunEffect.isApplicable (potion/StunEffect.java :41-44) refused a mob with NoAI, asked on every addEffect through
+	 * PotionApplicableEvent (GameplayEventHandler.onPotionApply :949-951, DENY); the stun sets NoAI itself, so a stunned
+	 * mob's stun was not renewed or lengthened while it lasted either. A pig with NoAI is not stunned; a pig stunned for 40
+	 * ticks keeps that stun when stunned again for 200; a player's stun is renewed (no NoAI).
+	 */
+	@GameTest(template = "empty", timeoutTicks = 40)
+	public static void aMobWithNoAiIsNotStunnedNorIsAStunnedMobsStunRenewedAsIn116(GameTestHelper helper) {
+		Pig frozen = helper.spawn(EntityType.PIG, new BlockPos(1, 2, 1));
+		frozen.setNoAi(true);
+		boolean frozenAdded = frozen.addEffect(new MobEffectInstance(ModStatusEffects.STUN, 200));
+		helper.assertTrue(!frozenAdded && !ModStatusEffects.isStunned(frozen) && frozen.isNoAi(),
+				"1.16 refused the stun to a mob with NoAI (StunEffect.isApplicable): added " + frozenAdded + ", stunned "
+						+ ModStatusEffects.isStunned(frozen) + ", NoAI " + frozen.isNoAi());
+
+		Pig stunned = helper.spawn(EntityType.PIG, new BlockPos(3, 2, 1));
+		helper.assertTrue(stunned.addEffect(new MobEffectInstance(ModStatusEffects.STUN, 40)) && stunned.isNoAi(),
+				"fixture: the pig was not stunned, or the stun did not set NoAI");
+		boolean renewed = stunned.addEffect(new MobEffectInstance(ModStatusEffects.STUN, 200));
+		MobEffectInstance kept = stunned.getEffect(ModStatusEffects.STUN);
+		helper.assertTrue(!renewed && kept != null && kept.getDuration() <= 40,
+				"1.16 refused a second stun to a stunned mob (the stun's NoAI): renewed " + renewed + ", the stun "
+						+ (kept != null ? kept.getDuration() + " ticks" : "gone"));
+
+		Player player = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
+		player.addEffect(new MobEffectInstance(ModStatusEffects.STUN, 40));
+		boolean playerRenewed = player.addEffect(new MobEffectInstance(ModStatusEffects.STUN, 200));
+		MobEffectInstance playerStun = player.getEffect(ModStatusEffects.STUN);
+		helper.assertTrue(playerRenewed && playerStun != null && playerStun.getDuration() > 40,
+				"fixture: a player's stun is renewed, as a player has no NoAI: renewed " + playerRenewed + ", the stun "
+						+ (playerStun != null ? playerStun.getDuration() + " ticks" : "gone"));
+		player.removeEffect(ModStatusEffects.STUN);
+		stunned.removeEffect(ModStatusEffects.STUN);
+		frozen.discard();
+		stunned.discard();
+		helper.succeed();
+	}
+
 	private static String state(Mob old, Mob outcome) {
 		String result = outcome == null ? "null"
 				: "noAi=" + outcome.isNoAi() + " stunned=" + ModStatusEffects.isStunned(outcome);

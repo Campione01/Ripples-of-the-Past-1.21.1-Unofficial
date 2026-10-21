@@ -249,4 +249,9 @@ public class MagiciansRedCrossfireHurricaneAbility extends StandEntityAbility im
 			return (float) Math.cos(angle) * SPECIAL_SPREAD_DEGREES;
 		}
 	}
+
+	@Override
+	public float getStaminaCost(Power<?> context) {
+		return STAMINA_COST;
+	}
 }

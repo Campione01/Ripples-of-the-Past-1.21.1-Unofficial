@@ -131,4 +131,8 @@ public class CrazyDBloodCutterAbility extends StandEntityAbility {
 		}
 	}
 
+	@Override
+	public float getStaminaCost(Power<?> context) {
+		return STAMINA_COST;
+	}
 }

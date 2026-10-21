@@ -77,4 +77,9 @@ public class GoldExperienceHealingItemAbility extends NoPoseStandEntityAbility {
             StandAbilityStamina.consume(ability, standPower, STAMINA_COST, false);
         }
     }
+
+    @Override
+    public float getStaminaCost(Power<?> context) {
+        return STAMINA_COST;
+    }
 }

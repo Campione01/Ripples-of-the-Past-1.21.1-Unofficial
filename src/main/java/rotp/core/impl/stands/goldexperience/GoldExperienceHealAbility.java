@@ -407,4 +407,9 @@ public class GoldExperienceHealAbility extends NoPoseStandEntityAbility {
 				true, standPower, SoundSource.AMBIENT,
 				1.0F, 0.95F + target.getRandom().nextFloat() * 0.1F);
 	}
+
+	@Override
+	public float getStaminaCost(Power<?> context) {
+		return STAMINA_COST;
+	}
 }

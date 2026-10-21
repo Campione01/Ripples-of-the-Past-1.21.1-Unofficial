@@ -264,8 +264,8 @@ public final class HeldReadyToFireSlot116GameTests {
 	}
 
 	// refs in the code of every method with this name, in code order: owner.name+desc, fields owner.name:desc, ldc "text"
-	// and #int
-	private static List<String> codeRefs(GameTestHelper helper, String className, String method) {
+	// and #int; other class-file pins of the package read them too
+	static List<String> codeRefs(GameTestHelper helper, String className, String method) {
 		String path = className + ".class";
 		InputStream raw = HeldReadyToFireSlot116GameTests.class.getResourceAsStream("/" + path);
 		if (raw == null) {

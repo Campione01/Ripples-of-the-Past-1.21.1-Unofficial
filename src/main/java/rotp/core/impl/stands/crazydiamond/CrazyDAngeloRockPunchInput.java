@@ -69,4 +69,9 @@ public class CrazyDAngeloRockPunchInput extends Ability {
 				&& standPower.userStandEffects.getEffectOfType(ModStandAbilities.EFFECT_CD_PUNCH_ANGELO_ROCK.get()).isEmpty()
 				&& CrazyDiamondHeavyPunchAbility.runningHeavyPunch(standPower, true) != null;
 	}
+
+	@Override
+	public float getStaminaCost(Power<?> context) {
+		return STAMINA_COST;
+	}
 }
