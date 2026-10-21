@@ -18,11 +18,9 @@ import net.minecraft.world.level.Level;
 public class HamonBubbleBarrierAbility extends HamonActionRuntimeAbility {
 
 	public HamonBubbleBarrierAbility(AbilityType<?> abilityType, AbilityId abilityId) {
+		// 1.16 holdToFire(20, false) fired as the charge (the windup hamonHoldToFire registers) ended, and the hold was
+		// over: the perform is that one tick and there is no recovery.
 		super(abilityType, abilityId, BubbleBarrierInstance::new);
-		setDefaultPhaseLength(ActionPhase.WINDUP, 8);
-		setDefaultPhaseLength(ActionPhase.PERFORM, 6);
-		setButtonHoldPhase(ActionPhase.PERFORM);
-		setDefaultPhaseLength(ActionPhase.RECOVERY, 4);
 	}
 
 	@Override

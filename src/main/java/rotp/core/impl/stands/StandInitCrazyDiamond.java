@@ -10,7 +10,6 @@ import rotp.core.init.power.ModStandAbilities;
 import rotp.core.powersystem.MovesetBuilder;
 import rotp.core.powersystem.ability.controls.InputKey;
 import rotp.core.powersystem.ability.controls.InputMethod;
-import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.standpower.StandStats;
 import rotp.core.powersystem.standpower.StandUnlockableSkill;
 import rotp.core.powersystem.standpower.entity.StandControlType;
@@ -56,7 +55,6 @@ public class StandInitCrazyDiamond {
 				})
 				.addAbility("heavy_punch", ModStandAbilities.CD_HEAVY_PUNCH, punch -> {
 					punch.heavyPunchImpactSound(ModSoundEvents.CRAZY_DIAMOND_PUNCH_HEAVY).heavyPunchCrySound(ModSoundEvents.CRAZY_DIAMOND_DORA_LONG);
-					punch.setDefaultPhaseLength(ActionPhase.PERFORM, 1);
 					punch.detachedPunchKnockback();
 					punch.recoveryPhaseEntryTiming();
 				})
@@ -65,7 +63,6 @@ public class StandInitCrazyDiamond {
 					punch.heavyPunchImpactSound(ModSoundEvents.CRAZY_DIAMOND_PUNCH_HEAVY).heavyPunchCrySound(ModSoundEvents.CRAZY_DIAMOND_DORA_LONG);
 					punch.initIsFinisher();
 					punch.resolveLevelToUnlock(1);
-					punch.setDefaultPhaseLength(ActionPhase.PERFORM, 1);
 					punch.detachedPunchKnockback();
 					punch.recoveryPhaseEntryTiming();
 				})

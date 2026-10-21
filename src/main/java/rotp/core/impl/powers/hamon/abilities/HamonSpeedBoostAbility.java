@@ -4,7 +4,6 @@ import rotp.core.customobjects.AfterimageEntity;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
-import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.impl.powers.hamon.HamonData;
 import rotp.core.impl.powers.hamon.HamonUtil;
@@ -21,10 +20,8 @@ public class HamonSpeedBoostAbility extends HamonActionRuntimeAbility {
 	private static final float ENERGY_COST = 600F;
 
 	public HamonSpeedBoostAbility(AbilityType<?> abilityType, AbilityId abilityId) {
+		// 1.16 had no hold and no phases: the click performs at once, so the default phases stay.
 		super(abilityType, abilityId, SpeedBoostInstance::new);
-		setDefaultPhaseLength(ActionPhase.WINDUP, 4);
-		setDefaultPhaseLength(ActionPhase.PERFORM, 6);
-		setDefaultPhaseLength(ActionPhase.RECOVERY, 3);
 	}
 
 	@Override

@@ -219,9 +219,10 @@ public final class LeavesGliderMountClearanceGameTests {
                             && !glider.isRemoved() && user.getVehicle() == glider && glider.getPassengers().size() == 1
                             && glider.getControllingPassenger() == user && glider.hasPassenger(user)
                             && user.getMainHandItem().isEmpty() && user.getOffhandItem().isEmpty()
-                            && action == LivingComponentAction.getCurEntityAction(user) && action.getPhase() == ActionPhase.PERFORM
-                            && action.getPhaseTick() >= 1 && windupPosts > 0 && user.getHealth() == 20F && user.isAlive(),
-                            "same-Post first mount/leaf consumption did not complete before vehicle physics");
+                            && action.isOver() && LivingComponentAction.getCurEntityAction(user) == null && windupPosts == 0
+                            && user.getHealth() == 20F && user.isAlive(),
+                            "same-Post first mount/leaf consumption did not complete before vehicle physics, or the click"
+                                    + " did not perform at once and end with its one-tick perform as 1.16's did");
                     Vec3 actual = glider.position();
                     AABB expectedMountedBox = probe.bareBox.move(0, probe.allowedLift, 0).expandTowards(0, probe.riderHeight, 0);
                     ready(expectedMountedBox); ready(glider.getBoundingBox());

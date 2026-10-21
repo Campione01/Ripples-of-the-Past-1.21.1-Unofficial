@@ -161,7 +161,7 @@ public class HamonPowerType extends PlayerPowerType<HamonData> {
 					})
 					.addAbility("bubble_barrier", HAMON_BUBBLE_BARRIER, ability -> {
 						heldCombat(ability, 50F, 0.3F);
-						hamonHoldToFire(ability, 20, false, 20, 6);
+						hamonHoldToFire(ability, 20, false, 20, 1);
 						swingHand(ability);
 						hamonShout(ability, ModSoundEvents.CAESAR_BUBBLE_BARRIER);
 					})
@@ -188,7 +188,7 @@ public class HamonPowerType extends PlayerPowerType<HamonData> {
 					.addAbility("hamon_healing", HAMON_HEALING, ability -> heldUtility(ability, 5F, 0.9999F))
 					.addAbility("hypnosis", HAMON_HYPNOSIS, ability -> {
 						heldUtility(ability, 15F, 1.0F);
-						hamonHoldToFire(ability, 60, false, 60, 6);
+						hamonHoldToFire(ability, 60, false, 60, 1);
 					})
 					.addAbility("life_magnetism", HAMON_LIFE_MAGNETISM, ability -> {
 						utilityRuntime(ability, 200F, 0, HamonData.HamonStat.CONTROL);
