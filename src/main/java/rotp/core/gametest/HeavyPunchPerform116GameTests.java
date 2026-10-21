@@ -5,12 +5,14 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -83,6 +85,35 @@ public final class HeavyPunchPerform116GameTests {
 			"stand_skins/star_platinum/assets/jojo_ripples/animations/star_platinum.animation.json";
 	private static final String CD_ANIMS =
 			"stand_skins/crazy_diamond/assets/jojo_ripples/animations/crazy_diamond.animation.json";
+	private static final String TW_ANIMS = "stand_skins/the_world/assets/jojo_ripples/animations/the_world.animation.json";
+	private static final String MR_ANIMS =
+			"stand_skins/magicians_red/assets/jojo_ripples/animations/magicians_red.animation.json";
+	private static final String GE_ANIMS =
+			"stand_skins/gold_experience/assets/jojo_ripples/animations/gold_experience.animation.json";
+	private static final float CLIP_TICK = 0.05F;
+
+	// a clip a core heavy plays with its one-tick perform, the bone that strikes and where its strike lands; the stand and
+	// ability that play it, none for the generic clips other Stands and add-ons fall back to
+	private record HeavyClip(String asset, String clip, String bone, float impact, String stand, String ability) {}
+
+	private static final List<HeavyClip> HEAVY_CLIPS = List.of(
+			new HeavyClip(DEFAULT_ANIMS, "heavy_punch", "right_arm_bend", 0.4667F, null, null),
+			new HeavyClip(DEFAULT_ANIMS, "finisher_uppercut", "right_arm", 0.45F, null, null),
+			new HeavyClip(DEFAULT_ANIMS, "grab_uppercut", "right_arm", 0.5F, null, null),
+			new HeavyClip(SP_ANIMS, "heavy_punch", "right_arm_bend", 0.4667F, "star_platinum", "heavy_punch"),
+			new HeavyClip(SP_ANIMS, "finisher_uppercut", "right_arm", 0.45F, "star_platinum", "finisher_uppercut"),
+			new HeavyClip(SP_ANIMS, "grab_uppercut", "right_arm", 0.5F, "star_platinum", "grab_uppercut"),
+			new HeavyClip(TW_ANIMS, "heavy_punch", "right_arm", 0.6F, "the_world", "heavy_punch"),
+			new HeavyClip(TW_ANIMS, "kick", "right_leg", 0.5F, "the_world", "kick"),
+			new HeavyClip(TW_ANIMS, "ts_punch", "right_arm", 0.3F, "the_world", "ts_punch"),
+			new HeavyClip(MR_ANIMS, "heavy_punch", "right_arm_bend", 0.6F, "magicians_red", "heavy_punch"),
+			new HeavyClip(MR_ANIMS, "kick", "right_leg_bend", 0.65F, "magicians_red", "kick"),
+			new HeavyClip(GE_ANIMS, "heavy_punch", "right_arm", 0.7F, "gold_experience", "heavy_punch"),
+			new HeavyClip(GE_ANIMS, "finisher", "right_arm", 0.8F, "gold_experience", "lifeshot_punch"),
+			new HeavyClip(CD_ANIMS, "heavy_punch", "right_arm_bend", 0.5417F, "crazy_diamond", "heavy_punch"),
+			new HeavyClip(CD_ANIMS, "finisher", "left_arm", 0.4167F, "crazy_diamond", "finisher"),
+			new HeavyClip(CD_ANIMS, "grab_heavy_punch", "right_arm", 0.5F, "crazy_diamond", "grab_heavy_punch"),
+			new HeavyClip(CD_ANIMS, "grab_finisher", "right_arm", 0.5833F, "crazy_diamond", "grab_finisher"));
 
 	/*
 	 * Every heavy punch the core Stands' movesets hold, their grab variations included, and every core heavy type as an
@@ -154,27 +185,48 @@ public final class HeavyPunchPerform116GameTests {
 	}
 
 	/*
-	 * 1.16's heavy clips spent one tick between their PERFORM and RECOVERY markers (star_platinum heavyPunch 0.6 / 0.65,
-	 * uppercut 0.45 / 0.5, the_world kick 0.5 / 0.5417, gold_experience heavyPunch 0.7 / 0.75), the strike's follow-through
-	 * in the recovery. The port's grab heavy clips, made for the six-tick perform, keep their impact on PERFORM and give the
-	 * one-tick perform one tick of clip, the rest of the strike playing over the recovery.
+	 * 1.16's heavy clips spent one tick between their PERFORM and RECOVERY markers and landed the strike within that tick
+	 * of the PERFORM marker (star_platinum heavyPunch 0.6 / 0.65, uppercut 0.45 / 0.5, the_world kick 0.5 / 0.5417,
+	 * timeBreaker 0.25 / 0.3 with the punch landing on 0.3, gold_experience heavyPunch 0.7 / 0.75), so the windup led into
+	 * the impact on the hit tick and the follow-through played over the recovery. Every clip a core heavy plays with its
+	 * one-tick perform does the same: the striking bone ends its fastest move (the impact) within a tick of PERFORM and
+	 * RECOVERY follows PERFORM by at most a tick. The grab heavy clips, made for the six-tick perform, also keep their
+	 * PERFORM marker and give the perform one tick of clip.
 	 */
 	@GameTest(template = "empty", timeoutTicks = 20)
-	public static void theGrabHeavyClipsGiveThePerformOneTickAsIn116Clips(GameTestHelper helper) {
+	public static void theHeavyClipsLandTheirImpactOnTheOneTickPerformAsIn116Clips(GameTestHelper helper) {
 		List<String> wrong = new ArrayList<>();
 		performSegment(helper, DEFAULT_ANIMS, "grab_uppercut", 0.4583F, wrong);
 		performSegment(helper, SP_ANIMS, "grab_uppercut", 0.4583F, wrong);
 		performSegment(helper, CD_ANIMS, "grab_heavy_punch", 0.5F, wrong);
 		performSegment(helper, CD_ANIMS, "grab_finisher", 0.5417F, wrong);
-		for (String[] clip : new String[][] { { "star_platinum", "grab_uppercut" }, { "crazy_diamond", "grab_heavy_punch" },
-				{ "crazy_diamond", "grab_finisher" } }) {
-			Ability ability = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc(clip[0])).getBaseMoveset().getAbility(clip[1]);
-			helper.assertTrue(ability instanceof EntityActionAbility entityAbility
-					&& clip[1].equals(entityAbility.getEntityAnim(null).name()),
-					"setup: " + clip[0] + "'s " + clip[1] + " does not play its own clip");
+		Map<String, JsonObject> files = new HashMap<>();
+		for (HeavyClip heavy : HEAVY_CLIPS) {
+			if (heavy.stand() != null) {
+				Ability ability = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc(heavy.stand())).getBaseMoveset()
+						.getAbility(heavy.ability());
+				helper.assertTrue(ability instanceof EntityActionAbility entityAbility
+						&& heavy.clip().equals(entityAbility.getEntityAnim(null).name())
+						&& storedPhase(helper, entityAbility, ActionPhase.PERFORM) == 1,
+						"setup: " + heavy.stand() + "'s " + heavy.ability() + " does not play " + heavy.clip()
+								+ " with a one-tick perform");
+			}
+			JsonObject clip = files.computeIfAbsent(heavy.asset(), asset -> readJson(helper, asset))
+					.getAsJsonObject("animations").getAsJsonObject(heavy.clip());
+			helper.assertTrue(clip != null && clip.has("timeline") && clip.has("bones"), heavy.asset() + " lost " + heavy.clip());
+			float impact = fastestMoveEnd(helper, heavy, clip);
+			helper.assertTrue(Math.abs(impact - heavy.impact()) < 0.0001F, "setup: " + heavy.clip() + " of " + heavy.asset()
+					+ ": " + heavy.bone() + " ends its fastest move at " + impact + ", not at the impact " + heavy.impact());
+			float performAt = marker(clip, "phase=PERFORM;");
+			float recoveryAt = marker(clip, "phase=RECOVERY;");
+			if (!(Math.abs(performAt - impact) <= CLIP_TICK + 0.0002F && recoveryAt > performAt
+					&& recoveryAt - performAt <= CLIP_TICK + 0.0002F)) {
+				wrong.add(heavy.clip() + " of " + heavy.asset() + ": PERFORM " + performAt + ", RECOVERY " + recoveryAt
+						+ ", impact " + impact);
+			}
 		}
-		helper.assertTrue(wrong.isEmpty(), "The grab heavy clips must give the one-tick perform one tick of clip from their"
-				+ " impact, as 1.16's heavy clips did: " + wrong);
+		helper.assertTrue(wrong.isEmpty(), "A heavy clip played with the one-tick perform must land its impact within a tick of"
+				+ " its PERFORM marker and give the perform at most a tick of clip, as 1.16's heavy clips did: " + wrong);
 		helper.succeed();
 	}
 
@@ -189,20 +241,55 @@ public final class HeavyPunchPerform116GameTests {
 			List<String> wrong) {
 		JsonObject clip = readJson(helper, assetPath).getAsJsonObject("animations").getAsJsonObject(clipName);
 		helper.assertTrue(clip != null && clip.has("timeline"), assetPath + " lost " + clipName);
-		float performAt = Float.NaN;
-		float recoveryAt = Float.NaN;
-		for (Map.Entry<String, JsonElement> marker : clip.getAsJsonObject("timeline").entrySet()) {
-			String instruction = marker.getValue().isJsonPrimitive() ? marker.getValue().getAsString().replace(" ", "") : "";
-			if ("phase=PERFORM;".equals(instruction)) {
-				performAt = Float.parseFloat(marker.getKey());
-			}
-			else if ("phase=RECOVERY;".equals(instruction)) {
-				recoveryAt = Float.parseFloat(marker.getKey());
-			}
-		}
-		if (Math.abs(performAt - perform) > 0.0001F || Math.abs(recoveryAt - performAt - 0.05F) > 0.0002F) {
+		float performAt = marker(clip, "phase=PERFORM;");
+		float recoveryAt = marker(clip, "phase=RECOVERY;");
+		if (Math.abs(performAt - perform) > 0.0001F || Math.abs(recoveryAt - performAt - CLIP_TICK) > 0.0002F) {
 			wrong.add(clipName + " of " + assetPath + ": PERFORM " + performAt + " (impact " + perform + "), RECOVERY " + recoveryAt);
 		}
+	}
+
+	private static float marker(JsonObject clip, String instruction) {
+		for (Map.Entry<String, JsonElement> marker : clip.getAsJsonObject("timeline").entrySet()) {
+			if (marker.getValue().isJsonPrimitive() && instruction.equals(marker.getValue().getAsString().replace(" ", ""))) {
+				return Float.parseFloat(marker.getKey());
+			}
+		}
+		return Float.NaN;
+	}
+
+	// the key where the striking bone's fastest key-to-key rotation ends: the strike lands there
+	private static float fastestMoveEnd(GameTestHelper helper, HeavyClip heavy, JsonObject clip) {
+		JsonObject bone = clip.getAsJsonObject("bones").getAsJsonObject(heavy.bone());
+		helper.assertTrue(bone != null && bone.has("rotation") && bone.get("rotation").isJsonObject(),
+				"setup: " + heavy.clip() + " of " + heavy.asset() + " has no keyed " + heavy.bone() + " rotation");
+		List<Map.Entry<Float, float[]>> keys = new ArrayList<>();
+		for (Map.Entry<String, JsonElement> key : bone.getAsJsonObject("rotation").entrySet()) {
+			JsonElement value = key.getValue();
+			if (value.isJsonObject()) {
+				value = value.getAsJsonObject().has("vector") ? value.getAsJsonObject().get("vector") : value.getAsJsonObject().get("post");
+			}
+			JsonArray vector = value.getAsJsonArray();
+			keys.add(Map.entry(Float.parseFloat(key.getKey()),
+					new float[] { vector.get(0).getAsFloat(), vector.get(1).getAsFloat(), vector.get(2).getAsFloat() }));
+		}
+		keys.sort(Map.Entry.comparingByKey());
+		float end = Float.NaN;
+		double fastest = -1;
+		for (int i = 1; i < keys.size(); i++) {
+			float[] from = keys.get(i - 1).getValue();
+			float[] to = keys.get(i).getValue();
+			double angle = Math.sqrt(square(to[0] - from[0]) + square(to[1] - from[1]) + square(to[2] - from[2]));
+			double rate = angle / (keys.get(i).getKey() - keys.get(i - 1).getKey());
+			if (rate > fastest) {
+				fastest = rate;
+				end = keys.get(i).getKey();
+			}
+		}
+		return end;
+	}
+
+	private static double square(float value) {
+		return (double) value * value;
 	}
 
 	private static JsonObject readJson(GameTestHelper helper, String assetPath) {

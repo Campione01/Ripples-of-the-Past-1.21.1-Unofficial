@@ -35709,7 +35709,7 @@
 			"timeline": {
 				"0.0": "phase = WINDUP;",
 				"0.4333": "phase = PERFORM;",
-				"0.7333": "phase = RECOVERY;"
+				"0.4833": "phase = RECOVERY;"
 			}
 		},
 		"heavy_charged": {

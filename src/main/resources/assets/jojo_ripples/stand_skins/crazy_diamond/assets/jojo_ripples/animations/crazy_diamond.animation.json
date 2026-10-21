@@ -6606,7 +6606,7 @@
       "timeline": {
         "0.0": "phase = WINDUP;",
         "0.5": "phase = PERFORM;",
-        "0.7083": "phase = RECOVERY;"
+        "0.55": "phase = RECOVERY;"
       }
     },
     "finisher": {
@@ -7433,7 +7433,7 @@
       "timeline": {
         "0.0": "phase = WINDUP;",
         "0.375": "phase = PERFORM;",
-        "0.625": "phase = RECOVERY;"
+        "0.425": "phase = RECOVERY;"
       }
     },
     "repair_item": {

@@ -1707,8 +1707,8 @@
       },
       "timeline": {
         "0": "phase = WINDUP;",
-        "0.4333": "phase = PERFORM;",
-        "0.7333": "phase = RECOVERY;"
+        "0.6": "phase = PERFORM;",
+        "0.65": "phase = RECOVERY;"
       }
     },
     "kick": {
@@ -2081,7 +2081,7 @@
       },
       "timeline": {
         "0": "phase = WINDUP;",
-        "0.45": "phase = PERFORM;",
+        "0.65": "phase = PERFORM;",
         "0.7": "phase = RECOVERY;"
       }
     },
