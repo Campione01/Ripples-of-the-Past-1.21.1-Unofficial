@@ -124,6 +124,14 @@ public class VampirismActionAbility extends EntityActionAbility {
 		if (context == null || isCreative(context)) {
 			return;
 		}
+		setVampirismCooldownTimer(context, cooldown, totalCooldown);
+	}
+
+	/** 1.16 NonStandPower.setCooldownTimer, which an action calling it set for a Creative user too. */
+	protected void setVampirismCooldownTimer(Power<?> context, int cooldown, int totalCooldown) {
+		if (context == null) {
+			return;
+		}
 		VampirismData data = getVampirismData(context);
 		if (data != null && cooldown > 0) {
 			data.setAbilityCooldown(name(), cooldown, totalCooldown);

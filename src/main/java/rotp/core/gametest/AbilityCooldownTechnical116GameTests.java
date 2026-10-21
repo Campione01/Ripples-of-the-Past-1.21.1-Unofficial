@@ -10,6 +10,9 @@ import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.impl.powers.hamon.HamonData;
+import rotp.core.impl.powers.hamon.abilities.HamonRebuffOverdriveAbility;
+import rotp.core.impl.powers.vampirism.VampirismData;
+import rotp.core.impl.powers.vampirism.VampirismState;
 import rotp.core.impl.powers.pillarman.PillarmanData;
 import rotp.core.impl.powers.pillarman.PillarmanMode;
 import rotp.core.init.power.ModPlayerPowers;
@@ -175,6 +178,76 @@ public final class AbilityCooldownTechnical116GameTests {
 		}
 		helper.assertTrue(wrong.isEmpty(), "1.16 kept the technical part of a cooldown for a Creative user: "
 				+ String.join("; ", wrong));
+		helper.succeed();
+	}
+
+	/*
+	 * Two moves whose 1.16 cooldown did not follow the technical part. Rebuff Overdrive was a plain cooldown(100)
+	 * (ModHamonActions :178), which ContinuousActionInstance took from getCooldown as it started (0 in Creative) and
+	 * scaled as it ended, so a Creative user got none, also when cancelled in its windup; Space Ripper Stingy Eyes set
+	 * its 50 x ticks fired / 20 with setCooldownTimer as its lasers ended (VampirismSpaceRipperStingyEyes :69), Creative
+	 * included.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void rebuffOverdriveAndStingyEyesSetTheirCooldownsInCreativeAsIn116(GameTestHelper helper) {
+		List<FakePlayer> users = new ArrayList<>();
+		List<String> wrong = new ArrayList<>();
+		try {
+			for (GameType mode : new GameType[] { GameType.SURVIVAL, GameType.CREATIVE }) {
+				FakePlayer hamonUser = addUser(helper, users);
+				hamonUser.setGameMode(mode);
+				helper.assertTrue(playerPowerUser(hamonUser, "hamon") != null, "setup: could not give Hamon");
+				HamonData hamon = PlayerPower.getPowerData(hamonUser, ModPlayerPowers.HAMON).orElseThrow();
+				hamon.setBreathStability(hamon.getMaxBreathStability());
+				hamon.setEnergy(hamon.getMaxEnergy());
+				EntityActionAbility rebuffAbility = (EntityActionAbility) PowerClass.PLAYER_POWER.get(hamonUser).getAbility("rebuff_overdrive");
+				EntityActionInstance rebuff = rebuffAbility.initActionOnAbilityUse(helper.getLevel(), hamonUser, hamonUser, null);
+				LivingComponentAction hamonActions = LivingComponentAction.getComponent(hamonUser);
+				hamonActions.setAction(rebuff, hamonUser, SyncType.NO_SYNC);
+				for (int tick = 0; tick < 7; tick++) {
+					hamonActions.tick();
+				}
+				helper.assertTrue(rebuff instanceof HamonRebuffOverdriveAbility.HamonRebuffOverdrive overdrive
+						&& overdrive.canCancel(), "setup: " + mode.getName() + " Rebuff Overdrive is not in its windup: "
+								+ rebuff.getPhase() + " " + rebuff.getPhaseTick());
+				((HamonRebuffOverdriveAbility.HamonRebuffOverdrive) rebuff).cancel();
+				int rebuffCooldown = hamon.getAbilityCooldown("rebuff_overdrive");
+				if (mode == GameType.CREATIVE ? rebuffCooldown != 0 : rebuffCooldown <= 0) {
+					wrong.add(mode.getName() + " Rebuff Overdrive cancelled in its windup left a cooldown of " + rebuffCooldown
+							+ ", 1.16's " + (mode == GameType.CREATIVE ? "0" : "some"));
+				}
+
+				FakePlayer vampire = addUser(helper, users);
+				vampire.setGameMode(mode);
+				PlayerPower vampirism = PowerClass.PLAYER_POWER.attachGet(vampire);
+				vampirism.setPowerType(ModPlayerPowers.VAMPIRISM.get());
+				VampirismData data = PlayerPower.getPowerData(vampire, ModPlayerPowers.VAMPIRISM).orElseThrow();
+				data.setVampireFullPower(true, vampire);
+				VampirismState.get(vampire).blood().setCurrent(500.0F);
+				data.setBloodLevel(VampirismState.get(vampire).blood().current());
+				EntityActionAbility eyesAbility = (EntityActionAbility) vampirism.getAbility("vampirism_space_ripper_stingy_eyes");
+				EntityActionInstance eyes = eyesAbility.initActionOnAbilityUse(helper.getLevel(), vampire, vampire, null);
+				LivingComponentAction vampireActions = LivingComponentAction.getComponent(vampire);
+				vampireActions.setAction(eyes, vampire, SyncType.NO_SYNC);
+				// its charge run to its end and let go, as a mob's held press is fired
+				eyes.setPhase(eyes.getPhase(), (int) Math.ceil(eyes.getCurPhaseLength()));
+				eyes.onKeyRelease(vampire);
+				for (int tick = 0; tick < 60 && !eyes.isOver(); tick++) {
+					vampireActions.tick();
+				}
+				int eyesCooldown = data.getAbilityCooldown("vampirism_space_ripper_stingy_eyes");
+				helper.getLevel().getEntities((Entity) null, vampire.getBoundingBox().inflate(32.0D),
+						entity -> entity instanceof Projectile projectile && projectile.getOwner() == vampire).forEach(Entity::discard);
+				if (!eyes.isOver() || eyesCooldown != 50) {
+					wrong.add(mode.getName() + " Space Ripper Stingy Eyes fired its 20 ticks and left a cooldown of " + eyesCooldown
+							+ " (over " + eyes.isOver() + "), 1.16's 50 x 20 / 20 = 50");
+				}
+			}
+		}
+		finally {
+			users.forEach(FakePlayer::discard);
+		}
+		helper.assertTrue(wrong.isEmpty(), String.join("; ", wrong));
 		helper.succeed();
 	}
 

@@ -184,7 +184,8 @@ public class VampirismSpaceRipperStingyEyesAbility extends VampirismActionAbilit
 				return;
 			}
 			int cooldown = (int) (MAX_COOLDOWN * Math.max(ticksFired, 0) / (float) TICK_DURATION);
-			srse.setVampirismCooldown(srse.getUserPower(user), cooldown, MAX_COOLDOWN);
+			// 1.16 set it with setCooldownTimer, Creative included
+			srse.setVampirismCooldownTimer(srse.getUserPower(user), cooldown, MAX_COOLDOWN);
 		}
 	}
 }
