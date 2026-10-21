@@ -73,6 +73,7 @@ import rotp.core.network.s2c.TrPowerTypePacket;
 import rotp.core.network.s2c.TrRefreshMovementInTimeStopPacket;
 import rotp.core.network.s2c.TrResetDeathTimePacket;
 import rotp.core.network.s2c.TrSetStandEntityPacket;
+import rotp.core.network.s2c.TrStandAwakeningStagePacket;
 import rotp.core.network.s2c.TrStandSkinPacket;
 import rotp.core.network.s2c.TrSyncStandOffsetPacket;
 import rotp.core.powersystem.entityaction.netcode.TrEntityActionInstancePacket;
@@ -144,7 +145,8 @@ public class PacketsRegister {
 	// 12: the Hamon tracking sync carries the technique the aura remembers
 	// 13: actiontarget, the targets the server changes while an action runs (1.16 TrStandTaskTargetPacket)
 	// 14: the Stand data sync carries the highest Resolve level reached
-	public static final String NETWORK_PROTOCOL_VERSION = "14";
+	// 15: standawakestage, a Stand user's awakening stage for the players tracking it
+	public static final String NETWORK_PROTOCOL_VERSION = "15";
 
 	public static void register(RegisterPayloadHandlersEvent event) {
 		PayloadRegistrar registrar = event.registrar(NETWORK_PROTOCOL_VERSION);
@@ -227,6 +229,7 @@ public class PacketsRegister {
 		registerPacket(registrar, PayloadRegistrar::playToClient, new TrResolvePacket.Handler(JojoMod.resLoc("resolve")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new ResolveBoostsPacket.Handler(JojoMod.resLoc("resolveboost")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new StandAwakeningDataPacket.Handler(JojoMod.resLoc("standawake")));
+		registerPacket(registrar, PayloadRegistrar::playToClient, new TrStandAwakeningStagePacket.Handler(JojoMod.resLoc("standawakestage")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new TrAimTargetPacket.Handler(JojoMod.resLoc("aim")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new TrPlayerModSettingsPacket.Handler(JojoMod.resLoc("trplayersettings")));
 		registerPacket(registrar, PayloadRegistrar::playToClient, new PlayVoiceLinePacket.Handler(JojoMod.resLoc("voiceline")));

@@ -62,7 +62,6 @@ import rotp.core.subsystems.target.ActionTargetRange;
 import rotp.core.subsystems.target.HitResultUtil;
 import rotp.core.subsystems.target.StandPrecisionRay;
 import rotp.core.subsystems.timestop.TimeStopState;
-import rotp.core.util.functions.MathUtil;
 import rotp.core.util.reflection.CommonReflection;
 
 import net.minecraft.core.BlockPos;
@@ -1022,10 +1021,14 @@ public final class StandTargetRangeGameTests {
 					expected = row.equals("within the user's reach") ? "accepted" : ITEM_OFFHAND;
 				}
 				else {
-					// its user moved it 2.4 blocks behind (north) and turned it north, as the O key does
+					// its user steered it behind (north) as far as it goes, as the O key does through StandEntity.move, which holds
+					// its feet within its max range of its user's, and turned it north
 					StandEntity stand = fixture.stand;
 					stand.setManuallyControlled(true);
-					stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z - 2.4D, 180.0F, 0.0F);
+					stand.move(net.minecraft.world.entity.MoverType.SELF,
+							new Vec3(fixture.origin.x, fixture.origin.y, fixture.origin.z - 3.0D).subtract(stand.position()));
+					stand.setYRot(180.0F);
+					stand.setXRot(0.0F);
 					stand.setYHeadRot(180.0F);
 					boolean userLookOnly = row.endsWith("the user's look only");
 					boolean inAim = row.endsWith("in the Stand's aim");
@@ -1034,7 +1037,7 @@ public final class StandTargetRangeGameTests {
 							new Vec3(fixture.origin.x + (inAim ? 0.6D : 0.0D), stand.getEyeY() - 0.95D,
 									stand.getZ() - (pastReach ? 4.0D : 2.2D)));
 					LivingComponentAction.getComponent(stand).entityAim.setTarget(inAim ? new ActionTarget(golem) : ActionTarget.EMPTY);
-					double gap = MathUtil.getAABBDistance(stand.getBoundingBox(), fixture.user.getBoundingBox());
+					double standFromUser = stand.distanceTo(fixture.user);
 					double fromStandEyes = Math.sqrt(golem.getBoundingBox().distanceToSqr(stand.getEyePosition()));
 					double fromUser = Math.sqrt(golem.getBoundingBox().distanceToSqr(fixture.user.getEyePosition()));
 					double standReach = stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE);
@@ -1049,9 +1052,9 @@ public final class StandTargetRangeGameTests {
 					boolean layout = userLookOnly ? onUsersLook && !onStandsLook && fromUser < 5.0D
 							: !onUsersLook && (inAim ? !onStandsLook && inStandsPrecisionBox && fromStandEyes < standReach
 									: onStandsLook && (pastReach ? fromStandEyes > 3.0D && fromStandEyes < 5.0D : fromStandEyes < standReach));
-					helper.assertTrue(stand.isManuallyControlled() && gap <= stand.getMaxRange() && layout
+					helper.assertTrue(stand.isManuallyControlled() && standFromUser <= stand.getMaxRange() + 1.0E-6D && layout
 							&& fixture.user.getOffhandItem().isEmpty(),
-							"STAND-RANGE premise: the manually controlled Stand " + gap + " blocks from its user (max range "
+							"STAND-RANGE premise: the manually controlled Stand's feet " + standFromUser + " blocks from its user's (max range "
 									+ stand.getMaxRange() + "), the golem " + fromStandEyes + " from the Stand's eyes (reach " + standReach
 									+ ", on its look " + onStandsLook + ", its precision box on it " + inStandsPrecisionBox + ") and "
 									+ fromUser + " from the user's (on its look " + onUsersLook + ")");
@@ -1115,10 +1118,14 @@ public final class StandTargetRangeGameTests {
 					expected = row.equals("within the user's reach") ? "accepted" : HEAL_TARGET;
 				}
 				else {
-					// its user moved it 2.4 blocks behind (north) and turned it north, as the O key does
+					// its user steered it behind (north) as far as it goes, as the O key does through StandEntity.move, which holds
+					// its feet within its max range of its user's, and turned it north
 					StandEntity stand = fixture.stand;
 					stand.setManuallyControlled(true);
-					stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z - 2.4D, 180.0F, 0.0F);
+					stand.move(net.minecraft.world.entity.MoverType.SELF,
+							new Vec3(fixture.origin.x, fixture.origin.y, fixture.origin.z - 3.0D).subtract(stand.position()));
+					stand.setYRot(180.0F);
+					stand.setXRot(0.0F);
 					stand.setYHeadRot(180.0F);
 					boolean userLookOnly = row.endsWith("the user's look only");
 					boolean inAim = row.endsWith("in the Stand's aim");
@@ -1128,7 +1135,7 @@ public final class StandTargetRangeGameTests {
 									stand.getZ() - (pastReach ? 4.0D : 2.2D));
 					wounded.moveTo(feet.x, feet.y, feet.z, 180.0F, 0.0F);
 					LivingComponentAction.getComponent(stand).entityAim.setTarget(inAim ? new ActionTarget(wounded) : ActionTarget.EMPTY);
-					double gap = MathUtil.getAABBDistance(stand.getBoundingBox(), fixture.user.getBoundingBox());
+					double standFromUser = stand.distanceTo(fixture.user);
 					double fromStandEyes = Math.sqrt(wounded.getBoundingBox().distanceToSqr(stand.getEyePosition()));
 					double fromUser = Math.sqrt(wounded.getBoundingBox().distanceToSqr(userEyes));
 					double standReach = stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE);
@@ -1141,8 +1148,8 @@ public final class StandTargetRangeGameTests {
 					boolean layout = userLookOnly ? onUsersLook && !onStandsLook && fromUser < 5.0D
 							: !onUsersLook && (inAim ? !onStandsLook && inStandsPrecisionBox && fromStandEyes < standReach
 									: onStandsLook && (pastReach ? fromStandEyes > 3.0D && fromStandEyes < 5.0D : fromStandEyes < standReach));
-					helper.assertTrue(stand.isManuallyControlled() && gap <= stand.getMaxRange() && layout,
-							"STAND-RANGE premise: the manually controlled Stand " + gap + " blocks from its user (max range "
+					helper.assertTrue(stand.isManuallyControlled() && standFromUser <= stand.getMaxRange() + 1.0E-6D && layout,
+							"STAND-RANGE premise: the manually controlled Stand's feet " + standFromUser + " blocks from its user's (max range "
 									+ stand.getMaxRange() + "), the cow " + fromStandEyes + " from the Stand's eyes (reach " + standReach
 									+ ", on its look " + onStandsLook + ", its precision box on it " + inStandsPrecisionBox + ") and "
 									+ fromUser + " from the user's (on its look " + onUsersLook + ")");
@@ -1193,19 +1200,26 @@ public final class StandTargetRangeGameTests {
 				boolean premise;
 				String expected;
 				if (row.contains("under manual control")) {
+					// steered behind its user as far as StandEntity.move lets its feet go, as the O key does, and turned north
 					StandEntity stand = fixture.stand;
 					stand.setManuallyControlled(true);
-					stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z - 2.4D, 180.0F, 0.0F);
+					stand.move(net.minecraft.world.entity.MoverType.SELF,
+							new Vec3(fixture.origin.x, fixture.origin.y, fixture.origin.z - 3.0D).subtract(stand.position()));
+					stand.setYRot(180.0F);
+					stand.setXRot(0.0F);
 					stand.setYHeadRot(180.0F);
 					LivingComponentAction.getComponent(stand).entityAim.setTarget(ActionTarget.EMPTY);
 					Cow cow = placed(helper, fixture, EntityType.COW, new Vec3(fixture.origin.x, stand.getEyeY(), stand.getZ() - 1.0D));
 					SnowGolem golem = placed(helper, fixture, EntityType.SNOW_GOLEM,
 							new Vec3(fixture.origin.x, stand.getEyeY(), stand.getZ() - 2.0D));
 					double reach = stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE);
+					double standFromUser = stand.distanceTo(fixture.user);
 					double cowEntry = entry(stand, cow.getBoundingBox());
 					double golemEntry = entry(stand, golem.getBoundingBox());
-					premise = cowEntry > 0.0D && golemEntry > cowEntry && golemEntry < reach && entry(fixture.user, golem.getBoundingBox()) < 0.0D;
-					layout = "on the Stand's look, the cow " + cowEntry + " and the golem " + golemEntry + " blocks from its eyes (reach "
+					premise = standFromUser <= stand.getMaxRange() + 1.0E-6D && cowEntry > 0.0D && golemEntry > cowEntry
+							&& golemEntry < reach && entry(fixture.user, golem.getBoundingBox()) < 0.0D;
+					layout = "the Stand's feet " + standFromUser + " blocks from its user's (max range " + stand.getMaxRange()
+							+ "), on the Stand's look, the cow " + cowEntry + " and the golem " + golemEntry + " blocks from its eyes (reach "
 							+ reach + ")";
 					expected = ITEM_OFFHAND;
 				}

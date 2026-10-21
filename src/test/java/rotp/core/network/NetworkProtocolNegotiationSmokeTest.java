@@ -56,6 +56,9 @@ public final class NetworkProtocolNegotiationSmokeTest {
 		// a v13 peer would read the Stand data's highest Resolve level as the next field
 		check(Integer.parseInt(PacketsRegister.NETWORK_PROTOCOL_VERSION) >= 14,
 				"the Stand data's highest Resolve level needs core protocol v14 or later");
+		// a v14 peer has no standawakestage payload: it would read a tracked user's Resolve the user's stage turns off
+		check(Integer.parseInt(PacketsRegister.NETWORK_PROTOCOL_VERSION) >= 15,
+				"the clientbound standawakestage payload needs core protocol v15 or later");
 
 		var matching = NetworkComponentNegotiator.validateComponent(
 				requiredComponent(PacketsRegister.NETWORK_PROTOCOL_VERSION),
@@ -63,6 +66,13 @@ public final class NetworkProtocolNegotiationSmokeTest {
 				"client");
 		check(matching.isEmpty(),
 				"matching current peers must negotiate the required play payload");
+
+		var noAwakeningStage = NetworkComponentNegotiator.validateComponent(
+				requiredComponent(PacketsRegister.NETWORK_PROTOCOL_VERSION),
+				requiredComponent("14"),
+				"client");
+		check(noAwakeningStage.isPresent() && !noAwakeningStage.get().success(),
+				"a v14 peer must fail before it receives standawakestage");
 
 		var noActionTarget = NetworkComponentNegotiator.validateComponent(
 				requiredComponent(PacketsRegister.NETWORK_PROTOCOL_VERSION),

@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 
 import javax.annotation.Nullable;
 
+import rotp.core.network.s2c.TrStandAwakeningStagePacket;
 import rotp.core.util.functions.NBTUtil;
 
 import net.minecraft.Util;
@@ -63,7 +64,19 @@ public class StandAwakening {
 	}
 	
 	public void sync(LivingEntity user) {
-		if (!user.level().isClientSide() && user instanceof ServerPlayer player) syncToUser(player);
+		if (!user.level().isClientSide()) {
+			if (user instanceof ServerPlayer player) syncToUser(player);
+			syncStageToTracking(user);
+		}
+	}
+
+	// the stage gates StandPower.usesResolve, which tracking clients read too (the Life Detector's Resolve line)
+	public void syncStageToTracking(LivingEntity user) {
+		PacketDistributor.sendToPlayersTrackingEntity(user, new TrStandAwakeningStagePacket(user.getId(), stage));
+	}
+
+	public void syncStageTo(LivingEntity user, ServerPlayer tracking) {
+		PacketDistributor.sendToPlayer(tracking, new TrStandAwakeningStagePacket(user.getId(), stage));
 	}
 
 	public CompoundTag serializeNBT() {

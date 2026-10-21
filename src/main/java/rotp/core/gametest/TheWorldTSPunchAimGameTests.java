@@ -148,7 +148,7 @@ public final class TheWorldTSPunchAimGameTests {
 			EntityActionInstance action = scene.press();
 			helper.assertTrue(blinkTarget(action) == first, "fixture: the punch did not go for the cow ahead: " + describe(action));
 			// the target leaves before the strike; another mob now stands in the user's reach, before the Stand
-			first.moveTo(first.getX(), first.getY(), first.getZ() + 30, 0, 0);
+			leave(helper, scene, first);
 			Cow second = scene.mob(EntityType.COW.create(scene.level),
 					new Vec3(scene.stand.getX(), scene.start.y + 0.5, scene.stand.getZ() + 1));
 			float firstHealth = first.getHealth();
@@ -182,7 +182,7 @@ public final class TheWorldTSPunchAimGameTests {
 			Cow first = scene.mob(EntityType.COW.create(scene.level), scene.start.add(0, 0.5, 4));
 			EntityActionInstance action = scene.press();
 			helper.assertTrue(blinkTarget(action) == first, "fixture: the punch did not go for the cow ahead: " + describe(action));
-			first.moveTo(first.getX(), first.getY(), first.getZ() + 30, 0, 0);
+			leave(helper, scene, first);
 			Cow beside = scene.mob(EntityType.COW.create(scene.level),
 					new Vec3(scene.start.x + 1.0, scene.start.y + 0.5, scene.stand.getZ() + 1));
 			Vec3 eyes = scene.user.getEyePosition();
@@ -382,6 +382,16 @@ public final class TheWorldTSPunchAimGameTests {
 				throw failure;
 			}
 		});
+	}
+
+	// the cow the punch blinked to leaves straight up, out of the Stand's reach and the action's range, so it stays above
+	// this test's own cell; 30 blocks along z put it in the test four rows south, on whatever that test looked at
+	private static void leave(GameTestHelper helper, Scene scene, Cow cow) {
+		cow.moveTo(cow.getX(), cow.getY() + 30, cow.getZ(), 0, 0);
+		ActionTarget gone = new ActionTarget(cow);
+		helper.assertTrue(StandEntityPunchAbility.validatePunchTarget(scene.stand, gone).isEmpty(scene.level)
+				&& !ActionTargetRange.isTargetWithinRange(scene.stand, gone, scene.level),
+				"fixture: the cow that left is still within the Stand's reach or the time-stop punch's range, at " + cow.position());
 	}
 
 	private static Entity blinkTarget(EntityActionInstance action) {
