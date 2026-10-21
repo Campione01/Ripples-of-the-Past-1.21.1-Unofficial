@@ -36,7 +36,8 @@ public class HamonSendoOverdriveAbility extends HamonActionRuntimeAbility {
 
 	public HamonSendoOverdriveAbility(AbilityType<?> abilityType, AbilityId abilityId) {
 		super(abilityType, abilityId, SendoOverdriveInstance::new);
-		hamonHoldToFire(HOLD_TO_FIRE_TICKS, false, HOLD_TO_FIRE_TICKS, 5);
+		// 1.16 stoppedHolding sent the wave as the hold was let go, and the technique was over.
+		hamonHoldToFire(HOLD_TO_FIRE_TICKS, false, HOLD_TO_FIRE_TICKS, 1);
 		setDefaultPhaseLength(ActionPhase.RECOVERY, 0);
 	}
 

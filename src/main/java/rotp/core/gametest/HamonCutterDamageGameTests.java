@@ -459,7 +459,8 @@ public final class HamonCutterDamageGameTests {
             premise(held != null && held.action instanceof HamonCutterAbility.CutterInstance shot
                     && shot.ability == ability && shot == LivingComponentAction.getCurEntityAction(user), "Wrong Cutter action");
             action = (EntityActionInstance) held.action;
-            premise(action.getPhase() == ActionPhase.WINDUP && cutters.isEmpty(), "Cutter skipped natural windup");
+            // 1.16 performed the click at once: no windup, the burst comes with the action's first tick
+            premise(action.getPhase() == ActionPhase.PERFORM && cutters.isEmpty(), "Cutter press did not start its perform or threw early");
             log("press userTicks=" + userTicks + " phase=" + phase() + " energy=" + hamon.getEnergy() + " points=" + points());
         }
 

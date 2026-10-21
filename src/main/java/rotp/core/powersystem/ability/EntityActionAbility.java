@@ -506,7 +506,18 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 		return true;
 	}
 
-	
+	/**
+	 * Whether a held charge (a held phase before the perform, whose next phase is not held) fires as its length ends, as
+	 * a 1.16 holdToFire(N, false) action did: it fired on the N-th held tick from the press, after N - 1 held ticks
+	 * (PowerBaseImpl.tickHeldAction), so the port's charge of N ticks leaves on its (N - 1)-th tick and performs on the
+	 * N-th. True by default; an ability whose charge only readies a hold that fires on its release (1.16 holdToFire(N,
+	 * true), modelled as a held charge going on into a waiting perform) returns false.
+	 */
+	public boolean chargeFiresAsItsLengthEnds(EntityActionInstance action) {
+		return true;
+	}
+
+
 	/**
 	 * 1.16 StandEntityAction.stopOnHeavyAttack: whether a heavy attack that hurts the Stand performing this action
 	 * sends the action into its recovery (StandEntity.stopTaskWithRecovery). The melee barrage said yes.

@@ -58,7 +58,7 @@ public final class AbilityShoutSmokeTest {
 				"if(concentrated){cooldown(5,60);setPlaysVoiceLineOnSneak();}");
 		require(source("impl/powers/hamon/abilities/HamonBubbleCutterAbility.java"), "if(gliding){setPlaysVoiceLineOnSneak();}");
 		require(source("impl/powers/hamon/abilities/HamonSunlightYellowOverdriveBarrageAbility.java"),
-				"setDefaultPhaseLength(ActionPhase.RECOVERY,6);setPlaysVoiceLineOnSneak();}");
+				"setDefaultPhaseLength(ActionPhase.PERFORM,MAX_BARRAGE_DURATION+FINISHING_PUNCH_DURATION);setPlaysVoiceLineOnSneak();}");
 		require(source("impl/powers/hamon/abilities/HamonBreathAbility.java"),
 				"setDefaultPhaseLength(ActionPhase.RECOVERY,0);setPlaysVoiceLineOnSneak();}");
 		// The World's heavy punch (SHIFT variation) and kick (finisher) shout sneaking or not, when the attack starts

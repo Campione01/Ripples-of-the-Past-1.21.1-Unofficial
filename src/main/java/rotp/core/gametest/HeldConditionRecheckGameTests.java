@@ -238,9 +238,9 @@ public final class HeldConditionRecheckGameTests {
 			}
 			helper.assertTrue(action.getPhase() == ActionPhase.PERFORM, "Hamon Cutter did not reach its perform phase");
 			helper.assertTrue(getAttackStrengthTicker(f.user) >= 100, "the attack strength was reset before the technique fired");
-			// The perform phase's first tick is 1.16's onPerform.
+			// The perform phase's first tick is 1.16's onPerform, and the click was over with it.
 			f.tick(1);
-			helper.assertTrue(!action.isOver() && action.getPhase() == ActionPhase.PERFORM, "Hamon Cutter did not perform");
+			helper.assertTrue(action.isOver(), "Hamon Cutter did not perform its click and end");
 			helper.assertTrue(getAttackStrengthTicker(f.user) <= 1,
 					"performing Hamon Cutter did not reset the attack strength");
 			helper.succeed();

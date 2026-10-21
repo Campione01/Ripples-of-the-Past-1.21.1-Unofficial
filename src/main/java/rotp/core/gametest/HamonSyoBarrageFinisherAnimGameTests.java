@@ -93,17 +93,10 @@ public final class HamonSyoBarrageFinisherAnimGameTests {
 					&& Math.abs(action.getPhaseTick() - finisherStart - 4.0F) < 0.01F,
 					"4 ticks into the finishing punch the finisher clip must be 4 ticks further, got clip tick " + anim.time);
 
-			tickUntil(helper, user, component, action, FINISHING_PUNCH_DURATION + 2,
-					() -> action.getPhase() == ActionPhase.RECOVERY, "the barrage never reached its recovery");
-			tick(user, component, 2);
-			helper.assertTrue(component.getAction() == action && action.getPhase() == ActionPhase.RECOVERY,
-					"the recovery lasts 6 ticks: phase=" + action.getPhase());
-			action.extractAnim(anim, user, 0.0F);
-			helper.assertTrue("syo_barrage_finisher".equals(anim.animId.name()),
-					"1.16 kept the finisher pose after the punch; the recovery plays " + anim.animId.name());
-			helper.assertTrue(Math.abs(anim.time - (FINISHING_PUNCH_DURATION + action.getPhaseTick())) < 0.01F,
-					"the finisher clip must run on through the recovery, got clip tick " + anim.time
-					+ " at recovery tick " + action.getPhaseTick());
+			// 1.16 Instance.getMaxDuration: the action ended with the finishing punch's 10th tick, with nothing after it
+			tick(user, component, FINISHING_PUNCH_DURATION - 4);
+			helper.assertTrue(component.getAction() == null && action.isOver(),
+					"the finishing punch ends the action after its 10 ticks: phase=" + action.getPhase());
 			helper.succeed();
 		}
 		finally {
@@ -116,7 +109,7 @@ public final class HamonSyoBarrageFinisherAnimGameTests {
 	/**
 	 * 1.16 syo_barrage_finisher.json: endTick 20. The action ended 10 ticks into the clip and nothing stopped it
 	 * (the only stopAnim caller is the held-action stop of the charge), so it played its last 10 ticks afterwards.
-	 * The port's action shows the clip through its 6-tick recovery (clip tick 16); the rest must still play.
+	 * The port's action, as 1.16's, ends with the punch (clip tick 9 last shown); the rest must still play.
 	 */
 	@GameTest(template = "empty", timeoutTicks = 80)
 	public static void finisherClipRunsOnToItsEndTickAfterTheAction(GameTestHelper helper) {
@@ -140,7 +133,7 @@ public final class HamonSyoBarrageFinisherAnimGameTests {
 
 			helper.assertTrue(hamon.getSyoFinisherTailClipTick(user, 0.0F) < 0.0F, "no finisher clip is left over before the barrage");
 			tickUntil(helper, user, component, action, 70 + MAX_BARRAGE_DURATION + FINISHING_PUNCH_DURATION + 2,
-					() -> action.getPhase() == ActionPhase.RECOVERY, "the barrage never reached its recovery");
+					() -> "syo_barrage_finisher".equals(action.getEntityAnim().name()), "the finishing punch never started");
 			LivingAnimState anim = new LivingAnimState();
 			float lastShown = -1.0F;
 			for (int i = 0; i < 20 && component.getAction() == action; i++) {
@@ -150,13 +143,13 @@ public final class HamonSyoBarrageFinisherAnimGameTests {
 				lastShown = anim.time;
 				tick(user, component, 1);
 			}
-			helper.assertTrue(component.getAction() == null && action.isOver() && Math.abs(lastShown - 15.0F) < 0.01F,
-					"Fixture: the action ends after showing finisher clip tick 15, got " + lastShown + ", phase=" + action.getPhase());
+			helper.assertTrue(component.getAction() == null && action.isOver() && Math.abs(lastShown - 9.0F) < 0.01F,
+					"Fixture: the action ends after showing finisher clip tick 9, got " + lastShown + ", phase=" + action.getPhase());
 
-			for (int clipTick = 16; clipTick < 20; clipTick++) {
+			for (int clipTick = 10; clipTick < 20; clipTick++) {
 				float left = hamon.getSyoFinisherTailClipTick(user, 0.0F);
 				helper.assertTrue(Math.abs(left - clipTick) < 0.01F,
-						"1.16 let the finisher clip run on to its end tick 20 after the action: " + (clipTick - 16)
+						"1.16 let the finisher clip run on to its end tick 20 after the action: " + (clipTick - 10)
 								+ " ticks after the port's action ended it must be at clip tick " + clipTick + ", got " + left);
 				float midFrame = hamon.getSyoFinisherTailClipTick(user, 0.5F);
 				helper.assertTrue(Math.abs(midFrame - (clipTick + 0.5F)) < 0.01F,
