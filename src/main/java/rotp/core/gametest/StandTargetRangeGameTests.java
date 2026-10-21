@@ -1323,8 +1323,7 @@ public final class StandTargetRangeGameTests {
 				fixture.power.setResolveLevel(4);
 				StandEntity stand = fixture.stand;
 				stand.setManuallyControlled(true);
-				stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z - 2.4D, 180.0F, 0.0F);
-				stand.setYHeadRot(180.0F);
+				boolean held = steerBehind(fixture, stand);
 				LivingComponentAction.getComponent(stand).entityAim.setTarget(ActionTarget.EMPTY);
 				if (row.startsWith("the aim assist off")) {
 					fixture.user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get()).standAimAssist = false;
@@ -1410,7 +1409,7 @@ public final class StandTargetRangeGameTests {
 					expected = ActionTarget.EMPTY;
 				}
 				ActionTarget vanillaPick = vanillaPick(stand, fixture.user);
-				helper.assertTrue(premise && stand.isManuallyControlled() && entry(fixture.user, stand.getBoundingBox()) < 0.0D,
+				helper.assertTrue(premise && held && stand.isManuallyControlled() && entry(fixture.user, stand.getBoundingBox()) < 0.0D,
 						"STAND-AIM premise: " + row + ": " + layout + "; the vanilla pick " + describe(vanillaPick, stand));
 				ActionTarget aim = StandEntityPunchAbility.manualStandAim(stand, vanillaPick);
 				boolean matches = expected instanceof Entity entity ? aim.getType() == TargetType.ENTITY && aim.getEntity() == entity
@@ -1543,8 +1542,11 @@ public final class StandTargetRangeGameTests {
 				boolean manual = row.startsWith("under manual control");
 				boolean noAction = row.contains("no action");
 				stand.setManuallyControlled(manual);
-				stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z - 2.4D, 180.0F, 0.0F);
-				stand.setYHeadRot(180.0F);
+				boolean held = !manual || steerBehind(fixture, stand);
+				if (!manual) {
+					stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z - 2.4D, 180.0F, 0.0F);
+					stand.setYHeadRot(180.0F);
+				}
 				LivingComponentAction.getComponent(stand).entityAim.setTarget(ActionTarget.EMPTY);
 				if (row.startsWith("the aim assist off")) {
 					fixture.user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get()).standAimAssist = false;
@@ -1553,7 +1555,7 @@ public final class StandTargetRangeGameTests {
 				double userReach = StandEntityPunchAbility.userAimReach(fixture.user, stand);
 				SnowGolem golem = placed(helper, fixture, EntityType.SNOW_GOLEM, aheadOfStand(stand, 0.0D, 1.2D));
 				double golemEntry = entry(stand, golem.getBoundingBox());
-				boolean premise = golemEntry > 0.0D && golemEntry < standReach && entry(fixture.user, grownBox(stand, golem)) < 0.0D
+				boolean premise = held && golemEntry > 0.0D && golemEntry < standReach && entry(fixture.user, grownBox(stand, golem)) < 0.0D
 						&& entry(fixture.user, stand.getBoundingBox()) < 0.0D;
 				String layout = "the golem " + golemEntry + " blocks along the Stand's look (reach " + standReach + ")";
 				Cow cow;
@@ -1676,8 +1678,7 @@ public final class StandTargetRangeGameTests {
 				boolean manual = row.startsWith("under manual control");
 				if (manual) {
 					stand.setManuallyControlled(true);
-					stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z - 2.4D, 180.0F, 0.0F);
-					stand.setYHeadRot(180.0F);
+					helper.assertTrue(steerBehind(fixture, stand), "DIRECTIONAL-BARRAGE premise: the manually controlled Stand is past its max range of its user");
 				}
 				else {
 					// beside its user, off the user's look, the cow within its reach
@@ -2020,6 +2021,17 @@ public final class StandTargetRangeGameTests {
 	// on the look line of a camera turned south, at its eye height, side blocks to the east and ahead blocks along it
 	private static Vec3 onCameraLook(Entity camera, double side, double ahead) {
 		return new Vec3(camera.getX() + side, camera.getEyeY(), camera.getZ() + ahead);
+	}
+
+	// its user steers the manually controlled Stand behind (north) toward 2.4 blocks, as the O key does through
+	// StandEntity.move, which holds its feet within its max range of its user's, and turns it north
+	private static boolean steerBehind(Fixture fixture, StandEntity stand) {
+		stand.move(net.minecraft.world.entity.MoverType.SELF,
+				new Vec3(fixture.origin.x, fixture.origin.y, fixture.origin.z - 2.4D).subtract(stand.position()));
+		stand.setYRot(180.0F);
+		stand.setXRot(0.0F);
+		stand.setYHeadRot(180.0F);
+		return stand.distanceTo(fixture.user) <= stand.getMaxRange() + 1.0E-6D;
 	}
 
 	// a held Revert running on the Stand, which takes the second entity for its aim (none if null) and not the first
