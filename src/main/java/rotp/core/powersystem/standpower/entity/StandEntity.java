@@ -1471,7 +1471,8 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		if (summonLockCountedThisTick) {
 			summonLockTicks--;
 		}
-		else if (gradualSummonWeaknessTicks > 0) {
+		// 1.16 counted the lock through a stun, the gradual summon only while the Stand was not stunned
+		else if (gradualSummonWeaknessTicks > 0 && !ModStatusEffects.isStunned(this)) {
 			gradualSummonWeaknessTicks--;
 			if (gradualSummonWeaknessTicks == 0 && !level().isClientSide()) {
 				removeArmsOnlyModifiers();
