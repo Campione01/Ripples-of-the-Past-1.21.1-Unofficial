@@ -179,7 +179,8 @@ public final class RotpAddonApi {
 	 * cancel the action; every heavy punch, StandEntityHeavyPunch, returns true),
 	 * EntityActionInstance#isHoldTypeStandAction (false by default; true for an action whose 1.16 counterpart was a
 	 * holdType Stand action: the default canBeCancelledInto then lets every other ability replace it before its recovery
-	 * if it has none, #givesWayToOtherAbilities; and a press of another ability of its power that goes off,
+	 * if it has none, #givesWayToOtherAbilities, as it does for a Stand action with a charge once it fired (from its
+	 * perform's second tick if it fired straight into it); and a press of another ability of its power that goes off,
 	 * Ability#endsOtherHoldOnPress, ends its hold), and, whatever canBeCancelledInto says, a player's press of a Stand
 	 * ability whose action holds (EntityActionAbility#isHoldAction) waits in the input buffer while the Stand power holds
 	 * an action (AbilityInput#getHeldAction); while that held action is no hold-type one (a charge), the power's other

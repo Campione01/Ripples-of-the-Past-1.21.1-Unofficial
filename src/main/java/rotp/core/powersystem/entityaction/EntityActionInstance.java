@@ -293,13 +293,24 @@ public class EntityActionInstance implements HeldInput {
 	}
 
 	/**
-	 * 1.16 StandEntityAction.isCancelable for a hold-type Stand action ({@link #isHoldTypeStandAction}): any other Stand
-	 * action pressed before its recovery replaces it at once, if it has no recovery (1.16 asked for none for a pressed
-	 * action; one with a recovery queued it, as the input buffer does here).
+	 * 1.16 StandEntityAction.isCancelable for a hold-type Stand action ({@link #isHoldTypeStandAction}) and for a Stand
+	 * action that charged before it fired (a hold-to-fire one) once it has fired: any other Stand action pressed before its
+	 * recovery replaces it at once, if it has no recovery (1.16 asked for none for a pressed action; one with a recovery
+	 * queued it, as the input buffer does here).
 	 */
 	public boolean givesWayToOtherAbilities() {
 		return phase != null && phase != ActionPhase.RECOVERY && phasesLength.getFloat(ActionPhase.RECOVERY) <= 0
-				&& isHoldTypeStandAction();
+				&& (isHoldTypeStandAction() || isFiredStandCharge());
+	}
+
+	/*
+	 * Past its charge and no longer held (1.16: no longer the power's held action). Its perform gives way only after its
+	 * first tick, so the shot is not lost: 1.16 ran a perform that came straight after the charge in the tick it fired.
+	 */
+	private boolean isFiredStandCharge() {
+		return ability instanceof StandEntityAbility standAbility && phasesLength.getFloat(ActionPhase.BUTTON_CHARGE) > 0
+				&& phase.ordinal() > ActionPhase.BUTTON_CHARGE.ordinal() && !standAbility.isHeldSincePress(this)
+				&& !(phase == ActionPhase.PERFORM && getPhaseTick() < 1);
 	}
 
 	/**

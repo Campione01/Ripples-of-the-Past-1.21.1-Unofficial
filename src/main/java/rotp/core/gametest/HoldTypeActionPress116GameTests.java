@@ -316,6 +316,24 @@ public final class HoldTypeActionPress116GameTests {
 		helper.succeed();
 	}
 
+	/*
+	 * 1.16 StandEntityAction.isCancelable held for a hold-to-fire Stand action once it fired too (no longer the power's
+	 * held action), in its windup and perform, if it had no recovery: a punch pressed then replaced Crossfire Hurricane at
+	 * once, where the port buffered it. Crossfire Hurricane is given a windup and a perform here (its own are none and one
+	 * tick); its perform gives way after its first tick (the shot), and a recovery keeps the punch waiting.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aStandChargeThatFiredLetsAnotherStandActionThroughAsIn116(GameTestHelper helper) {
+		try (Scene s = new Scene(helper, "FiredChargeMagiciansRed", "magicians_red", 4)) {
+			s.unlock("crossfire_hurricane");
+			s.punchAfterFire(ActionPhase.WINDUP, 0, 0F, true);
+			s.punchAfterFire(ActionPhase.PERFORM, 0, 0F, false);
+			s.punchAfterFire(ActionPhase.PERFORM, 1, 0F, true);
+			s.punchAfterFire(ActionPhase.WINDUP, 0, 10F, false);
+		}
+		helper.succeed();
+	}
+
 	@GameTest(template = "empty", timeoutTicks = 100)
 	public static void aMobsStandActionGoesThroughItsHoldTypeActionAsIn116(GameTestHelper helper) {
 		Zombie zombie = EntityType.ZOMBIE.create(helper.getLevel());
@@ -504,6 +522,34 @@ public final class HoldTypeActionPress116GameTests {
 					&& isHeldByKey(HOLD_KEY), "1.16 refused " + otherName + ", silently, while the power held a charge"
 							+ " (heldAllowsOtherAction false): its key " + (key != null ? key.conditionCheck : null) + ", went off "
 							+ pressed.isActionSuccess + ", buffered " + pressed.shouldBuffer + ", the charge in " + charge.getPhase());
+		}
+
+		/*
+		 * Crossfire Hurricane held, then past its charge as if it had fired (its key still down), in the given phase and
+		 * tick, with a windup and a perform of 10 and the given recovery; a punch pressed by another key replaces it at once
+		 * or waits in the buffer.
+		 */
+		private void punchAfterFire(ActionPhase phase, int tick, float recovery, boolean goesThrough) {
+			power.setAbilityCooldown("crossfire_hurricane", 0, 0);
+			EntityActionInstance charge = hold("crossfire_hurricane");
+			charge.phasesLength.put(ActionPhase.WINDUP, 10F);
+			charge.phasesLength.put(ActionPhase.PERFORM, 10F);
+			charge.phasesLength.put(ActionPhase.RECOVERY, recovery);
+			charge.setPhase(phase, tick);
+			helper.assertTrue(charge.getPhase() == phase && standAction.getAction() == charge, "setup: the fired Crossfire"
+					+ " Hurricane is in " + charge.getPhase());
+			BufferingState pressed = press("punch", InputMethod.CLICK, OTHER_KEY);
+			EntityActionInstance now = standAction.getAction();
+			boolean replaced = pressed.isActionSuccess && !pressed.shouldBuffer && now != charge && charge.isOver()
+					&& now != null && now.ability == power.getAbility("punch");
+			boolean waits = pressed.shouldBuffer && !pressed.isActionSuccess && now == charge && !charge.isOver();
+			helper.assertTrue(goesThrough ? replaced : waits, (goesThrough
+					? "1.16 let a punch replace a hold-to-fire Stand action that had fired and had no recovery, at once (isCancelable)"
+					: "a punch pressed during the fired Crossfire Hurricane waits")
+					+ ": phase " + phase + " tick " + tick + ", recovery " + recovery + ", started " + pressed.isActionSuccess
+					+ ", buffered " + pressed.shouldBuffer + ", the Stand's action " + now);
+			AbilityInput.keyRelease(OTHER_KEY, user);
+			clear();
 		}
 
 		// pressed as a held key and kept held
