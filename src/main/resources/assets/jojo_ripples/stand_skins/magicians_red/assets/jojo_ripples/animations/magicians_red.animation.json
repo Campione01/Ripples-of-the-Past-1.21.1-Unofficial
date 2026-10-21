@@ -2081,8 +2081,8 @@
       },
       "timeline": {
         "0": "phase = WINDUP;",
-        "0.65": "phase = PERFORM;",
-        "0.7": "phase = RECOVERY;"
+        "0.45": "phase = PERFORM;",
+        "0.65": "phase = RECOVERY;"
       }
     },
     "flame_burst": {
