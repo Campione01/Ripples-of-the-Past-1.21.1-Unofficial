@@ -20,16 +20,26 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import rotp.core.core.JojoMod;
+import rotp.core.core.JojoRegistries;
+import rotp.core.powersystem.ability.Ability;
+import rotp.core.powersystem.ability.EntityActionAbility;
+import rotp.core.powersystem.entityaction.ActionAnimIdentifier;
+import rotp.core.powersystem.entityaction.EntityActionInstance;
+import rotp.core.powersystem.standpower.type.StandType;
 
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.GameType;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * The core Stands play the official 1.21.1 port's clip wherever it has one (StandoByte/Ripples-of-the-Past-1-21-1 at
  * 1a681255, the baseline NOTICE.md names), 1.16's poses only where it has none: every part of every official clip
- * (each bone and each top-level field) keeps the official JSON but for the differences listed here with their reasons.
+ * (each bone and each top-level field) keeps the official JSON but for the differences listed here with their reasons,
+ * and every core ability that has an official clip of its own name plays it but for the abilities listed with the clip
+ * they play instead (Star Platinum's Star Finger, by the owner's answer of 2026-10-15).
  */
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -133,6 +143,88 @@ public final class OfficialClips1211GameTests {
 		}
 		helper.assertTrue(wrong.isEmpty(), "The core Stands play the official 1.21.1 clips; only the listed differences are"
 				+ " allowed, each with its reason: " + wrong);
+		helper.succeed();
+	}
+
+	// a core ability that does not play the official clip of its own name, the clip it plays and why
+	private record PlayedInstead(String stand, String ability, String clip, String reason) {}
+
+	private static final List<PlayedInstead> PLAYED_INSTEAD = List.of(
+			new PlayedInstead("star_platinum", "star_finger", "starFinger", "the owner's answer of 2026-10-15 (final card of R770,"
+					+ " call 2, owner-answers-2026-10-14.md): Star Finger as 1.16 drew it, the finger projectile for every viewer;"
+					+ " the official star_finger stretches the model's hidden finger, a second finger beside the projectile, so"
+					+ " the Stand holds 1.16's starFinger pose (450c7996)"));
+
+	/*
+	 * The clip a core ability plays, as the press's action asks for it: an ability with an official clip of its own name
+	 * plays that clip, or the listed one; a listed ability that plays its official clip again, or has none, fails too.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void theCoreAbilitiesPlayTheOfficialClipOfTheirNameButTheListedOnes(GameTestHelper helper) {
+		Map<String, Map<String, Map<String, String>>> official = readTable(helper);
+		List<String> wrong = new ArrayList<>();
+		Set<PlayedInstead> found = new HashSet<>();
+		int asked = 0;
+		Player user = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
+		for (Map.Entry<String, Map<String, Map<String, String>>> stand : official.entrySet()) {
+			StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc(stand.getKey()));
+			helper.assertTrue(type != null, "setup: no Stand type " + stand.getKey());
+			for (Map.Entry<String, Ability> entry : type.getBaseMoveset().abilities.entrySet()) {
+				if (!(entry.getValue() instanceof EntityActionAbility ability)) {
+					continue;
+				}
+				String name = entry.getKey();
+				boolean officialClip = stand.getValue().containsKey(name);
+				// the action a press builds for a right-handed user performing it himself (a clip may follow the hand)
+				EntityActionInstance action;
+				try {
+					action = ability.initActionOnAbilityUse(helper.getLevel(), user, user, null);
+				}
+				catch (RuntimeException e) {
+					action = null;
+				}
+				ActionAnimIdentifier anim;
+				try {
+					anim = ability.getEntityAnim(action);
+				}
+				catch (RuntimeException e) {
+					if (officialClip) {
+						wrong.add("setup: " + stand.getKey() + "'s " + name + " gives no clip: " + e);
+					}
+					continue;
+				}
+				if (anim == null) {
+					if (officialClip) {
+						wrong.add(stand.getKey() + "'s " + name + " plays no clip where the official port has " + name);
+					}
+					continue;
+				}
+				asked++;
+				// an indexed clip (punch, index 1) is the file's punch2; a handed one (_left / _right) the mirrored base clip
+				String played = (anim.index() > 0 ? anim.name() + (anim.index() + 1) : anim.name()).replaceFirst("_(left|right)$", "");
+				PlayedInstead listed = PLAYED_INSTEAD.stream().filter(p -> p.stand().equals(stand.getKey()) && p.ability().equals(name))
+						.findFirst().orElse(null);
+				if (listed != null) {
+					found.add(listed);
+					if (!played.equals(listed.clip()) || !officialClip) {
+						wrong.add(stand.getKey() + "'s " + name + " plays " + played + ", listed as playing " + listed.clip()
+								+ " instead of the official " + name + " (" + listed.reason() + ")"
+								+ (officialClip ? "" : ", but the official port has no " + name));
+					}
+				}
+				else if (officialClip && !played.equals(name)) {
+					wrong.add(stand.getKey() + "'s " + name + " plays " + played + " where the official port has " + name + ", not listed");
+				}
+			}
+		}
+		user.discard();
+		helper.assertTrue(asked > 0, "setup: no core ability asked for a clip");
+		for (PlayedInstead listed : PLAYED_INSTEAD) {
+			if (!found.contains(listed)) {
+				wrong.add(listed.stand() + "'s " + listed.ability() + " is listed (" + listed.reason() + ") but is no ability of its moveset");
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), "The core abilities play the official 1.21.1 clip of their name but the listed ones: " + wrong);
 		helper.succeed();
 	}
 
