@@ -538,8 +538,9 @@ public class Ability {
 	/**
 	 * The stamina this ability takes as it performs, 1.16's Action.getStaminaCost (StandAction.Builder staminaCost: 10
 	 * for a light attack, 50 for a heavy one, none for a cost that only ticks), which a 1.16 Stand-bearing mob compared with
-	 * its stamina before it picked an action (rotp_mwp StandAI.isActionAvailable). Only a report: the ability takes its
-	 * stamina by its own code. 0 by default.
+	 * its stamina before it picked an action (rotp_mwp StandAI.isActionAvailable). An ability with no 1.16 counterpart
+	 * reports what a use of it takes, a charged or held one what it takes when it goes off. Only a report: the ability
+	 * takes its stamina by its own code. 0 by default.
 	 */
 	public float getStaminaCost(Power<?> context) {
 		return 0.0F;

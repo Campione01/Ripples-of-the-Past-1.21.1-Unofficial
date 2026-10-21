@@ -45,6 +45,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
 public class StandEntityHeavyPunchChargedAbility extends StandEntityAbility {
+	private static final float STAMINA_COST = 100.0F;
 
 	public StandEntityHeavyPunchChargedAbility(AbilityType<?> abilityType, AbilityId abilityId) {
 		super(abilityType, abilityId, StandEntityChargedHeavy::new);
@@ -220,7 +221,7 @@ public class StandEntityHeavyPunchChargedAbility extends StandEntityAbility {
 					}
 
 					punchedTarget = target;
-					standPower.consumeStamina(100);
+					standPower.consumeStamina(STAMINA_COST);
 					stand.consumeFinisherMeter(1.0001F);
 				}
 				if (target.getType() == TargetType.ENTITY) {
@@ -325,5 +326,10 @@ public class StandEntityHeavyPunchChargedAbility extends StandEntityAbility {
 		return StandEntityPunchAbility.aimWithThisOrUser(stand, user, 1.0F,
 				entity -> ability.canTargetEntityForAiming(stand, entity) && StandEntityPunchAbility.canStandHit(stand, entity),
 				CrosshairRule.ENTITY, !lungeStart);
+	}
+
+	@Override
+	public float getStaminaCost(Power<?> context) {
+		return STAMINA_COST;
 	}
 }
