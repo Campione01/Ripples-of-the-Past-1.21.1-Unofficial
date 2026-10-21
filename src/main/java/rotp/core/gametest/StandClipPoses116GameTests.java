@@ -208,15 +208,17 @@ public final class StandClipPoses116GameTests {
 			new ArmLook(SC_ANIMS, "melee_barrage", new String[] { "0", "0.2999", "PERFORM", "1.0", "RECOVERY", "2.3001", "END" },
 					new float[] { 0, 0, 1, 1, 1, 0, 0 }));
 
-	// a clip whose joints turn by half their forearm or lower leg, the limbs to check
-	private record JointClip(String asset, String clip, String... limbs) {}
+	// a clip whose joints turn by half their forearm or lower leg, the limbs to check; one whose windup starts on the idle
+	// starts on the idle's own joints and turns them by half the forearm from its second key
+	private record JointClip(String asset, String clip, boolean fromIdle, String... limbs) {}
 
 	private static final List<JointClip> JOINT_CLIPS = List.of(
-			new JointClip(SC_ANIMS, "light_attack", "left_arm", "right_arm"),
-			new JointClip(SC_ANIMS, "no_rapier_light_attack", "left_arm", "right_arm"),
-			new JointClip(SC_ANIMS, "melee_barrage", "left_arm", "right_arm"),
-			new JointClip(SC_ANIMS, "dash_attack", "left_arm", "right_arm"),
-			new JointClip(SC_ANIMS, "sweeping_attack", "left_arm", "right_arm"));
+			new JointClip(SC_ANIMS, "light_attack", false, "left_arm", "right_arm"),
+			new JointClip(SC_ANIMS, "no_rapier_light_attack", false, "left_arm", "right_arm"),
+			new JointClip(SC_ANIMS, "melee_barrage", false, "left_arm", "right_arm"),
+			new JointClip(SC_ANIMS, "dash_attack", false, "left_arm", "right_arm"),
+			// SilverChariotModel :330, the sweep's windup: ModelPoseTransition(idlePose, sweepPose1)
+			new JointClip(SC_ANIMS, "sweeping_attack", true, "left_arm", "right_arm"));
 
 	/*
 	 * 1.16's humanoid Java-model poses pitched both arms with the look (setSecondXRot, applied after the pose as a parent
@@ -263,9 +265,23 @@ public final class StandClipPoses116GameTests {
 				List<Map.Entry<Float, JsonElement>> bendKeys = keys(clip, limb + "_bend");
 				helper.assertTrue(bendKeys.size() > 1, "setup: " + joints.clip() + " of " + joints.asset() + " keys no " + limb + "_bend");
 				float until = bendKeys.get(bendKeys.size() - 2).getKey();
+				float from = 0;
+				if (joints.fromIdle()) {
+					JsonObject idle = clipOf(helper, files, joints.asset(), "idle");
+					float[] idleJoint = rotationAt(idle, limb + "_joint", 0, LOOK);
+					float[] startJoint = rotationAt(clip, limb + "_joint", 0, LOOK);
+					for (int axis = 0; axis < 3; axis++) {
+						if (Math.abs(startJoint[axis] - idleJoint[axis]) > 0.05F) {
+							wrong.add(joints.clip() + " of " + joints.asset() + " starts " + limb + "_joint on " + Arrays.toString(startJoint)
+									+ " where the idle it starts from has " + Arrays.toString(idleJoint));
+							break;
+						}
+					}
+					from = bendKeys.get(1).getKey();
+				}
 				int off = 0;
 				String first = null;
-				for (float time = 0; time <= until + 0.00001F; time += 0.01F) {
+				for (float time = from; time <= until + 0.00001F; time += 0.01F) {
 					float[] bend = rotationAt(clip, limb + "_bend", time, LOOK);
 					float[] joint = rotationAt(clip, limb + "_joint", time, LOOK);
 					for (int axis = 0; axis < 3; axis++) {
