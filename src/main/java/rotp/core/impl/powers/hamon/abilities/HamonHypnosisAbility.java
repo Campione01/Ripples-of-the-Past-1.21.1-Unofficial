@@ -10,7 +10,6 @@ import rotp.core.powersystem.Power;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
-import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.subsystems.target.ActionTarget;
@@ -31,11 +30,9 @@ import net.minecraft.world.phys.Vec3;
 public class HamonHypnosisAbility extends HamonActionRuntimeAbility {
 
 	public HamonHypnosisAbility(AbilityType<?> abilityType, AbilityId abilityId) {
+		// 1.16 holdToFire(60, false) fired as the charge (the windup hamonHoldToFire registers) ended, and the hold was
+		// over: the perform is that one tick and there is no recovery.
 		super(abilityType, abilityId, HypnosisInstance::new);
-		setDefaultPhaseLength(ActionPhase.WINDUP, 8);
-		setDefaultPhaseLength(ActionPhase.PERFORM, 6);
-		setButtonHoldPhase(ActionPhase.PERFORM);
-		setDefaultPhaseLength(ActionPhase.RECOVERY, 4);
 		// 1.16 HamonHypnosis: a hit while charging stops it before the hypnosis lands.
 		setCancelHeldOnGettingAttacked();
 	}

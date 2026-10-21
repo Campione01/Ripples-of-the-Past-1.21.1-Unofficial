@@ -7,7 +7,6 @@ import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
-import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
@@ -32,10 +31,8 @@ import net.minecraft.world.phys.Vec3;
 public class HamonLifeMagnetismAbility extends HamonActionRuntimeAbility {
 
 	public HamonLifeMagnetismAbility(AbilityType<?> abilityType, AbilityId abilityId) {
+		// 1.16 had no hold and no phases: the click performs at once, so the default phases stay.
 		super(abilityType, abilityId, LifeMagnetismInstance::new);
-		setDefaultPhaseLength(ActionPhase.WINDUP, 6);
-		setDefaultPhaseLength(ActionPhase.PERFORM, 6);
-		setDefaultPhaseLength(ActionPhase.RECOVERY, 4);
 	}
 
 	@Override
