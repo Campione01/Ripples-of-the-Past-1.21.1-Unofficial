@@ -2085,11 +2085,11 @@ public final class StandTargetRangeGameTests {
 				&& refs.get(first + 1).startsWith(clientAim + ".cameraEntityAimTarget:")
 				&& refs.get(first + 2).startsWith("rotp/core/subsystems/target/ActionTargetAim.setTarget(")
 				&& refs.subList(0, first).stream().noneMatch(ref -> ref.startsWith("net/minecraft/client/Minecraft.cameraEntity:"));
-		if (!pickFirst || emptied != 1) {
+		if (!pickFirst || emptied != 2) {
 			wrong.add("USER-AIM the client's user aim (ClientsideAim.updateTarget) is not the camera's vanilla pick whatever"
 					+ " the camera: the pick set first without asking for the camera " + pickFirst + ", emptied " + emptied
-					+ " times (once: no level or player); 1.16's one mouse target was the camera's pick, which a power other"
-					+ " than a Stand took unchanged");
+					+ " times (twice: no level or player, and a pick on the user, which 1.16's Action.checkTarget emptied);"
+					+ " 1.16's one mouse target was the camera's pick, which a power other than a Stand took unchanged");
 		}
 		for (boolean manual : new boolean[] { false, true }) {
 			String row = manual ? "under manual control, the Stand the camera: its vanilla pick on a cow"
@@ -2281,6 +2281,46 @@ public final class StandTargetRangeGameTests {
 			helper.assertTrue(homesOn != null && homesOn.distanceTo(husk.getEyePosition()) < 1.0E-4D, "1.16's special Crossfire"
 					+ " Hurricane aimed with the user's precision ray as it shot, so its shots home on the husk inside the"
 					+ " precision box: " + shots.size() + " shots homing on " + homesOn + ", the husk's eyes " + husk.getEyePosition());
+		}
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 Action.checkTarget (:205-208) emptied a target that was the user, for a power other than a Stand too, whose
+	 * actions took the camera's pick unchanged (IPowerType.clientHitResult): another camera's pick (a manually controlled
+	 * Stand's, a member's view) on the user's own body left the user's aim empty, so Hamon Shock, Sunlight Yellow Overdrive
+	 * and Vampirism's Freeze never targeted the user. The aim the user's client sends, stored as the server stores it, is
+	 * no aim when it is the user, and a cow under it is the aim the non-Stand readers take.
+	 */
+	@GameTest(template = "empty", batch = BATCH)
+	public static void theUsersAimIsNeverTheUserAsIn116(GameTestHelper helper) {
+		FakePlayer user = new FakePlayer(helper.getLevel(), new GameProfile(UUID.randomUUID(), "SelfAim"));
+		Vec3 origin = Vec3.atCenterOf(helper.absolutePos(new BlockPos(2, 2, 2)));
+		user.moveTo(origin.x, origin.y, origin.z, 0.0F, 0.0F);
+		user.setNoGravity(true);
+		helper.assertTrue(helper.getLevel().addFreshEntity(user), "SELF-AIM premise: could not add the user");
+		Cow cow = EntityType.COW.create(helper.getLevel());
+		try {
+			helper.assertTrue(cow != null, "SELF-AIM premise: could not create the cow");
+			cow.setNoAi(true);
+			cow.setNoGravity(true);
+			cow.moveTo(origin.x, origin.y, origin.z + 2.0D, 180.0F, 0.0F);
+			helper.assertTrue(helper.getLevel().addFreshEntity(cow), "SELF-AIM premise: could not add the cow");
+			LivingComponentAction component = LivingComponentAction.getComponent(user);
+			component.setUserAimFromClient(new ActionTarget(user));
+			ActionTarget self = HamonAbilityHelpers.getAimTarget(user, helper.getLevel());
+			component.setUserAimFromClient(new ActionTarget(cow));
+			ActionTarget other = HamonAbilityHelpers.getAimTarget(user, helper.getLevel());
+			helper.assertTrue(self.getType() == TargetType.EMPTY && other.getEntity() == cow, "1.16 Action.checkTarget emptied"
+					+ " a target that was the user: the user's aim at the user's own body is " + describe(self, user)
+					+ ", at a cow " + describe(other, user));
+		}
+		finally {
+			LivingComponentAction.getComponent(user).entityAim.setTarget(ActionTarget.EMPTY);
+			if (cow != null) {
+				cow.discard();
+			}
+			user.discard();
 		}
 		helper.succeed();
 	}
