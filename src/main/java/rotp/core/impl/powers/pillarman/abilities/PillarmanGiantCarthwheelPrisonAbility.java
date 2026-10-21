@@ -43,12 +43,24 @@ public class PillarmanGiantCarthwheelPrisonAbility extends PillarmanActionAbilit
 			}
 		}
 
+		// 1.16 holdType() with holdToFire(30, false): the charge waited for the release, which fired it once held 30 ticks
 		@Override
 		public void onButtonStopHold() {
-			if (getPhase() == ActionPhase.BUTTON_CHARGE && getPhaseTick() < HOLD_TO_FIRE_TICKS) {
-				forceStop();
+			if (getPhase() == ActionPhase.BUTTON_CHARGE) {
+				if (getPhaseTick() < HOLD_TO_FIRE_TICKS || !level().isClientSide()
+						&& !(ability instanceof PillarmanGiantCarthwheelPrisonAbility prisonAbility && prisonAbility.canFireOnRelease(this))) {
+					forceStop();
+				}
+				else {
+					setPhaseStart(ActionPhase.PERFORM);
+				}
 				syncPhaseChanges();
 			}
+		}
+
+		@Override
+		protected boolean shouldHoldPhaseAtEnd() {
+			return getPhase() == ActionPhase.BUTTON_CHARGE;
 		}
 
 		@Override

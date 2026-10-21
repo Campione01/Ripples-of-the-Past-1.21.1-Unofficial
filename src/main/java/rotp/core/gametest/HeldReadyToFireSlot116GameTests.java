@@ -58,10 +58,10 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * (heldReadyToFire), and the frame of a selected slot was green (HotbarRenderer.renderSlotSelection greenSelection).
  * Only a hold that went on past that length could show it: holdToFire(n, true), or holdToFire(n, false) with
  * holdType() (Sendo Overdrive, Sunlight Yellow Overdrive, Scarlet Overdrive, the S.Y.O. Barrage, Divine Sandstorm,
- * Atmospheric Rift, Blade Dash, Space Ripper Stingy Eyes); a charge that fired on its n-th held tick never did. The HUD
- * asks Ability#isHeldReadyToFire, which these tests ask of the real actions, held by a key and ticked on the server
- * (the client reads the same synced phases). PowerHudControlsElement is client-only, so its wiring is pinned from its
- * bytecode, read as a resource instead of being loaded.
+ * Atmospheric Rift, Blade Dash, Giant Carthwheel Prison, Self Detonation, Space Ripper Stingy Eyes); a charge that fired
+ * on its n-th held tick never did. The HUD asks Ability#isHeldReadyToFire, which these tests ask of the real actions,
+ * held by a key and ticked on the server (the client reads the same synced phases). PowerHudControlsElement is
+ * client-only, so its wiring is pinned from its bytecode, read as a resource instead of being loaded.
  */
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -109,6 +109,13 @@ public final class HeldReadyToFireSlot116GameTests {
 			s.pillarmanMode(data, PillarmanMode.LIGHT);
 			s.user.setOnGround(true);
 			assertReadyFromItsChargeUntilReleased(helper, s, "pillarman_blade_dash_attack", 10, "pillarman_divine_sandstorm");
+			// holdToFire(30, false) and holdToFire(60, false) with holdType() in their constructors; they cost 125 and 150
+			s.pillarmanMode(data, PillarmanMode.HEAT);
+			data.setEnergy(s.user, 300.0F);
+			assertReadyFromItsChargeUntilReleased(helper, s, "pillarman_giant_carthwheel_prison", 30, "pillarman_self_detonation");
+			s.pillarmanMode(data, PillarmanMode.HEAT);
+			data.setEnergy(s.user, 300.0F);
+			assertReadyFromItsChargeUntilReleased(helper, s, "pillarman_self_detonation", 60, "pillarman_giant_carthwheel_prison");
 		}
 		helper.succeed();
 	}

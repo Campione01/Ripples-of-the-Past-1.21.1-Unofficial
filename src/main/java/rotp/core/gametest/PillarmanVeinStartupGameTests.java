@@ -371,6 +371,12 @@ public final class PillarmanVeinStartupGameTests {
                         "Vein owner moved, rotated, died or burned");
                 // the light engine shades the eye a few ticks after the roof is placed, not at once
                 if (!pressed && userTicks >= grantedUserTicks + 2 && !level.canSeeSky(BlockPos.containing(user.getEyePosition()))) press();
+                // 1.16 holdType(): the Prison waits at the end of its charge until its key's release fires it
+                if (route == Route.PRISON && pressed && !released && action.getPhase() == ActionPhase.BUTTON_CHARGE
+                        && action.getPhaseTick() >= route.minimumTicks) {
+                    AbilityInput.keyRelease(KEY, user);
+                    released = true;
+                }
                 if (veins.size() == route.count && !released) {
                     AbilityInput.keyRelease(KEY, user);
                     released = true;
