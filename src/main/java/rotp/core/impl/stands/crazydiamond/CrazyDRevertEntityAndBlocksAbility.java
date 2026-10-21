@@ -11,7 +11,6 @@ import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.entityaction.ActionAnimIdentifier;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
-import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.subsystems.target.AimingEntity;
 import rotp.core.subsystems.target.ActionTarget;
@@ -107,11 +106,8 @@ public class CrazyDRevertEntityAndBlocksAbility extends StandEntityAbility {
 			Entity targetEntity = entityTarget.getEntity();
 			return targetEntity != null && canRevertEntity(targetEntity, user) ? checkRevertStateStartConditions(context) : ConditionCheck.createNegative("entity_revert");
 		}
-		ActionTarget aimTarget = LivingComponentAction.getAim(user) != null ? LivingComponentAction.getAim(user).getTarget() : ActionTarget.EMPTY;
-		if (aimTarget.getType() == TargetType.BLOCK) {
-			return ConditionCheck.NEGATIVE;
-		}
-
+		// 1.16 CrazyDiamondPreviousState.checkTarget refused a block, so PowerBaseImpl.checkTarget emptied the target
+		// (TargetRequirement.NONE) and the press went on to the off-hand item
 		ConditionCheck itemCheck = checkOffhandItem(user);
 		return itemCheck.isPositive() ? checkRevertStateStartConditions(context) : itemCheck;
 	}
