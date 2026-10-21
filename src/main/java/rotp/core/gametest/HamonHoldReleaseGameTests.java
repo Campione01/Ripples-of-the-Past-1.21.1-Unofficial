@@ -1,5 +1,8 @@
 package rotp.core.gametest;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import rotp.core.core.JojoMod;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.power.ModPlayerPowers;
@@ -141,6 +144,48 @@ public final class HamonHoldReleaseGameTests {
 			helper.assertTrue(action.isOver(), "a S.Y.O. Barrage released before 60 ticks must not fire: phase=" + action.getPhase());
 			helper.succeed();
 		}
+	}
+
+	/*
+	 * 1.16 Sunlight Yellow Overdrive (holdToFire(10, true).holdType(40)) and Scarlet Overdrive (holdToFire(8, true)
+	 * .holdType(32)) were never fired by PowerBaseImpl.tickHeldAction (getHoldDurationMax Integer.MAX_VALUE), and their
+	 * onHoldTick drained min(max breath / 40 (32), energy) on every held tick for as long as the key was held, not only
+	 * over the ticks that fill the charge: energy the user gets back after those ticks drains on, and the technique still
+	 * waits for its release.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void syoAndScarletOverdriveDrainEnergyForAsLongAsTheyAreHeldAsIn116(GameTestHelper helper) {
+		List<String> failures = new ArrayList<>();
+		Object[][] rows = { { ModHamonSkills.SUNLIGHT_YELLOW_OVERDRIVE.get(), "sunlight_yellow_overdrive", 40 },
+				{ ModHamonSkills.SCARLET_OVERDRIVE.get(), "scarlet_overdrive", 32 } };
+		for (Object[] row : rows) {
+			String name = (String) row[1];
+			int fullCharge = (Integer) row[2];
+			try (Fixture f = new Fixture(helper, (HamonSkill) row[0])) {
+				EntityActionInstance action = f.start(name, true);
+				f.tick(fullCharge + 5);
+				helper.assertTrue(f.component.getAction() == action && action.getPhase() == ActionPhase.WINDUP,
+						"setup: the held " + name + " is not charging after " + (fullCharge + 5) + " ticks: " + action.getPhase());
+				f.hamon.setEnergy(f.hamon.getMaxEnergy());
+				float before = f.hamon.getEnergy();
+				f.tick(4);
+				float drained = before - f.hamon.getEnergy();
+				float expected = 4 * f.hamon.getMaxBreathStability() / fullCharge;
+				if (Math.abs(drained - expected) > 0.01F) {
+					failures.add(name + " drained " + drained + " in 4 held ticks after its " + fullCharge + "-tick charge, 1.16's "
+							+ expected);
+				}
+				if (f.component.getAction() != action || action.getPhase() != ActionPhase.WINDUP) {
+					failures.add(name + " did not wait for its release: " + action.getPhase());
+				}
+				AbilityInput.keyRelease(KEY, f.user);
+				if (action.getPhase() != ActionPhase.PERFORM) {
+					failures.add(name + " released did not fire: " + action.getPhase());
+				}
+			}
+		}
+		helper.assertTrue(failures.isEmpty(), String.join("; ", failures));
+		helper.succeed();
 	}
 
 	private static AABB sendoWall(GameTestHelper helper) {
