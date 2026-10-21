@@ -212,7 +212,8 @@ public class MagiciansRedCrossfireHurricaneAbility extends StandEntityAbility im
 			if (target == null || target.isEmpty(level)) {
 				return null;
 			}
-			stand.lookAtTarget(target, false);
+			// 1.16 aimWithThisOrUser: MCUtil.rotateTowards by at most attackSpeed / 16 x 18 degrees, the shots leave on that look
+			stand.turnTowardsStrike(target);
 			return getOriginalSpecialTargetPos(target);
 		}
 
