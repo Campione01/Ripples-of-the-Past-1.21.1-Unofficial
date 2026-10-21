@@ -191,8 +191,12 @@ public class Ability {
 
 	public int getCooldown(Power<?> context, int ticksHeld) {
 		if (context instanceof StandPower standPower) {
-			if (standPower.isUserCreative() || PlayerClientBroadcastedSettings.isNoStandAbilityCooldownEnabled(standPower)) {
+			if (PlayerClientBroadcastedSettings.isNoStandAbilityCooldownEnabled(standPower)) {
 				return 0;
+			}
+			// 1.16 Action.getCooldownAdditional was 0 for a Creative user, getCooldownTechnical was not
+			if (standPower.isUserCreative()) {
+				return cooldownTechnicalTicks;
 			}
 		}
 		return cooldownTicksFor(isStandUserInResolve(context));

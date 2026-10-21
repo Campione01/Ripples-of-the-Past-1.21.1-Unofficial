@@ -184,9 +184,13 @@ abstract class PillarmanActionAbility extends EntityActionAbility {
 		}
 	}
 
+	// 1.16 Action.getCooldownAdditional was 0 for a Creative user, getCooldownTechnical was not
 	protected void setPillarmanFixedCooldown(Power<?> context, int cooldown) {
-		if (context == null || isCreative(context)) {
+		if (context == null) {
 			return;
+		}
+		if (isCreative(context)) {
+			cooldown = getCooldownTechnical(context);
 		}
 		PillarmanData data = getPillarmanData(context);
 		if (data != null && cooldown > 0) {
