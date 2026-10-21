@@ -13,6 +13,7 @@ import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.event.RipplesAbilityKeyPressEvent;
 import rotp.core.impl.stands._entitybase.StandEntityManualControlToggle;
+import rotp.core.impl.stands.magiciansred.MRCrossfireHurricaneEntity;
 import rotp.core.impl.stands.magiciansred.MRDetectorEntity;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModItemDataComponents;
@@ -400,17 +401,40 @@ public final class HoldTypeActionPress116GameTests {
 	/*
 	 * 1.16 StandEntityAction.isCancelable held for a hold-to-fire Stand action once it fired too (no longer the power's
 	 * held action), in its windup and perform, if it had no recovery: a punch pressed then replaced Crossfire Hurricane at
-	 * once, where the port buffered it. Crossfire Hurricane is given a windup and a perform here (its own are none and one
-	 * tick); its perform gives way after its first tick (the shot), and a recovery keeps the punch waiting.
+	 * once, where the port buffered it. Crossfire Hurricane is given a perform here, and a windup in the rows that name one
+	 * (its own are none and one tick); a perform it fired straight into gives way after its first tick (the shot), one that
+	 * came after a windup from its start, and a recovery keeps the punch waiting.
 	 */
 	@GameTest(template = "empty", timeoutTicks = 100)
 	public static void aStandChargeThatFiredLetsAnotherStandActionThroughAsIn116(GameTestHelper helper) {
 		try (Scene s = new Scene(helper, "FiredChargeMagiciansRed", "magicians_red", 4)) {
 			s.unlock("crossfire_hurricane");
-			s.punchAfterFire(ActionPhase.WINDUP, 0, 0F, true);
-			s.punchAfterFire(ActionPhase.PERFORM, 0, 0F, false);
-			s.punchAfterFire(ActionPhase.PERFORM, 1, 0F, true);
-			s.punchAfterFire(ActionPhase.WINDUP, 0, 10F, false);
+			s.punchAfterFire(ActionPhase.WINDUP, 0, 10F, 0F, true);
+			s.punchAfterFire(ActionPhase.PERFORM, 0, 0F, 0F, false);
+			s.punchAfterFire(ActionPhase.PERFORM, 0, 10F, 0F, true);
+			s.punchAfterFire(ActionPhase.PERFORM, 1, 0F, 0F, true);
+			s.punchAfterFire(ActionPhase.PERFORM, 1, 10F, 0F, true);
+			s.punchAfterFire(ActionPhase.WINDUP, 0, 10F, 10F, false);
+		}
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 moved a fired hold-to-fire task with a windup (standWindupDuration) into its perform at the end of the windup's
+	 * last tick and performed it on the next (StandEntityTask.tick, moveToPhase), so a press between the two cancelled it
+	 * before the shot (isCancelable: not in its recovery, none to come); a perform the charge fired straight into kept
+	 * its shot. Crossfire Hurricane held to its full charge and ticked as the Stand ticks it, with a windup of 3 or none:
+	 * at its perform's start a punch replaces it and no shot is fired, or waits and the shot follows on the next tick. A
+	 * port charge whose windup is its held phase (the charged heavy punch, given no recovery here) fires straight into its
+	 * perform as it is let go.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aPressAtTheStartOfAPerformAfterAFiredChargesWindupCancelsItAsIn116(GameTestHelper helper) {
+		try (Scene s = new Scene(helper, "FiredChargeWindupMagiciansRed", "magicians_red", 4)) {
+			s.unlock("crossfire_hurricane");
+			s.punchAtPerformStart(3F, true);
+			s.punchAtPerformStart(0F, false);
+			s.heldWindupFiresStraight("heavy_charged");
 		}
 		helper.succeed();
 	}
@@ -955,13 +979,13 @@ public final class HoldTypeActionPress116GameTests {
 
 		/*
 		 * Crossfire Hurricane held, then past its charge as if it had fired (its key still down), in the given phase and
-		 * tick, with a windup and a perform of 10 and the given recovery; a punch pressed by another key replaces it at once
+		 * tick, with the given windup and recovery and a perform of 10; a punch pressed by another key replaces it at once
 		 * or waits in the buffer.
 		 */
-		private void punchAfterFire(ActionPhase phase, int tick, float recovery, boolean goesThrough) {
+		private void punchAfterFire(ActionPhase phase, int tick, float windup, float recovery, boolean goesThrough) {
 			power.setAbilityCooldown("crossfire_hurricane", 0, 0);
 			EntityActionInstance charge = hold("crossfire_hurricane");
-			charge.phasesLength.put(ActionPhase.WINDUP, 10F);
+			charge.phasesLength.put(ActionPhase.WINDUP, windup);
 			charge.phasesLength.put(ActionPhase.PERFORM, 10F);
 			charge.phasesLength.put(ActionPhase.RECOVERY, recovery);
 			charge.setPhase(phase, tick);
@@ -975,10 +999,82 @@ public final class HoldTypeActionPress116GameTests {
 			helper.assertTrue(goesThrough ? replaced : waits, (goesThrough
 					? "1.16 let a punch replace a hold-to-fire Stand action that had fired and had no recovery, at once (isCancelable)"
 					: "a punch pressed during the fired Crossfire Hurricane waits")
-					+ ": phase " + phase + " tick " + tick + ", recovery " + recovery + ", started " + pressed.isActionSuccess
-					+ ", buffered " + pressed.shouldBuffer + ", the Stand's action " + now);
+					+ ": phase " + phase + " tick " + tick + ", windup " + windup + ", recovery " + recovery + ", started "
+					+ pressed.isActionSuccess + ", buffered " + pressed.shouldBuffer + ", the Stand's action " + now);
 			AbilityInput.keyRelease(OTHER_KEY, user);
 			clear();
+		}
+
+		/*
+		 * Crossfire Hurricane with the given windup, held to its full charge and ticked as the Stand ticks it, its key still
+		 * down, to the start of its perform; a punch pressed then by another key replaces it before its shot, or waits while
+		 * the shot goes off on the next tick.
+		 */
+		private void punchAtPerformStart(float windup, boolean goesThrough) {
+			power.setAbilityCooldown("crossfire_hurricane", 0, 0);
+			EntityActionInstance charge = hold("crossfire_hurricane");
+			charge.phasesLength.put(ActionPhase.WINDUP, windup);
+			List<ActionPhase> phases = new ArrayList<>();
+			for (int tick = 0; tick < 60 && charge.getPhase() != ActionPhase.PERFORM && !charge.isOver(); tick++) {
+				standAction.tick();
+				if (phases.isEmpty() || phases.get(phases.size() - 1) != charge.getPhase()) {
+					phases.add(charge.getPhase());
+				}
+			}
+			helper.assertTrue(charge.getPhase() == ActionPhase.PERFORM && charge.getPhaseTick() < 1
+					&& standAction.getAction() == charge && shots().isEmpty()
+					&& phases.contains(ActionPhase.WINDUP) == windup > 0, "setup: Crossfire Hurricane with a windup of " + windup
+							+ ", held to its full charge, is not at its perform's start before its shot: phases " + phases + ", "
+							+ charge.getPhase() + " tick " + charge.getPhaseTick() + ", shots " + shots().size());
+			BufferingState pressed = press("punch", InputMethod.CLICK, OTHER_KEY);
+			EntityActionInstance now = standAction.getAction();
+			boolean replaced = pressed.isActionSuccess && !pressed.shouldBuffer && now != charge && charge.isOver()
+					&& now != null && now.ability == power.getAbility("punch");
+			boolean waits = pressed.shouldBuffer && !pressed.isActionSuccess && now == charge && !charge.isOver();
+			standAction.tick();
+			int shots = shots().size();
+			helper.assertTrue(goesThrough ? replaced && shots == 0 : waits && shots == 1, (goesThrough
+					? "1.16 performed a fired task's windup and then, a tick later, its perform, so a press at the perform's"
+							+ " start cancelled it before the shot (isCancelable)"
+					: "1.16 performed a hold-to-fire task the charge fired straight into in the tick it fired, so a press"
+							+ " right after the charge did not cost the shot")
+					+ ": windup " + windup + ", started " + pressed.isActionSuccess + ", buffered " + pressed.shouldBuffer
+					+ ", the Stand's action " + now + ", shots after the next tick " + shots);
+			AbilityInput.keyRelease(OTHER_KEY, user);
+			shots().forEach(shot -> shot.discard());
+			clear();
+		}
+
+		/*
+		 * The charge, whose windup is its held phase, held past its charge and let go: it fires straight into its perform,
+		 * which (given no recovery here) gives way to other actions only after its first tick, as one fired without a windup.
+		 */
+		private void heldWindupFiresStraight(String chargeName) {
+			EntityActionInstance charge = hold(chargeName);
+			charge.phasesLength.put(ActionPhase.RECOVERY, 0F);
+			for (int tick = 0; tick < 60 && charge.getPhase() == ActionPhase.BUTTON_CHARGE; tick++) {
+				standAction.tick();
+			}
+			EntityActionAbility ability = (EntityActionAbility) power.getAbility(chargeName);
+			helper.assertTrue(charge.getPhase() == ActionPhase.WINDUP && ability.isHeldSincePress(charge),
+					"setup: the " + chargeName + " held past its charge is not in its held windup: " + charge.getPhase());
+			AbilityInput.keyRelease(HOLD_KEY, user);
+			helper.assertTrue(charge.getPhase() == ActionPhase.PERFORM && charge.getPhaseTick() < 1
+					&& !ability.isHeldSincePress(charge), "setup: the " + chargeName + " let go in its held windup is not at its"
+							+ " perform's start: " + charge.getPhase() + " tick " + charge.getPhaseTick());
+			boolean atStart = charge.givesWayToOtherAbilities();
+			standAction.tick();
+			boolean afterFirstTick = charge.getPhase() == ActionPhase.PERFORM && charge.givesWayToOtherAbilities();
+			helper.assertTrue(!atStart && afterFirstTick, "a windup the action holds is its charge, not a windup between the"
+					+ " charge and the perform: the " + chargeName + " let go in it fired straight into its perform, which gives"
+					+ " way at its start " + atStart + ", after its first tick " + afterFirstTick + " (" + charge.getPhase()
+					+ " tick " + charge.getPhaseTick() + ")");
+			clear();
+		}
+
+		private List<MRCrossfireHurricaneEntity> shots() {
+			return new ArrayList<>(helper.getLevel().getEntitiesOfClass(MRCrossfireHurricaneEntity.class,
+					user.getBoundingBox().inflate(16.0D)));
 		}
 
 		// pressed as a held key and kept held

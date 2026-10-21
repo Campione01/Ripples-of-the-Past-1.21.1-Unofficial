@@ -304,13 +304,30 @@ public class EntityActionInstance implements HeldInput {
 	}
 
 	/*
-	 * Past its charge and no longer held (1.16: no longer the power's held action). Its perform gives way only after its
-	 * first tick, so the shot is not lost: 1.16 ran a perform that came straight after the charge in the tick it fired.
+	 * Past its charge and no longer held (1.16: no longer the power's held action). A perform that came straight after the
+	 * charge gives way only after its first tick, so the shot is not lost: 1.16 ran it in the tick the charge fired. After a
+	 * windup the action does not hold (1.16 standWindupDuration after the hold), the perform began a tick after the
+	 * windup's last, where 1.16's isCancelable let a press cancel it before it performed.
 	 */
 	private boolean isFiredStandCharge() {
 		return ability instanceof StandEntityAbility standAbility && phasesLength.getFloat(ActionPhase.BUTTON_CHARGE) > 0
 				&& phase.ordinal() > ActionPhase.BUTTON_CHARGE.ordinal() && !standAbility.isHeldSincePress(this)
-				&& !(phase == ActionPhase.PERFORM && getPhaseTick() < 1);
+				&& !(phase == ActionPhase.PERFORM && getPhaseTick() < 1 && !firedThroughWindup(standAbility));
+	}
+
+	// a windup with a length that the ability does not hold, asked without entering it (onSetPhase does not run)
+	private boolean firedThroughWindup(EntityActionAbility entityAbility) {
+		if (phasesLength.getFloat(ActionPhase.WINDUP) <= 0) {
+			return false;
+		}
+		ActionPhase current = phase;
+		phase = ActionPhase.WINDUP;
+		try {
+			return !entityAbility.isHeldSincePress(this);
+		}
+		finally {
+			phase = current;
+		}
 	}
 
 	/**
