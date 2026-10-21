@@ -2,11 +2,13 @@ package rotp.core.gametest;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Consumer;
 
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
+import rotp.core.impl.stands.magiciansred.MRCrossfireHurricaneEntity;
 import rotp.core.init.ModStatusEffects;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
@@ -14,6 +16,7 @@ import rotp.core.powersystem.ability.condition.AvailableAbilities.AbilityConditi
 import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.ability.input.AbilityInput;
 import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
+import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandPower;
@@ -37,8 +40,9 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * 1.16 StandEntity.tick (:1270-1290) either counted a new Stand's summon lock down or ticked its task, never both, so a
- * task set as its Stand was summoned, with the lock at L, first ticked in the Stand's tick L + 1; in a tick it did not
- * count the lock, it counted the gradual summon (gradualSummonWeaknessTicks) down only while the Stand was not stunned.
+ * task set as its Stand was summoned, with the lock at L, first ticked in the Stand's tick L + 1, while its user's power
+ * counted a held charge from the press through the lock (PowerBaseImpl.tickHeldAction); in a tick it did not count the
+ * lock, it counted the gradual summon (gradualSummonWeaknessTicks) down only while the Stand was not stunned.
  */
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -85,6 +89,48 @@ public final class StandSummonLockTickGameTests {
 			}
 			finally {
 				presses.forEach(Press::close);
+			}
+			helper.succeed();
+		});
+	}
+
+	private static final int CHARGE_WATCHED_TICKS = 32;
+
+	/*
+	 * 1.16 counted a held charge from its press in its user's power (PowerBaseImpl.tickHeldAction, with the held recheck),
+	 * which the summon lock did not hold back (StandEntity.tick held back only the Stand's task), and moved the task on at
+	 * the charge's length, its next phase then waiting for the lock. Crossfire Hurricane (holdToFire(20, false)) held with
+	 * Magician's Red (lock 7) not out, through the real auto-summon: the shot in tick 21, as with the Stand out; with the
+	 * lock made 24, longer than the charge: the charge ends in the lock and the shot comes in tick 25 (L + 1); let go in
+	 * tick 3: it ends there without a shot; made unusable in tick 3: its held recheck ends it in tick 4, in the lock.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void aHeldChargeCountsFromItsPressThroughItsStandsSummonLockAsIn116(GameTestHelper helper) {
+		List<Charge> charges = new ArrayList<>();
+		try {
+			for (Charge.Row row : Charge.Row.values()) {
+				Charge charge = new Charge(row);
+				charges.add(charge);
+				charge.start(helper, charges.size() - 1);
+			}
+		}
+		catch (RuntimeException | Error failure) {
+			charges.forEach(Charge::close);
+			throw failure;
+		}
+		helper.runAfterDelay(CHARGE_WATCHED_TICKS, () -> {
+			try {
+				List<String> wrong = new ArrayList<>();
+				for (Charge charge : charges) {
+					if (!charge.asIn116()) {
+						wrong.add(charge.describe());
+					}
+				}
+				helper.assertTrue(wrong.isEmpty(), "1.16's power counted a held charge from its press through its Stand's"
+						+ " summon lock, and only the task's next phase waited for the lock: " + String.join("; ", wrong));
+			}
+			finally {
+				charges.forEach(Charge::close);
 			}
 			helper.succeed();
 		});
@@ -230,6 +276,143 @@ public final class StandSummonLockTickGameTests {
 				}
 			};
 			NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, EntityTickEvent.Post.class, listener);
+		}
+
+		void close() {
+			if (closed) {
+				return;
+			}
+			closed = true;
+			if (listener != null) {
+				NeoForge.EVENT_BUS.unregister(listener);
+			}
+			if (user != null) {
+				AbilityInput.keyRelease(KEY, user);
+				if (power != null && type != null && power.isSummoned()) {
+					type.forceUnsummon(user, power);
+				}
+				user.discard();
+			}
+		}
+	}
+
+	// Crossfire Hurricane held with Magician's Red not out, and the Stand's action after each of the Stand's ticks
+	private static final class Charge {
+		enum Row { HELD, LOCK_LONGER_THAN_THE_CHARGE, LET_GO_IN_TICK_3, MADE_UNUSABLE_IN_TICK_3 }
+
+		static final String ABILITY = "crossfire_hurricane";
+		static final int LONGER_LOCK = 24;
+		final Row row;
+		final List<String> states = new ArrayList<>();
+		final List<Integer> locks = new ArrayList<>();
+		Player user;
+		StandPower power;
+		StandType type;
+		StandEntity stand;
+		EntityActionInstance action;
+		int lock;
+		int standTicks;
+		int shotTick = -1;
+		int goneTick = -1;
+		boolean endedAtRelease;
+		Consumer<EntityTickEvent.Post> listener;
+		boolean closed;
+
+		Charge(Row row) {
+			this.row = row;
+		}
+
+		void start(GameTestHelper helper, int cell) {
+			user = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
+			Vec3 pos = helper.absoluteVec(new Vec3(1.5 + cell * 3, 12, 7.5));
+			user.setNoGravity(true);
+			user.moveTo(pos.x, pos.y, pos.z, 0, 0);
+			helper.assertTrue(helper.getLevel().addFreshEntity(user), "Could not add the user for " + row);
+			type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("magicians_red"));
+			power = PowerClass.STAND.attachGet(user);
+			helper.assertTrue(type != null && StandPowerTransitions.insert(power, new StandInstance(type)).status()
+					== StandPowerTransitions.Status.APPLIED, "Could not grant Magician's Red");
+			power.setResolveLevel(4);
+			power.getCurTypeData()._lockedAbilities.remove(ABILITY);
+			power.setStamina(power.getMaxStamina());
+			Ability ability = power.getAbility(ABILITY);
+			helper.assertTrue(ability != null && ability.isAbilityUnlocked(power) && power.getSummonedStandEntity() == null,
+					"Fixture: Crossfire Hurricane is locked, or Magician's Red is already out");
+			AbilityConditionCheck selected = power.updateAvailableMoves().getContextVariationContainer(ability);
+			helper.assertTrue(AbilityInput.withConditionCheck(selected, user, InputMethod.HOLD),
+					"Crossfire Hurricane was refused with Magician's Red not out");
+			BufferingState pressed = BufferingState.clickOnly();
+			AbilityInput.keyPress(KEY, selected.ability, user, null, InputMethod.HOLD, 0, pressed, ability.getAbilityId());
+			stand = power.getSummonedStandEntity();
+			action = stand != null ? stand.getCurStandAction() : null;
+			helper.assertTrue(pressed.isActionSuccess && stand != null && stand.isAddedToLevel() && action != null
+					&& action.getPhase() == ActionPhase.BUTTON_CHARGE && action.getCurPhaseLength() == 20,
+					"The held press of Crossfire Hurricane did not summon Magician's Red into its 20-tick charge: " + stand
+							+ ", " + action);
+			if (row == Row.LOCK_LONGER_THAN_THE_CHARGE) {
+				stand.summonLockTicks = LONGER_LOCK;
+			}
+			lock = stand.summonLockTicks;
+			helper.assertTrue(lock == (row == Row.LOCK_LONGER_THAN_THE_CHARGE ? LONGER_LOCK : 7),
+					"Fixture: Magician's Red's summon lock is " + lock);
+			// after the Stand's tick and its action's (EntityTickEvent.Post)
+			listener = event -> {
+				if (closed || event.getEntity() != stand) {
+					return;
+				}
+				standTicks++;
+				locks.add(stand.summonLockTicks);
+				EntityActionInstance now = stand.getCurStandAction();
+				states.add(now == action ? action.getPhase() + " " + (int) action.getPhaseTick() : String.valueOf(now));
+				if (goneTick < 0 && now != action) {
+					goneTick = standTicks;
+				}
+				if (shotTick < 0 && !helper.getLevel().getEntitiesOfClass(MRCrossfireHurricaneEntity.class,
+						stand.getBoundingBox().inflate(48), shot -> shot.getOwner() == stand).isEmpty()) {
+					shotTick = standTicks;
+				}
+				if (standTicks == 3 && row == Row.LET_GO_IN_TICK_3) {
+					AbilityInput.keyRelease(KEY, user);
+					endedAtRelease = stand.getCurStandAction() == null;
+				}
+				else if (standTicks == 3 && row == Row.MADE_UNUSABLE_IN_TICK_3) {
+					power.getCurTypeData()._lockedAbilities.add(ABILITY);
+				}
+			};
+			NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, EntityTickEvent.Post.class, listener);
+		}
+
+		// the charge's own tick after the Stand's k-th tick: 1.16's power counted k of them from the press
+		private boolean chargedTicks(int ticks) {
+			for (int k = 1; k <= ticks; k++) {
+				if (!states.get(k - 1).equals(ActionPhase.BUTTON_CHARGE + " " + k)) {
+					return false;
+				}
+			}
+			return true;
+		}
+
+		boolean asIn116() {
+			if (standTicks < 25) {
+				return false;
+			}
+			return switch (row) {
+				// counted in the lock (the tick the lock ran out too), fired after tick 20, shot in the next
+				case HELD -> chargedTicks(19) && states.get(19).equals(ActionPhase.PERFORM + " 0") && shotTick == 21;
+				// fired in the lock, its perform waiting for the lock: the shot in tick L + 1
+				case LOCK_LONGER_THAN_THE_CHARGE -> chargedTicks(19) && states.get(19).equals(ActionPhase.PERFORM + " 0")
+						&& states.get(LONGER_LOCK - 1).equals(ActionPhase.PERFORM + " 0") && shotTick == LONGER_LOCK + 1;
+				case LET_GO_IN_TICK_3 -> chargedTicks(3) && endedAtRelease && goneTick == 4 && shotTick < 0;
+				// 1.16's held recheck in the power, in the lock
+				case MADE_UNUSABLE_IN_TICK_3 -> chargedTicks(3) && goneTick == 4 && locks.get(3) > 0 && shotTick < 0;
+			};
+		}
+
+		String describe() {
+			return "Crossfire Hurricane " + row.name().toLowerCase(Locale.ROOT).replace('_', ' ') + " (the summon lock " + lock
+					+ "): shot in tick " + shotTick + ", gone after tick " + goneTick + (row == Row.LET_GO_IN_TICK_3
+							? ", ended at the release " + endedAtRelease : "") + ", the action after each tick " + states
+					+ ", the lock " + locks;
 		}
 
 		void close() {
