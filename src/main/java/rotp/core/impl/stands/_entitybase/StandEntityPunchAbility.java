@@ -1239,23 +1239,21 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	 * entity, its vanilla pick when it met a block or an entity other than the Stand, a miss when it met the Stand,
 	 * otherwise the precision ray from the camera over any entity but the Stand and its user, as far as getAimDistance of
 	 * the camera: its own reach when it is a living entity that has one (a player), otherwise and under manual control the
-	 * Stand's. Without the aim assist, what the camera's crosshair line meets first within that reach.
+	 * Stand's. Without the aim assist only what the crosshair meets: that vanilla pick, else what the camera's crosshair
+	 * line meets first within that reach.
 	 */
 	public static ActionTarget cameraStandAim(StandEntity stand, Entity camera, ActionTarget vanillaPick) {
 		double reach = !stand.isManuallyControlled() && camera instanceof LivingEntity living
 				? userAimReach(living, stand) : stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE);
 		boolean wallsHideEntities = StandSkillWalls.wallsHideEntities(stand);
+		Entity picked = vanillaPick.getType() == TargetType.ENTITY ? vanillaPick.getEntity() : null;
+		if (vanillaPick.getType() == TargetType.BLOCK || picked != null && picked != stand) {
+			return vanillaPick;
+		}
 		if (!aimAssist(stand.getUser())) {
 			return StandPrecisionRay.crosshair(camera, stand, reach, true, wallsHideEntities);
 		}
-		if (vanillaPick.getType() == TargetType.BLOCK) {
-			return vanillaPick;
-		}
-		Entity picked = vanillaPick.getType() == TargetType.ENTITY ? vanillaPick.getEntity() : null;
-		if (picked != null) {
-			return picked != stand ? vanillaPick : ActionTarget.EMPTY;
-		}
-		return StandPrecisionRay.trace(camera, stand, reach, 0.0D, true, wallsHideEntities);
+		return picked != null ? ActionTarget.EMPTY : StandPrecisionRay.trace(camera, stand, reach, 0.0D, true, wallsHideEntities);
 	}
 
 	/**
