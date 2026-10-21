@@ -116,17 +116,28 @@ public final class HeavyPunchPerform116GameTests {
 
 	// a clip of a strike 1.16's Java model played inside the one-tick perform: the striking bone with its 1.16 pose at the
 	// end of the windup and at the end of the perform, whether 1.16 held that pose over the first half of the recovery,
-	// and the Stand's abilities that play the clip
+	// and the Stand's abilities that play the clip with that perform; for a windup 1.16 began from the idle pose, the clip
+	// starts on its own idle (end) pose, and a pose 1.16 reached at a fifth of the perform is checked there
 	private record PerformStrikeClip(String asset, String clip, String bone, float[] windupEnd, float[] performEnd,
-			boolean holdsHalfRecovery, String stand, String... abilities) {}
+			boolean holdsHalfRecovery, boolean windupFromIdle, float[] performFifth, int perform, String stand,
+			String... abilities) {}
+
+	private static final String SC_ANIMS =
+			"stand_skins/silver_chariot/assets/jojo_ripples/animations/silver_chariot.animation.json";
 
 	private static final List<PerformStrikeClip> PERFORM_STRIKE_CLIPS = List.of(
 			// MagiciansRedModel :287-322: windup kickPose1 -> kickPose2, perform kickPose2 -> kickPose3, then to the idle
 			new PerformStrikeClip(MR_ANIMS, "kick", "right_leg", new float[] { -105, 30, 30 },
-					new float[] { -42.6168F, 9.6867F, 44.9391F }, false, "magicians_red", "kick"),
+					new float[] { -42.6168F, 9.6867F, 44.9391F }, false, false, null, 1, "magicians_red", "kick"),
 			// CrazyDiamondModel :685-737: windup pose1 -> pose2, perform pose2 -> pose3 -> pose4, pose4 held to half the recovery
 			new PerformStrikeClip(CD_ANIMS, "finisher", "right_arm", new float[] { 37.9264F, 14.6364F, 103.3191F },
-					new float[] { -72.6819F, 35.6647F, 53.5229F }, true, "crazy_diamond", "finisher", "block_anchor_make"));
+					new float[] { -72.6819F, 35.6647F, 53.5229F }, true, false, null, 1, "crazy_diamond", "finisher",
+					"block_anchor_make"),
+			// SilverChariotModel :305-334: windup idle -> sweepPose1, perform sweepPose1 -> sweepPose2 (0.2) -> sweepPose3,
+			// standPerformDuration 3
+			new PerformStrikeClip(SC_ANIMS, "sweeping_attack", "right_arm", new float[] { 0, 45, 75 },
+					new float[] { 12.5F, 0, 120 }, false, true, new float[] { 2.5F, 36, 84 }, 3, "silver_chariot",
+					"sweeping_attack"));
 
 	// a heavy clip converted from a 1.16 Java model whose recovery held the impact pose to its middle, the striking bone and
 	// the clip time its impact pose is reached
@@ -260,6 +271,7 @@ public final class HeavyPunchPerform116GameTests {
 	 * with a PERFORM pose): the windup ended on the chambered pose and the perform swung to the strike's end pose. Their
 	 * clips keep that phase structure: the striking bone shows 1.16's windup end pose at PERFORM and the strike's end pose
 	 * at RECOVERY, and where 1.16 held that pose over the first half of the recovery the clip holds it to the middle.
+	 * Silver Chariot's sweeping attack swung the whole sweep over its 3-tick perform after a windup from the idle pose.
 	 */
 	@GameTest(template = "empty", timeoutTicks = 20)
 	public static void theStrikesOf116PerformPosesPlayBetweenPerformAndRecovery(GameTestHelper helper) {
@@ -271,9 +283,9 @@ public final class HeavyPunchPerform116GameTests {
 						.getAbility(abilityName);
 				helper.assertTrue(ability instanceof EntityActionAbility entityAbility
 						&& strike.clip().equals(entityAbility.getEntityAnim(null).name())
-						&& storedPhase(helper, entityAbility, ActionPhase.PERFORM) == 1,
+						&& storedPhase(helper, entityAbility, ActionPhase.PERFORM) == strike.perform(),
 						"setup: " + strike.stand() + "'s " + abilityName + " does not play " + strike.clip()
-								+ " with a one-tick perform");
+								+ " with a perform of " + strike.perform());
 			}
 			JsonObject clip = files.computeIfAbsent(strike.asset(), asset -> readJson(helper, asset))
 					.getAsJsonObject("animations").getAsJsonObject(strike.clip());
@@ -284,15 +296,21 @@ public final class HeavyPunchPerform116GameTests {
 			float recoveryAt = marker(clip, "phase=RECOVERY;");
 			float middle = (recoveryAt + clip.get("animation_length").getAsFloat()) / 2;
 			boolean held = !strike.holdsHalfRecovery() || near(rotationAt(keys, middle), strike.performEnd());
+			boolean fromIdle = !strike.windupFromIdle()
+					|| near(rotationAt(keys, 0), rotationAt(keys, clip.get("animation_length").getAsFloat()));
+			float fifth = performAt + (recoveryAt - performAt) / 5;
+			boolean atFifth = strike.performFifth() == null || near(rotationAt(keys, fifth), strike.performFifth());
 			if (!(recoveryAt > performAt && near(rotationAt(keys, performAt), strike.windupEnd())
-					&& near(rotationAt(keys, recoveryAt), strike.performEnd()) && held)) {
+					&& near(rotationAt(keys, recoveryAt), strike.performEnd()) && held && fromIdle && atFifth)) {
 				wrong.add(strike.clip() + " of " + strike.asset() + ": PERFORM " + performAt + ", RECOVERY " + recoveryAt + ", "
-						+ strike.bone() + " at PERFORM " + Arrays.toString(rotationAt(keys, performAt)) + ", at RECOVERY "
+						+ strike.bone() + " at the start " + Arrays.toString(rotationAt(keys, 0)) + ", at PERFORM "
+						+ Arrays.toString(rotationAt(keys, performAt)) + ", at a fifth of the perform "
+						+ Arrays.toString(rotationAt(keys, fifth)) + ", at RECOVERY "
 						+ Arrays.toString(rotationAt(keys, recoveryAt)) + ", at the recovery's middle "
 						+ Arrays.toString(rotationAt(keys, middle)));
 			}
 		}
-		helper.assertTrue(wrong.isEmpty(), "These strikes played inside 1.16's one-tick perform, from the windup's end pose to the"
+		helper.assertTrue(wrong.isEmpty(), "These strikes played inside 1.16's perform, from the windup's end pose to the"
 				+ " strike's end pose (held to the recovery's middle where 1.16 held it): " + wrong);
 		helper.succeed();
 	}
