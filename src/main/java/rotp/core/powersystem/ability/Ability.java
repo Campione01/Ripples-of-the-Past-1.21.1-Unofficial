@@ -223,8 +223,8 @@ public class Ability {
 	 * Whether this ability's press, once it goes off, ends a hold-type Stand action of another ability its user holds
 	 * (EntityActionInstance#isHoldTypeStandAction), as the key's release ends it: 1.16 PowerBaseImpl ended the power's
 	 * held action after every action it performed on a click (stopHeldAction(false)) and before every hold it started
-	 * (setHeldAction). False for a press that was no 1.16 action, such as the manual control key, which a held action that
-	 * lets no other through (a charge) does not refuse either.
+	 * (setHeldAction). False for a press that was no 1.16 action, such as the manual control key or the grab release of
+	 * the port's grab chain, which a held action that lets no other through (a charge) does not refuse either.
 	 */
 	public boolean endsOtherHoldOnPress() {
 		return true;

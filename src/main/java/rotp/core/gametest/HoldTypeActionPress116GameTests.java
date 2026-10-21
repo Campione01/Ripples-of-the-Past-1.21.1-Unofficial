@@ -14,6 +14,7 @@ import rotp.core.impl.stands._entitybase.StandEntityManualControlToggle;
 import rotp.core.impl.stands.magiciansred.MRDetectorEntity;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModItemDataComponents;
+import rotp.core.mechanics.KnockbackCollisionImpact;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
@@ -34,6 +35,7 @@ import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.type.StandType;
+import rotp.core.subsystems.entity_grab.LivingComponentGrab;
 import rotp.core.subsystems.itemtracking.OriginalItemPosComponent;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.util.reflection.CommonReflection;
@@ -44,6 +46,7 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.item.ItemStack;
@@ -498,6 +501,70 @@ public final class HoldTypeActionPress116GameTests {
 					"1.16 sent the barrage into its recovery once a lifeform choice pressed during it went off: phase "
 							+ barrage.getPhase() + ", its key holds it " + s.isHeldByKey(HOLD_KEY));
 			s.clear();
+		}
+		helper.succeed();
+	}
+
+	/*
+	 * The grab chain is the port's own (1.16 had no Stand grab), so its release, no 1.16 action, keeps the port's rule from
+	 * before the 1.16 hold rules (endsOtherHoldOnPress false, as the manual control key): pressed during a held grab throw,
+	 * charging or held ready to throw, it is not refused and drops the mob, and the throw ends without a throw on its next
+	 * held recheck; pressed during a held hold-type action (Star Platinum's zoom), it drops the mob and the zoom stays held.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void theGrabReleaseDropsTheMobDuringAHeldGrabThrowAndEndsNoOtherHold(GameTestHelper helper) {
+		try (Scene s = new Scene(helper, "GrabReleaseStarPlatinum", "star_platinum", 4)) {
+			s.unlock("grab_throw", "grab_release", "enhanced_eyesight");
+			Cow cow = EntityType.COW.create(helper.getLevel());
+			helper.assertTrue(cow != null, "setup: could not create the cow");
+			LivingComponentGrab standGrab = s.stand.getData(ModDataAttachmentTypes.LIVING_GRAB.get());
+			try {
+				cow.setNoAi(true);
+				cow.setNoGravity(true);
+				cow.moveTo(s.origin.x, s.origin.y, s.origin.z + 1.5D, 180.0F, 0.0F);
+				helper.assertTrue(helper.getLevel().addFreshEntity(cow), "setup: could not add the cow");
+				for (ActionPhase heldIn : new ActionPhase[] { ActionPhase.BUTTON_CHARGE, ActionPhase.WINDUP }) {
+					standGrab.setGrabTarget(cow);
+					helper.assertTrue(standGrab.getGrabbedEntity() == cow, "setup: the Stand did not grab the cow");
+					EntityActionInstance throwing = s.hold("grab_throw");
+					for (int tick = 0; tick < 40 && throwing.getPhase() != heldIn; tick++) {
+						s.standAction.tick();
+					}
+					helper.assertTrue(throwing.getPhase() == heldIn && s.standAction.getAction() == throwing,
+							"setup: the held grab throw is in " + throwing.getPhase() + ", not " + heldIn);
+					AbilityConditionCheck release = s.resolve("grab_release");
+					BufferingState pressed = s.press("grab_release", InputMethod.CLICK, OTHER_KEY);
+					AbilityInput.keyRelease(OTHER_KEY, s.user);
+					helper.assertTrue(release != null && release.conditionCheck.isPositive() && pressed.isActionSuccess
+							&& standGrab.getGrabbedEntity() == null && s.standAction.getAction() == throwing,
+							"the port's grab release, no 1.16 action, goes off during the held grab throw (" + heldIn + ") and"
+									+ " drops the mob: its key " + (release != null ? release.conditionCheck : null) + ", went off "
+									+ pressed.isActionSuccess + ", the Stand holds " + standGrab.getGrabbedEntity());
+					s.standAction.tick();
+					KnockbackCollisionImpact impact = KnockbackCollisionImpact.getHandler(cow);
+					helper.assertTrue(throwing.isOver() && s.standAction.getAction() == null && (impact == null || !impact.isActive()),
+							"the grab throw (" + heldIn + ") whose mob was let go ends without a throw: the throw in "
+									+ throwing.getPhase() + ", the Stand's action " + s.standAction.getAction() + ", the cow thrown "
+									+ (impact != null && impact.isActive()));
+					s.clear();
+				}
+
+				standGrab.setGrabTarget(cow);
+				EntityActionInstance zoom = s.hold("enhanced_eyesight");
+				BufferingState pressed = s.press("grab_release", InputMethod.CLICK, OTHER_KEY);
+				AbilityInput.keyRelease(OTHER_KEY, s.user);
+				helper.assertTrue(pressed.isActionSuccess && standGrab.getGrabbedEntity() == null,
+						"setup: the grab release during the zoom did not go off");
+				helper.assertTrue(s.standAction.getAction() == zoom && zoom.getPhase() == ActionPhase.PERFORM && s.isHeldByKey(HOLD_KEY),
+						"the port's grab release, no 1.16 action, ends no held action (as the manual control key): the zoom in "
+								+ zoom.getPhase() + ", the Stand's action " + s.standAction.getAction() + ", its key holds it "
+								+ s.isHeldByKey(HOLD_KEY));
+				s.clear();
+			}
+			finally {
+				standGrab.setGrabTarget(null);
+				cow.discard();
+			}
 		}
 		helper.succeed();
 	}
