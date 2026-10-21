@@ -7,6 +7,7 @@ import rotp.core.core.JojoMod;
 import rotp.core.impl.powers.hamon.HamonData;
 import rotp.core.impl.powers.hamon.ModHamonSkills;
 import rotp.core.impl.powers.hamon.entity.HamonBubbleBarrierEntity;
+import rotp.core.impl.powers.hamon.entity.HamonBubbleEntity;
 import rotp.core.impl.powers.hamon.entity.HamonCutterEntity;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModItems;
@@ -62,7 +63,15 @@ public final class HamonTechniquePhases116GameTests {
 			new Phases("bubble_cutter_gliding", 0, 1, 0, "a click, performed at once"),
 			new Phases("hamon_cutter", 0, 1, 0, "a click, performed at once"),
 			new Phases("plant_infusion", 0, 1, 0, "a click, performed at once"),
-			new Phases("organism_infusion", 0, 1, 0, "a click, performed at once"));
+			new Phases("organism_infusion", 0, 1, 0, "a click, performed at once"),
+			new Phases("wall_climbing", 0, 1, 0, "a click (HamonWallClimbing2), performed at once"),
+			new Phases("bubble_launcher", 0, HELD, 0, "holdType, held from the press, over as it was let go"),
+			new Phases("hamon_detector", 0, HELD, 0, "holdType, held from the press, over as it was let go"),
+			new Phases("projectile_shield", 0, HELD, 0, "holdType, held from the press, over as it was let go"),
+			new Phases("scarlet_overdrive", 32, HELD, 0, "holdToFire(8, true).holdType(32), a 9-tick punch and over"),
+			new Phases("sendo_overdrive", 30, 1, 0, "holdToFire(30, true), the wave on the release and over"),
+			new Phases("sunlight_yellow_overdrive_barrage", 60, 80, 0, "holdToFire(60, false).holdType(), an 80-tick barrage"
+					+ " and over"));
 
 	@GameTest(template = "empty", timeoutTicks = 20)
 	public static void theTechniquesTakeTheirPhasesFrom116(GameTestHelper helper) {
@@ -115,6 +124,25 @@ public final class HamonTechniquePhases116GameTests {
 			helper.assertTrue(pressed == ActionPhase.PERFORM && cutters == 8 && action.isOver() && f.component.getAction() == null,
 					"1.16 Hamon Cutter threw its cutters on the click and was over: phase at the press " + pressed
 							+ ", cutters after one tick " + cutters + ", phase after it " + action.getPhase());
+			helper.succeed();
+		}
+	}
+
+	// 1.16 HamonBubbleLauncher (holdType) ran holdTick on the first held tick after the press; Wall Climbing
+	// (HamonWallClimbing2) held nothing.
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void bubbleLauncherShootsOnItsFirstHeldTickAsIn116(GameTestHelper helper) {
+		try (Fixture f = new Fixture(helper)) {
+			helper.assertTrue(!f.ability("wall_climbing").isHoldAction(), "1.16 Wall Climbing was a click, not a hold");
+			f.hamon.learnSkill(ModHamonSkills.BUBBLE_LAUNCHER.get());
+			f.user.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ModItems.SOAP.get()));
+			EntityActionInstance action = f.start("bubble_launcher", true);
+			ActionPhase pressed = action.getPhase();
+			f.tick(1);
+			int bubbles = helper.getLevel().getEntitiesOfClass(HamonBubbleEntity.class, f.user.getBoundingBox().inflate(16)).size();
+			helper.assertTrue(pressed == ActionPhase.PERFORM && bubbles > 0,
+					"1.16 Bubble Launcher shot on its first held tick: phase at the press " + pressed + ", bubbles after one tick "
+							+ bubbles);
 			helper.succeed();
 		}
 	}
@@ -206,6 +234,8 @@ public final class HamonTechniquePhases116GameTests {
 					.forEach(HamonBubbleBarrierEntity::discard);
 			helper.getLevel().getEntitiesOfClass(HamonCutterEntity.class, user.getBoundingBox().inflate(16))
 					.forEach(HamonCutterEntity::discard);
+			helper.getLevel().getEntitiesOfClass(HamonBubbleEntity.class, user.getBoundingBox().inflate(16))
+					.forEach(HamonBubbleEntity::discard);
 			user.removeAllEffects();
 			user.discard();
 		}

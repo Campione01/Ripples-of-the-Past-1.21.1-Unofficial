@@ -30,10 +30,9 @@ public class HamonDetectorAbility extends HamonActionRuntimeAbility {
 
 	public HamonDetectorAbility(AbilityType<?> abilityType, AbilityId abilityId) {
 		super(abilityType, abilityId, DetectorInstance::new);
-		setDefaultPhaseLength(ActionPhase.WINDUP, 8);
-		setDefaultPhaseLength(ActionPhase.PERFORM, 8);
+		// 1.16 holdType: the detection grows from the first held tick after the press, no windup; the release ends the
+		// hold, no recovery.
 		setButtonHoldPhase(ActionPhase.PERFORM);
-		setDefaultPhaseLength(ActionPhase.RECOVERY, 4);
 	}
 
 	public static class DetectorInstance extends HamonActionRuntimeAbility.HamonHeldActionInstance {

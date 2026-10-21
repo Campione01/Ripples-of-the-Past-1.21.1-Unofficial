@@ -42,9 +42,9 @@ public class HamonSunlightYellowOverdriveBarrageAbility extends HamonActionRunti
 
 	public HamonSunlightYellowOverdriveBarrageAbility(AbilityType<?> abilityType, AbilityId abilityId) {
 		super(abilityType, abilityId, SYOverdriveBarrageInstance::new);
-		setDefaultPhaseLength(ActionPhase.WINDUP, 30);
+		// The charge is the registration's hamonHoldToFire(60). 1.16 Instance.getMaxDuration ended the barrage and its
+		// finisher after 80 ticks, with nothing after them.
 		setDefaultPhaseLength(ActionPhase.PERFORM, MAX_BARRAGE_DURATION + FINISHING_PUNCH_DURATION);
-		setDefaultPhaseLength(ActionPhase.RECOVERY, 6);
 		// 1.16 JONATHAN_SUNLIGHT_YELLOW_OVERDRIVE_BARRAGE was the SHIFT variation of the Overdrive Barrage
 		setPlaysVoiceLineOnSneak();
 	}

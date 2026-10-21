@@ -235,7 +235,7 @@ public class HamonPowerType extends PlayerPowerType<HamonData> {
 					.addAbility("sendo_overdrive", HAMON_SENDO_OVERDRIVE, ability -> {
 						combat(ability);
 						runtime(ability, 900F, 0, null);
-						hamonHoldToFire(ability, 30, false, 30, 5);
+						hamonHoldToFire(ability, 30, false, 30, 1);
 						swingHand(ability);
 						hamonTechniqueShout(ability, "jonathan", ModSoundEvents.JONATHAN_SENDO_OVERDRIVE);
 					})
@@ -262,7 +262,8 @@ public class HamonPowerType extends PlayerPowerType<HamonData> {
 						runtime(ability, 1000F, 10, null);
 						swingHand(ability);
 					})
-					.addAbility("wall_climbing", HAMON_WALL_CLIMBING, ability -> heldUtility(ability, 10F, 1.0F))
+					// 1.16 HamonWallClimbing2 was a click; the climb's own tick pays its energy (HamonData.tickWallClimbing)
+					.addAbility("wall_climbing", HAMON_WALL_CLIMBING, HamonPowerType::utility)
 					.addAbility("zoom_punch", HAMON_ZOOM_PUNCH, ability -> {
 						combat(ability);
 						runtime(ability, 450F, 14, null);
@@ -292,7 +293,7 @@ public class HamonPowerType extends PlayerPowerType<HamonData> {
 							.addToHotbar("hamon_breath", 0, InputMethod.HOLD)
 							.addToHotbar("hamon_healing", 0, InputMethod.HOLD)
 							.addToHotbar("hamon_speed_boost", 0, InputMethod.CLICK)
-							.addToHotbar("wall_climbing", 0, InputMethod.HOLD)
+							.addToHotbar("wall_climbing", 0, InputMethod.CLICK)
 							.addToHotbar("life_magnetism", 0, InputMethod.CLICK)
 							.addToHotbar("projectile_shield", 0, InputMethod.HOLD)
 							.addToHotbar("hamon_protection", 0, InputMethod.CLICK)

@@ -16,10 +16,8 @@ public class HamonBubbleLauncherAbility extends HamonActionRuntimeAbility {
 
 	public HamonBubbleLauncherAbility(AbilityType<?> abilityType, AbilityId abilityId) {
 		super(abilityType, abilityId, BubbleLauncherInstance::new);
-		setDefaultPhaseLength(ActionPhase.WINDUP, 5);
-		setDefaultPhaseLength(ActionPhase.PERFORM, 4);
+		// 1.16 holdType: bubbles from the first held tick after the press, no windup; the release ends the hold, no recovery.
 		setButtonHoldPhase(ActionPhase.PERFORM);
-		setDefaultPhaseLength(ActionPhase.RECOVERY, 3);
 	}
 
 	@Override

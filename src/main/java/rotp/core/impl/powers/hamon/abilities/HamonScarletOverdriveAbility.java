@@ -17,8 +17,8 @@ import net.minecraft.world.entity.LivingEntity;
 public class HamonScarletOverdriveAbility extends HamonSunlightYellowOverdriveAbility {
 
 	public HamonScarletOverdriveAbility(AbilityType<?> abilityType, AbilityId abilityId) {
+		// 1.16 Instance.playerTick stopped the punch on its 9th tick, with nothing after it.
 		super(abilityType, abilityId, ScarletOverdriveInstance::new, 8, 32, 9);
-		setDefaultPhaseLength(rotp.core.powersystem.entityaction.ActionPhase.RECOVERY, 4);
 	}
 
 	@Override

@@ -5,7 +5,6 @@ import rotp.core.powersystem.Power;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
-import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.playerpower.PlayerPower;
@@ -25,11 +24,8 @@ import net.minecraft.world.phys.Vec3;
 
 public class HamonWallClimbingAbility extends HamonActionRuntimeAbility {
 	public HamonWallClimbingAbility(AbilityType<?> abilityType, AbilityId abilityId) {
+		// 1.16 HamonWallClimbing2 had no hold and no phases: the click starts the climb at once, so the default phases stay.
 		super(abilityType, abilityId, WallClimbingInstance::new);
-		setDefaultPhaseLength(ActionPhase.WINDUP, 4);
-		setDefaultPhaseLength(ActionPhase.PERFORM, 8);
-		setButtonHoldPhase(ActionPhase.PERFORM);
-		setDefaultPhaseLength(ActionPhase.RECOVERY, 3);
 	}
 
 	@Override
@@ -67,7 +63,7 @@ public class HamonWallClimbingAbility extends HamonActionRuntimeAbility {
 				.distanceToSqr(vecToBlock) > 1.0E-7D;
 	}
 
-	public static class WallClimbingInstance extends HamonActionRuntimeAbility.HamonHeldActionInstance {
+	public static class WallClimbingInstance extends HamonActionRuntimeAbility.HamonRuntimeActionInstance {
 		public WallClimbingInstance(EntityActionType ability) { super(ability); }
 
 		@Override

@@ -706,9 +706,9 @@ public final class HeldActionRecheck116GameTests {
 		}
 	}
 
-	// 1.16 held an action from its press: a windup played before a held perform is rechecked too
+	// 1.16 held an action from its press (the Detector, a holdType, from its first tick) and rechecked it on every held tick
 	@GameTest(template = "empty", timeoutTicks = 100)
-	public static void aWindupBeforeAHeldPerformIsRecheckedAsIn116(GameTestHelper helper) {
+	public static void aHeldDetectorIsRecheckedFromItsPressAsIn116(GameTestHelper helper) {
 		try (PowerScene s = new PowerScene(helper, "HeldDetectorWindup", ModPlayerPowers.HAMON.get())) {
 			HamonData hamon = PlayerPower.getPowerData(s.user, ModPlayerPowers.HAMON).orElseThrow();
 			hamon.learnSkill(ModHamonSkills.DETECTOR.get());
@@ -717,12 +717,12 @@ public final class HeldActionRecheck116GameTests {
 			hamon.setEnergy(hamon.getMaxEnergy());
 			EntityActionInstance detector = s.start("hamon_detector");
 			s.tick(2);
-			helper.assertTrue(detector.getPhase() == ActionPhase.WINDUP && !detector.isOver(),
-					"setup: the Detector is not in its windup: phase " + detector.getPhase());
+			helper.assertTrue(detector.getPhase() == ActionPhase.PERFORM && !detector.isOver(),
+					"setup: the Detector is not held: phase " + detector.getPhase());
 			s.user.addEffect(new MobEffectInstance(ModStatusEffects.STUN, 40));
 			s.tick(1);
 			helper.assertTrue(detector.isOver(),
-					"1.16 checked the held Detector from its press on, so a stun in its windup ended it: phase " + detector.getPhase());
+					"1.16 checked the held Detector from its press on, so a stun while it is held ended it: phase " + detector.getPhase());
 			helper.assertTrue(s.user.keys().contains(CONDITION + "stun"), "1.16 said why: messages " + s.user.keys());
 			helper.succeed();
 		}

@@ -21,11 +21,8 @@ public class HamonProjectileShieldAbility extends HamonActionRuntimeAbility {
 
 	public HamonProjectileShieldAbility(AbilityType<?> abilityType, AbilityId abilityId) {
 		super(abilityType, abilityId, ProjectileShieldInstance::new);
-		// 1.16 holdType: startedHolding raised the shield on the press, no windup.
-		setDefaultPhaseLength(ActionPhase.WINDUP, 0);
-		setDefaultPhaseLength(ActionPhase.PERFORM, 8);
+		// 1.16 holdType: startedHolding raised the shield on the press, no windup; the release ends the hold, no recovery.
 		setButtonHoldPhase(ActionPhase.PERFORM);
-		setDefaultPhaseLength(ActionPhase.RECOVERY, 4);
 	}
 
 	@Override

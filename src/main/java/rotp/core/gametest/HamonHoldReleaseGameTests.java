@@ -75,9 +75,10 @@ public final class HamonHoldReleaseGameTests {
 			f.tick(30);
 			helper.assertTrue(waves(helper, area) == wavesBefore, "Sendo Overdrive fired before its full charge");
 			f.tick(1);
-			helper.assertTrue(action.getPhase() == ActionPhase.PERFORM || action.getPhase() == ActionPhase.RECOVERY,
-					"a Sendo Overdrive no key holds must fire at its full charge: phase=" + action.getPhase());
+			// 1.16 sent the wave and was over in the same tick
 			helper.assertTrue(waves(helper, area) > wavesBefore, "the unheld Sendo Overdrive sent no wave");
+			helper.assertTrue(action.isOver(),
+					"a Sendo Overdrive no key holds must fire at its full charge and be over: phase=" + action.getPhase());
 			helper.succeed();
 		}
 	}
