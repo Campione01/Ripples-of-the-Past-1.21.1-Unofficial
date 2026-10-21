@@ -1937,6 +1937,85 @@ public final class StandTargetRangeGameTests {
 		helper.succeed();
 	}
 
+	/*
+	 * 1.16's mouse target was unfiltered (EntityStandType.clientHitResult, friendly fire on), and PowerBaseImpl.checkTarget
+	 * then asked the pressed action's StandEntityAction.checkStandTarget (:171-176; canStandTargetEntity :199-201: a living
+	 * entity the Stand may attack, StandEntity.canAttack :1932-1949, unless the action had friendly fire): a refused target
+	 * left the action without one, so its Stand faced its user's look. The port's synced Stand aim is that unfiltered target
+	 * again, and the actions that take it at their press (captureActionTargetFromAim, keepStandAimedAtTarget) turned to,
+	 * dashed at or homed on the user's own pet, as the idle Stand looked at it. The user's own tamed wolf on the look past
+	 * the vanilla pick's reach, which the precision ray of a client takes; a husk in its place is the control.
+	 */
+	@GameTest(template = "empty", batch = BATCH)
+	public static void aStandActionPressedAtTheUsersOwnPetTakesNoTargetAsIn116(GameTestHelper helper) {
+		Kind[] kinds = { Kind.SC_DASH, Kind.SC_SWEEP, Kind.MR_CROSSFIRE, Kind.MR_CROSSFIRE_SPECIAL, Kind.CD_GRAB, null };
+		List<String> wrong = new ArrayList<>();
+		for (Kind kind : kinds) {
+			for (boolean pet : new boolean[] { true, false }) {
+				String row = (kind != null ? kind.stand + " " + kind.ability + " pressed" : "the idle Stand") + " with "
+						+ (pet ? "the user's own tamed wolf" : "a husk") + " as the synced aim";
+				try (Fixture fixture = Fixture.open(helper, kind != null ? kind : Kind.CD_REVERT)) {
+					StandEntity stand = fixture.stand;
+					stand.summonLockTicks = 0;
+					stand.gradualSummonWeaknessTicks = 0;
+					stand.moveTo(fixture.origin.x - 1.0D, fixture.origin.y, fixture.origin.z, 0.0F, 0.0F);
+					stand.setYHeadRot(0.0F);
+					LivingComponentAction standActions = LivingComponentAction.getComponent(stand);
+					// on the look past the vanilla pick's 3 blocks, within the precision ray's 5
+					LivingEntity aimed = pet ? ownWolf(helper, fixture, onLook(fixture, 0.0D, 3.8D))
+							: placed(helper, fixture, EntityType.HUSK, onLook(fixture, 0.0D, 3.8D));
+					ActionTarget vanillaPick = vanillaPick(fixture.user, fixture.user);
+					ActionTarget sent = StandEntityPunchAbility.clientStandAim(stand, fixture.user, fixture.user, vanillaPick);
+					helper.assertTrue(vanillaPick.getType() == TargetType.EMPTY && sent.getEntity() == aimed
+							&& stand.canAttackEntity(aimed) != pet && (!pet || ((Wolf) aimed).getOwner() == fixture.user),
+							"OWN-PET premise: " + row + ": the vanilla pick " + describe(vanillaPick, fixture.user)
+									+ ", the client sends " + describe(sent, fixture.user));
+					standActions.entityAim.setTargetFromClient(sent, fixture.level);
+					LivingComponentAction.getComponent(fixture.user).entityAim.setTargetFromClient(vanillaPick, fixture.level);
+					if (kind == null) {
+						boolean looked = stand.lookAtCurTarget(stand.rotO);
+						if (looked == pet) {
+							wrong.add("OWN-PET " + row + ": the idle Stand " + (looked ? "looks at it" : "does not look at it")
+									+ "; " + (pet ? "the port's idle look kept off what the Stand may not attack"
+											: "the idle look turns to an aimed entity the Stand may attack"));
+						}
+						continue;
+					}
+					EntityActionInstance action = ((EntityActionType) fixture.ability).initActionOnAbilityUse(fixture.level,
+							fixture.user, stand, null);
+					standActions.setAction(action, fixture.user, SyncType.NO_SYNC);
+					ActionTarget snapshot = snapshotOf(action, fixture.level);
+					ActionTarget turned = action.standRotationTarget;
+					boolean turnedToIt = turned != null && turned.getEntity() == aimed;
+					boolean keptIt = snapshot.getEntity() == aimed;
+					boolean expected = pet ? !turnedToIt && !keptIt && snapshot.getType() == TargetType.EMPTY
+							: turnedToIt && (kind == Kind.CD_GRAB || keptIt);
+					if (!expected) {
+						wrong.add("OWN-PET " + row + ": the action turns to " + (turned != null ? describe(turned, stand) : "nothing")
+								+ " and keeps " + describe(snapshot, stand) + "; 1.16's checkStandTarget "
+								+ (pet ? "refused the user's own pet, so the action had no target and its Stand faced the user's look"
+										: "kept a husk the Stand may attack, and the Stand turned to it"));
+					}
+					standActions.setAction(null, fixture.user, SyncType.NO_SYNC);
+				}
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), String.join("; ", wrong));
+		helper.succeed();
+	}
+
+	// the target an action took at its press (EntityActionInstance.getActionTargetSnapshot, protected)
+	private static ActionTarget snapshotOf(EntityActionInstance action, ServerLevel level) {
+		try {
+			Method getter = EntityActionInstance.class.getDeclaredMethod("getActionTargetSnapshot", net.minecraft.world.level.Level.class);
+			getter.setAccessible(true);
+			return (ActionTarget) getter.invoke(action, level);
+		}
+		catch (ReflectiveOperationException e) {
+			throw new IllegalStateException("OWN-PET fixture: cannot read the action's press target", e);
+		}
+	}
+
 	// on the look line of a camera turned south, at its eye height, side blocks to the east and ahead blocks along it
 	private static Vec3 onCameraLook(Entity camera, double side, double ahead) {
 		return new Vec3(camera.getX() + side, camera.getEyeY(), camera.getZ() + ahead);
@@ -2928,6 +3007,8 @@ public final class StandTargetRangeGameTests {
 
 	private enum Kind {
 		CD_HEAL("crazy_diamond", "heal"), CD_ANCHOR("crazy_diamond", "block_anchor_make"), CD_REVERT("crazy_diamond", "revert_state"),
+		CD_GRAB("crazy_diamond", "grab"), SC_DASH("silver_chariot", "dash_attack"), SC_SWEEP("silver_chariot", "sweeping_attack"),
+		MR_CROSSFIRE("magicians_red", "crossfire_hurricane"), MR_CROSSFIRE_SPECIAL("magicians_red", "crossfire_hurricane_special"),
 		GE_HEAL_OTHER("gold_experience", "heal_other"), GE_LIFESHOT("gold_experience", "lifeshot"),
 		GE_CREATE_LIFEFORM("gold_experience", "create_lifeform"), GE_BONE_MEAL("gold_experience", "bone_meal"),
 		HG_BARRIER("hierophant_green", "barrier");
