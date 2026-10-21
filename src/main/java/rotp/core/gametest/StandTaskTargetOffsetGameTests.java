@@ -377,6 +377,37 @@ public final class StandTaskTargetOffsetGameTests {
 	}
 
 	/*
+	 * 1.16 SilverChariotSweepingAttack was a StandEntityHeavyAttack: its task kept the entity it was pressed at
+	 * (standKeepsTarget ENTITY), which turned the Stand and which the next task took over (StandEntity.setTask), but its
+	 * offset was never turned to it (lockOnTargetPosition false).
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void silverChariotsSweepKeepsItsTargetButNeverTurnsItsOffsetToItAsIn116(GameTestHelper helper) {
+		withStand(helper, "silver_chariot", scene -> {
+			Cow cow = scene.cow(new Vec3(1.5D, 0.0D, 0.0D));
+			standAims(scene.stand, cow);
+			EntityActionInstance sweep = scene.start("sweeping_attack", ActionPhase.WINDUP);
+			turn(scene.user, VIEW_YAW, BODY_YAW);
+			Vec3 relative = scene.stand.offsetFromUser.getRelativeOffset();
+			helper.assertTrue(sweep.getTaskTarget(helper.getLevel()).getEntity() == cow
+					&& sweep.standRotationTarget != null && sweep.standRotationTarget.getEntity() == cow && relative.z > 0.0D,
+					"1.16 StandEntityHeavyAttack.standKeepsTarget kept the cow Silver Chariot's sweep was pressed at: the task holds "
+							+ sweep.getTaskTarget(helper.getLevel()) + ", the Stand turns to " + sweep.standRotationTarget
+							+ ", the offset " + relative);
+			assertAt(helper, scene, new Vec3(0.0D, 0.0D, relative.z), "1.16 StandEntityHeavyAttack.lockOnTargetPosition kept"
+					+ " a silver_chariot sweeping at a cow east of its user along the user's view south");
+
+			standAims(scene.stand, null);
+			LivingComponentAction.getComponent(scene.user).entityAim.setTarget(ActionTarget.EMPTY);
+			EntityActionInstance next = scene.start("light_attack", ActionPhase.WINDUP);
+			helper.assertTrue(next != sweep && next.getTaskTarget(helper.getLevel()).getEntity() == cow,
+					"1.16 StandEntity.setTask gave a light attack pressed at nothing the cow of the sweep it replaced; it keeps "
+							+ next.getTaskTarget(helper.getLevel()));
+		});
+		helper.succeed();
+	}
+
+	/*
 	 * 1.16 lockOnTargetPosition (true for these): Hierophant Green's Barrier and Crazy Diamond's Block Anchor kept the block
 	 * they were pressed at (TargetRequirement.BLOCK), the entity Grapple the entity (standKeepsTarget of its shift
 	 * variation) and Rapier Launch any target, and every offset of the task turned from the user's eyes to it: pressed at a

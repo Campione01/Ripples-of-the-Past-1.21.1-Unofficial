@@ -112,6 +112,45 @@ public final class StandTaskTargetTurnGameTests {
 	}
 
 	/*
+	 * 1.16 SilverChariotSweepingAttack, a StandEntityHeavyAttack, kept the entity it was pressed at as its task's target
+	 * (standKeepsTarget ENTITY) and StandEntityTask.tick dropped it once keepTarget failed, past 8 blocks or 20 ticks dead;
+	 * from then on the following Stand looked along its user's look.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void silverChariotsSweepDropsTheMobItsTaskKeptOnceItIsOutOfRangeAsIn116(GameTestHelper helper) {
+		for (boolean dead : new boolean[] { false, true }) {
+			StandTaskTargetOffsetGameTests.withStand(helper, "silver_chariot", scene -> {
+				Cow cow = scene.cow(COW_FROM_USER);
+				LivingComponentAction.getComponent(scene.stand()).entityAim.setTarget(new ActionTarget(cow));
+				EntityActionInstance sweep = scene.start("sweeping_attack", ActionPhase.WINDUP);
+				helper.assertTrue(sweep.getTaskTarget(helper.getLevel()).getEntity() == cow
+						&& sweep.standRotationTarget != null && sweep.standRotationTarget.getEntity() == cow,
+						"1.16's sweep kept the cow it was pressed at as its task's target: the task holds "
+								+ sweep.getTaskTarget(helper.getLevel()) + ", the Stand turns to " + sweep.standRotationTarget);
+				String dropped;
+				if (dead) {
+					cow.setHealth(0.0F);
+					cow.deathTime = 20;
+					dropped = "a cow that has lain dead for 20 ticks";
+				}
+				else {
+					Vec3 far = scene.user().position().add(10.0D, 0.0D, 0.0D);
+					cow.moveTo(far.x, far.y, far.z, 0.0F, 0.0F);
+					dropped = "a cow gone 10 blocks east";
+				}
+				StandTaskTargetOffsetGameTests.turn(scene.user(), VIEW_YAW, VIEW_YAW);
+				LivingComponentAction.getComponent(scene.stand()).tick();
+				scene.stand().updatePosition(scene.user());
+				helper.assertTrue(sweep.getTaskTarget(helper.getLevel()).getType() == ActionTarget.TargetType.EMPTY,
+						"1.16's sweep dropped " + dropped + " from its task; it still holds " + sweep.getTaskTarget(helper.getLevel()));
+				assertLooksAlongItsUser(helper, scene, "1.16 turned a following silver_chariot whose sweep's task dropped "
+						+ dropped + " along its user's look south again (the action turns it to " + sweep.standRotationTarget + ")");
+			});
+		}
+		helper.succeed();
+	}
+
+	/*
 	 * 1.16 StandEntityTask.makeServerSideTask gave the task no target for a press target keepTarget refused, so the
 	 * following Stand looked along its user's look (rotateStand): String Attack or Rapier Launch pressed at a cow 12 blocks
 	 * east, past Action.checkRangeAndTarget's 8, or Rapier Launch at a block 14 blocks above its user, past its 10.
