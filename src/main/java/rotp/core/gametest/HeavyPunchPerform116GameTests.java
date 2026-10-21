@@ -566,7 +566,7 @@ public final class HeavyPunchPerform116GameTests {
 		}
 	}
 
-	private static void canonical(JsonElement element, StringBuilder out) {
+	static void canonical(JsonElement element, StringBuilder out) {
 		if (element.isJsonObject()) {
 			List<String> names = new ArrayList<>(element.getAsJsonObject().keySet());
 			names.sort(null);

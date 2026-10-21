@@ -475,14 +475,14 @@
             "0.0": {
               "vector": [
                 0,
-                5,
+                0,
                 0
               ]
             },
             "2.0": {
               "vector": [
                 0,
-                5,
+                0,
                 0
               ],
               "easing": "easeInOutSine"
@@ -490,7 +490,7 @@
             "4.0": {
               "vector": [
                 0,
-                5,
+                0,
                 0
               ],
               "easing": "easeInOutSine"
@@ -498,7 +498,7 @@
             "6.0": {
               "vector": [
                 0,
-                5,
+                0,
                 0
               ],
               "easing": "easeInOutSine"
@@ -506,7 +506,7 @@
             "8.0": {
               "vector": [
                 0,
-                5,
+                0,
                 0
               ],
               "easing": "easeInOutSine"
@@ -1257,7 +1257,7 @@
             "0.5": {
               "vector": [
                 0,
-                -20,
+                -25,
                 0
               ],
               "easing": "linear"
@@ -1510,7 +1510,7 @@
             "0.5": {
               "vector": [
                 0,
-                25,
+                20,
                 0
               ],
               "easing": "linear"
@@ -1573,7 +1573,7 @@
             "0.5": {
               "vector": [
                 0,
-                5,
+                0,
                 0
               ],
               "easing": "linear"
@@ -1785,7 +1785,7 @@
             "0.9333": {
               "vector": [
                 0,
-                5,
+                0,
                 0
               ],
               "easing": "linear"
@@ -2728,7 +2728,7 @@
             "2.9": {
               "vector": [
                 0,
-                5,
+                0,
                 0
               ],
               "easing": "linear"
@@ -3378,7 +3378,7 @@
             "0.55": {
               "vector": [
                 0,
-                5,
+                0,
                 0
               ],
               "easing": "linear"
@@ -4404,7 +4404,7 @@
             "0.65": {
               "vector": [
                 0,
-                5,
+                0,
                 0
               ],
               "easing": "linear"
@@ -4690,7 +4690,7 @@
             "0.65": {
               "vector": [
                 0,
-                5,
+                0,
                 0
               ],
               "easing": "linear"
