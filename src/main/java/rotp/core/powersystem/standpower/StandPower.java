@@ -288,6 +288,7 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 			// 1.16 fullStandClear: standArrowHandler.clear() (item, /stand remove, API)
 			if (!user.level().isClientSide()) {
 				rotp.core.mechanics.standarrow.StandVirusActualEffect.resetStandsGotFromArrow(user);
+				userStandAwakeningState.syncStageToTracking(user);
 			}
 			if (user instanceof ServerPlayer player) {
 				PacketDistributor.sendToPlayer(
@@ -959,6 +960,7 @@ public class StandPower extends Power<StandPower> implements PostNbtReadEntityDa
 		resolveCounter.syncToTracking(user, player);
 		PacketDistributor.sendToPlayer(player, new TrStandSkinPacket(user.getId(), getSelectedSkin()));
 		userStandEffects.syncToTracking(player);
+		userStandAwakeningState.syncStageTo(user, player);
 	}
 	
 	protected void syncStaminaFixed(ServerPlayer player, LivingEntity user) {
