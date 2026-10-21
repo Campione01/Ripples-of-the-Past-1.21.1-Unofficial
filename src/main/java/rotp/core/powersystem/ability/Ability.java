@@ -198,6 +198,16 @@ public class Ability {
 		return cooldownTicksFor(isStandUserInResolve(context));
 	}
 
+	/**
+	 * The technical part of this ability's cooldown, 1.16's Action.getCooldownTechnical: the first part of a
+	 * cooldown(technical, additional), which Resolve does not shorten; 0 for a plain cooldown(n). A 1.16 Stand-bearing mob
+	 * picked its next action this many ticks (+ 10) after the last (rotp_mwp StandAI.performAction). Only a report: the
+	 * cooldown an ability gets is still getCooldown, the technical and the additional part together.
+	 */
+	public int getCooldownTechnical(Power<?> context) {
+		return cooldownTechnicalTicks;
+	}
+
 	/** Only the additional part is multiplied, and only for a Stand user in Resolve. */
 	int cooldownTicksFor(boolean standUserInResolve) {
 		int additional = cooldownAdditionalTicks;

@@ -29,6 +29,15 @@ public class HamonZoomPunchAbility extends HamonActionRuntimeAbility {
 		setDefaultPhaseLength(ActionPhase.RECOVERY, 0);
 	}
 
+	/**
+	 * 1.16 cooldown(14, 0): all of the Zoom Punch's cooldown is technical, and the punch flies out and back over it
+	 * (HamonZoomPunch :28).
+	 */
+	@Override
+	public int getCooldownTechnical(Power<?> context) {
+		return COOLDOWN_TICKS;
+	}
+
 	@Override
 	public ConditionCheck checkSpecificConditions(Power<?> context) {
 		ConditionCheck check = super.checkSpecificConditions(context);
@@ -88,7 +97,7 @@ public class HamonZoomPunchAbility extends HamonActionRuntimeAbility {
 				float efficiency = preRuntimeEfficiency > 0.0F ? preRuntimeEfficiency
 						: hamon.getActionEfficiency(ENERGY_COST, true, ModHamonSkills.ZOOM_PUNCH.get(), user);
 				float zoomPunchMaxLength = 4.0F + (4.0F + hamon.getHamonControlLevel() * 0.1F) * efficiency;
-				int duration = Math.max(COOLDOWN_TICKS, 1);
+				int duration = Math.max(hamonAbility().getCooldownTechnical(hamonAbility().getUserPower(user)), 1);
 				float projSpeed = 2.0F * zoomPunchMaxLength / duration * (0.4F + 0.6F * efficiency);
 				HamonZoomPunchEntity zoomPunch = new HamonZoomPunchEntity(user, level)
 						.setSpeed(projSpeed)

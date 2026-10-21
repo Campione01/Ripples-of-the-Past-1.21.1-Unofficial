@@ -275,6 +275,13 @@ public final class RotpAddonApi {
 	 */
 	public static final String FEATURE_ABILITY_STAMINA_COST_V1 =
 			"ability_stamina_cost_v1";
+	/**
+	 * Ability#getCooldownTechnical(Power): the technical part of an ability's cooldown, 1.16's Action.getCooldownTechnical,
+	 * after which (+ 10 ticks) a 1.16 Stand-bearing mob picked its next action; 0 for a plain cooldown(n), the stop's
+	 * ticks for a time stop, and the core's abilities that had a technical part in 1.16 report it.
+	 */
+	public static final String FEATURE_ABILITY_COOLDOWN_TECHNICAL_V1 =
+			"ability_cooldown_technical_v1";
 
 	public static final Set<String> FEATURES = Set.of(
 			FEATURE_ABILITY_RESOURCE_NAMESPACE_V1,
@@ -361,7 +368,8 @@ public final class RotpAddonApi {
 			FEATURE_STAND_DEFAULT_ROTATION_RULES_V1,
 			FEATURE_ABILITY_HELD_READY_TO_FIRE_V1,
 			FEATURE_STAND_ACTION_MODIFIERS_V1,
-			FEATURE_ABILITY_STAMINA_COST_V1);
+			FEATURE_ABILITY_STAMINA_COST_V1,
+			FEATURE_ABILITY_COOLDOWN_TECHNICAL_V1);
 
 	private RotpAddonApi() {}
 

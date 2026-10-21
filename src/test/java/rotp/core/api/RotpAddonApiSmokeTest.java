@@ -380,6 +380,9 @@ public final class RotpAddonApiSmokeTest {
 		check(RotpAddonApi.supportsFeature(
 				RotpAddonApi.FEATURE_ABILITY_STAMINA_COST_V1),
 				"ability stamina cost feature missing");
+		check(RotpAddonApi.supportsFeature(
+				RotpAddonApi.FEATURE_ABILITY_COOLDOWN_TECHNICAL_V1),
+				"ability cooldown technical feature missing");
 
 		AbilityType<Ability> addonType = new AbilityType<>(
 				id("rotp_test", "freeze"), Ability::new);
@@ -542,6 +545,7 @@ public final class RotpAddonApiSmokeTest {
 		LivingHandUseBlockersSmokeTest.run();
 		StandActionModifiersSmokeTest.run();
 		AbilityStaminaCostSmokeTest.run();
+		AbilityCooldownTechnicalSmokeTest.run();
 	}
 
 	private static ResourceLocation id(String namespace, String path) {
