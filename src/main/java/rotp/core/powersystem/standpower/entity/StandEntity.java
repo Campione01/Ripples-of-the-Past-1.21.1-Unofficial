@@ -212,6 +212,7 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
     public Lerp.FloatValue modelAlpha = new Lerp.FloatValue(1);
 	public int summonLockTicks;
 	public int gradualSummonWeaknessTicks;
+	private boolean summonLockCountedThisTick;
 	private int summonPoseRandomByte;
 	private int alphaTicks;
 	public int overlayTickCount;
@@ -1466,10 +1467,12 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 	}
 
 	private void tickSummonAlpha() {
-		if (summonLockTicks > 0) {
+		summonLockCountedThisTick = summonLockTicks > 0;
+		if (summonLockCountedThisTick) {
 			summonLockTicks--;
 		}
-		else if (gradualSummonWeaknessTicks > 0) {
+		// 1.16 counted the lock through a stun, the gradual summon only while the Stand was not stunned
+		else if (gradualSummonWeaknessTicks > 0 && !ModStatusEffects.isStunned(this)) {
 			gradualSummonWeaknessTicks--;
 			if (gradualSummonWeaknessTicks == 0 && !level().isClientSide()) {
 				removeArmsOnlyModifiers();
@@ -1479,6 +1482,19 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		if (summonAlpha < 1) {
 			multiplyTranslucency(getSummonAlpha());
 		}
+	}
+
+	/**
+	 * Whether the Stand's action waits for its summon lock in this tick. 1.16 StandEntity.tick either counted the lock
+	 * down or ticked the task, never both, so a task set with the lock at L first ticked in the Stand's tick L + 1; a
+	 * held charge, which 1.16's power counted, still counts such a tick (EntityActionInstance#_tickHeldChargeInSummonLock).
+	 * Asked by the Stand's action once a tick, after the Stand's own tick has counted the lock.
+	 */
+	@ApiStatus.Internal
+	public boolean takeSummonLockedTick() {
+		boolean locked = summonLockTicks > 0 || summonLockCountedThisTick;
+		summonLockCountedThisTick = false;
+		return locked;
 	}
 
 	private float getSummonAlpha() {

@@ -405,8 +405,13 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 		if (entity.level().isClientSide()) {
 			getClientRebuffTail(0);
 		}
+		boolean summonLocked = entity instanceof StandEntity standEntity && standEntity.takeSummonLockedTick();
 		if (action != null) {
-			if (entity instanceof StandEntity standEntity && standEntity.summonLockTicks > 0) {
+			if (summonLocked) {
+				// the lock holds back the Stand's own phases, not a held charge's count from the press
+				if (!isActionPausedInStoppedTime() && action._tickHeldChargeInSummonLock() && action.isOver()) {
+					setAction(null, null, SyncType.NO_SYNC);
+				}
 				syncDirtyActionData();
 				return;
 			}
@@ -590,13 +595,20 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 	/**
 	 * Server: stores the aim a player's client sent for the player itself (its camera's pick, ClientsideAim), as
 	 * {@link ActionTargetAim#setTargetFromClient} does, but never the player: 1.16 Action.checkTarget emptied a target that
-	 * was the user, which another camera's pick (a manually controlled Stand's, a member's view) may meet.
+	 * was the user, which another camera's pick (a manually controlled Stand's, a member's view) may meet. The aim a press
+	 * packet carries is kept by the same rule ({@link #isUserItself}).
 	 */
 	public void setUserAimFromClient(ActionTarget received) {
 		entityAim.setTargetFromClient(received, entity.level());
-		if (entityAim.getTarget().getType() == ActionTarget.TargetType.ENTITY && entityAim.getTarget().getEntity() == entity) {
+		if (isUserItself(entityAim.getTarget())) {
 			entityAim.setTarget(ActionTarget.EMPTY);
 		}
+	}
+
+	/** Server: whether an aim a player's client sent for the player itself, resolved, is the player, which it never keeps. */
+	@ApiStatus.Internal
+	public boolean isUserItself(ActionTarget resolved) {
+		return resolved.getType() == ActionTarget.TargetType.ENTITY && resolved.getEntity() == entity;
 	}
 
 }

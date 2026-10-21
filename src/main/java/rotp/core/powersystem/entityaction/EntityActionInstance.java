@@ -1178,6 +1178,49 @@ public class EntityActionInstance implements HeldInput {
 		}
 	}
 
+	/**
+	 * A tick in which its new Stand's summon lock holds the action back (LivingComponentAction). 1.16 held back only the
+	 * Stand's task then (StandEntity.tick): its user's power still counted a held charge from the press, with the held
+	 * recheck, and fired it at its length (PowerBaseImpl.tickHeldAction), and the task's next phase waited for the lock.
+	 * So a held charge whose next phase is not held counts this tick as {@link #_tickAction} does, without the action's
+	 * own tick, and at its length goes on to its next phase, which then waits for the lock.
+	 * @return whether the action is such a charge and counted the tick
+	 */
+	@ApiStatus.Internal
+	public boolean _tickHeldChargeInSummonLock() {
+		if (!isHeldFiringCharge()) {
+			return false;
+		}
+		if (heldCooldownTicks != NO_HELD_COOLDOWN) {
+			++heldCooldownTicks;
+		}
+		if (!level().isClientSide() && !ability.canContinueAction(this)) {
+			forceStop();
+			syncPhaseChanges();
+			return true;
+		}
+		if (_stopHeldIfConditionsFail() && isOver()) {
+			return true;
+		}
+		leaveFiringChargeOnItsLastTick();
+		if (!isHeldFiringCharge()) {
+			return true;
+		}
+		noteOwnCooldownSets();
+		_incPhaseTick();
+		checkNextPhase();
+		noteOwnCooldownSets();
+		takeHeldCooldownIfHoldEnded();
+		return true;
+	}
+
+	// a held phase before the perform (1.16 BUTTON_HOLD) whose next phase is not held: a hold-to-fire charge
+	private boolean isHeldFiringCharge() {
+		return !isOver() && curPhaseLength > 0 && phase.ordinal() < ActionPhase.PERFORM.ordinal()
+				&& ability instanceof EntityActionAbility entityAbility && entityAbility.isHeldSincePress(this)
+				&& firesAfterHeldPhase(entityAbility);
+	}
+
 	private static final int NO_HELD_COOLDOWN = -1;
 
 	/**

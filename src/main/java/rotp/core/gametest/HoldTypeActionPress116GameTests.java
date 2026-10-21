@@ -13,6 +13,7 @@ import rotp.core.api.timestop.TimeStopLifecycleEvent;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.event.RipplesAbilityKeyPressEvent;
+import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchChargedAbility.StandEntityChargedHeavy;
 import rotp.core.impl.stands._entitybase.StandEntityManualControlToggle;
 import rotp.core.impl.stands.magiciansred.MRCrossfireHurricaneEntity;
 import rotp.core.impl.stands.magiciansred.MRDetectorEntity;
@@ -36,6 +37,7 @@ import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.HeldInput;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.netcode.SyncType;
+import rotp.core.powersystem.entityaction.syncdata.TrActionSynchedDataPacket;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandPower;
@@ -51,8 +53,14 @@ import io.netty.buffer.Unpooled;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.network.PacketSendListener;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket;
+import net.minecraft.network.protocol.game.ClientboundBundlePacket;
 import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.EntityType;
@@ -679,11 +687,11 @@ public final class HoldTypeActionPress116GameTests {
 	 * 1.16 cleared the held action on both sides as its key went up, stun or not. A port charge let go in its charge is held
 	 * no more on the user's client by the synced data its server sends: while its Stand is stunned (its action not ticked)
 	 * or summon-locked, the Stand's tick still sends that data, so the client does not keep the let-go charge held for the
-	 * whole stun.
+	 * whole stun. What the user's connection receives is given to the client's copy.
 	 */
 	@GameTest(template = "empty", timeoutTicks = 100)
 	public static void aPortChargeLetGoWhileItsStandWaitsIsHeldNoMoreOnTheUsersClientAsIn116(GameTestHelper helper) {
-		try (Scene s = new Scene(helper, "LetGoWaitingChargeMagiciansRed", "magicians_red", 4)) {
+		try (Scene s = new Scene(helper, "LetGoWaitingChargeMagiciansRed", "magicians_red", 4, true)) {
 			s.unlock("heavy_charged");
 			for (boolean stunned : new boolean[] { true, false }) {
 				s.letGoChargeIsSentWhileTheStandWaits("heavy_charged", stunned);
@@ -856,8 +864,14 @@ public final class HoldTypeActionPress116GameTests {
 		private StandPower power;
 		private StandEntity stand;
 		private LivingComponentAction standAction;
+		@Nullable private RecordingConnection recording;
 
 		private Scene(GameTestHelper helper, String name, String standId, int resolveLevel) {
+			this(helper, name, standId, resolveLevel, false);
+		}
+
+		// recordsPackets: the user's connection keeps what the server sends it, the Stand's tracking packets included
+		private Scene(GameTestHelper helper, String name, String standId, int resolveLevel, boolean recordsPackets) {
 			this.helper = helper;
 			user = new FakePlayer(helper.getLevel(), new GameProfile(UUID.randomUUID(), name));
 			standType = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc(standId));
@@ -867,7 +881,20 @@ public final class HoldTypeActionPress116GameTests {
 				user.moveTo(origin.x, origin.y, origin.z, 0.0F, 0.0F);
 				user.setNoGravity(true);
 				user.getAbilities().instabuild = false;
+				if (recordsPackets) {
+					recording = new RecordingConnection(user);
+					user.connection = recording;
+				}
 				helper.assertTrue(helper.getLevel().addFreshEntity(user), "Could not add the Stand user");
+				if (recording != null) {
+					// chunks a fake player never receives: its Stand is tracked by it only in chunks it holds
+					ChunkPos at = user.chunkPosition();
+					for (int dx = -1; dx <= 1; dx++) {
+						for (int dz = -1; dz <= 1; dz++) {
+							recording.chunkSender.dropChunk(user, new ChunkPos(at.x + dx, at.z + dz));
+						}
+					}
+				}
 				power = PowerClass.STAND.attachGet(user);
 				helper.assertTrue(StandPowerTransitions.insert(power, new StandInstance(standType)).status()
 						== StandPowerTransitions.Status.APPLIED, "Could not grant " + standId);
@@ -1009,7 +1036,8 @@ public final class HoldTypeActionPress116GameTests {
 
 		/*
 		 * The charge is pressed and kept held, then let go in its charge while its Stand is stunned or summon-locked: the
-		 * Stand's tick, which does not tick the action then, still sends its synced data, which the user's client takes.
+		 * release sets the flag the user's client goes by, and the Stand's tick, which does not tick the action then, still
+		 * sends it; the user's client's copy, given what the user's connection received, no longer counts the charge held.
 		 */
 		private void letGoChargeIsSentWhileTheStandWaits(String chargeName, boolean stunned) {
 			EntityActionAbility charge = (EntityActionAbility) power.getAbility(chargeName);
@@ -1017,7 +1045,8 @@ public final class HoldTypeActionPress116GameTests {
 			EntityActionInstance client = clientCopy(helper, held, stand);
 			receiveSyncedData(client, held);
 			String waits = stunned ? "stunned" : "summon-locked";
-			helper.assertTrue(held.getPhase() == ActionPhase.BUTTON_CHARGE && charge.isHeldSincePress(client),
+			helper.assertTrue(held.getPhase() == ActionPhase.BUTTON_CHARGE && charge.isHeldSincePress(client)
+					&& held instanceof StandEntityChargedHeavy && recording != null,
 					"setup: the held " + chargeName + " is not held on its user's client: " + held.getPhase());
 			if (stunned) {
 				stand.addEffect(new MobEffectInstance(ModStatusEffects.STUN, 40));
@@ -1027,11 +1056,21 @@ public final class HoldTypeActionPress116GameTests {
 			}
 			try {
 				AbilityInput.keyRelease(HOLD_KEY, user);
+				boolean flagSetUnsent = ((StandEntityChargedHeavy) held).isReleasedInCharge()
+						&& held.synchedData.getDataSyncher().isDirty();
+				recording.packets.clear();
 				standAction.tick();
+				List<SynchedEntityData.DataValue<?>> sent = recording.actionDataSentFor(stand);
+				if (sent != null) {
+					client.synchedData.getDataSyncher().assignValues(sent);
+				}
 				List<SynchedEntityData.DataValue<?>> unsent = held.synchedData.getDataSyncher().syncDirtyData();
-				helper.assertTrue(held.getPhase() == ActionPhase.BUTTON_CHARGE && standAction.getAction() == held && unsent == null,
+				helper.assertTrue(flagSetUnsent && held.getPhase() == ActionPhase.BUTTON_CHARGE && standAction.getAction() == held
+						&& sent != null && unsent == null && !charge.isHeldSincePress(client),
 						"1.16 cleared the held action on both sides as its key went up: the " + chargeName + " let go in its charge"
-								+ " while its Stand is " + waits + " (" + held.getPhase() + ") left its synced data unsent: " + unsent);
+								+ " while its Stand is " + waits + " (" + held.getPhase() + "): the release set its flag, unsent, "
+								+ flagSetUnsent + "; the Stand's tick sent its user " + sent + " and left unsent " + unsent
+								+ "; the user's client's copy, given what it received, counts it held " + charge.isHeldSincePress(client));
 			}
 			finally {
 				if (stunned) {
@@ -1322,6 +1361,47 @@ public final class HoldTypeActionPress116GameTests {
 				standType.forceUnsummon(user, power);
 			}
 			user.discard();
+		}
+	}
+
+	// a fake player's connection that keeps what the server sends it
+	private static final class RecordingConnection extends ServerGamePacketListenerImpl {
+		final List<Packet<?>> packets = new ArrayList<>();
+
+		RecordingConnection(FakePlayer player) {
+			super(player.getServer(), player.connection.getConnection(), player,
+					CommonListenerCookie.createInitial(player.getGameProfile(), false));
+		}
+
+		// the synced data of the performer's action it received (TrActionSynchedDataPacket), null for none
+		@Nullable
+		List<SynchedEntityData.DataValue<?>> actionDataSentFor(StandEntity performer) {
+			List<SynchedEntityData.DataValue<?>> values = null;
+			for (Packet<?> packet : packets) {
+				if (packet instanceof ClientboundCustomPayloadPacket custom
+						&& custom.payload() instanceof TrActionSynchedDataPacket data && data.entityId() == performer.getId()) {
+					if (values == null) {
+						values = new ArrayList<>();
+					}
+					values.addAll(data.packedItems());
+				}
+			}
+			return values;
+		}
+
+		@Override
+		public void send(Packet<?> packet) {
+			if (packet instanceof ClientboundBundlePacket bundle) {
+				bundle.subPackets().forEach(this::send);
+			}
+			else {
+				packets.add(packet);
+			}
+		}
+
+		@Override
+		public void send(Packet<?> packet, PacketSendListener listener) {
+			send(packet);
 		}
 	}
 
