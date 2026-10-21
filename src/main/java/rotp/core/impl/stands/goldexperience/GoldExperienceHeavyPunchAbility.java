@@ -38,13 +38,18 @@ public class GoldExperienceHeavyPunchAbility extends StandEntityHeavyPunchAbilit
     public static class ToothKnockingHeavyPunch extends StandEntityHeavyPunchAbility.StandEntityHeavyPunch implements SyncedDataHolderExtended {
         private static final EntityDataAccessor<Boolean> TOOTH_READY = SynchedEntityData.defineId(
                 ToothKnockingHeavyPunch.class, EntityDataSerializers.BOOLEAN);
+        /*
+         * 1.16 StandEntityTask.addModifierAction sent the taken Life Shot to the clients tracking the Stand
+         * (TrStandTaskModifierPacket), so the user's client also gave the heavy key back to the running punch.
+         */
+        private static final EntityDataAccessor<Boolean> LIFESHOT_TAKEN = SynchedEntityData.defineId(
+                ToothKnockingHeavyPunch.class, EntityDataSerializers.BOOLEAN);
 
         private int toothEntityId = -1;
         private int hitTargetId = -1;
         private boolean toothTransformTried;
         @Nullable
         private String queuedToothLifeformId;
-        private boolean queuedLifeshot;
         private boolean lifeshotApplied;
 
         public ToothKnockingHeavyPunch(EntityActionType ability) {
@@ -77,17 +82,22 @@ public class GoldExperienceHeavyPunchAbility extends StandEntityHeavyPunchAbilit
 
         public boolean canAcceptLifeshotFollowup() {
             return isLifeshotPunch()
-                    && !queuedLifeshot
+                    && !isLifeshotTaken()
                     && !lifeshotApplied
                     && hasEntityTargetSnapshot();
         }
 
+        /** Takes the Life Shot follow-up: the server's, or the user's own client's for its press. */
         public boolean queueLifeshot() {
             if (!canAcceptLifeshotFollowup()) {
                 return false;
             }
-            queuedLifeshot = true;
+            synchedData.set(LIFESHOT_TAKEN, true);
             return true;
+        }
+
+        private boolean isLifeshotTaken() {
+            return synchedData.get(LIFESHOT_TAKEN);
         }
 
         @Nullable
@@ -145,7 +155,7 @@ public class GoldExperienceHeavyPunchAbility extends StandEntityHeavyPunchAbilit
         }
 
         private boolean tryApplyQueuedLifeshot() {
-            if (!queuedLifeshot || lifeshotApplied || !isLifeshotPunch() || hitTargetId < 0 || level().isClientSide()) {
+            if (!isLifeshotTaken() || lifeshotApplied || !isLifeshotPunch() || hitTargetId < 0 || level().isClientSide()) {
                 return false;
             }
             LivingEntity user = getPowerUser();
@@ -249,6 +259,7 @@ public class GoldExperienceHeavyPunchAbility extends StandEntityHeavyPunchAbilit
         @Override
         public void defineSynchedData(SynchedDataBuilder builder) {
             builder.define(TOOTH_READY, false);
+            builder.define(LIFESHOT_TAKEN, false);
         }
 
         @Override

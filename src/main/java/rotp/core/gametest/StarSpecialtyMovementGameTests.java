@@ -17,6 +17,7 @@ import rotp.core.impl.stands.starplatinum.StarFingerAbility.StarFingerInstance;
 import rotp.core.impl.stands.starplatinum.StarInhaleAbility.InhaleAbilityInstance;
 import rotp.core.impl.stands.starplatinum.StarPlatinumZoomAbility.StarPlatinumZoom;
 import rotp.core.powersystem.PowerClass;
+import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.ability.input.AbilityInput;
 import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
@@ -194,8 +195,8 @@ public final class StarSpecialtyMovementGameTests {
         int sendFailures;
         boolean firstNativeChecked;
         boolean requested;
-        boolean releaseReplacement;
         boolean failSend;
+        Ability pressed;
         boolean done;
         boolean closed;
 
@@ -261,15 +262,11 @@ public final class StarSpecialtyMovementGameTests {
                     && action.getFullTicksPassed() >= spec.ticks) requestEnd();
             if (spec.end == End.ROLLBACK && requested && input() == InputMethod.HOLD && !action.isOver()
                     && action.getFullTicksPassed() >= afterRollbackUntil) AbilityInput.keyRelease(KEY_A, user);
-            if (releaseReplacement && posts >= spec.ticks + 2) {
-                AbilityInput.keyRelease(KEY_B, user);
-                releaseReplacement = false;
-            }
             if (stand.getCurStandAction() == null && action.isOver()) {
                 if (++afterClear == 1) {
                     suite.check(factor() == 1, "native removed/no-current-action effective factor1");
                     if (spec.end == End.NATURAL || spec.end == End.RELEASE || spec.end == End.LATCHED_RELEASE
-                            || spec.end == End.ROLLBACK || spec.ability.equals("star_finger") && spec.end == End.GUARD) suite.check(action.userWalkSpeed == 1,
+                            || spec.end == End.ROLLBACK || spec.end == End.GUARD) suite.check(action.userWalkSpeed == 1,
                                     "actual recovery callback factor1");
                     if (spec.ability.equals("inhale")) suite.check(power.getAbilityCooldown("inhale") > 0,
                             "D02 actual removal/release cooldown retained");
@@ -288,21 +285,20 @@ public final class StarSpecialtyMovementGameTests {
             else if (spec.end == End.FORCE) action.forceStop();
             else if (spec.end == End.GUARD) {
                 boolean succeeded = press("guard", KEY_B, InputMethod.HOLD);
-                if (spec.ability.equals("star_finger")) {
-                    suite.check(!succeeded && stand.getCurStandAction() == action && !action.isOver(),
-                            "Finger preserves existing refusal of immediate guard cancellation");
-                    checkActive("uncancelled Finger continues its native phase");
-                    AbilityInput.keyRelease(KEY_B, user);
-                }
-                else {
-                    suite.check(succeeded && stand.getCurStandAction() != action && action.isOver() && factor() == 0.5F,
-                            "registered guard replacement uses only guard0.5 (owner rule 2026-10-15)");
-                    releaseReplacement = true;
+                // a held Inhale or Zoom holds the guard back: 1.16's client sent no press of a held action while the
+                // power held one (ActionsOverlayGui.onActionClick); its own key ends the hold
+                suite.check(!succeeded && stand.getCurStandAction() == action && !action.isOver(), spec.ability.equals("star_finger")
+                        ? "Finger preserves existing refusal of immediate guard cancellation"
+                        : "a guard pressed during the held " + spec.ability + " waits");
+                checkActive("uncancelled " + spec.ability + " continues its native phase");
+                AbilityInput.keyRelease(KEY_B, user);
+                if (input() == InputMethod.HOLD) {
+                    AbilityInput.keyRelease(KEY_A, user);
                 }
             }
             else if (spec.end == End.ROLLBACK) {
                 failSend = true;
-                try { press("guard", KEY_B, InputMethod.HOLD); premise(false, "expected actual tracking failure absent"); }
+                try { press("punch", KEY_B, InputMethod.CLICK); premise(false, "expected actual tracking failure absent"); }
                 catch (InjectedSendFailure expected) { log("EXPECTED-FAULT " + id() + " " + expected.getMessage()); }
                 finally { failSend = false; }
                 suite.check(sendFailures == 1 && stand.getCurStandAction() == action && !action.isOver(),
@@ -329,6 +325,7 @@ public final class StarSpecialtyMovementGameTests {
             var ability = power.getAbility(name);
             var selected = power.updateAvailableMoves().getContextVariationContainer(ability);
             premise(selected != null && AbilityInput.withConditionCheck(selected, user, method), "registered " + name + " admission");
+            pressed = selected.ability;
             BufferingState input = BufferingState.clickOnly();
             AbilityInput.keyPress(key, selected.ability, user, null, method, 0, input, ability.getAbilityId());
             return input.isActionSuccess;
@@ -364,8 +361,8 @@ public final class StarSpecialtyMovementGameTests {
                 scene.failSend = false;
                 scene.sendFailures++;
                 scene.premise(scene.stand.getCurStandAction() != null
-                        && scene.stand.getCurStandAction().ability == scene.power.getAbility("guard"), "real installed registered guard before fault");
-                throw new InjectedSendFailure("actual tracking-send failure after installed guard");
+                        && scene.stand.getCurStandAction().ability == scene.pressed, "real installed registered punch before fault");
+                throw new InjectedSendFailure("actual tracking-send failure after installed punch");
             }
         }
         @Override public void send(Packet<?> packet, PacketSendListener listener) { send(packet); }

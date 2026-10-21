@@ -81,11 +81,19 @@ public class GoldExperienceEntityLifeshotAbility extends NoPoseStandEntityAbilit
                 : "heavy_punch";
     }
     
+    /*
+     * During a Gold Experience punch the Life Shot is only the Life Shot punch's follow-up: once taken, 1.16 gave the key
+     * back to the running punch, refused silently, and the Life Shot had no use of its own. A press a client sends from a
+     * stale key (the server's direct fallback in ClAbilityInputPacket) is refused the same way.
+     */
     @Override
     public ConditionCheck checkSpecificConditions(Power<?> context) {
         StandPower standPower = PowerClass.STAND.cast(context);
         ToothKnockingHeavyPunch punch = getCurrentGoldExperiencePunch(standPower);
-        if (punch != null && punch.canAcceptLifeshotFollowup()) {
+        if (punch != null) {
+            if (!punch.canAcceptLifeshotFollowup()) {
+                return ConditionCheck.NEGATIVE;
+            }
             ConditionCheck targetCheck = checkLifeshotTarget(punch.getLifeshotTarget());
             if (!targetCheck.isPositive()) {
                 return targetCheck;
@@ -116,18 +124,21 @@ public class GoldExperienceEntityLifeshotAbility extends NoPoseStandEntityAbilit
             InputMethod inputMethod, float clickHoldResolveTime, BufferingState bufferingState) {
         StandPower standPower = StandPower.get(user);
         ToothKnockingHeavyPunch punch = getCurrentGoldExperiencePunch(standPower);
-        if (punch != null && punch.canAcceptLifeshotFollowup()) {
-            if (!level.isClientSide()) {
-                ConditionCheck targetCheck = checkLifeshotTarget(punch.getLifeshotTarget());
-                if (!targetCheck.isPositive()) {
-                    ConditionCheck.sendActionFailedMessage(this, targetCheck, user);
-                    return null;
-                }
-                if (punch.queueLifeshot()) {
-                    // 1.16 StandAction.onPerform paid the follow-up's cost on the click and ignored the result
-                    StandAbilityStamina.consume((Ability) this, standPower, STAMINA_COST, false);
-                    bufferingState.setActionSuccess();
-                }
+        if (punch != null) {
+            // a second press checked against the keys as they were resolved earlier in the same tick
+            if (!punch.canAcceptLifeshotFollowup()) {
+                return null;
+            }
+            ConditionCheck targetCheck = checkLifeshotTarget(punch.getLifeshotTarget());
+            if (!targetCheck.isPositive()) {
+                ConditionCheck.sendActionFailedMessage(this, targetCheck, user);
+                return null;
+            }
+            // the user's own client takes it too, so its key is the running punch again before the server's data comes
+            if (punch.queueLifeshot() && !level.isClientSide()) {
+                // 1.16 StandAction.onPerform paid the follow-up's cost on the click and ignored the result
+                StandAbilityStamina.consume((Ability) this, standPower, STAMINA_COST, false);
+                bufferingState.setActionSuccess();
             }
             return null;
         }

@@ -954,6 +954,29 @@ public final class StandTargetRangeGameTests {
 	}
 
 	/*
+	 * 1.16 CrazyDiamondPreviousState.checkTarget refused a block, so PowerBaseImpl.checkTarget emptied the target (Revert's
+	 * requirement is NONE) and the press went on to the off-hand item: with a block under the crosshair Revert asks for an
+	 * item, or takes a convertible one, where the port refused it silently.
+	 */
+	@GameTest(template = "empty", batch = BATCH)
+	public static void crazyDiamondRevertAtABlockGoesOnToTheOffHandItemAsIn116(GameTestHelper helper) {
+		try (Fixture fixture = Fixture.open(helper, Kind.CD_REVERT)) {
+			fixture.power.setResolveLevel(4);
+			BlockPos block = BlockPos.containing(fixture.user.getEyePosition()).south(3);
+			LivingComponentAction.getComponent(fixture.user).entityAim.setTarget(new ActionTarget(block, Direction.NORTH));
+			String noItem = fixture.refusal();
+			helper.assertTrue(ITEM_OFFHAND.equals(noItem), "CD_REVERT pressed with a block under the crosshair and nothing in"
+					+ " the off hand: answered " + noItem + "; 1.16 emptied the block target and asked for an item ("
+					+ ITEM_OFFHAND + ")");
+			fixture.user.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.ENCHANTED_BOOK));
+			String withItem = fixture.refusal();
+			helper.assertTrue("accepted".equals(withItem), "CD_REVERT pressed with a block under the crosshair and an"
+					+ " enchanted book in the off hand: answered " + withItem + "; 1.16 turned the book back");
+		}
+		helper.succeed();
+	}
+
+	/*
 	 * 1.16 took Revert's target from the crosshair (InputHandler.pickMouseTarget): the vanilla pick, and behind it, only
 	 * while the Stand was out, EntityStandType.clientHitResult's precision ray from the camera entity as far as
 	 * StandEntity.getAimDistance: the user's REACH_DISTANCE of 5, or under manual control, the Stand being the camera, the

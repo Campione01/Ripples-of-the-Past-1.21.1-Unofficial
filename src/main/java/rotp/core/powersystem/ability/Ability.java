@@ -28,7 +28,9 @@ import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.ability.condition.AvailableAbilities.AbilityConditionCheck;
 import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.ability.finisher.AbilityStandFinisherData;
+import rotp.core.powersystem.ability.input.AbilityInput;
 import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
+import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.HeldInput;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.StandInstance;
@@ -221,7 +223,8 @@ public class Ability {
 	 * Whether this ability's press, once it goes off, ends a hold-type Stand action of another ability its user holds
 	 * (EntityActionInstance#isHoldTypeStandAction), as the key's release ends it: 1.16 PowerBaseImpl ended the power's
 	 * held action after every action it performed on a click (stopHeldAction(false)) and before every hold it started
-	 * (setHeldAction). False for a press that was no 1.16 action, such as the manual control key.
+	 * (setHeldAction). False for a press that was no 1.16 action, such as the manual control key, which a held action that
+	 * lets no other through (a charge) does not refuse either.
 	 */
 	public boolean endsOtherHoldOnPress() {
 		return true;
@@ -426,6 +429,9 @@ public class Ability {
 	
 	@ApiStatus.Internal
 	public ConditionCheck checkMainModLogicConditions(Power<?> context) {
+		if (isRefusedByHeldAction(context)) {
+			return ConditionCheck.NEGATIVE;
+		}
 		ConditionCheck partsCheck = checkStandPartsRequired(context);
 		if (!partsCheck.isPositive()) {
 			return partsCheck;
@@ -440,6 +446,22 @@ public class Ability {
 			return ConditionCheck.NEGATIVE;
 		}
 		return ConditionCheck.POSITIVE;
+	}
+
+	/*
+	 * 1.16 PowerBaseImpl.checkRequirements refused every other action of a power, first and without a message, while the
+	 * power held an action that let none through (heldAllowsOtherAction: true only for a Stand's hold-type action, so not
+	 * for a charge). A press the held action's own performer takes is left to that action (canBeCancelledInto, the input
+	 * buffer), and a press that was no 1.16 action (endsOtherHoldOnPress false) is not refused.
+	 */
+	private boolean isRefusedByHeldAction(Power<?> context) {
+		LivingEntity user = context != null ? context.getUser() : null;
+		if (user == null || abilityId.powerClass() != PowerClass.STAND || !endsOtherHoldOnPress()) {
+			return false;
+		}
+		EntityActionInstance held = AbilityInput.getHeldAction(user, PowerClass.STAND);
+		return held != null && held.ability != this && !held.isHoldTypeStandAction()
+				&& !(this instanceof EntityActionAbility entityAbility && entityAbility.getPerformer(user) == held.getPerformer());
 	}
 
 	/**

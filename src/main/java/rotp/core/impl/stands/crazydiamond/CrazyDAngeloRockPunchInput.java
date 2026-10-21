@@ -1,5 +1,7 @@
 package rotp.core.impl.stands.crazydiamond;
 
+import javax.annotation.Nullable;
+
 import rotp.core.init.power.ModStandAbilities;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.PowerClass;
@@ -8,12 +10,10 @@ import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.ability.condition.AvailableAbilities;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
-import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.effect.StandEffectInstance;
-import rotp.core.powersystem.standpower.entity.StandEntity;
+import rotp.core.util.functions.JojoModUtil;
 import rotp.core.impl.stands._entitybase.StandAbilityStamina;
-import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility.StandEntityHeavyPunch;
 
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.entity.LivingEntity;
@@ -26,41 +26,32 @@ public class CrazyDAngeloRockPunchInput extends Ability {
 		super(abilityType, abilityId);
 		isSubAbility = true;
 	}
-	
+
+	// 1.16 CRAZY_DIAMOND_RESTORE_TERRAIN.attackRecoveryFollowup(CRAZY_DIAMOND_ANGELO_ROCK, CRAZY_DIAMOND_FINISHER_PUNCH): a
+	// follow-up of the finisher variation only, whatever finisher value made the heavy key that variation, given only while
+	// its own checks passed (StandAction.canSetFollowUp)
 	@Override
 	public Ability replaceWithSubAbility(Power<?> context, AvailableAbilities abilities) {
-		StandPower standPower = PowerClass.STAND.cast(context);		if (standPower == null) return null;
-		StandEntity stand = standPower.getSummonedStandEntity();	if (stand == null) return null;
-		EntityActionInstance curAction = stand.getCurStandAction();	if (curAction == null) return null;
-
-		if (curAction instanceof StandEntityHeavyPunch punch 
-				&& stand.getLastHeavyFinisherValue() >= 1
-				&& punch.getPunchModifiers().isEmpty()) {
+		StandPower standPower = PowerClass.STAND.cast(context);
+		if (abilities != null && canFollowRunningFinisher(standPower)) {
 			abilities.replaceOtherAbilityWith(standPower, "restore_terrain", this);
 		}
-		
 		return null;
 	}
 
 	@Override
 	public ConditionCheck checkSpecificConditions(Power<?> context) {
-		StandPower standPower = PowerClass.STAND.cast(context);
-		if (standPower == null || !hasCompatibleFinisherPunch(standPower)) {
+		if (!canFollowRunningFinisher(PowerClass.STAND.cast(context))) {
 			return ConditionCheck.NEGATIVE;
 		}
 		return super.checkSpecificConditions(context);
 	}
-	
+
 	@Override
 	public void onClick(Level level, LivingEntity user, FriendlyByteBuf extraClientInput) {
 		if (!level.isClientSide()) {
-			StandPower standPower = StandPower.get(user);				if (standPower == null) return;
-			StandEntity stand = standPower.getSummonedStandEntity();	if (stand == null) return;
-			EntityActionInstance curAction = stand.getCurStandAction();	if (curAction == null) return;
-
-			if (curAction instanceof StandEntityHeavyPunch punch
-					&& stand.getLastHeavyFinisherValue() >= 1
-				&& punch.getPunchModifiers().isEmpty()) {
+			StandPower standPower = StandPower.get(user);
+			if (canFollowRunningFinisher(standPower)) {
 				// 1.16 StandAction.onPerform paid the follow-up's cost on the click and ignored the result
 				StandAbilityStamina.consume(this, standPower, STAMINA_COST, false);
 				StandEffectInstance punchEffect = ModStandAbilities.EFFECT_CD_PUNCH_ANGELO_ROCK.get().create(level);
@@ -69,12 +60,13 @@ public class CrazyDAngeloRockPunchInput extends Ability {
 		}
 	}
 
-	private static boolean hasCompatibleFinisherPunch(StandPower standPower) {
-		StandEntity stand = standPower.getSummonedStandEntity();
-		if (stand == null || stand.getLastHeavyFinisherValue() < 1) {
-			return false;
-		}
-		EntityActionInstance curAction = stand.getCurStandAction();
-		return curAction instanceof StandEntityHeavyPunch punch && punch.getPunchModifiers().isEmpty();
+	// 1.16 CrazyDiamondAngeloRock.checkSpecificConditions: abilities may break blocks (a game rule the client does not
+	// receive, as in 1.16), no Angelo Rock of the user is under way (TURN_INTO_ANGELO_ROCK; the port's punch effect lasts
+	// until the rock is formed), and the finisher has no follow-up yet (hasTaskWithNoModifiers)
+	private static boolean canFollowRunningFinisher(@Nullable StandPower standPower) {
+		LivingEntity user = standPower != null ? standPower.getUser() : null;
+		return user != null && JojoModUtil.breakingBlocksEnabled(user.level())
+				&& standPower.userStandEffects.getEffectOfType(ModStandAbilities.EFFECT_CD_PUNCH_ANGELO_ROCK.get()).isEmpty()
+				&& CrazyDiamondHeavyPunchAbility.runningHeavyPunch(standPower, true) != null;
 	}
 }
