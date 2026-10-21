@@ -3,6 +3,8 @@ package rotp.core.impl.stands._entitybase;
 import rotp.core.client.ClientGlobals;
 import rotp.core.client.sound.ClientsideSoundsHelper;
 import rotp.core.client.sound.sounds.EntityLingeringSoundInstance;
+import rotp.core.entityattachment.syncheddata.SynchedDataBuilder;
+import rotp.core.entityattachment.syncheddata.SyncedDataHolderExtended;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModSoundEvents;
 import rotp.core.mechanics.KnockbackCollisionImpact;
@@ -24,6 +26,9 @@ import rotp.core.subsystems.entity_grab.LivingComponentGrab;
 import rotp.core.subsystems.target.AimingEntity;
 import rotp.core.subsystems.timestop.TimeStopState;
 
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
@@ -51,12 +56,26 @@ public class StandEntityGrabThrowAbility extends StandEntityAbility {
 		return StandUtil.getStandGrabTarget(context) != null ? ConditionCheck.POSITIVE : ConditionCheck.NEGATIVE;
 	}
 
-	public static class StandEntityGrabThrow extends EntityActionInstance {
-		// the key went up during BUTTON_CHARGE (server state)
-		private boolean releasedInCharge;
+	// let go during its charge it charges on and throws, but is held no more: 1.16 cleared a held action on both sides as its
+	// key went up, so the user's client, which goes by the phase, must not count it held while the server no longer does
+	@Override
+	public boolean isHeldSincePress(EntityActionInstance action) {
+		return super.isHeldSincePress(action)
+				&& !(action instanceof StandEntityGrabThrow grabThrow && grabThrow.isReleasedInCharge());
+	}
+
+	public static class StandEntityGrabThrow extends EntityActionInstance implements SyncedDataHolderExtended {
+		// the key went up during BUTTON_CHARGE; synced, as the user's client asks it too (isHeldSincePress)
+		private static final EntityDataAccessor<Boolean> RELEASED_IN_CHARGE = SynchedEntityData.defineId(
+				StandEntityGrabThrow.class, EntityDataSerializers.BOOLEAN);
 
 		public StandEntityGrabThrow(EntityActionType ability) {
 			super(ability);
+		}
+
+		// no performer yet (the starting phase is set before the action is): not pressed, so not let go either
+		public boolean isReleasedInCharge() {
+			return performer != null && synchedData.get(RELEASED_IN_CHARGE);
 		}
 
 		@Override
@@ -65,7 +84,7 @@ public class StandEntityGrabThrowAbility extends StandEntityAbility {
 				case BUTTON_CHARGE -> {
 					// throws when the charge ends; checkNextPhase rechecks then
 					phasesLength.put(ActionPhase.WINDUP, 0F);
-					releasedInCharge = true;
+					synchedData.set(RELEASED_IN_CHARGE, true);
 					syncPhaseChanges();
 				}
 				case WINDUP -> {
@@ -85,7 +104,7 @@ public class StandEntityGrabThrowAbility extends StandEntityAbility {
 		// Released during the charge: the key is up, so the per-tick held recheck no longer runs.
 		@Override
 		protected void checkNextPhase() {
-			if (releasedInCharge && phase == ActionPhase.BUTTON_CHARGE && getPhaseTick() >= curPhaseLength
+			if (isReleasedInCharge() && phase == ActionPhase.BUTTON_CHARGE && getPhaseTick() >= curPhaseLength
 					&& !shouldHoldPhaseAtEnd() && !releaseCheckPasses()) {
 				forceStop();
 				syncPhaseChanges();
@@ -165,5 +184,13 @@ public class StandEntityGrabThrowAbility extends StandEntityAbility {
 		public boolean canBeCancelledInto(EntityActionType cancellingAbility) {
 			return phase.ordinal() < ActionPhase.PERFORM.ordinal();
 		}
+
+		@Override
+		public void defineSynchedData(SynchedDataBuilder builder) {
+			builder.define(RELEASED_IN_CHARGE, false);
+		}
+
+		@Override
+		public <T> void onSyncedDataUpdated(T oldValue, T newValue, EntityDataAccessor<T> dataAccessor) {}
 	}
 }

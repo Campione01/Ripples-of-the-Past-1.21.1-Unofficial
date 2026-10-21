@@ -28,6 +28,12 @@ public class StandEntityGrabReleaseAbility extends Ability {
 		return super.isAbilityAvailable(context) && StandUtil.getStandGrabTarget(context) != null;
 	}
 
+	// 1.16 had no grab chain, so no 1.16 hold rule reaches its release: it ends no held action and no charge refuses it
+	@Override
+	public boolean endsOtherHoldOnPress() {
+		return false;
+	}
+
 	@Override
 	public void onClick(Level level, LivingEntity user, FriendlyByteBuf extraClientInput) {
 		if (!level.isClientSide()) {

@@ -223,8 +223,8 @@ public class Ability {
 	 * Whether this ability's press, once it goes off, ends a hold-type Stand action of another ability its user holds
 	 * (EntityActionInstance#isHoldTypeStandAction), as the key's release ends it: 1.16 PowerBaseImpl ended the power's
 	 * held action after every action it performed on a click (stopHeldAction(false)) and before every hold it started
-	 * (setHeldAction). False for a press that was no 1.16 action, such as the manual control key, which a held action that
-	 * lets no other through (a charge) does not refuse either.
+	 * (setHeldAction). False for a press that was no 1.16 action, such as the manual control key or the grab release of
+	 * the port's grab chain, which a held action that lets no other through (a charge) does not refuse either.
 	 */
 	public boolean endsOtherHoldOnPress() {
 		return true;
@@ -462,6 +462,29 @@ public class Ability {
 		EntityActionInstance held = AbilityInput.getHeldAction(user, PowerClass.STAND);
 		return held != null && held.ability != this && !held.isHoldTypeStandAction()
 				&& !(this instanceof EntityActionAbility entityAbility && entityAbility.getPerformer(user) == held.getPerformer());
+	}
+
+	/**
+	 * Whether the user's HUD draws this ability's slot unavailable for the Stand power's held action, as 1.16's HUD drew
+	 * it from PowerBaseImpl.checkRequirements: while the power holds an action that lets no other through (not hold-type:
+	 * a charge, a hold that was no holdType Stand action), a press of another of its abilities that was a 1.16 action
+	 * (endsOtherHoldOnPress) is refused or, if that action's performer takes it, waits in the input buffer (owner decision
+	 * N2) unless the held action gives way to it. Only the drawing follows 1.16 here; the press is unchanged. A client goes
+	 * by its copy of the held action (AbilityInput#getHeldAction).
+	 */
+	@ApiStatus.Internal
+	public boolean isHeldBackByHeldAction(LivingEntity user) {
+		if (user == null || abilityId.powerClass() != PowerClass.STAND || !endsOtherHoldOnPress()) {
+			return false;
+		}
+		EntityActionInstance held = AbilityInput.getHeldAction(user, PowerClass.STAND);
+		if (held == null || held.ability == this || held.isHoldTypeStandAction()) {
+			return false;
+		}
+		if (this instanceof EntityActionAbility entityAbility && entityAbility.getPerformer(user) == held.getPerformer()) {
+			return entityAbility.wouldBufferInput(user);
+		}
+		return true;
 	}
 
 	/**

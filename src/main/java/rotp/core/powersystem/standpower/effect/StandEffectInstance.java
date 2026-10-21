@@ -6,6 +6,8 @@ import java.util.UUID;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import org.jetbrains.annotations.ApiStatus;
+
 import rotp.core.entityattachment.custom_effect.EntityCustomEffect;
 import rotp.core.entityattachment.custom_effect.EntityCustomEffectType;
 import rotp.core.entityattachment.custom_effect.TrEntityCustomEffectsPacket;
@@ -46,15 +48,17 @@ public abstract class StandEffectInstance extends EntityCustomEffect {
 	
 	protected void initStandPower(StandPower userPower) {
 		this.userPower = userPower;
+		// on its action once, as 1.16's task kept its modifiers in a set: a client initializes an effect from its add
+		// packet twice (withEntity, then addEffect)
 		if (isFromStandAction) {
 			StandEntity standEntity = userPower.getSummonedStandEntity();
 			if (standEntity != null) standAction = LivingComponentAction.getCurEntityAction(standEntity);
-			if (standAction != null) standAction.getPunchModifiers().add(this);
+			if (standAction != null && !standAction.getPunchModifiers().contains(this)) standAction.getPunchModifiers().add(this);
 		}
 		if (isFromUserAction) {
 			LivingEntity user = userPower.getUser();
 			if (user != null) userAction = LivingComponentAction.getCurEntityAction(user);
-			if (userAction != null) userAction.getPunchModifiers().add(this);
+			if (userAction != null && !userAction.getPunchModifiers().contains(this)) userAction.getPunchModifiers().add(this);
 		}
 	}
 
@@ -95,6 +99,17 @@ public abstract class StandEffectInstance extends EntityCustomEffect {
 	public boolean makesAttackNonLethal(LivingEntity target) {
 		return false;
 	}
+
+	/**
+	 * A modifier of the action it attached to as it started (isFromStandAction: the Stand's current action, isFromUserAction:
+	 * the user's; EntityActionInstance#getPunchModifiers), as 1.16's StandEntityActionModifier added to the running task
+	 * (StandEntityTask.addModifierAction): called once on every tick of that action, on both sides, right after the action's
+	 * own tick and, on its PERFORM's first tick, after its perform start, while this effect is not stopped and the action is
+	 * not over, as 1.16 StandEntityTask.tick ran each modifier's phase hooks (standTickWindup, standPerform, standTickPerform,
+	 * standTickRecovery) right after its action's. Nothing by default.
+	 */
+	@ApiStatus.OverrideOnly
+	public void onModifiedActionTick(EntityActionInstance action) {}
 
 	public LivingEntity getStandUser() {
 		return (LivingEntity) getEntity();

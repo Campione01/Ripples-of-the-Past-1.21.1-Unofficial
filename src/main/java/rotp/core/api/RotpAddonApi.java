@@ -251,6 +251,17 @@ public final class RotpAddonApi {
 	 */
 	public static final String FEATURE_ABILITY_HELD_READY_TO_FIRE_V1 =
 			"ability_held_ready_to_fire_v1";
+	/**
+	 * Modifiers of the Stand's running action, 1.16's StandEntityActionModifier (StandEntityTask.addModifierAction): a
+	 * StandEffectInstance with isFromStandAction set attaches, as it starts, to the Stand's current action
+	 * (EntityActionInstance#getPunchModifiers): on the server when it is added to StandPower#userStandEffects, on every
+	 * client that gets it with the effect's add packet. StandEffectInstance#onModifiedActionTick is called on every tick of
+	 * that action, on both sides, right after the action's own tick (and its perform start on its PERFORM's first tick),
+	 * while the effect is not stopped and the action is not over. 1.16 hasModifierAction is getPunchModifiers() holding an
+	 * effect of its type, canSetFollowUp that and the modifier ability's own checks.
+	 */
+	public static final String FEATURE_STAND_ACTION_MODIFIERS_V1 =
+			"stand_action_modifiers_v1";
 
 	public static final Set<String> FEATURES = Set.of(
 			FEATURE_ABILITY_RESOURCE_NAMESPACE_V1,
@@ -335,7 +346,8 @@ public final class RotpAddonApi {
 			FEATURE_ABILITY_PERFORMER_STUN_V1,
 			FEATURE_STAND_STAMINA_MODIFIERS_V1,
 			FEATURE_STAND_DEFAULT_ROTATION_RULES_V1,
-			FEATURE_ABILITY_HELD_READY_TO_FIRE_V1);
+			FEATURE_ABILITY_HELD_READY_TO_FIRE_V1,
+			FEATURE_STAND_ACTION_MODIFIERS_V1);
 
 	private RotpAddonApi() {}
 

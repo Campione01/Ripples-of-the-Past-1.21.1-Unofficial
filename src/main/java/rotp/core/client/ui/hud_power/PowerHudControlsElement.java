@@ -44,6 +44,7 @@ import rotp.core.powersystem.Power;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.condition.AvailableAbilities.AbilityConditionCheck;
+import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.playerpower.PlayerPower;
 import rotp.core.powersystem.playerpower.PlayerPowerData;
@@ -584,7 +585,7 @@ public class PowerHudControlsElement extends HudElement {
 									.selectionTintOverride(
 											condition.ability,
 											power,
-											condition.conditionCheck,
+											drawnCondition(condition),
 											AbilitySelectionSurface
 													.DIRECT_BIND_ACTIVE,
 											alpha);
@@ -641,7 +642,7 @@ public class PowerHudControlsElement extends HudElement {
 											.selectionTint(
 													ability.ability,
 													power,
-													ability.conditionCheck,
+													drawnCondition(ability),
 													AbilitySelectionSurface
 															.HOTBAR_SELECTED,
 													alpha);
@@ -791,10 +792,25 @@ public class PowerHudControlsElement extends HudElement {
 	public static final int UNUSABLE_ICON_TINT = 0x80333333;
 
 	public static int abilityColor(int color, AbilityConditionCheck ability) {
-		if (!ability.conditionCheck.isPositive()) {
+		if (!drawnCondition(ability).isPositive()) {
 			color = ARGB32.multiply(color, UNUSABLE_ICON_TINT);
 		}
 		return color;
+	}
+
+	/**
+	 * The condition a slot is drawn by, as 1.16's renderActionIcon drew it from checkRequirements (the icon's tint and a
+	 * finisher's green frame): its own check, or a refusal while the Stand power's held action holds its press back
+	 * (Ability#isHeldBackByHeldAction), which the press itself still waits out in the input buffer.
+	 */
+	public static ConditionCheck drawnCondition(AbilityConditionCheck ability) {
+		if (!ability.conditionCheck.isPositive()) {
+			return ability.conditionCheck;
+		}
+		// no game instance when the colour rule runs on its own (UnusableAbilityIconTintSmokeTest)
+		Minecraft mc = Minecraft.getInstance();
+		Player player = mc != null ? mc.player : null;
+		return player != null && ability.ability.isHeldBackByHeldAction(player) ? ConditionCheck.NEGATIVE : ability.conditionCheck;
 	}
 
 	public static final Component NOT_BOUND = Component.translatable("key.keyboard.unknown");
