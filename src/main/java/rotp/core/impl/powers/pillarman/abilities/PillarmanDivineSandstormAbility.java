@@ -7,6 +7,7 @@ import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.entityaction.ActionPhase;
+import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.impl.powers.pillarman.PillarmanDivineSandstormEntity;
@@ -38,6 +39,12 @@ public class PillarmanDivineSandstormAbility extends PillarmanActionAbility {
 			return ConditionCheck.createNegative("no_energy_pillarman");
 		}
 		return check;
+	}
+
+	// 1.16 holdToFire(40, true): from its 40th held tick the hold fires its waves until it is let go
+	@Override
+	public boolean isActionHeldReadyToFire(EntityActionInstance action) {
+		return action.getPhase() == ActionPhase.PERFORM || super.isActionHeldReadyToFire(action);
 	}
 
 	protected PillarmanDivineSandstormEntity createSandstormWave(Level level, LivingEntity user) {

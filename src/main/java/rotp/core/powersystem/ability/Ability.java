@@ -525,7 +525,18 @@ public class Ability {
 	public WindupIndicator cl_windupIndicator(LivingEntity clientPlayer, WindupIndicator indicator, float partialTick) {
 		return null;
 	}
-	
+
+	/**
+	 * 1.16 ActionsOverlayGui.renderActionIcon heldReadyToFire: whether this ability's action, still held, has been held
+	 * for its hold-to-fire length (1.16 getHoldDurationToFire above 0), so that letting go of its key fires it. The HUD
+	 * then fills the slots showing the ability green behind its icon and draws the slot frame of a selected slot (the
+	 * hotbar's selected slot, a key bind while its key is held) green. False by default; see
+	 * EntityActionAbility#isActionHeldReadyToFire.
+	 */
+	public boolean isHeldReadyToFire(LivingEntity user) {
+		return false;
+	}
+
 	public Component getName(Power<?> context) {
 		return abilityName(context, "");
 	}

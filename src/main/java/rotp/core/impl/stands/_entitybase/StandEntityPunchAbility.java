@@ -66,6 +66,7 @@ import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.item.Tiers;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.SoundType;
@@ -1187,6 +1188,24 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		ActionTarget aim = userPrecisionRayTarget(stand, user, canTarget);
 		return aim.getType() == TargetType.EMPTY
 				? standPrecisionRayTarget(stand, canTarget, StandSkillWalls.wallsHideEntities(stand)) : aim;
+	}
+
+	/**
+	 * The Stand's aim a client keeps while its user aims (ClientsideAim), whatever action the Stand runs: 1.16
+	 * EntityStandType.clientHitResult's precision ray took any entity StandEntity.canTarget allowed
+	 * ({@link #canUserAimTarget}), and the action's checkTarget then refused one it could not take.
+	 */
+	public static ActionTarget userStandAim(StandEntity stand, LivingEntity user, ActionTarget vanillaPick) {
+		return userStandAim(stand, user, vanillaPick, entity -> canUserAimTarget(stand, entity));
+	}
+
+	/**
+	 * 1.16 StandEntity.canTarget, over the pickable entities: any living entity but the Stand, its user and the Stand's
+	 * own projectiles, friendly fire allowed.
+	 */
+	public static boolean canUserAimTarget(StandEntity stand, Entity entity) {
+		return StandEntityAbility.canPickEntityForAiming(entity) && entity != stand && entity != stand.getUser()
+				&& entity.isAlive() && !(entity instanceof Projectile projectile && projectile.getOwner() == stand);
 	}
 
 	/**

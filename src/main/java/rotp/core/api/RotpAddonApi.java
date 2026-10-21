@@ -239,6 +239,13 @@ public final class RotpAddonApi {
 	 */
 	public static final String FEATURE_STAND_DEFAULT_ROTATION_RULES_V1 =
 			"stand_default_rotation_rules_v1";
+	/**
+	 * The HUD's 1.16 heldReadyToFire green (slot fill, green frame of a selected slot): Ability#isHeldReadyToFire, and
+	 * EntityActionAbility#isActionHeldReadyToFire (a button charge, or a windup that holds to fire, held at its end while
+	 * the action is held), which an ability whose hold goes on in another phase once it can fire overrides.
+	 */
+	public static final String FEATURE_ABILITY_HELD_READY_TO_FIRE_V1 =
+			"ability_held_ready_to_fire_v1";
 
 	public static final Set<String> FEATURES = Set.of(
 			FEATURE_ABILITY_RESOURCE_NAMESPACE_V1,
@@ -322,7 +329,8 @@ public final class RotpAddonApi {
 			FEATURE_INTEGRATED_STAND_V1,
 			FEATURE_ABILITY_PERFORMER_STUN_V1,
 			FEATURE_STAND_STAMINA_MODIFIERS_V1,
-			FEATURE_STAND_DEFAULT_ROTATION_RULES_V1);
+			FEATURE_STAND_DEFAULT_ROTATION_RULES_V1,
+			FEATURE_ABILITY_HELD_READY_TO_FIRE_V1);
 
 	private RotpAddonApi() {}
 

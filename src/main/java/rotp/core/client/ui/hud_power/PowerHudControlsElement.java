@@ -204,6 +204,10 @@ public class PowerHudControlsElement extends HudElement {
 	public static final int SLOT_WIDTH = 20;
 	public static final int SLOT_HEIGHT = 20;
 	private static final int COOLDOWN_OVERLAY_COLOR = 0x7FFFFFFF;
+	/** 1.16 ActionsOverlayGui.renderActionIcon: fillSingleRect(0, 255, 0, 127) behind a held-ready icon. */
+	public static final int HELD_READY_TO_FIRE_FILL = 0x7F00FF00;
+	/** 1.16 HotbarRenderer.renderSlotSelection with greenSelection: the frame tinted (0, 1, 0, hotbar alpha). */
+	public static final int GREEN_SELECTION = 0xFF00FF00;
 	
 	public static class AbilityBindUI {
 		public AbilityConditionCheck ability;
@@ -560,6 +564,7 @@ public class PowerHudControlsElement extends HudElement {
 
 				for (Map.Entry<InputMethod, AbilityBindUI> abilitySprite : bind.abilities.entrySet()) {
 					AbilityBindUI ability = abilitySprite.getValue();
+					boolean heldReadyToFire = renderHeldReadyToFire(guiGraphics, x, y, ability, mc);
 					renderAbility(guiGraphics, x, y, ability, mc, partialTick, alpha);
 
 					boolean isClicked = controlsEnabled && switch (ability.inputMethod) {
@@ -583,15 +588,12 @@ public class PowerHudControlsElement extends HudElement {
 											AbilitySelectionSurface
 													.DIRECT_BIND_ACTIVE,
 											alpha);
-					if (selectionTint.isPresent()) {
-						HOTBAR_SELECTION.render(
-								guiGraphics.pose(),
-								x - 15,
-								y - 15,
-								selectionTint.getAsInt());
+					int frameTint = selectionTint.isPresent() ? selectionTint.getAsInt() : alpha;
+					if (heldReadyToFire) {
+						frameTint = ARGB32.multiply(alpha, GREEN_SELECTION);
 					}
-					else if (isClicked) {
-						HOTBAR_SELECTION.render(guiGraphics.pose(), x - 15, y - 15, alpha);
+					if (selectionTint.isPresent() || isClicked) {
+						HOTBAR_SELECTION.render(guiGraphics.pose(), x - 15, y - 15, frameTint);
 					}
 					
 					x += SLOT_WIDTH;
@@ -622,6 +624,8 @@ public class PowerHudControlsElement extends HudElement {
 				hotbarSprite.render(guiGraphics.pose(), x - 14, y - 14, alpha);
 
 				for (HotbarSlotUI slot : hotbar.slots) {
+					boolean heldReadyToFire = slot.sprite != null
+							&& renderHeldReadyToFire(guiGraphics, x, y, slot.sprite, mc);
 					if (slot.sprite != null) {
 						renderAbility(guiGraphics, x, y, slot.sprite, mc, partialTick, alpha);
 					}
@@ -641,6 +645,9 @@ public class PowerHudControlsElement extends HudElement {
 													AbilitySelectionSurface
 															.HOTBAR_SELECTED,
 													alpha);
+						}
+						if (heldReadyToFire) {
+							selectionTint = ARGB32.multiply(alpha, GREEN_SELECTION);
 						}
 						HOTBAR_SELECTION.render(
 								guiGraphics.pose(),
@@ -696,6 +703,20 @@ public class PowerHudControlsElement extends HudElement {
 			guiGraphics.drawString(font, warning, x + 18, y + 2, textColor);
 			y += 16;
 		}
+	}
+
+	/*
+	 * 1.16 renderActionIcon: a hold-to-fire action held past its getHoldDurationToFire (heldReadyToFire) filled its slot
+	 * green at the icon's position less 2, 20 by 20, before the icon was drawn; renderAbility draws the icon at x + 3.
+	 */
+	private static boolean renderHeldReadyToFire(GuiGraphics guiGraphics, int x, int y, AbilityBindUI abilityUi, Minecraft mc) {
+		if (mc.player == null || !abilityUi.ability.ability.isHeldReadyToFire(mc.player)) {
+			return false;
+		}
+		guiGraphics.fill(x + 1, y + 1, x + 21, y + 21, HELD_READY_TO_FIRE_FILL);
+		RenderSystem.enableBlend();
+		RenderSystem.defaultBlendFunc();
+		return true;
 	}
 
 	public static void renderAbility(GuiGraphics guiGraphics, float x, float y, AbilityBindUI abilityUi, Minecraft mc, float partialTick, int alpha) {

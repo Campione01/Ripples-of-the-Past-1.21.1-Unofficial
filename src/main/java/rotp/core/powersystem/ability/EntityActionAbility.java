@@ -618,6 +618,32 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 		return super.cl_windupIndicator(clientPlayer, indicator, partialTick);
 	}
 
+	@Override
+	public boolean isHeldReadyToFire(LivingEntity user) {
+		LivingEntity performer = user != null ? getPerformer(user) : null;
+		EntityActionInstance action = performer != null ? LivingComponentAction.getCurEntityAction(performer) : null;
+		return isSameAbilityAction(action) && !action.isOver() && isActionHeldReadyToFire(action);
+	}
+
+	/**
+	 * Whether the action has been held for its hold-to-fire length and waits for the release ({@link #isHeldReadyToFire}):
+	 * its button charge, or a windup that holds to fire ({@link #getWindupHoldToFireIndicatorLength}), held at its full
+	 * length while the action is still held ({@link #isActionHeld}). A charge that fires as it ends never is, as 1.16
+	 * fired a holdToFire(n, false) action without a longer hold on its n-th held tick. An ability whose hold goes on in
+	 * another phase once it can fire overrides this.
+	 */
+	public boolean isActionHeldReadyToFire(EntityActionInstance action) {
+		if (!isActionHeld(action)) {
+			return false;
+		}
+		ActionPhase phase = action.getPhase();
+		if (phase == ActionPhase.BUTTON_CHARGE) {
+			return action.getCurPhaseLength() > 0 && action.getPhaseTick() >= action.getCurPhaseLength();
+		}
+		float windupHoldToFire = getWindupHoldToFireIndicatorLength();
+		return phase == ActionPhase.WINDUP && windupHoldToFire > 0 && action.getPhaseTick() >= windupHoldToFire;
+	}
+
 	protected boolean isSameAbilityAction(@Nullable EntityActionInstance action) {
 		if (action == null) {
 			return false;

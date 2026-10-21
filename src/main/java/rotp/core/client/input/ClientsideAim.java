@@ -79,7 +79,7 @@ public class ClientsideAim {
 							? entity -> standAbility.canTargetEntityForAiming(stand, entity)
 							: entity -> StandEntityAbility.canDefaultTargetEntityForAiming(stand, entity);
 					ActionTarget target = aiming == mc.player && isPlayerCameraEntity
-							? StandEntityPunchAbility.userStandAim(stand, mc.player, cameraEntityAimTarget, targetFilter)
+							? StandEntityPunchAbility.userStandAim(stand, mc.player, cameraEntityAimTarget)
 							: HitResultUtil.clip(lookPos, lookVec,
 							stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE), stand.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE),
 							aiming.level(), targetFilter, aiming, precisionAimingDisabled(mc) ? 0 : stand.getPrecision());
