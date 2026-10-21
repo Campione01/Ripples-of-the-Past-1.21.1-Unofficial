@@ -50,6 +50,12 @@ public class PillarmanAtmosphericRiftAbility extends PillarmanActionAbility {
 		return action.getPhase() == ActionPhase.PERFORM || super.isActionHeldReadyToFire(action);
 	}
 
+	// the hold went on past the charge, so the 40th held tick was checked as any other, with the message
+	@Override
+	public boolean chargeEndsTheHold(EntityActionInstance action) {
+		return false;
+	}
+
 	public static class AtmosphericRiftInstance extends PillarmanHeldActionInstance {
 		public AtmosphericRiftInstance(EntityActionType ability) {
 			super(ability);

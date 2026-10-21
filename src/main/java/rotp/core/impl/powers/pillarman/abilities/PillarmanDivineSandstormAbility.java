@@ -47,6 +47,12 @@ public class PillarmanDivineSandstormAbility extends PillarmanActionAbility {
 		return action.getPhase() == ActionPhase.PERFORM || super.isActionHeldReadyToFire(action);
 	}
 
+	// the hold went on past the charge, so the 40th held tick was checked as any other, with the message
+	@Override
+	public boolean chargeEndsTheHold(EntityActionInstance action) {
+		return false;
+	}
+
 	protected PillarmanDivineSandstormEntity createSandstormWave(Level level, LivingEntity user) {
 		return new PillarmanDivineSandstormEntity(level, user, 0)
 				.setAtmospheric(false)
