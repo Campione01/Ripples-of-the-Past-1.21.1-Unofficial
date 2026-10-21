@@ -51,6 +51,18 @@ public class SilverChariotSweepingAttackAbility extends StandEntityAbility {
 		return target.getType() == ActionTarget.TargetType.ENTITY && super.takesPressedTarget(standEntity, target);
 	}
 
+	// 1.16 StandEntityHeavyAttack.standKeepsTarget: the task keeps the entity, checked on every tick
+	@Override
+	protected boolean keepsTaskTargetType(StandEntity standEntity, ActionTarget target) {
+		return target.getType() == ActionTarget.TargetType.ENTITY;
+	}
+
+	// 1.16 StandEntityHeavyAttack.lockOnTargetPosition: the sweep turns the Stand to its target, never its offset
+	@Override
+	public boolean lockOnTargetPosition(StandPower standPower, StandEntity standEntity, EntityActionInstance action) {
+		return false;
+	}
+
 	@Override
 	public void initActionFromConfig(EntityActionInstance action, Level level, 
 			LivingEntity powerUser, LivingEntity performer) {

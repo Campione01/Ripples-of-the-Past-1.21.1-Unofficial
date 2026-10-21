@@ -2286,6 +2286,60 @@ public final class StandTargetRangeGameTests {
 	}
 
 	/*
+	 * 1.16's special Crossfire Hurricane turned its Stand toward what it aimed at as it shot (aimWithThisOrUser :1696-1699,
+	 * MCUtil.rotateTowards): the yaw and the pitch each by at most attackSpeed / 16 x 18 degrees, the head onto the yaw, and
+	 * the ankhs left along that look (standEntity.xRot / yRot). A husk on the user's look, wider from the Stand's facing
+	 * than that, leaves the Stand turned only part of the way.
+	 */
+	@GameTest(template = "empty", batch = BATCH)
+	public static void theSpecialCrossfireHurricaneTurnsItsStandOnlyByItsAttackSpeedAsIn116(GameTestHelper helper) {
+		try (Fixture fixture = Fixture.open(helper, Kind.MR_CROSSFIRE_SPECIAL)) {
+			StandEntity stand = fixture.stand;
+			stand.summonLockTicks = 0;
+			stand.gradualSummonWeaknessTicks = 0;
+			stand.moveTo(fixture.origin.x - 1.0D, fixture.origin.y, fixture.origin.z, 0.0F, 0.0F);
+			Husk husk = placed(helper, fixture, EntityType.HUSK, onLook(fixture, 0.0D, 2.5D));
+			LivingComponentAction standActions = LivingComponentAction.getComponent(stand);
+			EntityActionInstance action = ((EntityActionType) fixture.ability).initActionOnAbilityUse(fixture.level,
+					fixture.user, stand, null);
+			standActions.setAction(action, fixture.user, SyncType.NO_SYNC);
+			stand.setYRot(0.0F);
+			stand.setXRot(0.0F);
+			stand.setYHeadRot(0.0F);
+			Vec3 toHusk = husk.getEyePosition().subtract(stand.getEyePosition());
+			float fullYaw = net.minecraft.util.Mth.wrapDegrees(rotp.core.util.functions.MathUtil.yRotDegFromVec(toHusk));
+			float fullPitch = net.minecraft.util.Mth.wrapDegrees(rotp.core.util.functions.MathUtil.xRotDegFromVec(toHusk));
+			float maxAngle = (float) stand.getAttackSpeed() / 16.0F * 18.0F;
+			helper.assertTrue(maxAngle > 0.0F && Math.abs(fullYaw) > maxAngle + 1.0F, "SPECIAL-TURN premise: the husk is not"
+					+ " wider from the Stand's facing than its turn: " + fullYaw + " degrees, the turn " + maxAngle);
+			float expectedYaw = net.minecraft.util.Mth.clamp(fullYaw, -maxAngle, maxAngle);
+			float expectedPitch = net.minecraft.util.Mth.clamp(fullPitch, -maxAngle, maxAngle);
+			action.actionPerformStart();
+			float yaw = stand.getYRot();
+			float pitch = stand.getXRot();
+			float head = stand.getYHeadRot();
+			List<MRCrossfireHurricaneEntity> shots = fixture.level.getEntitiesOfClass(MRCrossfireHurricaneEntity.class,
+					fixture.user.getBoundingBox().inflate(16.0D));
+			// the first ankh leaves on the Stand's look, the others 1.5 degrees around it
+			boolean shotAlongLook = shots.stream().anyMatch(shot -> Math.abs(net.minecraft.util.Mth.wrapDegrees(
+					rotp.core.util.functions.MathUtil.yRotDegFromVec(shot.getDeltaMovement()) - yaw)) < 0.1F
+					&& Math.abs(rotp.core.util.functions.MathUtil.xRotDegFromVec(shot.getDeltaMovement()) - pitch) < 0.1F);
+			Vec3 homesOn = shots.isEmpty() ? null : specialTargetOf(shots.get(0));
+			shots.forEach(Entity::discard);
+			standActions.setAction(null, fixture.user, SyncType.NO_SYNC);
+			helper.assertTrue(Math.abs(net.minecraft.util.Mth.wrapDegrees(yaw - expectedYaw)) < 1.0E-3F
+					&& Math.abs(net.minecraft.util.Mth.wrapDegrees(pitch - expectedPitch)) < 1.0E-3F
+					&& Math.abs(net.minecraft.util.Mth.wrapDegrees(head - expectedYaw)) < 1.0E-3F
+					&& shotAlongLook && homesOn != null && homesOn.distanceTo(husk.getEyePosition()) < 1.0E-4D,
+					"1.16's special Crossfire Hurricane turned its Stand by at most " + maxAngle + " degrees toward the husk ("
+							+ fullYaw + " / " + fullPitch + " away) and shot along that look: the Stand turned to yaw " + yaw
+							+ ", pitch " + pitch + ", head " + head + " (1.16: " + expectedYaw + " / " + expectedPitch
+							+ "), a shot along it " + shotAlongLook + ", " + shots.size() + " shots homing on " + homesOn);
+		}
+		helper.succeed();
+	}
+
+	/*
 	 * 1.16 Action.checkTarget (:205-208) emptied a target that was the user, for a power other than a Stand too, whose
 	 * actions took the camera's pick unchanged (IPowerType.clientHitResult): another camera's pick (a manually controlled
 	 * Stand's, a member's view) on the user's own body left the user's aim empty, so Hamon Shock, Sunlight Yellow Overdrive
