@@ -4,7 +4,6 @@ import rotp.core.powersystem.Power;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
-import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.subsystems.target.ActionTarget;
@@ -34,10 +33,8 @@ public class HamonOrganismInfusionAbility extends HamonActionRuntimeAbility {
 	private static final float PLANT_ENERGY_COST = 200.0F;
 
 	public HamonOrganismInfusionAbility(AbilityType<?> abilityType, AbilityId abilityId) {
+		// 1.16 had no hold and no phases: the click performs at once, so the default phases stay.
 		super(abilityType, abilityId, OrganismInfusionInstance::new);
-		setDefaultPhaseLength(ActionPhase.WINDUP, 6);
-		setDefaultPhaseLength(ActionPhase.PERFORM, 4);
-		setDefaultPhaseLength(ActionPhase.RECOVERY, 4);
 	}
 
 	@Override

@@ -5,7 +5,6 @@ import rotp.core.powersystem.Power;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
-import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.impl.powers.hamon.entity.HamonCutterEntity;
 import rotp.core.impl.powers.hamon.HamonUtil;
@@ -22,10 +21,8 @@ import net.minecraft.world.phys.Vec3;
 public class HamonCutterAbility extends HamonActionRuntimeAbility {
 
 	public HamonCutterAbility(AbilityType<?> abilityType, AbilityId abilityId) {
+		// 1.16 had no hold and no phases: the click performs at once, so the default phases stay.
 		super(abilityType, abilityId, CutterInstance::new);
-		setDefaultPhaseLength(ActionPhase.WINDUP, 4);
-		setDefaultPhaseLength(ActionPhase.PERFORM, 4);
-		setDefaultPhaseLength(ActionPhase.RECOVERY, 3);
 	}
 
 	@Override
