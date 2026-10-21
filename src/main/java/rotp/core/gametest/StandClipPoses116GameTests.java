@@ -50,8 +50,9 @@ public final class StandClipPoses116GameTests {
 
 	// a 1.16 head at a clip time (0, PERFORM, RECOVERY, END, W<f> a fraction of the windup, or seconds): its root-space
 	// angles, LOOK where it followed the look, HALF the given angles plus half the look (1.16 half way from a posed head
-	// to the look), or IDLE where the clip hands over to the idle and the head is the idle's own
-	private enum Head { POSED, LOOK, HALF, IDLE }
+	// to the look), TURNED the look turned by the given angles (an official 1.21.1 clip's head), or IDLE where the clip
+	// hands over to the idle and the head is the idle's own
+	private enum Head { POSED, LOOK, HALF, TURNED, IDLE }
 
 	private record HeadPose(String asset, String clip, String at, Head kind, float[] head) {
 		HeadPose(String asset, String clip, String at) {
@@ -90,9 +91,10 @@ public final class StandClipPoses116GameTests {
 			new HeadPose(SC_ANIMS, "no_rapier_light_attack", "0.4667"),
 			new HeadPose(SC_ANIMS, "rapier_launch", "0"), new HeadPose(SC_ANIMS, "rapier_launch", "PERFORM"),
 			new HeadPose(SC_ANIMS, "rangedAttack", "0"), new HeadPose(SC_ANIMS, "rangedAttack", "PERFORM"),
-			// the three idles (initBaseIdlePose: HEAD_ROTATION)
-			new HeadPose(SC_ANIMS, "idle", "0"), new HeadPose(SC_ANIMS, "no_rapier_idle", "0"),
-			new HeadPose(SC_ANIMS, "no_armor_idle", "0"),
+			// the idle is the official port's, its head 5 degrees off the look under body_rot -25 and torso_bend 20; the
+			// other two idles (initBaseIdlePose: HEAD_ROTATION)
+			new HeadPose(SC_ANIMS, "idle", "0", Head.TURNED, new float[] { 0, -5, 0 }),
+			new HeadPose(SC_ANIMS, "no_rapier_idle", "0"), new HeadPose(SC_ANIMS, "no_armor_idle", "0"),
 			// SilverChariotModel :100-136, summon poses 1-3 (pose 2 has no head: the reset head, the root's forward)
 			posed(SC_ANIMS, "summon1", "0", -10, 0, -5), idle(SC_ANIMS, "summon1"),
 			posed(SC_ANIMS, "summon2", "0", 0, 0, 0), idle(SC_ANIMS, "summon2"),
@@ -132,12 +134,14 @@ public final class StandClipPoses116GameTests {
 					case POSED -> rotationMatrix(pose.head());
 					case LOOK -> rotationMatrix(new float[] { look[0], look[1], 0 });
 					case HALF -> rotationMatrix(new float[] { pose.head()[0] + look[0] / 2, pose.head()[1] + look[1] / 2, 0 });
+					case TURNED -> rotationMatrix(new float[] { look[0] + pose.head()[0], look[1] + pose.head()[1], pose.head()[2] });
 					case IDLE -> composedHead(anims.getAsJsonObject(idleOf(pose)), 0, look);
 				};
 				double off = angleBetween(composedHead(clip, time, look), expected);
 				if (off > 1) {
 					wrong.add(pose.clip() + " of " + pose.asset() + " at " + pose.at() + " (" + time + ") looking "
-							+ Arrays.toString(look) + ": head " + String.format("%.1f", off) + " degrees off 1.16's "
+							+ Arrays.toString(look) + ": head " + String.format("%.1f", off) + " degrees off "
+							+ (pose.kind() == Head.TURNED ? "the look turned by " : "1.16's ")
 							+ (pose.head() != null ? Arrays.toString(pose.head()) : pose.kind()));
 				}
 			}
