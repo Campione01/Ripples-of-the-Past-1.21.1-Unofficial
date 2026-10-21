@@ -182,7 +182,9 @@ public final class RotpAddonApi {
 	 * if it has none, #givesWayToOtherAbilities; and a press of another ability of its power that goes off,
 	 * Ability#endsOtherHoldOnPress, ends its hold), and, whatever canBeCancelledInto says, a player's press of a Stand
 	 * ability whose action holds (EntityActionAbility#isHoldAction) waits in the input buffer while the Stand power holds
-	 * an action (AbilityInput#getHeldAction).
+	 * an action (AbilityInput#getHeldAction); while that held action is no hold-type one (a charge), the power's other
+	 * abilities its performer does not take (a plain Ability, or one another entity performs) are refused without a
+	 * message, unless their endsOtherHoldOnPress is false.
 	 */
 	public static final String FEATURE_ENTITY_ACTION_HOOKS_V1 =
 			"entity_action_hooks_v1";

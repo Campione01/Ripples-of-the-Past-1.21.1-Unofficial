@@ -19,6 +19,7 @@ import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.EntityActionAbility;
 import rotp.core.powersystem.ability.condition.AvailableAbilities.AbilityConditionCheck;
+import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.ability.input.AbilityInput;
 import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
@@ -274,6 +275,47 @@ public final class HoldTypeActionPress116GameTests {
 		helper.succeed();
 	}
 
+	/*
+	 * 1.16 PowerBaseImpl.checkRequirements refused, without a message, every other action of the power while it held an
+	 * action that let none through (heldAllowsOtherAction false: a hold-to-fire charge), the ones the Stand does not perform
+	 * too: Magician's Red's detector during Crossfire Hurricane's charge is refused, not buffered, and goes off again once
+	 * the charge is let go; the same for Gold Experience's lifeform choice during its charged heavy punch (a port charge);
+	 * the manual control key, which was no 1.16 action, still works.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aStandAbilityTheStandDoesNotPerformIsRefusedDuringAChargeAsIn116(GameTestHelper helper) {
+		try (Scene s = new Scene(helper, "ChargeRefusesDetector", "magicians_red", 4)) {
+			s.unlock("crossfire_hurricane", "mr_detector");
+			EntityActionInstance charge = s.hold("crossfire_hurricane");
+			helper.assertTrue(charge.getPhase() == ActionPhase.BUTTON_CHARGE, "setup: Crossfire Hurricane is not charging: "
+					+ charge.getPhase());
+			s.refusedDuring(charge, "mr_detector");
+			helper.assertTrue(s.detectors().isEmpty(), "1.16 refused the detector during the charge, yet one was placed");
+
+			BufferingState manual = s.press("manual_control", InputMethod.CLICK, OTHER_KEY);
+			AbilityInput.keyRelease(OTHER_KEY, s.user);
+			helper.assertTrue(manual.isActionSuccess && s.stand.isManuallyControlled(), "the manual control key, no action in"
+					+ " 1.16, works during the charge: went off " + manual.isActionSuccess);
+			StandEntityManualControlToggle.off(helper.getLevel(), s.stand, false);
+
+			AbilityInput.keyRelease(HOLD_KEY, s.user);
+			BufferingState after = s.press("mr_detector", InputMethod.CLICK, OTHER_KEY);
+			AbilityInput.keyRelease(OTHER_KEY, s.user);
+			helper.assertTrue(after.isActionSuccess && !s.detectors().isEmpty(), "the detector goes off once the charge is let"
+					+ " go (the power holds nothing): went off " + after.isActionSuccess);
+			s.detectors().forEach(MRDetectorEntity::discard);
+			s.clear();
+		}
+		try (Scene s = new Scene(helper, "ChargeRefusesLifeform", "gold_experience", 4)) {
+			EntityActionInstance charge = s.hold("heavy_charged");
+			helper.assertTrue(charge.getPhase() == ActionPhase.BUTTON_CHARGE, "setup: the charged heavy punch is not charging: "
+					+ charge.getPhase());
+			s.refusedDuring(charge, "choose_lifeform");
+			s.clear();
+		}
+		helper.succeed();
+	}
+
 	@GameTest(template = "empty", timeoutTicks = 100)
 	public static void aMobsStandActionGoesThroughItsHoldTypeActionAsIn116(GameTestHelper helper) {
 		Zombie zombie = EntityType.ZOMBIE.create(helper.getLevel());
@@ -450,6 +492,18 @@ public final class HoldTypeActionPress116GameTests {
 							+ ", the Stand's action " + standAction.getAction() + ", the " + holdName + " in " + hold.getPhase());
 			AbilityInput.keyRelease(OTHER_KEY, user);
 			clear();
+		}
+
+		// the other ability, pressed by another key during the held charge, is refused without a message and not buffered
+		private void refusedDuring(EntityActionInstance charge, String otherName) {
+			AbilityConditionCheck key = resolve(otherName);
+			BufferingState pressed = press(otherName, InputMethod.CLICK, OTHER_KEY);
+			AbilityInput.keyRelease(OTHER_KEY, user);
+			helper.assertTrue(key != null && key.conditionCheck == ConditionCheck.NEGATIVE && !pressed.isActionSuccess
+					&& !pressed.shouldBuffer && standAction.getAction() == charge && charge.getPhase() == ActionPhase.BUTTON_CHARGE
+					&& isHeldByKey(HOLD_KEY), "1.16 refused " + otherName + ", silently, while the power held a charge"
+							+ " (heldAllowsOtherAction false): its key " + (key != null ? key.conditionCheck : null) + ", went off "
+							+ pressed.isActionSuccess + ", buffered " + pressed.shouldBuffer + ", the charge in " + charge.getPhase());
 		}
 
 		// pressed as a held key and kept held
