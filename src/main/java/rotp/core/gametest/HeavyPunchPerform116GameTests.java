@@ -110,7 +110,6 @@ public final class HeavyPunchPerform116GameTests {
 			new HeavyClip(MR_ANIMS, "heavy_punch", "right_arm_bend", 0.6F, "magicians_red", "heavy_punch"),
 			new HeavyClip(GE_ANIMS, "heavy_punch", "right_arm", 0.7F, "gold_experience", "heavy_punch"),
 			new HeavyClip(GE_ANIMS, "finisher", "right_arm", 0.8F, "gold_experience", "lifeshot_punch"),
-			new HeavyClip(CD_ANIMS, "heavy_punch", "right_arm_bend", 0.5417F, "crazy_diamond", "heavy_punch"),
 			new HeavyClip(CD_ANIMS, "grab_heavy_punch", "right_arm", 0.5F, "crazy_diamond", "grab_heavy_punch"),
 			new HeavyClip(CD_ANIMS, "grab_finisher", "right_arm", 0.5833F, "crazy_diamond", "grab_finisher"));
 
@@ -150,7 +149,7 @@ public final class HeavyPunchPerform116GameTests {
 			new HeldImpactClip(SP_ANIMS, "heavy_punch", "right_arm_bend", 0.6F),
 			new HeldImpactClip(MR_ANIMS, "heavy_punch", "right_arm_bend", 0.6F),
 			// CrazyDiamondModel :669-680: pose8 held to half the recovery
-			new HeldImpactClip(CD_ANIMS, "heavy_punch", "right_arm_bend", 0.5833F));
+			new HeldImpactClip(CD_ANIMS, "heavy_punch", "right_arm_bend", 0.5F));
 
 	// a 1.16 head at a clip time (0, PERFORM, RECOVERY, FIFTH a fifth into the perform, MIDDLE the recovery's middle, or
 	// W<f> a fraction of the windup): its root-space angles, or null where 1.16's head followed the look
@@ -180,7 +179,29 @@ public final class HeavyPunchPerform116GameTests {
 			new HeadPose(SP_ANIMS, "heavy_punch", "0", null),
 			new HeadPose(SP_ANIMS, "heavy_punch", "W0.5", null),
 			new HeadPose(SP_ANIMS, "heavy_punch", "PERFORM", null),
-			new HeadPose(SP_ANIMS, "heavy_punch", "MIDDLE", null));
+			new HeadPose(SP_ANIMS, "heavy_punch", "MIDDLE", null),
+			// CrazyDiamondModel :565-668: heavyPunchPose1, 2, 5, 6 and 8 (no look until the return to the idle)
+			new HeadPose(CD_ANIMS, "heavy_punch", "0", new float[] { 0, 385, 0 }),
+			new HeadPose(CD_ANIMS, "heavy_punch", "W0.2222", new float[] { 10, 400.5F, 0 }),
+			new HeadPose(CD_ANIMS, "heavy_punch", "W0.5555", new float[] { -17.5F, 300, -22.5F }),
+			new HeadPose(CD_ANIMS, "heavy_punch", "W0.7777", new float[] { 15, 60, 0 }),
+			new HeadPose(CD_ANIMS, "heavy_punch", "PERFORM", new float[] { 0, 0, 0 }),
+			new HeadPose(CD_ANIMS, "heavy_punch", "RECOVERY", new float[] { 0, 0, 0 }),
+			new HeadPose(CD_ANIMS, "heavy_punch", "MIDDLE", new float[] { 0, 0, 0 }));
+
+	// CrazyDiamondModel :565-681, the heavy punch's windup: heavyPunchPose1-8 at these fractions of the windup, the bones
+	// body (on body_rot), upperPart (on torso), the right arm and forearm and the right leg
+	private static final float[] CD_HEAVY_FRACTIONS = { 0, 0.2222F, 0.3333F, 0.4444F, 0.5555F, 0.7777F, 0.8888F, 1 };
+	private static final String[] CD_HEAVY_BONES = { "body_rot", "torso", "right_arm", "right_arm_bend", "right_leg" };
+	private static final float[][][] CD_HEAVY_POSES = {
+			{ { 7.5F, 382.5F, 0 }, { 0, 0, 0 }, { 0, 0, 80 }, { -70, -22.5F, -30 }, { -7.5F, 0, 5 } },
+			{ { 30, 390, 0 }, { 0, 7.5F, 0 }, { 15, -5, 100 }, { -90, -10, -70 }, { -12.5F, 0, 10 } },
+			{ { -7.5F, 337.5F, -7.5F }, { 0, 7.5F, 0 }, { 0, 0, 75 }, { 0, 90, 0 }, { 1.6667F, -1.6667F, 34.1667F } },
+			{ { -21.25F, 282.5F, -13.75F }, { 0, 7.5F, 0 }, { 30, 0, 75 }, { 0, 90, 0 }, { 15.8334F, -3.3334F, 58.3334F } },
+			{ { -30, 225, -15 }, { 0, 7.5F, 0 }, { 60, 0, 75 }, { -20, 60, -20 }, { 30, -5, 82.5F } },
+			{ { 15, 102.5F, 0 }, { 0, 7.5F, 0 }, { 60, 0, 75 }, { -60, 0, -60 }, { -49.1667F, 10.8333F, 36.6667F } },
+			{ { 22.5F, 36.25F, -7.5F }, { 0, 7.5F, 0 }, { 45, 0, 75 }, { -45, -5, -120 }, { -88.75F, 18.75F, 13.75F } },
+			{ { 30, -30, -15 }, { 0, 7.5F, 0 }, { -45, -10, 75 }, { -165.665F, -4.4638F, -133.0616F }, { 15, 30, 0 } } };
 
 	// a key of a 1.16 JSON clip as the port's clip must carry it: bone, time, vector and the easing towards it
 	private record Key116(String asset, String clip, String bone, float time, float[] vector, String easing) {}
@@ -538,6 +559,68 @@ public final class HeavyPunchPerform116GameTests {
 			}
 		}
 		helper.assertTrue(wrong.isEmpty(), "1.16's Star Platinum played its JSON heavyPunch for the heavy punch: " + wrong);
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16's Crazy Diamond spun into its heavy punch: the windup's eight poses turn the body by the shortest path from
+	 * each to the next, one continuous 412.5-degree clockwise turn (382.5 to -30) that ends on pose8, the impact, at
+	 * the end of the windup; the perform keeps pose8 (PosedActionAnimation's rigid filler) and the recovery holds it to
+	 * its middle before the idle. The clip shows each pose at its fraction of the windup, turns body_rot through more
+	 * than 400 degrees over the windup, holds pose8 from PERFORM to the recovery's middle and ends on the idle clip.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void crazyDiamondsHeavyPunchSpinsThroughItsWindupAsIn116(GameTestHelper helper) {
+		Ability ability = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("crazy_diamond")).getBaseMoveset().getAbility("heavy_punch");
+		helper.assertTrue(ability instanceof EntityActionAbility entityAbility && "heavy_punch".equals(entityAbility.getEntityAnim(null).name())
+				&& storedPhase(helper, entityAbility, ActionPhase.PERFORM) == 1,
+				"setup: Crazy Diamond's heavy_punch does not play heavy_punch with a one-tick perform");
+		JsonObject anims = readJson(helper, CD_ANIMS).getAsJsonObject("animations");
+		JsonObject clip = anims.getAsJsonObject("heavy_punch");
+		JsonObject idle = anims.getAsJsonObject("idle");
+		float performAt = marker(clip, "phase=PERFORM;");
+		float recoveryAt = marker(clip, "phase=RECOVERY;");
+		float end = clip.get("animation_length").getAsFloat();
+		List<String> wrong = new ArrayList<>();
+		if (!(recoveryAt > performAt && recoveryAt - performAt <= CLIP_TICK + 0.0002F)) {
+			wrong.add("PERFORM " + performAt + ", RECOVERY " + recoveryAt);
+		}
+		for (int i = 0; i < CD_HEAVY_POSES.length; i++) {
+			for (int b = 0; b < CD_HEAVY_BONES.length; b++) {
+				float[] pose = CD_HEAVY_POSES[i][b];
+				List<Float> times = new ArrayList<>(List.of(CD_HEAVY_FRACTIONS[i] * performAt));
+				if (i == CD_HEAVY_POSES.length - 1) {
+					times.addAll(List.of(recoveryAt, (recoveryAt + end) / 2));
+				}
+				for (float time : times) {
+					float[] at = channelAt(clip, CD_HEAVY_BONES[b], time);
+					if (angleBetween(rotationMatrix(at), rotationMatrix(pose)) > 0.5) {
+						wrong.add(CD_HEAVY_BONES[b] + " at " + time + ": " + Arrays.toString(at) + " where pose" + (i + 1) + " had "
+								+ Arrays.toString(pose));
+					}
+				}
+			}
+		}
+		float turned = 0;
+		List<Float> keys = new ArrayList<>();
+		for (Map.Entry<String, JsonElement> key : clip.getAsJsonObject("bones").getAsJsonObject("body_rot").getAsJsonObject("rotation").entrySet()) {
+			keys.add(Float.parseFloat(key.getKey()));
+		}
+		keys.sort(null);
+		for (int i = 1; i < keys.size() && keys.get(i) <= performAt + 0.0001F; i++) {
+			turned += channelAt(clip, "body_rot", keys.get(i))[1] - channelAt(clip, "body_rot", keys.get(i - 1))[1];
+		}
+		if (turned > -400) {
+			wrong.add("body_rot turned " + turned + " degrees over the windup, where 1.16 turned the body -412.5");
+		}
+		for (String bone : new String[] { "body_rot", "torso", "head", "right_arm", "right_arm_bend", "right_leg" }) {
+			if (!near(channelAt(clip, bone, end), channelAt(idle, bone, 0))) {
+				wrong.add(bone + " ends on " + Arrays.toString(channelAt(clip, bone, end)) + ", the idle has "
+						+ Arrays.toString(channelAt(idle, bone, 0)));
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), "1.16's Crazy Diamond turned through its eight heavy punch poses over the windup and"
+				+ " held pose8 to the recovery's middle: " + wrong);
 		helper.succeed();
 	}
 
