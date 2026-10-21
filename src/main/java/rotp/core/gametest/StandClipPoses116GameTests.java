@@ -255,15 +255,15 @@ public final class StandClipPoses116GameTests {
 	}
 
 	/*
-	 * 1.16 snapped from pose to pose: an action ended mid-windup showed the next pose at once, and the finisher's perform
-	 * switched poses in no time. Crazy Diamond's heavy punch keeps body_rot within half a turn of the idle's yaw at every
-	 * clip time, so the body never sits a turn away from the next clip, and the punch that may follow it does not start
-	 * from its pose (only a punch after a punch does); where its or the finisher's keys jump, the two keys are one float
-	 * apart, so no clip time draws a pose between them (Float.parseFloat reads the port's key times), and the heavy
-	 * punch's body turns smoothly at every other time.
+	 * Crazy Diamond's heavy punch and finisher are the official 1.21.1 port's clips (OfficialClips1211GameTests); this
+	 * checks how they meet the clips around them. The heavy punch keeps body_rot within half a turn of the idle's yaw and
+	 * turns smoothly at every clip time, so an action ended early never leaves the body a turn away from the next clip,
+	 * and the punch that may follow it does not start from its pose (StandEntityPunch.savePrevPoseForAnimTransition: only
+	 * a punch after a punch does); no two keys of either clip lie under a millisecond apart unless they are adjacent
+	 * floats (Float.parseFloat reads the port's key times), so no clip time draws a pose between them.
 	 */
 	@GameTest(template = "empty", timeoutTicks = 20)
-	public static void crazyDiamondsSpinAndSnapsLeaveNoLongTurnAndNoInBetweenFrame(GameTestHelper helper) {
+	public static void crazyDiamondsHeavyPunchAndFinisherLeaveNoLongTurnAndNoInBetweenFrame(GameTestHelper helper) {
 		List<String> wrong = new ArrayList<>();
 		JsonObject anims = readJson(helper, CD_ANIMS).getAsJsonObject("animations");
 		JsonObject heavy = anims.getAsJsonObject("heavy_punch");
@@ -318,7 +318,8 @@ public final class StandClipPoses116GameTests {
 		if (punchAction.savePrevPoseForAnimTransition(heavyAction) || !punchAction.savePrevPoseForAnimTransition(punchAction)) {
 			wrong.add("Crazy Diamond's punch starts from the heavy punch's pose (or not from a punch's)");
 		}
-		helper.assertTrue(wrong.isEmpty(), "1.16 snapped Crazy Diamond's poses: " + wrong);
+		helper.assertTrue(wrong.isEmpty(), "Crazy Diamond's heavy punch and finisher meet the clips around them without a long"
+				+ " turn or an in-between frame: " + wrong);
 		helper.succeed();
 	}
 
