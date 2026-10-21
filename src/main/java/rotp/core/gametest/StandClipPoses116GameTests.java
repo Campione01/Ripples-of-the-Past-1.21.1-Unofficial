@@ -95,10 +95,11 @@ public final class StandClipPoses116GameTests {
 			// other two idles (initBaseIdlePose: HEAD_ROTATION)
 			new HeadPose(SC_ANIMS, "idle", "0", Head.TURNED, new float[] { 0, -5, 0 }),
 			new HeadPose(SC_ANIMS, "no_rapier_idle", "0"), new HeadPose(SC_ANIMS, "no_armor_idle", "0"),
-			// SilverChariotModel :100-136, summon poses 1-3 (pose 2 has no head: the reset head, the root's forward)
-			posed(SC_ANIMS, "summon1", "0", -10, 0, -5), idle(SC_ANIMS, "summon1"),
+			// SilverChariotModel :211-241, summon poses 1-3 (pose 2 has no head: the reset head, the root's forward), their
+			// head rolls zeroed by the idle's HEAD_ROTATION every frame (StandEntityModel :244, LegacyStandAnimator :119)
+			posed(SC_ANIMS, "summon1", "0", -10, 0, 0), idle(SC_ANIMS, "summon1"),
 			posed(SC_ANIMS, "summon2", "0", 0, 0, 0), idle(SC_ANIMS, "summon2"),
-			posed(SC_ANIMS, "summon3", "0", 5, 2.5F, -10), idle(SC_ANIMS, "summon3"),
+			posed(SC_ANIMS, "summon3", "0", 5, 2.5F, 0), idle(SC_ANIMS, "summon3"),
 			// HierophantGreenModel :176-219, Emerald Splash: esPose1-2 without a head (the look), esPose3's head at .85 and
 			// .9 of the windup, esPose4 with HEAD_ROTATION at the end of the windup, the idle in the recovery
 			new HeadPose(HG_ANIMS, "emerald_splash", "0"), new HeadPose(HG_ANIMS, "emerald_splash", "W0.6"),
@@ -146,9 +147,27 @@ public final class StandClipPoses116GameTests {
 				}
 			}
 		}
+		// LegacyStandAnimator.poseSummon ran the idle's HEAD_ROTATION every frame of a summon, which set head.zRot = 0 at any
+		// rotationAmount: no summon head rolls at any clip time
+		for (String[] summon : SUMMON_CLIPS) {
+			JsonObject clip = files.computeIfAbsent(summon[0], asset -> readJson(helper, asset)).getAsJsonObject("animations")
+					.getAsJsonObject(summon[1]);
+			float end = clip.get("animation_length").getAsFloat();
+			for (float time = 0; time <= end + 0.00001F; time += 0.01F) {
+				double[][] head = composedHead(clip, Math.min(time, end), new float[2]);
+				double roll = Math.toDegrees(Math.atan2(head[1][0], head[0][0]));
+				if (Math.abs(roll) > 0.5) {
+					wrong.add(summon[1] + " of " + summon[0] + " at " + time + ": the head rolls " + String.format("%.1f", roll) + " degrees");
+					break;
+				}
+			}
+		}
 		helper.assertTrue(wrong.isEmpty(), "A 1.16 pose's head kept its root-space angles, the look where the pose had none: " + wrong);
 		helper.succeed();
 	}
+
+	private static final String[][] SUMMON_CLIPS = { { MR_ANIMS, "summon1" }, { MR_ANIMS, "summon2" }, { SC_ANIMS, "summon1" },
+			{ SC_ANIMS, "summon2" }, { SC_ANIMS, "summon3" }, { HG_ANIMS, "summon1" } };
 
 	private static final String CD_ANIMS =
 			"stand_skins/crazy_diamond/assets/jojo_ripples/animations/crazy_diamond.animation.json";
