@@ -11,7 +11,6 @@ import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.world.entity.LivingEntity;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 public class ClientsideAim {
@@ -38,46 +37,7 @@ public class ClientsideAim {
 					standAim.setTarget(StandEntityBarrageAbility.clipDirectionalBarrageTarget(stand, curAction, partialTick));
 					return;
 				}
-
-				LivingEntity aiming;
-				if (isPlayerCameraEntity && curAction == null) {
-					aiming = mc.player;
-				}
-				else if (curAction != null) {
-					aiming = switch (curAction.aimAs) {
-						case PLAYER -> mc.player;
-						case STAND -> stand;
-						case CAMERA_ENTITY -> isPlayerCameraEntity ? mc.player : stand;
-					};
-				}
-				else {
-					aiming = stand;
-				}
-
-				/*
-				 * A crutch that patches aiming for abilities like Crazy Diamond's healing (hold and aim at an entity).
-				 * Due to stand user offset interpolation, when I tell the stand to move in front of me, 
-				 * on the next tick it's still a tiny bit behind me, which may cause the target that is just in the range for the player 
-				 * to still be out of reach for the stand, until it's completely in front of me
-				 */
-				boolean standOffsetLerping = aiming == stand && isPlayerCameraEntity && stand.isFollowingUser() && stand.offsetFromUser.getLerpAmount() < 1;
-				if (aiming == stand && stand.isManuallyControlled()) {
-					// the vanilla pick is the Stand's only while the Stand is the camera
-					standAim.setTarget(StandEntityPunchAbility.manualStandAim(stand,
-							mc.cameraEntity == stand ? cameraEntityAimTarget : ActionTarget.EMPTY));
-				}
-				else if (!standOffsetLerping) {
-					ActionTarget target;
-					if (aiming == mc.player) {
-						// the user's crosshair only while the user is the camera
-						target = StandEntityPunchAbility.userStandAim(stand, mc.player,
-								isPlayerCameraEntity ? cameraEntityAimTarget : ActionTarget.EMPTY);
-					}
-					else {
-						target = StandEntityPunchAbility.actionStandAim(stand);
-					}
-					standAim.setTarget(target);
-				}
+				standAim.setTarget(StandEntityPunchAbility.clientStandAim(stand, mc.player, mc.cameraEntity, cameraEntityAimTarget));
 			}
 			else {
 				standAim.setTarget(ActionTarget.EMPTY);

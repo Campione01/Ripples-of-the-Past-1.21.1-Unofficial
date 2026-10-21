@@ -139,6 +139,10 @@ public final class StandTargetRangeGameTests {
 	private static final String GE_MATERIAL_ITEM = "jojo.message.action_condition.ge_lifeform_material_item";
 	private static final String GE_MATERIAL_BLOCK = "jojo.message.action_condition.ge_lifeform_material_block";
 	private static final short KEY = 23;
+	// StandEntityPunchAbility.clientStandAim(StandEntity, LivingEntity, Entity, ActionTarget) as a class file names it
+	private static final String CLIENT_STAND_AIM = "(Lrotp/core/powersystem/standpower/entity/StandEntity;"
+			+ "Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/entity/Entity;"
+			+ "Lrotp/core/subsystems/target/ActionTarget;)Lrotp/core/subsystems/target/ActionTarget;";
 
 	private StandTargetRangeGameTests() {}
 
@@ -1424,9 +1428,10 @@ public final class StandTargetRangeGameTests {
 	 * 1.16 EntityStandType.clientHitResult with the user as the camera: behind an empty vanilla pick the precision ray from
 	 * the user took any entity StandEntity.canTarget allowed (a player or Stand first, then a hostile mob, then the rest),
 	 * friendly fire allowed, whatever action the Stand ran, and that action's checkTarget then judged it. The port's client
-	 * aim (StandEntityPunchAbility.userStandAim as ClientsideAim calls it) passed over what the running action could not
-	 * take and, with no action, what the Stand may not attack. Crazy Diamond at Resolve 4 as summoned, its user looking
-	 * south; ClientsideAim is client-only, so its call is pinned from its class file, read as a resource.
+	 * aim (StandEntityPunchAbility.userStandAim, which ClientsideAim reaches through clientStandAim) passed over what the
+	 * running action could not take and, with no action, what the Stand may not attack. Crazy Diamond at Resolve 4 as
+	 * summoned, its user looking south; ClientsideAim is client-only, so its call is pinned from its class file, read as a
+	 * resource.
 	 */
 	@GameTest(template = "empty", batch = BATCH)
 	public static void aStandAimsWithItsUsersCrosshairWhateverActionItRunsAsIn116(GameTestHelper helper) {
@@ -1497,10 +1502,9 @@ public final class StandTargetRangeGameTests {
 		try (InputStream in = StandTargetRangeGameTests.class.getClassLoader().getResourceAsStream(clientAim)) {
 			helper.assertTrue(in != null, "Missing class file " + clientAim);
 			String pool = new String(in.readAllBytes(), StandardCharsets.ISO_8859_1);
-			if (!pool.contains("(Lrotp/core/powersystem/standpower/entity/StandEntity;Lnet/minecraft/world/entity/LivingEntity;"
-					+ "Lrotp/core/subsystems/target/ActionTarget;)Lrotp/core/subsystems/target/ActionTarget;")) {
-				wrong.add("USER-AIM the client no longer takes the Stand's aim from userStandAim(stand, user, vanillaPick),"
-						+ " the 1.16 filter, but passes the running action's own");
+			if (!pool.contains("clientStandAim") || !pool.contains(CLIENT_STAND_AIM)) {
+				wrong.add("USER-AIM the client no longer takes the Stand's aim from clientStandAim(stand, user, camera,"
+						+ " vanillaPick), whose userStandAim is the 1.16 filter, but passes the running action's own");
 			}
 		}
 		catch (IOException e) {
@@ -1511,76 +1515,91 @@ public final class StandTargetRangeGameTests {
 	}
 
 	/*
-	 * 1.16 aimed from a Stand only as the camera entity (EntityStandType.clientHitResult, StandEntity.precisionRayTrace over
-	 * StandEntity.canTarget, friendly fire allowed), whatever action it ran, and that action's checkTarget judged the target
-	 * afterwards. The port's client aim for an action aiming as the Stand without manual control (EntityActionInstance.aimAs
-	 * STAND: Heal and Revert holding an entity, a punch kept on its target, Hierophant Green's string attack, add-ons'
-	 * bombs) clipped from the Stand with the action's own filter. Crazy Diamond at Resolve 4, 2.4 blocks behind its user and
-	 * turned away from it, not manually controlled, a held Revert aiming as the Stand; ClientsideAim is client-only, so its
-	 * call is pinned from its class file, read as a resource.
+	 * 1.16 had one mouse target, what the camera entity's crosshair met (InputHandler.pickMouseTarget,
+	 * EntityStandType.clientHitResult): the user's unless under manual control, whatever action the Stand ran, while a task
+	 * turned the Stand to its own target on the server. The port's client kept an aim of its own from the Stand's eyes
+	 * while an action aimed as the Stand without manual control (EntityActionInstance.aimAs STAND: a punch kept on its
+	 * target, Heal and Revert holding an entity, Hierophant Green's strings, add-ons' bombs and Erase). Crazy Diamond at
+	 * Resolve 4, 2.4 blocks behind its user and turned away from it, a snow golem on its own look; the client's choice
+	 * (StandEntityPunchAbility.clientStandAim, ClientsideAim's one call for its Stand's aim, which is client-only and so
+	 * pinned from its class file) is run with GameRenderer.pick's vanilla pick from the camera.
 	 */
 	@GameTest(template = "empty", batch = BATCH)
-	public static void aStandAimingAsItselfTakesWhatItsCrosshairMeetsWhateverActionItRunsAsIn116(GameTestHelper helper) {
-		String[] rows = { "a held Revert: a cow and a snow golem beside the Stand's look, in their precision boxes",
-				"a held Revert: the user's tamed wolf before a cow beside the Stand's look, in their precision boxes",
-				"the aim assist off, a held Revert: a cow before a snow golem on the Stand's look" };
+	public static void aStandAimingAsItselfTakesItsUsersCrosshairAsIn116(GameTestHelper helper) {
+		String[] rows = { "a held Revert aiming as the Stand: the vanilla pick on a cow, a creeper beside the user's look behind it",
+				"a held Revert aiming as the Stand: a cow beside the user's look, in its precision box",
+				"the aim assist off, a held Revert aiming as the Stand: a cow on the user's look, a creeper beside it behind",
+				"no action: the vanilla pick on a cow, a creeper beside the user's look behind it",
+				"under manual control, the Stand the camera, a held Revert aiming as the Stand: a cow on the user's look",
+				"under manual control, the Stand the camera, no action: a cow on the user's look" };
 		List<String> wrong = new ArrayList<>();
 		for (String row : rows) {
 			try (Fixture fixture = Fixture.open(helper, Kind.CD_REVERT)) {
 				fixture.power.setResolveLevel(4);
 				StandEntity stand = fixture.stand;
+				boolean manual = row.startsWith("under manual control");
+				boolean noAction = row.contains("no action");
+				stand.setManuallyControlled(manual);
 				stand.moveTo(fixture.origin.x, fixture.origin.y, fixture.origin.z - 2.4D, 180.0F, 0.0F);
 				stand.setYHeadRot(180.0F);
 				LivingComponentAction.getComponent(stand).entityAim.setTarget(ActionTarget.EMPTY);
 				if (row.startsWith("the aim assist off")) {
 					fixture.user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get()).standAimAssist = false;
 				}
-				double reach = stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE);
-				Entity expected;
-				String layout;
-				boolean premise;
-				if (row.contains("tamed wolf")) {
-					Wolf wolf = placed(helper, fixture, EntityType.WOLF, aheadOfStand(stand, 0.5D, 1.0D));
-					wolf.setTame(true, false);
-					wolf.setOwnerUUID(fixture.user.getUUID());
-					Cow cow = placed(helper, fixture, EntityType.COW, aheadOfStand(stand, 0.6D, 2.0D));
-					double wolfGrown = entry(stand, grownBox(stand, wolf));
-					double cowGrown = entry(stand, grownBox(stand, cow));
-					premise = wolf.getOwner() == fixture.user && !stand.canAttackEntity(wolf) && entry(stand, wolf.getBoundingBox()) < 0.0D
-							&& entry(stand, cow.getBoundingBox()) < 0.0D && wolfGrown > 0.0D && cowGrown > wolfGrown && cowGrown < reach
-							&& heldRevertTakesOnly(fixture, stand, wolf, null) && heldRevertTakesOnly(fixture, stand, cow, null);
-					layout = "the wolf's precision box " + wolfGrown + " and the cow's " + cowGrown + " blocks along the Stand's look,"
-							+ " both off the exact line (reach " + reach + "), a wolf the Stand may not attack, the held Revert taking"
-							+ " neither";
-					expected = wolf;
+				double standReach = stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE);
+				double userReach = StandEntityPunchAbility.userAimReach(fixture.user, stand);
+				SnowGolem golem = placed(helper, fixture, EntityType.SNOW_GOLEM, aheadOfStand(stand, 0.0D, 1.2D));
+				double golemEntry = entry(stand, golem.getBoundingBox());
+				boolean premise = golemEntry > 0.0D && golemEntry < standReach && entry(fixture.user, grownBox(stand, golem)) < 0.0D
+						&& entry(fixture.user, stand.getBoundingBox()) < 0.0D;
+				String layout = "the golem " + golemEntry + " blocks along the Stand's look (reach " + standReach + ")";
+				Cow cow;
+				if (row.contains("beside the user's look, in its precision box")) {
+					cow = placed(helper, fixture, EntityType.COW, onLook(fixture, 0.6D, 1.2D));
+					double cowGrown = entry(fixture.user, grownBox(stand, cow));
+					premise &= entry(fixture.user, cow.getBoundingBox()) < 0.0D && cowGrown > 0.0D && cowGrown < userReach;
+					layout += ", the cow's precision box " + cowGrown + " blocks along the user's look, off the exact line (reach "
+							+ userReach + ")";
 				}
 				else {
-					boolean beside = row.contains("beside");
-					double side = beside ? 0.6D : 0.0D;
-					Cow cow = placed(helper, fixture, EntityType.COW, aheadOfStand(stand, side, beside ? 1.2D : 1.0D));
-					SnowGolem golem = placed(helper, fixture, EntityType.SNOW_GOLEM, aheadOfStand(stand, side, 2.0D));
-					double cowEntry = entry(stand, cow.getBoundingBox());
-					double golemEntry = entry(stand, golem.getBoundingBox());
-					double cowGrown = entry(stand, grownBox(stand, cow));
-					double golemGrown = entry(stand, grownBox(stand, golem));
-					premise = beside ? cowEntry < 0.0D && golemEntry < 0.0D && cowGrown > 0.0D && golemGrown > cowGrown
-							&& golemGrown < reach : cowEntry > 0.0D && golemEntry > cowEntry && golemEntry < reach;
-					premise &= heldRevertTakesOnly(fixture, stand, cow, golem);
-					layout = "the cow " + cowEntry + " (precision box " + cowGrown + ") and the golem " + golemEntry
-							+ " (precision box " + golemGrown + ") blocks along the Stand's look (reach " + reach + "), the held Revert"
-							+ " taking only the golem";
-					expected = cow;
+					cow = placed(helper, fixture, EntityType.COW, onLook(fixture, 0.0D, 1.0D));
+					double cowEntry = entry(fixture.user, cow.getBoundingBox());
+					premise &= cowEntry > 0.0D && cowEntry < fixture.user.entityInteractionRange();
+					layout += ", the cow " + cowEntry + " blocks along the user's look";
+					if (row.contains("creeper")) {
+						Creeper creeper = placed(helper, fixture, EntityType.CREEPER, onLook(fixture, 0.6D, 2.0D));
+						double creeperGrown = entry(fixture.user, grownBox(stand, creeper));
+						premise &= entry(fixture.user, creeper.getBoundingBox()) < 0.0D && creeperGrown > cowEntry
+								&& creeperGrown < userReach && StandEntityPunchAbility.userPrecisionRayTarget(stand, fixture.user,
+										entity -> StandEntityPunchAbility.canUserAimTarget(stand, entity)).getEntity() == creeper;
+						layout += " and the creeper's precision box " + creeperGrown + ", off the exact line, which the user's"
+								+ " precision ray takes";
+					}
 				}
-				EntityActionInstance revert = LivingComponentAction.getCurEntityAction(stand);
-				if (revert != null) {
+				premise &= entry(stand, cow.getBoundingBox()) < 0.0D;
+				if (!noAction) {
+					EntityActionInstance revert = ((EntityActionType) fixture.ability).initActionOnAbilityUse(fixture.level,
+							fixture.user, stand, null);
+					LivingComponentAction.getComponent(stand).setAction(revert, fixture.user, SyncType.NO_SYNC);
 					revert.aimAs = AimingEntity.STAND;
+					premise &= LivingComponentAction.getCurEntityAction(stand) == revert;
 				}
-				premise &= revert != null && !stand.isManuallyControlled() && entry(fixture.user, stand.getBoundingBox()) < 0.0D;
-				helper.assertTrue(premise, "STAND-AS-ITSELF premise: " + row + ": " + layout);
-				ActionTarget aim = StandEntityPunchAbility.actionStandAim(stand);
+				else {
+					premise &= LivingComponentAction.getCurEntityAction(stand) == null;
+				}
+				Entity camera = manual ? stand : fixture.user;
+				ActionTarget vanillaPick = vanillaPick(camera, fixture.user);
+				premise &= stand.isManuallyControlled() == manual && (manual ? vanillaPick.getEntity() == golem
+						: row.contains("in its precision box") ? vanillaPick.getType() == TargetType.EMPTY
+						: vanillaPick.getEntity() == cow);
+				helper.assertTrue(premise, "STAND-AS-ITSELF premise: " + row + ": " + layout + "; the vanilla pick "
+						+ describe(vanillaPick, camera));
+				Entity expected = manual ? golem : cow;
+				ActionTarget aim = StandEntityPunchAbility.clientStandAim(stand, fixture.user, camera, vanillaPick);
 				if (aim.getType() != TargetType.ENTITY || aim.getEntity() != expected) {
-					wrong.add("STAND-AS-ITSELF " + row + " (" + layout + "): the Stand's aim is " + describe(aim, stand)
-							+ "; 1.16's crosshair with the Stand as the camera took " + expected.getType().getDescription().getString());
+					wrong.add("STAND-AS-ITSELF " + row + " (" + layout + "; the vanilla pick " + describe(vanillaPick, camera)
+							+ "): the Stand's aim is " + describe(aim, camera) + "; 1.16's one mouse target, the "
+							+ (manual ? "Stand's" : "user's") + " crosshair, took " + expected.getType().getDescription().getString());
 				}
 				LivingComponentAction.getComponent(stand).setAction(null, fixture.user, SyncType.NO_SYNC);
 			}
@@ -1589,11 +1608,10 @@ public final class StandTargetRangeGameTests {
 		try (InputStream in = StandTargetRangeGameTests.class.getClassLoader().getResourceAsStream(clientAim)) {
 			helper.assertTrue(in != null, "Missing class file " + clientAim);
 			String pool = new String(in.readAllBytes(), StandardCharsets.ISO_8859_1);
-			if (!pool.contains("actionStandAim") || !pool.contains(
-					"(Lrotp/core/powersystem/standpower/entity/StandEntity;)Lrotp/core/subsystems/target/ActionTarget;")
-					|| pool.contains("canTargetEntityForAiming") || pool.contains("canDefaultTargetEntityForAiming")) {
-				wrong.add("STAND-AS-ITSELF the client no longer takes the aim of a Stand aiming as itself from actionStandAim(stand),"
-						+ " the 1.16 filter, or still asks the running action's own filter");
+			if (!pool.contains("clientStandAim") || !pool.contains(CLIENT_STAND_AIM) || pool.contains("actionStandAim")
+					|| pool.contains("manualStandAim") || pool.contains("userStandAim")) {
+				wrong.add("STAND-AS-ITSELF the client no longer takes its Stand's aim from clientStandAim(stand, user, camera,"
+						+ " vanillaPick) alone, 1.16's one mouse target, or still picks one of its own");
 			}
 		}
 		catch (IOException e) {

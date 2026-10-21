@@ -1231,13 +1231,22 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	}
 
 	/**
-	 * The Stand's aim a client keeps while an action aims as the Stand without manual control (EntityActionInstance#aimAs):
-	 * 1.16 aimed from a Stand only as the camera entity (EntityStandType.clientHitResult, StandEntity.precisionRayTrace),
-	 * whatever action it ran, so this is {@link #manualStandAim} with no vanilla pick, the Stand not being the camera. The
-	 * running action's own checks refuse what it cannot take, as 1.16's checkTarget did.
+	 * The Stand's aim a client keeps (ClientsideAim): 1.16's one mouse target, what the camera entity's crosshair met
+	 * (InputHandler.pickMouseTarget, EntityStandType.clientHitResult), whatever action the Stand ran. Under manual control,
+	 * while the Stand aims as itself (EntityActionInstance#aimAs), the Stand's crosshair ({@link #manualStandAim});
+	 * otherwise its user's ({@link #userStandAim}), also while an action aims as the Stand, which turns to its own target
+	 * on the server. The vanilla pick counts only while the aiming entity is the camera.
 	 */
-	public static ActionTarget actionStandAim(StandEntity stand) {
-		return manualStandAim(stand, ActionTarget.EMPTY);
+	public static ActionTarget clientStandAim(StandEntity stand, LivingEntity user, @Nullable Entity camera,
+			ActionTarget vanillaPick) {
+		boolean userIsCamera = camera == null || camera == user;
+		EntityActionInstance action = LivingComponentAction.getCurEntityAction(stand);
+		AimingEntity aimAs = action != null ? action.aimAs : AimingEntity.CAMERA_ENTITY;
+		boolean standAims = aimAs == AimingEntity.STAND || aimAs == AimingEntity.CAMERA_ENTITY && !userIsCamera;
+		if (standAims && stand.isManuallyControlled()) {
+			return manualStandAim(stand, camera == stand ? vanillaPick : ActionTarget.EMPTY);
+		}
+		return userStandAim(stand, user, userIsCamera ? vanillaPick : ActionTarget.EMPTY);
 	}
 
 	// the strict crosshair of 2026-09-13: from the user's eyes at the user's reach, blocks stopping the ray
