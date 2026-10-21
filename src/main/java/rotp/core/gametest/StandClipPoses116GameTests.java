@@ -142,6 +142,121 @@ public final class StandClipPoses116GameTests {
 		helper.succeed();
 	}
 
+	private static final String CD_ANIMS =
+			"stand_skins/crazy_diamond/assets/jojo_ripples/animations/crazy_diamond.animation.json";
+	private static final String DEFAULT_ANIMS = "animations/stand_default.animation.json";
+
+	// how much of the look pitch a pose put on both arms (StandEntityModel.setSecondXRot) at clip times
+	private record ArmLook(String asset, String clip, String[] at, float[] share) {}
+
+	private static final List<ArmLook> ARM_LOOKS = List.of(
+			// HumanoidStandModel :565-584, heavyAttackAnim: armsRotationFull in every pose, the recovery's transition from
+			// heavyImpact keeps it to the end of the action
+			new ArmLook(MR_ANIMS, "heavy_punch", new String[] { "0", "W0.5", "PERFORM", "RECOVERY", "END" }, new float[] { 1, 1, 1, 1, 1 }),
+			new ArmLook(DEFAULT_ANIMS, "heavy_punch", new String[] { "0", "W0.5", "PERFORM", "RECOVERY", "END" }, new float[] { 1, 1, 1, 1, 1 }),
+			// HumanoidStandModel :482-536, the jab: xRot * t to jabArmTurn, the full look at jabImpact, xRot * (1 - t) to
+			// jabArmTurnBack, none after (the clip's keys 0, 0.1, PERFORM, RECOVERY, 0.4667, the end)
+			new ArmLook(MR_ANIMS, "punch", new String[] { "0", "0.05", "0.1", "PERFORM", "RECOVERY", "0.35", "0.4667", "END" },
+					new float[] { 0, 0.5F, 1, 1, 1, 0.5F, 0, 0 }),
+			new ArmLook(SC_ANIMS, "no_rapier_light_attack", new String[] { "0", "0.1", "PERFORM", "RECOVERY", "0.4667", "END" },
+					new float[] { 0, 1, 1, 1, 0, 0 }),
+			// SilverChariotModel :247-288, the rapier stab: armsRotation in both poses and the recovery's transition
+			new ArmLook(SC_ANIMS, "light_attack", new String[] { "0", "PERFORM", "RECOVERY", "END" }, new float[] { 1, 1, 1, 1 }),
+			// SilverChariotModel :361-365 and ArmsBarrageAnimation: no pose in the windup, the stab loop in the perform,
+			// the idle in the recovery
+			new ArmLook(SC_ANIMS, "melee_barrage", new String[] { "0", "0.2999", "PERFORM", "1.0", "RECOVERY", "2.3001", "END" },
+					new float[] { 0, 0, 1, 1, 1, 0, 0 }));
+
+	// a clip whose joints turn by half their forearm or lower leg, the limbs to check
+	private record JointClip(String asset, String clip, String... limbs) {}
+
+	private static final List<JointClip> JOINT_CLIPS = List.of(
+			new JointClip(SC_ANIMS, "light_attack", "left_arm", "right_arm"),
+			new JointClip(SC_ANIMS, "no_rapier_light_attack", "left_arm", "right_arm"),
+			new JointClip(SC_ANIMS, "melee_barrage", "left_arm", "right_arm"),
+			new JointClip(SC_ANIMS, "dash_attack", "left_arm", "right_arm"),
+			new JointClip(SC_ANIMS, "sweeping_attack", "left_arm", "right_arm"),
+			new JointClip(CD_ANIMS, "heavy_punch", "left_arm", "right_arm", "left_leg", "right_leg"),
+			new JointClip(CD_ANIMS, "finisher", "left_arm", "right_arm", "left_leg", "right_leg"),
+			new JointClip(DEFAULT_ANIMS, "heavy_punch", "left_arm", "right_arm", "left_leg", "right_leg"));
+
+	/*
+	 * 1.16's humanoid Java-model poses pitched both arms with the look (setSecondXRot, applied after the pose as a parent
+	 * x rotation, the port's *_arm_xrot): heavyAttackAnim through the whole action, the jab from its arm turn to its turn
+	 * back, Silver Chariot's rapier stab through the whole action and its barrage in the perform; the rapier heavy (the
+	 * dash attack) tilted the rapier arm by the look (rightArm.zRot -= xRot) and lerped it out over the recovery. And the
+	 * models turned each elbow and knee joint by half its forearm or lower leg (rotateJoint), here up to the clip's last
+	 * key, which hands over to the idle's own joint.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void theArmsFollowTheLookAndTheJointsBendHalfAsIn116sHumanoidModels(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		Map<String, JsonObject> files = new HashMap<>();
+		float[] level = { 0, 0 };
+		for (ArmLook arms : ARM_LOOKS) {
+			JsonObject clip = clipOf(helper, files, arms.asset(), arms.clip());
+			for (int i = 0; i < arms.at().length; i++) {
+				float time = clipTime(clip, arms.at()[i]);
+				for (String bone : new String[] { "left_arm_xrot", "right_arm_xrot" }) {
+					float[] pitched = rotationAt(clip, bone, time, LOOK);
+					float[] flat = rotationAt(clip, bone, time, level);
+					if (Math.abs(pitched[0] - arms.share()[i] * LOOK[0]) > 0.05F || Math.abs(flat[0]) > 0.05F
+							|| Math.abs(pitched[1]) > 0.05F || Math.abs(pitched[2]) > 0.05F) {
+						wrong.add(arms.clip() + " of " + arms.asset() + " " + bone + " at " + arms.at()[i] + " (" + time + ") looking "
+								+ LOOK[0] + " down: " + Arrays.toString(pitched) + " where 1.16 pitched the arm by " + arms.share()[i] * LOOK[0]);
+					}
+				}
+			}
+		}
+		JsonObject dash = clipOf(helper, files, SC_ANIMS, "dash_attack");
+		String[] dashAt = { "0", "PERFORM", "RECOVERY", "0.375", "END" };
+		float[] dashShare = { 1, 1, 1, 0.5F, 0 };
+		for (int i = 0; i < dashAt.length; i++) {
+			float time = clipTime(dash, dashAt[i]);
+			float tilt = rotationAt(dash, "right_arm", time, LOOK)[2] - rotationAt(dash, "right_arm", time, level)[2];
+			if (Math.abs(tilt + dashShare[i] * LOOK[0]) > 0.05F) {
+				wrong.add("dash_attack right_arm at " + dashAt[i] + " (" + time + "): its z turns by " + tilt + " looking " + LOOK[0]
+						+ " down, where 1.16 turned it by " + -dashShare[i] * LOOK[0]);
+			}
+		}
+		for (JointClip joints : JOINT_CLIPS) {
+			JsonObject clip = clipOf(helper, files, joints.asset(), joints.clip());
+			for (String limb : joints.limbs()) {
+				List<Map.Entry<Float, JsonElement>> bendKeys = keys(clip, limb + "_bend");
+				helper.assertTrue(bendKeys.size() > 1, "setup: " + joints.clip() + " of " + joints.asset() + " keys no " + limb + "_bend");
+				float until = bendKeys.get(bendKeys.size() - 2).getKey();
+				int off = 0;
+				String first = null;
+				for (float time = 0; time <= until + 0.00001F; time += 0.01F) {
+					float[] bend = rotationAt(clip, limb + "_bend", time, LOOK);
+					float[] joint = rotationAt(clip, limb + "_joint", time, LOOK);
+					for (int axis = 0; axis < 3; axis++) {
+						if (Math.abs(joint[axis] - bend[axis] / 2) > 0.05F) {
+							off++;
+							if (first == null) {
+								first = "at " + time + " " + Arrays.toString(joint) + " where the bend is " + Arrays.toString(bend);
+							}
+							break;
+						}
+					}
+				}
+				if (off > 0) {
+					wrong.add(joints.clip() + " of " + joints.asset() + " " + limb + "_joint off half its bend at " + off + " samples, first "
+							+ first);
+				}
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), "1.16's humanoid models pitched the arms with the look in these poses and turned the"
+				+ " joints by half their forearm or lower leg: " + wrong);
+		helper.succeed();
+	}
+
+	private static JsonObject clipOf(GameTestHelper helper, Map<String, JsonObject> files, String asset, String name) {
+		JsonObject clip = files.computeIfAbsent(asset, a -> readJson(helper, a)).getAsJsonObject("animations").getAsJsonObject(name);
+		helper.assertTrue(clip != null && clip.has("bones"), asset + " lost " + name);
+		return clip;
+	}
+
 	private static String idleOf(HeadPose pose) {
 		return pose.asset().equals(SC_ANIMS) && pose.clip().startsWith("no_rapier") ? "no_rapier_idle" : "idle";
 	}
