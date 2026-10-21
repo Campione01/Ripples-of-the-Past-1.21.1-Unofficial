@@ -72,6 +72,9 @@ public class EntityActionInstance implements HeldInput {
 	public SynchedDataHelper synchedData = new SynchedDataHelper(this, () -> this.level().isClientSide());
 	
 	@Nonnull protected ActionPhase phase;
+	// the last phase with a length the action entered, as 1.16's task phase (StandEntityTask.setPhase took only a phase with
+	// ticks, and moveToPhase passed over one without): what its modifiers see as its phase changes and as it ends
+	@Nullable private ActionPhase taskPhase;
 	protected int curPhaseTick;
 	protected float curPhaseLength;
 	protected float phasePartialTick;
@@ -1081,7 +1084,8 @@ public class EntityActionInstance implements HeldInput {
 		float prevPhaseTick = getPhaseTick();
 		float prevTickLength = this.curPhaseLength;
 
-		if (this.performer != null && this.phase != phase) {
+		boolean changed = this.phase != phase;
+		if (this.performer != null && changed) {
 			applyStandUserWalkSpeed(phase);
 			onSetPhase(phase);
 		}
@@ -1091,6 +1095,13 @@ public class EntityActionInstance implements HeldInput {
 
 		this.phasePartialTick = Mth.clamp(prevPhaseTick - prevTickLength, 0, 0.9999f);
 
+		if (changed && curPhaseLength > 0) {
+			ActionPhase prevTaskPhase = taskPhase;
+			taskPhase = phase;
+			if (this.performer != null) {
+				transitionModifiers(prevTaskPhase, phase);
+			}
+		}
 		takeHeldCooldownIfHoldEnded();
 		checkNextPhase();
 	}
@@ -1320,12 +1331,39 @@ public class EntityActionInstance implements HeldInput {
 		tickModifiers();
 	}
 
-	// 1.16 StandEntityTask.tick: the task's modifier actions ticked right after its own action
+	/*
+	 * 1.16 StandEntityTask.tick: the task's modifier actions ticked right after its own action, also in a tick where that
+	 * action stopped the task, in the phase the stopped task kept: an action over by now (only one that ended in this
+	 * tick runs it) is seen in the phase it ended in while its modifiers tick.
+	 */
 	private void tickModifiers() {
-		if (punchModifiers != null && !punchModifiers.isEmpty() && !isOver()) {
+		if (punchModifiers == null || punchModifiers.isEmpty() || isOver() && taskPhase == null) {
+			return;
+		}
+		boolean ended = isOver();
+		if (ended) {
+			phase = taskPhase;
+		}
+		try {
 			for (StandEffectInstance modifier : List.copyOf(punchModifiers)) {
 				if (!modifier.isStopped()) {
 					modifier.onModifiedActionTick(this);
+				}
+			}
+		}
+		finally {
+			if (ended) {
+				phase = null;
+			}
+		}
+	}
+
+	// 1.16 StandEntityTask.phaseTransition: each modifier's after the action's own
+	private void transitionModifiers(@Nullable ActionPhase prevPhase, @Nullable ActionPhase nextPhase) {
+		if (punchModifiers != null && !punchModifiers.isEmpty()) {
+			for (StandEffectInstance modifier : List.copyOf(punchModifiers)) {
+				if (!modifier.isStopped()) {
+					modifier.onModifiedActionPhaseTransition(this, prevPhase, nextPhase);
 				}
 			}
 		}
@@ -1360,6 +1398,10 @@ public class EntityActionInstance implements HeldInput {
 
 			int ordinal = phase.ordinal() + 1;
 			ActionPhase nextPhase = ordinal < ActionPhase.values().length ? ActionPhase.values()[ordinal] : null;
+			if (nextPhase == null && performer != null) {
+				// 1.16 moveToPhase(null) told the modifiers before it stopped the task; a stopped task told them nothing
+				transitionModifiers(taskPhase, null);
+			}
 			setPhaseStart(nextPhase);
 		}
 	}
@@ -1519,6 +1561,7 @@ public class EntityActionInstance implements HeldInput {
 				action.curPhaseTick = buffer.readVarInt();
 				action.phasePartialTick = buffer.readFloat();
 				action.curPhaseLength = buffer.readFloat();
+				action.taskPhase = action.curPhaseLength > 0 ? action.phase : null;
 				action.powerUser.readNetwork(buffer);
 				action.standRotationTarget = NetworkUtil.readOptional(buffer, ActionTarget.STREAM_CODEC_UNRESOLVED_ENTITY_ID).orElse(null);
 				action.actionTargetSnapshot = NetworkUtil.readOptional(buffer, ActionTarget.STREAM_CODEC_UNRESOLVED_ENTITY_ID).orElse(null);

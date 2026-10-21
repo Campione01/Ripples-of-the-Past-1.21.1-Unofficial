@@ -38,10 +38,13 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * 1.16 StandEntityActionModifier (Reworked's Star Platinum blink among them): its perform added it to the Stand's running
  * task (StandEntityTask.addModifierAction), which then ran the modifier's phase hooks right after its own action's on every
  * tick (StandEntityTask.tick: tickAction(action), then each modifier), its standPerform in the task's PERFORM's first tick,
- * after the action's own standPerform. FEATURE_STAND_ACTION_MODIFIERS_V1 gives an add-on the same: a Stand effect with
+ * after the action's own standPerform, also in the tick where the action stopped the task, in the phase the task kept; and
+ * each modifier's phaseTransition right after the action's (StandEntityTask.phaseTransition) as moveToPhase entered a phase
+ * with ticks, or ran out the last one. FEATURE_STAND_ACTION_MODIFIERS_V1 gives an add-on the same: a Stand effect with
  * isFromStandAction attaches to the Stand's current action as it starts, and its onModifiedActionTick runs right after the
- * action's own tick until the effect is stopped or the action is over; once a tick, as 1.16's task kept its modifiers in a
- * set, also where a client initializes the effect twice as it adds it from its add packet.
+ * action's own tick until the effect is stopped, its onModifiedActionPhaseTransition right after the action's onSetPhase;
+ * once a tick, as 1.16's task kept its modifiers in a set, also where a client initializes the effect twice as it adds it
+ * from its add packet.
  */
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -76,10 +79,11 @@ public final class StandActionModifierGameTests {
 			RecordingModifier modifier = attach(helper, power, action, events);
 			tickUntilOver(standAction, action);
 			helper.assertTrue(events.equals(List.of("action WINDUP 0", "modifier WINDUP 0", "action WINDUP 1",
-					"modifier WINDUP 1", "action PERFORM 0", "perform start", "modifier PERFORM 0", "action PERFORM 1",
-					"modifier PERFORM 1", "action RECOVERY 0", "modifier RECOVERY 0", "action RECOVERY 1",
-					"modifier RECOVERY 1")), "1.16 ran a task's modifier right after its action on each tick, its standPerform"
-							+ " after the action's: " + events);
+					"modifier WINDUP 1", "action WINDUP -> PERFORM", "modifier WINDUP -> PERFORM in PERFORM", "action PERFORM 0",
+					"perform start", "modifier PERFORM 0", "action PERFORM 1", "modifier PERFORM 1", "action PERFORM -> RECOVERY",
+					"modifier PERFORM -> RECOVERY in RECOVERY", "action RECOVERY 0", "modifier RECOVERY 0", "action RECOVERY 1",
+					"modifier RECOVERY 1", "modifier RECOVERY -> null in RECOVERY")), "1.16 ran a task's modifier right after its action on"
+							+ " each tick, its standPerform after the action's, and its phaseTransition after the action's: " + events);
 			helper.assertTrue(modifier.standAction == action, "setup: the modifier is not the action's");
 			List<String> run = List.copyOf(events);
 
@@ -91,17 +95,35 @@ public final class StandActionModifierGameTests {
 			modifier.remove();
 			tickUntilOver(standAction, action);
 			helper.assertTrue(events.equals(List.of("action WINDUP 0", "modifier WINDUP 0", "action WINDUP 1",
-					"action PERFORM 0", "perform start", "action PERFORM 1", "action RECOVERY 0", "action RECOVERY 1")),
+					"action WINDUP -> PERFORM", "action PERFORM 0", "perform start", "action PERFORM 1",
+					"action PERFORM -> RECOVERY", "action RECOVERY 0", "action RECOVERY 1")),
 					"a stopped modifier still ran: " + events);
 
-			// an action that ends in its own tick takes its modifier with it
+			// an action that ends itself at its perform start still runs its modifier in that tick, in the phase it ended in
+			// (1.16: the stopped task kept its phase), and tells it no end of its phases (1.16 stopTask told no modifier)
 			events.clear();
 			action = start(helper, power, user, stand, events, true);
 			attach(helper, power, action, events);
 			tickUntilOver(standAction, action);
 			helper.assertTrue(events.equals(List.of("action WINDUP 0", "modifier WINDUP 0", "action WINDUP 1",
-					"modifier WINDUP 1", "action PERFORM 0", "perform start")),
-					"the modifier of an action that ended in its own tick still ran: " + events);
+					"modifier WINDUP 1", "action WINDUP -> PERFORM", "modifier WINDUP -> PERFORM in PERFORM", "action PERFORM 0",
+					"perform start", "modifier PERFORM 0")) && action.isOver() && action.getPhase() == null,
+					"1.16 ran the task's modifiers after its action also in the tick that action stopped the task, in the phase"
+							+ " the task kept (StandEntityTask.tick), and told them no phase change for the stop: " + events
+							+ ", the action over " + action.isOver());
+
+			// a phase with no length is passed over, as 1.16 moveToPhase passed over one without ticks, so the modifier is told
+			// of the run-out from the perform (the action itself, as its onSetPhase shows, passed into that recovery)
+			events.clear();
+			action = start(helper, power, user, stand, events, false);
+			action.phasesLength.put(ActionPhase.RECOVERY, 0F);
+			attach(helper, power, action, events);
+			tickUntilOver(standAction, action);
+			helper.assertTrue(events.equals(List.of("action WINDUP 0", "modifier WINDUP 0", "action WINDUP 1",
+					"modifier WINDUP 1", "action WINDUP -> PERFORM", "modifier WINDUP -> PERFORM in PERFORM", "action PERFORM 0",
+					"perform start", "modifier PERFORM 0", "action PERFORM 1", "modifier PERFORM 1", "action PERFORM -> RECOVERY",
+					"modifier PERFORM -> null in RECOVERY")), "1.16 told a task's modifiers only of the phases with ticks it entered and of its"
+							+ " end (moveToPhase): " + events);
 
 			// added as a client adds it from the effect's add packet, which initializes it twice, it is on the action once and
 			// runs once a tick, as 1.16's client added it to its task's set (TrStandTaskModifierPacket)
@@ -231,6 +253,13 @@ public final class StandActionModifierGameTests {
 				forceStop();
 			}
 		}
+
+		@Override
+		public void onSetPhase(ActionPhase newPhase) {
+			if (getPhase() != newPhase) {
+				events.add("action " + getPhase() + " -> " + newPhase);
+			}
+		}
 	}
 
 	// an add-on's modifier of the running action (1.16 StandEntityActionModifier), here only recording when it runs
@@ -245,6 +274,11 @@ public final class StandActionModifierGameTests {
 		@Override
 		public void onModifiedActionTick(EntityActionInstance action) {
 			events.add("modifier " + action.getPhase() + " " + (int) action.getPhaseTick());
+		}
+
+		@Override
+		public void onModifiedActionPhaseTransition(EntityActionInstance action, ActionPhase prevPhase, ActionPhase nextPhase) {
+			events.add("modifier " + prevPhase + " -> " + nextPhase + " in " + action.getPhase());
 		}
 
 		@Override

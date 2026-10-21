@@ -258,8 +258,12 @@ public final class RotpAddonApi {
 	 * (EntityActionInstance#getPunchModifiers): on the server when it is added to StandPower#userStandEffects, on every
 	 * client that gets it with the effect's add packet. StandEffectInstance#onModifiedActionTick is called on every tick of
 	 * that action, on both sides, right after the action's own tick (and its perform start on its PERFORM's first tick),
-	 * while the effect is not stopped and the action is not over. 1.16 hasModifierAction is getPunchModifiers() holding an
-	 * effect of its type, canSetFollowUp that and the modifier ability's own checks.
+	 * while the effect is not stopped, also in the tick where the action ended itself, which then reads the phase it ended
+	 * in (1.16 StandEntityTask.tick). StandEffectInstance#onModifiedActionPhaseTransition(action, prevPhase, nextPhase) is
+	 * called right after the action's own onSetPhase as it enters a phase with a length, and with nextPhase null as it runs
+	 * out its last phase, not when it is stopped or replaced (1.16 StandEntityTask.phaseTransition, moveToPhase). 1.16
+	 * hasModifierAction is getPunchModifiers() holding an effect of its type, canSetFollowUp that and the modifier
+	 * ability's own checks.
 	 */
 	public static final String FEATURE_STAND_ACTION_MODIFIERS_V1 =
 			"stand_action_modifiers_v1";
