@@ -151,6 +151,34 @@ public final class HeavyPunchPerform116GameTests {
 			// CrazyDiamondModel :669-680: pose8 held to half the recovery
 			new HeldImpactClip(CD_ANIMS, "heavy_punch", "right_arm_bend", 0.5833F));
 
+	// a 1.16 head at a clip time (0, PERFORM, RECOVERY, FIFTH a fifth into the perform, MIDDLE the recovery's middle, or
+	// W<f> a fraction of the windup): its root-space angles, or null where 1.16's head followed the look
+	private record HeadPose(String asset, String clip, String at, float[] head) {}
+
+	private static final List<HeadPose> HEAD_POSES = List.of(
+			// SilverChariotModel :305-324: sweepPose1-3
+			new HeadPose(SC_ANIMS, "sweeping_attack", "PERFORM", new float[] { 0, -45, 0 }),
+			new HeadPose(SC_ANIMS, "sweeping_attack", "FIFTH", new float[] { 0, -36, 0 }),
+			new HeadPose(SC_ANIMS, "sweeping_attack", "RECOVERY", new float[] { 0, 0, 0 }),
+			// MagiciansRedModel :287-316: kickPose1-3
+			new HeadPose(MR_ANIMS, "kick", "0", new float[] { -15, 0, 0 }),
+			new HeadPose(MR_ANIMS, "kick", "PERFORM", new float[] { -30, -15, 0 }),
+			new HeadPose(MR_ANIMS, "kick", "RECOVERY", new float[] { -45, -10, 0 }),
+			// HumanoidStandModel :540-586: the heavy poses leave the head on the look
+			new HeadPose(MR_ANIMS, "heavy_punch", "0", null),
+			new HeadPose(MR_ANIMS, "heavy_punch", "W0.5", null),
+			new HeadPose(MR_ANIMS, "heavy_punch", "W0.97", null),
+			new HeadPose(MR_ANIMS, "heavy_punch", "PERFORM", null),
+			new HeadPose(MR_ANIMS, "heavy_punch", "MIDDLE", null),
+			// CrazyDiamondModel :685-737: heavyFinisherPose1-2, no head in pose3-4
+			new HeadPose(CD_ANIMS, "finisher", "0", new float[] { 5, 0, 6.36F }),
+			new HeadPose(CD_ANIMS, "finisher", "PERFORM", new float[] { -6.9176F, 15.7939F, 16.6495F }),
+			new HeadPose(CD_ANIMS, "finisher", "RECOVERY", null),
+			new HeadPose(CD_ANIMS, "finisher", "MIDDLE", null));
+
+	// the port's bones from the model root to the head; head_rot carries the look
+	private static final String[] HEAD_CHAIN = { "stand_pos", "body_rot", "body", "torso", "torso_bend", "head" };
+
 	/*
 	 * Every heavy punch the core Stands' movesets hold, their grab variations included, and every core heavy type as an
 	 * add-on registers it (no perform of its own) stores 1.16's one-tick perform. The port's charged heavy punch and grab
@@ -403,6 +431,172 @@ public final class HeavyPunchPerform116GameTests {
 		}
 		helper.assertTrue(wrong.isEmpty(), "1.16's Java-model heavies held the impact pose to the middle of the recovery: " + wrong);
 		helper.succeed();
+	}
+
+	/*
+	 * 1.16's Java models hung the head from the model root beside the body, so a pose's head angles were root-space
+	 * angles and a pose without a head left it on the look; the port's head hangs under body_rot, body, torso and
+	 * torso_bend. A clip built from those poses counter-rotates its head keys by that chain: the composed rotation of the
+	 * chain and the head is 1.16's head (within a degree), and head_rot adds the look exactly where 1.16's head followed
+	 * it.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void theHeadsOf116PosesKeepTheirRootSpaceAnglesUnderThePortsBodyChain(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		Map<String, JsonObject> files = new HashMap<>();
+		for (HeadPose pose : HEAD_POSES) {
+			JsonObject clip = files.computeIfAbsent(pose.asset(), asset -> readJson(helper, asset))
+					.getAsJsonObject("animations").getAsJsonObject(pose.clip());
+			helper.assertTrue(clip != null && clip.has("timeline") && clip.has("bones"), pose.asset() + " lost " + pose.clip());
+			float time = clipTime(clip, pose.at());
+			double[][] composed = rotationMatrix(new float[3]);
+			for (String bone : HEAD_CHAIN) {
+				composed = multiply(composed, rotationMatrix(channelAt(clip, bone, time)));
+			}
+			boolean look = pose.head() == null;
+			double off = angleBetween(composed, rotationMatrix(look ? new float[3] : pose.head()));
+			Boolean lookAdded = headRotLooks(clip, time);
+			if (off > 1 || lookAdded == null || lookAdded != look) {
+				wrong.add(pose.clip() + " of " + pose.asset() + " at " + pose.at() + " (" + time + "): head "
+						+ String.format("%.1f", off) + " degrees off 1.16's " + (look ? "look" : Arrays.toString(pose.head()))
+						+ ", head_rot " + (lookAdded == null ? "half on the look" : lookAdded ? "on the look" : "off the look"));
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), "A 1.16 pose's head kept its root-space angles, or the look where the pose had no head: " + wrong);
+		helper.succeed();
+	}
+
+	private static float clipTime(JsonObject clip, String at) {
+		float performAt = marker(clip, "phase=PERFORM;");
+		float recoveryAt = marker(clip, "phase=RECOVERY;");
+		return switch (at) {
+			case "PERFORM" -> performAt;
+			case "RECOVERY" -> recoveryAt;
+			case "FIFTH" -> performAt + (recoveryAt - performAt) / 5;
+			case "MIDDLE" -> (recoveryAt + clip.get("animation_length").getAsFloat()) / 2;
+			default -> at.startsWith("W") ? Float.parseFloat(at.substring(1)) * performAt : Float.parseFloat(at);
+		};
+	}
+
+	// a bone's rotation at a clip time as the port samples it (linear, easeInQuad or easeInCubic towards a key), the
+	// look queries read as 0; a bone the clip leaves out is 0
+	private static float[] channelAt(JsonObject clip, String boneName, float time) {
+		JsonObject bone = clip.getAsJsonObject("bones").getAsJsonObject(boneName);
+		if (bone == null || !bone.has("rotation")) {
+			return new float[3];
+		}
+		JsonElement rotation = bone.get("rotation");
+		if (rotation.isJsonArray() || rotation.getAsJsonObject().has("vector")) {
+			return numbers(rotation);
+		}
+		List<Map.Entry<Float, JsonElement>> keys = new ArrayList<>();
+		for (Map.Entry<String, JsonElement> key : rotation.getAsJsonObject().entrySet()) {
+			keys.add(Map.entry(Float.parseFloat(key.getKey()), key.getValue()));
+		}
+		keys.sort(Map.Entry.comparingByKey());
+		if (time <= keys.get(0).getKey()) {
+			return numbers(keys.get(0).getValue());
+		}
+		for (int i = 1; i < keys.size(); i++) {
+			float t1 = keys.get(i).getKey();
+			if (time <= t1) {
+				float t0 = keys.get(i - 1).getKey();
+				float f = (time - t0) / (t1 - t0);
+				JsonElement to = keys.get(i).getValue();
+				String easing = to.isJsonObject() && to.getAsJsonObject().has("easing")
+						? to.getAsJsonObject().get("easing").getAsString() : "linear";
+				f = switch (easing) {
+					case "easeInQuad" -> f * f;
+					case "easeInCubic" -> f * f * f;
+					default -> f;
+				};
+				float[] a = numbers(keys.get(i - 1).getValue());
+				float[] b = numbers(to);
+				return new float[] { a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f };
+			}
+		}
+		return numbers(keys.get(keys.size() - 1).getValue());
+	}
+
+	private static float[] numbers(JsonElement key) {
+		JsonArray vector = vectorOf(key);
+		float[] out = new float[3];
+		for (int i = 0; i < 3; i++) {
+			JsonElement value = vector.get(i);
+			out[i] = value.getAsJsonPrimitive().isNumber() ? value.getAsFloat() : 0;
+		}
+		return out;
+	}
+
+	private static JsonArray vectorOf(JsonElement key) {
+		if (key.isJsonObject()) {
+			key = key.getAsJsonObject().has("vector") ? key.getAsJsonObject().get("vector") : key.getAsJsonObject().get("post");
+		}
+		return key.getAsJsonArray();
+	}
+
+	private static boolean isLook(JsonElement key) {
+		return vectorOf(key).get(1).getAsJsonPrimitive().isString()
+				&& vectorOf(key).get(1).getAsString().contains("query.head_y_rotation");
+	}
+
+	// whether head_rot adds the look at a clip time: true, false, or null between a look key and a key without it
+	private static Boolean headRotLooks(JsonObject clip, float time) {
+		JsonObject bone = clip.getAsJsonObject("bones").getAsJsonObject("head_rot");
+		if (bone == null || !bone.has("rotation")) {
+			return false;
+		}
+		JsonElement rotation = bone.get("rotation");
+		if (rotation.isJsonArray() || rotation.getAsJsonObject().has("vector")) {
+			return isLook(rotation);
+		}
+		List<Map.Entry<Float, JsonElement>> keys = new ArrayList<>();
+		for (Map.Entry<String, JsonElement> key : rotation.getAsJsonObject().entrySet()) {
+			keys.add(Map.entry(Float.parseFloat(key.getKey()), key.getValue()));
+		}
+		keys.sort(Map.Entry.comparingByKey());
+		for (int i = 0; i < keys.size(); i++) {
+			if (Math.abs(keys.get(i).getKey() - time) < 0.00005F) {
+				return isLook(keys.get(i).getValue());
+			}
+			if (keys.get(i).getKey() > time) {
+				boolean next = isLook(keys.get(i).getValue());
+				return i == 0 || isLook(keys.get(i - 1).getValue()) == next ? next : null;
+			}
+		}
+		return isLook(keys.get(keys.size() - 1).getValue());
+	}
+
+	// a ModelPart's rotation, Rz * Ry * Rx, from degrees
+	private static double[][] rotationMatrix(float[] degrees) {
+		double x = Math.toRadians(degrees[0]), y = Math.toRadians(degrees[1]), z = Math.toRadians(degrees[2]);
+		double[][] rx = { { 1, 0, 0 }, { 0, Math.cos(x), -Math.sin(x) }, { 0, Math.sin(x), Math.cos(x) } };
+		double[][] ry = { { Math.cos(y), 0, Math.sin(y) }, { 0, 1, 0 }, { -Math.sin(y), 0, Math.cos(y) } };
+		double[][] rz = { { Math.cos(z), -Math.sin(z), 0 }, { Math.sin(z), Math.cos(z), 0 }, { 0, 0, 1 } };
+		return multiply(rz, multiply(ry, rx));
+	}
+
+	private static double[][] multiply(double[][] a, double[][] b) {
+		double[][] out = new double[3][3];
+		for (int i = 0; i < 3; i++) {
+			for (int j = 0; j < 3; j++) {
+				for (int k = 0; k < 3; k++) {
+					out[i][j] += a[i][k] * b[k][j];
+				}
+			}
+		}
+		return out;
+	}
+
+	// the angle in degrees of the rotation taking a to b
+	private static double angleBetween(double[][] a, double[][] b) {
+		double trace = 0;
+		for (int i = 0; i < 3; i++) {
+			for (int k = 0; k < 3; k++) {
+				trace += a[k][i] * b[k][i];
+			}
+		}
+		return Math.toDegrees(Math.acos(Math.max(-1, Math.min(1, (trace - 1) / 2))));
 	}
 
 	private static boolean near(float[] a, float[] b) {

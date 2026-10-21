@@ -1497,6 +1497,46 @@
       "loop": "hold_on_last_frame",
       "animation_length": 1.2,
       "bones": {
+        "head": {
+          "rotation": {
+            "0": {
+              "vector": [
+                0,
+                -30,
+                0
+              ]
+            },
+            "0.4333": {
+              "vector": [
+                0,
+                -52.5,
+                0
+              ]
+            },
+            "0.6": {
+              "vector": [
+                0,
+                52.5,
+                0
+              ]
+            },
+            "0.9251": {
+              "vector": [
+                0,
+                52.5,
+                0
+              ]
+            },
+            "1.2": {
+              "vector": [
+                7.5,
+                0,
+                0
+              ],
+              "easing": "linear"
+            }
+          }
+        },
         "head_rot": {
           "rotation": {
             "vector": [
@@ -1761,29 +1801,55 @@
           "rotation": {
             "0": {
               "vector": [
-                -15,
-                0,
-                0
+                30.00296,
+                29.99851,
+                -0.00359
               ]
             },
             "0.45": {
               "vector": [
-                -30,
-                -15,
-                0
+                6.90696,
+                33.61298,
+                -12.68808
               ]
             },
             "0.65": {
               "vector": [
-                -45,
-                -10,
-                0
+                -1.47397,
+                38.12507,
+                -9.73407
               ]
             },
             "0.95": {
               "vector": [
                 0,
                 0,
+                0
+              ],
+              "easing": "linear"
+            }
+          }
+        },
+        "head_rot": {
+          "rotation": {
+            "0": {
+              "vector": [
+                0,
+                0,
+                0
+              ]
+            },
+            "0.65": {
+              "vector": [
+                0,
+                0,
+                0
+              ]
+            },
+            "0.95": {
+              "vector": [
+                "query.head_x_rotation",
+                "query.head_y_rotation",
                 0
               ],
               "easing": "linear"
