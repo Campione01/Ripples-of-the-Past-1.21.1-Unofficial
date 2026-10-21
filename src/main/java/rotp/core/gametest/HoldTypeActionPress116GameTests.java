@@ -9,6 +9,7 @@ import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 import rotp.core.api.stand.StandPowerTransitions;
+import rotp.core.api.timestop.TimeStopLifecycleEvent;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.event.RipplesAbilityKeyPressEvent;
@@ -17,6 +18,7 @@ import rotp.core.impl.stands.magiciansred.MRCrossfireHurricaneEntity;
 import rotp.core.impl.stands.magiciansred.MRDetectorEntity;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModItemDataComponents;
+import rotp.core.init.ModStatusEffects;
 import rotp.core.mechanics.KnockbackCollisionImpact;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.PowerClass;
@@ -29,6 +31,7 @@ import rotp.core.powersystem.ability.input.AbilityInput;
 import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInputState;
+import rotp.core.powersystem.entityaction.EntityActionInputState.HeldInputEntry;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.HeldInput;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
@@ -57,6 +60,7 @@ import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.neoforge.common.NeoForge;
@@ -422,11 +426,11 @@ public final class HoldTypeActionPress116GameTests {
 	/*
 	 * 1.16 moved a fired hold-to-fire task with a windup (standWindupDuration) into its perform at the end of the windup's
 	 * last tick and performed it on the next (StandEntityTask.tick, moveToPhase), so a press between the two cancelled it
-	 * before the shot (isCancelable: not in its recovery, none to come); a perform the charge fired straight into kept
-	 * its shot. Crossfire Hurricane held to its full charge and ticked as the Stand ticks it, with a windup of 3 or none:
-	 * at its perform's start a punch replaces it and no shot is fired, or waits and the shot follows on the next tick. A
-	 * port charge whose windup is its held phase (the charged heavy punch, given no recovery here) fires straight into its
-	 * perform as it is let go.
+	 * before the shot (isCancelable: not in its recovery, none to come). The port keeps the shot of a perform the charge
+	 * fired straight into (EntityActionInstance.isFiredStandCharge). Crossfire Hurricane held to its full charge and ticked
+	 * as the Stand ticks it, with a windup of 3 or none: at its perform's start a punch replaces it and no shot is fired, or
+	 * waits and the shot follows on the next tick. A port charge whose windup is its held phase (the charged heavy punch,
+	 * given no recovery here) fires straight into its perform as it is let go.
 	 */
 	@GameTest(template = "empty", timeoutTicks = 100)
 	public static void aPressAtTheStartOfAPerformAfterAFiredChargesWindupCancelsItAsIn116(GameTestHelper helper) {
@@ -440,17 +444,39 @@ public final class HoldTypeActionPress116GameTests {
 	}
 
 	/*
-	 * 1.16 PowerBaseImpl.tickHeldAction counted the held ticks and fired a holdToFire(20, false) charge (Crossfire
-	 * Hurricane) as the count reached 20, in the 20th tick from the press, instead of a 20th held tick; the task it fired
-	 * straight into performed in that tick.
+	 * 1.16 ticked the Stand's task in the Stand's own tick (StandEntity.tick, the level's entity loop) and its user's
+	 * power in the player tick after the levels (PlayerTickEvent): tickHeldAction fired a holdToFire(20, false) charge
+	 * (Crossfire Hurricane) as its held count reached 20, in the 20th tick from the press, after the Stand's 20th charge
+	 * tick, and StandEntityAction.perform only moved the task on (moveToPhase), so the Stand shot in its next tick, the
+	 * 21st. A Stand ability's charge its user performs (an add-on's, here Crossfire Hurricane set on its user, which then
+	 * shoots nothing) performs in the 20th tick, as 1.16's power performed a StandAction.
 	 */
 	@GameTest(template = "empty", timeoutTicks = 100)
-	public static void aFullChargeFiresInTheTickItsLengthEndsAsIn116(GameTestHelper helper) {
+	public static void aChargeTheStandPerformsShootsInTheStandsTickAfterItFiresAsIn116(GameTestHelper helper) {
 		try (Scene s = new Scene(helper, "ChargeFireTickMagiciansRed", "magicians_red", 4)) {
 			s.unlock("crossfire_hurricane");
 			int shotTick = s.crossfireShotTick();
-			helper.assertTrue(shotTick == 20, "1.16 shot a held Crossfire Hurricane (holdToFire(20, false)) in the 20th tick"
-					+ " from its press: shot in tick " + shotTick);
+			helper.assertTrue(shotTick == 21, "1.16's Stand shot a held Crossfire Hurricane (holdToFire(20, false)) in its"
+					+ " tick after the 20th from the press, in which the hold fired: shot in tick " + shotTick);
+			int performTick = s.userPerformedChargeTick("crossfire_hurricane");
+			helper.assertTrue(performTick == 20, "a Stand ability's held charge its user performs performs in the 20th tick"
+					+ " from its press, as 1.16's power performed a StandAction there: performed in tick " + performTick);
+		}
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 TimeStop was a StandAction its user's power performed: tickHeldAction fired the holdToFire(30, false) hold of
+	 * The World's time stop in the 30th tick from the press and stopped time in that tick, also where the port's Stand
+	 * charges it. The stop is moved far from every test cell and taken out before the test returns.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100, batch = GameTestBatches.TIME_STOP)
+	public static void aTimeStopTheStandChargesStopsTimeInTheTickItFiresAsIn116(GameTestHelper helper) {
+		try (Scene s = new Scene(helper, "TimeStopFireTickTheWorld", "the_world", 2)) {
+			s.unlock("time_stop");
+			int stopTick = s.timeStopStartTick();
+			helper.assertTrue(stopTick == 30, "1.16 stopped time in the 30th tick from the press of The World's time stop"
+					+ " (holdToFire(30, false)), the Stand charging it: stopped in tick " + stopTick);
 		}
 		helper.succeed();
 	}
@@ -1043,6 +1069,63 @@ public final class HoldTypeActionPress116GameTests {
 			return shotTick;
 		}
 
+		// the tick from the press (the press's own tick the first) in which the charge, set on its user and held, performs
+		private int userPerformedChargeTick(String name) {
+			EntityActionAbility ability = (EntityActionAbility) power.getAbility(name);
+			EntityActionInstance charge = ability.initActionOnAbilityUse(helper.getLevel(), user, user, null);
+			LivingComponentAction userAction = LivingComponentAction.getComponent(user);
+			userAction.setAction(charge, user, SyncType.NO_SYNC);
+			input().heldKeys.put(HOLD_KEY, new HeldInputEntry(HOLD_KEY, 1L, PowerClass.STAND, charge));
+			try {
+				helper.assertTrue(charge.getPhase() == ActionPhase.BUTTON_CHARGE && charge.getPerformer() == user,
+						"setup: the " + name + " set on its user is not charging: " + charge.getPhase());
+				int performTick = -1;
+				for (int tick = 1; tick <= 60 && performTick < 0; tick++) {
+					userAction.tick();
+					// its perform's first tick ends it: no Stand shoots
+					if (charge.isOver() || charge.getPhase() == ActionPhase.PERFORM && charge.getPhaseTick() >= 1) {
+						performTick = tick;
+					}
+				}
+				return performTick;
+			}
+			finally {
+				input().heldKeys.clear();
+				userAction.setAction(null, user, SyncType.NO_SYNC);
+			}
+		}
+
+		// the tick from the press (the press's own tick the first) in which the held time stop's stop is in place
+		private int timeStopStartTick() {
+			ChunkPos farAway = new ChunkPos(50600, 50600);
+			Consumer<TimeStopLifecycleEvent.PreStart> isolate = event -> {
+				if (event.getInstance().userId() == user.getId()) {
+					event.setInstance(event.getInstance().withArea(farAway, 1));
+				}
+			};
+			NeoForge.EVENT_BUS.addListener(EventPriority.HIGHEST, false, TimeStopLifecycleEvent.PreStart.class, isolate);
+			try {
+				EntityActionInstance charge = hold("time_stop");
+				helper.assertTrue(charge.getPhase() == ActionPhase.BUTTON_CHARGE && charge.getCurPhaseLength() == 30
+						&& charge.getPerformer() == stand, "setup: The World's Stand is not charging its 30-tick time stop: "
+								+ charge.getPhase() + " " + charge.getCurPhaseLength() + ", performer " + charge.getPerformer());
+				int stopTick = -1;
+				for (int tick = 1; tick <= 60 && stopTick < 0; tick++) {
+					standAction.tick();
+					if (helper.getLevel().getData(ModDataAttachmentTypes.TIME_STOP.get()).getInstance(user.getId()).isPresent()) {
+						stopTick = tick;
+					}
+				}
+				return stopTick;
+			}
+			finally {
+				NeoForge.EVENT_BUS.unregister(isolate);
+				helper.getLevel().getData(ModDataAttachmentTypes.TIME_STOP.get()).removeInstance(user.getId());
+				user.removeEffect(ModStatusEffects.TIME_STOP);
+				clear();
+			}
+		}
+
 		private void punchAtPerformStart(float windup, boolean goesThrough) {
 			power.setAbilityCooldown("crossfire_hurricane", 0, 0);
 			EntityActionInstance charge = hold("crossfire_hurricane");
@@ -1053,18 +1136,6 @@ public final class HoldTypeActionPress116GameTests {
 				if (phases.isEmpty() || phases.get(phases.size() - 1) != charge.getPhase()) {
 					phases.add(charge.getPhase());
 				}
-			}
-			if (!goesThrough) {
-				// 1.16 fired the charge and performed the task it fired straight into in the same tick: the shot is out
-				// before any press after the charge could reach it
-				int shots = shots().size();
-				helper.assertTrue(shots == 1 && phases.contains(ActionPhase.WINDUP) == windup > 0,
-						"1.16 performed a hold-to-fire task the charge fired straight into in the tick it fired, so no press"
-								+ " right after the charge could cost the shot: windup " + windup + ", phases " + phases
-								+ ", shots " + shots);
-				shots().forEach(shot -> shot.discard());
-				clear();
-				return;
 			}
 			helper.assertTrue(charge.getPhase() == ActionPhase.PERFORM && charge.getPhaseTick() < 1
 					&& standAction.getAction() == charge && shots().isEmpty()
@@ -1081,8 +1152,8 @@ public final class HoldTypeActionPress116GameTests {
 			helper.assertTrue(goesThrough ? replaced && shots == 0 : waits && shots == 1, (goesThrough
 					? "1.16 performed a fired task's windup and then, a tick later, its perform, so a press at the perform's"
 							+ " start cancelled it before the shot (isCancelable)"
-					: "1.16 performed a hold-to-fire task the charge fired straight into in the tick it fired, so a press"
-							+ " right after the charge did not cost the shot")
+					: "the port keeps the shot of a perform the charge fired straight into, so a press at its start waits"
+							+ " and the shot follows on the next tick")
 					+ ": windup " + windup + ", started " + pressed.isActionSuccess + ", buffered " + pressed.shouldBuffer
 					+ ", the Stand's action " + now + ", shots after the next tick " + shots);
 			AbilityInput.keyRelease(OTHER_KEY, user);
