@@ -14,12 +14,19 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec2;
 
 public class PillarmanRibsBladesAbility extends PillarmanActionAbility {
+	private static final int COOLDOWN_TICKS = 80;
 
 	public PillarmanRibsBladesAbility(AbilityType<?> abilityType, AbilityId abilityId) {
 		super(abilityType, abilityId, 2, PillarmanMode.NONE, false, 60.0F, RibsBladesInstance::new);
 		setDefaultPhaseLength(ActionPhase.WINDUP, 0);
 		setDefaultPhaseLength(ActionPhase.PERFORM, 1);
 		setDefaultPhaseLength(ActionPhase.RECOVERY, 0);
+	}
+
+	/** 1.16 cooldown(80, 0): all of the Ribs Blades' cooldown is technical. */
+	@Override
+	public int getCooldownTechnical(Power<?> context) {
+		return COOLDOWN_TICKS;
 	}
 
 	public static class RibsBladesInstance extends EntityActionInstance {
@@ -50,7 +57,7 @@ public class PillarmanRibsBladesAbility extends PillarmanActionAbility {
 			addRibProjectile(level, user, rotOffsets.x, rotOffsets.y, 0.22D, -0.65D);
 			addRibProjectile(level, user, rotOffsets.x, rotOffsets.y, 0.22D, -0.85D);
 			addRibProjectile(level, user, rotOffsets.x, rotOffsets.y, 0.18D, -0.95D);
-			ribsAbility.setPillarmanFixedCooldown(context, 80);
+			ribsAbility.setPillarmanFixedCooldown(context, COOLDOWN_TICKS);
 			if (context != null
 					&& context.getDataForAbility(
 							ribsAbility) != null) {
