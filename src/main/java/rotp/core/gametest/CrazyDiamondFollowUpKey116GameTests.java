@@ -1,10 +1,19 @@
 package rotp.core.gametest;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Field;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.UUID;
 
 import javax.annotation.Nullable;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.mojang.authlib.GameProfile;
 
 import rotp.core.api.stand.StandPowerTransitions;
@@ -32,7 +41,10 @@ import rotp.core.subsystems.target.ActionTarget;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
+import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
@@ -333,6 +345,117 @@ public final class CrazyDiamondFollowUpKey116GameTests {
 		catch (RuntimeException | Error error) {
 			scene.close();
 			throw error;
+		}
+	}
+
+	// 1.16 ModStandsInit :634-641 and assets\jojo: locale, then the names of crazy_diamond_misshape_face, _arms and _legs
+	// (en_us where 1.16 had none), and the SHA-1 of their textures\action icons
+	private static final String[][] MISSHAPE_NAMES_116 = {
+			{ "en_us", "Misshape face", "Misshape arms", "Misshape legs" },
+			{ "en_pt", "Misshape face", "Misshape arms", "Misshape legs" },
+			{ "es_es", "Cara deformada", "Brazos deformes", "Piernas deformes" },
+			{ "es_ve", "Deformar cara", "Deformar brazos", "Deformar piernas" },
+			{ "it_it", "Misshape face", "Misshape arms", "Misshape legs" },
+			{ "ja_jp", "Misshape face", "Misshape arms", "Misshape legs" },
+			{ "lzh", "畸形的臉", "畸形的手臂", "畸形的腿" },
+			{ "pt_br", "Rosto Desformado", "Braços Desformados", "Pernas Desformadas" },
+			{ "ru_ru", "Деформировать лицо", "Деформировать руки", "Деформировать ноги" },
+			{ "uk_ua", "Спотворити лице", "Спотворити руки", "Спотворити ноги" },
+			{ "zh_cn", "畸形的脸", "畸形的手臂", "畸形的腿" },
+			{ "zh_tw", "使其臉部畸形", "使其手臂畸形", "使其腿部畸形" } };
+	private static final String[] MISSHAPE_PARTS = { "face", "arms", "legs" };
+	private static final String[] MISSHAPE_ICON_SHA1_116 = {
+			"eaa440e244fb8c209731a2daa2cb99e7149c6346",
+			"56745e8f7980a6dae2812fcd5a038db745694578",
+			"326b460a55877c1d5fb37448ce17d866ec41d18c" };
+
+	/*
+	 * 1.16 had a misshape follow-up per part, each drawn with its own icon (textures/action/crazy_diamond_misshape_<part>)
+	 * and name (action.jojo.crazy_diamond_misshape_<part>), and the heavy key offered the one for the part the finisher
+	 * recorded. The user looks 0, 15 and 28 degrees down at another player 3 blocks ahead: the head, the torso, the legs.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void theMisshapingKeyShowsTheIconAndNameOfTheRecordedPartAsIn116(GameTestHelper helper) {
+		for (int i = 0; i < MISSHAPE_PARTS.length; i++) {
+			String path = "assets/jojo_ripples/stand_skins/crazy_diamond/assets/jojo_ripples/textures/ability/misshape_"
+					+ MISSHAPE_PARTS[i] + ".png";
+			String sha1 = sha1(readResource(path));
+			helper.assertTrue(MISSHAPE_ICON_SHA1_116[i].equals(sha1), "Crazy Diamond's skin must ship 1.16's crazy_diamond_misshape_"
+					+ MISSHAPE_PARTS[i] + " icon as " + path + ": SHA-1 " + sha1);
+		}
+		for (String[] locale : MISSHAPE_NAMES_116) {
+			JsonObject lang = JsonParser.parseString(new String(readResource("assets/jojo_ripples/lang/" + locale[0] + ".json"),
+					StandardCharsets.UTF_8)).getAsJsonObject();
+			for (int i = 0; i < MISSHAPE_PARTS.length; i++) {
+				String key = "jojo_ripples.ability.misshape_" + MISSHAPE_PARTS[i];
+				JsonElement value = lang.get(key);
+				helper.assertTrue(value != null && locale[i + 1].equals(value.getAsString()), locale[0] + " must name " + key
+						+ " as 1.16 named action.jojo.crazy_diamond_misshape_" + MISSHAPE_PARTS[i] + ", " + locale[i + 1] + ": it has "
+						+ value);
+			}
+		}
+		misshapePartRow(helper, 0.0F, 1.0D, "misshape_face", "the head");
+		misshapePartRow(helper, 15.0F, 0.7D, "misshape_arms", "the torso");
+		misshapePartRow(helper, 28.0F, 0.0D, "misshape_legs", "the legs");
+		helper.succeed();
+	}
+
+	private static void misshapePartRow(GameTestHelper helper, float pitch, double partHeight, String asset, String part) {
+		MisshapeScene scene = MisshapeScene.open(helper, "CrazyDiamondMisshapeIcon" + (int) pitch, pitch);
+		try {
+			String idle = scene.misshaping.getSpriteName(scene.power);
+			helper.assertTrue("disfiguring_punch".equals(idle), "Without a running finisher the misshaping punch keeps its own icon:"
+					+ " it shows " + idle);
+			scene.aimAt(scene.enemy);
+			EntityActionInstance action = scene.pressFinisher(helper);
+			Vec3 lookedAt = action.getStandLookTargetPosition(scene.stand, new ActionTarget(scene.enemy));
+			helper.assertTrue(lookedAt != null && Math.abs(lookedAt.y - scene.enemy.getY(partHeight)) < 1.0E-6D, "fixture: the"
+					+ " finisher did not record " + part + " (Crazy Diamond looks at " + lookedAt + ")");
+			AbilityConditionCheck key = resolve(scene.power, scene.heavy);
+			helper.assertTrue(key != null && key.ability == scene.misshaping && key.conditionCheck.isPositive(), "fixture: the"
+					+ " misshaping punch is not on the heavy key during the finisher at " + part + ": " + describe(key));
+			String sprite = key.ability.getSpriteName(scene.power);
+			helper.assertTrue(asset.equals(sprite), "1.16 showed the misshape follow-up for " + part + " with its own icon,"
+					+ " crazy_diamond_" + asset + ": the heavy key shows " + sprite);
+			// the base name asks the client's Stand skins, which the game test server cannot load
+			String name;
+			try {
+				Component shown = key.ability.getName(scene.power);
+				name = shown.getContents() instanceof TranslatableContents contents ? contents.getKey() : shown.getString();
+			}
+			catch (RuntimeException | LinkageError e) {
+				name = "the base name (" + e + ")";
+			}
+			helper.assertTrue(("jojo_ripples.ability." + asset).equals(name), "1.16 named the misshape follow-up for " + part
+					+ " action.jojo.crazy_diamond_" + asset + ": the heavy key is named " + name);
+		}
+		finally {
+			scene.close();
+		}
+	}
+
+	private static byte[] readResource(String path) {
+		InputStream in = CrazyDiamondFollowUpKey116GameTests.class.getResourceAsStream("/" + path);
+		if (in == null) {
+			in = CrazyDiamondFollowUpKey116GameTests.class.getClassLoader().getResourceAsStream(path);
+		}
+		if (in == null) {
+			throw new GameTestAssertException(path + " is missing");
+		}
+		try (InputStream stream = in) {
+			return stream.readAllBytes();
+		}
+		catch (IOException e) {
+			throw new GameTestAssertException("Could not read " + path + ": " + e);
+		}
+	}
+
+	private static String sha1(byte[] bytes) {
+		try {
+			return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-1").digest(bytes));
+		}
+		catch (NoSuchAlgorithmException e) {
+			throw new IllegalStateException(e);
 		}
 	}
 

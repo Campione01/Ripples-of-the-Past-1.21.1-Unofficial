@@ -123,6 +123,11 @@ abstract class PillarmanActionAbility extends EntityActionAbility {
 		return check;
 	}
 
+	// 1.16 stopHeldAction(true): a released hold fired only if checkRequirements still passed, else ended silently
+	boolean canFireOnRelease(EntityActionInstance action) {
+		return canFireReleasedHold(action) && checkOngoingConditions(action).isPositive();
+	}
+
 	protected boolean hasEnergy(Power<?> context) {
 		return hasEnergy(context, energyCost + holdEnergyCost);
 	}

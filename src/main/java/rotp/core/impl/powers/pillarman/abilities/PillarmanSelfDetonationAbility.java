@@ -64,12 +64,24 @@ public class PillarmanSelfDetonationAbility extends PillarmanActionAbility {
 			}
 		}
 
+		// 1.16 holdType() with holdToFire(60, false): the charge waited for the release, which fired it once held 60 ticks
 		@Override
 		public void onButtonStopHold() {
-			if (getPhase() == ActionPhase.BUTTON_CHARGE && getPhaseTick() < HOLD_TO_FIRE_TICKS) {
-				forceStop();
+			if (getPhase() == ActionPhase.BUTTON_CHARGE) {
+				if (getPhaseTick() < HOLD_TO_FIRE_TICKS || !level().isClientSide()
+						&& !(ability instanceof PillarmanSelfDetonationAbility detonationAbility && detonationAbility.canFireOnRelease(this))) {
+					forceStop();
+				}
+				else {
+					setPhaseStart(ActionPhase.PERFORM);
+				}
 				syncPhaseChanges();
 			}
+		}
+
+		@Override
+		protected boolean shouldHoldPhaseAtEnd() {
+			return getPhase() == ActionPhase.BUTTON_CHARGE;
 		}
 
 		@Override

@@ -1166,10 +1166,11 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 
 	/**
 	 * The Stand's aim while its user aims, the one a client keeps (the marker, the Stand aim a press carries): 1.16
-	 * EntityStandType.clientHitResult, the vanilla pick when it met a block or any entity but the Stand, otherwise the
-	 * precision ray from the user's eyes, and when that met nothing at all the Stand's own, as aimWithThisOrUser went on.
-	 * Not limited to the Stand's reach, as the 1.16 pressed target was not; its readers check the reach. Without the aim
-	 * assist, what the crosshair meets.
+	 * EntityStandType.clientHitResult, the vanilla pick when it met a block or any entity but the Stand, a miss when it
+	 * met the Stand itself, otherwise the precision ray from the user's eyes, and when that met nothing at all the Stand's
+	 * own, as aimWithThisOrUser went on. Not limited to the Stand's reach, as the 1.16 pressed target was not; its readers
+	 * check the reach. Without the aim assist, what the crosshair meets. (A client never picks its user's own Stand:
+	 * StandEntity.isPickable, as 1.16's.)
 	 */
 	public static ActionTarget userStandAim(StandEntity stand, LivingEntity user, ActionTarget vanillaPick,
 			Predicate<Entity> aimable) {
@@ -1182,8 +1183,8 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		}
 		// JojoModUtil.isAnotherEntityTargeted: any entity but the Stand; the readers' own filters judge it
 		Entity picked = vanillaPick.getType() == TargetType.ENTITY ? vanillaPick.getEntity() : null;
-		if (picked != null && picked != stand) {
-			return vanillaPick;
+		if (picked != null) {
+			return picked != stand ? vanillaPick : ActionTarget.EMPTY;
 		}
 		ActionTarget aim = userPrecisionRayTarget(stand, user, canTarget);
 		return aim.getType() == TargetType.EMPTY
@@ -1227,6 +1228,16 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			return vanillaPick;
 		}
 		return StandPrecisionRay.trace(stand, stand, reach, 0.0D, true, wallsHideEntities);
+	}
+
+	/**
+	 * The Stand's aim a client keeps while an action aims as the Stand without manual control (EntityActionInstance#aimAs):
+	 * 1.16 aimed from a Stand only as the camera entity (EntityStandType.clientHitResult, StandEntity.precisionRayTrace),
+	 * whatever action it ran, so this is {@link #manualStandAim} with no vanilla pick, the Stand not being the camera. The
+	 * running action's own checks refuse what it cannot take, as 1.16's checkTarget did.
+	 */
+	public static ActionTarget actionStandAim(StandEntity stand) {
+		return manualStandAim(stand, ActionTarget.EMPTY);
 	}
 
 	// the strict crosshair of 2026-09-13: from the user's eyes at the user's reach, blocks stopping the ray

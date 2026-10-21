@@ -5,20 +5,14 @@ import rotp.core.network.c2s.ClAimTargetPacket;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.standpower.entity.StandEntity;
-import rotp.core.powersystem.standpower.entity.StandEntityAbility;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTargetAim;
-import rotp.core.subsystems.target.HitResultUtil;
 import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.ai.attributes.Attributes;
-import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.network.PacketDistributor;
-import java.util.function.Predicate;
 
 public class ClientsideAim {
 	public static ActionTarget cameraEntityAimTarget = ActionTarget.EMPTY;
@@ -73,16 +67,15 @@ public class ClientsideAim {
 							mc.cameraEntity == stand ? cameraEntityAimTarget : ActionTarget.EMPTY));
 				}
 				else if (!standOffsetLerping) {
-					Vec3 lookPos = aiming.getEyePosition(partialTick);
-					Vec3 lookVec = aiming.getViewVector(partialTick);
-					Predicate<Entity> targetFilter = curAction != null && curAction.ability instanceof StandEntityAbility standAbility
-							? entity -> standAbility.canTargetEntityForAiming(stand, entity)
-							: entity -> StandEntityAbility.canDefaultTargetEntityForAiming(stand, entity);
-					ActionTarget target = aiming == mc.player && isPlayerCameraEntity
-							? StandEntityPunchAbility.userStandAim(stand, mc.player, cameraEntityAimTarget)
-							: HitResultUtil.clip(lookPos, lookVec,
-							stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE), stand.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE),
-							aiming.level(), targetFilter, aiming, precisionAimingDisabled(mc) ? 0 : stand.getPrecision());
+					ActionTarget target;
+					if (aiming == mc.player) {
+						// the user's crosshair only while the user is the camera
+						target = StandEntityPunchAbility.userStandAim(stand, mc.player,
+								isPlayerCameraEntity ? cameraEntityAimTarget : ActionTarget.EMPTY);
+					}
+					else {
+						target = StandEntityPunchAbility.actionStandAim(stand);
+					}
 					standAim.setTarget(target);
 				}
 			}

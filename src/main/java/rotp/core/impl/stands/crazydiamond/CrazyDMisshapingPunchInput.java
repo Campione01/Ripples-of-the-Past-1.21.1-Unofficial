@@ -20,6 +20,7 @@ import rotp.core.impl.stands._entitybase.StandAbilityStamina;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility.StandEntityHeavyPunch;
 
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
@@ -63,6 +64,34 @@ public class CrazyDMisshapingPunchInput extends Ability {
 	@Nullable
 	static CrazyDTargetHitPart recordedPart(@Nullable StandEntityHeavyPunch punch) {
 		return punch instanceof CrazyDiamondMisshapingPunch finisher ? finisher.getTargetHitPart() : null;
+	}
+
+	// 1.16 offered each part as its own follow-up (crazy_diamond_misshape_face, _arms, _legs) with its own icon and name:
+	// the key shows the one for the part the running finisher recorded
+	@Override
+	public String getSpriteName(Power<?> context) {
+		CrazyDTargetHitPart part = shownPart(context);
+		return part != null ? partAssetName(part) : super.getSpriteName(context);
+	}
+
+	@Override
+	public Component getName(Power<?> context) {
+		CrazyDTargetHitPart part = shownPart(context);
+		return part != null ? Component.translatable(getResourceNamespace() + ".ability." + partAssetName(part))
+				: super.getName(context);
+	}
+
+	@Nullable
+	private static CrazyDTargetHitPart shownPart(@Nullable Power<?> context) {
+		return recordedPart(CrazyDiamondHeavyPunchAbility.runningHeavyPunch(PowerClass.STAND.cast(context), true));
+	}
+
+	private static String partAssetName(CrazyDTargetHitPart part) {
+		return switch (part) {
+			case HEAD -> "misshape_face";
+			case TORSO_ARMS -> "misshape_arms";
+			case LEGS -> "misshape_legs";
+		};
 	}
 
 	// 1.16 CrazyDiamondMisshapeBodyPart.checkSpecificConditions: a living target whose Stand user is a player (mobs were
