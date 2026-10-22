@@ -197,12 +197,13 @@ public final class StandClipPoses116GameTests {
 			// HumanoidStandModel :565-584, heavyAttackAnim: armsRotationFull in every pose, the recovery's transition from
 			// heavyImpact keeps it to the end of the action
 			new ArmLook(MR_ANIMS, "heavy_punch", new String[] { "0", "W0.5", "PERFORM", "RECOVERY", "END" }, new float[] { 1, 1, 1, 1, 1 }),
-			// HumanoidStandModel :482-536, the jab: xRot * t to jabArmTurn at .5 of the windup, the full look at jabImpact and
-			// held to .25 of the perform, xRot * (1 - t^3) to jabArmTurnBack at .5 of the perform, none after
+			// HumanoidStandModel :482-536, the jab (Magician's Red's, Silver Chariot's without the rapier): xRot * t to
+			// jabArmTurn at .5 of the windup, the full look at jabImpact and held to .25 of the perform, xRot * (1 - t^3) to
+			// jabArmTurnBack at .5 of the perform, none after
 			new ArmLook(MR_ANIMS, "punch", new String[] { "0", "W0.25", "W0.5", "PERFORM", "0.18335", "0.191675", "0.2", "RECOVERY", "END" },
 					new float[] { 0, 0.5F, 1, 1, 1, 0.875F, 0, 0, 0 }),
-			new ArmLook(SC_ANIMS, "no_rapier_light_attack", new String[] { "0", "0.1", "PERFORM", "RECOVERY", "0.4667", "END" },
-					new float[] { 0, 1, 1, 0, 0, 0 }),
+			new ArmLook(SC_ANIMS, "no_rapier_light_attack", new String[] { "0", "W0.25", "W0.5", "PERFORM", "0.18335", "0.191675", "0.2",
+					"RECOVERY", "END" }, new float[] { 0, 0.5F, 1, 1, 1, 0.875F, 0, 0, 0 }),
 			// SilverChariotModel :247-288, the rapier stab: armsRotation in both poses and the recovery's transition
 			new ArmLook(SC_ANIMS, "light_attack", new String[] { "0", "PERFORM", "RECOVERY", "END" }, new float[] { 1, 1, 1, 1 }),
 			// SilverChariotModel :361-365 and ArmsBarrageAnimation: no pose in the windup, the stab loop in the perform,
@@ -210,14 +211,13 @@ public final class StandClipPoses116GameTests {
 			new ArmLook(SC_ANIMS, "melee_barrage", new String[] { "0", "0.2999", "PERFORM", "0.35", "0.3999", "RECOVERY", "END" },
 					new float[] { 0, 0, 1, 1, 1, 0, 0 }));
 
-	// a clip whose joints turn by half their forearm or lower leg, the limbs to check; one whose windup starts on the idle
-	// starts on the idle's own joints and turns them by half the forearm from its second key
-	private record JointClip(String asset, String clip, boolean fromIdle, String... limbs) {}
+	// a clip whose joints turn by half their forearm or lower leg, and the limbs to check
+	private record JointClip(String asset, String clip, String... limbs) {}
 
 	private static final List<JointClip> JOINT_CLIPS = List.of(
-			new JointClip(SC_ANIMS, "light_attack", false, "left_arm", "right_arm"),
-			new JointClip(SC_ANIMS, "no_rapier_light_attack", false, "left_arm", "right_arm"),
-			new JointClip(SC_ANIMS, "dash_attack", false, "left_arm", "right_arm"));
+			new JointClip(SC_ANIMS, "light_attack", "left_arm", "right_arm"),
+			new JointClip(SC_ANIMS, "no_rapier_light_attack", "left_arm", "right_arm"),
+			new JointClip(SC_ANIMS, "dash_attack", "left_arm", "right_arm"));
 
 	/*
 	 * 1.16's humanoid Java-model poses pitched both arms with the look (setSecondXRot, applied after the pose as a parent
@@ -264,23 +264,9 @@ public final class StandClipPoses116GameTests {
 				List<Map.Entry<Float, JsonElement>> bendKeys = keys(clip, limb + "_bend");
 				helper.assertTrue(bendKeys.size() > 1, "setup: " + joints.clip() + " of " + joints.asset() + " keys no " + limb + "_bend");
 				float until = bendKeys.get(bendKeys.size() - 2).getKey();
-				float from = 0;
-				if (joints.fromIdle()) {
-					JsonObject idle = clipOf(helper, files, joints.asset(), "idle");
-					float[] idleJoint = rotationAt(idle, limb + "_joint", 0, LOOK);
-					float[] startJoint = rotationAt(clip, limb + "_joint", 0, LOOK);
-					for (int axis = 0; axis < 3; axis++) {
-						if (Math.abs(startJoint[axis] - idleJoint[axis]) > 0.05F) {
-							wrong.add(joints.clip() + " of " + joints.asset() + " starts " + limb + "_joint on " + Arrays.toString(startJoint)
-									+ " where the idle it starts from has " + Arrays.toString(idleJoint));
-							break;
-						}
-					}
-					from = bendKeys.get(1).getKey();
-				}
 				int off = 0;
 				String first = null;
-				for (float time = from; time <= until + 0.00001F; time += 0.01F) {
+				for (float time = 0; time <= until + 0.00001F; time += 0.01F) {
 					float[] bend = rotationAt(clip, limb + "_bend", time, LOOK);
 					float[] joint = rotationAt(clip, limb + "_joint", time, LOOK);
 					for (int axis = 0; axis < 3; axis++) {
