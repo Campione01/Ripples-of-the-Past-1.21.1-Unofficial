@@ -151,6 +151,96 @@ public final class SilverChariotHierophantClips116GameTests {
 		helper.succeed();
 	}
 
+	// the summon clips, the asset, whether its geo has joint cubes
+	private static final String[][] SUMMONS = { { SC_ANIMS, "summon1" }, { SC_ANIMS, "summon2" }, { SC_ANIMS, "summon3" },
+			{ HG_ANIMS, "summon1" } };
+	private static final String[] LIMBS = { "left_arm", "right_arm", "left_leg", "right_leg" };
+
+	/*
+	 * LegacyStandAnimator.poseSummon (:112-120) drew the reset pose, the summon pose at 1.0 and the idle pose (with its
+	 * HEAD_ROTATION) at summonPoseRotation(ticks) = clamp((ticks - 15) / 5, 0, 1) for SUMMON_ANIMATION_LENGTH = 20 ticks:
+	 * the summon pose held 15 ticks and blended linearly to the idle and its look over ticks 15-20. The port plays a summon
+	 * clip for its length (the clip time the Stand's ticks / 20), then the idle from its start: 1 s, every bone on its
+	 * start to 0.75 and half way to the idle's t=0 value at 0.875, the head's posed root-space angles with no look to 0.75;
+	 * Silver Chariot's joints at half their forearm or lower leg (HumanoidStandModel.rotateJoint) in the summon pose.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void theSummonsHoldTheirPose15TicksAndBlendToTheIdleOver5As116(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		Map<String, JsonObject> files = new HashMap<>();
+		for (String[] summon : SUMMONS) {
+			JsonObject clip = clipOf(helper, files, summon[0], summon[1]);
+			JsonObject idle = clipOf(helper, files, summon[0], "idle");
+			String name = summon[1] + " of " + summon[0];
+			float end = clip.get("animation_length").getAsFloat();
+			if (Math.abs(end - 1) > 0.0001F) {
+				wrong.add(name + " runs " + end + " s, where 1.16's summon ran 20 ticks");
+				continue;
+			}
+			List<String> bones = new ArrayList<>(idle.getAsJsonObject("bones").keySet());
+			clip.getAsJsonObject("bones").keySet().stream().filter(bone -> !bones.contains(bone)).forEach(bones::add);
+			for (String bone : bones) {
+				if (bone.equals("head") || bone.equals("head_rot")) {
+					continue;
+				}
+				for (float[] look : LOOKS) {
+					float[] start = StandClipPoses116GameTests.rotationAt(clip, bone, 0, look);
+					float[] last = StandClipPoses116GameTests.rotationAt(idle, bone, 0, look);
+					String first = null;
+					for (float time = 0; time <= 0.75F + 0.00001F && first == null; time += 0.01F) {
+						float[] got = StandClipPoses116GameTests.rotationAt(clip, bone, Math.min(time, 0.75F), look);
+						if (!near(got, start, 0.05F)) {
+							first = "at " + time + " " + Arrays.toString(got) + " where 1.16 held the summon pose's " + Arrays.toString(start);
+						}
+					}
+					float[] mid = StandClipPoses116GameTests.rotationAt(clip, bone, 0.875F, look);
+					float[] half = { (start[0] + last[0]) / 2, (start[1] + last[1]) / 2, (start[2] + last[2]) / 2 };
+					if (first == null && !near(mid, half, 0.05F)) {
+						first = "at 0.875 " + Arrays.toString(mid) + " where 1.16 was half way to the idle's, " + Arrays.toString(half);
+					}
+					float[] got = StandClipPoses116GameTests.rotationAt(clip, bone, end, look);
+					if (first == null && !near(got, last, 0.05F)) {
+						first = "at the end " + Arrays.toString(got) + " where the idle starts on " + Arrays.toString(last);
+					}
+					if (first != null) {
+						wrong.add(name + " " + bone + " looking " + Arrays.toString(look) + " " + first);
+						break;
+					}
+				}
+			}
+			for (float time = 0; time <= 0.75F + 0.00001F; time += 0.05F) {
+				double off = StandClipPoses116GameTests.angleBetween(composedHead(clip, Math.min(time, 0.75F), LOOKS[1]),
+						composedHead(clip, 0, LOOKS[0]));
+				if (off > 0.5) {
+					wrong.add(name + " head at " + time + " looking " + Arrays.toString(LOOKS[1]) + " " + String.format("%.1f", off)
+							+ " degrees off the summon pose's head, where 1.16 brought the look in from tick 15");
+					break;
+				}
+			}
+			if (summon[0].equals(SC_ANIMS)) {
+				for (String limb : LIMBS) {
+					float[] bend = StandClipPoses116GameTests.rotationAt(clip, limb + "_bend", 0, LOOKS[0]);
+					float[] joint = StandClipPoses116GameTests.rotationAt(clip, limb + "_joint", 0, LOOKS[0]);
+					if (!near(joint, new float[] { bend[0] / 2, bend[1] / 2, bend[2] / 2 }, 0.05F)) {
+						wrong.add(name + " " + limb + "_joint " + Arrays.toString(joint) + " where its bend is " + Arrays.toString(bend));
+					}
+				}
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), "1.16 held a summon pose 15 ticks and blended it to the idle over 5: " + wrong);
+		helper.succeed();
+	}
+
+	// the head's rotation with its chain (stand_pos, body_rot, body, torso, torso_bend, head, head_rot) at a clip time
+	private static double[][] composedHead(JsonObject clip, float time, float[] look) {
+		double[][] composed = StandClipPoses116GameTests.rotationMatrix(new float[3]);
+		for (String bone : new String[] { "stand_pos", "body_rot", "body", "torso", "torso_bend", "head", "head_rot" }) {
+			composed = StandClipPoses116GameTests.multiply(composed,
+					StandClipPoses116GameTests.rotationMatrix(StandClipPoses116GameTests.rotationAt(clip, bone, time, look)));
+		}
+		return composed;
+	}
+
 	// the first sample time at which a bone is off the idle's t=0 value, at either look, or null
 	private static String firstOffIdle(JsonObject clip, JsonObject idle, String bone, List<Float> times) {
 		for (float[] look : LOOKS) {
