@@ -9,6 +9,7 @@ import java.util.Set;
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
+import rotp.core.init.ModStatusEffects;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.EntityActionAbility;
@@ -25,6 +26,7 @@ import rotp.core.subsystems.target.ActionTarget;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.util.Mth;
+import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Cow;
@@ -66,6 +68,104 @@ public final class StandFrontOffsetEveryTick116GameTests {
 		}
 		helper.assertTrue(wrong.isEmpty(), "1.16 put the Stand of a light or heavy attack at front3dOffset of its task's"
 				+ " target, or of its user's look ray, on every tick: " + String.join("; ", wrong));
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 StandEntity.tick ran updatePosition before it held the task back for the summon lock, so the task's offset was
+	 * asked through the lock while the task waited, and a stunned Stand's updatePosition returned at once, so neither its
+	 * offset nor the Stand moved. Star Platinum's heavy punch pressed at a cow with a summon lock: the cow steps before each
+	 * of 3 locked ticks, before 2 more with the Stand stunned too, and once more as both are over.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void theStandsPositionUpdateKeepsItsTasksFrontOffsetThroughItsSummonLockButNotWhileStunnedAsIn116(
+			GameTestHelper helper) {
+		Player user = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
+		StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("star_platinum"));
+		StandPower power = null;
+		Cow cow = null;
+		List<String> mismatches = new ArrayList<>();
+		try {
+			Vec3 pos = helper.absoluteVec(new Vec3(2.5D + Row.values().length * 4, 12.0D, 2.5D));
+			user.setNoGravity(true);
+			user.moveTo(pos.x, pos.y, pos.z, 0.0F, 0.0F);
+			StandTaskTargetOffsetGameTests.turn(user, 0.0F, 0.0F);
+			helper.assertTrue(helper.getLevel().addFreshEntity(user), "Could not add the user");
+			power = PowerClass.STAND.attachGet(user);
+			helper.assertTrue(type != null && StandPowerTransitions.insert(power, new StandInstance(type)).status()
+					== StandPowerTransitions.Status.APPLIED, "Could not grant Star Platinum");
+			power.setStamina(power.getMaxStamina());
+			helper.assertTrue(type.summon(user, power), "Could not summon Star Platinum");
+			StandEntity stand = power.getSummonedStandEntity();
+			helper.assertTrue(stand != null && stand.isFollowingUser() && !stand.isArmsOnlyMode(),
+					"Fixture: the summoned Star Platinum does not follow its user whole");
+			stand.summonLockTicks = 5;
+			stand.gradualSummonWeaknessTicks = 0;
+
+			cow = EntityType.COW.create(helper.getLevel());
+			helper.assertTrue(cow != null, "Could not make a cow");
+			cow.setNoAi(true);
+			cow.setNoGravity(true);
+			place(cow, user, 2.0D, 0.0D);
+			helper.assertTrue(helper.getLevel().addFreshEntity(cow), "Could not add the cow");
+			LivingComponentAction.getComponent(user).entityAim.setTarget(new ActionTarget(cow));
+			LivingComponentAction.getComponent(stand).entityAim.setTarget(new ActionTarget(cow));
+
+			Ability ability = power.getAbility("heavy_punch");
+			helper.assertTrue(ability instanceof EntityActionAbility, "Missing Star Platinum's heavy punch");
+			EntityActionInstance action = ((EntityActionAbility) ability).initActionOnAbilityUse(helper.getLevel(), user, stand, null);
+			LivingComponentAction actions = LivingComponentAction.getComponent(stand);
+			actions.setAction(action, user, SyncType.NO_SYNC);
+			helper.assertTrue(stand.getCurStandAction() == action && action.isHeldBackBySummonLock(),
+					"Fixture: the heavy punch did not start, or its Stand's summon lock does not hold it back");
+			ActionPhase pressedPhase = action.getPhase();
+			float pressedTick = action.getPhaseTick();
+			double[] steps = { 2.3D, 1.9D, 2.6D, 2.2D, 1.7D, 2.4D };
+			Vec3 stunnedOffset = null;
+			Vec3 stunnedAt = null;
+			for (int tick = 1; tick <= steps.length; tick++) {
+				boolean locked = tick <= 5;
+				boolean stunned = tick == 4 || tick == 5;
+				if (tick == 4) {
+					stand.addEffect(new MobEffectInstance(ModStatusEffects.STUN, 100));
+					stunnedOffset = action.getSyncedStandOffset();
+					stunnedAt = stand.position();
+				}
+				if (tick == 6) {
+					stand.removeEffect(ModStatusEffects.STUN);
+					stand.summonLockTicks = 0;
+				}
+				place(cow, user, steps[tick - 1], 0.0D);
+				stand.updatePosition(user);
+				String when = "in tick " + tick + (stunned ? " (locked, stunned)" : locked ? " (locked)" : "");
+				if (stunned) {
+					Vec3 synced = action.getSyncedStandOffset();
+					if (synced == null || !synced.equals(stunnedOffset) || !stand.position().equals(stunnedAt)) {
+						mismatches.add(when + " the front offset " + (synced != null ? synced.z : null) + " and the Stand at "
+								+ stand.position() + ", 1.16 left both as the stun found them: " + stunnedOffset.z + ", "
+								+ stunnedAt);
+					}
+				}
+				else {
+					check(Row.HEAVY_PUNCH, stand, user, cow, action, true, when, mismatches);
+				}
+				actions.tick();
+				boolean waited = action.getPhase() == pressedPhase && action.getPhaseTick() == pressedTick;
+				helper.assertTrue(stand.getCurStandAction() == action && waited == locked, "Fixture: in tick " + tick
+						+ " the heavy punch " + (locked ? "did not wait for" : "still waited after") + " the summon lock");
+			}
+		}
+		finally {
+			if (power != null && type != null && power.isSummoned()) {
+				type.forceUnsummon(user, power);
+			}
+			if (cow != null) {
+				cow.discard();
+			}
+			user.discard();
+		}
+		helper.assertTrue(mismatches.isEmpty(), "1.16 asked a Stand's task for its front offset through the Stand's summon"
+				+ " lock and not while the Stand was stunned: " + String.join("; ", mismatches));
 		helper.succeed();
 	}
 
