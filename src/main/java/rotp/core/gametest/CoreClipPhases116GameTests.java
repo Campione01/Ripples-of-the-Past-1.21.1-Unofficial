@@ -140,6 +140,101 @@ public final class CoreClipPhases116GameTests {
 		helper.succeed();
 	}
 
+	// MagiciansRedModel :233-257, summon poses 1 and 2 (the head root-space); a bone a pose does not name is on the reset pose
+	private static final String[] SUMMON_BONES = { "beak_upper", "beak_lower", "body_rot", "torso_bend", "left_arm", "left_arm_bend",
+			"right_arm", "right_arm_bend", "left_leg", "left_leg_bend", "right_leg", "right_leg_bend" };
+	private static final float[][][] MR_SUMMONS = {
+			{ deg(-20, 0, 0), deg(30, 0, 0), deg(0, -22.5F, 0), null, deg(0, 0, -135), null, deg(0, 0, 135), null, deg(10, -45, 0), null,
+					deg(-90, -45, 0), deg(135, 0, 0) },
+			{ deg(-20, 0, 0), deg(30, 0, 0), null, null, deg(0, 135, -165), deg(0, 0, 135), deg(0, -135, 165), deg(0, 0, -135),
+					deg(12.5F, 0, 7.5F), null, deg(30, 0, -7.5F), null } };
+	private static final float[][] MR_SUMMON_HEADS = { deg(0, 7.5F, 0), deg(-45, 0, 0) };
+
+	/*
+	 * 1.16's LegacyStandAnimator.poseSummon reset the model, applied the summon pose and lerped the idle pose in by
+	 * summonPoseRotation: nothing until tick 15 of the 20-tick summon (SUMMON_ANIMATION_LENGTH), all of it by tick 20, every
+	 * bone linearly and the head angle by angle to the look (HEAD_ROTATION, its roll zeroed). The port plays a summon clip
+	 * in real time for its length, so Magician's Red's run 1 s: the pose held to 0.75 s and blended to the idle by the end,
+	 * the head as 1.16's (the official idle's 2.5 degrees of pitch blended in), the beak on the idle's (its rest) at the end.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void magiciansRedsSummonsHold116sPoseFifteenTicksAndBlendToTheIdleOverTheLastFive(GameTestHelper helper) {
+		Map<String, JsonObject> files = new HashMap<>();
+		JsonObject idle = clipOf(helper, files, MR_ANIMS, "idle");
+		List<String> wrong = new ArrayList<>();
+		for (int s = 0; s < MR_SUMMONS.length; s++) {
+			String name = "summon" + (s + 1);
+			JsonObject clip = clipOf(helper, files, MR_ANIMS, name);
+			float end = clip.get("animation_length").getAsFloat();
+			if (Math.abs(end - 1) > 0.0001F) {
+				wrong.add(name + " runs " + end + " s where 1.16's summon ran 20 ticks");
+				continue;
+			}
+			for (int b = 0; b < SUMMON_BONES.length; b++) {
+				float[] pose = MR_SUMMONS[s][b] != null ? MR_SUMMONS[s][b] : new float[3];
+				List<Key> track = List.of(key("0", pose, 1), key("0.75", pose, 1), key("END", null, 1));
+				compare(clip, idle, SUMMON_BONES[b], track, 0.05F, wrong);
+			}
+			for (float[] look : LOOKS) {
+				for (float t = 0; t <= 1.0001F; t += 0.05F) {
+					float f = Math.max(0, Math.min(1, (t - 0.75F) / 0.25F));
+					float[] posed = MR_SUMMON_HEADS[s];
+					double off = StandClipPoses116GameTests.angleBetween(composedHead(clip, Math.min(t, end), look),
+							StandClipPoses116GameTests.rotationMatrix(deg(posed[0] + (look[0] - posed[0]) * f, posed[1] + (look[1] - posed[1]) * f, 0)));
+					if (off > 2.5 * f + 0.5) {
+						wrong.add(name + " at " + t + " looking " + Arrays.toString(look) + ": head " + String.format("%.1f", off)
+								+ " degrees off 1.16's summon head");
+						break;
+					}
+				}
+				for (String bone : new String[] { "head", "head_rot" }) {
+					float[] got = StandClipPoses116GameTests.rotationAt(clip, bone, end, look);
+					float[] want = StandClipPoses116GameTests.rotationAt(idle, bone, 0, look);
+					if (Math.abs(got[0] - want[0]) > 0.05F || Math.abs(got[1] - want[1]) > 0.05F || Math.abs(got[2] - want[2]) > 0.05F) {
+						wrong.add(name + " ends " + bone + " on " + Arrays.toString(got) + " looking " + Arrays.toString(look)
+								+ " where the idle starts on " + Arrays.toString(want));
+					}
+				}
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), "Magician's Red's summons hold 1.16's pose for 15 ticks and blend to the idle over the last 5: "
+				+ wrong);
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16's transitions ended Magician's Red's beak on the idle's (beakUpper and beakLower 0); the official idle keys no
+	 * beak, so its beak is the geo's rest pose: the clips that move the beak end it there.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void magiciansRedsBeakEndsOnTheIdlesRest(GameTestHelper helper) {
+		Map<String, JsonObject> files = new HashMap<>();
+		JsonObject anims = files.computeIfAbsent(MR_ANIMS, a -> StandClipPoses116GameTests.readJson(helper, a)).getAsJsonObject("animations");
+		JsonObject idle = clipOf(helper, files, MR_ANIMS, "idle");
+		List<String> wrong = new ArrayList<>();
+		int clips = 0;
+		for (String name : anims.keySet()) {
+			JsonObject clip = anims.getAsJsonObject(name);
+			if (name.equals("idle") || !clip.has("bones")) {
+				continue;
+			}
+			for (String bone : new String[] { "beak_upper", "beak_lower" }) {
+				if (!clip.getAsJsonObject("bones").has(bone)) {
+					continue;
+				}
+				clips++;
+				float[] got = StandClipPoses116GameTests.rotationAt(clip, bone, clip.get("animation_length").getAsFloat(), LEVEL);
+				float[] want = StandClipPoses116GameTests.rotationAt(idle, bone, 0, LEVEL);
+				if (Math.abs(got[0] - want[0]) > 0.05F || Math.abs(got[1] - want[1]) > 0.05F || Math.abs(got[2] - want[2]) > 0.05F) {
+					wrong.add(name + " ends " + bone + " on " + Arrays.toString(got) + " where the idle has " + Arrays.toString(want));
+				}
+			}
+		}
+		helper.assertTrue(clips >= 14, "setup: only " + clips + " beak channels found");
+		helper.assertTrue(wrong.isEmpty(), "Magician's Red's clips end the beak on the idle's: " + wrong);
+		helper.succeed();
+	}
+
 	private static double[][] composedHead(JsonObject clip, float time, float[] look) {
 		double[][] composed = StandClipPoses116GameTests.rotationMatrix(new float[3]);
 		for (String bone : HEAD_CHAIN) {
