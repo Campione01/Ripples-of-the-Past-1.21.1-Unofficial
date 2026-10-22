@@ -585,8 +585,8 @@ public final class StandClipPoses116GameTests {
 	 * held its lean and twist while the upperPart, pivoting at the waist under it, wound up to 15 degrees and snapped to
 	 * -30 (easeInCubic) on PERFORM; the head, a root child, kept the look. The port's uppercut clips carry the body on
 	 * body_rot (the neck pivot) and the upperPart on torso (the waist pivot), the port-only body and torso_bend at 0, and
-	 * the head on the look under that chain, up to the last segment (0.8 s), which hands over to the official idle
-	 * (CoreClipPhases116GameTests).
+	 * the head on the look under that chain, from the end of the first segment (0.4 s), which lerps in from the official
+	 * idle (StandClipFollowUps116GameTests), up to the last (0.8 s), which hands over to it (CoreClipPhases116GameTests).
 	 */
 	@GameTest(template = "empty", timeoutTicks = 20)
 	public static void starPlatinumsUppercutTurnsAt116sNeckAndWaist(GameTestHelper helper) {
@@ -597,7 +597,7 @@ public final class StandClipPoses116GameTests {
 			JsonObject clip = anims.getAsJsonObject(name);
 			helper.assertTrue(clip != null && clip.has("bones"), SP_ANIMS + " lost " + name);
 			List<String> off = new ArrayList<>();
-			for (int step = 0; step <= 80; step++) {
+			for (int step = 40; step <= 80; step++) {
 				float time = step / 100F;
 				float upper = UPPERCUT_UPPER_PART_YAWS[0];
 				for (int i = 1; i < UPPERCUT_UPPER_PART_TIMES.length; i++) {

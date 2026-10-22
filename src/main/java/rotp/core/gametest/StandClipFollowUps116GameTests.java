@@ -335,6 +335,77 @@ public final class StandClipFollowUps116GameTests {
 		helper.succeed();
 	}
 
+	private static final String SP_ANIMS =
+			"stand_skins/star_platinum/assets/jojo_ripples/animations/star_platinum.animation.json";
+	// 1.16 star_platinum.animation.json at the end of each clip's first segment (uppercut 0.4 s, timeStop 0.25 s): its body
+	// (pivoting at the neck: the port's body_rot), the port's waist body and torso_bend (0), the legs and fabrics
+	private static final String[] SP_STANCE = { "body_rot", "body", "torso_bend", "left_leg", "right_leg", "left_leg_bend",
+			"right_leg_bend", "front_fabric", "back_fabric" };
+	private static final float[][] UPPERCUT_AT_04 = { { -4.73827F, -22.58344F, -0.01776F }, { 0, 0, 0 }, { 0, 0, 0 },
+			{ 0.74992F, -16.88606F, -12.30217F }, { 10.84175F, 24.21385F, 17.86993F }, { 17, 0, 0 }, { 21.32615F, 0, 0 }, { -12, 0, 0 },
+			{ 7.5F, 0, 0 } };
+	private static final float[][] TIME_STOP_AT_025 = { { -9.85981F, -0.35098F, -4.06736F }, { 0, 0, 0 }, { 0, 0, 0 },
+			{ 0.74992F, -16.88606F, -12.30217F }, { 10.84175F, 24.21385F, 17.86993F }, { 52.5F, 0, 0 }, { 95, 0, 0 },
+			{ -44.91184F, -13.90719F, -10.10857F }, { 7.5F, 0, 0 } };
+	// the clips, the end of their first segment and 1.16's stance there
+	private static final Object[][] SP_CLIPS = { { "finisher_uppercut", 0.4F, UPPERCUT_AT_04 }, { "uppercut", 0.4F, UPPERCUT_AT_04 },
+			{ "time_stop", 0.25F, TIME_STOP_AT_025 }, { "timeStop", 0.25F, TIME_STOP_AT_025 } };
+
+	/*
+	 * 1.16's GeckoStandAnimator drew Star Platinum's uppercut and time stop from star_platinum.animation.json, each
+	 * starting on 1.16's idle stance where its idle clip had left the Stand. The port's idle is the official one, so by the
+	 * coordinator's call the clips start on its t=0 values (the head on its own head and look) and lerp into 1.16's values
+	 * over their first segment, keeping the 1.16 motion after it; the time stop's 1.16 body, a root bone at the neck, turns
+	 * on body_rot (the neck pivot) and the port's waist body stays 0 until the hand-over, as the uppercut's.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void starPlatinumsClipsFrom116StartOnTheOfficialIdleAndLerpInto116sStance(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		Map<String, JsonObject> files = new HashMap<>();
+		JsonObject idle = clipOf(helper, files, SP_ANIMS, "idle");
+		float[][] looks = { { 0, 0 }, { 20, -35 }, { -30, 40 } };
+		for (Object[] row : SP_CLIPS) {
+			String name = (String) row[0];
+			float first = (Float) row[1];
+			float[][] stance = (float[][]) row[2];
+			JsonObject clip = clipOf(helper, files, SP_ANIMS, name);
+			for (String bone : idle.getAsJsonObject("bones").keySet()) {
+				if (bone.equals("head") || bone.equals("head_rot") || bone.equals("right_shoulder")) {
+					continue;
+				}
+				for (float[] look : looks) {
+					float[] want = StandClipPoses116GameTests.rotationAt(idle, bone, 0, look);
+					float[] got = StandClipPoses116GameTests.rotationAt(clip, bone, 0, look);
+					if (!near(got, want, 0.05F)) {
+						wrong.add(name + " starts " + bone + " on " + Arrays.toString(got) + " where the official idle has " + Arrays.toString(want));
+						break;
+					}
+				}
+			}
+			for (float[] look : looks) {
+				double off = StandClipPoses116GameTests.angleBetween(composedHead(clip, 0, look), composedHead(idle, 0, look));
+				if (off > 0.5) {
+					wrong.add(name + " starts the head " + String.format("%.1f", off) + " degrees off the official idle's looking "
+							+ Arrays.toString(look));
+				}
+			}
+			for (int b = 0; b < SP_STANCE.length; b++) {
+				float[] idleValue = StandClipPoses116GameTests.rotationAt(idle, SP_STANCE[b], 0, looks[0]);
+				compare(wrong, clip, SP_STANCE[b], first, stance[b], name + "'s stance at the end of its first segment");
+				compare(wrong, clip, SP_STANCE[b], first / 2, lerp(idleValue, stance[b], 0.5F), name + " half way from the official idle");
+			}
+		}
+		// 1.16's time stop body on body_rot through the stop, the waist body still
+		JsonObject stop = clipOf(helper, files, SP_ANIMS, (String) SP_CLIPS[2][0]);
+		compare(wrong, stop, "body_rot", 1.0F, TIME_STOP_AT_025[0], "time_stop's body at the neck");
+		compare(wrong, stop, "body_rot", 2.15F, new float[] { 7.5F, -30, 0 }, "time_stop's body at the neck");
+		compare(wrong, stop, "body", 2.15F, new float[] { 0, 0, 0 }, "time_stop's waist");
+		helper.assertTrue(wrong.isEmpty(), "Star Platinum's clips from 1.16 start on the official idle and lerp into 1.16's stance over"
+				+ " their first segment: " + wrong.subList(0, Math.min(12, wrong.size())) + (wrong.size() > 12 ? " and "
+				+ (wrong.size() - 12) + " more" : ""));
+		helper.succeed();
+	}
+
 	private static float[] lerp(float[] a, float[] b, float f) {
 		return new float[] { a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f };
 	}
