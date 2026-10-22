@@ -5,25 +5,39 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import javax.annotation.Nullable;
 
 import com.google.gson.JsonObject;
+import com.mojang.authlib.GameProfile;
 
+import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.client.entityanim.AnimationSet;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
+import rotp.core.impl.stands.crazydiamond.CrazyDHealAbility;
+import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.EntityActionAbility;
 import rotp.core.powersystem.entityaction.ActionAnimIdentifier;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
+import rotp.core.powersystem.entityaction.LivingComponentAction;
+import rotp.core.powersystem.entityaction.netcode.SyncType;
+import rotp.core.powersystem.standpower.StandInstance;
+import rotp.core.powersystem.standpower.StandPower;
+import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.type.StandType;
+import rotp.core.subsystems.target.ActionTarget;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.common.util.FakePlayerFactory;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -415,6 +429,68 @@ public final class CoreClipPhases116GameTests {
 			}
 		}
 		helper.assertTrue(wrong.isEmpty(), "The core Stands draw their own clips, stand_default only where listed: " + wrong);
+		helper.succeed();
+	}
+
+	// Crazy Diamond's clips under 1.16's names that copy an official clip of the same move, and that clip
+	private static final Map<String, String> CD_LEGACY_COPIES = Map.of("itemFix", "repair_item", "blockBullet", "block_bullet",
+			"bloodCutter", "blood_cutter");
+
+	/*
+	 * 1.16 drew Crazy Diamond's repair, previous-state (revert) and healing reach with one pose, ITEM_FIX_POSE ("itemFix";
+	 * the heal took the barrage's pose while it showed barrage visuals); the official 1.21.1 port's clip of it is
+	 * repair_item, which the port's itemFix copies, as blockBullet and bloodCutter copy block_bullet and blood_cutter. The
+	 * revert and the healing heal play repair_item, and no core ability asks for one of the copies.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 40)
+	public static void crazyDiamondsItemFixMovesPlayTheOfficialRepairItemClip(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		Player user = FakePlayerFactory.get(helper.getLevel(), new GameProfile(UUID.randomUUID(), "CDItemFixClip"));
+		StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("crazy_diamond"));
+		StandPower power = null;
+		try {
+			user.getAbilities().instabuild = false;
+			Vec3 pos = Vec3.atCenterOf(helper.absolutePos(new BlockPos(2, 3, 2)));
+			user.moveTo(pos.x, pos.y, pos.z);
+			helper.assertTrue(helper.getLevel().addFreshEntity(user), "setup: could not add the Stand user");
+			power = PowerClass.STAND.attachGet(user);
+			helper.assertTrue(StandPowerTransitions.insert(power, new StandInstance(type)).status() == StandPowerTransitions.Status.APPLIED,
+					"setup: could not grant Crazy Diamond");
+			power.setResolveLevel(power.getMaxResolveLevel());
+			helper.assertTrue(type.summon(user, power), "setup: could not summon Crazy Diamond");
+			StandEntity stand = power.getSummonedStandEntity();
+			helper.assertTrue(stand != null, "setup: the summoned Stand is missing");
+			for (String name : new String[] { "heal", "revert_state" }) {
+				Ability ability = power.getAbility(name);
+				helper.assertTrue(ability instanceof EntityActionAbility, "setup: Crazy Diamond has no " + name);
+				EntityActionInstance action = ((EntityActionAbility) ability).initActionOnAbilityUse(helper.getLevel(), user, stand, null);
+				LivingComponentAction.getComponent(stand).setAction(action, user, SyncType.NO_SYNC);
+				helper.assertTrue(action.getPerformer() == stand && action instanceof CrazyDHealAbility.HealingAction,
+						"setup: " + name + " was not set on the Stand as a healing action");
+				String reaching = action.getEntityAnim().name();
+				action.synchedData.set(CrazyDHealAbility.HealingAction.HEAL_RESULT, new CrazyDHealAbility.HealingAction.HealResult.Synched(
+						ActionTarget.EMPTY, true, false, CrazyDHealAbility.HealingAction.HealResult.Synched.NO_DEATH_TIME_CHANGE));
+				String healing = action.getEntityAnim().name();
+				if (!healing.equals("repair_item") || name.equals("revert_state") && !reaching.equals("repair_item")) {
+					wrong.add(name + " plays " + reaching + ", healing " + healing + " where 1.16's ITEM_FIX_POSE is the official repair_item");
+				}
+			}
+			for (String core : CORE_STANDS) {
+				for (Map.Entry<String, Ability> entry : JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc(core)).getBaseMoveset().abilities.entrySet()) {
+					String clip = clipPlayed(helper, entry.getValue(), user);
+					if (clip != null && CD_LEGACY_COPIES.containsKey(clip)) {
+						wrong.add(core + "'s " + entry.getKey() + " plays " + clip + " where the official port has " + CD_LEGACY_COPIES.get(clip));
+					}
+				}
+			}
+		}
+		finally {
+			if (power != null && power.isSummoned()) {
+				type.forceUnsummon(user, power);
+			}
+			user.discard();
+		}
+		helper.assertTrue(wrong.isEmpty(), "Crazy Diamond's item-fixing moves play the official repair_item clip: " + wrong);
 		helper.succeed();
 	}
 
