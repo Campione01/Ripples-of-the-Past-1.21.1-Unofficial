@@ -302,6 +302,16 @@ public final class RotpAddonApi {
 	 */
 	public static final String FEATURE_ACTION_STAND_STUN_HOOK_V1 =
 			"action_stand_stun_hook_v1";
+	/**
+	 * EntityActionInstance#updateStandOffset(StandEntity): asked on the server by the Stand's position update right before
+	 * the Stand is put at its offset from its user, on every tick it follows its user and is not stunned, its summon lock
+	 * included, as 1.16 StandEntity.updatePosition asked the task for its offset (getOffsetFromUser). An action that keeps
+	 * its Stand at front3dOffset of a target or of its user's look refreshes it there
+	 * (StandEntityBarrageAbility#refreshFrontOffset), so the Stand follows them in the same tick; the core's light and
+	 * heavy attacks, finishers, Silver Chariot's sweep and barrages do. A refresh from actionTick lands a tick later.
+	 */
+	public static final String FEATURE_ACTION_STAND_OFFSET_HOOK_V1 =
+			"action_stand_offset_hook_v1";
 
 	public static final Set<String> FEATURES = Set.of(
 			FEATURE_ABILITY_RESOURCE_NAMESPACE_V1,
@@ -391,7 +401,8 @@ public final class RotpAddonApi {
 			FEATURE_ABILITY_STAMINA_COST_V1,
 			FEATURE_ABILITY_COOLDOWN_TECHNICAL_V1,
 			FEATURE_ACTION_SUMMON_LOCK_HOOK_V1,
-			FEATURE_ACTION_STAND_STUN_HOOK_V1);
+			FEATURE_ACTION_STAND_STUN_HOOK_V1,
+			FEATURE_ACTION_STAND_OFFSET_HOOK_V1);
 
 	private RotpAddonApi() {}
 

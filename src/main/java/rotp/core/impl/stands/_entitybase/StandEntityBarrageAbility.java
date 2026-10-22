@@ -402,9 +402,6 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 			Level level = performer.level();
 			if (performer instanceof StandEntity stand) {
 				StandEntityPunchAbility.releaseUnlockedPunchTarget(stand, this);
-				if (getPhase() != ActionPhase.PERFORM && canRefreshFrontOffset(stand)) {
-					refreshFrontOffset(stand, placementTarget(stand, this, getPunchTarget(stand), isDirectionalBarrage(stand, this)));
-				}
 			}
 
 			if (getPhase() == ActionPhase.PERFORM && performer instanceof StandEntity stand) {
@@ -424,7 +421,6 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 				// default barrage's own aim at each hit was never one, and every client aims it from its user's look
 				HeldTargets held = !directional && !isGrabVariation() && !takesTargetsFromServer() ? heldTargets() : null;
 				ActionTarget target = getPunchTarget(stand);
-				refreshFrontOffset(stand, placementTarget(stand, this, target, directional));
 				if (target.isEmpty(level)) {
 					standRotationTarget = null;
 					aimAs = AimingEntity.CAMERA_ENTITY;
@@ -490,6 +486,19 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 						entity -> standAbility.canTargetEntityForAiming(stand, entity) && StandEntityPunchAbility.canStandHit(stand, entity));
 			}
 			return StandEntityPunchAbility.strikeAim(stand, target, StandEntityPunchAbility.CrosshairRule.BLOCK_OR_ENTITY);
+		}
+
+		/*
+		 * 1.16 StandEntityMeleeBarrage.getOffsetFromUser, asked on every tick of the task before it ticked: front3dOffset of
+		 * the task target, which the hits had left: the clash opponent the last hit met (placementTarget), for a locked
+		 * barrage the target its last hit was aimed at, or before its first hit what it was pressed at
+		 */
+		@Override
+		public void updateStandOffset(StandEntity stand) {
+			if (canRefreshFrontOffset(stand)) {
+				boolean directional = isDirectionalBarrage(stand, this);
+				refreshFrontOffset(stand, directional ? heldClashOpponent(stand, this) : getActionTargetSnapshot(stand.level()));
+			}
 		}
 
 		private boolean canRefreshFrontOffset(StandEntity stand) {

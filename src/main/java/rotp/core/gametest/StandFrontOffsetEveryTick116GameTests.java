@@ -36,11 +36,12 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * 1.16 StandEntity.updatePosition asked the Stand's task for its offset on every tick (StandEntity.getOffsetFromUser),
- * and the light attack, the heavy attack (the heavy punches, the finishers, Silver Chariot's sweep) and the barrage gave
- * StandEntityAction.front3dOffset of the task's target: the horizontal distance from the user to the target
- * (ActionTarget.getTargetPos(true), an entity's eyes) less 1 + half its width, clamped between min(0.5, the effective
- * range) and min(2, the reach); with no target, rayTraceMultipleEntities from the user's eyes along the look over that
- * maximum with the boxes grown by 0.25, else the maximum. So the Stand stepped after a target that moved, in every phase.
+ * before the task's own tick, and the light attack, the heavy attack (the heavy punches, the finishers, Silver Chariot's
+ * sweep) and the barrage gave StandEntityAction.front3dOffset of the task's target: the horizontal distance from the user
+ * to the target (ActionTarget.getTargetPos(true), an entity's eyes) less 1 + half its width, clamped between min(0.5, the
+ * effective range) and min(2, the reach); with no target, rayTraceMultipleEntities from the user's eyes along the look
+ * over that maximum with the boxes grown by 0.25, else the maximum. So the Stand stepped after a target that moved, in
+ * every phase, in the tick the target had moved before.
  */
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -54,7 +55,8 @@ public final class StandFrontOffsetEveryTick116GameTests {
 	 * Star Platinum's punch and heavy punch and Silver Chariot's sweep pressed at a cow ahead that is moved before a tick
 	 * of each phase (the heavy punch's strike keeps it), and the heavy punch pressed at nothing with a cow brought onto its
 	 * user's look ray at feet height, which only the grown boxes meet, in its windup and recovery and taken away between:
-	 * after every tick of each the Stand's front offset is 1.16's.
+	 * in every tick of each, the Stand's position update (StandEntity#updatePosition, then the action's tick as the Stand's
+	 * EntityTickEvent.Post runs it) puts the Stand at 1.16's front offset of where the cow is in that tick.
 	 */
 	@GameTest(template = "empty", timeoutTicks = 100)
 	public static void aStandTaskKeepsItsFrontOffsetToItsTargetOrItsUsersLookOnEveryTickAsIn116(GameTestHelper helper) {
@@ -133,19 +135,20 @@ public final class StandFrontOffsetEveryTick116GameTests {
 			Set<ActionPhase> moved = EnumSet.noneOf(ActionPhase.class);
 			Set<ActionPhase> checked = EnumSet.noneOf(ActionPhase.class);
 			List<String> mismatches = new ArrayList<>();
-			check(row, stand, user, cow, action, "as it was set", mismatches);
+			check(row, stand, user, cow, action, false, "as it was set", mismatches);
 			for (int tick = 1; tick <= 80; tick++) {
 				ActionPhase phase = action.getPhase();
 				int phaseTick = (int) action.getPhaseTick();
 				if (move(row, user, cow, phase, phaseTick)) {
 					moved.add(phase);
 				}
+				stand.updatePosition(user);
+				checked.add(phase);
+				check(row, stand, user, cow, action, true, "in tick " + tick + " (" + phase + " " + phaseTick + ")", mismatches);
 				actions.tick();
 				if (action.isOver() || stand.getCurStandAction() != action) {
 					break;
 				}
-				checked.add(phase);
-				check(row, stand, user, cow, action, "after tick " + tick + " (" + phase + " " + phaseTick + ")", mismatches);
 			}
 			EnumSet<ActionPhase> phases = EnumSet.of(ActionPhase.WINDUP, ActionPhase.PERFORM, ActionPhase.RECOVERY);
 			if (!checked.containsAll(phases) || !moved.containsAll(row.pressedAtCow ? phases
@@ -202,8 +205,8 @@ public final class StandFrontOffsetEveryTick116GameTests {
 		return false;
 	}
 
-	private static void check(Row row, StandEntity stand, Player user, Cow cow, EntityActionInstance action, String when,
-			List<String> mismatches) {
+	private static void check(Row row, StandEntity stand, Player user, Cow cow, EntityActionInstance action, boolean placed,
+			String when, List<String> mismatches) {
 		double min = Math.min(0.5D, stand.getEffectiveRange());
 		double max = Math.min(2.0D, stand.getMaxRange());
 		double expected = row.pressedAtCow || onLookRay(user, cow, max) ? offsetTo(user, cow, min, max) : max;
@@ -211,6 +214,11 @@ public final class StandFrontOffsetEveryTick116GameTests {
 		if (synced == null || Math.abs(synced.z - expected) > EPS || Math.abs(synced.x) > EPS) {
 			mismatches.add(when + " the front offset " + (synced != null ? synced.z : null) + ", 1.16's " + expected
 					+ " (the cow " + (user.position().distanceTo(cow.position())) + " away)");
+		}
+		// the user looks along +z: the Stand stands that far ahead of its feet
+		if (placed && (Math.abs(stand.getZ() - user.getZ() - expected) > EPS || Math.abs(stand.getX() - user.getX()) > EPS)) {
+			mismatches.add(when + " the Stand " + (stand.getZ() - user.getZ()) + " ahead and " + (stand.getX() - user.getX())
+					+ " aside, 1.16's " + expected + " ahead");
 		}
 	}
 

@@ -389,6 +389,9 @@ public final class RotpAddonApiSmokeTest {
 		check(RotpAddonApi.supportsFeature(
 				RotpAddonApi.FEATURE_ACTION_STAND_STUN_HOOK_V1),
 				"action Stand stun hook feature missing");
+		check(RotpAddonApi.supportsFeature(
+				RotpAddonApi.FEATURE_ACTION_STAND_OFFSET_HOOK_V1),
+				"action Stand offset hook feature missing");
 
 		AbilityType<Ability> addonType = new AbilityType<>(
 				id("rotp_test", "freeze"), Ability::new);
@@ -554,6 +557,7 @@ public final class RotpAddonApiSmokeTest {
 		AbilityCooldownTechnicalSmokeTest.run();
 		ActionSummonLockHookSmokeTest.run();
 		ActionStandStunHookSmokeTest.run();
+		ActionStandOffsetHookSmokeTest.run();
 	}
 
 	private static ResourceLocation id(String namespace, String path) {

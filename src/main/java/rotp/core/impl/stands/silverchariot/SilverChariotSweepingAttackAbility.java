@@ -132,13 +132,15 @@ public class SilverChariotSweepingAttackAbility extends StandEntityAbility {
 			}
 		}
 
+		// 1.16 StandEntityHeavyAttack.getOffsetFromUser, asked on every tick of the task: front3dOffset of its target
+		@Override
+		public void updateStandOffset(StandEntity stand) {
+			StandEntityBarrageAbility.refreshFrontOffset(this, stand, getTaskTarget(stand.level()),
+					Math.min(0.5, stand.getEffectiveRange()), Math.min(2, stand.getMaxRange()));
+		}
+
 		@Override
 		public void actionTick() {
-			// 1.16 StandEntityHeavyAttack.getOffsetFromUser, asked on every tick of the task: front3dOffset of its target
-			if (performer instanceof StandEntity stand) {
-				StandEntityBarrageAbility.refreshFrontOffset(this, stand, getTaskTarget(stand.level()),
-						Math.min(0.5, stand.getEffectiveRange()), Math.min(2, stand.getMaxRange()));
-			}
 			if (playedSwingSound || getPhase() != ActionPhase.WINDUP || getPhaseTicksLeft() > 1) {
 				return;
 			}

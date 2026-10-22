@@ -345,9 +345,6 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 				releaseUnlockedPunchTarget(stand, this);
 				if (!takesTargetsFromServer() && !isGrabVariation()) {
 					releaseTargetOutOfRange(stand);
-					// 1.16 StandEntityLightAttack.getOffsetFromUser, asked on every tick of the task: front3dOffset of its target
-					StandEntityBarrageAbility.refreshFrontOffset(this, stand, getTaskTarget(level),
-							Math.min(0.5, stand.getEffectiveRange()), Math.min(2, stand.getMaxRange()));
 				}
 			}
 			if (level.isClientSide() && !(playedSwingSound && playedStandCrySound)
@@ -380,6 +377,15 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			}
 		}
 		
+		// 1.16 StandEntityLightAttack.getOffsetFromUser, asked on every tick of the task: front3dOffset of its target
+		@Override
+		public void updateStandOffset(StandEntity stand) {
+			if (!takesTargetsFromServer() && !isGrabVariation()) {
+				StandEntityBarrageAbility.refreshFrontOffset(this, stand, getTaskTarget(stand.level()),
+						Math.min(0.5, stand.getEffectiveRange()), Math.min(2, stand.getMaxRange()));
+			}
+		}
+
 		@Override
 		public void actionPerformStart() {
 			Level level = level();
