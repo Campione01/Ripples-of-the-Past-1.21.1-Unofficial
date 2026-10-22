@@ -440,7 +440,8 @@ public final class CoreClipPhases116GameTests {
 	 * 1.16 drew Crazy Diamond's repair, previous-state (revert) and healing reach with one pose, ITEM_FIX_POSE ("itemFix";
 	 * the heal took the barrage's pose while it showed barrage visuals); the official 1.21.1 port's clip of it is
 	 * repair_item, which the port's itemFix copies, as blockBullet and bloodCutter copy block_bullet and blood_cutter. The
-	 * revert and the healing heal play repair_item, and no core ability asks for one of the copies.
+	 * revert plays repair_item, healing or not, the heal (no pose of its own in 1.16) the idle while it heals without
+	 * barrage visuals (StandClipFollowUps116GameTests), and no core ability asks for one of the copies.
 	 */
 	@GameTest(template = "empty", timeoutTicks = 40)
 	public static void crazyDiamondsItemFixMovesPlayTheOfficialRepairItemClip(GameTestHelper helper) {
@@ -471,7 +472,7 @@ public final class CoreClipPhases116GameTests {
 				action.synchedData.set(CrazyDHealAbility.HealingAction.HEAL_RESULT, new CrazyDHealAbility.HealingAction.HealResult.Synched(
 						ActionTarget.EMPTY, true, false, CrazyDHealAbility.HealingAction.HealResult.Synched.NO_DEATH_TIME_CHANGE));
 				String healing = action.getEntityAnim().name();
-				if (!healing.equals("repair_item") || name.equals("revert_state") && !reaching.equals("repair_item")) {
+				if (!healing.equals(name.equals("heal") ? "idle" : "repair_item") || name.equals("revert_state") && !reaching.equals("repair_item")) {
 					wrong.add(name + " plays " + reaching + ", healing " + healing + " where 1.16's ITEM_FIX_POSE is the official repair_item");
 				}
 			}

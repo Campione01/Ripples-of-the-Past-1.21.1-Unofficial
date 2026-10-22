@@ -72,8 +72,6 @@ import net.minecraft.world.level.Level;
 
 public class CrazyDHealAbility extends StandEntityAbility {
 	private static final ActionAnimIdentifier IDLE_ANIM = ActionAnimIdentifier.getOrCreate("idle", true);
-	// 1.16's ITEM_FIX_POSE, whose clip in the official 1.21.1 port is repair_item (the port's itemFix is a copy)
-	private static final ActionAnimIdentifier REPAIR_ITEM_ANIM = ActionAnimIdentifier.getOrCreate("repair_item", false);
 	private static final ActionAnimIdentifier BARRAGE_ANIM = ActionAnimIdentifier.getOrCreate("barrage", false);
 	public static final float HEAL_STAMINA_COST_TICK = 1F;
 	private static final double HEAL_SPEED_MULTIPLIER = 1;
@@ -234,7 +232,8 @@ public class CrazyDHealAbility extends StandEntityAbility {
 		if (action instanceof HealingAction healingAction) {
 			HealingAction.HealResult.Synched heal = healingAction.synchedData.get(HealingAction.HEAL_RESULT);
 			if (heal.isHealing) {
-				return heal.barrageVisuals ? BARRAGE_ANIM : REPAIR_ITEM_ANIM;
+				// 1.16's heal had no pose of its own (StandAction.Builder's IDLE), the revert ITEM_FIX_POSE: the fallback
+				return heal.barrageVisuals ? BARRAGE_ANIM : fallback;
 			}
 		}
 		return fallback;

@@ -5,14 +5,34 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.mojang.authlib.GameProfile;
 
+import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
+import rotp.core.core.JojoRegistries;
+import rotp.core.impl.stands.crazydiamond.CrazyDHealAbility;
+import rotp.core.powersystem.PowerClass;
+import rotp.core.powersystem.ability.Ability;
+import rotp.core.powersystem.ability.EntityActionAbility;
+import rotp.core.powersystem.entityaction.EntityActionInstance;
+import rotp.core.powersystem.entityaction.LivingComponentAction;
+import rotp.core.powersystem.entityaction.netcode.SyncType;
+import rotp.core.powersystem.standpower.StandInstance;
+import rotp.core.powersystem.standpower.StandPower;
+import rotp.core.powersystem.standpower.entity.StandEntity;
+import rotp.core.powersystem.standpower.type.StandType;
+import rotp.core.subsystems.target.ActionTarget;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.common.util.FakePlayerFactory;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -259,6 +279,60 @@ public final class StandClipFollowUps116GameTests {
 		JsonElement values = key.isJsonObject() ? key.getAsJsonObject().get("vector") : key;
 		return new float[] { values.getAsJsonArray().get(0).getAsFloat(), values.getAsJsonArray().get(1).getAsFloat(),
 				values.getAsJsonArray().get(2).getAsFloat() };
+	}
+
+	/*
+	 * 1.16's CrazyDiamondHeal had no standPose of its own (StandAction.Builder's IDLE): the Stand drew its idle while it
+	 * healed, and the barrage's pose while the heal showed barrage visuals (StandEntityAction.getStandPose); the
+	 * previous-state revert drew ITEM_FIX_POSE (the official repair_item) and the barrage's pose likewise.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 40)
+	public static void crazyDiamondsHealShowsTheIdleWhileItHealsWithoutBarrageVisualsAs116(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		Player user = FakePlayerFactory.get(helper.getLevel(), new GameProfile(UUID.randomUUID(), "CDHealIdleClip"));
+		StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("crazy_diamond"));
+		StandPower power = null;
+		try {
+			user.getAbilities().instabuild = false;
+			Vec3 pos = Vec3.atCenterOf(helper.absolutePos(new BlockPos(2, 3, 2)));
+			user.moveTo(pos.x, pos.y, pos.z);
+			helper.assertTrue(helper.getLevel().addFreshEntity(user), "setup: could not add the Stand user");
+			power = PowerClass.STAND.attachGet(user);
+			helper.assertTrue(StandPowerTransitions.insert(power, new StandInstance(type)).status() == StandPowerTransitions.Status.APPLIED,
+					"setup: could not grant Crazy Diamond");
+			power.setResolveLevel(power.getMaxResolveLevel());
+			helper.assertTrue(type.summon(user, power), "setup: could not summon Crazy Diamond");
+			StandEntity stand = power.getSummonedStandEntity();
+			helper.assertTrue(stand != null, "setup: the summoned Stand is missing");
+			// the ability, then the clip it asks for: not healing, healing without and with barrage visuals
+			String[][] rows = { { "heal", "idle", "idle", "barrage" }, { "revert_state", "repair_item", "repair_item", "barrage" } };
+			for (String[] row : rows) {
+				Ability ability = power.getAbility(row[0]);
+				helper.assertTrue(ability instanceof EntityActionAbility, "setup: Crazy Diamond has no " + row[0]);
+				EntityActionInstance action = ((EntityActionAbility) ability).initActionOnAbilityUse(helper.getLevel(), user, stand, null);
+				LivingComponentAction.getComponent(stand).setAction(action, user, SyncType.NO_SYNC);
+				helper.assertTrue(action instanceof CrazyDHealAbility.HealingAction, "setup: " + row[0] + " is no healing action");
+				String[] got = new String[3];
+				got[0] = action.getEntityAnim().name();
+				for (int visuals = 0; visuals < 2; visuals++) {
+					action.synchedData.set(CrazyDHealAbility.HealingAction.HEAL_RESULT, new CrazyDHealAbility.HealingAction.HealResult.Synched(
+							ActionTarget.EMPTY, true, visuals == 1, CrazyDHealAbility.HealingAction.HealResult.Synched.NO_DEATH_TIME_CHANGE));
+					got[visuals + 1] = action.getEntityAnim().name();
+				}
+				if (!Arrays.equals(got, Arrays.copyOfRange(row, 1, 4))) {
+					wrong.add(row[0] + " plays " + Arrays.toString(got) + " (not healing, healing, healing with barrage visuals) where 1.16"
+							+ " drew " + Arrays.toString(Arrays.copyOfRange(row, 1, 4)));
+				}
+			}
+		}
+		finally {
+			if (power != null && power.isSummoned()) {
+				type.forceUnsummon(user, power);
+			}
+			user.discard();
+		}
+		helper.assertTrue(wrong.isEmpty(), "1.16's Crazy Diamond healed in its idle pose, the barrage's with barrage visuals: " + wrong);
+		helper.succeed();
 	}
 
 	private static float[] lerp(float[] a, float[] b, float f) {
