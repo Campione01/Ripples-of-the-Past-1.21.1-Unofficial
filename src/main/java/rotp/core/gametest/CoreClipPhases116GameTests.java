@@ -285,6 +285,64 @@ public final class CoreClipPhases116GameTests {
 		helper.succeed();
 	}
 
+	private static final String SP_ANIMS =
+			"stand_skins/star_platinum/assets/jojo_ripples/animations/star_platinum.animation.json";
+	// Star Platinum's clips taken from 1.16's star_platinum.animation.json, the start of their last segment, and the bones
+	// 1.16 left off its idle at the end (snapped at the clip switch)
+	private record HandOver(String clip, float lastSegment, String... snapped) {}
+
+	private static final List<HandOver> SP_HAND_OVERS = List.of(new HandOver("finisher_uppercut", 0.8F),
+			new HandOver("uppercut", 0.8F), new HandOver("time_stop", 2.35F, "right_shoulder"),
+			new HandOver("timeStop", 2.35F, "right_shoulder"));
+	private static final String[] SP_STANCE = { "body_rot", "body", "torso", "torso_bend", "left_arm", "left_arm_bend", "right_arm",
+			"right_arm_bend", "left_leg", "left_leg_bend", "right_leg", "right_leg_bend", "front_fabric", "back_fabric" };
+
+	/*
+	 * 1.16 animated Star Platinum from its JSON file (GeckoStandAnimator: one clip a frame, no blending); its uppercut and
+	 * time stop lerped every bone into 1.16's idle stance over their last segment and the idle clip took over on that
+	 * stance. The port's idle is the official one, another stance (the body turned the other way at the waist), so the
+	 * last segment lerps into the official idle's start and the clip ends on it bone by bone, the head included.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void starPlatinumsClipsFrom116LerpIntoTheOfficialIdleOverTheirLastSegment(GameTestHelper helper) {
+		Map<String, JsonObject> files = new HashMap<>();
+		JsonObject idle = clipOf(helper, files, SP_ANIMS, "idle");
+		List<String> wrong = new ArrayList<>();
+		for (HandOver row : SP_HAND_OVERS) {
+			JsonObject clip = clipOf(helper, files, SP_ANIMS, row.clip());
+			float end = clip.get("animation_length").getAsFloat();
+			List<String> snapped = List.of(row.snapped());
+			for (float[] look : LOOKS) {
+				for (String bone : idle.getAsJsonObject("bones").keySet()) {
+					if (snapped.contains(bone)) {
+						continue;
+					}
+					float[] got = StandClipPoses116GameTests.rotationAt(clip, bone, end, look);
+					float[] want = StandClipPoses116GameTests.rotationAt(idle, bone, 0, look);
+					if (Math.abs(got[0] - want[0]) > 0.05F || Math.abs(got[1] - want[1]) > 0.05F || Math.abs(got[2] - want[2]) > 0.05F) {
+						wrong.add(row.clip() + " ends " + bone + " on " + Arrays.toString(got) + " looking " + Arrays.toString(look)
+								+ " where the official idle starts on " + Arrays.toString(want));
+					}
+				}
+			}
+			float middle = (row.lastSegment() + end) / 2;
+			for (String bone : SP_STANCE) {
+				float[] from = StandClipPoses116GameTests.rotationAt(clip, bone, row.lastSegment(), LEVEL);
+				float[] to = StandClipPoses116GameTests.rotationAt(idle, bone, 0, LEVEL);
+				float[] got = StandClipPoses116GameTests.rotationAt(clip, bone, middle, LEVEL);
+				for (int axis = 0; axis < 3; axis++) {
+					if (Math.abs(got[axis] - (from[axis] + to[axis]) / 2) > 0.05F) {
+						wrong.add(row.clip() + " " + bone + " half way through its last segment " + Arrays.toString(got) + ", not half way from "
+								+ Arrays.toString(from) + " to the official idle's " + Arrays.toString(to));
+						break;
+					}
+				}
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), "Star Platinum's clips from 1.16 lerp into the official idle over their last segment: " + wrong);
+		helper.succeed();
+	}
+
 	private static double[][] composedHead(JsonObject clip, float time, float[] look) {
 		double[][] composed = StandClipPoses116GameTests.rotationMatrix(new float[3]);
 		for (String bone : HEAD_CHAIN) {
