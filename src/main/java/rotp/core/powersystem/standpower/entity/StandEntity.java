@@ -447,6 +447,49 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		summonPoseEnded = true;
 	}
 
+	/*
+	 * 1.16 TimeStop.perform set TimeStop.ANIM on its client Stand (setStandPose), which StandEntity.getCurPose drew before
+	 * anything else, its clip's PERFORM section at the Stand's own pace (setPoseTime), until the clip ended
+	 * (onSetPoseAnimEnded) or the Stand's task changed.
+	 */
+	@Nullable private EntityActionInstance performPoseAction;
+	private int performPoseStartTick;
+
+	/** An action of its user that poses its Stand leaves its perform pose on the Stand as it performs. */
+	@ApiStatus.Internal
+	public void setPerformPose(EntityActionInstance action) {
+		performPoseAction = action;
+		performPoseStartTick = tickCount;
+	}
+
+	/**
+	 * The action whose perform pose the Stand still plays: none once the client found its clip ended
+	 * ({@link #endPerformPose}) or once the Stand's own slot holds an action (1.16: a new task replaced the pose).
+	 */
+	@ApiStatus.Internal
+	@Nullable
+	public EntityActionInstance getPerformPose() {
+		if (performPoseAction != null) {
+			EntityActionInstance ownAction = LivingComponentAction.getCurEntityAction(this);
+			if (ownAction != null && !ownAction.isOver()) {
+				performPoseAction = null;
+			}
+		}
+		return performPoseAction;
+	}
+
+	/** The Stand's ticks since its perform pose was set. */
+	@ApiStatus.Internal
+	public float getPerformPoseTicks(float partialTick) {
+		return tickCount - performPoseStartTick + partialTick;
+	}
+
+	/** Client: the perform pose's clip is over (1.16 StandEntity.onSetPoseAnimEnded). */
+	@ApiStatus.Internal
+	public void endPerformPose() {
+		performPoseAction = null;
+	}
+
 	@Override
 	public void aiStep() {
 		super.aiStep();

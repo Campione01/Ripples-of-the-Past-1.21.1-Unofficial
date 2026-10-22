@@ -109,6 +109,11 @@ public class PreFrameEntityAnimCalc {
 		LivingComponentAction actionComponent = poseActionComponent(living);
 		EntityActionInstance action = actionComponent != null ? actionComponent.getAction() : null;
 		@Nullable StandEntity stand = living instanceof StandEntity __ ? __ : null;
+		// 1.16 StandEntity.getCurPose drew the perform pose its user's time stop left on the Stand before anything else
+		@Nullable EntityActionInstance performPose = stand != null ? stand.getPerformPose() : null;
+		if (performPose != null) {
+			action = performPose;
+		}
 		@Nullable HamonData persistentHamonPose = stand == null && living instanceof Player
 				? PlayerPower.getPowerData(living, ModPlayerPowers.HAMON)
 						.filter(hamon -> hamon.isMeditating() || !living.isPassenger() && hamon.isWallClimbing())
@@ -161,6 +166,9 @@ public class PreFrameEntityAnimCalc {
 					animVariables.animId = ActionAnimIdentifier.getOrCreate("meditation", false);
 					animVariables.time = persistentHamonPose.getMeditationPoseTicks() + partialTick;
 				}
+			}
+			else if (performPose != null) {
+				fillPerformPose(animVariables, stand, performPose, partialTick);
 			}
 			else if (action != null) {
 				action.extractAnim(animVariables, living, partialTick);
@@ -243,6 +251,12 @@ public class PreFrameEntityAnimCalc {
 			
 			if (anim != null) {
 				float timeSeconds = anim.getAnimTime(animVariables);
+				if (performPose != null && (anim.instructionTimelines.phases == null || timeSeconds >= anim.lengthInSeconds)) {
+					// 1.16 StandActionAnimation: the PERFORM section played to the clip's end (onSetPoseAnimEnded); a skin
+					// without the clip shows its idle, from its start as after any action
+					stand.endPerformPose();
+					timeSeconds = anim.instructionTimelines.phases == null ? 0 : anim.lengthInSeconds;
+				}
 				float tailElapsed = rebuffTail != null ? rebuffTail.elapsedTicks(living.tickCount, rebuffPartialTick) : 0;
 				if (rebuffTail != null) {
 					// 1.16 advances the old clip throughout its OUTCUBIC stop fade.
@@ -252,7 +266,7 @@ public class PreFrameEntityAnimCalc {
 						rebuffTail != null ? rebuffPartialTick : partialTick);
 				float lookXRot = molangVariables.xRot;
 				pose = anim.calcAnimPose(molangVariables,
-						actionComponent != null ? actionComponent.clPrevPunchPose : null, timeSeconds, 1);
+						performPose == null && actionComponent != null ? actionComponent.clPrevPunchPose : null, timeSeconds, 1);
 				if (rebuffTail != null) pose.blendWeight = rebuffTail.blendWeight(tailElapsed);
 				if (stand == null) {
 					// 1.16 KosmXArmsRotationModifier: barrage arms follow the look pitch
@@ -289,8 +303,23 @@ public class PreFrameEntityAnimCalc {
 			else if (rebuffTail != null) {
 				actionComponent.clearClientRebuffTail();
 			}
+			else if (performPose != null) {
+				stand.endPerformPose();
+			}
 		}
 		return pose;
+	}
+
+	// 1.16 StandEntity.getCurPose for TimeStop.ANIM: its PERFORM phase, timed from setStandPose at the Stand's own pace
+	private static void fillPerformPose(LivingAnimState animVariables, StandEntity stand, EntityActionInstance performPose,
+			float partialTick) {
+		animVariables.reset();
+		animVariables.animSet = performPose.ability.getEntityAnimSet(stand);
+		animVariables.animId = performPose.getEntityAnim();
+		animVariables.actionPhase = ActionPhase.PERFORM;
+		animVariables.phaseTime = stand.getPerformPoseTicks(partialTick);
+		animVariables.time = animVariables.phaseTime;
+		animVariables.phaseCompletion = 1;
 	}
 
 	/**

@@ -589,7 +589,7 @@ public final class StandClipFollowUps116GameTests {
 	}
 
 	// "owner.name" of every method a class file invokes (its Methodref constants)
-	private static Set<String> invokedMethods(GameTestHelper helper, String classPath) {
+	static Set<String> invokedMethods(GameTestHelper helper, String classPath) {
 		Set<String> out = new HashSet<>();
 		try (InputStream raw = StandClipFollowUps116GameTests.class.getResourceAsStream("/" + classPath)) {
 			helper.assertTrue(raw != null, "Missing class file " + classPath);
