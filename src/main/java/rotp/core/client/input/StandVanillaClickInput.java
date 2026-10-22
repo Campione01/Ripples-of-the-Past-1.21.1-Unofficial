@@ -49,6 +49,7 @@ public class StandVanillaClickInput {
 		if (inputHandler == null || stand == null
 				|| keyCode != InputConstants.MOUSE_BUTTON_RIGHT
 				|| !standCanRightClickItems
+				|| ClStandClickPacket.isUnsummoning(stand)
 				|| (!stand.isManuallyControlled()
 						&& (InputHandler.inputsDisabled
 								|| !ServerSideLivingClick.isEntityHoldingAnItem(stand)))) {

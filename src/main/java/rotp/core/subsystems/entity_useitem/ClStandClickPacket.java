@@ -4,9 +4,11 @@ import org.jetbrains.annotations.ApiStatus;
 
 import rotp.core.PacketsRegister;
 import rotp.core.init.ModDataAttachmentTypes;
+import rotp.core.init.ModSpecialActions;
 import rotp.core.network.NetworkPayloadValidation;
 import rotp.core.powersystem.ability.input.InputKeyId;
 import rotp.core.powersystem.entityaction.EntityActionInputState;
+import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.HeldInput;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.EntityActionInputState.HeldInputEntry;
@@ -43,6 +45,16 @@ public record ClStandClickPacket(
 		this(new HitResultSync(target), inputGeneration, hand);
 	}
 
+	/**
+	 * The Stand runs its unsummon action, arms-only or not. 1.16 had no Stand item use and left a right click during the
+	 * unsummon to the user (ActionsOverlayGui.onStandUnsummon closed the Stand HUD), so the Stand takes no click for its
+	 * held item then; an item used over time would also replace the unsummon action.
+	 */
+	public static boolean isUnsummoning(StandEntity stand) {
+		EntityActionInstance action = stand != null ? stand.getCurStandAction() : null;
+		return action != null && action.ability == ModSpecialActions.STAND_UNSUMMON.get();
+	}
+
 	public static class Handler implements PacketsRegister.PacketOGHandler<ClStandClickPacket> {
 
 		public Handler(ResourceLocation packetId) { 
@@ -75,7 +87,8 @@ public record ClStandClickPacket(
 					player.isSpectator(),
 					standEntity != null && standEntity.isAlive(),
 					standEntity != null && standEntity.isManuallyControlled(),
-					ServerSideLivingClick.isEntityHoldingAnItem(standEntity))) {
+					ServerSideLivingClick.isEntityHoldingAnItem(standEntity),
+					isUnsummoning(standEntity))) {
 				return;
 			}
 			EntityActionInputState inputHandler = player.getData(
@@ -118,10 +131,12 @@ public record ClStandClickPacket(
 				boolean playerSpectator,
 				boolean standAlive,
 				boolean manuallyControlled,
-				boolean holdingItem) {
+				boolean holdingItem,
+				boolean standUnsummoning) {
 			return playerAlive
 					&& !playerSpectator
 					&& standAlive
+					&& !standUnsummoning
 					&& (manuallyControlled || holdingItem);
 		}
 

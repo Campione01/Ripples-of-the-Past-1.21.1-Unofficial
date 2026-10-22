@@ -67,9 +67,9 @@ public final class StandItemUseProtocolSmokeTest {
 		short keyId = 4;
 		InputGenerationTracker generations = new InputGenerationTracker();
 		boolean spectator = ClStandClickPacket.Handler.isEligible(
-				true, true, true, true, true);
+				true, true, true, true, true, false);
 		boolean automaticEmptyHand = ClStandClickPacket.Handler.isEligible(
-				true, false, true, false, false);
+				true, false, true, false, false, false);
 		check(!acceptIfEligible(
 				generations, spectator, keyId, 1L),
 				"spectator Stand item use was admitted");
@@ -80,21 +80,26 @@ public final class StandItemUseProtocolSmokeTest {
 				"rejected Stand item use consumed its generation");
 
 		boolean manualEmptyHand = ClStandClickPacket.Handler.isEligible(
-				true, false, true, true, false);
+				true, false, true, true, false, false);
 		check(acceptIfEligible(
 				generations, manualEmptyHand, keyId, 1L),
 				"manual Stand item interaction was rejected");
 		boolean automaticHeldItem = ClStandClickPacket.Handler.isEligible(
-				true, false, true, false, true);
+				true, false, true, false, true, false);
 		check(acceptIfEligible(
 				generations, automaticHeldItem, keyId, 2L),
 				"automatic held-item Stand interaction was rejected");
 		check(!ClStandClickPacket.Handler.isEligible(
-				false, false, true, true, true),
+				false, false, true, true, true, false),
 				"dead-player Stand item use was admitted");
 		check(!ClStandClickPacket.Handler.isEligible(
-				true, false, false, true, true),
+				true, false, false, true, true, false),
 				"dead-Stand item use was admitted");
+		check(!ClStandClickPacket.Handler.isEligible(
+				true, false, true, false, true, true)
+				&& !ClStandClickPacket.Handler.isEligible(
+						true, false, true, true, true, true),
+				"Stand item use was admitted during the Stand's unsummon, where 1.16 left the right click to its user");
 	}
 
 	private static boolean acceptIfEligible(
@@ -322,6 +327,16 @@ public final class StandItemUseProtocolSmokeTest {
 				&& standItemInput > semanticVanillaGuard
 				&& mappedAbilityInput > standItemInput,
 				"semantic vanilla use and Stand-held item use must win before mapped RMB abilities");
+		int standItemMethod = clientClick.indexOf(
+				"private static boolean handleStandItemUseInput(");
+		int standItemGuardEnd = clientClick.indexOf(
+				"return false;", standItemMethod);
+		int unsummonGuard = clientClick.indexOf(
+				"ClStandClickPacket.isUnsummoning(stand)", standItemMethod);
+		check(standItemMethod >= 0
+				&& unsummonGuard > standItemMethod
+				&& unsummonGuard < standItemGuardEnd,
+				"the Stand must leave a right click to its user during its unsummon, as 1.16 did");
 		int heldTimer = clientClick.indexOf("new HeldKeyTimer(");
 		int heldTimerCancelsRepeats = clientClick.indexOf(
 				"key, true, KeyModifier.NONE)", heldTimer);
@@ -345,6 +360,12 @@ public final class StandItemUseProtocolSmokeTest {
 		int eligibility = packet.indexOf("if (!isEligible(");
 		int fixedRmb = packet.indexOf(
 				"short internalKeyId = InputKeyId.STAND_ITEM_RMB;", eligibility);
+		int serverUnsummonGuard = packet.indexOf(
+				"isUnsummoning(standEntity))) {", eligibility);
+		check(eligibility >= 0
+				&& serverUnsummonGuard > eligibility
+				&& serverUnsummonGuard < fixedRmb,
+				"the server must refuse a Stand item click during the Stand's unsummon");
 		int conflict = packet.indexOf(
 				"hasActiveInputConflict(", fixedRmb);
 		int generation = packet.indexOf(
