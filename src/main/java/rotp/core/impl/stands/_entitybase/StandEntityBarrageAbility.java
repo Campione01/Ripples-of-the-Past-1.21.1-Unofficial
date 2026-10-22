@@ -497,7 +497,10 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 		public void updateStandOffset(StandEntity stand) {
 			if (canRefreshFrontOffset(stand)) {
 				boolean directional = isDirectionalBarrage(stand, this);
-				refreshFrontOffset(stand, directional ? heldClashOpponent(stand, this) : getActionTargetSnapshot(stand.level()));
+				// the port's locked barrage (standAttackTargetLock, D-core-50) aims again for its place in each recovery tick
+				refreshFrontOffset(stand, directional ? heldClashOpponent(stand, this)
+						: getPhase() == ActionPhase.RECOVERY ? placementTarget(stand, this, getPunchTarget(stand), false)
+						: getActionTargetSnapshot(stand.level()));
 			}
 		}
 
