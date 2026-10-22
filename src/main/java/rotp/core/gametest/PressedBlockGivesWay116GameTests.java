@@ -17,6 +17,7 @@ import rotp.core.impl.stands._entitybase.StandEntityPunchAbility.StandEntityPunc
 import rotp.core.impl.stands.crazydiamond.CrazyDAnchorMakeAbility;
 import rotp.core.impl.stands.crazydiamond.CrazyDHealAbility.HealingAction;
 import rotp.core.impl.stands.hierophant.HierophantBarrierAbility;
+import rotp.core.impl.stands.theworld.TimeStopAbility;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
@@ -349,6 +350,26 @@ public final class PressedBlockGivesWay116GameTests {
 					+ ", the torch at " + torch);
 			ActionTarget overridden = scene.ability(CrazyDAnchorMakeAbility.class).overridePressedTarget(scene.user, pressedAt);
 			helper.assertTrue(isBlock(overridden, torch), "The block anchor's press rule let the torch give way to "
+					+ describe(overridden));
+		}
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16's TimeStop was a StandAction, not a StandEntityAction: no overrideVanillaMouseTarget of its own, so a press of
+	 * it kept a pressed torch. The port marks such ports (performsInUsersStandPowerSlot), as add-ons mark theirs.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH + "stand_action")
+	public static void aPortOfAStandActionKeepsTheTorchAsIn116(GameTestHelper helper) {
+		try (Scene scene = new Scene(helper, "the_world", 0)) {
+			BlockPos torch = scene.torchInTheAir();
+			Cow cow = scene.cow(2.0D, false);
+			scene.assertInStandReach(cow);
+			ActionTarget pressedAt = new ActionTarget(torch, Direction.NORTH);
+			TimeStopAbility timeStop = scene.ability(TimeStopAbility.class);
+			ActionTarget overridden = timeStop.overridePressedTarget(scene.user, pressedAt);
+			helper.assertTrue(timeStop.performsInUsersStandPowerSlot() && isBlock(overridden, torch), "1.16's time stop, a"
+					+ " StandAction, kept the torch it was pressed at; the port's press rule let it give way to "
 					+ describe(overridden));
 		}
 		helper.succeed();

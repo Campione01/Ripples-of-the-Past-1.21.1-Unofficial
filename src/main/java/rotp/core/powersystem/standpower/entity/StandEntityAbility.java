@@ -312,10 +312,12 @@ public class StandEntityAbility extends EntityActionAbility {
 	/**
 	 * Whether a pressed block without a collision shape gives way ({@link #overridePressedTarget}): 1.16's
 	 * getTargetRequirement took an entity (NONE, ENTITY or ANY), as for every StandEntityAction but those that take only a
-	 * block (TargetRequirement.BLOCK), which return false.
+	 * block (TargetRequirement.BLOCK), which return false. A port of a 1.16 StandAction
+	 * ({@link #performsInUsersStandPowerSlot}) had no such rule; a port of a StandEntityActionModifier or of another
+	 * StandAction returns false too.
 	 */
 	public boolean pressedBlockGivesWayToEntity() {
-		return true;
+		return !performsInUsersStandPowerSlot();
 	}
 
 	/**
