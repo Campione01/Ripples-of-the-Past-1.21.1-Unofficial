@@ -37,11 +37,15 @@ import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.animal.Chicken;
 import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.CollisionContext;
@@ -472,6 +476,66 @@ public final class SoulAscensionClientGameTests {
 	}
 
 	/**
+	 * 1.16 SoulEntity cast JojoModUtil.rayTrace(this, 32, filter, 1.0) for the Stand user it gives Resolve to by its look:
+	 * from the soul's eyes, entity boxes grown by 1.0, entities met through blocks. A cow behind stone on the soul's look, a
+	 * cow 0.75 beside the look line and a chicken floating just above the eyes are each its look target. Above the barriers,
+	 * in a batch of its own, as the scene before.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20, batch = "soul_look_116")
+	public static void soulLooksThroughBlocksIntoGrownBoxesFromItsEyesAsIn116(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		Player serverPlayer = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
+		BlockPos wall = helper.absolutePos(new BlockPos(2, 5, 1));
+		BlockState wallWas = level.getBlockState(wall);
+		List<Entity> looked = new ArrayList<>();
+		SoulEntity soul = null;
+		try {
+			Vec3 pos = Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(1, 4, 1)));
+			serverPlayer.moveTo(pos.x, pos.y, pos.z, 0, 0);
+			serverPlayer.setHealth(0.0F);
+			soul = new SoulEntity(level, serverPlayer, ASCENSION_TICKS);
+			helper.assertTrue(level.addFreshEntity(soul), "Fixture: could not add the soul");
+			// a yaw of -90 looks to +x
+			new ClSoulRotationPacket.Handler(JojoMod.resLoc("clsoulrot"))
+					.handle(new ClSoulRotationPacket(soul.getId(), -90.0F, 0.0F), from(serverPlayer));
+
+			level.setBlock(wall, Blocks.STONE.defaultBlockState(), Block.UPDATE_ALL);
+			Cow behindWall = cow(helper, new BlockPos(3, 4, 1));
+			looked.add(behindWall);
+			check(helper, soul.lookTarget() == behindWall, "1.16's soul looked through the stone at the cow behind it; the"
+					+ " port's looks at " + looking(soul, behindWall));
+			behindWall.discard();
+			level.setBlock(wall, wallWas, Block.UPDATE_ALL);
+
+			Cow beside = cow(helper, new BlockPos(3, 4, 1));
+			looked.add(beside);
+			beside.moveTo(beside.getX(), beside.getY(), soul.getZ() + 1.2D, 0, 0);
+			check(helper, soul.lookTarget() == beside, "1.16's soul looked at a cow 0.75 beside its look line (boxes grown by"
+					+ " 1.0); the port's looks at " + looking(soul, beside));
+			beside.discard();
+
+			Chicken above = EntityType.CHICKEN.create(level);
+			helper.assertTrue(above != null, "Fixture: could not create the chicken");
+			above.setNoAi(true);
+			above.setNoGravity(true);
+			above.moveTo(soul.getX() + 2.5D, soul.getEyeY() + 0.5D, soul.getZ(), 0, 0);
+			helper.assertTrue(level.addFreshEntity(above), "Fixture: could not add the chicken");
+			looked.add(above);
+			check(helper, soul.lookTarget() == above, "1.16's soul looked from its eyes at a chicken floating half a block above"
+					+ " them; the port's looks at " + looking(soul, above));
+		}
+		finally {
+			level.setBlock(wall, wallWas, Block.UPDATE_ALL);
+			if (soul != null) {
+				soul.discard();
+			}
+			looked.forEach(Entity::discard);
+			serverPlayer.discard();
+		}
+		helper.succeed();
+	}
+
+	/**
 	 * A soul of the user still ascends when the user dies, at once or when a time stop that deferred the new soul ends:
 	 * no second soul spawns, and the client, which holds its death screen back for this death's soul, hears that none
 	 * comes, as from a failed spawn. It used to hear nothing and wait until the player gave up with a jump.
@@ -552,7 +616,7 @@ public final class SoulAscensionClientGameTests {
 	}
 
 	private static String looking(SoulEntity soul, Entity expected) {
-		Vec3 start = soul.position().add(0.0D, soul.getBbHeight() * 0.5D, 0.0D);
+		Vec3 start = soul.getEyePosition();
 		BlockHitResult block = soul.level().clip(new ClipContext(start, start.add(soul.getLookAngle().scale(32.0D)),
 				ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, CollisionContext.empty()));
 		return soul.lookTarget() + " (soul at " + soul.position() + " with yaw " + soul.getYRot() + " and pitch "
