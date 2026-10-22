@@ -96,10 +96,11 @@ public class HamonSunlightYellowOverdriveBarrageAbility extends HamonActionRunti
 
 		public SYOverdriveBarrageInstance(EntityActionType ability) { super(ability); }
 
-		// 1.16 HamonSunlightYellowOverdriveBarrage was a continuous player action (IPlayerAction)
+		// 1.16 HamonSunlightYellowOverdriveBarrage set its continuous player action (IPlayerAction) in perform, after its
+		// held charge
 		@Override
 		public boolean isPlayerAction() {
-			return true;
+			return getPhase() == ActionPhase.PERFORM;
 		}
 
 		// 1.16 holdToFire(60, false).holdType(): a full charge stays held until the key is released.

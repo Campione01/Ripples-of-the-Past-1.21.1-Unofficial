@@ -199,10 +199,11 @@ public class HamonSunlightYellowOverdriveAbility extends HamonActionRuntimeAbili
 
 		public SYOverdrive(EntityActionType ability) { super(ability); }
 
-		// 1.16 HamonSunlightYellowOverdrive (Scarlet Overdrive's too) was a continuous player action (IPlayerAction)
+		// 1.16 HamonSunlightYellowOverdrive (Scarlet Overdrive's too) set its continuous player action (IPlayerAction) in
+		// perform, after its held charge
 		@Override
 		public boolean isPlayerAction() {
-			return true;
+			return getPhase() == ActionPhase.PERFORM;
 		}
 
 		@Override

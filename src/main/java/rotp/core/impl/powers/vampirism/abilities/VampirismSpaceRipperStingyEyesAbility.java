@@ -63,10 +63,11 @@ public class VampirismSpaceRipperStingyEyesAbility extends VampirismActionAbilit
 			super(ability);
 		}
 
-		// 1.16 VampirismSpaceRipperStingyEyes was a continuous player action (IPlayerAction)
+		// 1.16 VampirismSpaceRipperStingyEyes set its continuous player action (IPlayerAction) in perform, after its held
+		// charge
 		@Override
 		public boolean isPlayerAction() {
-			return true;
+			return getPhase() == ActionPhase.PERFORM;
 		}
 
 		@Override
