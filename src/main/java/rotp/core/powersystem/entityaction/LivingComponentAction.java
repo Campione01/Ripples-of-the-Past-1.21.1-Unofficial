@@ -407,9 +407,9 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 		}
 		boolean summonLocked = entity instanceof StandEntity standEntity && standEntity.takeSummonLockedTick();
 		if (action != null) {
-			if (summonLocked) {
-				// the lock holds back the Stand's own phases, not a held charge's count from the press
-				if (!isActionPausedInStoppedTime() && action._tickHeldChargeInSummonLock() && action.isOver()) {
+			if (summonLocked && action.isHeldBackBySummonLock()) {
+				// the lock holds back the Stand's own phases, not a held action's count from the press
+				if (!isActionPausedInStoppedTime() && action._tickHeldInSummonLock() && action.isOver()) {
 					setAction(null, null, SyncType.NO_SYNC);
 				}
 				syncDirtyActionData();

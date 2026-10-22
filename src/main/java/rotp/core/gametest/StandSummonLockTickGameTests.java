@@ -1,5 +1,6 @@
 package rotp.core.gametest;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -8,6 +9,7 @@ import java.util.function.Consumer;
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
+import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility;
 import rotp.core.impl.stands.magiciansred.MRCrossfireHurricaneEntity;
 import rotp.core.init.ModStatusEffects;
 import rotp.core.powersystem.PowerClass;
@@ -41,7 +43,8 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 /**
  * 1.16 StandEntity.tick (:1270-1290) either counted a new Stand's summon lock down or ticked its task, never both, so a
  * task set as its Stand was summoned, with the lock at L, first ticked in the Stand's tick L + 1, while its user's power
- * counted a held charge from the press through the lock (PowerBaseImpl.tickHeldAction); in a tick it did not count the
+ * counted a held action (a charge, a hold with a maximum) from the press through the lock (PowerBaseImpl.tickHeldAction);
+ * in a tick it did not count the
  * lock, it counted the gradual summon (gradualSummonWeaknessTicks) down only while the Stand was not stunned.
  */
 @GameTestHolder(JojoMod.MOD_ID)
@@ -131,6 +134,49 @@ public final class StandSummonLockTickGameTests {
 			}
 			finally {
 				charges.forEach(Charge::close);
+			}
+			helper.succeed();
+		});
+	}
+
+	private static final int HELD_TICKS_READ_AFTER = 5;
+
+	/*
+	 * 1.16 counted a held action from its press in its user's power (PowerBaseImpl.tickHeldAction), which the summon lock
+	 * did not hold back: its hold maximum (getHoldDurationMax), its held recheck and the ticks held its hold-only cooldown
+	 * took (stopHeldAction). Crazy Diamond's barrage (1.16 holdType, its hold maximum 20 + 5 x durability) held from the
+	 * tick Crazy Diamond was summoned whole (lock 3) and, as the control, with the lock taken off first: both go into their
+	 * recovery in tick maximum + 1 from the press and have counted 5 held ticks after tick 5; its user stunned after tick
+	 * 1: the held recheck ends the hold in tick 2, in the lock.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 140)
+	public static void aHeldPerformCountsItsHoldFromItsPressThroughItsStandsSummonLockAsIn116(GameTestHelper helper) {
+		List<Hold> holds = new ArrayList<>();
+		try {
+			for (Hold.Row row : Hold.Row.values()) {
+				Hold hold = new Hold(row);
+				holds.add(hold);
+				hold.start(helper, holds.size() - 1);
+			}
+		}
+		catch (RuntimeException | Error failure) {
+			holds.forEach(Hold::close);
+			throw failure;
+		}
+		helper.runAfterDelay(holds.get(0).max + 6, () -> {
+			try {
+				List<String> wrong = new ArrayList<>();
+				for (Hold hold : holds) {
+					if (!hold.asIn116()) {
+						wrong.add(hold.describe());
+					}
+				}
+				helper.assertTrue(wrong.isEmpty(), "1.16's power counted a held action from its press through its Stand's"
+						+ " summon lock (its hold maximum, held recheck and held ticks), and only the task waited: "
+						+ String.join("; ", wrong));
+			}
+			finally {
+				holds.forEach(Hold::close);
 			}
 			helper.succeed();
 		});
@@ -425,6 +471,137 @@ public final class StandSummonLockTickGameTests {
 			}
 			if (user != null) {
 				AbilityInput.keyRelease(KEY, user);
+				if (power != null && type != null && power.isSummoned()) {
+					type.forceUnsummon(user, power);
+				}
+				user.discard();
+			}
+		}
+	}
+
+	// Crazy Diamond's barrage held from the tick Crazy Diamond was summoned whole, and its action after each of its ticks
+	private static final class Hold {
+		enum Row { NO_LOCK, LOCKED, STUNNED_AFTER_TICK_1 }
+
+		final Row row;
+		final List<String> states = new ArrayList<>();
+		final List<Integer> locks = new ArrayList<>();
+		Player user;
+		StandPower power;
+		StandType type;
+		StandEntity stand;
+		EntityActionInstance action;
+		int lock;
+		int max;
+		int standTicks;
+		int recoveryTick = -1;
+		int heldTicks = -1;
+		Consumer<EntityTickEvent.Post> listener;
+		boolean closed;
+
+		Hold(Row row) {
+			this.row = row;
+		}
+
+		void start(GameTestHelper helper, int cell) {
+			user = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
+			Vec3 pos = helper.absoluteVec(new Vec3(1.5 + cell * 3, 12, 1.5));
+			user.setNoGravity(true);
+			user.moveTo(pos.x, pos.y, pos.z, 0, 0);
+			helper.assertTrue(helper.getLevel().addFreshEntity(user), "Could not add the user for " + row);
+			type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("crazy_diamond"));
+			power = PowerClass.STAND.attachGet(user);
+			helper.assertTrue(type != null && StandPowerTransitions.insert(power, new StandInstance(type)).status()
+					== StandPowerTransitions.Status.APPLIED, "Could not grant Crazy Diamond");
+			power.setStamina(power.getMaxStamina());
+			helper.assertTrue(type.summon(user, power), "Could not summon Crazy Diamond");
+			stand = power.getSummonedStandEntity();
+			helper.assertTrue(stand != null && !stand.isArmsOnlyMode(), "Fixture: Crazy Diamond is not out whole: " + stand);
+			if (row == Row.NO_LOCK) {
+				stand.summonLockTicks = 0;
+			}
+			lock = stand.summonLockTicks;
+			helper.assertTrue(lock == (row == Row.NO_LOCK ? 0 : 3), "Fixture: Crazy Diamond's summon lock is " + lock);
+			Ability ability = power.getAbility("barrage");
+			helper.assertTrue(ability != null, "Missing Crazy Diamond's barrage");
+			AbilityConditionCheck selected = power.updateAvailableMoves().getContextVariationContainer(ability);
+			helper.assertTrue(AbilityInput.withConditionCheck(selected, user, InputMethod.HOLD),
+					"Crazy Diamond's barrage was refused for " + row);
+			BufferingState pressed = BufferingState.clickOnly();
+			AbilityInput.keyPress(KEY, selected.ability, user, null, InputMethod.HOLD, 0, pressed, ability.getAbilityId());
+			action = stand.getCurStandAction();
+			helper.assertTrue(pressed.isActionSuccess && action instanceof StandEntityBarrageAbility.StandEntityBarrage
+					&& action.getPhase() == ActionPhase.PERFORM && action.isCooldownTakenAfterHold(),
+					"The held press of Crazy Diamond's barrage did not set its held perform: " + action);
+			max = StandEntityBarrageAbility.getBarrageHoldDurationMax(stand);
+			helper.assertTrue(max > lock + 1 && max < 100, "Fixture: the barrage's hold maximum is " + max);
+			// after the Stand's tick and its action's (EntityTickEvent.Post)
+			listener = event -> {
+				if (closed || event.getEntity() != stand) {
+					return;
+				}
+				standTicks++;
+				locks.add(stand.summonLockTicks);
+				power.setStamina(power.getMaxStamina());
+				EntityActionInstance now = stand.getCurStandAction();
+				states.add(now == action ? action.getPhase() + " " + (int) action.getPhaseTick() : String.valueOf(now));
+				if (recoveryTick < 0 && (now != action || action.getPhase() != ActionPhase.PERFORM)) {
+					recoveryTick = standTicks;
+				}
+				if (standTicks == HELD_TICKS_READ_AFTER) {
+					heldTicks = heldCooldownTicks(action);
+				}
+				if (standTicks == 1 && row == Row.STUNNED_AFTER_TICK_1) {
+					user.addEffect(new MobEffectInstance(ModStatusEffects.STUN, 40));
+				}
+			};
+			NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, EntityTickEvent.Post.class, listener);
+		}
+
+		// the ticks held the barrage's hold-only cooldown takes as its hold ends (1.16 stopHeldAction's ticksHeld)
+		private static int heldCooldownTicks(EntityActionInstance action) {
+			try {
+				Field field = EntityActionInstance.class.getDeclaredField("heldCooldownTicks");
+				field.setAccessible(true);
+				return field.getInt(action);
+			}
+			catch (ReflectiveOperationException e) {
+				throw new IllegalStateException("Fixture: cannot read the ticks held", e);
+			}
+		}
+
+		boolean asIn116() {
+			if (standTicks < max + 2) {
+				return false;
+			}
+			return switch (row) {
+				// the hold maximum counted from the press: the recovery in tick max + 1, the lock's ticks included
+				case NO_LOCK, LOCKED -> recoveryTick == max + 1 && heldTicks == HELD_TICKS_READ_AFTER
+						&& states.get(max).startsWith(ActionPhase.RECOVERY.name());
+				// 1.16's held recheck in the power, in the lock
+				case STUNNED_AFTER_TICK_1 -> recoveryTick == 2 && locks.get(1) > 0
+						&& states.get(1).startsWith(ActionPhase.RECOVERY.name());
+			};
+		}
+
+		String describe() {
+			return "Crazy Diamond's barrage " + row.name().toLowerCase(Locale.ROOT).replace('_', ' ') + " (the summon lock "
+					+ lock + ", the hold maximum " + max + "): its hold ended after tick " + recoveryTick + ", the ticks held"
+					+ " after tick " + HELD_TICKS_READ_AFTER + " " + heldTicks + ", the action after each tick " + states
+					+ ", the lock " + locks;
+		}
+
+		void close() {
+			if (closed) {
+				return;
+			}
+			closed = true;
+			if (listener != null) {
+				NeoForge.EVENT_BUS.unregister(listener);
+			}
+			if (user != null) {
+				AbilityInput.keyRelease(KEY, user);
+				user.removeEffect(ModStatusEffects.STUN);
 				if (power != null && type != null && power.isSummoned()) {
 					type.forceUnsummon(user, power);
 				}
