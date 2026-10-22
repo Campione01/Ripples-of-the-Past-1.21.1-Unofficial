@@ -86,6 +86,69 @@ public final class CoreClipPhases116GameTests {
 		helper.succeed();
 	}
 
+	private static final String[] FLAME_CLIPS = { "flame_burst", "flameBurst", "fireball", "crossfire_hurricane" };
+	private static final float[][] LOOKS = { LEVEL, LOOK, { -30, 40 } };
+	private static final String[] HEAD_CHAIN = { "stand_pos", "body_rot", "body", "torso", "torso_bend", "head", "head_rot" };
+
+	/*
+	 * 1.16's FLAME_BURST_POSE (MagiciansRedModel :269-285; Flame Burst, Fireball and Crossfire Hurricane) set the head, a
+	 * root child, to the look's pitch - 22.5 degrees and no yaw in every phase but the recovery, where the transition to the
+	 * idle lerped it angle by angle to the look (HEAD_ROTATION); its first-person view read that head.xRot. The clips keep
+	 * that head under the port's body chain and on the head bone itself, and end on the idle's own head and look (the
+	 * official idle's 2.5 degrees of pitch blended in over the recovery).
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void magiciansRedsFlamePosesHoldTheHeadAt116sPitchAndLerpItToTheLook(GameTestHelper helper) {
+		Map<String, JsonObject> files = new HashMap<>();
+		JsonObject idle = clipOf(helper, files, MR_ANIMS, "idle");
+		List<String> wrong = new ArrayList<>();
+		for (String name : FLAME_CLIPS) {
+			JsonObject clip = clipOf(helper, files, MR_ANIMS, name);
+			for (float[] look : LOOKS) {
+				for (String time : new String[] { "0", "W0.5", "PERFORM", "RECOVERY" }) {
+					float t = at(clip, time);
+					double off = StandClipPoses116GameTests.angleBetween(composedHead(clip, t, look),
+							StandClipPoses116GameTests.rotationMatrix(deg(look[0] - 22.5F, 0, 0)));
+					float headX = StandClipPoses116GameTests.rotationAt(clip, "head", t, look)[0];
+					if (off > 0.5 || Math.abs(headX - (look[0] - 22.5F)) > 0.05F) {
+						wrong.add(name + " at " + time + " looking " + Arrays.toString(look) + ": head " + String.format("%.1f", off)
+								+ " degrees off 1.16's pitch - 22.5, the head bone's x " + headX);
+					}
+				}
+				for (float f : new float[] { 0.25F, 0.5F, 0.75F }) {
+					double off = StandClipPoses116GameTests.angleBetween(composedHead(clip, at(clip, "R" + f), look),
+							StandClipPoses116GameTests.rotationMatrix(deg(look[0] - 22.5F * (1 - f), look[1] * f, 0)));
+					if (off > 2.5 * f + 0.5) {
+						wrong.add(name + " at R" + f + " looking " + Arrays.toString(look) + ": head " + String.format("%.1f", off)
+								+ " degrees off 1.16's lerp to the look");
+					}
+				}
+				for (String bone : new String[] { "head", "head_rot" }) {
+					float[] got = StandClipPoses116GameTests.rotationAt(clip, bone, at(clip, "END"), look);
+					float[] want = StandClipPoses116GameTests.rotationAt(idle, bone, 0, look);
+					for (int axis = 0; axis < 3; axis++) {
+						if (Math.abs(got[axis] - want[axis]) > 0.05F) {
+							wrong.add(name + " ends " + bone + " on " + Arrays.toString(got) + " looking " + Arrays.toString(look)
+									+ " where the idle starts on " + Arrays.toString(want));
+							break;
+						}
+					}
+				}
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), "Magician's Red's flame poses hold the head at 1.16's pitch and lerp it to the look: " + wrong);
+		helper.succeed();
+	}
+
+	private static double[][] composedHead(JsonObject clip, float time, float[] look) {
+		double[][] composed = StandClipPoses116GameTests.rotationMatrix(new float[3]);
+		for (String bone : HEAD_CHAIN) {
+			composed = StandClipPoses116GameTests.multiply(composed,
+					StandClipPoses116GameTests.rotationMatrix(StandClipPoses116GameTests.rotationAt(clip, bone, time, look)));
+		}
+		return composed;
+	}
+
 	// the clip's bone against a 1.16 track sampled every 2 ms and at the track's times, at a level look
 	private static void compare(JsonObject clip, JsonObject idle, String bone, List<Key> track, float tolerance, List<String> wrong) {
 		float end = clip.get("animation_length").getAsFloat();
