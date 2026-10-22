@@ -246,6 +246,17 @@ public final class BarrageFrontDistanceGameTests {
                     premise(action.getPhase() == ActionPhase.RECOVERY, "real release entered recovery");
                 }
             }
+            // 1.16 StandEntity.updatePosition asked the barrage for its offset before the task ticked, from where the target
+            // and the user were then: the Stand stands there in the tick after either moved
+            if (nativeTicks == 2 && !specialPosition()) {
+                assertOffset(kind == Kind.LIMITED ? 0.8 : kind == Kind.DIRECTIONAL ? 1.5 : 1.35, "placed in the tick after the target moved");
+            }
+            if (nativeTicks == 5) {
+                assertOffset(kind == Kind.CLEAR || kind == Kind.CLAMPS ? 1.5 : 0.5, "placed in the tick after the change");
+            }
+            if (nativeTicks == 8) {
+                assertOffset(kind == Kind.CLEAR ? 0.5 : 1.5, "placed in the tick after the change");
+            }
             if (nativeTicks == 4) {
                 if (specialPosition()) {
                     suite.check(Objects.equals(action.getSyncedStandOffset(), initialOffset)

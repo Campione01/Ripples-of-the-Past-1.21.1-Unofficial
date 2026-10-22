@@ -359,14 +359,9 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 			if (performer instanceof StandEntity stand) {
 				StandEntityPunchAbility.releaseUnlockedPunchTarget(stand, this);
 				// 1.16 StandEntityTask.tick dropped the task target that left the action's range on every tick of the task, on
-				// the server only, and StandEntityHeavyAttack.getOffsetFromUser kept the Stand's distance from it on every tick
-				// of the task, so it steps after one that backs away
+				// the server only
 				if (!takesTargetsFromServer() && !isGrabVariation()) {
 					releaseTargetOutOfRange(stand);
-				}
-				if (usesHeavyFinisherSetup() && !isGrabVariation() && !level.isClientSide()) {
-					StandEntityBarrageAbility.refreshFrontOffset(this, stand, frontOffsetTarget(),
-							Math.min(0.5, stand.getEffectiveRange()), Math.min(2, stand.getMaxRange()));
 				}
 			}
 			if (level.isClientSide() && !(playedSwingSound && playedStandCrySound)
@@ -406,6 +401,16 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 				}
 			}
 			
+		}
+
+		// 1.16 StandEntityHeavyAttack.getOffsetFromUser kept the Stand's distance from the task target on every tick of the
+		// task, so it steps after one that backs away
+		@Override
+		public void updateStandOffset(StandEntity stand) {
+			if (usesHeavyFinisherSetup() && !isGrabVariation() && !takesTargetsFromServer()) {
+				StandEntityBarrageAbility.refreshFrontOffset(this, stand, frontOffsetTarget(),
+						Math.min(0.5, stand.getEffectiveRange()), Math.min(2, stand.getMaxRange()));
+			}
 		}
 
 		@Override

@@ -44,8 +44,8 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * 1.16 StandEntity.tick (:1270-1290) either counted a new Stand's summon lock down or ticked its task, never both, so a
  * task set as its Stand was summoned, with the lock at L, first ticked in the Stand's tick L + 1, while its user's power
  * counted a held action (a charge, a hold with a maximum) from the press through the lock (PowerBaseImpl.tickHeldAction);
- * in a tick it did not count the
- * lock, it counted the gradual summon (gradualSummonWeaknessTicks) down only while the Stand was not stunned.
+ * in a tick it did not count the lock, it counted the gradual summon (gradualSummonWeaknessTicks) down only while the
+ * Stand was not stunned.
  */
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)

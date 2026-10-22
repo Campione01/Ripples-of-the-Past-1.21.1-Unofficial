@@ -1837,6 +1837,8 @@ public final class StandAttackAimRulesGameTests {
 		helper.assertTrue(Math.abs(fromOpponent - farthest) > 0.1, "Fixture: the Stand placed from the opposing Stand"
 				+ " stands at " + fromOpponent + ", as along the user's look");
 		for (int tick = 0; tick < 6 && action.punchedTarget == null; tick++) {
+			// the Stand's tick: its position update (the barrage's offset), then its action's tick
+			scene.stand.updatePosition(scene.user);
 			scene.stand.tickCount++;
 			standActions.tick();
 		}
@@ -1854,6 +1856,7 @@ public final class StandAttackAimRulesGameTests {
 				StandEntityPunchAbility.CrosshairRule.NONE, true).getMainEntity() == cow,
 				"Fixture: the user's aim does not take the cow once turned to it");
 		for (int tick = 0; tick < 6; tick++) {
+			scene.stand.updatePosition(scene.user);
 			scene.stand.tickCount++;
 			standActions.tick();
 		}
@@ -1866,6 +1869,7 @@ public final class StandAttackAimRulesGameTests {
 		assertClientsHold(helper, scene, action, opponent, "while its user looks at the cow");
 		opponent.moveTo(scene.origin.x, scene.origin.y, scene.origin.z + 8, 180, 0);
 		for (int tick = 0; tick < 6; tick++) {
+			scene.stand.updatePosition(scene.user);
 			scene.stand.tickCount++;
 			standActions.tick();
 		}

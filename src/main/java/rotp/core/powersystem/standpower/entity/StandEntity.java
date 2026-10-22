@@ -601,6 +601,10 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		if (ModStatusEffects.isStunned(this)) return;
 		if (isFollowingUser()) {
 			if (user != null) {
+				EntityActionInstance curAction = standAction.getAction();
+				if (curAction != null && !curAction.isOver() && !level().isClientSide()) {
+					curAction.updateStandOffset(this);
+				}
 				Vec3 pos = offsetFromUser.getPosition(user);
 				// 1.16 StandEntity.taskOffset: a sneaking user's Stand drops its y only while it has no task
 				if (getCurStandAction() == null && user.isShiftKeyDown()) {
@@ -611,7 +615,7 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 				}
 				setPos(pos.x, pos.y, pos.z);
 				defaultRotation(user);
-				EntityActionInstance curAction = standAction.getAction();
+				curAction = standAction.getAction();
 				if (curAction != null) {
 					curAction.applyStandUserRotation(this, user);
 				}
