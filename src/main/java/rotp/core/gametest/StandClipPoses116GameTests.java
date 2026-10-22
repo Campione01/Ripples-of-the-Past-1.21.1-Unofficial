@@ -86,12 +86,12 @@ public final class StandClipPoses116GameTests {
 			new HeadPose(MR_ANIMS, "kick", "R0.5", Head.TO_IDLE, new float[] { -45, -10, 0 }),
 			new HeadPose(MR_ANIMS, "kick", "R0.75", Head.TO_IDLE, new float[] { -45, -10, 0 }), idle(MR_ANIMS, "kick"),
 			// SilverChariotModel :245-372: the rapier stab, the barrage stab loop, the rapier heavy (dash), the jab without
-			// the rapier, no head in any of them; RANGED_ATTACK (the rapier launch) was drawn as the idle
+			// the rapier, no head in any of them
 			new HeadPose(SC_ANIMS, "light_attack", "0"), new HeadPose(SC_ANIMS, "light_attack", "PERFORM"),
 			new HeadPose(SC_ANIMS, "light_attack", "RECOVERY"), idle(SC_ANIMS, "light_attack"),
 			// the barrage shows the idle in its windup and recovery (ArmsBarrageAnimation)
 			new HeadPose(SC_ANIMS, "melee_barrage", "0", Head.IDLE, null), new HeadPose(SC_ANIMS, "melee_barrage", "PERFORM"),
-			new HeadPose(SC_ANIMS, "melee_barrage", "1.0"), new HeadPose(SC_ANIMS, "melee_barrage", "RECOVERY", Head.IDLE, null),
+			new HeadPose(SC_ANIMS, "melee_barrage", "0.35"), new HeadPose(SC_ANIMS, "melee_barrage", "RECOVERY", Head.IDLE, null),
 			idle(SC_ANIMS, "melee_barrage"),
 			new HeadPose(SC_ANIMS, "dash_attack", "0"), new HeadPose(SC_ANIMS, "dash_attack", "PERFORM"),
 			new HeadPose(SC_ANIMS, "dash_attack", "RECOVERY"), idle(SC_ANIMS, "dash_attack"),
@@ -99,8 +99,9 @@ public final class StandClipPoses116GameTests {
 			new HeadPose(SC_ANIMS, "no_rapier_light_attack", "PERFORM"),
 			new HeadPose(SC_ANIMS, "no_rapier_light_attack", "RECOVERY"),
 			new HeadPose(SC_ANIMS, "no_rapier_light_attack", "0.4667"),
-			new HeadPose(SC_ANIMS, "rapier_launch", "0"), new HeadPose(SC_ANIMS, "rapier_launch", "PERFORM"),
-			new HeadPose(SC_ANIMS, "rangedAttack", "0"), new HeadPose(SC_ANIMS, "rangedAttack", "PERFORM"),
+			// the rapier launch: SilverChariotModel's RANGED_ATTACK pose in PERFORM only, the idle before it
+			new HeadPose(SC_ANIMS, "rapier_launch", "0", Head.IDLE, null), new HeadPose(SC_ANIMS, "rapier_launch", "RECOVERY"),
+			new HeadPose(SC_ANIMS, "rangedAttack", "0", Head.IDLE, null), new HeadPose(SC_ANIMS, "rangedAttack", "RECOVERY"),
 			// the idle is the official port's, its head 5 degrees off the look under body_rot -25 and torso_bend 20; the
 			// other two idles (initBaseIdlePose: HEAD_ROTATION)
 			new HeadPose(SC_ANIMS, "idle", "0", Head.TURNED, new float[] { 0, -5, 0 }),
@@ -196,27 +197,27 @@ public final class StandClipPoses116GameTests {
 			// HumanoidStandModel :565-584, heavyAttackAnim: armsRotationFull in every pose, the recovery's transition from
 			// heavyImpact keeps it to the end of the action
 			new ArmLook(MR_ANIMS, "heavy_punch", new String[] { "0", "W0.5", "PERFORM", "RECOVERY", "END" }, new float[] { 1, 1, 1, 1, 1 }),
-			// HumanoidStandModel :482-536, the jab: xRot * t to jabArmTurn at .5 of the windup, the full look at jabImpact and
-			// held to .25 of the perform, xRot * (1 - t^3) to jabArmTurnBack at .5 of the perform, none after
+			// HumanoidStandModel :482-536, the jab (Magician's Red's, Silver Chariot's without the rapier): xRot * t to
+			// jabArmTurn at .5 of the windup, the full look at jabImpact and held to .25 of the perform, xRot * (1 - t^3) to
+			// jabArmTurnBack at .5 of the perform, none after
 			new ArmLook(MR_ANIMS, "punch", new String[] { "0", "W0.25", "W0.5", "PERFORM", "0.18335", "0.191675", "0.2", "RECOVERY", "END" },
 					new float[] { 0, 0.5F, 1, 1, 1, 0.875F, 0, 0, 0 }),
-			new ArmLook(SC_ANIMS, "no_rapier_light_attack", new String[] { "0", "0.1", "PERFORM", "RECOVERY", "0.4667", "END" },
-					new float[] { 0, 1, 1, 0, 0, 0 }),
+			new ArmLook(SC_ANIMS, "no_rapier_light_attack", new String[] { "0", "W0.25", "W0.5", "PERFORM", "0.18335", "0.191675", "0.2",
+					"RECOVERY", "END" }, new float[] { 0, 0.5F, 1, 1, 1, 0.875F, 0, 0, 0 }),
 			// SilverChariotModel :247-288, the rapier stab: armsRotation in both poses and the recovery's transition
 			new ArmLook(SC_ANIMS, "light_attack", new String[] { "0", "PERFORM", "RECOVERY", "END" }, new float[] { 1, 1, 1, 1 }),
 			// SilverChariotModel :361-365 and ArmsBarrageAnimation: no pose in the windup, the stab loop in the perform,
 			// the idle in the recovery
-			new ArmLook(SC_ANIMS, "melee_barrage", new String[] { "0", "0.2999", "PERFORM", "1.0", "2.2999", "RECOVERY", "END" },
+			new ArmLook(SC_ANIMS, "melee_barrage", new String[] { "0", "0.2999", "PERFORM", "0.35", "0.3999", "RECOVERY", "END" },
 					new float[] { 0, 0, 1, 1, 1, 0, 0 }));
 
-	// a clip whose joints turn by half their forearm or lower leg, the limbs to check; one whose windup starts on the idle
-	// starts on the idle's own joints and turns them by half the forearm from its second key
-	private record JointClip(String asset, String clip, boolean fromIdle, String... limbs) {}
+	// a clip whose joints turn by half their forearm or lower leg, and the limbs to check
+	private record JointClip(String asset, String clip, String... limbs) {}
 
 	private static final List<JointClip> JOINT_CLIPS = List.of(
-			new JointClip(SC_ANIMS, "light_attack", false, "left_arm", "right_arm"),
-			new JointClip(SC_ANIMS, "no_rapier_light_attack", false, "left_arm", "right_arm"),
-			new JointClip(SC_ANIMS, "dash_attack", false, "left_arm", "right_arm"));
+			new JointClip(SC_ANIMS, "light_attack", "left_arm", "right_arm"),
+			new JointClip(SC_ANIMS, "no_rapier_light_attack", "left_arm", "right_arm"),
+			new JointClip(SC_ANIMS, "dash_attack", "left_arm", "right_arm"));
 
 	/*
 	 * 1.16's humanoid Java-model poses pitched both arms with the look (setSecondXRot, applied after the pose as a parent
@@ -263,23 +264,9 @@ public final class StandClipPoses116GameTests {
 				List<Map.Entry<Float, JsonElement>> bendKeys = keys(clip, limb + "_bend");
 				helper.assertTrue(bendKeys.size() > 1, "setup: " + joints.clip() + " of " + joints.asset() + " keys no " + limb + "_bend");
 				float until = bendKeys.get(bendKeys.size() - 2).getKey();
-				float from = 0;
-				if (joints.fromIdle()) {
-					JsonObject idle = clipOf(helper, files, joints.asset(), "idle");
-					float[] idleJoint = rotationAt(idle, limb + "_joint", 0, LOOK);
-					float[] startJoint = rotationAt(clip, limb + "_joint", 0, LOOK);
-					for (int axis = 0; axis < 3; axis++) {
-						if (Math.abs(startJoint[axis] - idleJoint[axis]) > 0.05F) {
-							wrong.add(joints.clip() + " of " + joints.asset() + " starts " + limb + "_joint on " + Arrays.toString(startJoint)
-									+ " where the idle it starts from has " + Arrays.toString(idleJoint));
-							break;
-						}
-					}
-					from = bendKeys.get(1).getKey();
-				}
 				int off = 0;
 				String first = null;
-				for (float time = from; time <= until + 0.00001F; time += 0.01F) {
+				for (float time = 0; time <= until + 0.00001F; time += 0.01F) {
 					float[] bend = rotationAt(clip, limb + "_bend", time, LOOK);
 					float[] joint = rotationAt(clip, limb + "_joint", time, LOOK);
 					for (int axis = 0; axis < 3; axis++) {
@@ -344,8 +331,8 @@ public final class StandClipPoses116GameTests {
 			// SilverChariotModel :354-361, the rapier block: arms, forearms and the rapier; the humanoid block without it
 			held(SC_ANIMS, "block", and(LEGS, "body_rot", "torso_bend", "head", "head_rot")),
 			new IdleBones(SC_ANIMS, "no_rapier_block", "no_rapier_idle", "0", "END", LEGS),
-			// :245-352: the stab, the barrage stab loop, the dash, the sweep and the jab name no leg; RANGED_ATTACK (the
-			// rapier launch) was drawn as the idle
+			// :245-352: the stab, the barrage stab loop, the dash, the sweep, the jab and RANGED_ATTACK (the rapier launch)
+			// name no leg
 			held(SC_ANIMS, "light_attack", LEGS), held(SC_ANIMS, "melee_barrage", LEGS), held(SC_ANIMS, "dash_attack", LEGS),
 			held(SC_ANIMS, "sweeping_attack", LEGS), held(SC_ANIMS, "rapier_launch", LEGS), held(SC_ANIMS, "rangedAttack", LEGS),
 			new IdleBones(SC_ANIMS, "no_rapier_light_attack", "no_rapier_idle", "0", "END", LEGS),
@@ -598,8 +585,8 @@ public final class StandClipPoses116GameTests {
 	 * held its lean and twist while the upperPart, pivoting at the waist under it, wound up to 15 degrees and snapped to
 	 * -30 (easeInCubic) on PERFORM; the head, a root child, kept the look. The port's uppercut clips carry the body on
 	 * body_rot (the neck pivot) and the upperPart on torso (the waist pivot), the port-only body and torso_bend at 0, and
-	 * the head on the look under that chain, up to the last segment (0.8 s), which hands over to the official idle
-	 * (CoreClipPhases116GameTests).
+	 * the head on the look under that chain, from the end of the first segment (0.4 s), which lerps in from the official
+	 * idle (StandClipFollowUps116GameTests), up to the last (0.8 s), which hands over to it (CoreClipPhases116GameTests).
 	 */
 	@GameTest(template = "empty", timeoutTicks = 20)
 	public static void starPlatinumsUppercutTurnsAt116sNeckAndWaist(GameTestHelper helper) {
@@ -610,7 +597,7 @@ public final class StandClipPoses116GameTests {
 			JsonObject clip = anims.getAsJsonObject(name);
 			helper.assertTrue(clip != null && clip.has("bones"), SP_ANIMS + " lost " + name);
 			List<String> off = new ArrayList<>();
-			for (int step = 0; step <= 80; step++) {
+			for (int step = 40; step <= 80; step++) {
 				float time = step / 100F;
 				float upper = UPPERCUT_UPPER_PART_YAWS[0];
 				for (int i = 1; i < UPPERCUT_UPPER_PART_TIMES.length; i++) {
@@ -758,6 +745,7 @@ public final class StandClipPoses116GameTests {
 					case "linear" -> f;
 					case "easeInQuad" -> f * f;
 					case "easeInCubic" -> f * f * f;
+					case "easeOutCubic" -> 1 - (1 - f) * (1 - f) * (1 - f);
 					case "easeInSine" -> 1 - (float) Math.cos(f * Math.PI / 2);
 					case "easeOutSine" -> (float) Math.sin(f * Math.PI / 2);
 					case "easeInOutSine" -> (float) (-(Math.cos(Math.PI * f) - 1) / 2);

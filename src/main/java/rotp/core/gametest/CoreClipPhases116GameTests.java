@@ -120,8 +120,8 @@ public final class CoreClipPhases116GameTests {
 	 * 1.16's FLAME_BURST_POSE (MagiciansRedModel :269-285; Flame Burst, Fireball and Crossfire Hurricane) set the head, a
 	 * root child, to the look's pitch - 22.5 degrees and no yaw in every phase but the recovery, where the transition to the
 	 * idle lerped it angle by angle to the look (HEAD_ROTATION); its first-person view read that head.xRot. The clips keep
-	 * that head under the port's body chain and on the head bone itself, and end on the idle's own head and look (the
-	 * official idle's 2.5 degrees of pitch blended in over the recovery).
+	 * that head under the port's body chain and on head_rot, which the port's first-person view reads, and end on the
+	 * idle's own head and look (the official idle's 2.5 degrees of pitch blended in over the recovery).
 	 */
 	@GameTest(template = "empty", timeoutTicks = 20)
 	public static void magiciansRedsFlamePosesHoldTheHeadAt116sPitchAndLerpItToTheLook(GameTestHelper helper) {
@@ -135,10 +135,10 @@ public final class CoreClipPhases116GameTests {
 					float t = at(clip, time);
 					double off = StandClipPoses116GameTests.angleBetween(composedHead(clip, t, look),
 							StandClipPoses116GameTests.rotationMatrix(deg(look[0] - 22.5F, 0, 0)));
-					float headX = StandClipPoses116GameTests.rotationAt(clip, "head", t, look)[0];
+					float headX = StandClipPoses116GameTests.rotationAt(clip, "head_rot", t, look)[0];
 					if (off > 0.5 || Math.abs(headX - (look[0] - 22.5F)) > 0.05F) {
 						wrong.add(name + " at " + time + " looking " + Arrays.toString(look) + ": head " + String.format("%.1f", off)
-								+ " degrees off 1.16's pitch - 22.5, the head bone's x " + headX);
+								+ " degrees off 1.16's pitch - 22.5, head_rot's x " + headX);
 					}
 				}
 				for (float f : new float[] { 0.25F, 0.5F, 0.75F }) {
@@ -440,7 +440,8 @@ public final class CoreClipPhases116GameTests {
 	 * 1.16 drew Crazy Diamond's repair, previous-state (revert) and healing reach with one pose, ITEM_FIX_POSE ("itemFix";
 	 * the heal took the barrage's pose while it showed barrage visuals); the official 1.21.1 port's clip of it is
 	 * repair_item, which the port's itemFix copies, as blockBullet and bloodCutter copy block_bullet and blood_cutter. The
-	 * revert and the healing heal play repair_item, and no core ability asks for one of the copies.
+	 * revert plays repair_item, healing or not, the heal (no pose of its own in 1.16) the idle while it heals without
+	 * barrage visuals (StandClipFollowUps116GameTests), and no core ability asks for one of the copies.
 	 */
 	@GameTest(template = "empty", timeoutTicks = 40)
 	public static void crazyDiamondsItemFixMovesPlayTheOfficialRepairItemClip(GameTestHelper helper) {
@@ -471,7 +472,7 @@ public final class CoreClipPhases116GameTests {
 				action.synchedData.set(CrazyDHealAbility.HealingAction.HEAL_RESULT, new CrazyDHealAbility.HealingAction.HealResult.Synched(
 						ActionTarget.EMPTY, true, false, CrazyDHealAbility.HealingAction.HealResult.Synched.NO_DEATH_TIME_CHANGE));
 				String healing = action.getEntityAnim().name();
-				if (!healing.equals("repair_item") || name.equals("revert_state") && !reaching.equals("repair_item")) {
+				if (!healing.equals(name.equals("heal") ? "idle" : "repair_item") || name.equals("revert_state") && !reaching.equals("repair_item")) {
 					wrong.add(name + " plays " + reaching + ", healing " + healing + " where 1.16's ITEM_FIX_POSE is the official repair_item");
 				}
 			}

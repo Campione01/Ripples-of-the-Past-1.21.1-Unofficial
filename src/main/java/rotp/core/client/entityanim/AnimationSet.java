@@ -160,6 +160,23 @@ public class AnimationSet {
 		return hasKey.test(key) ? key : null;
 	}
 
+	private static final String ARMORLESS_PREFIX = "no_armor_";
+	private static final String ARMORLESS_IDLE = ARMORLESS_PREFIX + "idle";
+
+	/**
+	 * 1.16's Silver Chariot drew its rapier moves over its idle pose, a ConditionalModelPose (SilverChariotModel): with the
+	 * armour off, the parts a move leaves out and the pose its recovery returns to were the armourless idle's. Over the
+	 * armourless idle a move plays its no_armor_ clip where the set has one. Null: the move's own clip.
+	 */
+	@Nullable
+	public static String armorlessClipKey(String idleName, String clipName, Predicate<String> hasKey) {
+		if (!ARMORLESS_IDLE.equals(idleName) || clipName.startsWith(ARMORLESS_PREFIX)) {
+			return null;
+		}
+		String key = ARMORLESS_PREFIX + clipName;
+		return hasKey.test(key) ? key : null;
+	}
+
 	/** Clips whose arms-only pose copied the user's own biped pose in 1.16 (CopyBipedUserPose). */
 	private static final Set<String> COPY_USER_POSE_ARMS_ONLY = Set.of(
 			"repair_item", "itemFix", "uncraft", "block_bullet", "blockBullet");

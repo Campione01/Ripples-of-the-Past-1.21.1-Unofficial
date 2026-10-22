@@ -228,6 +228,8 @@ public class PreFrameEntityAnimCalc {
 					animVariables.animId = resolvePortedActionAnim(
 							standSkin, stand, action, animVariables.animId,
 							stand.isArmsOnlyMode(), implicitPunchMirror);
+					animVariables.animId = armorlessVariant(standSkin, idleAnim, animVariables.animId,
+							stand.isArmsOnlyMode(), implicitPunchMirror);
 				}
 				AnimWithId animPossiblyReplaced = getStandAnim(
 						standSkin, animVariables.animId, idleAnim,
@@ -312,6 +314,30 @@ public class PreFrameEntityAnimCalc {
 			return SC_NO_ARMOR_IDLE_ANIM;
 		}
 		return baseIdleAnim;
+	}
+
+	/**
+	 * Over Silver Chariot's armourless idle a rapier move plays its armourless clip (AnimationSet.armorlessClipKey), taken
+	 * from the set that resolves the move's own clip, so a skin's own move still wins over the default skin's variant.
+	 */
+	private static ActionAnimIdentifier armorlessVariant(StandSkin skin, ActionAnimIdentifier idleAnim, ActionAnimIdentifier animId,
+			boolean armsOnly, boolean implicitHandMirror) {
+		if (animId == null || animId.isIdle()) {
+			return animId;
+		}
+		ActionAnimIdentifier[] variant = { animId };
+		skin.getStandAnimation(anims -> {
+			RotpAnimDefinition own = anims.getNamedAnim(animId, armsOnly, implicitHandMirror);
+			if (own != null) {
+				String key = AnimationSet.armorlessClipKey(idleAnim.name(), animId.name(), name -> anims.getNamedAnim(
+						ActionAnimIdentifier.getOrCreate(name, animId.index(), false), armsOnly, implicitHandMirror) != null);
+				if (key != null) {
+					variant[0] = ActionAnimIdentifier.getOrCreate(key, animId.index(), false);
+				}
+			}
+			return own;
+		});
+		return variant[0];
 	}
 
 	/**
