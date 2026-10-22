@@ -195,10 +195,10 @@ public final class StandClipPoses116GameTests {
 			// HumanoidStandModel :565-584, heavyAttackAnim: armsRotationFull in every pose, the recovery's transition from
 			// heavyImpact keeps it to the end of the action
 			new ArmLook(MR_ANIMS, "heavy_punch", new String[] { "0", "W0.5", "PERFORM", "RECOVERY", "END" }, new float[] { 1, 1, 1, 1, 1 }),
-			// HumanoidStandModel :482-536, the jab: xRot * t to jabArmTurn, the full look at jabImpact, xRot * (1 - t) to
-			// jabArmTurnBack, none after (the clip's keys 0, 0.1, PERFORM, RECOVERY, 0.4667, the end)
-			new ArmLook(MR_ANIMS, "punch", new String[] { "0", "0.05", "0.1", "PERFORM", "RECOVERY", "0.35", "0.4667", "END" },
-					new float[] { 0, 0.5F, 1, 1, 1, 0.5F, 0, 0 }),
+			// HumanoidStandModel :482-536, the jab: xRot * t to jabArmTurn at .5 of the windup, the full look at jabImpact and
+			// held to .25 of the perform, xRot * (1 - t^3) to jabArmTurnBack at .5 of the perform, none after
+			new ArmLook(MR_ANIMS, "punch", new String[] { "0", "W0.25", "W0.5", "PERFORM", "0.18335", "0.191675", "0.2", "RECOVERY", "END" },
+					new float[] { 0, 0.5F, 1, 1, 1, 0.875F, 0, 0, 0 }),
 			new ArmLook(SC_ANIMS, "no_rapier_light_attack", new String[] { "0", "0.1", "PERFORM", "RECOVERY", "0.4667", "END" },
 					new float[] { 0, 1, 1, 1, 0, 0 }),
 			// SilverChariotModel :247-288, the rapier stab: armsRotation in both poses and the recovery's transition
