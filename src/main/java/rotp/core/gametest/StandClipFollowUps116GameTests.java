@@ -467,6 +467,9 @@ public final class StandClipFollowUps116GameTests {
 	 * (AnimationSet.armorlessClipKey, asked by PreFrameEntityAnimCalc): the move's clip with 1.16's idle share of every bone
 	 * on no_armor_idle's values instead of the official idle's, the head on 1.16's root-space head, the end on no_armor_idle.
 	 */
+	// 1.16 drew the moves over its idle pose (initBaseIdlePose), where no_armor_idle's idle loop stands at 2 s
+	private static final float ARMORLESS_IDLE_POSE_AT = 2.0F;
+
 	@GameTest(template = "empty", timeoutTicks = 20)
 	public static void silverChariotWithoutItsArmourDrawsItsRapierMovesOverTheArmourlessIdleAs116(GameTestHelper helper) {
 		List<String> wrong = new ArrayList<>();
@@ -526,7 +529,7 @@ public final class StandClipFollowUps116GameTests {
 				String first = null;
 				for (float[] look : LOOKS) {
 					float[] official = StandClipPoses116GameTests.rotationAt(idle, bone, 0, look);
-					float[] own = StandClipPoses116GameTests.rotationAt(armorless, bone, 0, look);
+					float[] own = StandClipPoses116GameTests.rotationAt(armorless, bone, ARMORLESS_IDLE_POSE_AT, look);
 					for (float time : times) {
 						float share = idleShare(name, bone, time, perform, recovery, end);
 						float[] want = StandClipPoses116GameTests.rotationAt(base, bone, time, look);
@@ -563,7 +566,7 @@ public final class StandClipFollowUps116GameTests {
 			if (!name.equals("block")) {
 				for (String bone : armorless.getAsJsonObject("bones").keySet()) {
 					if (!bone.equals("head") && !bone.equals("head_rot")) {
-						compare(wrong, clip, bone, end, StandClipPoses116GameTests.rotationAt(armorless, bone, 0, LOOKS[0]),
+						compare(wrong, clip, bone, end, StandClipPoses116GameTests.rotationAt(armorless, bone, ARMORLESS_IDLE_POSE_AT, LOOKS[0]),
 								key + " hands over to no_armor_idle at its end:");
 					}
 				}
@@ -585,6 +588,154 @@ public final class StandClipFollowUps116GameTests {
 		}
 		helper.assertTrue(wrong.isEmpty(), "1.16's Silver Chariot without its armour drew its rapier moves over the armourless idle: "
 				+ wrong.subList(0, Math.min(12, wrong.size())) + (wrong.size() > 12 ? " and " + (wrong.size() - 12) + " more" : ""));
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 drew a Stand action with the IDLE pose with its model's idle loop (LegacyStandAnimator.poseIdleLoop, its clock
+	 * running on, as no action pose reset idleLoopTickStamp), which for Silver Chariot was its ConditionalModelPose: the
+	 * rapierless or the armourless idle where the Stand showed it. An action that asks for the idle by name
+	 * (NoPoseStandEntityAbility: Silver Chariot's take_off_armor, whose one-tick perform takes the armour off; Crazy
+	 * Diamond's heal fallback) plays the idle the client selects for the Stand (AnimationSet.requestedIdleKey with
+	 * PreFrameEntityAnimCalc.selectStandIdleAnim's idle).
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void anActionAskingForTheIdlePlaysTheIdleItsStandShowsAs116(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		Player user = FakePlayerFactory.get(helper.getLevel(), new GameProfile(UUID.randomUUID(), "SCTakeOffArmorIdle"));
+		StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("silver_chariot"));
+		StandPower power = null;
+		try {
+			user.getAbilities().instabuild = false;
+			Vec3 pos = Vec3.atCenterOf(helper.absolutePos(new BlockPos(2, 3, 2)));
+			user.moveTo(pos.x, pos.y, pos.z);
+			helper.assertTrue(helper.getLevel().addFreshEntity(user), "setup: could not add the Stand user");
+			power = PowerClass.STAND.attachGet(user);
+			helper.assertTrue(StandPowerTransitions.insert(power, new StandInstance(type)).status() == StandPowerTransitions.Status.APPLIED,
+					"setup: could not grant Silver Chariot");
+			power.setResolveLevel(power.getMaxResolveLevel());
+			helper.assertTrue(type.summon(user, power), "setup: could not summon Silver Chariot");
+			StandEntity stand = power.getSummonedStandEntity();
+			helper.assertTrue(stand != null && stand.isSilverChariotRapierVisible() && stand.isSilverChariotArmorVisible(),
+					"setup: Silver Chariot is not out with its rapier and armour");
+			stand.summonLockTicks = 0;
+			stand.gradualSummonWeaknessTicks = 0;
+			Ability ability = power.getAbility("take_off_armor");
+			helper.assertTrue(ability instanceof EntityActionAbility, "setup: Silver Chariot has no take_off_armor");
+			EntityActionInstance action = ((EntityActionAbility) ability).initActionOnAbilityUse(helper.getLevel(), user, stand, null);
+			LivingComponentAction slot = LivingComponentAction.getComponent(stand);
+			slot.setAction(action, user, SyncType.NO_SYNC);
+			String request = action.getEntityAnim().name();
+			boolean idleRequest = action.getEntityAnim().isIdle();
+			int armourOff = -1;
+			for (int tick = 1; tick <= 40 && armourOff < 0 && !action.isOver(); tick++) {
+				slot.tick();
+				if (!stand.isSilverChariotArmorVisible()) {
+					armourOff = tick;
+				}
+			}
+			// 1.16's take-off (StandEntityAction.Builder: no windup, a 1-tick perform, no recovery) took the armour off in
+			// the tick it ended in, as the port's; its client copy draws that tick, and the take-off pressed without the
+			// rapier draws its windup-less tick on the rapierless idle
+			String played = AnimationSet.requestedIdleKey(request, standIdle(stand));
+			if (armourOff < 0 || !idleRequest || !"no_armor_idle".equals(played)) {
+				wrong.add("take_off_armor asks for " + request + " (idle " + idleRequest + "), its armour off in tick " + armourOff
+						+ ", which the client then plays as " + played + " where 1.16 drew the armourless idle");
+			}
+		}
+		finally {
+			if (power != null && power.isSummoned()) {
+				type.forceUnsummon(user, power);
+			}
+			user.discard();
+		}
+		// the rule: a request for the idle takes the Stand's own idle; any other clip keeps its name
+		for (String idle : new String[] { "idle", "no_rapier_idle", "no_armor_idle" }) {
+			if (!idle.equals(AnimationSet.requestedIdleKey("idle", idle))) {
+				wrong.add("a request for the idle over " + idle + " plays " + AnimationSet.requestedIdleKey("idle", idle));
+			}
+			for (String other : new String[] { "light_attack", "no_armor_idle", "repair_item" }) {
+				if (AnimationSet.requestedIdleKey(other, idle) != null) {
+					wrong.add("a request for " + other + " over " + idle + " plays " + AnimationSet.requestedIdleKey(other, idle));
+				}
+			}
+		}
+		Set<String> invoked = invokedMethods(helper, "rotp/core/client/entityanim/PreFrameEntityAnimCalc.class");
+		for (String call : new String[] { "rotp/core/client/entityanim/AnimationSet.requestedIdleKey",
+				"rotp/core/client/entityanim/PreFrameEntityAnimCalc.selectStandIdleAnim" }) {
+			if (!invoked.contains(call)) {
+				wrong.add("PreFrameEntityAnimCalc no longer calls " + call);
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), "1.16 drew an action with the IDLE pose with the Stand's own idle: " + wrong);
+		helper.succeed();
+	}
+
+	// PreFrameEntityAnimCalc.selectStandIdleAnim's choice for Silver Chariot (client code)
+	private static String standIdle(StandEntity stand) {
+		return !stand.isSilverChariotRapierVisible() ? "no_rapier_idle"
+				: !stand.isSilverChariotArmorVisible() ? "no_armor_idle" : "idle";
+	}
+
+	// SilverChariotModel :398-414 and :435-441 (the rapier, no armour), 1.16's radians in the Blockbench degrees they came
+	// from: leftArm, leftForeArm, rightArm, rightForeArm of initBaseIdlePose and of initIdlePose2Loop
+	private static final String[] ARMORLESS_LOOP_BONES = { "left_arm", "left_arm_bend", "right_arm", "right_arm_bend" };
+	private static final float[][] ARMORLESS_IDLE = { { -35, 22.5F, -60 }, { -80, 15, 15 }, { 30, 0, 80 }, { -30, 60, 60 } };
+	private static final float[][] ARMORLESS_IDLE_2 = { { -37.5F, 22.5F, -60 }, { -82.5F, 15, 15 }, { 32.5F, 0, 80 },
+			{ -30, 60, 62.5F } };
+
+	/*
+	 * 1.16 StandEntityModel :262-264: idleLoop = ModelPoseTransition(idlePose, initIdlePose2Loop()) eased by
+	 * (sin(pi (t / 40 - 0.5)) - 1) / 2 over the ticks t since the last action pose (LegacyStandAnimator.poseIdleLoop), and
+	 * ModelPose applied it as RotationAngle's lerp(f, the idle's angle, the second pose's): f runs from -1 at t = 0 to 0 at
+	 * t = 40 and back by t = 80, so the armourless Stand's arms swung between 2 idle - pose2 and its idle every 4 s, the
+	 * elbow joints at half their forearms (HumanoidStandModel.rotateJoint), every other part still. The port's no_armor_idle
+	 * plays that loop from its start, as the port's idle clock restarts after an action as 1.16's did.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void silverChariotsArmourlessIdleSwingsItsArmsAs116sIdleLoop(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		Map<String, JsonObject> files = new HashMap<>();
+		JsonObject clip = clipOf(helper, files, SC_ANIMS, "no_armor_idle");
+		float length = clip.get("animation_length").getAsFloat();
+		if (!clip.has("loop") || !clip.get("loop").getAsBoolean() || length % 4 != 0) {
+			wrong.add("no_armor_idle loops " + clip.get("loop") + " over " + length + " s, 1.16's every 4 s");
+		}
+		Map<String, float[]> still = new HashMap<>();
+		for (String bone : clip.getAsJsonObject("bones").keySet()) {
+			still.put(bone, StandClipPoses116GameTests.rotationAt(clip, bone, 0, LOOKS[0]));
+		}
+		for (String bone : ARMORLESS_LOOP_BONES) {
+			if (!clip.getAsJsonObject("bones").has(bone)) {
+				wrong.add("no_armor_idle has no " + bone);
+			}
+		}
+		Set<String> reported = new HashSet<>();
+		for (float time = 0; time <= length + 1.0E-4F; time += 0.005F) {
+			float ticks = time * 20;
+			float f = (float) ((Math.sin(Math.PI * (ticks / 40 - 0.5)) - 1) / 2);
+			Map<String, float[]> want = new HashMap<>();
+			for (int i = 0; i < ARMORLESS_LOOP_BONES.length; i++) {
+				want.put(ARMORLESS_LOOP_BONES[i], lerp(ARMORLESS_IDLE[i], ARMORLESS_IDLE_2[i], f));
+			}
+			for (String limb : new String[] { "left_arm", "right_arm" }) {
+				float[] bend = want.get(limb + "_bend");
+				want.put(limb + "_joint", new float[] { bend[0] / 2, bend[1] / 2, bend[2] / 2 });
+			}
+			for (String bone : clip.getAsJsonObject("bones").keySet()) {
+				if (bone.equals("head") || bone.equals("head_rot") || reported.contains(bone)) {
+					continue;
+				}
+				float[] got = StandClipPoses116GameTests.rotationAt(clip, bone, Math.min(time, length), LOOKS[0]);
+				float[] expected = want.getOrDefault(bone, still.get(bone));
+				if (!near(got, expected, 0.05F)) {
+					wrong.add(bone + " at " + time + " s " + Arrays.toString(got) + " where 1.16's idle loop had "
+							+ Arrays.toString(expected));
+					reported.add(bone);
+				}
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), "1.16's armourless Silver Chariot swung its arms in its idle loop: " + wrong);
 		helper.succeed();
 	}
 

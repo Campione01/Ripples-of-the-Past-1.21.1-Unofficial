@@ -177,6 +177,18 @@ public class AnimationSet {
 		return hasKey.test(key) ? key : null;
 	}
 
+	private static final String IDLE = "idle";
+
+	/**
+	 * The clip an action that asks for the idle plays: 1.16 drew a Stand action with the IDLE pose with its model's own
+	 * idle loop (LegacyStandAnimator.poseIdleLoop; SilverChariotModel's ConditionalModelPose), so the request takes the
+	 * idle the Stand shows (PreFrameEntityAnimCalc.selectStandIdleAnim). Null for any other clip.
+	 */
+	@Nullable
+	public static String requestedIdleKey(String clipName, String standIdleName) {
+		return IDLE.equals(clipName) ? standIdleName : null;
+	}
+
 	/** Clips whose arms-only pose copied the user's own biped pose in 1.16 (CopyBipedUserPose). */
 	private static final Set<String> COPY_USER_POSE_ARMS_ONLY = Set.of(
 			"repair_item", "itemFix", "uncraft", "block_bullet", "blockBullet");

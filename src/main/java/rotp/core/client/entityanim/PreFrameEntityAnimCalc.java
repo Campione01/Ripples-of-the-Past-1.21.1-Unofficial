@@ -209,6 +209,14 @@ public class PreFrameEntityAnimCalc {
 				StandSkin standSkin = StandSkinsLoader.getInstance().getSkin(stand);
 				ActionAnimIdentifier idleAnim = StandEntityRenderer.IDLE_ANIM;
 				idleAnim = selectStandIdleAnim(stand, idleAnim);
+				String idleRequest = action != null && animVariables.animId != null && animVariables.animId.isIdle()
+						? AnimationSet.requestedIdleKey(animVariables.animId.name(), idleAnim.name()) : null;
+				if (idleRequest != null) {
+					// 1.16's idle loop ran on through an action with the IDLE pose (no idleLoopTickStamp reset)
+					animVariables.reset();
+					animVariables.animId = idleAnim;
+					animVariables.time = stand.tickCount - stand.nonIdlePoseTimeStamp + partialTick;
+				}
 
 				if (animVariables.animId == null) {
 					float standTicks = stand.tickCount + partialTick;
