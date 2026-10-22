@@ -74,7 +74,7 @@ public final class SilverChariotHierophantClips116GameTests {
 		expect(wrong, clip, "right_arm", perform, new float[] { 89, 0, 90 }, "barrageRightStart at PERFORM");
 		expect(wrong, clip, "right_arm_bend", perform, new float[] { -135, 0, 0 }, "barrageRightStart at PERFORM");
 		expect(wrong, clip, "torso_bend", perform, new float[] { 0, -45, 0 }, "barrageRightStart at PERFORM");
-		expect(wrong, clip, "right_arm", Math.nextDown(recovery), new float[] { -90, 45, 0 }, "barrageRightImpact before RECOVERY");
+		expect(wrong, clip, "right_arm", (perform + recovery) / 2, new float[] { -90, 45, 0 }, "barrageRightImpact half way through the loop");
 		for (float time = perform; time < recovery; time += 0.01F) {
 			for (String limb : new String[] { "left_arm", "right_arm" }) {
 				float[] bend = StandClipPoses116GameTests.rotationAt(clip, limb + "_bend", time, LOOKS[0]);
@@ -398,6 +398,7 @@ public final class SilverChariotHierophantClips116GameTests {
 			case "linear" -> f;
 			case "easeInQuad" -> f * f;
 			case "easeInCubic" -> f * f * f;
+			case "easeOutCubic" -> 1 - (1 - f) * (1 - f) * (1 - f);
 			default -> throw new IllegalArgumentException("easing " + easing + " not sampled");
 		};
 	}
