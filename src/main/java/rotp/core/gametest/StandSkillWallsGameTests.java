@@ -20,9 +20,11 @@ import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchChargedAbility;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchChargedAbility.StandEntityChargedHeavy;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModEntityAttributes;
+import rotp.core.init.power.ModStandAbilities;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.AbilityId;
+import rotp.core.powersystem.ability.EntityActionAbility;
 import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.ability.input.AbilityInput;
 import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
@@ -85,6 +87,7 @@ public final class StandSkillWallsGameTests {
 	private static final String USER_OWN_ACTION_BATCH = "stand_skill_walls_user_own_action";
 	private static final String CHARGED_LUNGE_BATCH = "stand_skill_walls_charged_lunge";
 	private static final String FRONT_OFFSET_BATCH = "stand_skill_walls_front_offset";
+	private static final String USER_STAND_MOVE_BATCH = "stand_skill_walls_user_stand_move";
 	private static final short KEY = 173;
 
 	@Nullable
@@ -478,6 +481,95 @@ public final class StandSkillWallsGameTests {
 	@AfterBatch(batch = USER_OWN_ACTION_BATCH)
 	public static void releaseUserOwnActionBatch(ServerLevel level) {
 		releaseActive();
+	}
+
+	// a Stand move the user performs itself sits in its Stand-power slot (K5-48), beside an empty own slot: it is an
+	// action of the user's own (D-core-89 for the rest), and a port of a 1.16 StandAction there answers for the Stand
+	@GameTest(template = "empty", timeoutTicks = 20, batch = USER_STAND_MOVE_BATCH)
+	public static void aStandMoveItsUserPerformsAnswersForTheUsersRaysAsAnActionOfItsOwn(GameTestHelper helper) {
+		Scene scene = new Scene(helper);
+		LivingComponentAction standActions = LivingComponentAction.getComponent(scene.stand);
+		LivingComponentAction userStandPowerSlot = LivingComponentAction.getComponent(scene.user, PowerClass.STAND);
+		AbilityId moveId = new AbilityId(PowerClass.STAND, scene.markedId.powerTypeId(), "test_user_stand_move");
+		AbilityId portId = new AbilityId(PowerClass.STAND, scene.markedId.powerTypeId(), "test_stand_action_port");
+		try {
+			Cow cow = scene.cowBehindWall();
+			scene.clearAims();
+			List<String> wrong = new ArrayList<>();
+			scene.mark(true);
+			standActions.setAction(scene.action("punch"), scene.user, SyncType.NO_SYNC);
+			EntityActionInstance move = new TestStandMove(moveId, false).createActionObj();
+			userStandPowerSlot.setAction(move, scene.user, SyncType.NO_SYNC);
+			helper.assertTrue(LivingComponentAction.getCurEntityAction(scene.user, PowerClass.STAND) == move
+					&& LivingComponentAction.getCurEntityAction(scene.user) == null && move.getPerformer() == scene.user,
+					"Fixture: the user's Stand move is not in its Stand-power slot, performed by the user");
+			ActionTarget ray = scene.userRay();
+			if (ray.getType() != ActionTarget.TargetType.BLOCK || !StandSkillWalls.wallsHideEntities(scene.user)) {
+				wrong.add("a ray for the user's unmarked Stand move met " + ray + " during its Stand's marked punch,"
+						+ " where its own action's answer stops it at the wall");
+			}
+			ActionTarget punchTarget = StandEntityPunchAbility.getFreshPunchTarget(scene.stand, ActionTarget.EMPTY);
+			if (punchTarget.getMainEntity() != cow) {
+				wrong.add("the Stand's marked punch picked " + punchTarget + " during its user's Stand move");
+			}
+
+			scene.mark(false);
+			StandSkillWalls.markThroughWalls(moveId.powerTypeId(), moveId.nameInMoveset());
+			ray = scene.userRay();
+			if (ray.getMainEntity() != cow || StandSkillWalls.wallsHideEntities(scene.user)) {
+				wrong.add("a ray for the user's marked Stand move met " + ray + " during its Stand's unmarked punch,"
+						+ " where its own mark passes the wall");
+			}
+			standActions.setAction(null, scene.user, SyncType.NO_SYNC);
+			if (!StandSkillWalls.wallsHideEntities(scene.stand)) {
+				wrong.add("the idle Stand's rays passed walls during its user's marked Stand move, which the Stand does not perform");
+			}
+
+			userStandPowerSlot.setAction(null, scene.user, SyncType.NO_SYNC);
+			StandSkillWalls.unmarkThroughWalls(moveId.powerTypeId(), moveId.nameInMoveset());
+			StandSkillWalls.markThroughWalls(portId.powerTypeId(), portId.nameInMoveset());
+			EntityActionInstance port = new TestStandMove(portId, true).createActionObj();
+			userStandPowerSlot.setAction(port, scene.user, SyncType.NO_SYNC);
+			helper.assertTrue(LivingComponentAction.getCurEntityAction(scene.user, PowerClass.STAND) == port
+					&& scene.stand.getCurStandAction() == null && port.getPerformer() == scene.stand,
+					"Fixture: the marked port is not in the user's Stand-power slot, performed by the Stand, beside its empty slot");
+			ray = scene.userRay();
+			if (ray.getMainEntity() != cow || StandSkillWalls.wallsHideEntities(scene.stand)) {
+				wrong.add("during a marked port its Stand performs from its user's Stand-power slot, the user's ray met " + ray
+						+ " and the Stand's rays stop at walls " + StandSkillWalls.wallsHideEntities(scene.stand)
+						+ ", where the Stand's action passes them");
+			}
+			helper.assertTrue(wrong.isEmpty(), String.join("; ", wrong));
+			helper.succeed();
+		}
+		finally {
+			StandSkillWalls.unmarkThroughWalls(moveId.powerTypeId(), moveId.nameInMoveset());
+			StandSkillWalls.unmarkThroughWalls(portId.powerTypeId(), portId.nameInMoveset());
+			userStandPowerSlot.setAction(null, scene.user, SyncType.NO_SYNC);
+			standActions.setAction(null, scene.user, SyncType.NO_SYNC);
+			scene.close();
+		}
+	}
+
+	@AfterBatch(batch = USER_STAND_MOVE_BATCH)
+	public static void releaseUserStandMoveBatch(ServerLevel level) {
+		releaseActive();
+	}
+
+	// a Stand-power move its user performs itself, or, as a port of a 1.16 StandAction, its summoned Stand from there
+	private static final class TestStandMove extends EntityActionAbility {
+		private final boolean port;
+
+		TestStandMove(AbilityId abilityId, boolean port) {
+			super(ModStandAbilities.PUNCH.get(), abilityId, EntityActionInstance::new);
+			this.port = port;
+			setDefaultPhaseLength(ActionPhase.PERFORM, 2);
+		}
+
+		@Override
+		public boolean performsInUsersStandPowerSlot() {
+			return port;
+		}
 	}
 
 	@AfterBatch(batch = CHARGED_LUNGE_BATCH)
