@@ -75,6 +75,12 @@ public class CrazyDAnchorMakeAbility extends StandEntityAbility {
 		return target.getType() == TargetType.BLOCK;
 	}
 
+	// TargetRequirement.BLOCK: the torch or grass pressed is the block it takes (overrideVanillaMouseTarget left it)
+	@Override
+	public boolean pressedBlockGivesWayToEntity() {
+		return false;
+	}
+
 	@Override
 	public ConditionCheck checkSpecificConditions(Power<?> context) {
 		LivingEntity user = context.getUser();

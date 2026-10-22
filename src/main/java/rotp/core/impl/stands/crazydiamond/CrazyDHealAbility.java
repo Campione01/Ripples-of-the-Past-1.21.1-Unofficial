@@ -138,7 +138,7 @@ public class CrazyDHealAbility extends StandEntityAbility {
 	}
 
 	protected static ActionTarget getCurrentEntityTarget(LivingEntity user, Level level) {
-		return getCrosshairEntityTarget(user, level, CrazyDHealAbility::canHealEntityTarget);
+		return getCrosshairEntityTarget(user, level, CrazyDHealAbility::canHealEntityTarget, true);
 	}
 
 	/*
@@ -151,6 +151,17 @@ public class CrazyDHealAbility extends StandEntityAbility {
 	 * without the user's aim assist setting, the crosshair line instead, as for the punches.
 	 */
 	static ActionTarget getCrosshairEntityTarget(LivingEntity user, Level level, Predicate<Entity> worksOn) {
+		return getCrosshairEntityTarget(user, level, worksOn, false);
+	}
+
+	/**
+	 * @param pressedBlockGivesWay the press of a 1.16 StandEntityAction (Heal, Revert): a block without a collision shape
+	 *        under the crosshair gave way to the collision ray of overrideVanillaMouseTarget
+	 *        (StandEntityAbility#pastBlockWithoutCollision), so a mob behind a torch is the target, on the client and
+	 *        its HUD too; false for a StandEntityActionModifier's (Misshaping), which had no such rule
+	 */
+	static ActionTarget getCrosshairEntityTarget(LivingEntity user, Level level, Predicate<Entity> worksOn,
+			boolean pressedBlockGivesWay) {
 		if (user == null) {
 			return ActionTarget.EMPTY;
 		}
@@ -160,13 +171,16 @@ public class CrazyDHealAbility extends StandEntityAbility {
 			return ActionTarget.EMPTY;
 		}
 		ActionTarget target = getAimedTarget(user, aiming, level);
+		boolean wallsHideEntities = StandSkillWalls.wallsHideEntities(aiming);
 		if (target.getType() == TargetType.EMPTY && stand != null) {
 			double reach = aiming == stand
 					? stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE) : StandEntityPunchAbility.userAimReach(user, stand);
-			boolean wallsHideEntities = StandSkillWalls.wallsHideEntities(aiming);
 			target = StandEntityPunchAbility.aimAssist(user)
 					? StandPrecisionRay.trace(aiming, stand, reach, 0.0D, true, wallsHideEntities)
 					: StandPrecisionRay.crosshair(aiming, stand, reach, true, wallsHideEntities);
+		}
+		if (pressedBlockGivesWay) {
+			target = pastBlockWithoutCollision(user, target, wallsHideEntities);
 		}
 		return isValidEntityTarget(user, target, level, worksOn) ? target : ActionTarget.EMPTY;
 	}

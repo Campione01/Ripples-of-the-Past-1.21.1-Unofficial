@@ -53,7 +53,7 @@ public class GoldExperienceBoneMealAbility extends NoPoseStandEntityAbility {
             return ConditionCheck.NEGATIVE;
         }
         Level level = user.level();
-        ActionTarget target = GoldExperienceCreateLifeformAbility.getClientLookTarget(level, user);
+        ActionTarget target = pressedTarget(level, user);
         if (!target.isEmpty(level)
                 && !ActionTargetRange.isTargetWithinRange(ActionTargetRange.standPerformer(user), target, level)) {
             return ConditionCheck.createNegative("target_too_far");
@@ -68,13 +68,19 @@ public class GoldExperienceBoneMealAbility extends NoPoseStandEntityAbility {
     public void initActionFromConfig(EntityActionInstance action, Level level, LivingEntity powerUser, LivingEntity performer) {
         super.initActionFromConfig(action, level, powerUser, performer);
         if (action instanceof BoneMealAction) {
-            ActionTarget target = GoldExperienceCreateLifeformAbility.getClientLookTarget(level, powerUser);
+            ActionTarget target = pressedTarget(level, powerUser);
             // 1.16 PowerBaseImpl.checkTarget emptied a target checkTarget refused, so the Stand did not turn to it; a
             // press that skips checkSpecificConditions (a mob's) still gets here
             if (!target.isEmpty(level) && isValidBoneMealTarget(level, target)) {
                 action.standRotationTarget = target;
             }
         }
+    }
+
+    // the client's target, a block without a collision shape (a sapling, a crop, short grass) giving way to the Stand's
+    // collision ray, as 1.16's StandEntityAction.overrideVanillaMouseTarget made it for TargetRequirement.ANY
+    private ActionTarget pressedTarget(Level level, LivingEntity user) {
+        return overridePressedTarget(user, GoldExperienceCreateLifeformAbility.getClientLookTarget(level, user));
     }
 
     // 1.16 GoldExperienceBoneMeal.checkTarget, which StandEntityTask.keepTarget asked too

@@ -356,7 +356,8 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 				double minOffset = Math.min(0.5, stand.getEffectiveRange());
 				double maxOffset = Math.min(1.5, stand.getEffectiveRange());
 				boolean directional = isDirectionalBarrage(stand, this);
-				pressedAt = StandEntityPunchAbility.pressTarget(stand, getActionTargetSnapshot(level));
+				pressedAt = StandEntityPunchAbility.pressTarget(stand, getActionTargetSnapshot(level),
+						StandEntityPunchAbility.CrosshairRule.BLOCK_OR_ENTITY, ability);
 				// the default barrage keeps no pressed target (1.16 checkStandTarget): it starts at what its first hit aims at
 				ActionTarget target = setActionTargetSnapshot(directional && !level.isClientSide()
 						? clipDirectionalBarrageTarget(stand, this, 1.0F) : pressedAt);

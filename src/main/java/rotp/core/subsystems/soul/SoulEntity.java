@@ -207,17 +207,19 @@ public class SoulEntity extends Entity implements IEntityWithComplexSpawn {
 		}
 	}
 
-	/** The entity the soul looks at, whose Stand user it gives Resolve to. */
+	/**
+	 * The entity the soul looks at, whose Stand user it gives Resolve to: 1.16's JojoModUtil.rayTrace(this, 32, filter,
+	 * 1.0), from the soul's eyes along its look, entity boxes grown by 1.0, entities met through blocks.
+	 */
 	@Nullable
 	public LivingEntity lookTarget() {
 		if (originEntity == null) {
 			return null;
 		}
-		Vec3 start = position().add(0.0D, getBbHeight() * 0.5D, 0.0D);
-		ActionTarget target = HitResultUtil.clip(start, getLookAngle(), 32.0D, 32.0D, level(),
-				entity -> entity instanceof LivingEntity living
+		ActionTarget target = HitResultUtil.clip(getEyePosition(), getLookAngle(), 32.0D, 32.0D, level(),
+				entity -> entity instanceof LivingEntity living && !entity.isSpectator() && entity.isPickable()
 						&& !StandUtil.getStandUser(living).is(originEntity),
-				this, 1.0D);
+				this, 0.0D, false, 1.0D);
 		return target.getType() == ActionTarget.TargetType.ENTITY && target.getMainEntity() instanceof LivingEntity living
 				? living : null;
 	}

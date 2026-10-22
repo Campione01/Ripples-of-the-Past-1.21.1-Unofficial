@@ -40,6 +40,12 @@ public class HierophantBarrierAbility extends NoPoseStandEntityAbility {
 		return target.getType() == TargetType.BLOCK;
 	}
 
+	// TargetRequirement.BLOCK: the torch or grass pressed is the block it takes (overrideVanillaMouseTarget left it)
+	@Override
+	public boolean pressedBlockGivesWayToEntity() {
+		return false;
+	}
+
 	@Override
 	public void initActionFromConfig(EntityActionInstance action, Level level, LivingEntity powerUser, LivingEntity performer) {
 		super.initActionFromConfig(action, level, powerUser, performer);

@@ -550,12 +550,21 @@ public class EntityActionInstance implements HeldInput {
 	}
 
 	protected ActionTarget captureActionTargetFromAim(LivingEntity aimingEntity) {
-		ActionTarget target = ActionTarget.EMPTY;
-		var aim = LivingComponentAction.getAim(aimingEntity);
-		if (aim != null) {
-			target = aim.getTarget();
-		}
+		ActionTarget target = pressedAimTarget(aimingEntity);
 		return setActionTargetSnapshot(takesPressedTarget(target) ? target : ActionTarget.EMPTY);
+	}
+
+	// the synced aim a Stand action takes at its press, a block without a collision shape giving way as 1.16's did
+	// (StandEntityAbility#overridePressedTarget)
+	private ActionTarget pressedAimTarget(LivingEntity aimingEntity) {
+		var aim = LivingComponentAction.getAim(aimingEntity);
+		ActionTarget target = aim != null ? aim.getTarget() : null;
+		if (target == null) {
+			return ActionTarget.EMPTY;
+		}
+		LivingEntity user = getPowerUser();
+		return ability instanceof StandEntityAbility standAbility && user != null
+				? standAbility.overridePressedTarget(user, target) : target;
 	}
 
 	// a Stand action's press target passes 1.16's checkStandTarget (StandEntityAbility#takesPressedTarget); others any
@@ -914,8 +923,7 @@ public class EntityActionInstance implements HeldInput {
 	public void keepStandAimedAtTarget() {
 		Level level = level();
 		if (!level.isClientSide()) {
-			var aim = LivingComponentAction.getAim(performer);
-			keepStandAimedAtTarget(aim != null ? aim.getTarget() : ActionTarget.EMPTY);
+			keepStandAimedAtTarget(pressedAimTarget(performer));
 		}
 	}
 
