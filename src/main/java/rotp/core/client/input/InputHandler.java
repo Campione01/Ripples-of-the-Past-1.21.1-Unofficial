@@ -23,6 +23,7 @@ import org.lwjgl.glfw.GLFW;
 import rotp.core.client.ClientGlobals;
 import rotp.core.client.ClientPowerCache;
 import rotp.core.client.ClientTickHandler;
+import rotp.core.client.ClientTimeStopHandler;
 import rotp.core.client.input.clickhold.AmbiguousKeyPress;
 import rotp.core.client.input.controlscheme.AllControlSchemes;
 import rotp.core.client.input.controlscheme.ClientControlScheme;
@@ -61,6 +62,7 @@ import rotp.core.powersystem.playerpower.PlayerPower;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.StandUtil;
 import rotp.core.powersystem.standpower.entity.StandEntity;
+import rotp.core.subsystems.timestop.TimeStopClientAwareness;
 import rotp.core.util.enums.Direction2D;
 import rotp.core.util.mod.IPlayerLeap;
 import rotp.core.impl.powers.hamon.ClHamonDoubleShiftPressPacket;
@@ -1461,14 +1463,24 @@ public class InputHandler {
 	}
 
 
-	// 1.16 shouldVanillaInputStun: vanilla attack and use clicks do nothing while stunned.
+	// 1.16 shouldVanillaInputStun: vanilla attack and use clicks do nothing while stunned or stopped in someone else's time
+	// (!mc.player.canUpdate(); Ability.isUserStoppedInTime asks the same on the client).
 	// Ability clicks are handled earlier and still reach the server's own stun checks.
 	@SubscribeEvent(priority = EventPriority.LOWEST)
 	public void cancelVanillaClickInStun(InteractionKeyMappingTriggered event) {
-		if ((event.isAttack() || event.isUseItem()) && mc.player != null && ModStatusEffects.isStunned(mc.player)) {
-			event.setCanceled(true);
-			event.setSwingHand(false);
+		cancelVanillaClickWhileStunned(event, mc.player != null && ModStatusEffects.isStunned(mc.player),
+				mc.player != null && ClientTimeStopHandler.isTimeStoppedStatic() && !TimeStopClientAwareness.canMove());
+	}
+
+	@ApiStatus.Internal
+	public static boolean cancelVanillaClickWhileStunned(InteractionKeyMappingTriggered event, boolean stunned,
+			boolean stoppedInTime) {
+		if (!(stunned || stoppedInTime) || !(event.isAttack() || event.isUseItem())) {
+			return false;
 		}
+		event.setCanceled(true);
+		event.setSwingHand(false);
+		return true;
 	}
 
 	// 1.16 handleMouseClickPowerHud: while its player ran a continuous player action, a vanilla attack or use click whose

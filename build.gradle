@@ -485,6 +485,15 @@ tasks.register('playerActionVanillaClickSmokeTest', JavaExec) {
             'rotp.core.client.input.PlayerActionVanillaClickSmokeTest'
 }
 
+tasks.register('stoppedTimeVanillaClickSmokeTest', JavaExec) {
+    group = 'verification'
+    description = 'Verifies a vanilla click does nothing while its player is stunned or stopped in time, as in 1.16.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + sourceSets.main.compileClasspath
+    mainClass =
+            'rotp.core.client.input.StoppedTimeVanillaClickSmokeTest'
+}
+
 tasks.register('standOffsetScaleSmokeTest', JavaExec) {
     group = 'verification'
     description = 'Verifies Stand-user offsets scaled by the user bounding box, pose included, as in 1.16.'
@@ -607,6 +616,7 @@ tasks.named('check').configure {
     dependsOn tasks.named('refusedClickVanillaInputSmokeTest')
     dependsOn tasks.named('meditationVanillaClickSmokeTest')
     dependsOn tasks.named('playerActionVanillaClickSmokeTest')
+    dependsOn tasks.named('stoppedTimeVanillaClickSmokeTest')
     dependsOn tasks.named('distanceStrengthDecayPolicySmokeTest')
     dependsOn tasks.named('goldExperienceLifeformOrderingSmokeTest')
     dependsOn tasks.named('sewingSearchSmokeTest')
