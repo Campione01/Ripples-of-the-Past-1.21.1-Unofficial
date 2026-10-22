@@ -54,7 +54,9 @@ public final class TimeStopPunchTuningSmokeTest {
 		require(timeStop, "privatefloatheldWalkSpeed=1.0F;");
 		require(timeStop, "publicvoidonSetPhase(ActionPhasenewPhase){userWalkSpeed=1.0F;"
 				+ "if(newPhase==ActionPhase.BUTTON_CHARGE&&abilityinstanceofTimeStopAbilitytimeStop){"
-				+ "userWalkSpeed=timeStop.heldWalkSpeed;}}");
+				+ "userWalkSpeed=timeStop.heldWalkSpeed;}");
+		require(timeStop, "if(newPhase==ActionPhase.PERFORM&&getPerformer()instanceofStandEntitystand){"
+				+ "stand.setPerformPose(this);}}");
 		check(!timeStop.contains("userWalkSpeed=0"), "the core time stop's charge must not lock walking");
 	}
 
