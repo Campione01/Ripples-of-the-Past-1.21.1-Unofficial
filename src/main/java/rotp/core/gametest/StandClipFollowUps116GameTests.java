@@ -814,6 +814,46 @@ public final class StandClipFollowUps116GameTests {
 		helper.succeed();
 	}
 
+	/*
+	 * 1.16 MagiciansRedModel.setupFirstPersonRotations tilted the first-person (remote control) view by the head's pitch for
+	 * every action of FLAME_BURST_POSE: flame burst, fireball, crossfire hurricane and its special (ModStandsInit :543-566).
+	 * StandEntityRenderer tilts it for the clips those abilities ask for (AnimationSet.isFlameBurstPoseClip) and for no
+	 * other Magician's Red move.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void magiciansRedsFirstPersonFlameViewCoversEveryFlameBurstPoseMoveAs116(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("magicians_red"));
+		Player user = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
+		try {
+			for (String move : new String[] { "flame_burst", "fireball", "crossfire_hurricane", "crossfire_hurricane_special",
+					"red_bind", "punch", "kick", "heavy_punch" }) {
+				boolean flame = move.startsWith("f") || move.startsWith("crossfire");
+				Ability ability = type.getBaseMoveset().getAbility(move);
+				helper.assertTrue(ability instanceof EntityActionAbility, "setup: Magician's Red has no " + move);
+				EntityActionAbility actionAbility = (EntityActionAbility) ability;
+				String clip = actionAbility.getEntityAnim(actionAbility.initActionOnAbilityUse(helper.getLevel(), user, user, null)).name();
+				if (AnimationSet.isFlameBurstPoseClip(clip) != flame) {
+					wrong.add(move + " asks for " + clip + ", whose first-person view tilts " + AnimationSet.isFlameBurstPoseClip(clip)
+							+ ", 1.16 " + flame);
+				}
+			}
+		}
+		finally {
+			user.discard();
+		}
+		// the legacy name the core's flame clips alias to
+		if (!AnimationSet.isFlameBurstPoseClip("flameBurst")) {
+			wrong.add("flameBurst's first-person view does not tilt");
+		}
+		if (!invokedMethods(helper, "rotp/core/client/entityrender/stand/StandEntityRenderer.class")
+				.contains("rotp/core/client/entityanim/AnimationSet.isFlameBurstPoseClip")) {
+			wrong.add("StandEntityRenderer no longer asks AnimationSet.isFlameBurstPoseClip");
+		}
+		helper.assertTrue(wrong.isEmpty(), "1.16 tilted Magician's Red's first-person view in every FLAME_BURST_POSE action: " + wrong);
+		helper.succeed();
+	}
+
 	// "owner.name" of every method a class file invokes (its Methodref constants)
 	static Set<String> invokedMethods(GameTestHelper helper, String classPath) {
 		Set<String> out = new HashSet<>();

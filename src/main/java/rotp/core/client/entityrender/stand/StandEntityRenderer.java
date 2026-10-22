@@ -386,7 +386,7 @@ public class StandEntityRenderer<
 		ActionAnimIdentifier animId = renderState.action.animId;
 		return JojoMod.resLoc("magicians_red").equals(entity.getStandType())
 				&& animId != null
-				&& ("flameBurst".equals(animId.name()) || "flame_burst".equals(animId.name()));
+				&& AnimationSet.isFlameBurstPoseClip(animId.name());
 	}
 
 	private boolean isVisibleToLocalPlayer(T entity) {
