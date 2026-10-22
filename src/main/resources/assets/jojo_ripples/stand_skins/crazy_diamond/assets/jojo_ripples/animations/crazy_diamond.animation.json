@@ -567,6 +567,15 @@
             ]
           }
         },
+        "left_arm_joint": {
+          "rotation": {
+            "vector": [
+              -45,
+              -15,
+              45
+            ]
+          }
+        },
         "right_arm_xrot": {
           "rotation": {
             "vector": [
@@ -594,6 +603,15 @@
             ]
           }
         },
+        "right_arm_joint": {
+          "rotation": {
+            "vector": [
+              -45,
+              15,
+              -45
+            ]
+          }
+        },
         "left_leg_xrot": {
           "rotation": {
             "vector": [
@@ -607,6 +625,42 @@
           "rotation": {
             "vector": [
               0,
+              0,
+              0
+            ]
+          }
+        },
+        "left_leg": {
+          "rotation": {
+            "vector": [
+              -51.55593,
+              -11.9223,
+              -4.05246
+            ]
+          }
+        },
+        "left_leg_bend": {
+          "rotation": {
+            "vector": [
+              97.5,
+              0,
+              0
+            ]
+          }
+        },
+        "right_leg": {
+          "rotation": {
+            "vector": [
+              7.93155,
+              -12.09638,
+              -4.57417
+            ]
+          }
+        },
+        "right_leg_bend": {
+          "rotation": {
+            "vector": [
+              10,
               0,
               0
             ]

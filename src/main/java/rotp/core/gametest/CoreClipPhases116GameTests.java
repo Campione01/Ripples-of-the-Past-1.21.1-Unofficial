@@ -9,6 +9,11 @@ import java.util.Map;
 import com.google.gson.JsonObject;
 
 import rotp.core.core.JojoMod;
+import rotp.core.core.JojoRegistries;
+import rotp.core.powersystem.ability.Ability;
+import rotp.core.powersystem.ability.EntityActionAbility;
+import rotp.core.powersystem.entityaction.ActionPhase;
+import rotp.core.powersystem.entityaction.EntityActionInstance;
 
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -232,6 +237,51 @@ public final class CoreClipPhases116GameTests {
 		}
 		helper.assertTrue(clips >= 14, "setup: only " + clips + " beak channels found");
 		helper.assertTrue(wrong.isEmpty(), "Magician's Red's clips end the beak on the idle's: " + wrong);
+		helper.succeed();
+	}
+
+	private static final String CD_ANIMS =
+			"stand_skins/crazy_diamond/assets/jojo_ripples/animations/crazy_diamond.animation.json";
+
+	/*
+	 * 1.16's guard (StandEntityBlock) had no recovery (StandEntityAction.Builder's standRecoveryDuration 0: the task
+	 * stopped as the button was let go and the idle was drawn at once, the Java models' BLOCK transition and the JSON
+	 * models' clip switch alike), and the port's guards end the same way. Crazy Diamond's 1.16 BLOCK was the humanoid one
+	 * drawn over the idle pose: the legs it does not name stay in the idle's stance (the official idle's here), and
+	 * rotateJoint turned the elbow joints by half the forearms (the knee joints follow the idle's).
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void theGuardsEndAtOnceAndCrazyDiamondsKeepsTheIdlesLegsAndHalfBentElbowJoints(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		for (String stand : new String[] { "magicians_red", "star_platinum", "crazy_diamond" }) {
+			Ability guard = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc(stand)).getBaseMoveset().getAbility("guard");
+			helper.assertTrue(guard instanceof EntityActionAbility, "setup: " + stand + " has no guard");
+			EntityActionInstance action = ((EntityActionAbility) guard).initActionOnAbilityUse(helper.getLevel(), null, null, null);
+			if (action.phasesLength.getFloat(ActionPhase.RECOVERY) > 0) {
+				wrong.add(stand + "'s guard has a " + action.phasesLength.getFloat(ActionPhase.RECOVERY) + "-tick recovery");
+			}
+		}
+		Map<String, JsonObject> files = new HashMap<>();
+		JsonObject block = clipOf(helper, files, CD_ANIMS, "block");
+		JsonObject idle = clipOf(helper, files, CD_ANIMS, "idle");
+		for (float[] look : LOOKS) {
+			for (String bone : new String[] { "left_leg", "left_leg_bend", "right_leg", "right_leg_bend", "left_leg_joint", "right_leg_joint" }) {
+				float[] got = StandClipPoses116GameTests.rotationAt(block, bone, 0, look);
+				float[] want = StandClipPoses116GameTests.rotationAt(idle, bone, 0, look);
+				if (Math.abs(got[0] - want[0]) > 0.05F || Math.abs(got[1] - want[1]) > 0.05F || Math.abs(got[2] - want[2]) > 0.05F) {
+					wrong.add("Crazy Diamond's block " + bone + " " + Arrays.toString(got) + " where the idle has " + Arrays.toString(want));
+				}
+			}
+			for (String side : new String[] { "left", "right" }) {
+				float[] bend = StandClipPoses116GameTests.rotationAt(block, side + "_arm_bend", 0, look);
+				float[] joint = StandClipPoses116GameTests.rotationAt(block, side + "_arm_joint", 0, look);
+				if (Math.abs(joint[0] - bend[0] / 2) > 0.05F || Math.abs(joint[1] - bend[1] / 2) > 0.05F || Math.abs(joint[2] - bend[2] / 2) > 0.05F) {
+					wrong.add("Crazy Diamond's block " + side + "_arm_joint " + Arrays.toString(joint) + " where the forearm is " + Arrays.toString(bend));
+				}
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), "1.16's guards ended at once, and Crazy Diamond's kept the idle's legs and half-bent elbow joints: "
+				+ wrong);
 		helper.succeed();
 	}
 
