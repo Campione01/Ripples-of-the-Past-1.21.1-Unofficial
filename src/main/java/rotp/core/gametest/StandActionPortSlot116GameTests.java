@@ -287,6 +287,53 @@ public final class StandActionPortSlot116GameTests {
 		helper.succeed();
 	}
 
+	/*
+	 * 1.16 EntityStandType.getStaminaRegen (:159-167) asked the Stand's task alone: with the Stand out the bar regenerated
+	 * (1.5 a tick before the user's factors) unless that task could not (StandEntityAction.canStaminaRegen, false by
+	 * default: nothing), and the time stop its user's power held was no task. The World at Resolve 4, out: what one tick of
+	 * its power adds to a half-full bar with no action, in its punch's windup (a task: nothing), and in each of the time
+	 * stop's first 3 charge ticks, which go on in its user's Stand-power slot (as with no action).
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100, batch = GameTestBatches.TIME_STOP)
+	public static void theTimeStopsChargeWithItsStandOutRegeneratesStaminaAsWithNoTaskAsIn116(GameTestHelper helper) {
+		try (Scene s = new Scene(helper, "PortSlotStopStamina")) {
+			helper.assertTrue(!s.standPower.isStaminaInfinite(), "setup: The World's user has infinite stamina");
+			float idle = s.staminaGainInATick();
+			helper.assertTrue(idle > 0, "setup: The World out with no action regenerated " + idle + " in a tick");
+			s.press(s.standPower, "punch", InputMethod.CLICK, TASK_KEY);
+			EntityActionInstance punch = s.standSlot().getAction();
+			float inPunch = s.standPower.getStaminaTickGain();
+			helper.assertTrue(punch != null && punch.getPhase() == ActionPhase.WINDUP && inPunch == 0,
+					"setup: 1.16's Stand task that cannot regenerate (the punch) held the bar back: the punch " + punch
+							+ " in " + (punch != null ? punch.getPhase() : null) + ", the tick's gain " + inPunch);
+			for (int tick = 0; tick < 20 && punch.getPhase() != ActionPhase.RECOVERY; tick++) {
+				s.standSlot().tick();
+			}
+			BufferingState pressed = s.press(s.standPower, "time_stop", InputMethod.HOLD, STOP_KEY);
+			EntityActionInstance stop = s.userSlot().getAction();
+			helper.assertTrue(pressed.isActionSuccess && stop != null && stop.getPhase() == ActionPhase.BUTTON_CHARGE
+					&& stop.getPerformer() == s.stand && s.standSlot().getAction() == null,
+					"setup: the time stop is not charging in its user's Stand-power slot beside an empty Stand slot: started "
+							+ pressed.isActionSuccess + ", the user's Stand-power action " + stop + ", the Stand's action "
+							+ s.standSlot().getAction());
+			List<Float> gains = new ArrayList<>();
+			boolean asIdle = true;
+			for (int tick = 0; tick < 3; tick++) {
+				float gain = s.staminaGainInATick();
+				gains.add(gain);
+				asIdle &= Math.abs(gain - idle) < 1.0E-4F;
+				s.userSlot().tick();
+				s.standSlot().tick();
+			}
+			helper.assertTrue(asIdle && s.userSlot().getAction() == stop && stop.getPhase() == ActionPhase.BUTTON_CHARGE,
+					"1.16 regenerated its user's stamina during the time stop's charge with the Stand out as with no task (its"
+							+ " power held the charge; EntityStandType.getStaminaRegen asked the Stand's task alone): the first"
+							+ " 3 charge ticks added " + gains + " where a tick with no action added " + idle + " (the charge "
+							+ stop.getPhase() + ", the user's Stand-power action " + s.userSlot().getAction() + ")");
+		}
+		helper.succeed();
+	}
+
 	private static String describe(Scene s, @Nullable LivingComponentAction slot) {
 		return slot == s.userSlot() ? "the user's Stand-power slot" : slot == s.standSlot() ? "the Stand's slot"
 				: slot == LivingComponentAction.getComponent(s.user) ? "the user's own slot" : String.valueOf(slot);
@@ -488,6 +535,14 @@ public final class StandActionPortSlot116GameTests {
 					refusalHolder);
 			refusal = refusalHolder[0];
 			return state;
+		}
+
+		// what one tick of the Stand power adds to a half-full bar
+		float staminaGainInATick() {
+			standPower.setStamina(standPower.getMaxStamina() / 2);
+			float before = standPower.getStamina();
+			standPower.tick();
+			return standPower.getStamina() - before;
 		}
 
 		// the copy of the action the user's client got with the given slot (the last such packet for this user)

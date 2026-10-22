@@ -152,6 +152,7 @@ public final class BarrageFrontDistanceGameTests {
         StandEntity stand;
         StandEntityBarrage action;
         Cow target;
+        Cow outOfReach;
         Vec3 origin;
         Vec3 initialOffset;
         Vec3 initialRelative;
@@ -251,6 +252,12 @@ public final class BarrageFrontDistanceGameTests {
             if (nativeTicks == 2 && !specialPosition()) {
                 assertOffset(kind == Kind.LIMITED ? 0.8 : kind == Kind.DIRECTIONAL ? 1.5 : 1.35, "placed in the tick after the target moved");
             }
+            if (nativeTicks == 5 && kind == Kind.RECOVERY) {
+                assertOffset(0.5, "the locked barrage's recovery aims again for its place (owner's standAttackTargetLock, D-core-50)");
+                outOfReach.discard();
+                done = true;
+                return;
+            }
             if (nativeTicks == 5) {
                 assertOffset(kind == Kind.CLEAR || kind == Kind.CLAMPS ? 1.5 : 0.5, "placed in the tick after the change");
             }
@@ -271,6 +278,15 @@ public final class BarrageFrontDistanceGameTests {
                 if (recovery()) {
                     assertOffset(1.35, "recovery follows the current target without attacking");
                     suite.check(target.getHealth() == healthBeforeRecovery, "recovery has no extra hit");
+                    if (kind == Kind.RECOVERY) {
+                        // its target out of the Stand's reach and another on the aim: a recovery that aims again takes the new
+                        // one, where the target its last hit was aimed at would hold the Stand at its farthest
+                        outOfReach = target;
+                        outOfReach.moveTo(origin.x, origin.y + 0.4, origin.z + 6.5, 0, 0);
+                        target = cow(1.2);
+                        LivingComponentAction.getComponent(stand).entityAim.setTarget(new ActionTarget(target));
+                        return;
+                    }
                     done = true;
                     return;
                 }

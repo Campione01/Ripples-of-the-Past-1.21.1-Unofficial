@@ -29,13 +29,18 @@ import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.entity.StandEntityAbility;
 import rotp.core.powersystem.standpower.type.StandType;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.levelgen.structure.BoundingBox;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.neoforge.common.NeoForge;
@@ -63,6 +68,7 @@ public final class StandActionStunGameTests {
 	private static final int CHARGE = 10;
 	private static final int STUN = 10;
 	private static final int WATCHED_TICKS = 30;
+	private static final int TIMEOUT = 100;
 	private static final String STUN_KEY = "jojo.message.action_condition.stun";
 
 	/*
@@ -73,7 +79,7 @@ public final class StandActionStunGameTests {
 	 * performing; pressed with its Stand stunned it is refused for the stun; the punch, the Stand's task, waits out the
 	 * stun, performing as many ticks later as its Stand was stunned before.
 	 */
-	@GameTest(template = "empty", timeoutTicks = 100)
+	@GameTest(template = "empty", timeoutTicks = TIMEOUT)
 	public static void aStandActionsPortTicksThroughItsStandsStunWhichItMeetsOnlyAtItsPressAndInItsHoldAsIn116(
 			GameTestHelper helper) {
 		List<Cell> cells = new ArrayList<>();
@@ -88,8 +94,20 @@ public final class StandActionStunGameTests {
 			cells.forEach(Cell::close);
 			throw failure;
 		}
-		helper.runAfterDelay(WATCHED_TICKS, () -> {
+		// judged once every Stand has ticked WATCHED_TICKS times, whatever the order of the level's and the test's ticks
+		boolean[] judged = {false};
+		helper.onEachTick(() -> {
+			if (judged[0]) {
+				return;
+			}
+			boolean watched = cells.stream().allMatch(cell -> cell.standTicks >= WATCHED_TICKS);
+			if (!watched && helper.getTick() < TIMEOUT - 1) {
+				return;
+			}
+			judged[0] = true;
 			try {
+				helper.assertTrue(watched, "Fixture: a Stand did not tick " + WATCHED_TICKS + " times before the timeout: "
+						+ String.join("; ", cells.stream().map(cell -> cell.name() + " " + cell.standTicks).toList()));
 				int punchPerform = cells.stream().filter(cell -> cell.row == Cell.Row.PUNCH).findFirst()
 						.map(cell -> cell.performTick).orElse(-1);
 				List<String> wrong = new ArrayList<>();
@@ -167,6 +185,10 @@ public final class StandActionStunGameTests {
 			helper.assertTrue(type.summon(user, power), "Could not summon Star Platinum for " + name());
 			stand = power.getSummonedStandEntity();
 			helper.assertTrue(stand != null, "Fixture: Star Platinum is missing");
+			helper.assertTrue(inItsTestsOwnChunks(helper, user) && inItsTestsOwnChunks(helper, stand), "Fixture: " + name()
+					+ "'s user (chunk " + user.chunkPosition() + ") or Stand (chunk " + stand.chunkPosition() + ") stands"
+					+ " outside the chunks its test loads and waits for, where it would tick only while another test loads"
+					+ " them");
 			stand.summonLockTicks = 0;
 			stand.gradualSummonWeaknessTicks = 0;
 
@@ -238,6 +260,16 @@ public final class StandActionStunGameTests {
 			stand.addEffect(new MobEffectInstance(ModStatusEffects.STUN, STUN));
 		}
 
+		// GameTestChunkMargin's chunks tick their entities from the test's start; a chunk past them only while a
+		// neighbouring test of the batch has loaded it
+		private static boolean inItsTestsOwnChunks(GameTestHelper helper, Entity entity) {
+			AABB bounds = helper.getBounds();
+			BoundingBox structure = BoundingBox.fromCorners(BlockPos.containing(bounds.minX, bounds.minY, bounds.minZ),
+					BlockPos.containing(bounds.maxX - 1, bounds.maxY - 1, bounds.maxZ - 1));
+			ChunkPos chunk = entity.chunkPosition();
+			return GameTestChunkMargin.around(structure).intersectingChunks().anyMatch(chunk::equals);
+		}
+
 		// the power resolves its keys once a tick (Power.updateAvailableMoves)
 		private AbilityConditionCheck resolve(Ability ability) {
 			try {
@@ -276,7 +308,8 @@ public final class StandActionStunGameTests {
 				case PUNCH -> "performed";
 				case PUNCH_STUNNED_AFTER_PRESS -> "performed in tick " + punchPerform + " + its stunned ticks";
 			};
-			return name() + ": performed in tick " + performTick + ", over in tick " + overTick + ", the Stand stunned in "
+			return name() + " (the Stand ticked " + standTicks + " times): performed in tick " + performTick + ", over in tick "
+					+ overTick + ", the Stand stunned in "
 					+ stunnedBeforePerform + " ticks before it performed and " + stunnedAtPerform + " as it did"
 					+ (row == Row.PRESSED_WITH_STAND_STUNNED ? ", the press's refusal " + refusal + ", the Stand's action "
 							+ action : "") + (userStunned ? ", its user stunned too" : "") + " (1.16: " + expected + ")";

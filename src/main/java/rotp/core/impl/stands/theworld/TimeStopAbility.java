@@ -624,6 +624,10 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 			if (newPhase == ActionPhase.BUTTON_CHARGE && ability instanceof TimeStopAbility timeStop) {
 				userWalkSpeed = timeStop.heldWalkSpeed;
 			}
+			// 1.16 TimeStop.perform: setStandPose(TimeStop.ANIM) on the Stand
+			if (newPhase == ActionPhase.PERFORM && getPerformer() instanceof StandEntity stand) {
+				stand.setPerformPose(this);
+			}
 		}
 
 		@Override

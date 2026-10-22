@@ -180,7 +180,8 @@ public final class CreativeTimeStopDurationGameTests {
                                 && performer[0].isRemoved() && scene.state.getInstance(scene.player.getId()).isEmpty()
                                 && !scene.player.hasEffect(ModStatusEffects.TIME_STOP)
                                 && !scene.player.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get()).heldKeys.containsKey(KEY)
-                                && LivingComponentAction.getCurEntityAction(performer[0]) == null,
+                                && LivingComponentAction.getCurEntityAction(performer[0]) == null
+                                && LivingComponentAction.getCurEntityAction(scene.player, PowerClass.STAND) == null,
                         "S04-05 framework failure did not release the owned Scene");
                 int stoppedNativeTicks = scene.nativeTicks;
                 helper.runAfterDelay(1, () -> {
@@ -195,6 +196,50 @@ public final class CreativeTimeStopDurationGameTests {
                 throw error;
             }
         });
+    }
+
+    /*
+     * The scene's own view of its time stop (describe() and close()): the action lives in its user's Stand-power slot
+     * (TimeStopAbility performsInUsersStandPowerSlot), performed by Star Platinum, which the press summons, or by the user
+     * (The World, not summoned at Resolve 3 and above). describe() finds the charge there, and a scene closed during the
+     * charge clears that slot before it lets go of the key, so the release does not fire the charge as a shorter stop that
+     * the scene no longer moves away.
+     */
+    @GameTest(template = "empty", timeoutTicks = 20, batch = GameTestBatches.TIME_STOP)
+    public static void sceneReadsAndReleasesItsTimeStopInItsUsersStandPowerSlot(GameTestHelper helper) {
+        for (String stand : List.of("star_platinum", "the_world")) {
+            Scene scene = new Scene(helper, stand, 25, true, false);
+            int[] firedInClose = new int[1];
+            Consumer<TimeStopLifecycleEvent.PreStart> fired = event -> {
+                if (scene.closed && scene.player != null && event.getInstance().userId() == scene.player.getId()) {
+                    firedInClose[0]++;
+                }
+            };
+            NeoForge.EVENT_BUS.addListener(TimeStopLifecycleEvent.PreStart.class, fired);
+            try {
+                scene.setUp();
+                scene.press();
+                StandEntity summoned = scene.power.getSummonedStandEntity();
+                helper.assertTrue((summoned != null) == stand.equals("star_platinum")
+                                && scene.action.getPerformer() == (summoned != null ? summoned : scene.player)
+                                && LivingComponentAction.getCurEntityAction(scene.player, PowerClass.STAND) == scene.action,
+                        "S04-05 setup: the charge is not in its user's Stand-power slot, performed by the summoned Stand"
+                                + " or the user: " + stand + " summoned " + summoned + ", performer " + scene.action.getPerformer()
+                                + ", the user's Stand-power action " + LivingComponentAction.getCurEntityAction(scene.player,
+                                        PowerClass.STAND));
+                String live = scene.describe();
+                helper.assertTrue(live.contains(" liveSame=true live=" + ActionPhase.BUTTON_CHARGE),
+                        "S04-05 describe() does not find the charging time stop in its user's Stand-power slot: " + live);
+            }
+            finally {
+                scene.close();
+                NeoForge.EVENT_BUS.unregister(fired);
+            }
+            EntityActionInstance left = LivingComponentAction.getCurEntityAction(scene.player, PowerClass.STAND);
+            helper.assertTrue(left == null && firedInClose[0] == 0, "S04-05 the scene closed during the charge left " + left
+                    + " in its user's Stand-power slot and fired its time stop " + firedInClose[0] + " times: " + stand);
+        }
+        helper.succeed();
     }
 
     private static void requireNativeClassIdentity(GameTestHelper helper) {
@@ -494,7 +539,8 @@ public final class CreativeTimeStopDurationGameTests {
             TimeStopState.Instance current = state != null && player != null
                     ? state.getInstance(player.getId()).orElse(null) : null;
             var performer = action != null ? action.getPerformer() : null;
-            var liveAction = performer != null ? LivingComponentAction.getCurEntityAction(performer) : null;
+            // the time stop lives in its user's Stand-power slot, whether its performer is the summoned Stand or the user
+            var liveAction = player != null ? LivingComponentAction.getCurEntityAction(player, PowerClass.STAND) : null;
             return "stand=" + stand + " saved=" + savedTicks + " partial=" + partial + " creative=" + creative
                     + " nativeTicks=" + nativeTicks + " press=" + pressTick + " start=" + startTick
                     + " removal=" + removalTick + " phaseAtStart=" + phaseAtStart
@@ -514,8 +560,8 @@ public final class CreativeTimeStopDurationGameTests {
             closed = true;
             for (Object listener : listeners) NeoForge.EVENT_BUS.unregister(listener);
             listeners.clear();
-            if (action != null && action.getPerformer() != null) {
-                LivingComponentAction.getComponent(action.getPerformer()).setAction(null, SyncType.NO_SYNC);
+            if (action != null && player != null) {
+                LivingComponentAction.getComponent(player, PowerClass.STAND).setAction(null, SyncType.NO_SYNC);
             }
             if (player != null) {
                 AbilityInput.keyRelease(KEY, player);

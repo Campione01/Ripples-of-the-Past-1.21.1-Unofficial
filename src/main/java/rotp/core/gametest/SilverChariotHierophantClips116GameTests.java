@@ -399,6 +399,9 @@ public final class SilverChariotHierophantClips116GameTests {
 			case "easeInQuad" -> f * f;
 			case "easeInCubic" -> f * f * f;
 			case "easeOutCubic" -> 1 - (1 - f) * (1 - f) * (1 - f);
+			case "easeInSine" -> 1 - (float) Math.cos(f * Math.PI / 2);
+			case "easeOutSine" -> (float) Math.sin(f * Math.PI / 2);
+			case "easeInOutSine" -> (float) (-(Math.cos(Math.PI * f) - 1) / 2);
 			default -> throw new IllegalArgumentException("easing " + easing + " not sampled");
 		};
 	}

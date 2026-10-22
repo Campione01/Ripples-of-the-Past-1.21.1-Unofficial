@@ -22,6 +22,7 @@ import rotp.core.client.entityanim.AnimationSet;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.impl.stands.crazydiamond.CrazyDHealAbility;
+import rotp.core.init.ModStatusEffects;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.EntityActionAbility;
@@ -37,6 +38,9 @@ import rotp.core.subsystems.target.ActionTarget;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
@@ -312,24 +316,27 @@ public final class StandClipFollowUps116GameTests {
 			helper.assertTrue(type.summon(user, power), "setup: could not summon Crazy Diamond");
 			StandEntity stand = power.getSummonedStandEntity();
 			helper.assertTrue(stand != null, "setup: the summoned Stand is missing");
-			// the ability, then the clip it asks for: not healing, healing without and with barrage visuals
-			String[][] rows = { { "heal", "idle", "idle", "barrage" }, { "revert_state", "repair_item", "repair_item", "barrage" } };
+			// the ability, then the clip it asks for: not healing, healing without and with barrage visuals, not healing with
+			// barrage visuals (1.16's getStandPose asked barrageVisuals alone)
+			String[][] rows = { { "heal", "idle", "idle", "barrage", "barrage" },
+					{ "revert_state", "repair_item", "repair_item", "barrage", "barrage" } };
 			for (String[] row : rows) {
 				Ability ability = power.getAbility(row[0]);
 				helper.assertTrue(ability instanceof EntityActionAbility, "setup: Crazy Diamond has no " + row[0]);
 				EntityActionInstance action = ((EntityActionAbility) ability).initActionOnAbilityUse(helper.getLevel(), user, stand, null);
 				LivingComponentAction.getComponent(stand).setAction(action, user, SyncType.NO_SYNC);
 				helper.assertTrue(action instanceof CrazyDHealAbility.HealingAction, "setup: " + row[0] + " is no healing action");
-				String[] got = new String[3];
+				String[] got = new String[4];
 				got[0] = action.getEntityAnim().name();
-				for (int visuals = 0; visuals < 2; visuals++) {
+				boolean[][] results = { { true, false }, { true, true }, { false, true } };
+				for (int i = 0; i < results.length; i++) {
 					action.synchedData.set(CrazyDHealAbility.HealingAction.HEAL_RESULT, new CrazyDHealAbility.HealingAction.HealResult.Synched(
-							ActionTarget.EMPTY, true, visuals == 1, CrazyDHealAbility.HealingAction.HealResult.Synched.NO_DEATH_TIME_CHANGE));
-					got[visuals + 1] = action.getEntityAnim().name();
+							ActionTarget.EMPTY, results[i][0], results[i][1], CrazyDHealAbility.HealingAction.HealResult.Synched.NO_DEATH_TIME_CHANGE));
+					got[i + 1] = action.getEntityAnim().name();
 				}
-				if (!Arrays.equals(got, Arrays.copyOfRange(row, 1, 4))) {
-					wrong.add(row[0] + " plays " + Arrays.toString(got) + " (not healing, healing, healing with barrage visuals) where 1.16"
-							+ " drew " + Arrays.toString(Arrays.copyOfRange(row, 1, 4)));
+				if (!Arrays.equals(got, Arrays.copyOfRange(row, 1, 5))) {
+					wrong.add(row[0] + " plays " + Arrays.toString(got) + " (not healing, healing, healing with barrage visuals, not"
+							+ " healing with them) where 1.16 drew " + Arrays.toString(Arrays.copyOfRange(row, 1, 5)));
 				}
 			}
 		}
@@ -340,6 +347,74 @@ public final class StandClipFollowUps116GameTests {
 			user.discard();
 		}
 		helper.assertTrue(wrong.isEmpty(), "1.16's Crazy Diamond healed in its idle pose, the barrage's with barrage visuals: " + wrong);
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 CrazyDiamondHeal.barrageVisuals (:196-208) held, healing or not, while its user was under Resolve or its task's
+	 * target was a living entity at half its health or less; StandEntityAction.getStandPose then drew the barrage. The heal
+	 * now sets its synced barrage visuals by that rule in every perform tick, a full-health target included.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void crazyDiamondsHealShowsTheBarrageWheneverItsBarrageVisualsHoldAs116(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		Player user = FakePlayerFactory.get(helper.getLevel(), new GameProfile(UUID.randomUUID(), "CDHealVisualsRule"));
+		StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("crazy_diamond"));
+		StandPower power = null;
+		Cow cow = EntityType.COW.create(helper.getLevel());
+		try {
+			user.getAbilities().instabuild = false;
+			Vec3 pos = Vec3.atCenterOf(helper.absolutePos(new BlockPos(2, 3, 2)));
+			user.moveTo(pos.x, pos.y, pos.z);
+			helper.assertTrue(helper.getLevel().addFreshEntity(user), "setup: could not add the Stand user");
+			helper.assertTrue(cow != null, "setup: could not create the cow");
+			cow.setNoAi(true);
+			cow.moveTo(pos.x, pos.y, pos.z + 2);
+			helper.assertTrue(helper.getLevel().addFreshEntity(cow), "setup: could not add the cow");
+			power = PowerClass.STAND.attachGet(user);
+			helper.assertTrue(StandPowerTransitions.insert(power, new StandInstance(type)).status() == StandPowerTransitions.Status.APPLIED,
+					"setup: could not grant Crazy Diamond");
+			power.setResolveLevel(power.getMaxResolveLevel());
+			helper.assertTrue(type.summon(user, power), "setup: could not summon Crazy Diamond");
+			StandEntity stand = power.getSummonedStandEntity();
+			helper.assertTrue(stand != null, "setup: the summoned Stand is missing");
+			EntityActionInstance action = ((EntityActionAbility) power.getAbility("heal")).initActionOnAbilityUse(helper.getLevel(), user, stand, null);
+			LivingComponentAction.getComponent(stand).setAction(action, user, SyncType.NO_SYNC);
+			CrazyDHealAbility.HealingAction heal = (CrazyDHealAbility.HealingAction) action;
+			ActionTarget atCow = new ActionTarget(cow);
+			// {Resolve, the cow's health as a share of its maximum, the target is the cow} -> 1.16's barrageVisuals
+			Object[][] rows = { { false, 1.0F, true, false }, { true, 1.0F, true, true }, { false, 0.5F, true, true },
+					{ false, 0.6F, true, false }, { true, 1.0F, false, true } };
+			for (Object[] row : rows) {
+				user.removeAllEffects();
+				if ((boolean) row[0]) {
+					user.addEffect(new MobEffectInstance(ModStatusEffects.RESOLVE, 100));
+				}
+				cow.setHealth(cow.getMaxHealth() * (float) row[1]);
+				boolean got = heal.showsBarrageVisuals((boolean) row[2] ? atCow : ActionTarget.EMPTY);
+				if (got != (boolean) row[3]) {
+					wrong.add("Resolve " + row[0] + ", the cow at " + row[1] + " of its health" + ((boolean) row[2] ? "" : ", no target")
+							+ ": barrage visuals " + got + ", 1.16 " + row[3]);
+				}
+			}
+		}
+		finally {
+			if (power != null && power.isSummoned()) {
+				type.forceUnsummon(user, power);
+			}
+			if (cow != null) {
+				cow.discard();
+			}
+			user.removeAllEffects();
+			user.discard();
+		}
+		// the perform tick sets the synced visuals by the rule (read from the action's class file)
+		if (!invokedMethods(helper, "rotp/core/impl/stands/crazydiamond/CrazyDHealAbility$HealingAction.class")
+				.contains("rotp/core/impl/stands/crazydiamond/CrazyDHealAbility$HealingAction.showsBarrageVisuals")) {
+			wrong.add("the heal's perform tick no longer asks showsBarrageVisuals");
+		}
+		helper.assertTrue(wrong.isEmpty(), "1.16's Crazy Diamond heal showed barrage visuals under Resolve or at a target at half its"
+				+ " health or less, healing or not: " + wrong);
 		helper.succeed();
 	}
 
@@ -467,6 +542,9 @@ public final class StandClipFollowUps116GameTests {
 	 * (AnimationSet.armorlessClipKey, asked by PreFrameEntityAnimCalc): the move's clip with 1.16's idle share of every bone
 	 * on no_armor_idle's values instead of the official idle's, the head on 1.16's root-space head, the end on no_armor_idle.
 	 */
+	// 1.16 drew the moves over its idle pose (initBaseIdlePose), where no_armor_idle's idle loop stands at 2 s
+	private static final float ARMORLESS_IDLE_POSE_AT = 2.0F;
+
 	@GameTest(template = "empty", timeoutTicks = 20)
 	public static void silverChariotWithoutItsArmourDrawsItsRapierMovesOverTheArmourlessIdleAs116(GameTestHelper helper) {
 		List<String> wrong = new ArrayList<>();
@@ -526,7 +604,7 @@ public final class StandClipFollowUps116GameTests {
 				String first = null;
 				for (float[] look : LOOKS) {
 					float[] official = StandClipPoses116GameTests.rotationAt(idle, bone, 0, look);
-					float[] own = StandClipPoses116GameTests.rotationAt(armorless, bone, 0, look);
+					float[] own = StandClipPoses116GameTests.rotationAt(armorless, bone, ARMORLESS_IDLE_POSE_AT, look);
 					for (float time : times) {
 						float share = idleShare(name, bone, time, perform, recovery, end);
 						float[] want = StandClipPoses116GameTests.rotationAt(base, bone, time, look);
@@ -563,7 +641,7 @@ public final class StandClipFollowUps116GameTests {
 			if (!name.equals("block")) {
 				for (String bone : armorless.getAsJsonObject("bones").keySet()) {
 					if (!bone.equals("head") && !bone.equals("head_rot")) {
-						compare(wrong, clip, bone, end, StandClipPoses116GameTests.rotationAt(armorless, bone, 0, LOOKS[0]),
+						compare(wrong, clip, bone, end, StandClipPoses116GameTests.rotationAt(armorless, bone, ARMORLESS_IDLE_POSE_AT, LOOKS[0]),
 								key + " hands over to no_armor_idle at its end:");
 					}
 				}
@@ -588,8 +666,196 @@ public final class StandClipFollowUps116GameTests {
 		helper.succeed();
 	}
 
+	/*
+	 * 1.16 drew a Stand action with the IDLE pose with its model's idle loop (LegacyStandAnimator.poseIdleLoop, its clock
+	 * running on, as no action pose reset idleLoopTickStamp), which for Silver Chariot was its ConditionalModelPose: the
+	 * rapierless or the armourless idle where the Stand showed it. An action that asks for the idle by name
+	 * (NoPoseStandEntityAbility: Silver Chariot's take_off_armor, whose one-tick perform takes the armour off; Crazy
+	 * Diamond's heal fallback) plays the idle the client selects for the Stand (AnimationSet.requestedIdleKey with
+	 * PreFrameEntityAnimCalc.selectStandIdleAnim's idle).
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void anActionAskingForTheIdlePlaysTheIdleItsStandShowsAs116(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		Player user = FakePlayerFactory.get(helper.getLevel(), new GameProfile(UUID.randomUUID(), "SCTakeOffArmorIdle"));
+		StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("silver_chariot"));
+		StandPower power = null;
+		try {
+			user.getAbilities().instabuild = false;
+			Vec3 pos = Vec3.atCenterOf(helper.absolutePos(new BlockPos(2, 3, 2)));
+			user.moveTo(pos.x, pos.y, pos.z);
+			helper.assertTrue(helper.getLevel().addFreshEntity(user), "setup: could not add the Stand user");
+			power = PowerClass.STAND.attachGet(user);
+			helper.assertTrue(StandPowerTransitions.insert(power, new StandInstance(type)).status() == StandPowerTransitions.Status.APPLIED,
+					"setup: could not grant Silver Chariot");
+			power.setResolveLevel(power.getMaxResolveLevel());
+			helper.assertTrue(type.summon(user, power), "setup: could not summon Silver Chariot");
+			StandEntity stand = power.getSummonedStandEntity();
+			helper.assertTrue(stand != null && stand.isSilverChariotRapierVisible() && stand.isSilverChariotArmorVisible(),
+					"setup: Silver Chariot is not out with its rapier and armour");
+			stand.summonLockTicks = 0;
+			stand.gradualSummonWeaknessTicks = 0;
+			Ability ability = power.getAbility("take_off_armor");
+			helper.assertTrue(ability instanceof EntityActionAbility, "setup: Silver Chariot has no take_off_armor");
+			EntityActionInstance action = ((EntityActionAbility) ability).initActionOnAbilityUse(helper.getLevel(), user, stand, null);
+			LivingComponentAction slot = LivingComponentAction.getComponent(stand);
+			slot.setAction(action, user, SyncType.NO_SYNC);
+			String request = action.getEntityAnim().name();
+			boolean idleRequest = action.getEntityAnim().isIdle();
+			int armourOff = -1;
+			for (int tick = 1; tick <= 40 && armourOff < 0 && !action.isOver(); tick++) {
+				slot.tick();
+				if (!stand.isSilverChariotArmorVisible()) {
+					armourOff = tick;
+				}
+			}
+			// 1.16's take-off (StandEntityAction.Builder: no windup, a 1-tick perform, no recovery) took the armour off in
+			// the tick it ended in, as the port's; its client copy draws that tick, and the take-off pressed without the
+			// rapier draws its windup-less tick on the rapierless idle
+			String played = AnimationSet.requestedIdleKey(request, standIdle(stand));
+			if (armourOff < 0 || !idleRequest || !"no_armor_idle".equals(played)) {
+				wrong.add("take_off_armor asks for " + request + " (idle " + idleRequest + "), its armour off in tick " + armourOff
+						+ ", which the client then plays as " + played + " where 1.16 drew the armourless idle");
+			}
+		}
+		finally {
+			if (power != null && power.isSummoned()) {
+				type.forceUnsummon(user, power);
+			}
+			user.discard();
+		}
+		// the rule: a request for the idle takes the Stand's own idle; any other clip keeps its name
+		for (String idle : new String[] { "idle", "no_rapier_idle", "no_armor_idle" }) {
+			if (!idle.equals(AnimationSet.requestedIdleKey("idle", idle))) {
+				wrong.add("a request for the idle over " + idle + " plays " + AnimationSet.requestedIdleKey("idle", idle));
+			}
+			for (String other : new String[] { "light_attack", "no_armor_idle", "repair_item" }) {
+				if (AnimationSet.requestedIdleKey(other, idle) != null) {
+					wrong.add("a request for " + other + " over " + idle + " plays " + AnimationSet.requestedIdleKey(other, idle));
+				}
+			}
+		}
+		Set<String> invoked = invokedMethods(helper, "rotp/core/client/entityanim/PreFrameEntityAnimCalc.class");
+		for (String call : new String[] { "rotp/core/client/entityanim/AnimationSet.requestedIdleKey",
+				"rotp/core/client/entityanim/PreFrameEntityAnimCalc.selectStandIdleAnim" }) {
+			if (!invoked.contains(call)) {
+				wrong.add("PreFrameEntityAnimCalc no longer calls " + call);
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), "1.16 drew an action with the IDLE pose with the Stand's own idle: " + wrong);
+		helper.succeed();
+	}
+
+	// PreFrameEntityAnimCalc.selectStandIdleAnim's choice for Silver Chariot (client code)
+	private static String standIdle(StandEntity stand) {
+		return !stand.isSilverChariotRapierVisible() ? "no_rapier_idle"
+				: !stand.isSilverChariotArmorVisible() ? "no_armor_idle" : "idle";
+	}
+
+	// SilverChariotModel :398-414 and :435-441 (the rapier, no armour), 1.16's radians in the Blockbench degrees they came
+	// from: leftArm, leftForeArm, rightArm, rightForeArm of initBaseIdlePose and of initIdlePose2Loop
+	private static final String[] ARMORLESS_LOOP_BONES = { "left_arm", "left_arm_bend", "right_arm", "right_arm_bend" };
+	private static final float[][] ARMORLESS_IDLE = { { -35, 22.5F, -60 }, { -80, 15, 15 }, { 30, 0, 80 }, { -30, 60, 60 } };
+	private static final float[][] ARMORLESS_IDLE_2 = { { -37.5F, 22.5F, -60 }, { -82.5F, 15, 15 }, { 32.5F, 0, 80 },
+			{ -30, 60, 62.5F } };
+
+	/*
+	 * 1.16 StandEntityModel :262-264: idleLoop = ModelPoseTransition(idlePose, initIdlePose2Loop()) eased by
+	 * (sin(pi (t / 40 - 0.5)) - 1) / 2 over the ticks t since the last action pose (LegacyStandAnimator.poseIdleLoop), and
+	 * ModelPose applied it as RotationAngle's lerp(f, the idle's angle, the second pose's): f runs from -1 at t = 0 to 0 at
+	 * t = 40 and back by t = 80, so the armourless Stand's arms swung between 2 idle - pose2 and its idle every 4 s, the
+	 * elbow joints at half their forearms (HumanoidStandModel.rotateJoint), every other part still. The port's no_armor_idle
+	 * plays that loop from its start, as the port's idle clock restarts after an action as 1.16's did.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void silverChariotsArmourlessIdleSwingsItsArmsAs116sIdleLoop(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		Map<String, JsonObject> files = new HashMap<>();
+		JsonObject clip = clipOf(helper, files, SC_ANIMS, "no_armor_idle");
+		float length = clip.get("animation_length").getAsFloat();
+		if (!clip.has("loop") || !clip.get("loop").getAsBoolean() || length % 4 != 0) {
+			wrong.add("no_armor_idle loops " + clip.get("loop") + " over " + length + " s, 1.16's every 4 s");
+		}
+		Map<String, float[]> still = new HashMap<>();
+		for (String bone : clip.getAsJsonObject("bones").keySet()) {
+			still.put(bone, StandClipPoses116GameTests.rotationAt(clip, bone, 0, LOOKS[0]));
+		}
+		for (String bone : ARMORLESS_LOOP_BONES) {
+			if (!clip.getAsJsonObject("bones").has(bone)) {
+				wrong.add("no_armor_idle has no " + bone);
+			}
+		}
+		Set<String> reported = new HashSet<>();
+		for (float time = 0; time <= length + 1.0E-4F; time += 0.005F) {
+			float ticks = time * 20;
+			float f = (float) ((Math.sin(Math.PI * (ticks / 40 - 0.5)) - 1) / 2);
+			Map<String, float[]> want = new HashMap<>();
+			for (int i = 0; i < ARMORLESS_LOOP_BONES.length; i++) {
+				want.put(ARMORLESS_LOOP_BONES[i], lerp(ARMORLESS_IDLE[i], ARMORLESS_IDLE_2[i], f));
+			}
+			for (String limb : new String[] { "left_arm", "right_arm" }) {
+				float[] bend = want.get(limb + "_bend");
+				want.put(limb + "_joint", new float[] { bend[0] / 2, bend[1] / 2, bend[2] / 2 });
+			}
+			for (String bone : clip.getAsJsonObject("bones").keySet()) {
+				if (bone.equals("head") || bone.equals("head_rot") || reported.contains(bone)) {
+					continue;
+				}
+				float[] got = StandClipPoses116GameTests.rotationAt(clip, bone, Math.min(time, length), LOOKS[0]);
+				float[] expected = want.getOrDefault(bone, still.get(bone));
+				if (!near(got, expected, 0.05F)) {
+					wrong.add(bone + " at " + time + " s " + Arrays.toString(got) + " where 1.16's idle loop had "
+							+ Arrays.toString(expected));
+					reported.add(bone);
+				}
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), "1.16's armourless Silver Chariot swung its arms in its idle loop: " + wrong);
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 MagiciansRedModel.setupFirstPersonRotations tilted the first-person (remote control) view by the head's pitch for
+	 * every action of FLAME_BURST_POSE: flame burst, fireball, crossfire hurricane and its special (ModStandsInit :543-566).
+	 * StandEntityRenderer tilts it for the clips those abilities ask for (AnimationSet.isFlameBurstPoseClip) and for no
+	 * other Magician's Red move.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void magiciansRedsFirstPersonFlameViewCoversEveryFlameBurstPoseMoveAs116(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("magicians_red"));
+		Player user = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
+		try {
+			for (String move : new String[] { "flame_burst", "fireball", "crossfire_hurricane", "crossfire_hurricane_special",
+					"red_bind", "punch", "kick", "heavy_punch" }) {
+				boolean flame = move.startsWith("f") || move.startsWith("crossfire");
+				Ability ability = type.getBaseMoveset().getAbility(move);
+				helper.assertTrue(ability instanceof EntityActionAbility, "setup: Magician's Red has no " + move);
+				EntityActionAbility actionAbility = (EntityActionAbility) ability;
+				String clip = actionAbility.getEntityAnim(actionAbility.initActionOnAbilityUse(helper.getLevel(), user, user, null)).name();
+				if (AnimationSet.isFlameBurstPoseClip(clip) != flame) {
+					wrong.add(move + " asks for " + clip + ", whose first-person view tilts " + AnimationSet.isFlameBurstPoseClip(clip)
+							+ ", 1.16 " + flame);
+				}
+			}
+		}
+		finally {
+			user.discard();
+		}
+		// the legacy name the core's flame clips alias to
+		if (!AnimationSet.isFlameBurstPoseClip("flameBurst")) {
+			wrong.add("flameBurst's first-person view does not tilt");
+		}
+		if (!invokedMethods(helper, "rotp/core/client/entityrender/stand/StandEntityRenderer.class")
+				.contains("rotp/core/client/entityanim/AnimationSet.isFlameBurstPoseClip")) {
+			wrong.add("StandEntityRenderer no longer asks AnimationSet.isFlameBurstPoseClip");
+		}
+		helper.assertTrue(wrong.isEmpty(), "1.16 tilted Magician's Red's first-person view in every FLAME_BURST_POSE action: " + wrong);
+		helper.succeed();
+	}
+
 	// "owner.name" of every method a class file invokes (its Methodref constants)
-	private static Set<String> invokedMethods(GameTestHelper helper, String classPath) {
+	static Set<String> invokedMethods(GameTestHelper helper, String classPath) {
 		Set<String> out = new HashSet<>();
 		try (InputStream raw = StandClipFollowUps116GameTests.class.getResourceAsStream("/" + classPath)) {
 			helper.assertTrue(raw != null, "Missing class file " + classPath);

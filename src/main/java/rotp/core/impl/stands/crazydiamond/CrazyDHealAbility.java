@@ -229,12 +229,11 @@ public class CrazyDHealAbility extends StandEntityAbility {
 	}
 
 	public static ActionAnimIdentifier getHealingAnim(EntityActionInstance action, ActionAnimIdentifier fallback) {
-		if (action instanceof HealingAction healingAction) {
-			HealingAction.HealResult.Synched heal = healingAction.synchedData.get(HealingAction.HEAL_RESULT);
-			if (heal.isHealing) {
-				// 1.16's heal had no pose of its own (StandAction.Builder's IDLE), the revert ITEM_FIX_POSE: the fallback
-				return heal.barrageVisuals ? BARRAGE_ANIM : fallback;
-			}
+		// 1.16 StandEntityAction.getStandPose: the barrage's pose whenever barrageVisuals held, healing or not; else the
+		// action's own (the heal had none, StandAction.Builder's IDLE; the revert ITEM_FIX_POSE): the fallback
+		if (action instanceof HealingAction healingAction
+				&& healingAction.synchedData.get(HealingAction.HEAL_RESULT).barrageVisuals) {
+			return BARRAGE_ANIM;
 		}
 		return fallback;
 	}
@@ -383,6 +382,7 @@ public class CrazyDHealAbility extends StandEntityAbility {
 				}
 				HealResult healResult = restoreTarget(target, standEntity);
 				curHealing = healResult.synched;
+				curHealing.barrageVisuals |= showsBarrageVisuals(target);
 				if (healResult.hpForExp > 0) {
 					StandPower userPower = standEntity.getUserPower();
 					if (userPower != null) {
@@ -697,6 +697,19 @@ public class CrazyDHealAbility extends StandEntityAbility {
 			}
 
 			return result;
+		}
+
+		/**
+		 * 1.16 CrazyDiamondHeal.barrageVisuals (:196-208), asked every frame whether the heal healed or not: its user under
+		 * Resolve, or its task's target a living entity at half its health or less.
+		 */
+		public boolean showsBarrageVisuals(ActionTarget target) {
+			LivingEntity user = getPowerUser();
+			if (user != null && ResolveModeEffect.getResolveEffectLvl(user) >= 0) {
+				return true;
+			}
+			return target.getType() == TargetType.ENTITY && target.getEntity() instanceof LivingEntity targetLiving
+					&& useOriginalBarrageVisuals(targetLiving);
 		}
 
 		private boolean useOriginalBarrageVisuals(LivingEntity target) {
