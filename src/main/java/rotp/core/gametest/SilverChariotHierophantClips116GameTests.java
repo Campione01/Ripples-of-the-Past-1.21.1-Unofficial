@@ -80,6 +80,81 @@ public final class SilverChariotHierophantClips116GameTests {
 		helper.succeed();
 	}
 
+	// HumanoidStandModel :449-536: body, upperPart, the arms and forearms of jabRightAngles1-4 and of jabEnd for the right hand
+	// (mirrorAngles(jabRightAngles1): the other side's part, (x, -y, -z)), and the idle at the end
+	private static final String[] JAB_BONES = { "body_rot", "torso_bend", "left_arm", "left_arm_bend", "right_arm", "right_arm_bend" };
+	private static final float[][][] JAB_POSES = {
+			{ { 0, 0, 0 }, { 0, -15, 0 }, { -7.5F, 0, -15 }, { -100, 15, 7.5F }, { 22.5F, 0, 22.5F }, { -105, 0, -15 } },
+			{ { 0, -5, 0 }, { 0, -20, 0 }, { 30, 0, -15 }, { -107.5F, 15, 7.5F }, { 5.941F, 8.4211F, 69.059F }, { -75, 0, 0 } },
+			{ { 0, -12.5F, 0 }, { 0, -17.5F, 0 }, { 37.5F, 0, -15 }, { -115, 15, 7.5F }, { -81.9244F, 11.0311F, 70.2661F }, { 0, 0, 0 } },
+			{ { 0, -3.75F, 0 }, { 0, -3.75F, 0 }, { 5.63F, 0, -20.62F }, { -103.75F, 3.75F, 13.13F }, { 5.941F, 8.4211F, 69.059F }, { -75, 0, 0 } },
+			{ { 0, 0, 0 }, { 0, 15, 0 }, { 22.5F, 0, -22.5F }, { -105, 0, 15 }, { -7.5F, 0, 15 }, { -100, -15, -7.5F } } };
+	// the pose at each of the jab's points (start, turn, impact, impact, impact, turn back, end, end, the idle), the phase
+	// and its fraction, whether 1.16 eased into it by x^3 and the share of the look on the arms
+	private static final int[] JAB_POSE_AT = { 0, 1, 2, 2, 2, 3, 4, 4, -1 };
+	private static final float[] JAB_FRACTION = { 0, 0.5F, 0.75F, 1, 0.25F, 0.5F, 1, 0.75F, 1 };
+	private static final int[] JAB_PHASE = { 0, 0, 0, 0, 1, 1, 1, 2, 2 };
+	private static final boolean[] JAB_CUBIC = { false, false, true, false, false, true, false, false, false };
+	private static final float[] JAB_LOOK = { 0, 1, 1, 1, 1, 0, 0, 0, 0 };
+
+	/*
+	 * Without its rapier 1.16's Silver Chariot drew HumanoidStandModel's jab (:499-536): WINDUP jabStart, jabArmTurn at .5,
+	 * jabImpact at .75 (x^3), held; PERFORM held to .25, jabArmTurnBack at .5 (x^3), jabEnd (the other hand's guard) at the
+	 * end; RECOVERY jabEnd held to .75, then the idle; the arms take the look x t into the turn, all of it to the impact's
+	 * hold and x (1 - t^3) into the turn back; the head, in no jab pose, keeps the look.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void silverChariotsRapierlessJabTakes116sJabTiming(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		Map<String, JsonObject> files = new HashMap<>();
+		JsonObject clip = clipOf(helper, files, SC_ANIMS, "no_rapier_light_attack");
+		JsonObject idle = clipOf(helper, files, SC_ANIMS, "no_rapier_idle");
+		float[] marks = { 0, StandClipPoses116GameTests.marker(clip, "phase=PERFORM;"),
+				StandClipPoses116GameTests.marker(clip, "phase=RECOVERY;"), clip.get("animation_length").getAsFloat() };
+		float[] at = new float[JAB_POSE_AT.length];
+		for (int i = 0; i < at.length; i++) {
+			at[i] = marks[JAB_PHASE[i]] + (marks[JAB_PHASE[i] + 1] - marks[JAB_PHASE[i]]) * JAB_FRACTION[i];
+		}
+		for (float time = 0; time <= marks[3] + 0.00001F; time += 0.005F) {
+			float t = Math.min(time, marks[3]);
+			int i = 1;
+			while (i < at.length - 1 && t > at[i]) {
+				i++;
+			}
+			float f = (t - at[i - 1]) / (at[i] - at[i - 1]);
+			f = JAB_CUBIC[i] ? f * f * f : f;
+			for (int b = 0; b < JAB_BONES.length; b++) {
+				float[] from = JAB_POSE_AT[i - 1] < 0 ? StandClipPoses116GameTests.rotationAt(idle, JAB_BONES[b], 0, LOOKS[0])
+						: JAB_POSES[JAB_POSE_AT[i - 1]][b];
+				float[] to = JAB_POSE_AT[i] < 0 ? StandClipPoses116GameTests.rotationAt(idle, JAB_BONES[b], 0, LOOKS[0])
+						: JAB_POSES[JAB_POSE_AT[i]][b];
+				float[] want = { from[0] + (to[0] - from[0]) * f, from[1] + (to[1] - from[1]) * f, from[2] + (to[2] - from[2]) * f };
+				float[] got = StandClipPoses116GameTests.rotationAt(clip, JAB_BONES[b], t, LOOKS[0]);
+				if (!near(got, want, 0.05F)) {
+					wrong.add(JAB_BONES[b] + " at " + t + " " + Arrays.toString(got) + " where 1.16 had " + Arrays.toString(want));
+				}
+			}
+			float share = JAB_LOOK[i - 1] + (JAB_LOOK[i] - JAB_LOOK[i - 1]) * f;
+			for (String arm : new String[] { "left_arm_xrot", "right_arm_xrot" }) {
+				float[] got = StandClipPoses116GameTests.rotationAt(clip, arm, t, LOOKS[1]);
+				if (!near(got, new float[] { share * LOOKS[1][0], 0, 0 }, 0.05F)) {
+					wrong.add(arm + " at " + t + " " + Arrays.toString(got) + " where 1.16 pitched the arm by " + share * LOOKS[1][0]);
+				}
+			}
+			for (float[] look : LOOKS) {
+				double off = StandClipPoses116GameTests.angleBetween(composedHead(clip, t, look),
+						StandClipPoses116GameTests.rotationMatrix(new float[] { look[0], look[1], 0 }));
+				if (off > 1) {
+					wrong.add("head at " + t + " looking " + Arrays.toString(look) + " " + String.format("%.1f", off) + " degrees off the look");
+				}
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), "1.16's jab turned at .5 of the windup, struck at .75, held to .25 of the perform, turned"
+				+ " back by .5, reached the other hand's guard by its end and held it to .75 of the recovery: "
+				+ wrong.subList(0, Math.min(12, wrong.size())) + (wrong.size() > 12 ? " and " + (wrong.size() - 12) + " more" : ""));
+		helper.succeed();
+	}
+
 	// HierophantGreenModel :176-219, esPose1-4 (esPose4 names rightForeArm twice: the map keeps the second)
 	private static final String[] ES_BONES = { "left_arm", "left_arm_bend", "right_arm", "right_arm_bend", "body_rot", "torso_bend",
 			"left_leg", "left_leg_bend", "right_leg", "right_leg_bend" };

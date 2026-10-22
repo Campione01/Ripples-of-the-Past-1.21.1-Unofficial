@@ -201,7 +201,7 @@ public final class StandClipPoses116GameTests {
 			new ArmLook(MR_ANIMS, "punch", new String[] { "0", "0.05", "0.1", "PERFORM", "RECOVERY", "0.35", "0.4667", "END" },
 					new float[] { 0, 0.5F, 1, 1, 1, 0.5F, 0, 0 }),
 			new ArmLook(SC_ANIMS, "no_rapier_light_attack", new String[] { "0", "0.1", "PERFORM", "RECOVERY", "0.4667", "END" },
-					new float[] { 0, 1, 1, 1, 0, 0 }),
+					new float[] { 0, 1, 1, 0, 0, 0 }),
 			// SilverChariotModel :247-288, the rapier stab: armsRotation in both poses and the recovery's transition
 			new ArmLook(SC_ANIMS, "light_attack", new String[] { "0", "PERFORM", "RECOVERY", "END" }, new float[] { 1, 1, 1, 1 }),
 			// SilverChariotModel :361-365 and ArmsBarrageAnimation: no pose in the windup, the stab loop in the perform,
