@@ -529,9 +529,14 @@ public class Ability {
 		return abilityId.powerClass() == PowerClass.STAND;
 	}
 
-	// 1.16 kept one continuous player action per player (PlayerUtilCap), of either power: here in either of its slots
+	/**
+	 * The continuous player action its user runs (EntityActionInstance#isPlayerAction), if any: 1.16 kept one per player
+	 * (PlayerUtilCap, ContinuousActionInstance.getCurrentAction), of either power, here in either of its slots. On a
+	 * client, from the copies of the actions it was sent.
+	 */
+	@ApiStatus.Internal
 	@Nullable
-	private static EntityActionInstance getRunningPlayerAction(LivingEntity user) {
+	public static EntityActionInstance getRunningPlayerAction(LivingEntity user) {
 		EntityActionInstance own = LivingComponentAction.getCurEntityAction(user);
 		if (own != null && !own.isOver() && own.isPlayerAction() && own.getPowerUser() == user) {
 			return own;

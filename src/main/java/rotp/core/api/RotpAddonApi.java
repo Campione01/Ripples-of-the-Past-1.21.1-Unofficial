@@ -352,7 +352,8 @@ public final class RotpAddonApi {
 	 * in the input buffer instead (owner decision N2). Mobs are not gated (1.16 kept the action in PlayerUtilCap). An add-on
 	 * Stand action that opted out in 1.16 returns false (Kraft Work's Lock Target and Place Projectile, Stone Free's
 	 * strings); an add-on port of an IPlayerAction (Ultimate Lifeform's, King Crimson's time skip) returns true from
-	 * isPlayerAction.
+	 * isPlayerAction in the phases its 1.16 continuous action ran in (from the perform that set it, not in a held charge
+	 * before it).
 	 */
 	public static final String FEATURE_PLAYER_ACTION_GATE_V1 =
 			"player_action_gate_v1";

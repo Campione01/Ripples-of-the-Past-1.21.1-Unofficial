@@ -4,6 +4,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -81,6 +82,7 @@ import net.minecraft.client.player.Input;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
@@ -205,6 +207,7 @@ public class InputHandler {
 				hotbarsSelection,
 				toggledHotbarsSelection);
 		pendingReleaseUse.clear();
+		keysPressedWithAbility.clear();
 		hamonDoubleShift.reset();
 		lastActionKey = null;
 		inputsDisabled = false;
@@ -608,7 +611,10 @@ public class InputHandler {
 			case InputConstants.PRESS -> {
 				KeyModifier keyModifier = getCurModifier();
 				ClientControlScheme controlScheme = getActiveControlSchemeForInput(key, keyModifier);
-				if (controlScheme == null) return false;
+				if (controlScheme == null) {
+					keysPressedWithAbility.remove(key);
+					return false;
+				}
 				
 				if (handleDefaultJojoLmbRmb(key, controlScheme)) {
 					cancelVanilla = true;
@@ -624,6 +630,12 @@ public class InputHandler {
 				cancelVanilla |= hotbarPickSlot(key);
 				
 				CurInput input = getInputAbilitiesOnClick(controlScheme, key, keyModifier);
+				if (input.bound) {
+					keysPressedWithAbility.add(key);
+				}
+				else {
+					keysPressedWithAbility.remove(key);
+				}
 				@Nullable BaseAndActiveAbility heldAbility = input.heldAbility.curActiveAbility != null ? input.heldAbility : null;
 				@Nullable BaseAndActiveAbility clickAbility = input.clickAbility.curActiveAbility != null ? input.clickAbility : null;
 				
@@ -797,6 +809,9 @@ public class InputHandler {
 	
 	public Map<ClientKey, HeldKeyTimer> _heldKeys = new HashMap<>();
 	public Map<ClientKey, MutableInt> _recentlyPressed = new HashMap<>();
+	// the keys whose last press found abilities bound to them; kept after the release, since the vanilla click of a
+	// short press comes in the next tick
+	private final Set<ClientKey> keysPressedWithAbility = new HashSet<>();
 	
 	public HeldKeyTimer getHeldKeyTimer(ClientKey key) {
 		return _heldKeys.get(key);
@@ -927,8 +942,9 @@ public class InputHandler {
 				heldBound = controlScheme.getBindsWithModifier(InputMethod.HOLD, key, keyModifier);
 			}
 			List<AbilityControlsEntry> clickBound = controlScheme.getBindsWithModifier(InputMethod.CLICK, key, keyModifier);
-			
+
 			if (!(heldBound.isEmpty() && clickBound.isEmpty())) {
+				input.bound = true;
 				Predicate<AbilityInputState> filter = inputState -> AbilityInputState.isInputActive(inputState, PowerHud.isInContainerScreen());
 				ClientControlScheme.setPrioritizedAbility(input.heldAbility, heldBound, filter);
 				ClientControlScheme.setPrioritizedAbility(input.clickAbility, clickBound, filter);
@@ -958,10 +974,13 @@ public class InputHandler {
 		
 		public final BaseAndActiveAbility heldAbility = new BaseAndActiveAbility();
 		public final BaseAndActiveAbility clickAbility = new BaseAndActiveAbility();
-		
+		// the key has abilities bound, active or not (1.16: an action selected in the key's hotbar)
+		public boolean bound;
+
 		public void reset() {
 			heldAbility.reset();
 			clickAbility.reset();
+			bound = false;
 		}
 	}
 	
@@ -1450,6 +1469,27 @@ public class InputHandler {
 			event.setCanceled(true);
 			event.setSwingHand(false);
 		}
+	}
+
+	// 1.16 handleMouseClickPowerHud: while its player ran a continuous player action, a vanilla attack or use click whose
+	// key had no action selected (or no HUD power) was cancelled, the hand still swinging. A key with abilities bound
+	// keeps its own rule (shouldCancelVanillaForAbilityPress), which has already cancelled the press that went off.
+	@SubscribeEvent(priority = EventPriority.LOW)
+	public void cancelVanillaClickInPlayerAction(InteractionKeyMappingTriggered event) {
+		cancelVanillaClickDuringPlayerAction(event,
+				keysPressedWithAbility.contains(ClientKey.fromVanillaKeybind(event.getKeyMapping())),
+				mc.player != null && Ability.getRunningPlayerAction(mc.player) != null);
+	}
+
+	@ApiStatus.Internal
+	public static boolean cancelVanillaClickDuringPlayerAction(InteractionKeyMappingTriggered event,
+			boolean keyHasAbility, boolean playerAction) {
+		if (!playerAction || keyHasAbility || !(event.isAttack() || event.isUseItem())
+				|| event.getHand() != InteractionHand.MAIN_HAND) {
+			return false;
+		}
+		event.setCanceled(true);
+		return true;
 	}
 
 	// 1.16 cancelClickInput: no vanilla click of any kind while meditating. Runs before the other click listeners;

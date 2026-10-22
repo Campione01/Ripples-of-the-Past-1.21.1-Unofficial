@@ -408,8 +408,10 @@ public class EntityActionInstance implements HeldInput {
 	 * Overdrive, its barrage, Pillar Man's Blade Dash, Blade Slash, Erratic Blaze King and heavy punch, Vampirism's Claw
 	 * Lacerate and Space Ripper Stingy Eyes, Zombie Claw Lacerate). While a player's slot holds one, its abilities that
 	 * cannot be used during it (Ability#canBeUsedDuringPlayerAction: by default every one but a Stand's) are refused
-	 * without a message, as 1.16 Action.checkConditions refused them. False by default.
-	 * RotpAddonApi#FEATURE_PLAYER_ACTION_GATE_V1.
+	 * without a message, as 1.16 Action.checkConditions refused them. Asked in every phase: true only in the phases the
+	 * 1.16 continuous action ran in, from the perform that set it (setPlayerAction) until it stopped, so not in a held
+	 * charge before that perform (Blade Dash, Sunlight Yellow and Scarlet Overdrive, its barrage, Space Ripper Stingy
+	 * Eyes), which was the power's held action. False by default. RotpAddonApi#FEATURE_PLAYER_ACTION_GATE_V1.
 	 */
 	@ApiStatus.OverrideOnly
 	public boolean isPlayerAction() {

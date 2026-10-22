@@ -13,6 +13,8 @@ import rotp.core.core.JojoRegistries;
 import rotp.core.impl.powers.hamon.HamonData;
 import rotp.core.impl.powers.hamon.ModHamonSkills;
 import rotp.core.impl.powers.hamon.abilities.HamonProtectionAbility;
+import rotp.core.impl.powers.pillarman.PillarmanData;
+import rotp.core.impl.powers.pillarman.PillarmanMode;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.init.power.ModStandAbilities;
@@ -78,6 +80,7 @@ public final class PlayerActionGate116GameTests {
 	private static final short OVERDRIVE_KEY = 86;
 	private static final String OPT_OUT = "player_action_opt_out_probe";
 	private static final String OPT_IN = "player_action_opt_in_probe";
+	private static final String BLADE_DASH = "pillarman_blade_dash_attack";
 	private static final String CONDITION = "jojo.message.action_condition.";
 
 	private PlayerActionGate116GameTests() {}
@@ -198,6 +201,63 @@ public final class PlayerActionGate116GameTests {
 		helper.succeed();
 	}
 
+	/*
+	 * 1.16 PillarmanBladeDashAttack set its continuous player action in perform, as its held charge (holdToFire(10, true))
+	 * was let go; while it charged it was only its power's held action, which no Stand action ever met. So a Stand move that
+	 * opted out of the player action gate (Kraft Work's Lock Target) went off during the charge and was refused, without a
+	 * message, during the dash, and the HUD drew it so. Before, the port's Blade Dash counted as a player action in its
+	 * charge too.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aStandMoveThatOptedOutGoesOffDuringBladeDashsChargeAndIsRefusedDuringItsDashAsIn116(
+			GameTestHelper helper) {
+		try (Scene s = new Scene(helper, true)) {
+			BufferingState dashPress = s.hold(s.power, BLADE_DASH, BEAT_KEY);
+			EntityActionInstance dash = s.own().getAction();
+			helper.assertTrue(dashPress.isActionSuccess && dash != null && dash.ability == s.power.getAbility(BLADE_DASH)
+					&& dash.getPhase() == ActionPhase.BUTTON_CHARGE, "setup: Blade Dash is not charging: started "
+							+ dashPress.isActionSuccess + ", the user's action " + dash);
+			EntityActionInstance clientCharge = s.clientCopyOf(dash);
+			AbilityConditionCheck optOutKey = s.resolve(s.standPower, OPT_OUT);
+			boolean drawnUnavailable = optOutKey == null || optOutKey.ability.isHeldBackByHeldAction(s.user);
+			BufferingState duringCharge = s.press(s.standPower, OPT_OUT, InputMethod.CLICK, OPT_OUT_KEY);
+			EntityActionInstance optOutAction = s.standPowerSlot().getAction();
+			helper.assertTrue(!dash.isPlayerAction() && !clientCharge.isPlayerAction() && duringCharge.isActionSuccess
+					&& !duringCharge.shouldBuffer && optOutAction != null && optOutAction.ability == s.standPower.getAbility(OPT_OUT)
+					&& !drawnUnavailable && s.own().getAction() == dash && s.user.keys().isEmpty(),
+					"1.16 let a Stand action that opted out of the player action gate through Blade Dash's held charge, no player"
+							+ " action yet (setPlayerAction in perform): a player action " + dash.isPlayerAction()
+							+ " (the client's copy " + clientCharge.isPlayerAction() + "), drawn unavailable " + drawnUnavailable
+							+ ", started " + duringCharge.isActionSuccess + ", buffered " + duringCharge.shouldBuffer
+							+ ", the user's Stand-power action " + optOutAction + ", the charge going on "
+							+ (s.own().getAction() == dash) + ", messages " + s.user.keys());
+
+			for (int tick = 0; tick < 12; tick++) {
+				s.user.tickCount++;
+				s.own().tick();
+				s.standPowerSlot().tick();
+			}
+			helper.assertTrue(dash.getPhase() == ActionPhase.BUTTON_CHARGE && dash.getPhaseTick() >= 10.0F
+					&& s.standPowerSlot().getAction() == null, "setup: Blade Dash is not fully charged with the opted-out move"
+							+ " over: it is in " + dash.getPhase() + " at tick " + dash.getPhaseTick() + ", the user's Stand-power"
+							+ " action " + s.standPowerSlot().getAction());
+			AbilityInput.keyRelease(BEAT_KEY, s.user);
+			helper.assertTrue(dash.getPhase() == ActionPhase.PERFORM && dash.isPlayerAction()
+					&& s.clientCopyOf(dash).isPlayerAction(), "setup: Blade Dash let go after its charge is not dashing as a"
+							+ " player action: it is in " + dash.getPhase() + ", a player action " + dash.isPlayerAction());
+
+			BufferingState duringDash = s.press(s.standPower, OPT_OUT, InputMethod.CLICK, OPT_OUT_KEY);
+			helper.assertTrue(!duringDash.isActionSuccess && !duringDash.shouldBuffer && s.standPowerSlot().getAction() == null
+					&& s.user.keys().isEmpty() && optOutKey.ability.isHeldBackByHeldAction(s.user),
+					"1.16 refused a Stand action that opted out of the player action gate, without a message, once Blade Dash"
+							+ " performed as a player action, and drew it unavailable: started " + duringDash.isActionSuccess
+							+ ", buffered " + duringDash.shouldBuffer + ", the user's Stand-power action "
+							+ s.standPowerSlot().getAction() + ", messages " + s.user.keys() + ", drawn unavailable "
+							+ optOutKey.ability.isHeldBackByHeldAction(s.user));
+		}
+		helper.succeed();
+	}
+
 	@Nullable
 	private static BufferedInputEntry buffered(ActionInputBuffer buffer) {
 		try {
@@ -233,7 +293,10 @@ public final class PlayerActionGate116GameTests {
 		}
 	}
 
-	/** A Hamon user with Star Platinum out and two test Stand moves it performs itself, looking south; it does not tick. */
+	/**
+	 * A Hamon user (or a Light Pillar Man on the ground) with Star Platinum out and two test Stand moves it performs itself,
+	 * looking south; it does not tick.
+	 */
 	private static final class Scene implements AutoCloseable {
 		private final GameTestHelper helper;
 		private final RecordingPlayer user;
@@ -245,6 +308,10 @@ public final class PlayerActionGate116GameTests {
 		private final List<Entity> spawned = new ArrayList<>();
 
 		private Scene(GameTestHelper helper) {
+			this(helper, false);
+		}
+
+		private Scene(GameTestHelper helper, boolean pillarMan) {
 			this.helper = helper;
 			user = new RecordingPlayer(helper.getLevel(), "PlayerActionGate");
 			origin = Vec3.atCenterOf(helper.absolutePos(new BlockPos(2, 2, 2)));
@@ -256,14 +323,26 @@ public final class PlayerActionGate116GameTests {
 			user.setItemInHand(InteractionHand.OFF_HAND, ItemStack.EMPTY);
 			helper.assertTrue(helper.getLevel().addFreshEntity(user), "Could not add the player");
 			power = PowerClass.PLAYER_POWER.attachGet(user);
-			power.setPowerType(ModPlayerPowers.HAMON.get());
-			HamonData hamon = PlayerPower.getPowerData(user, ModPlayerPowers.HAMON).orElseThrow();
-			hamon.learnSkill(ModHamonSkills.OVERDRIVE.get());
-			hamon.learnSkill(ModHamonSkills.PROTECTION.get());
-			hamon.learnSkill(ModHamonSkills.REBUFF_OVERDRIVE.get());
-			hamon.setBreathStability(hamon.getMaxBreathStability());
-			hamon.setEnergy(hamon.getMaxEnergy());
-			helper.assertTrue(!hamon.isProtectionEnabled(), "setup: Hamon Protection is on");
+			if (pillarMan) {
+				power.setPowerType(ModPlayerPowers.PILLAR_MAN.get());
+				PillarmanData pillarman = PlayerPower.getPowerData(user, ModPlayerPowers.PILLAR_MAN).orElseThrow();
+				pillarman.setEvolutionStage(2, user);
+				pillarman.setMode(PillarmanMode.LIGHT, user);
+				pillarman.setEnergy(user, 300.0F);
+				user.setOnGround(true);
+				helper.assertTrue(!pillarman.isStoneFormEnabled() && user.onGround(), "setup: the Light Pillar Man is in stone"
+						+ " form or off the ground");
+			}
+			else {
+				power.setPowerType(ModPlayerPowers.HAMON.get());
+				HamonData hamon = PlayerPower.getPowerData(user, ModPlayerPowers.HAMON).orElseThrow();
+				hamon.learnSkill(ModHamonSkills.OVERDRIVE.get());
+				hamon.learnSkill(ModHamonSkills.PROTECTION.get());
+				hamon.learnSkill(ModHamonSkills.REBUFF_OVERDRIVE.get());
+				hamon.setBreathStability(hamon.getMaxBreathStability());
+				hamon.setEnergy(hamon.getMaxEnergy());
+				helper.assertTrue(!hamon.isProtectionEnabled(), "setup: Hamon Protection is on");
+			}
 			standType = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("star_platinum"));
 			helper.assertTrue(standType != null, "Missing Stand type star_platinum");
 			standPower = PowerClass.STAND.attachGet(user);
@@ -318,6 +397,18 @@ public final class PlayerActionGate116GameTests {
 				AbilityInput.keyPress(key, container.ability, user, null, inputMethod, 0, state, base.getAbilityId());
 			}
 			AbilityInput.keyRelease(key, user);
+			return state;
+		}
+
+		// a HOLD press as ClAbilityInputPacket handles it, its key kept held
+		private BufferingState hold(Power<?> pressed, String name, short key) {
+			BufferingState state = BufferingState.clickCanBuffer();
+			Ability base = pressed.getAbility(name);
+			helper.assertTrue(base != null, "Missing ability " + name);
+			AbilityConditionCheck container = resolve(pressed, name);
+			if (container != null && AbilityInput.withConditionCheck(container, user, InputMethod.HOLD)) {
+				AbilityInput.keyPress(key, container.ability, user, null, InputMethod.HOLD, 0, state, base.getAbilityId());
+			}
 			return state;
 		}
 

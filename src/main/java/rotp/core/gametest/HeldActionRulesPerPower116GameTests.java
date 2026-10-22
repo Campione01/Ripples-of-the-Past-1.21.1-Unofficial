@@ -14,6 +14,7 @@ import rotp.core.impl.powers.hamon.abilities.HamonProtectionAbility;
 import rotp.core.impl.powers.vampirism.VampirismData;
 import rotp.core.impl.powers.vampirism.VampirismState;
 import rotp.core.init.ModDataAttachmentTypes;
+import rotp.core.init.ModSpecialActions;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.PowerClass;
@@ -208,6 +209,56 @@ public final class HeldActionRulesPerPower116GameTests {
 		helper.succeed();
 	}
 
+	/*
+	 * 1.16 EntityStandType.unsummon -> StandEntity.retractStand(true) set the unsummon task only while the Stand power held
+	 * no action (userPower.getHeldAction() == null) and left a held action alone. So with Star Platinum out the summon key
+	 * unsummoned it while Hamon held the breath (the other power's hold) or while the key of a clicked punch was still down
+	 * (no held action), and did nothing while the Stand's guard was held, until it was let go. Before, the port started no
+	 * unsummon while any ability key was down.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void onlyTheStandPowersHeldActionHoldsBackItsUnsummonAsIn116(GameTestHelper helper) {
+		try (Scene s = new Scene(helper, "PerPowerUnsummon", ModPlayerPowers.HAMON.get())) {
+			s.hamon();
+			s.stand("star_platinum");
+			EntityActionInstance breath = s.hold("hamon_breath");
+			s.standType.onUserSummonCommand(s.user, s.standPower);
+			helper.assertTrue(s.unsummoning() && s.component.getAction() == breath && s.isHeldByKey(HOLD_KEY)
+					&& breath.getPhase() == ActionPhase.PERFORM,
+					"1.16 unsummoned the Stand while Hamon held the breath (only the Stand power's held action held it back):"
+							+ " the Stand's action " + LivingComponentAction.getCurEntityAction(s.stand) + ", the breath going on "
+							+ (s.component.getAction() == breath && s.isHeldByKey(HOLD_KEY)));
+			AbilityInput.keyRelease(HOLD_KEY, s.user);
+			s.clearStandAction();
+
+			BufferingState punch = s.pressStand("punch", InputMethod.CLICK, OTHER_KEY);
+			EntityActionInstance punchAction = LivingComponentAction.getCurEntityAction(s.stand);
+			helper.assertTrue(punch.isActionSuccess && punchAction != null && s.isHeldByKey(OTHER_KEY)
+					&& AbilityInput.getHeldAction(s.user, PowerClass.STAND) == null, "setup: the punch did not go off with its"
+							+ " key down and nothing held: started " + punch.isActionSuccess + ", the Stand's action " + punchAction);
+			s.standType.onUserSummonCommand(s.user, s.standPower);
+			helper.assertTrue(s.unsummoning(), "1.16 unsummoned the Stand while a clicked punch's key was still down (the"
+					+ " power held no action): the Stand's action " + LivingComponentAction.getCurEntityAction(s.stand));
+			AbilityInput.keyRelease(OTHER_KEY, s.user);
+			s.clearStandAction();
+
+			BufferingState guard = s.pressStand("guard", InputMethod.HOLD, OTHER_KEY);
+			EntityActionInstance guardAction = LivingComponentAction.getCurEntityAction(s.stand);
+			helper.assertTrue(guard.isActionSuccess && guardAction != null
+					&& AbilityInput.getHeldAction(s.user, PowerClass.STAND) == guardAction, "setup: the guard is not held:"
+							+ " started " + guard.isActionSuccess + ", the Stand's action " + guardAction);
+			s.standType.onUserSummonCommand(s.user, s.standPower);
+			helper.assertTrue(!s.unsummoning() && LivingComponentAction.getCurEntityAction(s.stand) == guardAction
+					&& s.standPower.isSummoned(), "1.16 started no unsummon while the Stand power held its guard, and left the"
+							+ " guard alone: the Stand's action " + LivingComponentAction.getCurEntityAction(s.stand));
+			AbilityInput.keyRelease(OTHER_KEY, s.user);
+			s.standType.onUserSummonCommand(s.user, s.standPower);
+			helper.assertTrue(s.unsummoning(), "the guard let go, 1.16's summon key unsummoned the Stand: the Stand's action "
+					+ LivingComponentAction.getCurEntityAction(s.stand));
+		}
+		helper.succeed();
+	}
+
 	private static String describe(AbilityConditionCheck key) {
 		if (key == null) {
 			return "no key";
@@ -379,6 +430,15 @@ public final class HeldActionRulesPerPower116GameTests {
 
 		private boolean isHeldByKey(short key) {
 			return input().heldKeys.containsKey(key) && input().heldKeys.get(key).action != null;
+		}
+
+		private boolean unsummoning() {
+			EntityActionInstance action = LivingComponentAction.getCurEntityAction(stand);
+			return action != null && action.ability == ModSpecialActions.STAND_UNSUMMON.get();
+		}
+
+		private void clearStandAction() {
+			LivingComponentAction.getComponent(stand).setAction(null, SyncType.NO_SYNC);
 		}
 
 		private EntityActionInputState input() {

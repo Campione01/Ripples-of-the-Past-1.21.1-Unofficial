@@ -19,11 +19,13 @@ import rotp.core.impl.powers.vampirism.abilities.VampirismClawLacerateAbility;
 import rotp.core.impl.powers.vampirism.abilities.VampirismSpaceRipperStingyEyesAbility;
 import rotp.core.impl.powers.zombie.abilities.ZombieClawLacerateAbility;
 import rotp.core.powersystem.ability.Ability;
+import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 
 /**
  * FEATURE_PLAYER_ACTION_GATE_V1: EntityActionInstance#isPlayerAction (false by default, true for the ports of 1.16's 13
- * IPlayerAction attacks) and Ability#canBeUsedDuringPlayerAction(EntityActionInstance), both public and overridable.
+ * IPlayerAction attacks in the phases 1.16 ran them in) and Ability#canBeUsedDuringPlayerAction(EntityActionInstance),
+ * both public and overridable.
  * PlayerActionGate116GameTests checks the gate.
  */
 final class PlayerActionGateSmokeTest {
@@ -60,8 +62,30 @@ final class PlayerActionGateSmokeTest {
 				new VampirismSpaceRipperStingyEyesAbility.SpaceRipperInstance(null),
 				new ZombieClawLacerateAbility.ClawLacerateInstance(null));
 		for (EntityActionInstance action : playerActions) {
-			check(action.isPlayerAction(), action.getClass().getName() + " ports a 1.16 IPlayerAction");
+			check(inPhase(action, ActionPhase.PERFORM).isPlayerAction(), action.getClass().getName()
+					+ " ports a 1.16 IPlayerAction, a player action from the perform that set it");
 		}
+		// 1.16's continuous action ran through the whole port of these instant attacks, its windup and recovery included
+		for (EntityActionInstance action : List.of(playerActions.get(1), playerActions.get(3), playerActions.get(10))) {
+			for (ActionPhase phase : List.of(ActionPhase.WINDUP, ActionPhase.RECOVERY)) {
+				check(inPhase(action, phase).isPlayerAction(), action.getClass().getName() + " is a 1.16 player action in its "
+						+ phase);
+			}
+		}
+		// a held charge before the perform was the power's held action, not yet a player action (setPlayerAction in perform)
+		for (EntityActionInstance action : List.of(playerActions.get(4), playerActions.get(5), playerActions.get(6),
+				playerActions.get(12))) {
+			check(!inPhase(action, ActionPhase.WINDUP).isPlayerAction(), action.getClass().getName()
+					+ " charging before its perform was no 1.16 player action");
+		}
+		check(!inPhase(playerActions.get(7), ActionPhase.BUTTON_CHARGE).isPlayerAction(),
+				"Blade Dash charging before its perform was no 1.16 player action");
+	}
+
+	private static EntityActionInstance inPhase(EntityActionInstance action, ActionPhase phase) {
+		action.phasesLength.put(phase, 1.0F);
+		action.setPhaseStart(phase);
+		return action;
 	}
 
 	private static boolean overridableBoolean(Method method) {
