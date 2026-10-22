@@ -26,6 +26,7 @@ import rotp.core.init.ModStatusEffects;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.EntityActionAbility;
+import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.netcode.SyncType;
@@ -39,8 +40,11 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.animal.Cow;
+import net.minecraft.world.entity.animal.SnowGolem;
+import net.minecraft.world.entity.item.PrimedTnt;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
@@ -415,6 +419,95 @@ public final class StandClipFollowUps116GameTests {
 		}
 		helper.assertTrue(wrong.isEmpty(), "1.16's Crazy Diamond heal showed barrage visuals under Resolve or at a target at half its"
 				+ " health or less, healing or not: " + wrong);
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 StandEntityAction.barrageVisualsPhaseTransition set the Stand's barrage hit sounds playing in the perform while
+	 * barrageVisuals held, for the heal and the revert alike and healing or not (barrageVisualsTick sent the sound while the
+	 * task held an entity). CrazyDiamondPreviousState.barrageVisuals (:424-427) held while the revert's task target was an
+	 * entity passing its checkTarget (what it reverts at the stored Resolve level), reverting it or not, and never else.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void crazyDiamondsBarrageHitSoundsAndRevertVisualsTake116sRules(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		for (ActionPhase phase : new ActionPhase[] { ActionPhase.WINDUP, ActionPhase.PERFORM, ActionPhase.RECOVERY, null }) {
+			for (boolean healing : new boolean[] { false, true }) {
+				for (boolean visuals : new boolean[] { false, true }) {
+					boolean got = CrazyDHealAbility.HealingAction.playsBarrageHitSounds(phase, new CrazyDHealAbility.HealingAction.HealResult.Synched(
+							ActionTarget.EMPTY, healing, visuals, CrazyDHealAbility.HealingAction.HealResult.Synched.NO_DEATH_TIME_CHANGE));
+					if (got != (phase == ActionPhase.PERFORM && visuals)) {
+						wrong.add("in " + phase + ", healing " + healing + ", barrage visuals " + visuals + ": barrage hit sounds " + got
+								+ ", 1.16 " + (phase == ActionPhase.PERFORM && visuals));
+					}
+				}
+			}
+		}
+		if (!invokedMethods(helper, "rotp/core/impl/stands/crazydiamond/CrazyDHealAbility$HealingAction.class")
+				.contains("rotp/core/impl/stands/crazydiamond/CrazyDHealAbility$HealingAction.playsBarrageHitSounds")) {
+			wrong.add("the healing action no longer sets its hit sounds by playsBarrageHitSounds");
+		}
+
+		Player user = FakePlayerFactory.get(helper.getLevel(), new GameProfile(UUID.randomUUID(), "CDRevertVisualsRule"));
+		StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("crazy_diamond"));
+		StandPower power = null;
+		List<Entity> spawned = new ArrayList<>();
+		try {
+			user.getAbilities().instabuild = false;
+			Vec3 pos = Vec3.atCenterOf(helper.absolutePos(new BlockPos(2, 3, 2)));
+			user.moveTo(pos.x, pos.y, pos.z);
+			helper.assertTrue(helper.getLevel().addFreshEntity(user), "setup: could not add the Stand user");
+			power = PowerClass.STAND.attachGet(user);
+			helper.assertTrue(StandPowerTransitions.insert(power, new StandInstance(type)).status() == StandPowerTransitions.Status.APPLIED,
+					"setup: could not grant Crazy Diamond");
+			power.setResolveLevel(4);
+			helper.assertTrue(type.summon(user, power), "setup: could not summon Crazy Diamond");
+			StandEntity stand = power.getSummonedStandEntity();
+			helper.assertTrue(stand != null, "setup: the summoned Stand is missing");
+			EntityActionInstance action = ((EntityActionAbility) power.getAbility("revert_state")).initActionOnAbilityUse(helper.getLevel(), user, stand, null);
+			LivingComponentAction.getComponent(stand).setAction(action, user, SyncType.NO_SYNC);
+			CrazyDHealAbility.HealingAction revert = (CrazyDHealAbility.HealingAction) action;
+			PrimedTnt tnt = EntityType.TNT.create(helper.getLevel());
+			SnowGolem golem = EntityType.SNOW_GOLEM.create(helper.getLevel());
+			Cow cow = EntityType.COW.create(helper.getLevel());
+			helper.assertTrue(tnt != null && golem != null && cow != null, "setup: could not create the targets");
+			tnt.setFuse(10000);
+			tnt.setNoGravity(true);
+			golem.setNoAi(true);
+			cow.setNoAi(true);
+			int i = 0;
+			for (Entity entity : new Entity[] { tnt, golem, cow }) {
+				entity.moveTo(pos.x + i++, pos.y, pos.z + 2);
+				helper.assertTrue(helper.getLevel().addFreshEntity(entity), "setup: could not add " + entity);
+				spawned.add(entity);
+			}
+			// {the target, the stored Resolve level, under the Resolve effect} -> 1.16's barrageVisuals
+			Object[][] rows = { { tnt, 4, false, true }, { golem, 4, false, true }, { cow, 4, false, false }, { null, 4, false, false },
+					{ null, 4, true, false }, { cow, 4, true, false }, { tnt, 2, false, false } };
+			for (Object[] row : rows) {
+				user.removeAllEffects();
+				if ((boolean) row[2]) {
+					user.addEffect(new MobEffectInstance(ModStatusEffects.RESOLVE, 100));
+				}
+				power.setResolveLevel((int) row[1]);
+				ActionTarget target = row[0] != null ? new ActionTarget((Entity) row[0]) : ActionTarget.EMPTY;
+				boolean got = revert.showsBarrageVisuals(target);
+				if (got != (boolean) row[3]) {
+					wrong.add("the revert at " + (row[0] != null ? ((Entity) row[0]).getType().toShortString() : "nothing") + ", stored Resolve "
+							+ row[1] + ", the Resolve effect " + row[2] + ": barrage visuals " + got + ", 1.16 " + row[3]);
+				}
+			}
+		}
+		finally {
+			if (power != null && power.isSummoned()) {
+				type.forceUnsummon(user, power);
+			}
+			spawned.forEach(Entity::discard);
+			user.removeAllEffects();
+			user.discard();
+		}
+		helper.assertTrue(wrong.isEmpty(), "1.16 played Crazy Diamond's barrage hit sounds while its barrage visuals held, and"
+				+ " showed the revert's at an entity it reverts: " + wrong);
 		helper.succeed();
 	}
 

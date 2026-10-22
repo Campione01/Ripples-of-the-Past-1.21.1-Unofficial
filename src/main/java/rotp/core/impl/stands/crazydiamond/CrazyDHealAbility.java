@@ -449,7 +449,7 @@ public class CrazyDHealAbility extends StandEntityAbility {
 				setActionTarget(ActionTarget.EMPTY);
 			}
 			cur.target.resolveEntityId(level);
-			setBarrageHitSoundsActive(getPhase() == ActionPhase.PERFORM && cur.isHealing && cur.barrageVisuals);
+			setBarrageHitSoundsActive(playsBarrageHitSounds(getPhase(), cur));
 			boolean targetChanged = old == null || !cur.target.equals(old.target);
 
 			if (targetChanged) {
@@ -491,7 +491,7 @@ public class CrazyDHealAbility extends StandEntityAbility {
 			ActionPhase previousPhase = this.phase;
 			if (newPhase == ActionPhase.PERFORM) {
 				playFixLoopSounds();
-				setBarrageHitSoundsActive(synchedData.get(HEAL_RESULT).isHealing && synchedData.get(HEAL_RESULT).barrageVisuals);
+				setBarrageHitSoundsActive(playsBarrageHitSounds(newPhase, synchedData.get(HEAL_RESULT)));
 			}
 			else if (previousPhase == ActionPhase.PERFORM) {
 				playFixEndedSound();
@@ -505,6 +505,14 @@ public class CrazyDHealAbility extends StandEntityAbility {
 				playFixEndedSound();
 			}
 			setBarrageHitSoundsActive(false);
+		}
+
+		/**
+		 * 1.16 StandEntityAction.barrageVisualsPhaseTransition: the Stand's barrage hit sounds play in the perform while the
+		 * barrage visuals hold, healing or not (the server sends them while the action holds an entity).
+		 */
+		public static boolean playsBarrageHitSounds(@Nullable ActionPhase phase, HealResult.Synched result) {
+			return phase == ActionPhase.PERFORM && result.barrageVisuals;
 		}
 
 		private void setBarrageHitSoundsActive(boolean active) {
