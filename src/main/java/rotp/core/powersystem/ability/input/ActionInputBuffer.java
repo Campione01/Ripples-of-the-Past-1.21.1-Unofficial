@@ -273,8 +273,9 @@ public class ActionInputBuffer {
 			if (inputMethod == InputMethod.HOLD) {
 				EntityActionInputState inputState = user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get());
 				if (inputState != null) {
-					if (inputState.inputBuffer.buffered == this) {
-						inputState.inputBuffer.buffered = null;
+					ActionInputBuffer own = inputState.inputBuffer(baseAbilityId.powerClass());
+					if (own.buffered == this) {
+						own.buffered = null;
 					}
 				}
 			}

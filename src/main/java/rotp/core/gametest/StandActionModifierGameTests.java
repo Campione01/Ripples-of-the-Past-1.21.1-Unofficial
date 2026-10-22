@@ -141,7 +141,7 @@ public final class StandActionModifierGameTests {
 			EntityActionInstance userAction = startUserAction(helper, power, user, events);
 			modifier = addAsAClientDoes(helper, power, user, events, true);
 			helper.assertTrue(modifier.userAction == userAction, "setup: the Stand effect did not attach to the user's running action");
-			tickUntilOver(LivingComponentAction.getComponent(user), userAction);
+			tickUntilOver(LivingComponentAction.getComponent(user, PowerClass.STAND), userAction);
 			helper.assertTrue(events.equals(run) && timesOn(userAction, modifier) == 1, "a modifier of the user's running action"
 					+ " ran other than once a tick: on the action " + timesOn(userAction, modifier) + " times, " + events);
 			power.userStandEffects.removeEffect(modifier);
@@ -191,14 +191,14 @@ public final class StandActionModifierGameTests {
 		return modifier;
 	}
 
-	// set on the user as a press of an action of the user's own sets it, with the same phases
+	// set on the user as a press of a Stand action the user performs sets it, in its Stand-power slot, with the same phases
 	private static EntityActionInstance startUserAction(GameTestHelper helper, StandPower power, FakePlayer user,
 			List<String> events) {
 		RecordingUserAbility ability = new RecordingUserAbility(ModStandAbilities.PUNCH.get(),
 				new AbilityId(PowerClass.STAND, power.getPowerType().getId(), "stand_action_modifier_user_test"), events);
 		EntityActionInstance action = ability.initActionOnAbilityUse(helper.getLevel(), user, user, null);
-		LivingComponentAction.getComponent(user).setAction(action, user, SyncType.NO_SYNC);
-		helper.assertTrue(action.getPhase() == ActionPhase.WINDUP && LivingComponentAction.getComponent(user).getAction() == action,
+		LivingComponentAction.getComponent(user, PowerClass.STAND).setAction(action, user, SyncType.NO_SYNC);
+		helper.assertTrue(action.getPhase() == ActionPhase.WINDUP && LivingComponentAction.getComponent(user, PowerClass.STAND).getAction() == action,
 				"setup: the test action is not the user's, in its windup: " + action.getPhase());
 		return action;
 	}

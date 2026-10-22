@@ -21,6 +21,7 @@ public class TrEntityActionInstancePacket implements CustomPacketPayload {
 	private final int performerId;
 	private final UUID performerUuid;
 	private final long generation;
+	private final int slot;
 	@Nullable private final EntityActionInstance sendAction;
 	@Nullable private final byte[] receiveActionData;
 	
@@ -29,7 +30,17 @@ public class TrEntityActionInstancePacket implements CustomPacketPayload {
 			UUID performerUuid,
 			long generation,
 			@Nullable EntityActionInstance action) {
-		this(performerId, performerUuid, generation, action, null);
+		this(performerId, performerUuid, generation, action, 0);
+	}
+
+	/** slot: the performer's action slot, LivingComponentAction#slotId (the user's Stand-power slot is 1). */
+	public TrEntityActionInstancePacket(
+			int performerId,
+			UUID performerUuid,
+			long generation,
+			@Nullable EntityActionInstance action,
+			int slot) {
+		this(performerId, performerUuid, generation, action, null, slot);
 	}
 
 	private TrEntityActionInstancePacket(
@@ -37,11 +48,13 @@ public class TrEntityActionInstancePacket implements CustomPacketPayload {
 			UUID performerUuid,
 			long generation,
 			@Nullable EntityActionInstance sendAction,
-			@Nullable byte[] receiveActionData) {
+			@Nullable byte[] receiveActionData,
+			int slot) {
 		this.performerId = performerId;
 		this.performerUuid = Objects.requireNonNull(
 				performerUuid, "performerUuid");
 		this.generation = generation;
+		this.slot = slot;
 		this.sendAction = sendAction;
 		this.receiveActionData = receiveActionData;
 	}
@@ -67,6 +80,7 @@ public class TrEntityActionInstancePacket implements CustomPacketPayload {
 			buf.writeUUID(packet.performerUuid);
 			buf.writeVarLong(NetworkPayloadValidation.requireOutboundGeneration(
 					packet.generation, "entity action"));
+			buf.writeByte(packet.slot);
 			FriendlyByteBuf actionData = new FriendlyByteBuf(
 					Unpooled.buffer(
 							256,
@@ -90,12 +104,14 @@ public class TrEntityActionInstancePacket implements CustomPacketPayload {
 			UUID performerUuid = buf.readUUID();
 			long generation = NetworkPayloadValidation.requireGeneration(
 					buf.readVarLong(), "entity action");
+			int slot = buf.readUnsignedByte();
 			return new TrEntityActionInstancePacket(
 					performerId, performerUuid, generation, null,
 					NetworkUtil.extraPacketDataBytes(
 							buf,
 							NetworkPayloadValidation.MAX_ENTITY_ACTION_BYTES,
-							"entity action"));
+							"entity action"),
+					slot);
 		}
 		
 		@Override
@@ -105,7 +121,8 @@ public class TrEntityActionInstancePacket implements CustomPacketPayload {
 					payload.performerId,
 					payload.performerUuid,
 					payload.generation,
-					payload.receiveActionData);
+					payload.receiveActionData,
+					payload.slot);
 		}
 		
 	}

@@ -22,6 +22,7 @@ import rotp.core.powersystem.entityaction.ActionAnimIdentifier;
 import rotp.core.powersystem.entityaction.ActionAnimIdentifier.ActionAnimIdHandsided;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
+import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.LivingComponentAction.RebuffVisualTail;
 import rotp.core.client.ClientTimeStopHandler;
@@ -92,11 +93,26 @@ public class PreFrameEntityAnimCalc {
 		}
 	}
 	
+	/*
+	 * 1.16 drew a player's pose from its powers' animation layers, and only non-Stand actions had one among the core's
+	 * (ModPlayerAnimations): the user's own slot (its non-Stand power's action) animates it first, else its Stand-power
+	 * slot (LivingComponentAction.StandPowerSlot).
+	 */
+	@Nullable
+	private static LivingComponentAction poseActionComponent(LivingEntity living) {
+		LivingComponentAction own = LivingComponentAction.getExistingComponent(living);
+		if (own != null && own.getAction() != null || living instanceof StandEntity) {
+			return own;
+		}
+		LivingComponentAction standPower = LivingComponentAction.getExistingComponent(living, PowerClass.STAND);
+		return standPower != null && standPower.getAction() != null ? standPower : own;
+	}
+
 	// TODO get rid of instanceof
 	// TODO get rid of newFrame argument
 	public static AnimFramePose getLivingPose(LivingEntity living, float partialTick, boolean newFrame) {
 		AnimFramePose pose = null;
-		LivingComponentAction actionComponent = LivingComponentAction.getExistingComponent(living);
+		LivingComponentAction actionComponent = poseActionComponent(living);
 		EntityActionInstance action = actionComponent != null ? actionComponent.getAction() : null;
 		@Nullable StandEntity stand = living instanceof StandEntity __ ? __ : null;
 		@Nullable HamonData persistentHamonPose = stand == null && living instanceof Player

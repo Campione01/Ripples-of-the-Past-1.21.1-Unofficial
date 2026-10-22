@@ -86,6 +86,8 @@ public class EntityActionInstance implements HeldInput {
 	private int ticksHeldInSummonLock;
 
 	protected LivingEntity performer;
+	// the performer's slot it is set in (LivingComponentAction#slotId), which its sync packets carry
+	int actionSlot;
 	protected EntityResolver powerUser = new EntityResolver();
 	
 	@Nullable public ActionTarget standRotationTarget;
@@ -191,7 +193,8 @@ public class EntityActionInstance implements HeldInput {
 		if (time > 0) {
 			switch (phase) {
 				case BUTTON_CHARGE, WINDUP -> {
-					if (LivingComponentAction.getCurEntityAction(performer) != null) {
+					if (LivingComponentAction.getCurEntityAction(performer,
+							ability instanceof EntityActionAbility pressed ? pressed.getAbilityId().powerClass() : null) != null) {
 						/* 
 						 * Skipping too much makes the light punch animations look too choppy.
 						 * On the other hand, this mechanic encourages timing the input clicking:
@@ -702,7 +705,7 @@ public class EntityActionInstance implements HeldInput {
 		if (performer != null && !performer.level().isClientSide()) {
 			PacketDistributor.sendToPlayersTrackingEntityAndSelf(performer, new TrEntityActionTargetPacket(
 					performer.getId(), performer.getUUID(), networkGeneration, id,
-					actionTargetSnapshot, standRotationTarget, aimAs, storedTaskTarget()));
+					actionTargetSnapshot, standRotationTarget, aimAs, storedTaskTarget(), actionSlot));
 		}
 	}
 
@@ -1090,6 +1093,12 @@ public class EntityActionInstance implements HeldInput {
 	}
 	
 	
+	/** The slot of its performer this action is set in (LivingComponentAction#slotId). */
+	@ApiStatus.Internal
+	public int actionSlot() {
+		return actionSlot;
+	}
+
 	public LivingEntity getPerformer() {
 		return performer;
 	}
@@ -1152,7 +1161,7 @@ public class EntityActionInstance implements HeldInput {
 		if (performer != null && !performer.level().isClientSide()) {
 			PacketDistributor.sendToPlayersTrackingEntityAndSelf(performer, new TrEntityActionPhaseTimePacket(performer.getId(), 
 					performer.getUUID(), networkGeneration, id,
-					phasesLength, phase, curPhaseTick));
+					phasesLength, phase, curPhaseTick, actionSlot));
 		}
 	}
 

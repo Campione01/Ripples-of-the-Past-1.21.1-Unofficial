@@ -16,6 +16,7 @@ import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModStatusEffects;
 import rotp.core.impl.powers.hamon.abilities.HamonRebuffOverdriveAbility.HamonRebuffOverdrive;
 import rotp.core.powersystem.Power;
+import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.entityaction.EntityActionInstance.InputLifecycleSnapshot;
 import rotp.core.powersystem.entityaction.netcode.SyncType;
@@ -42,7 +43,13 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 	private static final GenerationSequence SERVER_ACTION_GENERATIONS =
 			new GenerationSequence();
 
+	/** The entity's own action slot: its non-Stand power's actions, a Stand's actions, and any other. */
+	public static final int MAIN_SLOT = 0;
+	/** The user's slot for its Stand power's actions it performs itself ({@link StandPowerSlot}). */
+	public static final int STAND_POWER_SLOT = 1;
+
 	private final LivingEntity entity;
+	private final int slot;
 	private final LivingReactToNewAction setActionCallback;
 	private final AtomicInteger actionIdCounter = new AtomicInteger();
 	private long actionGenerationCounter;
@@ -60,7 +67,12 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 	public final ActionTargetAim entityAim;
 	
 	public LivingComponentAction(LivingEntity entity) {
+		this(entity, MAIN_SLOT);
+	}
+
+	private LivingComponentAction(LivingEntity entity, int slot) {
 		this.entity = entity;
+		this.slot = slot;
 		this.setActionCallback = (entity instanceof LivingReactToNewAction standEntity) ? standEntity : null;
 		this.entityAim = new ActionTargetAim();
 		addSynchronization(entity);
@@ -69,6 +81,12 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 	
 	public EntityActionInstance getAction() {
 		return action;
+	}
+
+	/** {@link #MAIN_SLOT} or {@link #STAND_POWER_SLOT}: which of its entity's slots this is (the sync packets carry it). */
+	@ApiStatus.Internal
+	public int slotId() {
+		return slot;
 	}
 
 	@Nullable
@@ -181,7 +199,7 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 					entity,
 					new TrEntityActionInstancePacket(
 							entity.getId(), entity.getUUID(), actionGeneration,
-							snapshot.action()));
+							snapshot.action(), slot));
 		}
 	}
 
@@ -248,6 +266,7 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 			@Nullable EntityActionInstance replacement) {
 		if (replacement != null) {
 			replacement.performer = entity;
+			replacement.actionSlot = slot;
 		}
 		this.action = replacement;
 	}
@@ -330,9 +349,9 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 		if (!entity.level().isClientSide()) {
 			switch (sync) {
 				case TRACKING -> PacketDistributor.sendToPlayersTrackingEntity(entity, new TrEntityActionInstancePacket(
-						entity.getId(), entity.getUUID(), actionGeneration, action));
+						entity.getId(), entity.getUUID(), actionGeneration, action, slot));
 				case TRACKING_AND_SELF -> PacketDistributor.sendToPlayersTrackingEntityAndSelf(entity, new TrEntityActionInstancePacket(
-						entity.getId(), entity.getUUID(), actionGeneration, action));
+						entity.getId(), entity.getUUID(), actionGeneration, action, slot));
 				default -> {}
 			}
 		}
@@ -357,6 +376,7 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 			boolean authoritativeClientState) {
 		if (action != null) {
 			action.performer = entity;
+			action.actionSlot = slot;
 			if (entity.level().isClientSide()) {
 				clearClientRebuffTail();
 			}
@@ -440,7 +460,7 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 	private void syncDirtyActionData() {
 		if (action != null && !entity.level().isClientSide()) {
 			SyncActionInstanceData.tickSyncDirtyData(
-					entity, actionGeneration,
+					entity, slot, actionGeneration,
 					action.synchedData.getDataSyncher());
 		}
 	}
@@ -481,16 +501,16 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 	public void syncToPlayer(ServerPlayer player) {
 		ensureServerGeneration();
 		PacketDistributor.sendToPlayer(player, new TrEntityActionInstancePacket(
-				entity.getId(), entity.getUUID(), actionGeneration, action));
+				entity.getId(), entity.getUUID(), actionGeneration, action, slot));
 	}
 
 	@Override
 	public void syncToTracking(ServerPlayer player) {
 		ensureServerGeneration();
 		PacketDistributor.sendToPlayer(player, new TrEntityActionInstancePacket(
-				entity.getId(), entity.getUUID(), actionGeneration, action));
+				entity.getId(), entity.getUUID(), actionGeneration, action, slot));
 		SyncActionInstanceData.onStartedTracking(
-				player, entity, actionGeneration, action);
+				player, entity, slot, actionGeneration, action);
 	}
 	
 	@Override
@@ -498,7 +518,7 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 		if (newPlayer.level().isClientSide()) {
 			return;
 		}
-		LivingComponentAction replacement = getComponent(newPlayer);
+		LivingComponentAction replacement = getComponentForSlot(newPlayer, slot);
 		replacement.actionIdCounter.set(actionIdCounter.get());
 		replacement.actionGenerationCounter = Math.max(
 				actionGenerationCounter, actionGeneration);
@@ -567,6 +587,76 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 			return new LivingComponentAction(entity);
 		}
 		throw new IllegalArgumentException();
+	}
+
+	@ApiStatus.Internal
+	public static LivingComponentAction createStandPowerSlot(IAttachmentHolder obj) {
+		if (obj instanceof LivingEntity entity) {
+			return new StandPowerSlot(entity);
+		}
+		throw new IllegalArgumentException();
+	}
+
+	/**
+	 * The user's slot for its Stand power's actions it performs itself, beside its own slot, which keeps its non-Stand
+	 * power's actions: 1.16 kept one held action per power (PowerBaseImpl.heldActionData), each ticked, synced, refused and
+	 * released on its own, so an action of one power never waited behind or ended one of the other. It ticks right after
+	 * the user's own slot (EntityDataOrder, by class name), as 1.16 ticked the non-Stand power before the Stand power
+	 * (GameplayEventHandler.onPlayerTick), and syncs with its {@link #slotId}.
+	 */
+	public static final class StandPowerSlot extends LivingComponentAction {
+		private StandPowerSlot(LivingEntity entity) {
+			super(entity, STAND_POWER_SLOT);
+		}
+	}
+
+	/** Whether an action of this power class that this entity performs goes to its {@link StandPowerSlot}. */
+	private static boolean usesStandPowerSlot(LivingEntity entity, @Nullable PowerClass<?> powerClass) {
+		return powerClass == PowerClass.STAND && !(entity instanceof StandEntity);
+	}
+
+	/**
+	 * The slot an action of this power class performed by this entity goes to: a Stand-power action the user performs
+	 * itself goes to its {@link StandPowerSlot}, any other (a non-Stand power's, a Stand entity's) to its own slot
+	 * ({@link #getComponent(LivingEntity)}). RotpAddonApi#FEATURE_STAND_POWER_ACTION_SLOT_V1.
+	 */
+	public static LivingComponentAction getComponent(LivingEntity entity, @Nullable PowerClass<?> powerClass) {
+		return usesStandPowerSlot(entity, powerClass) ? entity.getData(ModDataAttachmentTypes.LIVING_STAND_POWER_ACTION.get())
+				: getComponent(entity);
+	}
+
+	@Nullable
+	public static LivingComponentAction getExistingComponent(LivingEntity entity, @Nullable PowerClass<?> powerClass) {
+		if (entity == null) return null;
+		if (!usesStandPowerSlot(entity, powerClass)) {
+			return getExistingComponent(entity);
+		}
+		AttachmentType<LivingComponentAction> t = ModDataAttachmentTypes.LIVING_STAND_POWER_ACTION.get();
+		return entity.hasData(t) ? entity.getData(t) : null;
+	}
+
+	/** The action of {@link #getComponent(LivingEntity, PowerClass)}'s slot, if it exists. */
+	@Nullable
+	public static EntityActionInstance getCurEntityAction(LivingEntity entity, @Nullable PowerClass<?> powerClass) {
+		LivingComponentAction existingData = getExistingComponent(entity, powerClass);
+		return existingData != null ? existingData.getAction() : null;
+	}
+
+	@ApiStatus.Internal
+	public static LivingComponentAction getComponentForSlot(LivingEntity entity, int slot) {
+		return slot == STAND_POWER_SLOT ? entity.getData(ModDataAttachmentTypes.LIVING_STAND_POWER_ACTION.get())
+				: getComponent(entity);
+	}
+
+	@ApiStatus.Internal
+	@Nullable
+	public static EntityActionInstance getCurEntityActionForSlot(@Nullable LivingEntity entity, int slot) {
+		if (entity == null) return null;
+		if (slot != STAND_POWER_SLOT) {
+			return getCurEntityAction(entity);
+		}
+		AttachmentType<LivingComponentAction> t = ModDataAttachmentTypes.LIVING_STAND_POWER_ACTION.get();
+		return entity.hasData(t) ? entity.getData(t).getAction() : null;
 	}
 	
 	public static LivingComponentAction getComponent(LivingEntity entity) {

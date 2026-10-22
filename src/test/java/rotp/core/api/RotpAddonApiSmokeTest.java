@@ -392,6 +392,9 @@ public final class RotpAddonApiSmokeTest {
 		check(RotpAddonApi.supportsFeature(
 				RotpAddonApi.FEATURE_HELD_ACTION_RULES_PER_POWER_V1),
 				"held action rules per power feature missing");
+		check(RotpAddonApi.supportsFeature(
+				RotpAddonApi.FEATURE_STAND_POWER_ACTION_SLOT_V1),
+				"Stand-power action slot feature missing");
 
 		AbilityType<Ability> addonType = new AbilityType<>(
 				id("rotp_test", "freeze"), Ability::new);
@@ -558,6 +561,7 @@ public final class RotpAddonApiSmokeTest {
 		ActionSummonLockHookSmokeTest.run();
 		ActionStandStunHookSmokeTest.run();
 		HeldActionRulesPerPowerSmokeTest.run();
+		StandPowerActionSlotSmokeTest.run();
 	}
 
 	private static ResourceLocation id(String namespace, String path) {

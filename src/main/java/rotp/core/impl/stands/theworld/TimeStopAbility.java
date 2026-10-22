@@ -289,7 +289,7 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 	}
 
 	private EntityActionInstance getClientTimeStopAction(LivingEntity clientPlayer) {
-		EntityActionInstance userAction = LivingComponentAction.getCurEntityAction(clientPlayer);
+		EntityActionInstance userAction = LivingComponentAction.getCurEntityAction(clientPlayer, PowerClass.STAND);
 		if (isSameAbilityAction(userAction)) {
 			return userAction;
 		}
@@ -624,7 +624,7 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 					|| !timeStop.startTimeStopAfterHold(user, standAlreadySummoned,
 							TimeStopLearning.getTimeStopTicks(PowerClass.STAND.get(user), timeStop.getLearningAbilityName()),
 							phasesLength.getFloat(ActionPhase.BUTTON_CHARGE))) {
-				LivingComponentAction.getComponent(performer).setAction(null, SyncType.TRACKING_AND_SELF);
+				LivingComponentAction.getComponentForSlot(performer, actionSlot()).setAction(null, SyncType.TRACKING_AND_SELF);
 			}
 		}
 
@@ -655,7 +655,7 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 						timeStop.startTimeStopAfterHold(user, standAlreadySummoned, timeStopTicks, curPhaseLength);
 					}
 				}
-				LivingComponentAction.getComponent(performer).setAction(null, SyncType.TRACKING_AND_SELF);
+				LivingComponentAction.getComponentForSlot(performer, actionSlot()).setAction(null, SyncType.TRACKING_AND_SELF);
 			}
 		}
 	}

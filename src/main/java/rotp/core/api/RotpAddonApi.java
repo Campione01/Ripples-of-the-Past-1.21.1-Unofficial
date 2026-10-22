@@ -314,6 +314,20 @@ public final class RotpAddonApi {
 	 */
 	public static final String FEATURE_HELD_ACTION_RULES_PER_POWER_V1 =
 			"held_action_rules_per_power_v1";
+	/**
+	 * The user's Stand-power action slot, as 1.16 kept one held action per power: every Stand-power action a user performs
+	 * itself (EntityActionAbility#setOrBufferAction with the user as performer) lives in LivingComponentAction.StandPowerSlot,
+	 * apart from the user's own slot, which keeps its non-Stand power's actions, so an action of one power never waits behind
+	 * or ends one of the other. LivingComponentAction#getComponent(LivingEntity) and #getCurEntityAction(LivingEntity) still
+	 * return the entity's own slot; #getComponent / #getExistingComponent / #getCurEntityAction(LivingEntity, PowerClass)
+	 * return the slot an action of that power performed by that entity takes (a Stand entity has only its own slot). The
+	 * user's two slots tick non-Stand first; the action sync packets carry the slot (LivingComponentAction#slotId,
+	 * EntityActionInstance#actionSlot); an action that clears itself clears its own slot
+	 * (LivingComponentAction#getComponentForSlot(performer, actionSlot())). Each power keeps its own input buffer
+	 * (EntityActionInputState#inputBuffer(PowerClass)).
+	 */
+	public static final String FEATURE_STAND_POWER_ACTION_SLOT_V1 =
+			"stand_power_action_slot_v1";
 
 	public static final Set<String> FEATURES = Set.of(
 			FEATURE_ABILITY_RESOURCE_NAMESPACE_V1,
@@ -404,7 +418,8 @@ public final class RotpAddonApi {
 			FEATURE_ABILITY_COOLDOWN_TECHNICAL_V1,
 			FEATURE_ACTION_SUMMON_LOCK_HOOK_V1,
 			FEATURE_ACTION_STAND_STUN_HOOK_V1,
-			FEATURE_HELD_ACTION_RULES_PER_POWER_V1);
+			FEATURE_HELD_ACTION_RULES_PER_POWER_V1,
+			FEATURE_STAND_POWER_ACTION_SLOT_V1);
 
 	private RotpAddonApi() {}
 

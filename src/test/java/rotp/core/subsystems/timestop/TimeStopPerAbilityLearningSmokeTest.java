@@ -193,7 +193,7 @@ public final class TimeStopPerAbilityLearningSmokeTest {
 				&& start.contains("TimeStopLearning.getTimeStopStaminaCostTick(power, learningName)")
 				&& start.contains("power, learningName, instance.totalTicks())"),
 				"a started time stop must be timed and priced by its own training");
-		String release = between(ability, "public void onButtonStopHold()", "LivingComponentAction.getComponent(performer)");
+		String release = between(ability, "public void onButtonStopHold()", "LivingComponentAction.getComponentForSlot(performer, actionSlot())");
 		check(release.contains("TimeStopLearning.getSavedTimeStopTicks(power, learningName)")
 				&& release.contains("getAbilityLearningProgressPoints(learningName)"),
 				"an early release must read the released time stop's own training");

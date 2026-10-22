@@ -107,7 +107,7 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 		if (action == null) return null;
 		action.setStartedByClick(inputMethod == InputMethod.CLICK);
 		
-		LivingComponentAction actionComponent = LivingComponentAction.getComponent(performer);
+		LivingComponentAction actionComponent = LivingComponentAction.getComponent(performer, abilityId.powerClass());
 		boolean toBuffer = holdsBackInput(action.ability, user, actionComponent);
 
 		HeldInput actionOrQueue = null;
@@ -134,7 +134,7 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 	@ApiStatus.Internal
 	public boolean wouldBufferInput(LivingEntity user) {
 		LivingEntity performer = user != null ? getPerformer(user) : null;
-		return performer != null && holdsBackInput(this, user, LivingComponentAction.getComponent(performer));
+		return performer != null && holdsBackInput(this, user, LivingComponentAction.getComponent(performer, abilityId.powerClass()));
 	}
 
 	private static boolean holdsBackInput(EntityActionType ability, LivingEntity user, LivingComponentAction performerAction) {
@@ -580,8 +580,9 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 	}
 	
 	/**
-	 * 1.16 GameplayEventHandler.onLivingDamage -> PowerBaseImpl.onUserGettingAttacked: a hit with a direct entity
-	 * stops the user's held actions (its own and its Stand's) whose cancelHeldOnGettingAttacked says so, held as 1.16's
+	 * 1.16 GameplayEventHandler.onLivingDamage -> PowerBaseImpl.onUserGettingAttacked, power by power: a hit with a direct
+	 * entity stops the user's held actions (its own, its Stand-power slot's and its Stand's) whose
+	 * cancelHeldOnGettingAttacked says so, held as 1.16's
 	 * getHeldAction() was, from the press on ({@link #isHeldSincePress}) while a key holds them, and the hold ends.
 	 * A hit that a shield or an incoming-damage reduction brought to nothing, or that a counter cancelled at
 	 * LivingHurtEvent (DamageSourceModified#isCountered), never reached that event.
@@ -595,16 +596,17 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 			return;
 		}
 		float dmgAmount = event.getNewDamage();
-		stopHeldActionOf(user, user, dmgSource, dmgAmount);
+		stopHeldActionOf(LivingComponentAction.getCurEntityAction(user), user, dmgSource, dmgAmount);
+		stopHeldActionOf(LivingComponentAction.getCurEntityAction(user, PowerClass.STAND), user, dmgSource, dmgAmount);
 		StandPower standPower = StandPower.get(user);
 		StandEntity standEntity = standPower != null ? standPower.getSummonedStandEntity() : null;
 		if (standEntity != null && standEntity != user) {
-			stopHeldActionOf(standEntity, user, dmgSource, dmgAmount);
+			stopHeldActionOf(LivingComponentAction.getCurEntityAction(standEntity), user, dmgSource, dmgAmount);
 		}
 	}
 	
-	private static void stopHeldActionOf(LivingEntity performer, LivingEntity user, DamageSource dmgSource, float dmgAmount) {
-		EntityActionInstance action = LivingComponentAction.getCurEntityAction(performer);
+	private static void stopHeldActionOf(@Nullable EntityActionInstance action, LivingEntity user, DamageSource dmgSource,
+			float dmgAmount) {
 		// A hit on the Stand itself is not its user's (a linked hit reaches the user as its own damage).
 		if (action != null && !action.isOver() && action.getPowerUser() == user
 				&& action.ability instanceof EntityActionAbility ability
@@ -646,7 +648,7 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 		if (indicator.maxValue > 0) {
 			LivingEntity performer = getPerformer(clientPlayer);
 			if (performer != null) {
-				EntityActionInstance curAction = LivingComponentAction.getCurEntityAction(performer);
+				EntityActionInstance curAction = LivingComponentAction.getCurEntityAction(performer, abilityId.powerClass());
 				if (isSameAbilityAction(curAction)) {
 					ActionPhase phase = curAction.getPhase();
 					if (phase == null) {
@@ -680,7 +682,7 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 	@Override
 	public boolean isHeldReadyToFire(LivingEntity user) {
 		LivingEntity performer = user != null ? getPerformer(user) : null;
-		EntityActionInstance action = performer != null ? LivingComponentAction.getCurEntityAction(performer) : null;
+		EntityActionInstance action = performer != null ? LivingComponentAction.getCurEntityAction(performer, abilityId.powerClass()) : null;
 		return isSameAbilityAction(action) && !action.isOver() && isActionHeldReadyToFire(action);
 	}
 

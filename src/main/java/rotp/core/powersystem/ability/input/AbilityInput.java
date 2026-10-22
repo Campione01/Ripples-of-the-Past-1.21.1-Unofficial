@@ -163,7 +163,7 @@ public class AbilityInput {
 						clickHoldResolveTime, bufferingState);
 				if (bufferingState.canBuffer() && bufferingState.shouldBuffer) {
 					HeldInput heldInputObj = null;
-					ActionInputBuffer actionInputBuffer = transaction.inputBuffer;
+					ActionInputBuffer actionInputBuffer = transaction.inputBuffer(ability);
 					if (actionInputBuffer != null) {
 						if (baseAbilityForBuffering == null) {
 							baseAbilityForBuffering = ability.abilityId;
@@ -377,8 +377,13 @@ public class AbilityInput {
 		@Nullable private final ActionInputBuffer inputBuffer;
 		@Nullable private final BufferedInputEntry bufferedBefore;
 		@Nullable private BufferedInputEntry bufferedAfter;
+		@Nullable private final ActionInputBuffer playerPowerInputBuffer;
+		@Nullable private final BufferedInputEntry playerPowerBufferedBefore;
+		@Nullable private BufferedInputEntry playerPowerBufferedAfter;
 		private final LivingComponentAction userAction;
 		private final TransactionSnapshot userActionBefore;
+		@Nullable private final LivingComponentAction userStandPowerAction;
+		@Nullable private final TransactionSnapshot userStandPowerActionBefore;
 		@Nullable private final LivingComponentAction standAction;
 		@Nullable private final TransactionSnapshot standActionBefore;
 		@Nullable private StandPower cooldownPower;
@@ -404,8 +409,17 @@ public class AbilityInput {
 			this.bufferedBefore = inputBuffer != null
 					? inputBuffer.buffered : null;
 			this.bufferedAfter = bufferedBefore;
+			this.playerPowerInputBuffer = inputState != null
+					? inputState.playerPowerInputBuffer : null;
+			this.playerPowerBufferedBefore = playerPowerInputBuffer != null
+					? playerPowerInputBuffer.buffered : null;
+			this.playerPowerBufferedAfter = playerPowerBufferedBefore;
 			this.userAction = LivingComponentAction.getComponent(user);
 			this.userActionBefore = userAction.captureTransactionSnapshot();
+			this.userStandPowerAction = user instanceof StandEntity
+					? null : LivingComponentAction.getComponent(user, PowerClass.STAND);
+			this.userStandPowerActionBefore = userStandPowerAction != null
+					? userStandPowerAction.captureTransactionSnapshot() : null;
 			StandEntity stand = StandUtil.getSummonedStand(user);
 			this.standAction = stand != null
 					? LivingComponentAction.getComponent(stand) : null;
@@ -416,6 +430,24 @@ public class AbilityInput {
 		private void captureBufferedAfter() {
 			bufferedAfter = inputBuffer != null
 					? inputBuffer.buffered : null;
+			playerPowerBufferedAfter = playerPowerInputBuffer != null
+					? playerPowerInputBuffer.buffered : null;
+		}
+
+		// the buffer of the pressed ability's power: 1.16 kept a press per power
+		@Nullable
+		private ActionInputBuffer inputBuffer(Ability pressed) {
+			return pressed.abilityId.powerClass() == PowerClass.PLAYER_POWER
+					? playerPowerInputBuffer : inputBuffer;
+		}
+
+		private static void restoreBuffered(@Nullable ActionInputBuffer inputBuffer,
+				@Nullable BufferedInputEntry bufferedBefore, @Nullable BufferedInputEntry bufferedAfter) {
+			if (inputBuffer != null
+					&& inputBuffer.buffered == bufferedAfter
+					&& bufferedAfter != bufferedBefore) {
+				inputBuffer.buffered = bufferedBefore;
+			}
 		}
 
 		private void captureCooldown(Ability ability) {
@@ -447,13 +479,9 @@ public class AbilityInput {
 					}
 				}
 			});
-			rollbackStep(original, () -> {
-				if (inputBuffer != null
-						&& inputBuffer.buffered == bufferedAfter
-						&& bufferedAfter != bufferedBefore) {
-					inputBuffer.buffered = bufferedBefore;
-				}
-			});
+			rollbackStep(original, () -> restoreBuffered(inputBuffer, bufferedBefore, bufferedAfter));
+			rollbackStep(original, () -> restoreBuffered(
+					playerPowerInputBuffer, playerPowerBufferedBefore, playerPowerBufferedAfter));
 			if (cooldownAttempted && cooldownPower != null
 					&& cooldownAbility != null) {
 				rollbackStep(original, () -> cooldownPower.setAbilityCooldown(
@@ -461,6 +489,10 @@ public class AbilityInput {
 			}
 			rollbackStep(original, () ->
 					userAction.rollbackFailedInputAction(userActionBefore));
+			if (userStandPowerAction != null && userStandPowerActionBefore != null) {
+				rollbackStep(original, () -> userStandPowerAction.rollbackFailedInputAction(
+						userStandPowerActionBefore));
+			}
 			if (standAction != null && standActionBefore != null) {
 				rollbackStep(original, () -> standAction.rollbackFailedInputAction(
 						standActionBefore));
@@ -599,7 +631,8 @@ public class AbilityInput {
 
 	/**
 	 * The action of the power that its user holds now, as 1.16's power held one from its press until it fired or was let
-	 * go (PowerBaseImpl.getHeldAction): the user's or its Stand's action of an ability of that power, held since its press
+	 * go (PowerBaseImpl.getHeldAction): the action of an ability of that power in the user's slot of that power
+	 * (LivingComponentAction#getComponent(LivingEntity, PowerClass)) or, for the Stand power, its Stand's, held since its press
 	 * (EntityActionAbility#isHeldSincePress) and, on the server, by a key. A client, which does not know the server's
 	 * keys, goes by the action's phase alone.
 	 */
@@ -610,13 +643,13 @@ public class AbilityInput {
 			return null;
 		}
 		EntityActionInstance held = heldActionOf(user, user, powerClass);
-		StandEntity stand = held == null ? StandUtil.getSummonedStand(user) : null;
+		StandEntity stand = held == null && powerClass == PowerClass.STAND ? StandUtil.getSummonedStand(user) : null;
 		return stand != null && stand != user ? heldActionOf(stand, user, powerClass) : held;
 	}
 
 	@Nullable
 	private static EntityActionInstance heldActionOf(LivingEntity performer, LivingEntity user, PowerClass<?> powerClass) {
-		EntityActionInstance action = LivingComponentAction.getCurEntityAction(performer);
+		EntityActionInstance action = LivingComponentAction.getCurEntityAction(performer, powerClass);
 		return action != null && !action.isOver() && action.getPowerUser() == user
 				&& action.ability instanceof EntityActionAbility ability && ability.abilityId.powerClass() == powerClass
 				&& ability.isHeldSincePress(action) && (user.level().isClientSide() || isHeldByKey(user, action))

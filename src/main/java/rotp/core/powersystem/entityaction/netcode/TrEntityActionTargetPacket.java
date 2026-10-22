@@ -30,13 +30,20 @@ public record TrEntityActionTargetPacket(int performerId,
 		@Nullable ActionTarget keptTarget,
 		@Nullable ActionTarget rotationTarget,
 		AimingEntity aimAs,
-		@Nullable ActionTarget taskTarget) implements CustomPacketPayload {
+		@Nullable ActionTarget taskTarget,
+		int slot) implements CustomPacketPayload {
 
 	public TrEntityActionTargetPacket {
 		Objects.requireNonNull(performerUuid, "performerUuid");
 		Objects.requireNonNull(aimAs, "aimAs");
 		NetworkPayloadValidation.requireOutboundGeneration(
 				actionGeneration, "entity action target");
+	}
+
+	public TrEntityActionTargetPacket(int performerId, UUID performerUuid, long actionGeneration, int actionId,
+			@Nullable ActionTarget keptTarget, @Nullable ActionTarget rotationTarget, AimingEntity aimAs,
+			@Nullable ActionTarget taskTarget) {
+		this(performerId, performerUuid, actionGeneration, actionId, keptTarget, rotationTarget, aimAs, taskTarget, 0);
 	}
 
 	private TrEntityActionTargetPacket(RegistryFriendlyByteBuf buf) {
@@ -48,7 +55,8 @@ public record TrEntityActionTargetPacket(int performerId,
 				NetworkUtil.readOptional(buf, ActionTarget.STREAM_CODEC_UNRESOLVED_ENTITY_ID).orElse(null),
 				NetworkUtil.readOptional(buf, ActionTarget.STREAM_CODEC_UNRESOLVED_ENTITY_ID).orElse(null),
 				buf.readEnum(AimingEntity.class),
-				NetworkUtil.readOptional(buf, ActionTarget.STREAM_CODEC_UNRESOLVED_ENTITY_ID).orElse(null));
+				NetworkUtil.readOptional(buf, ActionTarget.STREAM_CODEC_UNRESOLVED_ENTITY_ID).orElse(null),
+				buf.readUnsignedByte());
 	}
 
 	private void write(RegistryFriendlyByteBuf buf) {
@@ -60,6 +68,7 @@ public record TrEntityActionTargetPacket(int performerId,
 		NetworkUtil.writeOptionally(rotationTarget, buf, ActionTarget.STREAM_CODEC_UNRESOLVED_ENTITY_ID);
 		buf.writeEnum(aimAs);
 		NetworkUtil.writeOptionally(taskTarget, buf, ActionTarget.STREAM_CODEC_UNRESOLVED_ENTITY_ID);
+		buf.writeByte(slot);
 	}
 
 	private static CustomPacketPayload.Type<TrEntityActionTargetPacket> type;

@@ -342,18 +342,19 @@ public class PowerHud {
 			if (player == null) {
 				return;
 			}
-			if (setActiveActionWindupAtCrosshair(player, player, partialTick)) {
+			if (setActiveActionWindupAtCrosshair(player, LivingComponentAction.getCurEntityAction(player), partialTick)
+					|| setActiveActionWindupAtCrosshair(player, LivingComponentAction.getCurEntityAction(player, PowerClass.STAND),
+							partialTick)) {
 				return;
 			}
 			StandPower standPower = ClientPowerCache.getPower(PowerClass.STAND);
 			StandEntity stand = standPower != null ? standPower.getSummonedStandEntity() : null;
 			if (stand != null) {
-				setActiveActionWindupAtCrosshair(player, stand, partialTick);
+				setActiveActionWindupAtCrosshair(player, LivingComponentAction.getCurEntityAction(stand), partialTick);
 			}
 		}
 
-		private boolean setActiveActionWindupAtCrosshair(Player player, LivingEntity performer, float partialTick) {
-			EntityActionInstance action = LivingComponentAction.getCurEntityAction(performer);
+		private boolean setActiveActionWindupAtCrosshair(Player player, EntityActionInstance action, float partialTick) {
 			if (action == null || !(action.ability instanceof Ability ability)) {
 				return false;
 			}
@@ -1242,6 +1243,10 @@ public class PowerHud {
 			EntityActionInstance playerAction = LivingComponentAction.getCurEntityAction(player);
 			if (playerAction != null) {
 				multiplier *= playerAction.userWalkSpeed;
+			}
+			EntityActionInstance playerStandPowerAction = LivingComponentAction.getCurEntityAction(player, PowerClass.STAND);
+			if (playerStandPowerAction != null) {
+				multiplier *= playerStandPowerAction.userWalkSpeed;
 			}
 			StandEntity stand = ClientGlobals.playerStandEntity;
 			if (stand != null) {

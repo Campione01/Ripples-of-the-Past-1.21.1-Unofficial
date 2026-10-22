@@ -23,7 +23,15 @@ public class EntityActionInputState implements TickingEntityData {
 			new AtomicLong();
 
 	public final LivingEntity user;
+	/** The Stand power's input buffer (and that of any ability of no power class). */
 	public final ActionInputBuffer inputBuffer = new ActionInputBuffer();
+	/** The non-Stand power's input buffer: 1.16 kept a press per power, so each power's press waits on its own. */
+	@ApiStatus.Internal
+	public final ActionInputBuffer playerPowerInputBuffer = new ActionInputBuffer();
+
+	public ActionInputBuffer inputBuffer(@Nullable PowerClass<?> powerClass) {
+		return powerClass == PowerClass.PLAYER_POWER ? playerPowerInputBuffer : inputBuffer;
+	}
 
 	public EntityActionInputState(LivingEntity entity) {
 		this.user = entity;
@@ -37,6 +45,8 @@ public class EntityActionInputState implements TickingEntityData {
 		if (TimeStopState.shouldFreezeOnServer(user)) {
 			return;
 		}
+		// 1.16's power order: the non-Stand power first
+		playerPowerInputBuffer.tickInputBuffer(this);
 		inputBuffer.tickInputBuffer(this);
 	}
 

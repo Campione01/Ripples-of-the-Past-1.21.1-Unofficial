@@ -1253,6 +1253,11 @@ public class InputHandler {
 		if (playerAction != null) {
 			movementMultiplier *= playerAction.userWalkSpeed;
 		}
+		// 1.16 applied both powers' held slowdowns
+		EntityActionInstance playerStandPowerAction = LivingComponentAction.getCurEntityAction(player, PowerClass.STAND);
+		if (playerStandPowerAction != null) {
+			movementMultiplier *= playerStandPowerAction.userWalkSpeed;
+		}
 		
 		StandEntity stand = ClientGlobals.playerStandEntity;
 		if (stand != null) {
