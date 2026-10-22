@@ -22,6 +22,7 @@ import rotp.core.client.entityanim.AnimationSet;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.impl.stands.crazydiamond.CrazyDHealAbility;
+import rotp.core.init.ModStatusEffects;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.EntityActionAbility;
@@ -37,6 +38,9 @@ import rotp.core.subsystems.target.ActionTarget;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
@@ -312,24 +316,27 @@ public final class StandClipFollowUps116GameTests {
 			helper.assertTrue(type.summon(user, power), "setup: could not summon Crazy Diamond");
 			StandEntity stand = power.getSummonedStandEntity();
 			helper.assertTrue(stand != null, "setup: the summoned Stand is missing");
-			// the ability, then the clip it asks for: not healing, healing without and with barrage visuals
-			String[][] rows = { { "heal", "idle", "idle", "barrage" }, { "revert_state", "repair_item", "repair_item", "barrage" } };
+			// the ability, then the clip it asks for: not healing, healing without and with barrage visuals, not healing with
+			// barrage visuals (1.16's getStandPose asked barrageVisuals alone)
+			String[][] rows = { { "heal", "idle", "idle", "barrage", "barrage" },
+					{ "revert_state", "repair_item", "repair_item", "barrage", "barrage" } };
 			for (String[] row : rows) {
 				Ability ability = power.getAbility(row[0]);
 				helper.assertTrue(ability instanceof EntityActionAbility, "setup: Crazy Diamond has no " + row[0]);
 				EntityActionInstance action = ((EntityActionAbility) ability).initActionOnAbilityUse(helper.getLevel(), user, stand, null);
 				LivingComponentAction.getComponent(stand).setAction(action, user, SyncType.NO_SYNC);
 				helper.assertTrue(action instanceof CrazyDHealAbility.HealingAction, "setup: " + row[0] + " is no healing action");
-				String[] got = new String[3];
+				String[] got = new String[4];
 				got[0] = action.getEntityAnim().name();
-				for (int visuals = 0; visuals < 2; visuals++) {
+				boolean[][] results = { { true, false }, { true, true }, { false, true } };
+				for (int i = 0; i < results.length; i++) {
 					action.synchedData.set(CrazyDHealAbility.HealingAction.HEAL_RESULT, new CrazyDHealAbility.HealingAction.HealResult.Synched(
-							ActionTarget.EMPTY, true, visuals == 1, CrazyDHealAbility.HealingAction.HealResult.Synched.NO_DEATH_TIME_CHANGE));
-					got[visuals + 1] = action.getEntityAnim().name();
+							ActionTarget.EMPTY, results[i][0], results[i][1], CrazyDHealAbility.HealingAction.HealResult.Synched.NO_DEATH_TIME_CHANGE));
+					got[i + 1] = action.getEntityAnim().name();
 				}
-				if (!Arrays.equals(got, Arrays.copyOfRange(row, 1, 4))) {
-					wrong.add(row[0] + " plays " + Arrays.toString(got) + " (not healing, healing, healing with barrage visuals) where 1.16"
-							+ " drew " + Arrays.toString(Arrays.copyOfRange(row, 1, 4)));
+				if (!Arrays.equals(got, Arrays.copyOfRange(row, 1, 5))) {
+					wrong.add(row[0] + " plays " + Arrays.toString(got) + " (not healing, healing, healing with barrage visuals, not"
+							+ " healing with them) where 1.16 drew " + Arrays.toString(Arrays.copyOfRange(row, 1, 5)));
 				}
 			}
 		}
@@ -340,6 +347,74 @@ public final class StandClipFollowUps116GameTests {
 			user.discard();
 		}
 		helper.assertTrue(wrong.isEmpty(), "1.16's Crazy Diamond healed in its idle pose, the barrage's with barrage visuals: " + wrong);
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 CrazyDiamondHeal.barrageVisuals (:196-208) held, healing or not, while its user was under Resolve or its task's
+	 * target was a living entity at half its health or less; StandEntityAction.getStandPose then drew the barrage. The heal
+	 * now sets its synced barrage visuals by that rule in every perform tick, a full-health target included.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void crazyDiamondsHealShowsTheBarrageWheneverItsBarrageVisualsHoldAs116(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		Player user = FakePlayerFactory.get(helper.getLevel(), new GameProfile(UUID.randomUUID(), "CDHealVisualsRule"));
+		StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("crazy_diamond"));
+		StandPower power = null;
+		Cow cow = EntityType.COW.create(helper.getLevel());
+		try {
+			user.getAbilities().instabuild = false;
+			Vec3 pos = Vec3.atCenterOf(helper.absolutePos(new BlockPos(2, 3, 2)));
+			user.moveTo(pos.x, pos.y, pos.z);
+			helper.assertTrue(helper.getLevel().addFreshEntity(user), "setup: could not add the Stand user");
+			helper.assertTrue(cow != null, "setup: could not create the cow");
+			cow.setNoAi(true);
+			cow.moveTo(pos.x, pos.y, pos.z + 2);
+			helper.assertTrue(helper.getLevel().addFreshEntity(cow), "setup: could not add the cow");
+			power = PowerClass.STAND.attachGet(user);
+			helper.assertTrue(StandPowerTransitions.insert(power, new StandInstance(type)).status() == StandPowerTransitions.Status.APPLIED,
+					"setup: could not grant Crazy Diamond");
+			power.setResolveLevel(power.getMaxResolveLevel());
+			helper.assertTrue(type.summon(user, power), "setup: could not summon Crazy Diamond");
+			StandEntity stand = power.getSummonedStandEntity();
+			helper.assertTrue(stand != null, "setup: the summoned Stand is missing");
+			EntityActionInstance action = ((EntityActionAbility) power.getAbility("heal")).initActionOnAbilityUse(helper.getLevel(), user, stand, null);
+			LivingComponentAction.getComponent(stand).setAction(action, user, SyncType.NO_SYNC);
+			CrazyDHealAbility.HealingAction heal = (CrazyDHealAbility.HealingAction) action;
+			ActionTarget atCow = new ActionTarget(cow);
+			// {Resolve, the cow's health as a share of its maximum, the target is the cow} -> 1.16's barrageVisuals
+			Object[][] rows = { { false, 1.0F, true, false }, { true, 1.0F, true, true }, { false, 0.5F, true, true },
+					{ false, 0.6F, true, false }, { true, 1.0F, false, true } };
+			for (Object[] row : rows) {
+				user.removeAllEffects();
+				if ((boolean) row[0]) {
+					user.addEffect(new MobEffectInstance(ModStatusEffects.RESOLVE, 100));
+				}
+				cow.setHealth(cow.getMaxHealth() * (float) row[1]);
+				boolean got = heal.showsBarrageVisuals((boolean) row[2] ? atCow : ActionTarget.EMPTY);
+				if (got != (boolean) row[3]) {
+					wrong.add("Resolve " + row[0] + ", the cow at " + row[1] + " of its health" + ((boolean) row[2] ? "" : ", no target")
+							+ ": barrage visuals " + got + ", 1.16 " + row[3]);
+				}
+			}
+		}
+		finally {
+			if (power != null && power.isSummoned()) {
+				type.forceUnsummon(user, power);
+			}
+			if (cow != null) {
+				cow.discard();
+			}
+			user.removeAllEffects();
+			user.discard();
+		}
+		// the perform tick sets the synced visuals by the rule (read from the action's class file)
+		if (!invokedMethods(helper, "rotp/core/impl/stands/crazydiamond/CrazyDHealAbility$HealingAction.class")
+				.contains("rotp/core/impl/stands/crazydiamond/CrazyDHealAbility$HealingAction.showsBarrageVisuals")) {
+			wrong.add("the heal's perform tick no longer asks showsBarrageVisuals");
+		}
+		helper.assertTrue(wrong.isEmpty(), "1.16's Crazy Diamond heal showed barrage visuals under Resolve or at a target at half its"
+				+ " health or less, healing or not: " + wrong);
 		helper.succeed();
 	}
 

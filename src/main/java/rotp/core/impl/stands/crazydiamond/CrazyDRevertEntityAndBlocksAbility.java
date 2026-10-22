@@ -173,6 +173,13 @@ public class CrazyDRevertEntityAndBlocksAbility extends StandEntityAbility {
 			return true;
 		}
 
+		// its own rule: barrage visuals only while it reverts (1.16 CrazyDiamondPreviousState.barrageVisuals differed; not
+		// ported here)
+		@Override
+		public boolean showsBarrageVisuals(ActionTarget target) {
+			return false;
+		}
+
 		/**
 		 * 1.16 StandEntityTask.keepTarget with CrazyDiamondPreviousState.checkTarget: an entity Revert can no longer
 		 * work on (a creeper no longer charged, a Wither past its spawn, a Resolve level gone) or beyond the default
