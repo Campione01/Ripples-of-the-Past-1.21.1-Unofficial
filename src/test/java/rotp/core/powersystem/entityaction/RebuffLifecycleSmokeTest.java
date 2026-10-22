@@ -202,7 +202,7 @@ public final class RebuffLifecycleSmokeTest {
 				}
 				"""), "floattailElapsed=rebuffTail!=null?rebuffTail.elapsedTicks(living.tickCount,rebuffPartialTick):0;",
 				"if(rebuffTail!=null){timeSeconds+=anim.clock.elapsed(tailElapsed);}",
-				"pose=anim.calcAnimPose(molangVariables,actionComponent!=null?actionComponent.clPrevPunchPose:null,timeSeconds,1);",
+				"pose=anim.calcAnimPose(molangVariables,performPose==null&&actionComponent!=null?actionComponent.clPrevPunchPose:null,timeSeconds,1);",
 				"if(rebuffTail!=null)pose.blendWeight=rebuffTail.blendWeight(tailElapsed);",
 				"elseif(rebuffTail!=null){actionComponent.clearClientRebuffTail();}");
 	}
