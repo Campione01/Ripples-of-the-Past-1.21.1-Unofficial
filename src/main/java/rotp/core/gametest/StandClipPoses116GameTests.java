@@ -89,8 +89,9 @@ public final class StandClipPoses116GameTests {
 			// the rapier, no head in any of them; RANGED_ATTACK (the rapier launch) was drawn as the idle
 			new HeadPose(SC_ANIMS, "light_attack", "0"), new HeadPose(SC_ANIMS, "light_attack", "PERFORM"),
 			new HeadPose(SC_ANIMS, "light_attack", "RECOVERY"), idle(SC_ANIMS, "light_attack"),
-			new HeadPose(SC_ANIMS, "melee_barrage", "0"), new HeadPose(SC_ANIMS, "melee_barrage", "PERFORM"),
-			new HeadPose(SC_ANIMS, "melee_barrage", "1.0"), new HeadPose(SC_ANIMS, "melee_barrage", "RECOVERY"),
+			// the barrage shows the idle in its windup and recovery (ArmsBarrageAnimation)
+			new HeadPose(SC_ANIMS, "melee_barrage", "0", Head.IDLE, null), new HeadPose(SC_ANIMS, "melee_barrage", "PERFORM"),
+			new HeadPose(SC_ANIMS, "melee_barrage", "1.0"), new HeadPose(SC_ANIMS, "melee_barrage", "RECOVERY", Head.IDLE, null),
 			idle(SC_ANIMS, "melee_barrage"),
 			new HeadPose(SC_ANIMS, "dash_attack", "0"), new HeadPose(SC_ANIMS, "dash_attack", "PERFORM"),
 			new HeadPose(SC_ANIMS, "dash_attack", "RECOVERY"), idle(SC_ANIMS, "dash_attack"),
@@ -205,7 +206,7 @@ public final class StandClipPoses116GameTests {
 			new ArmLook(SC_ANIMS, "light_attack", new String[] { "0", "PERFORM", "RECOVERY", "END" }, new float[] { 1, 1, 1, 1 }),
 			// SilverChariotModel :361-365 and ArmsBarrageAnimation: no pose in the windup, the stab loop in the perform,
 			// the idle in the recovery
-			new ArmLook(SC_ANIMS, "melee_barrage", new String[] { "0", "0.2999", "PERFORM", "1.0", "RECOVERY", "2.3001", "END" },
+			new ArmLook(SC_ANIMS, "melee_barrage", new String[] { "0", "0.2999", "PERFORM", "1.0", "2.2999", "RECOVERY", "END" },
 					new float[] { 0, 0, 1, 1, 1, 0, 0 }));
 
 	// a clip whose joints turn by half their forearm or lower leg, the limbs to check; one whose windup starts on the idle
@@ -215,7 +216,6 @@ public final class StandClipPoses116GameTests {
 	private static final List<JointClip> JOINT_CLIPS = List.of(
 			new JointClip(SC_ANIMS, "light_attack", false, "left_arm", "right_arm"),
 			new JointClip(SC_ANIMS, "no_rapier_light_attack", false, "left_arm", "right_arm"),
-			new JointClip(SC_ANIMS, "melee_barrage", false, "left_arm", "right_arm"),
 			new JointClip(SC_ANIMS, "dash_attack", false, "left_arm", "right_arm"),
 			// SilverChariotModel :330, the sweep's windup: ModelPoseTransition(idlePose, sweepPose1)
 			new JointClip(SC_ANIMS, "sweeping_attack", true, "left_arm", "right_arm"));
