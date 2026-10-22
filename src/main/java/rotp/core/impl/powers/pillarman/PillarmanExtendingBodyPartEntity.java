@@ -211,8 +211,10 @@ public abstract class PillarmanExtendingBodyPartEntity extends OwnerBoundProject
 		}
 
 		List<HitResult> hits = new ArrayList<>();
+		// 1.16 OwnerBoundProjectileEntity.rayTrace (JojoModUtil.rayTraceMultipleEntities) met blocks by their outlines, so
+		// a vein, a rib or the horn stops at grass, a flower or a torch and breaks it
 		BlockHitResult blockHit = level().clip(new ClipContext(startPos, endPos,
-				ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, this));
+				ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, this));
 		if (blockHit.getType() != HitResult.Type.MISS) {
 			hits.add(blockHit);
 		}

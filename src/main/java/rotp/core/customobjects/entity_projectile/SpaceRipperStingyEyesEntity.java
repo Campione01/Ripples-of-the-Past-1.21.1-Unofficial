@@ -223,8 +223,10 @@ public class SpaceRipperStingyEyesEntity extends ModdedProjectileEntity {
 		}
 
 		List<HitResult> hits = new ArrayList<>();
+		// 1.16 OwnerBoundProjectileEntity.rayTrace (JojoModUtil.rayTraceMultipleEntities) met blocks by their outlines, so
+		// the beam stops at grass, a flower or a torch and breaks it
 		BlockHitResult blockHit = level().clip(new ClipContext(start, end,
-				ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, this));
+				ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, this));
 		if (blockHit.getType() != HitResult.Type.MISS) {
 			hits.add(blockHit);
 		}
