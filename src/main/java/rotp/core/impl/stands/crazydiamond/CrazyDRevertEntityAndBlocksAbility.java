@@ -152,9 +152,9 @@ public class CrazyDRevertEntityAndBlocksAbility extends StandEntityAbility {
 		return user != null && canPickEntityForAiming(target) && canRevertEntity(target, user);
 	}
 
-	// 1.16 took the target under the crosshair, as for Heal
+	// 1.16 took the target under the crosshair, as for Heal, a block without a collision shape giving way
 	private static ActionTarget getCurrentRevertEntityTarget(LivingEntity user, Level level) {
-		return CrazyDHealAbility.getCrosshairEntityTarget(user, level, entity -> canRevertEntity(entity, user));
+		return CrazyDHealAbility.getCrosshairEntityTarget(user, level, entity -> canRevertEntity(entity, user), true);
 	}
 
 	public static class RevertStateAction extends CrazyDHealAbility.HealingAction {

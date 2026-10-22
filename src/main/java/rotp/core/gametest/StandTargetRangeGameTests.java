@@ -2898,7 +2898,10 @@ public final class StandTargetRangeGameTests {
 
 	// 1.16 GoldExperienceBoneMeal.standPerform re-aims with StandEntity.aimWithThisOrUser(64, task target): a pressed
 	// target out of the Stand's reach gives way to the precision ray from the user's eyes. The Stand stands beside its
-	// user, the sapling on the user's look ray about 6 blocks ahead, past the Stand's reach and within the press range.
+	// user, the pressed block on the user's look ray about 6 blocks ahead, past the Stand's reach and within the press
+	// range. It has a collision shape: a sapling pressed there gave way to the Stand's collision ray
+	// (StandEntityAction.overrideVanillaMouseTarget), which meets nothing here, and Bone Meal (TargetRequirement.ANY)
+	// refused that press.
 	@GameTest(template = "empty", batch = BATCH)
 	public static void goldExperienceBoneMealReaimsAlongTheUsersLookRayPastTheStandsReach(GameTestHelper helper) {
 		try (Fixture fixture = Fixture.open(helper, Kind.GE_BONE_MEAL)) {
@@ -2911,34 +2914,34 @@ public final class StandTargetRangeGameTests {
 			NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, true, BonemealEvent.class, listener);
 			try {
 				fixture.stand.moveTo(fixture.origin.x + 1.5D, fixture.origin.y, fixture.origin.z, 0.0F, 0.0F);
-				BlockPos onRay = fixture.sapling(BlockPos.containing(fixture.origin.x, fixture.origin.y + 1.0D,
+				BlockPos onRay = fixture.coveredMoss(BlockPos.containing(fixture.origin.x, fixture.origin.y + 1.0D,
 						fixture.origin.z + 6.0D));
-				AABB saplingBox = fixture.level.getBlockState(onRay).getShape(fixture.level, onRay).bounds().move(onRay);
-				double fromStand = ActionTargetRange.getDistance(fixture.stand, saplingBox);
+				AABB pressedBox = fixture.level.getBlockState(onRay).getShape(fixture.level, onRay).bounds().move(onRay);
+				double fromStand = ActionTargetRange.getDistance(fixture.stand, pressedBox);
 				double reach = fixture.stand.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE);
 				Vec3 eyes = fixture.user.getEyePosition();
-				boolean onLookRay = saplingBox.clip(eyes, eyes.add(fixture.user.getLookAngle().scale(64.0D))).isPresent();
+				boolean onLookRay = pressedBox.clip(eyes, eyes.add(fixture.user.getLookAngle().scale(64.0D))).isPresent();
 				fixture.aim(new ActionTarget(onRay, Direction.NORTH));
 				String pressed = fixture.refusal();
 				helper.assertTrue(fromStand > reach && onLookRay && "accepted".equals(pressed),
-						"STAND-RANGE premise: the sapling is not past the Stand's reach on the user's look ray, or the press on"
+						"STAND-RANGE premise: the moss is not past the Stand's reach on the user's look ray, or the press on"
 								+ " it was refused: fromStand=" + fromStand + " reach=" + reach + " onLookRay=" + onLookRay
 								+ " press=" + pressed);
 				fixture.pressAndRun();
-				helper.assertTrue(boneMealed.equals(List.of(onRay)), "GE_BONE_MEAL pressed on a sapling " + fromStand
+				helper.assertTrue(boneMealed.equals(List.of(onRay)), "GE_BONE_MEAL pressed on moss " + fromStand
 						+ " blocks from the Stand, past its reach of " + reach + ", on the user's look ray: bone-mealed "
-						+ boneMealed + "; 1.16 re-aims along the user's look ray and bone-meals the sapling " + onRay);
+						+ boneMealed + "; 1.16 re-aims along the user's look ray and bone-meals the moss " + onRay);
 
 				boneMealed.clear();
 				fixture.sapling(onRay);
-				BlockPos offRay = fixture.sapling(BlockPos.containing(fixture.origin.x - 2.0D, fixture.origin.y + 1.0D,
+				BlockPos offRay = fixture.coveredMoss(BlockPos.containing(fixture.origin.x - 2.0D, fixture.origin.y + 1.0D,
 						fixture.origin.z + 5.0D));
 				fixture.aim(new ActionTarget(offRay, Direction.NORTH));
 				pressed = fixture.refusal();
-				helper.assertTrue("accepted".equals(pressed), "STAND-RANGE premise: the press on the sapling off the look ray"
+				helper.assertTrue("accepted".equals(pressed), "STAND-RANGE premise: the press on the moss off the look ray"
 						+ " was refused: " + pressed);
 				fixture.pressAndRun();
-				helper.assertTrue(boneMealed.equals(List.of(onRay)), "GE_BONE_MEAL pressed on a sapling " + offRay
+				helper.assertTrue(boneMealed.equals(List.of(onRay)), "GE_BONE_MEAL pressed on moss " + offRay
 						+ " off the user's look ray and past the Stand's reach: bone-mealed " + boneMealed + "; 1.16 re-aims"
 						+ " along the user's look ray and bone-meals the sapling there, " + onRay);
 			}
@@ -3026,19 +3029,20 @@ public final class StandTargetRangeGameTests {
 			helper.assertTrue("accepted".equals(calfAnswer) && calf.getAge() > calfAge,
 					"GE_BONE_MEAL on a baby cow: answered " + calfAnswer + ", aged it by " + (calf.getAge() - calfAge));
 
-			// a press on a sapling past the Stand's reach: the perform aims again along the look ray and meets the villager
+			// a press on moss past the Stand's reach (a block a press keeps, see the re-aim test): the perform aims again
+			// along the look ray and meets the villager
 			calf.discard();
 			fixture.stand.moveTo(fixture.origin.x + 1.5D, fixture.origin.y, fixture.origin.z, 0.0F, 0.0F);
 			villager.moveTo(fixture.origin.x, fixture.user.getEyeY() - villager.getBbHeight() / 2.0D,
 					fixture.origin.z + 3.0D, 180.0F, 0.0F);
-			BlockPos sapling = fixture.sapling(BlockPos.containing(fixture.origin.x, fixture.origin.y + 1.0D,
+			BlockPos moss = fixture.coveredMoss(BlockPos.containing(fixture.origin.x, fixture.origin.y + 1.0D,
 					fixture.origin.z + 6.0D));
-			fixture.aim(new ActionTarget(sapling, Direction.NORTH));
+			fixture.aim(new ActionTarget(moss, Direction.NORTH));
 			ActionTarget reaim = StandPrecisionRay.trace(fixture.user, fixture.stand, 64.0D, 0.0D, true, false);
-			String saplingAnswer = fixture.refusal();
-			helper.assertTrue("accepted".equals(saplingAnswer) && reaim.getMainEntity() == villager,
-					"STAND-RANGE premise: the press on the sapling was refused or the perform's new aim does not meet the"
-							+ " villager: " + saplingAnswer + ", " + reaim);
+			String mossAnswer = fixture.refusal();
+			helper.assertTrue("accepted".equals(mossAnswer) && reaim.getMainEntity() == villager,
+					"STAND-RANGE premise: the press on the moss was refused or the perform's new aim does not meet the"
+							+ " villager: " + mossAnswer + ", " + reaim);
 			villagerAge = villager.getAge();
 			fixture.pressAndRun();
 			helper.assertTrue(villager.getAge() == villagerAge, "GE_BONE_MEAL whose perform aimed again at a baby villager"
@@ -3115,19 +3119,20 @@ public final class StandTargetRangeGameTests {
 
 	// 1.16 GoldExperienceBoneMeal.checkTarget wants a baby, but standPerform ages any AnimalEntity its new aim meets:
 	// AgeableMob.ageUp clamps an adult's positive age to 0, so the breeding cooldown is gone and the animal stays
-	// an adult. The press is on a sapling past the Stand's reach, so the perform aims again along the look ray.
+	// an adult. The press is on moss past the Stand's reach (a block a press keeps, see the re-aim test), so the perform
+	// aims again along the look ray.
 	@GameTest(template = "empty", batch = BATCH)
 	public static void goldExperienceBoneMealSecondAimClearsAnAdultCowsBreedingCooldown(GameTestHelper helper) {
 		try (Fixture fixture = Fixture.open(helper, Kind.GE_BONE_MEAL)) {
 			fixture.stand.moveTo(fixture.origin.x + 1.5D, fixture.origin.y, fixture.origin.z, 0.0F, 0.0F);
 			Cow adult = fixture.adultCow(3.0D, 6000);
-			BlockPos sapling = fixture.sapling(BlockPos.containing(fixture.origin.x, fixture.origin.y + 1.0D,
+			BlockPos moss = fixture.coveredMoss(BlockPos.containing(fixture.origin.x, fixture.origin.y + 1.0D,
 					fixture.origin.z + 6.0D));
-			fixture.aim(new ActionTarget(sapling, Direction.NORTH));
+			fixture.aim(new ActionTarget(moss, Direction.NORTH));
 			ActionTarget reaim = StandPrecisionRay.trace(fixture.user, fixture.stand, 64.0D, 0.0D, true, false);
 			String answered = fixture.refusal();
 			helper.assertTrue("accepted".equals(answered) && reaim.getMainEntity() == adult && adult.getAge() == 6000
-					&& !adult.isBaby(), "STAND-RANGE premise: the press on the sapling was refused or the perform's new aim"
+					&& !adult.isBaby(), "STAND-RANGE premise: the press on the moss was refused or the perform's new aim"
 							+ " does not meet the adult cow, or the cow is not an adult with a cooldown of 6000: answered "
 							+ answered + ", " + reaim + ", age " + adult.getAge());
 			fixture.pressAndRun();
@@ -3174,9 +3179,10 @@ public final class StandTargetRangeGameTests {
 			watcher.clear();
 			fixture.stand.moveTo(fixture.origin.x + 1.5D, fixture.origin.y, fixture.origin.z, 0.0F, 0.0F);
 			Cow adult = fixture.adultCow(3.0D, 6000);
-			BlockPos sapling = fixture.sapling(BlockPos.containing(fixture.origin.x, fixture.origin.y + 1.0D,
+			// moss, which a press keeps (see the re-aim test)
+			BlockPos moss = fixture.coveredMoss(BlockPos.containing(fixture.origin.x, fixture.origin.y + 1.0D,
 					fixture.origin.z + 6.0D));
-			fixture.aim(new ActionTarget(sapling, Direction.NORTH));
+			fixture.aim(new ActionTarget(moss, Direction.NORTH));
 			long adultPressed = fixture.level.getGameTime();
 			fixture.pressAndRun();
 			helper.assertTrue(adult.getAge() == 0, "SPARKLES premise: GE_BONE_MEAL whose perform aimed again at an adult cow"
@@ -3195,10 +3201,10 @@ public final class StandTargetRangeGameTests {
 					assertTrickle(helper, adultSparkles, adult, adultPressed, "an adult cow");
 
 					watcher.clear();
-					fixture.aim(new ActionTarget(sapling, Direction.NORTH));
+					fixture.aim(new ActionTarget(moss, Direction.NORTH));
 					fixture.pressAndRun();
 					helper.runAfterDelay(10, () -> {
-						helper.assertTrue(watcher.sparkles().isEmpty(), "GE_BONE_MEAL on a sapling with no animal on the line"
+						helper.assertTrue(watcher.sparkles().isEmpty(), "GE_BONE_MEAL on moss with no animal on the line"
 								+ " sent " + describe(watcher.sparkles(), 0L));
 						helper.succeed();
 					});
@@ -3843,6 +3849,14 @@ public final class StandTargetRangeGameTests {
 		private BlockPos sapling(BlockPos pos) {
 			block(pos.below(), Blocks.DIRT.defaultBlockState());
 			return block(pos, Blocks.OAK_SAPLING.defaultBlockState());
+		}
+
+		// a block Bone Meal takes (1.16 GoldExperienceBoneMeal.checkTarget: an IGrowable) and a press keeps, having a
+		// collision shape (overrideVanillaMouseTarget passed over only a block without one), which grows nothing: moss
+		// with stone on it
+		private BlockPos coveredMoss(BlockPos pos) {
+			block(pos.above(), Blocks.STONE.defaultBlockState());
+			return block(pos, Blocks.MOSS_BLOCK.defaultBlockState());
 		}
 
 		// a real press run to its end, with the stamina its use needs

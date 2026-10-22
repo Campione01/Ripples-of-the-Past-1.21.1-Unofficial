@@ -306,7 +306,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 				double minOffset = Math.min(0.5, stand.getEffectiveRange());
 				double maxOffset = Math.min(2, stand.getMaxRange());
 				ActionTarget target = setActionTargetSnapshot(takeOverIfPressedAtNothing(stand,
-						pressTarget(stand, getActionTargetSnapshot(stand.level()), punchRule(ability)),
+						pressTarget(stand, getActionTargetSnapshot(stand.level()), punchRule(ability), ability),
 						isRestoringInputLifecycle() ? null : prevAction, punchRule(ability)));
 				setStandFrontOffsetFromTarget(stand, target, minOffset, maxOffset);
 				keepStandAimedAtTarget(target);
@@ -1053,6 +1053,20 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	 * Stand did not turn to it, and the attack aimed again when it struck. A client keeps what its server sent.
 	 */
 	public static ActionTarget pressTarget(StandEntity stand, ActionTarget sentByServer, CrosshairRule rule) {
+		return pressTarget(stand, sentByServer, rule, null);
+	}
+
+	/**
+	 * As {@link #pressTarget(StandEntity, ActionTarget, CrosshairRule)}, where a pressed block without a collision shape
+	 * (grass, a flower, a torch) gives way as 1.16's StandEntityAction.overrideVanillaMouseTarget made it: to what a
+	 * collision ray from the Stand meets as far as its reach ({@link StandEntityAbility#pastBlockWithoutCollision}), so a
+	 * mob behind tall grass is the target, else the block behind, else nothing, and then the strike aims again. Without
+	 * the aim assist D-core-92's strict crosshair takes the block's place, which meets a mob behind it too.
+	 * @param ability the pressed attack, which may keep the block ({@link StandEntityAbility#pressedBlockGivesWayToEntity});
+	 *        null for a core attack
+	 */
+	public static ActionTarget pressTarget(StandEntity stand, ActionTarget sentByServer, CrosshairRule rule,
+			@Nullable EntityActionType ability) {
 		Level level = stand.level();
 		if (level.isClientSide()) {
 			return sentByServer;
@@ -1065,15 +1079,31 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 			ActionTarget crosshair = userAim.getTarget().resolveEntityId(level);
 			// clientHitResult took a vanilla pick of the Stand itself for a miss
 			if (!crosshair.isEmpty(level) && crosshair.getEntity() != stand) {
-				return pressedTarget(stand, crosshair, rule);
+				return pressedAt(stand, user, crosshair, rule, ability);
 			}
 		}
 		if (userAims && !assist) {
 			return rule.keeps(userAimTarget(stand, user, 1.0F, entity -> entity != stand && canStandHit(stand, entity)));
 		}
 		var standAim = LivingComponentAction.getAim(stand);
-		return standAim != null
-				? pressedTarget(stand, standAim.getTarget().resolveEntityId(level), rule) : ActionTarget.EMPTY;
+		return standAim != null ? pressedAt(stand, userAims ? user : null, standAim.getTarget().resolveEntityId(level), rule,
+				ability) : ActionTarget.EMPTY;
+	}
+
+	private static ActionTarget pressedAt(StandEntity stand, @Nullable LivingEntity userAiming, ActionTarget aim,
+			CrosshairRule rule, @Nullable EntityActionType ability) {
+		LivingEntity user = stand.getUser();
+		if (user == null || ability instanceof StandEntityAbility standAbility && !standAbility.pressedBlockGivesWayToEntity()
+				|| !StandEntityAbility.isBlockWithoutCollision(stand.level(), aim)) {
+			return pressedTarget(stand, aim, rule);
+		}
+		if (!aimAssist(user)) {
+			return pressedTarget(stand, pickWithThisOrUser(stand, userAiming, 1.0F,
+					entity -> entity != stand && canStandHit(stand, entity), rule, StandSkillWalls.wallsHideEntities(stand)), rule);
+		}
+		boolean wallsHideEntities = ability != null
+				? StandSkillWalls.wallsHideEntities(stand.level(), ability) : StandSkillWalls.wallsHideEntities(stand);
+		return pressedTarget(stand, StandEntityAbility.pastBlockWithoutCollision(user, aim, wallsHideEntities), rule);
 	}
 
 	private static ActionTarget pressedTarget(StandEntity stand, ActionTarget target, CrosshairRule rule) {

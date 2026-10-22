@@ -4,6 +4,7 @@ import java.util.function.Function;
 
 import javax.annotation.Nullable;
 
+import rotp.core.api.stand.StandSkillWalls;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.AbilityId;
@@ -19,13 +20,19 @@ import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.StandUtil;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTargetRange;
+import rotp.core.subsystems.target.HitResultUtil;
 import rotp.core.compat.v1_21_4.missingmethods._EntitySelector;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
@@ -286,6 +293,66 @@ public class StandEntityAbility extends EntityActionAbility {
 		}
 		Entity entity = target.getEntity();
 		return entity != null && keepsTaskTargetEntity(standEntity, entity);
+	}
+
+	/**
+	 * 1.16 StandEntityAction.overrideVanillaMouseTarget, which PowerBaseImpl.checkTarget ran on a press's target on either
+	 * side before any other check of it, and the HUD on the mouse target (ActionsOverlayGui.actionAvailability): for an
+	 * action that takes an entity ({@link #pressedBlockGivesWayToEntity}), a pressed block without a collision shape
+	 * (grass, a flower, a torch, fire, a snow layer) gives way to what a collision ray from the action's performer meets
+	 * ({@link #pastBlockWithoutCollision}). Other targets stay as they are. Asked where the core takes a Stand action's
+	 * press from the synced aims (EntityActionInstance#captureActionTargetFromAim, the punches' and barrages' press, Heal,
+	 * Revert, Bone Meal); an action that reads the aims its own way asks it too.
+	 */
+	public ActionTarget overridePressedTarget(LivingEntity user, ActionTarget pressed) {
+		return pressedBlockGivesWayToEntity()
+				? pastBlockWithoutCollision(user, pressed, StandSkillWalls.wallsHideEntities(user.level(), this)) : pressed;
+	}
+
+	/**
+	 * Whether a pressed block without a collision shape gives way ({@link #overridePressedTarget}): 1.16's
+	 * getTargetRequirement took an entity (NONE, ENTITY or ANY), as for every StandEntityAction but those that take only a
+	 * block (TargetRequirement.BLOCK), which return false.
+	 */
+	public boolean pressedBlockGivesWayToEntity() {
+		return true;
+	}
+
+	/**
+	 * The ray of 1.16's overrideVanillaMouseTarget, cast for a pressed block without a collision shape:
+	 * JojoModUtil.rayTraceMultipleEntities(performer, MCUtil.getPickRange(performer), null, BlockMode.COLLIDER, 0, 0) from
+	 * the eyes of the user's summoned Stand, or the user's own while none is out (StandAction.getPerformer), along its
+	 * look, as far as its pick range: the entity it meets, else the block with a collision shape, else nothing. An entity
+	 * behind such a block stays hidden unless walls hide no entity for the skill (the owner's wall rule); the user is not
+	 * taken. Any other target is returned as it is.
+	 */
+	public static ActionTarget pastBlockWithoutCollision(LivingEntity user, ActionTarget pressed, boolean wallsHideEntities) {
+		if (pressed == null || !isBlockWithoutCollision(user.level(), pressed)) {
+			return pressed;
+		}
+		LivingEntity performer = ActionTargetRange.standPerformer(user);
+		double range = pickRange(performer);
+		return HitResultUtil.clip(performer.getEyePosition(), performer.getLookAngle(), range, range, user.level(),
+				entity -> entity != user && !entity.isSpectator() && entity.isPickable(), performer, 0,
+				wallsHideEntities, 0, ClipContext.Block.COLLIDER);
+	}
+
+	public static boolean isBlockWithoutCollision(Level level, ActionTarget target) {
+		if (target.getType() != ActionTarget.TargetType.BLOCK || target.getBlockPos() == null) {
+			return false;
+		}
+		BlockPos pos = target.getBlockPos();
+		return level.getBlockState(pos).getCollisionShape(level, pos).isEmpty();
+	}
+
+	// 1.16 MCUtil.getPickRange: REACH_DISTANCE, 5 without one, half a block less for a player out of Creative, which a 1.21
+	// player's block interaction range is
+	private static double pickRange(LivingEntity performer) {
+		if (performer instanceof Player player) {
+			return player.blockInteractionRange();
+		}
+		AttributeInstance reach = performer.getAttribute(Attributes.BLOCK_INTERACTION_RANGE);
+		return reach != null ? reach.getValue() : 5.0D;
 	}
 
 	/**
