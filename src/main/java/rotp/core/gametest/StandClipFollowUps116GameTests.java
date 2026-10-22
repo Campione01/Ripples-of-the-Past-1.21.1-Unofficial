@@ -179,6 +179,88 @@ public final class StandClipFollowUps116GameTests {
 		helper.succeed();
 	}
 
+	private static final String MR_ANIMS =
+			"stand_skins/magicians_red/assets/jojo_ripples/animations/magicians_red.animation.json";
+	private static final String[] FLAME_CLIPS = { "flame_burst", "flameBurst", "fireball", "crossfire_hurricane" };
+
+	/*
+	 * 1.16's FLAME_BURST_POSE (MagiciansRedModel :269-285) moved both arms 2 pixels inward (leftArm.setPos(4, -10, 0),
+	 * rightArm.setPos(-4, -10, 0)) in every phase and under the recovery's transition, setupAnim putting them back at
+	 * +-6 once the idle was drawn again; and its first-person view (setupFirstPersonRotations) tilted by head.xRot - xRot:
+	 * -22.5 degrees to RECOVERY and -22.5 (1 - t) over it, the head's x lerped to the look. The port's view reads head_rot's
+	 * x (StandEntityRenderer.setupFirstPersonRotations), which the clips key with 1.16's head x.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void magiciansRedsFlamePosesMoveTheArmsInAndTiltTheFirstPersonViewAs116(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		Map<String, JsonObject> files = new HashMap<>();
+		JsonObject idle = clipOf(helper, files, MR_ANIMS, "idle");
+		float[][] looks = { { 0, 0 }, { 20, -35 }, { -30, 40 } };
+		for (String arm : new String[] { "left_arm", "right_arm" }) {
+			if (!near(positionAt(idle, arm, 0), new float[3], 0.0001F)) {
+				wrong.add("the idle moves " + arm + " by " + Arrays.toString(positionAt(idle, arm, 0)));
+			}
+		}
+		for (String name : FLAME_CLIPS) {
+			JsonObject clip = clipOf(helper, files, MR_ANIMS, name);
+			float recovery = StandClipPoses116GameTests.marker(clip, "phase=RECOVERY;");
+			float end = clip.get("animation_length").getAsFloat();
+			String first = null;
+			for (float time = 0; time <= end + 0.00001F && first == null; time += 0.005F) {
+				float t = Math.min(time, end);
+				float[] left = positionAt(clip, "left_arm", t), right = positionAt(clip, "right_arm", t);
+				if (!near(left, new float[] { -2, 0, 0 }, 0.0001F) || !near(right, new float[] { 2, 0, 0 }, 0.0001F)) {
+					first = "moves the arms by " + Arrays.toString(left) + " and " + Arrays.toString(right) + " at " + t
+							+ ", where 1.16 had them 2 pixels in (left -2, right +2 on x) for the whole action";
+				}
+				for (float[] look : looks) {
+					float f = t <= recovery ? 0 : (t - recovery) / (end - recovery);
+					float tilt = StandClipPoses116GameTests.rotationAt(clip, "head_rot", t, look)[0] - look[0];
+					if (first == null && Math.abs(tilt + 22.5F * (1 - f)) > 0.05F) {
+						first = "tilts the first-person view by " + tilt + " at " + t + " looking " + Arrays.toString(look)
+								+ ", where 1.16 tilted it by " + -22.5F * (1 - f);
+					}
+				}
+			}
+			if (first != null) {
+				wrong.add(name + " " + first);
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), "1.16's flame pose moved the arms in and tilted the first-person view with its head: " + wrong);
+		helper.succeed();
+	}
+
+	// a bone's position channel at a clip time: a constant vector or linear keys; none is 0
+	private static float[] positionAt(JsonObject clip, String boneName, float time) {
+		JsonObject bone = clip.getAsJsonObject("bones").getAsJsonObject(boneName);
+		if (bone == null || !bone.has("position")) {
+			return new float[3];
+		}
+		JsonElement channel = bone.get("position");
+		if (channel.isJsonArray() || channel.getAsJsonObject().has("vector")) {
+			return vector(channel);
+		}
+		List<Map.Entry<Float, JsonElement>> keys = new ArrayList<>();
+		channel.getAsJsonObject().entrySet().forEach(key -> keys.add(Map.entry(Float.parseFloat(key.getKey()), key.getValue())));
+		keys.sort(Map.Entry.comparingByKey());
+		if (time <= keys.get(0).getKey()) {
+			return vector(keys.get(0).getValue());
+		}
+		for (int i = 1; i < keys.size(); i++) {
+			if (time <= keys.get(i).getKey()) {
+				float f = (time - keys.get(i - 1).getKey()) / (keys.get(i).getKey() - keys.get(i - 1).getKey());
+				return lerp(vector(keys.get(i - 1).getValue()), vector(keys.get(i).getValue()), f);
+			}
+		}
+		return vector(keys.get(keys.size() - 1).getValue());
+	}
+
+	private static float[] vector(JsonElement key) {
+		JsonElement values = key.isJsonObject() ? key.getAsJsonObject().get("vector") : key;
+		return new float[] { values.getAsJsonArray().get(0).getAsFloat(), values.getAsJsonArray().get(1).getAsFloat(),
+				values.getAsJsonArray().get(2).getAsFloat() };
+	}
+
 	private static float[] lerp(float[] a, float[] b, float f) {
 		return new float[] { a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f };
 	}

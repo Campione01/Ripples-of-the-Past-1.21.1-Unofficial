@@ -39,6 +39,7 @@ import com.mojang.math.Axis;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.HumanoidModel;
+import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
@@ -366,7 +367,9 @@ public class StandEntityRenderer<
 				float xRotRad = renderState.xRot * MathUtil.DEG_TO_RAD;
 				poseStack.mulPose(Axis.XP.rotation(xRotRad));
 				poseStack.translate(0, -entity.getBbHeight() * 0.25F, 0.25F);
-				float headXRot = model.head != null ? model.head.xRot : xRotRad;
+				// 1.16's head carried the look; the port's flame clips carry 1.16's head angles on head_rot
+				ModelPart lookPart = model.head_rot != null ? model.head_rot : model.head;
+				float headXRot = lookPart != null ? lookPart.xRot : xRotRad;
 				poseStack.mulPose(Axis.XP.rotation(headXRot - xRotRad));
 				poseStack.translate(0, entity.getBbHeight() * 0.25F, -0.25F);
 				poseStack.mulPose(Axis.YP.rotationDegrees(180 + renderState.bodyRot));
