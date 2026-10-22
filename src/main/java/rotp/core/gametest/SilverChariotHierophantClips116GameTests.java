@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import rotp.core.core.JojoMod;
@@ -229,6 +230,92 @@ public final class SilverChariotHierophantClips116GameTests {
 		}
 		helper.assertTrue(wrong.isEmpty(), "1.16 held a summon pose 15 ticks and blended it to the idle over 5: " + wrong);
 		helper.succeed();
+	}
+
+	// Silver Chariot's port-only clips and the idle each hands over to or holds its limbs on; null: one of 1.16's idle poses
+	private static final String[][] JOINT_CLIPS = { { "no_rapier_idle", null }, { "no_armor_idle", null }, { "block", "idle" },
+			{ "no_rapier_block", "no_rapier_idle" }, { "summon1", "idle" }, { "summon2", "idle" }, { "summon3", "idle" },
+			{ "light_attack", "idle" }, { "no_rapier_light_attack", "no_rapier_idle" }, { "melee_barrage", "idle" },
+			{ "dash_attack", "idle" }, { "sweeping_attack", "idle" }, { "rapier_launch", "idle" }, { "rangedAttack", "idle" } };
+
+	/*
+	 * 1.16's humanoid models turned each elbow and knee joint by half its forearm or lower leg every frame
+	 * (HumanoidStandModel.rotateJoint, setupAnim :759-764), in the idle as in every action. The official idle keeps its own
+	 * joints, so a Silver Chariot clip turns a joint by half its bend where it poses the limb and keeps the idle's own
+	 * joint where it holds the limb on the idle (1.16 left it there), moving it in step with the bend between the two (at
+	 * every key of the bend, with its easing): no joint snaps where a clip starts from or hands over to its idle; the
+	 * port-only idles, 1.16's idle poses, turn every joint by half.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void silverChariotsJointsTurnByHalfTheirBendOrKeepTheIdlesAs116(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		Map<String, JsonObject> files = new HashMap<>();
+		for (String[] row : JOINT_CLIPS) {
+			JsonObject clip = clipOf(helper, files, SC_ANIMS, row[0]);
+			JsonObject idle = row[1] != null ? clipOf(helper, files, SC_ANIMS, row[1]) : null;
+			float end = clip.has("animation_length") ? clip.get("animation_length").getAsFloat() : 0;
+			for (String limb : LIMBS) {
+				List<Float> times = new ArrayList<>();
+				for (float time = 0; time < end; time += 0.005F) {
+					times.add(time);
+				}
+				times.add(end);
+				StandClipPoses116GameTests.keys(clip, limb + "_bend").forEach(key -> times.add(key.getKey()));
+				for (float time : times) {
+					float[] want = expectedJoint(clip, limb, idle, time);
+					float[] got = StandClipPoses116GameTests.rotationAt(clip, limb + "_joint", time, LOOKS[0]);
+					if (!near(got, want, 0.05F)) {
+						wrong.add(row[0] + " " + limb + "_joint at " + time + " " + Arrays.toString(got) + " where its bend "
+								+ Arrays.toString(StandClipPoses116GameTests.rotationAt(clip, limb + "_bend", time, LOOKS[0])) + " gives "
+								+ Arrays.toString(want));
+						break;
+					}
+				}
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), "1.16 turned every joint by half its forearm or lower leg; a limb on the idle keeps"
+				+ " the idle's own joint: " + wrong);
+		helper.succeed();
+	}
+
+	// the joint the rule gives at a clip time: at each key of the bend the idle's joint where the bend is the idle's (none
+	// for an idle pose), else half the bend; between keys in step with the bend, with the easing of the key it moves to
+	private static float[] expectedJoint(JsonObject clip, String limb, JsonObject idle, float time) {
+		List<Map.Entry<Float, JsonElement>> keys = StandClipPoses116GameTests.keys(clip, limb + "_bend");
+		if (keys.isEmpty()) {
+			return jointFor(new float[3], limb, idle);
+		}
+		if (time <= keys.get(0).getKey()) {
+			return jointFor(StandClipPoses116GameTests.rotationAt(clip, limb + "_bend", keys.get(0).getKey(), LOOKS[0]), limb, idle);
+		}
+		for (int i = 1; i < keys.size(); i++) {
+			float t0 = keys.get(i - 1).getKey(), t1 = keys.get(i).getKey();
+			if (time <= t1) {
+				float[] a = jointFor(StandClipPoses116GameTests.rotationAt(clip, limb + "_bend", t0, LOOKS[0]), limb, idle);
+				float[] b = jointFor(StandClipPoses116GameTests.rotationAt(clip, limb + "_bend", t1, LOOKS[0]), limb, idle);
+				JsonElement to = keys.get(i).getValue();
+				String easing = to.isJsonObject() && to.getAsJsonObject().has("easing") ? to.getAsJsonObject().get("easing").getAsString() : "linear";
+				float f = ease(easing, (time - t0) / (t1 - t0));
+				return new float[] { a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f };
+			}
+		}
+		return jointFor(StandClipPoses116GameTests.rotationAt(clip, limb + "_bend", keys.get(keys.size() - 1).getKey(), LOOKS[0]), limb, idle);
+	}
+
+	private static float[] jointFor(float[] bend, String limb, JsonObject idle) {
+		if (idle != null && near(bend, StandClipPoses116GameTests.rotationAt(idle, limb + "_bend", 0, LOOKS[0]), 0.0001F)) {
+			return StandClipPoses116GameTests.rotationAt(idle, limb + "_joint", 0, LOOKS[0]);
+		}
+		return new float[] { bend[0] / 2, bend[1] / 2, bend[2] / 2 };
+	}
+
+	private static float ease(String easing, float f) {
+		return switch (easing) {
+			case "linear" -> f;
+			case "easeInQuad" -> f * f;
+			case "easeInCubic" -> f * f * f;
+			default -> throw new IllegalArgumentException("easing " + easing + " not sampled");
+		};
 	}
 
 	// the head's rotation with its chain (stand_pos, body_rot, body, torso, torso_bend, head, head_rot) at a clip time

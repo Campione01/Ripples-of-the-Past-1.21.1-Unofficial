@@ -216,9 +216,7 @@ public final class StandClipPoses116GameTests {
 	private static final List<JointClip> JOINT_CLIPS = List.of(
 			new JointClip(SC_ANIMS, "light_attack", false, "left_arm", "right_arm"),
 			new JointClip(SC_ANIMS, "no_rapier_light_attack", false, "left_arm", "right_arm"),
-			new JointClip(SC_ANIMS, "dash_attack", false, "left_arm", "right_arm"),
-			// SilverChariotModel :330, the sweep's windup: ModelPoseTransition(idlePose, sweepPose1)
-			new JointClip(SC_ANIMS, "sweeping_attack", true, "left_arm", "right_arm"));
+			new JointClip(SC_ANIMS, "dash_attack", false, "left_arm", "right_arm"));
 
 	/*
 	 * 1.16's humanoid Java-model poses pitched both arms with the look (setSecondXRot, applied after the pose as a parent
