@@ -95,6 +95,104 @@ public final class StandClipFollowUps116GameTests {
 		helper.succeed();
 	}
 
+	// SilverChariotModel :336-345, RANGED_ATTACK: body, upperPart, leftArm, rightArm and the rapier on the port's bones
+	private static final Map<String, float[]> LAUNCH_POSE = Map.of("body_rot", new float[] { 0, -45, 0 },
+			"torso_bend", new float[] { 0, -45, 0 }, "left_arm", new float[] { 15, 0, -7.5F }, "right_arm", new float[] { 0, 90, 90 },
+			"rapier", new float[] { 90, 0, 0 });
+
+	/*
+	 * SilverChariotModel's RANGED_ATTACK (:336-345), the pose the port draws for the rapier launch (1.16's lookup never
+	 * reached it): a PosedActionAnimation with a PERFORM pose only, so the WINDUP is idlePose (the rigid filler), the
+	 * PERFORM the pose lerped in from the idle by the perform's completion with rightArm.zRot -= xRot in full, and the
+	 * RECOVERY ModelPoseTransition(the pose, idlePose); the bones it does not name (the forearms, the joints, the legs, the
+	 * head on the look) stay on the idle, the official idle's in the port.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void silverChariotsRapierLaunchTakesItsModelsRangedAttackPoseInThePerformAs116(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		Map<String, JsonObject> files = new HashMap<>();
+		JsonObject idle = clipOf(helper, files, SC_ANIMS, "idle");
+		for (String name : new String[] { "rapier_launch", "rangedAttack" }) {
+			JsonObject clip = clipOf(helper, files, SC_ANIMS, name);
+			float perform = StandClipPoses116GameTests.marker(clip, "phase=PERFORM;");
+			float recovery = StandClipPoses116GameTests.marker(clip, "phase=RECOVERY;");
+			float end = clip.get("animation_length").getAsFloat();
+			List<Float> times = new ArrayList<>();
+			for (float time = 0; time < end; time += 0.005F) {
+				times.add(time);
+			}
+			times.addAll(List.of(Math.nextDown(perform), perform, recovery, end));
+			for (String bone : idle.getAsJsonObject("bones").keySet()) {
+				if (bone.equals("head") || bone.equals("head_rot")) {
+					continue;
+				}
+				for (float[] look : LOOKS) {
+					String first = null;
+					for (float time : times) {
+						float[] idleValue = StandClipPoses116GameTests.rotationAt(idle, bone, 0, look);
+						float[] pose = LAUNCH_POSE.getOrDefault(bone, idleValue);
+						float tilt = bone.equals("right_arm") ? look[0] : 0;
+						float[] want;
+						if (time < perform) {
+							want = idleValue;
+						}
+						else if (time <= recovery) {
+							float f = (time - perform) / (recovery - perform);
+							want = lerp(idleValue, pose, f);
+							want[2] -= tilt;
+						}
+						else {
+							float f = (time - recovery) / (end - recovery);
+							want = lerp(new float[] { pose[0], pose[1], pose[2] - tilt }, idleValue, f);
+						}
+						float[] got = StandClipPoses116GameTests.rotationAt(clip, bone, time, look);
+						if (!near(got, want, 0.05F)) {
+							first = "at " + time + " looking " + Arrays.toString(look) + " " + Arrays.toString(got) + " where 1.16 had "
+									+ Arrays.toString(want);
+							break;
+						}
+					}
+					if (first != null) {
+						wrong.add(name + " " + bone + " " + first);
+						break;
+					}
+				}
+			}
+			for (float[] look : LOOKS) {
+				double[][] lookHead = StandClipPoses116GameTests.rotationMatrix(new float[] { look[0], look[1], 0 });
+				double off = StandClipPoses116GameTests.angleBetween(composedHead(clip, recovery, look), lookHead);
+				if (off > 0.5) {
+					wrong.add(name + " head at RECOVERY looking " + Arrays.toString(look) + " " + String.format("%.1f", off)
+							+ " degrees off the look, where 1.16's pose left the head on it");
+				}
+				for (float time : new float[] { 0, Math.nextDown(perform), perform, end }) {
+					off = StandClipPoses116GameTests.angleBetween(composedHead(clip, time, look), composedHead(idle, 0, look));
+					if (off > 0.5) {
+						wrong.add(name + " head at " + time + " looking " + Arrays.toString(look) + " " + String.format("%.1f", off)
+								+ " degrees off the idle's");
+					}
+				}
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), "1.16's RANGED_ATTACK pose of Silver Chariot came in over the perform from the idle,"
+				+ " tilted the rapier arm by the look and went back to the idle over the recovery: " + wrong);
+		helper.succeed();
+	}
+
+	private static float[] lerp(float[] a, float[] b, float f) {
+		return new float[] { a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f };
+	}
+
+	// the head's rotation with its chain (stand_pos, body_rot, body, torso, torso_bend, head, head_rot) at a clip time
+	private static double[][] composedHead(JsonObject clip, float time, float[] look) {
+		double[][] composed = StandClipPoses116GameTests.rotationMatrix(new float[3]);
+		for (String bone : new String[] { "stand_pos", "body_rot", "body", "torso", "torso_bend", "head", "head_rot" }) {
+			composed = StandClipPoses116GameTests.multiply(composed,
+					StandClipPoses116GameTests.rotationMatrix(StandClipPoses116GameTests.rotationAt(clip, bone, time, look)));
+		}
+		return composed;
+	}
+
 	// the loopBack of the timeline entry at a clip time ("phase.loopBack = x;"), or NaN
 	private static float loopBackOf(JsonObject clip, float at) {
 		for (Map.Entry<String, JsonElement> marker : clip.getAsJsonObject("timeline").entrySet()) {

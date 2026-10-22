@@ -86,7 +86,7 @@ public final class StandClipPoses116GameTests {
 			new HeadPose(MR_ANIMS, "kick", "R0.5", Head.TO_IDLE, new float[] { -45, -10, 0 }),
 			new HeadPose(MR_ANIMS, "kick", "R0.75", Head.TO_IDLE, new float[] { -45, -10, 0 }), idle(MR_ANIMS, "kick"),
 			// SilverChariotModel :245-372: the rapier stab, the barrage stab loop, the rapier heavy (dash), the jab without
-			// the rapier, no head in any of them; RANGED_ATTACK (the rapier launch) was drawn as the idle
+			// the rapier, no head in any of them
 			new HeadPose(SC_ANIMS, "light_attack", "0"), new HeadPose(SC_ANIMS, "light_attack", "PERFORM"),
 			new HeadPose(SC_ANIMS, "light_attack", "RECOVERY"), idle(SC_ANIMS, "light_attack"),
 			// the barrage shows the idle in its windup and recovery (ArmsBarrageAnimation)
@@ -99,8 +99,9 @@ public final class StandClipPoses116GameTests {
 			new HeadPose(SC_ANIMS, "no_rapier_light_attack", "PERFORM"),
 			new HeadPose(SC_ANIMS, "no_rapier_light_attack", "RECOVERY"),
 			new HeadPose(SC_ANIMS, "no_rapier_light_attack", "0.4667"),
-			new HeadPose(SC_ANIMS, "rapier_launch", "0"), new HeadPose(SC_ANIMS, "rapier_launch", "PERFORM"),
-			new HeadPose(SC_ANIMS, "rangedAttack", "0"), new HeadPose(SC_ANIMS, "rangedAttack", "PERFORM"),
+			// the rapier launch: SilverChariotModel's RANGED_ATTACK pose in PERFORM only, the idle before it
+			new HeadPose(SC_ANIMS, "rapier_launch", "0", Head.IDLE, null), new HeadPose(SC_ANIMS, "rapier_launch", "RECOVERY"),
+			new HeadPose(SC_ANIMS, "rangedAttack", "0", Head.IDLE, null), new HeadPose(SC_ANIMS, "rangedAttack", "RECOVERY"),
 			// the idle is the official port's, its head 5 degrees off the look under body_rot -25 and torso_bend 20; the
 			// other two idles (initBaseIdlePose: HEAD_ROTATION)
 			new HeadPose(SC_ANIMS, "idle", "0", Head.TURNED, new float[] { 0, -5, 0 }),
@@ -344,8 +345,8 @@ public final class StandClipPoses116GameTests {
 			// SilverChariotModel :354-361, the rapier block: arms, forearms and the rapier; the humanoid block without it
 			held(SC_ANIMS, "block", and(LEGS, "body_rot", "torso_bend", "head", "head_rot")),
 			new IdleBones(SC_ANIMS, "no_rapier_block", "no_rapier_idle", "0", "END", LEGS),
-			// :245-352: the stab, the barrage stab loop, the dash, the sweep and the jab name no leg; RANGED_ATTACK (the
-			// rapier launch) was drawn as the idle
+			// :245-352: the stab, the barrage stab loop, the dash, the sweep, the jab and RANGED_ATTACK (the rapier launch)
+			// name no leg
 			held(SC_ANIMS, "light_attack", LEGS), held(SC_ANIMS, "melee_barrage", LEGS), held(SC_ANIMS, "dash_attack", LEGS),
 			held(SC_ANIMS, "sweeping_attack", LEGS), held(SC_ANIMS, "rapier_launch", LEGS), held(SC_ANIMS, "rangedAttack", LEGS),
 			new IdleBones(SC_ANIMS, "no_rapier_light_attack", "no_rapier_idle", "0", "END", LEGS),
