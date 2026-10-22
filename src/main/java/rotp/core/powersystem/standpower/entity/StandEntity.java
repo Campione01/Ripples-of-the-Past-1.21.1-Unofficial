@@ -38,14 +38,15 @@ import rotp.core.init.ModSpecialActions;
 import rotp.core.init.ModStatusEffects;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.item.KnifeItem;
+import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.AbilityUsageGroup;
+import rotp.core.powersystem.ability.input.AbilityInput;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.mechanics.resolve.ResolveCounter;
 import rotp.core.mechanics.resolve.ResolveModeEffect;
 import rotp.core.network.s2c.StandEntitySoundPacket;
 import rotp.core.network.s2c.TrSetStandEntityPacket;
-import rotp.core.powersystem.entityaction.EntityActionInputState;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.netcode.SyncType;
@@ -1364,15 +1365,12 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 			if (!isFollowingUserForRetractionDecision()) {
 				setStandFlag(StandFlag.BEING_RETRACTED, true);
 			}
-			if (!hasHeldAbilityInput(user)) {
+			// 1.16 retractStand(true) started no unsummon while the Stand power held an action (userPower.getHeldAction());
+			// the other power's hold, a key held past its action's hold and a buffered press held none
+			if (AbilityInput.getHeldAction(user, PowerClass.STAND) == null) {
 				startStandUnsummon();
 			}
 		}
-	}
-	
-	private boolean hasHeldAbilityInput(LivingEntity user) {
-		EntityActionInputState inputState = user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get());
-		return inputState != null && !inputState.heldKeys.isEmpty();
 	}
 	
 	public boolean isCloseToUser() {
