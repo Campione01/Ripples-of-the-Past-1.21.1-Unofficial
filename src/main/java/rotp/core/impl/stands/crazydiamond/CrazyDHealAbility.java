@@ -72,7 +72,8 @@ import net.minecraft.world.level.Level;
 
 public class CrazyDHealAbility extends StandEntityAbility {
 	private static final ActionAnimIdentifier IDLE_ANIM = ActionAnimIdentifier.getOrCreate("idle", true);
-	private static final ActionAnimIdentifier REPAIR_ITEM_ANIM = ActionAnimIdentifier.getOrCreate("itemFix", false);
+	// 1.16's ITEM_FIX_POSE, whose clip in the official 1.21.1 port is repair_item (the port's itemFix is a copy)
+	private static final ActionAnimIdentifier REPAIR_ITEM_ANIM = ActionAnimIdentifier.getOrCreate("repair_item", false);
 	private static final ActionAnimIdentifier BARRAGE_ANIM = ActionAnimIdentifier.getOrCreate("barrage", false);
 	public static final float HEAL_STAMINA_COST_TICK = 1F;
 	private static final double HEAL_SPEED_MULTIPLIER = 1;

@@ -196,10 +196,10 @@ public final class StandClipPoses116GameTests {
 			// HumanoidStandModel :565-584, heavyAttackAnim: armsRotationFull in every pose, the recovery's transition from
 			// heavyImpact keeps it to the end of the action
 			new ArmLook(MR_ANIMS, "heavy_punch", new String[] { "0", "W0.5", "PERFORM", "RECOVERY", "END" }, new float[] { 1, 1, 1, 1, 1 }),
-			// HumanoidStandModel :482-536, the jab: xRot * t to jabArmTurn, the full look at jabImpact, xRot * (1 - t) to
-			// jabArmTurnBack, none after (the clip's keys 0, 0.1, PERFORM, RECOVERY, 0.4667, the end)
-			new ArmLook(MR_ANIMS, "punch", new String[] { "0", "0.05", "0.1", "PERFORM", "RECOVERY", "0.35", "0.4667", "END" },
-					new float[] { 0, 0.5F, 1, 1, 1, 0.5F, 0, 0 }),
+			// HumanoidStandModel :482-536, the jab: xRot * t to jabArmTurn at .5 of the windup, the full look at jabImpact and
+			// held to .25 of the perform, xRot * (1 - t^3) to jabArmTurnBack at .5 of the perform, none after
+			new ArmLook(MR_ANIMS, "punch", new String[] { "0", "W0.25", "W0.5", "PERFORM", "0.18335", "0.191675", "0.2", "RECOVERY", "END" },
+					new float[] { 0, 0.5F, 1, 1, 1, 0.875F, 0, 0, 0 }),
 			new ArmLook(SC_ANIMS, "no_rapier_light_attack", new String[] { "0", "0.1", "PERFORM", "RECOVERY", "0.4667", "END" },
 					new float[] { 0, 1, 1, 0, 0, 0 }),
 			// SilverChariotModel :247-288, the rapier stab: armsRotation in both poses and the recovery's transition
@@ -598,7 +598,8 @@ public final class StandClipPoses116GameTests {
 	 * held its lean and twist while the upperPart, pivoting at the waist under it, wound up to 15 degrees and snapped to
 	 * -30 (easeInCubic) on PERFORM; the head, a root child, kept the look. The port's uppercut clips carry the body on
 	 * body_rot (the neck pivot) and the upperPart on torso (the waist pivot), the port-only body and torso_bend at 0, and
-	 * the head on the look under that chain.
+	 * the head on the look under that chain, up to the last segment (0.8 s), which hands over to the official idle
+	 * (CoreClipPhases116GameTests).
 	 */
 	@GameTest(template = "empty", timeoutTicks = 20)
 	public static void starPlatinumsUppercutTurnsAt116sNeckAndWaist(GameTestHelper helper) {
@@ -609,7 +610,7 @@ public final class StandClipPoses116GameTests {
 			JsonObject clip = anims.getAsJsonObject(name);
 			helper.assertTrue(clip != null && clip.has("bones"), SP_ANIMS + " lost " + name);
 			List<String> off = new ArrayList<>();
-			for (int step = 0; step <= 110; step++) {
+			for (int step = 0; step <= 80; step++) {
 				float time = step / 100F;
 				float upper = UPPERCUT_UPPER_PART_YAWS[0];
 				for (int i = 1; i < UPPERCUT_UPPER_PART_TIMES.length; i++) {

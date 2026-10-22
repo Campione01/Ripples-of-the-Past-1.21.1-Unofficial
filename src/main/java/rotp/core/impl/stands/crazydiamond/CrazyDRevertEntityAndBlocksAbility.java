@@ -43,7 +43,8 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
 public class CrazyDRevertEntityAndBlocksAbility extends StandEntityAbility {
-	private static final ActionAnimIdentifier ITEM_FIX_ANIM = ActionAnimIdentifier.getOrCreate("itemFix", false);
+	// 1.16's ITEM_FIX_POSE, whose clip in the official 1.21.1 port is repair_item (the port's itemFix is a copy)
+	private static final ActionAnimIdentifier ITEM_FIX_ANIM = ActionAnimIdentifier.getOrCreate("repair_item", false);
 
 	public CrazyDRevertEntityAndBlocksAbility(AbilityType<?> abilityType, AbilityId abilityId) {
 		super(abilityType, abilityId, RevertStateAction::new);
