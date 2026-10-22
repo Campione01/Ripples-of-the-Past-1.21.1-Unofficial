@@ -52,7 +52,8 @@ public final class StandPrecisionRay {
 
 	/**
 	 * The aim of a Stand user without the aim assist: what the aiming entity's crosshair ray meets first within reach,
-	 * by the entities' own boxes, with no priority; blocks stop it.
+	 * by the entities' own boxes, with no priority; blocks stop it. A block is taken by its outline, as the crosshair
+	 * meets it (grass, a torch); only blocks with a collision shape hide an entity behind them.
 	 */
 	public static ActionTarget crosshair(Entity aiming, StandEntity stand, double reach, boolean friendlyFire) {
 		return crosshair(aiming, stand, reach, friendlyFire, StandSkillWalls.wallsHideEntities(aiming));
@@ -63,7 +64,7 @@ public final class StandPrecisionRay {
 			boolean wallsHideEntities) {
 		Predicate<Entity> filter = targetFilter(stand, friendlyFire).and(entity -> !entity.isSpectator() && entity.isPickable());
 		return HitResultUtil.clip(aiming.getEyePosition(), aiming.getLookAngle(), reach, reach, aiming.level(), filter,
-				aiming, 0, wallsHideEntities);
+				aiming, 0, wallsHideEntities, 0, ClipContext.Block.OUTLINE);
 	}
 
 	/** 1.16 StandEntity.canTarget: any entity that is alive but the Stand, its user and the Stand's own projectiles. */

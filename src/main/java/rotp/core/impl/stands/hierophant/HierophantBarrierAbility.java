@@ -25,6 +25,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 
 public class HierophantBarrierAbility extends NoPoseStandEntityAbility {
@@ -72,7 +73,7 @@ public class HierophantBarrierAbility extends NoPoseStandEntityAbility {
 		if (isValidBlockTarget(rangeFrom, target, level)) {
 			return target;
 		}
-		// server-side crosshair: the camera entity's look, capped at the user's reach
+		// server-side crosshair: the camera entity's look, capped at the user's reach; the vanilla pick's block, by its outline
 		target = raytraceBlockTarget(cameraEntity(powerUser, performer), userReach(powerUser), level);
 		return isValidBlockTarget(rangeFrom, target, level) ? target : ActionTarget.EMPTY;
 	}
@@ -113,7 +114,7 @@ public class HierophantBarrierAbility extends NoPoseStandEntityAbility {
 			return ActionTarget.EMPTY;
 		}
 		ActionTarget target = HitResultUtil.clip(entity.getEyePosition(), entity.getLookAngle(),
-				range, range, level, HierophantBarrierAbility::ignoreEntityTarget, entity, 0);
+				range, range, level, HierophantBarrierAbility::ignoreEntityTarget, entity, 0, ClipContext.Block.OUTLINE);
 		return target.getType() == TargetType.BLOCK ? target : ActionTarget.EMPTY;
 	}
 

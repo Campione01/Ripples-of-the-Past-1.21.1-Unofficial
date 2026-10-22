@@ -32,6 +32,7 @@ import rotp.core.impl.stands._entitybase.StandAbilityStamina;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -260,10 +261,11 @@ public class HierophantEmeraldSplashAbility extends StandEntityAbility implement
 					&& !strictRayMeets(aimingEntity, target.getEntity(), stand.getMaxRange())) {
 				target = ActionTarget.EMPTY;
 			}
-			// a synced aim was picked with walls hiding what is behind them
+			// a synced aim was picked with walls hiding what is behind them; 1.16's ray met a block by its outline
 			if (target == null || target.isEmpty(level) || target.getType() == TargetType.BLOCK) {
 				ActionTarget throughWalls = HitResultUtil.clip(aimingEntity.getEyePosition(), aimingEntity.getLookAngle(),
-						stand.getMaxRange(), stand.getMaxRange(), level, netTarget, aimingEntity, 0, false);
+						stand.getMaxRange(), stand.getMaxRange(), level, netTarget, aimingEntity, 0, false, 0,
+						ClipContext.Block.OUTLINE);
 				if (target == null || target.isEmpty(level) || throughWalls.getType() == TargetType.ENTITY) {
 					target = throughWalls;
 				}
