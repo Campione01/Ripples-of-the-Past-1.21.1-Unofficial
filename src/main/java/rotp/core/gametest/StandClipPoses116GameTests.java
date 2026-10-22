@@ -345,8 +345,16 @@ public final class StandClipPoses116GameTests {
 			held(HG_ANIMS, "block", LEGS), held(HG_ANIMS, "grapple", and(LEGS, "left_arm", "left_arm_bend")),
 			summonReset(HG_ANIMS, "summon1", "body_rot", "right_arm_bend"));
 
-	// the converted clips that hand over to their idle when they end, and the idle's bones they may leave off it
-	private record HandOver(String asset, String clip, String idle, String... except) {}
+	// the converted clips that hand over to their idle when they end, at the idle's time where 1.16's idle pose stands, and
+	// the idle's bones they may leave off it
+	private record HandOver(String asset, String clip, String idle, float idleAt, String... except) {
+		HandOver(String asset, String clip, String idle, String... except) {
+			this(asset, clip, idle, 0, except);
+		}
+	}
+
+	// 1.16's idle loop swung no_rapier_idle's arms from its start, the idle pose itself standing at 2 s
+	static final float RAPIERLESS_IDLE_POSE_AT = 2.0F;
 
 	private static final List<HandOver> HAND_OVERS = List.of(
 			new HandOver(MR_ANIMS, "summon1", "idle"), new HandOver(MR_ANIMS, "summon2", "idle"),
@@ -362,7 +370,8 @@ public final class StandClipPoses116GameTests {
 			new HandOver(SC_ANIMS, "summon3", "idle"), new HandOver(SC_ANIMS, "light_attack", "idle"),
 			new HandOver(SC_ANIMS, "melee_barrage", "idle"), new HandOver(SC_ANIMS, "dash_attack", "idle"),
 			new HandOver(SC_ANIMS, "sweeping_attack", "idle"), new HandOver(SC_ANIMS, "rapier_launch", "idle"),
-			new HandOver(SC_ANIMS, "rangedAttack", "idle"), new HandOver(SC_ANIMS, "no_rapier_light_attack", "no_rapier_idle"),
+			new HandOver(SC_ANIMS, "rangedAttack", "idle"),
+			new HandOver(SC_ANIMS, "no_rapier_light_attack", "no_rapier_idle", RAPIERLESS_IDLE_POSE_AT),
 			new HandOver(HG_ANIMS, "summon1", "idle"), new HandOver(HG_ANIMS, "emerald_splash", "idle"),
 			new HandOver(HG_ANIMS, "rangedAttack", "idle"), new HandOver(HG_ANIMS, "grapple", "idle"));
 
@@ -431,7 +440,7 @@ public final class StandClipPoses116GameTests {
 					continue;
 				}
 				for (float[] look : looks) {
-					float[] want = rotationAt(idle, bone, 0, look);
+					float[] want = rotationAt(idle, bone, row.idleAt(), look);
 					float[] got = rotationAt(clip, bone, end, look);
 					if (Math.abs(got[0] - want[0]) > 0.05F || Math.abs(got[1] - want[1]) > 0.05F || Math.abs(got[2] - want[2]) > 0.05F) {
 						wrong.add(row.clip() + " of " + row.asset() + " ends " + bone + " on " + Arrays.toString(got) + " looking "
@@ -706,12 +715,16 @@ public final class StandClipPoses116GameTests {
 
 	// a bone's keys in time order: the time as Float.parseFloat reads it, and the key
 	static List<Map.Entry<Float, JsonElement>> keys(JsonObject clip, String boneName) {
+		return keys(clip, boneName, "rotation");
+	}
+
+	static List<Map.Entry<Float, JsonElement>> keys(JsonObject clip, String boneName, String channel) {
 		JsonObject bone = clip.getAsJsonObject("bones").getAsJsonObject(boneName);
 		List<Map.Entry<Float, JsonElement>> keys = new ArrayList<>();
-		if (bone == null || !bone.has("rotation")) {
+		if (bone == null || !bone.has(channel)) {
 			return keys;
 		}
-		JsonElement rotation = bone.get("rotation");
+		JsonElement rotation = bone.get(channel);
 		if (rotation.isJsonArray() || rotation.getAsJsonObject().has("vector")) {
 			keys.add(Map.entry(0F, rotation));
 			return keys;
@@ -726,7 +739,12 @@ public final class StandClipPoses116GameTests {
 	// a bone's rotation at a clip time as RotpAnimDefinition.lerpKeyframes samples it (each segment eased by the key it
 	// moves to), the queries evaluated for the look (pitch, yaw); a bone the clip leaves out is 0
 	static float[] rotationAt(JsonObject clip, String boneName, float time, float[] look) {
-		List<Map.Entry<Float, JsonElement>> keys = keys(clip, boneName);
+		return channelAt(clip, boneName, "rotation", time, look);
+	}
+
+	// the same for a bone's rotation or position channel, as the clip writes it (RotpAnimDefinition negates a position's y)
+	static float[] channelAt(JsonObject clip, String boneName, String channel, float time, float[] look) {
+		List<Map.Entry<Float, JsonElement>> keys = keys(clip, boneName, channel);
 		if (keys.isEmpty()) {
 			return new float[3];
 		}

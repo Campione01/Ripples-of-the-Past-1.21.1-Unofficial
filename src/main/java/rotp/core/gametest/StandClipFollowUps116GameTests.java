@@ -770,11 +770,33 @@ public final class StandClipFollowUps116GameTests {
 	@GameTest(template = "empty", timeoutTicks = 20)
 	public static void silverChariotsArmourlessIdleSwingsItsArmsAs116sIdleLoop(GameTestHelper helper) {
 		List<String> wrong = new ArrayList<>();
+		idleLoopMismatches(helper, "no_armor_idle", ARMORLESS_IDLE, ARMORLESS_IDLE_2, wrong);
+		helper.assertTrue(wrong.isEmpty(), "1.16's armourless Silver Chariot swung its arms in its idle loop: " + wrong);
+		helper.succeed();
+	}
+
+	// SilverChariotModel :372-386 and :422-428 (no rapier): leftArm, leftForeArm, rightArm, rightForeArm of initBaseIdlePose
+	// and of initIdlePose2Loop
+	private static final float[][] RAPIERLESS_IDLE = { { 52.5F, -15, -12.5F }, { -75, 0, 0 }, { 30, 0, 7.5F }, { -45, 0, 0 } };
+	private static final float[][] RAPIERLESS_IDLE_2 = { { 55, -15, -15 }, { -77.5F, 0, 0 }, { 35, 0, 7.5F }, { -50, 0, 0 } };
+
+	// the same idle loop without the rapier (initIdlePose2Loop's first pose), the port's no_rapier_idle
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void silverChariotsRapierlessIdleSwingsItsArmsAs116sIdleLoop(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		idleLoopMismatches(helper, "no_rapier_idle", RAPIERLESS_IDLE, RAPIERLESS_IDLE_2, wrong);
+		helper.assertTrue(wrong.isEmpty(), "1.16's rapierless Silver Chariot swung its arms in its idle loop: " + wrong);
+		helper.succeed();
+	}
+
+	// every bone's rotation every 5 ms over the clip against 1.16's idle loop of the four arm parts
+	private static void idleLoopMismatches(GameTestHelper helper, String clipName, float[][] idlePose, float[][] idlePose2,
+			List<String> wrong) {
 		Map<String, JsonObject> files = new HashMap<>();
-		JsonObject clip = clipOf(helper, files, SC_ANIMS, "no_armor_idle");
+		JsonObject clip = clipOf(helper, files, SC_ANIMS, clipName);
 		float length = clip.get("animation_length").getAsFloat();
 		if (!clip.has("loop") || !clip.get("loop").getAsBoolean() || length % 4 != 0) {
-			wrong.add("no_armor_idle loops " + clip.get("loop") + " over " + length + " s, 1.16's every 4 s");
+			wrong.add(clipName + " loops " + clip.get("loop") + " over " + length + " s, 1.16's every 4 s");
 		}
 		Map<String, float[]> still = new HashMap<>();
 		for (String bone : clip.getAsJsonObject("bones").keySet()) {
@@ -782,7 +804,7 @@ public final class StandClipFollowUps116GameTests {
 		}
 		for (String bone : ARMORLESS_LOOP_BONES) {
 			if (!clip.getAsJsonObject("bones").has(bone)) {
-				wrong.add("no_armor_idle has no " + bone);
+				wrong.add(clipName + " has no " + bone);
 			}
 		}
 		Set<String> reported = new HashSet<>();
@@ -791,7 +813,7 @@ public final class StandClipFollowUps116GameTests {
 			float f = (float) ((Math.sin(Math.PI * (ticks / 40 - 0.5)) - 1) / 2);
 			Map<String, float[]> want = new HashMap<>();
 			for (int i = 0; i < ARMORLESS_LOOP_BONES.length; i++) {
-				want.put(ARMORLESS_LOOP_BONES[i], lerp(ARMORLESS_IDLE[i], ARMORLESS_IDLE_2[i], f));
+				want.put(ARMORLESS_LOOP_BONES[i], lerp(idlePose[i], idlePose2[i], f));
 			}
 			for (String limb : new String[] { "left_arm", "right_arm" }) {
 				float[] bend = want.get(limb + "_bend");
@@ -804,13 +826,55 @@ public final class StandClipFollowUps116GameTests {
 				float[] got = StandClipPoses116GameTests.rotationAt(clip, bone, Math.min(time, length), LOOKS[0]);
 				float[] expected = want.getOrDefault(bone, still.get(bone));
 				if (!near(got, expected, 0.05F)) {
-					wrong.add(bone + " at " + time + " s " + Arrays.toString(got) + " where 1.16's idle loop had "
+					wrong.add(clipName + " " + bone + " at " + time + " s " + Arrays.toString(got) + " where 1.16's idle loop had "
 							+ Arrays.toString(expected));
 					reported.add(bone);
 				}
 			}
 		}
-		helper.assertTrue(wrong.isEmpty(), "1.16's armourless Silver Chariot swung its arms in its idle loop: " + wrong);
+	}
+
+	/*
+	 * 1.16 StandEntityRenderer.idlePoseSwaying / doIdlePoseSwaying (:376-391) moved every Java-model Stand's idle by
+	 * translate(0, sin((ticks - idleLoopTickStamp) * 0.04) * 0.04, 0) after scale(-1, -1, 1): the whole model 0.64 px of model
+	 * space down first and back, a sine of 157 ticks on the idle loop's clock. The official idles keep the official port's
+	 * own bob (body 0.75 px up first); the port's 1.16-converted idles key 1.16's on their root bone, stand_pos, the y
+	 * written negated (RotpAnimDefinition.adjustBlockbenchVec), as one sine over their 8 s loop, the nearest loop to 1.16's
+	 * 7.85 s period that the idle loop's 4 s fit; no other bone of them moves.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void silverChariotsConvertedIdlesSwayAs116sIdlePose(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		Map<String, JsonObject> files = new HashMap<>();
+		for (String name : new String[] { "no_rapier_idle", "no_armor_idle" }) {
+			JsonObject clip = clipOf(helper, files, SC_ANIMS, name);
+			float length = clip.get("animation_length").getAsFloat();
+			if (Math.abs(length - 8) > 1.0E-4F) {
+				wrong.add(name + " is " + length + " s long, where its sway takes 1.16's period, 7.85 s, to its 8 s loop");
+			}
+			for (String bone : clip.getAsJsonObject("bones").keySet()) {
+				if (!bone.equals("stand_pos") && clip.getAsJsonObject("bones").getAsJsonObject(bone).has("position")) {
+					wrong.add(name + " moves " + bone + ", where 1.16 moved the whole model");
+				}
+			}
+			for (float time = 0; time <= length + 1.0E-4F; time += 0.005F) {
+				float t = Math.min(time, length);
+				float modelDown = (float) (Math.sin(2 * Math.PI * t / length) * 0.04F * 16);
+				float[] got = StandClipPoses116GameTests.channelAt(clip, "stand_pos", "position", t, LOOKS[0]);
+				if (!near(got, new float[] { 0, -modelDown, 0 }, 0.005F)
+						|| !near(StandClipPoses116GameTests.rotationAt(clip, "stand_pos", t, LOOKS[0]), new float[3], 0.0001F)) {
+					wrong.add(name + "'s stand_pos at " + t + " s is at " + Arrays.toString(got) + " where 1.16's sway put the model "
+							+ modelDown + " px down");
+					break;
+				}
+			}
+		}
+		JsonObject idle = clipOf(helper, files, SC_ANIMS, "idle");
+		if (idle.getAsJsonObject("bones").has("stand_pos")
+				|| !near(StandClipPoses116GameTests.channelAt(idle, "body", "position", 2, LOOKS[0]), new float[] { 0, 0.75F, 0 }, 0.0001F)) {
+			wrong.add("the official idle no longer keeps its own body bob");
+		}
+		helper.assertTrue(wrong.isEmpty(), "1.16 swayed Silver Chariot's idles: " + wrong);
 		helper.succeed();
 	}
 
