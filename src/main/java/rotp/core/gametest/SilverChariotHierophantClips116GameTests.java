@@ -79,6 +79,78 @@ public final class SilverChariotHierophantClips116GameTests {
 		helper.succeed();
 	}
 
+	// HierophantGreenModel :176-219, esPose1-4 (esPose4 names rightForeArm twice: the map keeps the second)
+	private static final String[] ES_BONES = { "left_arm", "left_arm_bend", "right_arm", "right_arm_bend", "body_rot", "torso_bend",
+			"left_leg", "left_leg_bend", "right_leg", "right_leg_bend" };
+	private static final float[][] ES_POSE_1 = { { -55, 0, 15 }, { 0, -90, 45 }, { -90, 0, 75 }, { -52.5F, 0, 0 } };
+	private static final float[][] ES_POSE_2 = { { -90, 0, 0 }, { 0, 0, 42.5F }, { -90, 0, 0 }, { 0, 0, -42.5F } };
+	private static final float[][] ES_POSE_3 = { { -90, 0, -56.25F }, { -39.38F, 0, 10.62F }, { -63.75F, 0, -11.25F },
+			{ 0, 67.5F, -44.37F }, { 0, 60, 0 }, { 0, 30, 0 }, { 0, 0, -42.5F }, { 0, 0, 120 }, { 0, 0, 15 }, { 0, 0, 0 } };
+	// esPose4: the arms, the right forearm, body and upperPart; the left forearm and the legs stay on esPose3's
+	private static final float[][] ES_POSE_4 = { { -90, 0, -75 }, { -39.38F, 0, 10.62F }, { -55, 0, -15 }, { 0, 90, -45 }, { 0, 0, 0 },
+			{ 0, 0, 0 }, { 0, 0, -42.5F }, { 0, 0, 120 }, { 0, 0, 15 }, { 0, 0, 0 } };
+
+	/*
+	 * 1.16's Emerald Splash (HierophantGreenModel :176-219): WINDUP ModelPoseTransitionMultiple(esPose1) .6 esPose2, .85
+	 * esPose3, .9 esPose3, build(esPose4) over the idle pose LegacyStandAnimator applied first, so the body, upperPart, legs
+	 * and head stay the idle's to .6 (esPose1-2 name only the arms), turn into esPose3 over .6-.85 and hold it to .9;
+	 * PERFORM the rigid esPose4 (PosedActionAnimation's filler) with esPose3's legs; RECOVERY the idle pose, at once.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void hierophantGreensEmeraldSplashTurnsAndRecoversAs116(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		Map<String, JsonObject> files = new HashMap<>();
+		JsonObject idle = clipOf(helper, files, HG_ANIMS, "idle");
+		for (String name : new String[] { "emerald_splash", "rangedAttack" }) {
+			JsonObject clip = clipOf(helper, files, HG_ANIMS, name);
+			float perform = StandClipPoses116GameTests.marker(clip, "phase=PERFORM;");
+			float recovery = StandClipPoses116GameTests.marker(clip, "phase=RECOVERY;");
+			float end = clip.get("animation_length").getAsFloat();
+			List<Float> early = new ArrayList<>();
+			for (float f = 0; f < 0.6F; f += 0.05F) {
+				early.add(f * perform);
+			}
+			early.add(0.6F * perform);
+			for (String bone : new String[] { "body_rot", "torso_bend", "left_leg", "left_leg_bend", "right_leg", "right_leg_bend",
+					"head", "head_rot" }) {
+				String first = firstOffIdle(clip, idle, bone, early);
+				if (first != null) {
+					wrong.add(name + " " + bone + " before .6 of the windup " + first);
+				}
+			}
+			List<Float> late = new ArrayList<>();
+			for (float time = recovery; time < end; time += 0.01F) {
+				late.add(time);
+			}
+			late.add(end);
+			for (String bone : idle.getAsJsonObject("bones").keySet()) {
+				String first = firstOffIdle(clip, idle, bone, late);
+				if (first != null) {
+					wrong.add(name + " " + bone + " in the recovery " + first);
+				}
+			}
+			for (int b = 0; b < 4; b++) {
+				expect(wrong, clip, ES_BONES[b], 0, ES_POSE_1[b], name + " esPose1");
+				expect(wrong, clip, ES_BONES[b], 0.6F * perform, ES_POSE_2[b], name + " esPose2");
+			}
+			for (int b = 0; b < ES_BONES.length; b++) {
+				for (float f : new float[] { 0.85F, 0.875F, 0.9F }) {
+					expect(wrong, clip, ES_BONES[b], f * perform, ES_POSE_3[b], name + " esPose3 at " + f + " of the windup");
+				}
+				for (float time : new float[] { perform, (perform + recovery) / 2, Math.nextDown(recovery) }) {
+					expect(wrong, clip, ES_BONES[b], time, ES_POSE_4[b], name + " esPose4 in the perform");
+				}
+			}
+			// half way through the turn the body and upperPart are half way from the idle's to esPose3's
+			float idleYaw = StandClipPoses116GameTests.rotationAt(idle, "body_rot", 0, LOOKS[0])[1];
+			expect(wrong, clip, "body_rot", 0.725F * perform, new float[] { 0, (idleYaw + 60) / 2, 0 }, name + " half way to esPose3");
+			expect(wrong, clip, "torso_bend", 0.725F * perform, new float[] { 0, 15, 0 }, name + " half way to esPose3");
+		}
+		helper.assertTrue(wrong.isEmpty(), "1.16's Emerald Splash kept the idle to .6 of the windup, held esPose3 from .85 to .9 and"
+				+ " showed the idle from RECOVERY: " + wrong);
+		helper.succeed();
+	}
+
 	// the first sample time at which a bone is off the idle's t=0 value, at either look, or null
 	private static String firstOffIdle(JsonObject clip, JsonObject idle, String bone, List<Float> times) {
 		for (float[] look : LOOKS) {
