@@ -292,6 +292,16 @@ public final class RotpAddonApi {
 	 */
 	public static final String FEATURE_ACTION_SUMMON_LOCK_HOOK_V1 =
 			"action_summon_lock_hook_v1";
+	/**
+	 * EntityActionInstance#isHeldBackByStandStun: false lets an action its Stand performs tick through the Stand's stun, as
+	 * 1.16 StandEntity.tick held back only a stunned Stand's task (1.16's StandEntityAction) and never a StandAction, which
+	 * its user's power performed; by default it answers as isHeldBackBySummonLock, so an action that returns false there
+	 * needs nothing more. Such an action is still refused at its press while its Stand is stunned and a held one ends at the
+	 * first stunned tick of its hold (the held recheck), the stun 1.16's power checked for it; an action whose ability
+	 * ignores performer stun is never held back by the stun.
+	 */
+	public static final String FEATURE_ACTION_STAND_STUN_HOOK_V1 =
+			"action_stand_stun_hook_v1";
 
 	public static final Set<String> FEATURES = Set.of(
 			FEATURE_ABILITY_RESOURCE_NAMESPACE_V1,
@@ -380,7 +390,8 @@ public final class RotpAddonApi {
 			FEATURE_STAND_ACTION_MODIFIERS_V1,
 			FEATURE_ABILITY_STAMINA_COST_V1,
 			FEATURE_ABILITY_COOLDOWN_TECHNICAL_V1,
-			FEATURE_ACTION_SUMMON_LOCK_HOOK_V1);
+			FEATURE_ACTION_SUMMON_LOCK_HOOK_V1,
+			FEATURE_ACTION_STAND_STUN_HOOK_V1);
 
 	private RotpAddonApi() {}
 

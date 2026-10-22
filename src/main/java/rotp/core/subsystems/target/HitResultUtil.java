@@ -152,6 +152,17 @@ public class HitResultUtil {
 	public static ActionTarget clip(Vec3 startingPos, Vec3 directionVec, double blockMaxRange, double entityMaxRange, 
 			Level level, Predicate<Entity> entityFilter, @Nullable Entity aiming, double standPrecision,
 			boolean wallsHideEntities) {
+		return clip(startingPos, directionVec, blockMaxRange, entityMaxRange, level, entityFilter, aiming, standPrecision,
+				wallsHideEntities, 0);
+	}
+
+	/**
+	 * @param entityInflate added to each entity's pick radius, as 1.16 JojoModUtil.rayTraceMultipleEntities grew the
+	 * boxes by its rayTraceInflate
+	 */
+	public static ActionTarget clip(Vec3 startingPos, Vec3 directionVec, double blockMaxRange, double entityMaxRange, 
+			Level level, Predicate<Entity> entityFilter, @Nullable Entity aiming, double standPrecision,
+			boolean wallsHideEntities, double entityInflate) {
 		boolean hitFluids = false;
 		CollisionContext entityCtx = aiming != null ? CollisionContext.of(aiming) : CollisionContext.empty();
 
@@ -188,7 +199,7 @@ public class HitResultUtil {
 		AABB entityHitAABB = null;
 
 		for (Entity potentialTarget : level.getEntities(aiming, boundingBox, entityFilter)) {
-			AABB targetAABB = potentialTarget.getBoundingBox().inflate(potentialTarget.getPickRadius());
+			AABB targetAABB = potentialTarget.getBoundingBox().inflate(potentialTarget.getPickRadius() + entityInflate);
 			AABB precisionAABB = standPrecisionTargetHitbox(targetAABB, standPrecision);
 			
 			if (targetAABB.contains(startingPos)) {

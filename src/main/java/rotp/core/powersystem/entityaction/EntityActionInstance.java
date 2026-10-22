@@ -359,6 +359,20 @@ public class EntityActionInstance implements HeldInput {
 		return true;
 	}
 
+	/**
+	 * Whether its Stand's stun holds this action back, as 1.16 StandEntity.tick held back a stunned Stand's task (a
+	 * StandEntityAction) unless the action ignored performer stun: by default as {@link #isHeldBackBySummonLock}, so a
+	 * port of a 1.16 StandAction that returns false there is not held back by the stun either. 1.16's power checked such
+	 * an action's performer, its summoned Stand (StandAction.getPerformer), only at the press, on every tick of its hold
+	 * and as the hold fired (PowerBaseImpl.checkRequirements), as the press check and the held recheck do here
+	 * (EntityActionAbility#checkHeldActionConditions); its other ticks run through the stun. Asked on both sides, in
+	 * every tick its Stand is stunned (LivingComponentAction; RotpAddonApi#FEATURE_ACTION_STAND_STUN_HOOK_V1).
+	 */
+	@ApiStatus.OverrideOnly
+	public boolean isHeldBackByStandStun() {
+		return isHeldBackBySummonLock();
+	}
+
 	@ApiStatus.OverrideOnly
 	public boolean canStaminaRegen(StandPower standPower, StandEntity standEntity) {
 		return false;
@@ -446,13 +460,9 @@ public class EntityActionInstance implements HeldInput {
 		target = resolveFrontOffsetTarget(standEntity, user, level, target, maxOffset);
 
 		double frontOffset = maxOffset;
-		Vec3 targetPos = null;
-		if (target != null && !target.isEmpty(level)) {
-			targetPos = target.getClipPos().orElse(null);
-			if (targetPos == null) {
-				targetPos = target.getCenterPos();
-			}
-		}
+		// 1.16 offsetToTarget measured to ActionTarget.getTargetPos(true), an entity's eyes or a block's centre, never to
+		// where a ray met it
+		Vec3 targetPos = target != null && !target.isEmpty(level) ? target.getCenterPos() : null;
 		if (targetPos != null) {
 			double backAway = 1.5;
 			if (target.getType() == ActionTarget.TargetType.ENTITY) {
@@ -476,8 +486,10 @@ public class EntityActionInstance implements HeldInput {
 				return target;
 			}
 		}
+		// 1.16 front3dOffset with no task target: rayTraceMultipleEntities from the user over maxOffset, boxes grown by 0.25
 		return HitResultUtil.clip(user.getEyePosition(), user.getLookAngle(), maxOffset, maxOffset,
-				level, entity -> standEntity.canAttackEntity(entity), user, 0, StandSkillWalls.wallsHideEntities(standEntity));
+				level, entity -> standEntity.canAttackEntity(entity), user, 0, StandSkillWalls.wallsHideEntities(standEntity),
+				0.25);
 	}
 
 	protected ActionTarget captureActionTargetFromAim(LivingEntity aimingEntity) {

@@ -290,6 +290,15 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 					? new ActionTarget(keptEntity) : ActionTarget.EMPTY;
 		}
 
+		// the task target after the windup: the entity the strike kept (StandEntity.punch, standKeepsTarget), else none
+		private ActionTarget frontOffsetTarget() {
+			if (getPhase() == ActionPhase.WINDUP) {
+				return windupPlacementTarget();
+			}
+			ActionTarget held = getTaskTarget(level());
+			return held.getType() == ActionTarget.TargetType.ENTITY ? held : ActionTarget.EMPTY;
+		}
+
 		@Override
 		public void toBuf(FriendlyByteBuf buf) {
 			super.toBuf(buf);
@@ -350,14 +359,13 @@ public class StandEntityHeavyPunchAbility extends StandEntityAbility {
 			if (performer instanceof StandEntity stand) {
 				StandEntityPunchAbility.releaseUnlockedPunchTarget(stand, this);
 				// 1.16 StandEntityTask.tick dropped the task target that left the action's range on every tick of the task, on
-				// the server only, and StandEntityHeavyAttack.getOffsetFromUser kept the Stand's distance from it through the
-				// windup, so it steps after one that backs away
+				// the server only, and StandEntityHeavyAttack.getOffsetFromUser kept the Stand's distance from it on every tick
+				// of the task, so it steps after one that backs away
 				if (!takesTargetsFromServer() && !isGrabVariation()) {
 					releaseTargetOutOfRange(stand);
 				}
-				if (getPhase() == ActionPhase.WINDUP && usesHeavyFinisherSetup() && !isGrabVariation()
-						&& !level.isClientSide()) {
-					StandEntityBarrageAbility.refreshFrontOffset(this, stand, windupPlacementTarget(),
+				if (usesHeavyFinisherSetup() && !isGrabVariation() && !level.isClientSide()) {
+					StandEntityBarrageAbility.refreshFrontOffset(this, stand, frontOffsetTarget(),
 							Math.min(0.5, stand.getEffectiveRange()), Math.min(2, stand.getMaxRange()));
 				}
 			}
