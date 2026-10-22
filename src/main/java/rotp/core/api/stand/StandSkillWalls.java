@@ -10,6 +10,7 @@ import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchChargedAbility;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
+import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
@@ -46,8 +47,8 @@ import net.minecraft.world.level.Level;
  * {@link StandEntityPunchAbility#throughWallsTarget}).</p>
  *
  * <p><b>Core helpers that honour the mark on their own.</b> They ask {@link #wallsHideEntities(Entity)}, which looks at
- * the skill in progress: the current action of the aiming entity, or, for a Stand user that runs no action of its own,
- * of the Stand it has out.</p>
+ * the skill in progress: the current action of the aiming entity (a Stand move a user performs itself included), or,
+ * for a Stand user that runs no action of its own, of the Stand it has out.</p>
  * <ul>
  * <li>{@link rotp.core.subsystems.target.HitResultUtil#clip(net.minecraft.world.phys.Vec3,
  * net.minecraft.world.phys.Vec3, double, double, Level, java.util.function.Predicate, Entity, double)} and
@@ -151,13 +152,15 @@ public final class StandSkillWalls {
 	}
 
 	/**
-	 * Whether blocks stop the entity pick or hit of the skill in progress: the current action of the aiming entity. A
-	 * Stand user that runs no action of its own is taken to aim for its summoned Stand, whose skills cast their rays
-	 * from the user's eyes, so the Stand's current action answers; while the user runs an action of its own, its rays
-	 * serve that action and the Stand's mark does not reach them. The Stand's punches, heavy punches and barrages ask
-	 * {@link #wallsHideEntities(Level, Object)} with the Stand's own action for every ray they cast, the user's
-	 * included. A ray the user casts for something else while it runs no action (a power with no action, a delayed
-	 * effect) cannot be told apart here: such code passes the answer itself, as the class description says.
+	 * Whether blocks stop the entity pick or hit of the skill in progress: the current action of the aiming entity (the
+	 * action in its own slot, else the Stand-power action it performs from its user's Stand-power slot). A Stand user
+	 * that runs no action of its own is taken to aim for its summoned Stand, whose skills cast their rays from the user's
+	 * eyes, so the Stand's current action answers; while the user runs an action of its own, a Stand move it performs
+	 * itself included, its rays serve that action and the Stand's mark does not reach them. The Stand's punches, heavy
+	 * punches and barrages ask {@link #wallsHideEntities(Level, Object)} with the Stand's own action for every ray they
+	 * cast, the user's included. A ray the user casts for something else while it runs no action (a power with no
+	 * action, a delayed effect) cannot be told apart here: such code passes the answer itself, as the class description
+	 * says.
 	 */
 	public static boolean wallsHideEntities(@Nullable Entity aiming) {
 		if (aiming == null || noMarks() || !(aiming instanceof LivingEntity living)) {
@@ -173,9 +176,16 @@ public final class StandSkillWalls {
 		return stand == null || wallsHideEntities(level, currentAction(stand));
 	}
 
+	// a Stand performs the ports of 1.16 StandActions its user's power holds (EntityActionAbility#performsInUsersStandPowerSlot)
 	@Nullable
 	private static EntityActionInstance currentAction(LivingEntity performer) {
-		return LivingComponentAction.getCurEntityAction(performer);
+		EntityActionInstance own = LivingComponentAction.getCurEntityAction(performer);
+		if (own != null) {
+			return own;
+		}
+		LivingEntity user = performer instanceof StandEntity stand ? stand.getUser() : performer;
+		EntityActionInstance standPower = user != null ? LivingComponentAction.getCurEntityAction(user, PowerClass.STAND) : null;
+		return standPower != null && standPower.getPerformer() == performer ? standPower : null;
 	}
 
 	@Nullable

@@ -1,5 +1,7 @@
 package rotp.core.gametest;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Proxy;
 import java.util.UUID;
 
 import rotp.core.api.stand.StandPowerTransitions;
@@ -12,6 +14,7 @@ import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.ability.input.AbilityInput;
 import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
+import rotp.core.powersystem.ability.input.InputKeyId;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandPower;
@@ -19,6 +22,8 @@ import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.entity.StandEntity.StandFlag;
 import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.entity_puppetcontrol.EntityComponentController;
+import rotp.core.subsystems.entity_useitem.ClStandClickPacket;
+import rotp.core.subsystems.entity_useitem.HitResultSync;
 import rotp.core.impl.stands._entitybase.StandEntityManualControlToggle;
 import com.mojang.authlib.GameProfile;
 
@@ -26,14 +31,20 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.animal.Cow;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -217,6 +228,79 @@ public final class StandManualControlAdmissionGameTests {
 			assertUnsummonAction(helper, fixture.stand);
 		}
 		helper.succeed();
+	}
+
+	// 1.16 had no Stand item use; during the unsummon a right click was its user's own (onStandUnsummon closed the HUD)
+	@GameTest(template = "empty", timeoutTicks = 80)
+	public static void standTakesNoItemClickDuringItsUnsummon(GameTestHelper helper) {
+		try (Fixture fixture = new Fixture(helper.getLevel())) {
+			fixture.initialize(helper, false);
+			fixture.stand.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.SHIELD));
+			receiveStandItemClick(fixture.user, 1L);
+			var action = fixture.stand.getCurStandAction();
+			helper.assertTrue(fixture.stand.isUsingItem() && action != null
+					&& action.ability == ModSpecialActions.RMB_USING_ITEM.get(),
+					"Fixture: a right click did not make the idle Stand raise the shield it holds, action=" + action);
+		}
+		StringBuilder failures = new StringBuilder();
+		for (boolean armsOnly : new boolean[] { false, true }) {
+			try (Fixture fixture = new Fixture(helper.getLevel())) {
+				fixture.initialize(helper, false);
+				if (armsOnly) {
+					fixture.stand.setArmsOnlyMode();
+				}
+				fixture.stand.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.SHIELD));
+				fixture.stand.onUnsummonUserInput();
+				assertUnsummonAction(helper, fixture.stand);
+				var unsummon = fixture.stand.getCurStandAction();
+				receiveStandItemClick(fixture.user, 1L);
+				var inputState = fixture.user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get());
+				if (fixture.stand.getCurStandAction() != unsummon || fixture.stand.isUsingItem()
+						|| inputState.heldKeys.containsKey(InputKeyId.STAND_ITEM_RMB)) {
+					failures.append(armsOnly ? "arms-only" : "full-body").append(" unsummon: a right click made the Stand use"
+							+ " its shield (using ").append(fixture.stand.isUsingItem()).append(", action ")
+							.append(fixture.stand.getCurStandAction()).append(", the unsummon kept ")
+							.append(fixture.stand.getCurStandAction() == unsummon)
+							.append("), where 1.16 left the click to its user; ");
+				}
+			}
+		}
+		helper.assertTrue(failures.isEmpty(), failures.toString());
+		helper.succeed();
+	}
+
+	// through the packet's server handler, as the user's client sends it on a right click with nothing aimed at
+	private static void receiveStandItemClick(Player player, long generation) {
+		IPayloadContext context = (IPayloadContext) Proxy.newProxyInstance(IPayloadContext.class.getClassLoader(),
+				new Class<?>[] { IPayloadContext.class }, (proxy, method, args) -> {
+					if (method.getName().equals("player")) {
+						return player;
+					}
+					throw new UnsupportedOperationException("Fixture: the handler asked the context for " + method.getName());
+				});
+		// the Handler constructor sets the packet's static type; put back the registered one
+		Object registeredType;
+		Field typeField;
+		try {
+			typeField = ClStandClickPacket.class.getDeclaredField("type");
+			typeField.setAccessible(true);
+			registeredType = typeField.get(null);
+		}
+		catch (ReflectiveOperationException e) {
+			throw new IllegalStateException("Fixture: cannot read the packet type", e);
+		}
+		try {
+			new ClStandClickPacket.Handler(JojoMod.resLoc("clstandclick")).handle(new ClStandClickPacket(
+					new HitResultSync(null), generation, InteractionHand.MAIN_HAND, InteractionHand.OFF_HAND), context);
+		}
+		finally {
+			try {
+				typeField.set(null, registeredType);
+			}
+			catch (ReflectiveOperationException e) {
+				throw new IllegalStateException("Fixture: cannot restore the packet type", e);
+			}
+		}
 	}
 
 	// 1.16 StandUtil.setManualControl: an arms-only Stand cannot be taken over

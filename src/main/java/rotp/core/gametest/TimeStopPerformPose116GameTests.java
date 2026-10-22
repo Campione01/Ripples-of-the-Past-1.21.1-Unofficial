@@ -32,6 +32,7 @@ import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.type.StandType;
+import rotp.core.subsystems.timestop.TimeStopLearning;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
@@ -142,6 +143,74 @@ public final class TimeStopPerformPose116GameTests {
 		helper.succeed();
 	}
 
+	// the port's shorter stop from a charge let go early (D-core-91; 1.16 fired nothing) has no perform: its Stand takes
+	// the full stop's perform pose all the same, and the clients, whose copy of the charge is cleared before the release
+	// reaches them, take it from the Stand's event while that copy is still in its user's Stand-power slot
+	@GameTest(template = "empty", timeoutTicks = 100, batch = GameTestBatches.TIME_STOP)
+	public static void aTimeStopReleasedEarlyLeavesTheFullStopsPerformPoseOnItsStand(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		for (String standId : List.of("star_platinum", "the_world")) {
+			int poseTicks = POSE_TICKS_116.get(standId);
+			try (Scene s = new Scene(helper, "EarlyPose" + standId, standId)) {
+				EntityActionInstance stop = s.charge();
+				for (int tick = 0; tick < 5; tick++) {
+					s.tick();
+				}
+				int fullTicks = TimeStopLearning.getTimeStopTicks(s.power, TIME_STOP);
+				helper.assertTrue(stop.getPhase() == ActionPhase.BUTTON_CHARGE && s.stand.getPerformPose() == null,
+						"setup: " + standId + "'s time stop is not charging 5 ticks after its press, or its Stand is posed");
+				AbilityInput.keyRelease(STOP_KEY, s.user);
+				int started = s.stopTicks();
+				helper.assertTrue(started > 0 && started < fullTicks && s.userSlot().getAction() == null,
+						"setup: " + standId + "'s time stop let go 5 ticks into its charge did not start a shorter stop than its "
+								+ fullTicks + " ticks (" + started + ") and clear its slot (" + s.userSlot().getAction() + ")");
+				if (s.stand.getPerformPose() != stop || s.stand.getPerformPoseTicks(0) != 0) {
+					wrong.add(standId + ": as its charge let go early stopped time the Stand took the pose "
+							+ s.stand.getPerformPose() + " from " + s.stand.getPerformPoseTicks(0) + " ticks, where the full stop"
+							+ " leaves its time stop's perform pose from that tick");
+					continue;
+				}
+				for (int k = 1; k <= poseTicks; k++) {
+					s.tick();
+					if (s.stand.getPerformPose() != stop || s.stand.getPerformPoseTicks(0) != k) {
+						wrong.add(standId + ": " + k + " ticks after its early release the Stand plays the pose "
+								+ s.stand.getPerformPose() + " at " + s.stand.getPerformPoseTicks(0) + " ticks, the full stop's"
+								+ " perform pose to the clip's end at tick " + poseTicks);
+						break;
+					}
+				}
+			}
+
+			try (Scene s = new Scene(helper, "EarlyPoseEvent" + standId, standId)) {
+				EntityActionInstance stop = s.charge();
+				s.tick();
+				s.stand.handleEntityEvent(StandEntity.PERFORM_POSE_EVENT);
+				EntityActionInstance posed = s.stand.getPerformPose();
+				float atEvent = s.stand.getPerformPoseTicks(0);
+				s.tick();
+				s.tick();
+				s.stand.handleEntityEvent(StandEntity.PERFORM_POSE_EVENT);
+				if (posed != stop || atEvent != 0 || s.stand.getPerformPose() != stop || s.stand.getPerformPoseTicks(0) != 2) {
+					wrong.add(standId + ": the Stand's perform pose event, its charge in its user's Stand-power slot, gave the"
+							+ " pose " + posed + " from " + atEvent + " ticks, and a second one 2 ticks later left "
+							+ s.stand.getPerformPose() + " at " + s.stand.getPerformPoseTicks(0) + " ticks, where it gives the"
+							+ " charge's pose from 0 ticks once and leaves a pose it has");
+				}
+			}
+		}
+		Set<String> release = StandClipFollowUps116GameTests.invokedMethods(helper,
+				"rotp/core/impl/stands/theworld/TimeStopAbility$TimeStopAction.class");
+		for (String call : new String[] { "rotp/core/powersystem/standpower/entity/StandEntity.setPerformPose",
+				"net/minecraft/world/level/Level.broadcastEntityEvent" }) {
+			if (!release.contains(call)) {
+				wrong.add("TimeStopAction no longer calls " + call);
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), "The time stop let go early must leave the full stop's perform pose on its Stand: "
+				+ String.join("; ", wrong));
+		helper.succeed();
+	}
+
 	/** A player with Star Platinum or The World out at Resolve 4, its time stop unlocked and moved far from every cell. */
 	private static final class Scene implements AutoCloseable {
 		private final GameTestHelper helper;
@@ -218,6 +287,12 @@ public final class TimeStopPerformPose116GameTests {
 				}
 			}
 			return -1;
+		}
+
+		// the length of the user's time stop, 0 for none
+		int stopTicks() {
+			return helper.getLevel().getData(ModDataAttachmentTypes.TIME_STOP.get()).getInstance(user.getId())
+					.map(instance -> instance.totalTicks()).orElse(0);
 		}
 
 		// as ClAbilityInputPacket handles a press: the key's resolved ability, its condition check, then the press

@@ -668,8 +668,18 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 								user.getScoreboardName(),
 								power != null && power.getPowerType() != null ? power.getPowerType().getId() : "<none>",
 								chargeTicks, curPhaseLength, chargeRatio, learningPoints, maxTicks, timeStopTicks);
-						timeStop.startTimeStopAfterHold(user, standAlreadySummoned, timeStopTicks, curPhaseLength);
+						if (timeStop.startTimeStopAfterHold(user, standAlreadySummoned, timeStopTicks, curPhaseLength)
+								&& getPerformer() instanceof StandEntity stand) {
+							// the port's shorter stop (D-core-91) has no perform: its Stand takes the full stop's perform
+							// pose, and the other clients, whose copy this release reaches only after it was cleared, take
+							// it from the event
+							stand.setPerformPose(this);
+							level().broadcastEntityEvent(stand, StandEntity.PERFORM_POSE_EVENT);
+						}
 					}
+				}
+				else if (getPerformer() instanceof StandEntity stand && stand.getPerformPose() == null) {
+					stand.setPerformPose(this);
 				}
 				LivingComponentAction.getComponentForSlot(performer, actionSlot()).setAction(null, SyncType.TRACKING_AND_SELF);
 			}

@@ -26,6 +26,7 @@ import rotp.core.init.ModStatusEffects;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.EntityActionAbility;
+import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.netcode.SyncType;
@@ -39,8 +40,11 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.animal.Cow;
+import net.minecraft.world.entity.animal.SnowGolem;
+import net.minecraft.world.entity.item.PrimedTnt;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
@@ -418,6 +422,95 @@ public final class StandClipFollowUps116GameTests {
 		helper.succeed();
 	}
 
+	/*
+	 * 1.16 StandEntityAction.barrageVisualsPhaseTransition set the Stand's barrage hit sounds playing in the perform while
+	 * barrageVisuals held, for the heal and the revert alike and healing or not (barrageVisualsTick sent the sound while the
+	 * task held an entity). CrazyDiamondPreviousState.barrageVisuals (:424-427) held while the revert's task target was an
+	 * entity passing its checkTarget (what it reverts at the stored Resolve level), reverting it or not, and never else.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void crazyDiamondsBarrageHitSoundsAndRevertVisualsTake116sRules(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		for (ActionPhase phase : new ActionPhase[] { ActionPhase.WINDUP, ActionPhase.PERFORM, ActionPhase.RECOVERY, null }) {
+			for (boolean healing : new boolean[] { false, true }) {
+				for (boolean visuals : new boolean[] { false, true }) {
+					boolean got = CrazyDHealAbility.HealingAction.playsBarrageHitSounds(phase, new CrazyDHealAbility.HealingAction.HealResult.Synched(
+							ActionTarget.EMPTY, healing, visuals, CrazyDHealAbility.HealingAction.HealResult.Synched.NO_DEATH_TIME_CHANGE));
+					if (got != (phase == ActionPhase.PERFORM && visuals)) {
+						wrong.add("in " + phase + ", healing " + healing + ", barrage visuals " + visuals + ": barrage hit sounds " + got
+								+ ", 1.16 " + (phase == ActionPhase.PERFORM && visuals));
+					}
+				}
+			}
+		}
+		if (!invokedMethods(helper, "rotp/core/impl/stands/crazydiamond/CrazyDHealAbility$HealingAction.class")
+				.contains("rotp/core/impl/stands/crazydiamond/CrazyDHealAbility$HealingAction.playsBarrageHitSounds")) {
+			wrong.add("the healing action no longer sets its hit sounds by playsBarrageHitSounds");
+		}
+
+		Player user = FakePlayerFactory.get(helper.getLevel(), new GameProfile(UUID.randomUUID(), "CDRevertVisualsRule"));
+		StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("crazy_diamond"));
+		StandPower power = null;
+		List<Entity> spawned = new ArrayList<>();
+		try {
+			user.getAbilities().instabuild = false;
+			Vec3 pos = Vec3.atCenterOf(helper.absolutePos(new BlockPos(2, 3, 2)));
+			user.moveTo(pos.x, pos.y, pos.z);
+			helper.assertTrue(helper.getLevel().addFreshEntity(user), "setup: could not add the Stand user");
+			power = PowerClass.STAND.attachGet(user);
+			helper.assertTrue(StandPowerTransitions.insert(power, new StandInstance(type)).status() == StandPowerTransitions.Status.APPLIED,
+					"setup: could not grant Crazy Diamond");
+			power.setResolveLevel(4);
+			helper.assertTrue(type.summon(user, power), "setup: could not summon Crazy Diamond");
+			StandEntity stand = power.getSummonedStandEntity();
+			helper.assertTrue(stand != null, "setup: the summoned Stand is missing");
+			EntityActionInstance action = ((EntityActionAbility) power.getAbility("revert_state")).initActionOnAbilityUse(helper.getLevel(), user, stand, null);
+			LivingComponentAction.getComponent(stand).setAction(action, user, SyncType.NO_SYNC);
+			CrazyDHealAbility.HealingAction revert = (CrazyDHealAbility.HealingAction) action;
+			PrimedTnt tnt = EntityType.TNT.create(helper.getLevel());
+			SnowGolem golem = EntityType.SNOW_GOLEM.create(helper.getLevel());
+			Cow cow = EntityType.COW.create(helper.getLevel());
+			helper.assertTrue(tnt != null && golem != null && cow != null, "setup: could not create the targets");
+			tnt.setFuse(10000);
+			tnt.setNoGravity(true);
+			golem.setNoAi(true);
+			cow.setNoAi(true);
+			int i = 0;
+			for (Entity entity : new Entity[] { tnt, golem, cow }) {
+				entity.moveTo(pos.x + i++, pos.y, pos.z + 2);
+				helper.assertTrue(helper.getLevel().addFreshEntity(entity), "setup: could not add " + entity);
+				spawned.add(entity);
+			}
+			// {the target, the stored Resolve level, under the Resolve effect} -> 1.16's barrageVisuals
+			Object[][] rows = { { tnt, 4, false, true }, { golem, 4, false, true }, { cow, 4, false, false }, { null, 4, false, false },
+					{ null, 4, true, false }, { cow, 4, true, false }, { tnt, 2, false, false } };
+			for (Object[] row : rows) {
+				user.removeAllEffects();
+				if ((boolean) row[2]) {
+					user.addEffect(new MobEffectInstance(ModStatusEffects.RESOLVE, 100));
+				}
+				power.setResolveLevel((int) row[1]);
+				ActionTarget target = row[0] != null ? new ActionTarget((Entity) row[0]) : ActionTarget.EMPTY;
+				boolean got = revert.showsBarrageVisuals(target);
+				if (got != (boolean) row[3]) {
+					wrong.add("the revert at " + (row[0] != null ? ((Entity) row[0]).getType().toShortString() : "nothing") + ", stored Resolve "
+							+ row[1] + ", the Resolve effect " + row[2] + ": barrage visuals " + got + ", 1.16 " + row[3]);
+				}
+			}
+		}
+		finally {
+			if (power != null && power.isSummoned()) {
+				type.forceUnsummon(user, power);
+			}
+			spawned.forEach(Entity::discard);
+			user.removeAllEffects();
+			user.discard();
+		}
+		helper.assertTrue(wrong.isEmpty(), "1.16 played Crazy Diamond's barrage hit sounds while its barrage visuals held, and"
+				+ " showed the revert's at an entity it reverts: " + wrong);
+		helper.succeed();
+	}
+
 	private static final String SP_ANIMS =
 			"stand_skins/star_platinum/assets/jojo_ripples/animations/star_platinum.animation.json";
 	// 1.16 star_platinum.animation.json at the end of each clip's first segment (uppercut 0.4 s, timeStop 0.25 s): its body
@@ -770,11 +863,33 @@ public final class StandClipFollowUps116GameTests {
 	@GameTest(template = "empty", timeoutTicks = 20)
 	public static void silverChariotsArmourlessIdleSwingsItsArmsAs116sIdleLoop(GameTestHelper helper) {
 		List<String> wrong = new ArrayList<>();
+		idleLoopMismatches(helper, "no_armor_idle", ARMORLESS_IDLE, ARMORLESS_IDLE_2, wrong);
+		helper.assertTrue(wrong.isEmpty(), "1.16's armourless Silver Chariot swung its arms in its idle loop: " + wrong);
+		helper.succeed();
+	}
+
+	// SilverChariotModel :372-386 and :422-428 (no rapier): leftArm, leftForeArm, rightArm, rightForeArm of initBaseIdlePose
+	// and of initIdlePose2Loop
+	private static final float[][] RAPIERLESS_IDLE = { { 52.5F, -15, -12.5F }, { -75, 0, 0 }, { 30, 0, 7.5F }, { -45, 0, 0 } };
+	private static final float[][] RAPIERLESS_IDLE_2 = { { 55, -15, -15 }, { -77.5F, 0, 0 }, { 35, 0, 7.5F }, { -50, 0, 0 } };
+
+	// the same idle loop without the rapier (initIdlePose2Loop's first pose), the port's no_rapier_idle
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void silverChariotsRapierlessIdleSwingsItsArmsAs116sIdleLoop(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		idleLoopMismatches(helper, "no_rapier_idle", RAPIERLESS_IDLE, RAPIERLESS_IDLE_2, wrong);
+		helper.assertTrue(wrong.isEmpty(), "1.16's rapierless Silver Chariot swung its arms in its idle loop: " + wrong);
+		helper.succeed();
+	}
+
+	// every bone's rotation every 5 ms over the clip against 1.16's idle loop of the four arm parts
+	private static void idleLoopMismatches(GameTestHelper helper, String clipName, float[][] idlePose, float[][] idlePose2,
+			List<String> wrong) {
 		Map<String, JsonObject> files = new HashMap<>();
-		JsonObject clip = clipOf(helper, files, SC_ANIMS, "no_armor_idle");
+		JsonObject clip = clipOf(helper, files, SC_ANIMS, clipName);
 		float length = clip.get("animation_length").getAsFloat();
 		if (!clip.has("loop") || !clip.get("loop").getAsBoolean() || length % 4 != 0) {
-			wrong.add("no_armor_idle loops " + clip.get("loop") + " over " + length + " s, 1.16's every 4 s");
+			wrong.add(clipName + " loops " + clip.get("loop") + " over " + length + " s, 1.16's every 4 s");
 		}
 		Map<String, float[]> still = new HashMap<>();
 		for (String bone : clip.getAsJsonObject("bones").keySet()) {
@@ -782,7 +897,7 @@ public final class StandClipFollowUps116GameTests {
 		}
 		for (String bone : ARMORLESS_LOOP_BONES) {
 			if (!clip.getAsJsonObject("bones").has(bone)) {
-				wrong.add("no_armor_idle has no " + bone);
+				wrong.add(clipName + " has no " + bone);
 			}
 		}
 		Set<String> reported = new HashSet<>();
@@ -791,7 +906,7 @@ public final class StandClipFollowUps116GameTests {
 			float f = (float) ((Math.sin(Math.PI * (ticks / 40 - 0.5)) - 1) / 2);
 			Map<String, float[]> want = new HashMap<>();
 			for (int i = 0; i < ARMORLESS_LOOP_BONES.length; i++) {
-				want.put(ARMORLESS_LOOP_BONES[i], lerp(ARMORLESS_IDLE[i], ARMORLESS_IDLE_2[i], f));
+				want.put(ARMORLESS_LOOP_BONES[i], lerp(idlePose[i], idlePose2[i], f));
 			}
 			for (String limb : new String[] { "left_arm", "right_arm" }) {
 				float[] bend = want.get(limb + "_bend");
@@ -804,13 +919,55 @@ public final class StandClipFollowUps116GameTests {
 				float[] got = StandClipPoses116GameTests.rotationAt(clip, bone, Math.min(time, length), LOOKS[0]);
 				float[] expected = want.getOrDefault(bone, still.get(bone));
 				if (!near(got, expected, 0.05F)) {
-					wrong.add(bone + " at " + time + " s " + Arrays.toString(got) + " where 1.16's idle loop had "
+					wrong.add(clipName + " " + bone + " at " + time + " s " + Arrays.toString(got) + " where 1.16's idle loop had "
 							+ Arrays.toString(expected));
 					reported.add(bone);
 				}
 			}
 		}
-		helper.assertTrue(wrong.isEmpty(), "1.16's armourless Silver Chariot swung its arms in its idle loop: " + wrong);
+	}
+
+	/*
+	 * 1.16 StandEntityRenderer.idlePoseSwaying / doIdlePoseSwaying (:376-391) moved every Java-model Stand's idle by
+	 * translate(0, sin((ticks - idleLoopTickStamp) * 0.04) * 0.04, 0) after scale(-1, -1, 1): the whole model 0.64 px of model
+	 * space down first and back, a sine of 157 ticks on the idle loop's clock. The official idles keep the official port's
+	 * own bob (body 0.75 px up first); the port's 1.16-converted idles key 1.16's on their root bone, stand_pos, the y
+	 * written negated (RotpAnimDefinition.adjustBlockbenchVec), as one sine over their 8 s loop, the nearest loop to 1.16's
+	 * 7.85 s period that the idle loop's 4 s fit; no other bone of them moves.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void silverChariotsConvertedIdlesSwayAs116sIdlePose(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		Map<String, JsonObject> files = new HashMap<>();
+		for (String name : new String[] { "no_rapier_idle", "no_armor_idle" }) {
+			JsonObject clip = clipOf(helper, files, SC_ANIMS, name);
+			float length = clip.get("animation_length").getAsFloat();
+			if (Math.abs(length - 8) > 1.0E-4F) {
+				wrong.add(name + " is " + length + " s long, where its sway takes 1.16's period, 7.85 s, to its 8 s loop");
+			}
+			for (String bone : clip.getAsJsonObject("bones").keySet()) {
+				if (!bone.equals("stand_pos") && clip.getAsJsonObject("bones").getAsJsonObject(bone).has("position")) {
+					wrong.add(name + " moves " + bone + ", where 1.16 moved the whole model");
+				}
+			}
+			for (float time = 0; time <= length + 1.0E-4F; time += 0.005F) {
+				float t = Math.min(time, length);
+				float modelDown = (float) (Math.sin(2 * Math.PI * t / length) * 0.04F * 16);
+				float[] got = StandClipPoses116GameTests.channelAt(clip, "stand_pos", "position", t, LOOKS[0]);
+				if (!near(got, new float[] { 0, -modelDown, 0 }, 0.005F)
+						|| !near(StandClipPoses116GameTests.rotationAt(clip, "stand_pos", t, LOOKS[0]), new float[3], 0.0001F)) {
+					wrong.add(name + "'s stand_pos at " + t + " s is at " + Arrays.toString(got) + " where 1.16's sway put the model "
+							+ modelDown + " px down");
+					break;
+				}
+			}
+		}
+		JsonObject idle = clipOf(helper, files, SC_ANIMS, "idle");
+		if (idle.getAsJsonObject("bones").has("stand_pos")
+				|| !near(StandClipPoses116GameTests.channelAt(idle, "body", "position", 2, LOOKS[0]), new float[] { 0, 0.75F, 0 }, 0.0001F)) {
+			wrong.add("the official idle no longer keeps its own body bob");
+		}
+		helper.assertTrue(wrong.isEmpty(), "1.16 swayed Silver Chariot's idles: " + wrong);
 		helper.succeed();
 	}
 

@@ -491,6 +491,23 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		performPoseAction = null;
 	}
 
+	/** The server tells the clients that the action its user's Stand-power slot holds leaves its perform pose now. */
+	@ApiStatus.Internal
+	public static final byte PERFORM_POSE_EVENT = 100;
+
+	@Override
+	public void handleEntityEvent(byte id) {
+		if (id == PERFORM_POSE_EVENT) {
+			LivingEntity user = getUser();
+			EntityActionInstance action = user != null ? LivingComponentAction.getCurEntityAction(user, PowerClass.STAND) : null;
+			if (action != null && action.posesItsStand() && action.getPerformer() == this && getPerformPose() == null) {
+				setPerformPose(action);
+			}
+			return;
+		}
+		super.handleEntityEvent(id);
+	}
+
 	@Override
 	public void aiStep() {
 		super.aiStep();

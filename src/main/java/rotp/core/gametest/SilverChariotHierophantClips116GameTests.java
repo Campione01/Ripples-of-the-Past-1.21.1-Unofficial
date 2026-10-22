@@ -105,6 +105,8 @@ public final class SilverChariotHierophantClips116GameTests {
 	private static final int[] JAB_PHASE = { 0, 0, 0, 0, 1, 1, 1, 2, 2 };
 	private static final boolean[] JAB_CUBIC = { false, false, true, false, false, true, false, false, false };
 	private static final float[] JAB_LOOK = { 0, 1, 1, 1, 1, 0, 0, 0, 0 };
+	// where no_rapier_idle's loop stands on 1.16's idle pose, which the jab ends on
+	private static final float IDLE_AT = StandClipPoses116GameTests.RAPIERLESS_IDLE_POSE_AT;
 
 	/*
 	 * Without its rapier 1.16's Silver Chariot drew HumanoidStandModel's jab (:499-536): WINDUP jabStart, jabArmTurn at .5,
@@ -133,9 +135,9 @@ public final class SilverChariotHierophantClips116GameTests {
 			float f = (t - at[i - 1]) / (at[i] - at[i - 1]);
 			f = JAB_CUBIC[i] ? f * f * f : f;
 			for (int b = 0; b < JAB_BONES.length; b++) {
-				float[] from = JAB_POSE_AT[i - 1] < 0 ? StandClipPoses116GameTests.rotationAt(idle, JAB_BONES[b], 0, LOOKS[0])
+				float[] from = JAB_POSE_AT[i - 1] < 0 ? StandClipPoses116GameTests.rotationAt(idle, JAB_BONES[b], IDLE_AT, LOOKS[0])
 						: JAB_POSES[JAB_POSE_AT[i - 1]][b];
-				float[] to = JAB_POSE_AT[i] < 0 ? StandClipPoses116GameTests.rotationAt(idle, JAB_BONES[b], 0, LOOKS[0])
+				float[] to = JAB_POSE_AT[i] < 0 ? StandClipPoses116GameTests.rotationAt(idle, JAB_BONES[b], IDLE_AT, LOOKS[0])
 						: JAB_POSES[JAB_POSE_AT[i]][b];
 				float[] want = { from[0] + (to[0] - from[0]) * f, from[1] + (to[1] - from[1]) * f, from[2] + (to[2] - from[2]) * f };
 				float[] got = StandClipPoses116GameTests.rotationAt(clip, JAB_BONES[b], t, LOOKS[0]);

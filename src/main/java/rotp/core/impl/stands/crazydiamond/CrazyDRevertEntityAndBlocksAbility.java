@@ -3,7 +3,6 @@ package rotp.core.impl.stands.crazydiamond;
 import rotp.core.powersystem.standpower.StandInstance.StandPart;
 
 import rotp.core.client.particle.CustomParticlesHelper;
-import rotp.core.mechanics.resolve.ResolveModeEffect;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
@@ -173,11 +172,15 @@ public class CrazyDRevertEntityAndBlocksAbility extends StandEntityAbility {
 			return true;
 		}
 
-		// its own rule: barrage visuals only while it reverts (1.16 CrazyDiamondPreviousState.barrageVisuals differed; not
-		// ported here)
+		/**
+		 * 1.16 CrazyDiamondPreviousState.barrageVisuals (:424-427): its task's target an entity that passes checkTarget,
+		 * reverting it or not, and nothing else (no Resolve rule).
+		 */
 		@Override
 		public boolean showsBarrageVisuals(ActionTarget target) {
-			return false;
+			LivingEntity user = getPowerUser();
+			return target.getType() == TargetType.ENTITY && target.getEntity() != null && user != null
+					&& canRevertEntity(target.getEntity(), user);
 		}
 
 		/**
@@ -201,8 +204,7 @@ public class CrazyDRevertEntityAndBlocksAbility extends StandEntityAbility {
 			HealResult result = new HealResult();
 			result.synched.target = target;
 			LivingEntity user = getPowerUser();
-			result.synched.barrageVisuals = user != null && ResolveModeEffect.getResolveEffectLvl(user) >= 0;
-			
+
 			if (target.getType() == TargetType.ENTITY && user != null) {
 				Entity targetEntity = target.getEntity();
 				if (targetEntity != null && targetEntity.isAlive() && canRevertEntity(targetEntity, user)) {
