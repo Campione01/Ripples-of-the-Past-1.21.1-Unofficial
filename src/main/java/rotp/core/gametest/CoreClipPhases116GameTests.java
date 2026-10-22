@@ -6,17 +6,24 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.annotation.Nullable;
+
 import com.google.gson.JsonObject;
 
+import rotp.core.client.entityanim.AnimationSet;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.EntityActionAbility;
+import rotp.core.powersystem.entityaction.ActionAnimIdentifier;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
+import rotp.core.powersystem.standpower.type.StandType;
 
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.GameType;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -341,6 +348,104 @@ public final class CoreClipPhases116GameTests {
 		}
 		helper.assertTrue(wrong.isEmpty(), "Star Platinum's clips from 1.16 lerp into the official idle over their last segment: " + wrong);
 		helper.succeed();
+	}
+
+	private static final String[] CORE_STANDS = { "star_platinum", "the_world", "crazy_diamond", "gold_experience", "magicians_red",
+			"silver_chariot", "hierophant_green" };
+	private static final String DEFAULT_ANIMS = "animations/stand_default.animation.json";
+
+	// a core ability whose clip comes from stand_default (the humanoid set PreFrameEntityAnimCalc falls back to), and why
+	private record Fallback(String stand, String ability, String clip, String reason) {}
+
+	private static final List<Fallback> STAND_DEFAULT_FALLBACKS = List.of(new Fallback("the_world", "grab", "grab",
+			"the grab is a port addition (1.16 had none, so no 1.16 pose to match), and The World keeps the port's animation"
+					+ " files (D-core-67)"));
+
+	/*
+	 * 1.16 drew a Java-model humanoid's moves it had no pose of its own for with HumanoidStandModel's (the jab, the
+	 * two-handed barrage, BLOCK, heavyAttackAnim for HEAVY_ATTACK and HEAVY_ATTACK_FINISHER, all by putIfAbsent), and the
+	 * port's stand_default set stands in for those. Every core Stand's abilities draw a clip of the Stand's own file (its
+	 * own move, converted from its 1.16 model or JSON or the official port's), so none falls back to stand_default but
+	 * the listed ones: the clip each press asks for (as the action asks it, the combo index read as punch2-4, a handed
+	 * clip as its base) resolves in the Stand's own file as AnimationSet does (direct, the mirrored base, the legacy
+	 * aliases) before stand_default is asked.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void theCoreStandsDrawTheirOwnClipsAndFallBackToStandDefaultOnlyWhereListed(GameTestHelper helper) {
+		JsonObject defaults = StandClipPoses116GameTests.readJson(helper, DEFAULT_ANIMS).getAsJsonObject("animations");
+		List<String> wrong = new ArrayList<>();
+		List<Fallback> found = new ArrayList<>();
+		int asked = 0;
+		Player user = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
+		for (String stand : CORE_STANDS) {
+			JsonObject own = StandClipPoses116GameTests.readJson(helper, "stand_skins/" + stand + "/assets/jojo_ripples/animations/"
+					+ stand + ".animation.json").getAsJsonObject("animations");
+			StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc(stand));
+			helper.assertTrue(type != null, "setup: no Stand type " + stand);
+			for (Map.Entry<String, Ability> entry : type.getBaseMoveset().abilities.entrySet()) {
+				String clip = clipPlayed(helper, entry.getValue(), user);
+				if (clip == null) {
+					continue;
+				}
+				asked++;
+				if (resolve(own, clip) != null) {
+					continue;
+				}
+				String fallback = resolve(defaults, clip);
+				if (fallback == null) {
+					continue;
+				}
+				Fallback listed = STAND_DEFAULT_FALLBACKS.stream().filter(f -> f.stand().equals(stand) && f.ability().equals(entry.getKey()))
+						.findFirst().orElse(null);
+				if (listed == null || !listed.clip().equals(fallback)) {
+					wrong.add(stand + "'s " + entry.getKey() + " draws stand_default's " + fallback + (listed == null ? ", not listed"
+							: ", listed as " + listed.clip()));
+				}
+				else {
+					found.add(listed);
+				}
+			}
+		}
+		user.discard();
+		helper.assertTrue(asked > 0, "setup: no core ability asked for a clip");
+		for (Fallback listed : STAND_DEFAULT_FALLBACKS) {
+			if (!found.contains(listed)) {
+				wrong.add(listed.stand() + "'s " + listed.ability() + " is listed as drawing stand_default's " + listed.clip() + " ("
+						+ listed.reason() + ") but does not");
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), "The core Stands draw their own clips, stand_default only where listed: " + wrong);
+		helper.succeed();
+	}
+
+	// the clip a press of the ability asks for (null for none or the idle): the combo index as the file's punch2-4, a
+	// handed clip as its base
+	@Nullable
+	private static String clipPlayed(GameTestHelper helper, Ability ability, Player user) {
+		if (!(ability instanceof EntityActionAbility action)) {
+			return null;
+		}
+		ActionAnimIdentifier anim;
+		try {
+			anim = action.getEntityAnim(action.initActionOnAbilityUse(helper.getLevel(), user, user, null));
+		}
+		catch (RuntimeException e) {
+			return null;
+		}
+		if (anim == null || anim.isIdle()) {
+			return null;
+		}
+		return (anim.index() > 0 ? anim.name() + (anim.index() + 1) : anim.name()).replaceFirst("_(left|right)$", "");
+	}
+
+	// the key AnimationSet.getNamedAnim finds for a clip name in a file: the name, its mirrored base, its legacy alias chain
+	@Nullable
+	private static String resolve(JsonObject anims, String clip) {
+		if (anims.has(clip)) {
+			return clip;
+		}
+		String handed = AnimationSet.mirroredBaseFallback(clip, anims::has);
+		return handed != null ? handed : AnimationSet.aliasedKey(clip, anims::has);
 	}
 
 	private static double[][] composedHead(JsonObject clip, float time, float[] look) {
