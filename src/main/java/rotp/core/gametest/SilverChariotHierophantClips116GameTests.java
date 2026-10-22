@@ -11,6 +11,10 @@ import com.google.gson.JsonObject;
 
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
+import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility;
+import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility;
+import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchChargedAbility;
+import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.EntityActionAbility;
 import rotp.core.powersystem.entityaction.ActionPhase;
@@ -424,6 +428,28 @@ public final class SilverChariotHierophantClips116GameTests {
 			helper.assertTrue(recovery == 0, stand + "'s guard recovers for " + recovery + " ticks after its release, where 1.16's"
 					+ " StandEntityBlock stopped at once and showed the idle");
 		}
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 registered no light attack, heavy attack or barrage for Hierophant Green (ModStandsInit :356-436: the string
+	 * attack, Emerald Splash, the block, the grapple, the barrier), so the humanoid jab, heavy and barrage poses its model
+	 * inherited never drew; the port's moveset has none either, so stand_default's punch, heavy punch and barrage clips
+	 * never play for it.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void hierophantGreenHasNoPunchHeavyOrBarrageAsIn116(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		for (Map.Entry<String, Ability> entry : JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("hierophant_green"))
+				.getBaseMoveset().abilities.entrySet()) {
+			Ability ability = entry.getValue();
+			if (ability instanceof StandEntityPunchAbility || ability instanceof StandEntityHeavyPunchAbility
+					|| ability instanceof StandEntityHeavyPunchChargedAbility || ability instanceof StandEntityBarrageAbility) {
+				wrong.add(entry.getKey() + " (" + ability.getClass().getSimpleName() + ")");
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), "1.16's Hierophant Green had no punch, heavy punch or barrage, so the stand_default"
+				+ " clips of those never played for it: " + wrong);
 		helper.succeed();
 	}
 
