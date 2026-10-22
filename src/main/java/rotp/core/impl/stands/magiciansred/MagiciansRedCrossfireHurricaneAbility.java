@@ -26,6 +26,7 @@ import rotp.core.impl.stands._entitybase.StandAbilityStamina;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
@@ -235,13 +236,14 @@ public class MagiciansRedCrossfireHurricaneAbility extends StandEntityAbility im
 			return target;
 		}
 
-		// 1.16 precisionRayTrace grew the hitboxes by the Stand's precision for the user's ray and the Stand's alike
+		// 1.16 precisionRayTrace grew the hitboxes by the Stand's precision for the user's ray and the Stand's alike, and
+		// met a block by its outline
 		private static ActionTarget clipAim(Level level, LivingEntity aiming, StandEntity stand) {
 			double standPrecision = StandEntityPunchAbility.aimAssist(stand.getUser()) ? stand.getPrecision() : 0.0D;
 			return HitResultUtil.clip(aiming.getEyePosition(), aiming.getLookAngle(),
 					SPECIAL_AIM_RANGE, SPECIAL_AIM_RANGE, level,
 					entity -> StandEntityPunchAbility.canStandHit(stand, entity),
-					aiming, standPrecision);
+					aiming, standPrecision, ClipContext.Block.OUTLINE);
 		}
 
 		private static float specialXRotOffset(boolean special, int shotIndex) {

@@ -145,6 +145,14 @@ public class HitResultUtil {
 				StandSkillWalls.wallsHideEntities(aiming));
 	}
 
+	/** @param blockMode as in {@link #clip(Vec3, Vec3, double, double, Level, Predicate, Entity, double, boolean, double, ClipContext.Block)} */
+	public static ActionTarget clip(Vec3 startingPos, Vec3 directionVec, double blockMaxRange, double entityMaxRange,
+			Level level, Predicate<Entity> entityFilter, @Nullable Entity aiming, double standPrecision,
+			ClipContext.Block blockMode) {
+		return clip(startingPos, directionVec, blockMaxRange, entityMaxRange, level, entityFilter, aiming, standPrecision,
+				StandSkillWalls.wallsHideEntities(aiming), 0, blockMode);
+	}
+
 	/**
 	 * @param wallsHideEntities false: the entity search runs the whole entity range through blocks, as the 1.16
 	 * entity rays did, and an entity it finds comes before the block
@@ -160,9 +168,21 @@ public class HitResultUtil {
 	 * @param entityInflate added to each entity's pick radius, as 1.16 JojoModUtil.rayTraceMultipleEntities grew the
 	 * boxes by its rayTraceInflate
 	 */
-	public static ActionTarget clip(Vec3 startingPos, Vec3 directionVec, double blockMaxRange, double entityMaxRange, 
+	public static ActionTarget clip(Vec3 startingPos, Vec3 directionVec, double blockMaxRange, double entityMaxRange,
 			Level level, Predicate<Entity> entityFilter, @Nullable Entity aiming, double standPrecision,
 			boolean wallsHideEntities, double entityInflate) {
+		return clip(startingPos, directionVec, blockMaxRange, entityMaxRange, level, entityFilter, aiming, standPrecision,
+				wallsHideEntities, entityInflate, ClipContext.Block.COLLIDER);
+	}
+
+	/**
+	 * @param blockMode the shapes the block target is found by: OUTLINE for what a crosshair meets (the vanilla pick, so
+	 * grass, a flower or a torch) and for 1.16's OUTLINE rays, COLLIDER for 1.16's COLLIDER rays. The walls that hide
+	 * entities are the blocks with a collision shape in either mode.
+	 */
+	public static ActionTarget clip(Vec3 startingPos, Vec3 directionVec, double blockMaxRange, double entityMaxRange,
+			Level level, Predicate<Entity> entityFilter, @Nullable Entity aiming, double standPrecision,
+			boolean wallsHideEntities, double entityInflate, ClipContext.Block blockMode) {
 		boolean hitFluids = false;
 		CollisionContext entityCtx = aiming != null ? CollisionContext.of(aiming) : CollisionContext.empty();
 
@@ -172,19 +192,20 @@ public class HitResultUtil {
 		// raytrace blocks
 
 		Vec3 endPosBlocks = startingPos.add(directionVec.x * blockMaxRange, directionVec.y * blockMaxRange, directionVec.z * blockMaxRange);
-		ClipContext blockClipCtx = new ClipContext(startingPos, endPosBlocks, 
-				ClipContext.Block.COLLIDER, hitFluids ? ClipContext.Fluid.ANY : ClipContext.Fluid.NONE, entityCtx);
-		BlockHitResult blockHitResult = clipBlocks(blockClipCtx, level);
+		ClipContext.Fluid fluidMode = hitFluids ? ClipContext.Fluid.ANY : ClipContext.Fluid.NONE;
+		BlockHitResult blockHitResult = clipBlocks(new ClipContext(startingPos, endPosBlocks, blockMode, fluidMode, entityCtx), level);
+		BlockHitResult wallHitResult = blockMode == ClipContext.Block.COLLIDER || !wallsHideEntities ? blockHitResult
+				: clipBlocks(new ClipContext(startingPos, endPosBlocks, ClipContext.Block.COLLIDER, fluidMode, entityCtx), level);
 
 		maxRange = entityMaxRange;
 		AABB blockHitAABB = null;
 
 		if (blockHitResult.getType() != HitResult.Type.MISS) {
 			blockHitAABB = new AABB(blockHitResult.getBlockPos());
-			Vec3 blockClipPos = blockHitAABB.clip(startingPos, endPosBlocks).orElse(blockHitResult.getLocation());
-			if (wallsHideEntities) {
-				maxRange = Math.min(maxRange, Math.sqrt(blockClipPos.distanceToSqr(startingPos)));
-			}
+		}
+		if (wallsHideEntities && wallHitResult.getType() != HitResult.Type.MISS) {
+			Vec3 wallClipPos = new AABB(wallHitResult.getBlockPos()).clip(startingPos, endPosBlocks).orElse(wallHitResult.getLocation());
+			maxRange = Math.min(maxRange, Math.sqrt(wallClipPos.distanceToSqr(startingPos)));
 		}
 
 

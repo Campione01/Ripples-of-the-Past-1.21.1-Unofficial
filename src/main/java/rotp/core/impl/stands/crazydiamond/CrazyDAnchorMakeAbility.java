@@ -46,6 +46,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -128,10 +129,11 @@ public class CrazyDAnchorMakeAbility extends StandEntityAbility {
 				&& isWithinAnchorRange(user, aimingEntity, syncedTarget)) {
 			return syncedTarget;
 		}
+		// the vanilla pick, which found a block by its outline (1.16's block checkpoint took its block target unchanged)
 		ActionTarget clipped = HitResultUtil.clip(aimingEntity.getEyePosition(), aimingEntity.getLookAngle(),
 				BLOCK_TARGET_RANGE, BLOCK_TARGET_RANGE, aimingEntity.level(),
 				entity -> stand != null ? StandEntityPunchAbility.canStandHit(stand, entity) : StandEntityAbility.canPickEntityForAiming(entity),
-				aimingEntity, 0);
+				aimingEntity, 0, ClipContext.Block.OUTLINE);
 		return clipped.getType() != TargetType.BLOCK || isWithinAnchorRange(user, aimingEntity, clipped)
 				? clipped : ActionTarget.EMPTY;
 	}

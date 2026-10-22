@@ -68,6 +68,7 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.item.Tiers;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockState;
@@ -1152,6 +1153,10 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	 * 1.16's vanilla pick (GameRenderer.pick), what a client's crosshair target is: the first entity or block on the
 	 * crosshair ray, a player's entity within its entity interaction range (3 blocks in Survival, 5 in Creative) and a
 	 * block within its block interaction range, else a miss even with a block behind; a mob looks as far as its reach.
+	 * The block is taken by its outline, as the vanilla pick took grass, a flower or a torch. An entity behind such a
+	 * block is still met, only a collision shape hiding it (the owner's wall rule): 1.16's Stand actions reached it, a
+	 * pressed block without a collision shape giving way to a COLLIDER ray (StandEntityAction.overrideVanillaMouseTarget)
+	 * and their precision ray finding entities before blocks.
 	 */
 	public static ActionTarget crosshairPick(StandEntity stand, LivingEntity user, float partialTick, Predicate<Entity> canTarget) {
 		return crosshairPick(stand, user, partialTick, canTarget, StandSkillWalls.wallsHideEntities(stand));
@@ -1165,7 +1170,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		Level level = stand.level();
 		Vec3 eyes = user.getEyePosition(partialTick);
 		ActionTarget hit = HitResultUtil.clip(eyes, user.getViewVector(partialTick), range, range, level, canTarget, user, 0,
-				wallsHideEntities);
+				wallsHideEntities, 0, ClipContext.Block.OUTLINE);
 		if (hit.isEmpty(level)) {
 			return ActionTarget.EMPTY;
 		}
@@ -1289,12 +1294,13 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		return userStandAim(stand, user, userIsCamera ? vanillaPick : ActionTarget.EMPTY);
 	}
 
-	// the strict crosshair of 2026-09-13: from the user's eyes at the user's reach, blocks stopping the ray
+	// the strict crosshair of 2026-09-13: from the user's eyes at the user's reach, blocks stopping the ray; a block by
+	// its outline, as the crosshair meets it
 	private static ActionTarget strictCrosshairTarget(StandEntity stand, LivingEntity user, float partialTick,
 			Predicate<Entity> canTarget, boolean wallsHideEntities) {
 		double reach = userAimReach(user, stand);
 		return HitResultUtil.clip(user.getEyePosition(partialTick), user.getViewVector(partialTick),
-				reach, reach, stand.level(), canTarget, user, 0, wallsHideEntities);
+				reach, reach, stand.level(), canTarget, user, 0, wallsHideEntities, 0, ClipContext.Block.OUTLINE);
 	}
 
 	public static ActionTarget userPrecisionRayTarget(StandEntity stand, LivingEntity user) {
@@ -1328,7 +1334,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		Predicate<Entity> filter = canTarget.and(entity -> entity != user);
 		if (!aimAssist(user)) {
 			return HitResultUtil.clip(stand.getEyePosition(), stand.getLookAngle(), reach, reach, stand.level(), filter, stand, 0,
-					wallsHideEntities);
+					wallsHideEntities, 0, ClipContext.Block.OUTLINE);
 		}
 		return StandPrecisionRay.closestWithPriority(StandPrecisionRay.clipTargets(stand, reach,
 				filter, 0, stand.getPrecision(), wallsHideEntities));
