@@ -10,6 +10,11 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import rotp.core.core.JojoMod;
+import rotp.core.core.JojoRegistries;
+import rotp.core.powersystem.ability.Ability;
+import rotp.core.powersystem.ability.EntityActionAbility;
+import rotp.core.powersystem.entityaction.ActionPhase;
+import rotp.core.powersystem.entityaction.EntityActionInstance;
 
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -401,6 +406,25 @@ public final class SilverChariotHierophantClips116GameTests {
 					StandClipPoses116GameTests.rotationMatrix(StandClipPoses116GameTests.rotationAt(clip, bone, time, look)));
 		}
 		return composed;
+	}
+
+	/*
+	 * 1.16's guard was a StandEntityBlock (holdType, the BLOCK pose) with no recovery ticks: released, its task went to a
+	 * 0-tick RECOVERY, which StandEntityTask.setPhase refused, and stopped, so the idle followed the block pose at once and
+	 * PosedActionAnimation's RECOVERY transition to the idle never drew. The port's guard ends the same way, and the
+	 * constant block clips hand over to the idle as 1.16's did.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void theGuardsEndOnReleaseWithNoRecoveryAs116(GameTestHelper helper) {
+		for (String stand : new String[] { "silver_chariot", "hierophant_green" }) {
+			Ability ability = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc(stand)).getBaseMoveset().getAbility("guard");
+			helper.assertTrue(ability instanceof EntityActionAbility, "setup: " + stand + " has no guard");
+			EntityActionInstance action = ((EntityActionAbility) ability).initActionOnAbilityUse(helper.getLevel(), null, null, null);
+			float recovery = action.phasesLength.getFloat(ActionPhase.RECOVERY);
+			helper.assertTrue(recovery == 0, stand + "'s guard recovers for " + recovery + " ticks after its release, where 1.16's"
+					+ " StandEntityBlock stopped at once and showed the idle");
+		}
+		helper.succeed();
 	}
 
 	// the first sample time at which a bone is off the idle's t=0 value, at either look, or null
