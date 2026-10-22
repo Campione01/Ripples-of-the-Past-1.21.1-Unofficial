@@ -328,6 +328,21 @@ public final class RotpAddonApi {
 	 */
 	public static final String FEATURE_STAND_POWER_ACTION_SLOT_V1 =
 			"stand_power_action_slot_v1";
+	/**
+	 * A port of a 1.16 StandAction, which its user's Stand power held and performed rather than its Stand's task, runs in
+	 * the user's Stand-power slot with its Stand out or not (EntityActionAbility#performsInUsersStandPowerSlot: false by
+	 * default, true for the time stops): it goes off at once while the Stand runs a task (a held hold-type task's hold
+	 * still ends), and the Stand's own slot keeps only its tasks. EntityActionInstance#getPerformer gives the user's
+	 * summoned Stand while it is out (1.16 StandAction.getPerformer), so the press check and the held recheck meet the
+	 * Stand's stun; the action's performer field stays the slot's entity (its sync, its own-slot clear). A press the Stand
+	 * performs waits in the input buffer behind such an action its user holds while it lets none through (owner decision
+	 * N2). The Stand takes a pose from such an action only if EntityActionInstance#posesItsStand says so (the time stop's
+	 * windup and perform, 1.16 StandEntity.getCurPose); LivingComponentAction#getPoseComponent picks the slot an entity's
+	 * pose comes from. A port that still runs on its Stand keeps FEATURE_ACTION_SUMMON_LOCK_HOOK_V1 and
+	 * FEATURE_ACTION_STAND_STUN_HOOK_V1. Builds on FEATURE_STAND_POWER_ACTION_SLOT_V1.
+	 */
+	public static final String FEATURE_STAND_ACTION_PORT_SLOT_V1 =
+			"stand_action_port_slot_v1";
 
 	public static final Set<String> FEATURES = Set.of(
 			FEATURE_ABILITY_RESOURCE_NAMESPACE_V1,
@@ -419,7 +434,8 @@ public final class RotpAddonApi {
 			FEATURE_ACTION_SUMMON_LOCK_HOOK_V1,
 			FEATURE_ACTION_STAND_STUN_HOOK_V1,
 			FEATURE_HELD_ACTION_RULES_PER_POWER_V1,
-			FEATURE_STAND_POWER_ACTION_SLOT_V1);
+			FEATURE_STAND_POWER_ACTION_SLOT_V1,
+			FEATURE_STAND_ACTION_PORT_SLOT_V1);
 
 	private RotpAddonApi() {}
 

@@ -105,6 +105,12 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 		return true;
 	}
 
+	// 1.16 TimeStop was a StandAction its user's power held, its Stand out or not: never the Stand's task
+	@Override
+	public boolean performsInUsersStandPowerSlot() {
+		return true;
+	}
+
 	/**
 	 * 1.16 TimeStop.getCooldownTechnical: the ticks of the stop this time stop starts; its additional part was 0 and its
 	 * cooldown proper is set as the stop ends.
@@ -604,6 +610,12 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 		@Override
 		public boolean isHeldBackBySummonLock() {
 			return false;
+		}
+
+		// 1.16 StandEntity.getCurPose drew the power's held time stop's windup before the Stand's task, then its perform pose
+		@Override
+		public boolean posesItsStand() {
+			return true;
 		}
 
 		@Override

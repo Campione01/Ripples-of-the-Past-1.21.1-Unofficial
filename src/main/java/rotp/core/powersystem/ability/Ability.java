@@ -468,7 +468,8 @@ public class Ability {
 	 * 1.16 PowerBaseImpl.checkRequirements refused every other action of a power, first and without a message, while the
 	 * power held an action that let none through (EntityActionInstance#heldAllowsOtherAbilities: a Stand's hold-type action
 	 * and the four non-Stand holds that allowed others, so never a charge); each power asked only its own held action. A
-	 * press the held action's own performer takes is left to that action (canBeCancelledInto, the input buffer), and a
+	 * press the held action's own performer takes (EntityActionInstance#getPerformer: the Stand for a port of a 1.16
+	 * StandAction in its user's Stand-power slot) is left to that action (canBeCancelledInto, the input buffer), and a
 	 * press that was no 1.16 action (endsOtherHoldOnPress false) is not refused.
 	 */
 	private boolean isRefusedByHeldAction(Power<?> context) {

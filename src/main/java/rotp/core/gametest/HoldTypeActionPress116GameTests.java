@@ -302,8 +302,8 @@ public final class HoldTypeActionPress116GameTests {
 	 * or inhale (ActionsOverlayGui.onActionClick), so the hold went on and no charge started (TimeStop.startedHolding stopped
 	 * the Stand's task only for a press the server got): the press waits in the input buffer (N2) instead of the time stop
 	 * ending the hold before its own press is held back, and its charge starts once the hold is let go. A mob's time stop,
-	 * pressed on the server in 1.16 too, still replaces its Stand's guard or barrage at once. No charge here is let go (no
-	 * time stop starts).
+	 * pressed on the server in 1.16 too, still ends its Stand's guard or barrage at once, its charge in the mob's
+	 * Stand-power slot (its power held it). No charge here is let go (no time stop starts).
 	 */
 	@GameTest(template = "empty", timeoutTicks = 100, batch = GameTestBatches.TIME_STOP)
 	public static void aTimeStopPressedWhileTheStandPowerHoldsAnActionWaitsAsIn116(GameTestHelper helper) {
@@ -340,6 +340,7 @@ public final class HoldTypeActionPress116GameTests {
 			helper.assertTrue(stand != null, "setup: the zombie's Stand is missing");
 			stand.summonLockTicks = 0;
 			standAction = LivingComponentAction.getComponent(stand);
+			LivingComponentAction zombieSlot = LivingComponentAction.getComponent(zombie, PowerClass.STAND);
 			// the barrage gives way to no other ability before its recovery: the time stop ends it itself (startedHolding)
 			for (String held : new String[] { "guard", "barrage" }) {
 				power.setStamina(power.getMaxStamina());
@@ -348,19 +349,22 @@ public final class HoldTypeActionPress116GameTests {
 				helper.assertTrue(hold != null && hold.ability == power.getAbility(held) && hold.getPhase() == ActionPhase.PERFORM,
 						"setup: the zombie's " + held + " is not held: " + hold);
 				AbilityInput.keyPressMob(power.getAbility("time_stop"), zombie, null, InputMethod.HOLD);
-				EntityActionInstance now = standAction.getAction();
+				EntityActionInstance now = zombieSlot.getAction();
 				helper.assertTrue(now != null && now.ability == power.getAbility("time_stop")
-						&& now.getPhase() == ActionPhase.BUTTON_CHARGE && hold.isOver(), "1.16 let a mob's time stop replace its"
-								+ " Stand's held " + held + " at once (a mob pressed on the server): the Stand's action " + now
-								+ ", the " + held + " over " + hold.isOver());
+						&& now.getPhase() == ActionPhase.BUTTON_CHARGE && hold.isOver() && standAction.getAction() == null,
+						"1.16 let a mob's time stop end its Stand's held " + held + " at once (a mob pressed on the server) and its"
+								+ " power held the charge: the zombie's Stand-power action " + now + ", the Stand's "
+								+ standAction.getAction() + ", the " + held + " over " + hold.isOver());
 				zombie.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get()).heldKeys.clear();
 				standAction.setAction(null, zombie, SyncType.NO_SYNC);
+				zombieSlot.setAction(null, zombie, SyncType.NO_SYNC);
 			}
 		}
 		finally {
 			zombie.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get()).heldKeys.clear();
 			if (standAction != null) {
 				standAction.setAction(null, zombie, SyncType.NO_SYNC);
+				LivingComponentAction.getComponent(zombie, PowerClass.STAND).setAction(null, zombie, SyncType.NO_SYNC);
 			}
 			if (power.isSummoned() && type != null) {
 				type.forceUnsummon(zombie, power);
@@ -476,8 +480,9 @@ public final class HoldTypeActionPress116GameTests {
 
 	/*
 	 * 1.16 TimeStop was a StandAction its user's power performed: tickHeldAction fired the holdToFire(30, false) hold of
-	 * The World's time stop in the 30th tick from the press and stopped time in that tick, also where the port's Stand
-	 * charges it. The stop is moved far from every test cell and taken out before the test returns.
+	 * The World's time stop in the 30th tick from the press and stopped time in that tick, also with The World out, its
+	 * charge in its user's Stand-power slot. The stop is moved far from every test cell and taken out before the test
+	 * returns.
 	 */
 	@GameTest(template = "empty", timeoutTicks = 100, batch = GameTestBatches.TIME_STOP)
 	public static void aTimeStopTheStandChargesStopsTimeInTheTickItFiresAsIn116(GameTestHelper helper) {
@@ -960,8 +965,9 @@ public final class HoldTypeActionPress116GameTests {
 
 		/*
 		 * The hold is pressed and kept held, then the time stop by another key: it waits in the buffer and the hold goes on
-		 * with its key. Once the hold is let go, the buffer, tried every tick, starts the time stop's charge as soon as the
-		 * hold (and its recovery) no longer holds it back, its key still down. The charge is dropped without a release.
+		 * with its key. Once the hold is let go, the buffer, tried every tick, starts the time stop's charge (in its user's
+		 * Stand-power slot, 1.16's power held it) as soon as the hold (and its recovery) no longer holds it back, its key still
+		 * down. The charge is dropped without a release.
 		 */
 		private void timeStopWaits(String holdName) {
 			EntityActionInstance hold = hold(holdName);
@@ -976,7 +982,7 @@ public final class HoldTypeActionPress116GameTests {
 			for (int tick = 0; tick < 100 && timeStop == null; tick++) {
 				resolve("time_stop");
 				input().inputBuffer.tickInputBuffer(input());
-				EntityActionInstance now = standAction.getAction();
+				EntityActionInstance now = slotOf("time_stop").getAction();
 				if (now != null && now.ability == power.getAbility("time_stop")) {
 					timeStop = now;
 				}
@@ -987,7 +993,8 @@ public final class HoldTypeActionPress116GameTests {
 			helper.assertTrue(timeStop != null && timeStop.getPhase() == ActionPhase.BUTTON_CHARGE && hold.isOver()
 					&& isHeldByKey(OTHER_KEY) && input().heldKeys.get(OTHER_KEY).action == timeStop,
 					"the time stop key still held once the " + holdName + " was let go starts its charge from the buffer: the"
-							+ " Stand's action " + standAction.getAction() + ", the " + holdName + " over " + hold.isOver());
+							+ " user's Stand-power action " + slotOf("time_stop").getAction() + ", the Stand's "
+							+ standAction.getAction() + ", the " + holdName + " over " + hold.isOver());
 			clear();
 		}
 
@@ -1200,12 +1207,14 @@ public final class HoldTypeActionPress116GameTests {
 			NeoForge.EVENT_BUS.addListener(EventPriority.HIGHEST, false, TimeStopLifecycleEvent.PreStart.class, isolate);
 			try {
 				EntityActionInstance charge = hold("time_stop");
+				LivingComponentAction userSlot = LivingComponentAction.getComponent(user, PowerClass.STAND);
 				helper.assertTrue(charge.getPhase() == ActionPhase.BUTTON_CHARGE && charge.getCurPhaseLength() == 30
-						&& charge.getPerformer() == stand, "setup: The World's Stand is not charging its 30-tick time stop: "
-								+ charge.getPhase() + " " + charge.getCurPhaseLength() + ", performer " + charge.getPerformer());
+						&& charge.getPerformer() == stand && userSlot.getAction() == charge, "setup: The World's 30-tick time"
+								+ " stop, The World out, is not charging in its user's Stand-power slot: " + charge.getPhase() + " "
+								+ charge.getCurPhaseLength() + ", performer " + charge.getPerformer());
 				int stopTick = -1;
 				for (int tick = 1; tick <= 60 && stopTick < 0; tick++) {
-					standAction.tick();
+					userSlot.tick();
 					if (helper.getLevel().getData(ModDataAttachmentTypes.TIME_STOP.get()).getInstance(user.getId()).isPresent()) {
 						stopTick = tick;
 					}
@@ -1291,10 +1300,10 @@ public final class HoldTypeActionPress116GameTests {
 		private EntityActionInstance hold(String name) {
 			power.setStamina(power.getMaxStamina());
 			BufferingState state = press(name, InputMethod.HOLD, HOLD_KEY);
-			EntityActionInstance action = standAction.getAction();
+			EntityActionInstance action = slotOf(name).getAction();
 			helper.assertTrue(state.isActionSuccess && action != null && action.ability == power.getAbility(name)
 					&& isHeldByKey(HOLD_KEY), "setup: " + name + " is not held: started " + state.isActionSuccess
-							+ ", the Stand's action " + action);
+							+ ", its slot's action " + action);
 			helper.assertTrue(action.getPhase() == ActionPhase.PERFORM || action.getPhase() == ActionPhase.BUTTON_CHARGE,
 					"setup: the held " + name + " is in " + action.getPhase());
 			return action;
@@ -1339,6 +1348,13 @@ public final class HoldTypeActionPress116GameTests {
 		private void clear() {
 			input().heldKeys.clear();
 			standAction.setAction(null, user, SyncType.NO_SYNC);
+			LivingComponentAction.getComponent(user, PowerClass.STAND).setAction(null, user, SyncType.NO_SYNC);
+		}
+
+		// a port of a 1.16 StandAction (the time stop) runs in its user's Stand-power slot, the Stand's tasks in its own
+		private LivingComponentAction slotOf(String name) {
+			return ((EntityActionAbility) power.getAbility(name)).performsInUsersStandPowerSlot()
+					? LivingComponentAction.getComponent(user, PowerClass.STAND) : standAction;
 		}
 
 		// the power resolves its keys once a tick (Power.updateAvailableMoves), and the test does not tick it

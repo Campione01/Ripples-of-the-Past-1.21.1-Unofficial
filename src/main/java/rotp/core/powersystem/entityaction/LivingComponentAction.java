@@ -642,6 +642,32 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 		return existingData != null ? existingData.getAction() : null;
 	}
 
+	/**
+	 * The slot whose action draws this entity's pose (the client's PreFrameEntityAnimCalc). A Stand: its user's
+	 * Stand-power slot while that holds an action the Stand performs that poses it (EntityActionInstance#posesItsStand,
+	 * 1.16 StandEntity.getCurPose drew its power's held time stop before its task), else its own slot. Any other entity:
+	 * its own slot (its non-Stand power's action) first, as 1.16 drew only non-Stand player animation layers among the
+	 * core's, else its Stand-power slot while it performs that slot's action itself.
+	 */
+	@ApiStatus.Internal
+	@Nullable
+	public static LivingComponentAction getPoseComponent(LivingEntity living) {
+		LivingComponentAction own = getExistingComponent(living);
+		if (living instanceof StandEntity stand) {
+			LivingEntity user = stand.getUser();
+			LivingComponentAction userSlot = user != null ? getExistingComponent(user, PowerClass.STAND) : null;
+			EntityActionInstance userAction = userSlot != null ? userSlot.getAction() : null;
+			return userAction != null && !userAction.isOver() && userAction.posesItsStand()
+					&& userAction.getPerformer() == stand ? userSlot : own;
+		}
+		if (own != null && own.getAction() != null) {
+			return own;
+		}
+		LivingComponentAction standPower = getExistingComponent(living, PowerClass.STAND);
+		EntityActionInstance action = standPower != null ? standPower.getAction() : null;
+		return action != null && action.getPerformer() == living ? standPower : own;
+	}
+
 	@ApiStatus.Internal
 	public static LivingComponentAction getComponentForSlot(LivingEntity entity, int slot) {
 		return slot == STAND_POWER_SLOT ? entity.getData(ModDataAttachmentTypes.LIVING_STAND_POWER_ACTION.get())

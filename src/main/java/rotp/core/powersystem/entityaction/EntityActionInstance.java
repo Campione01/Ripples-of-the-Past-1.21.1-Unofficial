@@ -390,6 +390,18 @@ public class EntityActionInstance implements HeldInput {
 		return isHeldBackBySummonLock();
 	}
 
+	/**
+	 * Whether this action, a port of a 1.16 StandAction in its user's Stand-power slot
+	 * (EntityActionAbility#performsInUsersStandPowerSlot) that the user's Stand performs, draws the Stand's pose in place of
+	 * the Stand's own action (LivingComponentAction#getPoseComponent). 1.16 drew a Stand's pose from its task alone, but
+	 * from its power's held time stop first (StandEntity.getCurPose: the windup, then the perform pose TimeStop.perform
+	 * set). False by default; the time stop returns true. RotpAddonApi#FEATURE_STAND_ACTION_PORT_SLOT_V1.
+	 */
+	@ApiStatus.OverrideOnly
+	public boolean posesItsStand() {
+		return false;
+	}
+
 	@ApiStatus.OverrideOnly
 	public boolean canStaminaRegen(StandPower standPower, StandEntity standEntity) {
 		return false;
@@ -864,7 +876,7 @@ public class EntityActionInstance implements HeldInput {
 	
 	public DamageSource makePunchDamageSource() {
 		var damageType = DamageUtil.type(performer.level(), ModDamageTypes.STAND_ATTACK);
-		DamageSource dmgSource = new DamageSource(damageType, performer);
+		DamageSource dmgSource = new DamageSource(damageType, getPerformer());
 		if (dmgSource instanceof DamageSourceModified modified) {
 			modified.jojo_ripples$setStandPower(StandPower.get(getPowerUser()));
 		}
@@ -942,7 +954,7 @@ public class EntityActionInstance implements HeldInput {
 	
 	public void tossStandHeldItems(EquipmentSlot... slots) {
 		Level level = level();
-		if (!level.isClientSide() && performer instanceof StandEntity stand) {
+		if (!level.isClientSide() && getPerformer() instanceof StandEntity stand) {
 			LivingEntity user = powerUser.getEntityLiving(level);
 			Vec3 tossVec = user != null ? user.position().subtract(stand.getEyePosition()) : stand.getLookAngle();
 			for (EquipmentSlot slot : slots) {
@@ -953,7 +965,7 @@ public class EntityActionInstance implements HeldInput {
 	
 	public void addProjectileWithStandStats(DamagingEntity projectile) {
 		Level level = level();
-		if (!level.isClientSide() && !projectile.isAddedToLevel() && performer instanceof StandEntity stand) {
+		if (!level.isClientSide() && !projectile.isAddedToLevel() && getPerformer() instanceof StandEntity stand) {
 			projectile.setDamageFactor(projectile.getDamageFactor() * (float) stand.getAttackDamage() / 8);
 			projectile.setSpeedFactor(projectile.getSpeedFactor() * stand.getAttackSpeed() / 8);
 			projectile.withStandSkin(stand.getStandType(), stand.getStandSkin());
@@ -1099,7 +1111,19 @@ public class EntityActionInstance implements HeldInput {
 		return actionSlot;
 	}
 
+	/**
+	 * Who performs this action: the entity whose slot holds it, except for a port of a 1.16 StandAction in its user's
+	 * Stand-power slot (EntityActionAbility#performsInUsersStandPowerSlot), which the user's summoned Stand performs while
+	 * it is out, as 1.16 StandAction.getPerformer: the press check and the held recheck meet the Stand's stun.
+	 */
 	public LivingEntity getPerformer() {
+		if (performer != null && actionSlot == LivingComponentAction.STAND_POWER_SLOT
+				&& ability instanceof EntityActionAbility entityAbility && entityAbility.performsInUsersStandPowerSlot()) {
+			StandEntity stand = StandUtil.getSummonedStand(performer);
+			if (stand != null) {
+				return stand;
+			}
+		}
 		return performer;
 	}
 	
@@ -1421,8 +1445,9 @@ public class EntityActionInstance implements HeldInput {
 	@ApiStatus.Internal
 	protected void _onTick() {
 		// a Stand's body takes its yaw in its own head turn (StandEntity.tickHeadTurn)
-		if (alignsBodyYawToLook() && !(performer instanceof StandEntity)) {
-			performer.yBodyRot = performer.getYRot();
+		LivingEntity acting = getPerformer();
+		if (alignsBodyYawToLook() && !(acting instanceof StandEntity)) {
+			acting.yBodyRot = acting.getYRot();
 		}
 		releaseTaskTargetNoLongerKept();
 		actionTick();

@@ -18,6 +18,7 @@ import rotp.core.impl.stands.starplatinum.StarInhaleAbility.InhaleAbilityInstanc
 import rotp.core.impl.stands.starplatinum.StarPlatinumZoomAbility.StarPlatinumZoom;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
+import rotp.core.powersystem.ability.EntityActionAbility;
 import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.ability.input.AbilityInput;
 import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
@@ -237,9 +238,9 @@ public final class StarSpecialtyMovementGameTests {
             LivingComponentAction.getComponent(stand).entityAim.setTarget(ActionTarget.EMPTY);
             premise(connection.packets.stream().anyMatch(packet -> packet instanceof ClientboundAddEntityPacket add
                     && add.getId() == stand.getId()), "actual tracking observer");
-            suite.check(stand.getCurStandAction() == null && factor() == 1, "idle/before-start effective factor1");
+            suite.check(current() == null && factor() == 1, "idle/before-start effective factor1");
             press(spec.ability, KEY_A, input());
-            action = stand.getCurStandAction();
+            action = current();
             premise(action != null && action.getPhase() != null && action.getPhase() != ActionPhase.RECOVERY,
                     "real registered active phase");
             if (spec.ability.equals("star_finger")) premise(action instanceof StarFingerInstance
@@ -254,15 +255,15 @@ public final class StarSpecialtyMovementGameTests {
         void post() {
             if (done || closed) return;
             posts++;
-            if (!firstNativeChecked && stand.getCurStandAction() == action && !action.isOver()) {
+            if (!firstNativeChecked && current() == action && !action.isOver()) {
                 firstNativeChecked = true;
                 checkActive("first actual native phase tick=" + action.getPhaseTick());
             }
-            if (!requested && spec.end != End.NATURAL && stand.getCurStandAction() == action && !action.isOver()
+            if (!requested && spec.end != End.NATURAL && current() == action && !action.isOver()
                     && action.getFullTicksPassed() >= spec.ticks) requestEnd();
             if (spec.end == End.ROLLBACK && requested && input() == InputMethod.HOLD && !action.isOver()
                     && action.getFullTicksPassed() >= afterRollbackUntil) AbilityInput.keyRelease(KEY_A, user);
-            if (stand.getCurStandAction() == null && action.isOver()) {
+            if (current() == null && action.isOver()) {
                 if (++afterClear == 1) {
                     suite.check(factor() == 1, "native removed/no-current-action effective factor1");
                     if (spec.end == End.NATURAL || spec.end == End.RELEASE || spec.end == End.LATCHED_RELEASE
@@ -287,7 +288,7 @@ public final class StarSpecialtyMovementGameTests {
                 boolean succeeded = press("guard", KEY_B, InputMethod.HOLD);
                 // a held Inhale or Zoom holds the guard back: 1.16's client sent no press of a held action while the
                 // power held one (ActionsOverlayGui.onActionClick); its own key ends the hold
-                suite.check(!succeeded && stand.getCurStandAction() == action && !action.isOver(), spec.ability.equals("star_finger")
+                suite.check(!succeeded && current() == action && !action.isOver(), spec.ability.equals("star_finger")
                         ? "Finger preserves existing refusal of immediate guard cancellation"
                         : "a guard pressed during the held " + spec.ability + " waits");
                 checkActive("uncancelled " + spec.ability + " continues its native phase");
@@ -301,7 +302,7 @@ public final class StarSpecialtyMovementGameTests {
                 try { press("punch", KEY_B, InputMethod.CLICK); premise(false, "expected actual tracking failure absent"); }
                 catch (InjectedSendFailure expected) { log("EXPECTED-FAULT " + id() + " " + expected.getMessage()); }
                 finally { failSend = false; }
-                suite.check(sendFailures == 1 && stand.getCurStandAction() == action && !action.isOver(),
+                suite.check(sendFailures == 1 && current() == action && !action.isOver(),
                         "actual input rollback restores same action");
                 checkActive("rollback reinstallation reuses real phase");
                 if (spec.ability.equals("inhale")) suite.check(power.getAbilityCooldown("inhale") == 0,
@@ -315,11 +316,19 @@ public final class StarSpecialtyMovementGameTests {
                     && factor() == spec.factor, reason + " raw=" + action.userWalkSpeed + " StandResolver=" + factor()
                             + " expected(owner rule 2026-10-15)=" + spec.factor + " phase=" + action.getPhase());
         }
+        // the slot the pressed move takes: its user's Stand-power slot for a port of a 1.16 StandAction (the time stop)
+        EntityActionInstance current() {
+            return power.getAbility(spec.ability) instanceof EntityActionAbility move && move.performsInUsersStandPowerSlot()
+                    ? LivingComponentAction.getCurEntityAction(user, PowerClass.STAND) : stand.getCurStandAction();
+        }
+        // as the client multiplies them: the user's Stand-power slot's action, then its Stand's
         float factor() {
+            EntityActionInstance userAction = LivingComponentAction.getCurEntityAction(user, PowerClass.STAND);
+            float userFactor = userAction != null ? userAction.userWalkSpeed : 1;
             StandEntity currentStand = power.getSummonedStandEntity();
-            if (currentStand == null || currentStand.isRemoved()) return 1;
+            if (currentStand == null || currentStand.isRemoved()) return userFactor;
             EntityActionInstance current = currentStand.getCurStandAction();
-            return currentStand.getUserWalkSpeed(current != null ? current.userWalkSpeed : 1);
+            return userFactor * currentStand.getUserWalkSpeed(current != null ? current.userWalkSpeed : 1);
         }
         boolean press(String name, short key, InputMethod method) {
             var ability = power.getAbility(name);
