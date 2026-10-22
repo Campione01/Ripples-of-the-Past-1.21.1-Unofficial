@@ -600,12 +600,10 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 			this.standAlreadySummoned = standAlreadySummoned;
 		}
 
+		// 1.16 TimeStop was a StandAction its user's power performed, which the Stand's summon lock never held back
 		@Override
-		public void onActionSet(EntityActionInstance prevAction) {
-			super.onActionSet(prevAction);
-			if (performer instanceof StandEntity stand && !stand.level().isClientSide()) {
-				stand.summonLockTicks = 0;
-			}
+		public boolean isHeldBackBySummonLock() {
+			return false;
 		}
 
 		@Override

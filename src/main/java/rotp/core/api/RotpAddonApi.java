@@ -282,6 +282,14 @@ public final class RotpAddonApi {
 	 */
 	public static final String FEATURE_ABILITY_COOLDOWN_TECHNICAL_V1 =
 			"ability_cooldown_technical_v1";
+	/**
+	 * EntityActionInstance#isHeldBackBySummonLock: false lets an action its Stand performs tick through the Stand's summon
+	 * lock, as 1.16's StandAction (performed by its user's power) was never held back by it, while the lock stays in
+	 * StandEntity#summonLockTicks (the summon fade-in, counting through a stun) and still holds back the Stand's next
+	 * action; true by default (1.16's StandEntityAction, the Stand's task). The core's time stop returns false.
+	 */
+	public static final String FEATURE_ACTION_SUMMON_LOCK_HOOK_V1 =
+			"action_summon_lock_hook_v1";
 
 	public static final Set<String> FEATURES = Set.of(
 			FEATURE_ABILITY_RESOURCE_NAMESPACE_V1,
@@ -369,7 +377,8 @@ public final class RotpAddonApi {
 			FEATURE_ABILITY_HELD_READY_TO_FIRE_V1,
 			FEATURE_STAND_ACTION_MODIFIERS_V1,
 			FEATURE_ABILITY_STAMINA_COST_V1,
-			FEATURE_ABILITY_COOLDOWN_TECHNICAL_V1);
+			FEATURE_ABILITY_COOLDOWN_TECHNICAL_V1,
+			FEATURE_ACTION_SUMMON_LOCK_HOOK_V1);
 
 	private RotpAddonApi() {}
 

@@ -345,6 +345,19 @@ public class EntityActionInstance implements HeldInput {
 		return false;
 	}
 
+	/**
+	 * Whether its new Stand's summon lock holds this action back, as 1.16 StandEntity.tick held back a Stand's task (a
+	 * StandEntityAction) until the lock ran out: true by default. A port of a 1.16 StandAction, which its user's power
+	 * performed and the lock never held back, that the port has the Stand perform returns false: it then ticks through the
+	 * lock, while the lock stays in StandEntity#summonLockTicks, counts down through a stun as 1.16's did (the summon
+	 * fade-in) and still holds back the Stand's next action that does not return false. Asked on both sides, in every tick
+	 * of the Stand's lock (LivingComponentAction; RotpAddonApi#FEATURE_ACTION_SUMMON_LOCK_HOOK_V1).
+	 */
+	@ApiStatus.OverrideOnly
+	public boolean isHeldBackBySummonLock() {
+		return true;
+	}
+
 	@ApiStatus.OverrideOnly
 	public boolean canStaminaRegen(StandPower standPower, StandEntity standEntity) {
 		return false;

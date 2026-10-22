@@ -1487,8 +1487,9 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 	/**
 	 * Whether the Stand's action waits for its summon lock in this tick. 1.16 StandEntity.tick either counted the lock
 	 * down or ticked the task, never both, so a task set with the lock at L first ticked in the Stand's tick L + 1; a
-	 * held charge, which 1.16's power counted, still counts such a tick (EntityActionInstance#_tickHeldChargeInSummonLock).
-	 * Asked by the Stand's action once a tick, after the Stand's own tick has counted the lock.
+	 * held charge, which 1.16's power counted, still counts such a tick (EntityActionInstance#_tickHeldChargeInSummonLock),
+	 * and a port of a 1.16 StandAction is not held back (EntityActionInstance#isHeldBackBySummonLock). Asked by the Stand's
+	 * action once a tick, after the Stand's own tick has counted the lock.
 	 */
 	@ApiStatus.Internal
 	public boolean takeSummonLockedTick() {
