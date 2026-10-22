@@ -32,6 +32,7 @@ import rotp.core.powersystem.ability.input.AbilityInput;
 import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.HeldInput;
+import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandInstance.StandPart;
@@ -445,7 +446,7 @@ public class Ability {
 	
 	@ApiStatus.Internal
 	public ConditionCheck checkMainModLogicConditions(Power<?> context) {
-		if (isRefusedByHeldAction(context)) {
+		if (isRefusedByHeldAction(context) || isRefusedByPlayerAction(context)) {
 			return ConditionCheck.NEGATIVE;
 		}
 		ConditionCheck partsCheck = checkStandPartsRequired(context);
@@ -466,41 +467,93 @@ public class Ability {
 
 	/*
 	 * 1.16 PowerBaseImpl.checkRequirements refused every other action of a power, first and without a message, while the
-	 * power held an action that let none through (heldAllowsOtherAction: true only for a Stand's hold-type action, so not
-	 * for a charge). A press the held action's own performer takes is left to that action (canBeCancelledInto, the input
-	 * buffer), and a press that was no 1.16 action (endsOtherHoldOnPress false) is not refused.
+	 * power held an action that let none through (EntityActionInstance#heldAllowsOtherAbilities: a Stand's hold-type action
+	 * and the four non-Stand holds that allowed others, so never a charge); each power asked only its own held action. A
+	 * press the held action's own performer takes (EntityActionInstance#getPerformer: the Stand for a port of a 1.16
+	 * StandAction in its user's Stand-power slot) is left to that action (canBeCancelledInto, the input buffer), and a
+	 * press that was no 1.16 action (endsOtherHoldOnPress false) is not refused.
 	 */
 	private boolean isRefusedByHeldAction(Power<?> context) {
 		LivingEntity user = context != null ? context.getUser() : null;
-		if (user == null || abilityId.powerClass() != PowerClass.STAND || !endsOtherHoldOnPress()) {
+		PowerClass<?> powerClass = abilityId.powerClass();
+		if (user == null || powerClass == null || !endsOtherHoldOnPress()) {
 			return false;
 		}
-		EntityActionInstance held = AbilityInput.getHeldAction(user, PowerClass.STAND);
-		return held != null && held.ability != this && !held.isHoldTypeStandAction()
+		EntityActionInstance held = AbilityInput.getHeldAction(user, powerClass);
+		return held != null && held.ability != this && !held.heldAllowsOtherAbilities()
 				&& !(this instanceof EntityActionAbility entityAbility && entityAbility.getPerformer(user) == held.getPerformer());
 	}
 
 	/**
-	 * Whether the user's HUD draws this ability's slot unavailable for the Stand power's held action, as 1.16's HUD drew
-	 * it from PowerBaseImpl.checkRequirements: while the power holds an action that lets no other through (not hold-type:
-	 * a charge, a hold that was no holdType Stand action), a press of another of its abilities that was a 1.16 action
+	 * Whether the user's HUD draws this ability's slot unavailable for its power's held action, as 1.16's HUD drew it from
+	 * that power's PowerBaseImpl.checkRequirements: while the power holds an action that lets no other through (not
+	 * EntityActionInstance#heldAllowsOtherAbilities: a charge, a hold that was no holdType Stand action, any held non-Stand
+	 * action but the four that allowed others), a press of another of its abilities that was a 1.16 action
 	 * (endsOtherHoldOnPress) is refused or, if that action's performer takes it, waits in the input buffer (owner decision
 	 * N2) unless the held action gives way to it. Only the drawing follows 1.16 here; the press is unchanged. A client goes
-	 * by its copy of the held action (AbilityInput#getHeldAction).
+	 * by its copy of the held action (AbilityInput#getHeldAction). Likewise while its user runs a player action this
+	 * ability cannot be used in ({@link #canBeUsedDuringPlayerAction}), refused or waiting behind it.
 	 */
 	@ApiStatus.Internal
 	public boolean isHeldBackByHeldAction(LivingEntity user) {
-		if (user == null || abilityId.powerClass() != PowerClass.STAND || !endsOtherHoldOnPress()) {
+		PowerClass<?> powerClass = abilityId.powerClass();
+		if (user == null || powerClass == null || !endsOtherHoldOnPress()) {
 			return false;
 		}
-		EntityActionInstance held = AbilityInput.getHeldAction(user, PowerClass.STAND);
-		if (held == null || held.ability == this || held.isHoldTypeStandAction()) {
+		if (isUnusableDuringPlayerAction(user)) {
+			return true;
+		}
+		EntityActionInstance held = AbilityInput.getHeldAction(user, powerClass);
+		if (held == null || held.ability == this || held.heldAllowsOtherAbilities()) {
 			return false;
 		}
 		if (this instanceof EntityActionAbility entityAbility && entityAbility.getPerformer(user) == held.getPerformer()) {
 			return entityAbility.wouldBufferInput(user);
 		}
 		return true;
+	}
+
+	/**
+	 * 1.16 Action.canBeUsedDuringPlayerAction: whether this ability can be used while its user, a player, runs a
+	 * continuous player action (PlayerUtilCap.continuousAction: the 13 non-Stand attacks 1.16 built as IPlayerAction,
+	 * whose ports' actions answer EntityActionInstance#isPlayerAction). 1.16 Action.checkConditions (:140-143) refused,
+	 * first and without a message, an action that could not, and its HUD drew it unavailable; a press that the player
+	 * action's own slot holds back waits in the input buffer instead (owner decision N2). True by default for a Stand
+	 * ability, as 1.16's StandAction (:138-141), false for any other, as 1.16's Action. An add-on Stand action that opted
+	 * out in 1.16 returns false (Kraft Work's Lock Target and Place Projectile, Stone Free's strings).
+	 * RotpAddonApi#FEATURE_PLAYER_ACTION_GATE_V1.
+	 * @param playerAction the player action its user runs
+	 */
+	@ApiStatus.OverrideOnly
+	public boolean canBeUsedDuringPlayerAction(EntityActionInstance playerAction) {
+		return abilityId.powerClass() == PowerClass.STAND;
+	}
+
+	// 1.16 kept one continuous player action per player (PlayerUtilCap), of either power: here in either of its slots
+	@Nullable
+	private static EntityActionInstance getRunningPlayerAction(LivingEntity user) {
+		EntityActionInstance own = LivingComponentAction.getCurEntityAction(user);
+		if (own != null && !own.isOver() && own.isPlayerAction() && own.getPowerUser() == user) {
+			return own;
+		}
+		EntityActionInstance standPower = LivingComponentAction.getCurEntityAction(user, PowerClass.STAND);
+		return standPower != null && !standPower.isOver() && standPower.isPlayerAction() && standPower.getPowerUser() == user
+				? standPower : null;
+	}
+
+	// only a player had a continuous action; a press that was no 1.16 action (endsOtherHoldOnPress false) is not refused
+	private boolean isUnusableDuringPlayerAction(@Nullable LivingEntity user) {
+		if (!(user instanceof Player) || abilityId.powerClass() == null || !endsOtherHoldOnPress()) {
+			return false;
+		}
+		EntityActionInstance playerAction = getRunningPlayerAction(user);
+		return playerAction != null && !canBeUsedDuringPlayerAction(playerAction);
+	}
+
+	private boolean isRefusedByPlayerAction(Power<?> context) {
+		LivingEntity user = context != null ? context.getUser() : null;
+		return isUnusableDuringPlayerAction(user) && !(this instanceof EntityActionAbility entityAbility
+				&& entityAbility.waitsBehind(user, getRunningPlayerAction(user)));
 	}
 
 	/**

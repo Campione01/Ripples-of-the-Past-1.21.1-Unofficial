@@ -53,6 +53,12 @@ public class VampirismClawLacerateAbility extends VampirismActionAbility {
 			userWalkSpeed = 0.5F;
 		}
 
+		// 1.16 VampirismClawLacerate was a continuous player action (IPlayerAction)
+		@Override
+		public boolean isPlayerAction() {
+			return true;
+		}
+
 		@Override
 		public void actionTick() {
 			int tick = (int) getFullTicksPassed();

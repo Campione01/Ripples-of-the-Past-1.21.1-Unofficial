@@ -107,8 +107,9 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 		if (action == null) return null;
 		action.setStartedByClick(inputMethod == InputMethod.CLICK);
 		
-		LivingComponentAction actionComponent = LivingComponentAction.getComponent(performer);
-		boolean toBuffer = holdsBackInput(action.ability, user, actionComponent);
+		LivingEntity slotEntity = takesUsersStandPowerSlot() ? user : performer;
+		LivingComponentAction actionComponent = LivingComponentAction.getComponent(slotEntity, abilityId.powerClass());
+		boolean toBuffer = holdsBackInput(action.ability, user, performer, actionComponent);
 
 		HeldInput actionOrQueue = null;
 		if (toBuffer) {
@@ -118,7 +119,7 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 		}
 		else {
 			if (skipWindupTime > 0) {
-				action.skipWindupTime(performer, skipWindupTime);
+				action.skipWindupTime(slotEntity, skipWindupTime);
 			}
 			actionOrQueue = actionComponent.setAction(action, user, SyncType.TRACKING_AND_SELF);
 			bufferingState.setActionSuccess();
@@ -128,23 +129,79 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 
 	/**
 	 * Whether a buffered press of this ability would still be buffered now, as {@link #setOrBufferAction} decides:
-	 * the performer's current action holds it back, or a held action of the Stand power holds back a player's held press.
-	 * The input buffer waits instead of replaying it.
+	 * the current action of the slot it takes holds it back, a held action of this ability's power holds back a player's
+	 * held press, or its performer's held action in another slot holds it back (a port of a 1.16 StandAction in the user's
+	 * Stand-power slot, {@link #performsInUsersStandPowerSlot}). The input buffer waits instead of replaying it.
 	 */
 	@ApiStatus.Internal
 	public boolean wouldBufferInput(LivingEntity user) {
 		LivingEntity performer = user != null ? getPerformer(user) : null;
-		return performer != null && holdsBackInput(this, user, LivingComponentAction.getComponent(performer));
+		LivingEntity slotEntity = takesUsersStandPowerSlot() ? user : performer;
+		return slotEntity != null && holdsBackInput(this, user, performer,
+				LivingComponentAction.getComponent(slotEntity, abilityId.powerClass()));
 	}
 
-	private static boolean holdsBackInput(EntityActionType ability, LivingEntity user, LivingComponentAction performerAction) {
+	private static boolean holdsBackInput(EntityActionType ability, LivingEntity user, @Nullable LivingEntity performer,
+			LivingComponentAction performerAction) {
 		// A paused action (performer frozen in stopped time) does not advance, so it must not hold back new input.
 		return ability.shouldBufferInput(performerAction) && !performerAction.isActionPausedInStoppedTime()
-				|| isHeldPressHeldBack(ability, user);
+				|| isHeldPressHeldBack(ability, user)
+				|| isHeldBackByPerformersHeldAction(ability, user, performer, performerAction);
+	}
+
+	/*
+	 * A port of a 1.16 StandAction held in its user's Stand-power slot is its Stand's action too (getPerformer): a press
+	 * that Stand performs waits behind it in the input buffer while it lets no other through and does not give way to the
+	 * press, as behind the Stand's own action (owner decision N2; 1.16 refused such a press while the power held it).
+	 */
+	private static boolean isHeldBackByPerformersHeldAction(EntityActionType ability, LivingEntity user,
+			@Nullable LivingEntity performer, LivingComponentAction performerAction) {
+		if (performer == null || !(ability instanceof EntityActionAbility pressed) || pressed.abilityId.powerClass() == null) {
+			return false;
+		}
+		EntityActionInstance held = AbilityInput.getHeldAction(user, pressed.abilityId.powerClass());
+		return held != null && held != performerAction.getAction() && held.getPerformer() == performer
+				&& !held.heldAllowsOtherAbilities() && !held.canBeCancelledInto(ability);
 	}
 
 	/**
-	 * Whether a player's press of this ability waits in the input buffer because the Stand power holds an action, the
+	 * Whether this ability is a port of a 1.16 StandAction, which its user's Stand power held and performed
+	 * (PowerBaseImpl.heldActionData), not a Stand's task (a StandEntityAction): its action lives in the user's Stand-power
+	 * slot (LivingComponentAction#getComponent(LivingEntity, PowerClass)) whether the Stand is out or not, beside the
+	 * Stand's own slot, which keeps only the Stand's tasks, so it goes off at once while the Stand runs a task (a held
+	 * hold-type task's hold still ends, as 1.16's stopHeldAction ended it). Its performer
+	 * (EntityActionInstance#getPerformer: the stun, range and aim) is the user's summoned Stand while it is out, else the
+	 * user, as 1.16 StandAction.getPerformer; the action's own performer field stays the slot's entity. A press the Stand
+	 * performs waits behind such a held action while it lets none through (owner decision N2). It is no task: its Stand's
+	 * summon lock and stun do not hold it back (EntityActionInstance#isHeldBackBySummonLock and #isHeldBackByStandStun
+	 * stay for a port that still runs on its Stand), and the Stand takes a pose from it only if it asks
+	 * (EntityActionInstance#posesItsStand). False by default; the time stop returns true. Only for a Stand-power ability.
+	 * RotpAddonApi#FEATURE_STAND_ACTION_PORT_SLOT_V1.
+	 */
+	@ApiStatus.OverrideOnly
+	public boolean performsInUsersStandPowerSlot() {
+		return false;
+	}
+
+	private boolean takesUsersStandPowerSlot() {
+		return abilityId.powerClass() == PowerClass.STAND && performsInUsersStandPowerSlot();
+	}
+
+	/** Whether a press of this ability takes the slot that holds this action and the action holds it back there. */
+	@ApiStatus.Internal
+	public boolean waitsBehind(LivingEntity user, @Nullable EntityActionInstance action) {
+		return action != null && getCurActionOfSlot(user) == action && !action.canBeCancelledInto(this);
+	}
+
+	// the action in the slot a press of this ability by this user takes, if any
+	@Nullable
+	private EntityActionInstance getCurActionOfSlot(LivingEntity user) {
+		LivingEntity slotEntity = takesUsersStandPowerSlot() ? user : getPerformer(user);
+		return slotEntity != null ? LivingComponentAction.getCurEntityAction(slotEntity, abilityId.powerClass()) : null;
+	}
+
+	/**
+	 * Whether a player's press of this ability waits in the input buffer because its power holds an action, the
 	 * held-press rule of {@link #setOrBufferAction} alone (not the performer's current action, which a press may end
 	 * itself). A press that ends the Stand's current action before it sets its own (the time stop) asks this first, so
 	 * that it does not end the hold 1.16's client never sent it to.
@@ -155,14 +212,16 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 	}
 
 	/*
-	 * 1.16's client sent no press of a held action (getHoldDurationMax above 0) while the power held one
-	 * (ActionsOverlayGui.onActionClick), whatever the held action let through; the input buffer keeps such a press of a
-	 * Stand ability until the hold ends (owner decision N2). A mob's press went to the server and through.
+	 * 1.16's client sent no press of a held action (getHoldDurationMax above 0) while the action's power held one
+	 * (ActionsOverlayGui.onActionClick, power by power), whatever the held action let through; the input buffer keeps
+	 * such a press until the hold ends (owner decision N2). A mob's press went to the server and through.
 	 */
 	private static boolean isHeldPressHeldBack(EntityActionType ability, LivingEntity user) {
-		return user instanceof Player && ability instanceof EntityActionAbility pressed && pressed.isHoldAction()
-				&& pressed.abilityId.powerClass() == PowerClass.STAND
-				&& AbilityInput.getHeldAction(user, PowerClass.STAND) != null;
+		if (!(user instanceof Player) || !(ability instanceof EntityActionAbility pressed) || !pressed.isHoldAction()) {
+			return false;
+		}
+		PowerClass<?> powerClass = pressed.abilityId.powerClass();
+		return powerClass != null && AbilityInput.getHeldAction(user, powerClass) != null;
 	}
 
 
@@ -578,8 +637,9 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 	}
 	
 	/**
-	 * 1.16 GameplayEventHandler.onLivingDamage -> PowerBaseImpl.onUserGettingAttacked: a hit with a direct entity
-	 * stops the user's held actions (its own and its Stand's) whose cancelHeldOnGettingAttacked says so, held as 1.16's
+	 * 1.16 GameplayEventHandler.onLivingDamage -> PowerBaseImpl.onUserGettingAttacked, power by power: a hit with a direct
+	 * entity stops the user's held actions (its own, its Stand-power slot's and its Stand's) whose
+	 * cancelHeldOnGettingAttacked says so, held as 1.16's
 	 * getHeldAction() was, from the press on ({@link #isHeldSincePress}) while a key holds them, and the hold ends.
 	 * A hit that a shield or an incoming-damage reduction brought to nothing, or that a counter cancelled at
 	 * LivingHurtEvent (DamageSourceModified#isCountered), never reached that event.
@@ -593,16 +653,17 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 			return;
 		}
 		float dmgAmount = event.getNewDamage();
-		stopHeldActionOf(user, user, dmgSource, dmgAmount);
+		stopHeldActionOf(LivingComponentAction.getCurEntityAction(user), user, dmgSource, dmgAmount);
+		stopHeldActionOf(LivingComponentAction.getCurEntityAction(user, PowerClass.STAND), user, dmgSource, dmgAmount);
 		StandPower standPower = StandPower.get(user);
 		StandEntity standEntity = standPower != null ? standPower.getSummonedStandEntity() : null;
 		if (standEntity != null && standEntity != user) {
-			stopHeldActionOf(standEntity, user, dmgSource, dmgAmount);
+			stopHeldActionOf(LivingComponentAction.getCurEntityAction(standEntity), user, dmgSource, dmgAmount);
 		}
 	}
 	
-	private static void stopHeldActionOf(LivingEntity performer, LivingEntity user, DamageSource dmgSource, float dmgAmount) {
-		EntityActionInstance action = LivingComponentAction.getCurEntityAction(performer);
+	private static void stopHeldActionOf(@Nullable EntityActionInstance action, LivingEntity user, DamageSource dmgSource,
+			float dmgAmount) {
 		// A hit on the Stand itself is not its user's (a linked hit reaches the user as its own damage).
 		if (action != null && !action.isOver() && action.getPowerUser() == user
 				&& action.ability instanceof EntityActionAbility ability
@@ -642,31 +703,28 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 		indicator.value = -1;
 		
 		if (indicator.maxValue > 0) {
-			LivingEntity performer = getPerformer(clientPlayer);
-			if (performer != null) {
-				EntityActionInstance curAction = LivingComponentAction.getCurEntityAction(performer);
-				if (isSameAbilityAction(curAction)) {
-					ActionPhase phase = curAction.getPhase();
-					if (phase == null) {
-						return null;
+			EntityActionInstance curAction = getCurActionOfSlot(clientPlayer);
+			if (isSameAbilityAction(curAction)) {
+				ActionPhase phase = curAction.getPhase();
+				if (phase == null) {
+					return null;
+				}
+				if (phase == ActionPhase.BUTTON_CHARGE && hasButtonCharge) {
+					indicator.maxValue = curAction.getAnimPhaseLength();
+					if (indicator.maxValue > 0) {
+						indicator.value = curAction.getAnimPhaseTick(partialTick);
 					}
-					if (phase == ActionPhase.BUTTON_CHARGE && hasButtonCharge) {
-						indicator.maxValue = curAction.getAnimPhaseLength();
-						if (indicator.maxValue > 0) {
-							indicator.value = curAction.getAnimPhaseTick(partialTick);
-						}
-					}
-					else if (phase == ActionPhase.WINDUP && windupHoldToFire > 0) {
-						indicator.maxValue = windupHoldToFire;
-						indicator.value = Math.min(curAction.getAnimPhaseTick(partialTick), windupHoldToFire);
-					}
-					else if (hasButtonCharge && windupHoldToFire <= 0) {
-						indicator.maxValue = curAction.phasesLength.getFloat(ActionPhase.BUTTON_CHARGE);
-						indicator.value = indicator.maxValue;
-					}
-					else {
-						return null;
-					}
+				}
+				else if (phase == ActionPhase.WINDUP && windupHoldToFire > 0) {
+					indicator.maxValue = windupHoldToFire;
+					indicator.value = Math.min(curAction.getAnimPhaseTick(partialTick), windupHoldToFire);
+				}
+				else if (hasButtonCharge && windupHoldToFire <= 0) {
+					indicator.maxValue = curAction.phasesLength.getFloat(ActionPhase.BUTTON_CHARGE);
+					indicator.value = indicator.maxValue;
+				}
+				else {
+					return null;
 				}
 			}
 			return indicator;
@@ -677,8 +735,7 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 
 	@Override
 	public boolean isHeldReadyToFire(LivingEntity user) {
-		LivingEntity performer = user != null ? getPerformer(user) : null;
-		EntityActionInstance action = performer != null ? LivingComponentAction.getCurEntityAction(performer) : null;
+		EntityActionInstance action = user != null ? getCurActionOfSlot(user) : null;
 		return isSameAbilityAction(action) && !action.isOver() && isActionHeldReadyToFire(action);
 	}
 

@@ -36,6 +36,12 @@ public class PillarmanErraticBlazeKingAbility extends PillarmanActionAbility {
 			super(ability);
 		}
 
+		// 1.16 PillarmanErraticBlazeKing was a continuous player action (IPlayerAction)
+		@Override
+		public boolean isPlayerAction() {
+			return true;
+		}
+
 		@Override
 		public void onSetPhase(ActionPhase newPhase) {
 			if (ability instanceof PillarmanErraticBlazeKingAbility erraticAbility && newPhase == ActionPhase.PERFORM) {

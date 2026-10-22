@@ -92,11 +92,21 @@ public class PreFrameEntityAnimCalc {
 		}
 	}
 	
+	/*
+	 * 1.16 drew a player's pose from its powers' animation layers, and only non-Stand actions had one among the core's
+	 * (ModPlayerAnimations): the user's own slot animates it first, else its Stand-power slot's action it performs itself;
+	 * a Stand takes the pose of its user's held time stop before its own action (LivingComponentAction#getPoseComponent).
+	 */
+	@Nullable
+	private static LivingComponentAction poseActionComponent(LivingEntity living) {
+		return LivingComponentAction.getPoseComponent(living);
+	}
+
 	// TODO get rid of instanceof
 	// TODO get rid of newFrame argument
 	public static AnimFramePose getLivingPose(LivingEntity living, float partialTick, boolean newFrame) {
 		AnimFramePose pose = null;
-		LivingComponentAction actionComponent = LivingComponentAction.getExistingComponent(living);
+		LivingComponentAction actionComponent = poseActionComponent(living);
 		EntityActionInstance action = actionComponent != null ? actionComponent.getAction() : null;
 		@Nullable StandEntity stand = living instanceof StandEntity __ ? __ : null;
 		@Nullable HamonData persistentHamonPose = stand == null && living instanceof Player

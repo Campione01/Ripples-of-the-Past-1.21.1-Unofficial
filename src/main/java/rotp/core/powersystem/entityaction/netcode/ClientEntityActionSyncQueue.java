@@ -99,6 +99,16 @@ public final class ClientEntityActionSyncQueue {
 			UUID performerUuid,
 			long generation,
 			@Nullable byte[] actionData) {
+		applyOrQueueAction(originListener, performerId, performerUuid, generation, actionData, 0);
+	}
+
+	public static void applyOrQueueAction(
+			ICommonPacketListener originListener,
+			int performerId,
+			UUID performerUuid,
+			long generation,
+			@Nullable byte[] actionData,
+			int slot) {
 		Minecraft mc = Minecraft.getInstance();
 		if (!beginPacket(mc, originListener, "action")) {
 			return;
@@ -106,7 +116,7 @@ public final class ClientEntityActionSyncQueue {
 		NetworkPayloadValidation.requireGeneration(
 				generation, "entity action");
 		EntityIdentity identity = new EntityIdentity(
-				performerId, performerUuid);
+				performerId, performerUuid, slot);
 		LivingEntity entityLifetime = findLiving(identity);
 		GenerationLedger ledger = ledgerFor(identity);
 		if (ledger == null) {
@@ -175,7 +185,7 @@ public final class ClientEntityActionSyncQueue {
 		handleDependent(
 				PENDING_SYNCHED_DATA,
 				new EntityIdentity(
-						packet.entityId(), packet.performerUuid()),
+						packet.entityId(), packet.performerUuid(), packet.slot()),
 				packet.actionGeneration(),
 				packet,
 				ClientEntityActionSyncQueue::applySynchedData);
@@ -198,7 +208,7 @@ public final class ClientEntityActionSyncQueue {
 		handleDependent(
 				PENDING_PHASE_TIMES,
 				new EntityIdentity(
-						packet.performerId(), packet.performerUuid()),
+						packet.performerId(), packet.performerUuid(), packet.slot()),
 				packet.actionGeneration(),
 				packet,
 				ClientEntityActionSyncQueue::applyPhaseTime);
@@ -221,7 +231,7 @@ public final class ClientEntityActionSyncQueue {
 		handleDependent(
 				PENDING_OBB_SYNCS,
 				new EntityIdentity(
-						packet.performerId(), packet.performerUuid()),
+						packet.performerId(), packet.performerUuid(), packet.slot()),
 				packet.actionGeneration(),
 				packet,
 				ClientEntityActionSyncQueue::applyObbSync);
@@ -254,7 +264,7 @@ public final class ClientEntityActionSyncQueue {
 		handleDependent(
 				PENDING_TARGETS,
 				new EntityIdentity(
-						packet.performerId(), packet.performerUuid()),
+						packet.performerId(), packet.performerUuid(), packet.slot()),
 				packet.actionGeneration(),
 				packet,
 				applier,
@@ -389,7 +399,7 @@ public final class ClientEntityActionSyncQueue {
 		if (result == ApplyResult.APPLIED) {
 			removePendingAction(identity, generation);
 			EntityActionInstance action =
-					LivingComponentAction.getCurEntityAction(entityLifetime);
+					LivingComponentAction.getCurEntityActionForSlot(entityLifetime, identity.slot());
 			ledger.markApplied(
 					generation, entityLifetime, action != null);
 			clearDependentPendingBefore(identity, generation);
@@ -534,7 +544,7 @@ public final class ClientEntityActionSyncQueue {
 			return ApplyResult.RETRY;
 		}
 		LivingComponentAction component =
-				LivingComponentAction.getComponent(living);
+				LivingComponentAction.getComponentForSlot(living, identity.slot());
 		TransactionSnapshot snapshot = component.captureTransactionSnapshot();
 		FriendlyByteBuf input = null;
 		try {
@@ -639,15 +649,15 @@ public final class ClientEntityActionSyncQueue {
 	private static ApplyResult applySynchedData(
 			TrActionSynchedDataPacket packet) {
 		LivingEntity living = findLiving(new EntityIdentity(
-				packet.entityId(), packet.performerUuid()));
+				packet.entityId(), packet.performerUuid(), packet.slot()));
 		EntityActionInstance action = matchingAction(
-				living, packet.actionGeneration());
+				living, packet.slot(), packet.actionGeneration());
 		if (living == null || action == null) {
 			return ApplyResult.RETRY;
 		}
 		try {
 			SyncActionInstanceData.setDataClientSide(
-					living, packet.packedItems());
+					living, packet.slot(), packet.packedItems());
 			recordDependentApplied(
 					living, action, packet.actionGeneration(),
 					"synched_data");
@@ -664,9 +674,9 @@ public final class ClientEntityActionSyncQueue {
 	private static ApplyResult applyPhaseTime(
 			TrEntityActionPhaseTimePacket packet) {
 		LivingEntity living = findLiving(new EntityIdentity(
-				packet.performerId(), packet.performerUuid()));
+				packet.performerId(), packet.performerUuid(), packet.slot()));
 		EntityActionInstance action = matchingAction(
-				living, packet.actionGeneration());
+				living, packet.slot(), packet.actionGeneration());
 		if (living == null || action == null) {
 			return ApplyResult.RETRY;
 		}
@@ -697,9 +707,9 @@ public final class ClientEntityActionSyncQueue {
 	private static ApplyResult applyObbSync(
 			TrEntityActionWithOBBSyncPacket packet) {
 		LivingEntity living = findLiving(new EntityIdentity(
-				packet.performerId(), packet.performerUuid()));
+				packet.performerId(), packet.performerUuid(), packet.slot()));
 		EntityActionInstance action = matchingAction(
-				living, packet.actionGeneration());
+				living, packet.slot(), packet.actionGeneration());
 		if (living == null || action == null) {
 			return ApplyResult.RETRY;
 		}
@@ -743,9 +753,9 @@ public final class ClientEntityActionSyncQueue {
 	private static ApplyResult applyTarget(
 			TrEntityActionTargetPacket packet) {
 		LivingEntity living = findLiving(new EntityIdentity(
-				packet.performerId(), packet.performerUuid()));
+				packet.performerId(), packet.performerUuid(), packet.slot()));
 		EntityActionInstance action = matchingAction(
-				living, packet.actionGeneration());
+				living, packet.slot(), packet.actionGeneration());
 		if (living == null || action == null) {
 			return ApplyResult.RETRY;
 		}
@@ -776,12 +786,13 @@ public final class ClientEntityActionSyncQueue {
 	@Nullable
 	private static EntityActionInstance matchingAction(
 			@Nullable LivingEntity living,
+			int slot,
 			long generation) {
 		if (living == null) {
 			return null;
 		}
 		LivingComponentAction component =
-				LivingComponentAction.getComponent(living);
+				LivingComponentAction.getComponentForSlot(living, slot);
 		EntityActionInstance action = component.getAction();
 		return action != null
 				&& component.actionGeneration() == generation
@@ -796,7 +807,7 @@ public final class ClientEntityActionSyncQueue {
 			String syncType,
 			RuntimeException error) {
 		try {
-			LivingComponentAction.getComponent(living)
+			LivingComponentAction.getComponentForSlot(living, action.actionSlot())
 					.clearFailedNetworkAction();
 		}
 		catch (RuntimeException cleanupError) {
@@ -1589,9 +1600,14 @@ public final class ClientEntityActionSyncQueue {
 			boolean capacityFailed,
 			boolean disconnectRequested) {}
 
-	static record EntityIdentity(int entityId, UUID performerUuid) {
+	// slot: the performer's action slot (LivingComponentAction#slotId); each slot keeps its own generations
+	static record EntityIdentity(int entityId, UUID performerUuid, int slot) {
 		EntityIdentity {
 			Objects.requireNonNull(performerUuid, "performerUuid");
+		}
+
+		EntityIdentity(int entityId, UUID performerUuid) {
+			this(entityId, performerUuid, 0);
 		}
 	}
 

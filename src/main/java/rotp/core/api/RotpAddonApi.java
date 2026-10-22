@@ -302,6 +302,60 @@ public final class RotpAddonApi {
 	 */
 	public static final String FEATURE_ACTION_STAND_STUN_HOOK_V1 =
 			"action_stand_stun_hook_v1";
+	/**
+	 * The held-action rules of FEATURE_ENTITY_ACTION_HOOKS_V1 hold for every power, each power by its own held action, as
+	 * 1.16's PowerBaseImpl kept one per power: a player's press of an ability that holds (EntityActionAbility#isHoldAction)
+	 * waits in the input buffer while that ability's power holds an action (AbilityInput#getHeldAction); while that held
+	 * action does not let others through, the power's abilities its performer does not take (a plain Ability, such as
+	 * Hamon Protection) are refused without a message, and the HUD draws the power's other slots unavailable
+	 * (Ability#isHeldBackByHeldAction). EntityActionInstance#heldAllowsOtherAbilities (1.16 heldAllowsOtherAction): by
+	 * default isHoldTypeStandAction; true for the core's Blood Drain, Freeze, Zombie Devour and Pillar Man Absorption; a
+	 * non-Stand add-on hold whose 1.16 action allowed others returns true.
+	 */
+	public static final String FEATURE_HELD_ACTION_RULES_PER_POWER_V1 =
+			"held_action_rules_per_power_v1";
+	/**
+	 * The user's Stand-power action slot, as 1.16 kept one held action per power: every Stand-power action a user performs
+	 * itself (EntityActionAbility#setOrBufferAction with the user as performer) lives in LivingComponentAction.StandPowerSlot,
+	 * apart from the user's own slot, which keeps its non-Stand power's actions, so an action of one power never waits behind
+	 * or ends one of the other. LivingComponentAction#getComponent(LivingEntity) and #getCurEntityAction(LivingEntity) still
+	 * return the entity's own slot; #getComponent / #getExistingComponent / #getCurEntityAction(LivingEntity, PowerClass)
+	 * return the slot an action of that power performed by that entity takes (a Stand entity has only its own slot). The
+	 * user's two slots tick non-Stand first; the action sync packets carry the slot (LivingComponentAction#slotId,
+	 * EntityActionInstance#actionSlot); an action that clears itself clears its own slot
+	 * (LivingComponentAction#getComponentForSlot(performer, actionSlot())). Each power keeps its own input buffer
+	 * (EntityActionInputState#inputBuffer(PowerClass)).
+	 */
+	public static final String FEATURE_STAND_POWER_ACTION_SLOT_V1 =
+			"stand_power_action_slot_v1";
+	/**
+	 * A port of a 1.16 StandAction, which its user's Stand power held and performed rather than its Stand's task, runs in
+	 * the user's Stand-power slot with its Stand out or not (EntityActionAbility#performsInUsersStandPowerSlot: false by
+	 * default, true for the time stops): it goes off at once while the Stand runs a task (a held hold-type task's hold
+	 * still ends), and the Stand's own slot keeps only its tasks. EntityActionInstance#getPerformer gives the user's
+	 * summoned Stand while it is out (1.16 StandAction.getPerformer), so the press check and the held recheck meet the
+	 * Stand's stun; the action's performer field stays the slot's entity (its sync, its own-slot clear). A press the Stand
+	 * performs waits in the input buffer behind such an action its user holds while it lets none through (owner decision
+	 * N2). The Stand takes a pose from such an action only if EntityActionInstance#posesItsStand says so (the time stop's
+	 * windup and perform, 1.16 StandEntity.getCurPose); LivingComponentAction#getPoseComponent picks the slot an entity's
+	 * pose comes from. A port that still runs on its Stand keeps FEATURE_ACTION_SUMMON_LOCK_HOOK_V1 and
+	 * FEATURE_ACTION_STAND_STUN_HOOK_V1. Builds on FEATURE_STAND_POWER_ACTION_SLOT_V1.
+	 */
+	public static final String FEATURE_STAND_ACTION_PORT_SLOT_V1 =
+			"stand_action_port_slot_v1";
+	/**
+	 * 1.16's continuous player action gate: while a player's slot holds a port of one of 1.16's 13 IPlayerAction attacks
+	 * (EntityActionInstance#isPlayerAction, true for the core's Hamon, Pillar Man, Vampirism and Zombie ports), each of its
+	 * abilities that cannot be used during it (Ability#canBeUsedDuringPlayerAction(EntityActionInstance): true by default
+	 * for a Stand ability, as 1.16's StandAction, false for any other, as 1.16's Action) is refused without a message and
+	 * drawn unavailable, as 1.16 Action.checkConditions refused it; a press the player action's own slot holds back waits
+	 * in the input buffer instead (owner decision N2). Mobs are not gated (1.16 kept the action in PlayerUtilCap). An add-on
+	 * Stand action that opted out in 1.16 returns false (Kraft Work's Lock Target and Place Projectile, Stone Free's
+	 * strings); an add-on port of an IPlayerAction (Ultimate Lifeform's, King Crimson's time skip) returns true from
+	 * isPlayerAction.
+	 */
+	public static final String FEATURE_PLAYER_ACTION_GATE_V1 =
+			"player_action_gate_v1";
 
 	public static final Set<String> FEATURES = Set.of(
 			FEATURE_ABILITY_RESOURCE_NAMESPACE_V1,
@@ -391,7 +445,11 @@ public final class RotpAddonApi {
 			FEATURE_ABILITY_STAMINA_COST_V1,
 			FEATURE_ABILITY_COOLDOWN_TECHNICAL_V1,
 			FEATURE_ACTION_SUMMON_LOCK_HOOK_V1,
-			FEATURE_ACTION_STAND_STUN_HOOK_V1);
+			FEATURE_ACTION_STAND_STUN_HOOK_V1,
+			FEATURE_HELD_ACTION_RULES_PER_POWER_V1,
+			FEATURE_STAND_POWER_ACTION_SLOT_V1,
+			FEATURE_STAND_ACTION_PORT_SLOT_V1,
+			FEATURE_PLAYER_ACTION_GATE_V1);
 
 	private RotpAddonApi() {}
 

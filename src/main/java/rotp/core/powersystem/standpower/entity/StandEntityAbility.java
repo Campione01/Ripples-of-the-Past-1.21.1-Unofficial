@@ -189,12 +189,12 @@ public class StandEntityAbility extends EntityActionAbility {
 	 * its user's power fired the hold later in the tick (PowerBaseImpl.tickHeldAction in the player tick, a mob's in its
 	 * own tick before its Stand's), which only moved the task on (StandEntityTask.moveToPhase): a charge the Stand
 	 * performs runs its N ticks and its next phase's first tick comes in the Stand's next tick, Crossfire Hurricane's shot
-	 * in the 21st tick from a player's press. An ability whose 1.16 action was a StandAction its user's power performed
-	 * (the time stops) returns true.
+	 * in the 21st tick from a player's press. A port of a 1.16 StandAction its user's power performed (the time stops, any
+	 * that takes its user's Stand-power slot: {@link #performsInUsersStandPowerSlot}) returns true.
 	 */
 	@Override
 	public boolean chargeFiresAsItsLengthEnds(EntityActionInstance action) {
-		return !(action.getPerformer() instanceof StandEntity);
+		return performsInUsersStandPowerSlot() || !(action.getPerformer() instanceof StandEntity);
 	}
 	
 	public boolean noAdheringToUserOffset(StandPower standPower, StandEntity standEntity) {

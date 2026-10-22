@@ -19,12 +19,18 @@ public record TrActionSynchedDataPacket(
 		int entityId,
 		UUID performerUuid,
 		long actionGeneration,
-		List<SynchedEntityData.DataValue<?>> packedItems)
+		List<SynchedEntityData.DataValue<?>> packedItems,
+		int slot)
 		implements CustomPacketPayload {
 	public TrActionSynchedDataPacket {
 		Objects.requireNonNull(performerUuid, "performerUuid");
 		NetworkPayloadValidation.requireOutboundGeneration(
 				actionGeneration, "entity action data");
+	}
+
+	public TrActionSynchedDataPacket(int entityId, UUID performerUuid, long actionGeneration,
+			List<SynchedEntityData.DataValue<?>> packedItems) {
+		this(entityId, performerUuid, actionGeneration, packedItems, 0);
 	}
 	private static CustomPacketPayload.Type<TrActionSynchedDataPacket> type;
 
@@ -44,6 +50,7 @@ public record TrActionSynchedDataPacket(
 			buf.writeInt(packet.entityId);
 			buf.writeUUID(packet.performerUuid);
 			buf.writeVarLong(packet.actionGeneration);
+			buf.writeByte(packet.slot);
 			NetworkPayloadValidation.requireOutboundCollectionSize(
 					packet.packedItems.size(),
 					NetworkPayloadValidation.MAX_ACTION_SYNC_VALUES,
@@ -61,6 +68,7 @@ public record TrActionSynchedDataPacket(
 			UUID performerUuid = buf.readUUID();
 			long actionGeneration = NetworkPayloadValidation.requireGeneration(
 					buf.readVarLong(), "entity action data");
+			int slot = buf.readUnsignedByte();
 
 			List<SynchedEntityData.DataValue<?>> packedItems = new ArrayList<>();
 			int id;
@@ -73,7 +81,7 @@ public record TrActionSynchedDataPacket(
 			}
 
 			return new TrActionSynchedDataPacket(
-					entityId, performerUuid, actionGeneration, packedItems);
+					entityId, performerUuid, actionGeneration, packedItems, slot);
 		}
 
 		@Override

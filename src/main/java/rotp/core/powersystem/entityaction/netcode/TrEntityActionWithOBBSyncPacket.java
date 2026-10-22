@@ -17,12 +17,17 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 public record TrEntityActionWithOBBSyncPacket(int performerId,
 											  UUID performerUuid,
 											  long actionGeneration,
-                                              int actionId) implements CustomPacketPayload {
+                                              int actionId,
+		int slot) implements CustomPacketPayload {
 
 	public TrEntityActionWithOBBSyncPacket {
 		Objects.requireNonNull(performerUuid, "performerUuid");
 		NetworkPayloadValidation.requireOutboundGeneration(
 				actionGeneration, "entity action OBB");
+	}
+
+	public TrEntityActionWithOBBSyncPacket(int performerId, UUID performerUuid, long actionGeneration, int actionId) {
+		this(performerId, performerUuid, actionGeneration, actionId, 0);
 	}
 
     private static CustomPacketPayload.Type<TrEntityActionWithOBBSyncPacket> type;

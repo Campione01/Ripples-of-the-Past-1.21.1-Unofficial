@@ -69,6 +69,12 @@ public class PillarmanBladeDashAttackAbility extends PillarmanActionAbility {
 			super(ability);
 		}
 
+		// 1.16 PillarmanBladeDashAttack was a continuous player action (IPlayerAction)
+		@Override
+		public boolean isPlayerAction() {
+			return true;
+		}
+
 		@Override
 		public void onSetPhase(ActionPhase newPhase) {
 			if (ability instanceof PillarmanBladeDashAttackAbility dashAbility

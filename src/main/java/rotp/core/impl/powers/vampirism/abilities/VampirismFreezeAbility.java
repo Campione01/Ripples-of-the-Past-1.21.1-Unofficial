@@ -170,6 +170,12 @@ public class VampirismFreezeAbility extends VampirismActionAbility {
 			return true;
 		}
 
+		// 1.16 VampirismFreeze.heldAllowsOtherAction
+		@Override
+		public boolean heldAllowsOtherAbilities() {
+			return true;
+		}
+
 		private static double randomOffset(float width) {
 			return (Math.random() - 0.5D) * width;
 		}

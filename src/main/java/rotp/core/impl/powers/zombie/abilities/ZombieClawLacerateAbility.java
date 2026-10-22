@@ -52,6 +52,12 @@ public class ZombieClawLacerateAbility extends ZombieActionAbility {
 			userWalkSpeed = 0.5F;
 		}
 
+		// 1.16 ZombieClawLacerate was a continuous player action (IPlayerAction)
+		@Override
+		public boolean isPlayerAction() {
+			return true;
+		}
+
 		@Override
 		public void actionTick() {
 			int tick = (int) getFullTicksPassed();

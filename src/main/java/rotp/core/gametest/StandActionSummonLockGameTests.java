@@ -23,6 +23,7 @@ import rotp.core.powersystem.ability.input.AbilityInput;
 import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
+import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
@@ -46,8 +47,9 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 /**
  * 1.16 performed a StandAction (TimeStop among them) in its user's power, which a new Stand's summon lock never held
  * back: StandEntity.tick (:1270-1281) held back only the Stand's task, counted the lock down through a stun, and went on
- * holding back the task set after the StandAction. The port's time stop, which the Stand performs, is not held back by
- * the lock (EntityActionInstance#isHeldBackBySummonLock), which it no longer takes off the Stand either.
+ * holding back the task set after the StandAction. The port's time stop runs in its user's Stand-power slot, performed
+ * by the Stand (EntityActionAbility#performsInUsersStandPowerSlot), where the lock never holds it back; it does not take
+ * the lock off the Stand either (an add-on port that still runs on its Stand: EntityActionInstance#isHeldBackBySummonLock).
  */
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -195,11 +197,12 @@ public final class StandActionSummonLockGameTests {
 			AbilityInput.keyPress(TIME_STOP_KEY, selected.ability, user, null, InputMethod.HOLD, 0, pressed,
 					timeStop.getAbilityId());
 			stand = power.getSummonedStandEntity();
-			action = stand != null ? stand.getCurStandAction() : null;
+			action = LivingComponentAction.getCurEntityAction(user, PowerClass.STAND);
 			helper.assertTrue(pressed.isActionSuccess && stand != null && stand.isAddedToLevel()
 					&& action instanceof TimeStopAbility.TimeStopAction && action.getPhase() == ActionPhase.BUTTON_CHARGE
-					&& action.getCurPhaseLength() == CHARGE, "The held time stop did not set its " + CHARGE
-							+ "-tick charge on Star Platinum for " + name() + ": " + stand + ", " + action);
+					&& action.getCurPhaseLength() == CHARGE && action.getPerformer() == stand, "The held time stop did not"
+							+ " set its " + CHARGE + "-tick charge in its user's Stand-power slot, performed by Star Platinum, for "
+							+ name() + ": " + stand + ", " + action);
 			if (row == Row.NOT_OUT || row == Row.STUNNED) {
 				helper.assertTrue(stand.summonLockTicks == 0, "Fixture: Star Platinum has a summon lock of its own: "
 						+ stand.summonLockTicks);

@@ -19,6 +19,15 @@ public class SyncActionInstanceData {
 			LivingEntity performer,
 			long actionGeneration,
 			EntityActionInstance curAction) {
+		onStartedTracking(tracking, performer, 0, actionGeneration, curAction);
+	}
+
+	public static void onStartedTracking(
+			ServerPlayer tracking,
+			LivingEntity performer,
+			int slot,
+			long actionGeneration,
+			EntityActionInstance curAction) {
 		if (curAction != null) {
 			SynchedDataExtended synchedData = curAction.synchedData.getDataSyncher();
 			if (synchedData != null) {
@@ -29,7 +38,7 @@ public class SyncActionInstanceData {
 							new TrActionSynchedDataPacket(
 									performer.getId(), performer.getUUID(),
 									actionGeneration,
-									nonDefaultData));
+									nonDefaultData, slot));
 				}
 			}
 		}
@@ -37,6 +46,14 @@ public class SyncActionInstanceData {
 	
 	public static void tickSyncDirtyData(
 			Entity performer,
+			long actionGeneration,
+			SynchedDataExtended synchedData) {
+		tickSyncDirtyData(performer, 0, actionGeneration, synchedData);
+	}
+
+	public static void tickSyncDirtyData(
+			Entity performer,
+			int slot,
 			long actionGeneration,
 			SynchedDataExtended synchedData) {
 		if (synchedData != null) {
@@ -47,13 +64,17 @@ public class SyncActionInstanceData {
 						new TrActionSynchedDataPacket(
 								performer.getId(), performer.getUUID(),
 								actionGeneration,
-								dirtyData));
+								dirtyData, slot));
 			}
 		}
 	}
 	
 	public static void setDataClientSide(LivingEntity entity, List<SynchedEntityData.DataValue<?>> packedItems) {
-		EntityActionInstance action = LivingComponentAction.getCurEntityAction(entity);
+		setDataClientSide(entity, 0, packedItems);
+	}
+
+	public static void setDataClientSide(LivingEntity entity, int slot, List<SynchedEntityData.DataValue<?>> packedItems) {
+		EntityActionInstance action = LivingComponentAction.getCurEntityActionForSlot(entity, slot);
 		if (action != null) {
 			SynchedDataExtended synchedData = action.synchedData.getDataSyncher();
 			if (synchedData != null) {

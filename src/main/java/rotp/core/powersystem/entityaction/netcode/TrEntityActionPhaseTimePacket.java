@@ -25,12 +25,18 @@ public record TrEntityActionPhaseTimePacket(int performerId,
 		int actionId, 
 		Object2FloatMap<ActionPhase> phasesLength, 
 		ActionPhase phase, 
-		int curPhaseTick) implements CustomPacketPayload {
+		int curPhaseTick,
+		int slot) implements CustomPacketPayload {
 
 	public TrEntityActionPhaseTimePacket {
 		Objects.requireNonNull(performerUuid, "performerUuid");
 		NetworkPayloadValidation.requireOutboundGeneration(
 				actionGeneration, "entity action phase");
+	}
+
+	public TrEntityActionPhaseTimePacket(int performerId, UUID performerUuid, long actionGeneration, int actionId,
+			Object2FloatMap<ActionPhase> phasesLength, ActionPhase phase, int curPhaseTick) {
+		this(performerId, performerUuid, actionGeneration, actionId, phasesLength, phase, curPhaseTick, 0);
 	}
 
 	private TrEntityActionPhaseTimePacket(RegistryFriendlyByteBuf buf) {
@@ -41,7 +47,8 @@ public record TrEntityActionPhaseTimePacket(int performerId,
 				buf.readVarInt(),
 				PHASE_LENGTHS_CODEC.decode(buf),
 				PHASE_CODEC.decode(buf),
-				buf.readVarInt());
+				buf.readVarInt(),
+				buf.readUnsignedByte());
 	}
 
 	private void write(RegistryFriendlyByteBuf buf) {
@@ -52,6 +59,7 @@ public record TrEntityActionPhaseTimePacket(int performerId,
 		PHASE_LENGTHS_CODEC.encode(buf, phasesLength);
 		PHASE_CODEC.encode(buf, phase);
 		buf.writeVarInt(curPhaseTick);
+		buf.writeByte(slot);
 	}
 
 	private static final StreamCodec<RegistryFriendlyByteBuf,

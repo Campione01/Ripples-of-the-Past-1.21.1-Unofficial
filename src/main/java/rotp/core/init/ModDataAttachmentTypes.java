@@ -83,6 +83,10 @@ public final class ModDataAttachmentTypes {
 	public static final Supplier<AttachmentType<LivingComponentAction>> LIVING_ACTION = ATTACHMENT_TYPES.register("living_action", 
 			() -> AttachmentType.serializable(LivingComponentAction::create).build());
 
+	/** The user's slot for the Stand-power actions it performs itself: LivingComponentAction#getComponent(entity, PowerClass). */
+	public static final Supplier<AttachmentType<LivingComponentAction>> LIVING_STAND_POWER_ACTION = ATTACHMENT_TYPES.register("living_stand_power_action",
+			() -> AttachmentType.builder(LivingComponentAction::createStandPowerSlot).build());
+
 	public static final Supplier<AttachmentType<LivingComponentGrab>> LIVING_GRAB = ATTACHMENT_TYPES.register("living_grab",
 			() -> AttachmentType.builder(obj -> obj instanceof LivingEntity entity ? new LivingComponentGrab(entity) : null).build());
 

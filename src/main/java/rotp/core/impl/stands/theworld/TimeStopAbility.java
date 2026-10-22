@@ -105,6 +105,12 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 		return true;
 	}
 
+	// 1.16 TimeStop was a StandAction its user's power held, its Stand out or not: never the Stand's task
+	@Override
+	public boolean performsInUsersStandPowerSlot() {
+		return true;
+	}
+
 	/**
 	 * 1.16 TimeStop.getCooldownTechnical: the ticks of the stop this time stop starts; its additional part was 0 and its
 	 * cooldown proper is set as the stop ends.
@@ -289,7 +295,7 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 	}
 
 	private EntityActionInstance getClientTimeStopAction(LivingEntity clientPlayer) {
-		EntityActionInstance userAction = LivingComponentAction.getCurEntityAction(clientPlayer);
+		EntityActionInstance userAction = LivingComponentAction.getCurEntityAction(clientPlayer, PowerClass.STAND);
 		if (isSameAbilityAction(userAction)) {
 			return userAction;
 		}
@@ -606,6 +612,12 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 			return false;
 		}
 
+		// 1.16 StandEntity.getCurPose drew the power's held time stop's windup before the Stand's task, then its perform pose
+		@Override
+		public boolean posesItsStand() {
+			return true;
+		}
+
 		@Override
 		public void onSetPhase(ActionPhase newPhase) {
 			userWalkSpeed = 1.0F;
@@ -624,7 +636,7 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 					|| !timeStop.startTimeStopAfterHold(user, standAlreadySummoned,
 							TimeStopLearning.getTimeStopTicks(PowerClass.STAND.get(user), timeStop.getLearningAbilityName()),
 							phasesLength.getFloat(ActionPhase.BUTTON_CHARGE))) {
-				LivingComponentAction.getComponent(performer).setAction(null, SyncType.TRACKING_AND_SELF);
+				LivingComponentAction.getComponentForSlot(performer, actionSlot()).setAction(null, SyncType.TRACKING_AND_SELF);
 			}
 		}
 
@@ -655,7 +667,7 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 						timeStop.startTimeStopAfterHold(user, standAlreadySummoned, timeStopTicks, curPhaseLength);
 					}
 				}
-				LivingComponentAction.getComponent(performer).setAction(null, SyncType.TRACKING_AND_SELF);
+				LivingComponentAction.getComponentForSlot(performer, actionSlot()).setAction(null, SyncType.TRACKING_AND_SELF);
 			}
 		}
 	}

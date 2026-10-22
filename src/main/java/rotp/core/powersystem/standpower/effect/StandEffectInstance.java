@@ -14,6 +14,7 @@ import rotp.core.entityattachment.custom_effect.TrEntityCustomEffectsPacket;
 import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
+import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 
@@ -58,7 +59,7 @@ public abstract class StandEffectInstance extends EntityCustomEffect {
 		}
 		if (isFromUserAction) {
 			LivingEntity user = userPower.getUser();
-			if (user != null) userAction = LivingComponentAction.getCurEntityAction(user);
+			if (user != null) userAction = LivingComponentAction.getCurEntityAction(user, PowerClass.STAND);
 			if (userAction != null && !userAction.getPunchModifiers().contains(this)) userAction.getPunchModifiers().add(this);
 		}
 	}

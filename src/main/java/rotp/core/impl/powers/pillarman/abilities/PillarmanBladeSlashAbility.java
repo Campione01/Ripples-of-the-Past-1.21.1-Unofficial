@@ -51,6 +51,12 @@ public class PillarmanBladeSlashAbility extends PillarmanActionAbility {
 			super(ability);
 		}
 
+		// 1.16 PillarmanBladeSlash was a continuous player action (IPlayerAction)
+		@Override
+		public boolean isPlayerAction() {
+			return true;
+		}
+
 		@Override
 		public void onSetPhase(ActionPhase newPhase) {
 			userWalkSpeed = newPhase == ActionPhase.PERFORM ? 0.5F : 1.0F;

@@ -59,6 +59,12 @@ public class HamonOverdriveBeatAbility extends HamonActionRuntimeAbility {
 	public static class HamonOverdriveBeat extends HamonActionRuntimeAbility.HamonRuntimeActionInstance {
 		public HamonOverdriveBeat(EntityActionType ability) { super(ability); }
 
+		// 1.16 HamonOverdriveBeat was a continuous player action (IPlayerAction)
+		@Override
+		public boolean isPlayerAction() {
+			return true;
+		}
+
 		@Override
 		public void onActionSet(EntityActionInstance prevAction) {
 			LivingEntity user = getPowerUser();
