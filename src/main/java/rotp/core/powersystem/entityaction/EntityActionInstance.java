@@ -276,7 +276,7 @@ public class EntityActionInstance implements HeldInput {
 	 * Whether a press of this ability, while this action is its performer's action, starts at once and replaces this
 	 * action; otherwise the press waits in the input buffer until the action ends. By default only a hold-type Stand action
 	 * gives way ({@link #givesWayToOtherAbilities}), to every ability but its own. Whatever this says, a player's press of
-	 * an ability that holds waits while the Stand power holds an action, as 1.16's client sent none
+	 * an ability that holds waits while that ability's power holds an action, as 1.16's client sent none
 	 * (ActionsOverlayGui.onActionClick; EntityActionAbility#wouldBufferInput).
 	 */
 	@ApiStatus.OverrideOnly
@@ -294,6 +294,20 @@ public class EntityActionInstance implements HeldInput {
 	@ApiStatus.OverrideOnly
 	public boolean isHoldTypeStandAction() {
 		return false;
+	}
+
+	/**
+	 * 1.16 Action.heldAllowsOtherAction: whether the power that holds this action (AbilityInput#getHeldAction) lets its
+	 * other abilities through the hold. While it does not, 1.16 PowerBaseImpl.checkRequirements refused every other action
+	 * of that power, silently, and its HUD drew their slots unavailable: here a press of the power's other abilities that
+	 * this action's performer does not take is refused, one it takes waits in the input buffer as the performer's action
+	 * decides (owner decision N2), and the HUD draws both unavailable (Ability#isHeldBackByHeldAction). The other power is
+	 * never affected. By default a hold-type Stand action ({@link #isHoldTypeStandAction}); the non-Stand holds whose 1.16
+	 * action allowed others (Vampirism's Blood Drain and Freeze, Zombie Devour, Pillar Man Absorption) return true.
+	 */
+	@ApiStatus.OverrideOnly
+	public boolean heldAllowsOtherAbilities() {
+		return isHoldTypeStandAction();
 	}
 
 	/**

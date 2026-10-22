@@ -150,6 +150,12 @@ public class ZombieDevourAbility extends ZombieActionAbility {
 		public boolean canBeCancelledInto(EntityActionType cancellingAbility) {
 			return true;
 		}
+
+		// 1.16 ZombieDevour.heldAllowsOtherAction
+		@Override
+		public boolean heldAllowsOtherAbilities() {
+			return true;
+		}
 	}
 
 	private static LivingEntity getDevourTarget(LivingEntity user) {

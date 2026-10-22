@@ -128,8 +128,8 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 
 	/**
 	 * Whether a buffered press of this ability would still be buffered now, as {@link #setOrBufferAction} decides:
-	 * the performer's current action holds it back, or a held action of the Stand power holds back a player's held press.
-	 * The input buffer waits instead of replaying it.
+	 * the performer's current action holds it back, or a held action of this ability's power holds back a player's held
+	 * press. The input buffer waits instead of replaying it.
 	 */
 	@ApiStatus.Internal
 	public boolean wouldBufferInput(LivingEntity user) {
@@ -144,7 +144,7 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 	}
 
 	/**
-	 * Whether a player's press of this ability waits in the input buffer because the Stand power holds an action, the
+	 * Whether a player's press of this ability waits in the input buffer because its power holds an action, the
 	 * held-press rule of {@link #setOrBufferAction} alone (not the performer's current action, which a press may end
 	 * itself). A press that ends the Stand's current action before it sets its own (the time stop) asks this first, so
 	 * that it does not end the hold 1.16's client never sent it to.
@@ -155,14 +155,16 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 	}
 
 	/*
-	 * 1.16's client sent no press of a held action (getHoldDurationMax above 0) while the power held one
-	 * (ActionsOverlayGui.onActionClick), whatever the held action let through; the input buffer keeps such a press of a
-	 * Stand ability until the hold ends (owner decision N2). A mob's press went to the server and through.
+	 * 1.16's client sent no press of a held action (getHoldDurationMax above 0) while the action's power held one
+	 * (ActionsOverlayGui.onActionClick, power by power), whatever the held action let through; the input buffer keeps
+	 * such a press until the hold ends (owner decision N2). A mob's press went to the server and through.
 	 */
 	private static boolean isHeldPressHeldBack(EntityActionType ability, LivingEntity user) {
-		return user instanceof Player && ability instanceof EntityActionAbility pressed && pressed.isHoldAction()
-				&& pressed.abilityId.powerClass() == PowerClass.STAND
-				&& AbilityInput.getHeldAction(user, PowerClass.STAND) != null;
+		if (!(user instanceof Player) || !(ability instanceof EntityActionAbility pressed) || !pressed.isHoldAction()) {
+			return false;
+		}
+		PowerClass<?> powerClass = pressed.abilityId.powerClass();
+		return powerClass != null && AbilityInput.getHeldAction(user, powerClass) != null;
 	}
 
 

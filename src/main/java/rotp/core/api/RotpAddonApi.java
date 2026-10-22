@@ -302,6 +302,18 @@ public final class RotpAddonApi {
 	 */
 	public static final String FEATURE_ACTION_STAND_STUN_HOOK_V1 =
 			"action_stand_stun_hook_v1";
+	/**
+	 * The held-action rules of FEATURE_ENTITY_ACTION_HOOKS_V1 hold for every power, each power by its own held action, as
+	 * 1.16's PowerBaseImpl kept one per power: a player's press of an ability that holds (EntityActionAbility#isHoldAction)
+	 * waits in the input buffer while that ability's power holds an action (AbilityInput#getHeldAction); while that held
+	 * action does not let others through, the power's abilities its performer does not take (a plain Ability, such as
+	 * Hamon Protection) are refused without a message, and the HUD draws the power's other slots unavailable
+	 * (Ability#isHeldBackByHeldAction). EntityActionInstance#heldAllowsOtherAbilities (1.16 heldAllowsOtherAction): by
+	 * default isHoldTypeStandAction; true for the core's Blood Drain, Freeze, Zombie Devour and Pillar Man Absorption; a
+	 * non-Stand add-on hold whose 1.16 action allowed others returns true.
+	 */
+	public static final String FEATURE_HELD_ACTION_RULES_PER_POWER_V1 =
+			"held_action_rules_per_power_v1";
 
 	public static final Set<String> FEATURES = Set.of(
 			FEATURE_ABILITY_RESOURCE_NAMESPACE_V1,
@@ -391,7 +403,8 @@ public final class RotpAddonApi {
 			FEATURE_ABILITY_STAMINA_COST_V1,
 			FEATURE_ABILITY_COOLDOWN_TECHNICAL_V1,
 			FEATURE_ACTION_SUMMON_LOCK_HOOK_V1,
-			FEATURE_ACTION_STAND_STUN_HOOK_V1);
+			FEATURE_ACTION_STAND_STUN_HOOK_V1,
+			FEATURE_HELD_ACTION_RULES_PER_POWER_V1);
 
 	private RotpAddonApi() {}
 

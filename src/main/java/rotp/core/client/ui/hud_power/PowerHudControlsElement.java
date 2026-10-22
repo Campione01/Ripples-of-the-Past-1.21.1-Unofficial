@@ -800,8 +800,8 @@ public class PowerHudControlsElement extends HudElement {
 
 	/**
 	 * The condition a slot is drawn by, as 1.16's renderActionIcon drew it from checkRequirements (the icon's tint and a
-	 * finisher's green frame): its own check, or a refusal while the Stand power's held action holds its press back
-	 * (Ability#isHeldBackByHeldAction), which the press itself still waits out in the input buffer.
+	 * finisher's green frame): its own check, or a refusal while its power's held action holds its press back
+	 * (Ability#isHeldBackByHeldAction, power by power), which the press itself still waits out in the input buffer.
 	 */
 	public static ConditionCheck drawnCondition(AbilityConditionCheck ability) {
 		if (!ability.conditionCheck.isPositive()) {

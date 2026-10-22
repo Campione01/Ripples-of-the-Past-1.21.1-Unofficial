@@ -157,6 +157,12 @@ public class VampirismBloodDrainAbility extends VampirismActionAbility {
 		public boolean canBeCancelledInto(EntityActionType cancellingAbility) {
 			return true;
 		}
+
+		// 1.16 VampirismBloodDrain.heldAllowsOtherAction
+		@Override
+		public boolean heldAllowsOtherAbilities() {
+			return true;
+		}
 	}
 
 	private static LivingEntity getDrainTarget(LivingEntity user) {

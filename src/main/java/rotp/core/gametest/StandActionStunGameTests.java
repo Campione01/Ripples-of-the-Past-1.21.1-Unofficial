@@ -149,7 +149,9 @@ public final class StandActionStunGameTests {
 
 		void begin(GameTestHelper helper, int cell) {
 			user = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
-			Vec3 pos = helper.absoluteVec(new Vec3(1.5 + cell * 3, 12, 1.5));
+			// stacked above the structure: a cell further along x could leave the test's force-loaded chunks, where
+			// its Stand would not tick
+			Vec3 pos = helper.absoluteVec(new Vec3(1.5, 12 + cell * 3, 1.5));
 			user.setNoGravity(true);
 			user.moveTo(pos.x, pos.y, pos.z, 0, 0);
 			helper.assertTrue(helper.getLevel().addFreshEntity(user), "Could not add the user for " + name());

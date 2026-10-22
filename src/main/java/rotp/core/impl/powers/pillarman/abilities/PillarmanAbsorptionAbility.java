@@ -188,5 +188,11 @@ public class PillarmanAbsorptionAbility extends PillarmanActionAbility {
 		public boolean canBeCancelledInto(EntityActionType cancellingAbility) {
 			return true;
 		}
+
+		// 1.16 PillarmanAbsorption.heldAllowsOtherAction
+		@Override
+		public boolean heldAllowsOtherAbilities() {
+			return true;
+		}
 	}
 }
