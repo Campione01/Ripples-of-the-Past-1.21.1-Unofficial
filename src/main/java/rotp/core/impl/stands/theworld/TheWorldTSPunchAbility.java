@@ -48,6 +48,7 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.CollisionContext;
@@ -275,12 +276,15 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 			if (performer instanceof StandEntity stand) {
 				// Following normally masks old velocity; a stationary blink must not inherit it.
 				stand.setDeltaMovement(Vec3.ZERO);
-				if (!stand.level().isClientSide()) {
+				// 1.16 TheWorldTSHeavyAttack.preTaskInit
+				if (isWherePressed()) {
+					stand.summonLockTicks = 0;
+				}
+				if (!takesTargetsFromServer()) {
 					previousNoGravity = stand.isNoGravity();
 					gravityOverridden = true;
 					stand.setNoGravity(true);
 					stand.hurtMarked = true;
-					stand.summonLockTicks = 0;
 					// a failed input that puts this punch back keeps the blink, time skip and stamina it took
 					if (isRestoringInputLifecycle()) {
 						setActionTargetSnapshot(targetAfterBlink);
@@ -295,6 +299,12 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 					}
 				}
 			}
+		}
+
+		// 1.16 StandEntityAction.startedHolding and perform ran preTaskInit where the press ran (PowerBaseImpl.clickAction):
+		// on the server and on the pressing user's client, not on another player's
+		private boolean isWherePressed() {
+			return !takesTargetsFromServer() || getPowerUser() instanceof Player player && player.isLocalPlayer();
 		}
 
 		@Override
