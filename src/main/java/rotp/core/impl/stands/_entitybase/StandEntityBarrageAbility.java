@@ -411,7 +411,8 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 				boolean directional = isDirectionalBarrage(stand, this);
 				boolean paysAsDefault = paysAsDefaultBarrage(stand, directional);
 				StandPower standPower = StandPower.get(getPowerUser());
-				if (!level.isClientSide() && (curPhaseTick >= getHoldDurationMax(stand)
+				// 1.16's power counted the hold maximum from the press, through the Stand's summon lock
+				if (!level.isClientSide() && (curPhaseTick + getTicksHeldInSummonLock() >= getHoldDurationMax(stand)
 						|| paysAsDefault && (standPower == null || !standPower.consumeStamina(4, true)))) {
 					hitsThisTick = 0;
 					stand.setBarrageHitsThisTick(0);

@@ -287,6 +287,8 @@ public final class RotpAddonApi {
 	 * lock, as 1.16's StandAction (performed by its user's power) was never held back by it, while the lock stays in
 	 * StandEntity#summonLockTicks (the summon fade-in, counting through a stun) and still holds back the Stand's next
 	 * action; true by default (1.16's StandEntityAction, the Stand's task). The core's time stop returns false.
+	 * EntityActionInstance#getTicksHeldInSummonLock: the ticks an action held back by the lock was held from its press
+	 * meanwhile, which 1.16's power counted toward its hold maximum (the core's barrage adds them to its own ticks).
 	 */
 	public static final String FEATURE_ACTION_SUMMON_LOCK_HOOK_V1 =
 			"action_summon_lock_hook_v1";

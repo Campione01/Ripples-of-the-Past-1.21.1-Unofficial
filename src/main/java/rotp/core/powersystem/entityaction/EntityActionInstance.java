@@ -83,6 +83,7 @@ public class EntityActionInstance implements HeldInput {
 	private int ownCooldownSets = OWN_COOLDOWN_UNSEEN;
 	private int heldCooldownTicks = NO_HELD_COOLDOWN;
 	private boolean heldCooldownOnFire;
+	private int ticksHeldInSummonLock;
 
 	protected LivingEntity performer;
 	protected EntityResolver powerUser = new EntityResolver();
@@ -1193,17 +1194,20 @@ public class EntityActionInstance implements HeldInput {
 
 	/**
 	 * A tick in which its new Stand's summon lock holds the action back (LivingComponentAction). 1.16 held back only the
-	 * Stand's task then (StandEntity.tick): its user's power still counted a held charge from the press, with the held
-	 * recheck, and fired it at its length (PowerBaseImpl.tickHeldAction), and the task's next phase waited for the lock.
-	 * So a held charge whose next phase is not held counts this tick as {@link #_tickAction} does, without the action's
-	 * own tick, and at its length goes on to its next phase, which then waits for the lock.
-	 * @return whether the action is such a charge and counted the tick
+	 * Stand's task then (StandEntity.tick): its user's power still counted a held action from the press, with the held
+	 * recheck (PowerBaseImpl.tickHeldAction): a charge fired at its length, a hold ended at its getHoldDurationMax, and
+	 * the ticks held went to its cooldown (stopHeldAction). So a held action counts this tick as {@link #_tickAction}
+	 * does, without the action's own tick: a held charge whose next phase is not held counts it in its phase and at its
+	 * length goes on to its next phase, which then waits for the lock; any other hold counts it in
+	 * {@link #getTicksHeldInSummonLock}.
+	 * @return whether the action was held and counted the tick
 	 */
 	@ApiStatus.Internal
-	public boolean _tickHeldChargeInSummonLock() {
-		if (!isHeldFiringCharge()) {
+	public boolean _tickHeldInSummonLock() {
+		if (isOver() || !(ability instanceof EntityActionAbility entityAbility) || !entityAbility.isHeldSincePress(this)) {
 			return false;
 		}
+		boolean charge = isHeldFiringCharge();
 		if (heldCooldownTicks != NO_HELD_COOLDOWN) {
 			++heldCooldownTicks;
 		}
@@ -1212,7 +1216,12 @@ public class EntityActionInstance implements HeldInput {
 			syncPhaseChanges();
 			return true;
 		}
-		if (_stopHeldIfConditionsFail() && isOver()) {
+		if (_stopHeldIfConditionsFail() && (isOver() || !entityAbility.isHeldSincePress(this))) {
+			takeHeldCooldownIfHoldEnded();
+			return true;
+		}
+		if (!charge) {
+			++ticksHeldInSummonLock;
 			return true;
 		}
 		leaveFiringChargeOnItsLastTick();
@@ -1225,6 +1234,16 @@ public class EntityActionInstance implements HeldInput {
 		noteOwnCooldownSets();
 		takeHeldCooldownIfHoldEnded();
 		return true;
+	}
+
+	/**
+	 * The ticks this action was held from its press while its new Stand's summon lock held it back
+	 * ({@link #_tickHeldInSummonLock}), which its own phase ticks do not count: 1.16's power counted them toward its hold
+	 * (getHoldDurationMax), so a held action with a hold maximum adds them to its own ticks (the barrage). 0 on a client's
+	 * copy that did not see them, and for a held charge, which counts them in its phase.
+	 */
+	public int getTicksHeldInSummonLock() {
+		return ticksHeldInSummonLock;
 	}
 
 	// a held phase before the perform (1.16 BUTTON_HOLD) whose next phase is not held: a hold-to-fire charge

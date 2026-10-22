@@ -453,8 +453,8 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 	}
 	
 	/**
-	 * Server side, every tick the held action ticks (and while its Stand is stunned, and for a held charge while its
-	 * Stand is summon-locked: EntityActionInstance#_tickHeldChargeInSummonLock), from the press on
+	 * Server side, every tick the held action ticks (and while its Stand is stunned or summon-locked:
+	 * EntityActionInstance#_tickHeldInSummonLock), from the press on
 	 * ({@link #isHeldSincePress}), but the tick a charge that ends its hold fires in ({@link #chargeEndsTheHold}), which
 	 * {@link #stopFullChargeIfConditionsFail} checks instead. Only a hold whose key is still down is checked, as 1.16 kept
 	 * a held action only while its key was held.

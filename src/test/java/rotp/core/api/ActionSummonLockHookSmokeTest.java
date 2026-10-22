@@ -9,7 +9,8 @@ import rotp.core.powersystem.entityaction.EntityActionInstance;
 /**
  * FEATURE_ACTION_SUMMON_LOCK_HOOK_V1: EntityActionInstance#isHeldBackBySummonLock, a public overridable boolean that is
  * true by default (1.16's StandEntityAction, held back by its Stand's summon lock) and false for the core's time stop
- * (1.16's TimeStop, a StandAction). StandActionSummonLockGameTests checks what it does.
+ * (1.16's TimeStop, a StandAction), and EntityActionInstance#getTicksHeldInSummonLock, the ticks a held action counted
+ * from its press while the lock held it back. StandActionSummonLockGameTests and StandSummonLockTickGameTests check them.
  */
 final class ActionSummonLockHookSmokeTest {
 	private ActionSummonLockHookSmokeTest() {}
@@ -26,6 +27,10 @@ final class ActionSummonLockHookSmokeTest {
 					"EntityActionInstance#isHeldBackBySummonLock() must be a public overridable boolean");
 			check(TimeStopAbility.TimeStopAction.class.getDeclaredMethod("isHeldBackBySummonLock")
 					.getReturnType() == boolean.class, "the core's time stop must answer the summon lock hook itself");
+			Method held = EntityActionInstance.class.getDeclaredMethod("getTicksHeldInSummonLock");
+			check(Modifier.isPublic(held.getModifiers()) && !Modifier.isStatic(held.getModifiers())
+					&& held.getReturnType() == int.class,
+					"EntityActionInstance#getTicksHeldInSummonLock() must be a public int getter");
 		}
 		catch (ReflectiveOperationException error) {
 			throw new AssertionError("Action summon lock hook API surface missing", error);
