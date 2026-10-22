@@ -1,10 +1,16 @@
 package rotp.core.gametest;
 
+import java.io.DataInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import com.google.gson.JsonElement;
@@ -12,6 +18,7 @@ import com.google.gson.JsonObject;
 import com.mojang.authlib.GameProfile;
 
 import rotp.core.api.stand.StandPowerTransitions;
+import rotp.core.client.entityanim.AnimationSet;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.impl.stands.crazydiamond.CrazyDHealAbility;
@@ -31,6 +38,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.util.FakePlayerFactory;
 import net.neoforged.neoforge.gametest.GameTestHolder;
@@ -404,6 +412,218 @@ public final class StandClipFollowUps116GameTests {
 				+ " their first segment: " + wrong.subList(0, Math.min(12, wrong.size())) + (wrong.size() > 12 ? " and "
 				+ (wrong.size() - 12) + " more" : ""));
 		helper.succeed();
+	}
+
+	// Silver Chariot's rapier moves (the ability names a press asks a clip by)
+	private static final String[] SC_RAPIER_MOVES = { "light_attack", "melee_barrage", "dash_attack", "sweeping_attack",
+			"rapier_launch", "guard" };
+	// the parts 1.16's rapier poses name on the port's bones (SilverChariotModel :252-345; the joints follow their forearm):
+	// the stab, the barrage loop and the heavy (dash) pose; RANGED_ATTACK; BLOCK; the sweep's poses 1-2 and pose 3 alone
+	private static final List<String> STAB_PARTS = List.of("body_rot", "torso_bend", "left_arm", "left_arm_bend", "left_arm_joint",
+			"right_arm", "right_arm_bend", "right_arm_joint", "rapier");
+	private static final List<String> LAUNCH_PARTS = List.of("body_rot", "torso_bend", "left_arm", "right_arm", "rapier");
+	private static final List<String> BLOCK_PARTS = List.of("left_arm", "left_arm_bend", "left_arm_joint", "right_arm",
+			"right_arm_bend", "right_arm_joint", "rapier");
+	private static final List<String> SWEEP_PARTS = List.of("body_rot", "torso_bend", "right_arm", "right_arm_bend",
+			"right_arm_joint", "rapier");
+	private static final List<String> SWEEP_LEFT_PARTS = List.of("left_arm", "left_arm_bend", "left_arm_joint");
+
+	// 1.16's idle in a bone of a rapier move at a clip time: 1 where the move's poses leave the bone on the idle (applied
+	// first by LegacyStandAnimator.poseStand, and the rigid filler of an idle phase), 0 where a pose holds it, the
+	// transition's share between (perform p, recovery r, end e)
+	private static float idleShare(String clip, String bone, float t, float p, float r, float e) {
+		float recovery = (t - r) / (e - r);
+		float sweepPose2 = p + 0.2F * (r - p);
+		return switch (clip) {
+			case "block" -> BLOCK_PARTS.contains(bone) ? 0 : 1;
+			case "light_attack" -> !STAB_PARTS.contains(bone) ? 1 : t < r ? 0 : Math.max(4 * recovery - 3, 0);
+			case "melee_barrage" -> !STAB_PARTS.contains(bone) || t < p || t >= r ? 1 : 0;
+			case "dash_attack" -> !STAB_PARTS.contains(bone) ? 1 : t < r ? 0 : recovery;
+			case "sweeping_attack" -> SWEEP_PARTS.contains(bone) ? (t < p ? 1 - t / p : t < r ? 0 : recovery)
+					: SWEEP_LEFT_PARTS.contains(bone) ? (t < sweepPose2 ? 1 : t < r ? 1 - (t - sweepPose2) / (r - sweepPose2) : recovery) : 1;
+			case "rapier_launch" -> !LAUNCH_PARTS.contains(bone) ? 1 : t < p ? 1 : t < r ? 1 - (t - p) / (r - p) : recovery;
+			default -> throw new IllegalArgumentException("no 1.16 pose model for " + clip);
+		};
+	}
+
+	// 1.16's root-space head of a rapier move: the look, but for the sweep's posed heads (sweepPose1-3 yaws -45, -36, 0)
+	// lerped from and to the look angle by angle
+	private static float[] head116(String clip, float t, float p, float r, float e, float[] look) {
+		float share = 1, yaw = 0;
+		if (clip.equals("sweeping_attack")) {
+			float sweepPose2 = p + 0.2F * (r - p);
+			share = t < p ? 1 - t / p : t < r ? 0 : (t - r) / (e - r);
+			yaw = t < p ? -45 * t / p : t < sweepPose2 ? -45 + 9 * (t - p) / (sweepPose2 - p)
+					: t < r ? -36 + 36 * (t - sweepPose2) / (r - sweepPose2) : 0;
+		}
+		return new float[] { look[0] * share, look[1] * share + yaw, 0 };
+	}
+
+	/*
+	 * 1.16's SilverChariotModel drew every rapier move over its idle pose, a ConditionalModelPose: with the rapier in hand
+	 * and the armour off, the armourless pose (the port's no_armor_idle). LegacyStandAnimator.poseStand applied it before
+	 * the move's pose, so the parts a pose leaves out (the legs, the head on the look) stayed on it, a phase filled with the
+	 * idle showed it, and every recovery went back to it. Over no_armor_idle each rapier move plays its no_armor_ clip
+	 * (AnimationSet.armorlessClipKey, asked by PreFrameEntityAnimCalc): the move's clip with 1.16's idle share of every bone
+	 * on no_armor_idle's values instead of the official idle's, the head on 1.16's root-space head, the end on no_armor_idle.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void silverChariotWithoutItsArmourDrawsItsRapierMovesOverTheArmourlessIdleAs116(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		Map<String, JsonObject> files = new HashMap<>();
+		JsonObject anims = files.computeIfAbsent(SC_ANIMS, a -> StandClipPoses116GameTests.readJson(helper, a)).getAsJsonObject("animations");
+		JsonObject idle = clipOf(helper, files, SC_ANIMS, "idle");
+		JsonObject armorless = clipOf(helper, files, SC_ANIMS, "no_armor_idle");
+		StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("silver_chariot"));
+		Player user = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
+		List<String> moves = new ArrayList<>();
+		try {
+			for (String move : SC_RAPIER_MOVES) {
+				Ability ability = type.getBaseMoveset().getAbility(move);
+				helper.assertTrue(ability instanceof EntityActionAbility, "setup: Silver Chariot has no " + move);
+				EntityActionAbility actionAbility = (EntityActionAbility) ability;
+				moves.add(actionAbility.getEntityAnim(actionAbility.initActionOnAbilityUse(helper.getLevel(), user, user, null)).name());
+			}
+		}
+		finally {
+			user.discard();
+		}
+		for (String name : moves) {
+			String key = AnimationSet.armorlessClipKey("no_armor_idle", name, anims::has);
+			if (!("no_armor_" + name).equals(key)) {
+				wrong.add(name + " has no armourless clip over no_armor_idle (" + key + ")");
+				continue;
+			}
+			for (String otherIdle : new String[] { "idle", "no_rapier_idle" }) {
+				if (AnimationSet.armorlessClipKey(otherIdle, name, anims::has) != null) {
+					wrong.add(name + " plays its armourless clip over " + otherIdle);
+				}
+			}
+			JsonObject base = clipOf(helper, files, SC_ANIMS, name);
+			JsonObject clip = clipOf(helper, files, SC_ANIMS, key);
+			for (String field : new String[] { "timeline", "animation_length", "loop" }) {
+				if (!String.valueOf(clip.get(field)).equals(String.valueOf(base.get(field)))) {
+					wrong.add(key + "'s " + field + " " + clip.get(field) + " where " + name + " has " + base.get(field));
+				}
+			}
+			float end = base.get("animation_length").getAsFloat();
+			float perform = base.has("timeline") ? StandClipPoses116GameTests.marker(base, "phase=PERFORM;") : end;
+			float recovery = base.has("timeline") ? StandClipPoses116GameTests.marker(base, "phase=RECOVERY;") : end;
+			List<Float> times = new ArrayList<>();
+			for (float time = 0; time < end; time += 0.005F) {
+				times.add(time);
+			}
+			times.addAll(List.of(Math.nextDown(perform), perform, Math.nextDown(recovery), recovery, end));
+			for (String bone : clip.getAsJsonObject("bones").keySet()) {
+				StandClipPoses116GameTests.keys(clip, bone).forEach(entry -> times.add(entry.getKey()));
+			}
+			Set<String> bones = new LinkedHashSet<>(base.getAsJsonObject("bones").keySet());
+			bones.addAll(clip.getAsJsonObject("bones").keySet());
+			bones.addAll(armorless.getAsJsonObject("bones").keySet());
+			bones.addAll(idle.getAsJsonObject("bones").keySet());
+			bones.removeAll(List.of("head", "head_rot"));
+			for (String bone : bones) {
+				String first = null;
+				for (float[] look : LOOKS) {
+					float[] official = StandClipPoses116GameTests.rotationAt(idle, bone, 0, look);
+					float[] own = StandClipPoses116GameTests.rotationAt(armorless, bone, 0, look);
+					for (float time : times) {
+						float share = idleShare(name, bone, time, perform, recovery, end);
+						float[] want = StandClipPoses116GameTests.rotationAt(base, bone, time, look);
+						for (int axis = 0; axis < 3; axis++) {
+							want[axis] += share * (own[axis] - official[axis]);
+						}
+						float[] got = StandClipPoses116GameTests.rotationAt(clip, bone, time, look);
+						if (!near(got, want, 0.05F)) {
+							first = "at " + time + " looking " + Arrays.toString(look) + " " + Arrays.toString(got) + " where 1.16 had "
+									+ Arrays.toString(want) + " (" + share + " of the armourless idle)";
+							break;
+						}
+					}
+					if (first != null) {
+						break;
+					}
+				}
+				if (first != null) {
+					wrong.add(key + " " + bone + " " + first);
+				}
+			}
+			for (float[] look : LOOKS) {
+				for (float time : times) {
+					double[][] want = StandClipPoses116GameTests.rotationMatrix(head116(name, time, perform, recovery, end, look));
+					double off = StandClipPoses116GameTests.angleBetween(composedHead(clip, time, look), want);
+					if (off > 0.5) {
+						wrong.add(key + " head at " + time + " looking " + Arrays.toString(look) + " " + String.format("%.2f", off)
+								+ " degrees off 1.16's root-space head");
+						break;
+					}
+				}
+			}
+			// every recovery went back to the armourless idle; the guard ends at once (no recovery), as 1.16's
+			if (!name.equals("block")) {
+				for (String bone : armorless.getAsJsonObject("bones").keySet()) {
+					if (!bone.equals("head") && !bone.equals("head_rot")) {
+						compare(wrong, clip, bone, end, StandClipPoses116GameTests.rotationAt(armorless, bone, 0, LOOKS[0]),
+								key + " hands over to no_armor_idle at its end:");
+					}
+				}
+			}
+		}
+		// 1.16's idle without the rapier ignored the armour, and so do the rapierless moves
+		for (String name : new String[] { "no_rapier_light_attack", "no_rapier_block" }) {
+			if (AnimationSet.armorlessClipKey("no_armor_idle", name, anims::has) != null) {
+				wrong.add(name + " has an armourless clip");
+			}
+		}
+		// the client-only clip lookup asks the rule (read from its class file)
+		Set<String> invoked = invokedMethods(helper, "rotp/core/client/entityanim/PreFrameEntityAnimCalc.class");
+		for (String call : new String[] { "rotp/core/client/entityanim/PreFrameEntityAnimCalc.armorlessVariant",
+				"rotp/core/client/entityanim/AnimationSet.armorlessClipKey" }) {
+			if (!invoked.contains(call)) {
+				wrong.add("PreFrameEntityAnimCalc no longer calls " + call);
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), "1.16's Silver Chariot without its armour drew its rapier moves over the armourless idle: "
+				+ wrong.subList(0, Math.min(12, wrong.size())) + (wrong.size() > 12 ? " and " + (wrong.size() - 12) + " more" : ""));
+		helper.succeed();
+	}
+
+	// "owner.name" of every method a class file invokes (its Methodref constants)
+	private static Set<String> invokedMethods(GameTestHelper helper, String classPath) {
+		Set<String> out = new HashSet<>();
+		try (InputStream raw = StandClipFollowUps116GameTests.class.getResourceAsStream("/" + classPath)) {
+			helper.assertTrue(raw != null, "Missing class file " + classPath);
+			DataInputStream in = new DataInputStream(raw);
+			helper.assertTrue(in.readInt() == 0xCAFEBABE, classPath + " is not a class file");
+			in.readUnsignedShort();
+			in.readUnsignedShort();
+			int count = in.readUnsignedShort();
+			String[] utf = new String[count];
+			int[] a = new int[count];
+			int[] b = new int[count];
+			int[] tag = new int[count];
+			for (int i = 1; i < count; i++) {
+				tag[i] = in.readUnsignedByte();
+				switch (tag[i]) {
+					case 1 -> utf[i] = in.readUTF();
+					case 7, 8, 16, 19, 20 -> a[i] = in.readUnsignedShort();
+					case 3, 4 -> in.readInt();
+					case 5, 6 -> { in.readLong(); i++; }
+					case 9, 10, 11, 12, 17, 18 -> { a[i] = in.readUnsignedShort(); b[i] = in.readUnsignedShort(); }
+					case 15 -> { in.readUnsignedByte(); a[i] = in.readUnsignedShort(); }
+					default -> throw new IOException("Unknown constant tag " + tag[i]);
+				}
+			}
+			for (int i = 1; i < count; i++) {
+				if (tag[i] == 10) {
+					out.add(utf[a[a[i]]] + "." + utf[a[b[i]]]);
+				}
+			}
+		}
+		catch (IOException e) {
+			helper.fail("Cannot read " + classPath + ": " + e);
+		}
+		return out;
 	}
 
 	private static float[] lerp(float[] a, float[] b, float f) {
