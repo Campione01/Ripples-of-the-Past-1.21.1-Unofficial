@@ -170,6 +170,7 @@ public final class RebuffLifecycleSmokeTest {
 		check(body(source, "privatevoidassignAction(").contains(compact("""
 				if (action != null) {
 				    action.performer = entity;
+				    action.actionSlot = slot;
 				    if (entity.level().isClientSide()) {
 				        clearClientRebuffTail();
 				    }
