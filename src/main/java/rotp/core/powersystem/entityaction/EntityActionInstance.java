@@ -460,13 +460,9 @@ public class EntityActionInstance implements HeldInput {
 		target = resolveFrontOffsetTarget(standEntity, user, level, target, maxOffset);
 
 		double frontOffset = maxOffset;
-		Vec3 targetPos = null;
-		if (target != null && !target.isEmpty(level)) {
-			targetPos = target.getClipPos().orElse(null);
-			if (targetPos == null) {
-				targetPos = target.getCenterPos();
-			}
-		}
+		// 1.16 offsetToTarget measured to ActionTarget.getTargetPos(true), an entity's eyes or a block's centre, never to
+		// where a ray met it
+		Vec3 targetPos = target != null && !target.isEmpty(level) ? target.getCenterPos() : null;
 		if (targetPos != null) {
 			double backAway = 1.5;
 			if (target.getType() == ActionTarget.TargetType.ENTITY) {
@@ -490,8 +486,10 @@ public class EntityActionInstance implements HeldInput {
 				return target;
 			}
 		}
+		// 1.16 front3dOffset with no task target: rayTraceMultipleEntities from the user over maxOffset, boxes grown by 0.25
 		return HitResultUtil.clip(user.getEyePosition(), user.getLookAngle(), maxOffset, maxOffset,
-				level, entity -> standEntity.canAttackEntity(entity), user, 0, StandSkillWalls.wallsHideEntities(standEntity));
+				level, entity -> standEntity.canAttackEntity(entity), user, 0, StandSkillWalls.wallsHideEntities(standEntity),
+				0.25);
 	}
 
 	protected ActionTarget captureActionTargetFromAim(LivingEntity aimingEntity) {

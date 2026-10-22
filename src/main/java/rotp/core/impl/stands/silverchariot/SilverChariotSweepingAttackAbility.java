@@ -23,6 +23,7 @@ import rotp.core.powersystem.standpower.entity.StandStatFormulas;
 import rotp.core.subsystems.target.AimingEntity;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.impl.stands._entitybase.StandAbilityStamina;
+import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility;
 
 import net.minecraft.core.particles.ParticleTypes;
@@ -133,6 +134,11 @@ public class SilverChariotSweepingAttackAbility extends StandEntityAbility {
 
 		@Override
 		public void actionTick() {
+			// 1.16 StandEntityHeavyAttack.getOffsetFromUser, asked on every tick of the task: front3dOffset of its target
+			if (performer instanceof StandEntity stand) {
+				StandEntityBarrageAbility.refreshFrontOffset(this, stand, getTaskTarget(stand.level()),
+						Math.min(0.5, stand.getEffectiveRange()), Math.min(2, stand.getMaxRange()));
+			}
 			if (playedSwingSound || getPhase() != ActionPhase.WINDUP || getPhaseTicksLeft() > 1) {
 				return;
 			}
