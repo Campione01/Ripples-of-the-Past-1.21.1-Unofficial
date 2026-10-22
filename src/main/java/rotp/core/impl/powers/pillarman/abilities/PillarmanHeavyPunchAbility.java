@@ -59,6 +59,12 @@ public class PillarmanHeavyPunchAbility extends PillarmanActionAbility {
 			userWalkSpeed = 0.5F;
 		}
 
+		// 1.16 PillarmanHeavyPunch was a continuous player action (IPlayerAction)
+		@Override
+		public boolean isPlayerAction() {
+			return true;
+		}
+
 		@Override
 		public void actionTick() {
 			if ((int) getFullTicksPassed() == 3) {

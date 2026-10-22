@@ -99,6 +99,12 @@ public class HamonRebuffOverdriveAbility extends HamonActionRuntimeAbility {
 		return user != null && hasFreeHands(user) ? ConditionCheck.POSITIVE : ConditionCheck.createNegative("hands");
 	}
 
+	// 1.16 HamonRebuffOverdrive.canBeUsedDuringPlayerAction: during its own continuous action while it can be cancelled
+	@Override
+	public boolean canBeUsedDuringPlayerAction(EntityActionInstance playerAction) {
+		return playerAction instanceof HamonRebuffOverdrive rebuff && rebuff.ability == this && rebuff.canCancel();
+	}
+
 	public static boolean onUserIncomingDamage(LivingIncomingDamageEvent event) {
 		LivingEntity target = event.getEntity();
 		if (target.level().isClientSide() || !target.isAlive()) {
@@ -208,6 +214,12 @@ public class HamonRebuffOverdriveAbility extends HamonActionRuntimeAbility {
 		private int pendingCooldown;
 
 		public HamonRebuffOverdrive(EntityActionType ability) { super(ability); }
+
+		// 1.16 HamonRebuffOverdrive was a continuous player action (IPlayerAction)
+		@Override
+		public boolean isPlayerAction() {
+			return true;
+		}
 
 		@Override
 		public void onSetPhase(ActionPhase newPhase) {

@@ -63,6 +63,12 @@ public class VampirismSpaceRipperStingyEyesAbility extends VampirismActionAbilit
 			super(ability);
 		}
 
+		// 1.16 VampirismSpaceRipperStingyEyes was a continuous player action (IPlayerAction)
+		@Override
+		public boolean isPlayerAction() {
+			return true;
+		}
+
 		@Override
 		public void onSetPhase(ActionPhase newPhase) {
 			// 1.16 charged at full speed (no heldWalkSpeed); only the firing instance walked at 0.3.

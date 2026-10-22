@@ -84,6 +84,12 @@ public class HamonShockAbility extends EntityActionAbility {
 
 		public ShockInstance(EntityActionType ability) { super(ability); }
 
+		// 1.16 HamonShock was a continuous player action (IPlayerAction)
+		@Override
+		public boolean isPlayerAction() {
+			return true;
+		}
+
 		@Override
 		public void onActionSet(EntityActionInstance prevAction) {
 			LivingEntity user = getPowerUser();

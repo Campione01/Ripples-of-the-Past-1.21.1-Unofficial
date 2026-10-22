@@ -117,6 +117,12 @@ public class HamonSendoWaveKickAbility extends HamonActionRuntimeAbility {
 
 		public SendoWaveKickInstance(EntityActionType ability) { super(ability); }
 
+		// 1.16 HamonSendoWaveKick was a continuous player action (IPlayerAction)
+		@Override
+		public boolean isPlayerAction() {
+			return true;
+		}
+
 		@Override
 		public void onActionSet(EntityActionInstance prevAction) {
 			LivingEntity user = getPowerUser();

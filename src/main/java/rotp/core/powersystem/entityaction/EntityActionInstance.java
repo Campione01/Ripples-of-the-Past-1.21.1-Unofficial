@@ -402,6 +402,20 @@ public class EntityActionInstance implements HeldInput {
 		return false;
 	}
 
+	/**
+	 * Whether this action is a port of one of 1.16's continuous player actions (IPlayerAction, PlayerUtilCap
+	 * .continuousAction: Hamon Overdrive Beat, Rebuff Overdrive, Sendo Wave Kick, Hamon Shock, Sunlight Yellow and Scarlet
+	 * Overdrive, its barrage, Pillar Man's Blade Dash, Blade Slash, Erratic Blaze King and heavy punch, Vampirism's Claw
+	 * Lacerate and Space Ripper Stingy Eyes, Zombie Claw Lacerate). While a player's slot holds one, its abilities that
+	 * cannot be used during it (Ability#canBeUsedDuringPlayerAction: by default every one but a Stand's) are refused
+	 * without a message, as 1.16 Action.checkConditions refused them. False by default.
+	 * RotpAddonApi#FEATURE_PLAYER_ACTION_GATE_V1.
+	 */
+	@ApiStatus.OverrideOnly
+	public boolean isPlayerAction() {
+		return false;
+	}
+
 	@ApiStatus.OverrideOnly
 	public boolean canStaminaRegen(StandPower standPower, StandEntity standEntity) {
 		return false;

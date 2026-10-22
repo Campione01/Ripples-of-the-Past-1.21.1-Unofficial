@@ -187,6 +187,12 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 		return abilityId.powerClass() == PowerClass.STAND && performsInUsersStandPowerSlot();
 	}
 
+	/** Whether a press of this ability takes the slot that holds this action and the action holds it back there. */
+	@ApiStatus.Internal
+	public boolean waitsBehind(LivingEntity user, @Nullable EntityActionInstance action) {
+		return action != null && getCurActionOfSlot(user) == action && !action.canBeCancelledInto(this);
+	}
+
 	// the action in the slot a press of this ability by this user takes, if any
 	@Nullable
 	private EntityActionInstance getCurActionOfSlot(LivingEntity user) {

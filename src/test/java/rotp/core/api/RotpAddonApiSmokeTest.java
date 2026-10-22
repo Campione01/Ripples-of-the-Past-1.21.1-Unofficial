@@ -398,6 +398,9 @@ public final class RotpAddonApiSmokeTest {
 		check(RotpAddonApi.supportsFeature(
 				RotpAddonApi.FEATURE_STAND_ACTION_PORT_SLOT_V1),
 				"Stand action port slot feature missing");
+		check(RotpAddonApi.supportsFeature(
+				RotpAddonApi.FEATURE_PLAYER_ACTION_GATE_V1),
+				"player action gate feature missing");
 
 		AbilityType<Ability> addonType = new AbilityType<>(
 				id("rotp_test", "freeze"), Ability::new);
@@ -566,6 +569,7 @@ public final class RotpAddonApiSmokeTest {
 		HeldActionRulesPerPowerSmokeTest.run();
 		StandPowerActionSlotSmokeTest.run();
 		StandActionPortSlotSmokeTest.run();
+		PlayerActionGateSmokeTest.run();
 	}
 
 	private static ResourceLocation id(String namespace, String path) {

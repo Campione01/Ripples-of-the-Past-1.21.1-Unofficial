@@ -343,6 +343,19 @@ public final class RotpAddonApi {
 	 */
 	public static final String FEATURE_STAND_ACTION_PORT_SLOT_V1 =
 			"stand_action_port_slot_v1";
+	/**
+	 * 1.16's continuous player action gate: while a player's slot holds a port of one of 1.16's 13 IPlayerAction attacks
+	 * (EntityActionInstance#isPlayerAction, true for the core's Hamon, Pillar Man, Vampirism and Zombie ports), each of its
+	 * abilities that cannot be used during it (Ability#canBeUsedDuringPlayerAction(EntityActionInstance): true by default
+	 * for a Stand ability, as 1.16's StandAction, false for any other, as 1.16's Action) is refused without a message and
+	 * drawn unavailable, as 1.16 Action.checkConditions refused it; a press the player action's own slot holds back waits
+	 * in the input buffer instead (owner decision N2). Mobs are not gated (1.16 kept the action in PlayerUtilCap). An add-on
+	 * Stand action that opted out in 1.16 returns false (Kraft Work's Lock Target and Place Projectile, Stone Free's
+	 * strings); an add-on port of an IPlayerAction (Ultimate Lifeform's, King Crimson's time skip) returns true from
+	 * isPlayerAction.
+	 */
+	public static final String FEATURE_PLAYER_ACTION_GATE_V1 =
+			"player_action_gate_v1";
 
 	public static final Set<String> FEATURES = Set.of(
 			FEATURE_ABILITY_RESOURCE_NAMESPACE_V1,
@@ -435,7 +448,8 @@ public final class RotpAddonApi {
 			FEATURE_ACTION_STAND_STUN_HOOK_V1,
 			FEATURE_HELD_ACTION_RULES_PER_POWER_V1,
 			FEATURE_STAND_POWER_ACTION_SLOT_V1,
-			FEATURE_STAND_ACTION_PORT_SLOT_V1);
+			FEATURE_STAND_ACTION_PORT_SLOT_V1,
+			FEATURE_PLAYER_ACTION_GATE_V1);
 
 	private RotpAddonApi() {}
 
