@@ -799,18 +799,13 @@ public class PowerHudControlsElement extends HudElement {
 	}
 
 	/**
-	 * The condition a slot is drawn by, as 1.16's renderActionIcon drew it from checkRequirements (the icon's tint and a
-	 * finisher's green frame): its own check, or a refusal while its power's held action holds its press back
-	 * (Ability#isHeldBackByHeldAction, power by power), which the press itself still waits out in the input buffer.
+	 * The condition a slot is drawn by for the client's player ({@link AbilityConditionCheck#drawnCondition}), as 1.16's
+	 * renderActionIcon drew it from checkRequirements.
 	 */
 	public static ConditionCheck drawnCondition(AbilityConditionCheck ability) {
-		if (!ability.conditionCheck.isPositive()) {
-			return ability.conditionCheck;
-		}
 		// no game instance when the colour rule runs on its own (UnusableAbilityIconTintSmokeTest)
 		Minecraft mc = Minecraft.getInstance();
-		Player player = mc != null ? mc.player : null;
-		return player != null && ability.ability.isHeldBackByHeldAction(player) ? ConditionCheck.NEGATIVE : ability.conditionCheck;
+		return ability.drawnCondition(mc != null ? mc.player : null);
 	}
 
 	public static final Component NOT_BOUND = Component.translatable("key.keyboard.unknown");

@@ -226,7 +226,7 @@ public class AbilitySelectionWheel extends Screen implements ScreenLetsUseWASD {
 				sectorTint = AbilitySelectionVisualPolicies.selectionTint(
 						ability.ability,
 						abilityCtx,
-						ability.conditionCheck,
+						PowerHudControlsElement.drawnCondition(ability),
 						AbilitySelectionSurface.SELECTION_WHEEL_HOVERED,
 						sectorTint);
 			}

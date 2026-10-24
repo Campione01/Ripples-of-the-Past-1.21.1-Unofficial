@@ -16,10 +16,13 @@ import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.finisher.StandFinisherCheck;
+import rotp.core.powersystem.ability.input.AbilityInput;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
+
+import net.minecraft.world.entity.LivingEntity;
 
 public class AvailableAbilities {
 	public final Map<String, AbilityConditionCheck> _inMoveset = new HashMap<>();
@@ -81,7 +84,9 @@ public class AvailableAbilities {
 	 * 1.16 StandEntityAction.canClickDuringTask: the Stand's current action's own ability pressed again, by whichever key,
 	 * was refused with no message and not queued unless the action was chainable. Refused here where the action would
 	 * let that press cancel it and says it was not chainable ({@link EntityActionInstance#refusesOwnAbilityPressedAgain});
-	 * a press the action holds back is buffered instead, as before.
+	 * a press the action holds back is buffered instead, as before. While the power still holds that action by the key,
+	 * 1.16 drew its slot usable (checkTaskCancelling skipped the held action) and refused the press in
+	 * PowerBaseImpl.onClickAction instead: {@link ConditionCheck#NEGATIVE_OWN_HELD_PRESSED_AGAIN}.
 	 */
 	private void refuseRunningActionPressedAgain(Power<?> context) {
 		StandPower standPower = PowerClass.STAND.cast(context);
@@ -91,9 +96,11 @@ public class AvailableAbilities {
 				|| !action.canBeCancelledInto(action.ability)) {
 			return;
 		}
+		ConditionCheck refusal = AbilityInput.getHeldAction(standPower.getUser(), PowerClass.STAND) == action
+				? ConditionCheck.NEGATIVE_OWN_HELD_PRESSED_AGAIN : ConditionCheck.NEGATIVE;
 		for (AbilityConditionCheck container : _inMoveset.values()) {
 			if (container.ability == action.ability && container.conditionCheck.isPositive()) {
-				container.conditionCheck = ConditionCheck.NEGATIVE;
+				container.conditionCheck = refusal;
 			}
 		}
 	}
@@ -187,6 +194,22 @@ public class AvailableAbilities {
 		private void clear() {
 			this.conditionCheck = ConditionCheck.POSITIVE;
 			this.clientInputState = 1;
+		}
+
+		/**
+		 * The condition the slot is drawn by, as 1.16's renderActionIcon drew it from checkRequirements (the icon's tint
+		 * and a finisher's green frame): its own check, usable where it only refuses the held action's own press again
+		 * ({@link ConditionCheck#NEGATIVE_OWN_HELD_PRESSED_AGAIN}), or a refusal while its power's held action holds its
+		 * press back (Ability#isHeldBackByHeldAction, power by power), which the press itself still waits out in the input
+		 * buffer.
+		 */
+		public ConditionCheck drawnCondition(@Nullable LivingEntity user) {
+			ConditionCheck check = conditionCheck == ConditionCheck.NEGATIVE_OWN_HELD_PRESSED_AGAIN
+					? ConditionCheck.POSITIVE : conditionCheck;
+			if (!check.isPositive()) {
+				return check;
+			}
+			return user != null && ability.isHeldBackByHeldAction(user) ? ConditionCheck.NEGATIVE : check;
 		}
 	}
 	

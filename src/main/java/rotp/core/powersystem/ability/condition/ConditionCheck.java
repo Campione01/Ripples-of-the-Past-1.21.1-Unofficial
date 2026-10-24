@@ -17,7 +17,14 @@ public class ConditionCheck {
 	public static final ConditionCheck POSITIVE = new ConditionCheck(true, null, false);
 	public static final ConditionCheck NEGATIVE = new ConditionCheck(false, null, false);
 	public static final ConditionCheck NEGATIVE_CONTINUE_HOLD = new ConditionCheck(false, null, true);
-	
+	/**
+	 * The silent refusal of the running action's own ability pressed again while its power still holds that action by
+	 * the key: a press is refused as by {@link #NEGATIVE}, but the slot is drawn usable
+	 * ({@link AvailableAbilities.AbilityConditionCheck#drawnCondition}), as 1.16 refused that press in
+	 * PowerBaseImpl.onClickAction and not by the action's checkRequirements.
+	 */
+	public static final ConditionCheck NEGATIVE_OWN_HELD_PRESSED_AGAIN = new ConditionCheck(false, null, false);
+
 	public static ConditionCheck createNegative(Component warning) {
 		return new ConditionCheck(false, warning, false);
 	}

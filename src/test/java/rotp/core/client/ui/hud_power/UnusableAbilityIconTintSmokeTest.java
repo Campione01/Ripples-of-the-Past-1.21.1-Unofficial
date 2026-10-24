@@ -41,6 +41,9 @@ public final class UnusableAbilityIconTintSmokeTest {
 				"the alpha of the unusable look must be scaled by the hotbar alpha");
 		assertEquals(dimmedControls, PowerHudControlsElement.abilityColor(dimmedControls, usable),
 				"a usable icon must keep the hotbar alpha");
+		AbilityConditionCheck heldPressedAgain = check(ability, ConditionCheck.NEGATIVE_OWN_HELD_PRESSED_AGAIN);
+		assertEquals(opaque, PowerHudControlsElement.abilityColor(opaque, heldPressedAgain),
+				"1.16 drew the slot of the action its key holds usable while refusing its second press");
 
 		Path root = Path.of(System.getProperty("user.dir"));
 		String wheel = read(root.resolve("src/main/java/rotp/core/client/ui/AbilitySelectionWheel.java"));
@@ -50,6 +53,11 @@ public final class UnusableAbilityIconTintSmokeTest {
 				&& wheel.substring(icon, iconEnd).contains("PowerHudControlsElement.abilityColor("),
 				"the selection wheel must take the unusable icon tint from the hotbar rule");
 		check(!wheel.contains("0xFF606060"), "the selection wheel still has its own unusable icon colour");
+		int hovered = wheel.indexOf("sectorTint = AbilitySelectionVisualPolicies.selectionTint(");
+		int hoveredEnd = wheel.indexOf(';', hovered);
+		check(hovered >= 0 && hoveredEnd > hovered
+				&& wheel.substring(hovered, hoveredEnd).contains("PowerHudControlsElement.drawnCondition(ability)"),
+				"the selection wheel's hovered sector must go by the slot's drawn condition, as the hotbar's frames do");
 		int tooltip = wheel.indexOf("hoveredSlot.getBaseBind(inputMethod)");
 		int tooltipName = wheel.indexOf("abilityNames.add(", tooltip);
 		check(tooltip >= 0 && tooltipName > tooltip, "the selection wheel tooltip loop was not found");

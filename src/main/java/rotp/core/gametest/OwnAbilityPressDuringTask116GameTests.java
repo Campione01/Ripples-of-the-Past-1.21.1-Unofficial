@@ -67,8 +67,55 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @PrefixGameTestTemplate(false)
 public final class OwnAbilityPressDuringTask116GameTests {
 	private static final short KEY = 23;
+	private static final short OTHER_KEY = 24;
 
 	private OwnAbilityPressDuringTask116GameTests() {}
+
+	/*
+	 * 1.16 StandEntityAction.checkTaskCancelling asked canClickDuringTask only of an action that was not the power's held
+	 * one, so the slot of the action its key still held was drawn usable (ActionsOverlayGui from checkRequirements), and
+	 * PowerBaseImpl.onClickAction refused a second press of it (getHeldAction() == action), silently and unqueued; once
+	 * the key was let go, the task going on in its recovery refused it through checkRequirements and greyed the slot.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void theHeldActionsOwnSlotIsDrawnUsableWhileItsKeyHoldsItAsIn116(GameTestHelper helper) {
+		try (Scene s = new Scene(helper, "OwnPressHeldZoom", "star_platinum", 4)) {
+			String name = "enhanced_eyesight";
+			Ability zoom = s.power.getAbility(name);
+			EntityActionInstance held = s.hold(name);
+			helper.assertTrue(held.getPhase() == ActionPhase.PERFORM && AbilityInput.getHeldAction(s.user, PowerClass.STAND) == held,
+					"setup: the Zoom is not held by its key: " + held.getPhase() + ", the held action "
+							+ AbilityInput.getHeldAction(s.user, PowerClass.STAND));
+			AbilityConditionCheck whileHeld = s.resolve(name);
+			helper.assertTrue(whileHeld != null && whileHeld.ability == zoom && !whileHeld.conditionCheck.isPositive()
+					&& whileHeld.conditionCheck.getWarning() == null && whileHeld.drawnCondition(s.user).isPositive(),
+					"1.16 drew the slot of the Zoom its key holds usable and refused its second press silently: its check "
+							+ describe(whileHeld) + ", drawn " + (whileHeld != null && whileHeld.drawnCondition(s.user).isPositive()
+									? "usable" : "unusable"));
+			int messages = s.user.actionBar.size();
+			BufferingState again = s.press(name, InputMethod.HOLD, OTHER_KEY, true);
+			helper.assertTrue(!again.isActionSuccess && !again.shouldBuffer && s.standAction.getAction() == held
+					&& held.getPhase() == ActionPhase.PERFORM && AbilityInput.getHeldAction(s.user, PowerClass.STAND) == held
+					&& s.user.actionBar.size() == messages,
+					"1.16 refused the held Zoom pressed again by another key (PowerBaseImpl.onClickAction), silently and"
+							+ " unqueued: went off " + again.isActionSuccess + ", buffered " + again.shouldBuffer + ", the Stand's"
+							+ " action " + s.standAction.getAction() + " in " + held.getPhase() + ", messages " + s.user.actionBar);
+
+			// a recovery, as an add-on's held action has, for the task to go on after the release
+			held.phasesLength.put(ActionPhase.RECOVERY, 10.0F);
+			AbilityInput.keyRelease(KEY, s.user);
+			helper.assertTrue(held.getPhase() == ActionPhase.RECOVERY && !held.isOver() && s.standAction.getAction() == held
+					&& AbilityInput.getHeldAction(s.user, PowerClass.STAND) == null,
+					"setup: the Zoom let go is not in its recovery: " + held.getPhase());
+			AbilityConditionCheck released = s.resolve(name);
+			helper.assertTrue(released != null && released.ability == zoom && !released.conditionCheck.isPositive()
+					&& released.conditionCheck.getWarning() == null && !released.drawnCondition(s.user).isPositive(),
+					"1.16 drew the Zoom's slot unusable in its recovery once its key was let go (checkRequirements): its check "
+							+ describe(released) + ", drawn " + (released != null && released.drawnCondition(s.user).isPositive()
+									? "usable" : "unusable"));
+			helper.succeed();
+		}
+	}
 
 	@GameTest(template = "empty", timeoutTicks = 100)
 	public static void aStandActionThatWasNotChainableRefusesItsOwnPressDuringItsTaskAsIn116(GameTestHelper helper) {
@@ -406,14 +453,30 @@ public final class OwnAbilityPressDuringTask116GameTests {
 
 		// as ClAbilityInputPacket handles a press: the key's resolved ability, its condition check, then the press
 		private BufferingState press(String name, InputMethod inputMethod) {
+			return press(name, inputMethod, KEY, true);
+		}
+
+		private BufferingState press(String name, InputMethod inputMethod, short key, boolean release) {
 			BufferingState state = BufferingState.clickCanBuffer();
 			Ability base = power.getAbility(name);
 			AbilityConditionCheck container = resolve(name);
 			if (container != null && AbilityInput.withConditionCheck(container, user, inputMethod)) {
-				AbilityInput.keyPress(KEY, container.ability, user, null, inputMethod, 0, state, base.getAbilityId());
-				AbilityInput.keyRelease(KEY, user);
+				AbilityInput.keyPress(key, container.ability, user, null, inputMethod, 0, state, base.getAbilityId());
+				if (release) {
+					AbilityInput.keyRelease(key, user);
+				}
 			}
 			return state;
+		}
+
+		// pressed by KEY and kept held
+		private EntityActionInstance hold(String name) {
+			power.setStamina(power.getMaxStamina());
+			BufferingState state = press(name, InputMethod.HOLD, KEY, false);
+			EntityActionInstance action = standAction.getAction();
+			helper.assertTrue(state.isActionSuccess && action != null && action.ability == power.getAbility(name),
+					"setup: " + name + " did not start held: started " + state.isActionSuccess + ", the Stand's action " + action);
+			return action;
 		}
 
 		// the power resolves its keys once a tick (Power.updateAvailableMoves), and the test does not tick it
