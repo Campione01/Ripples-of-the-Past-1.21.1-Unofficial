@@ -18,6 +18,10 @@ public final class ModArmorMaterials {
 	public static final int BLADE_HAT_DURABILITY_FACTOR = 12;
 	public static final int BLADE_HAT_DURABILITY =
 			ArmorItem.Type.HELMET.getDurability(BLADE_HAT_DURABILITY_FACTOR);
+	// 1.16 ModArmorMaterials.STONE_MASK: factor 3, so 33 on the head
+	public static final int STONE_MASK_DURABILITY_FACTOR = 3;
+	public static final int STONE_MASK_DURABILITY =
+			ArmorItem.Type.HELMET.getDurability(STONE_MASK_DURABILITY_FACTOR);
 	public static final int BREATH_CONTROL_MASK_DURABILITY_FACTOR = 10;
 	public static final int BREATH_CONTROL_MASK_DURABILITY =
 			ArmorItem.Type.HELMET.getDurability(BREATH_CONTROL_MASK_DURABILITY_FACTOR);
@@ -39,8 +43,8 @@ public final class ModArmorMaterials {
 			ARMOR_MATERIALS.register("stone_mask", () -> new ArmorMaterial(
 					Map.of(ArmorItem.Type.HELMET, 1),
 					0,
-					SoundEvents.ARMOR_EQUIP_LEATHER,
-					() -> Ingredient.of(Items.LEATHER),
+					SoundEvents.ARMOR_EQUIP_GENERIC,
+					() -> Ingredient.EMPTY,
 					List.of(new ArmorMaterial.Layer(JojoMod.resLoc("stone_mask"))),
 					0.0F,
 					0.0F));

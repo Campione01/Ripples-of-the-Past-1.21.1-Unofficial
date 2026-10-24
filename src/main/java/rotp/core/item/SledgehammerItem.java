@@ -39,8 +39,13 @@ public class SledgehammerItem extends PickaxeItem {
 
 	/*
 	 * 1.16 SledgehammerItem.canApplyAtEnchantingTable: the pickaxe's categories (the tags give them) and the weapon set
-	 * but Sweeping at the table; the anvil's Enchantment.canEnchant took the weapon books for a sword or an axe only.
+	 * but Sweeping; Forge's Enchantment.canEnchant returned canApplyAtEnchantingTable, so the anvil took the same books.
 	 */
+	@Override
+	public boolean supportsEnchantment(ItemStack stack, Holder<Enchantment> enchantment) {
+		return super.supportsEnchantment(stack, enchantment) || isOriginalWeaponEnchantment(enchantment);
+	}
+
 	@Override
 	public boolean isPrimaryItemFor(ItemStack stack, Holder<Enchantment> enchantment) {
 		return super.isPrimaryItemFor(stack, enchantment) || isOriginalWeaponEnchantment(enchantment);

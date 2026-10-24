@@ -138,9 +138,9 @@ public final class ModItems {
 	public static final DeferredItem<Item> SUPER_AJA_STONE = ITEMS.registerItem("super_aja_stone",
 			SuperAjaStoneItem::new, new Item.Properties().stacksTo(1).rarity(Rarity.RARE).durability(640));
 	public static final DeferredItem<Item> GLOVES = ITEMS.registerItem("gloves",
-			GlovesItem::new, new Item.Properties().stacksTo(1).durability(128));
+			GlovesItem::new, new Item.Properties().stacksTo(1));
 	public static final DeferredItem<Item> BUBBLE_GLOVES = ITEMS.registerItem("bubble_gloves",
-			BubbleGlovesItem::new, new Item.Properties().stacksTo(1).durability(128));
+			BubbleGlovesItem::new, new Item.Properties().stacksTo(1));
 	public static final DeferredItem<Item> SOAP = ITEMS.registerItem("soap",
 			SoapItem::new, new Item.Properties().stacksTo(16).craftRemainder(Items.GLASS_BOTTLE));
 	public static final DeferredItem<Item> SATIPOROJA_SCARF = ITEMS.registerItem("satiporoja_scarf",
@@ -150,9 +150,11 @@ public final class ModItems {
 	public static final DeferredItem<BucketItem> BOILING_BLOOD_BUCKET = ITEMS.register("boiling_blood_bucket",
 			() -> new BucketItem(ModFluids.BOILING_BLOOD.get(), new Item.Properties().craftRemainder(Items.BUCKET).stacksTo(1)));
 	public static final DeferredItem<Item> STONE_MASK = ITEMS.registerItem("stone_mask",
-			props -> new StoneMaskItem(props, ModBlocks.STONE_MASK.get()), new Item.Properties().durability(39).rarity(Rarity.RARE));
+			props -> new StoneMaskItem(props, ModBlocks.STONE_MASK.get()),
+			new Item.Properties().durability(ModArmorMaterials.STONE_MASK_DURABILITY).rarity(Rarity.RARE));
 	public static final DeferredItem<Item> AJA_STONE_MASK = ITEMS.registerItem("aja_stone_mask",
-			props -> new StoneMaskItem(props, ModBlocks.AJA_STONE_MASK.get()), new Item.Properties().durability(39).rarity(Rarity.RARE));
+			props -> new StoneMaskItem(props, ModBlocks.AJA_STONE_MASK.get()),
+			new Item.Properties().durability(ModArmorMaterials.STONE_MASK_DURABILITY).rarity(Rarity.RARE));
 	public static final DeferredItem<BlockItem> SLUMBERING_PILLARMAN = ITEMS.register("slumbering_pillarman",
 			() -> new BlockItem(ModBlocks.SLUMBERING_PILLARMAN.get(), new Item.Properties().rarity(Rarity.EPIC)));
 	public static final DeferredItem<Item> HUNGRY_ZOMBIE_SPAWN_EGG = ITEMS.register("hungry_zombie_spawn_egg",
@@ -170,9 +172,9 @@ public final class ModItems {
 	public static final DeferredItem<ClothesItem> CLOTHES_BASE_ITEM = ITEMS.registerItem("clothes", props -> new ClothesItem(props));
 
 	public static final DeferredItem<Item> STAND_ARROW = ITEMS.registerItem("stand_arrow", props -> new StandArrowItem(props), 
-			StandArrowItem.properties(Rarity.RARE, 25));
+			StandArrowItem.properties(Rarity.UNCOMMON, 25));
 	public static final DeferredItem<Item> STAND_ARROW_BEETLE = ITEMS.registerItem("stand_arrow_beetle", props -> new StandArrowItem(props, 25), 
-			StandArrowItem.properties(Rarity.EPIC, 250));
+			StandArrowItem.properties(Rarity.RARE, 250));
 	public static final DeferredItem<Item> STAND_ARROW_METEORITE = ITEMS.registerItem("stand_arrow_meteorite", props -> new StandArrowItem(props), 
 			StandArrowItem.properties(Rarity.UNCOMMON, 25));
 

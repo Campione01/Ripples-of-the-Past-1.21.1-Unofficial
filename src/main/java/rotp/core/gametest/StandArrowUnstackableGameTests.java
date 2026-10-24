@@ -56,8 +56,9 @@ public final class StandArrowUnstackableGameTests {
 					&& item.components().has(DataComponents.MAX_DAMAGE) && stack.isEnchantable(),
 					"The registered " + item + " is not an unstackable, damageable, enchantable arrow");
 		}
-		helper.assertTrue(ModItems.STAND_ARROW.get().components().get(DataComponents.RARITY) == Rarity.RARE
-				&& ModItems.STAND_ARROW_BEETLE.get().components().get(DataComponents.RARITY) == Rarity.EPIC
+		// 1.16 ModItems: the Stand Arrow UNCOMMON, the Beetle Arrow RARE; the port's meteorite arrow as the ordinary one
+		helper.assertTrue(ModItems.STAND_ARROW.get().components().get(DataComponents.RARITY) == Rarity.UNCOMMON
+				&& ModItems.STAND_ARROW_BEETLE.get().components().get(DataComponents.RARITY) == Rarity.RARE
 				&& ModItems.STAND_ARROW_METEORITE.get().components().get(DataComponents.RARITY) == Rarity.UNCOMMON
 				&& Integer.valueOf(25).equals(ModItems.STAND_ARROW.get().components().get(DataComponents.MAX_DAMAGE))
 				&& Integer.valueOf(250).equals(ModItems.STAND_ARROW_BEETLE.get().components().get(DataComponents.MAX_DAMAGE))

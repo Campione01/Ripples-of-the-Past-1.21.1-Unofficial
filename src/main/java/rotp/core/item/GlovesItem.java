@@ -27,12 +27,23 @@ public class GlovesItem extends Item {
 		return GLOVES_ATTRIBUTES;
 	}
 
+	// 1.16 GlovesItem.isEnchantable: by the stack size alone, as the gloves have no durability
+	@Override
+	public boolean isEnchantable(ItemStack stack) {
+		return stack.getMaxStackSize() == 1;
+	}
+
 	@Override
 	public int getEnchantmentValue(ItemStack stack) {
 		return ENCHANTMENT_VALUE;
 	}
 
-	// 1.16 canApplyAtEnchantingTable: Knockback at the table only; the anvil's Enchantment.canEnchant refused it
+	// 1.16 canApplyAtEnchantingTable: Knockback, at the anvil too (Forge's Enchantment.canEnchant asked it)
+	@Override
+	public boolean supportsEnchantment(ItemStack stack, Holder<Enchantment> enchantment) {
+		return super.supportsEnchantment(stack, enchantment) || enchantment.is(Enchantments.KNOCKBACK);
+	}
+
 	@Override
 	public boolean isPrimaryItemFor(ItemStack stack, Holder<Enchantment> enchantment) {
 		return super.isPrimaryItemFor(stack, enchantment) || enchantment.is(Enchantments.KNOCKBACK);
