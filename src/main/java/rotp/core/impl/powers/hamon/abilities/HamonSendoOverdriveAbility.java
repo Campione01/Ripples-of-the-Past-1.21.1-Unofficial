@@ -57,10 +57,13 @@ public class HamonSendoOverdriveAbility extends HamonActionRuntimeAbility {
 
 	// 1.16 stoppedHolding sent the wave on any stop with a block targeted. A release that failed its checks (no energy
 	// or breath left) only skipped the perform: the wave still went, and consumeEnergy(energyCost) was still asked for.
+	// With no block it sent nothing, and only a release at the full charge that passed them (stopHeldAction(true))
+	// still performed: NonStandAction.onPerform spent the energy, and the hand swung.
 	@Override
 	protected boolean consumeRuntimeOnPerform(LivingEntity user) {
 		if (getSendoReleaseTarget(user, user.level()).getType() != TargetType.BLOCK) {
-			return false;
+			return LivingComponentAction.getCurEntityAction(user) instanceof SendoOverdriveInstance action
+					&& action.ability == this && action.firesAtFullCharge && super.consumeRuntimeOnPerform(user);
 		}
 		Power<?> context = getUserPower(user);
 		HamonData hamon = getHamonData(context);
@@ -95,6 +98,7 @@ public class HamonSendoOverdriveAbility extends HamonActionRuntimeAbility {
 		private float baseUsageStatPoints;
 		private float heldTicksBeforePerform = -1.0F;
 		private int windupTicksHeld;
+		private boolean firesAtFullCharge;
 
 		public SendoOverdriveInstance(EntityActionType ability) {
 			super(ability);
@@ -120,6 +124,8 @@ public class HamonSendoOverdriveAbility extends HamonActionRuntimeAbility {
 		@Override
 		public void onButtonStopHold() {
 			if (getPhase() == ActionPhase.WINDUP) {
+				// 1.16 stopHeldAction(true): a release at the full charge fired, unless the server's check refused it
+				firesAtFullCharge = getPhaseTick() >= holdToFireTicks() && canFireAtFullCharge();
 				setPhaseStart(ActionPhase.PERFORM);
 				syncPhaseChanges();
 				return;
@@ -133,6 +139,7 @@ public class HamonSendoOverdriveAbility extends HamonActionRuntimeAbility {
 				if (!level().isClientSide() && getPhaseTick() >= holdToFireTicks()
 						&& !AbilityInput.isHeldByKey(getPowerUser(), this)) {
 					// No key holds it (a buffered click, an action set by code): it fires at the full charge.
+					firesAtFullCharge = canFireAtFullCharge();
 					setPhaseStart(ActionPhase.PERFORM);
 					syncPhaseChanges();
 				}
@@ -154,6 +161,10 @@ public class HamonSendoOverdriveAbility extends HamonActionRuntimeAbility {
 			if (user == null) return;
 			ActionTarget target = HamonSendoOverdriveAbility.getSendoReleaseTarget(user, level);
 			if (target.getType() != TargetType.BLOCK) {
+				// 1.16 stopHeldAction(true) swung the hand (swingHand) without a wave
+				if (firesAtFullCharge) {
+					user.swing(InteractionHand.MAIN_HAND, true);
+				}
 				return;
 			}
 			if (!capturedPreRuntimeState) {
@@ -196,6 +207,11 @@ public class HamonSendoOverdriveAbility extends HamonActionRuntimeAbility {
 				baseUsageStatPoints = Math.min(ENERGY_COST, preRuntimeEnergy) * preRuntimeEfficiency;
 				capturedPreRuntimeState = true;
 			});
+		}
+
+		private boolean canFireAtFullCharge() {
+			HamonActionRuntimeAbility ability = hamonAbility();
+			return ability != null && ability.canFireReleasedHold(this);
 		}
 
 		private int holdToFireTicks() {

@@ -69,6 +69,7 @@ public final class AbilityConditionRefusal116GameTests {
 	private static final short PROTECTION_KEY = 118;
 	private static final short MANUAL_KEY = 119;
 	private static final short BARRAGE_KEY = 120;
+	private static final short SENDO_KEY = 121;
 
 	private AbilityConditionRefusal116GameTests() {}
 
@@ -150,6 +151,25 @@ public final class AbilityConditionRefusal116GameTests {
 							+ ", messages " + s.user.keys());
 			AbilityInput.keyRelease(BARRAGE_KEY, s.user);
 
+			// 1.16 checkRequirements refused another action of a power holding a charge that let none through silently,
+			// before checkConditions' head: Hamon Protection under a held Sendo Overdrive, the refusal not asked
+			refused.remove(s.user.getUUID());
+			s.user.clearKeys();
+			BufferingState sendo = s.hold(s.power, "sendo_overdrive", SENDO_KEY, InputMethod.CLICK);
+			EntityActionInstance charge = LivingComponentAction.getComponent(s.user).getAction();
+			helper.assertTrue(sendo.isActionSuccess && charge != null
+					&& charge.ability == s.power.getAbility("sendo_overdrive") && !charge.heldAllowsOtherAbilities()
+					&& AbilityInput.getHeldAction(s.user, PowerClass.PLAYER_POWER) == charge,
+					"setup: Sendo Overdrive is not held as a charge that lets no other Hamon action through: " + charge);
+			refused.add(s.user.getUUID());
+			asked.clear();
+			String underCharge = answer(s.resolve(s.power, "hamon_protection").conditionCheck);
+			helper.assertTrue("refused without a message".equals(underCharge) && !asked.contains("hamon_protection"),
+					"1.16 refused a disabled user's Hamon Protection under a held Sendo Overdrive silently, before the"
+							+ " head of checkConditions; the port's slot answers " + underCharge + ", the refusal asked " + asked);
+			AbilityInput.keyRelease(SENDO_KEY, s.user);
+			LivingComponentAction.getComponent(s.user).setAction(null, SyncType.NO_SYNC);
+
 			// unregistered, the refusal is asked no more
 			AbilityRefusals.unregister(OWNER);
 			helper.assertTrue(s.resolve(s.standPower, "punch").conditionCheck.isPositive(), "The punch stays refused once the"
@@ -199,7 +219,7 @@ public final class AbilityConditionRefusal116GameTests {
 		}
 	}
 
-	// a Hamon user with Protection learned and Star Platinum out, looking south; it does not tick
+	// a Hamon user with Protection and Sendo Overdrive learned and Star Platinum out, looking south; it does not tick
 	private static final class Scene implements AutoCloseable {
 		private final GameTestHelper helper;
 		private final RecordingPlayer user;
@@ -220,6 +240,7 @@ public final class AbilityConditionRefusal116GameTests {
 			power.setPowerType(ModPlayerPowers.HAMON.get());
 			HamonData hamon = PlayerPower.getPowerData(user, ModPlayerPowers.HAMON).orElseThrow();
 			hamon.learnSkill(ModHamonSkills.PROTECTION.get());
+			hamon.learnSkill(ModHamonSkills.SENDO_OVERDRIVE.get());
 			hamon.setBreathStability(hamon.getMaxBreathStability());
 			hamon.setEnergy(hamon.getMaxEnergy());
 			helper.assertTrue(!hamon.isProtectionEnabled(), "setup: Hamon Protection is on");
@@ -253,12 +274,16 @@ public final class AbilityConditionRefusal116GameTests {
 
 		// a HOLD press, its key kept held
 		private BufferingState hold(Power<?> pressed, String name, short key) {
+			return hold(pressed, name, key, InputMethod.HOLD);
+		}
+
+		private BufferingState hold(Power<?> pressed, String name, short key, InputMethod inputMethod) {
 			BufferingState state = BufferingState.clickOnly();
 			Ability base = pressed.getAbility(name);
 			helper.assertTrue(base != null, "Missing ability " + name);
 			AbilityConditionCheck container = resolve(pressed, name);
-			if (container != null && AbilityInput.withConditionCheck(container, user, InputMethod.HOLD)) {
-				AbilityInput.keyPress(key, container.ability, user, null, InputMethod.HOLD, 0, state, base.getAbilityId());
+			if (container != null && AbilityInput.withConditionCheck(container, user, inputMethod)) {
+				AbilityInput.keyPress(key, container.ability, user, null, inputMethod, 0, state, base.getAbilityId());
 			}
 			return state;
 		}

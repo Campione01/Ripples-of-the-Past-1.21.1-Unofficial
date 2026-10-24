@@ -8,7 +8,8 @@ import java.nio.file.Path;
  * 1.16 PowerBaseImpl.onClickAction said an action's line on the press, a hold-to-fire one's too; HamonSunlightYellow-
  * OverdriveBarrage.perform then said the barrage line with interrupt on. HamonSendoOverdrive.stoppedHolding sent the
  * wave on any stop with a block targeted, a release that failed its energy check included, and still asked for the
- * cost. HamonPressShoutGameTests runs them in the game; the wiring is pinned here.
+ * cost; with no block, only a release at the full charge that passed its checks performed and spent it.
+ * HamonPressShoutGameTests runs them in the game; the wiring is pinned here.
  */
 public final class HamonPressShoutSmokeTest {
 	private static final String DIR = "src/main/java/rotp/core/impl/powers/hamon/abilities/";
@@ -49,7 +50,9 @@ public final class HamonPressShoutSmokeTest {
 		String sendo = compact(source(DIR + "HamonSendoOverdriveAbility.java"));
 		requireInOrder(sendo,
 				"protectedbooleanconsumeRuntimeOnPerform(LivingEntityuser){"
-						+ "if(getSendoReleaseTarget(user,user.level()).getType()!=TargetType.BLOCK){returnfalse;}",
+						+ "if(getSendoReleaseTarget(user,user.level()).getType()!=TargetType.BLOCK){"
+						+ "returnLivingComponentAction.getCurEntityAction(user)instanceofSendoOverdriveInstanceaction"
+						+ "&&action.ability==this&&action.firesAtFullCharge&&super.consumeRuntimeOnPerform(user);}",
 				"if(!hamon.isAbilityOnCooldown(name())&&hasHamonEnergy(context,hamon)){super.consumeRuntimeOnPerform(user);}"
 						+ "else{hamon.getHamonEnergyUsageEfficiency(ENERGY_COST,true,user);hamon.syncOnUpdate(user);"
 						+ "playHamonShout(user,hamon);}returntrue;}");
