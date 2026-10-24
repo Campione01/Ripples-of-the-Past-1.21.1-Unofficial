@@ -103,7 +103,8 @@ public final class OwnClientAim116GameTests {
 	/*
 	 * Hamon actions whose check needs the aimed target (1.16: Plant Infusion TargetRequirement.BLOCK, Organism Infusion
 	 * ANY, Hypnosis, Shock and Overdrive an entity, Life Magnetism leaves aimed at unless held, Wall Climbing a wall's
-	 * side, Sendo Overdrive a block): on the user's own client each takes the aim the client sends, as the server does.
+	 * side): on the user's own client each takes the aim the client sends, as the server does. Sendo Overdrive asked for
+	 * no target (TargetRequirement.NONE; HamonSendoOverdriveTarget116GameTests).
 	 */
 	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH + "hamon")
 	public static void hamonChecksOnTheUsersOwnClientSeeTheAimItSendsAsIn116(GameTestHelper helper) {
@@ -111,8 +112,7 @@ public final class OwnClientAim116GameTests {
 			HamonData hamon = PlayerPower.getPowerData(scene.user, ModPlayerPowers.HAMON).orElseThrow();
 			for (var skill : List.of(ModHamonSkills.THROWABLES_INFUSION, ModHamonSkills.PLANT_BLOCK_INFUSION,
 					ModHamonSkills.ANIMAL_INFUSION, ModHamonSkills.DETECTOR, ModHamonSkills.HYPNOSIS, ModHamonSkills.HAMON_SHOCK,
-					ModHamonSkills.WALL_CLIMBING, ModHamonSkills.LIFE_MAGNETISM, ModHamonSkills.OVERDRIVE,
-					ModHamonSkills.SENDO_OVERDRIVE)) {
+					ModHamonSkills.WALL_CLIMBING, ModHamonSkills.LIFE_MAGNETISM, ModHamonSkills.OVERDRIVE)) {
 				hamon.learnSkill(skill.get());
 			}
 			hamon.setBreathStability(hamon.getMaxBreathStability());
@@ -132,9 +132,6 @@ public final class OwnClientAim116GameTests {
 			scene.assertTakesTheAim("hamon_overdrive", new ActionTarget(wolf));
 			scene.assertTakesTheAim("life_magnetism", new ActionTarget(leaves, Direction.EAST));
 			scene.assertTakesTheAim("wall_climbing", new ActionTarget(wall, Direction.SOUTH));
-			// looking up at the sky, so that only the aim gives Sendo Overdrive its block
-			scene.user.setXRot(-90.0F);
-			scene.assertTakesTheAim("sendo_overdrive", new ActionTarget(wall, Direction.SOUTH));
 		}
 		helper.succeed();
 	}

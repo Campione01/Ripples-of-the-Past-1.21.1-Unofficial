@@ -24,36 +24,17 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.ClipContext;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 public class HamonSendoOverdriveAbility extends HamonActionRuntimeAbility {
 	private static final float ENERGY_COST = 900.0F;
 	private static final int HOLD_TO_FIRE_TICKS = 30;
-	private static final double BLOCK_TARGET_RANGE = 10.0D;
 
 	public HamonSendoOverdriveAbility(AbilityType<?> abilityType, AbilityId abilityId) {
 		super(abilityType, abilityId, SendoOverdriveInstance::new);
 		// 1.16 stoppedHolding sent the wave as the hold was let go, and the technique was over.
 		hamonHoldToFire(HOLD_TO_FIRE_TICKS, false, HOLD_TO_FIRE_TICKS, 1);
 		setDefaultPhaseLength(ActionPhase.RECOVERY, 0);
-	}
-
-	@Override
-	public ConditionCheck checkSpecificConditions(Power<?> context) {
-		ConditionCheck check = super.checkSpecificConditions(context);
-		if (!check.isPositive()) {
-			return check;
-		}
-		LivingEntity user = context != null ? context.getUser() : null;
-		if (user == null) {
-			return ConditionCheck.NEGATIVE;
-		}
-		// The free hand was checked by super, through checkHeldItems.
-		return getSendoBlockTarget(user, user.level()).getType() == TargetType.BLOCK
-				? ConditionCheck.POSITIVE : ConditionCheck.NEGATIVE;
 	}
 
 	// 1.16 needsFreeMainHand (MCUtil.isHandFree: gloves count as a free hand), checked on every held tick too.
@@ -97,39 +78,14 @@ public class HamonSendoOverdriveAbility extends HamonActionRuntimeAbility {
 		return true;
 	}
 
-	// 1.16 TargetRequirement.BLOCK on the mouse target, the vanilla pick: an entity there or a block out of its reach
-	// is refused; only a block without a collision shape gives way to a collision ray (overrideVanillaMouseTarget). The
-	// press, the HUD and the held checks only: the wave goes to the pick itself (getSendoReleaseTarget)
-	private static ActionTarget getSendoBlockTarget(LivingEntity user, Level level) {
-		ActionTarget target = resolveSyncedSendoTarget(user, level);
-		if (target.getType() == TargetType.BLOCK) {
-			BlockPos blockPos = target.getBlockPos();
-			BlockState blockState = level.getBlockState(blockPos);
-			if (blockState.getCollisionShape(level, blockPos).isEmpty()) {
-				target = clipSendoBlockTarget(user, level);
-			}
-		}
-		return target.getType() == TargetType.BLOCK && target.getFace() != null && !target.isEmpty(level)
-				? target : ActionTarget.EMPTY;
-	}
-
 	// 1.16 stoppedHolding placed the wave at the mouse target as it was (the raw pick the client went on sending through
-	// the hold), a plant or a torch itself on the face the crosshair met: the collision ray only decided the checks
+	// the hold), a plant or a torch itself on the face the crosshair met, and nothing at a mob or the air. The press and
+	// held checks asked for no target (Action's TargetRequirement.NONE): a press at a mob or the air held it too, and
+	// overrideVanillaMouseTarget's collision ray only rewrote a check target nothing read.
 	private static ActionTarget getSendoReleaseTarget(LivingEntity user, Level level) {
-		ActionTarget target = resolveSyncedSendoTarget(user, level);
+		ActionTarget target = LivingComponentAction.getAimTarget(user);
 		return target.getType() == TargetType.BLOCK && target.getFace() != null && !target.isEmpty(level)
 				? target : ActionTarget.EMPTY;
-	}
-
-	private static ActionTarget resolveSyncedSendoTarget(LivingEntity user, Level level) {
-		return LivingComponentAction.getAimTarget(user);
-	}
-
-	private static ActionTarget clipSendoBlockTarget(LivingEntity user, Level level) {
-		Vec3 from = user.getEyePosition(1.0F);
-		Vec3 to = from.add(user.getLookAngle().scale(BLOCK_TARGET_RANGE));
-		HitResult hitResult = level.clip(new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, user));
-		return ActionTarget.fromVanilla(hitResult);
 	}
 
 	public static class SendoOverdriveInstance extends HamonActionRuntimeAbility.HamonRuntimeActionInstance {
