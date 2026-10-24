@@ -427,13 +427,14 @@ public class EntityActionInstance implements HeldInput {
 	public void applyStandUserRotation(StandEntity standEntity, LivingEntity user) {}
 
 	/**
-	 * Server: asked by its Stand's position update (StandEntity#updatePosition) on every tick the Stand follows its user
-	 * and is not stunned, right before the Stand is put at its offset from the user, while this is the Stand's action,
-	 * also in the ticks its summon lock holds the action back. 1.16 StandEntity.updatePosition asked the Stand's task for
-	 * its offset there (getOffsetFromUser), before the task's own tick, so an offset measured to the task's target or
-	 * along the user's look (StandEntityAction.front3dOffset) followed them in that same tick. An action that keeps its
-	 * Stand's offset that way sets it here (StandEntityBarrageAbility#refreshFrontOffset); nothing by default
-	 * (RotpAddonApi#FEATURE_ACTION_STAND_OFFSET_HOOK_V1).
+	 * Asked on both sides by its Stand's position update (StandEntity#updatePosition) on every tick the Stand follows its
+	 * user and is not stunned, right before the Stand is put at its offset from the user, while this is the Stand's
+	 * action, also in the ticks its summon lock holds the action back. 1.16 StandEntity.updatePosition asked the Stand's
+	 * task for its offset there (getOffsetFromUser), on both sides, before the task's own tick, so an offset measured to
+	 * the task's target or along the user's look (StandEntityAction.front3dOffset) followed them in that same tick. An
+	 * action that keeps its Stand's offset that way sets it here: the attacks on the server, which sends clients the
+	 * offset (StandEntityBarrageAbility#refreshFrontOffset returns on a client), Crazy Diamond's heal and revert on each
+	 * side from the target it holds; nothing by default (RotpAddonApi#FEATURE_ACTION_STAND_OFFSET_HOOK_V1).
 	 */
 	@ApiStatus.OverrideOnly
 	public void updateStandOffset(StandEntity standEntity) {}

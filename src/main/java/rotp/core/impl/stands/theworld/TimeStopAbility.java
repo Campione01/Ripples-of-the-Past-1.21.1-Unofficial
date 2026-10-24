@@ -647,7 +647,7 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 		@Override
 		public void onButtonStopHold() {
 			if (getPhase() == ActionPhase.BUTTON_CHARGE) {
-				if (!level().isClientSide()) {
+				if (!takesTargetsFromServer()) {
 					LivingEntity user = getPowerUser();
 					// 1.16 stopHeldAction(true): a release that fails the recheck starts nothing, silently
 					if (ability instanceof TimeStopAbility timeStop && user != null
@@ -671,15 +671,18 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 						if (timeStop.startTimeStopAfterHold(user, standAlreadySummoned, timeStopTicks, curPhaseLength)
 								&& getPerformer() instanceof StandEntity stand) {
 							// the port's shorter stop (D-core-91) has no perform: its Stand takes the full stop's perform
-							// pose, and the other clients, whose copy this release reaches only after it was cleared, take
-							// it from the event
+							// pose, and every client takes it from the event: the others, whose copy this release reaches
+							// only after it was cleared, and the user's own, which let go of its copy before
 							stand.setPerformPose(this);
 							level().broadcastEntityEvent(stand, StandEntity.PERFORM_POSE_EVENT);
 						}
 					}
 				}
-				else if (getPerformer() instanceof StandEntity stand && stand.getPerformPose() == null) {
-					stand.setPerformPose(this);
+				// the user's own client lets go of its copy before the server decides the release, which a failed
+				// recheck or a refused start turns down: 1.16 posed only a time stop that performed, so the Stand waits
+				// for the server's event, as on the other clients
+				else if (getPerformer() instanceof StandEntity stand) {
+					stand.awaitPerformPoseEvent(this);
 				}
 				LivingComponentAction.getComponentForSlot(performer, actionSlot()).setAction(null, SyncType.TRACKING_AND_SELF);
 			}

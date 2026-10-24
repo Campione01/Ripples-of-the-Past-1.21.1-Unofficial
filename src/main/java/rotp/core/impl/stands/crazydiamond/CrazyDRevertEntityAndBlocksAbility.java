@@ -174,7 +174,8 @@ public class CrazyDRevertEntityAndBlocksAbility extends StandEntityAbility {
 
 		/**
 		 * 1.16 CrazyDiamondPreviousState.barrageVisuals (:424-427): its task's target an entity that passes checkTarget,
-		 * reverting it or not, and nothing else (no Resolve rule).
+		 * reverting it or not, and nothing else (no Resolve rule). Asked once, in the first perform tick, as 1.16 asked it
+		 * as the task was set: a target that stops passing checkTarget later leaves the pose as it was.
 		 */
 		@Override
 		public boolean showsBarrageVisuals(ActionTarget target) {
@@ -263,6 +264,18 @@ public class CrazyDRevertEntityAndBlocksAbility extends StandEntityAbility {
 				CrazyDRepairItemAbility.setItemFixStandOffset(this, stand);
 				standRotationTarget = ActionTarget.EMPTY;
 				aimAs = AimingEntity.CAMERA_ENTITY;
+			}
+		}
+
+		// 1.16 CrazyDiamondPreviousState.getOffsetFromUser without an entity: the off-hand item's offset, which the perform
+		// sets (also in its tick) as soon as the entity is let go
+		@Override
+		protected void placeStandWithoutEntityTarget(StandEntity standEntity, boolean wasInFront) {
+			if (getPhase() == ActionPhase.PERFORM) {
+				CrazyDRepairItemAbility.setItemFixStandOffset(this, standEntity);
+			}
+			else {
+				super.placeStandWithoutEntityTarget(standEntity, wasInFront);
 			}
 		}
 

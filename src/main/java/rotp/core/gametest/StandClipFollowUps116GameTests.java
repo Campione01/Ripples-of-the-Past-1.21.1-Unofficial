@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -12,6 +13,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+
+import javax.annotation.Nullable;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -357,7 +360,8 @@ public final class StandClipFollowUps116GameTests {
 	/*
 	 * 1.16 CrazyDiamondHeal.barrageVisuals (:196-208) held, healing or not, while its user was under Resolve or its task's
 	 * target was a living entity at half its health or less; StandEntityAction.getStandPose then drew the barrage. The heal
-	 * now sets its synced barrage visuals by that rule in every perform tick, a full-health target included.
+	 * sets its synced barrage visuals by that rule in its first perform tick, a full-health target included, and keeps them
+	 * (crazyDiamondsHealAndRevertKeepTheBarrageVisualsTheirPerformBeganWithAs116).
 	 */
 	@GameTest(template = "empty", timeoutTicks = 20)
 	public static void crazyDiamondsHealShowsTheBarrageWheneverItsBarrageVisualsHoldAs116(GameTestHelper helper) {
@@ -412,7 +416,7 @@ public final class StandClipFollowUps116GameTests {
 			user.removeAllEffects();
 			user.discard();
 		}
-		// the perform tick sets the synced visuals by the rule (read from the action's class file)
+		// the first perform tick sets the synced visuals by the rule (read from the action's class file)
 		if (!invokedMethods(helper, "rotp/core/impl/stands/crazydiamond/CrazyDHealAbility$HealingAction.class")
 				.contains("rotp/core/impl/stands/crazydiamond/CrazyDHealAbility$HealingAction.showsBarrageVisuals")) {
 			wrong.add("the heal's perform tick no longer asks showsBarrageVisuals");
@@ -509,6 +513,89 @@ public final class StandClipFollowUps116GameTests {
 		helper.assertTrue(wrong.isEmpty(), "1.16 played Crazy Diamond's barrage hit sounds while its barrage visuals held, and"
 				+ " showed the revert's at an entity it reverts: " + wrong);
 		helper.succeed();
+	}
+
+	/*
+	 * 1.16 chose a task's pose once, as the task was set (StandEntity.onSyncedDataUpdated(CURRENT_TASK) -> getStandPose,
+	 * which asked barrageVisuals), and set the barrage hit sounds at the change to PERFORM (barrageVisualsPhaseTransition);
+	 * neither changed while the heal or the revert was held, whatever happened to the target. Held for 6 perform ticks in
+	 * the server's order (the Stand's position update, then the action): a cow at 40% healed past half its health keeps
+	 * the barrage and its hit sounds; a cow at 60% hurt to 20% after 2 ticks keeps the idle without them; the revert at
+	 * primed TNT (stored Resolve 4) keeps the barrage after the stored level drops to 2 after 2 ticks and its task lets
+	 * the TNT go (CrazyDiamondPreviousState.checkTarget).
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void crazyDiamondsHealAndRevertKeepTheBarrageVisualsTheirPerformBeganWithAs116(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		StandTaskTargetOffsetGameTests.withStand(helper, "crazy_diamond", scene -> {
+			Cow cow = scene.cow(new Vec3(0.0D, 0.0D, 2.0D));
+			cow.setHealth(cow.getMaxHealth() * 0.4F);
+			List<String> poses = holdHealingAction(scene, "heal", cow, null);
+			if (!poses.equals(Collections.nCopies(6, "barrage+hits")) || cow.getHealth() / cow.getMaxHealth() <= 0.5F) {
+				wrong.add("the heal held on a cow at 40% (" + cow.getHealth() + " / " + cow.getMaxHealth() + " after the hold) played "
+						+ poses + ", 1.16 the barrage with its hit sounds in every tick");
+			}
+		});
+		StandTaskTargetOffsetGameTests.withStand(helper, "crazy_diamond", scene -> {
+			Cow cow = scene.cow(new Vec3(0.0D, 0.0D, 2.0D));
+			cow.setHealth(cow.getMaxHealth() * 0.6F);
+			List<String> poses = holdHealingAction(scene, "heal", cow, () -> cow.setHealth(cow.getMaxHealth() * 0.2F));
+			if (!poses.equals(Collections.nCopies(6, "idle")) || cow.getHealth() / cow.getMaxHealth() > 0.5F) {
+				wrong.add("the heal held on a cow at 60%, hurt to 20% after 2 ticks (" + cow.getHealth() + " / " + cow.getMaxHealth()
+						+ " after the hold), played " + poses + ", 1.16 the idle without hit sounds in every tick");
+			}
+		});
+		StandTaskTargetOffsetGameTests.withStand(helper, "crazy_diamond", scene -> {
+			scene.power().setResolveLevel(4);
+			PrimedTnt tnt = EntityType.TNT.create(helper.getLevel());
+			helper.assertTrue(tnt != null, "setup: could not create primed TNT");
+			tnt.setFuse(20);
+			tnt.setNoGravity(true);
+			Vec3 at = scene.user().position().add(0.0D, 0.0D, 2.0D);
+			tnt.moveTo(at.x, at.y, at.z, 0.0F, 0.0F);
+			helper.assertTrue(helper.getLevel().addFreshEntity(tnt), "setup: could not add primed TNT");
+			scene.spawned().add(tnt);
+			EntityActionInstance[] revert = new EntityActionInstance[1];
+			List<String> poses = holdHealingAction(scene, "revert_state", tnt, () -> scene.power().setResolveLevel(2), revert);
+			ActionTarget left = revert[0].getTaskTarget(helper.getLevel());
+			if (!poses.equals(Collections.nCopies(6, "barrage+hits")) || left.getType() != ActionTarget.TargetType.EMPTY) {
+				wrong.add("the revert held on primed TNT, the stored Resolve 4 dropping to 2 after 2 ticks (its task holding " + left
+						+ " after the hold), played " + poses + ", 1.16 the barrage with its hit sounds in every tick");
+			}
+		});
+		helper.assertTrue(wrong.isEmpty(), "1.16 kept the pose and the barrage hit sounds Crazy Diamond's heal and revert began"
+				+ " their hold with: " + wrong);
+		helper.succeed();
+	}
+
+	private static List<String> holdHealingAction(StandTaskTargetOffsetGameTests.Scene scene, String name, Entity target,
+			@Nullable Runnable afterTwoTicks) {
+		return holdHealingAction(scene, name, target, afterTwoTicks, new EntityActionInstance[1]);
+	}
+
+	// the pose the action asks for in each of 6 perform ticks, "+hits" with the barrage hit sounds the client sets from it
+	private static List<String> holdHealingAction(StandTaskTargetOffsetGameTests.Scene scene, String name, Entity target,
+			@Nullable Runnable afterTwoTicks, EntityActionInstance[] started) {
+		LivingComponentAction.getComponent(scene.user()).entityAim.setTarget(new ActionTarget(target));
+		EntityActionInstance action = scene.start(name, ActionPhase.PERFORM);
+		started[0] = action;
+		scene.helper().assertTrue(action instanceof CrazyDHealAbility.HealingAction
+				&& action.getTaskTarget(scene.helper().getLevel()).getEntity() == target,
+				"setup: the " + name + " is no healing action holding " + target + ": " + action.getTaskTarget(scene.helper().getLevel()));
+		List<String> poses = new ArrayList<>();
+		for (int tick = 0; tick < 6; tick++) {
+			if (tick == 2 && afterTwoTicks != null) {
+				afterTwoTicks.run();
+			}
+			scene.stand().updatePosition(scene.user());
+			LivingComponentAction.getComponent(scene.stand()).tick();
+			scene.helper().assertTrue(action.getPhase() == ActionPhase.PERFORM && scene.stand().getCurStandAction() == action,
+					"setup: the " + name + " left its perform in tick " + tick + ": " + action.getPhase());
+			boolean hits = CrazyDHealAbility.HealingAction.playsBarrageHitSounds(action.getPhase(),
+					action.synchedData.get(CrazyDHealAbility.HealingAction.HEAL_RESULT));
+			poses.add(action.getEntityAnim().name() + (hits ? "+hits" : ""));
+		}
+		return poses;
 	}
 
 	private static final String SP_ANIMS =

@@ -243,8 +243,9 @@ public class CrazyDHealAbility extends StandEntityAbility {
 	}
 
 	public static ActionAnimIdentifier getHealingAnim(EntityActionInstance action, ActionAnimIdentifier fallback) {
-		// 1.16 StandEntityAction.getStandPose: the barrage's pose whenever barrageVisuals held, healing or not; else the
-		// action's own (the heal had none, StandAction.Builder's IDLE; the revert ITEM_FIX_POSE): the fallback
+		// 1.16 StandEntityAction.getStandPose, asked once as the task was set: the barrage's pose if barrageVisuals held
+		// then, healing or not, for the whole hold; else the action's own (the heal had none, StandAction.Builder's IDLE;
+		// the revert ITEM_FIX_POSE): the fallback
 		if (action instanceof HealingAction healingAction
 				&& healingAction.synchedData.get(HealingAction.HEAL_RESULT).barrageVisuals) {
 			return BARRAGE_ANIM;
@@ -257,6 +258,8 @@ public class CrazyDHealAbility extends StandEntityAbility {
 		private ActionTarget actionTarget = ActionTarget.EMPTY;
 		private boolean placedInFront;
 		private int healingVisualsStartTick = -1;
+		private boolean barrageVisualsDecided;
+		private boolean barrageVisuals;
 
 		public HealingAction(EntityActionType ability) {
 			super(ability);
@@ -379,9 +382,6 @@ public class CrazyDHealAbility extends StandEntityAbility {
 				releaseEntityTargetNoLongerKept();
 			}
 			StandEntity standEntity = performer instanceof StandEntity s ? s : null;
-			if (standEntity != null) {
-				placeStandByTarget(standEntity);
-			}
 			if (getPhase() != ActionPhase.PERFORM) {
 				return;
 			}
@@ -394,9 +394,17 @@ public class CrazyDHealAbility extends StandEntityAbility {
 				if (paysTickWithoutEntityTarget() || target.getType() == TargetType.ENTITY && !target.isEmpty(level)) {
 					consumeStaminaTick(standEntity);
 				}
+				// 1.16 chose the task's pose once, as the task was set (StandEntity.onSyncedDataUpdated(CURRENT_TASK)), from
+				// its target and the Resolve effect before any heal, and kept it whatever the target became
+				boolean firstPerformTick = !barrageVisualsDecided;
+				boolean visualsBeforeHeal = firstPerformTick && showsBarrageVisuals(target);
 				HealResult healResult = restoreTarget(target, standEntity);
 				curHealing = healResult.synched;
-				curHealing.barrageVisuals |= showsBarrageVisuals(target);
+				if (firstPerformTick) {
+					barrageVisuals = visualsBeforeHeal || curHealing.barrageVisuals;
+					barrageVisualsDecided = true;
+				}
+				curHealing.barrageVisuals = barrageVisuals;
 				if (healResult.hpForExp > 0) {
 					StandPower userPower = standEntity.getUserPower();
 					if (userPower != null) {
@@ -484,6 +492,13 @@ public class CrazyDHealAbility extends StandEntityAbility {
 			}
 		}
 
+		// 1.16 StandEntity.updatePosition asked getOffsetFromUser on both sides, before the task's tick, so the Stand took a
+		// moving target's or user's position in that same tick
+		@Override
+		public void updateStandOffset(StandEntity standEntity) {
+			placeStandByTarget(standEntity);
+		}
+
 		/*
 		 * 1.16 CrazyDiamondHeal and CrazyDiamondPreviousState.getOffsetFromUser: offsetToTarget(task target, 0,
 		 * getMaxEffectiveRange) in front while the task holds an entity, healing it or not; the action's own offset
@@ -494,10 +509,17 @@ public class CrazyDHealAbility extends StandEntityAbility {
 			// the entity's own position as 1.16 getTargetPos took it, not where the aim met its box
 			boolean inFront = targetEntity != null && setStandFrontOffsetFromTarget(standEntity, new ActionTarget(targetEntity),
 					0, standEntity.getEffectiveRange());
-			if (!inFront && placedInFront) {
-				standEntity.offsetFromUser.resetToIdle();
+			if (!inFront) {
+				placeStandWithoutEntityTarget(standEntity, placedInFront);
 			}
 			placedInFront = inFront;
+		}
+
+		// the heal's own offset without an entity: the default one (CrazyDiamondHeal gave none of its own)
+		protected void placeStandWithoutEntityTarget(StandEntity standEntity, boolean wasInFront) {
+			if (wasInFront) {
+				standEntity.offsetFromUser.resetToIdle();
+			}
 		}
 
 		@Override
@@ -522,8 +544,9 @@ public class CrazyDHealAbility extends StandEntityAbility {
 		}
 
 		/**
-		 * 1.16 StandEntityAction.barrageVisualsPhaseTransition: the Stand's barrage hit sounds play in the perform while the
-		 * barrage visuals hold, healing or not (the server sends them while the action holds an entity).
+		 * 1.16 StandEntityAction.barrageVisualsPhaseTransition: the Stand's barrage hit sounds play in the perform if the
+		 * barrage visuals held as it began, healing or not, for the whole perform (the synced visuals, decided once in the
+		 * first perform tick; the server sends the sounds while the action holds an entity).
 		 */
 		public static boolean playsBarrageHitSounds(@Nullable ActionPhase phase, HealResult.Synched result) {
 			return phase == ActionPhase.PERFORM && result.barrageVisuals;
@@ -722,8 +745,9 @@ public class CrazyDHealAbility extends StandEntityAbility {
 		}
 
 		/**
-		 * 1.16 CrazyDiamondHeal.barrageVisuals (:196-208), asked every frame whether the heal healed or not: its user under
-		 * Resolve, or its task's target a living entity at half its health or less.
+		 * 1.16 CrazyDiamondHeal.barrageVisuals (:196-208), healing or not: its user under Resolve, or its task's target a
+		 * living entity at half its health or less. 1.16 asked it only as the task was set (getStandPose on CURRENT_TASK),
+		 * so the action asks it once, in its first perform tick, before that tick's heal, and keeps the answer.
 		 */
 		public boolean showsBarrageVisuals(ActionTarget target) {
 			LivingEntity user = getPowerUser();
