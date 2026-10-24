@@ -491,15 +491,38 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		performPoseAction = null;
 	}
 
-	/** The server tells the clients that the action its user's Stand-power slot holds leaves its perform pose now. */
+	/**
+	 * The server tells the clients that the action its user's Stand-power slot holds leaves its perform pose now, or, on
+	 * the user's own client, the charge that client let go of itself ({@link #awaitPerformPoseEvent}).
+	 */
 	@ApiStatus.Internal
 	public static final byte PERFORM_POSE_EVENT = 100;
+	// a round trip of up to 2 s
+	private static final int RELEASED_POSE_WAIT_TICKS = 40;
+	@Nullable private EntityActionInstance releasedPoseAction;
+	private int releasedPoseTick;
+
+	/**
+	 * Client: its user's own client let go of this charge before the server decided the release; the Stand takes its pose
+	 * only from the server's {@link #PERFORM_POSE_EVENT}, sent if the release started a time stop (1.16 posed only a time
+	 * stop that performed).
+	 */
+	@ApiStatus.Internal
+	public void awaitPerformPoseEvent(EntityActionInstance released) {
+		releasedPoseAction = released;
+		releasedPoseTick = tickCount;
+	}
 
 	@Override
 	public void handleEntityEvent(byte id) {
 		if (id == PERFORM_POSE_EVENT) {
 			LivingEntity user = getUser();
 			EntityActionInstance action = user != null ? LivingComponentAction.getCurEntityAction(user, PowerClass.STAND) : null;
+			if ((action == null || !action.posesItsStand() || action.getPerformer() != this)
+					&& tickCount - releasedPoseTick <= RELEASED_POSE_WAIT_TICKS) {
+				action = releasedPoseAction;
+			}
+			releasedPoseAction = null;
 			if (action != null && action.posesItsStand() && action.getPerformer() == this && getPerformPose() == null) {
 				setPerformPose(action);
 			}

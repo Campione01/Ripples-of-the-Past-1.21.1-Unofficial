@@ -16,6 +16,7 @@ import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.api.timestop.TimeStopLifecycleEvent;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
+import rotp.core.impl.stands.theworld.TimeStopAbility;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.PowerClass;
@@ -29,6 +30,7 @@ import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.netcode.SyncType;
 import rotp.core.powersystem.standpower.StandInstance;
+import rotp.core.powersystem.standpower.StandInstance.StandPart;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.type.StandType;
@@ -37,6 +39,7 @@ import rotp.core.subsystems.timestop.TimeStopLearning;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.EventPriority;
@@ -209,6 +212,109 @@ public final class TimeStopPerformPose116GameTests {
 		helper.assertTrue(wrong.isEmpty(), "The time stop let go early must leave the full stop's perform pose on its Stand: "
 				+ String.join("; ", wrong));
 		helper.succeed();
+	}
+
+	/*
+	 * 1.16 posed the Stand only for a time stop that performed (TimeStop.perform). The user's own client lets go of its
+	 * copy of the charge before the server decides the release (InputHandler.doReleaseInput), so it takes the pose from
+	 * the server's PERFORM_POSE_EVENT, as the other clients do, with the copy it let go of. Let go early while an add-on
+	 * cancels the start (TimeStopLifecycleEvent.PreStart), or with the Stand's body lost in that tick (the release's
+	 * recheck), the server starts no stop: the Stand that client draws shows no pose, and an event after the wait (40
+	 * ticks) does not take that copy either. Let go early otherwise, the shorter stop starts and that client's Stand takes
+	 * the pose of its copy from 0 ticks as the event arrives, not before. (The core time stops ignore their Stand's stun,
+	 * as 1.16's did, so a stun refuses nothing.)
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100, batch = GameTestBatches.TIME_STOP)
+	public static void theUsersOwnClientTakesAnEarlyReleasesPoseOnlyFromTheServer(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		for (String standId : List.of("star_platinum", "the_world")) {
+			for (String refusal : List.of("a cancelled start", "a lost body")) {
+				try (Scene s = new Scene(helper, "RefusedPose" + standId, standId)) {
+					EntityActionInstance stop = s.charge();
+					for (int tick = 0; tick < 5; tick++) {
+						s.tick();
+					}
+					Consumer<TimeStopLifecycleEvent.PreStart> deny = event -> {
+						if (event.getInstance().userId() == s.user.getId()) {
+							event.setCanceled(true);
+						}
+					};
+					EntityActionInstance atRelease;
+					if (refusal.equals("a lost body")) {
+						s.power.getStandInstance().ifPresent(instance -> instance.removePart(StandPart.MAIN_BODY));
+					}
+					else {
+						NeoForge.EVENT_BUS.addListener(EventPriority.NORMAL, false, TimeStopLifecycleEvent.PreStart.class, deny);
+					}
+					try {
+						UsersClientCharge copy = new UsersClientCharge(stop, s.stand, s.user);
+						copy.onButtonStopHold();
+						atRelease = s.stand.getPerformPose();
+						AbilityInput.keyRelease(STOP_KEY, s.user);
+					}
+					finally {
+						NeoForge.EVENT_BUS.unregister(deny);
+					}
+					helper.assertTrue(s.stopTicks() == 0 && s.userSlot().getAction() == null, "setup: " + standId + "'s release with "
+							+ refusal + " started a stop of " + s.stopTicks() + " ticks or left " + s.userSlot().getAction());
+					for (int tick = 0; tick < 3; tick++) {
+						s.tick();
+					}
+					EntityActionInstance after = s.stand.getPerformPose();
+					for (int tick = 0; tick < 38; tick++) {
+						s.tick();
+					}
+					s.stand.handleEntityEvent(StandEntity.PERFORM_POSE_EVENT);
+					if (atRelease != null || after != null || s.stand.getPerformPose() != null) {
+						wrong.add(standId + ": its user's own client let go early, the server refusing the release (" + refusal
+								+ "), drew the pose " + atRelease + " at the release, " + after + " 3 ticks later and "
+								+ s.stand.getPerformPose() + " for an event 41 ticks later, where 1.16 posed only a time stop that"
+								+ " performed");
+					}
+				}
+			}
+
+			try (Scene s = new Scene(helper, "ConfirmedPose" + standId, standId)) {
+				EntityActionInstance stop = s.charge();
+				for (int tick = 0; tick < 5; tick++) {
+					s.tick();
+				}
+				UsersClientCharge copy = new UsersClientCharge(stop, s.stand, s.user);
+				copy.onButtonStopHold();
+				EntityActionInstance atRelease = s.stand.getPerformPose();
+				AbilityInput.keyRelease(STOP_KEY, s.user);
+				helper.assertTrue(s.stopTicks() > 0 && s.userSlot().getAction() == null, "setup: " + standId + "'s early release"
+						+ " started no stop or left " + s.userSlot().getAction());
+				// that client's Stand has none of the server's pose: it takes the one the server's event brings
+				s.stand.endPerformPose();
+				s.tick();
+				s.stand.handleEntityEvent(StandEntity.PERFORM_POSE_EVENT);
+				if (atRelease != null || s.stand.getPerformPose() != copy || s.stand.getPerformPoseTicks(0) != 0) {
+					wrong.add(standId + ": its user's own client let go early, the server starting the shorter stop, drew the pose "
+							+ atRelease + " at the release and " + s.stand.getPerformPose() + " from "
+							+ s.stand.getPerformPoseTicks(0) + " ticks as the server's event came, where the other clients take the"
+							+ " pose from that event");
+				}
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), "The user's own client must take an early release's pose from the server: "
+				+ String.join("; ", wrong));
+		helper.succeed();
+	}
+
+	// the user's own client's copy of the charge (EntityActionInstance.takesTargetsFromServer), on the Stand it draws
+	private static final class UsersClientCharge extends TimeStopAbility.TimeStopAction {
+		UsersClientCharge(EntityActionInstance charge, StandEntity stand, LivingEntity user) {
+			super(charge.ability);
+			performer = stand;
+			powerUser.setEntity(user);
+			phase = ActionPhase.BUTTON_CHARGE;
+		}
+
+		@Override
+		protected boolean takesTargetsFromServer() {
+			return true;
+		}
 	}
 
 	/** A player with Star Platinum or The World out at Resolve 4, its time stop unlocked and moved far from every cell. */
