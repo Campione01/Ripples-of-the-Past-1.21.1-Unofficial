@@ -109,7 +109,7 @@ public class SilverChariotDashAttackAbility extends StandEntityAbility {
 	}
 
 	/** 1.16 HeavyPunchInstance.afterAttack: stop a hit Stand's barrage, arm the wall impact on the knocked-back entity. */
-	static void afterHeavyHit(StandEntity stand, LivingEntity target) {
+	static void afterHeavyHit(StandEntity stand, Entity target) {
 		EntityActionAbility.onHitByHeavyAttack(target);
 		Entity knockedBack = target;
 		if (target instanceof StandEntity targetStand && targetStand.getUser() != null) {
@@ -297,6 +297,10 @@ public class SilverChariotDashAttackAbility extends StandEntityAbility {
 			if (!inReach.isEmpty(level) && !wallHidesDashTarget(level, stand, inReach)) {
 				strikeDashTarget(level, stand, inReach);
 			}
+			else {
+				// 1.16 SilverChariotEntity.attackTarget ran for a punch that struck nothing too
+				StandEntityPunchAbility.deflectSilverChariotProjectiles(stand, ActionTarget.EMPTY);
+			}
 		}
 
 		private boolean wallHidesDashTarget(Level level, StandEntity stand, ActionTarget target) {
@@ -345,10 +349,21 @@ public class SilverChariotDashAttackAbility extends StandEntityAbility {
 		}
 
 		private void strikeDashTarget(Level level, StandEntity stand, ActionTarget target) {
+			// 1.16 SilverChariotEntity.attackTarget and attackOrDeflect, on every punch of the dash: at Resolve 4 the
+			// projectiles flying at the Stand in front of it, and a projectile it strikes, are turned aside
+			boolean deflected = StandEntityPunchAbility.deflectSilverChariotProjectiles(stand, target);
 			switch (target.getType()) {
 				case ENTITY -> {
-					if (!(target.getMainEntity() instanceof LivingEntity candidate)) {
+					Entity entity = target.getMainEntity();
+					if (entity == null) {
 						return;
+					}
+					if (deflected) {
+						break;
+					}
+					if (!(entity instanceof LivingEntity candidate)) {
+						strikeNonLiving(stand, entity);
+						break;
 					}
 					if (!hitEntities.add(candidate.getId())) {
 						return;
@@ -369,6 +384,32 @@ public class SilverChariotDashAttackAbility extends StandEntityAbility {
 				}
 			}
 			punchedTarget = target;
+		}
+
+		/*
+		 * 1.16 StandEntityPunch.doHit on an entity that is not living (a boat, a minecart, an item frame, a painting, an end
+		 * crystal), as the plain punch strikes one: StandEntity.attackEntity's harm check, the heavy damage, then the dash's
+		 * knockback set as the entity's motion whether the hit hurt it or not, and afterAttack on a hurt one. No impact
+		 * sound: the dash's punchEntity set it to null.
+		 */
+		private void strikeNonLiving(StandEntity stand, Entity entity) {
+			float damage = StandStatFormulas.getHeavyAttackDamage(stand.getAttackDamage());
+			if (damage <= 0 || !stand.canAttackEntity(entity)) {
+				return;
+			}
+			boolean hurt = standEntityAttack(stand, entity, makePunchDamageSource(), damage);
+			if (stand.getAttackSpeed() < 24) {
+				entity.setDeltaMovement(sideKnockback(stand, entity, dashForward)
+						.scale(ARMORED_DASH_EXTRA_KNOCKBACK * DASH_KNOCKBACK_TO_STRENGTH));
+			}
+			else {
+				entity.setDeltaMovement(0.0D, -FAST_DASH_EXTRA_KNOCKBACK * DASH_KNOCKBACK_TO_STRENGTH
+						* Mth.sin(FAST_DASH_KNOCKBACK_XROT * MathUtil.DEG_TO_RAD), 0.0D);
+			}
+			entity.hurtMarked = true;
+			if (hurt) {
+				afterHeavyHit(stand, entity);
+			}
 		}
 
 		private static Vec3 horizontalLook(LivingEntity entity, LivingEntity fallback, double yScale) {
@@ -393,15 +434,20 @@ public class SilverChariotDashAttackAbility extends StandEntityAbility {
 			return look.normalize();
 		}
 
+		// the dash's knockback direction below attack speed 24: away from the Stand, turned 60 to 90 degrees to the side
+		private static Vec3 sideKnockback(StandEntity stand, Entity target, Vec3 forward) {
+			Vec3 toTarget = target.position().subtract(stand.position()).multiply(1.0, 0.0, 1.0);
+			double side = forward.x * toTarget.z - forward.z * toTarget.x < 0 ? 1.0 : -1.0;
+			double angle = Math.toRadians((60.0F + stand.getRandom().nextFloat() * 30.0F) * side);
+			Vec3 away = toTarget.lengthSqr() > 1.0E-6 ? toTarget.normalize() : forward;
+			double x = away.x * Math.cos(angle) - away.z * Math.sin(angle);
+			double z = away.x * Math.sin(angle) + away.z * Math.cos(angle);
+			return new Vec3(x, 0.0, z).normalize();
+		}
+
 		private static void knockbackTarget(StandEntity stand, LivingEntity target, Vec3 forward) {
 			if (stand.getAttackSpeed() < 24) {
-				Vec3 toTarget = target.position().subtract(stand.position()).multiply(1.0, 0.0, 1.0);
-				double side = forward.x * toTarget.z - forward.z * toTarget.x < 0 ? 1.0 : -1.0;
-				double angle = Math.toRadians((60.0F + stand.getRandom().nextFloat() * 30.0F) * side);
-				Vec3 away = toTarget.lengthSqr() > 1.0E-6 ? toTarget.normalize() : forward;
-				double x = away.x * Math.cos(angle) - away.z * Math.sin(angle);
-				double z = away.x * Math.sin(angle) + away.z * Math.cos(angle);
-				Vec3 rotated = new Vec3(x, 0.0, z).normalize();
+				Vec3 rotated = sideKnockback(stand, target, forward);
 				target.knockback(ARMORED_DASH_EXTRA_KNOCKBACK * DASH_KNOCKBACK_TO_STRENGTH, -rotated.x, -rotated.z);
 			}
 			else {
