@@ -424,13 +424,14 @@ public class HamonRebuffOverdriveAbility extends HamonActionRuntimeAbility {
 			syncPhaseChanges();
 		}
 
+		// 1.16 setCooldownTimer: the value set is also the total, so the slot's overlay starts full whatever the amount
 		private void takePendingCooldown(@Nullable LivingEntity user) {
 			int cooldown = pendingCooldown;
 			pendingCooldown = 0;
 			HamonData hamon = getHamonData(user);
 			HamonActionRuntimeAbility ability = hamonAbility();
 			if (cooldown > 0 && hamon != null && ability != null && !level().isClientSide()) {
-				hamon.setAbilityCooldown(ability.name(), cooldown, COOLDOWN_TICKS);
+				hamon.setAbilityCooldown(ability.name(), cooldown);
 				hamon.syncOnUpdate(user);
 			}
 		}

@@ -267,7 +267,8 @@ public final class HamonRebuffOverdriveGameTests {
 	 * as the action stopped only if above 0. A husk's hit inside the counter window: a Survival user counters it and is
 	 * left no cooldown; a Creative user takes no hit at all (Player.hurt refuses a mob's hit to an invulnerable player), so
 	 * the charge runs on. Then the strike at the husk the user aims at as the charge ends: 50 ticks in Survival, none in
-	 * Creative. Each read once the action has stopped, when its recovery would start.
+	 * Creative. Each read once the action has stopped, when its recovery would start. 1.16's setCooldownTimer made the
+	 * value set its total too (PowerBaseImpl.updateCooldownTimer(action, value, value)), so the slot's overlay started full.
 	 */
 	@GameTest(template = "empty", timeoutTicks = 80)
 	public static void aMobsHitInTheCounterWindowAndTheEndStrikeLeave116sCooldownInSurvivalAndCreative(GameTestHelper helper) {
@@ -307,11 +308,13 @@ public final class HamonRebuffOverdriveGameTests {
 							f.tick(1);
 						}
 						int cooldown = f.hamon.getAbilityCooldown("rebuff_overdrive");
+						float drawn = f.hamon.getAbilityCooldownRatio("rebuff_overdrive", 0.0F);
 						int expected = creative || mobHits ? 0 : 50;
-						if (husk.getHealth() >= husk.getMaxHealth() || f.component.getAction() == action || cooldown != expected) {
+						if (husk.getHealth() >= husk.getMaxHealth() || f.component.getAction() == action || cooldown != expected
+								|| drawn != fullOverlay(expected)) {
 							wrong.add(row + ": the husk at " + husk.getHealth() + " of " + husk.getMaxHealth()
 									+ ", the action stopped " + (f.component.getAction() != action) + ", a cooldown of "
-									+ cooldown + ", 1.16's " + expected);
+									+ cooldown + " drawn at " + drawn + ", 1.16's " + expected + " drawn at " + fullOverlay(expected));
 						}
 					}
 					finally {
@@ -325,19 +328,22 @@ public final class HamonRebuffOverdriveGameTests {
 	}
 
 	private static final int HANDS_TAKEN_TICK = 5;
+	private static final int PRESSED_AGAIN_TICK = 7;
 
 	/*
 	 * 1.16 ContinuousActionInstance set the cooldown left as the action stopped, whatever stopped it (onStop): Rebuff
 	 * Overdrive took cooldown(100) as it started (0 in Creative), so one that struck nothing left the full 100 as it ended
 	 * at its recovery's start, so did one stopped in its windup from outside (another action, death), and one whose hands
 	 * were taken in its windup was cancelled there (playerTick: cancel), leaving (int) (100 x (5 / 14)^2) = 12 at its 5th
-	 * tick. None in Creative.
+	 * tick; pressed again at its 7th it cancelled with (int) (100 x (7 / 14)^2) = 25. None in Creative. setCooldownTimer
+	 * made each value its own total, so the slot's overlay started full whatever the amount.
 	 */
 	@GameTest(template = "empty", timeoutTicks = 80)
 	public static void aRebuffOverdriveThatStrikesNothingOrIsStoppedLeaves116sCooldownInSurvivalAndCreative(GameTestHelper helper) {
 		List<String> wrong = new ArrayList<>();
-		String[] rows = { "striking nothing", "stopped from outside in its windup", "its hands taken in its windup" };
-		int[] survival = { 100, 100, 12 };
+		String[] rows = { "striking nothing", "stopped from outside in its windup", "its hands taken in its windup",
+				"pressed again in its windup" };
+		int[] survival = { 100, 100, 12, 25 };
 		for (GameType mode : new GameType[] { GameType.SURVIVAL, GameType.CREATIVE }) {
 			for (int row = 0; row < rows.length; row++) {
 				try (Fixture f = new Fixture(helper, mode)) {
@@ -346,6 +352,10 @@ public final class HamonRebuffOverdriveGameTests {
 						for (int tick = 0; tick < 40 && f.component.getAction() == action; tick++) {
 							f.tick(1);
 						}
+					}
+					else if (row == 3) {
+						f.tick(PRESSED_AGAIN_TICK);
+						((HamonRebuffOverdrive) action).cancel();
 					}
 					else {
 						f.tick(HANDS_TAKEN_TICK);
@@ -358,16 +368,24 @@ public final class HamonRebuffOverdriveGameTests {
 						}
 					}
 					int cooldown = f.hamon.getAbilityCooldown("rebuff_overdrive");
+					float drawn = f.hamon.getAbilityCooldownRatio("rebuff_overdrive", 0.0F);
 					int expected = mode == GameType.CREATIVE ? 0 : survival[row];
-					if (f.component.getAction() == action || cooldown != expected) {
-						wrong.add(mode.getName() + " Rebuff Overdrive " + rows[row] + ": stopped " + (f.component.getAction() != action)
-								+ ", a cooldown of " + cooldown + ", 1.16's " + expected);
+					boolean stopped = f.component.getAction() != action || action.isOver();
+					if (!stopped || cooldown != expected || drawn != fullOverlay(expected)) {
+						wrong.add(mode.getName() + " Rebuff Overdrive " + rows[row] + ": stopped " + stopped
+								+ ", a cooldown of " + cooldown + " drawn at " + drawn + ", 1.16's " + expected + " drawn at "
+								+ fullOverlay(expected));
 					}
 				}
 			}
 		}
 		helper.assertTrue(wrong.isEmpty(), "1.16 set the cooldown left as Rebuff Overdrive stopped: " + String.join("; ", wrong));
 		helper.succeed();
+	}
+
+	// the slot overlay's fill right after the cooldown was set: full for any cooldown, as 1.16's setCooldownTimer drew it
+	private static float fullOverlay(int cooldown) {
+		return cooldown > 0 ? 1.0F : 0.0F;
 	}
 
 	@GameTest(template = "empty", timeoutTicks = 80)
