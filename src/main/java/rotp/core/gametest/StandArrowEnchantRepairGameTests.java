@@ -86,22 +86,30 @@ public final class StandArrowEnchantRepairGameTests {
 		helper.succeed();
 	}
 
-	// 1.16's anvil asked Enchantment.canEnchant: Sharpness (a sword or an axe) and Loyalty (a trident) not, Unbreaking
-	// and Mending (BREAKABLE: the arrow has durability) yes; Sharpness came from the table only
 	@GameTest(template = "empty", timeoutTicks = 20)
-	public static void anvilTakesTheBreakableBooksButNotSharpnessForStandArrowAsIn116(GameTestHelper helper) {
+	public static void sharpnessBookAppliesToStandArrowOnAnvil(GameTestHelper helper) {
 		Player player = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
-		for (ResourceKey<Enchantment> key : List.of(Enchantments.SHARPNESS, Enchantments.LOYALTY, Enchantments.UNBREAKING,
-				Enchantments.MENDING)) {
+		Holder<Enchantment> sharpness = holder(helper, Enchantments.SHARPNESS);
+		ItemStack book = EnchantedBookItem.createForEnchantment(new EnchantmentInstance(sharpness, 5));
+
+		ItemStack result = anvil(player, new ItemStack(ModItems.STAND_ARROW.get()), book);
+		helper.assertTrue(result.is(ModItems.STAND_ARROW.get())
+				&& EnchantmentHelper.getItemEnchantmentLevel(sharpness, result) == 5,
+				"1.16: a Sharpness V book applies to the Stand Arrow on an anvil; got " + result);
+		helper.succeed();
+	}
+
+	// 1.16's anvil asked Enchantment.canEnchant, which Forge made return canApplyAtEnchantingTable: Loyalty (the item's
+	// override), Unbreaking and Mending (BREAKABLE: the arrow has durability)
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void anvilTakesLoyaltyAndTheBreakableBooksForStandArrowAsIn116(GameTestHelper helper) {
+		Player player = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
+		for (ResourceKey<Enchantment> key : List.of(Enchantments.LOYALTY, Enchantments.UNBREAKING, Enchantments.MENDING)) {
 			Holder<Enchantment> enchantment = holder(helper, key);
 			ItemStack book = EnchantedBookItem.createForEnchantment(new EnchantmentInstance(enchantment, 1));
 			ItemStack result = anvil(player, new ItemStack(ModItems.STAND_ARROW.get()), book);
-			boolean applies = key == Enchantments.UNBREAKING || key == Enchantments.MENDING;
-			helper.assertTrue(applies
-					? result.is(ModItems.STAND_ARROW.get()) && EnchantmentHelper.getItemEnchantmentLevel(enchantment, result) == 1
-					: result.isEmpty(),
-					"1.16: a " + key.location() + " book " + (applies ? "applies" : "does not apply")
-							+ " to the Stand Arrow on an anvil; got " + result);
+			helper.assertTrue(result.is(ModItems.STAND_ARROW.get()) && EnchantmentHelper.getItemEnchantmentLevel(enchantment, result) == 1,
+					"1.16: a " + key.location() + " book applies to the Stand Arrow on an anvil; got " + result);
 		}
 		helper.succeed();
 	}

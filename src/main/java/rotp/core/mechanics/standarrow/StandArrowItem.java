@@ -536,8 +536,12 @@ public class StandArrowItem extends ArrowItem implements ProjectileItem {
         return stack.getMaxStackSize() == 1;
     }
 
-    // 1.16 canApplyAtEnchantingTable: the table offers Loyalty and Sharpness; the anvil asked Enchantment.canEnchant,
-    // which took neither, so supportsEnchantment keeps to the tags
+    // 1.16 canApplyAtEnchantingTable: Loyalty and Sharpness, at the anvil too (Forge's Enchantment.canEnchant asked it)
+    @Override
+    public boolean supportsEnchantment(ItemStack stack, Holder<Enchantment> enchantment) {
+    	return isTableEnchantment(enchantment) || super.supportsEnchantment(stack, enchantment);
+    }
+
     @Override
     public boolean isPrimaryItemFor(ItemStack stack, Holder<Enchantment> enchantment) {
     	return isTableEnchantment(enchantment) || super.isPrimaryItemFor(stack, enchantment);

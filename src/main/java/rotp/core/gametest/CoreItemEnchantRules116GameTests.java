@@ -6,6 +6,7 @@ import java.util.Set;
 import java.util.TreeSet;
 
 import rotp.core.core.JojoMod;
+import rotp.core.init.ModEnchantments;
 import rotp.core.init.ModItems;
 
 import net.minecraft.core.Holder;
@@ -33,10 +34,12 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * 1.16 decided per item at the enchanting table by canApplyAtEnchantingTable (the enchantment's EnchantmentType, plus
- * the item's override) and its enchantability, and at the anvil by Enchantment.canEnchant (the type, plus the
- * enchantment classes' own canEnchant). 1.21 asks ItemStack.isPrimaryItemFor and getEnchantmentValue at the table and
+ * the item's override) and its enchantability, and at the anvil by Enchantment.canEnchant, which Forge made return
+ * canApplyAtEnchantingTable, so the anvil took the table's set (treasure included) plus what the enchantment classes'
+ * own canEnchant added: Thorns for any ArmorItem, Unbreaking for a damageable item, Efficiency for shears, the damage
+ * enchantments for an axe. 1.21 asks ItemStack.isPrimaryItemFor and getEnchantmentValue at the table and
  * supportsEnchantment at the anvil. Head armor (ArmorItem, HEAD) took ARMOR, ARMOR_HEAD, WEARABLE and VANISHABLE, plus
- * BREAKABLE with durability, and Thorns at the anvil only (ThornsEnchantment.canEnchant: any ArmorItem).
+ * BREAKABLE with durability.
  */
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -49,6 +52,7 @@ public final class CoreItemEnchantRules116GameTests {
 	private static final List<String> THORNS = List.of("minecraft:thorns");
 	private static final List<String> SLEDGEHAMMER_TOOL = List.of("minecraft:efficiency", "minecraft:silk_touch",
 			"minecraft:fortune", "minecraft:unbreaking", "minecraft:mending", "minecraft:vanishing_curse");
+	private static final List<String> NONE = List.of();
 	private static final List<String> SLEDGEHAMMER_WEAPON = List.of("minecraft:sharpness", "minecraft:smite",
 			"minecraft:bane_of_arthropods", "minecraft:knockback", "minecraft:fire_aspect", "minecraft:looting");
 	private static final List<String> GLOVES = List.of("jojo_ripples:gloves_damage", "jojo_ripples:gloves_speed");
@@ -57,7 +61,12 @@ public final class CoreItemEnchantRules116GameTests {
 
 	private CoreItemEnchantRules116GameTests() {}
 
-	private record Rule(Item item, boolean tableEnchantable, int enchantability, Set<String> anvil, Set<String> table) {}
+	// anvilOnly: what the enchantment classes' own canEnchant added to canApplyAtEnchantingTable
+	private record Rule(Item item, boolean tableEnchantable, int enchantability, Set<String> table, List<String> anvilOnly) {
+		Set<String> anvil() {
+			return set(List.copyOf(table), anvilOnly);
+		}
+	}
 
 	private static Set<String> set(List<?>... parts) {
 		Set<String> set = new TreeSet<>();
@@ -69,32 +78,28 @@ public final class CoreItemEnchantRules116GameTests {
 
 	private static List<Rule> rules() {
 		Set<String> mask = set(HEAD_ARMOR, BREAKABLE);
-		Set<String> scarf = set(HEAD_ARMOR);
+		Set<String> arrow = set(STAND_ARROW, List.of("minecraft:loyalty", "minecraft:sharpness"));
+		// Unbreaking is already in the table's set of every damageable item here (BREAKABLE)
 		return List.of(
-				// PickaxeItem, ItemTier.IRON (14), plus the weapon set but Sweeping at the table
-				new Rule(ModItems.SLEDGEHAMMER.get(), true, 14, set(SLEDGEHAMMER_TOOL), set(SLEDGEHAMMER_TOOL, SLEDGEHAMMER_WEAPON)),
+				// PickaxeItem, ItemTier.IRON (14), plus the weapon set but Sweeping (SledgehammerItem.canApplyAtEnchantingTable)
+				new Rule(ModItems.SLEDGEHAMMER.get(), true, 14, set(SLEDGEHAMMER_TOOL, SLEDGEHAMMER_WEAPON), NONE),
 				// ModArmorMaterials.STONE_MASK: enchantability 0, durability 33
-				new Rule(ModItems.STONE_MASK.get(), true, 0, set(HEAD_ARMOR, BREAKABLE, THORNS), mask),
-				new Rule(ModItems.AJA_STONE_MASK.get(), true, 0, set(HEAD_ARMOR, BREAKABLE, THORNS), mask),
+				new Rule(ModItems.STONE_MASK.get(), true, 0, mask, THORNS),
+				new Rule(ModItems.AJA_STONE_MASK.get(), true, 0, mask, THORNS),
 				// BLACK_CLOTH (15); BladeHatItem.canApplyAtEnchantingTable adds Sharpness
-				new Rule(ModItems.BLADE_HAT.get(), true, 15, set(HEAD_ARMOR, BREAKABLE, THORNS),
-						set(HEAD_ARMOR, BREAKABLE, List.of("minecraft:sharpness"))),
-				new Rule(ModItems.BREATH_CONTROL_MASK.get(), true, 9, set(HEAD_ARMOR, BREAKABLE, THORNS), mask),
+				new Rule(ModItems.BLADE_HAT.get(), true, 15, set(HEAD_ARMOR, BREAKABLE, List.of("minecraft:sharpness")), THORNS),
+				new Rule(ModItems.BREATH_CONTROL_MASK.get(), true, 9, mask, THORNS),
 				// SATIPOROJA_SCARF: durability 0, so not BREAKABLE and not enchantable at the table
-				new Rule(ModItems.SATIPOROJA_SCARF.get(), false, 25, set(HEAD_ARMOR, THORNS), scarf),
-				// GlovesItem: the JOJO_GLOVES type, enchantability 15, Knockback at the table
-				new Rule(ModItems.GLOVES.get(), true, 15, set(GLOVES), set(GLOVES, List.of("minecraft:knockback"))),
-				new Rule(ModItems.BUBBLE_GLOVES.get(), true, 15, set(GLOVES), set(GLOVES, List.of("minecraft:knockback"))),
+				new Rule(ModItems.SATIPOROJA_SCARF.get(), false, 25, set(HEAD_ARMOR), THORNS),
+				// GlovesItem: the JOJO_GLOVES type, enchantability 15, Knockback (GlovesItem.canApplyAtEnchantingTable)
+				new Rule(ModItems.GLOVES.get(), true, 15, set(GLOVES, List.of("minecraft:knockback")), NONE),
+				new Rule(ModItems.BUBBLE_GLOVES.get(), true, 15, set(GLOVES, List.of("minecraft:knockback")), NONE),
 				// durability 640, Item's enchantability 0
-				new Rule(ModItems.SUPER_AJA_STONE.get(), true, 0, set(BREAKABLE, List.of("minecraft:vanishing_curse")),
-						set(BREAKABLE, List.of("minecraft:vanishing_curse"))),
-				// the JOJO_STAND_ARROW type and BREAKABLE; Loyalty and Sharpness at the table (10 | 25)
-				new Rule(ModItems.STAND_ARROW.get(), true, 10, set(STAND_ARROW),
-						set(STAND_ARROW, List.of("minecraft:loyalty", "minecraft:sharpness"))),
-				new Rule(ModItems.STAND_ARROW_BEETLE.get(), true, 25, set(STAND_ARROW),
-						set(STAND_ARROW, List.of("minecraft:loyalty", "minecraft:sharpness"))),
-				new Rule(ModItems.STAND_ARROW_METEORITE.get(), true, 10, set(STAND_ARROW),
-						set(STAND_ARROW, List.of("minecraft:loyalty", "minecraft:sharpness"))));
+				new Rule(ModItems.SUPER_AJA_STONE.get(), true, 0, set(BREAKABLE, List.of("minecraft:vanishing_curse")), NONE),
+				// the JOJO_STAND_ARROW type and BREAKABLE; Loyalty and Sharpness (StandArrowItem.canApplyAtEnchantingTable)
+				new Rule(ModItems.STAND_ARROW.get(), true, 10, arrow, NONE),
+				new Rule(ModItems.STAND_ARROW_BEETLE.get(), true, 25, arrow, NONE),
+				new Rule(ModItems.STAND_ARROW_METEORITE.get(), true, 10, arrow, NONE));
 	}
 
 	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH)
@@ -172,7 +177,7 @@ public final class CoreItemEnchantRules116GameTests {
 		return offered;
 	}
 
-	// the anvil with a book: applied or no result
+	// the anvil with a book: applied or no result (1.16 RepairContainer asked enchantment.canEnchant(left))
 	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH)
 	public static void theAnvilTakesTheBooks116sCanEnchantTookOnCoreItems(GameTestHelper helper) {
 		Player player = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
@@ -182,15 +187,24 @@ public final class CoreItemEnchantRules116GameTests {
 				new Row(ModItems.SLEDGEHAMMER.get(), Enchantments.EFFICIENCY, true),
 				new Row(ModItems.SLEDGEHAMMER.get(), Enchantments.FORTUNE, true),
 				new Row(ModItems.SLEDGEHAMMER.get(), Enchantments.MENDING, true),
-				new Row(ModItems.SLEDGEHAMMER.get(), Enchantments.SHARPNESS, false),
+				new Row(ModItems.SLEDGEHAMMER.get(), Enchantments.SHARPNESS, true),
+				new Row(ModItems.SLEDGEHAMMER.get(), Enchantments.LOOTING, true),
+				new Row(ModItems.SLEDGEHAMMER.get(), Enchantments.SWEEPING_EDGE, false),
 				new Row(ModItems.STONE_MASK.get(), Enchantments.PROTECTION, true),
 				new Row(ModItems.STONE_MASK.get(), Enchantments.THORNS, true),
 				new Row(ModItems.STONE_MASK.get(), Enchantments.MENDING, true),
 				new Row(ModItems.AJA_STONE_MASK.get(), Enchantments.RESPIRATION, true),
-				new Row(ModItems.BLADE_HAT.get(), Enchantments.SHARPNESS, false),
+				new Row(ModItems.BLADE_HAT.get(), Enchantments.SHARPNESS, true),
+				new Row(ModItems.BLADE_HAT.get(), Enchantments.THORNS, true),
+				new Row(ModItems.BLADE_HAT.get(), Enchantments.SMITE, false),
 				new Row(ModItems.SATIPOROJA_SCARF.get(), Enchantments.MENDING, false),
 				new Row(ModItems.SATIPOROJA_SCARF.get(), Enchantments.PROTECTION, true),
-				new Row(ModItems.GLOVES.get(), Enchantments.KNOCKBACK, false),
+				new Row(ModItems.GLOVES.get(), Enchantments.KNOCKBACK, true),
+				new Row(ModItems.BUBBLE_GLOVES.get(), Enchantments.KNOCKBACK, true),
+				new Row(ModItems.GLOVES.get(), Enchantments.SHARPNESS, false),
+				new Row(ModItems.STAND_ARROW.get(), Enchantments.LOYALTY, true),
+				new Row(ModItems.STAND_ARROW_BEETLE.get(), Enchantments.SHARPNESS, true),
+				new Row(ModItems.STAND_ARROW.get(), Enchantments.POWER, false),
 				new Row(ModItems.SUPER_AJA_STONE.get(), Enchantments.UNBREAKING, true));
 		List<String> wrong = new ArrayList<>();
 		for (Row row : rows) {
@@ -208,6 +222,30 @@ public final class CoreItemEnchantRules116GameTests {
 		}
 		helper.assertTrue(wrong.isEmpty(), "The anvil takes other books than 1.16's Enchantment.canEnchant: "
 				+ String.join("; ", wrong));
+		helper.succeed();
+	}
+
+	// 1.16 GlovesItem.combineInAnvil merged the right pair's enchantments that enchantment.canEnchant(left) took
+	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH)
+	public static void twoGlovesCombinedOnTheAnvilKeepKnockbackAsIn116(GameTestHelper helper) {
+		Player player = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
+		Registry<Enchantment> registry = helper.getLevel().registryAccess().registryOrThrow(Registries.ENCHANTMENT);
+		Holder<Enchantment> knockback = registry.getHolderOrThrow(Enchantments.KNOCKBACK);
+		Holder<Enchantment> glovesDamage = registry.getHolderOrThrow(ModEnchantments.GLOVES_DAMAGE);
+		for (Item item : List.of(ModItems.GLOVES.get(), ModItems.BUBBLE_GLOVES.get())) {
+			ItemStack right = new ItemStack(item);
+			right.enchant(knockback, 1);
+			right.enchant(glovesDamage, 1);
+			AnvilMenu menu = new AnvilMenu(0, player.getInventory(), ContainerLevelAccess.NULL);
+			menu.getSlot(0).set(new ItemStack(item));
+			menu.getSlot(1).set(right);
+			menu.createResult();
+			ItemStack result = menu.getSlot(2).getItem();
+			helper.assertTrue(result.is(item) && EnchantmentHelper.getItemEnchantmentLevel(knockback, result) == 1
+					&& EnchantmentHelper.getItemEnchantmentLevel(glovesDamage, result) == 1,
+					"1.16: two " + item + " combined on the anvil keep Knockback I and gloves damage I; got " + result
+							+ " " + EnchantmentHelper.getEnchantmentsForCrafting(result));
+		}
 		helper.succeed();
 	}
 }
