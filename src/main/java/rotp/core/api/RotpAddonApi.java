@@ -381,6 +381,14 @@ public final class RotpAddonApi {
 	 */
 	public static final String FEATURE_ABILITY_CONDITION_REFUSALS_V1 =
 			"ability_condition_refusals_v1";
+	/**
+	 * StandOffsetFromUser#noLerp: an add-on Stand's clients put it at a new offset from its user at once instead of gliding
+	 * there over StandOffsetFromUser#LERP_TIME ticks, as 1.16 StandEntity.doOffsetLerp false (set in the Stand's
+	 * constructor; the Scary Monsters donor's Stand). Chained on the StandOffsetFromUser the Stand's constructor builds,
+	 * which both sides run; StandOffsetFromUser#lerps reads it. The server never lerps.
+	 */
+	public static final String FEATURE_STAND_OFFSET_NO_LERP_V1 =
+			"stand_offset_no_lerp_v1";
 
 	public static final Set<String> FEATURES = Set.of(
 			FEATURE_ABILITY_RESOURCE_NAMESPACE_V1,
@@ -476,7 +484,8 @@ public final class RotpAddonApi {
 			FEATURE_STAND_ACTION_PORT_SLOT_V1,
 			FEATURE_PLAYER_ACTION_GATE_V1,
 			FEATURE_ACTION_STAND_OFFSET_HOOK_V1,
-			FEATURE_ABILITY_CONDITION_REFUSALS_V1);
+			FEATURE_ABILITY_CONDITION_REFUSALS_V1,
+			FEATURE_STAND_OFFSET_NO_LERP_V1);
 
 	private RotpAddonApi() {}
 

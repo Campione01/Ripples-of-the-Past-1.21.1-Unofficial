@@ -38,7 +38,8 @@ public class StandOffsetFromUser {
 	
 	private Vec3 prevAbsoluteOffset;
 	private int changedTimestamp;
-	
+	private boolean lerps = true;
+
 	public static StandOffsetFromUser createDefault(StandEntity standEntity) {
 		// 1.16 StandEntity.offsetDefault: behind the user's right, turned by the view yaw (StandEntity.taskOffset)
 		StandOffsetFromUser offset = new StandOffsetFromUser(standEntity, new Vec3(-0.75, standEntity.Y_OFFSET, -0.75), Rotations.HEAD);
@@ -66,7 +67,22 @@ public class StandOffsetFromUser {
 		this.grabIdleOffset = offset;
 		return this;
 	}
-	
+
+	/**
+	 * 1.16 StandEntity.doOffsetLerp false, which an add-on Stand set in its constructor (the Scary Monsters donor's): its
+	 * clients put the Stand at a new offset at once instead of gliding there over {@link #LERP_TIME} ticks. Call it on the
+	 * offset the Stand's constructor builds, so both sides have it. RotpAddonApi#FEATURE_STAND_OFFSET_NO_LERP_V1.
+	 */
+	public StandOffsetFromUser noLerp() {
+		this.lerps = false;
+		return this;
+	}
+
+	/** Whether a client glides the Stand between offsets (1.16 doOffsetLerp); see {@link #noLerp}. */
+	public boolean lerps() {
+		return lerps;
+	}
+
 	public void setOffset(Vec3 offset, Rotations rotations) {
 		setOffset(offset, rotations, true);
 	}
@@ -262,6 +278,9 @@ public class StandOffsetFromUser {
 //	}
 	
 	public float getLerpAmount(/*int tickOffset*/) {
+		if (!lerps) {
+			return 1.0F;
+		}
 		int timeDiff = (standEntity.tickCount/* + tickOffset*/) - changedTimestamp;
 		return Mth.clamp((float) timeDiff / LERP_TIME, 0, 1);
 	}

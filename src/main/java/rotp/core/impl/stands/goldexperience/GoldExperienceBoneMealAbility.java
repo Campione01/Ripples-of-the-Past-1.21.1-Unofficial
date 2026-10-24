@@ -11,6 +11,7 @@ import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.StandPower;
+import rotp.core.powersystem.standpower.StandUtil;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.entity.NoPoseStandEntityAbility;
 import rotp.core.powersystem.standpower.entity.StandEntityAbility.AutoSummonMode;
@@ -61,7 +62,23 @@ public class GoldExperienceBoneMealAbility extends NoPoseStandEntityAbility {
         if (!isValidBoneMealTarget(level, target)) {
             return ConditionCheck.NEGATIVE;
         }
+        // 1.16 StandEntityAction.checkStandTarget while the Stand is out: an entity only if canStandTargetEntity
+        StandEntity stand = StandUtil.getSummonedStand(context);
+        if (stand != null && !takesPressedTarget(stand, target)) {
+            return ConditionCheck.NEGATIVE;
+        }
         return super.checkSpecificConditions(context);
+    }
+
+    // 1.16 StandEntityAction.onClick summoned the Stand before PowerBaseImpl.checkRequirements asked checkStandTarget, so
+    // the Stand a press summons refuses the same entities
+    @Override
+    protected ConditionCheck checkStandEntityConditions(StandPower standPower, StandEntity standEntity) {
+        LivingEntity user = standPower.getUser();
+        if (user != null && !takesPressedTarget(standEntity, pressedTarget(standEntity.level(), user))) {
+            return ConditionCheck.NEGATIVE;
+        }
+        return super.checkStandEntityConditions(standPower, standEntity);
     }
 
     @Override

@@ -134,6 +134,14 @@ public final class AddonFeatureApiSurfaceSmokeTest {
 					refusals + "#" + method.getName() + " must stay public static");
 		}
 		requirePublic("rotp.core.api.power.AbilityRefusal", "refuse", ability, power, living);
+
+		check(RotpAddonApi.supportsFeature(RotpAddonApi.FEATURE_STAND_OFFSET_NO_LERP_V1),
+				"the Stand offset no-lerp switch is not advertised");
+		String standOffset = "rotp.core.powersystem.standpower.entity.StandOffsetFromUser";
+		check(find(standOffset, "noLerp").getReturnType().getName().equals(standOffset),
+				standOffset + "#noLerp must stay chainable on the offset it switches");
+		requirePublic(standOffset, "noLerp");
+		requirePublic(standOffset, "lerps");
 	}
 
 	private static void requirePublicStaticField(String owner, String name) {
