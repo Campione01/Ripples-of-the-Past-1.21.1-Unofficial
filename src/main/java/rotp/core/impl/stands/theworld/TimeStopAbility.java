@@ -642,6 +642,11 @@ public class TimeStopAbility extends StandEntityAbility implements TrainableAbil
 							phasesLength.getFloat(ActionPhase.BUTTON_CHARGE))) {
 				LivingComponentAction.getComponentForSlot(performer, actionSlot()).setAction(null, SyncType.TRACKING_AND_SELF);
 			}
+			// the user's own client may have let go of its copy, which this full charge's perform then no longer reaches;
+			// a client whose copy performed has the pose already (handleEntityEvent leaves a pose the Stand has)
+			else if (getPerformer() instanceof StandEntity stand) {
+				level().broadcastEntityEvent(stand, StandEntity.PERFORM_POSE_EVENT);
+			}
 		}
 
 		@Override

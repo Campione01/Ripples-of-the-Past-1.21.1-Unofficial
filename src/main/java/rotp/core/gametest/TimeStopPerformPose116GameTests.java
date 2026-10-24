@@ -9,8 +9,12 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 
+import javax.annotation.Nullable;
+
 import com.google.gson.JsonObject;
 import com.mojang.authlib.GameProfile;
+
+import io.netty.channel.embedded.EmbeddedChannel;
 
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.api.timestop.TimeStopLifecycleEvent;
@@ -39,6 +43,16 @@ import rotp.core.subsystems.timestop.TimeStopLearning;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.network.Connection;
+import net.minecraft.network.PacketSendListener;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.network.protocol.game.ClientboundBundlePacket;
+import net.minecraft.network.protocol.game.ClientboundEntityEventPacket;
+import net.minecraft.server.level.ChunkMap;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.phys.Vec3;
@@ -308,7 +322,10 @@ public final class TimeStopPerformPose116GameTests {
 	 * release). The user's own client lets go of its copy, and clears its slot, before the server answers: its Stand keeps
 	 * the pose of the charge as it was let go of until the same answers, so no idle shows between them. Accepted: the event
 	 * switches it to the perform pose. Refused (a cancelled start): the server's clearing of the user's Stand-power slot
-	 * returns it to the idle, with no release pose. No answer: the wait of 40 ticks ends it.
+	 * returns it to the idle, with no release pose. No answer: the wait of 40 ticks ends it. Let go of a tick before its
+	 * copy's full charge, after the server's charge fired by its length (1.16's own client fired its own hold, and its
+	 * Stand always went into the perform pose): the server's full-charge perform sends the event too, which a client
+	 * whose copy performed has no use for and which turns the own client's kept charge into the perform pose.
 	 */
 	@GameTest(template = "empty", timeoutTicks = 100, batch = GameTestBatches.TIME_STOP)
 	public static void theUsersOwnClientKeepsTheChargePoseUntilTheServerAnswersTheRelease(GameTestHelper helper) {
@@ -369,6 +386,50 @@ public final class TimeStopPerformPose116GameTests {
 					wrong.add(standId + ", refused: its user's own client drew " + describe(waiting) + " 3 ticks after the release,"
 							+ " " + describe(answered) + " once the server cleared the slot and the pose " + s.stand.getPerformPose()
 							+ " for a later event, where the other clients kept the charge until the server's answer, then the idle");
+				}
+			}
+			try (Scene s = new Scene(helper, "KeptChargeFullCharge" + standId, standId)) {
+				PoseEventWatcher watcher = new PoseEventWatcher(helper.getLevel(), s.stand);
+				watcher.track(helper);
+				try {
+					EntityActionInstance stop = s.charge();
+					int chargeTicks = (int) stop.phasesLength.getFloat(ActionPhase.BUTTON_CHARGE);
+					int performTick = s.tickUntilPerform(stop);
+					helper.assertTrue(performTick > 0 && s.stand.getPerformPose() == stop, "setup: " + standId + "'s time stop"
+							+ " held to its full charge did not perform (tick " + performTick + ") or left the pose "
+							+ s.stand.getPerformPose());
+					int sent = watcher.poseEvents;
+					// a client whose copy performed with the server's: the event leaves the pose it has
+					for (int event = 0; event < sent; event++) {
+						s.stand.handleEntityEvent(StandEntity.PERFORM_POSE_EVENT);
+					}
+					boolean leftTheCopysPose = s.stand.getPerformPose() == stop && s.stand.getPerformPoseTicks(0) == 0;
+					// the user's own client, a tick short of its copy's full charge, lets go of it; the release reaches the
+					// server after its charge fired there and changes nothing
+					UsersClientCharge copy = new UsersClientCharge(stop, s.stand, s.user).chargedFor(chargeTicks - 1);
+					copy.onButtonStopHold();
+					AbilityInput.keyRelease(STOP_KEY, s.user);
+					// that client's Stand has none of the server's pose
+					s.stand.endPerformPose();
+					s.tick();
+					StandEntity.ReleasedCharge waiting = s.stand.getReleasedChargePose();
+					for (int event = 0; event < sent; event++) {
+						s.stand.handleEntityEvent(StandEntity.PERFORM_POSE_EVENT);
+					}
+					if (sent != 1 || watcher.poseEvents != 1 || !leftTheCopysPose || !heldCharge(waiting, copy)
+							|| s.stand.getPerformPose() != copy || s.stand.getPerformPoseTicks(0) != 0
+							|| s.stand.getReleasedChargePose() != null) {
+						wrong.add(standId + ", full charge: the server's charge fired by its length (tick " + performTick + ") sent "
+								+ sent + " perform pose events (" + watcher.poseEvents + " by the end), a client whose copy performed"
+								+ (leftTheCopysPose ? " kept" : " lost") + " its pose, and its user's own client, letting go of its"
+								+ " copy a tick short of the full charge, drew " + describe(waiting) + " a tick later, then the pose "
+								+ s.stand.getPerformPose() + " from " + s.stand.getPerformPoseTicks(0) + " ticks and "
+								+ describe(s.stand.getReleasedChargePose()) + " after the events, where 1.16's own client went"
+								+ " from the charge into the perform pose (one event, the perform pose from 0 ticks, no kept charge)");
+					}
+				}
+				finally {
+					watcher.untrack();
 				}
 			}
 			try (Scene s = new Scene(helper, "KeptChargeUnanswered" + standId, standId)) {
@@ -440,6 +501,61 @@ public final class TimeStopPerformPose116GameTests {
 		@Override
 		protected boolean takesTargetsFromServer() {
 			return true;
+		}
+	}
+
+	// a client tracking the Stand: the PERFORM_POSE_EVENTs the server sends it for that Stand
+	private static final class PoseEventWatcher extends FakePlayer {
+		private final StandEntity stand;
+		int poseEvents;
+		@Nullable private ChunkMap.TrackedEntity tracked;
+
+		PoseEventWatcher(ServerLevel level, StandEntity stand) {
+			super(level, new GameProfile(UUID.randomUUID(), "pose-event-watcher"));
+			this.stand = stand;
+			this.connection = new PoseEventConnection(level, this);
+		}
+
+		void track(GameTestHelper helper) {
+			tracked = helper.getLevel().getChunkSource().chunkMap.entityMap.get(stand.getId());
+			helper.assertTrue(tracked != null, "setup: " + stand + " is not tracked");
+			tracked.seenBy.add(connection);
+		}
+
+		void untrack() {
+			if (tracked != null) {
+				tracked.seenBy.remove(connection);
+				tracked = null;
+			}
+		}
+	}
+
+	private static final class PoseEventConnection extends ServerGamePacketListenerImpl {
+		@Nullable private final PoseEventWatcher watcher;
+
+		PoseEventConnection(ServerLevel level, PoseEventWatcher watcher) {
+			super(level.getServer(), openConnection(), watcher,
+					CommonListenerCookie.createInitial(watcher.getGameProfile(), false));
+			this.watcher = watcher;
+		}
+
+		// as GameTestHelper.makeMockServerPlayerInLevel: a live channel, so channel lookups do not fail
+		private static Connection openConnection() {
+			Connection connection = new Connection(PacketFlow.SERVERBOUND);
+			new EmbeddedChannel(connection);
+			return connection;
+		}
+
+		@Override
+		public void send(Packet<?> packet, @Nullable PacketSendListener listener) {
+			if (watcher == null) return;
+			if (packet instanceof ClientboundBundlePacket bundle) {
+				bundle.subPackets().forEach(sub -> send(sub, null));
+			}
+			else if (packet instanceof ClientboundEntityEventPacket event && event.getEventId() == StandEntity.PERFORM_POSE_EVENT
+					&& event.getEntity(watcher.stand.level()) == watcher.stand) {
+				watcher.poseEvents++;
+			}
 		}
 	}
 
