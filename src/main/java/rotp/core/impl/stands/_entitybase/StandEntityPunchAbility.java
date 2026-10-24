@@ -796,15 +796,14 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 
 	/**
 	 * The target of the Stand's current action. Every action aims through the user as its 1.16 task did
-	 * (StandEntity.aimWithThisOrUser): an action that is not one of the ordinary punches or barrages (an add-on's bomb,
-	 * erase, absorption or Open Space) with the precision ray, the punches and barrages by their {@link CrosshairRule}.
+	 * (StandEntity.aimWithThisOrUser): what it keeps by its {@link CrosshairRule} while the Stand can reach it, otherwise
+	 * the precision ray (without the aim assist the crosshair).
 	 */
 	public static ActionTarget getFreshPunchTarget(StandEntity stand, ActionTarget preferredTarget) {
 		EntityActionInstance action = LivingComponentAction.getCurEntityAction(stand);
-		boolean precisionAim = action != null && !isPunchOrBarrage(action.ability);
 		return getFreshPunchTarget(stand, preferredTarget,
 				action == null || shouldRetainPunchTarget(stand, action.ability),
-				action == null ? CrosshairRule.BLOCK_OR_ENTITY : crosshairRule(action.ability), precisionAim, false);
+				action == null ? CrosshairRule.BLOCK_OR_ENTITY : crosshairRule(action.ability), false);
 	}
 
 	/**
@@ -904,29 +903,35 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	}
 
 	/**
-	 * @param precisionAim the user's own aim is 1.16's precision ray (StandEntity.aimWithThisOrUser), walls still
-	 *        blocking it, while the user has the aim assist ({@link #aimAssist}); otherwise {@link #userAimTarget}
+	 * @param precisionAim the action is not one of the ordinary punches or barrages: it strikes any entity it kept
+	 *        ({@link CrosshairRule#NONE}), otherwise a living one or a block ({@link CrosshairRule#BLOCK_OR_ENTITY})
 	 */
 	public static ActionTarget getFreshPunchTarget(
 			StandEntity stand, ActionTarget preferredTarget, boolean retainPreferredTarget, boolean precisionAim) {
 		return getFreshPunchTarget(stand, preferredTarget, retainPreferredTarget,
-				precisionAim ? CrosshairRule.NONE : CrosshairRule.BLOCK_OR_ENTITY, precisionAim, false);
+				precisionAim ? CrosshairRule.NONE : CrosshairRule.BLOCK_OR_ENTITY, false);
 	}
 
 	/**
-	 * A punch's or heavy punch's target, what it takes from the crosshair given by its {@link CrosshairRule}. The target
-	 * it kept is struck while in reach, a dying one too as 1.16's task kept it ({@link #keptInReach}).
+	 * A punch's or heavy punch's target: the target it kept by its {@link CrosshairRule}, struck while in reach, a dying one
+	 * too as 1.16's task kept it ({@link #keptInReach}); otherwise the strike aims again.
 	 */
 	public static ActionTarget getFreshPunchTarget(
 			StandEntity stand, ActionTarget preferredTarget, boolean retainPreferredTarget, CrosshairRule rule) {
-		return getFreshPunchTarget(stand, preferredTarget, retainPreferredTarget, rule, false, true);
+		return getFreshPunchTarget(stand, preferredTarget, retainPreferredTarget, rule, true);
 	}
 
+	/*
+	 * 1.16 StandEntity.punch: aimWithThisOrUser struck the task target in reach and otherwise aimed again with the
+	 * precision ray from the user's eyes, or from the Stand's under manual control, whatever the attack. The vanilla pick a
+	 * client sent was only ever the target a press kept, so a strike takes no synced aim of the user or of a manually
+	 * controlled Stand: with the aim assist the precision ray, without it the strict crosshair. A Stand that aims without
+	 * its user on its own puts its own target into its aim, as 1.16 gave such a task its target.
+	 */
 	private static ActionTarget getFreshPunchTarget(StandEntity stand, ActionTarget preferredTarget,
-			boolean retainPreferredTarget, CrosshairRule rule, boolean precisionAim, boolean keptByTask) {
+			boolean retainPreferredTarget, CrosshairRule rule, boolean keptByTask) {
 		Level level = stand.level();
 		LivingEntity user = stand.getUser();
-		boolean assist = aimAssist(user);
 		ActionTarget target = !retainPreferredTarget ? ActionTarget.EMPTY
 				: rule.keeps(keptByTask ? keptInReach(stand, preferredTarget) : validatePunchTarget(stand, preferredTarget));
 		if (!target.isEmpty(level)) {
@@ -934,30 +939,15 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		}
 
 		boolean userAims = user != null && !stand.aimsWithoutUser();
-		// 1.16 EntityStandType.clientHitResult sent what the user's crosshair met. The Stand's synced aim speaks first only
-		// under manual control; without the assist the server takes what the crosshair meets, whatever a client sent. With
-		// the assist an action that is not a punch strikes as 1.16's StandEntity.punch aimed it, aimWithThisOrUser with the
-		// precision ray and its priority, never a vanilla pick.
-		boolean precisionRayOnly = userAims && precisionAim && assist;
-		var standAim = !userAims ? LivingComponentAction.getAim(stand) : null;
-		if (standAim != null) {
-			target = rule.takesFromAim(validatePunchTarget(stand, standAim.getTarget()), assist);
+		var ownAim = !userAims && !stand.isManuallyControlled() ? LivingComponentAction.getAim(stand) : null;
+		if (ownAim != null) {
+			target = rule.takesFromAim(validatePunchTarget(stand, ownAim.getTarget()), aimAssist(user));
 			if (!target.isEmpty(level) && !pickGivesWayAtStrike(stand, target)) {
 				return throughWallsTarget(stand, target, rule, true);
 			}
 		}
-
-		var userAim = userAims && !precisionRayOnly ? LivingComponentAction.getAim(user) : null;
-		if (userAim != null) {
-			target = rule.takesFromAim(validatePunchTarget(stand, userAim.getTarget()), assist);
-			if (!target.isEmpty(level) && !pickGivesWayAtStrike(stand, target)) {
-				return throughWallsTarget(stand, target, rule, true);
-			}
-		}
-
-		// the synced aims are short (the idle Stand aim reaches 2.5 blocks from the eyes, the vanilla pick 3)
 		return aimWithThisOrUser(stand, userAims ? user : null, 1.0F,
-				entity -> entity != stand && canStandHit(stand, entity), rule, true);
+				entity -> entity != stand && canStandHit(stand, entity), CrosshairRule.NONE, true);
 	}
 
 	/**
@@ -1012,16 +1002,16 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	/**
 	 * Server: what 1.16's StandEntity.aimWithThisOrUser aimed a strike at, which the Stand turned toward before the hit
 	 * ({@link StandEntity#turnTowardsStrike}): the target the strike takes or, with none in the Stand's reach, what the
-	 * aim met beyond it (the user's aim, else the Stand's own, as {@link #aimWithThisOrUser} picks it), which the strike
-	 * then misses.
+	 * aim met beyond it (the user's precision ray, else the Stand's own, as a strike aims again; without the aim assist
+	 * the crosshair), which the strike then misses. Every attack aimed so, whatever its {@code rule}.
 	 */
 	public static ActionTarget strikeAim(StandEntity stand, ActionTarget struck, CrosshairRule rule, Predicate<Entity> canTarget) {
 		if (!struck.isEmpty(stand.level())) {
 			return struck;
 		}
 		LivingEntity user = stand.getUser();
-		return pickWithThisOrUser(stand, user != null && !stand.aimsWithoutUser() ? user : null, 1.0F, canTarget, rule,
-				StandSkillWalls.wallsHideEntities(stand));
+		return pickWithThisOrUser(stand, user != null && !stand.aimsWithoutUser() ? user : null, 1.0F, canTarget,
+				CrosshairRule.NONE, StandSkillWalls.wallsHideEntities(stand));
 	}
 
 	public static ActionTarget strikeAim(StandEntity stand, ActionTarget struck, CrosshairRule rule) {

@@ -46,6 +46,7 @@ import rotp.core.util.functions.CollisionHelper;
 import rotp.core.util.functions.DamageUtil;
 import rotp.core.util.functions.JojoModUtil;
 
+import net.minecraft.commands.arguments.EntityAnchorArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.AfterBatch;
 import net.minecraft.gametest.framework.GameTest;
@@ -393,9 +394,10 @@ public final class CoreNonlivingHeavyImpactGameTests {
                         + " physics=" + secondary.noPhysics + " riding=" + secondary.isPassenger());
                 stand.setFinisherMeter(0.75F);
             } else stand.setFinisherMeter(0);
-            LivingComponentAction.getComponent(stand).entityAim.setTarget(new ActionTarget(primary));
             // the crosshair a client sends: 1.16 kept no pressed entity that is not living (StandEntityAction.checkStandTarget),
-            // and the strike aimed again through the user's aim, so only that aim brings the heavy punch to the boat
+            // and the strike aimed again with the precision ray from the user's eyes, so the user looks at the boat
+            if (!kind.living()) user.lookAt(EntityAnchorArgument.Anchor.EYES, primary.getBoundingBox().getCenter());
+            LivingComponentAction.getComponent(stand).entityAim.setTarget(new ActionTarget(primary));
             LivingComponentAction.getComponent(user).entityAim.setTarget(new ActionTarget(primary));
             Ability base = power.getAbility("heavy_punch"); suite.premise(base != null, "registered heavy ability");
             var binding = power.getMoveset().controlScheme.defaultGroup.separateBinds.get("heavy_punch");

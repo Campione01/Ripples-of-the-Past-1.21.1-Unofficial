@@ -75,8 +75,8 @@ public final class CrosshairBlockOutline116GameTests {
 
 	/*
 	 * The default punch and barrage aim at the strike when no target is kept (1.16 StandEntity.punch: aimWithThisOrUser,
-	 * whose precision ray met blocks by their outline; the default barrage aimed so for each hit). With the aim assist the
-	 * port's punch asks the server's vanilla pick first (crosshairPick) and its barrage the precision ray, without it both
+	 * whose precision ray met blocks by their outline; the default barrage aimed so for each hit). With the aim assist both
+	 * aim with the precision ray, and the server's vanilla pick (crosshairPick) takes the same block; without it both
 	 * take the strict crosshair of D-core-92. A wall torch with stone behind it, and grass with stone under it, are both
 	 * within the Stand's reach: the strike takes the torch and the grass, not the stone behind.
 	 */

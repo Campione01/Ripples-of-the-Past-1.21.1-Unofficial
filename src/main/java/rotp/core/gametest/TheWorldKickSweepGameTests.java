@@ -35,6 +35,7 @@ import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.HitResultUtil;
 
+import net.minecraft.commands.arguments.EntityAnchorArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.AfterBatch;
 import net.minecraft.gametest.framework.GameTest;
@@ -316,9 +317,10 @@ public final class TheWorldKickSweepGameTests {
                 unlock(caster, "grab_throw");
                 caster.stand.getData(ModDataAttachmentTypes.LIVING_GRAB.get()).setGrabTarget((LivingEntity) primary);
             }
-            LivingComponentAction.getComponent(caster.stand).entityAim.setTarget(new ActionTarget(primary));
             // the crosshair a client sends: 1.16 kept no pressed entity that is not living (StandEntityAction.checkStandTarget),
-            // and the strike aimed again through the user's aim, so only that aim brings the Kick to a boat
+            // and the strike aimed again with the precision ray from the user's eyes, so the user looks at the boat
+            if (spec.kind == Kind.BOAT) caster.user.lookAt(EntityAnchorArgument.Anchor.EYES, primary.getBoundingBox().getCenter());
+            LivingComponentAction.getComponent(caster.stand).entityAim.setTarget(new ActionTarget(primary));
             LivingComponentAction.getComponent(caster.user).entityAim.setTarget(new ActionTarget(primary));
             primaryHealthBefore = health(primary, primaryActor); secondaryHealthBefore = health(secondary, secondaryActor);
             action = press(caster, "heavy_punch", InputMethod.CLICK, ATTACK);
