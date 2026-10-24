@@ -1,8 +1,5 @@
 package rotp.core.gametest;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -191,27 +188,6 @@ public final class HamonOrganismInfusion116GameTests {
 			String refusal = scene.refusal(ORGANISM);
 			helper.assertTrue("living_plant".equals(refusal), "Organism Infusion pressed at a light block answered " + refusal
 					+ "; the port's refusal message living_plant is kept");
-		}
-		helper.succeed();
-	}
-
-	/*
-	 * The HUD and the client's own check of the press read the aim the client sends, as 1.16's ran the override on the
-	 * client's mouse target: the user's copy on its own client never gets that aim back from the server (only a Stand's is
-	 * sent), so the ability reads ClientsideAim.playerAim there. Client-only code, pinned from the class file.
-	 */
-	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH + "client_aim")
-	public static void theClientChecksTheAimItSends(GameTestHelper helper) {
-		String file = HamonOrganismInfusionAbility.class.getName().replace('.', '/') + ".class";
-		try (InputStream in = HamonOrganismInfusion116GameTests.class.getClassLoader().getResourceAsStream(file)) {
-			helper.assertTrue(in != null, "Missing class file " + file);
-			String pool = new String(in.readAllBytes(), StandardCharsets.ISO_8859_1);
-			helper.assertTrue(pool.contains("rotp/core/client/input/ClientsideAim") && pool.contains("playerAim"),
-					"Organism Infusion's own client does not read the aim it sends (ClientsideAim.playerAim), so its HUD and its"
-							+ " check of a press see no target");
-		}
-		catch (IOException e) {
-			helper.fail("Cannot read " + file + ": " + e);
 		}
 		helper.succeed();
 	}

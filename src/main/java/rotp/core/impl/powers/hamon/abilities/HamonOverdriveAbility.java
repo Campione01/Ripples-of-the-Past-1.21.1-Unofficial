@@ -2,8 +2,6 @@ package rotp.core.impl.powers.hamon.abilities;
 
 import javax.annotation.Nullable;
 
-import rotp.core.client.ClientProxy;
-import rotp.core.client.input.ClientsideAim;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.AbilityId;
@@ -113,13 +111,7 @@ public class HamonOverdriveAbility extends HamonActionRuntimeAbility {
 	}
 
 	static ActionTarget getAimTarget(LivingEntity user, Level level) {
-		// The user's aim only goes from its client to the server, so its own client reads the aim it sends.
-		if (level.isClientSide() && user == ClientProxy.getClientPlayer()) {
-			return ClientsideAim.playerAim.getTarget().resolveEntityId(level);
-		}
-		var aim = LivingComponentAction.getAim(user);
-		ActionTarget target = aim != null ? aim.getTarget() : ActionTarget.EMPTY;
-		return target != null ? target.resolveEntityId(level) : ActionTarget.EMPTY;
+		return LivingComponentAction.getAimTarget(user);
 	}
 
 	public static class OverdriveInstance extends HamonActionRuntimeAbility.HamonRuntimeActionInstance {

@@ -94,8 +94,7 @@ public class HamonLifeMagnetismAbility extends HamonActionRuntimeAbility {
 	}
 
 	private static ActionTarget getAimTarget(LivingEntity user) {
-		var aim = LivingComponentAction.getAim(user);
-		return aim != null ? aim.getTarget() : ActionTarget.EMPTY;
+		return LivingComponentAction.getAimTarget(user);
 	}
 
 	public static class LifeMagnetismInstance extends HamonActionRuntimeAbility.HamonRuntimeActionInstance {

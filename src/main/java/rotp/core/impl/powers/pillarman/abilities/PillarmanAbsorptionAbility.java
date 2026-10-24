@@ -63,10 +63,8 @@ public class PillarmanAbsorptionAbility extends PillarmanActionAbility {
 		}
 		if (findAbsorptionTarget(user, level) == null) {
 			// 1.16 Action.checkRangeAndTarget; a running hold only pauses (actionTick)
-			var aim = LivingComponentAction.getAim(user);
-			return aim != null && ActionTargetRange.isEntityTargetOutOfRange(user,
-					aim.getTarget().resolveEntityId(level), MAX_RANGE_SQ_ENTITY_TARGET)
-					? ConditionCheck.createNegative("target_too_far") : ConditionCheck.NEGATIVE;
+			return ActionTargetRange.isEntityTargetOutOfRange(user, LivingComponentAction.getAimTarget(user),
+					MAX_RANGE_SQ_ENTITY_TARGET) ? ConditionCheck.createNegative("target_too_far") : ConditionCheck.NEGATIVE;
 		}
 		return ConditionCheck.POSITIVE;
 	}
@@ -129,11 +127,7 @@ public class PillarmanAbsorptionAbility extends PillarmanActionAbility {
 	}
 
 	private static LivingEntity findAbsorptionTarget(LivingEntity user, Level level) {
-		var aim = LivingComponentAction.getAim(user);
-		if (aim == null) {
-			return null;
-		}
-		ActionTarget target = aim.getTarget().resolveEntityId(level);
+		ActionTarget target = LivingComponentAction.getAimTarget(user);
 		if (target.getType() == TargetType.ENTITY && target.getMainEntity() instanceof LivingEntity livingTarget
 				&& livingTarget != user && livingTarget.isAlive()
 				&& ActionTargetRange.isEntityWithinRange(user, livingTarget, MAX_RANGE_SQ_ENTITY_TARGET)) {

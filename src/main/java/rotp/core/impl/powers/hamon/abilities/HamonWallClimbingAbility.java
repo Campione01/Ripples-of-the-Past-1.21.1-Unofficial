@@ -47,8 +47,7 @@ public class HamonWallClimbingAbility extends HamonActionRuntimeAbility {
 	}
 
 	private static ActionTarget getAimTarget(LivingEntity user) {
-		var aim = LivingComponentAction.getAim(user);
-		return aim != null ? aim.getTarget() : ActionTarget.EMPTY;
+		return LivingComponentAction.getAimTarget(user);
 	}
 
 	private static boolean canStartWallClimbing(LivingEntity user, ActionTarget target) {

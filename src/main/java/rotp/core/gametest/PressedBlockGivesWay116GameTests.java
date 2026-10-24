@@ -14,6 +14,7 @@ import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
+import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility.StandEntityBarrage;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility.StandEntityHeavyPunch;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility.StandEntityPunch;
 import rotp.core.impl.stands.crazydiamond.CrazyDAnchorMakeAbility;
@@ -493,21 +494,9 @@ public final class PressedBlockGivesWay116GameTests {
 	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH + "idle_offset")
 	public static void punchPressedAtGrassWithTheStandAtItsIdleOffsetKeepsNothingAsIn116(GameTestHelper helper) {
 		try (Scene scene = new Scene(helper, "star_platinum", 0)) {
-			scene.stand.setCanFollowUser(true);
-			scene.stand.updatePosition(scene.user);
-			Vec3 offset = scene.stand.position().subtract(scene.user.position());
-			helper.assertTrue(scene.stand.isFollowingUser() && Math.abs(offset.x) > 0.5D
-					&& Math.abs(scene.stand.getYRot() - scene.user.getYRot()) < 1.0E-3F, "Fixture: the Stand is not at its idle"
-							+ " offset beside its user, looking the same way: offset " + offset);
+			scene.standAtItsIdleOffset();
 			BlockPos grass = scene.tallGrassAhead();
-			Cow cow = scene.cow(2.0D, false);
-			Vec3 standEyes = scene.stand.getEyePosition();
-			Vec3 standRayEnd = standEyes.add(scene.stand.getLookAngle().scale(
-					scene.stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE)));
-			Vec3 userEyes = scene.user.getEyePosition();
-			helper.assertTrue(cow.getBoundingBox().clip(standEyes, standRayEnd).isEmpty()
-					&& cow.getBoundingBox().clip(userEyes, userEyes.add(scene.user.getLookAngle().scale(5.0D))).isPresent(),
-					"Fixture: the cow is not on the user's crosshair line beside the Stand's ray (offset " + offset + ")");
+			Cow cow = scene.cowBesideTheStandsRay(2.0D);
 			for (boolean assist : new boolean[] { true, false }) {
 				scene.aimAssist(assist);
 				scene.pressAt(new ActionTarget(grass, Direction.NORTH));
@@ -516,6 +505,144 @@ public final class PressedBlockGivesWay116GameTests {
 				helper.assertTrue(assist ? pressed.getType() == TargetType.EMPTY : pressed.getEntity() == cow, "The punch pressed"
 						+ " at tall grass with the Stand at its idle offset took " + describe(pressed) + scene.mode() + "; 1.16's"
 						+ " ray from the Stand passed beside the cow and kept nothing, the strict crosshair takes the cow");
+				scene.stop();
+			}
+		}
+		helper.succeed();
+	}
+
+	/*
+	 * The scene above, struck once the Stand has stepped to its attack's place in front of its user: a press that kept
+	 * nothing left 1.16's strike to aim again (StandEntity.punch, aimWithThisOrUser), with the precision ray from the
+	 * user's eyes, entities first, which met the cow behind the grass; the user's vanilla pick of the grass, which the
+	 * press let give way, was never a target. So the punch, the heavy punch, the default barrage and the barrage that
+	 * keeps its target (the port's setting, which aims as the punch while it keeps none) strike the cow. Without the aim
+	 * assist the strict crosshair took the cow at the press.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH + "idle_offset_strike")
+	public static void attacksPressedAtGrassWithTheStandAtItsIdleOffsetStrikeTheCowAsIn116(GameTestHelper helper) {
+		try (Scene scene = new Scene(helper, "star_platinum", 0)) {
+			BlockPos grass = scene.tallGrassAhead();
+			scene.standAtItsIdleOffset();
+			Cow cow = scene.cowBesideTheStandsRay(2.0D);
+			for (boolean assist : new boolean[] { true, false }) {
+				scene.aimAssist(assist);
+				for (String attack : new String[] { "punch", "heavy_punch", "barrage", "kept_target_barrage" }) {
+					boolean keepsTarget = attack.equals("kept_target_barrage");
+					scene.attackTargetLock(keepsTarget);
+					scene.standAtItsIdleOffset();
+					scene.pressAt(new ActionTarget(grass, Direction.NORTH));
+					EntityActionInstance action = scene.start(keepsTarget ? "barrage" : attack);
+					ActionTarget pressed = action.getTaskTarget(scene.level);
+					helper.assertTrue(!assist || pressed.getType() == TargetType.EMPTY, "Fixture: the " + attack + " pressed at"
+							+ " tall grass with the Stand at its idle offset kept " + describe(pressed) + scene.mode());
+					scene.stand.updatePosition(scene.user);
+					scene.assertInStandReach(cow);
+					ActionTarget struck = scene.strike(action);
+					helper.assertTrue(struck.getEntity() == cow, "1.16's " + attack + " pressed at tall grass with the Stand at its"
+							+ " idle offset struck the cow behind the grass, which the precision ray from the user's eyes met; the"
+							+ " port's struck " + describe(struck) + scene.mode() + ", the grass at " + grass);
+					scene.stop();
+				}
+			}
+			scene.attackTargetLock(false);
+		}
+		helper.succeed();
+	}
+
+	/*
+	 * Tall grass on the crosshair line and a cow beside the line, inside Star Platinum's precision boxes: the Stand's
+	 * collision ray and the vanilla pick pass beside the cow, so the press keeps nothing, and 1.16's strike aimed again
+	 * with the precision ray, which met the cow before the grass. Without the aim assist the strict crosshair keeps the
+	 * grass and the punch strikes it (D-core-92: only what the crosshair meets).
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH + "precision_strike")
+	public static void punchPressedAtGrassStrikesTheCowInThePrecisionBoxesAsIn116(GameTestHelper helper) {
+		try (Scene scene = new Scene(helper, "star_platinum", 0)) {
+			BlockPos grass = scene.tallGrassAhead();
+			Cow cow = scene.cow(scene.user.getEyePosition().add(1.0D, 0.0D, 2.0D), false);
+			Vec3 userEyes = scene.user.getEyePosition();
+			helper.assertTrue(cow.getBoundingBox().clip(userEyes, userEyes.add(scene.user.getLookAngle().scale(5.0D))).isEmpty()
+					&& StandEntityPunchAbility.userPrecisionRayTarget(scene.stand, scene.user).getEntity() == cow,
+					"Fixture: the cow is on the crosshair line or outside the precision boxes");
+			scene.assertInStandReach(cow);
+			for (boolean assist : new boolean[] { true, false }) {
+				scene.aimAssist(assist);
+				scene.pressAt(new ActionTarget(grass, Direction.NORTH));
+				EntityActionInstance punch = scene.start("punch");
+				ActionTarget pressed = punch.getTaskTarget(scene.level);
+				helper.assertTrue(assist ? pressed.getType() == TargetType.EMPTY : isBlock(pressed, grass), "Fixture: the punch"
+						+ " pressed at tall grass with a cow beside the crosshair kept " + describe(pressed) + scene.mode());
+				ActionTarget struck = scene.strike(punch);
+				helper.assertTrue(assist ? struck.getEntity() == cow : isBlock(struck, grass), "The punch pressed at tall grass"
+						+ " with a cow in the precision boxes beside the crosshair struck " + describe(struck) + scene.mode()
+						+ "; 1.16's strike aimed again with the precision ray and met the cow, the strict crosshair keeps the"
+						+ " grass at " + grass);
+				scene.stop();
+			}
+		}
+		helper.succeed();
+	}
+
+	/*
+	 * A punch pressed at nothing (the user looking up) whose user turns to tall grass with a cow behind it before the
+	 * strike: 1.16's strike aimed again with the precision ray from the user's eyes and struck the cow; the vanilla pick
+	 * of the grass, which a press would have let give way, is no target of the strike either. Without the aim assist the
+	 * strict crosshair, which the press takes in the grass's place, meets the cow too.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH + "turned_strike")
+	public static void punchTurnedToGrassAfterAnEmptyPressStrikesTheCowBehindIt(GameTestHelper helper) {
+		try (Scene scene = new Scene(helper, "star_platinum", 0)) {
+			BlockPos grass = scene.tallGrassAhead();
+			Cow cow = scene.cow(2.0D, false);
+			scene.assertInStandReach(cow);
+			for (boolean assist : new boolean[] { true, false }) {
+				scene.aimAssist(assist);
+				scene.user.setXRot(-90.0F);
+				scene.pressAt(ActionTarget.EMPTY);
+				EntityActionInstance punch = scene.start("punch");
+				ActionTarget pressed = punch.getTaskTarget(scene.level);
+				helper.assertTrue(pressed.getType() == TargetType.EMPTY, "Fixture: the punch pressed looking up kept "
+						+ describe(pressed) + scene.mode());
+				scene.user.setXRot(0.0F);
+				scene.pressAt(new ActionTarget(grass, Direction.NORTH));
+				ActionTarget struck = scene.strike(punch);
+				helper.assertTrue(struck.getEntity() == cow, "The punch pressed at nothing whose user turned to tall grass with a"
+						+ " cow behind it struck " + describe(struck) + scene.mode() + "; 1.16's strike aimed again from the"
+						+ " user's eyes and met the cow, the grass at " + grass);
+				scene.stop();
+			}
+		}
+		helper.succeed();
+	}
+
+	/*
+	 * The owner's wall rule (D-core-89) on the strike of the idle offset scene: tall grass, a stone wall right behind it
+	 * and a cow behind the wall on the user's crosshair line, in the Stand's reach once it has stepped forward. The punch strikes the grass, which
+	 * the press kept (the strict crosshair) or the precision ray met past the hidden cow (the aim assist).
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH + "idle_offset_wall")
+	public static void punchPressedAtGrassBeforeAWallWithTheStandAtItsIdleOffsetStrikesTheGrass(GameTestHelper helper) {
+		try (Scene scene = new Scene(helper, "star_platinum", 0)) {
+			BlockPos grass = scene.tallGrassAhead();
+			scene.wallBehind(grass);
+			scene.standAtItsIdleOffset();
+			Cow cow = scene.cowBesideTheStandsRay(3.0D);
+			for (boolean assist : new boolean[] { true, false }) {
+				scene.aimAssist(assist);
+				scene.standAtItsIdleOffset();
+				scene.pressAt(new ActionTarget(grass, Direction.NORTH));
+				EntityActionInstance punch = scene.start("punch");
+				ActionTarget pressed = punch.getTaskTarget(scene.level);
+				helper.assertTrue(assist ? pressed.getType() == TargetType.EMPTY : isBlock(pressed, grass), "Fixture: the punch"
+						+ " pressed at tall grass before a wall with the Stand at its idle offset kept " + describe(pressed)
+						+ scene.mode());
+				scene.stand.updatePosition(scene.user);
+				scene.assertInStandReach(cow);
+				ActionTarget struck = scene.strike(punch);
+				helper.assertTrue(isBlock(struck, grass), "The punch pressed at tall grass before a stone wall with a cow behind"
+						+ " it struck " + describe(struck) + scene.mode() + "; walls hide entities (D-core-89), so it strikes the"
+						+ " grass at " + grass);
 				scene.stop();
 			}
 		}
@@ -723,11 +850,43 @@ public final class PressedBlockGivesWay116GameTests {
 			LivingComponentAction.getComponent(stand).setAction(null, user, SyncType.NO_SYNC);
 		}
 
-		// the target the punch strikes now (StandEntityPunch.getPunchTarget, which 1.16's StandEntity.punch aimed)
-		ActionTarget strike(EntityActionInstance punch) {
-			helper.assertTrue(punch instanceof StandEntityPunch, "Fixture: not a punch: " + punch);
-			Object struck = invoke(method(helper, StandEntityPunch.class, "getPunchTarget", StandEntity.class), punch, stand);
+		// the target the attack strikes now (its getPunchTarget, which 1.16's StandEntity.punch aimed)
+		ActionTarget strike(EntityActionInstance attack) {
+			Class<?> owner = attack instanceof StandEntityPunch ? StandEntityPunch.class
+					: attack instanceof StandEntityHeavyPunch ? StandEntityHeavyPunch.class
+					: attack instanceof StandEntityBarrage ? StandEntityBarrage.class : null;
+			helper.assertTrue(owner != null, "Fixture: not a punch, heavy punch or barrage: " + attack);
+			Object struck = invoke(method(helper, owner, "getPunchTarget", StandEntity.class), attack, stand);
 			return struck instanceof ActionTarget target ? target : ActionTarget.EMPTY;
+		}
+
+		// the user's "keep attack target" setting (the barrage keeps what it was pressed at)
+		void attackTargetLock(boolean on) {
+			user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get()).standAttackTargetLock = on;
+		}
+
+		// the Stand where it idles beside its user (its own offset, its user's rotation)
+		void standAtItsIdleOffset() {
+			stand.setCanFollowUser(true);
+			stand.updatePosition(user);
+			Vec3 offset = stand.position().subtract(user.position());
+			helper.assertTrue(stand.isFollowingUser() && Math.abs(offset.x) > 0.5D
+					&& Math.abs(stand.getYRot() - user.getYRot()) < 1.0E-3F, "Fixture: the Stand is not at its idle offset beside"
+							+ " its user, looking the same way: offset " + offset);
+		}
+
+		// a cow on the user's crosshair line z blocks south of the eyes, beside the ray of the Stand at its idle offset
+		Cow cowBesideTheStandsRay(double z) {
+			Cow cow = cow(z, false);
+			Vec3 standEyes = stand.getEyePosition();
+			Vec3 standRayEnd = standEyes.add(stand.getLookAngle().scale(
+					stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE)));
+			Vec3 userEyes = user.getEyePosition();
+			helper.assertTrue(cow.getBoundingBox().clip(standEyes, standRayEnd).isEmpty()
+					&& cow.getBoundingBox().clip(userEyes, userEyes.add(user.getLookAngle().scale(5.0D))).isPresent(),
+					"Fixture: the cow is not on the user's crosshair line beside the Stand's ray (offset "
+							+ stand.position().subtract(user.position()) + ")");
+			return cow;
 		}
 
 		void assertInStandReach(Entity entity) {
@@ -811,16 +970,21 @@ public final class PressedBlockGivesWay116GameTests {
 		// a stone wall right behind the grass (three blocks high) and a cow behind it on the crosshair line, which the
 		// Stand's ray would take if walls hid no entity
 		Cow cowBehindAWall(BlockPos grass) {
-			BlockPos wall = grass.south();
-			for (BlockPos stone : new BlockPos[] { wall.below(), wall, wall.above() }) {
-				block(stone, Blocks.STONE.defaultBlockState(), Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
-			}
+			wallBehind(grass);
 			Cow cow = cow(3.0D, false);
 			ActionTarget unwalled = StandEntityAbility.pastBlockWithoutCollision(user, new ActionTarget(grass, Direction.NORTH),
 					false);
 			helper.assertTrue(unwalled.getEntity() == cow, "Fixture: with walls hiding nothing the Stand's ray past the grass"
 					+ " does not meet the cow behind the wall: " + describe(unwalled));
 			return cow;
+		}
+
+		// a stone wall right behind the grass, three blocks high
+		void wallBehind(BlockPos grass) {
+			BlockPos wall = grass.south();
+			for (BlockPos stone : new BlockPos[] { wall.below(), wall, wall.above() }) {
+				block(stone, Blocks.STONE.defaultBlockState(), Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
+			}
 		}
 
 		// what the slot resolves to, its condition checked, as the server does on a press (Power.updateAvailableMoves,
