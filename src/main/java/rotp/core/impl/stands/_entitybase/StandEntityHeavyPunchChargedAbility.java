@@ -233,7 +233,8 @@ public class StandEntityHeavyPunchChargedAbility extends StandEntityAbility {
 			}
 		}
 
-		// the synced Stand aim in the Stand's reach, else what the user looks at; without the aim assist only the latter;
+		// the synced Stand aim in the Stand's reach, else it aims again as the heavy punch does (userAimTarget); without the
+		// aim assist only the latter;
 		// a Stand that aims without its user (StandEntity.aimsWithoutUser) only its own aim. As the heavy punch it is
 		// modelled on (1.16 StandEntityHeavyAttack.standKeepsTarget), with the aim assist it takes no block from either aim
 		// but what the precision ray gives. The Stand still lunges from here: for an attack marked through walls an entity
@@ -313,7 +314,10 @@ public class StandEntityHeavyPunchChargedAbility extends StandEntityAbility {
 	}
 
 	/**
-	 * What the charged heavy punch takes from its user's aim, by the heavy punch's {@link CrosshairRule#ENTITY}.
+	 * What the charged heavy punch aims at again when it took nothing it can reach from the aims, by the rule of the heavy
+	 * punch it is modelled on (StandEntityPunchAbility.getFreshPunchTarget, 1.16 StandEntity.punch's aimWithThisOrUser):
+	 * with the aim assist the precision ray from the user's eyes (the Stand's own when that meets nothing), without it the
+	 * strict crosshair, never a vanilla pick.
 	 * @param lungeStart at the start of its lunge, for an attack marked through walls, an entity the aim meets behind a
 	 *        wall out of the Stand's reach leaves no target rather than the wall, so the Stand lunges and aims again at
 	 *        the end; then the wall is struck only when nothing the Stand can reach is behind it
@@ -325,7 +329,7 @@ public class StandEntityHeavyPunchChargedAbility extends StandEntityAbility {
 		}
 		return StandEntityPunchAbility.aimWithThisOrUser(stand, user, 1.0F,
 				entity -> ability.canTargetEntityForAiming(stand, entity) && StandEntityPunchAbility.canStandHit(stand, entity),
-				CrosshairRule.ENTITY, !lungeStart);
+				CrosshairRule.NONE, !lungeStart);
 	}
 
 	@Override

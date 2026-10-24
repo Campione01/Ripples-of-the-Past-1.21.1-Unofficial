@@ -302,6 +302,120 @@ public final class TimeStopPerformPose116GameTests {
 		helper.succeed();
 	}
 
+	/*
+	 * The other clients keep their copy of the charge in its slot until the server's PERFORM_POSE_EVENT or its clearing of
+	 * the slot, so their Stand goes from the charge pose straight into the release pose (or back to its idle for a refused
+	 * release). The user's own client lets go of its copy, and clears its slot, before the server answers: its Stand keeps
+	 * the pose of the charge as it was let go of until the same answers, so no idle shows between them. Accepted: the event
+	 * switches it to the perform pose. Refused (a cancelled start): the server's clearing of the user's Stand-power slot
+	 * returns it to the idle, with no release pose. No answer: the wait of 40 ticks ends it.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100, batch = GameTestBatches.TIME_STOP)
+	public static void theUsersOwnClientKeepsTheChargePoseUntilTheServerAnswersTheRelease(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		for (String standId : List.of("star_platinum", "the_world")) {
+			try (Scene s = new Scene(helper, "KeptChargeAccepted" + standId, standId)) {
+				EntityActionInstance stop = s.charge();
+				for (int tick = 0; tick < 5; tick++) {
+					s.tick();
+				}
+				UsersClientCharge copy = new UsersClientCharge(stop, s.stand, s.user).chargedFor(5);
+				copy.onButtonStopHold();
+				StandEntity.ReleasedCharge atRelease = s.stand.getReleasedChargePose();
+				AbilityInput.keyRelease(STOP_KEY, s.user);
+				helper.assertTrue(s.stopTicks() > 0, "setup: " + standId + "'s early release started no stop");
+				// that client's Stand has none of the server's pose
+				s.stand.endPerformPose();
+				s.tick();
+				StandEntity.ReleasedCharge waiting = s.stand.getReleasedChargePose();
+				s.stand.handleEntityEvent(StandEntity.PERFORM_POSE_EVENT);
+				if (!heldCharge(atRelease, copy) || waiting != atRelease || s.stand.getPerformPose() != copy
+						|| s.stand.getReleasedChargePose() != null) {
+					wrong.add(standId + ", accepted: its user's own client let go of the charge (5 ticks) and drew "
+							+ describe(atRelease) + " at the release, " + describe(waiting) + " a tick later, then the pose "
+							+ s.stand.getPerformPose() + " and the kept charge " + describe(s.stand.getReleasedChargePose())
+							+ " after the server's event, where the other clients went from the charge straight to the release pose");
+				}
+			}
+			try (Scene s = new Scene(helper, "KeptChargeRefused" + standId, standId)) {
+				EntityActionInstance stop = s.charge();
+				for (int tick = 0; tick < 5; tick++) {
+					s.tick();
+				}
+				Consumer<TimeStopLifecycleEvent.PreStart> deny = event -> {
+					if (event.getInstance().userId() == s.user.getId()) {
+						event.setCanceled(true);
+					}
+				};
+				NeoForge.EVENT_BUS.addListener(EventPriority.NORMAL, false, TimeStopLifecycleEvent.PreStart.class, deny);
+				UsersClientCharge copy = new UsersClientCharge(stop, s.stand, s.user).chargedFor(5);
+				try {
+					copy.onButtonStopHold();
+					AbilityInput.keyRelease(STOP_KEY, s.user);
+				}
+				finally {
+					NeoForge.EVENT_BUS.unregister(deny);
+				}
+				helper.assertTrue(s.stopTicks() == 0, "setup: " + standId + "'s cancelled release started a stop");
+				for (int tick = 0; tick < 3; tick++) {
+					s.tick();
+				}
+				StandEntity.ReleasedCharge waiting = s.stand.getReleasedChargePose();
+				// the server's clearing of the user's Stand-power slot, as that client applies it (setActionFromNetwork)
+				StandEntity.onUsersStandPowerSlotCleared(s.user);
+				StandEntity.ReleasedCharge answered = s.stand.getReleasedChargePose();
+				s.stand.handleEntityEvent(StandEntity.PERFORM_POSE_EVENT);
+				if (!heldCharge(waiting, copy) || answered != null || s.stand.getPerformPose() != null) {
+					wrong.add(standId + ", refused: its user's own client drew " + describe(waiting) + " 3 ticks after the release,"
+							+ " " + describe(answered) + " once the server cleared the slot and the pose " + s.stand.getPerformPose()
+							+ " for a later event, where the other clients kept the charge until the server's answer, then the idle");
+				}
+			}
+			try (Scene s = new Scene(helper, "KeptChargeUnanswered" + standId, standId)) {
+				EntityActionInstance stop = s.charge();
+				UsersClientCharge copy = new UsersClientCharge(stop, s.stand, s.user).chargedFor(2);
+				// the server never answers: its charge is gone without a word
+				s.userSlot().setAction(null, SyncType.NO_SYNC);
+				copy.onButtonStopHold();
+				for (int tick = 0; tick < 40; tick++) {
+					s.tick();
+				}
+				StandEntity.ReleasedCharge lastWaited = s.stand.getReleasedChargePose();
+				s.tick();
+				if (!heldCharge(lastWaited, copy) || s.stand.getReleasedChargePose() != null) {
+					wrong.add(standId + ", unanswered: its user's own client drew " + describe(lastWaited) + " 40 ticks after the"
+							+ " release and " + describe(s.stand.getReleasedChargePose()) + " 41 ticks after, where the wait is 40 ticks");
+				}
+			}
+		}
+		Set<String> sync = StandClipFollowUps116GameTests.invokedMethods(helper,
+				"rotp/core/powersystem/entityaction/LivingComponentAction.class");
+		if (!sync.contains("rotp/core/powersystem/standpower/entity/StandEntity.onUsersStandPowerSlotCleared")) {
+			wrong.add("LivingComponentAction (setActionFromNetwork) no longer tells the Stand that the server cleared its user's"
+					+ " Stand-power slot");
+		}
+		Set<String> draw = StandClipFollowUps116GameTests.invokedMethods(helper,
+				"rotp/core/client/entityanim/PreFrameEntityAnimCalc.class");
+		if (!draw.contains("rotp/core/powersystem/standpower/entity/StandEntity.getReleasedChargePose")) {
+			wrong.add("PreFrameEntityAnimCalc no longer draws the kept charge");
+		}
+		helper.assertTrue(wrong.isEmpty(), "The user's own client must keep the charge pose until the server answers an early"
+				+ " release: " + String.join("; ", wrong));
+		helper.succeed();
+	}
+
+	// the charge the copy was let go at: its phase and its 5 (or 2) ticks, the pose's frame
+	private static boolean heldCharge(StandEntity.ReleasedCharge charge, UsersClientCharge copy) {
+		return charge != null && charge.action() == copy && charge.phase() == ActionPhase.BUTTON_CHARGE
+				&& charge.phaseTicks() == copy.chargedTicks && charge.phaseCompletion() > 0.0F
+				&& charge.phaseCompletion() < 1.0F;
+	}
+
+	private static String describe(StandEntity.ReleasedCharge charge) {
+		return charge == null ? "no kept charge (the idle)" : "the kept charge " + charge.phase() + " at " + charge.phaseTicks()
+				+ " ticks (" + charge.phaseCompletion() + ")";
+	}
+
 	// the user's own client's copy of the charge (EntityActionInstance.takesTargetsFromServer), on the Stand it draws
 	private static final class UsersClientCharge extends TimeStopAbility.TimeStopAction {
 		UsersClientCharge(EntityActionInstance charge, StandEntity stand, LivingEntity user) {
@@ -309,6 +423,18 @@ public final class TimeStopPerformPose116GameTests {
 			performer = stand;
 			powerUser.setEntity(user);
 			phase = ActionPhase.BUTTON_CHARGE;
+			chargeLength = charge.phasesLength.getFloat(ActionPhase.BUTTON_CHARGE);
+		}
+
+		private final float chargeLength;
+		int chargedTicks;
+
+		// held that long of the charge's length, as that client's copy ticked
+		UsersClientCharge chargedFor(int ticks) {
+			chargedTicks = ticks;
+			curPhaseTick = ticks;
+			curPhaseLength = chargeLength;
+			return this;
 		}
 
 		@Override

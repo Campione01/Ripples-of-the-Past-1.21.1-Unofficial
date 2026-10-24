@@ -1,5 +1,6 @@
 package rotp.core.gametest;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -13,6 +14,7 @@ import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility.StandEntityBarrage;
+import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchChargedAbility.StandEntityChargedHeavy;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility.StandEntityHeavyPunch;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility.CrosshairRule;
@@ -239,6 +241,65 @@ public final class EmptyPressStrike116GameTests {
 			scene.attackTargetLock(false);
 		}
 		helper.succeed();
+	}
+
+	/*
+	 * The charged heavy punch (a port addition the owner had follow the heavy punch) aims again as the heavy punch's strike
+	 * does when the aims give it nothing it can reach: a cow under the crosshair with a husk beside it in the precision
+	 * boxes, the Stand's synced aim empty. With the aim assist the precision ray puts the hostile mob first, so its lunge
+	 * (the perform's start) and its strike (with nothing kept) take the husk, as the heavy punch's strike does; without it
+	 * the strict crosshair takes the cow.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH + "charged")
+	public static void theChargedHeavyPunchAimsAgainAsTheHeavyPunchsStrikeDoes(GameTestHelper helper) {
+		try (Scene scene = new Scene(helper)) {
+			Entity cow = scene.mob(EntityType.COW, scene.user.getEyePosition().add(0.0D, 0.0D, 2.0D));
+			Entity husk = scene.mob(EntityType.HUSK, scene.user.getEyePosition().add(1.0D, 0.0D, 2.0D));
+			scene.assertOffTheCrosshair(husk);
+			scene.assertInStandReach(new ActionTarget(cow));
+			scene.assertInStandReach(new ActionTarget(husk));
+			helper.assertTrue(StandEntityPunchAbility.userPrecisionRayTarget(scene.stand, scene.user).getEntity() == husk,
+					"Fixture: the precision ray from the user's eyes does not put the husk first");
+			for (boolean assist : new boolean[] { true, false }) {
+				scene.aimAssist(assist);
+				EntityActionInstance charged = scene.start("heavy_charged");
+				helper.assertTrue(charged instanceof StandEntityChargedHeavy, "Fixture: heavy_charged is " + charged);
+				LivingComponentAction.getComponent(scene.user).entityAim.setTarget(new ActionTarget(cow));
+				LivingComponentAction.getComponent(scene.stand).entityAim.setTarget(ActionTarget.EMPTY);
+				ActionTarget lunge = chargedTarget(charged, scene.stand, "capturePerformTarget").resolveEntityId(scene.level);
+				clearSnapshot(charged);
+				ActionTarget struck = chargedTarget(charged, scene.stand, "getPerformTarget");
+				Entity expected = assist ? husk : cow;
+				helper.assertTrue(lunge.getEntity() == expected && struck.getEntity() == expected, "The charged heavy punch with"
+						+ " nothing it can reach in the aims lunged at " + describe(lunge) + " and struck " + describe(struck)
+						+ scene.mode() + "; the heavy punch it follows aims again with the precision ray, a hostile mob first,"
+						+ " the strict crosshair without the aim assist: " + expected);
+				scene.stop();
+			}
+		}
+		helper.succeed();
+	}
+
+	private static ActionTarget chargedTarget(EntityActionInstance charged, StandEntity stand, String name) {
+		try {
+			Method method = StandEntityChargedHeavy.class.getDeclaredMethod(name, StandEntity.class);
+			method.setAccessible(true);
+			return method.invoke(charged, stand) instanceof ActionTarget target ? target : ActionTarget.EMPTY;
+		}
+		catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+			throw new IllegalStateException("Fixture: " + name + " of the charged heavy punch failed", e);
+		}
+	}
+
+	private static void clearSnapshot(EntityActionInstance action) {
+		try {
+			Field field = EntityActionInstance.class.getDeclaredField("actionTargetSnapshot");
+			field.setAccessible(true);
+			field.set(action, null);
+		}
+		catch (ReflectiveOperationException e) {
+			throw new IllegalStateException("Fixture: EntityActionInstance.actionTargetSnapshot is not reachable", e);
+		}
 	}
 
 	private static boolean isBlock(@Nullable ActionTarget target, BlockPos pos) {

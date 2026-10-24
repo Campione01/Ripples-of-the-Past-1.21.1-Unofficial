@@ -7,6 +7,7 @@ import javax.annotation.Nullable;
 
 import org.jetbrains.annotations.ApiStatus;
 
+import rotp.core.api.power.AbilityRefusals;
 import rotp.core.client.ui.hud_power.WindupIndicator;
 import rotp.core.customobjects.DamageSourceModified;
 import rotp.core.config.MolangValue;
@@ -376,7 +377,8 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 	 * in 1.16's order: the power is usable, the ability is not on a cooldown set during the hold (1.16 isActionOnCooldown,
 	 * no message; see {@link #getHeldCooldownSets}), the performer is alive and, unless the action ignores it, not
 	 * stunned, what the action asks of its performer ({@link #checkHeldPerformerConditions}: a Stand's conditions, 1.16
-	 * StandEntityAction.checkStandConditions), the Stand still has the parts the action needs (1.16 StandAction
+	 * StandEntityAction.checkStandConditions), no add-on refuses it ({@link rotp.core.api.power.AbilityRefusals}, with its
+	 * message), the Stand still has the parts the action needs (1.16 StandAction
 	 * partsRequired), no other action of its user, a player, runs a player action this ability cannot be used in
 	 * (Ability#canBeUsedDuringPlayerAction, 1.16 Action.checkConditions' gate, no message), then
 	 * {@link #checkHeldSpecificConditions}, the ability's own (items, target, stamina and so on;
@@ -403,6 +405,10 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 		ConditionCheck performerCheck = checkHeldPerformerConditions(action, context);
 		if (!performerCheck.isPositive()) {
 			return performerCheck;
+		}
+		ConditionCheck addonRefusal = AbilityRefusals.refusal(this, context);
+		if (addonRefusal != null) {
+			return addonRefusal;
 		}
 		// 1.16 StandAction.checkConditions ran on every held tick: a lost Stand part ends the hold.
 		ConditionCheck partsCheck = checkStandPartsRequired(context);

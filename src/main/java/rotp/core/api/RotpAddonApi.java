@@ -371,6 +371,16 @@ public final class RotpAddonApi {
 	 */
 	public static final String FEATURE_ACTION_STAND_OFFSET_HOOK_V1 =
 			"action_stand_offset_hook_v1";
+	/**
+	 * rotp.core.api.power.AbilityRefusals#register / #unregister and AbilityRefusal: an add-on refuses an ability in the
+	 * core's condition check, on both sides (the HUD, the press on the client and the server, the held recheck and the fire
+	 * of a released hold), with its own message, after the silent refusal by the power's held action and before every
+	 * check of the ability itself, as a 1.16 add-on refused an action at the head of its checkConditions (Gold Experience
+	 * Requiem's Disabler). Only an ability that was a 1.16 action is asked (Ability#endsOtherHoldOnPress), never the manual
+	 * control key or the grab release.
+	 */
+	public static final String FEATURE_ABILITY_CONDITION_REFUSALS_V1 =
+			"ability_condition_refusals_v1";
 
 	public static final Set<String> FEATURES = Set.of(
 			FEATURE_ABILITY_RESOURCE_NAMESPACE_V1,
@@ -465,7 +475,8 @@ public final class RotpAddonApi {
 			FEATURE_STAND_POWER_ACTION_SLOT_V1,
 			FEATURE_STAND_ACTION_PORT_SLOT_V1,
 			FEATURE_PLAYER_ACTION_GATE_V1,
-			FEATURE_ACTION_STAND_OFFSET_HOOK_V1);
+			FEATURE_ACTION_STAND_OFFSET_HOOK_V1,
+			FEATURE_ABILITY_CONDITION_REFUSALS_V1);
 
 	private RotpAddonApi() {}
 

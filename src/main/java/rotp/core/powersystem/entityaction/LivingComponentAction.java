@@ -296,8 +296,12 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 			throw new IllegalArgumentException(
 					"Entity action generation must be positive");
 		}
-		return setActionInternal(
+		HeldInput set = setActionInternal(
 				action, SyncType.NO_SYNC, generation, true);
+		if (action == null && slot == STAND_POWER_SLOT) {
+			StandEntity.onUsersStandPowerSlotCleared(entity);
+		}
+		return set;
 	}
 
 	private HeldInput setActionInternal(

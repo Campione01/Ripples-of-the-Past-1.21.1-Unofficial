@@ -499,18 +499,56 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 	public static final byte PERFORM_POSE_EVENT = 100;
 	// a round trip of up to 2 s
 	private static final int RELEASED_POSE_WAIT_TICKS = 40;
-	@Nullable private EntityActionInstance releasedPoseAction;
+	@Nullable private ReleasedCharge releasedCharge;
 	private int releasedPoseTick;
+
+	/**
+	 * The charge its user's own client let go of and the frame of its pose as it was let go of (the copy loses its phase as
+	 * that client clears its slot).
+	 */
+	@ApiStatus.Internal
+	public record ReleasedCharge(EntityActionInstance action, @Nullable ActionPhase phase, float fullTicks, float phaseTicks,
+			float phaseCompletion) {}
 
 	/**
 	 * Client: its user's own client let go of this charge before the server decided the release; the Stand takes its pose
 	 * only from the server's {@link #PERFORM_POSE_EVENT}, sent if the release started a time stop (1.16 posed only a time
-	 * stop that performed).
+	 * stop that performed), and keeps the charge's pose until then ({@link #getReleasedChargePose}).
 	 */
 	@ApiStatus.Internal
 	public void awaitPerformPoseEvent(EntityActionInstance released) {
-		releasedPoseAction = released;
+		float phaseTicks = released.getAnimPhaseTick(0.0F);
+		float phaseLength = released.getAnimPhaseLength();
+		releasedCharge = new ReleasedCharge(released, released.getPhase(), released.getAnimFullTicksPassed(0.0F), phaseTicks,
+				phaseLength > 0.0F ? Math.min(phaseTicks / phaseLength, 1.0F) : 1.0F);
 		releasedPoseTick = tickCount;
+	}
+
+	/**
+	 * Client: the charge its user's own client let go of, whose pose the Stand keeps while the server has not answered the
+	 * release, as the other clients keep their copy of the charge in its slot until then, so no idle shows between the
+	 * charge and the release pose: until the server's {@link #PERFORM_POSE_EVENT}, its clearing of the user's Stand-power
+	 * slot without one (a refused release: {@link #onUsersStandPowerSlotCleared}), or the end of the wait.
+	 */
+	@ApiStatus.Internal
+	@Nullable
+	public ReleasedCharge getReleasedChargePose() {
+		if (releasedCharge != null && tickCount - releasedPoseTick > RELEASED_POSE_WAIT_TICKS) {
+			releasedCharge = null;
+		}
+		return releasedCharge;
+	}
+
+	/**
+	 * Client: the server cleared the user's Stand-power slot. It sends its PERFORM_POSE_EVENT before that, so a charge let
+	 * go of that is still waiting was refused: its Stand goes back to its idle.
+	 */
+	@ApiStatus.Internal
+	public static void onUsersStandPowerSlotCleared(LivingEntity user) {
+		StandEntity stand = StandUtil.getSummonedStand(user);
+		if (stand != null) {
+			stand.releasedCharge = null;
+		}
 	}
 
 	@Override
@@ -520,9 +558,9 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 			EntityActionInstance action = user != null ? LivingComponentAction.getCurEntityAction(user, PowerClass.STAND) : null;
 			if ((action == null || !action.posesItsStand() || action.getPerformer() != this)
 					&& tickCount - releasedPoseTick <= RELEASED_POSE_WAIT_TICKS) {
-				action = releasedPoseAction;
+				action = releasedCharge != null ? releasedCharge.action() : null;
 			}
-			releasedPoseAction = null;
+			releasedCharge = null;
 			if (action != null && action.posesItsStand() && action.getPerformer() == this && getPerformPose() == null) {
 				setPerformPose(action);
 			}

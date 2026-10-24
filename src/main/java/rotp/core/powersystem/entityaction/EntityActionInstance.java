@@ -556,13 +556,10 @@ public class EntityActionInstance implements HeldInput {
 	}
 
 	// the synced aim a Stand action takes at its press, a block without a collision shape giving way as 1.16's did
-	// (StandEntityAbility#overridePressedTarget)
+	// (StandEntityAbility#overridePressedTarget); on the user's own client the aim it sends, which its copy of the user
+	// never holds (LivingComponentAction#getAimTarget)
 	private ActionTarget pressedAimTarget(LivingEntity aimingEntity) {
-		var aim = LivingComponentAction.getAim(aimingEntity);
-		ActionTarget target = aim != null ? aim.getTarget() : null;
-		if (target == null) {
-			return ActionTarget.EMPTY;
-		}
+		ActionTarget target = LivingComponentAction.getAimTarget(aimingEntity);
 		LivingEntity user = getPowerUser();
 		return ability instanceof StandEntityAbility standAbility && user != null
 				? standAbility.overridePressedTarget(user, target) : target;

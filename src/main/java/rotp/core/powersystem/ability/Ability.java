@@ -8,6 +8,7 @@ import javax.annotation.Nullable;
 
 import org.jetbrains.annotations.ApiStatus;
 
+import rotp.core.api.power.AbilityRefusals;
 import rotp.core.client.ClientProxy;
 import rotp.core.client.ClientTimeStopHandler;
 import rotp.core.client.input.AbilityInputState;
@@ -446,7 +447,14 @@ public class Ability {
 	
 	@ApiStatus.Internal
 	public ConditionCheck checkMainModLogicConditions(Power<?> context) {
-		if (isRefusedByHeldAction(context) || isRefusedByPlayerAction(context)) {
+		if (isRefusedByHeldAction(context)) {
+			return ConditionCheck.NEGATIVE;
+		}
+		ConditionCheck addonRefusal = AbilityRefusals.refusal(this, context);
+		if (addonRefusal != null) {
+			return addonRefusal;
+		}
+		if (isRefusedByPlayerAction(context)) {
 			return ConditionCheck.NEGATIVE;
 		}
 		ConditionCheck partsCheck = checkStandPartsRequired(context);
