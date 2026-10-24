@@ -2812,7 +2812,9 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 
 		LivingEntity user = getUser();
 		if (user != null) {
-			boolean canHarm = DamageUtil.isNotFriendlyFire(user, StandUtil.getStandUser(entity));
+			// 1.16 MCUtil.canHarm(user, entity) asked the user's own canAttack: a mob user's Stand spares a Creative player
+			boolean canHarm = DamageUtil.isNotFriendlyFire(user, StandUtil.getStandUser(entity))
+					&& JojoModUtil.canAttackAsIn116(user, entity);
 			if (canHarm && entity instanceof Animal) {
 				canHarm &= !entity.isPassengerOfSameVehicle(user);
 				if (canHarm && entity instanceof TamableAnimal tameable) {

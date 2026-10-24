@@ -7,7 +7,9 @@ import java.util.UUID;
 
 import com.mojang.authlib.GameProfile;
 
+import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
+import rotp.core.core.JojoRegistries;
 import rotp.core.customobjects.entity_projectile.DamagingEntity;
 import rotp.core.impl.powers.hamon.abilities.HamonSunlightYellowOverdriveBarrageAbility.SYOverdriveBarrageInstance;
 import rotp.core.impl.powers.hamon.entity.HamonBubbleEntity;
@@ -16,6 +18,10 @@ import rotp.core.impl.powers.vampirism.entity.HungryZombieEntity;
 import rotp.core.init.ModStatusEffects;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.powersystem.PowerClass;
+import rotp.core.powersystem.standpower.StandInstance;
+import rotp.core.powersystem.standpower.StandPower;
+import rotp.core.powersystem.standpower.entity.StandEntity;
+import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.util.functions.JojoModUtil;
 
 import net.minecraft.core.BlockPos;
@@ -243,6 +249,54 @@ public final class CanHarmAsIn116GameTests {
 			spawned.forEach(Entity::discard);
 		}
 		helper.succeed();
+	}
+
+	/*
+	 * 1.16 StandEntity.canAttack asked MCUtil.canHarm(user, target), which ended in the user's own canAttack: a mob user's
+	 * Stand refused a Creative player (MobEntity.canAttack), where a player user's Stand took one (PlayerEntity had no
+	 * rule of its own); both took a Survival player.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH)
+	public static void aMobUsersStandRefusesACreativePlayerAndAPlayerUsersStandTakesOneAsIn116(GameTestHelper helper) {
+		List<Entity> spawned = new ArrayList<>();
+		List<Runnable> unsummon = new ArrayList<>();
+		try {
+			ServerPlayer creative = player(helper, spawned, "CanHarmStandCreative", new BlockPos(1, 2, 5), GameType.CREATIVE);
+			ServerPlayer survivor = player(helper, spawned, "CanHarmStandSurvivor", new BlockPos(3, 2, 5), GameType.SURVIVAL);
+			Zombie zombie = EntityType.ZOMBIE.create(helper.getLevel());
+			helper.assertTrue(zombie != null, "setup: could not create the zombie");
+			add(helper, spawned, zombie, new BlockPos(1, 2, 1));
+			StandEntity mobStand = summonStand(helper, unsummon, zombie);
+			ServerPlayer user = player(helper, spawned, "CanHarmStandUser", new BlockPos(5, 2, 1), GameType.SURVIVAL);
+			StandEntity playerStand = summonStand(helper, unsummon, user);
+			helper.assertTrue(!mobStand.canAttack(creative) && mobStand.canAttack(survivor), "1.16's Stand of a mob user refused a"
+					+ " Creative player through its user's MobEntity.canAttack and took a Survival one: Creative "
+					+ mobStand.canAttack(creative) + ", Survival " + mobStand.canAttack(survivor));
+			helper.assertTrue(playerStand.canAttack(creative) && playerStand.canAttack(survivor), "1.16's Stand of a player"
+					+ " user took a Creative and a Survival player: Creative " + playerStand.canAttack(creative) + ", Survival "
+					+ playerStand.canAttack(survivor));
+		}
+		finally {
+			unsummon.forEach(Runnable::run);
+			spawned.forEach(Entity::discard);
+		}
+		helper.succeed();
+	}
+
+	private static StandEntity summonStand(GameTestHelper helper, List<Runnable> unsummon, LivingEntity user) {
+		StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("star_platinum"));
+		StandPower power = PowerClass.STAND.attachGet(user);
+		helper.assertTrue(type != null && StandPowerTransitions.insert(power, new StandInstance(type)).status()
+				== StandPowerTransitions.Status.APPLIED && type.summon(user, power), "setup: could not give and summon Star"
+						+ " Platinum for " + user);
+		unsummon.add(() -> {
+			if (power.isSummoned()) {
+				type.forceUnsummon(user, power);
+			}
+		});
+		StandEntity stand = power.getSummonedStandEntity();
+		helper.assertTrue(stand != null && stand.getUser() == user, "setup: the Stand of " + user + " is missing");
+		return stand;
 	}
 
 	private static boolean canHitEntity(DamagingEntity projectile, Entity target) {
