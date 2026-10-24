@@ -97,11 +97,10 @@ public class HamonSendoOverdriveAbility extends HamonActionRuntimeAbility {
 		return true;
 	}
 
+	// 1.16 TargetRequirement.BLOCK on the mouse target, the vanilla pick: an entity there or a block out of its reach
+	// is refused; only a block without a collision shape gives way to a collision ray (overrideVanillaMouseTarget)
 	private static ActionTarget getSendoBlockTarget(LivingEntity user, Level level) {
 		ActionTarget target = resolveSyncedSendoTarget(user, level);
-		if (target.getType() != TargetType.BLOCK) {
-			target = clipSendoBlockTarget(user, level);
-		}
 		if (target.getType() == TargetType.BLOCK) {
 			BlockPos blockPos = target.getBlockPos();
 			BlockState blockState = level.getBlockState(blockPos);

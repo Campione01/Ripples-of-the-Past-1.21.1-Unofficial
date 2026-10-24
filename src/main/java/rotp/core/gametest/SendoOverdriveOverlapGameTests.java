@@ -432,6 +432,9 @@ public final class SendoOverdriveOverlapGameTests {
 
         private void press(Caster caster) {
             BlockHitResult hit = aim(caster);
+            // the aim the client sends, its vanilla pick of the anchor, which 1.16 took Sendo Overdrive's block from
+            LivingComponentAction.getComponent(caster.user).entityAim.setTarget(
+                    ActionTarget.fromVanilla(caster.user.pick(caster.user.blockInteractionRange(), 1F, false)));
             premise(caster.hamon.getEnergy() > 900F && !caster.hamon.isAbilityOnCooldown("sendo_overdrive")
                     && HamonAbilityHelpers.configHamonDamageMultiplier() > 0F
                     && JojoModConfig.getCommonConfigInstance(false).hamonPointsMultiplier.get() > 0D,
