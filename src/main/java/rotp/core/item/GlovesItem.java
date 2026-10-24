@@ -27,6 +27,12 @@ public class GlovesItem extends Item {
 		return GLOVES_ATTRIBUTES;
 	}
 
+	// 1.16 GlovesItem.isEnchantable: by the stack size alone, as the gloves have no durability
+	@Override
+	public boolean isEnchantable(ItemStack stack) {
+		return stack.getMaxStackSize() == 1;
+	}
+
 	@Override
 	public int getEnchantmentValue(ItemStack stack) {
 		return ENCHANTMENT_VALUE;
