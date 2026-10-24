@@ -408,6 +408,10 @@ public final class RotpAddonApiSmokeTest {
 				RotpAddonApi.FEATURE_ABILITY_CONDITION_REFUSALS_V1)
 						&& "ability_condition_refusals_v1".equals(RotpAddonApi.FEATURE_ABILITY_CONDITION_REFUSALS_V1),
 				"ability condition refusals feature missing");
+		check(RotpAddonApi.supportsFeature(
+				RotpAddonApi.FEATURE_STAND_OFFSET_NO_LERP_V1)
+						&& "stand_offset_no_lerp_v1".equals(RotpAddonApi.FEATURE_STAND_OFFSET_NO_LERP_V1),
+				"Stand offset no-lerp feature missing");
 
 		AbilityType<Ability> addonType = new AbilityType<>(
 				id("rotp_test", "freeze"), Ability::new);
