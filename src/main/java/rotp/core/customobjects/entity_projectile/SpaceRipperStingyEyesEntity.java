@@ -233,6 +233,8 @@ public class SpaceRipperStingyEyesEntity extends ModdedProjectileEntity {
 
 		AABB rayBox = getBoundingBox().expandTowards(ray).inflate(1.0D);
 		double inflation = getBbWidth() / 2.0D;
+		// 1.16's rules hold: a box holding the start is hit there (clip.orElse(start), as AABB.clip finds no face from
+		// inside), and its root-vehicle skip was the projectile's own vehicle, which it never has
 		for (Entity target : level().getEntities(this, rayBox, this::canHitEntity)) {
 			AABB targetBox = target.getBoundingBox().inflate(target.getPickRadius() + inflation);
 			Optional<Vec3> clip = targetBox.clip(start, end);

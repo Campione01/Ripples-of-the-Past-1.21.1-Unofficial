@@ -1,5 +1,6 @@
 package rotp.core.gametest;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -13,15 +14,22 @@ import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
+import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility.StandEntityHeavyPunch;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility.StandEntityPunch;
 import rotp.core.impl.stands.crazydiamond.CrazyDAnchorMakeAbility;
 import rotp.core.impl.stands.crazydiamond.CrazyDHealAbility.HealingAction;
 import rotp.core.impl.stands.hierophant.HierophantBarrierAbility;
 import rotp.core.impl.stands.theworld.TimeStopAbility;
 import rotp.core.init.ModDataAttachmentTypes;
+import rotp.core.powersystem.Power;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
+import rotp.core.powersystem.ability.condition.AvailableAbilities;
+import rotp.core.powersystem.ability.condition.AvailableAbilities.AbilityConditionCheck;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
+import rotp.core.powersystem.ability.controls.InputMethod;
+import rotp.core.powersystem.ability.input.AbilityInput;
+import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.netcode.SyncType;
@@ -44,6 +52,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -72,6 +81,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @PrefixGameTestTemplate(false)
 public final class PressedBlockGivesWay116GameTests {
 	private static final String BATCH = "pressed_block_gives_way_";
+	private static final short KEY = 41;
 
 	private PressedBlockGivesWay116GameTests() {}
 
@@ -272,22 +282,33 @@ public final class PressedBlockGivesWay116GameTests {
 	}
 
 	/*
-	 * Gold Experience's Heal Other (GoldExperienceHeal, a StandEntityAction, TargetRequirement.ENTITY) pressed at a torch
-	 * with a wounded cow behind it: 1.16 took the cow, which its task held.
+	 * Gold Experience's Heal Other slot (the shift variation of Heal) pressed at a torch with a wounded cow behind it:
+	 * 1.16 resolved the slot with the raw vanilla pick before any override (ActionsOverlayGui.resolveVisibleActionInSlot),
+	 * and GoldExperienceHealOther.replaceAction made every target that is not an entity Healing Item, which the click
+	 * packet carried. At the cow itself the slot stays Heal Other, whose task holds the cow.
 	 */
 	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH + "heal_other")
-	public static void healOtherPressedAtATorchTakesTheCowBehindAsIn116(GameTestHelper helper) {
+	public static void healOtherSlotPressedAtATorchIsHealingItemAsIn116(GameTestHelper helper) {
 		try (Scene scene = new Scene(helper, "gold_experience", 0)) {
+			scene.unlock("heal", "heal_other", "healing_item");
 			BlockPos torch = scene.torchInTheAir();
 			Cow cow = scene.cow(2.0D, false);
 			scene.assertInStandReach(cow);
 			cow.setHealth(cow.getMaxHealth() - 4.0F);
 			scene.user.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.IRON_INGOT, 8));
 			scene.pressAt(new ActionTarget(torch, Direction.NORTH));
-			EntityActionInstance healOther = scene.start("heal_other");
+			Ability atTorch = scene.slot("heal_other");
+			helper.assertTrue(atTorch != null && "healing_item".equals(atTorch.name()), "1.16's Heal Other slot pressed at a"
+					+ " torch with a wounded cow behind it was Healing Item (replaceAction on the raw pick); the port's is "
+					+ (atTorch != null ? atTorch.name() : "empty") + ", the torch at " + torch);
+			scene.pressAt(new ActionTarget(cow));
+			Ability atCow = scene.slot("heal_other");
+			helper.assertTrue(atCow != null && "heal_other".equals(atCow.name()), "1.16's Heal Other slot pressed at a wounded"
+					+ " cow was Heal Other; the port's is " + (atCow != null ? atCow.name() : "empty"));
+			EntityActionInstance healOther = scene.start(atCow);
 			ActionTarget pressed = healOther.getTaskTarget(scene.level);
 			helper.assertTrue(pressed.getType() == TargetType.ENTITY && pressed.getEntity() == cow, "1.16's Heal Other pressed"
-					+ " at a torch took the cow behind it; the port's took " + describe(pressed) + ", the torch at " + torch);
+					+ " at a wounded cow held the cow; the port's holds " + describe(pressed));
 		}
 		helper.succeed();
 	}
@@ -371,6 +392,178 @@ public final class PressedBlockGivesWay116GameTests {
 			helper.assertTrue(timeStop.performsInUsersStandPowerSlot() && isBlock(overridden, torch), "1.16's time stop, a"
 					+ " StandAction, kept the torch it was pressed at; the port's press rule let it give way to "
 					+ describe(overridden));
+		}
+		helper.succeed();
+	}
+
+	/*
+	 * The owner's wall rule (D-core-89) on the ray a pressed block gives way to: tall grass, a stone wall right behind it
+	 * and a cow behind the wall, all in the Stand's reach. The punch, Heal and the string attack (each of the three ways a
+	 * press reaches the rule) do not take the cow; with walls hiding nothing the same ray would.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH + "wall_punch")
+	public static void punchPressedAtGrassBeforeAWallLeavesTheCowBehindIt(GameTestHelper helper) {
+		try (Scene scene = new Scene(helper, "star_platinum", 0)) {
+			BlockPos grass = scene.tallGrassAhead();
+			Cow cow = scene.cowBehindAWall(grass);
+			for (boolean assist : new boolean[] { true, false }) {
+				scene.aimAssist(assist);
+				scene.pressAt(new ActionTarget(grass, Direction.NORTH));
+				EntityActionInstance punch = scene.start("punch");
+				ActionTarget pressed = punch.getTaskTarget(scene.level);
+				helper.assertTrue(pressed.getEntity() != cow, "The punch pressed at tall grass took the cow behind the stone wall"
+						+ " behind the grass" + scene.mode() + "; walls hide entities (D-core-89)");
+				scene.stop();
+			}
+		}
+		helper.succeed();
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH + "wall_heal")
+	public static void healPressedAtGrassBeforeAWallLeavesTheCowBehindIt(GameTestHelper helper) {
+		try (Scene scene = new Scene(helper, "crazy_diamond", 0)) {
+			BlockPos grass = scene.tallGrassAhead();
+			Cow cow = scene.cowBehindAWall(grass);
+			cow.setHealth(cow.getMaxHealth() - 4.0F);
+			scene.pressAt(new ActionTarget(grass, Direction.NORTH));
+			ConditionCheck check = scene.ability("heal").checkSpecificConditions(scene.power);
+			EntityActionInstance heal = scene.start("heal");
+			ActionTarget pressed = heal.getTaskTarget(scene.level);
+			helper.assertTrue(pressed.getEntity() != cow, "Heal pressed at tall grass took the cow behind the stone wall behind"
+					+ " the grass (its check: " + (check.isPositive() ? "accepted" : why(check)) + "); walls hide entities"
+					+ " (D-core-89)");
+		}
+		helper.succeed();
+	}
+
+	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH + "wall_string")
+	public static void stringAttackPressedAtGrassBeforeAWallLeavesTheCowBehindIt(GameTestHelper helper) {
+		try (Scene scene = new Scene(helper, "hierophant_green", 0)) {
+			BlockPos grass = scene.tallGrassAhead();
+			Cow cow = scene.cowBehindAWall(grass);
+			scene.pressAt(new ActionTarget(grass, Direction.NORTH));
+			EntityActionInstance string = scene.start("string_attack");
+			ActionTarget pressed = string.getTaskTarget(scene.level);
+			helper.assertTrue(pressed.getEntity() != cow && (string.standRotationTarget == null
+					|| string.standRotationTarget.getEntity() != cow), "The string attack pressed at tall grass took the cow behind"
+							+ " the stone wall behind the grass; walls hide entities (D-core-89)");
+		}
+		helper.succeed();
+	}
+
+	/*
+	 * A manually controlled Stand (1.16: the camera, whose pick the press carried, and the performer the override's ray
+	 * started from, StandAction.getPerformer) three blocks beside its user, which looks the other way: pressed at tall
+	 * grass in front of the Stand with a cow behind it on the Stand's ray, the punch takes the cow and strikes it. Without
+	 * the aim assist the Stand's own crosshair line meets it too.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH + "manual")
+	public static void aManuallyControlledStandsPunchAtGrassTakesTheCowOnItsRayAsIn116(GameTestHelper helper) {
+		try (Scene scene = new Scene(helper, "star_platinum", 0)) {
+			scene.stand.moveTo(scene.origin.x + 3.0D, scene.user.getEyeY() - scene.stand.getEyeHeight(), scene.origin.z, 0, 0);
+			scene.stand.setYHeadRot(0);
+			scene.stand.setManuallyControlled(true);
+			scene.user.setYRot(180.0F);
+			scene.user.setYHeadRot(180.0F);
+			helper.assertTrue(scene.stand.aimsWithoutUser(), "Fixture: the Stand is not manually controlled");
+			BlockPos grass = scene.tallGrassAt(BlockPos.containing(scene.stand.getEyePosition()).south());
+			Cow cow = scene.cow(scene.stand.getEyePosition().add(0.0D, 0.0D, 2.0D), false);
+			for (boolean assist : new boolean[] { true, false }) {
+				scene.aimAssist(assist);
+				scene.pressAt(new ActionTarget(grass, Direction.NORTH));
+				EntityActionInstance punch = scene.start("punch");
+				ActionTarget pressed = punch.getTaskTarget(scene.level);
+				helper.assertTrue(pressed.getEntity() == cow, "1.16's manually controlled Stand's punch pressed at tall grass"
+						+ " took the cow behind it on the Stand's ray; the port's took " + describe(pressed) + scene.mode());
+				ActionTarget struck = scene.strike(punch);
+				helper.assertTrue(struck.getEntity() == cow, "1.16's manually controlled Stand's punch struck the cow; the port's"
+						+ " struck " + describe(struck) + scene.mode());
+				scene.stop();
+			}
+		}
+		helper.succeed();
+	}
+
+	/*
+	 * The Stand where it idles beside its user (its own offset, its user's rotation) and a cow on its user's crosshair
+	 * line behind tall grass: 1.16's override ray ran from the Stand's eyes, parallel to the user's look, beside the cow,
+	 * so it met nothing and the punch kept no target. Without the aim assist the strict crosshair, which runs from the
+	 * user's eyes, takes the cow at once.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH + "idle_offset")
+	public static void punchPressedAtGrassWithTheStandAtItsIdleOffsetKeepsNothingAsIn116(GameTestHelper helper) {
+		try (Scene scene = new Scene(helper, "star_platinum", 0)) {
+			scene.stand.setCanFollowUser(true);
+			scene.stand.updatePosition(scene.user);
+			Vec3 offset = scene.stand.position().subtract(scene.user.position());
+			helper.assertTrue(scene.stand.isFollowingUser() && Math.abs(offset.x) > 0.5D
+					&& Math.abs(scene.stand.getYRot() - scene.user.getYRot()) < 1.0E-3F, "Fixture: the Stand is not at its idle"
+							+ " offset beside its user, looking the same way: offset " + offset);
+			BlockPos grass = scene.tallGrassAhead();
+			Cow cow = scene.cow(2.0D, false);
+			Vec3 standEyes = scene.stand.getEyePosition();
+			Vec3 standRayEnd = standEyes.add(scene.stand.getLookAngle().scale(
+					scene.stand.getAttributeValue(Attributes.BLOCK_INTERACTION_RANGE)));
+			Vec3 userEyes = scene.user.getEyePosition();
+			helper.assertTrue(cow.getBoundingBox().clip(standEyes, standRayEnd).isEmpty()
+					&& cow.getBoundingBox().clip(userEyes, userEyes.add(scene.user.getLookAngle().scale(5.0D))).isPresent(),
+					"Fixture: the cow is not on the user's crosshair line beside the Stand's ray (offset " + offset + ")");
+			for (boolean assist : new boolean[] { true, false }) {
+				scene.aimAssist(assist);
+				scene.pressAt(new ActionTarget(grass, Direction.NORTH));
+				EntityActionInstance punch = scene.start("punch");
+				ActionTarget pressed = punch.getTaskTarget(scene.level);
+				helper.assertTrue(assist ? pressed.getType() == TargetType.EMPTY : pressed.getEntity() == cow, "The punch pressed"
+						+ " at tall grass with the Stand at its idle offset took " + describe(pressed) + scene.mode() + "; 1.16's"
+						+ " ray from the Stand passed beside the cow and kept nothing, the strict crosshair takes the cow");
+				scene.stop();
+			}
+		}
+		helper.succeed();
+	}
+
+	/*
+	 * Crazy Diamond's misshaping punch, a 1.16 StandEntityActionModifier with no overrideVanillaMouseTarget: its follow-up
+	 * on the running finisher took only an entity under the crosshair. Pressed at a torch with the finisher's target, a
+	 * player, right behind it on the Stand's ray (which Heal would take), the key is refused; at the player it is not.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH + "misshaping")
+	public static void misshapingPressedAtATorchKeepsNoEntityAsIn116(GameTestHelper helper) {
+		try (Scene scene = new Scene(helper, "crazy_diamond", 0)) {
+			scene.power.setResolveLevel(4);
+			scene.unlock("heavy_punch", "finisher", "disfiguring_punch");
+			scene.stand.summonLockTicks = 0;
+			BlockPos torch = scene.torchInTheAir();
+			Player enemy = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
+			enemy.setNoGravity(true);
+			enemy.moveTo(scene.origin.x, scene.origin.y, scene.origin.z + 2.5D, 180.0F, 0.0F);
+			helper.assertTrue(scene.level.addFreshEntity(enemy), "Could not add the other player");
+			scene.entities.add(enemy);
+			Ability heavy = scene.ability("heavy_punch");
+			Ability finisher = scene.ability("finisher");
+			Ability misshaping = scene.ability("disfiguring_punch");
+			scene.pressAt(new ActionTarget(enemy));
+			scene.power.setStamina(scene.power.getMaxStamina());
+			scene.stand.setFinisherMeter(1.0F);
+			AbilityConditionCheck pressed = scene.press(heavy);
+			EntityActionInstance running = LivingComponentAction.getComponent(scene.stand).getAction();
+			helper.assertTrue(pressed != null && pressed.ability == finisher && running instanceof StandEntityHeavyPunch
+					&& running.getTaskTarget(scene.level).getEntity() == enemy, "Fixture: a full meter did not start the finisher"
+							+ " at the other player: " + (pressed != null ? pressed.ability.name() : "nothing") + ", " + running);
+			ActionTarget atTorch = new ActionTarget(torch, Direction.NORTH);
+			helper.assertTrue(StandEntityAbility.pastBlockWithoutCollision(scene.user, atTorch, true).getEntity() == enemy,
+					"Fixture: the Stand's ray past the torch does not meet the other player");
+			scene.pressAt(atTorch);
+			AbilityConditionCheck key = scene.resolve(heavy);
+			helper.assertTrue(key != null && key.ability == misshaping && !key.conditionCheck.isPositive(), "1.16's misshape"
+					+ " follow-up pressed at a torch with the finisher's target behind it was refused (a modifier: the torch"
+					+ " stayed the target); the port's heavy key is " + (key != null ? key.ability.name() + (key.conditionCheck
+							.isPositive() ? " (usable)" : " (refused)") : "nothing"));
+			scene.pressAt(new ActionTarget(enemy));
+			key = scene.resolve(heavy);
+			helper.assertTrue(key != null && key.ability == misshaping && key.conditionCheck.isPositive(), "Fixture: the misshape"
+					+ " follow-up at the finisher's target itself is not usable: "
+					+ (key != null ? key.ability.name() : "nothing"));
 		}
 		helper.succeed();
 	}
@@ -490,9 +683,34 @@ public final class PressedBlockGivesWay116GameTests {
 			throw new IllegalStateException();
 		}
 
+		// as a player who took the skills and reached their Resolve level has them
+		void unlock(String... names) {
+			for (String name : names) {
+				Ability ability = ability(name);
+				power.getCurTypeData()._lockedAbilities.remove(name);
+				int resolve = ability.getRequiredResolveLevel(power);
+				if (resolve > power.getResolveLevel()) {
+					power.setResolveLevel(resolve);
+				}
+				helper.assertTrue(ability.isAbilityUnlocked(power), "Fixture: " + name + " is still locked");
+			}
+		}
+
+		// what a press of the slot resolves to, on the HUD and in the press packet's handler (AvailableAbilities)
+		@Nullable
+		Ability slot(String name) {
+			AvailableAbilities available = new AvailableAbilities();
+			available.update(power, power.getMoveset());
+			return available.getContextVariation(name);
+		}
+
 		// the action the press starts on the Stand
 		EntityActionInstance start(String name) {
-			Ability ability = ability(name);
+			return start(ability(name));
+		}
+
+		EntityActionInstance start(Ability ability) {
+			String name = ability.name();
 			helper.assertTrue(ability instanceof EntityActionType, "Fixture: " + name + " is not an action");
 			EntityActionInstance action = ((EntityActionType) ability).initActionOnAbilityUse(level, user, stand, null);
 			helper.assertTrue(action != null, "Fixture: " + name + " made no action");
@@ -519,7 +737,10 @@ public final class PressedBlockGivesWay116GameTests {
 
 		// tall grass, its lower half on the crosshair line a block ahead, kept up without neighbour updates
 		BlockPos tallGrassAhead() {
-			BlockPos lower = BlockPos.containing(user.getEyePosition()).south();
+			return tallGrassAt(BlockPos.containing(user.getEyePosition()).south());
+		}
+
+		BlockPos tallGrassAt(BlockPos lower) {
 			int flags = Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE;
 			block(lower, Blocks.TALL_GRASS.defaultBlockState().setValue(DoublePlantBlock.HALF, DoubleBlockHalf.LOWER), flags);
 			block(lower.above(), Blocks.TALL_GRASS.defaultBlockState().setValue(DoublePlantBlock.HALF, DoubleBlockHalf.UPPER),
@@ -572,6 +793,63 @@ public final class PressedBlockGivesWay116GameTests {
 			return cow;
 		}
 
+		// a cow with its box centred on the point
+		Cow cow(Vec3 at, boolean baby) {
+			Cow cow = EntityType.COW.create(level);
+			helper.assertTrue(cow != null, "Could not create a cow");
+			if (baby) {
+				cow.setAge(-24000);
+			}
+			cow.setNoAi(true);
+			cow.setNoGravity(true);
+			cow.moveTo(at.x, at.y - cow.getBbHeight() / 2.0D, at.z, 0, 0);
+			helper.assertTrue(level.addFreshEntity(cow), "Could not add " + cow);
+			entities.add(cow);
+			return cow;
+		}
+
+		// a stone wall right behind the grass (three blocks high) and a cow behind it on the crosshair line, which the
+		// Stand's ray would take if walls hid no entity
+		Cow cowBehindAWall(BlockPos grass) {
+			BlockPos wall = grass.south();
+			for (BlockPos stone : new BlockPos[] { wall.below(), wall, wall.above() }) {
+				block(stone, Blocks.STONE.defaultBlockState(), Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
+			}
+			Cow cow = cow(3.0D, false);
+			ActionTarget unwalled = StandEntityAbility.pastBlockWithoutCollision(user, new ActionTarget(grass, Direction.NORTH),
+					false);
+			helper.assertTrue(unwalled.getEntity() == cow, "Fixture: with walls hiding nothing the Stand's ray past the grass"
+					+ " does not meet the cow behind the wall: " + describe(unwalled));
+			return cow;
+		}
+
+		// what the slot resolves to, its condition checked, as the server does on a press (Power.updateAvailableMoves,
+		// which caches a tick's moves the test does not tick)
+		@Nullable
+		AbilityConditionCheck resolve(Ability base) {
+			try {
+				Field cached = Power.class.getDeclaredField("cachedMovesThisTick");
+				cached.setAccessible(true);
+				cached.setBoolean(power, false);
+			}
+			catch (ReflectiveOperationException e) {
+				throw new IllegalStateException("Fixture: Power.cachedMovesThisTick is not reachable", e);
+			}
+			return power.updateAvailableMoves().getContextVariationContainer(base);
+		}
+
+		// as ClAbilityInputPacket handles a click: the slot's resolved ability, its condition check, the press and release
+		@Nullable
+		AbilityConditionCheck press(Ability base) {
+			AbilityConditionCheck resolved = resolve(base);
+			if (resolved != null && AbilityInput.withConditionCheck(resolved, user, InputMethod.CLICK)) {
+				AbilityInput.keyPress(KEY, resolved.ability, user, null, InputMethod.CLICK, 0.0F, BufferingState.clickCanBuffer(),
+						base.getAbilityId());
+				AbilityInput.keyRelease(KEY, user);
+			}
+			return resolved;
+		}
+
 		LivingEntity mob(EntityType<? extends Mob> entityType, double z) {
 			Mob mob = entityType.create(level);
 			helper.assertTrue(mob != null, "Could not create " + entityType);
@@ -594,6 +872,7 @@ public final class PressedBlockGivesWay116GameTests {
 
 		@Override
 		public void close() {
+			user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get()).heldKeys.clear();
 			stop();
 			pressAt(ActionTarget.EMPTY);
 			if (power.isSummoned()) {
