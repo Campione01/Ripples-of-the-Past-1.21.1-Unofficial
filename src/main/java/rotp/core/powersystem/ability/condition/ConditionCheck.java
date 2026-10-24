@@ -3,6 +3,7 @@ package rotp.core.powersystem.ability.condition;
 import javax.annotation.Nullable;
 
 import rotp.core.powersystem.ability.Ability;
+import rotp.core.powersystem.entityaction.EntityActionInstance;
 
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
@@ -68,8 +69,14 @@ public class ConditionCheck {
 		return !positive && continueHold;
 	}
 	
+	/**
+	 * Shows the refusal's message on a player's action bar. Silent in a held charge's firing tick when sent from that
+	 * action's canContinueAction or own tick (EntityActionInstance#isChargeFiringTick): 1.16 checked that tick only
+	 * through stopHeldAction(true), which said nothing.
+	 */
 	public static void sendActionFailedMessage(@Nullable Ability ability, ConditionCheck result, LivingEntity user) {
-		if (!user.level().isClientSide() && (ability == null || ability.sendsConditionMessage())) {
+		if (!user.level().isClientSide() && (ability == null || ability.sendsConditionMessage())
+				&& !EntityActionInstance._isOwnTickSilent()) {
 			Component message = result.getWarning();
 			
 			if (message != null && user instanceof ServerPlayer player) {
