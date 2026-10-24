@@ -37,11 +37,10 @@ public class SledgehammerItem extends PickaxeItem {
 		// Original sledgehammer spends 1 durability in hurtEnemy; suppress DiggerItem's default 2 point post-hit cost.
 	}
 
-	@Override
-	public boolean supportsEnchantment(ItemStack stack, Holder<Enchantment> enchantment) {
-		return super.supportsEnchantment(stack, enchantment) || isOriginalWeaponEnchantment(enchantment);
-	}
-
+	/*
+	 * 1.16 SledgehammerItem.canApplyAtEnchantingTable: the pickaxe's categories (the tags give them) and the weapon set
+	 * but Sweeping at the table; the anvil's Enchantment.canEnchant took the weapon books for a sword or an axe only.
+	 */
 	@Override
 	public boolean isPrimaryItemFor(ItemStack stack, Holder<Enchantment> enchantment) {
 		return super.isPrimaryItemFor(stack, enchantment) || isOriginalWeaponEnchantment(enchantment);

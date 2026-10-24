@@ -63,9 +63,10 @@ public final class StandArrowBeetleEnchantGameTests {
 			helper.assertTrue(clue != null, "Offer " + slot + " has an unknown enchantment id " + menu.enchantClue[slot]);
 			offers.add(clue.getRegisteredName());
 			// 1.16 VirusInhibitionEnchantment is in the STAND_ARROW category (any StandArrowItem, the beetle arrow too)
+			// 1.16 canApplyAtEnchantingTable: Unbreaking too (BREAKABLE: the arrow has durability)
 			helper.assertTrue(clue.is(Enchantments.LOYALTY) || clue.is(Enchantments.SHARPNESS) || clue.is(XP_REDUCTION)
-							|| clue.is(StandVirusActualEffect.VIRUS_INHIBITION),
-					"The table may only offer Loyalty, Sharpness, Spiritual Strength or Virus Inhibition for the beetle arrow; got "
+							|| clue.is(StandVirusActualEffect.VIRUS_INHIBITION) || clue.is(Enchantments.UNBREAKING),
+					"The table may only offer Loyalty, Sharpness, Spiritual Strength, Virus Inhibition or Unbreaking for the beetle arrow; got "
 							+ clue.getRegisteredName());
 		}
 		helper.assertTrue(!offers.isEmpty(), "1.16: the enchanting table offers enchantments for the beetle arrow; costs "

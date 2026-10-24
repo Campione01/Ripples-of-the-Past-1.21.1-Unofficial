@@ -83,11 +83,7 @@ public class BladeHatItem extends ArmorItem implements ProjectileItem {
 		return hat;
 	}
 
-	@Override
-	public boolean supportsEnchantment(ItemStack stack, Holder<Enchantment> enchantment) {
-		return super.supportsEnchantment(stack, enchantment) || enchantment.is(Enchantments.SHARPNESS);
-	}
-
+	// 1.16 canApplyAtEnchantingTable: Sharpness at the table only; the anvil's Enchantment.canEnchant refused it
 	@Override
 	public boolean isPrimaryItemFor(ItemStack stack, Holder<Enchantment> enchantment) {
 		return super.isPrimaryItemFor(stack, enchantment) || enchantment.is(Enchantments.SHARPNESS);

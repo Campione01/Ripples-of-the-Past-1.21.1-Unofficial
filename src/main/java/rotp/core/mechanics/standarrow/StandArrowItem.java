@@ -87,11 +87,16 @@ import net.neoforged.neoforge.server.ServerLifecycleHooks;
 
 // 1.16: an ArrowItem, so bows, crossbows and skeletons fire a StandArrowEntity
 public class StandArrowItem extends ArrowItem implements ProjectileItem {
-    // dur: 25 | 250; ench: 10 | 25
-    private final int enchantability = 20;
+    // 1.16 ModItems: the Stand Arrow 10, the Beetle Arrow 25
+    private final int enchantability;
 
     public StandArrowItem(Properties properties) {
+        this(properties, 10);
+    }
+
+    public StandArrowItem(Properties properties, int enchantability) {
         super(properties);
+        this.enchantability = enchantability;
         DispenserBlock.registerProjectileBehavior(this);
     }
 
@@ -531,13 +536,8 @@ public class StandArrowItem extends ArrowItem implements ProjectileItem {
         return stack.getMaxStackSize() == 1;
     }
 
-    // this shit is impossible with purely data-driven enchantments
-    @Override
-    public boolean supportsEnchantment(ItemStack stack, Holder<Enchantment> enchantment) {
-    	return isTableEnchantment(enchantment) || super.supportsEnchantment(stack, enchantment);
-    }
-
-    // 1.16 canApplyAtEnchantingTable: the table offers Loyalty and Sharpness
+    // 1.16 canApplyAtEnchantingTable: the table offers Loyalty and Sharpness; the anvil asked Enchantment.canEnchant,
+    // which took neither, so supportsEnchantment keeps to the tags
     @Override
     public boolean isPrimaryItemFor(ItemStack stack, Holder<Enchantment> enchantment) {
     	return isTableEnchantment(enchantment) || super.isPrimaryItemFor(stack, enchantment);

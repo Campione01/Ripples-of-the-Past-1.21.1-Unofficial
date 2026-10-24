@@ -32,11 +32,7 @@ public class GlovesItem extends Item {
 		return ENCHANTMENT_VALUE;
 	}
 
-	@Override
-	public boolean supportsEnchantment(ItemStack stack, Holder<Enchantment> enchantment) {
-		return super.supportsEnchantment(stack, enchantment) || enchantment.is(Enchantments.KNOCKBACK);
-	}
-
+	// 1.16 canApplyAtEnchantingTable: Knockback at the table only; the anvil's Enchantment.canEnchant refused it
 	@Override
 	public boolean isPrimaryItemFor(ItemStack stack, Holder<Enchantment> enchantment) {
 		return super.isPrimaryItemFor(stack, enchantment) || enchantment.is(Enchantments.KNOCKBACK);

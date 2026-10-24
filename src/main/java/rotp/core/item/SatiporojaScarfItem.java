@@ -10,6 +10,7 @@ import rotp.core.impl.powers.hamon.abilities.HamonAbilityHelpers;
 import rotp.core.impl.powers.hamon.entity.SatiporojaScarfBindingEntity;
 import rotp.core.impl.powers.hamon.entity.SatiporojaScarfEntity;
 
+import net.minecraft.core.Holder;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -18,6 +19,8 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ArmorItem;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.Level;
 
 public class SatiporojaScarfItem extends ArmorItem {
@@ -27,6 +30,14 @@ public class SatiporojaScarfItem extends ArmorItem {
 
 	public SatiporojaScarfItem(Properties properties) {
 		super(ModArmorMaterials.SATIPOROJA_SCARF, ArmorItem.Type.HELMET, properties);
+	}
+
+	// 1.16's scarf had no durability, so the BREAKABLE books (Unbreaking, Mending) did not apply; the head armor tag
+	// puts it in #minecraft:enchantable/durability
+	@Override
+	public boolean supportsEnchantment(ItemStack stack, Holder<Enchantment> enchantment) {
+		return super.supportsEnchantment(stack, enchantment)
+				&& !enchantment.is(Enchantments.UNBREAKING) && !enchantment.is(Enchantments.MENDING);
 	}
 
 	@Override
