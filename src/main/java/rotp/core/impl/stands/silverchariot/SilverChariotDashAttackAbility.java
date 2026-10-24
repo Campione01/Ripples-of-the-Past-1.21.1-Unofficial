@@ -365,7 +365,9 @@ public class SilverChariotDashAttackAbility extends StandEntityAbility {
 						strikeNonLiving(stand, entity);
 						break;
 					}
-					if (!hitEntities.add(candidate.getId())) {
+					// 1.16's Stand invulnerability gave a hurt target no damage on the later forward ticks; one that was
+					// not hurt (a raised shield) was struck again
+					if (hitEntities.contains(candidate.getId())) {
 						return;
 					}
 					float damage = StandStatFormulas.getHeavyAttackDamage(stand.getAttackDamage());
@@ -374,8 +376,18 @@ public class SilverChariotDashAttackAbility extends StandEntityAbility {
 						modified.jojo_ripples$setStandInvulTicks(10);
 					}
 					float sideYaw = sideKnockbackYaw(stand, candidate);
-					if (standEntityAttack(stand, candidate, dmgSource, damage)) {
-						knockbackTarget(stand, candidate, sideYaw);
+					// read before the hit, which starts the Stand invulnerability
+					boolean admitted = damage > 0 && stand.canAttackEntity(candidate) && !StandEntity.isStandAttackInvulnerable(candidate);
+					boolean hurt = standEntityAttack(stand, candidate, dmgSource, damage);
+					// 1.16 StandEntityPunch.doAttack: one push for a hurt target, then knockbackTarget's for every admitted one
+					if (admitted) {
+						if (hurt) {
+							knockbackTarget(stand, candidate, sideYaw, true);
+						}
+						knockbackTarget(stand, candidate, sideYaw, hurt);
+					}
+					if (hurt) {
+						hitEntities.add(candidate.getId());
 						candidate.hurtMarked = true;
 						afterHeavyHit(stand, candidate);
 					}
@@ -450,7 +462,7 @@ public class SilverChariotDashAttackAbility extends StandEntityAbility {
 			return yawToTarget + (60.0F + stand.getRandom().nextFloat() * 30.0F) * (left ? 1 : -1);
 		}
 
-		private static void knockbackTarget(StandEntity stand, LivingEntity target, float sideYaw) {
+		private static void knockbackTarget(StandEntity stand, LivingEntity target, float sideYaw, boolean hurt) {
 			if (stand.getAttackSpeed() < 24) {
 				target.knockback(ARMORED_DASH_EXTRA_KNOCKBACK * DASH_KNOCKBACK_TO_STRENGTH,
 						Mth.sin(sideYaw * MathUtil.DEG_TO_RAD), -Mth.cos(sideYaw * MathUtil.DEG_TO_RAD));
@@ -458,15 +470,17 @@ public class SilverChariotDashAttackAbility extends StandEntityAbility {
 			else {
 				float knockbackStrength = FAST_DASH_EXTRA_KNOCKBACK * DASH_KNOCKBACK_TO_STRENGTH;
 				float vertical = -knockbackStrength * Mth.sin(FAST_DASH_KNOCKBACK_XROT * MathUtil.DEG_TO_RAD);
-				applyVerticalKnockback(target, vertical);
+				applyVerticalKnockback(target, vertical, hurt);
 			}
 		}
 
-		private static void applyVerticalKnockback(LivingEntity target, float strength) {
+		// 1.16 DamageUtil.upwardsKnockback never marked the target: a player's own client sees the lift of a hit that
+		// landed (its hurt marked it), not of one a shield blocked
+		private static void applyVerticalKnockback(LivingEntity target, float strength, boolean hurt) {
 			if (target.level() instanceof ServerLevel serverLevel && serverLevel.hasData(ModDataAttachmentTypes.TIME_STOP.get())) {
 				TimeStopState state = serverLevel.getData(ModDataAttachmentTypes.TIME_STOP.get());
 				if (state.shouldFreeze(target)) {
-					state.queueOnTimeResume(target, () -> applyVerticalKnockback(target, strength));
+					state.queueOnTimeResume(target, () -> applyVerticalKnockback(target, strength, hurt));
 					return;
 				}
 			}
@@ -474,12 +488,14 @@ public class SilverChariotDashAttackAbility extends StandEntityAbility {
 			float finalStrength = strength * (1.0F - (float) kbRes);
 			if (finalStrength != 0) {
 				target.setDeltaMovement(target.getDeltaMovement().add(0.0D, finalStrength, 0.0D));
-				target.hurtMarked = true;
+				if (hurt) {
+					target.hurtMarked = true;
+				}
 			}
 			if (target instanceof StandEntity targetStand) {
 				LivingEntity user = targetStand.getUser();
 				if (user != null && !user.is(target)) {
-					applyVerticalKnockback(user, finalStrength);
+					applyVerticalKnockback(user, finalStrength, hurt);
 				}
 			}
 		}

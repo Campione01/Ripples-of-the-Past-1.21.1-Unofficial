@@ -3,7 +3,10 @@ package rotp.core.gametest;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.function.Consumer;
+
+import com.mojang.authlib.GameProfile;
 
 import rotp.core.core.JojoMod;
 import rotp.core.gametest.StandTaskTargetOffsetGameTests.Scene;
@@ -18,19 +21,24 @@ import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.util.functions.MathUtil;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.item.PrimedTnt;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Arrow;
 import net.minecraft.world.entity.vehicle.Boat;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.EventPriority;
@@ -221,6 +229,153 @@ public final class SilverChariotDashStrike116GameTests {
 			}
 		}
 		helper.succeed();
+	}
+
+	/*
+	 * 1.16 StandEntityPunch.doAttack pushed a hurt living target once (the dash's addKnockback 1.5: 0.75 aside), then
+	 * knockbackTarget pushed every target the strike admitted once more, hurt or not, both along the yaw punchEntity drew
+	 * once; LivingEntity.knockback halves the motion it finds, so a hurt cow ends 1.125 aside. Its Stand invulnerability
+	 * then gave it no damage on the later forward ticks, so it was not struck again.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100, batch = BATCH)
+	public static void aHurtLivingTargetIsPushedTwiceAlongOneSideAsIn116(GameTestHelper helper) {
+		StandTaskTargetOffsetGameTests.withStand(helper, "silver_chariot", scene -> {
+			EntityActionInstance dash = dash(helper, scene, 4);
+			StandEntity stand = scene.stand();
+			attackSpeed(helper, stand, 14.0D);
+			Cow cow = cow(helper, scene, stand);
+			List<Push> pushes = pushes(cow, () -> dashTargets(dash, stand));
+			List<Push> aside = aside(pushes);
+			helper.assertTrue(cow.getHealth() < cow.getMaxHealth() && dash.punchedTarget != null && dash.punchedTarget.getEntity() == cow,
+					"setup: the dash did not hurt the cow: health " + cow.getHealth() + ", struck " + dash.punchedTarget);
+			helper.assertTrue(aside.size() == 2 && aside.get(0).direction().dot(aside.get(1).direction()) > 1.0D - 1.0E-9D,
+					"1.16's dash pushed a cow it hurt 0.75 aside twice along one yaw (doAttack's push of a hurt target, then"
+							+ " knockbackTarget's): pushes " + pushes);
+			Vec3 side = aside.get(0).direction();
+			Vec3 expected = aside.get(0).motionBefore().scale(0.25D).add(side.scale(1.125D));
+			Vec3 motion = cow.getDeltaMovement();
+			helper.assertTrue(motion.distanceTo(expected) < 1.0E-6D,
+					"1.16's two pushes left the hurt cow 1.125 aside (" + motion.dot(side) + " along the push): it moves " + motion
+							+ ", expected " + expected);
+			List<Push> later = pushes(cow, () -> dashTargets(dash, stand));
+			helper.assertTrue(aside(later).isEmpty(),
+					"1.16's Stand invulnerability spared the hurt cow on the dash's next forward tick: pushes " + later);
+			LivingComponentAction.getComponent(stand).setAction(null, scene.user(), SyncType.NO_SYNC);
+		});
+		helper.succeed();
+	}
+
+	// a raised shield: not hurt, so knockbackTarget's push only, the shield worn, and struck again on the next forward tick
+	@GameTest(template = "empty", timeoutTicks = 100, batch = BATCH)
+	public static void aPlayerBlockingTheDashIsPushedAsideOnEveryForwardTickAsIn116(GameTestHelper helper) {
+		StandTaskTargetOffsetGameTests.withStand(helper, "silver_chariot", scene -> {
+			EntityActionInstance dash = dash(helper, scene, 4);
+			StandEntity stand = scene.stand();
+			attackSpeed(helper, stand, 14.0D);
+			Blocker blocker = blocker(helper, scene, stand);
+			ItemStack shield = blocker.getUseItem();
+			for (int tick = 1; tick <= 2; tick++) {
+				float health = blocker.getHealth();
+				int worn = shield.getDamageValue();
+				List<Push> pushes = pushes(blocker, () -> dashTargets(dash, stand));
+				List<Push> aside = aside(pushes);
+				helper.assertTrue(blocker.getHealth() == health && blocker.isBlocking() && dash.punchedTarget != null
+						&& dash.punchedTarget.getEntity() == blocker,
+						"setup, forward tick " + tick + ": the shield did not block the dash: health " + blocker.getHealth()
+								+ ", blocking " + blocker.isBlocking() + ", struck " + dash.punchedTarget);
+				helper.assertTrue(aside.size() == 1,
+						"1.16's knockbackTarget pushed a player whose shield blocked the dash 0.75 aside once, forward tick "
+								+ tick + ": pushes " + pushes);
+				Vec3 expected = aside.get(0).motionBefore().scale(0.5D).add(aside.get(0).direction().scale(0.75D));
+				helper.assertTrue(blocker.getDeltaMovement().distanceTo(expected) < 1.0E-6D,
+						"1.16's push moved the blocking player 0.75 aside, forward tick " + tick + ": it moves "
+								+ blocker.getDeltaMovement() + ", expected " + expected);
+				helper.assertTrue(tick > 1 || shield.getDamageValue() > worn,
+						"1.16's blocked strike wore the shield: damage " + worn + " -> " + shield.getDamageValue());
+			}
+			LivingComponentAction.getComponent(stand).setAction(null, scene.user(), SyncType.NO_SYNC);
+		});
+		helper.succeed();
+	}
+
+	// from attack speed 24 the dash's punch had addKnockback 0.25 at pitch -90: each push a 0.125 lift
+	@GameTest(template = "empty", timeoutTicks = 100, batch = BATCH)
+	public static void theFastDashLiftsAHurtTargetTwiceAndABlockingOneOnceAsIn116(GameTestHelper helper) {
+		for (String row : new String[] { "hurt cow", "blocking player" }) {
+			StandTaskTargetOffsetGameTests.withStand(helper, "silver_chariot", scene -> {
+				EntityActionInstance dash = dash(helper, scene, 4);
+				StandEntity stand = scene.stand();
+				attackSpeed(helper, stand, 30.0D);
+				LivingEntity target = row.equals("hurt cow") ? cow(helper, scene, stand) : blocker(helper, scene, stand);
+				float health = target.getHealth();
+				dashTargets(dash, stand);
+				boolean hurt = target.getHealth() < health;
+				helper.assertTrue(hurt == row.equals("hurt cow") && dash.punchedTarget != null && dash.punchedTarget.getEntity() == target,
+						"setup (" + row + "): hurt " + hurt + ", struck " + dash.punchedTarget);
+				double lift = hurt ? 0.25D : 0.125D;
+				helper.assertTrue(Math.abs(target.getDeltaMovement().y - lift) < 1.0E-6D,
+						"1.16's fast dash lifted the " + row + " " + lift + " (0.125 a push): it moves " + target.getDeltaMovement());
+				// 1.16 DamageUtil.upwardsKnockback did not mark it, so a blocking player's own client was not sent the lift
+				helper.assertTrue(hurt || !target.hurtMarked, "1.16's lift of a player whose shield blocked the fast dash was not"
+						+ " marked for its client: hurtMarked " + target.hurtMarked);
+				LivingComponentAction.getComponent(stand).setAction(null, scene.user(), SyncType.NO_SYNC);
+			});
+		}
+		helper.succeed();
+	}
+
+	private static Cow cow(GameTestHelper helper, Scene scene, StandEntity stand) {
+		Cow cow = EntityType.COW.create(helper.getLevel());
+		helper.assertTrue(cow != null, "setup: could not create the cow");
+		cow.setNoAi(true);
+		cow.setNoGravity(true);
+		cow.getAttribute(Attributes.KNOCKBACK_RESISTANCE).setBaseValue(0.0D);
+		cow.getAttribute(Attributes.MAX_HEALTH).setBaseValue(100.0D);
+		cow.setHealth(100.0F);
+		cow.moveTo(stand.getX(), stand.getEyeY() - cow.getBbHeight() / 2.0D, stand.getZ() + 2.0D, 0.0F, 0.0F);
+		add(helper, scene, cow);
+		return cow;
+	}
+
+	// a survival player 2 blocks south of the Stand, facing it with a raised shield
+	private static Blocker blocker(GameTestHelper helper, Scene scene, StandEntity stand) {
+		Blocker blocker = new Blocker(helper.getLevel());
+		blocker.setNoGravity(true);
+		blocker.moveTo(stand.getX(), stand.getEyeY() - blocker.getBbHeight() / 2.0D, stand.getZ() + 2.0D, 180.0F, 0.0F);
+		blocker.setYHeadRot(180.0F);
+		blocker.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.SHIELD));
+		add(helper, scene, blocker);
+		blocker.raiseShield(helper);
+		return blocker;
+	}
+
+	private static List<Push> aside(List<Push> pushes) {
+		return pushes.stream().filter(push -> Math.abs(push.strength() - 0.75D) < 1.0E-6D).toList();
+	}
+
+	private static final class Blocker extends Player {
+		Blocker(Level level) {
+			super(level, BlockPos.ZERO, 0.0F, new GameProfile(UUID.randomUUID(), "dash-blocker"));
+		}
+
+		@Override
+		public boolean isSpectator() {
+			return false;
+		}
+
+		@Override
+		public boolean isCreative() {
+			return false;
+		}
+
+		// 8 item use steps as LivingEntity.tick runs them; vanilla isBlocking needs 5
+		void raiseShield(GameTestHelper helper) {
+			startUsingItem(InteractionHand.OFF_HAND);
+			for (int i = 0; i < 8 && isUsingItem(); i++) {
+				updateUsingItem(getUseItem());
+			}
+			helper.assertTrue(isBlocking(), "setup: the player's shield is not raised");
+		}
 	}
 
 	private record Push(double strength, Vec3 direction, Vec3 motionBefore) {}
