@@ -1,5 +1,7 @@
 package rotp.core.impl.powers.hamon.abilities;
 
+import rotp.core.client.ClientProxy;
+import rotp.core.client.input.ClientsideAim;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
@@ -20,6 +22,8 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ambient.AmbientCreature;
+import net.minecraft.world.entity.animal.Animal;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -27,6 +31,7 @@ import net.minecraft.world.level.block.FlowerPotBlock;
 import net.minecraft.world.level.block.TurtleEggBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 public class HamonOrganismInfusionAbility extends HamonActionRuntimeAbility {
 	private static final float ENTITY_ENERGY_COST = 1000.0F;
@@ -47,8 +52,41 @@ public class HamonOrganismInfusionAbility extends HamonActionRuntimeAbility {
 		if (user == null) {
 			return ConditionCheck.NEGATIVE;
 		}
-		ActionTarget target = HamonAbilityHelpers.getAimTarget(user, user.level());
-		return checkTarget(target, user, context);
+		ActionTarget aim = aimTarget(user, user.level());
+		ActionTarget target = organismInfusionTarget(user, user.level(), aim);
+		// 1.16 refused a block without an outline silently; the port keeps its own refusal message for it
+		return checkTarget(target.getType() == TargetType.EMPTY ? aim : target, user, context);
+	}
+
+	// its own client reads the aim it sends to the server, which the client's copy of the user never gets
+	private static ActionTarget aimTarget(LivingEntity user, Level level) {
+		if (level.isClientSide() && user == ClientProxy.getClientPlayer()) {
+			return ClientsideAim.playerAim.getTarget().resolveEntityId(level);
+		}
+		return HamonAbilityHelpers.getAimTarget(user, level);
+	}
+
+	/**
+	 * 1.16 HamonOrganismInfusion.overrideVanillaMouseTarget (TargetRequirement.ANY, run on either side by
+	 * PowerBaseImpl.checkTarget): an aimed block's outline gives way to the first animal or ambient mob inside it that
+	 * holds no Hamon charge, and a block without an outline gives no target. Not Plant Infusion's (TargetRequirement.BLOCK).
+	 */
+	public static ActionTarget organismInfusionTarget(LivingEntity user, Level level, ActionTarget aim) {
+		if (aim.getType() != TargetType.BLOCK) {
+			return aim;
+		}
+		BlockPos blockPos = aim.getBlockPos();
+		VoxelShape shape = level.getBlockState(blockPos).getShape(level, blockPos);
+		if (shape.isEmpty()) {
+			return ActionTarget.EMPTY;
+		}
+		return level.getEntities(user, shape.bounds().move(blockPos),
+						entity -> (entity instanceof Animal || entity instanceof AmbientCreature)
+								&& !EntityHamonChargeState.get(entity).hasHamonCharge())
+				.stream()
+				.findFirst()
+				.map(ActionTarget::new)
+				.orElse(aim);
 	}
 
 	protected ConditionCheck checkTarget(ActionTarget target, LivingEntity user, Power<?> context) {
@@ -127,7 +165,7 @@ public class HamonOrganismInfusionAbility extends HamonActionRuntimeAbility {
 		public void onActionSet(EntityActionInstance prevAction) {
 			LivingEntity user = getPowerUser();
 			if (user != null) {
-				captureActionTargetFromAim(user);
+				setActionTargetSnapshot(organismInfusionTarget(user, user.level(), captureActionTargetFromAim(user)));
 				HamonData.setLastAuraAbility(user, this);
 			}
 		}
