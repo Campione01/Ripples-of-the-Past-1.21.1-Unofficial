@@ -174,7 +174,8 @@ public class CrazyDRevertEntityAndBlocksAbility extends StandEntityAbility {
 
 		/**
 		 * 1.16 CrazyDiamondPreviousState.barrageVisuals (:424-427): its task's target an entity that passes checkTarget,
-		 * reverting it or not, and nothing else (no Resolve rule).
+		 * reverting it or not, and nothing else (no Resolve rule). Asked once, in the first perform tick, as 1.16 asked it
+		 * as the task was set: a target that stops passing checkTarget later leaves the pose as it was.
 		 */
 		@Override
 		public boolean showsBarrageVisuals(ActionTarget target) {
