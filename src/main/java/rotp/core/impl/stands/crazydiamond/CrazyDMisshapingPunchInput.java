@@ -41,7 +41,7 @@ public class CrazyDMisshapingPunchInput extends Ability {
 		StandPower standPower = PowerClass.STAND.cast(context);
 		StandEntityHeavyPunch punch = CrazyDiamondHeavyPunchAbility.runningHeavyPunch(standPower, true);
 		if (abilities != null && recordedPart(punch) != null && CrazyDiamondHeavyPunchAbility.heavyKeyResolvesTo(abilities, punch)
-				&& takesTaskTarget(punch, context.getUser())) {
+				&& takesTaskTarget(punch, context.getUser()) && checkPerformerStun(standPower).isPositive()) {
 			abilities.replaceOtherAbilityWith(standPower, "heavy_punch", this);
 		}
 		return null;
@@ -50,6 +50,10 @@ public class CrazyDMisshapingPunchInput extends Ability {
 	// 1.16 refused the click unless the crosshair was on such a target too (the checks ran on the clicked mouse target)
 	@Override
 	public ConditionCheck checkSpecificConditions(Power<?> context) {
+		ConditionCheck stun = checkPerformerStun(context);
+		if (!stun.isPositive()) {
+			return stun;
+		}
 		StandPower standPower = PowerClass.STAND.cast(context);
 		LivingEntity user = context.getUser();
 		if (recordedPart(CrazyDiamondHeavyPunchAbility.runningHeavyPunch(standPower, true)) == null || user == null

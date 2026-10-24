@@ -26,6 +26,7 @@ import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.ability.input.AbilityInput;
 import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
 import rotp.core.powersystem.entityaction.ActionPhase;
+import rotp.core.powersystem.entityaction.EntityActionInputState.HeldInputEntry;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.netcode.SyncType;
@@ -291,6 +292,63 @@ public final class OwnAbilityPressDuringTask116GameTests {
 		public boolean canBeCancelledInto(EntityActionType cancellingAbility) {
 			return getPhase() == ActionPhase.RECOVERY;
 		}
+	}
+
+	/*
+	 * A Stand-bearing mob's AI picks its press before it lets go of its held barrage, so the press reaches the recovery
+	 * the release started. 1.16 StandAI clicked through PowerBaseImpl: checkTaskCancelling refused the barrage clicked
+	 * during its own task (canClickDuringTask, not chainable), also in the recovery a Resolve effect freed for any other
+	 * action.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aMobsBarrageRefusesItsOwnPressInItsResolveRecoveryAsIn116(GameTestHelper helper) {
+		Mob zombie = EntityType.ZOMBIE.create(helper.getLevel());
+		helper.assertTrue(zombie != null, "setup: could not create the zombie");
+		StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("star_platinum"));
+		Vec3 origin = Vec3.atCenterOf(helper.absolutePos(new BlockPos(2, 2, 2)));
+		zombie.setNoAi(true);
+		zombie.setNoGravity(true);
+		zombie.moveTo(origin.x, origin.y, origin.z, 0.0F, 0.0F);
+		helper.assertTrue(helper.getLevel().addFreshEntity(zombie), "setup: could not add the zombie");
+		StandPower power = PowerClass.STAND.attachGet(zombie);
+		try {
+			helper.assertTrue(type != null && StandPowerTransitions.insert(power, new StandInstance(type)).status()
+					== StandPowerTransitions.Status.APPLIED, "setup: could not give the zombie Star Platinum");
+			power.setResolveLevel(4);
+			helper.assertTrue(type.summon(zombie, power), "setup: could not summon the zombie's Star Platinum");
+			StandEntity stand = power.getSummonedStandEntity();
+			helper.assertTrue(stand != null, "setup: the zombie's Stand is missing");
+			stand.summonLockTicks = 0;
+			LivingComponentAction standAction = LivingComponentAction.getComponent(stand);
+			zombie.addEffect(new MobEffectInstance(ModStatusEffects.RESOLVE, 400, 0));
+			Ability barrage = power.getAbility("barrage");
+			power.setStamina(power.getMaxStamina());
+			HeldInputEntry held = AbilityInput.keyPressMob(barrage, zombie, null, InputMethod.HOLD);
+			EntityActionInstance running = standAction.getAction();
+			helper.assertTrue(held != null && running != null && running.ability == barrage && running.getPhase() == ActionPhase.PERFORM,
+					"setup: the zombie's barrage is not held: " + running);
+			AbilityInput.keyRelease(held.keyId, zombie);
+			helper.assertTrue(running.getPhase() == ActionPhase.RECOVERY && !running.isOver() && running.canBeCancelledInto(running.ability),
+					"setup: the barrage let go is not in a recovery its own press could cancel: " + running.getPhase());
+
+			HeldInputEntry again = AbilityInput.keyPressMob(barrage, zombie, null, InputMethod.HOLD);
+			helper.assertTrue(again == null && standAction.getAction() == running && !running.isOver(), "1.16 refused a mob's"
+					+ " barrage pressed again in the recovery its release started (canClickDuringTask): the Stand's action "
+					+ standAction.getAction() + " (was " + running + "), held " + again);
+
+			AbilityInput.keyPressMob(power.getAbility("punch"), zombie, null, InputMethod.CLICK);
+			EntityActionInstance punch = standAction.getAction();
+			helper.assertTrue(punch != null && punch != running && punch.ability == power.getAbility("punch"), "setup: the"
+					+ " Resolve-free recovery did not take the zombie's punch: the Stand's action " + punch);
+		}
+		finally {
+			zombie.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get()).heldKeys.clear();
+			if (power.isSummoned() && type != null) {
+				type.forceUnsummon(zombie, power);
+			}
+			zombie.discard();
+		}
+		helper.succeed();
 	}
 
 	/*

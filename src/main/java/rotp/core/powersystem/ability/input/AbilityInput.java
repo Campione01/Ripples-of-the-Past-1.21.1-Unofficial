@@ -724,6 +724,11 @@ public class AbilityInput {
 
 	@Nullable
 	public static HeldInputEntry keyPressMob(Ability ability, LivingEntity user, FriendlyByteBuf extraData, InputMethod inputMethod) {
+		PowerClass<?> powerClass = ability != null ? ability.abilityId.powerClass() : null;
+		Power<?> power = powerClass != null && user != null ? powerClass.get(user) : null;
+		if (power != null && AvailableAbilities.refusesRunningActionPressedAgain(power, ability)) {
+			return null;
+		}
 		short keyId = (short) pseudoKey.incrementAndGet();
 		return keyPress(keyId, ability, user, extraData, inputMethod, 0, BufferingState.clickOnly(), null);
 	}

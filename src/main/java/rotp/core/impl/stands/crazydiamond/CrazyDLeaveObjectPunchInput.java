@@ -31,7 +31,9 @@ public class CrazyDLeaveObjectPunchInput extends Ability {
 		StandPower standPower = PowerClass.STAND.cast(context);		if (standPower == null) return null;
 		LivingEntity user = standPower.getUser();				if (user == null || !CrazyDLeaveObjectPunchEffect.canUseItem(user.getOffhandItem())) return null;
 		StandEntityHeavyPunch punch = CrazyDiamondHeavyPunchAbility.runningHeavyPunch(standPower, false);
-		if (abilities != null && punch != null && CrazyDiamondHeavyPunchAbility.heavyKeyResolvesTo(abilities, punch)) {
+		// 1.16 StandAction.canSetFollowUp: checkRequirements, which refused a stunned Stand, before the key took the follow-up
+		if (abilities != null && punch != null && CrazyDiamondHeavyPunchAbility.heavyKeyResolvesTo(abilities, punch)
+				&& checkPerformerStun(standPower).isPositive()) {
 			abilities.replaceOtherAbilityWith(standPower, "heavy_punch", this);
 		}
 		return null;
@@ -40,6 +42,10 @@ public class CrazyDLeaveObjectPunchInput extends Ability {
 	@Override
 	public ConditionCheck checkSpecificConditions(Power<?> context) {
 		StandPower standPower = PowerClass.STAND.cast(context);
+		ConditionCheck stun = checkPerformerStun(context);
+		if (!stun.isPositive()) {
+			return stun;
+		}
 		LivingEntity user = standPower != null ? standPower.getUser() : null;
 		if (user == null || !CrazyDLeaveObjectPunchEffect.canUseItem(user.getOffhandItem())) {
 			return ConditionCheck.NEGATIVE;

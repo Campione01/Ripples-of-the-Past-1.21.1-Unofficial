@@ -33,7 +33,7 @@ public class CrazyDAngeloRockPunchInput extends Ability {
 	@Override
 	public Ability replaceWithSubAbility(Power<?> context, AvailableAbilities abilities) {
 		StandPower standPower = PowerClass.STAND.cast(context);
-		if (abilities != null && canFollowRunningFinisher(standPower)) {
+		if (abilities != null && canFollowRunningFinisher(standPower) && checkPerformerStun(standPower).isPositive()) {
 			abilities.replaceOtherAbilityWith(standPower, "restore_terrain", this);
 		}
 		return null;
@@ -41,6 +41,10 @@ public class CrazyDAngeloRockPunchInput extends Ability {
 
 	@Override
 	public ConditionCheck checkSpecificConditions(Power<?> context) {
+		ConditionCheck stun = checkPerformerStun(context);
+		if (!stun.isPositive()) {
+			return stun;
+		}
 		if (!canFollowRunningFinisher(PowerClass.STAND.cast(context))) {
 			return ConditionCheck.NEGATIVE;
 		}
