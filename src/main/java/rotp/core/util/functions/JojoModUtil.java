@@ -15,6 +15,7 @@ import org.apache.commons.lang3.tuple.Pair;
 
 import rotp.core.customobjects.explosion.CustomExplosion;
 import rotp.core.entityattachment.PlayerVoiceLineData;
+import rotp.core.impl.powers.vampirism.entity.HungryZombieEntity;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModGamerules;
 import rotp.core.network.s2c.BrokenBlocksParticlesAndSoundsPacket;
@@ -43,9 +44,13 @@ import net.minecraft.server.players.PlayerList;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.Difficulty;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.TamableAnimal;
+import net.minecraft.world.entity.monster.AbstractIllager;
+import net.minecraft.world.entity.npc.AbstractVillager;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameType;
@@ -225,8 +230,56 @@ public class JojoModUtil {
 		if (attacker instanceof StandEntity attackerStand) {
 			return attackerStand.canAttackEntity(target);
 		}
-		return target instanceof LivingEntity && attacker.canAttack((LivingEntity) target);
+		return target instanceof LivingEntity living && canAttackAsIn116(attacker, living);
 	}
+
+	/**
+	 * 1.16 attacker.canAttack(target): LivingEntity's was a plain true, where 1.21's also refuses every player on Peaceful
+	 * and a target that cannot be seen as an enemy (a Creative or spectator player, an invulnerable or dead entity). Where
+	 * only that base refuses, the rule of the attacker's own class is asked as it stood on the plain true: a tamed animal
+	 * and a hungry zombie spare their owner, an illager a baby villager. An attacker whose class has a rule of its own
+	 * besides these keeps its answer.
+	 */
+	public static boolean canAttackAsIn116(LivingEntity attacker, LivingEntity target) {
+		if (attacker.canAttack(target)) {
+			return true;
+		}
+		boolean baseRefuses = target instanceof Player && attacker.level().getDifficulty() == Difficulty.PEACEFUL
+				|| !target.canBeSeenAsEnemy();
+		if (!baseRefuses || attacker instanceof StandEntity || HAS_OWN_ATTACK_RULE.get(attacker.getClass())) {
+			return false;
+		}
+		if (attacker instanceof HungryZombieEntity zombie) {
+			return !zombie.isEntityOwner(target);
+		}
+		if (attacker instanceof TamableAnimal tamable) {
+			return !tamable.isOwnedBy(target);
+		}
+		if (attacker instanceof AbstractIllager) {
+			return !(target instanceof AbstractVillager && target.isBaby());
+		}
+		return true;
+	}
+
+	// whether a class overrides canAttack(LivingEntity) below the classes canAttackAsIn116 knows
+	private static final ClassValue<Boolean> HAS_OWN_ATTACK_RULE = new ClassValue<>() {
+		@Override
+		protected Boolean computeValue(Class<?> type) {
+			for (Class<?> c = type; c != null && c != LivingEntity.class; c = c.getSuperclass()) {
+				if (c == HungryZombieEntity.class || c == TamableAnimal.class || c == AbstractIllager.class) {
+					return false;
+				}
+				try {
+					c.getDeclaredMethod("canAttack", LivingEntity.class);
+					return true;
+				}
+				catch (NoSuchMethodException e) {
+					// not overridden here
+				}
+			}
+			return false;
+		}
+	};
 
 	public static boolean isTargetBlocking(LivingEntity target) {
 		ItemStack usedItem = target.getUseItem();
