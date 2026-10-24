@@ -2,14 +2,25 @@ package rotp.core.network;
 
 import java.util.Arrays;
 import java.util.Optional;
+import java.util.UUID;
 
 import rotp.core.PacketsRegister;
 import rotp.core.mechanics.resolve.ResolveBoostsPacket;
 import rotp.core.network.s2c.KnockbackResTickPacket;
 import rotp.core.network.s2c.TrAfkMenacingParticlePacket;
+import rotp.core.powersystem.entityaction.LivingComponentAction;
+import rotp.core.powersystem.entityaction.netcode.TrEntityActionInstancePacket;
+import rotp.core.powersystem.entityaction.netcode.TrEntityActionPhaseTimePacket;
+import rotp.core.powersystem.entityaction.netcode.TrEntityActionTargetPacket;
+import rotp.core.powersystem.entityaction.netcode.TrEntityActionWithOBBSyncPacket;
+import rotp.core.powersystem.entityaction.syncdata.TrActionSynchedDataPacket;
 
+import io.netty.buffer.Unpooled;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.resources.ResourceLocation;
+import net.neoforged.neoforge.network.connection.ConnectionType;
 import net.neoforged.neoforge.network.negotiation.NegotiableNetworkComponent;
 import net.neoforged.neoforge.network.negotiation.NetworkComponentNegotiator;
 
@@ -59,6 +70,19 @@ public final class NetworkProtocolNegotiationSmokeTest {
 		// a v14 peer has no standawakestage payload: it would read a tracked user's Resolve the user's stage turns off
 		check(Integer.parseInt(PacketsRegister.NETWORK_PROTOCOL_VERSION) >= 15,
 				"the clientbound standawakestage payload needs core protocol v15 or later");
+		// a v15 peer would read the action slot as the action data's first byte
+		for (Class<?> packet : new Class<?>[] { TrEntityActionPhaseTimePacket.class, TrEntityActionTargetPacket.class,
+				TrActionSynchedDataPacket.class, TrEntityActionWithOBBSyncPacket.class }) {
+			check(Arrays.stream(packet.getRecordComponents()).anyMatch(component -> component.getName().equals("slot")),
+					packet.getSimpleName() + " lost its action slot; recheck the protocol version");
+		}
+		check(Arrays.stream(TrEntityActionInstancePacket.class.getDeclaredFields())
+				.anyMatch(field -> field.getName().equals("slot") && field.getType() == int.class),
+				"the entity action packet lost its action slot; recheck the protocol version");
+		check(obbSlotRoundTrips(LivingComponentAction.STAND_POWER_SLOT),
+				"the OBB sync must carry its action's slot: a Stand-power action's OBB reached the client as slot 0");
+		check(Integer.parseInt(PacketsRegister.NETWORK_PROTOCOL_VERSION) >= 16,
+				"the action sync packets' action slot needs core protocol v16 or later");
 
 		var matching = NetworkComponentNegotiator.validateComponent(
 				requiredComponent(PacketsRegister.NETWORK_PROTOCOL_VERSION),
@@ -66,6 +90,13 @@ public final class NetworkProtocolNegotiationSmokeTest {
 				"client");
 		check(matching.isEmpty(),
 				"matching current peers must negotiate the required play payload");
+
+		var noActionSlot = NetworkComponentNegotiator.validateComponent(
+				requiredComponent(PacketsRegister.NETWORK_PROTOCOL_VERSION),
+				requiredComponent("15"),
+				"client");
+		check(noActionSlot.isPresent() && !noActionSlot.get().success(),
+				"a v15 peer must fail before it reads the action sync packets' slot");
 
 		var noAwakeningStage = NetworkComponentNegotiator.validateComponent(
 				requiredComponent(PacketsRegister.NETWORK_PROTOCOL_VERSION),
@@ -136,6 +167,20 @@ public final class NetworkProtocolNegotiationSmokeTest {
 				"client");
 		check(legacy.isPresent() && !legacy.get().success(),
 				"a v2 peer must fail required-payload negotiation before play");
+	}
+
+	private static boolean obbSlotRoundTrips(int slot) {
+		RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(
+				Unpooled.buffer(), RegistryAccess.EMPTY, ConnectionType.NEOFORGE);
+		try {
+			TrEntityActionWithOBBSyncPacket.Handler.STREAM_CODEC.encode(buf,
+					new TrEntityActionWithOBBSyncPacket(12, new UUID(3L, 4L), 56L, 7, slot));
+			TrEntityActionWithOBBSyncPacket read = TrEntityActionWithOBBSyncPacket.Handler.STREAM_CODEC.decode(buf);
+			return !buf.isReadable() && read.slot() == slot && read.actionId() == 7 && read.actionGeneration() == 56L;
+		}
+		finally {
+			buf.release();
+		}
 	}
 
 	private static NegotiableNetworkComponent requiredComponent(

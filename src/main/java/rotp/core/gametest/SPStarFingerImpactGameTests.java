@@ -363,8 +363,9 @@ public final class SPStarFingerImpactGameTests {
                     suite.check(packets.size() == 1 && packets.getFirst().performerId() == stand.getId()
                             && packets.getFirst().performerUuid().equals(stand.getUUID())
                             && packets.getFirst().actionId() == action.id
-                            && packets.getFirst().actionGeneration() == action.networkGeneration(),
-                            "real outbound OBB sync matches performer/action/generation packets=" + packets);
+                            && packets.getFirst().actionGeneration() == action.networkGeneration()
+                            && packets.getFirst().slot() == action.actionSlot(),
+                            "real outbound OBB sync matches performer/action/generation/slot packets=" + packets);
                     suite.check(distance() < preDistance, "collision tick retracts real tip before=" + preDistance + " after=" + distance());
                 }
             }

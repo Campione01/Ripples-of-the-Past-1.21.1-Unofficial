@@ -349,7 +349,9 @@ public final class RotpAddonApi {
 	 * abilities that cannot be used during it (Ability#canBeUsedDuringPlayerAction(EntityActionInstance): true by default
 	 * for a Stand ability, as 1.16's StandAction, false for any other, as 1.16's Action) is refused without a message and
 	 * drawn unavailable, as 1.16 Action.checkConditions refused it; a press the player action's own slot holds back waits
-	 * in the input buffer instead (owner decision N2). Mobs are not gated (1.16 kept the action in PlayerUtilCap). An add-on
+	 * in the input buffer instead (owner decision N2). A hold of such an ability that runs as another action of its user
+	 * starts one ends on its next held tick (EntityActionAbility#checkHeldActionConditions, NEGATIVE), as 1.16's power
+	 * re-ran checkConditions on every held tick. Mobs are not gated (1.16 kept the action in PlayerUtilCap). An add-on
 	 * Stand action that opted out in 1.16 returns false (Kraft Work's Lock Target and Place Projectile, Stone Free's
 	 * strings); an add-on port of an IPlayerAction (Ultimate Lifeform's, King Crimson's time skip) returns true from
 	 * isPlayerAction in the phases its 1.16 continuous action ran in (from the perform that set it, not in a held charge

@@ -377,7 +377,9 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 	 * no message; see {@link #getHeldCooldownSets}), the performer is alive and, unless the action ignores it, not
 	 * stunned, what the action asks of its performer ({@link #checkHeldPerformerConditions}: a Stand's conditions, 1.16
 	 * StandEntityAction.checkStandConditions), the Stand still has the parts the action needs (1.16 StandAction
-	 * partsRequired), then {@link #checkHeldSpecificConditions}, the ability's own (items, target, stamina and so on;
+	 * partsRequired), no other action of its user, a player, runs a player action this ability cannot be used in
+	 * (Ability#canBeUsedDuringPlayerAction, 1.16 Action.checkConditions' gate, no message), then
+	 * {@link #checkHeldSpecificConditions}, the ability's own (items, target, stamina and so on;
 	 * an ability that does not override it rechecks none of those), and last whether the ability is still unlocked
 	 * (1.16 isUnlocked, "not_unlocked"), without its Resolve level ({@link #isAbilityStillUnlocked}). Not rechecked: a
 	 * busy performer, which the running hold already went through.
@@ -406,6 +408,10 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 		ConditionCheck partsCheck = checkStandPartsRequired(context);
 		if (!partsCheck.isPositive()) {
 			return partsCheck;
+		}
+		// then Action.checkConditions' player action gate, without a message
+		if (isHoldEndedByPlayerAction(context.getUser(), action)) {
+			return ConditionCheck.NEGATIVE;
 		}
 		ConditionCheck check = checkHeldSpecificConditions(action, context);
 		if (!check.isPositive()) {

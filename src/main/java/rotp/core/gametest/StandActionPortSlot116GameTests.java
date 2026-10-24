@@ -8,6 +8,7 @@ import java.util.UUID;
 import javax.annotation.Nullable;
 
 import rotp.core.api.stand.StandPowerTransitions;
+import rotp.core.api.timestop.TimeStopLifecycleEvent;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.init.ModDataAttachmentTypes;
@@ -53,8 +54,13 @@ import net.minecraft.network.protocol.game.ClientboundBundlePacket;
 import net.minecraft.server.network.CommonListenerCookie;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.animal.Pig;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.common.damagesource.DamageContainer;
 import net.neoforged.neoforge.common.util.FakePlayer;
+import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -330,6 +336,55 @@ public final class StandActionPortSlot116GameTests {
 							+ " power held the charge; EntityStandType.getStaminaRegen asked the Stand's task alone): the first"
 							+ " 3 charge ticks added " + gains + " where a tick with no action added " + idle + " (the charge "
 							+ stop.getPhase() + ", the user's Stand-power action " + s.userSlot().getAction() + ")");
+		}
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 TheWorldTimeStop.cancelHeldOnGettingAttacked (:49-51): PowerBaseImpl.onUserGettingAttacked (:470-478) stopped
+	 * the power's held time stop on a hit, and stopHeldAction(false) fired nothing. The World at Resolve 4, out: its time
+	 * stop charges in its user's Stand-power slot, whose hit check (EntityActionAbility.onUserGettingAttacked) is now the
+	 * only one that reaches it. A pig's hit on the user 3 ticks into the charge drops it, and no stop starts by its length.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100, batch = GameTestBatches.TIME_STOP)
+	public static void aHitOnTheWorldsUserDropsItsTimeStopChargeWithTheWorldOutAsIn116(GameTestHelper helper) {
+		boolean[] started = { false };
+		int[] userId = { Integer.MIN_VALUE };
+		java.util.function.Consumer<TimeStopLifecycleEvent.PreStart> noStop = event -> {
+			if (event.getInstance().userId() == userId[0]) {
+				started[0] = true;
+				event.setCanceled(true);
+			}
+		};
+		NeoForge.EVENT_BUS.addListener(TimeStopLifecycleEvent.PreStart.class, noStop);
+		try (Scene s = new Scene(helper, "PortSlotStopHit")) {
+			userId[0] = s.user.getId();
+			BufferingState pressed = s.press(s.standPower, "time_stop", InputMethod.HOLD, STOP_KEY);
+			EntityActionInstance stop = s.userSlot().getAction();
+			helper.assertTrue(pressed.isActionSuccess && stop != null && stop.getPhase() == ActionPhase.BUTTON_CHARGE
+					&& stop.getPerformer() == s.stand && s.standSlot().getAction() == null, "setup: the time stop is not"
+							+ " charging in its user's Stand-power slot, The World out: started " + pressed.isActionSuccess
+							+ ", the user's Stand-power action " + stop);
+			for (int tick = 0; tick < 3; tick++) {
+				s.userSlot().tick();
+				s.standSlot().tick();
+			}
+			Pig pig = EntityType.PIG.create(helper.getLevel());
+			helper.assertTrue(pig != null && !stop.isOver(), "setup: no pig, or the charge ended before the hit");
+			EntityActionAbility.onUserGettingAttacked(new LivingDamageEvent.Post(s.user,
+					new DamageContainer(s.user.damageSources().mobAttack(pig), 2.0F)));
+			boolean droppedAtTheHit = stop.isOver();
+			for (int tick = 0; tick < 30; tick++) {
+				s.userSlot().tick();
+				s.standSlot().tick();
+			}
+			helper.assertTrue(droppedAtTheHit && !started[0] && s.userSlot().getAction() == null,
+					"1.16 stopped The World's held time stop on a hit to its user (cancelHeldOnGettingAttacked) and fired"
+							+ " nothing: the charge dropped at the hit " + droppedAtTheHit + ", a stop started by its length "
+							+ started[0] + ", the user's Stand-power action " + s.userSlot().getAction());
+		}
+		finally {
+			NeoForge.EVENT_BUS.unregister(noStop);
 		}
 		helper.succeed();
 	}

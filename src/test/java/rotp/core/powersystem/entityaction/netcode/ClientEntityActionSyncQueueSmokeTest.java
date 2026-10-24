@@ -74,6 +74,50 @@ public final class ClientEntityActionSyncQueueSmokeTest {
 		testTargetSyncReachesItsAction();
 		testTargetSyncForAnotherActionChangesNothing();
 		testTargetSyncQueuedBeforeItsAction();
+		testBothSlotsOfOneEntityKeepTheirOwnLedgersAndDependents();
+	}
+
+	// a user's own slot and its Stand-power slot (LivingComponentAction#slotId) keep separate generation ledgers, a
+	// dependent sync reaches only its own slot's action, and the queue applies an action and its dependents into the
+	// slot its packet names
+	private static void testBothSlotsOfOneEntityKeepTheirOwnLedgersAndDependents() {
+		GenerationLedgerRegistry registry = new GenerationLedgerRegistry(4);
+		UUID uuid = new UUID(0L, 2300L);
+		EntityIdentity own = new EntityIdentity(23, uuid, 0);
+		EntityIdentity standPower = new EntityIdentity(23, uuid, 1);
+		GenerationLedger ownLedger = acceptedLedger(registry.getOrCreate(own, true));
+		GenerationLedger standPowerLedger = acceptedLedger(registry.getOrCreate(standPower, true));
+		check(ownLedger != standPowerLedger && registry.size() == 2,
+				"the two slots of one entity must keep two generation ledgers");
+		ownLedger.reserveAction(50L, new byte[] {5});
+		ownLedger.markApplied(50L, true);
+		check(standPowerLedger.reserveAction(7L, new byte[] {7}) == ActionReservation.FRESH
+				&& ownLedger.classifyDependency(50L) == DependencyDisposition.READY
+				&& standPowerLedger.classifyDependency(7L) == DependencyDisposition.WAIT,
+				"one slot's generations must neither supersede nor admit the other slot's");
+
+		Map<EntityIdentity, List<ClientEntityActionSyncQueue.Pending<String>>> pending = new LinkedHashMap<>();
+		pending.put(own, new ArrayList<>(List.of(new ClientEntityActionSyncQueue.Pending<>(9L, "own slot"))));
+		pending.put(standPower, new ArrayList<>(List.of(
+				new ClientEntityActionSyncQueue.Pending<>(9L, "Stand-power slot"))));
+		List<String> applied = new ArrayList<>();
+		check(ClientEntityActionSyncQueue.applyPendingFor(pending, standPower, 9L, payload -> {
+					applied.add(payload);
+					return ApplyResult.APPLIED;
+				}) == ApplyResult.APPLIED
+				&& applied.equals(List.of("Stand-power slot")) && !pending.containsKey(standPower)
+				&& pending.get(own).size() == 1,
+				"a dependent sync must reach only its own slot's action: applied " + applied + ", left " + pending.keySet());
+
+		String queue = read(
+				"src/main/java/rotp/core/powersystem/entityaction/netcode/ClientEntityActionSyncQueue.java")
+				.replaceAll("\\s+", "");
+		check(queue.contains("LivingComponentActioncomponent=LivingComponentAction.getComponentForSlot(living,identity.slot());")
+				&& queue.contains("LivingComponentAction.getCurEntityActionForSlot(entityLifetime,identity.slot())")
+				&& queue.contains("LivingComponentAction.getComponentForSlot(living,slot);")
+				&& !queue.contains("LivingComponentAction.getComponent(living)"),
+				"the client must apply an entity action and its dependents into the slot its packet names, not the"
+						+ " entity's own slot for every slot (a user's Stand-power action would replace its Hamon action)");
 	}
 
 	// 1.16 TrStandTaskTargetPacket carried the task target the server changed; every field must come back as written

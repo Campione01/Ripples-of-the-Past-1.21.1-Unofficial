@@ -114,6 +114,20 @@ public final class AbilityInputTransactionSmokeTest {
 				"src/main/java/rotp/core/powersystem/entityaction/LivingComponentAction.java");
 		String actionInstance = read(
 				"src/main/java/rotp/core/powersystem/entityaction/EntityActionInstance.java");
+		// a failed press rolls back the user's Stand-power slot and the non-Stand power's input buffer too (K5-48 B)
+		int rollbackStart = abilityInput.indexOf("private void rollback(RuntimeException original) {");
+		int rollbackEnd = abilityInput.indexOf("private static void rollbackStep(", rollbackStart);
+		check(rollbackStart >= 0 && rollbackEnd > rollbackStart, "the input transaction's rollback moved");
+		String rollbackBody = abilityInput.substring(rollbackStart, rollbackEnd).replaceAll("\\s+", "");
+		String compact = abilityInput.replaceAll("\\s+", "");
+		check(compact.contains("this.userStandPowerAction=userinstanceofStandEntity?null:LivingComponentAction.getComponent(user,PowerClass.STAND);")
+				&& compact.contains("this.playerPowerInputBuffer=inputState!=null?inputState.playerPowerInputBuffer:null;")
+				&& rollbackBody.contains("restoreBuffered(inputBuffer,bufferedBefore,bufferedAfter)")
+				&& rollbackBody.contains(
+						"restoreBuffered(playerPowerInputBuffer,playerPowerBufferedBefore,playerPowerBufferedAfter)")
+				&& rollbackBody.contains("userStandPowerAction.rollbackFailedInputAction(userStandPowerActionBefore)")
+				&& rollbackBody.contains("userAction.rollbackFailedInputAction(userActionBefore)"),
+				"a failed press must roll back both user slots and both input buffers, as it snapshots them");
 		check(actionComponent.contains("lifecycleRemovalAttempts")
 				&& actionComponent.contains("removalAttempted")
 				&& actionComponent.contains("restoreInputLifecycle(")
