@@ -373,8 +373,9 @@ public class SilverChariotDashAttackAbility extends StandEntityAbility {
 					if (dmgSource instanceof DamageSourceModified modified) {
 						modified.jojo_ripples$setStandInvulTicks(10);
 					}
+					float sideYaw = sideKnockbackYaw(stand, candidate);
 					if (standEntityAttack(stand, candidate, dmgSource, damage)) {
-						knockbackTarget(stand, candidate, dashForward);
+						knockbackTarget(stand, candidate, sideYaw);
 						candidate.hurtMarked = true;
 						afterHeavyHit(stand, candidate);
 					}
@@ -397,10 +398,11 @@ public class SilverChariotDashAttackAbility extends StandEntityAbility {
 			if (damage <= 0 || !stand.canAttackEntity(entity)) {
 				return;
 			}
+			float sideYaw = sideKnockbackYaw(stand, entity);
 			boolean hurt = standEntityAttack(stand, entity, makePunchDamageSource(), damage);
 			if (stand.getAttackSpeed() < 24) {
-				entity.setDeltaMovement(sideKnockback(stand, entity, dashForward)
-						.scale(ARMORED_DASH_EXTRA_KNOCKBACK * DASH_KNOCKBACK_TO_STRENGTH));
+				entity.setDeltaMovement(new Vec3(0.0D, 0.0D, ARMORED_DASH_EXTRA_KNOCKBACK * DASH_KNOCKBACK_TO_STRENGTH)
+						.yRot(-sideYaw * MathUtil.DEG_TO_RAD));
 			}
 			else {
 				entity.setDeltaMovement(0.0D, -FAST_DASH_EXTRA_KNOCKBACK * DASH_KNOCKBACK_TO_STRENGTH
@@ -434,21 +436,24 @@ public class SilverChariotDashAttackAbility extends StandEntityAbility {
 			return look.normalize();
 		}
 
-		// the dash's knockback direction below attack speed 24: away from the Stand, turned 60 to 90 degrees to the side
-		private static Vec3 sideKnockback(StandEntity stand, Entity target, Vec3 forward) {
-			Vec3 toTarget = target.position().subtract(stand.position()).multiply(1.0, 0.0, 1.0);
-			double side = forward.x * toTarget.z - forward.z * toTarget.x < 0 ? 1.0 : -1.0;
-			double angle = Math.toRadians((60.0F + stand.getRandom().nextFloat() * 30.0F) * side);
-			Vec3 away = toTarget.lengthSqr() > 1.0E-6 ? toTarget.normalize() : forward;
-			double x = away.x * Math.cos(angle) - away.z * Math.sin(angle);
-			double z = away.x * Math.sin(angle) + away.z * Math.cos(angle);
-			return new Vec3(x, 0.0, z).normalize();
+		/*
+		 * 1.16 SilverChariotDashAttack.punchEntity below attack speed 24, in its float arithmetic: the side comes from the
+		 * Stand's yaw, which the strike has just turned toward the target, so a target within that turn goes to the
+		 * Stand's left and one beyond it keeps its own side.
+		 */
+		private static float sideKnockbackYaw(StandEntity stand, Entity target) {
+			if (stand.getAttackSpeed() >= 24) {
+				return 0.0F;
+			}
+			float yawToTarget = MathUtil.yRotDegFromVec(target.position().subtract(stand.position()));
+			boolean left = Mth.wrapDegrees(stand.getYRot() - yawToTarget) < 0.0F;
+			return yawToTarget + (60.0F + stand.getRandom().nextFloat() * 30.0F) * (left ? 1 : -1);
 		}
 
-		private static void knockbackTarget(StandEntity stand, LivingEntity target, Vec3 forward) {
+		private static void knockbackTarget(StandEntity stand, LivingEntity target, float sideYaw) {
 			if (stand.getAttackSpeed() < 24) {
-				Vec3 rotated = sideKnockback(stand, target, forward);
-				target.knockback(ARMORED_DASH_EXTRA_KNOCKBACK * DASH_KNOCKBACK_TO_STRENGTH, -rotated.x, -rotated.z);
+				target.knockback(ARMORED_DASH_EXTRA_KNOCKBACK * DASH_KNOCKBACK_TO_STRENGTH,
+						Mth.sin(sideYaw * MathUtil.DEG_TO_RAD), -Mth.cos(sideYaw * MathUtil.DEG_TO_RAD));
 			}
 			else {
 				float knockbackStrength = FAST_DASH_EXTRA_KNOCKBACK * DASH_KNOCKBACK_TO_STRENGTH;

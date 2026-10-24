@@ -1,6 +1,9 @@
 package rotp.core.gametest;
 
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
 
 import rotp.core.core.JojoMod;
 import rotp.core.gametest.StandTaskTargetOffsetGameTests.Scene;
@@ -13,18 +16,26 @@ import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.subsystems.target.ActionTarget;
+import rotp.core.util.functions.MathUtil;
 
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.item.PrimedTnt;
+import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Arrow;
 import net.minecraft.world.entity.vehicle.Boat;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.bus.api.EventPriority;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.entity.living.LivingKnockBackEvent;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -132,6 +143,114 @@ public final class SilverChariotDashStrike116GameTests {
 			});
 		}
 		helper.succeed();
+	}
+
+	/*
+	 * Below attack speed 24 1.16's punchEntity took the side from the Stand's yaw after StandEntity.punch had turned it
+	 * toward the target, at most attackSpeed / 16 * 18 degrees (15.75 at 14): a target within that turn went to the Stand's
+	 * left (east, the Stand facing south), one beyond it to its own side, 60 to 90 degrees off the line to it.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100, batch = BATCH)
+	public static void theDashPushesAStruckEntityToTheSide116TookFromTheTurnedStand(GameTestHelper helper) {
+		// east of the dash line, ahead of the Stand, the side 1.16 pushed it to (1 east, -1 west)
+		double[][] rows = { { 0.4D, 2.0D, 1.0D }, { -0.4D, 2.0D, 1.0D }, { 0.5D, 1.0D, 1.0D }, { -0.5D, 1.0D, -1.0D } };
+		for (String kind : new String[] { "zombie", "primed TNT" }) {
+			for (double[] row : rows) {
+				StandTaskTargetOffsetGameTests.withStand(helper, "silver_chariot", scene -> {
+					EntityActionInstance dash = dash(helper, scene, 4);
+					StandEntity stand = scene.stand();
+					attackSpeed(helper, stand, 14.0D);
+					Entity target;
+					if (kind.equals("zombie")) {
+						Zombie zombie = EntityType.ZOMBIE.create(helper.getLevel());
+						helper.assertTrue(zombie != null, "setup: could not create the zombie");
+						zombie.setNoAi(true);
+						zombie.getAttribute(Attributes.KNOCKBACK_RESISTANCE).setBaseValue(0.0D);
+						zombie.getAttribute(Attributes.MAX_HEALTH).setBaseValue(100.0D);
+						zombie.setHealth(100.0F);
+						target = zombie;
+					}
+					else {
+						PrimedTnt tnt = EntityType.TNT.create(helper.getLevel());
+						helper.assertTrue(tnt != null, "setup: could not create the primed TNT");
+						tnt.setFuse(200);
+						target = tnt;
+					}
+					target.setNoGravity(true);
+					target.moveTo(stand.getX() + row[0], stand.getEyeY() - target.getBbHeight() / 2.0D, stand.getZ() + row[1], 0.0F, 0.0F);
+					add(helper, scene, target);
+					Vec3 offset = target.position().subtract(stand.position());
+					float yawToTarget = MathUtil.yRotDegFromVec(offset);
+					Vec3 toTarget = offset.multiply(1.0D, 0.0D, 1.0D).normalize();
+					List<Push> pushes = pushes(target, () -> dashTargets(dash, stand));
+					String where = kind + " " + row[0] + " east and " + row[1] + " ahead";
+					helper.assertTrue(dash.punchedTarget != null && dash.punchedTarget.getEntity() == target,
+							"setup (" + where + "): the dash struck " + dash.punchedTarget);
+					boolean withinTurn = Math.abs(row[0]) < 0.45D;
+					float turnedOff = Mth.wrapDegrees(stand.getYRot() - yawToTarget);
+					helper.assertTrue(withinTurn ? turnedOff == 0.0F : Math.abs(Math.abs(stand.getYRot()) - 15.75F) < 1.0E-3F,
+							"setup (" + where + "): the strike turned the Stand to yaw " + stand.getYRot() + ", " + turnedOff
+									+ " degrees from the target");
+					List<Vec3> sides = new ArrayList<>();
+					if (target instanceof LivingEntity) {
+						for (Push push : pushes) {
+							if (Math.abs(push.strength() - 0.75D) < 1.0E-6D) {
+								sides.add(push.direction());
+							}
+						}
+					}
+					else {
+						// Vec3.yRot's table sine and cosine may sit one step apart for a negative angle, as 1.16's did
+						Vec3 motion = target.getDeltaMovement();
+						helper.assertTrue(Math.abs(motion.horizontalDistance() - 0.75D) < 1.0E-4D && Math.abs(motion.y) < 1.0E-9D,
+								"1.16's dash set 0.75 a tick aside as the motion of the " + where + ": it moves " + motion);
+						sides.add(motion.normalize());
+					}
+					helper.assertTrue(!sides.isEmpty(), "1.16's dash pushed the " + where + " aside 0.75: pushes " + pushes);
+					for (Vec3 side : sides) {
+						double east = toTarget.z * side.x - toTarget.x * side.z;
+						double off = Math.toDegrees(Math.acos(Mth.clamp(toTarget.dot(side), -1.0D, 1.0D)));
+						helper.assertTrue(Math.signum(east) == row[2] && off >= 60.0D - 1.0E-3D && off <= 90.0D + 1.0E-3D,
+								"1.16's dash pushed the " + where + " " + (row[2] > 0 ? "east" : "west") + " of the line to it, 60 to 90"
+										+ " degrees off it (the side from the Stand's yaw after the strike's turn, "
+										+ (withinTurn ? "within the turn: the Stand's left" : "beyond it: its own side") + "): it went "
+										+ (east > 0 ? "east" : "west") + ", " + off + " degrees off, " + side);
+					}
+					LivingComponentAction.getComponent(stand).setAction(null, scene.user(), SyncType.NO_SYNC);
+				});
+			}
+		}
+		helper.succeed();
+	}
+
+	private record Push(double strength, Vec3 direction, Vec3 motionBefore) {}
+
+	// the pushes LivingEntity.knockback is asked for on the target while the run lasts, each with the motion it found
+	private static List<Push> pushes(Entity target, Runnable run) {
+		List<Push> pushes = new ArrayList<>();
+		Consumer<LivingKnockBackEvent> listener = event -> {
+			if (event.getEntity() == target) {
+				pushes.add(new Push(event.getOriginalStrength(),
+						new Vec3(-event.getOriginalRatioX(), 0.0D, -event.getOriginalRatioZ()).normalize(), target.getDeltaMovement()));
+			}
+		};
+		NeoForge.EVENT_BUS.addListener(EventPriority.HIGHEST, LivingKnockBackEvent.class, listener);
+		try {
+			run.run();
+		}
+		finally {
+			NeoForge.EVENT_BUS.unregister(listener);
+		}
+		return pushes;
+	}
+
+	private static void attackSpeed(GameTestHelper helper, StandEntity stand, double speed) {
+		AttributeInstance attribute = stand.getAttribute(Attributes.ATTACK_SPEED);
+		for (int i = 0; i < 4 && Math.abs(stand.getAttackSpeed() - speed) > 1.0E-6D; i++) {
+			attribute.setBaseValue(attribute.getBaseValue() * speed / stand.getAttackSpeed());
+		}
+		helper.assertTrue(Math.abs(stand.getAttackSpeed() - speed) < 1.0E-4D,
+				"setup: the Stand's attack speed is " + stand.getAttackSpeed() + ", not " + speed);
 	}
 
 	// the dash set on the following Silver Chariot, turned south, its user looking straight up so its aim meets nothing
