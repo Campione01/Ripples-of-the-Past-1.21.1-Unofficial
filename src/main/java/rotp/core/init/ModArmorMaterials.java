@@ -38,7 +38,7 @@ public final class ModArmorMaterials {
 	public static final DeferredHolder<ArmorMaterial, ArmorMaterial> STONE_MASK =
 			ARMOR_MATERIALS.register("stone_mask", () -> new ArmorMaterial(
 					Map.of(ArmorItem.Type.HELMET, 1),
-					15,
+					0,
 					SoundEvents.ARMOR_EQUIP_LEATHER,
 					() -> Ingredient.of(Items.LEATHER),
 					List.of(new ArmorMaterial.Layer(JojoMod.resLoc("stone_mask"))),

@@ -171,7 +171,7 @@ public final class ModItems {
 
 	public static final DeferredItem<Item> STAND_ARROW = ITEMS.registerItem("stand_arrow", props -> new StandArrowItem(props), 
 			StandArrowItem.properties(Rarity.RARE, 25));
-	public static final DeferredItem<Item> STAND_ARROW_BEETLE = ITEMS.registerItem("stand_arrow_beetle", props -> new StandArrowItem(props), 
+	public static final DeferredItem<Item> STAND_ARROW_BEETLE = ITEMS.registerItem("stand_arrow_beetle", props -> new StandArrowItem(props, 25), 
 			StandArrowItem.properties(Rarity.EPIC, 250));
 	public static final DeferredItem<Item> STAND_ARROW_METEORITE = ITEMS.registerItem("stand_arrow_meteorite", props -> new StandArrowItem(props), 
 			StandArrowItem.properties(Rarity.UNCOMMON, 25));
