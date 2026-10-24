@@ -158,7 +158,7 @@ public class ExtendableOBB {
 					new TrEntityActionWithOBBSyncPacket(
 							performer.getId(), performer.getUUID(),
 							action.networkGeneration(),
-							actionId));
+							actionId, action.actionSlot()));
         }
     }
 

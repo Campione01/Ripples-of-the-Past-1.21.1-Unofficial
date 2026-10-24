@@ -54,6 +54,7 @@ public record TrEntityActionWithOBBSyncPacket(int performerId,
 				UUIDUtil.STREAM_CODEC, TrEntityActionWithOBBSyncPacket::performerUuid,
 				ByteBufCodecs.VAR_LONG, TrEntityActionWithOBBSyncPacket::actionGeneration,
                 ByteBufCodecs.VAR_INT, TrEntityActionWithOBBSyncPacket::actionId,
+                ByteBufCodecs.VAR_INT, TrEntityActionWithOBBSyncPacket::slot,
                 TrEntityActionWithOBBSyncPacket::new);
 
         @Override

@@ -146,7 +146,9 @@ public class PacketsRegister {
 	// 13: actiontarget, the targets the server changes while an action runs (1.16 TrStandTaskTargetPacket)
 	// 14: the Stand data sync carries the highest Resolve level reached
 	// 15: standawakestage, a Stand user's awakening stage for the players tracking it
-	public static final String NETWORK_PROTOCOL_VERSION = "15";
+	// 16: the action sync packets (entity action, phase time, actiontarget, action synched data, obbsync) carry the
+	// performer's action slot (LivingComponentAction#slotId)
+	public static final String NETWORK_PROTOCOL_VERSION = "16";
 
 	public static void register(RegisterPayloadHandlersEvent event) {
 		PayloadRegistrar registrar = event.registrar(NETWORK_PROTOCOL_VERSION);
