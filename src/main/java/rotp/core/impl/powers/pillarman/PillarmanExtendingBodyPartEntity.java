@@ -221,6 +221,8 @@ public abstract class PillarmanExtendingBodyPartEntity extends OwnerBoundProject
 
 		AABB rayBox = getBoundingBox().expandTowards(rayVec).inflate(1.0D);
 		double entityInflation = getBbWidth() / 2.0D;
+		// 1.16's rules hold: a box holding the start is hit there (clip.orElse(start), as AABB.clip finds no face from
+		// inside), and its root-vehicle skip was the projectile's own vehicle, which it never has
 		for (Entity potentialTarget : level().getEntities(this, rayBox, entity -> canHitEntity(entity))) {
 			AABB targetBox = potentialTarget.getBoundingBox().inflate(potentialTarget.getPickRadius() + entityInflation);
 			Optional<Vec3> clip = targetBox.clip(startPos, endPos);
