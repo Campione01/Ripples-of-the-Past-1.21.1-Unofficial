@@ -193,7 +193,8 @@ public class HamonSendoOverdriveAbility extends HamonActionRuntimeAbility {
 			sendoOverdrive.moveTo(Vec3.atCenterOf(blockPos).subtract(0.0D, sendoOverdrive.getBbHeight() * 0.5D, 0.0D));
 			sendoOverdrive.setBlockTarget(blockPos, face);
 			level.addFreshEntity(sendoOverdrive);
-			user.swing(InteractionHand.MAIN_HAND, false);
+			// 1.16's own client swung in its own stoppedHolding; this copy runs on the server only
+			user.swing(InteractionHand.MAIN_HAND, true);
 		}
 
 		private void capturePreRuntimeState() {
