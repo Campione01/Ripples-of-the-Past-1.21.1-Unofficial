@@ -4,6 +4,7 @@ import java.util.Iterator;
 
 import org.jetbrains.annotations.ApiStatus;
 
+import rotp.core.api.power.AbilityRefusals;
 import rotp.core.event.RipplesAbilityKeyPressEvent;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.network.NetworkPayloadValidation;
@@ -13,6 +14,8 @@ import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.EntityActionAbility;
 import rotp.core.powersystem.ability.condition.AvailableAbilities;
+import rotp.core.powersystem.ability.condition.AvailableAbilities.AbilityConditionCheck;
+import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.entityaction.EntityActionInputState;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
@@ -119,10 +122,32 @@ public class ActionInputBuffer {
 						&& entityAction.wouldBufferInput(user))) {
 					replay(userInput, replaying, ability);
 				}
+				else if (ability == null) {
+					resendAddonRefusal(user, power, abilities.getContextVariationContainer(baseAbilityId.nameInMoveset()));
+				}
 			}
 			else {
 				buffered = null;
 			}
+		}
+	}
+
+	/**
+	 * 1.16 StandEntity.checkInputBuffer clicked a queued action again every tick, and a click an add-on refused at the head
+	 * of its checkConditions (Gold Experience Requiem's lockdown, on_disable) sent that refusal's message each time; the
+	 * press stays queued as there. The port's own refusals keep it waiting silently.
+	 */
+	private static void resendAddonRefusal(LivingEntity user, Power<?> power, @Nullable AbilityConditionCheck container) {
+		if (container == null) {
+			return;
+		}
+		ConditionCheck addonRefusal = AbilityRefusals.refusal(container.ability, power);
+		if (addonRefusal == null || addonRefusal.getWarning() == null) {
+			return;
+		}
+		ConditionCheck check = container.ability.checkConditions(power);
+		if (!check.isPositive() && addonRefusal.getWarning().equals(check.getWarning())) {
+			ConditionCheck.sendActionFailedMessage(container.ability, check, user);
 		}
 	}
 

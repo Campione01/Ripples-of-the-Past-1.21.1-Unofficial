@@ -27,7 +27,10 @@ import rotp.core.powersystem.ability.condition.AvailableAbilities.AbilityConditi
 import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.ability.input.AbilityInput;
+import rotp.core.powersystem.ability.input.ActionInputBuffer;
 import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
+import rotp.core.powersystem.entityaction.ActionPhase;
+import rotp.core.powersystem.entityaction.EntityActionInputState;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.netcode.SyncType;
@@ -179,6 +182,71 @@ public final class AbilityConditionRefusal116GameTests {
 			AbilityRefusals.unregister(OWNER);
 		}
 		helper.succeed();
+	}
+
+	/*
+	 * 1.16 StandEntity.checkInputBuffer clicked a queued action again every tick (PowerBaseImpl.clickAction), so a punch
+	 * queued behind a heavy punch before its user was disabled was refused each tick with on_disable (sendMessage), stayed
+	 * queued and went off once the user was free and the Stand idle.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH)
+	public static void aPressQueuedBeforeAnAddonRefusalSaysItsMessageEachTickAsIn116(GameTestHelper helper) {
+		Set<UUID> refused = new HashSet<>();
+		AbilityRefusals.register(OWNER, (ability, context, user) -> refused.contains(user.getUUID())
+				? ConditionCheck.createNegative("on_disable") : null);
+		try (Scene s = new Scene(helper)) {
+			BufferingState heavy = s.press(s.standPower, "heavy_punch", PUNCH_KEY);
+			EntityActionInstance heavyAction = s.stand.getCurStandAction();
+			helper.assertTrue(heavy.isActionSuccess && heavyAction != null && heavyAction.getPhase() == ActionPhase.WINDUP,
+					"setup: the heavy punch is not winding up: " + heavyAction);
+			BufferingState queued = BufferingState.clickCanBuffer();
+			AbilityConditionCheck punch = s.resolve(s.standPower, "punch");
+			if (AbilityInput.withConditionCheck(punch, s.user, InputMethod.CLICK)) {
+				AbilityInput.keyPress(PROTECTION_KEY, punch.ability, s.user, null, InputMethod.CLICK, 0, queued,
+						s.standPower.getAbility("punch").getAbilityId());
+			}
+			AbilityInput.keyRelease(PROTECTION_KEY, s.user);
+			EntityActionInputState input = s.user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get());
+			ActionInputBuffer buffer = input.inputBuffer(PowerClass.STAND);
+			helper.assertTrue(queued.shouldBuffer && !queued.isActionSuccess && buffered(buffer) != null,
+					"setup: the punch pressed during the heavy punch's windup is not queued");
+
+			refused.add(s.user.getUUID());
+			s.user.clearKeys();
+			for (int tick = 0; tick < 2; tick++) {
+				s.resolve(s.standPower, "punch");
+				buffer.tickInputBuffer(input);
+			}
+			helper.assertTrue(s.user.keys().equals(List.of(KEY, KEY)) && buffered(buffer) != null
+					&& s.stand.getCurStandAction() == heavyAction, "1.16 clicked the queued punch of a disabled user again each"
+							+ " tick, refused with on_disable each time, and kept it queued: messages " + s.user.keys()
+							+ ", queued " + buffered(buffer) + ", the Stand's action " + s.stand.getCurStandAction());
+
+			refused.remove(s.user.getUUID());
+			s.user.clearKeys();
+			LivingComponentAction.getComponent(s.stand).setAction(null, SyncType.NO_SYNC);
+			s.resolve(s.standPower, "punch");
+			buffer.tickInputBuffer(input);
+			EntityActionInstance replayed = s.stand.getCurStandAction();
+			helper.assertTrue(replayed != null && replayed.ability == s.standPower.getAbility("punch") && buffered(buffer) == null
+					&& s.user.keys().isEmpty(), "setup: the queued punch did not go off silently once the user was free and"
+							+ " the Stand idle: the Stand's action " + replayed + ", messages " + s.user.keys());
+		}
+		finally {
+			AbilityRefusals.unregister(OWNER);
+		}
+		helper.succeed();
+	}
+
+	private static Object buffered(ActionInputBuffer buffer) {
+		try {
+			Field field = ActionInputBuffer.class.getDeclaredField("buffered");
+			field.setAccessible(true);
+			return field.get(buffer);
+		}
+		catch (ReflectiveOperationException e) {
+			throw new IllegalStateException("Fixture: cannot read the input buffer", e);
+		}
 	}
 
 	private static String answer(ConditionCheck check) {
