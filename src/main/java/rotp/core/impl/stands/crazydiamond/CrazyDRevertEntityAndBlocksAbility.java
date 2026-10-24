@@ -267,6 +267,18 @@ public class CrazyDRevertEntityAndBlocksAbility extends StandEntityAbility {
 			}
 		}
 
+		// 1.16 CrazyDiamondPreviousState.getOffsetFromUser without an entity: the off-hand item's offset, which the perform
+		// sets (also in its tick) as soon as the entity is let go
+		@Override
+		protected void placeStandWithoutEntityTarget(StandEntity standEntity, boolean wasInFront) {
+			if (getPhase() == ActionPhase.PERFORM) {
+				CrazyDRepairItemAbility.setItemFixStandOffset(this, standEntity);
+			}
+			else {
+				super.placeStandWithoutEntityTarget(standEntity, wasInFront);
+			}
+		}
+
 		@Override
 		public void applyStandUserRotation(StandEntity standEntity, LivingEntity user) {
 			ActionTarget actionTarget = getActionTarget(standEntity.level());

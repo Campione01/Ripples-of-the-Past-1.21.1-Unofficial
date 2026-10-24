@@ -12,6 +12,7 @@ import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.config.client.PlayerClientBroadcastedSettings;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
+import rotp.core.impl.stands.crazydiamond.CrazyDHealAbility;
 import rotp.core.impl.stands.hierophant.HierophantStringAttackAbility.StringAttackShot;
 import rotp.core.impl.stands.silverchariot.SCRapierEntity;
 import rotp.core.init.ModDataAttachmentTypes;
@@ -41,6 +42,7 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
@@ -133,9 +135,10 @@ public final class StandTaskTargetOffsetGameTests {
 			assertAt(helper, scene, expected, "1.16 put a crazy_diamond holding an unhurt cow 6 blocks east of its user who"
 					+ " looks south 3.5 in front, its effective range, on the line from the user's eyes to the cow's");
 
-			// the task no longer holds the cow: getOffsetFromUser gave the default offset again
+			// the task no longer holds the cow: getOffsetFromUser gave the default offset again in the next position update
 			cow.discard();
 			LivingComponentAction.getComponent(scene.stand).tick();
+			scene.stand.updatePosition(scene.user);
 			helper.assertTrue(heal.getTaskTarget(helper.getLevel()).getType() == ActionTarget.TargetType.EMPTY
 					&& scene.stand.offsetFromUser.isIdle(), "1.16 gave a crazy_diamond whose heal no longer held the cow its"
 							+ " default offset; it holds " + heal.getTaskTarget(helper.getLevel()) + " with the offset "
@@ -171,6 +174,99 @@ public final class StandTaskTargetOffsetGameTests {
 					+ front + " in front, measured to the cow itself less its back-away");
 		});
 		helper.succeed();
+	}
+
+	/*
+	 * 1.16 StandEntity.updatePosition asked CrazyDiamondHeal's and CrazyDiamondPreviousState's getOffsetFromUser on both
+	 * sides before the task's tick, so the Stand stood by where its target was in that tick. Crazy Diamond's heal held on a
+	 * cow, a client's copy of it holding the cow the server sent, and its revert held at primed TNT (stored Resolve 4),
+	 * the target stepping before each tick: right after each position update the Stand stands at offsetToTarget of where
+	 * the target is now (the heal turned to the cow's eyes, the revert along the user's view). The revert whose stored
+	 * level drops to 2 lets the TNT go in that tick's action tick and stands at the off-hand item's offset in the next.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void crazyDiamondsHealAndRevertStandByTheirMovingTargetInTheSameTickAsIn116(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		double[] steps = { 3.4D, 2.6D, 3.8D, 2.2D };
+		for (String row : new String[] { "heal", "client heal", "revert" }) {
+			withStand(helper, "crazy_diamond", scene -> {
+				scene.user.getAttribute(ModEntityAttributes.STAND_EFFECTIVE_RANGE).setBaseValue(3.5D);
+				scene.user.getAttribute(ModEntityAttributes.STAND_MAX_RANGE).setBaseValue(8.0D);
+				StandEntity.updateStandStatAttributes(scene.stand, scene.user);
+				boolean revert = row.equals("revert");
+				Entity target;
+				if (revert) {
+					scene.power.setResolveLevel(4);
+					PrimedTnt tnt = EntityType.TNT.create(helper.getLevel());
+					helper.assertTrue(tnt != null, "Could not make primed TNT");
+					tnt.setFuse(20);
+					tnt.setNoGravity(true);
+					stepAhead(scene.user, tnt, 3.0D);
+					helper.assertTrue(helper.getLevel().addFreshEntity(tnt), "Could not add primed TNT");
+					scene.spawned().add(tnt);
+					target = tnt;
+				}
+				else {
+					target = scene.cow(new Vec3(0.0D, 0.0D, 3.0D));
+				}
+				LivingComponentAction.getComponent(scene.user).entityAim.setTarget(new ActionTarget(target));
+				EntityActionInstance action = scene.start(revert ? "revert_state" : "heal", ActionPhase.PERFORM);
+				if (row.equals("client heal")) {
+					ClientHeal client = new ClientHeal(action.ability);
+					copyAsSent(received(helper, action), client);
+					client.holds(new ActionTarget(target));
+					LivingComponentAction actions = LivingComponentAction.getComponent(scene.stand);
+					actions.setAction(null, scene.user, SyncType.NO_SYNC);
+					actions.setAction(client, scene.user, SyncType.NO_SYNC);
+					action = client;
+				}
+				helper.assertTrue(scene.stand.getCurStandAction() == action && action.getTaskTarget(helper.getLevel()).getEntity() == target,
+						"setup: the " + row + " holds " + action.getTaskTarget(helper.getLevel()) + ", not " + target);
+				List<String> mismatches = new ArrayList<>();
+				for (int tick = 0; tick < steps.length; tick++) {
+					stepAhead(scene.user, target, steps[tick]);
+					scene.stand.updatePosition(scene.user);
+					double front = Mth.clamp(Math.sqrt(Math.pow(target.getX() - scene.user.getX(), 2) + Math.pow(target.getZ()
+							- scene.user.getZ(), 2)) - (1.0D + target.getBoundingBox().getXsize() / 2.0D), 0.0D, scene.stand.getEffectiveRange());
+					// withXRot(0, front) turned by the pitch and yaw to the cow's eyes, as the offset turns, in degrees
+					Vec3 toTarget = target.getEyePosition().subtract(scene.user.getEyePosition());
+					Vec3 expected = revert ? new Vec3(0.0D, 0.0D, front)
+							: new Vec3(0.0D, 0.0D, front).xRot(-MathUtil.xRotDegFromVec(toTarget) * MathUtil.DEG_TO_RAD)
+									.yRot(-MathUtil.yRotDegFromVec(toTarget) * MathUtil.DEG_TO_RAD);
+					Vec3 actual = scene.stand.position().subtract(scene.user.position());
+					if (actual.distanceTo(expected) > EPS) {
+						mismatches.add("in tick " + tick + ", " + steps[tick] + " ahead: at its user's feet + " + actual + ", 1.16's " + expected);
+					}
+					if (!row.equals("client heal")) {
+						LivingComponentAction.getComponent(scene.stand).tick();
+					}
+				}
+				if (revert) {
+					scene.power.setResolveLevel(2);
+					scene.stand.updatePosition(scene.user);
+					LivingComponentAction.getComponent(scene.stand).tick();
+					helper.assertTrue(action.getTaskTarget(helper.getLevel()).getType() == ActionTarget.TargetType.EMPTY,
+							"setup: the revert at stored Resolve 2 still holds " + action.getTaskTarget(helper.getLevel()));
+					scene.stand.updatePosition(scene.user);
+					// CrazyDRepairItemAbility.setItemFixStandOffset for a right-handed user, turned by the body yaw (south)
+					Vec3 actual = scene.stand.position().subtract(scene.user.position());
+					if (actual.distanceTo(new Vec3(0.667D, 0.0D, 0.2D)) > EPS) {
+						mismatches.add("in the position update after it let the TNT go: at its user's feet + " + actual
+								+ ", 1.16's off-hand item offset (0.667, 0.0, 0.2)");
+					}
+				}
+				if (!mismatches.isEmpty()) {
+					wrong.add("the " + row + ": " + String.join(", ", mismatches));
+				}
+			});
+		}
+		helper.assertTrue(wrong.isEmpty(), "1.16 put a crazy_diamond holding its heal or revert by its target as the target stood"
+				+ " in that tick's position update: " + String.join("; ", wrong));
+		helper.succeed();
+	}
+
+	private static void stepAhead(Player user, Entity target, double ahead) {
+		target.moveTo(user.getX(), user.getY(), user.getZ() + ahead, 0.0F, 0.0F);
 	}
 
 	/*
@@ -794,6 +890,22 @@ public final class StandTaskTargetOffsetGameTests {
 		@Override
 		protected boolean takesTargetsFromServer() {
 			return true;
+		}
+	}
+
+	// a client's copy of Crazy Diamond's heal, holding the entity the server sent
+	private static final class ClientHeal extends CrazyDHealAbility.HealingAction {
+		ClientHeal(EntityActionType ability) {
+			super(ability);
+		}
+
+		@Override
+		protected boolean takesTargetsFromServer() {
+			return true;
+		}
+
+		void holds(ActionTarget target) {
+			setActionTarget(target);
 		}
 	}
 

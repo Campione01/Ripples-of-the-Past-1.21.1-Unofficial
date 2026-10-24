@@ -382,9 +382,6 @@ public class CrazyDHealAbility extends StandEntityAbility {
 				releaseEntityTargetNoLongerKept();
 			}
 			StandEntity standEntity = performer instanceof StandEntity s ? s : null;
-			if (standEntity != null) {
-				placeStandByTarget(standEntity);
-			}
 			if (getPhase() != ActionPhase.PERFORM) {
 				return;
 			}
@@ -495,6 +492,13 @@ public class CrazyDHealAbility extends StandEntityAbility {
 			}
 		}
 
+		// 1.16 StandEntity.updatePosition asked getOffsetFromUser on both sides, before the task's tick, so the Stand took a
+		// moving target's or user's position in that same tick
+		@Override
+		public void updateStandOffset(StandEntity standEntity) {
+			placeStandByTarget(standEntity);
+		}
+
 		/*
 		 * 1.16 CrazyDiamondHeal and CrazyDiamondPreviousState.getOffsetFromUser: offsetToTarget(task target, 0,
 		 * getMaxEffectiveRange) in front while the task holds an entity, healing it or not; the action's own offset
@@ -505,10 +509,17 @@ public class CrazyDHealAbility extends StandEntityAbility {
 			// the entity's own position as 1.16 getTargetPos took it, not where the aim met its box
 			boolean inFront = targetEntity != null && setStandFrontOffsetFromTarget(standEntity, new ActionTarget(targetEntity),
 					0, standEntity.getEffectiveRange());
-			if (!inFront && placedInFront) {
-				standEntity.offsetFromUser.resetToIdle();
+			if (!inFront) {
+				placeStandWithoutEntityTarget(standEntity, placedInFront);
 			}
 			placedInFront = inFront;
+		}
+
+		// the heal's own offset without an entity: the default one (CrazyDiamondHeal gave none of its own)
+		protected void placeStandWithoutEntityTarget(StandEntity standEntity, boolean wasInFront) {
+			if (wasInFront) {
+				standEntity.offsetFromUser.resetToIdle();
+			}
 		}
 
 		@Override

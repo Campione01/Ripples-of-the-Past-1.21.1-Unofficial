@@ -663,7 +663,7 @@ public class StandEntity extends LivingEntity implements SummonedStand, IEntityW
 		if (isFollowingUser()) {
 			if (user != null) {
 				EntityActionInstance curAction = standAction.getAction();
-				if (curAction != null && !curAction.isOver() && !level().isClientSide()) {
+				if (curAction != null && !curAction.isOver()) {
 					curAction.updateStandOffset(this);
 				}
 				Vec3 pos = offsetFromUser.getPosition(user);
