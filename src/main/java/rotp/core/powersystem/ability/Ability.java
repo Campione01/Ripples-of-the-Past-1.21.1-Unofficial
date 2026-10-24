@@ -561,6 +561,12 @@ public class Ability {
 				&& entityAbility.waitsBehind(user, getRunningPlayerAction(user)));
 	}
 
+	// the held recheck's part of the gate: 1.16's power re-ran Action.checkConditions on every held tick, so a hold ended
+	// once another action of its user, a player, ran a player action it cannot be used in
+	boolean isHoldEndedByPlayerAction(@Nullable LivingEntity user, EntityActionInstance held) {
+		return isUnusableDuringPlayerAction(user) && getRunningPlayerAction(user) != held;
+	}
+
 	/**
 	 * 1.16 StandAction.checkConditions: a Stand that lost a part the action needs (partsRequired) cannot use it.
 	 * Also re-checked during a hold by EntityActionAbility#checkHeldActionConditions.

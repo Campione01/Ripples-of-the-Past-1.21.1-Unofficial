@@ -35,6 +35,7 @@ import rotp.core.powersystem.entityaction.EntityActionInputState;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.netcode.SyncType;
+import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.playerpower.PlayerPower;
 import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandPower;
@@ -78,8 +79,13 @@ public final class PlayerActionGate116GameTests {
 	private static final short OPT_IN_KEY = 84;
 	private static final short PUNCH_KEY = 85;
 	private static final short OVERDRIVE_KEY = 86;
+	private static final short HELD_KEY = 87;
 	private static final String OPT_OUT = "player_action_opt_out_probe";
 	private static final String OPT_IN = "player_action_opt_in_probe";
+	private static final String OPT_OUT_HELD = "player_action_opt_out_held_probe";
+	private static final String OPT_IN_HELD = "player_action_opt_in_held_probe";
+	private static final String OWN_PLAYER_ACTION_HELD = "player_action_held_probe";
+	private static final int HELD_CHARGE = 10;
 	private static final String BLADE_DASH = "pillarman_blade_dash_attack";
 	private static final String CONDITION = "jojo.message.action_condition.";
 
@@ -258,6 +264,62 @@ public final class PlayerActionGate116GameTests {
 		helper.succeed();
 	}
 
+	/*
+	 * 1.16's gate sat in Action.checkConditions, which PowerBaseImpl.tickHeldAction re-ran on every held tick: a held
+	 * Stand move that opted out of it (Kraft Work's Lock Target, a 10-tick charge its user's power held) ended on its next
+	 * held tick once Hamon Overdrive Beat started during its charge, without firing and without a message
+	 * (stopHeldAction(false) on a NEGATIVE), while one that did not opt out charged on through the beat and fired at its
+	 * length. Before, the port checked the gate only at the press, so the opted-out charge fired in its 10th tick.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aHeldStandMoveThatOptedOutEndsOnItsNextHeldTickOnceABeatStartsAsIn116(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		for (boolean optedOut : new boolean[] { true, false }) {
+			String name = optedOut ? OPT_OUT_HELD : OPT_IN_HELD;
+			try (Scene s = new Scene(helper)) {
+				s.aim(s.cow(1.5D));
+				BufferingState holdPress = s.hold(s.standPower, name, HELD_KEY);
+				EntityActionInstance charge = s.standPowerSlot().getAction();
+				helper.assertTrue(holdPress.isActionSuccess && charge instanceof HeldProbeAction
+						&& charge.ability == s.standPower.getAbility(name) && charge.getPhase() == ActionPhase.BUTTON_CHARGE,
+						"setup: " + name + " is not charging in its user's Stand-power slot: started "
+								+ holdPress.isActionSuccess + ", the user's Stand-power action " + charge);
+				s.tickUser(2);
+				BufferingState beatPress = s.press(s.power, "hamon_beat", InputMethod.CLICK, BEAT_KEY);
+				EntityActionInstance beat = s.own().getAction();
+				helper.assertTrue(beatPress.isActionSuccess && beat != null && beat.isPlayerAction()
+						&& charge.getPhase() == ActionPhase.BUTTON_CHARGE, "setup: " + name + ": Hamon Overdrive Beat did not"
+								+ " start as a player action during the charge: started " + beatPress.isActionSuccess
+								+ ", the user's action " + beat + ", the charge in " + charge.getPhase());
+				s.tickUser(1);
+				boolean endedAtNextTick = charge.isOver() && s.standPowerSlot().getAction() != charge;
+				s.tickUser(HELD_CHARGE);
+				boolean performed = ((HeldProbeAction) charge).performed;
+				if (optedOut ? !endedAtNextTick || performed || !s.user.keys().isEmpty() : endedAtNextTick || !performed) {
+					wrong.add(name + ": the charge ended on the held tick after the beat started " + endedAtNextTick
+							+ ", fired " + performed + ", messages " + s.user.keys() + "; 1.16 "
+							+ (optedOut ? "ended it then, unfired and silently" : "charged on and fired it at its length"));
+				}
+			}
+		}
+		// the gate ends a hold for another action's player action only: a held action that is itself the running player
+		// action (an add-on port marked so in its charge) charges on
+		try (Scene s = new Scene(helper)) {
+			BufferingState holdPress = s.hold(s.standPower, OWN_PLAYER_ACTION_HELD, HELD_KEY);
+			EntityActionInstance charge = s.standPowerSlot().getAction();
+			helper.assertTrue(holdPress.isActionSuccess && charge instanceof HeldProbeAction && charge.isPlayerAction()
+					&& Ability.getRunningPlayerAction(s.user) == charge, "setup: " + OWN_PLAYER_ACTION_HELD + " is not charging"
+							+ " as its user's player action: started " + holdPress.isActionSuccess + ", the action " + charge);
+			s.tickUser(HELD_CHARGE + 1);
+			if (!((HeldProbeAction) charge).performed) {
+				wrong.add(OWN_PLAYER_ACTION_HELD + ": a hold that is its user's player action itself ended unfired, in "
+						+ charge.getPhase());
+			}
+		}
+		helper.assertTrue(wrong.isEmpty(), "1.16 re-ran the player action gate on every held tick: " + String.join("; ", wrong));
+		helper.succeed();
+	}
+
 	@Nullable
 	private static BufferedInputEntry buffered(ActionInputBuffer buffer) {
 		try {
@@ -352,6 +414,14 @@ public final class PlayerActionGate116GameTests {
 					new AbilityId(PowerClass.STAND, standType.getId(), OPT_OUT), false));
 			standPower.getMoveset().abilities.put(OPT_IN, new UserStandMove(ModStandAbilities.PUNCH.get(),
 					new AbilityId(PowerClass.STAND, standType.getId(), OPT_IN), true));
+			standPower.getMoveset().abilities.put(OPT_OUT_HELD, new UserStandMove(ModStandAbilities.PUNCH.get(),
+					new AbilityId(PowerClass.STAND, standType.getId(), OPT_OUT_HELD), false, HELD_CHARGE));
+			standPower.getMoveset().abilities.put(OPT_IN_HELD, new UserStandMove(ModStandAbilities.PUNCH.get(),
+					new AbilityId(PowerClass.STAND, standType.getId(), OPT_IN_HELD), true, HELD_CHARGE));
+			UserStandMove ownPlayerAction = new UserStandMove(ModStandAbilities.PUNCH.get(),
+					new AbilityId(PowerClass.STAND, standType.getId(), OWN_PLAYER_ACTION_HELD), false, HELD_CHARGE);
+			ownPlayerAction.playerAction = true;
+			standPower.getMoveset().abilities.put(OWN_PLAYER_ACTION_HELD, ownPlayerAction);
 			helper.assertTrue(standType.summon(user, standPower), "Could not summon Star Platinum");
 			stand = standPower.getSummonedStandEntity();
 			helper.assertTrue(stand != null, "Summoned Star Platinum is missing");
@@ -381,6 +451,15 @@ public final class PlayerActionGate116GameTests {
 
 		private LivingComponentAction standPowerSlot() {
 			return LivingComponentAction.getComponent(user, PowerClass.STAND);
+		}
+
+		// the user's two slots, its own first, as its tick runs them
+		private void tickUser(int ticks) {
+			for (int tick = 0; tick < ticks; tick++) {
+				user.tickCount++;
+				own().tick();
+				standPowerSlot().tick();
+			}
 		}
 
 		private EntityActionInputState input() {
@@ -455,19 +534,47 @@ public final class PlayerActionGate116GameTests {
 		}
 	}
 
-	// a Stand move its user performs itself (its Stand-power slot), opting out of the player action gate or not
+	// a Stand move its user performs itself (its Stand-power slot), opting out of the player action gate or not, a click or
+	// a charge held into its perform
 	private static final class UserStandMove extends EntityActionAbility {
 		private final boolean usableDuringPlayerAction;
+		// its action is a player action itself
+		private boolean playerAction;
 
 		UserStandMove(AbilityType<?> abilityType, AbilityId abilityId, boolean usableDuringPlayerAction) {
-			super(abilityType, abilityId, EntityActionInstance::new);
+			this(abilityType, abilityId, usableDuringPlayerAction, 0);
+		}
+
+		UserStandMove(AbilityType<?> abilityType, AbilityId abilityId, boolean usableDuringPlayerAction, int charge) {
+			super(abilityType, abilityId, HeldProbeAction::new);
 			this.usableDuringPlayerAction = usableDuringPlayerAction;
+			if (charge > 0) {
+				setDefaultPhaseLength(ActionPhase.BUTTON_CHARGE, charge);
+			}
 			setDefaultPhaseLength(ActionPhase.PERFORM, 2);
 		}
 
 		@Override
 		public boolean canBeUsedDuringPlayerAction(EntityActionInstance playerAction) {
 			return usableDuringPlayerAction && super.canBeUsedDuringPlayerAction(playerAction);
+		}
+	}
+
+	private static final class HeldProbeAction extends EntityActionInstance {
+		boolean performed;
+
+		HeldProbeAction(EntityActionType ability) {
+			super(ability);
+		}
+
+		@Override
+		public void actionPerformStart() {
+			performed = true;
+		}
+
+		@Override
+		public boolean isPlayerAction() {
+			return ability instanceof UserStandMove move && move.playerAction;
 		}
 	}
 }
