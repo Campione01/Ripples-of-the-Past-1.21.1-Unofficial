@@ -72,10 +72,11 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * getTargetRequirement), so PowerBaseImpl.checkTarget let a press at a mob, at the air or at a plant through: the hold
  * started, with Jonathan's line, wherever its user looked, and overrideVanillaMouseTarget only rewrote a check target
  * nothing read. stoppedHolding sent the wave only when the mouse target at the release, the raw pick the client went on
- * sending, was a block (a plant itself), and only then spent the energy of a release before the full charge. The press
- * kept its other checks: a free main hand and the energy. The scenes set the aim the client sends, its vanilla pick,
- * check the press as the server and the HUD do (Ability.checkConditions) and press through the server's input path.
- * Own batches.
+ * sending, was a block (a plant itself), and only then spent the energy of a release before the full charge; a release at
+ * the full charge that passed its checks still performed wherever it was aimed (stopHeldAction(true)): the hand swung and
+ * NonStandAction.onPerform spent the energy. The press kept its other checks: a free main hand and the energy. The
+ * scenes set the aim the client sends, its vanilla pick, check the press as the server and the HUD do
+ * (Ability.checkConditions) and press through the server's input path. Own batches.
  */
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -89,7 +90,8 @@ public final class HamonSendoOverdriveTarget116GameTests {
 	 * A cow under the crosshair with a stone wall three blocks behind it: 1.16 accepted the press, on the server and in the
 	 * user's own HUD (a stick in the main hand, or no energy or breath left, still refused it); the hold started with
 	 * Jonathan's line and went on at the cow, and let go of there before its full charge it sent no wave and spent
-	 * nothing. Held to its full charge and let go of at the cow: no wave either.
+	 * nothing. Held to its full charge and let go of at the cow: no wave either, but the hand swung and the energy was
+	 * spent; with a stick taken into the main hand just before that release, its check failed and nothing happened.
 	 */
 	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH + "entity")
 	public static void sendoOverdrivePressedAtAMobHoldsAndSendsNoWaveAsIn116(GameTestHelper helper) {
@@ -109,7 +111,7 @@ public final class HamonSendoOverdriveTarget116GameTests {
 			EntityActionInstance held = scene.press(atCow, where);
 			scene.tick(10);
 			scene.assertHeldWithItsLine(held, where);
-			scene.assertReleasedWithoutWave(held, true, where + ", let go of before the full charge");
+			scene.assertReleasedWithoutWave(held, false, where + ", let go of before the full charge");
 		}
 		try (Scene scene = new Scene(helper)) {
 			scene.wallAhead(3);
@@ -118,15 +120,25 @@ public final class HamonSendoOverdriveTarget116GameTests {
 			EntityActionInstance held = scene.press(atCow, where);
 			scene.tick(31);
 			scene.assertHeldWithItsLine(held, where + " for its full charge");
-			scene.assertReleasedWithoutWave(held, false, where + ", let go of at its full charge");
+			scene.assertReleasedWithoutWave(held, true, where + ", let go of at its full charge");
+		}
+		try (Scene scene = new Scene(helper)) {
+			ActionTarget atCow = new ActionTarget(scene.mob(EntityType.COW, 1.5D));
+			String where = "a cow under the crosshair";
+			EntityActionInstance held = scene.press(atCow, where);
+			scene.tick(31);
+			scene.user.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.STICK));
+			scene.assertReleasedWithoutWave(held, false, where + ", let go of at its full charge with a stick just taken"
+					+ " into the main hand (stopHeldAction(true)'s check failed: no perform)");
 		}
 		helper.succeed();
 	}
 
 	/*
 	 * A stone wall seven blocks ahead, past the vanilla pick's reach (4.5 blocks in Survival): the client's pick is a miss,
-	 * which 1.16 accepted; held to the full charge and let go of at the air, no wave. Pressed at the air and turned to a
-	 * wall in the pick's reach before the release: the wave goes from that wall as stoppedHolding put it.
+	 * which 1.16 accepted; held to the full charge and let go of at the air, no wave, the hand swung and the energy was
+	 * spent. Pressed at the air and turned to a wall in the pick's reach before the release: the wave goes from that wall
+	 * as stoppedHolding put it.
 	 */
 	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH + "air")
 	public static void sendoOverdrivePressedAtTheAirHoldsAndSendsItsWaveOnlyAtABlockAsIn116(GameTestHelper helper) {
@@ -139,7 +151,7 @@ public final class HamonSendoOverdriveTarget116GameTests {
 			EntityActionInstance held = scene.press(ActionTarget.EMPTY, where);
 			scene.tick(31);
 			scene.assertHeldWithItsLine(held, where);
-			scene.assertReleasedWithoutWave(held, false, where + ", let go of at its full charge");
+			scene.assertReleasedWithoutWave(held, true, where + ", let go of at its full charge");
 		}
 		try (Scene scene = new Scene(helper)) {
 			scene.wallAhead(7);
@@ -413,22 +425,35 @@ public final class HamonSendoOverdriveTarget116GameTests {
 		}
 
 		/*
-		 * Let go of with no block under the crosshair: 1.16 stoppedHolding sent no wave; before the full charge
-		 * (stopHeldAction(false), no perform) nothing was spent either.
+		 * Let go of with no block under the crosshair: 1.16 stoppedHolding sent no wave. Before the full charge
+		 * (stopHeldAction(false), no perform) nothing was spent and the hand did not swing; at the full charge, with
+		 * its checks passed, performAction spent the 900 energy and swingHand swung the main hand.
 		 */
-		void assertReleasedWithoutWave(EntityActionInstance held, boolean early, String scene) {
+		void assertReleasedWithoutWave(EntityActionInstance held, boolean performs, String scene) {
 			float energy = hamon.getEnergy();
 			float breath = hamon.getBreathStability();
+			helper.assertTrue(!user.swinging, "Fixture: the user swings before Sendo Overdrive pressed at " + scene
+					+ " is let go of");
 			List<HamonSendoOverdriveEntity> sent = release(held);
 			helper.assertTrue(sent.isEmpty(), "1.16's Sendo Overdrive pressed at " + scene + " sent no wave (stoppedHolding"
 					+ " found no block); the port's sent " + sent.size() + " at " + sent.stream().map(wave ->
 							wave.getTargetedBlockPos() + " (" + wave.getTargetedFace() + ")").toList());
 			helper.assertTrue(held.isOver() || LivingComponentAction.getComponent(user).getAction() != held,
 					"Sendo Overdrive pressed at " + scene + " is still running: " + held.getPhase());
-			if (early) {
-				helper.assertTrue(hamon.getEnergy() == energy && hamon.getBreathStability() == breath, "1.16's Sendo"
-						+ " Overdrive pressed at " + scene + " spent nothing; the port's energy went from " + energy + " to "
-						+ hamon.getEnergy() + ", its breath stability from " + breath + " to " + hamon.getBreathStability());
+			if (performs) {
+				helper.assertTrue(hamon.getEnergy() == energy - 900.0F && hamon.getBreathStability() == breath
+						&& user.swinging && user.swingingArm == InteractionHand.MAIN_HAND, "1.16's Sendo Overdrive pressed at "
+								+ scene + " still performed: its 900 energy spent and the main hand swung; the port's energy"
+								+ " went from " + energy + " to " + hamon.getEnergy() + ", its breath stability from " + breath
+								+ " to " + hamon.getBreathStability() + ", the user " + (user.swinging ? "swung its "
+										+ user.swingingArm : "did not swing"));
+			}
+			else {
+				helper.assertTrue(hamon.getEnergy() == energy && hamon.getBreathStability() == breath && !user.swinging,
+						"1.16's Sendo Overdrive pressed at " + scene + " did not perform: nothing spent, no swing; the port's"
+								+ " energy went from " + energy + " to " + hamon.getEnergy() + ", its breath stability from "
+								+ breath + " to " + hamon.getBreathStability() + ", the user " + (user.swinging ? "swung its "
+										+ user.swingingArm : "did not swing"));
 			}
 		}
 
