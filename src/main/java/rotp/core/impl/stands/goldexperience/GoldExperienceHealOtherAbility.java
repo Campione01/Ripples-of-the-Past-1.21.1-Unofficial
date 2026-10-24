@@ -4,7 +4,6 @@ import rotp.core.powersystem.standpower.StandInstance.StandPart;
 
 import rotp.core.api.healing.GoldExperienceExternalHealingTarget;
 import rotp.core.api.healing.GoldExperienceExternalHealingTargets;
-import rotp.core.api.stand.StandSkillWalls;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.ability.AbilityId;
@@ -241,12 +240,12 @@ public class GoldExperienceHealOtherAbility extends NoPoseStandEntityAbility {
                 : null;
     }
 
-    // 1.16 casts no ray of its own: the target is the client's, its vanilla pick or the Stand's precision ray, where a
-    // block without a collision shape gave way to the collision ray of StandEntityAction.overrideVanillaMouseTarget
-    // (TargetRequirement.ENTITY), so a mob behind a torch is the target
+    // 1.16 casts no ray of its own: the target is the client's, its vanilla pick or the Stand's precision ray. A pressed
+    // block does not give way here (StandEntityAction.overrideVanillaMouseTarget): 1.16 resolved the slot with the raw
+    // pick first (ActionsOverlayGui.resolveVisibleActionInSlot), and replaceAction made any target that is not an entity
+    // Healing Item, so Heal Other never saw a block
     private static ActionTarget getSyncedLookTarget(LivingEntity user, Level level) {
-        return pastBlockWithoutCollision(user, GoldExperienceCreateLifeformAbility.getClientLookTarget(level, user),
-                StandSkillWalls.wallsHideEntities(user));
+        return GoldExperienceCreateLifeformAbility.getClientLookTarget(level, user);
     }
 
     // 1.16 Action.checkRangeAndTarget: from the Stand while it is out, less without a line of sight

@@ -21,6 +21,7 @@ import rotp.core.impl.stands.theworld.TimeStopAbility;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
+import rotp.core.powersystem.ability.condition.AvailableAbilities;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
@@ -272,22 +273,33 @@ public final class PressedBlockGivesWay116GameTests {
 	}
 
 	/*
-	 * Gold Experience's Heal Other (GoldExperienceHeal, a StandEntityAction, TargetRequirement.ENTITY) pressed at a torch
-	 * with a wounded cow behind it: 1.16 took the cow, which its task held.
+	 * Gold Experience's Heal Other slot (the shift variation of Heal) pressed at a torch with a wounded cow behind it:
+	 * 1.16 resolved the slot with the raw vanilla pick before any override (ActionsOverlayGui.resolveVisibleActionInSlot),
+	 * and GoldExperienceHealOther.replaceAction made every target that is not an entity Healing Item, which the click
+	 * packet carried. At the cow itself the slot stays Heal Other, whose task holds the cow.
 	 */
 	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH + "heal_other")
-	public static void healOtherPressedAtATorchTakesTheCowBehindAsIn116(GameTestHelper helper) {
+	public static void healOtherSlotPressedAtATorchIsHealingItemAsIn116(GameTestHelper helper) {
 		try (Scene scene = new Scene(helper, "gold_experience", 0)) {
+			scene.unlock("heal", "heal_other", "healing_item");
 			BlockPos torch = scene.torchInTheAir();
 			Cow cow = scene.cow(2.0D, false);
 			scene.assertInStandReach(cow);
 			cow.setHealth(cow.getMaxHealth() - 4.0F);
 			scene.user.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.IRON_INGOT, 8));
 			scene.pressAt(new ActionTarget(torch, Direction.NORTH));
-			EntityActionInstance healOther = scene.start("heal_other");
+			Ability atTorch = scene.slot("heal_other");
+			helper.assertTrue(atTorch != null && "healing_item".equals(atTorch.name()), "1.16's Heal Other slot pressed at a"
+					+ " torch with a wounded cow behind it was Healing Item (replaceAction on the raw pick); the port's is "
+					+ (atTorch != null ? atTorch.name() : "empty") + ", the torch at " + torch);
+			scene.pressAt(new ActionTarget(cow));
+			Ability atCow = scene.slot("heal_other");
+			helper.assertTrue(atCow != null && "heal_other".equals(atCow.name()), "1.16's Heal Other slot pressed at a wounded"
+					+ " cow was Heal Other; the port's is " + (atCow != null ? atCow.name() : "empty"));
+			EntityActionInstance healOther = scene.start(atCow);
 			ActionTarget pressed = healOther.getTaskTarget(scene.level);
 			helper.assertTrue(pressed.getType() == TargetType.ENTITY && pressed.getEntity() == cow, "1.16's Heal Other pressed"
-					+ " at a torch took the cow behind it; the port's took " + describe(pressed) + ", the torch at " + torch);
+					+ " at a wounded cow held the cow; the port's holds " + describe(pressed));
 		}
 		helper.succeed();
 	}
@@ -490,9 +502,34 @@ public final class PressedBlockGivesWay116GameTests {
 			throw new IllegalStateException();
 		}
 
+		// as a player who took the skills and reached their Resolve level has them
+		void unlock(String... names) {
+			for (String name : names) {
+				Ability ability = ability(name);
+				power.getCurTypeData()._lockedAbilities.remove(name);
+				int resolve = ability.getRequiredResolveLevel(power);
+				if (resolve > power.getResolveLevel()) {
+					power.setResolveLevel(resolve);
+				}
+				helper.assertTrue(ability.isAbilityUnlocked(power), "Fixture: " + name + " is still locked");
+			}
+		}
+
+		// what a press of the slot resolves to, on the HUD and in the press packet's handler (AvailableAbilities)
+		@Nullable
+		Ability slot(String name) {
+			AvailableAbilities available = new AvailableAbilities();
+			available.update(power, power.getMoveset());
+			return available.getContextVariation(name);
+		}
+
 		// the action the press starts on the Stand
 		EntityActionInstance start(String name) {
-			Ability ability = ability(name);
+			return start(ability(name));
+		}
+
+		EntityActionInstance start(Ability ability) {
+			String name = ability.name();
 			helper.assertTrue(ability instanceof EntityActionType, "Fixture: " + name + " is not an action");
 			EntityActionInstance action = ((EntityActionType) ability).initActionOnAbilityUse(level, user, stand, null);
 			helper.assertTrue(action != null, "Fixture: " + name + " made no action");
