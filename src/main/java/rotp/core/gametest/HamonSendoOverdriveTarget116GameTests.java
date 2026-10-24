@@ -184,6 +184,28 @@ public final class HamonSendoOverdriveTarget116GameTests {
 	}
 
 	/*
+	 * Sendo Overdrive no key holds (a buffered click, an action set by code): it fires by itself at its full charge, and
+	 * with no block under the crosshair that is the same perform as a key let go of at the full charge: 900 energy spent
+	 * and the main hand swung, once on the user's own screen, with no wave; a stick taken into the main hand before the
+	 * full charge ends the hold, and nothing is spent and nothing swings.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH + "unheld")
+	public static void sendoOverdriveNoKeyHoldsFiresAtItsFullChargeWithoutABlockAsIn116(GameTestHelper helper) {
+		try (Scene scene = new Scene(helper)) {
+			scene.assertUnheldFullCharge(ActionTarget.EMPTY, false, "the air");
+		}
+		try (Scene scene = new Scene(helper)) {
+			scene.wallAhead(3);
+			scene.assertUnheldFullCharge(new ActionTarget(scene.mob(EntityType.COW, 1.5D)), false,
+					"a cow under the crosshair with a stone wall behind it");
+		}
+		try (Scene scene = new Scene(helper)) {
+			scene.assertUnheldFullCharge(ActionTarget.EMPTY, true, "the air, with a stick taken into the main hand");
+		}
+		helper.succeed();
+	}
+
+	/*
 	 * Tall grass under the crosshair with nothing behind it in 10 blocks: overrideVanillaMouseTarget's collision ray met
 	 * nothing, which TargetRequirement.NONE accepted; the hold started and, let go of at the grass, sent its wave from the
 	 * grass itself.
@@ -507,6 +529,55 @@ public final class HamonSendoOverdriveTarget116GameTests {
 								+ (user.swinging ? "swung its " + user.swingingArm : "did not swing") + ", its own client was"
 								+ " sent " + ownSwings + " main-hand swings");
 			}
+		}
+
+		/*
+		 * Sendo Overdrive started at the aim with no key holding it, as a buffered click or code does: charging up to its
+		 * full charge, where it fires by itself; with a stick taken into the main hand on the way, the failed held check
+		 * ends it first.
+		 */
+		void assertUnheldFullCharge(ActionTarget aim, boolean stick, String scene) {
+			setAim(aim, false);
+			LivingComponentAction component = LivingComponentAction.getComponent(user);
+			EntityActionInstance action = ((EntityActionType) sendo).initActionOnAbilityUse(level, user, user, null);
+			component.setAction(action, user, SyncType.NO_SYNC);
+			float energy = hamon.getEnergy();
+			float breath = hamon.getBreathStability();
+			tick(stick ? 10 : 30);
+			if (stick) {
+				user.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.STICK));
+				tick(20);
+			}
+			else {
+				helper.assertTrue(component.getAction() == action && action.getPhase() == ActionPhase.WINDUP,
+						"Fixture: Sendo Overdrive no key holds, at " + scene + ", is not charging a tick short of its full charge: "
+								+ action.getPhase());
+			}
+			helper.assertTrue(hamon.getEnergy() == energy && !user.swinging && user.ownMainHandSwings == 0,
+					"Sendo Overdrive no key holds, at " + scene + ", spent energy or swung before its full charge");
+			tick(1);
+			List<HamonSendoOverdriveEntity> sent = new ArrayList<>(level.getEntitiesOfClass(HamonSendoOverdriveEntity.class, area));
+			sent.removeAll(wavesBefore);
+			int ownSwings = user.ownMainHandSwings;
+			helper.assertTrue(sent.isEmpty() && (action.isOver() || component.getAction() != action), "1.16's Sendo Overdrive no"
+					+ " key holds, at " + scene + ", sent no wave (stoppedHolding found no block) and was over; the port's sent "
+					+ sent.size() + ", phase " + action.getPhase());
+			if (stick) {
+				helper.assertTrue(hamon.getEnergy() == energy && hamon.getBreathStability() == breath && !user.swinging
+						&& ownSwings == 0, "1.16's Sendo Overdrive no key holds, at " + scene + ", did not perform: nothing"
+								+ " spent, no swing; the port's energy went from " + energy + " to " + hamon.getEnergy() + ", the"
+								+ " user " + (user.swinging ? "swung its " + user.swingingArm : "did not swing") + ", its own client"
+								+ " was sent " + ownSwings + " main-hand swings");
+			}
+			else {
+				helper.assertTrue(hamon.getEnergy() == energy - 900.0F && hamon.getBreathStability() == breath && user.swinging
+						&& user.swingingArm == InteractionHand.MAIN_HAND && ownSwings == 1, "1.16's Sendo Overdrive no key holds,"
+								+ " at " + scene + ", fired at its full charge like a released one: its 900 energy spent and the"
+								+ " main hand swung once on its user's own screen; the port's energy went from " + energy + " to "
+								+ hamon.getEnergy() + ", the user " + (user.swinging ? "swung its " + user.swingingArm
+										: "did not swing") + ", its own client was sent " + ownSwings + " main-hand swings");
+			}
+			user.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
 		}
 
 		/*
