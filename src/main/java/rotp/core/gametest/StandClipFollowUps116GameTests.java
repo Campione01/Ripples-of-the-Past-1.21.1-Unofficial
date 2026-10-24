@@ -36,6 +36,7 @@ import rotp.core.powersystem.entityaction.netcode.SyncType;
 import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
+import rotp.core.powersystem.standpower.entity.StandIdleSway;
 import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.target.ActionTarget;
 
@@ -1055,6 +1056,94 @@ public final class StandClipFollowUps116GameTests {
 			wrong.add("the official idle no longer keeps its own body bob");
 		}
 		helper.assertTrue(wrong.isEmpty(), "1.16 swayed Silver Chariot's idles: " + wrong);
+		helper.succeed();
+	}
+
+	/*
+	 * 1.16 StandEntityRenderer.idlePoseSwaying swayed the idle only while the Stand was not visible for all, had no vanilla
+	 * arm swing, followed its user and that user did not sneak; otherwise the model stood still. The converted idles mark
+	 * their stand_pos sway (StandIdleSway), the official idle does not, and the client takes the mark's offset out of the
+	 * pose while StandIdleSway.swaysAsIn116 is false (read from PreFrameEntityAnimCalc's class file: the client cannot run
+	 * here).
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void silverChariotsConvertedIdlesHoldTheirSwayStillAs116Did(GameTestHelper helper) {
+		List<String> wrong = new ArrayList<>();
+		Map<String, JsonObject> files = new HashMap<>();
+		for (String name : new String[] { "no_rapier_idle", "no_armor_idle", "idle" }) {
+			JsonObject clip = clipOf(helper, files, SC_ANIMS, name);
+			JsonObject timeline = clip.getAsJsonObject("timeline");
+			JsonElement mark = timeline != null ? timeline.get("0") : null;
+			boolean marked = mark != null && mark.isJsonPrimitive() && mark.getAsString().replace(" ", "")
+					.equals(StandIdleSway.CLIP_FIELD + "=" + StandIdleSway.CLIP_VALUE + ";");
+			if (marked != !name.equals("idle")) {
+				wrong.add(name + (marked ? " marks" : " does not mark") + " its sway as 1.16's renderer sway");
+			}
+		}
+		Set<String> invoked = invokedMethods(helper, "rotp/core/client/entityanim/PreFrameEntityAnimCalc.class");
+		for (String call : new String[] { "rotp/core/powersystem/standpower/entity/StandIdleSway.swaysAsIn116",
+				"rotp/core/client/entityanim/action/AnimInstructionTimelines.getStringTimelineVal" }) {
+			if (!invoked.contains(call)) {
+				wrong.add("PreFrameEntityAnimCalc no longer calls " + call);
+			}
+		}
+
+		Player user = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
+		StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("silver_chariot"));
+		StandPower power = null;
+		try {
+			Vec3 pos = Vec3.atCenterOf(helper.absolutePos(new BlockPos(2, 3, 2)));
+			user.moveTo(pos.x, pos.y, pos.z);
+			helper.assertTrue(helper.getLevel().addFreshEntity(user), "setup: could not add the Stand user");
+			power = PowerClass.STAND.attachGet(user);
+			helper.assertTrue(StandPowerTransitions.insert(power, new StandInstance(type)).status() == StandPowerTransitions.Status.APPLIED,
+					"setup: could not grant Silver Chariot");
+			helper.assertTrue(type.summon(user, power), "setup: could not summon Silver Chariot");
+			StandEntity stand = power.getSummonedStandEntity();
+			helper.assertTrue(stand != null && stand.isFollowingUser() && !stand.isVisibleForAll(),
+					"setup: Silver Chariot is not out following its user");
+			if (!StandIdleSway.swaysAsIn116(stand, 0.5F)) {
+				wrong.add("an idle Stand following its user who stands is held still, where 1.16 swayed it");
+			}
+			user.setShiftKeyDown(true);
+			if (StandIdleSway.swaysAsIn116(stand, 0.5F)) {
+				wrong.add("the idle sways while its user sneaks");
+			}
+			user.setShiftKeyDown(false);
+			stand.oAttackAnim = 0.5F;
+			stand.attackAnim = 0.5F;
+			if (StandIdleSway.swaysAsIn116(stand, 0.5F)) {
+				wrong.add("the idle sways during a vanilla arm swing");
+			}
+			stand.oAttackAnim = 0;
+			stand.attackAnim = 0;
+			stand.onlyVisibleToStandUsers = false;
+			if (StandIdleSway.swaysAsIn116(stand, 0.5F)) {
+				wrong.add("the idle sways while the Stand is visible for all");
+			}
+			stand.onlyVisibleToStandUsers = true;
+			stand.setCanFollowUser(false);
+			if (StandIdleSway.swaysAsIn116(stand, 0.5F)) {
+				wrong.add("the idle sways while the Stand may not follow its user (1.16 remote position fixed)");
+			}
+			stand.setCanFollowUser(true);
+			if (!StandIdleSway.swaysAsIn116(stand, 0.5F)) {
+				wrong.add("setup: the Stand did not come back to its plain idle before the manual control row");
+			}
+			// last: leaving manual control retracts the Stand, which then does not follow either
+			stand.setManuallyControlled(true);
+			if (StandIdleSway.swaysAsIn116(stand, 0.5F)) {
+				wrong.add("the idle sways under manual control (not following its user)");
+			}
+		}
+		finally {
+			if (power != null && power.isSummoned()) {
+				type.forceUnsummon(user, power);
+			}
+			user.discard();
+		}
+		helper.assertTrue(wrong.isEmpty(), "1.16 held a Java-model Stand's idle sway still unless it followed its user who did"
+				+ " not sneak: " + wrong);
 		helper.succeed();
 	}
 

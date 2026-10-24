@@ -1089,6 +1089,9 @@
     "no_rapier_idle": {
       "loop": true,
       "animation_length": 8,
+      "timeline": {
+        "0": "idleSway = legacy;"
+      },
       "bones": {
         "stand_pos": {
           "position": {
@@ -1496,6 +1499,9 @@
     "no_armor_idle": {
       "loop": true,
       "animation_length": 8,
+      "timeline": {
+        "0": "idleSway = legacy;"
+      },
       "bones": {
         "stand_pos": {
           "position": {
