@@ -238,7 +238,8 @@ public final class TimeStopEarlyEndRefundGameTests {
 					"S04-04 premise: not a survival The World user with a 100-tick stop: "
 							+ TimeStopLearning.getTimeStopTicks(power));
 			timeStop = (TimeStopAbility) ability;
-			component = LivingComponentAction.getComponent(player);
+			// the slot a press of the time stop takes (EntityActionAbility#performsInUsersStandPowerSlot)
+			component = LivingComponentAction.getComponent(player, PowerClass.STAND);
 
 			// keeps the stop away from every test cell
 			Consumer<TimeStopLifecycleEvent.PreStart> isolate = event -> {

@@ -453,19 +453,22 @@ public final class HeldConditionRecheckGameTests {
 			int stopId = f.user.getId();
 			try {
 				// Released on the tick the body is lost: the per-tick recheck never saw it.
+				LivingComponentAction slot = LivingComponentAction.getComponent(f.user, PowerClass.STAND);
 				EntityActionInstance charge = chargeTimeStop(helper, f, timeStop);
 				f.instance.removePart(StandPart.MAIN_BODY);
 				releaseKey(f.user, charge);
-				helper.assertTrue(timeStops.getInstance(stopId).isEmpty() && f.standAction.getAction() == null,
-						"an early release without the Stand's body still stopped time" + f.state(timeStop, charge));
+				helper.assertTrue(timeStops.getInstance(stopId).isEmpty() && slot.getAction() == null,
+						"an early release without the Stand's body still stopped time or kept its charge"
+								+ f.state(timeStop, charge));
 				// Control: with the body back the same early release stops time.
 				f.instance.addPart(StandPart.MAIN_BODY);
 				EntityActionInstance control = chargeTimeStop(helper, f, timeStop);
 				releaseKey(f.user, control);
-				helper.assertTrue(timeStops.getInstance(stopId).isPresent() && f.standAction.getAction() == null,
+				helper.assertTrue(timeStops.getInstance(stopId).isPresent() && slot.getAction() == null,
 						"the early time stop release did not stop time" + f.state(timeStop, control));
 			}
 			finally {
+				LivingComponentAction.getComponent(f.user, PowerClass.STAND).setAction(null, SyncType.NO_SYNC);
 				// Removed before the level ticks, so no neighbouring test is frozen.
 				timeStops.removeInstance(stopId);
 				f.user.removeEffect(ModStatusEffects.TIME_STOP);
@@ -652,13 +655,19 @@ public final class HeldConditionRecheckGameTests {
 		}
 	}
 
+	// in its user's Stand-power slot, where a press of the time stop sets it (EntityActionAbility#performsInUsersStandPowerSlot)
 	private static EntityActionInstance chargeTimeStop(GameTestHelper helper, StandFixture f, EntityActionAbility timeStop) {
 		EntityActionInstance charge = timeStop.initActionOnAbilityUse(helper.getLevel(), f.user, f.stand, null);
-		f.standAction.setAction(charge, f.user, SyncType.NO_SYNC);
+		LivingComponentAction slot = LivingComponentAction.getComponent(f.user, PowerClass.STAND);
+		slot.setAction(charge, f.user, SyncType.NO_SYNC);
 		holdByKey(f.user, charge, PowerClass.STAND);
-		f.tick(3);
-		helper.assertTrue(f.standAction.getAction() == charge && charge.getPhase() == ActionPhase.BUTTON_CHARGE
-				&& charge.getPhaseTick() > 0, "the time stop is not charging" + f.state(timeStop, charge));
+		for (int tick = 0; tick < 3; tick++) {
+			slot.tick();
+		}
+		helper.assertTrue(slot.getAction() == charge && charge.getPhase() == ActionPhase.BUTTON_CHARGE
+				&& charge.getPhaseTick() > 0 && charge.getPerformer() == f.stand,
+				"the time stop is not charging in its user's Stand-power slot, performed by its Stand"
+						+ f.state(timeStop, charge));
 		return charge;
 	}
 

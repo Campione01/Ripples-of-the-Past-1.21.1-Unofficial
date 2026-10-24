@@ -241,7 +241,8 @@ public final class TimeStopLowStaminaGameTests {
 							+ TimeStopLearning.getTimeStopTicks(power) + " infinite=" + power.isStaminaInfinite()
 							+ " resolveEffect=" + ResolveModeEffect.getResolveEffectLvl(player));
 			timeStop = (TimeStopAbility) ability;
-			component = LivingComponentAction.getComponent(player);
+			// the slot a press of the time stop takes (EntityActionAbility#performsInUsersStandPowerSlot)
+			component = LivingComponentAction.getComponent(player, PowerClass.STAND);
 
 			// keeps the stop away from every test cell
 			Consumer<TimeStopLifecycleEvent.PreStart> isolate = event -> {
