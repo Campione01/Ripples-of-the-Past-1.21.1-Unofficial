@@ -49,8 +49,7 @@ public class PillarmanHideInEntityAbility extends PillarmanActionAbility {
 	}
 
 	private static ActionTarget getAimTarget(LivingEntity user, Level level) {
-		var aim = LivingComponentAction.getAim(user);
-		return aim != null ? aim.getTarget().resolveEntityId(level) : ActionTarget.EMPTY;
+		return LivingComponentAction.getAimTarget(user);
 	}
 
 	private static LivingEntity getValidTarget(LivingEntity user, Level level) {

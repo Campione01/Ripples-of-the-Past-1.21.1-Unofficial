@@ -114,11 +114,7 @@ public class HamonSendoOverdriveAbility extends HamonActionRuntimeAbility {
 	}
 
 	private static ActionTarget resolveSyncedSendoTarget(LivingEntity user, Level level) {
-		var aim = LivingComponentAction.getAim(user);
-		if (aim != null) {
-			return aim.getTarget().resolveEntityId(level);
-		}
-		return ActionTarget.EMPTY;
+		return LivingComponentAction.getAimTarget(user);
 	}
 
 	private static ActionTarget clipSendoBlockTarget(LivingEntity user, Level level) {

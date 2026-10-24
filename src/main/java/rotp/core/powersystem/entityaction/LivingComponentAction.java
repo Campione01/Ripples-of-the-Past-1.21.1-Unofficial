@@ -709,6 +709,33 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 	}
 
 	/**
+	 * Client: the aim this client sends for its own player, ClientsideAim.playerAim, kept in a class that loads on either
+	 * side so that {@link #getAimTarget} reads it without loading client-only classes.
+	 */
+	@ApiStatus.Internal
+	public static final ActionTargetAim CLIENT_PLAYER_AIM = new ActionTargetAim();
+
+	/**
+	 * What a user aims at, resolved in its level, for a check that runs on either side (the HUD and the client's own
+	 * press check run the ability's conditions on the user's client): on the server the aim the user's client sent
+	 * ({@link #setUserAimFromClient}); on the user's own client the aim it sends ({@link #CLIENT_PLAYER_AIM}), which the
+	 * client's copy of the user never gets back (only a Stand's aim is, TrAimTargetPacket). 1.16's checks on the client
+	 * read the mouse target (ActionsOverlayGui.actionAvailability, PowerBaseImpl.checkRequirements). Another player's copy
+	 * on a client has none.
+	 */
+	public static ActionTarget getAimTarget(LivingEntity user) {
+		ActionTarget target;
+		if (user instanceof Player player && player.isLocalPlayer()) {
+			target = CLIENT_PLAYER_AIM.getTarget();
+		}
+		else {
+			ActionTargetAim aim = getAim(user);
+			target = aim != null ? aim.getTarget() : null;
+		}
+		return target != null ? target.resolveEntityId(user.level()) : ActionTarget.EMPTY;
+	}
+
+	/**
 	 * Server: stores the aim a player's client sent for the player itself (its camera's pick, ClientsideAim), as
 	 * {@link ActionTargetAim#setTargetFromClient} does, but never the player: 1.16 Action.checkTarget emptied a target that
 	 * was the user, which another camera's pick (a manually controlled Stand's, a member's view) may meet. The aim a press

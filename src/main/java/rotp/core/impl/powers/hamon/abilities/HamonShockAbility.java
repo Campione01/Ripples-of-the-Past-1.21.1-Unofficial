@@ -66,9 +66,7 @@ public class HamonShockAbility extends EntityActionAbility {
 	}
 
 	private static ActionTarget getAimTarget(LivingEntity user, Level level) {
-		var aim = LivingComponentAction.getAim(user);
-		ActionTarget target = aim != null ? aim.getTarget() : ActionTarget.EMPTY;
-		return target != null ? target.resolveEntityId(level) : ActionTarget.EMPTY;
+		return LivingComponentAction.getAimTarget(user);
 	}
 
 	private static HamonData getHamonData(Power<?> context) {

@@ -329,10 +329,9 @@ public final class HamonAbilityHelpers {
 				target.getBbWidth() * 0.25D, target.getBbHeight() * 0.25D, target.getBbWidth() * 0.25D, 0.05D);
 	}
 
+	/** The user's aim, on its own client the aim it sends ({@link LivingComponentAction#getAimTarget}). */
 	public static ActionTarget getAimTarget(LivingEntity user, Level level) {
-		var aim = LivingComponentAction.getAim(user);
-		ActionTarget target = aim != null ? aim.getTarget() : ActionTarget.EMPTY;
-		return target != null ? target.resolveEntityId(level) : ActionTarget.EMPTY;
+		return LivingComponentAction.getAimTarget(user);
 	}
 
 	public static void doMeleeAttack(LivingEntity attacker, LivingEntity target) {

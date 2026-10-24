@@ -2,6 +2,7 @@ package rotp.core.client.input;
 
 import rotp.core.client.ClientGlobals;
 import rotp.core.network.c2s.ClAimTargetPacket;
+import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTargetAim;
@@ -12,7 +13,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 public class ClientsideAim {
 	public static ActionTarget cameraEntityAimTarget = ActionTarget.EMPTY;
-	public static ActionTargetAim playerAim = new ActionTargetAim();
+	public static ActionTargetAim playerAim = LivingComponentAction.CLIENT_PLAYER_AIM;
 	public static ActionTargetAim standAim = new ActionTargetAim();
 	
 	public static void updateTarget(Minecraft mc, float partialTick) {

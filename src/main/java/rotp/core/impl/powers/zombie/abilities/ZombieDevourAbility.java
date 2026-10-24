@@ -174,8 +174,7 @@ public class ZombieDevourAbility extends ZombieActionAbility {
 	}
 
 	private static ActionTarget getAimTarget(Level level, LivingEntity user) {
-		var aim = LivingComponentAction.getAim(user);
-		return aim != null ? aim.getTarget().resolveEntityId(level) : ActionTarget.EMPTY;
+		return LivingComponentAction.getAimTarget(user);
 	}
 
 	private static void drainPerform(Level level, LivingEntity user, LivingEntity target) {

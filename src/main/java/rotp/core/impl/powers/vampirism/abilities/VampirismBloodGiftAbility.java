@@ -222,7 +222,6 @@ public class VampirismBloodGiftAbility extends VampirismActionAbility {
 	}
 
 	private static ActionTarget getAimTarget(Level level, LivingEntity user) {
-		var aim = LivingComponentAction.getAim(user);
-		return aim != null ? aim.getTarget().resolveEntityId(level) : ActionTarget.EMPTY;
+		return LivingComponentAction.getAimTarget(user);
 	}
 }

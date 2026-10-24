@@ -1,7 +1,5 @@
 package rotp.core.impl.powers.hamon.abilities;
 
-import rotp.core.client.ClientProxy;
-import rotp.core.client.input.ClientsideAim;
 import rotp.core.powersystem.Power;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
@@ -52,18 +50,10 @@ public class HamonOrganismInfusionAbility extends HamonActionRuntimeAbility {
 		if (user == null) {
 			return ConditionCheck.NEGATIVE;
 		}
-		ActionTarget aim = aimTarget(user, user.level());
+		ActionTarget aim = HamonAbilityHelpers.getAimTarget(user, user.level());
 		ActionTarget target = organismInfusionTarget(user, user.level(), aim);
 		// 1.16 refused a block without an outline silently; the port keeps its own refusal message for it
 		return checkTarget(target.getType() == TargetType.EMPTY ? aim : target, user, context);
-	}
-
-	// its own client reads the aim it sends to the server, which the client's copy of the user never gets
-	private static ActionTarget aimTarget(LivingEntity user, Level level) {
-		if (level.isClientSide() && user == ClientProxy.getClientPlayer()) {
-			return ClientsideAim.playerAim.getTarget().resolveEntityId(level);
-		}
-		return HamonAbilityHelpers.getAimTarget(user, level);
 	}
 
 	/**
