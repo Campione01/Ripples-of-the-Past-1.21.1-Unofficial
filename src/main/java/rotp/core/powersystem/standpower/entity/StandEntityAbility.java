@@ -15,10 +15,12 @@ import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.HeldInput;
+import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.StandUtil;
 import rotp.core.subsystems.target.ActionTarget;
+import rotp.core.subsystems.target.ActionTargetAim;
 import rotp.core.subsystems.target.ActionTargetRange;
 import rotp.core.subsystems.target.HitResultUtil;
 import rotp.core.compat.v1_21_4.missingmethods._EntitySelector;
@@ -76,6 +78,9 @@ public class StandEntityAbility extends EntityActionAbility {
 			ConditionCheck.sendActionFailedMessage(this, standCheck, user);
 			return null;
 		}
+		if (autoSummoned) {
+			takeUsersPressAim(user, standEntity);
+		}
 		HeldInput heldInput = setOrBufferAction(level, user, standEntity, inputMethod, extraClientInput, clickHoldResolveTime, bufferingState);
 		if (autoSummoned && !standEntity.isAddedToLevel() && power.getPowerType() instanceof EntityStandType entityStandType) {
 			entityStandType.finalizeStandSummonFromAction(user, power, standEntity, bufferingState.isActionSuccess);
@@ -106,7 +111,22 @@ public class StandEntityAbility extends EntityActionAbility {
 		}
 		return power.getSummonedStandEntity();
 	}
-	
+
+	/*
+	 * 1.16 PowerBaseImpl.onClickAction summoned the Stand (StandEntityAction.onClick) before it checked the press's mouse
+	 * target, which with the Stand away was the client's vanilla pick (EntityStandType.clientHitResult), and the task took
+	 * it. A Stand summoned by the press has no aim of its own yet (the press packet's Stand aim found no Stand), so it
+	 * takes its user's, an entity the server could not find included. Not sent: the Stand is not in the level yet, and
+	 * the next aim packet carries it.
+	 */
+	private static void takeUsersPressAim(LivingEntity user, StandEntity standEntity) {
+		ActionTargetAim userAim = LivingComponentAction.getAim(user);
+		if (userAim != null) {
+			LivingComponentAction.getComponent(standEntity).entityAim.setTarget(userAim.getTarget().copy(),
+					userAim.isClientEntityMissing());
+		}
+	}
+
 	private void updateArmsOnlyStandForAction(StandPower power, LivingEntity user, StandEntity standEntity) {
 		switch (getAutoSummonMode(power, user)) {
 		case ARMS:
