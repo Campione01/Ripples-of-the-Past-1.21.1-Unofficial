@@ -31,6 +31,7 @@ import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.entity_grab.LivingComponentGrab;
+import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.timestop.TimeStopState;
 import rotp.core.impl.powers.hamon.HamonData;
 import rotp.core.impl.powers.hamon.ModHamonSkills;
@@ -154,6 +155,8 @@ public final class HeldConditionRecheckGameTests {
 			for (int y = 2; y <= 6; y++) {
 				helper.setBlock(new BlockPos(2, y, 5), Blocks.STONE.defaultBlockState());
 			}
+			// the aim the client sends, its vanilla pick, which 1.16 took Sendo Overdrive's block from
+			f.component.entityAim.setTarget(ActionTarget.fromVanilla(f.user.pick(f.user.blockInteractionRange(), 1.0F, false)));
 			AABB area = new AABB(helper.absolutePos(BlockPos.ZERO)).inflate(12.0D);
 			int wavesBefore = helper.getLevel().getEntitiesOfClass(HamonSendoOverdriveEntity.class, area).size();
 			EntityActionInstance action = f.start("sendo_overdrive", true);

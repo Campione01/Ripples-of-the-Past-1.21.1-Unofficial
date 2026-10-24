@@ -30,6 +30,7 @@ import rotp.core.powersystem.standpower.entity.StandEntity;
 import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.target.ActionTarget;
 
+import net.minecraft.commands.arguments.EntityAnchorArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.AfterBatch;
 import net.minecraft.gametest.framework.GameTest;
@@ -264,6 +265,16 @@ public final class LightCounterPulseGameTests {
                 living.getAttribute(Attributes.KNOCKBACK_RESISTANCE).setBaseValue(resistance);
             }
             ActionTarget aim = new ActionTarget(target);
+            if (spec.boat()) {
+                // 1.16 kept no pressed entity that is not living and the strike aimed again with the precision ray, from the
+                // manually controlled Stand's eyes: it looks at the boat, and the primer, a player and a Stand that ray would
+                // take first, steps aside once its hit has charged the counter
+                if (primer != null) {
+                    primer.user.moveTo(origin.x + 4, origin.y, origin.z + 1.5, 180, 0);
+                    primer.stand.moveTo(origin.x + 4, origin.y, origin.z + 1.5, 180, 0);
+                }
+                caster.stand.lookAt(EntityAnchorArgument.Anchor.EYES, target.getBoundingBox().getCenter());
+            }
             LivingComponentAction.getComponent(caster.user).entityAim.setTarget(aim);
             LivingComponentAction.getComponent(caster.stand).entityAim.setTarget(aim);
             caster.power.setStamina(caster.power.getMaxStamina());

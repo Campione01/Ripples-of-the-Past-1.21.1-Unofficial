@@ -3,6 +3,8 @@ package rotp.core.impl.powers.hamon.abilities;
 import java.util.List;
 import java.util.OptionalInt;
 
+import javax.annotation.Nullable;
+
 import rotp.core.client.particle.CustomParticlesHelper;
 import rotp.core.client.sound.ClientsideSoundsHelper;
 import rotp.core.client.sound.HamonSparksLoopSound;
@@ -26,6 +28,7 @@ import rotp.core.impl.powers.hamon.ModHamonSkills;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
+import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.effect.MobEffect;
@@ -141,7 +144,23 @@ public class HamonHealingAbility extends HamonActionRuntimeAbility {
 		}
 	}
 
+	// 1.16 getTranslatedName: the slot names the entity Healing Touch would heal ("Heal <entity>")
+	@Override
+	public Component getName(Power<?> context) {
+		LivingEntity user = context != null ? context.getUser() : null;
+		HamonData hamon = user != null ? getHamonData(context) : null;
+		LivingEntity touched = hamon != null ? touchTarget(user, hamon) : null;
+		return touched != null ? abilityName(context, "_touch", touched.getName()) : super.getName(context);
+	}
+
 	private static LivingEntity selectEntityToHeal(LivingEntity user, HamonData hamon) {
+		LivingEntity touched = touchTarget(user, hamon);
+		return touched != null ? touched : user;
+	}
+
+	// 1.16 Healing Touch: a sneaking user who learned it heals the living entity aimed at instead of itself
+	@Nullable
+	private static LivingEntity touchTarget(LivingEntity user, HamonData hamon) {
 		if (user.isShiftKeyDown() && hamon.isSkillLearned(ModHamonSkills.HEALING_TOUCH.get())) {
 			ActionTarget target = HamonAbilityHelpers.getAimTarget(user, user.level());
 			if (target.getType() == TargetType.ENTITY && target.getMainEntity() instanceof LivingEntity livingTarget
@@ -149,7 +168,7 @@ public class HamonHealingAbility extends HamonActionRuntimeAbility {
 				return livingTarget;
 			}
 		}
-		return user;
+		return null;
 	}
 
 	private static boolean reduceHarmfulEffect(LivingEntity entity, Holder<MobEffect> effect,

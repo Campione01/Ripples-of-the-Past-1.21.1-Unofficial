@@ -48,6 +48,7 @@ import rotp.core.powersystem.standpower.type.StandType;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.timestop.TimeStopState;
 
+import net.minecraft.commands.arguments.EntityAnchorArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.AfterBatch;
 import net.minecraft.gametest.framework.GameTest;
@@ -433,9 +434,10 @@ public final class CoreDetachedHeavyPulseGameTests {
                         caster.user.getId(), "r769_core_detached_pulses")), "native stop lifecycle admitted");
                 premise(stop.shouldFreeze(primary) && !stop.shouldFreeze(caster.stand), "native target frozen and caster ticks");
             }
-            LivingComponentAction.getComponent(caster.stand).entityAim.setTarget(new ActionTarget(primary));
             // the crosshair a client sends: 1.16 kept no pressed entity that is not living (StandEntityAction.checkStandTarget),
-            // and the strike aimed again through the user's aim, so only that aim brings a heavy punch to a boat
+            // and the strike aimed again with the precision ray from the user's eyes, so the user looks at a boat
+            if (spec.vehicle()) caster.user.lookAt(EntityAnchorArgument.Anchor.EYES, primary.getBoundingBox().getCenter());
+            LivingComponentAction.getComponent(caster.stand).entityAim.setTarget(new ActionTarget(primary));
             LivingComponentAction.getComponent(caster.user).entityAim.setTarget(new ActionTarget(primary));
             action = press(caster, spec.move.ability(), ATTACK);
             premise(action instanceof StandEntityHeavyPunch, "registered RMB heavy action");

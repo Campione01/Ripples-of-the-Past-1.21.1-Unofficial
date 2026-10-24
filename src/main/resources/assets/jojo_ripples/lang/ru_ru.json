@@ -942,6 +942,7 @@
   "jojo_ripples.ability.hamon_cutter": "Hamon Cutter",
   "jojo_ripples.ability.hamon_detector": "Hamon Life Detector",
   "jojo_ripples.ability.hamon_healing": "Исцеление",
+  "jojo_ripples.ability.hamon_healing_touch": "Исцелить %s",
   "jojo_ripples.ability.hamon_protection": "Отражающий Хамон",
   "jojo_ripples.ability.hamon_shock": "Hamon Shock",
   "jojo_ripples.ability.hamon_speed_boost": "Ускорение",

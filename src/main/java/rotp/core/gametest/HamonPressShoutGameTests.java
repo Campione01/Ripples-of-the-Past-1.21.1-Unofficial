@@ -25,6 +25,7 @@ import rotp.core.impl.powers.hamon.HamonData;
 import rotp.core.impl.powers.hamon.HamonSkill;
 import rotp.core.impl.powers.hamon.ModHamonSkills;
 import rotp.core.impl.powers.hamon.entity.HamonSendoOverdriveEntity;
+import rotp.core.subsystems.target.ActionTarget;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
@@ -85,6 +86,7 @@ public final class HamonPressShoutGameTests {
 	public static void sendoReleaseWithNoEnergyStillSendsTheWave(GameTestHelper helper) {
 		try (Fixture f = new Fixture(helper, ModHamonSkills.SENDO_OVERDRIVE.get())) {
 			AABB area = sendoWall(helper);
+			f.sendCrosshairAim();
 			int wavesBefore = waves(helper, area);
 			EntityActionInstance action = f.start("sendo_overdrive", true);
 			f.tick(35);
@@ -217,6 +219,11 @@ public final class HamonPressShoutGameTests {
 				input.heldKeys.put(KEY, new HeldInputEntry(KEY, 1L, PowerClass.PLAYER_POWER, action));
 			}
 			return action;
+		}
+
+		// the aim the client sends, its vanilla pick, which 1.16 took Sendo Overdrive's block from
+		private void sendCrosshairAim() {
+			component.entityAim.setTarget(ActionTarget.fromVanilla(user.pick(user.blockInteractionRange(), 1.0F, false)));
 		}
 
 		private void tick(int count) {

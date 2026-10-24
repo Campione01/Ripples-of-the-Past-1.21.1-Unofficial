@@ -911,6 +911,7 @@
   "jojo_ripples.ability.hamon_cutter": "Hamon Cutter",
   "jojo_ripples.ability.hamon_detector": "波紋探靈",
   "jojo_ripples.ability.hamon_healing": "療",
+  "jojo_ripples.ability.hamon_healing_touch": "療%s",
   "jojo_ripples.ability.hamon_protection": "斥波紋",
   "jojo_ripples.ability.hamon_shock": "波紋震",
   "jojo_ripples.ability.hamon_speed_boost": "速增",
