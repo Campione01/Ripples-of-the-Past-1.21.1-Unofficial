@@ -25,9 +25,10 @@ import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
- * 1.16 LivingEntity.canAttack was a plain true, so a player- or mob-owned DamagingEntity hit invulnerable mobs and
- * Creative players (hurt() then refused the damage) instead of flying through them. Spectators were never hit and a
- * tamed pet's shot still skipped its owner. Each projectile is ticked once by hand.
+ * 1.16 LivingEntity.canAttack was a plain true, so a player- or mob-owned DamagingEntity hit invulnerable mobs, and a
+ * player-owned one Creative players (hurt() then refused the damage), instead of flying through them; MobEntity.canAttack
+ * kept a mob's shot off a Creative player. Spectators were never hit and a tamed pet's shot still skipped its owner. Each
+ * projectile is ticked once by hand.
  */
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -101,11 +102,10 @@ public final class DamagingEntityTargetFilterGameTests {
 			wolf.setTame(true, false);
 			wolf.setOwnerUUID(master.getUUID());
 			master.setGameMode(GameType.CREATIVE);
-			stranger.setGameMode(GameType.CREATIVE);
 			helper.assertTrue(wolf.isOwnedBy(master), "setup: the wolf does not see its owner");
-			// A Creative stranger is hit (1.16 base), the Creative owner is not (TamableAnimal.canAttack).
+			// A stranger is hit, the Creative owner is not (TamableAnimal.canAttack; MobEntity.canAttack refused a Creative player).
 			control = launchAt(helper, new HamonBubbleEntity(wolf, helper.getLevel()), stranger);
-			helper.assertTrue(control.isRemoved(), "a pet's bubble flew through a Creative stranger instead of hitting it");
+			helper.assertTrue(control.isRemoved(), "a pet's bubble flew through a stranger instead of hitting it");
 			bubble = launchAt(helper, new HamonBubbleEntity(wolf, helper.getLevel()), master);
 			helper.assertFalse(bubble.isRemoved(), "a pet's bubble hit its own owner");
 			helper.succeed();

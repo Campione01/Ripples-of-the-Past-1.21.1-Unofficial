@@ -48,6 +48,7 @@ import net.minecraft.world.Difficulty;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.TamableAnimal;
 import net.minecraft.world.entity.monster.AbstractIllager;
 import net.minecraft.world.entity.npc.AbstractVillager;
@@ -236,17 +237,27 @@ public class JojoModUtil {
 	/**
 	 * 1.16 attacker.canAttack(target): LivingEntity's was a plain true, where 1.21's also refuses every player on Peaceful
 	 * and a target that cannot be seen as an enemy (a Creative or spectator player, an invulnerable or dead entity). Where
-	 * only that base refuses, the rule of the attacker's own class is asked as it stood on the plain true: a tamed animal
-	 * and a hungry zombie spare their owner, an illager a baby villager. An attacker whose class has a rule of its own
-	 * besides these keeps its answer.
+	 * only that base refuses, the rule of the attacker's own class is asked as it stood on the plain true: a mob refuses a
+	 * player whose abilities make them invulnerable (a Creative or spectator player, 1.16 MobEntity.canAttack), a tamed
+	 * animal and a hungry zombie spare their owner, an illager a baby villager; a player or another non-mob attacker takes
+	 * the target. An attacker whose class has a rule of its own besides these keeps its answer. A spectator is refused to
+	 * every attacker but a Stand.
 	 */
 	public static boolean canAttackAsIn116(LivingEntity attacker, LivingEntity target) {
+		// 1.16's callers never met a spectator: their area gathers and rays left spectators out, unlike the 3-argument
+		// getEntities several of the port's callers gather with
+		if (target.isSpectator() && !(attacker instanceof StandEntity)) {
+			return false;
+		}
 		if (attacker.canAttack(target)) {
 			return true;
 		}
 		boolean baseRefuses = target instanceof Player && attacker.level().getDifficulty() == Difficulty.PEACEFUL
 				|| !target.canBeSeenAsEnemy();
 		if (!baseRefuses || attacker instanceof StandEntity || HAS_OWN_ATTACK_RULE.get(attacker.getClass())) {
+			return false;
+		}
+		if (attacker instanceof Mob && target instanceof Player player && player.getAbilities().invulnerable) {
 			return false;
 		}
 		if (attacker instanceof HungryZombieEntity zombie) {
