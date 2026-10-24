@@ -78,7 +78,7 @@ public class HamonSendoOverdriveAbility extends HamonActionRuntimeAbility {
 	// or breath left) only skipped the perform: the wave still went, and consumeEnergy(energyCost) was still asked for.
 	@Override
 	protected boolean consumeRuntimeOnPerform(LivingEntity user) {
-		if (getSendoBlockTarget(user, user.level()).getType() != TargetType.BLOCK) {
+		if (getSendoReleaseTarget(user, user.level()).getType() != TargetType.BLOCK) {
 			return false;
 		}
 		Power<?> context = getUserPower(user);
@@ -98,7 +98,8 @@ public class HamonSendoOverdriveAbility extends HamonActionRuntimeAbility {
 	}
 
 	// 1.16 TargetRequirement.BLOCK on the mouse target, the vanilla pick: an entity there or a block out of its reach
-	// is refused; only a block without a collision shape gives way to a collision ray (overrideVanillaMouseTarget)
+	// is refused; only a block without a collision shape gives way to a collision ray (overrideVanillaMouseTarget). The
+	// press, the HUD and the held checks only: the wave goes to the pick itself (getSendoReleaseTarget)
 	private static ActionTarget getSendoBlockTarget(LivingEntity user, Level level) {
 		ActionTarget target = resolveSyncedSendoTarget(user, level);
 		if (target.getType() == TargetType.BLOCK) {
@@ -108,6 +109,14 @@ public class HamonSendoOverdriveAbility extends HamonActionRuntimeAbility {
 				target = clipSendoBlockTarget(user, level);
 			}
 		}
+		return target.getType() == TargetType.BLOCK && target.getFace() != null && !target.isEmpty(level)
+				? target : ActionTarget.EMPTY;
+	}
+
+	// 1.16 stoppedHolding placed the wave at the mouse target as it was (the raw pick the client went on sending through
+	// the hold), a plant or a torch itself on the face the crosshair met: the collision ray only decided the checks
+	private static ActionTarget getSendoReleaseTarget(LivingEntity user, Level level) {
+		ActionTarget target = resolveSyncedSendoTarget(user, level);
 		return target.getType() == TargetType.BLOCK && target.getFace() != null && !target.isEmpty(level)
 				? target : ActionTarget.EMPTY;
 	}
@@ -187,7 +196,7 @@ public class HamonSendoOverdriveAbility extends HamonActionRuntimeAbility {
 			if (level.isClientSide()) return;
 			LivingEntity user = getPowerUser();
 			if (user == null) return;
-			ActionTarget target = HamonSendoOverdriveAbility.getSendoBlockTarget(user, level);
+			ActionTarget target = HamonSendoOverdriveAbility.getSendoReleaseTarget(user, level);
 			if (target.getType() != TargetType.BLOCK) {
 				return;
 			}

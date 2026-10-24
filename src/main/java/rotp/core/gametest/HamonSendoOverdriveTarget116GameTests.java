@@ -1,5 +1,6 @@
 package rotp.core.gametest;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -14,25 +15,38 @@ import rotp.core.core.JojoMod;
 import rotp.core.impl.powers.hamon.HamonData;
 import rotp.core.impl.powers.hamon.ModHamonSkills;
 import rotp.core.impl.powers.hamon.abilities.HamonSendoOverdriveAbility;
+import rotp.core.impl.powers.hamon.entity.HamonSendoOverdriveEntity;
+import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
+import rotp.core.powersystem.ability.input.AbilityInput;
+import rotp.core.powersystem.entityaction.ActionPhase;
+import rotp.core.powersystem.entityaction.EntityActionInputState.HeldInputEntry;
+import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
+import rotp.core.powersystem.entityaction.netcode.SyncType;
+import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.playerpower.PlayerPower;
 import rotp.core.subsystems.target.ActionTarget;
 import rotp.core.subsystems.target.ActionTarget.TargetType;
 
+import net.minecraft.commands.arguments.EntityAnchorArgument;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -40,6 +54,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.DoublePlantBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.gametest.GameTestHolder;
@@ -57,6 +72,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @PrefixGameTestTemplate(false)
 public final class HamonSendoOverdriveTarget116GameTests {
 	private static final String BATCH = "hamon_sendo_target_116_";
+	private static final short KEY = 116;
 
 	private HamonSendoOverdriveTarget116GameTests() {}
 
@@ -115,6 +131,42 @@ public final class HamonSendoOverdriveTarget116GameTests {
 			scene.assertRefused(atGrass, false, "tall grass with nothing behind it in 10 blocks");
 			BlockPos wall = scene.wallAhead(7);
 			scene.assertTakes(atGrass, wall, "tall grass with a stone wall seven blocks ahead behind it");
+		}
+		helper.succeed();
+	}
+
+	/*
+	 * Held at tall grass with a stone wall seven blocks behind it, then released: 1.16's press and held checks took the wall
+	 * (the collision ray of overrideVanillaMouseTarget), but stoppedHolding sent the wave from the mouse target as it was,
+	 * the grass itself: centred on its block, on the axis of the face the crosshair met; also when the hold ended on a
+	 * failed check (an item taken into the main hand: the wave still went). At short grass on a stone floor, looked down at: the wave stands
+	 * on the grass block, a ring on the grass's top face, not in the floor under it.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20, batch = BATCH + "release")
+	public static void sendoOverdriveReleasedAtGrassSendsItsWaveFromTheGrassAsIn116(GameTestHelper helper) {
+		try (Scene scene = new Scene(helper)) {
+			BlockPos grass = scene.tallGrassAhead();
+			BlockPos wall = scene.wallAhead(7);
+			ActionTarget atGrass = scene.vanillaPick();
+			helper.assertTrue(atGrass.getType() == TargetType.BLOCK && grass.equals(atGrass.getBlockPos())
+					&& atGrass.getFace() == Direction.NORTH, "Fixture: the vanilla pick is not the tall grass's north face: "
+							+ scene.describe(atGrass) + " " + atGrass.getFace());
+			scene.assertTakes(atGrass, wall, "tall grass with a stone wall seven blocks ahead behind it");
+			scene.assertWaveAt(atGrass, false, "released at tall grass with a stone wall seven blocks behind it");
+			scene.assertWaveAt(atGrass, true, "held at tall grass with a stone wall seven blocks behind it until an item was"
+					+ " taken into the main hand");
+		}
+		try (Scene scene = new Scene(helper)) {
+			BlockPos grass = BlockPos.containing(scene.user.getEyePosition()).south().below(2);
+			scene.block(grass.below(), Blocks.STONE.defaultBlockState());
+			scene.block(grass, Blocks.SHORT_GRASS.defaultBlockState());
+			scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, Vec3.atBottomCenterOf(grass).add(0.0D, 0.75D, 0.0D));
+			ActionTarget atGrass = scene.vanillaPick();
+			helper.assertTrue(atGrass.getType() == TargetType.BLOCK && grass.equals(atGrass.getBlockPos())
+					&& atGrass.getFace() == Direction.UP, "Fixture: the vanilla pick is not the short grass's top face: "
+							+ scene.describe(atGrass) + " " + atGrass.getFace());
+			scene.assertTakes(atGrass, grass.below(), "short grass on a stone floor");
+			scene.assertWaveAt(atGrass, false, "released at short grass on a stone floor");
 		}
 		helper.succeed();
 	}
@@ -246,6 +298,82 @@ public final class HamonSendoOverdriveTarget116GameTests {
 			}
 			finally {
 				setAim(ActionTarget.EMPTY, false);
+			}
+		}
+
+		/*
+		 * Sendo Overdrive held by a key at the aim to its full charge and released, or held until an item is taken into
+		 * the main hand (a failed held check ends the hold); its wave must stand where 1.16 put it: centred on the aimed block (its centre
+		 * less half the wave's height), on the axis of the face the crosshair met, with that block and face as its target.
+		 */
+		void assertWaveAt(ActionTarget aim, boolean failedCheck, String scene) {
+			HamonData hamon = PlayerPower.getPowerData(user, ModPlayerPowers.HAMON).orElseThrow();
+			hamon.setEnergy(hamon.getMaxEnergy());
+			setAim(aim, false);
+			LivingComponentAction component = LivingComponentAction.getComponent(user);
+			EntityActionInstance action = ((EntityActionType) sendo).initActionOnAbilityUse(level, user, user, null);
+			component.setAction(action, user, SyncType.NO_SYNC);
+			user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get()).heldKeys.put(KEY,
+					new HeldInputEntry(KEY, 1L, PowerClass.PLAYER_POWER, action));
+			AABB area = new AABB(user.blockPosition()).inflate(12.0D);
+			List<HamonSendoOverdriveEntity> before = level.getEntitiesOfClass(HamonSendoOverdriveEntity.class, area);
+			HamonSendoOverdriveEntity wave = null;
+			try {
+				tick(component, failedCheck ? 10 : 31);
+				helper.assertTrue(component.getAction() == action && action.getPhase() == ActionPhase.WINDUP, "Fixture: Sendo"
+						+ " Overdrive " + scene + " is not charging: " + action.getPhase());
+				if (failedCheck) {
+					user.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.STICK));
+					tick(component, 1);
+				}
+				else {
+					AbilityInput.keyRelease(KEY, user);
+					tick(component, 1);
+				}
+				for (HamonSendoOverdriveEntity sent : level.getEntitiesOfClass(HamonSendoOverdriveEntity.class, area)) {
+					if (!before.contains(sent)) {
+						wave = sent;
+					}
+				}
+				BlockPos pos = aim.getBlockPos();
+				Direction face = aim.getFace();
+				Vec3 expected = Vec3.atCenterOf(pos).subtract(0.0D, wave != null ? wave.getBbHeight() * 0.5D : 0.0D, 0.0D);
+				helper.assertTrue(wave != null && pos.equals(wave.getTargetedBlockPos()) && face == wave.getTargetedFace()
+						&& face.getAxis() == waveAxis(wave) && wave.position().distanceTo(expected) < 1.0E-6D, "1.16's Sendo"
+								+ " Overdrive " + scene + " sent its wave from the block the crosshair met, " + pos + " (" + face
+								+ "), at " + expected + " on the " + face.getAxis() + " axis; the port's "
+								+ (wave == null ? "sent none" : "targets " + wave.getTargetedBlockPos() + " ("
+										+ wave.getTargetedFace() + ") at " + wave.position() + " on the " + waveAxis(wave) + " axis"));
+			}
+			finally {
+				user.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+				user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get()).heldKeys.clear();
+				component.setAction(null, SyncType.NO_SYNC);
+				for (HamonSendoOverdriveEntity sent : level.getEntitiesOfClass(HamonSendoOverdriveEntity.class, area)) {
+					if (!before.contains(sent)) {
+						sent.discard();
+					}
+				}
+				setAim(ActionTarget.EMPTY, false);
+			}
+		}
+
+		// the user's action slot, without entity physics or passive Hamon regeneration
+		private void tick(LivingComponentAction component, int count) {
+			for (int tick = 0; tick < count; tick++) {
+				user.tickCount++;
+				component.tick();
+			}
+		}
+
+		private static Direction.Axis waveAxis(HamonSendoOverdriveEntity wave) {
+			try {
+				Field field = HamonSendoOverdriveEntity.class.getDeclaredField("axis");
+				field.setAccessible(true);
+				return (Direction.Axis) field.get(wave);
+			}
+			catch (ReflectiveOperationException e) {
+				throw new IllegalStateException("HamonSendoOverdriveEntity.axis is not reachable", e);
 			}
 		}
 

@@ -49,7 +49,7 @@ public final class HamonPressShoutSmokeTest {
 		String sendo = compact(source(DIR + "HamonSendoOverdriveAbility.java"));
 		requireInOrder(sendo,
 				"protectedbooleanconsumeRuntimeOnPerform(LivingEntityuser){"
-						+ "if(getSendoBlockTarget(user,user.level()).getType()!=TargetType.BLOCK){returnfalse;}",
+						+ "if(getSendoReleaseTarget(user,user.level()).getType()!=TargetType.BLOCK){returnfalse;}",
 				"if(!hamon.isAbilityOnCooldown(name())&&hasHamonEnergy(context,hamon)){super.consumeRuntimeOnPerform(user);}"
 						+ "else{hamon.getHamonEnergyUsageEfficiency(ENERGY_COST,true,user);hamon.syncOnUpdate(user);"
 						+ "playHamonShout(user,hamon);}returntrue;}");
