@@ -942,7 +942,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		var standAim = !userAims ? LivingComponentAction.getAim(stand) : null;
 		if (standAim != null) {
 			target = rule.takesFromAim(validatePunchTarget(stand, standAim.getTarget()), assist);
-			if (!target.isEmpty(level)) {
+			if (!target.isEmpty(level) && !pickGivesWayAtStrike(stand, target)) {
 				return throughWallsTarget(stand, target, rule, true);
 			}
 		}
@@ -950,7 +950,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		var userAim = userAims && !precisionRayOnly ? LivingComponentAction.getAim(user) : null;
 		if (userAim != null) {
 			target = rule.takesFromAim(validatePunchTarget(stand, userAim.getTarget()), assist);
-			if (!target.isEmpty(level)) {
+			if (!target.isEmpty(level) && !pickGivesWayAtStrike(stand, target)) {
 				return throughWallsTarget(stand, target, rule, true);
 			}
 		}
@@ -958,6 +958,23 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		// the synced aims are short (the idle Stand aim reaches 2.5 blocks from the eyes, the vanilla pick 3)
 		return aimWithThisOrUser(stand, userAims ? user : null, 1.0F,
 				entity -> entity != stand && canStandHit(stand, entity), rule, true);
+	}
+
+	/**
+	 * Whether a strike passes over a vanilla pick (a synced aim, {@link #crosshairPick}) for its user's aim: a block
+	 * without a collision shape that the Stand's current action lets give way when pressed
+	 * ({@link StandEntityAbility#pressedBlockGivesWayToEntity}). 1.16's press replaced such a block by what the Stand's
+	 * collision ray met (StandEntityAction.overrideVanillaMouseTarget), so it was never the task target, and a strike
+	 * with no task target in reach aimed again (StandEntity.punch, aimWithThisOrUser): the precision ray from the user's
+	 * eyes met a mob behind the grass first, the grass itself only with nothing there. Without the aim assist the strict
+	 * crosshair decides, as at the press.
+	 */
+	private static boolean pickGivesWayAtStrike(StandEntity stand, ActionTarget pick) {
+		if (!StandEntityAbility.isBlockWithoutCollision(stand.level(), pick)) {
+			return false;
+		}
+		EntityActionInstance action = LivingComponentAction.getCurEntityAction(stand);
+		return action != null && action.ability instanceof StandEntityAbility ability && ability.pressedBlockGivesWayToEntity();
 	}
 
 	public static ActionTarget aimWithThisOrUser(StandEntity stand, @Nullable LivingEntity user, float partialTick,
@@ -1156,7 +1173,8 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	 * eyes at the user's reach; blocks stop the ray. With it, as 1.16's client and server did together: the vanilla pick
 	 * ({@link #crosshairPick} of any entity but the Stand) while the Stand can reach it and the attack takes it
 	 * ({@link CrosshairRule}; EntityStandType.clientHitResult sent it, the action kept or refused it, aimWithThisOrUser
-	 * kept a target in reach), otherwise 1.16's precision ray, also past an entity the attack refused. Walls follow the
+	 * kept a target in reach) and it is no block the action's press lets give way ({@link #pickGivesWayAtStrike}),
+	 * otherwise 1.16's precision ray, also past an entity the attack refused. Walls follow the
 	 * Stand's current action ({@link StandSkillWalls}), not an action of the user's own.
 	 */
 	public static ActionTarget userAimTarget(StandEntity stand, LivingEntity user, float partialTick, Predicate<Entity> canTarget) {
@@ -1172,7 +1190,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		if (rule != CrosshairRule.NONE) {
 			ActionTarget crosshair = crosshairPick(stand, user, partialTick,
 					entity -> entity != stand && canStandPick(stand, entity), wallsHideEntities);
-			if (rule.takes(stand, crosshair, canTarget)) {
+			if (rule.takes(stand, crosshair, canTarget) && !pickGivesWayAtStrike(stand, crosshair)) {
 				return crosshair;
 			}
 		}
