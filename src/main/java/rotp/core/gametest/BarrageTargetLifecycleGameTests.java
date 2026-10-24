@@ -108,6 +108,12 @@ public final class BarrageTargetLifecycleGameTests {
 			standAction.entityAim.setTarget(ActionTarget.EMPTY);
 			ceiling = stepOutOfThePrecisionAim(helper, user, userPos);
 			standAction.tick();
+			// kept as a punch keeps a dying target, until it has lain dead for 20 ticks (1.16 StandEntityTask.keepTarget)
+			helper.assertTrue(action.standRotationTarget != null
+					&& action.standRotationTarget.getMainEntity() == defeated,
+					"Held barrage dropped its dying target before it had lain dead for 20 ticks");
+			defeated.deathTime = 20;
+			standAction.tick();
 			helper.assertTrue(action.standRotationTarget == null
 					&& action.aimAs == AimingEntity.CAMERA_ENTITY,
 					"Held barrage did not release its defeated target");
