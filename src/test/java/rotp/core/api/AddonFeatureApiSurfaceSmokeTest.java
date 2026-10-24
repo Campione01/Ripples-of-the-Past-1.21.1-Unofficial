@@ -123,6 +123,17 @@ public final class AddonFeatureApiSurfaceSmokeTest {
 				"rotp.core.api.stand.StandDefaultRotationRule");
 		check(Modifier.isPublic(register.getModifiers()) && Modifier.isStatic(register.getModifiers()),
 				rules + "#register must stay public static");
+
+		check(RotpAddonApi.supportsFeature(RotpAddonApi.FEATURE_ABILITY_CONDITION_REFUSALS_V1),
+				"the ability condition refusals are not advertised");
+		String refusals = "rotp.core.api.power.AbilityRefusals";
+		for (Method method : new Method[] {
+				find(refusals, "register", "net.minecraft.resources.ResourceLocation", "rotp.core.api.power.AbilityRefusal"),
+				find(refusals, "unregister", "net.minecraft.resources.ResourceLocation") }) {
+			check(Modifier.isPublic(method.getModifiers()) && Modifier.isStatic(method.getModifiers()),
+					refusals + "#" + method.getName() + " must stay public static");
+		}
+		requirePublic("rotp.core.api.power.AbilityRefusal", "refuse", ability, power, living);
 	}
 
 	private static void requirePublicStaticField(String owner, String name) {

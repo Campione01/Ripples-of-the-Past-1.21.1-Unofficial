@@ -404,6 +404,10 @@ public final class RotpAddonApiSmokeTest {
 		check(RotpAddonApi.supportsFeature(
 				RotpAddonApi.FEATURE_ACTION_STAND_OFFSET_HOOK_V1),
 				"action Stand offset hook feature missing");
+		check(RotpAddonApi.supportsFeature(
+				RotpAddonApi.FEATURE_ABILITY_CONDITION_REFUSALS_V1)
+						&& "ability_condition_refusals_v1".equals(RotpAddonApi.FEATURE_ABILITY_CONDITION_REFUSALS_V1),
+				"ability condition refusals feature missing");
 
 		AbilityType<Ability> addonType = new AbilityType<>(
 				id("rotp_test", "freeze"), Ability::new);
