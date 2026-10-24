@@ -294,6 +294,36 @@ public final class StandActionPortSlot116GameTests {
 	}
 
 	/*
+	 * 1.16 drew a player from its powers' animation layers, none of which was a core Stand action's: the time stop charged
+	 * with The World away, in its user's Stand-power slot and performed by the user, poses the user only where the client
+	 * finds it a player clip (an add-on's Stand action may have one), and otherwise leaves the pose to the user's own slot
+	 * and its other layers (an add-on player animation, the stone form), as King Crimson's time skip with its Stand away.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100, batch = GameTestBatches.TIME_STOP)
+	public static void aStandActionItsUserPerformsWithoutAPlayerClipLeavesTheUsersPoseToItsOtherLayersAsIn116(
+			GameTestHelper helper) {
+		try (Scene s = new Scene(helper, "PortSlotUserPose")) {
+			s.theWorld.forceUnsummon(s.user, s.standPower);
+			helper.assertTrue(!s.standPower.isSummoned() && s.standPower.getSummonedStandEntity() == null,
+					"setup: The World is still out");
+			BufferingState pressed = s.press(s.standPower, "time_stop", InputMethod.HOLD, STOP_KEY);
+			EntityActionInstance stop = s.userSlot().getAction();
+			helper.assertTrue(pressed.isActionSuccess && stop != null && stop.ability == s.standPower.getAbility("time_stop")
+					&& stop.getPerformer() == s.user, "setup: the time stop with The World away is not charging in its user's"
+							+ " Stand-power slot, performed by the user: started " + pressed.isActionSuccess + " (" + s.refusal
+							+ "), action " + stop + (stop != null ? " performed by " + stop.getPerformer() : ""));
+			LivingComponentAction own = LivingComponentAction.getComponent(s.user);
+			LivingComponentAction noClip = LivingComponentAction.getPoseComponent(s.user, action -> false);
+			helper.assertTrue(noClip == own, "1.16 drew no Stand action on its user: the time stop without a player clip"
+					+ " draws the user's pose from " + describe(s, noClip) + ", not its own slot and other layers");
+			LivingComponentAction withClip = LivingComponentAction.getPoseComponent(s.user, action -> action == stop);
+			helper.assertTrue(withClip == s.userSlot(), "a Stand action its user performs with a player clip of its own poses"
+					+ " the user: the pose comes from " + describe(s, withClip));
+		}
+		helper.succeed();
+	}
+
+	/*
 	 * 1.16 EntityStandType.getStaminaRegen (:159-167) asked the Stand's task alone: with the Stand out the bar regenerated
 	 * (1.5 a tick before the user's factors) unless that task could not (StandEntityAction.canStaminaRegen, false by
 	 * default: nothing), and the time stop its user's power held was no task. The World at Resolve 4, out: what one tick of

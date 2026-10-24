@@ -1,6 +1,7 @@
 package rotp.core.powersystem.entityaction;
 
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Predicate;
 
 import javax.annotation.Nullable;
 
@@ -656,6 +657,19 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 	@ApiStatus.Internal
 	@Nullable
 	public static LivingComponentAction getPoseComponent(LivingEntity living) {
+		return getPoseComponent(living, action -> true);
+	}
+
+	/**
+	 * As {@link #getPoseComponent(LivingEntity)}, where an action of the Stand-power slot that a non-Stand entity performs
+	 * poses it only while {@code posesPerformer} finds it a clip for that entity (the client's player clip lookup): 1.16
+	 * drew a player from its powers' animation layers, none of which was a core Stand action's, so such an action without
+	 * a clip (King Crimson's time skip, a time stop with its Stand away) leaves the pose to the entity's own slot and its
+	 * other layers (an add-on player animation, the stone form).
+	 */
+	@ApiStatus.Internal
+	@Nullable
+	public static LivingComponentAction getPoseComponent(LivingEntity living, Predicate<EntityActionInstance> posesPerformer) {
 		LivingComponentAction own = getExistingComponent(living);
 		if (living instanceof StandEntity stand) {
 			LivingEntity user = stand.getUser();
@@ -669,7 +683,7 @@ public class LivingComponentAction implements SynchronizablePlayerData, TickingE
 		}
 		LivingComponentAction standPower = getExistingComponent(living, PowerClass.STAND);
 		EntityActionInstance action = standPower != null ? standPower.getAction() : null;
-		return action != null && action.getPerformer() == living ? standPower : own;
+		return action != null && action.getPerformer() == living && posesPerformer.test(action) ? standPower : own;
 	}
 
 	@ApiStatus.Internal
