@@ -114,6 +114,12 @@ public class PreFrameEntityAnimCalc {
 		if (performPose != null) {
 			action = performPose;
 		}
+		// the user's own client keeps the charge it let go of while the server decides the release, as the other clients
+		// keep theirs in its slot
+		@Nullable StandEntity.ReleasedCharge releasedCharge = stand != null && action == null ? stand.getReleasedChargePose() : null;
+		if (releasedCharge != null) {
+			action = releasedCharge.action();
+		}
 		@Nullable HamonData persistentHamonPose = stand == null && living instanceof Player
 				? PlayerPower.getPowerData(living, ModPlayerPowers.HAMON)
 						.filter(hamon -> hamon.isMeditating() || !living.isPassenger() && hamon.isWallClimbing())
@@ -169,6 +175,9 @@ public class PreFrameEntityAnimCalc {
 			}
 			else if (performPose != null) {
 				fillPerformPose(animVariables, stand, performPose, partialTick);
+			}
+			else if (releasedCharge != null) {
+				fillReleasedChargePose(animVariables, stand, releasedCharge);
 			}
 			else if (action != null) {
 				action.extractAnim(animVariables, living, partialTick);
@@ -328,6 +337,18 @@ public class PreFrameEntityAnimCalc {
 		animVariables.phaseTime = stand.getPerformPoseTicks(partialTick);
 		animVariables.time = animVariables.phaseTime;
 		animVariables.phaseCompletion = 1;
+	}
+
+	// EntityActionInstance.extractAnim of the charge as it was let go of
+	private static void fillReleasedChargePose(LivingAnimState animVariables, StandEntity stand,
+			StandEntity.ReleasedCharge charge) {
+		animVariables.reset();
+		animVariables.animSet = charge.action().ability.getEntityAnimSet(stand);
+		animVariables.animId = charge.action().getEntityAnim();
+		animVariables.time = charge.fullTicks();
+		animVariables.actionPhase = charge.phase() == ActionPhase.BUTTON_CHARGE ? ActionPhase.WINDUP : charge.phase();
+		animVariables.phaseTime = charge.phaseTicks();
+		animVariables.phaseCompletion = charge.phaseCompletion();
 	}
 
 	/**
