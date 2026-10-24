@@ -76,6 +76,10 @@ public class StandEntityAbility extends EntityActionAbility {
 		ConditionCheck standCheck = checkStandEntityConditions(power, standEntity);
 		if (!standCheck.isPositive()) {
 			ConditionCheck.sendActionFailedMessage(this, standCheck, user);
+			// 1.16 StandEntityAction.afterClick took back the Stand a refused press had summoned
+			if (autoSummoned && !standEntity.isAddedToLevel() && power.getPowerType() instanceof EntityStandType entityStandType) {
+				entityStandType.finalizeStandSummonFromAction(user, power, standEntity, false);
+			}
 			return null;
 		}
 		if (autoSummoned) {
