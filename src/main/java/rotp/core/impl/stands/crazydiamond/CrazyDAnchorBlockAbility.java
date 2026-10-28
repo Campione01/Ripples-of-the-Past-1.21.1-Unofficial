@@ -54,6 +54,13 @@ public class CrazyDAnchorBlockAbility extends NoPoseStandEntityAbility {
 		standAutoSummonMode(AutoSummonMode.OFF_ARM);
 	}
 
+	// 1.16 CrazyDiamondBlockCheckpointMove had only a stamina cost per tick (staminaCostTick), which a Stand-bearing mob
+	// did not compare with its stamina (getStaminaCost 0)
+	@Override
+	public float getStaminaCost(Power<?> context) {
+		return 0.0F;
+	}
+
 	@Override
 	public ConditionCheck checkSpecificConditions(Power<?> context) {
 		FoundAnchor anchor = getItemToUseAsAnchor(PowerClass.STAND.cast(context));

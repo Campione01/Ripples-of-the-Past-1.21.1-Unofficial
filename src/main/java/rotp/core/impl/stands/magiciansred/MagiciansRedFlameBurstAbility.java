@@ -3,6 +3,7 @@ package rotp.core.impl.stands.magiciansred;
 import rotp.core.client.ClientGlobals;
 import rotp.core.client.sound.ClientsideSoundsHelper;
 import rotp.core.init.ModSoundEvents;
+import rotp.core.powersystem.Power;
 import rotp.core.powersystem.standpower.StandInstance.StandPart;
 
 import rotp.core.powersystem.ability.AbilityId;
@@ -30,6 +31,13 @@ public class MagiciansRedFlameBurstAbility extends StandEntityAbility {
 		super(abilityType, abilityId, FlameBurstShot::new);
 		partsRequired(StandPart.MAIN_BODY);
 		setButtonHoldPhase(ActionPhase.PERFORM);
+	}
+
+	// 1.16 MagiciansRedFlameBurst had only a stamina cost per tick (staminaCostTick), which a Stand-bearing mob
+	// did not compare with its stamina (getStaminaCost 0)
+	@Override
+	public float getStaminaCost(Power<?> context) {
+		return 0.0F;
 	}
 
 	@Override

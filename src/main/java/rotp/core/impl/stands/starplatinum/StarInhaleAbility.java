@@ -45,6 +45,13 @@ public class StarInhaleAbility extends StandEntityAbility {
     	partsRequired(StandPart.MAIN_BODY);
     }
 
+    // 1.16 StarPlatinumInhale had only a stamina cost per tick (staminaCostTick), which a Stand-bearing mob
+    // did not compare with its stamina (getStaminaCost 0)
+    @Override
+    public float getStaminaCost(Power<?> context) {
+        return 0.0F;
+    }
+
     @Override
     public boolean shouldSetCooldownOnKeyPress(InputMethod inputMethod) {
     	return false;

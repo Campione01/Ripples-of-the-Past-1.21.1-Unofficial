@@ -175,8 +175,9 @@ public final class RotpAddonApi {
 	 * stopped time), stopsOnHeavyAttack / onHitByHeavyAttack, setResetsAttackStrengthOnPerform, setsCooldownAfterHold
 	 * (a held action takes its press's cooldown as it fires or, hold-only, as its hold ends, with the ticks held;
 	 * EntityActionInstance#isCooldownTakenAfterHold), EntityActionInstance#refusesOwnAbilityPressedAgain (a Stand
-	 * action that was not chainable in 1.16 refuses its own ability pressed again where canBeCancelledInto would let it
-	 * cancel the action; every heavy punch, StandEntityHeavyPunch, returns true),
+	 * action that was not chainable in 1.16 refuses its own ability pressed again, silently and unbuffered, in every
+	 * phase of the action, whatever canBeCancelledInto says; every heavy punch, StandEntityHeavyPunch, and barrage,
+	 * StandEntityBarrage, returns true),
 	 * EntityActionInstance#isHoldTypeStandAction (false by default; true for an action whose 1.16 counterpart was a
 	 * holdType Stand action: the default canBeCancelledInto then lets every other ability replace it before its recovery
 	 * if it has none, #givesWayToOtherAbilities, as it does for a Stand action with a charge once it fired (from its
@@ -271,7 +272,8 @@ public final class RotpAddonApi {
 	 * Ability#getStaminaCost(Power): the stamina an ability takes as it performs, 1.16's Action.getStaminaCost, which a
 	 * 1.16 Stand-bearing mob compared with its stamina before it picked an action; the core's abilities report 1.16's
 	 * costs and the port's own (the grab, the grab throw, the charged heavy punch, the Bearing Shot) what a use of them
-	 * takes, an add-on ability overrides it with its donor's. 0 by default.
+	 * takes, an add-on ability overrides it with its donor's. Without an override an ability reports the amount it last
+	 * asked StandAbilityStamina#consume to take (its one-off cost, else its cost per tick), 0 before its first use.
 	 */
 	public static final String FEATURE_ABILITY_STAMINA_COST_V1 =
 			"ability_stamina_cost_v1";

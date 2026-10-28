@@ -1,5 +1,6 @@
 package rotp.core.impl.stands.goldexperience;
 
+import rotp.core.powersystem.Power;
 import rotp.core.powersystem.standpower.StandInstance.StandPart;
 
 import rotp.core.powersystem.ability.AbilityId;
@@ -24,6 +25,13 @@ public class GoldExperienceLifeDetectorAbility extends NoPoseStandEntityAbility 
 		partsRequired(StandPart.MAIN_BODY);
 		setButtonHoldPhase(ActionPhase.PERFORM);
 		standAutoSummonMode(AutoSummonMode.OFF_ARM);
+	}
+
+	// 1.16 GoldExperienceLifeDetector had only a stamina cost per tick (staminaCostTick), which a Stand-bearing mob
+	// did not compare with its stamina (getStaminaCost 0)
+	@Override
+	public float getStaminaCost(Power<?> context) {
+		return 0.0F;
 	}
 
 	public static class LifeDetectorScan extends EntityActionInstance {

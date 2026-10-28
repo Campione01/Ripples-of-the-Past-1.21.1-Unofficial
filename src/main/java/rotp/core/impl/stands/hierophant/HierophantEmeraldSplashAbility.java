@@ -72,6 +72,13 @@ public class HierophantEmeraldSplashAbility extends StandEntityAbility implement
 		}
 	}
 
+	// 1.16 HierophantGreenEmeraldSplash had only a stamina cost per tick (staminaCostTick), which a Stand-bearing mob
+	// did not compare with its stamina (getStaminaCost 0)
+	@Override
+	public float getStaminaCost(Power<?> context) {
+		return 0.0F;
+	}
+
 	@Override
 	public String getLearningAbilityName() {
 		return EMERALD_SPLASH_LEARNING_ABILITY;

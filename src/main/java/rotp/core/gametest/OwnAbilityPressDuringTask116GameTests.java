@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
 
+import javax.annotation.Nullable;
+
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
@@ -26,6 +28,7 @@ import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.ability.input.AbilityInput;
 import rotp.core.powersystem.ability.input.ActionInputBuffer.BufferingState;
 import rotp.core.powersystem.entityaction.ActionPhase;
+import rotp.core.powersystem.entityaction.EntityActionInputState;
 import rotp.core.powersystem.entityaction.EntityActionInputState.HeldInputEntry;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
@@ -62,7 +65,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * task was refused, with no message and not queued, unless it was chainable (StandEntityLightAttack,
  * HierophantGreenEmeraldSplash, SilverChariotDashAttack); a chainable one cancelled its task where canBeCanceled allowed
  * it (its recovery) and was queued before that. The port's input buffer (owner decision N2) keeps the presses an action
- * holds back; where an action would let its own press cancel it, 1.16's refusal applies.
+ * holds back; an action that was not chainable refuses its own press in every phase, as 1.16 did.
  */
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -135,19 +138,68 @@ public final class OwnAbilityPressDuringTask116GameTests {
 			s.stand.setFinisherMeter(1.0F);
 			s.refusedDuringItself("finisher_uppercut", InputMethod.CLICK, EntityActionInstance::startRecovery);
 
-			// before its recovery the heavy punch holds its own press back, which the input buffer keeps (N2)
+			// in its windup the heavy punch holds its own press back as any other: refused all the same
 			s.stand.setFinisherMeter(0.0F);
-			EntityActionInstance heavy = s.start("heavy_punch");
-			helper.assertTrue(heavy.getPhase() == ActionPhase.WINDUP, "setup: the heavy punch is not in its windup: " + heavy.getPhase());
-			AbilityConditionCheck resolved = s.resolve("heavy_punch");
-			helper.assertTrue(resolved != null && resolved.ability == s.power.getAbility("heavy_punch")
-					&& resolved.conditionCheck.isPositive(),
-					"the heavy punch pressed in its own windup is held back, not refused: " + describe(resolved));
-			BufferingState buffered = s.press("heavy_punch", InputMethod.CLICK);
-			helper.assertTrue(buffered.shouldBuffer && s.standAction.getAction() == heavy,
-					"the heavy punch pressed in its own windup was not buffered: buffered " + buffered.shouldBuffer
-							+ ", action " + s.standAction.getAction());
+			s.refusedWhereHeldBack("heavy_punch", InputMethod.CLICK, action -> {});
 			helper.succeed();
+		}
+	}
+
+	/*
+	 * 1.16 StandEntityAction.canClickDuringTask refused the task's own action pressed again in every phase, its recovery
+	 * included, also where the task queued every other press (canBeCanceled false); so the queue never performed it after
+	 * the task. The input buffer (owner decision N2) keeps the presses of other abilities, and the own press of an action
+	 * that was chainable or does not say it was not.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void anActionThatWasNotChainableRefusesItsOwnPressWhereItHoldsPressesBackAsIn116(GameTestHelper helper) {
+		try (Scene s = new Scene(helper, "OwnPressHeldBack", "star_platinum", 4)) {
+			s.stand.setFinisherMeter(0.0F);
+			s.refusedWhereHeldBack("heavy_punch", InputMethod.CLICK, action -> action.setPhase(ActionPhase.PERFORM, 0));
+			s.refusedWhereHeldBack("heavy_punch", InputMethod.CLICK, EntityActionInstance::startRecovery);
+			s.refusedWhereHeldBack("barrage", InputMethod.HOLD, EntityActionInstance::startRecovery);
+
+			Ability chainable = new ChainableHeavyPunchAbility(ModStandAbilities.HEAVY_PUNCH.get(),
+					new AbilityId(PowerClass.STAND, s.standType.getId(), CHAINABLE_HEAVY));
+			s.power.getMoveset().abilities.put(CHAINABLE_HEAVY, chainable);
+			helper.assertTrue(s.power.getAbility(CHAINABLE_HEAVY) == chainable && chainable.isAbilityUnlocked(s.power),
+					"setup: the test heavy punch is not an unlocked moveset ability");
+			EntityActionInstance running = s.start(CHAINABLE_HEAVY);
+			running.startRecovery();
+			helper.assertTrue(!running.isOver() && !running.canBeCancelledInto(running.ability) && !running.refusesOwnAbilityPressedAgain(),
+					"setup: the test heavy punch does not hold its own press back in its recovery: " + running.getPhase());
+			AbilityConditionCheck resolved = s.resolve(CHAINABLE_HEAVY);
+			helper.assertTrue(resolved != null && resolved.ability == chainable && resolved.conditionCheck.isPositive(),
+					"an action that does not refuse its own press keeps it in its recovery for the input buffer: " + describe(resolved));
+			BufferingState buffered = s.press(CHAINABLE_HEAVY, InputMethod.CLICK);
+			helper.assertTrue(buffered.shouldBuffer && !buffered.isActionSuccess && s.standAction.getAction() == running,
+					"the own press of an action that does not refuse it was not buffered in its recovery: buffered "
+							+ buffered.shouldBuffer + ", started " + buffered.isActionSuccess + ", action " + s.standAction.getAction());
+			EntityActionInstance replayed = s.endAndReplay(CHAINABLE_HEAVY);
+			helper.assertTrue(replayed != null && replayed != running && replayed.ability == chainable,
+					"the buffered own press of an action that does not refuse it did not go off once the action ended: the Stand's"
+							+ " action " + replayed);
+			helper.succeed();
+		}
+	}
+
+	private static final String CHAINABLE_HEAVY = "own_press_chainable_heavy";
+
+	private static final class ChainableHeavyPunchAbility extends StandEntityHeavyPunchAbility {
+		private ChainableHeavyPunchAbility(AbilityType<?> abilityType, AbilityId abilityId) {
+			super(abilityType, abilityId);
+			createActionObj = ChainableHeavyPunch::new;
+		}
+	}
+
+	private static final class ChainableHeavyPunch extends StandEntityHeavyPunch {
+		private ChainableHeavyPunch(EntityActionType ability) {
+			super(ability);
+		}
+
+		@Override
+		public boolean refusesOwnAbilityPressedAgain() {
+			return false;
 		}
 	}
 
@@ -507,6 +559,49 @@ public final class OwnAbilityPressDuringTask116GameTests {
 			helper.assertTrue(user.actionBar.size() == messages,
 					"1.16 refused " + name + " pressed again during its own task with no message: " + user.actionBar);
 			standAction.setAction(null, user, SyncType.NO_SYNC);
+		}
+
+		/*
+		 * The ability runs and is put where it holds its own press back, as every other press; that press is refused with
+		 * no message and not buffered, and nothing goes off once the action has ended. A held press keeps its key down, so
+		 * a held press the buffer kept would still be there to go off.
+		 */
+		private void refusedWhereHeldBack(String name, InputMethod inputMethod, Consumer<EntityActionInstance> phase) {
+			standAction.setAction(null, user, SyncType.NO_SYNC);
+			power.setStamina(power.getMaxStamina());
+			Ability ability = power.getAbility(name);
+			EntityActionInstance running = start(name);
+			phase.accept(running);
+			helper.assertTrue(!running.isOver() && !running.canBeCancelledInto(running.ability) && running.refusesOwnAbilityPressedAgain(),
+					"setup: the running " + name + " does not hold its own press back (phase " + running.getPhase() + ")");
+			AbilityConditionCheck resolved = resolve(name);
+			helper.assertTrue(resolved != null && resolved.ability == ability && !resolved.conditionCheck.isPositive()
+					&& resolved.conditionCheck.getWarning() == null,
+					"1.16 refused " + name + " pressed again during its own task (not chainable), silently, also where the task"
+							+ " queued other presses, phase " + running.getPhase() + ": " + describe(resolved));
+			int messages = user.actionBar.size();
+			BufferingState pressed = press(name, inputMethod, KEY, inputMethod != InputMethod.HOLD);
+			helper.assertTrue(standAction.getAction() == running && !pressed.shouldBuffer && !pressed.isActionSuccess
+					&& user.actionBar.size() == messages,
+					"1.16 refused " + name + " pressed again in its own " + running.getPhase() + ", silently and unqueued: the"
+							+ " Stand's action is " + standAction.getAction() + " (was " + running + "), buffered " + pressed.shouldBuffer
+							+ ", messages " + user.actionBar);
+			EntityActionInstance after = endAndReplay(name);
+			helper.assertTrue(after == null, "1.16 never performed " + name + " pressed again in its own " + running.getPhase()
+					+ " once it ended: the Stand's action " + after);
+			AbilityInput.keyRelease(KEY, user);
+			standAction.setAction(null, user, SyncType.NO_SYNC);
+		}
+
+		// the running action ends and the user's input buffer has its tick: the Stand's action after it
+		@Nullable
+		private EntityActionInstance endAndReplay(String name) {
+			standAction.setAction(null, user, SyncType.NO_SYNC);
+			power.setStamina(power.getMaxStamina());
+			resolve(name);
+			EntityActionInputState input = user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get());
+			input.inputBuffer.tickInputBuffer(input);
+			return standAction.getAction();
 		}
 
 		// as ClAbilityInputPacket handles a press: the key's resolved ability, its condition check, then the press

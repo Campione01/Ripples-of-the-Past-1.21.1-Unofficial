@@ -354,9 +354,10 @@ public class EntityActionInstance implements HeldInput {
 
 	/**
 	 * 1.16 StandEntityAction.canClickDuringTask: whether this action's own ability, pressed again while this action is
-	 * the Stand's current action, is refused (no message, not buffered) where {@link #canBeCancelledInto} would let that
-	 * press cancel it. 1.16 refused it unless the action was chainable (its light attacks, Hierophant Green's emerald
-	 * splash, Silver Chariot's dash attack); a press this action holds back is buffered as any other.
+	 * the Stand's current action, is refused (no message, not buffered) in every phase, whatever {@link #canBeCancelledInto}
+	 * says of it. 1.16 refused it unless the action was chainable (its light attacks, Hierophant Green's emerald splash,
+	 * Silver Chariot's dash attack), its recovery included; the presses of other abilities this action holds back are
+	 * buffered as before.
 	 */
 	@ApiStatus.OverrideOnly
 	public boolean refusesOwnAbilityPressedAgain() {
