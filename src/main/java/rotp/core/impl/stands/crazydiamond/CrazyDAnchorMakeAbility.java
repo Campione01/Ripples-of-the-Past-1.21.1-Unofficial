@@ -113,6 +113,10 @@ public class CrazyDAnchorMakeAbility extends StandEntityAbility {
 	@Override
 	public void initActionFromConfig(EntityActionInstance action, Level level, LivingEntity powerUser, LivingEntity performer) {
 		super.initActionFromConfig(action, level, powerUser, performer);
+		// 1.16 CrazyDiamondBlockCheckpointMake.getStandRecoveryTicks
+		if (!level.isClientSide() && performer instanceof StandEntity stand) {
+			action.phasesLength.put(ActionPhase.RECOVERY, StandStatFormulas.getHeavyAttackRecovery(stand.getAttackSpeed(), 0));
+		}
 		if (action instanceof AnchorMake anchorMake && powerUser != null) {
 			ActionTarget target = findAnchorMakeTarget(powerUser);
 			anchorMake.setActionTarget(target);
@@ -188,6 +192,18 @@ public class CrazyDAnchorMakeAbility extends StandEntityAbility {
 		public void onActionSet(EntityActionInstance prevAction) {
 			keepStandAimedAtTarget(getActionTarget(level()));
 			aimAs = AimingEntity.STAND;
+		}
+
+		// 1.16 CrazyDiamondBlockCheckpointMake.isFreeRecovery
+		@Override
+		public boolean canBeCancelledInto(EntityActionType cancellingAbility) {
+			return getPhase() == ActionPhase.RECOVERY;
+		}
+
+		// 1.16 CrazyDiamondBlockCheckpointMake was not chainable
+		@Override
+		public boolean refusesOwnAbilityPressedAgain() {
+			return true;
 		}
 
 		@Override
