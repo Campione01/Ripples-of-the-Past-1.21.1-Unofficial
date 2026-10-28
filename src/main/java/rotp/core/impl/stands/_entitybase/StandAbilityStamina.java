@@ -39,7 +39,11 @@ public final class StandAbilityStamina {
 		return amount;
 	}
 
+	/** Also what the ability reports as its cost from now on, if it does not report its own (Ability#getStaminaCost). */
 	public static boolean consume(@Nullable Ability ability, @Nullable StandPower standPower, float amount, boolean ticking) {
+		if (ability != null) {
+			ability.rememberStaminaCostAsked(amount, ticking);
+		}
 		return standPower != null && standPower.consumeStamina(effectiveCost(standPower, amount), ticking);
 	}
 

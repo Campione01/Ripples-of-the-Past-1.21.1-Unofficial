@@ -628,10 +628,30 @@ public class Ability {
 	 * for a light attack, 50 for a heavy one, none for a cost that only ticks), which a 1.16 Stand-bearing mob compared with
 	 * its stamina before it picked an action (rotp_mwp StandAI.isActionAvailable). An ability with no 1.16 counterpart
 	 * reports what a use of it takes, a charged or held one what it takes when it goes off. Only a report: the ability
-	 * takes its stamina by its own code. 0 by default.
+	 * takes its stamina by its own code. An ability that does not override this reports the amount it last asked
+	 * StandAbilityStamina#consume to take ({@link #rememberStaminaCostAsked}): its one-off cost, else its cost per tick
+	 * (1.16's getStaminaCostTicking). So it is 0 until the ability's first use: a mob's first pick of it does not know its
+	 * cost.
 	 */
 	public float getStaminaCost(Power<?> context) {
-		return 0.0F;
+		return staminaCostAsked >= 0 ? staminaCostAsked : Math.max(staminaCostTickAsked, 0.0F);
+	}
+
+	private float staminaCostAsked = -1.0F;
+	private float staminaCostTickAsked = -1.0F;
+
+	/**
+	 * The stamina a use of this ability asked StandAbilityStamina#consume to take, kept for {@link #getStaminaCost}: the
+	 * last one-off amount and the last amount per tick. An ability belongs to its user's moveset, so it is its user's.
+	 */
+	@ApiStatus.Internal
+	public void rememberStaminaCostAsked(float amount, boolean ticking) {
+		if (ticking) {
+			staminaCostTickAsked = amount;
+		}
+		else {
+			staminaCostAsked = amount;
+		}
 	}
 
 	/**

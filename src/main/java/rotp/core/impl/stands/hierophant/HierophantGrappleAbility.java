@@ -1,5 +1,6 @@
 package rotp.core.impl.stands.hierophant;
 
+import rotp.core.powersystem.Power;
 import rotp.core.powersystem.standpower.StandInstance.StandPart;
 
 import rotp.core.entityattachment.syncheddata.SynchedDataBuilder;
@@ -37,6 +38,13 @@ public class HierophantGrappleAbility extends StandEntityAbility {
 		});
 		partsRequired(StandPart.ARMS);
 		setButtonHoldPhase(ActionPhase.PERFORM);
+	}
+
+	// 1.16 HierophantGreenGrapple had only a stamina cost per tick (staminaCostTick), which a Stand-bearing mob
+	// did not compare with its stamina (getStaminaCost 0)
+	@Override
+	public float getStaminaCost(Power<?> context) {
+		return 0.0F;
 	}
 
 	@Override

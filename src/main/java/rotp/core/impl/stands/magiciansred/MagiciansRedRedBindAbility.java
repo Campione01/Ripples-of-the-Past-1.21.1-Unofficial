@@ -1,6 +1,7 @@
 package rotp.core.impl.stands.magiciansred;
 
 import rotp.core.init.ModSoundEvents;
+import rotp.core.powersystem.Power;
 import rotp.core.powersystem.standpower.StandInstance.StandPart;
 
 import rotp.core.powersystem.ability.Ability;
@@ -30,6 +31,13 @@ public class MagiciansRedRedBindAbility extends StandEntityAbility {
 		partsRequired(StandPart.ARMS);
 		noFinisherBarDecay = true;
 		setButtonHoldPhase(ActionPhase.PERFORM);
+	}
+
+	// 1.16 MagiciansRedRedBind had only a stamina cost per tick (staminaCostTick), which a Stand-bearing mob
+	// did not compare with its stamina (getStaminaCost 0)
+	@Override
+	public float getStaminaCost(Power<?> context) {
+		return 0.0F;
 	}
 
 	@Override

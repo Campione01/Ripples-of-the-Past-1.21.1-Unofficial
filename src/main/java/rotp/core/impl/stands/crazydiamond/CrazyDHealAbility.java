@@ -82,6 +82,13 @@ public class CrazyDHealAbility extends StandEntityAbility {
 		setButtonHoldPhase(ActionPhase.PERFORM);
 		standAutoSummonMode(AutoSummonMode.MAIN_ARM);
 	}
+
+	// 1.16 CrazyDiamondHeal had only a stamina cost per tick (staminaCostTick), which a Stand-bearing mob
+	// did not compare with its stamina (getStaminaCost 0)
+	@Override
+	public float getStaminaCost(Power<?> context) {
+		return 0.0F;
+	}
 	
 	@Override
 	public ConditionCheck checkSpecificConditions(Power<?> context) {
