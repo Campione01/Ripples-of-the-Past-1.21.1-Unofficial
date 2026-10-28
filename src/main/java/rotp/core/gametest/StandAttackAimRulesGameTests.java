@@ -1029,15 +1029,17 @@ public final class StandAttackAimRulesGameTests {
 		}, 10, () -> "The punch was never pressed");
 	}
 
-	// keep attack target on: the locked barrage keeps the cow it was pressed at as a punch's task kept it, a dying one too
-	// until it has lain dead for 20 ticks (StandEntityTask.keepTarget), instead of aiming again past it at the ground
+	// keep attack target on: unlike a punch, the locked barrage lets go of the cow it was pressed at on the first tick after
+	// it dies and strikes the next cow on the crosshair: 1.16's barrage kept no entity target
+	// (StandEntityMeleeBarrage.checkStandTarget) and each hit's precision ray skipped a dead mob (StandEntity.canTarget);
+	// the owner reported a held barrage that stops dealing damage once it kills its target as a bug (2026-06-25)
 	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "dying_cow_locked_barrage")
-	public static void lockedBarrageKeepsTheCowItWasPressedAtThatDiesAsAPunchDoes(GameTestHelper helper) {
+	public static void lockedBarrageLetsGoOfTheCowItWasPressedAtOnceItDiesAndStrikesTheNextOne(GameTestHelper helper) {
 		Scene scene = new Scene(helper, true);
 		scene.user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get()).standAttackTargetLock = true;
 		scene.precision(0);
-		BlockPos ground = scene.groundStrip();
 		Cow cow = scene.cow(0, 2.0);
+		Cow next = scene.cow(0, 2.4);
 		scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, cow.position().add(0, 0.4, 0));
 		EntityActionInstance[] action = new EntityActionInstance[1];
 		int[] diedAt = { -1 };
@@ -1056,6 +1058,7 @@ public final class StandAttackAimRulesGameTests {
 			helper.assertTrue(!action[0].isOver(), "Fixture: the locked barrage ended at tick " + tick);
 			if (diedAt[0] < 0) {
 				if (action[0].punchedTarget != null && action[0].punchedTarget.getMainEntity() == cow) {
+					helper.assertTrue(next.getHealth() == 500, "Fixture: the cow behind was struck before the first one died");
 					cow.setHealth(0);
 					diedAt[0] = tick;
 				}
@@ -1065,11 +1068,15 @@ public final class StandAttackAimRulesGameTests {
 					+ cow.getHealth() + ", " + cow.deathTime + " ticks dead");
 			ActionTarget saved = savedTarget(action[0]);
 			ActionTarget turnedTo = action[0].standRotationTarget;
-			helper.assertTrue(entityOf(helper, saved) == cow && entityOf(helper, turnedTo) == cow && scene.isStone(ground),
+			helper.assertTrue(entityOf(helper, saved) != cow && entityOf(helper, turnedTo) != cow,
 					"The locked barrage " + (tick - diedAt[0]) + " ticks after its cow died keeps " + saved + " and turns the"
-							+ " Stand to " + turnedTo + ", the ground " + (scene.isStone(ground) ? "stands" : "broke") + "; a"
-							+ " punch keeps a dying target until it has lain dead for 20 ticks, as 1.16's task did");
-			return tick >= diedAt[0] + 5;
+							+ " Stand to " + turnedTo + "; it drops a dying target at once and aims again, as 1.16's barrage did");
+			if (next.getHealth() < 500) {
+				return true;
+			}
+			helper.assertTrue(tick < diedAt[0] + 10, "The locked barrage struck nothing of the cow behind on the crosshair in "
+					+ (tick - diedAt[0]) + " ticks after the first one died (keeping " + saved + ", turned to " + turnedTo + ")");
+			return false;
 		}, 60, () -> "The locked barrage never struck the cow");
 	}
 

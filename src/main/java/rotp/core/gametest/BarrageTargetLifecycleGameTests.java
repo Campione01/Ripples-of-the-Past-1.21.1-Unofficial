@@ -107,12 +107,8 @@ public final class BarrageTargetLifecycleGameTests {
 					"Default Stand aim still accepts a defeated entity");
 			standAction.entityAim.setTarget(ActionTarget.EMPTY);
 			ceiling = stepOutOfThePrecisionAim(helper, user, userPos);
-			standAction.tick();
-			// kept as a punch keeps a dying target, until it has lain dead for 20 ticks (1.16 StandEntityTask.keepTarget)
-			helper.assertTrue(action.standRotationTarget != null
-					&& action.standRotationTarget.getMainEntity() == defeated,
-					"Held barrage dropped its dying target before it had lain dead for 20 ticks");
-			defeated.deathTime = 20;
+			// released on the first tick after its death, unlike a punch's dying target: 1.16's barrage kept no entity
+			// target and its hits skipped a dead mob; the owner reported a barrage stalling on a killed mob (2026-06-25)
 			standAction.tick();
 			helper.assertTrue(action.standRotationTarget == null
 					&& action.aimAs == AimingEntity.CAMERA_ENTITY,
