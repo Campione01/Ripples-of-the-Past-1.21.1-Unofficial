@@ -1089,8 +1089,10 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 				return pressedAt(stand, user, crosshair, rule, ability);
 			}
 		}
+		// the crosshair a client sends keeps a dying entity too (pressedTarget), so this stand-in for it does
 		if (userAims && !assist) {
-			return rule.keeps(userAimTarget(stand, user, 1.0F, entity -> entity != stand && canStandHit(stand, entity)));
+			return rule.keeps(userAimTarget(stand, user, 1.0F,
+					entity -> entity != stand && (canStandHit(stand, entity) || keepsEntity(stand, entity))));
 		}
 		var standAim = LivingComponentAction.getAim(stand);
 		return standAim != null ? pressedAt(stand, userAims ? user : null, standAim.getTarget().resolveEntityId(level), rule,

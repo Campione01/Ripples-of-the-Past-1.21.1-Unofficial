@@ -47,6 +47,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
@@ -346,6 +347,75 @@ public final class CrazyDiamondFollowUpKey116GameTests {
 			scene.close();
 			throw error;
 		}
+	}
+
+	/*
+	 * 1.16 StandAction.canSetFollowUp asked PowerBaseImpl.checkRequirements, which refused an action whose performer, the
+	 * summoned Stand, was stunned: a stunned Crazy Diamond was offered none of its three follow-ups, the heavy key staying on
+	 * the running punch and the restore-terrain key on the restore terrain, and each follow-up asked for itself was refused
+	 * with the stun message.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aStunnedCrazyDiamondIsOfferedNoFollowUpAsIn116(GameTestHelper helper) {
+		MisshapeScene scene = MisshapeScene.open(helper, "CrazyDiamondStunnedFollowUp", 0.0F);
+		try {
+			for (String name : new String[] { "leave_object", "restore_terrain", "fuse_with_rock" }) {
+				scene.power.getCurTypeData()._lockedAbilities.remove(name);
+			}
+			Ability leaveObject = scene.power.getAbility("leave_object");
+			Ability restoreTerrain = scene.power.getAbility("restore_terrain");
+			Ability angeloRock = scene.power.getAbility("fuse_with_rock");
+			helper.assertTrue(leaveObject != null && restoreTerrain != null && angeloRock != null && leaveObject.isAbilityUnlocked(scene.power)
+					&& angeloRock.isAbilityUnlocked(scene.power), "fixture: the leave object, restore terrain or Angelo Rock is"
+							+ " missing or locked");
+			scene.aimAt(scene.enemy);
+			LivingComponentAction standAction = LivingComponentAction.getComponent(scene.stand);
+
+			scene.user.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.CHORUS_FRUIT, 8));
+			scene.power.setStamina(scene.power.getMaxStamina());
+			scene.stand.setFinisherMeter(0.0F);
+			AbilityConditionCheck pressed = press(scene.power, scene.user, scene.heavy);
+			helper.assertTrue(pressed != null && pressed.ability == scene.heavy && standAction.getAction() instanceof StandEntityHeavyPunch,
+					"fixture: the heavy key did not start the base heavy punch: " + describe(pressed));
+			stunnedRow(helper, scene, scene.heavy, leaveObject, scene.heavy, "the base heavy punch");
+			standAction.setAction(null, scene.user, SyncType.NO_SYNC);
+			scene.user.setItemInHand(InteractionHand.OFF_HAND, ItemStack.EMPTY);
+
+			scene.pressFinisher(helper);
+			stunnedRow(helper, scene, scene.heavy, scene.misshaping, scene.finisher, "the finisher");
+			stunnedRow(helper, scene, restoreTerrain, angeloRock, restoreTerrain, "the finisher");
+			standAction.setAction(null, scene.user, SyncType.NO_SYNC);
+			helper.succeed();
+		}
+		finally {
+			scene.stand.removeEffect(ModStatusEffects.STUN);
+			scene.close();
+		}
+	}
+
+	// the key gives the follow-up; with the Stand stunned it gives the base ability and the follow-up refuses with the stun
+	private static void stunnedRow(GameTestHelper helper, MisshapeScene scene, Ability key, Ability followUp, Ability base,
+			String running) {
+		AbilityConditionCheck given = resolve(scene.power, key);
+		helper.assertTrue(given != null && given.ability == followUp && given.conditionCheck.isPositive(), "fixture: during "
+				+ running + " the " + key.name() + " key does not give " + followUp.name() + ": " + describe(given));
+		scene.stand.addEffect(new MobEffectInstance(ModStatusEffects.STUN, 200));
+		try {
+			AbilityConditionCheck stunned = resolve(scene.power, key);
+			helper.assertTrue(stunned != null && stunned.ability == base, "1.16 offered a stunned Crazy Diamond no "
+					+ followUp.name() + " during " + running + " (canSetFollowUp: checkRequirements refused the stunned Stand): the "
+					+ key.name() + " key resolves to " + describe(stunned));
+			Component warning = followUp.checkConditions(scene.power).getWarning();
+			helper.assertTrue(warning != null && warning.getContents() instanceof TranslatableContents contents
+					&& "jojo.message.action_condition.stun".equals(contents.getKey()), "1.16 refused " + followUp.name()
+							+ " for a stunned Stand with the stun message: " + warning);
+		}
+		finally {
+			scene.stand.removeEffect(ModStatusEffects.STUN);
+		}
+		AbilityConditionCheck again = resolve(scene.power, key);
+		helper.assertTrue(again != null && again.ability == followUp, "fixture: with the stun gone the " + key.name()
+				+ " key does not give " + followUp.name() + " again: " + describe(again));
 	}
 
 	// 1.16 ModStandsInit :634-641 and assets\jojo: locale, then the names of crazy_diamond_misshape_face, _arms and _legs

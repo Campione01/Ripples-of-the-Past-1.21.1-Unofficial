@@ -297,6 +297,10 @@ public class TheWorldTSPunchAbility extends StandEntityAbility {
 					if (!target.isEmpty(stand.level())) {
 						standRotationTarget = target;
 					}
+					else {
+						// 1.16 targetBeforePerform put the blink's ray in place of the pressed target: no task target to turn to
+						storeTaskTarget(null);
+					}
 				}
 			}
 		}

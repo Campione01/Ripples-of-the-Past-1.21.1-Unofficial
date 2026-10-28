@@ -89,13 +89,11 @@ public class AvailableAbilities {
 	 * PowerBaseImpl.onClickAction instead: {@link ConditionCheck#NEGATIVE_OWN_HELD_PRESSED_AGAIN}.
 	 */
 	private void refuseRunningActionPressedAgain(Power<?> context) {
-		StandPower standPower = PowerClass.STAND.cast(context);
-		StandEntity standEntity = standPower != null ? standPower.getSummonedStandEntity() : null;
-		EntityActionInstance action = standEntity != null ? LivingComponentAction.getCurEntityAction(standEntity) : null;
-		if (action == null || action.isOver() || !action.refusesOwnAbilityPressedAgain()
-				|| !action.canBeCancelledInto(action.ability)) {
+		EntityActionInstance action = actionRefusingOwnPress(context);
+		if (action == null) {
 			return;
 		}
+		StandPower standPower = PowerClass.STAND.cast(context);
 		ConditionCheck refusal = AbilityInput.getHeldAction(standPower.getUser(), PowerClass.STAND) == action
 				? ConditionCheck.NEGATIVE_OWN_HELD_PRESSED_AGAIN : ConditionCheck.NEGATIVE;
 		for (AbilityConditionCheck container : _inMoveset.values()) {
@@ -105,6 +103,26 @@ public class AvailableAbilities {
 		}
 	}
 
+	/**
+	 * The same refusal for a press that no resolved key went through (AbilityInput#keyPressMob): a Stand-bearing mob's
+	 * press is picked before its AI lets go of its held action, so the state the release left is asked here.
+	 */
+	public static boolean refusesRunningActionPressedAgain(Power<?> context, Ability pressed) {
+		EntityActionInstance action = actionRefusingOwnPress(context);
+		return action != null && action.ability == pressed;
+	}
+
+	@Nullable
+	private static EntityActionInstance actionRefusingOwnPress(Power<?> context) {
+		StandPower standPower = PowerClass.STAND.cast(context);
+		StandEntity standEntity = standPower != null ? standPower.getSummonedStandEntity() : null;
+		EntityActionInstance action = standEntity != null ? LivingComponentAction.getCurEntityAction(standEntity) : null;
+		if (action == null || action.isOver() || !action.refusesOwnAbilityPressedAgain()
+				|| !action.canBeCancelledInto(action.ability)) {
+			return null;
+		}
+		return action;
+	}
 	
 	public void replaceOtherAbilityWith(Power<?> context, String baseAbilityName, Ability subAbility) {
 		if (subAbility.isAbilityAvailable(context)) {

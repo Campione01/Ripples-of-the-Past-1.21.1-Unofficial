@@ -683,9 +683,10 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 			if (takesTargetsFromServer()) {
 				return getActionTargetSnapshot(stand.level());
 			}
+			// the locked barrage keeps its target as a punch's task kept one, a dying one too (keptInReach)
 			ActionTarget target = StandEntityPunchAbility.getFreshPunchTarget(
 					stand, getActionTargetSnapshot(stand.level()),
-					StandEntityPunchAbility.shouldRetainPunchTarget(stand, ability));
+					StandEntityPunchAbility.shouldRetainPunchTarget(stand, ability), StandEntityPunchAbility.CrosshairRule.BLOCK_OR_ENTITY);
 			setActionTargetSnapshot(target);
 			return target;
 		}

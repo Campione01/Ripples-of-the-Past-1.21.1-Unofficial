@@ -995,6 +995,84 @@ public final class StandAttackAimRulesGameTests {
 		}, 60, () -> how + " never struck");
 	}
 
+	// without the aim assist a press whose client sent no crosshair reads the crosshair line on the server, a stand-in for
+	// the vanilla pick a client sends, which keeps a dying cow (StandEntityTask.keepTarget): so does the line, not the
+	// ground behind it
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "dying_cow_punch_off_unsent")
+	public static void punchWithoutAimAssistAndNoSentCrosshairKeepsADyingCow(GameTestHelper helper) {
+		Scene scene = new Scene(helper, false);
+		scene.precision(0);
+		scene.groundStrip();
+		Cow cow = scene.cow(0, 2.0);
+		scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, cow.position().add(0, 0.4, 0));
+		scene.run(tick -> {
+			if (tick == 2) {
+				cow.setHealth(0);
+				return false;
+			}
+			if (tick < 3) {
+				return false;
+			}
+			var sent = LivingComponentAction.getAim(scene.user);
+			helper.assertTrue(cow.isDeadOrDying() && !cow.isRemoved() && cow.deathTime < 20
+					&& (sent == null || sent.getTarget().isEmpty(helper.getLevel())), "Fixture: the cow is not dying ("
+							+ cow.getHealth() + ", " + cow.deathTime + " ticks dead), or a crosshair was sent");
+			EntityActionInstance action = scene.press("punch", InputMethod.CLICK);
+			helper.assertTrue(action instanceof StandEntityPunch && action.punchedTarget == null,
+					"Fixture: the punch input started " + action + ", or it struck at once");
+			ActionTarget saved = savedTarget(action);
+			ActionTarget turnedTo = action.standRotationTarget;
+			helper.assertTrue(entityOf(helper, saved) == cow && entityOf(helper, turnedTo) == cow, "The punch pressed without"
+					+ " the aim assist and no crosshair sent at a dying cow saved " + saved + " and turns the Stand to " + turnedTo
+					+ "; the crosshair a client sends keeps a dying cow, as 1.16's task kept it (StandEntityTask.keepTarget)");
+			return true;
+		}, 10, () -> "The punch was never pressed");
+	}
+
+	// keep attack target on: the locked barrage keeps the cow it was pressed at as a punch's task kept it, a dying one too
+	// until it has lain dead for 20 ticks (StandEntityTask.keepTarget), instead of aiming again past it at the ground
+	@GameTest(template = "empty", timeoutTicks = 80, batch = BATCH + "dying_cow_locked_barrage")
+	public static void lockedBarrageKeepsTheCowItWasPressedAtThatDiesAsAPunchDoes(GameTestHelper helper) {
+		Scene scene = new Scene(helper, true);
+		scene.user.getData(ModDataAttachmentTypes.PLAYER_BROADCASTED_SETTINGS.get()).standAttackTargetLock = true;
+		scene.precision(0);
+		BlockPos ground = scene.groundStrip();
+		Cow cow = scene.cow(0, 2.0);
+		scene.user.lookAt(EntityAnchorArgument.Anchor.EYES, cow.position().add(0, 0.4, 0));
+		EntityActionInstance[] action = new EntityActionInstance[1];
+		int[] diedAt = { -1 };
+		scene.run(tick -> {
+			if (tick == 3) {
+				scene.sendClientAims();
+				action[0] = scene.press("barrage", InputMethod.HOLD);
+				helper.assertTrue(action[0] instanceof StandEntityBarrage && entityOf(helper, savedTarget(action[0])) == cow,
+						"Fixture: the barrage input started " + action[0] + ", keeping " + (action[0] != null ? savedTarget(action[0])
+								: null));
+				return false;
+			}
+			if (tick < 3) {
+				return false;
+			}
+			helper.assertTrue(!action[0].isOver(), "Fixture: the locked barrage ended at tick " + tick);
+			if (diedAt[0] < 0) {
+				if (action[0].punchedTarget != null && action[0].punchedTarget.getMainEntity() == cow) {
+					cow.setHealth(0);
+					diedAt[0] = tick;
+				}
+				return false;
+			}
+			helper.assertTrue(cow.isDeadOrDying() && !cow.isRemoved() && cow.deathTime < 20, "Fixture: the cow is not dying: "
+					+ cow.getHealth() + ", " + cow.deathTime + " ticks dead");
+			ActionTarget saved = savedTarget(action[0]);
+			ActionTarget turnedTo = action[0].standRotationTarget;
+			helper.assertTrue(entityOf(helper, saved) == cow && entityOf(helper, turnedTo) == cow && scene.isStone(ground),
+					"The locked barrage " + (tick - diedAt[0]) + " ticks after its cow died keeps " + saved + " and turns the"
+							+ " Stand to " + turnedTo + ", the ground " + (scene.isStone(ground) ? "stands" : "broke") + "; a"
+							+ " punch keeps a dying target until it has lain dead for 20 ticks, as 1.16's task did");
+			return tick >= diedAt[0] + 5;
+		}, 60, () -> "The locked barrage never struck the cow");
+	}
+
 	// 1.16 StandEntity.punch made the strike's target the task target (setTaskTarget, StandEntityTask.setTarget and
 	// keepTarget) and sent it to tracking clients only when it changed. The cow a punch was pressed at steps out of the
 	// Stand's reach but stays within the action's range, so it is kept through the windup and the strike aims again, at

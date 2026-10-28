@@ -83,6 +83,21 @@ public final class TheWorldTSPunchAimGameTests {
 		helper.succeed();
 	}
 
+	// 1.16 targetBeforePerform put the blink's precision ray in place of the pressed target, so with nothing on that ray
+	// the task had no target, and the Stand charging the punch did not turn to the mob the press was aimed at
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void tsPunchWhoseBlinkFindsNothingDoesNotTurnToThePressedMobAsIn116(GameTestHelper helper) {
+		try (Scene scene = new Scene(helper, -60)) {
+			Cow aside = scene.mob(EntityType.COW.create(scene.level), scene.start.add(-6, 0.5, 3));
+			scene.aimAt(aside);
+			EntityActionInstance action = scene.press();
+			helper.assertTrue(action.standRotationTarget == null && action.aimAs == AimingEntity.CAMERA_ENTITY,
+					"1.16's time-stop punch whose blink found nothing had no task target: it turns The World to "
+							+ describe(action) + " (aimed as " + action.aimAs + "), the mob its press was aimed at");
+		}
+		helper.succeed();
+	}
+
 	@GameTest(template = "empty", timeoutTicks = 20)
 	public static void tsPunchPrefersTheHostileMobBehindACow(GameTestHelper helper) {
 		try (Scene scene = new Scene(helper, 0)) {
