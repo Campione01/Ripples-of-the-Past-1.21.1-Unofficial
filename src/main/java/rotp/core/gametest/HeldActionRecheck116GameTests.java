@@ -37,6 +37,7 @@ import rotp.core.powersystem.entityaction.EntityActionInputState.HeldInputEntry;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.netcode.SyncType;
+import rotp.core.powersystem.entityaction.type.EntityActionType;
 import rotp.core.powersystem.playerpower.PlayerPower;
 import rotp.core.powersystem.playerpower.PlayerPowerType;
 import rotp.core.powersystem.standpower.StandInstance;
@@ -66,6 +67,7 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -834,6 +836,102 @@ public final class HeldActionRecheck116GameTests {
 						(firingTick ? "1.16 stopHeldAction(true) said nothing" : "1.16's held tick said why") + " once the cow was"
 								+ " out of range " + when + ": messages " + s.user.keys());
 			}
+		}
+		helper.succeed();
+	}
+
+	private static final String MESSAGING_CROSSFIRE = "held_check_messaging_crossfire";
+	private static final String OWN_HELD_CHECK = "test_own_held_check";
+	private static final String OWN_CHARGE_TICK = "test_own_charge_tick";
+	private static final String OWN_PERFORM = "test_own_perform";
+
+	// an add-on charge whose own held check and charge tick send their refusals through the core's message helper
+	private static final class MessagingCrossfireAbility extends MagiciansRedCrossfireHurricaneAbility {
+		private MessagingCrossfireAbility(AbilityType<?> abilityType, AbilityId abilityId) {
+			super(abilityType, abilityId);
+			createActionObj = MessagingCrossfireShot::new;
+		}
+
+		@Override
+		public boolean canContinueAction(EntityActionInstance action) {
+			LivingEntity user = action.getPowerUser();
+			if (user != null && action.getPhase() == ActionPhase.BUTTON_CHARGE) {
+				ConditionCheck.sendActionFailedMessage(this, ConditionCheck.createNegative(OWN_HELD_CHECK), user);
+			}
+			return super.canContinueAction(action);
+		}
+	}
+
+	private static final class MessagingCrossfireShot extends MagiciansRedCrossfireHurricaneAbility.CrossfireShot {
+		private MessagingCrossfireShot(EntityActionType ability) {
+			super(ability);
+		}
+
+		@Override
+		public void actionTick() {
+			super.actionTick();
+			sendIn(ActionPhase.BUTTON_CHARGE, OWN_CHARGE_TICK);
+		}
+
+		@Override
+		public void actionPerformStart() {
+			super.actionPerformStart();
+			sendIn(ActionPhase.PERFORM, OWN_PERFORM);
+		}
+
+		private void sendIn(ActionPhase phase, String key) {
+			LivingEntity user = getPowerUser();
+			if (user != null && !level().isClientSide() && getPhase() == phase) {
+				ConditionCheck.sendActionFailedMessage((Ability) ability, ConditionCheck.createNegative(key), user);
+			}
+		}
+	}
+
+	/*
+	 * An add-on's own held check (canContinueAction) or charge tick that sends its refusal through
+	 * ConditionCheck.sendActionFailedMessage, as Kraft Work's Lock Target charge tick once did: 1.16
+	 * PowerBaseImpl.tickHeldAction ran a held tick (checkRequirements with its message, holdTick) on every held tick but the
+	 * one a holdToFire(N, false) charge fired in, which it gave to stopHeldAction(true), which said nothing. Both messages
+	 * come in each charge tick before it, neither in the firing tick, and the perform's own message still comes.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void anOwnHeldCheckMessageIsSilentInTheChargesFiringTickAsIn116(GameTestHelper helper) {
+		try (StandScene s = new StandScene(helper, "FiringTickOwnMessage", "magicians_red")) {
+			s.unlock("crossfire_hurricane");
+			MessagingCrossfireAbility crossfire = new MessagingCrossfireAbility(
+					s.ability("crossfire_hurricane").abilityType, new AbilityId(PowerClass.STAND, s.standType.getId(), MESSAGING_CROSSFIRE));
+			s.power.getMoveset().abilities.put(MESSAGING_CROSSFIRE, crossfire);
+			helper.assertTrue(s.power.getAbility(MESSAGING_CROSSFIRE) == crossfire && crossfire.isAbilityUnlocked(s.power),
+					"setup: the test Crossfire Hurricane is not an unlocked moveset ability");
+			EntityActionInstance charge = s.hold(crossfire.initActionOnAbilityUse(helper.getLevel(), s.user, s.stand, null));
+			int length = Mth.ceil(charge.getCurPhaseLength());
+			helper.assertTrue(charge instanceof MessagingCrossfireShot && charge.getPhase() == ActionPhase.BUTTON_CHARGE && length == 20,
+					"setup: the test Crossfire Hurricane does not charge for 20 ticks: " + charge.getPhase() + " " + length);
+			List<String> chargeMessages = List.of(CONDITION + OWN_HELD_CHECK, CONDITION + OWN_CHARGE_TICK);
+			for (int tick = 1; tick <= length; tick++) {
+				boolean firing = tick == length;
+				helper.assertTrue(!charge.isOver() && charge.getPhase() == ActionPhase.BUTTON_CHARGE && charge.isChargeFiringTick() == firing,
+						"setup: held charge tick " + tick + " of " + length + " is not " + (firing ? "" : "not ") + "the firing tick: phase "
+								+ charge.getPhase() + ", over " + charge.isOver());
+				s.user.actionBar.clear();
+				s.tick(1);
+				List<String> keys = s.user.keys();
+				helper.assertTrue(firing ? keys.isEmpty() : keys.size() == 2 && keys.containsAll(chargeMessages),
+						(firing ? "1.16 ran no held tick of the charge in the tick it fired in (stopHeldAction(true) said nothing)"
+								: "1.16's held tick " + tick + " said why") + ": messages " + keys);
+			}
+			helper.assertTrue(!charge.isOver() && charge.getPhase() != ActionPhase.BUTTON_CHARGE,
+					"setup: the charge did not fire: phase " + charge.getPhase() + ", over " + charge.isOver());
+			s.user.actionBar.clear();
+			for (int tick = 0; tick < 10 && !s.user.keys().contains(CONDITION + OWN_PERFORM) && !charge.isOver(); tick++) {
+				s.tick(1);
+			}
+			List<MRCrossfireHurricaneEntity> shots = helper.getLevel().getEntitiesOfClass(MRCrossfireHurricaneEntity.class,
+					s.user.getBoundingBox().inflate(16.0D));
+			shots.forEach(Entity::discard);
+			helper.assertTrue(s.user.keys().contains(CONDITION + OWN_PERFORM),
+					"the perform's own message is not a held tick's and still comes: messages " + s.user.keys() + ", phase "
+							+ charge.getPhase());
 		}
 		helper.succeed();
 	}

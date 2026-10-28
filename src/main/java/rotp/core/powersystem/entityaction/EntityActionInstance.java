@@ -1264,7 +1264,7 @@ public class EntityActionInstance implements HeldInput {
 			if (heldCooldownTicks != NO_HELD_COOLDOWN) {
 				++heldCooldownTicks;
 			}
-			if (!level().isClientSide() && !ability.canContinueAction(this)) {
+			if (!level().isClientSide() && !canContinueInOwnTick()) {
 				forceStop();
 				syncPhaseChanges();
 				return;
@@ -1276,7 +1276,7 @@ public class EntityActionInstance implements HeldInput {
 			if (isOver()) {
 				return;
 			}
-			_onTick();
+			runOwnTick();
 			noteOwnCooldownSets();
 			_incPhaseTick();
 			checkNextPhase();
@@ -1304,7 +1304,7 @@ public class EntityActionInstance implements HeldInput {
 		if (heldCooldownTicks != NO_HELD_COOLDOWN) {
 			++heldCooldownTicks;
 		}
-		if (!level().isClientSide() && !ability.canContinueAction(this)) {
+		if (!level().isClientSide() && !canContinueInOwnTick()) {
 			forceStop();
 			syncPhaseChanges();
 			return true;
@@ -1568,7 +1568,7 @@ public class EntityActionInstance implements HeldInput {
 		if (!isOver() && getPhaseTick() >= curPhaseLength && !shouldHoldPhaseAtEnd()) {
 			// tick a skipped non-zero phase
 			if (curPhaseTick == 0 && curPhaseLength > 0 && curPhaseLength <= 1) {
-				_onTick();
+				runOwnTick();
 			}
 			if (stopFullChargeIfConditionsFail()) {
 				return;
@@ -1605,11 +1605,52 @@ public class EntityActionInstance implements HeldInput {
 	 * (EntityActionAbility#chargeEndsTheHold): 1.16 PowerBaseImpl.tickHeldAction gave that tick to stopHeldAction(true),
 	 * whose check, unlike a held tick's, fired nothing on a failure and said nothing. That is the charge's last tick,
 	 * whether its next phase runs in it or in the next tick (EntityActionAbility#chargeFiresAsItsLengthEnds). An ability's
-	 * own held checks with a message stay silent in it.
+	 * own held checks with a message stay silent in it: ConditionCheck.sendActionFailedMessage sends nothing from the
+	 * action's canContinueAction or its own tick then ({@link #_isOwnTickSilent}).
 	 */
 	@ApiStatus.NonExtendable
 	public boolean isChargeFiringTick() {
 		return isOnFiringChargesLastTick() && ((EntityActionAbility) ability).chargeEndsTheHold(this);
+	}
+
+	// the action whose canContinueAction or own tick runs on this thread in its charge's firing tick, else null
+	private static final ThreadLocal<EntityActionInstance> SILENT_OWN_TICK = new ThreadLocal<>();
+
+	/**
+	 * Whether the code running on this thread is an action's canContinueAction or its own tick
+	 * ({@link #actionTick} and the phase code it runs) in that action's charge firing tick ({@link #isChargeFiringTick}),
+	 * where 1.16 ran no held tick of it: ConditionCheck.sendActionFailedMessage stays silent then.
+	 */
+	@ApiStatus.Internal
+	public static boolean _isOwnTickSilent() {
+		return SILENT_OWN_TICK.get() != null;
+	}
+
+	private boolean canContinueInOwnTick() {
+		EntityActionInstance outer = enterOwnTick();
+		try {
+			return ability.canContinueAction(this);
+		}
+		finally {
+			SILENT_OWN_TICK.set(outer);
+		}
+	}
+
+	private void runOwnTick() {
+		EntityActionInstance outer = enterOwnTick();
+		try {
+			_onTick();
+		}
+		finally {
+			SILENT_OWN_TICK.set(outer);
+		}
+	}
+
+	@Nullable
+	private EntityActionInstance enterOwnTick() {
+		EntityActionInstance outer = SILENT_OWN_TICK.get();
+		SILENT_OWN_TICK.set(isChargeFiringTick() ? this : null);
+		return outer;
 	}
 
 	// the last tick of a held charge (a phase before the perform) whose next phase is not held, not yet run

@@ -151,8 +151,10 @@ public final class ControllerSoul {
 
 	@SubscribeEvent(priority = EventPriority.HIGHEST)
 	public static void renderSoulTimer(RenderGuiLayerEvent.Pre event) {
-		SoulEntity soulOnCamera = ownSoulOnCamera(Minecraft.getInstance());
-		if (soulOnCamera == null) {
+		Minecraft mc = Minecraft.getInstance();
+		SoulEntity soulOnCamera = ownSoulOnCamera(mc);
+		// the layer events come with the HUD hidden too; 1.16's experience bar event did not
+		if (soulOnCamera == null || mc.options.hideGui) {
 			return;
 		}
 		ResourceLocation layerName = event.getName();

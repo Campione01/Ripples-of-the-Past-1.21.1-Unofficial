@@ -27,6 +27,7 @@ import rotp.core.powersystem.entityaction.LivingComponentAction.RebuffVisualTail
 import rotp.core.client.ClientTimeStopHandler;
 import rotp.core.powersystem.playerpower.PlayerPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
+import rotp.core.powersystem.standpower.entity.StandIdleSway;
 import rotp.core.impl.powers.hamon.HamonData;
 import rotp.core.impl.powers.hamon.entity.HamonMasterEntity;
 import rotp.core.impl.powers.pillarman.PillarmanData;
@@ -287,6 +288,14 @@ public class PreFrameEntityAnimCalc {
 				pose = anim.calcAnimPose(molangVariables,
 						performPose == null && actionComponent != null ? actionComponent.clPrevPunchPose : null, timeSeconds, 1);
 				if (rebuffTail != null) pose.blendWeight = rebuffTail.blendWeight(tailElapsed);
+				if (stand != null && animVariables.animId != null && animVariables.animId.isIdle()
+						&& StandIdleSway.CLIP_VALUE.equals(anim.instructionTimelines.getStringTimelineVal(StandIdleSway.CLIP_FIELD, timeSeconds))
+						&& !StandIdleSway.swaysAsIn116(stand, partialTick)) {
+					AnimFramePose.ModelPartFrame swayed = pose.getIfPresent(StandIdleSway.SWAYED_BONE);
+					if (swayed != null) {
+						swayed.positionOffset.zero();
+					}
+				}
 				if (stand == null) {
 					// 1.16 KosmXArmsRotationModifier: barrage arms follow the look pitch
 					AnimFramePose.ModelPartFrame leftArm = pose.getIfPresent("left_arm");

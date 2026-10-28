@@ -1,9 +1,14 @@
 package rotp.core.gametest;
 
+import java.io.IOException;
 import java.lang.reflect.Proxy;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.annotation.Nullable;
 
@@ -424,6 +429,42 @@ public final class SoulAscensionClientGameTests {
 		check(helper, size.width() == 0.6F && size.height() == 1.8F && Math.abs(size.eyeHeight() - 1.53F) < 1.0E-4F,
 				"The soul is " + size.width() + " x " + size.height() + " with its eyes at " + size.eyeHeight()
 						+ "; 1.16 made it 0.6 x 1.8 with the eyes at 1.53, where the dead player's camera sits");
+		helper.succeed();
+	}
+
+	/**
+	 * 1.16 drew the soul's timer bar in the experience bar's RenderGameOverlayEvent, which ForgeIngameGui posted only
+	 * while the HUD was shown, so F1 (hideGui) hid it with the HUD. NeoForge posts RenderGuiLayerEvent for the experience
+	 * bar with the HUD hidden too (the hideGui check sits inside the layer), so ControllerSoul.renderSoulTimer must leave
+	 * the bar out itself. ControllerSoul cannot be loaded here: this reads its source.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void soulTimerBarHidesWithTheHudAsIn116(GameTestHelper helper) {
+		String source = null;
+		for (Path at = Path.of("").toAbsolutePath(); at != null && source == null; at = at.getParent()) {
+			Path file = at.resolve("src/main/java/rotp/core/subsystems/soul/client/ControllerSoul.java");
+			if (Files.isRegularFile(file)) {
+				try {
+					source = Files.readString(file);
+				}
+				catch (IOException e) {
+					throw new IllegalStateException("Could not read " + file, e);
+				}
+			}
+		}
+		check(helper, source != null, "Fixture: ControllerSoul.java not found above " + Path.of("").toAbsolutePath());
+		int start = source.indexOf("public static void renderSoulTimer(");
+		int end = source.indexOf("@SubscribeEvent", start);
+		check(helper, start >= 0 && end > start, "Fixture: ControllerSoul.renderSoulTimer not found");
+		String body = source.substring(start, end).replaceAll("//[^\\n]*", "").replaceAll("\\s+", "");
+		Matcher hidden = Pattern.compile("if\\(([^{}]*\\|\\|)?[\\w.()]*\\.options\\.hideGui(\\|\\|[^{}]*)?\\)\\{return;\\}")
+				.matcher(body);
+		check(helper, hidden.find(), "ControllerSoul.renderSoulTimer does not leave the soul's timer bar out while F1 hides"
+				+ " the HUD; 1.16 drew it with the HUD only");
+		int cancel = body.indexOf("setCanceled(");
+		int draw = body.indexOf("blit(");
+		check(helper, cancel > hidden.end() && draw > hidden.end(),
+				"ControllerSoul.renderSoulTimer cancels or draws the experience bar before it asks whether F1 hides the HUD");
 		helper.succeed();
 	}
 

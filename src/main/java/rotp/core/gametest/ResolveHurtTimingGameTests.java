@@ -47,20 +47,15 @@ public final class ResolveHurtTimingGameTests {
 
 	@GameTest(template = "empty", timeoutTicks = 80)
 	public static void shieldBlockedHitGivesNoResolve(GameTestHelper helper) {
-		Attacker a = new Attacker(helper);
-		Zombie zombie;
-		try {
-			zombie = a.zombie();
-			zombie.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.SHIELD));
-			zombie.startUsingItem(InteractionHand.OFF_HAND);
-		}
-		catch (RuntimeException | AssertionError error) {
-			a.close();
-			throw error;
-		}
-		// a raised shield blocks after 5 ticks of use
+		Zombie zombie = zombie(helper, targetPos(helper));
+		zombie.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.SHIELD));
+		zombie.startUsingItem(InteractionHand.OFF_HAND);
+		// a raised shield blocks after 5 ticks of use; the attacker summons its Stand only in the tick of the hits, so
+		// no idle tick of the Stand (where it stands, what reaches it there) comes before them
 		helper.runAfterDelay(8, () -> {
+			Attacker a = null;
 			try {
+				a = new Attacker(helper);
 				a.faceZombie(zombie);
 				helper.assertTrue(zombie.isBlocking(), "The zombie's shield is not raised");
 				float before = zombie.getHealth();
@@ -77,10 +72,27 @@ public final class ResolveHurtTimingGameTests {
 			}
 			finally {
 				zombie.discard();
-				a.close();
+				if (a != null) {
+					a.close();
+				}
 			}
 			helper.succeed();
 		});
+	}
+
+	private static Vec3 targetPos(GameTestHelper helper) {
+		return Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(2, 2, 2)));
+	}
+
+	// a zombie without AI where the target stands, kept from burning
+	private static Zombie zombie(GameTestHelper helper, Vec3 targetPos) {
+		Zombie zombie = EntityType.ZOMBIE.create(helper.getLevel());
+		helper.assertTrue(zombie != null, "Could not create the zombie");
+		zombie.setNoAi(true);
+		zombie.moveTo(targetPos.x, targetPos.y, targetPos.z, 0, 0);
+		zombie.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 400));
+		helper.assertTrue(helper.getLevel().addFreshEntity(zombie), "Could not add the zombie");
+		return zombie;
 	}
 
 	@GameTest(template = "empty", timeoutTicks = 80)
@@ -181,7 +193,7 @@ public final class ResolveHurtTimingGameTests {
 
 		Attacker(GameTestHelper helper) {
 			this.helper = helper;
-			targetPos = Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(2, 2, 2)));
+			targetPos = targetPos(helper);
 			player = GameTestPlayers.makeServerMockPlayer(helper, GameType.SURVIVAL);
 			player.moveTo(targetPos.x, targetPos.y, targetPos.z + 3, 180, 0);
 			helper.assertTrue(helper.getLevel().addFreshEntity(player), "Could not add the attacker");
@@ -194,15 +206,8 @@ public final class ResolveHurtTimingGameTests {
 			helper.assertTrue(power.usesResolve(), "The attacker's Stand has no Resolve");
 		}
 
-		// a zombie without AI where the target stands, kept from burning
 		Zombie zombie() {
-			Zombie zombie = EntityType.ZOMBIE.create(helper.getLevel());
-			helper.assertTrue(zombie != null, "Could not create the zombie");
-			zombie.setNoAi(true);
-			zombie.moveTo(targetPos.x, targetPos.y, targetPos.z, 0, 0);
-			zombie.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 400));
-			helper.assertTrue(helper.getLevel().addFreshEntity(zombie), "Could not add the zombie");
-			return zombie;
+			return ResolveHurtTimingGameTests.zombie(helper, targetPos);
 		}
 
 		// the zombie faces south, toward the attacker, out of any hurt cooldown
