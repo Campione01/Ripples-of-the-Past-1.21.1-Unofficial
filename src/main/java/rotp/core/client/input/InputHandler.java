@@ -145,7 +145,13 @@ public class InputHandler {
 		tickReleaseEventQueue();
 		tickPendingReleaseUse();
 		tickKeyPressIndication();
+		for (ClientKey replayed : rawMouseClicks.endTick()) {
+			input(replayed, InputConstants.RELEASE, 0);
+		}
 	}
+
+	/** The mouse buttons' raw presses of this client tick and the vanilla clicks replayed as presses (StandVanillaClickInput). */
+	final RawMouseClicks<ClientKey> rawMouseClicks = new RawMouseClicks<>();
 	
 	private void tickPendingReleaseUse() {
 		if (pendingReleaseUse.isEmpty()) {
@@ -209,6 +215,7 @@ public class InputHandler {
 				hotbarsSelection,
 				toggledHotbarsSelection);
 		pendingReleaseUse.clear();
+		rawMouseClicks.clear();
 		keysPressedWithAbility.clear();
 		hamonDoubleShift.reset();
 		lastActionKey = null;
@@ -274,8 +281,13 @@ public class InputHandler {
 	@SubscribeEvent(priority = EventPriority.LOW)
 	public void handleMouseInput(InputEvent.MouseButton.Pre event) {
 		if (mc.getConnection() == null) return;
-		
-		handleInputEvent(ClientKey.make(InputConstants.Type.MOUSE, event.getButton()), event.getAction(), event.getModifiers(), event);
+
+		ClientKey button = ClientKey.make(InputConstants.Type.MOUSE, event.getButton());
+		switch (event.getAction()) {
+			case InputConstants.PRESS -> rawMouseClicks.rawPress(button);
+			case InputConstants.RELEASE -> rawMouseClicks.rawRelease(button);
+		}
+		handleInputEvent(button, event.getAction(), event.getModifiers(), event);
 	}
 	
 	public void handleInputEvent(ClientKey key, int action, int modifiers, ICancellableEvent event) {
@@ -739,16 +751,18 @@ public class InputHandler {
 						|| heldAbility.baseAbility instanceof StandEntityBlockAbility);
 	}
 	
+	// 1.16 InputHandler (:343-349) posed only for both buttons clicked in the same client tick, not for a press while the
+	// other button was held (a bow drawn, a shield up)
 	private boolean handleDefaultJojoLmbRmb(ClientKey key, ClientControlScheme controlScheme) {
 		if (vanillaKeybinds == null || !vanillaKeybinds.jojoLmbRmb.isDefault()
 				|| controlScheme.powerClassCosmetic != PowerClass.STAND) {
 			return false;
 		}
 		if (key.equals(LMB)) {
-			return _heldKeys.containsKey(RMB) && doTheThing();
+			return rawMouseClicks.pressedThisTick(RMB) && doTheThing();
 		}
 		if (key.equals(RMB)) {
-			return _heldKeys.containsKey(LMB) && doTheThing();
+			return rawMouseClicks.pressedThisTick(LMB) && doTheThing();
 		}
 		return false;
 	}

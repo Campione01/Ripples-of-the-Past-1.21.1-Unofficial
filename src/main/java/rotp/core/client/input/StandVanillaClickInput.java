@@ -10,6 +10,7 @@ import rotp.core.subsystems.entity_useitem.ClStandClickPacket;
 import rotp.core.subsystems.entity_useitem.ServerSideLivingClick;
 import com.mojang.blaze3d.platform.InputConstants;
 
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.phys.HitResult;
@@ -100,11 +101,17 @@ public class StandVanillaClickInput {
 			}
 			return false;
 		}
-		
-		if (!shouldHandleVanillaMappedAbilityInput(inputHandler)) {
+
+		if (!inputHandler.rawMouseClicks.replaysVanillaClick(key)
+				|| !shouldHandleVanillaMappedAbilityInput(inputHandler)) {
 			return false;
 		}
-		if (inputHandler.input(key, InputConstants.PRESS, 0)) {
+		boolean cancel = inputHandler.input(key, InputConstants.PRESS, 0);
+		if (inputHandler.getHeldKeyTimer(key) != null) {
+			KeyMapping mapping = event.getKeyMapping();
+			inputHandler.rawMouseClicks.replayed(key, mapping::isDown);
+		}
+		if (cancel) {
 			event.setCanceled(true);
 			event.setSwingHand(false);
 			return true;
