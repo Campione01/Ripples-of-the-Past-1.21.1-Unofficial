@@ -13,6 +13,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 import rotp.core.entityattachment.custom_effect.EntityCustomEffectType;
+import rotp.core.init.ModBlockTags;
 import rotp.core.init.ModSoundEvents;
 import rotp.core.mechanics.KnockbackCollisionImpact;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
@@ -33,7 +34,6 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.tags.BlockTags;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
@@ -180,21 +180,31 @@ public class CrazyDAngeloRockPunchEffect extends StandEffectInstance {
 			return ConditionCheck.createNegative("target_too_many_health");
 		}
 
-		List<PrevBlockInfo> stoneBlocks = brokenBlocks.values().stream()
+		Map<BlockPos, PrevBlockInfo> brokenStone = new HashMap<>();
+		brokenBlocks.values().stream()
 				.filter(block -> canUseBlock(block.state))
-				.sorted(Comparator.comparingDouble(block -> Vec3.atCenterOf(block.pos).distanceToSqr(target.position())))
-				.toList();
-		if (stoneBlocks.size() < 2) {
+				.forEach(block -> brokenStone.put(block.pos, block));
+		if (brokenStone.size() < 2) {
 			return ConditionCheck.createNegative("angelo_no_stone_broken");
 		}
 
-		PrevBlockInfo blockLower = stoneBlocks.get(0);
-		PrevBlockInfo blockUpper = stoneBlocks.get(1);
-		if (blockUpper.pos.getY() < blockLower.pos.getY()) {
-			PrevBlockInfo tmp = blockLower;
-			blockLower = blockUpper;
-			blockUpper = tmp;
+		Vec3 targetPos = target.position();
+		RockBlocks rockBlocks = brokenStone.values().stream()
+				.map(block -> findRockBlocks(level, block, brokenStone, targetPos))
+				.filter(Objects::nonNull)
+				.sorted(Comparator.comparingInt((RockBlocks entry) -> entry.priority)
+						.thenComparingDouble(entry -> entry.dist(targetPos)))
+				.findFirst().orElse(null);
+		if (rockBlocks == null) {
+			return ConditionCheck.createNegative("angelo_no_stone_broken");
 		}
+		LivingEntity standUser = getStandUser();
+		rockBlocks.resolve(level, brokenStone, targetPos, standUser == null || JojoModUtil.dropBrokenBlock(standUser));
+		if (rockBlocks.lower == null || rockBlocks.upper == null) {
+			return ConditionCheck.createNegative("angelo_no_stone_broken");
+		}
+		PrevBlockInfo blockLower = rockBlocks.lower;
+		PrevBlockInfo blockUpper = rockBlocks.upper;
 
 		removeBrokenBlocks(level, blockLower, blockUpper);
 		brokenBlocks.remove(blockLower.pos);
@@ -224,6 +234,100 @@ public class CrazyDAngeloRockPunchEffect extends StandEffectInstance {
 			angeloRock.setBlockDrops(blockDrops);
 		}
 		return ConditionCheck.POSITIVE;
+	}
+
+	/*
+	 * 1.16 CDTurnIntoAngeloRockEffect.tryStartAngeloRock's FindBlockEntry for one broken stone: first a broken stone above
+	 * or below it, the lower one within distSqr 3 of the target, then air or an unbroken stone (broken for the rock) above
+	 * or below it where no other broken block was.
+	 */
+	@Nullable
+	private RockBlocks findRockBlocks(Level level, PrevBlockInfo block, Map<BlockPos, PrevBlockInfo> brokenStone, Vec3 targetPos) {
+		BlockPos posAbove = block.pos.above();
+		BlockPos posBelow = block.pos.below();
+		PrevBlockInfo brokenAbove = brokenStone.get(posAbove);
+		if (brokenAbove != null && RockBlocks.distLower(block, targetPos) <= 3) {
+			return new RockBlocks(block, brokenAbove, 1, null);
+		}
+		PrevBlockInfo brokenBelow = brokenStone.get(posBelow);
+		if (brokenBelow != null && RockBlocks.distLower(brokenBelow, targetPos) <= 3) {
+			return new RockBlocks(brokenBelow, block, 1, null);
+		}
+		if (!brokenBlocks.containsKey(posAbove)) {
+			BlockState above = level.getBlockState(posAbove);
+			if (above.isAir()) {
+				return new RockBlocks(block, null, 2, null);
+			}
+			else if (canUseBlock(above)) {
+				return new RockBlocks(block, null, 2, posAbove);
+			}
+		}
+		if (!brokenBlocks.containsKey(posBelow)) {
+			BlockState below = level.getBlockState(posBelow);
+			if (below.isAir()) {
+				return new RockBlocks(null, block, 2, null);
+			}
+			else if (canUseBlock(below)) {
+				return new RockBlocks(null, block, 2, posBelow);
+			}
+		}
+		return null;
+	}
+
+	private static class RockBlocks {
+		@Nullable private PrevBlockInfo lower;
+		@Nullable private PrevBlockInfo upper;
+		private final int priority;
+		@Nullable private final BlockPos stoneToBreak;
+
+		private RockBlocks(@Nullable PrevBlockInfo lower, @Nullable PrevBlockInfo upper, int priority, @Nullable BlockPos stoneToBreak) {
+			this.lower = lower;
+			this.upper = upper;
+			this.priority = priority;
+			this.stoneToBreak = stoneToBreak;
+		}
+
+		private static double distLower(PrevBlockInfo block, Vec3 targetPos) {
+			return targetPos.distanceToSqr(block.pos.getX() + 0.5, block.pos.getY(), block.pos.getZ() + 0.5);
+		}
+
+		private static double distUpper(PrevBlockInfo block, Vec3 targetPos) {
+			return targetPos.distanceToSqr(block.pos.getX() + 0.5, block.pos.getY() + 1, block.pos.getZ() + 0.5);
+		}
+
+		private double dist(Vec3 targetPos) {
+			return lower != null ? distLower(lower, targetPos) : distUpper(upper, targetPos);
+		}
+
+		// the missing block: the stone it breaks, else the broken stone nearest the target
+		private void resolve(Level level, Map<BlockPos, PrevBlockInfo> brokenStone, Vec3 targetPos, boolean dropBlock) {
+			if (lower == null) {
+				if (stoneToBreak != null) {
+					lower = breakStone(level, stoneToBreak, dropBlock);
+				}
+				else {
+					brokenStone.remove(upper.pos);
+					lower = brokenStone.values().stream().min(Comparator.comparingDouble(block -> distLower(block, targetPos))).orElse(null);
+				}
+			}
+			else if (upper == null) {
+				if (stoneToBreak != null) {
+					upper = breakStone(level, stoneToBreak, dropBlock);
+				}
+				else {
+					brokenStone.remove(lower.pos);
+					upper = brokenStone.values().stream().min(Comparator.comparingDouble(block -> distUpper(block, targetPos))).orElse(null);
+				}
+			}
+		}
+
+		// 1.16 MCUtil.destroyBlock(world, pos, dropBrokenBlock(user), null): the broken stone is remembered like any other
+		@Nullable
+		private static PrevBlockInfo breakStone(Level level, BlockPos pos, boolean dropBlock) {
+			level.destroyBlock(pos, dropBlock, null);
+			BrokenBlocksChunkData data = BrokenBlocksChunkData.getChunkData(level, pos);
+			return data != null ? data.getBrokenBlockAt(pos) : null;
+		}
 	}
 
 	private void restoreBrokenBlocks(BlockPos center) {
@@ -310,7 +414,7 @@ public class CrazyDAngeloRockPunchEffect extends StandEffectInstance {
 	}
 
 	private static boolean canUseBlock(BlockState state) {
-		return state.is(BlockTags.BASE_STONE_OVERWORLD) || state.is(BlockTags.BASE_STONE_NETHER);
+		return state.is(ModBlockTags.ANGELO_ROCK_STONE);
 	}
 
 	@Override
