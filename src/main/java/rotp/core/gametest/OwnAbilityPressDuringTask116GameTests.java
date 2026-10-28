@@ -215,6 +215,21 @@ public final class OwnAbilityPressDuringTask116GameTests {
 		}
 	}
 
+	/*
+	 * 1.16 drew the slot of the Zoom or Inhale its key held lit (checkTaskCancelling skipped the held action), also on the
+	 * client, which now refuses the running action's own slot as the server does: held, it is refused as pressed again and
+	 * drawn usable.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void theClientsCopyOfAHeldZoomOrInhaleKeepsItsSlotLitAsIn116(GameTestHelper helper) {
+		try (Scene s = new Scene(helper, "OwnPressClientHeld", "star_platinum", 4)) {
+			s.unlock("inhale");
+			s.refusedAsClient("enhanced_eyesight", s.holdAsClient("enhanced_eyesight"), true);
+			s.refusedAsClient("inhale", s.holdAsClient("inhale"), true);
+			helper.succeed();
+		}
+	}
+
 	private static final String CHAINABLE_HEAVY = "own_press_chainable_heavy";
 
 	private static final class ChainableHeavyPunchAbility extends StandEntityHeavyPunchAbility {
