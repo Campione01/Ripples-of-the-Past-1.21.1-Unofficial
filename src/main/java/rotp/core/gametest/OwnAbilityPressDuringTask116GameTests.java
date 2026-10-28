@@ -230,6 +230,35 @@ public final class OwnAbilityPressDuringTask116GameTests {
 		}
 	}
 
+	/*
+	 * 1.16 StandEntityAction.checkTaskCancelling queued another Stand action with no hold pressed while the Stand's task
+	 * could not be cancelled into it (NEGATIVE_QUEUEABLE), and ActionsOverlayGui drew it at brightness 0.75 and alpha
+	 * 0.75, apart from the unusable look; the port's input buffer keeps that press (owner decision N2), so its slot is
+	 * drawn queued, on the client too. A press the task lets through at once is drawn usable.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aPressTheStandsTaskQueuesIsDrawnQueuedAsIn116(GameTestHelper helper) {
+		try (Scene s = new Scene(helper, "OwnPressQueuedTint", "star_platinum", 4)) {
+			s.stand.setFinisherMeter(0.0F);
+			s.standAction.setAction(null, s.user, SyncType.NO_SYNC);
+			s.drawn("punch", ConditionCheck.POSITIVE, "with the Stand idle");
+			for (boolean client : new boolean[] { false, true }) {
+				String copy = client ? " (the client's copy)" : "";
+				EntityActionInstance heavy = client ? s.startAsClient("heavy_punch") : s.start("heavy_punch");
+				helper.assertTrue(heavy.getPhase() == ActionPhase.WINDUP, "setup: the heavy punch is not in its windup: " + heavy.getPhase());
+				s.drawn("punch", ConditionCheck.NEGATIVE_QUEUED, "in the heavy punch's windup" + copy);
+				s.drawn("heavy_punch", ConditionCheck.NEGATIVE, "in its own windup" + copy);
+				s.standAction.setAction(null, s.user, SyncType.NO_SYNC);
+			}
+			EntityActionInstance zoom = s.hold("enhanced_eyesight");
+			helper.assertTrue(zoom.canBeCancelledInto((EntityActionAbility) s.power.getAbility("punch")),
+					"setup: a punch does not replace the held Zoom");
+			s.drawn("punch", ConditionCheck.POSITIVE, "during the held Zoom, which a punch replaces at once");
+			AbilityInput.keyRelease(KEY, s.user);
+			helper.succeed();
+		}
+	}
+
 	private static final String CHAINABLE_HEAVY = "own_press_chainable_heavy";
 
 	private static final class ChainableHeavyPunchAbility extends StandEntityHeavyPunchAbility {
@@ -707,6 +736,19 @@ public final class OwnAbilityPressDuringTask116GameTests {
 			helper.assertTrue(AbilityInput.getHeldAction(user, PowerClass.STAND) == action,
 					"setup: the " + name + " is not the held action: " + AbilityInput.getHeldAction(user, PowerClass.STAND));
 			return action;
+		}
+
+		private void drawn(String name, ConditionCheck expected, String when) {
+			AbilityConditionCheck resolved = resolve(name);
+			ConditionCheck drawn = resolved != null ? resolved.drawnCondition(user) : null;
+			helper.assertTrue(resolved != null && resolved.ability == power.getAbility(name) && drawn == expected,
+					"1.16 drew " + name + " " + when + " " + look(expected) + ": its check " + describe(resolved) + ", drawn "
+							+ look(drawn));
+		}
+
+		private static String look(@Nullable ConditionCheck drawn) {
+			return drawn == null ? "nothing" : drawn == ConditionCheck.NEGATIVE_QUEUED ? "queued (0.75)"
+					: drawn.isPositive() ? "usable" : "greyed";
 		}
 
 		// the user's own slot of the running action, refused silently and drawn greyed, or drawn usable while held

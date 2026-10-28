@@ -15,6 +15,7 @@ import rotp.core.powersystem.Power;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.AbilityId;
+import rotp.core.powersystem.ability.EntityActionAbility;
 import rotp.core.powersystem.ability.finisher.StandFinisherCheck;
 import rotp.core.powersystem.ability.input.AbilityInput;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
@@ -221,15 +222,20 @@ public class AvailableAbilities {
 		 * and a finisher's green frame): its own check, usable where it only refuses the held action's own press again
 		 * ({@link ConditionCheck#NEGATIVE_OWN_HELD_PRESSED_AGAIN}), or a refusal while its power's held action holds its
 		 * press back (Ability#isHeldBackByHeldAction, power by power), which the press itself still waits out in the input
-		 * buffer.
+		 * buffer; or queued ({@link ConditionCheck#NEGATIVE_QUEUED}) where its Stand's task keeps its press in the input
+		 * buffer as 1.16 queued it (EntityActionAbility#isQueuedBehindStandTask).
 		 */
 		public ConditionCheck drawnCondition(@Nullable LivingEntity user) {
 			ConditionCheck check = conditionCheck == ConditionCheck.NEGATIVE_OWN_HELD_PRESSED_AGAIN
 					? ConditionCheck.POSITIVE : conditionCheck;
-			if (!check.isPositive()) {
+			if (!check.isPositive() || user == null) {
 				return check;
 			}
-			return user != null && ability.isHeldBackByHeldAction(user) ? ConditionCheck.NEGATIVE : check;
+			if (ability.isHeldBackByHeldAction(user)) {
+				return ConditionCheck.NEGATIVE;
+			}
+			return ability instanceof EntityActionAbility entityAbility && entityAbility.isQueuedBehindStandTask(user)
+					? ConditionCheck.NEGATIVE_QUEUED : check;
 		}
 	}
 	

@@ -188,6 +188,27 @@ public class EntityActionAbility extends Ability implements EntityActionType {
 		return abilityId.powerClass() == PowerClass.STAND && performsInUsersStandPowerSlot();
 	}
 
+	/**
+	 * Whether a press of this ability now would wait in the input buffer behind its Stand's task where 1.16 queued it:
+	 * StandEntityAction.checkTaskCancelling queued a Stand action with no hold (canBeQueued) that the task could not be
+	 * cancelled into (NEGATIVE_QUEUEABLE), and its HUD drew that action at brightness 0.75 and alpha 0.75. Its own press
+	 * of a task that refuses it is refused before (AvailableAbilities), and a press with a hold, which 1.16 refused there,
+	 * is not counted.
+	 */
+	@ApiStatus.Internal
+	public boolean isQueuedBehindStandTask(LivingEntity user) {
+		if (isHoldAction() || abilityId.powerClass() != PowerClass.STAND || takesUsersStandPowerSlot()) {
+			return false;
+		}
+		LivingEntity performer = getPerformer(user);
+		if (!(performer instanceof StandEntity)) {
+			return false;
+		}
+		LivingComponentAction standAction = LivingComponentAction.getComponent(performer, abilityId.powerClass());
+		EntityActionInstance task = standAction.getAction();
+		return task != null && !task.isOver() && shouldBufferInput(standAction) && !standAction.isActionPausedInStoppedTime();
+	}
+
 	/** Whether a press of this ability takes the slot that holds this action and the action holds it back there. */
 	@ApiStatus.Internal
 	public boolean waitsBehind(LivingEntity user, @Nullable EntityActionInstance action) {

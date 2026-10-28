@@ -44,6 +44,12 @@ public final class UnusableAbilityIconTintSmokeTest {
 		AbilityConditionCheck heldPressedAgain = check(ability, ConditionCheck.NEGATIVE_OWN_HELD_PRESSED_AGAIN);
 		assertEquals(opaque, PowerHudControlsElement.abilityColor(opaque, heldPressedAgain),
 				"1.16 drew the slot of the action its key holds usable while refusing its second press");
+		// a slot's own check is never the queued condition, its drawn condition is: drawnCondition(null) keeps it here
+		AbilityConditionCheck queued = check(ability, ConditionCheck.NEGATIVE_QUEUED);
+		assertEquals(0xBFBFBFBF, PowerHudControlsElement.abilityColor(opaque, queued),
+				"1.16 drew a queued action (NEGATIVE_QUEUEABLE) at brightness 0.75 and alpha 0.75");
+		assertEquals(0x2FBFBFBF, PowerHudControlsElement.abilityColor(dimmedControls, queued),
+				"the alpha of the queued look must be scaled by the hotbar alpha");
 
 		Path root = Path.of(System.getProperty("user.dir"));
 		String wheel = read(root.resolve("src/main/java/rotp/core/client/ui/AbilitySelectionWheel.java"));
