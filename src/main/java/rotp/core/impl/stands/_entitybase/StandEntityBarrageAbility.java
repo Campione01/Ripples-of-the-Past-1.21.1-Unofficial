@@ -683,10 +683,12 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 			if (takesTargetsFromServer()) {
 				return getActionTargetSnapshot(stand.level());
 			}
-			// the locked barrage keeps its target as a punch's task kept one, a dying one too (keptInReach)
+			// unlike a punch, the locked barrage drops a dying target at once and aims again in the same tick: 1.16's barrage
+			// kept no entity target (StandEntityMeleeBarrage.checkStandTarget) and each hit's precision ray skipped a dead mob
+			// (StandEntity.canTarget, isAlive); the owner reported a barrage stalling on a killed mob as a bug (2026-06-25)
 			ActionTarget target = StandEntityPunchAbility.getFreshPunchTarget(
 					stand, getActionTargetSnapshot(stand.level()),
-					StandEntityPunchAbility.shouldRetainPunchTarget(stand, ability), StandEntityPunchAbility.CrosshairRule.BLOCK_OR_ENTITY);
+					StandEntityPunchAbility.shouldRetainPunchTarget(stand, ability));
 			setActionTargetSnapshot(target);
 			return target;
 		}
