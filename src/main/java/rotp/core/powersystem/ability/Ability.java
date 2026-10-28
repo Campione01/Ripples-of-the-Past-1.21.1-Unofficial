@@ -512,7 +512,7 @@ public class Ability {
 			return true;
 		}
 		EntityActionInstance held = AbilityInput.getHeldAction(user, powerClass);
-		if (held == null || held.ability == this || held.heldAllowsOtherAbilities()) {
+		if (held == null || held.isOfAbility(this) || held.heldAllowsOtherAbilities()) {
 			return false;
 		}
 		if (this instanceof EntityActionAbility entityAbility && entityAbility.getPerformer(user) == held.getPerformer()) {

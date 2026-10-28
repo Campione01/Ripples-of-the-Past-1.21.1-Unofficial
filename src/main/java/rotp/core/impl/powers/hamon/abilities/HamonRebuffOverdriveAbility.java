@@ -102,7 +102,7 @@ public class HamonRebuffOverdriveAbility extends HamonActionRuntimeAbility {
 	// 1.16 HamonRebuffOverdrive.canBeUsedDuringPlayerAction: during its own continuous action while it can be cancelled
 	@Override
 	public boolean canBeUsedDuringPlayerAction(EntityActionInstance playerAction) {
-		return playerAction instanceof HamonRebuffOverdrive rebuff && rebuff.ability == this && rebuff.canCancel();
+		return playerAction instanceof HamonRebuffOverdrive rebuff && rebuff.isOfAbility(this) && rebuff.canCancel();
 	}
 
 	public static boolean onUserIncomingDamage(LivingIncomingDamageEvent event) {
