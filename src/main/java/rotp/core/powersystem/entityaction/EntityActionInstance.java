@@ -1087,12 +1087,12 @@ public class EntityActionInstance implements HeldInput {
 		return phaseLength;
 	}
 
+	/** A phase with no ticks counts as complete (1). */
 	@ApiStatus.NonExtendable
 	public float getAnimPhaseRatio(float partialTick) {
-		if (curPhaseLength == 0) throw new IllegalStateException();
 		float phaseTick = getAnimPhaseTick(partialTick);
 		float phaseLength = getAnimPhaseLength();
-		return phaseTick / phaseLength;
+		return curPhaseLength > 0 && phaseLength > 0 ? phaseTick / phaseLength : 1.0F;
 	}
 	
 	public float getAnimFullTicksPassed(float partialTick) {
