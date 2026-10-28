@@ -506,10 +506,10 @@ public final class TheWorldTSPunchParityGameTests {
             outgoingTried = true;
             premise(spec.creative() && !caster.power.isAbilityOnCooldown("ts_punch"), "same-ability predicate isolated from cooldown without editing timers");
             if (spec.kind == Kind.SAME_TS) {
+                // 1.16 canClickDuringTask refused the running TS punch's own press at its condition check, in every phase
                 Press repeated = press("ts_punch", FOLLOW, true);
-                premise(repeated.admitted, "Creative main admission passed; same-task rejection must come from actual Stand input");
-                check(!repeated.success && !repeated.buffered && caster.stand.getCurStandAction() == action,
-                        "same TS recovery click is neither chainable nor queued");
+                check(!repeated.admitted && !repeated.success && !repeated.buffered && caster.stand.getCurStandAction() == action,
+                        "same TS recovery click is refused at its condition check, neither chainable nor queued");
             }
             else {
                 Press light = press("punch", FOLLOW, spec.kind == Kind.OUT_LIGHT_QUEUED);

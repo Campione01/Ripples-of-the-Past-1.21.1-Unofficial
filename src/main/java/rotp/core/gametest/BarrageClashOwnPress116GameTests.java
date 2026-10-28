@@ -67,10 +67,12 @@ public final class BarrageClashOwnPress116GameTests {
 				helper.assertTrue(barrage != null, "Missing Star Platinum's barrage");
 
 				EntityActionInstance running = scene.start("barrage", ActionPhase.PERFORM);
+				// 1.16 refused it with no clash as well (canClickDuringTask in every phase), where the port's barrage holds
+				// every other press back
 				AbilityConditionCheck free = resolve(scene.power(), barrage);
-				helper.assertTrue(free != null && free.ability == barrage && free.conditionCheck.isPositive(),
-						"fixture: the barrage pressed again in its own PERFORM with no clash is held back, not refused: "
-								+ describe(free));
+				helper.assertTrue(free != null && free.ability == barrage && !free.conditionCheck.isPositive()
+						&& free.conditionCheck.getWarning() == null && !running.canBeCancelledInto(running.ability),
+						"1.16 refused the barrage pressed again in its own PERFORM with no clash, silently: " + describe(free));
 
 				setBarrageClashOpponent(scene.stand(), opponent);
 				setBarrageClashOpponent(opponent, scene.stand());

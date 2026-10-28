@@ -82,10 +82,11 @@ public class AvailableAbilities {
 
 	/**
 	 * 1.16 StandEntityAction.canClickDuringTask: the Stand's current action's own ability pressed again, by whichever key,
-	 * was refused with no message and not queued unless the action was chainable. Refused here where the action would
-	 * let that press cancel it and says it was not chainable ({@link EntityActionInstance#refusesOwnAbilityPressedAgain});
-	 * a press the action holds back is buffered instead, as before. While the power still holds that action by the key,
-	 * 1.16 drew its slot usable (checkTaskCancelling skipped the held action) and refused the press in
+	 * was refused with no message and not queued unless the action was chainable, in every phase of the task, its
+	 * recovery included. Refused here in every phase of an action that says it was not chainable
+	 * ({@link EntityActionInstance#refusesOwnAbilityPressedAgain}), whether or not the action would let that press cancel
+	 * it, so the input buffer never keeps it to perform it once the action ends. While the power still holds that action
+	 * by the key, 1.16 drew its slot usable (checkTaskCancelling skipped the held action) and refused the press in
 	 * PowerBaseImpl.onClickAction instead: {@link ConditionCheck#NEGATIVE_OWN_HELD_PRESSED_AGAIN}.
 	 */
 	private void refuseRunningActionPressedAgain(Power<?> context) {
@@ -117,8 +118,7 @@ public class AvailableAbilities {
 		StandPower standPower = PowerClass.STAND.cast(context);
 		StandEntity standEntity = standPower != null ? standPower.getSummonedStandEntity() : null;
 		EntityActionInstance action = standEntity != null ? LivingComponentAction.getCurEntityAction(standEntity) : null;
-		if (action == null || action.isOver() || !action.refusesOwnAbilityPressedAgain()
-				|| !action.canBeCancelledInto(action.ability)) {
+		if (action == null || action.isOver() || !action.refusesOwnAbilityPressedAgain()) {
 			return null;
 		}
 		return action;
