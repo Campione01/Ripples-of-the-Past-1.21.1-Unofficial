@@ -87,7 +87,9 @@ public class AvailableAbilities {
 	 * ({@link EntityActionInstance#refusesOwnAbilityPressedAgain}), whether or not the action would let that press cancel
 	 * it, so the input buffer never keeps it to perform it once the action ends. While the power still holds that action
 	 * by the key, 1.16 drew its slot usable (checkTaskCancelling skipped the held action) and refused the press in
-	 * PowerBaseImpl.onClickAction instead: {@link ConditionCheck#NEGATIVE_OWN_HELD_PRESSED_AGAIN}.
+	 * PowerBaseImpl.onClickAction instead: {@link ConditionCheck#NEGATIVE_OWN_HELD_PRESSED_AGAIN}. A client's copy of
+	 * the action holds another instance of the ability than the user's moveset ({@link EntityActionInstance#isOfAbility}),
+	 * and 1.16's client asked the same check of its synced task, so its HUD greys the slot as the server refuses it.
 	 */
 	private void refuseRunningActionPressedAgain(Power<?> context) {
 		EntityActionInstance action = actionRefusingOwnPress(context);
@@ -98,7 +100,7 @@ public class AvailableAbilities {
 		ConditionCheck refusal = AbilityInput.getHeldAction(standPower.getUser(), PowerClass.STAND) == action
 				? ConditionCheck.NEGATIVE_OWN_HELD_PRESSED_AGAIN : ConditionCheck.NEGATIVE;
 		for (AbilityConditionCheck container : _inMoveset.values()) {
-			if (container.ability == action.ability && container.conditionCheck.isPositive()) {
+			if (action.isOfAbility(container.ability) && container.conditionCheck.isPositive()) {
 				container.conditionCheck = refusal;
 			}
 		}

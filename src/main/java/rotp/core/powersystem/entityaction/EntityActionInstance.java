@@ -17,6 +17,8 @@ import rotp.core.entityattachment.syncheddata.SynchedDataHelper;
 import rotp.core.init.ModDamageTypes;
 import rotp.core.network.NetworkPayloadValidation;
 import rotp.core.powersystem.Power;
+import rotp.core.powersystem.ability.Ability;
+import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityUsageGroup;
 import rotp.core.powersystem.ability.EntityActionAbility;
 import rotp.core.powersystem.entityaction.netcode.TrEntityActionPhaseTimePacket;
@@ -362,6 +364,25 @@ public class EntityActionInstance implements HeldInput {
 	@ApiStatus.OverrideOnly
 	public boolean refusesOwnAbilityPressedAgain() {
 		return false;
+	}
+
+	/**
+	 * Whether this action is one of the given ability. A client's copy of a synced action holds its power type's
+	 * base-moveset instance of the ability (EntityActionType#encodeAbility sends it without its user, so that it decodes
+	 * without the user), not the user's own one that the client's moveset, keys and HUD hold: a moveset ability is
+	 * matched by its AbilityId as well, so that code asked on both sides gives the client the server's answer.
+	 */
+	public boolean isOfAbility(@Nullable Object other) {
+		return isSameAbility(ability, other);
+	}
+
+	/** Whether two abilities (an Ability or a non-power EntityActionType each) are one, as {@link #isOfAbility} matches them. */
+	public static boolean isSameAbility(@Nullable Object first, @Nullable Object second) {
+		if (first == second) {
+			return first != null;
+		}
+		AbilityId id = first instanceof Ability ability ? ability.getAbilityId() : null;
+		return id != null && id.powerTypeId() != null && second instanceof Ability other && id.equals(other.getAbilityId());
 	}
 
 	/**
