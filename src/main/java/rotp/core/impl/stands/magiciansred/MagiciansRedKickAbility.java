@@ -18,6 +18,7 @@ import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility;
 import net.minecraft.core.Holder;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvent;
+import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
@@ -107,13 +108,23 @@ public class MagiciansRedKickAbility extends StandEntityHeavyPunchAbility {
 			if (performer instanceof StandEntity stand && getPhase() == ActionPhase.WINDUP) {
 				float ticksLeft = getPhaseTicksLeft();
 				if (ticksLeft <= 2 && ticksLeft > 1) {
-					Vec3 targetPos = redBindTarget != null ? redBindTarget.getEyePosition() : stand.getEyePosition().add(stand.getLookAngle().scale(SLIDE_DISTANCE));
-					Vec3 slideVec = targetPos.subtract(stand.getEyePosition());
-					double distance = slideVec.length();
-					if (distance > 0.0001) {
-						slideVec = slideVec.normalize().scale(Math.min(Math.max(distance - stand.getBbWidth(), 0), SLIDE_DISTANCE));
-						stand.setDeltaMovement(slideVec);
+					// 1.16 MagiciansRedKick.standTickWindup: toward the task target's eyes or block centre (Red Bind's
+					// victim, targetBeforePerform), else along the look
+					ActionTarget target = redBindTarget != null ? new ActionTarget(redBindTarget) : getTaskTarget(stand.level());
+					Vec3 targetPos = switch (target.getType()) {
+						case ENTITY -> target.getEntity() != null ? target.getEntity().getEyePosition() : null;
+						case BLOCK -> Vec3.atCenterOf(target.getBlockPos());
+						default -> null;
+					};
+					Vec3 slideVec;
+					if (targetPos != null) {
+						slideVec = targetPos.subtract(stand.getEyePosition());
+						slideVec = slideVec.normalize().scale(Mth.clamp(slideVec.length() - stand.getBbWidth(), 0, SLIDE_DISTANCE));
 					}
+					else {
+						slideVec = stand.getLookAngle().scale(SLIDE_DISTANCE);
+					}
+					stand.setDeltaMovement(slideVec);
 				}
 				else if (ticksLeft <= 1) {
 					stand.setDeltaMovement(Vec3.ZERO);
