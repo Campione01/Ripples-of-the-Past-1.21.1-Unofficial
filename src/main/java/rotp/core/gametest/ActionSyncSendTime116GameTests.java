@@ -5,6 +5,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import javax.annotation.Nullable;
+
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.client.entityanim.PreFrameEntityAnimCalc.LivingAnimState;
 import rotp.core.core.JojoMod;
@@ -22,6 +24,8 @@ import rotp.core.powersystem.entityaction.ActionPhase;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.entityaction.netcode.SyncType;
+import rotp.core.powersystem.entityaction.netcode.TrEntityActionInstancePacket;
+import rotp.core.powersystem.entityaction.netcode.TrEntityActionPhaseTimePacket;
 import rotp.core.powersystem.standpower.StandInstance;
 import rotp.core.powersystem.standpower.StandPower;
 import rotp.core.powersystem.standpower.entity.StandEntity;
@@ -35,6 +39,7 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.PacketSendListener;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket;
 import net.minecraft.network.protocol.game.ClientboundBundlePacket;
 import net.minecraft.server.network.CommonListenerCookie;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
@@ -48,7 +53,8 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * S06-2: a client crashed drawing Hierophant Green's guard tapped with ticks frozen, its copy of the guard in its perform
  * with no ticks (EntityActionInstance.getAnimPhaseRatio threw on the render thread). 1.16 synced a task as it was when it
  * was sent (StandEntityTask.getPhaseCompletion was plain float math) and never stood in a phase without ticks. A tap's
- * release ends the guard through its recovery of 0 ticks right after its press.
+ * release ends the guard through its recovery of 0 ticks right after its press, and the port's action packet encoded
+ * the server's live action only when Netty wrote it, on its own thread, so the release could change it mid-write.
  */
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -96,6 +102,51 @@ public final class ActionSyncSendTime116GameTests {
 			}
 		}
 		helper.succeed();
+	}
+
+	/*
+	 * The guard tapped: its press and release handled back to back, the release ending it through its recovery of 0 ticks
+	 * before Netty writes the press's action packet, on its own thread. Written and read after the release, the packet
+	 * still carries the guard as it was sent, in its perform with its ticks, and the release's phase sync keeps the phase
+	 * lengths it was sent with though the action's lengths change after the send.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aTappedGuardReachesItsClientAsItWasSentThoughItsPacketIsWrittenAfterTheRelease(GameTestHelper helper) {
+		try (Scene s = new Scene(helper, "GuardTapSync")) {
+			int sentBefore = s.recording.packets.size();
+			EntityActionInstance guard = s.pressGuard();
+			float performLength = guard.getCurPhaseLength();
+			long generation = guard.networkGeneration();
+			TrEntityActionInstancePacket sent = s.sentActionPacket(sentBefore);
+			helper.assertTrue(sent != null, "setup: the guard's press sent its Stand's action to no client");
+
+			AbilityInput.keyRelease(GUARD_KEY, s.user);
+			helper.assertTrue(guard.isOver() && guard.getCurPhaseLength() == 0.0F,
+					"setup: the release did not end the guard through its recovery of 0 ticks: " + guard.getPhase() + " "
+							+ guard.getCurPhaseLength());
+
+			EntityActionInstance received = s.writeAndRead(sent, generation);
+			helper.assertTrue(received instanceof StandEntityBlock && received.getPhase() == ActionPhase.PERFORM
+					&& received.getCurPhaseLength() == performLength && received.id == guard.id,
+					"1.16 synced the task as it was when it was sent: the guard's packet written after the release decodes as "
+							+ describe(received) + ", not the guard in its perform with its " + performLength + " ticks");
+
+			TrEntityActionPhaseTimePacket release = s.lastPhaseSync(sentBefore);
+			helper.assertTrue(release != null && release.phase() == null,
+					"setup: the release sent no phase sync ending the guard: " + release);
+			float recovery = release.phasesLength().getFloat(ActionPhase.RECOVERY);
+			guard.phasesLength.put(ActionPhase.RECOVERY, recovery + 7.0F);
+			helper.assertTrue(release.phasesLength().getFloat(ActionPhase.RECOVERY) == recovery,
+					"the release's phase sync carries the phase lengths it was sent with: the guard's recovery, changed to "
+							+ (recovery + 7.0F) + " after the send, reads " + release.phasesLength().getFloat(ActionPhase.RECOVERY)
+							+ " in it");
+		}
+		helper.succeed();
+	}
+
+	private static String describe(@Nullable EntityActionInstance action) {
+		return action == null ? "no action" : action.getClass().getSimpleName() + " in " + action.getPhase() + " with "
+				+ action.getCurPhaseLength() + " ticks";
 	}
 
 	/** Hierophant Green out for a fake player whose connection keeps what the server sends it, its Stand's packets too. */
@@ -210,6 +261,67 @@ public final class ActionSyncSendTime116GameTests {
 			}
 			catch (ReflectiveOperationException e) {
 				throw new IllegalStateException("setup: cannot reach the action's phase length", e);
+			}
+		}
+
+		// the first action packet for the Stand sent to the user since the given packet count
+		@Nullable
+		private TrEntityActionInstancePacket sentActionPacket(int from) {
+			for (Packet<?> packet : recording.packets.subList(from, recording.packets.size())) {
+				if (packet instanceof ClientboundCustomPayloadPacket custom
+						&& custom.payload() instanceof TrEntityActionInstancePacket sent
+						&& performerIdOf(sent) == stand.getId()) {
+					return sent;
+				}
+			}
+			return null;
+		}
+
+		// the last phase sync for the Stand sent to the user since the given packet count
+		@Nullable
+		private TrEntityActionPhaseTimePacket lastPhaseSync(int from) {
+			TrEntityActionPhaseTimePacket last = null;
+			for (Packet<?> packet : recording.packets.subList(from, recording.packets.size())) {
+				if (packet instanceof ClientboundCustomPayloadPacket custom
+						&& custom.payload() instanceof TrEntityActionPhaseTimePacket phaseSync
+						&& phaseSync.performerId() == stand.getId()) {
+					last = phaseSync;
+				}
+			}
+			return last;
+		}
+
+		private static int performerIdOf(TrEntityActionInstancePacket packet) {
+			try {
+				Field field = TrEntityActionInstancePacket.class.getDeclaredField("performerId");
+				field.setAccessible(true);
+				return field.getInt(packet);
+			}
+			catch (ReflectiveOperationException e) {
+				throw new IllegalStateException("cannot read the action packet's performer", e);
+			}
+		}
+
+		// as Netty writes the payload now, and the client reads it (ClientEntityActionSyncQueue.applyAction)
+		@Nullable
+		private EntityActionInstance writeAndRead(TrEntityActionInstancePacket packet, long generation) {
+			RegistryFriendlyByteBuf wire = new RegistryFriendlyByteBuf(Unpooled.buffer(), helper.getLevel().registryAccess());
+			try {
+				// the handler PacketsRegister registers, with the same id, so the payload's type stays equal
+				new TrEntityActionInstancePacket.Handler(JojoMod.resLoc("action")).encode(packet, wire);
+				int performerId = wire.readInt();
+				UUID performerUuid = wire.readUUID();
+				long written = wire.readVarLong();
+				int slot = wire.readUnsignedByte();
+				helper.assertTrue(performerId == stand.getId() && performerUuid.equals(stand.getUUID()) && written == generation
+						&& slot == LivingComponentAction.MAIN_SLOT, "setup: the guard's packet names the performer " + performerId
+								+ ", the generation " + written + " (sent with " + generation + "), the slot " + slot);
+				EntityActionInstance action = EntityActionInstance.decode(helper.getLevel(), wire);
+				helper.assertTrue(!wire.isReadable(), "the guard's packet has " + wire.readableBytes() + " bytes after its action");
+				return action;
+			}
+			finally {
+				wire.release();
 			}
 		}
 
