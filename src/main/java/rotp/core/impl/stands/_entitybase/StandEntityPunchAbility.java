@@ -1223,10 +1223,11 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 	/**
 	 * The Stand's aim while its user aims, the one a client keeps (the marker, the Stand aim a press carries): 1.16
 	 * EntityStandType.clientHitResult, the vanilla pick when it met a block or any entity but the Stand, a miss when it
-	 * met the Stand itself, otherwise the precision ray from the user's eyes, and when that met nothing at all the Stand's
-	 * own, as aimWithThisOrUser went on. Not limited to the Stand's reach, as the 1.16 pressed target was not; its readers
-	 * check the reach. Without the aim assist, what the crosshair meets. (A client never picks its user's own Stand:
-	 * StandEntity.isPickable, as 1.16's.)
+	 * met the Stand itself, otherwise the precision ray from the user's eyes, a miss when that met nothing. No ray from
+	 * the Stand's eyes: that was only the server strike's aiming again ({@link #pickWithThisOrUser}), and an idle Stand
+	 * looks at the aimed entity, so its own ray would keep that entity as the aim. Not limited to the Stand's reach, as
+	 * the 1.16 pressed target was not; its readers check the reach. Without the aim assist, what the crosshair meets. (A
+	 * client never picks its user's own Stand: StandEntity.isPickable, as 1.16's.)
 	 */
 	public static ActionTarget userStandAim(StandEntity stand, LivingEntity user, ActionTarget vanillaPick,
 			Predicate<Entity> aimable) {
@@ -1242,9 +1243,7 @@ public class StandEntityPunchAbility extends StandEntityAbility {
 		if (picked != null) {
 			return picked != stand ? vanillaPick : ActionTarget.EMPTY;
 		}
-		ActionTarget aim = userPrecisionRayTarget(stand, user, canTarget);
-		return aim.getType() == TargetType.EMPTY
-				? standPrecisionRayTarget(stand, canTarget, StandSkillWalls.wallsHideEntities(stand)) : aim;
+		return userPrecisionRayTarget(stand, user, canTarget);
 	}
 
 	/**
