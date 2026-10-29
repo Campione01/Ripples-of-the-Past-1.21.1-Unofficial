@@ -15,6 +15,8 @@ import rotp.core.event.RipplesAbilityKeyPressEvent;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility.StandEntityHeavyPunch;
 import rotp.core.impl.stands.hierophant.HierophantEmeraldSplashAbility;
+import rotp.core.impl.stands.hierophant.HierophantPuppetAbility;
+import rotp.core.impl.stands.hierophant.HierophantPuppetEffect;
 import rotp.core.init.ModDataAttachmentTypes;
 import rotp.core.init.ModStatusEffects;
 import rotp.core.init.power.ModStandAbilities;
@@ -54,6 +56,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.item.ItemStack;
@@ -255,6 +258,46 @@ public final class OwnAbilityPressDuringTask116GameTests {
 					"setup: a punch does not replace the held Zoom");
 			s.drawn("punch", ConditionCheck.POSITIVE, "during the held Zoom, which a punch replaces at once");
 			AbilityInput.keyRelease(KEY, s.user);
+			helper.succeed();
+		}
+	}
+
+	/*
+	 * Hierophant Green's puppet (the official 1.21.1 port's; 1.16 had none) starts its Stand action, or, while its user
+	 * has a puppet, lets the puppet go at once (HierophantPuppetAbility.onKeyPress). 1.16 queued only a Stand action its
+	 * press started behind a task that could not be cancelled into it (checkTaskCancelling, NEGATIVE_QUEUEABLE, drawn at
+	 * 0.75) and drew any other press by its requirements: during the string attack the puppeting action is queued and
+	 * drawn so, and the release is drawn usable and taken at once.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void thePuppetsReleaseDuringAnotherTaskIsDrawnUsableAndTakenAtOnceAsIn116(GameTestHelper helper) {
+		try (Scene s = new Scene(helper, "PuppetReleaseDuringTask", "hierophant_green", 4)) {
+			s.unlock("puppet");
+			EntityActionAbility puppetAbility = (EntityActionAbility) s.power.getAbility("puppet");
+			Mob cow = s.mob(EntityType.COW, 3.0D);
+			for (boolean client : new boolean[] { false, true }) {
+				String copy = client ? " (the client's copy)" : "";
+				EntityActionInstance task = client ? s.startAsClient("string_attack") : s.start("string_attack");
+				helper.assertTrue(!task.isOver() && !task.canBeCancelledInto(puppetAbility),
+						"setup: the string attack does not hold the puppet's press back: " + task.getPhase());
+				s.drawn("puppet", ConditionCheck.NEGATIVE_QUEUED, "with no puppet during the string attack" + copy);
+				HierophantPuppetEffect puppet = s.puppet(cow);
+				s.drawn("puppet", ConditionCheck.POSITIVE, "with a puppet to let go during the string attack" + copy);
+				s.power.userStandEffects.removeEffect(puppet);
+				s.standAction.setAction(null, s.user, SyncType.NO_SYNC);
+			}
+
+			EntityActionInstance task = s.start("string_attack");
+			BufferingState queued = s.press("puppet", InputMethod.CLICK);
+			helper.assertTrue(queued.shouldBuffer && !queued.isActionSuccess && s.standAction.getAction() == task,
+					"setup: the puppet pressed with no puppet during the string attack was not buffered: buffered "
+							+ queued.shouldBuffer + ", started " + queued.isActionSuccess + ", the Stand's action " + s.standAction.getAction());
+			HierophantPuppetEffect puppet = s.puppet(cow);
+			BufferingState released = s.press("puppet", InputMethod.CLICK);
+			helper.assertTrue(!released.shouldBuffer && puppet.isStopped(),
+					"the puppet pressed with a puppet during the string attack did not let it go at once: buffered "
+							+ released.shouldBuffer + ", the puppet stopped " + puppet.isStopped());
+			s.power.userStandEffects.tick();
 			helper.succeed();
 		}
 	}
@@ -695,6 +738,14 @@ public final class OwnAbilityPressDuringTask116GameTests {
 
 		private void aim(Entity target) {
 			LivingComponentAction.getComponent(user).entityAim.setTarget(new ActionTarget(target));
+		}
+
+		// a puppet of its user's, as the puppeting action leaves one (PuppetingAction.actionPerformEnd)
+		private HierophantPuppetEffect puppet(LivingEntity target) {
+			HierophantPuppetEffect puppet = ModStandAbilities.EFFECT_HG_PUPPET.get().create(helper.getLevel());
+			power.userStandEffects.addEffect(puppet.withTarget(target));
+			helper.assertTrue(HierophantPuppetAbility.hasPuppetUnderControl(power), "setup: the user has no puppet");
+			return puppet;
 		}
 
 		// set on the Stand as a press sets it
