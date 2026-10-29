@@ -1,9 +1,13 @@
 package rotp.core.gametest;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.UUID;
+
+import javax.annotation.Nullable;
 
 import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
@@ -18,6 +22,7 @@ import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.condition.AvailableAbilities.AbilityConditionCheck;
+import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.ability.input.AbilityInput;
 import rotp.core.powersystem.ability.input.AbilityInput.InputEventType;
@@ -326,6 +331,101 @@ public final class LifeshotFollowUpKeyGameTests {
 			}
 			helper.succeed();
 		}
+	}
+
+	/*
+	 * 1.16 ActionsOverlayGui.renderActionIcon drew the heavy key's Life Shot during the Life Shot punch by its
+	 * checkRequirements: a StandEntityActionModifier, never queued (checkTaskCancelling asked only a StandEntityAction), so
+	 * bright, and a selected slot's frame green (StandEntityActionModifier.greenSelection: conditionCheck.isPositive()). A
+	 * finisher pressed in a punch's windup was queued (NEGATIVE_QUEUEABLE), its frame white
+	 * (StandEntityHeavyAttack.greenSelection: isFinisher && isPositive). The HUD's icon and both selection frames go by
+	 * the slot's drawnCondition (HeldReadyToFireSlot116GameTests), the green by the core rule for the drawn condition
+	 * (AbilitySelectionVisualCorePolicies, read here as the client registers it).
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void theLifeShotUnderTheHeavyKeyIsDrawnUsableWithAGreenFrameAsIn116(GameTestHelper helper) {
+		try (Scene s = new Scene(helper, "LifeShotFrame")) {
+			ToothKnockingHeavyPunch punch = startLifeShotPunch(helper, s.power, s.user, s.stand, s.heavy, s.lifeshotPunch, s.cow);
+			helper.assertTrue(punch.getPhase() == ActionPhase.WINDUP, "fixture: the Life Shot punch is not in its windup");
+			ToothKnockingHeavyPunch client = clientCopy(helper, punch, s.stand);
+			receiveSyncedData(client, punch);
+			for (EntityActionInstance running : new EntityActionInstance[] { punch, client }) {
+				String row = running == punch ? "the server's Life Shot punch" : "the user's client's copy of the Life Shot punch";
+				Drawn followUp = drawnWith(s, running, s.heavy);
+				helper.assertTrue(followUp.slot != null && followUp.slot.ability == s.lifeshot
+						&& followUp.slot.conditionCheck.isPositive(), "fixture (" + row + "): the heavy key does not give the"
+								+ " Life Shot: " + describe(followUp.slot));
+				helper.assertTrue(followUp.condition == ConditionCheck.POSITIVE && greenFrame(s.lifeshot, followUp.condition, s.power),
+						"1.16 drew the heavy key's Life Shot during " + row + " bright with a green frame when selected (a modifier"
+								+ " of the running punch, never queued): it is drawn " + drawnName(followUp.condition) + " with a "
+								+ (greenFrame(s.lifeshot, followUp.condition, s.power) ? "green" : "white") + " frame");
+			}
+
+			// control: Gold Experience's punch in its windup queues the finisher under the heavy key, as 1.16 did
+			s.standAction.setAction(null, s.user, SyncType.NO_SYNC);
+			s.stand.setFinisherMeter(1.0F);
+			press(s.power, s.user, s.power.getAbility("punch"));
+			EntityActionInstance light = s.standAction.getAction();
+			helper.assertTrue(light != null && light.ability == s.power.getAbility("punch") && light.getPhase() == ActionPhase.WINDUP,
+					"fixture: Gold Experience's punch is not in its windup: " + light);
+			Drawn queued = drawnWith(s, light, s.heavy);
+			helper.assertTrue(queued.slot != null && queued.slot.ability == s.lifeshotPunch && queued.slot.conditionCheck.isPositive(),
+					"fixture: with a full meter the heavy key does not give the Life Shot punch, the finisher: " + describe(queued.slot));
+			helper.assertTrue(queued.condition == ConditionCheck.NEGATIVE_QUEUED && !greenFrame(s.lifeshotPunch, queued.condition, s.power),
+					"1.16 queued a finisher pressed in a punch's windup and framed it white (greenSelection: isFinisher &&"
+							+ " isPositive): it is drawn " + drawnName(queued.condition) + " with a "
+							+ (greenFrame(s.lifeshotPunch, queued.condition, s.power) ? "green" : "white") + " frame");
+			helper.succeed();
+		}
+	}
+
+	private record Drawn(@Nullable AbilityConditionCheck slot, @Nullable ConditionCheck condition) {}
+
+	// the key and its drawn condition with this action as the Stand's, as the user's client draws them from its copy
+	private static Drawn drawnWith(Scene s, EntityActionInstance running, Ability base) {
+		LivingComponentAction component = LivingComponentAction.getComponent(s.stand);
+		try {
+			Field field = LivingComponentAction.class.getDeclaredField("action");
+			field.setAccessible(true);
+			Object serverAction = field.get(component);
+			field.set(component, running);
+			try {
+				AbilityConditionCheck slot = resolve(s.power, base);
+				return new Drawn(slot, slot != null ? slot.drawnCondition(s.user) : null);
+			}
+			finally {
+				field.set(component, serverAction);
+				resetMovesCache(s.power);
+			}
+		}
+		catch (ReflectiveOperationException e) {
+			throw new IllegalStateException("Fixture: cannot put the action on the Stand", e);
+		}
+	}
+
+	// the core's green selection rule (AbilitySelectionVisualCorePolicies, registered by the client) for a drawn condition
+	private static boolean greenFrame(Ability ability, @Nullable ConditionCheck drawn, Power<?> power) {
+		if (drawn == null) {
+			return false;
+		}
+		try {
+			Class<?> policies = Class.forName("rotp.core.client.AbilitySelectionVisualCorePolicies");
+			Method ruleFor = policies.getDeclaredMethod("ruleFor", Ability.class);
+			ruleFor.setAccessible(true);
+			Object rule = ruleFor.invoke(null, ability);
+			Method tintForRule = policies.getDeclaredMethod("tintForRule",
+					Class.forName("rotp.core.client.AbilitySelectionVisualCorePolicies$Rule"), ConditionCheck.class, Power.class);
+			tintForRule.setAccessible(true);
+			return ((OptionalInt) tintForRule.invoke(null, rule, drawn, power)).isPresent();
+		}
+		catch (ReflectiveOperationException e) {
+			throw new IllegalStateException("Fixture: cannot ask the core's green selection rule", e);
+		}
+	}
+
+	private static String drawnName(@Nullable ConditionCheck drawn) {
+		return drawn == ConditionCheck.POSITIVE ? "usable" : drawn == ConditionCheck.NEGATIVE_QUEUED ? "queued (0.75)"
+				: drawn == null ? "nothing" : "unusable";
 	}
 
 	private static void assertNothingStarted(GameTestHelper helper, Scene s, ToothKnockingHeavyPunch punch, float stamina,
