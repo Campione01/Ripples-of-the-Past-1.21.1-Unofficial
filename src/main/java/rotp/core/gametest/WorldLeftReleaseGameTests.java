@@ -21,25 +21,27 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.animal.Pig;
 import net.minecraft.world.entity.monster.Zombie;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.event.level.LevelEvent;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * The core's static holders that kept a level after it ended, on the server side (the integrated server runs in the
- * client's JVM, so its levels stayed in memory after "Save and Quit" too). Each level's unload is called on its handler
- * here, not posted, so that no other listener lets the running test level go.
+ * client's JVM, so its levels stayed in memory after "Save and Quit" too). The level that unloads here is the End,
+ * which no other test uses, with the fixture's entries there; the test level keeps its own. Its unload is called on
+ * each handler, not posted, so that no other listener lets the End go.
  */
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class WorldLeftReleaseGameTests {
-	// own batch: the unloads called here let go of what the level's other tests cached
+	// own batch: the subtype cache holds one instance per subtype for all levels, so the End's pig asked for here
+	// takes the place of the one a test beside it may be using
 	static final String BATCH = "world_left_release";
 
 	private WorldLeftReleaseGameTests() {}
 
-	// one test, its rows reported apart: with a test for each, the shifted test grid failed Magician's Red's kick
-	// slide test (MagiciansRedKickSlide116GameTests) in about half the runs
 	@GameTest(template = "empty", batch = WorldLeftReleaseGameTests.BATCH, timeoutTicks = 20)
 	public static void eachServerSideHolderLetsGoOfALevelAsItUnloads(GameTestHelper helper) {
 		List<String> wrong = new ArrayList<>();
@@ -61,50 +63,57 @@ public final class WorldLeftReleaseGameTests {
 
 	private static void anEntitySubtypesCachedInstanceStaysWhileItsLevelIsOpenAndGoesAsItUnloads(GameTestHelper helper) {
 		ServerLevel level = helper.getLevel();
-		ServerLevel other = otherLevel(helper);
+		ServerLevel end = unloadingLevel(helper);
 		EntitySubtype<Cow> cow = EntitySubtype.base(EntityType.COW);
 		EntitySubtype<Pig> pig = EntitySubtype.base(EntityType.PIG);
-		Cow cached = EntityTypeToInstance.getEntityInstance(cow, level);
-		Pig otherCached = EntityTypeToInstance.getEntityInstance(pig, other);
-		helper.assertTrue(cached != null && cached.level() == level && otherCached != null && otherCached.level() == other,
-				"Fixture: no cow instance of the test level or no pig instance of " + other.dimension().location());
-		helper.assertTrue(EntityTypeToInstance.getEntityInstance(cow, level) == cached,
-				"EntityTypeToInstance no longer keeps a subtype's instance while its level is open: it made a new cow");
+		Pig cached = EntityTypeToInstance.getEntityInstance(pig, end);
+		Cow kept = EntityTypeToInstance.getEntityInstance(cow, level);
+		helper.assertTrue(cached != null && cached.level() == end && kept != null && kept.level() == level,
+				"Fixture: no pig instance of " + end.dimension().location() + " or no cow instance of the test level");
+		helper.assertTrue(EntityTypeToInstance.getEntityInstance(pig, end) == cached,
+				"EntityTypeToInstance no longer keeps a subtype's instance while its level is open: it made a new pig");
 
-		EntityTypeToInstance.onLevelUnload(new LevelEvent.Unload(level));
-		Cow after = EntityTypeToInstance.getEntityInstance(cow, level);
-		helper.assertTrue(after != cached, "EntityTypeToInstance still holds the cow of the level that unloaded, and with it"
+		EntityTypeToInstance.onLevelUnload(new LevelEvent.Unload(end));
+		Pig after = EntityTypeToInstance.getEntityInstance(pig, end);
+		helper.assertTrue(after != cached, "EntityTypeToInstance still holds the pig of the level that unloaded, and with it"
 				+ " that level: after \"Save and Quit\" the client's world (and the integrated server's) stayed in memory");
-		helper.assertTrue(after != null && after.level() == level, "EntityTypeToInstance gives no cow of the level asked for: " + after);
-		helper.assertTrue(EntityTypeToInstance.getEntityInstance(pig, other) == otherCached, "The unload of the test level let"
-				+ " go of the pig instance of " + other.dimension().location() + ", a level still open");
+		helper.assertTrue(after != null && after.level() == end, "EntityTypeToInstance gives no pig of the level asked for: " + after);
+		helper.assertTrue(EntityTypeToInstance.getEntityInstance(cow, level) == kept, "The unload of "
+				+ end.dimension().location() + " let go of the cow instance of the test level, a level still open");
 	}
 
 	private static void anAfterimagesOriginIsLetGoAsItsLevelUnloads(GameTestHelper helper) {
-		ServerLevel level = helper.getLevel();
+		ServerLevel end = unloadingLevel(helper);
 		Map<Object, Object> afterimages = afterimages(helper);
-		Zombie origin = helper.spawnWithNoFreeWill(EntityType.ZOMBIE, 1, 2, 1);
-		Zombie elsewhere = new Zombie(EntityType.ZOMBIE, otherLevel(helper));
-		List<?> added = List.of();
+		Zombie origin = new Zombie(EntityType.ZOMBIE, end);
+		Vec3 at = helper.absoluteVec(new Vec3(1.5D, 2.0D, 1.5D));
+		origin.moveTo(at.x, at.y, at.z, 0.0F, 0.0F);
+		Zombie kept = helper.spawnWithNoFreeWill(EntityType.ZOMBIE, 1, 2, 1);
+		List<Object> added = new ArrayList<>();
 		try {
 			AfterimageEntity.addAfterimages(origin, 1, 20);
-			afterimages.put(elsewhere, new ArrayList<>());
-			helper.assertTrue(afterimages.get(origin) instanceof List<?> list && !list.isEmpty(),
-					"Fixture: AfterimageEntity.addAfterimages kept no afterimage for the zombie");
-			added = List.copyOf((List<?>) afterimages.get(origin));
+			AfterimageEntity.addAfterimages(kept, 1, 20);
+			helper.assertTrue(afterimages.get(origin) instanceof List<?> list && !list.isEmpty()
+					&& afterimages.get(kept) instanceof List<?> keptList && !keptList.isEmpty(),
+					"Fixture: AfterimageEntity.addAfterimages kept no afterimage for the zombie of " + end.dimension().location()
+							+ " or for the zombie of the test level");
+			added.addAll((List<?>) afterimages.get(origin));
+			List<?> keptAfterimages = List.copyOf((List<?>) afterimages.get(kept));
+			added.addAll(keptAfterimages);
 
-			AfterimageEntity.LevelEvents.onLevelUnload(new LevelEvent.Unload(level));
+			AfterimageEntity.LevelEvents.onLevelUnload(new LevelEvent.Unload(end));
 			helper.assertTrue(!afterimages.containsKey(origin), "AfterimageEntity still holds the afterimages of an origin in a"
 					+ " level that unloaded: its weak keys never let go, as each afterimage holds its origin, so the server's"
 					+ " level stayed in memory after it stopped");
-			helper.assertTrue(afterimages.containsKey(elsewhere), "The unload of the test level let go of an origin in "
-					+ elsewhere.level().dimension().location() + ", a level still open");
+			helper.assertTrue(keptAfterimages.equals(afterimages.get(kept)), "The unload of " + end.dimension().location()
+					+ " let go of the afterimages of a zombie in the test level, a level still open: " + afterimages.get(kept));
 		}
 		finally {
 			afterimages.remove(origin);
-			afterimages.remove(elsewhere);
+			afterimages.remove(kept);
 			added.forEach(afterimage -> ((AfterimageEntity) afterimage).discard());
 			origin.discard();
+			kept.discard();
 		}
 	}
 
@@ -126,13 +135,12 @@ public final class WorldLeftReleaseGameTests {
 		}
 	}
 
-	private static ServerLevel otherLevel(GameTestHelper helper) {
-		for (ServerLevel level : helper.getLevel().getServer().getAllLevels()) {
-			if (level != helper.getLevel()) {
-				return level;
-			}
+	private static ServerLevel unloadingLevel(GameTestHelper helper) {
+		ServerLevel end = helper.getLevel().getServer().getLevel(Level.END);
+		if (end == null || end == helper.getLevel()) {
+			throw new IllegalStateException("Fixture: the test server has no End beside the test level");
 		}
-		throw new IllegalStateException("Fixture: the test server has no level but the test level");
+		return end;
 	}
 
 	@SuppressWarnings("unchecked")
