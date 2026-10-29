@@ -1,0 +1,24 @@
+{
+  "pj_inject": {
+    "sounds": [
+      "rotp_pj:pj_inject1",
+      "rotp_pj:pj_inject2"
+    ]
+  },
+  "pj_unject": {
+    "sounds": [
+      "rotp_pj:pj_unject1",
+      "rotp_pj:pj_unject2"
+    ]
+  },
+  "pj_summon": {
+    "sounds": [
+      "rotp_pj:void"
+    ]
+  },
+  "pj_unsummon": {
+    "sounds": [
+      "rotp_pj:void"
+    ]
+  }
+}

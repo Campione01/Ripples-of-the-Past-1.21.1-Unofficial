@@ -1,0 +1,16 @@
+{
+  "action.rejojo.the_world_ts_blink_recovery": "同步替身位置",
+  "action.rejojo.star_platinum_heavy_punch_ts": "时停瞬移重拳",
+  "action.rejojo.star_platinum_uppercut_ts": "时停瞬移上勾拳",
+  "rejojo.ability.rejojo_the_world_ts_blink_recovery": "同步替身位置",
+  "rejojo.ability.rejojo_star_platinum_heavy_punch_ts": "时停瞬移重拳",
+  "rejojo.ability.rejojo_star_platinum_uppercut_ts": "时停瞬移上勾拳",
+  "effect.rejojo.slowburn": "烧伤",
+  "rejojo.config.enableNewTSIcons": "使用按替身区分的时停图标",
+  "rejojo.config.enableTSResolve": "启用世界时停的觉悟奖励",
+  "rejojo.configuration.title": "Ripples of the Past Reworked 配置",
+  "rejojo.configuration.Ripples of the Past Reworked": "Reworked 设置",
+  "rejojo.configuration.Ripples of the Past Reworked.tooltip": "Ripples of the Past Reworked 的设置。",
+  "rejojo.config.enableTSResolve.tooltip": "启用世界在时停期间每刻及时停结束时获得的觉悟奖励。压路机与多把飞刀的奖励不受此项影响。",
+  "rejojo.config.enableNewTSIcons.tooltip": "使用重制版按替身区分的时停技能图标，而不是核心模组的通用图标。"
+}

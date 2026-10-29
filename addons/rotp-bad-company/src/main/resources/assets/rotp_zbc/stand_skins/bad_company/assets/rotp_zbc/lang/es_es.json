@@ -1,0 +1,15 @@
+{
+  "rotp_zbc.ability.to_me": "Disparar",
+  "rotp_zbc.ability.put_mines": "Colocar minas",
+  "rotp_zbc.ability.explode_mines": "Detonar minas",
+  "rotp_zbc.ability.order_wait": "Ordenar a %s unidades que esperen y disparen",
+  "rotp_zbc.ability.order_no_wait": "Ordenar a %s unidades que dejen de esperar",
+  "rotp_zbc.ability.units": "Seleccionar tipo de unidad",
+  "rotp_zbc.ability.random": "Seleccionar formación de invocación",
+  "rotp_zbc.ability.target": "Ordenar a %s unidades establecer objetivo",
+  "rotp_zbc.ability.missile": "%s misiles explosivos",
+  "rotp_zbc.ability.shoot": "Ordenar a %s unidades que perdonen el objetivo",
+  "rotp_zbc.ability.go_block": "Ordenar a %s unidades ir a una posición de bloque",
+  "rotp_zbc.ability.close": "Ordenar a %s unidades quedarse cerca",
+  "rotp_zbc.ability.closent": "Cancelar orden a %s unidades de quedarse cerca"
+}

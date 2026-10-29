@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "half=lower": {
+      "model": "tournament:block/spikes_bottom"
+    },
+    "half=upper": {
+      "model": "tournament:block/spikes_top"
+    }
+  }
+}

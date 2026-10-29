@@ -1,0 +1,52 @@
+{
+  "schema": 2,
+  "module": "rotp-diegos-the-world",
+  "mod_id": "rotp_theworld",
+  "version": "1.2.1-mc1.21.1-phase11",
+  "donor_artifact": {
+    "file": "RotP-The-World-Alternative-Universe-1.2.1.jar",
+    "bytes": 1244424,
+    "sha256": "17D2C9DDE44928BEA726FBCD883731C74C336D2BD899DC6DF52D114160719B52",
+    "implementation_version": "1.2.1",
+    "mod_id": "rotp_theworld"
+  },
+  "decompile": {
+    "tool": "CFR 0.152",
+    "java_sources": 30,
+    "source_bytes": 158120,
+    "normalized_tree_sha256": "3ED0B1CA5787F190D31899E1B55FEF8D6B0DD3C4B9D7AD7428C0527A542BC113",
+    "closed_sources": 30,
+    "dead_sources": 0
+  },
+  "registrations": {
+    "stand_types": 1,
+    "ability_types": 6,
+    "moveset_abilities": 16,
+    "entity_types": 2,
+    "items": 2,
+    "blocks": 1,
+    "block_entity_types": 1,
+    "mob_effects": 1,
+    "damage_types": 1,
+    "sound_events": 32
+  },
+  "donor_binary_closure": {
+    "ogg_equal": "43/43",
+    "png_equal": "39/39",
+    "skin_path_normalization": "skinA/B/C to skin_a/b/c",
+    "nearest_neighbor_scaling": false
+  },
+  "h1": {
+    "geometry_sha256": "B2B96017455F8EF5D05047E16D10D7FA951D058676E91B7DC51F860AA3D16667",
+    "animation_sha256": "4EA30BA8CA1F425816DB6DEB352827834C865BD05D0F5137ADAAE976E4E392F1",
+    "bones": 33,
+    "cubes": 71,
+    "clips": 22
+  },
+  "source_blocked_audio": [
+    "rotp_theworld:the_world_muda",
+    "rotp_theworld:the_world_ost_*"
+  ],
+  "runtime_status": "not_run",
+  "release_complete": false
+}

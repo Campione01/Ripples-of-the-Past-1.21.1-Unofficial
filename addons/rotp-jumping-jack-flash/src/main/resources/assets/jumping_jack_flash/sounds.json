@@ -1,0 +1,11 @@
+{
+  "jumping_jack_flash_summon_shout": {
+    "category": "player",
+    "sounds": [
+      {
+        "name": "jumping_jack_flash:jumping_jack_flash_summon_shout",
+        "stream": false
+      }
+    ]
+  }
+}

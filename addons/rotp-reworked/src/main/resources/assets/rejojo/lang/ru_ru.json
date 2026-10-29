@@ -1,0 +1,16 @@
+{
+  "action.rejojo.the_world_ts_blink_recovery": "Возврат стенда",
+  "action.rejojo.star_platinum_heavy_punch_ts": "Быстрый удар",
+  "action.rejojo.star_platinum_uppercut_ts": "Быстрый апперкот",
+  "rejojo.ability.rejojo_the_world_ts_blink_recovery": "Возврат стенда",
+  "rejojo.ability.rejojo_star_platinum_heavy_punch_ts": "Быстрый удар",
+  "rejojo.ability.rejojo_star_platinum_uppercut_ts": "Быстрый апперкот",
+  "effect.rejojo.slowburn": "Ожог",
+  "rejojo.configuration.title": "Настройки Ripples of the Past Reworked",
+  "rejojo.configuration.Ripples of the Past Reworked": "Настройки Reworked",
+  "rejojo.configuration.Ripples of the Past Reworked.tooltip": "Настройки Ripples of the Past Reworked.",
+  "rejojo.config.enableTSResolve": "Награды решимости за остановку времени The World",
+  "rejojo.config.enableTSResolve.tooltip": "Включает награды решимости The World за каждый тик и за окончание остановки времени. Награды за каток и за несколько ножей от этого не зависят.",
+  "rejojo.config.enableNewTSIcons": "Отдельные значки остановки времени для стендов",
+  "rejojo.config.enableNewTSIcons.tooltip": "Использует собственные значки способностей остановки времени для каждого стенда вместо общих значков ядра."
+}

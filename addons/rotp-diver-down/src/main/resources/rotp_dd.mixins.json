@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "rotp.addons.diverdown.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "AcceptedBoneDamageMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

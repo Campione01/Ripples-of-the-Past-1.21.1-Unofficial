@@ -1,0 +1,223 @@
+{
+  "d4c_summon": {
+    "subtitle": "rotp_d4c.subtitle.d4c_summon",
+    "sounds": ["rotp_d4c:stand/d4c_summon"]
+  },
+  "d4c_unsummon": {
+    "subtitle": "rotp_d4c.subtitle.d4c_unsummon",
+    "sounds": ["rotp_d4c:stand/d4c_unsummon"]
+  },
+  "d4c_punch": {
+    "subtitle": "rotp_d4c.subtitle.d4c_punch",
+    "sounds": ["rotp_d4c:stand/d4c_punch"]
+  },
+  "d4c_barrage": {
+    "subtitle": "rotp_d4c.subtitle.d4c_barrage",
+    "sounds": [
+      "rotp_d4c:stand/d4c_barrage",
+      "rotp_d4c:stand/d4c_barrage_2"
+    ]
+  },
+  "d4c_punch_heavy": {
+    "subtitle": "rotp_d4c.subtitle.d4c_punch_heavy",
+    "sounds": ["rotp_d4c:stand/d4c_punch_heavy"]
+  },
+  "valentine_d4c": {
+    "subtitle": "rotp_d4c.subtitle.valentine_d4c",
+    "sounds": [
+      "rotp_d4c:stand_user/valentine_d4c",
+      "rotp_d4c:stand_user/valentine_d4c_2",
+      "rotp_d4c:stand_user/valentine_d4c_3",
+      "rotp_d4c:stand_user/valentine_d4c_4",
+      "rotp_d4c:stand_user/valentine_d4c_5",
+      "rotp_d4c:stand_user/valentine_d4c_6",
+      "rotp_d4c:stand_user/valentine_d4c_7",
+      "rotp_d4c:stand_user/valentine_d4c_8",
+      "rotp_d4c:stand_user/valentine_d4c_9",
+      "rotp_d4c:stand_user/valentine_d4c_10",
+      "rotp_d4c:stand_user/valentine_d4c_11"
+    ]
+  },
+  "valentine_punch": {
+    "subtitle": "rotp_d4c.subtitle.valentine_punch",
+    "sounds": [
+      "rotp_d4c:stand_user/valentine_punch",
+      "rotp_d4c:stand_user/valentine_punch_2",
+      "rotp_d4c:stand_user/valentine_punch_4",
+      "rotp_d4c:stand_user/valentine_punch_5",
+      "rotp_d4c:stand_user/valentine_punch_6"
+    ]
+  },
+  "valentine_raidpunch": {
+    "subtitle": "rotp_d4c.subtitle.valentine_raidpunch",
+    "sounds": [
+      "rotp_d4c:stand_user/valentine_raidpunch",
+      "rotp_d4c:stand_user/valentine_raidpunch_2",
+      "rotp_d4c:stand_user/valentine_raidpunch_3",
+      "rotp_d4c:stand_user/valentine_raidpunch_4",
+      "rotp_d4c:stand_user/valentine_raidpunch_5",
+      "rotp_d4c:stand_user/valentine_raidpunch_6",
+      "rotp_d4c:stand_user/valentine_raidpunch_7",
+      "rotp_d4c:stand_user/valentine_raidpunch_8",
+      "rotp_d4c:stand_user/valentine_raidpunch_9",
+      "rotp_d4c:stand_user/valentine_raidpunch_10"
+    ]
+  },
+  "valentine_heavy": {
+    "subtitle": "rotp_d4c.subtitle.valentine_heavy",
+    "sounds": [
+      "rotp_d4c:stand_user/valentine_heavy",
+      "rotp_d4c:stand_user/valentine_heavy_2",
+      "rotp_d4c:stand_user/valentine_heavy_3",
+      "rotp_d4c:stand_user/valentine_heavy_4",
+      "rotp_d4c:stand_user/valentine_heavy_5",
+      "rotp_d4c:stand_user/valentine_heavy_6",
+      "rotp_d4c:stand_user/valentine_heavy_7"
+    ]
+  },
+  "d4c_traverse": {
+    "subtitle": "rotp_d4c.subtitle.d4c_traverse",
+    "sounds": ["rotp_d4c:stand/d4c_traverse"]
+  },
+  "d4c_traverseon": {
+    "subtitle": "rotp_d4c.subtitle.d4c_traverseon",
+    "sounds": ["rotp_d4c:stand/d4c_traverseon"]
+  },
+  "valentine_travel": {
+    "subtitle": "rotp_d4c.subtitle.valentine_travel",
+    "sounds": [
+      "rotp_d4c:stand_user/valentine_travel",
+      "rotp_d4c:stand_user/valentine_travel_2",
+      "rotp_d4c:stand_user/valentine_travel_3",
+      "rotp_d4c:stand_user/valentine_travel_4"
+    ]
+  },
+  "d4c_love_train_summon": {
+    "subtitle": "rotp_d4c.subtitle.d4c_love_train_summon",
+    "sounds": ["rotp_d4c:stand/d4c_love_train_summon"]
+  },
+  "d4c_teleport": {
+    "subtitle": "rotp_d4c.subtitle.d4c_teleport",
+    "sounds": [
+      "rotp_d4c:stand/d4c_teleport",
+      "rotp_d4c:stand/d4c_teleport2",
+      "rotp_d4c:stand/d4c_teleport3",
+      "rotp_d4c:stand/d4c_teleport4",
+      "rotp_d4c:stand/d4c_teleport5",
+      "rotp_d4c:stand/d4c_teleport6",
+      "rotp_d4c:stand/d4c_teleport7",
+      "rotp_d4c:stand/d4c_teleport8",
+      "rotp_d4c:stand/d4c_teleport9",
+      "rotp_d4c:stand/d4c_teleport10",
+      "rotp_d4c:stand/d4c_teleport11",
+      "rotp_d4c:stand/d4c_teleport12",
+      "rotp_d4c:stand/d4c_teleport13",
+      "rotp_d4c:stand/d4c_teleport14"
+    ]
+  },
+  "d4c_flang": {
+    "subtitle": "rotp_d4c.subtitle.d4c_flang",
+    "sounds": ["rotp_d4c:stand/d4c_flang"]
+  },
+  "d4c_light": {
+    "subtitle": "rotp_d4c.subtitle.d4c_light",
+    "sounds": [
+      "rotp_d4c:stand/d4c_light",
+      "rotp_d4c:stand/d4c_light2",
+      "rotp_d4c:stand/d4c_light3",
+      "rotp_d4c:stand/d4c_light4",
+      "rotp_d4c:stand/d4c_light5",
+      "rotp_d4c:stand/d4c_light6",
+      "rotp_d4c:stand/d4c_light7",
+      "rotp_d4c:stand/d4c_light8"
+    ]
+  },
+  "d4c_handchop": {
+    "subtitle": "rotp_d4c.subtitle.d4c_handchop",
+    "sounds": ["rotp_d4c:stand/d4c_handchop"]
+  },
+  "d4c_ushya": {
+    "subtitle": "rotp_d4c.subtitle.d4c_ushya",
+    "sounds": ["rotp_d4c:stand/d4c_punch_combo"]
+  },
+  "d4c_traversefang": {
+    "subtitle": "rotp_d4c.subtitle.d4c_traversefang",
+    "sounds": ["rotp_d4c:stand/d4c_traversefang"]
+  },
+  "d4c_annihilate": {
+    "subtitle": "rotp_d4c.subtitle.d4c_annihilate",
+    "sounds": ["rotp_d4c:stand/d4c_annihilate"]
+  },
+  "valentine_love": {
+    "subtitle": "rotp_d4c.subtitle.valentine_love",
+    "sounds": ["rotp_d4c:stand_user/valentine_love"]
+  },
+  "valentine_love_train": {
+    "subtitle": "rotp_d4c.subtitle.valentine_love_train",
+    "sounds": [
+      "rotp_d4c:stand_user/valentine_love_train",
+      "rotp_d4c:stand_user/valentine_love_train_2",
+      "rotp_d4c:stand_user/valentine_love_train_3"
+    ]
+  },
+  "valentine_annihilation": {
+    "subtitle": "rotp_d4c.subtitle.valentine_annihilation",
+    "sounds": [
+      "rotp_d4c:stand_user/valentine_annihilation",
+      "rotp_d4c:stand_user/valentine_annihilation_2",
+      "rotp_d4c:stand_user/valentine_annihilation_3",
+      "rotp_d4c:stand_user/valentine_annihilation_4"
+    ]
+  },
+  "valentine_change": {
+    "subtitle": "rotp_d4c.subtitle.valentine_change",
+    "sounds": [
+      "rotp_d4c:stand_user/valentine_change",
+      "rotp_d4c:stand_user/valentine_change_2"
+    ]
+  },
+  "valentine_pulltravel": {
+    "subtitle": "rotp_d4c.subtitle.valentine_pulltravel",
+    "sounds": [
+      "rotp_d4c:stand_user/valentine_pulltravel",
+      "rotp_d4c:stand_user/valentine_pulltravel_2",
+      "rotp_d4c:stand_user/valentine_pulltravel_3"
+    ]
+  },
+  "valentine_summonme": {
+    "subtitle": "rotp_d4c.subtitle.valentine_summonme",
+    "sounds": [
+      "rotp_d4c:stand_user/valentine_summonme",
+      "rotp_d4c:stand_user/valentine_summonme_1",
+      "rotp_d4c:stand_user/valentine_summonme_2",
+      "rotp_d4c:stand_user/valentine_summonme_3"
+    ]
+  },
+  "valentine_barrage": {
+    "subtitle": "rotp_d4c.subtitle.valentine_barrage",
+    "sounds": [
+      "rotp_d4c:stand_user/valentine_spin",
+      "rotp_d4c:stand_user/valentine_spinon"
+    ]
+  },
+  "d4c_melt_heart": {
+    "subtitle": "rotp_d4c.subtitle.d4c_melt_heart",
+    "sounds": ["rotp_d4c:stand/d4c_annihilate"]
+  },
+  "colt_shoot": {
+    "subtitle": "rotp_d4c.subtitle.colt_shoot",
+    "sounds": ["rotp_d4c:weapon/colt_shoot"]
+  },
+  "colt_reload": {
+    "subtitle": "rotp_d4c.subtitle.colt_reload",
+    "sounds": ["rotp_d4c:weapon/colt_reload"]
+  },
+  "colt_reloadon": {
+    "subtitle": "rotp_d4c.subtitle.colt_reloadon",
+    "sounds": ["rotp_d4c:weapon/colt_reloadon"]
+  },
+  "corpse_finder_guide": {
+    "subtitle": "rotp_d4c.subtitle.corpse_finder_guide",
+    "sounds": ["rotp_d4c:stand/corpse_finder_guide"]
+  }
+}

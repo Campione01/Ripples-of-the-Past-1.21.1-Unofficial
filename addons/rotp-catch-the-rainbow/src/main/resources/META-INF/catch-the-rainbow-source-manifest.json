@@ -1,0 +1,255 @@
+{
+  "schema": 2,
+  "module": "addons/rotp-catch-the-rainbow",
+  "mod_id": "rotp_ctr",
+  "migration_status": "implementation_complete_manual_runtime_pending",
+  "source_jar": {
+    "path": "RotP-\u5f69\u8679\u6355\u624b-1.1-beta.jar",
+    "bytes": 546132,
+    "sha256": "497F1F81FACEA3B359F67CE616141E8972D3918C04C7AD62AF4A311E44B421A5",
+    "zip_entries": 163,
+    "file_entries": 104,
+    "class_entries": 43,
+    "resource_files": 59
+  },
+  "readable_source": "045_RotP-\u5f69\u8679\u6355\u624b-1.1-beta",
+  "duplicate_decompiles": [
+    "047_RotP-\u5f69\u8679\u6355\u624b-1.1-beta",
+    "048_RotP-\u5f69\u8679\u6355\u624b-1.1-beta"
+  ],
+  "decompile_equivalence": {
+    "relative_files": 39,
+    "java_sources": 38,
+    "total_bytes": 181982,
+    "differences": 0
+  },
+  "closure": {
+    "legacy_java_sources": 38,
+    "closed": 38,
+    "rebuilt": 24,
+    "merged_equivalent": 9,
+    "superseded": 5,
+    "deferred": 0,
+    "blocked": 0,
+    "ledger": "META-INF/catch-the-rainbow-migration-ledger.json"
+  },
+  "registrations": {
+    "ability_types": [
+      "catch_the_rainbow_rain_blade",
+      "catch_the_rainbow_rain_blades",
+      "catch_the_rainbow_rain_stop",
+      "catch_the_rainbow_rain_resume",
+      "catch_the_rainbow_rain_blink",
+      "catch_the_rainbow_rain_merge",
+      "catch_the_rainbow_temp_health",
+      "catch_the_rainbow_rain_redemption"
+    ],
+    "stand_types": [
+      "catch_the_rainbow"
+    ],
+    "stand_entities": [
+      "catch_the_rainbow"
+    ],
+    "projectile_entities": [
+      "catch_the_rainbow_rain_blade1",
+      "catch_the_rainbow_rain_blade2",
+      "catch_the_rainbow_rain_blade3"
+    ],
+    "items": [
+      "catch_the_rainbow_mask_item",
+      "umbrella",
+      "revolver"
+    ],
+    "mob_effects": [
+      "rain_merge_effect",
+      "rain_redemption_effect"
+    ],
+    "base_sounds": [
+      "catch_the_rainbow_summon",
+      "catch_the_rainbow_unsummon",
+      "catch_the_rainbow_rain_merge",
+      "catch_the_rainbow_throwing_blade",
+      "catch_the_rainbow_rain_blink",
+      "catch_the_rainbow_rain_heal",
+      "catch_the_rainbow_rain_step",
+      "umbrella_falling_rain_drops",
+      "revolver_shot",
+      "revolver_no_ammo",
+      "revolver_reload"
+    ],
+    "ost_sound_suffixes": [
+      "_30",
+      "_60",
+      "_75",
+      "_90",
+      "_120",
+      "_full",
+      "_cassette"
+    ],
+    "packets": 0,
+    "mixins": 0,
+    "capabilities": 0
+  },
+  "input_contract": {
+    "profile": "non-humanoid-weather-ranged-exception",
+    "direct": [
+      "LMB_CLICK:catch_the_rainbow_rain_blade"
+    ],
+    "special_wheel": [
+      "C_X_CLICK:catch_the_rainbow_rain_blades",
+      "C_X_HOLD:catch_the_rainbow_rain_stop",
+      "C_X_CLICK:catch_the_rainbow_rain_blink",
+      "C_X_HOLD:catch_the_rainbow_rain_merge",
+      "C_X_HOLD:catch_the_rainbow_temp_health",
+      "C_X_HOLD:catch_the_rainbow_rain_redemption"
+    ],
+    "compatibility_only": [
+      "catch_the_rainbow_rain_resume"
+    ],
+    "wheel_direct_duplication": "none",
+    "rationale": "Rain Blade is the repetitive ranged primary. Six non-primary weather and state actions share the C/X special wheel. Core TimeStopAbility resumes through the rain-stop input while the legacy rain-resume ID remains registered for data compatibility."
+  },
+  "eligibility": {
+    "stand_id": "rotp_ctr:catch_the_rainbow",
+    "random_weight": 2.0,
+    "arrow_pool_eligible": true,
+    "arrow_tag": "data/jojo_ripples/ripples_tags/stands/player_can_get_from_arrow.json",
+    "power_class": "C",
+    "direct_control": true,
+    "controller_topology": "artificial_non_humanoid_mask_colocated_controller",
+    "combat_topology": "weather_ranged_environmental",
+    "shared_grab": false,
+    "shared_barrage": false,
+    "charged_heavy": false,
+    "manual_control": false,
+    "stand_leap": false
+  },
+  "authority": {
+    "weather_mutation": "server_level_setWeatherParameters",
+    "rain_walking": "server_synced_gravity_and_velocity_support",
+    "rain_walk_state": "SynchedEntityData:RAIN_WALK_ACTIVE",
+    "rain_walk_client_prediction": "synced_state_only",
+    "falling_blades": "server_spawn_bounded_radius_25",
+    "rain_stop": "core_TimeStopAbility_lifecycle",
+    "replication": "SynchedEntityData",
+    "custom_packets": 0,
+    "world_block_mutation": false
+  },
+  "visuals": {
+    "stand_renderer": "donor_CatchTheRainbowRenderer",
+    "stand_material": "core_ModRenderTypes_standTranslucentCull",
+    "visual_context": "StandVisualContext.world",
+    "alpha_buffer": "AlphaMultiBufferSource",
+    "projectile_owner": "RainBladeRenderer",
+    "projectile_material": "minecraft_entityTranslucent",
+    "projectile_visibility": "ordinary_projectile_no_stand_alpha_gate",
+    "wearable_owner": "CatchTheRainbowWearableLayer",
+    "rain_owner": "CatchTheRainbowRainLayer",
+    "model_scale": [1.0, 1.0],
+    "player_renderer_replacement": false,
+    "render_living_event": false,
+    "iris_dependency": false,
+    "framebuffer_hook": false,
+    "global_shader_hook": false
+  },
+  "art": {
+    "visual_topology": "H2",
+    "primary_source_resolution": "256x256",
+    "joint_uv_material_upgrade_required": true,
+    "blind_upscale": false,
+    "source_pixels_preserved": true,
+    "reconstruction_status": "implemented_pending_runtime",
+    "physical_texture_bytes": 2159,
+    "physical_texture_sha256": "9871D6AE0344E10928704703EFE0E455F0B4DE40457507DBDA67A5C7D79F304B",
+    "visible_pixels": 8396,
+    "donor_nontransparent_pixels_preserved": 968,
+    "reconstruction": "Donor-visible head and identity pixels are unchanged; the previously empty torso and limb UV islands are intentionally reconstructed with the donor gray, blue, green, and red palette, directional face shading, and bounded edge contrast.",
+    "runtime_proof": "pending_manual_runtime_matrix"
+  },
+  "resources": {
+    "legacy_resource_files": 59,
+    "legacy_asset_files": 56,
+    "legacy_data_files": 2,
+    "legacy_pack_metadata_files": 1,
+    "byte_identical": 46,
+    "format_adapted": 9,
+    "archive_evidence": 3,
+    "build_supplied": 1,
+    "deferred": 0,
+    "blocked": 0
+  },
+  "umbrella_audio_integrity": {
+    "event": "rotp_ctr:umbrella_falling_rain_drops",
+    "active_variants": [
+      "rotp_ctr:items/umbrella/umbrella_falling_rain_drops4",
+      "rotp_ctr:items/umbrella/umbrella_falling_rain_drops5"
+    ],
+    "inert_archived_donor_artifacts": [
+      "migration/baseline-legacy/assets/rotp_ctr/sounds/items/umbrella/umbrella_falling_rain_drops2.ogg",
+      "migration/baseline-legacy/assets/rotp_ctr/sounds/items/umbrella/umbrella_falling_rain_drops3.ogg",
+      "migration/baseline-legacy/assets/rotp_ctr/sounds/items/umbrella/umbrella_falling_rain_drops6.ogg"
+    ],
+    "donor_bytes_each": 0,
+    "upstream_commit": "f1786a895a8d31d8edee13f1af49bff519dc0857",
+    "upstream_empty_blob_sha1": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "policy": "Exclude invalid variants from active selection and runtime packaging while preserving exact donor artifacts in the evidence-only migration archive; do not fabricate or alias audio."
+  },
+  "source_artifact_gaps": [
+    "Legacy sounds.json declares catch_the_rainbow_ost, but the source JAR contains no OST audio file. Registration suffixes are retained; absent audio was not fabricated.",
+    "The source JAR and sole upstream source commit contain zero-byte umbrella rain variants 2, 3, and 6. Variants 2 and 3 were removed from active selection; all three files remain exact inert donor artifacts under migration/baseline-legacy and are absent from the runtime JAR."
+  ],
+  "blockers": [],
+  "feedback_contracts": [
+    {
+      "id": "J7_catch_the_rainbow_blade_model_and_rain_walk",
+      "production_action": "catch_the_rainbow_rain_blade",
+      "name_in_moveset": "catch_the_rainbow_rain_blade",
+      "ability_registry_id": "rotp_ctr:catch_the_rainbow_rain_blade",
+      "real_input": "LMB_CLICK",
+      "projectile_entities": [
+        "rotp_ctr:catch_the_rainbow_rain_blade1",
+        "rotp_ctr:catch_the_rainbow_rain_blade2",
+        "rotp_ctr:catch_the_rainbow_rain_blade3"
+      ],
+      "projectile_renderer": "RainBladeRenderer",
+      "projectile_texture": "rotp_ctr:textures/entity/projectiles/catch_the_rainbow_rain_blade.png",
+      "projectile_positive": "real LMB action produces one tracked projectile whose renderer and donor texture are present from spawn until living-entity or block impact, or the 100-tick expiry",
+      "projectile_terminal": "living-entity or block impact discards the projectile; non-living entity contact does not; otherwise the tracked entity remains until its 100-tick lifespan",
+      "rain_walk_server_positive": "in exposed rain, while descending over air with the Stand summoned, sufficient stamina, and no crouch, water, flight, riding, or upward motion, RAIN_WALK_ACTIVE is true, the transient gravity modifier is present, vertical velocity is zero, fall distance is reset, and horizontal movement remains possible",
+      "rain_walk_client_positive": "the client observes synchronized RAIN_WALK_ACTIVE and gravity modifier state and remains vertically stable while moving horizontally",
+      "negative_cleanup": "dry cover or weather, crouch, water, flight, riding, upward motion, stamina exhaustion, Stand loss, unsummon, death, clone, login cleanup, or controller removal clears RAIN_WALK_ACTIVE and the gravity modifier; world blocks are never mutated"
+    }
+  ],
+  "manual_runtime_matrix": [
+    {
+      "id": "rainy_singleplayer_moveset",
+      "status": "pending",
+      "checks": "summon, automatic mask, three rain-blade variants, falling blades, rain walk, reach, blink, merge, temporary health, redemption, rain stop and resume"
+    },
+    {
+      "id": "dry_weather_gating",
+      "status": "pending",
+      "checks": "all weather-gated actions reject or clean up without stale effects, reach, or toggles"
+    },
+    {
+      "id": "dedicated_server_replication",
+      "status": "pending",
+      "checks": "two clients observe the same server weather, toggles, projectiles, movement, effects, and cooldown outcomes"
+    },
+    {
+      "id": "stand_visibility_layers",
+      "status": "pending",
+      "checks": "stand, mask, rain layer, and projectiles follow core Stand visibility and alpha without duplicate vanilla armor"
+    },
+    {
+      "id": "items_and_recipes",
+      "status": "pending",
+      "checks": "umbrella falling and vampire protection, revolver firing and reload cadence, durability, tooltips, and both recipes"
+    },
+    {
+      "id": "lifecycle_cleanup",
+      "status": "pending",
+      "checks": "death, clone, login, unsummon, stand removal, effect expiry, and weather transition leave no owned modifiers or mask residue"
+    }
+  ]
+}

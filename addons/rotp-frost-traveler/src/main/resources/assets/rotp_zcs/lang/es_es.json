@@ -1,0 +1,34 @@
+{
+  "entity.rotp_zcs.cream_starter": "Cream Starter",
+  "stand.rotp_zcs.cream_starter": "Cream Starter",
+
+  "item.rotp_zcs.cream_starter": "Cream Starter%s",
+  "item.rotp_zcs.meat_dgs": "Disfraz de carne",
+
+  "action.rotp_zcs.give_cs": "Invocar Cream Starter",
+  "action.rotp_zcs.cs_heal": "Autocuración",
+  "action.rotp_zcs.cs_switch": "Cambiar modo",
+  "action.rotp_zcs.cs_item_fill": "Rellenar Cream Starter",
+  "action.rotp_zcs.cs_entity_fill": "Rellenar Cream Starterr",
+  "action.rotp_zcs.cs_deform": "Derretirse a traves de bloques",
+  "action.rotp_zcs.cs_dsg_item": "Obtener disfraz de carne",
+  "action.rotp_zcs.cs_item": "Insertar item",
+
+  "rotp_zcs.subtitle.st_shot": "Spray de carne",
+  "rotp_zcs.subtitle.hot_cs": "\"Cream Starter\"",
+  "rotp_zcs.subtitle.cs_shot": "Spray",
+  "rotp_zcs.subtitle.cs_shake": "Sacudida de Cream Starter",
+  "rotp_zcs.subtitle.cs_abs": "Rellenado de carne",
+
+  "jojo.message.action_condition.no_cream": "No tienes Cream Starter a mano",
+  "jojo.message.action_condition.no_cream.main": "Necesitas a Cream Starter en tu mano principal",
+  "jojo.message.action_condition.no_meat": "No tienes carne suficiente en Cream Starter",
+
+  "death.attack.cs_rotten": "Se ha podrido la carne de %s",
+  "death.attack.cs_rotten.player": "Se ha podrido la carne de %s por culpa de %s",
+  "death.attack.cs_rotten.entity": "Se ha podrido la carne de %s debido a %s",
+  "death.attack.cs_rotten.entity.item": " Se ha podrido la carne de %s por %s mientras usaba %s",
+
+  "rotp_zcs.mode.attack": ", Modo de Ataque",
+  "rotp_zcs.mode.heal": ", Modo de curación"
+}

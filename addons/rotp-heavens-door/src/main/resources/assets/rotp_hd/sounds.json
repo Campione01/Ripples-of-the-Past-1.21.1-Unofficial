@@ -1,0 +1,28 @@
+{
+  "rohan_summon": {
+    "subtitle": "subtitles.rotp_hd.rohan_summon",
+    "sounds": [
+      "rotp_hd:user/rohan_summon",
+      "rotp_hd:user/rohan_summon_2"
+    ]
+  },
+  "rohan_light_attack": {
+    "subtitle": "subtitles.rotp_hd.rohan_light_attack",
+    "sounds": [
+      "rotp_hd:user/rohan_light_attack",
+      "rotp_hd:user/rohan_light_attack_2"
+    ]
+  },
+  "rohan_barrage": {
+    "subtitle": "subtitles.rotp_hd.rohan_barrage",
+    "sounds": [
+      "rotp_hd:user/rohan_barrage"
+    ]
+  },
+  "heavens_door_write_command": {
+    "subtitle": "subtitles.rotp_hd.heavens_door_write_command",
+    "sounds": [
+      "rotp_hd:stand/heavens_door_write_command"
+    ]
+  }
+}

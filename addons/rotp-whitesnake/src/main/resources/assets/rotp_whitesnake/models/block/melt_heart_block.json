@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "rotp_whitesnake:block/melt_heart_block"
+  }
+}

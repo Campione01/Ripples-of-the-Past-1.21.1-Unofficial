@@ -1,0 +1,27 @@
+{
+    "neoforge:conditions":  [
+                                {
+                                    "type":  "neoforge:mod_loaded",
+                                    "modid":  "tconstruct"
+                                },
+                                {
+                                    "type":  "neoforge:not",
+                                    "value":  {
+                                                  "type":  "neoforge:tag_empty",
+                                                  "tag":  "c:wires/stand_arrow_alloy"
+                                              }
+                                }
+                            ],
+    "type":  "tconstruct:casting_table",
+    "cast":  {
+                 "tag":  "tconstruct:casts/multi_use/wire"
+             },
+    "fluid":  {
+                  "tag":  "c:molten_stand_arrow_alloy",
+                  "amount":  45
+              },
+    "result":  {
+                   "tag":  "c:wires/stand_arrow_alloy"
+               },
+    "cooling_time":  40
+}

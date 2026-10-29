@@ -1,0 +1,7 @@
+[
+  {
+    "name": "mace",
+    "type": "tool",
+    "data": "tools/mace.json"
+  }
+]

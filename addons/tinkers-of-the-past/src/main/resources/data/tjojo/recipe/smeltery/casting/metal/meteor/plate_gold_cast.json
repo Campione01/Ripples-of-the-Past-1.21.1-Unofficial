@@ -1,0 +1,27 @@
+{
+    "neoforge:conditions":  [
+                                {
+                                    "type":  "neoforge:mod_loaded",
+                                    "modid":  "tconstruct"
+                                },
+                                {
+                                    "type":  "neoforge:not",
+                                    "value":  {
+                                                  "type":  "neoforge:tag_empty",
+                                                  "tag":  "c:plates/meteor"
+                                              }
+                                }
+                            ],
+    "type":  "tconstruct:casting_table",
+    "cast":  {
+                 "tag":  "tconstruct:casts/multi_use/plate"
+             },
+    "fluid":  {
+                  "tag":  "c:molten_meteor",
+                  "amount":  90
+              },
+    "result":  {
+                   "tag":  "c:plates/meteor"
+               },
+    "cooling_time":  57
+}

@@ -1,0 +1,16 @@
+// Public build of RotP - Gold Experience Requiem (geraddon). The module identity is in gradle.properties;
+// the shared logic is in ../gradle/addon-module.gradle.
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev'
+}
+
+ext.gameTestStructures = [
+        'data/geraddon/structure/empty.nbt': 'core',
+]
+
+apply from: rootProject.file('gradle/addon-module.gradle')
+
+dependencies {
+    compileOnly project(':rotp-king-crimson')
+}

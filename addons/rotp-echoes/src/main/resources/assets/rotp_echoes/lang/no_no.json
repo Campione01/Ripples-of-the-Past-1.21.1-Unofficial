@@ -1,0 +1,22 @@
+{
+  "stand.rotp_echoes.echoes_act3": "Echoes ACT3",
+  "stand.rotp_echoes.echoes_act2": "Echoes ACT2",
+  "rotp_echoes.ability.punch": "Slag",
+  "rotp_echoes.ability.barrage": "Byge",
+  "rotp_echoes.ability.heavy_punch": "Tungt slag",
+  "rotp_echoes.ability.finisher": "Avslutter",
+  "rotp_echoes.ability.guard": "Blokker",
+  "rotp_echoes.ability.degrade_to_act2": "Degradering",
+  "rotp_echoes.ability.freeze": "Frys",
+  "rotp_echoes.ability.hand_freeze": "Håndfrys",
+  "rotp_echoes.ability.freeze_self": "Selvfrys",
+  "rotp_echoes.ability.gravity_infuse": "Tyngdekraftsinfusjon",
+  "rotp_echoes.ability.gravity_projectile": "Tyngdekraftsprosjektil",
+  "rotp_echoes.ability.act2_punch": "Lett angrep",
+  "rotp_echoes.ability.act2_heavy_punch": "Tungt angrep",
+  "rotp_echoes.ability.act2_finisher": "Halestikk",
+  "rotp_echoes.ability.act2_guard": "Blokker",
+  "rotp_echoes.ability.evolve_to_act3": "Evolusjon",
+  "rotp_echoes.tooltip.gravity_infused": "Gjennomtrengt av tyngdekraft",
+  "rotp_echoes.tooltip.gravity_infused.desc": "Å holde det vil tynge deg"
+}

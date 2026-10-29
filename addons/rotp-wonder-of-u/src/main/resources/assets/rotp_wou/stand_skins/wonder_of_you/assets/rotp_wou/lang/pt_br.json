@@ -1,0 +1,15 @@
+{
+  "entity.rotp_wou.wonder_of_you": "Wonder of U",
+  "entity.rotp_wou.car_projectile": "Carro",
+  "stand.rotp_wou.wonder_of_you": "Wonder of U",
+  "rotp_wou.ability.punch": "Soco",
+  "rotp_wou.ability.heavy_punch": "Soco Pesado",
+  "rotp_wou.ability.heavy_charged": "Soco Pesado Carregado",
+  "rotp_wou.ability.finisher_punch": "Finalizador",
+  "rotp_wou.ability.guard": "Bloqueio",
+  "rotp_wou.ability.calamity_passive": "Calamidade: Passiva",
+  "rotp_wou.ability.calamity_active": "Calamidade: Ativa",
+  "rotp_wou.ability.calamity_car_attack": "Ataque de Carro?!",
+  "rotp_wou.ability.lightning_strike": "Ataque de Raios",
+  "rotp_wou.ability.explosion": "Explosão"
+}

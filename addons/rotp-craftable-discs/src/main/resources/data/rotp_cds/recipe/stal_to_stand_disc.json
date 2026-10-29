@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "ISI",
+    "SDS",
+    "ISI"
+  ],
+  "key": {
+    "D": {
+      "item": "minecraft:music_disc_stal"
+    },
+    "I": {
+      "item": "minecraft:iron_block"
+    },
+    "S": {
+      "item": "minecraft:slime_ball"
+    }
+  },
+  "result": {
+    "id": "jojo_ripples:stand_disc",
+    "count": 1
+  }
+}

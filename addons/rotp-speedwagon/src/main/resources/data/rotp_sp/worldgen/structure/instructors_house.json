@@ -1,0 +1,7 @@
+{
+  "type": "rotp_sp:instructors_house",
+  "biomes": "#rotp_sp:has_structure/instructors_house",
+  "step": "surface_structures",
+  "terrain_adaptation": "beard_thin",
+  "spawn_overrides": {}
+}

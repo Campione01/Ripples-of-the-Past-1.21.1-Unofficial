@@ -1,0 +1,50 @@
+{
+  "entity.rotp_ctr.catch_the_rainbow": "Catch the Rainbow",
+  "entity.rotp_ctr.catch_the_rainbow_rain_blade1": "Rain Blade",
+  "entity.rotp_ctr.catch_the_rainbow_rain_blade2": "Rain Blade",
+  "entity.rotp_ctr.catch_the_rainbow_rain_blade3": "Rain Blade",
+  "stand.rotp_ctr.catch_the_rainbow": "Catch the Rainbow",
+
+  "action.rotp_ctr.catch_the_rainbow_rain_blade": "Rain Blade",
+  "action.rotp_ctr.catch_the_rainbow_rain_blades": "Aura of falling rain blades",
+  "action.rotp_ctr.catch_the_rainbow_rain_blades_disable": "Disable aura of rain blades",
+  "action.rotp_ctr.catch_the_rainbow_rain_stop": "\"Rain stop\" (%ss)",
+  "action.rotp_ctr.catch_the_rainbow_rain_resume": "Rain resume",
+
+  "action.rotp_ctr.catch_the_rainbow_rain_merge": "Rain Merge",
+  "action.rotp_ctr.catch_the_rainbow_rain_blink": "Rain Teleport",
+  "action.rotp_ctr.catch_the_rainbow_temp_health": "Temp Health",
+  "action.rotp_ctr.catch_the_rainbow_rain_redemption": "Redemption",
+
+  "rotp_ctr.ability.catch_the_rainbow_rain_blade": "Rain Blade",
+  "rotp_ctr.ability.catch_the_rainbow_rain_blades": "Aura of Falling Rain Blades",
+  "rotp_ctr.ability.catch_the_rainbow_rain_stop": "\"Rain Stop\" (%ss)",
+  "rotp_ctr.ability.catch_the_rainbow_rain_resume": "Rain Resume",
+  "rotp_ctr.ability.catch_the_rainbow_rain_blink": "Rain Teleport",
+  "rotp_ctr.ability.catch_the_rainbow_rain_merge": "Rain Merge",
+  "rotp_ctr.ability.catch_the_rainbow_temp_health": "Temp Health",
+  "rotp_ctr.ability.catch_the_rainbow_rain_redemption": "Redemption",
+
+  "effect.rotp_ctr.rain_merge_effect": "Rain merge",
+  "effect.rotp_ctr.rain_redemption_effect": "Redemption",
+
+  "item.rotp_ctr.catch_the_rainbow_mask_item": "Catch the Rainbow Mask",
+
+  "jojo.message.action_condition.needs_rain": "You must be standing in the rain to use this action",
+  "jojo.message.action_condition.not_enough_damage": "You must have 30% or less of health to use this",
+  "jojo.message.action_condition.little_bit_not_enough_damage": "You must have 90% or less of health to use this",
+  "jojo.message.action_condition.dont_have_redemption_or_temp_health": "You must have not Redemption or temporary health",
+  "jojo.message.action_condition.dont_have_merge_or_redemption": "You must have not Rain merge or Redemption effect",
+  "jojo.message.action_condition.dont_have_temp_health": "You must have not temporary health",
+  "jojo.message.action_condition.dont_have_merge": "You must have not Rain merge effect",
+  "jojo.message.action_condition.not_enough_stamina": "Not enough stamina",
+  "jojo.message.action_condition.catch_the_rainbow_not_summoned": "Catch the Rainbow must be summoned",
+
+  "item.rotp_ctr.umbrella": "Umbrella",
+  "item.rotp_ctr.umbrella.reference_quote": "Alfa version",
+  "item.rotp_ctr.revolver": "Revolver",
+  "item.rotp_ctr.revolver.reference_quote": "\"All I wanted was a place to come home to. Just a place to return to after my journeys...\"\nMade by August_Dr",
+  "item.rotp_ctr.revolver.reload_prompt": "%s+%s to reload (consumes iron nuggets and gunpowder)",
+
+  "rotp_ctr.subtitle.catch_the_rainbow_name": "\"Catch The Rainbow\""
+}

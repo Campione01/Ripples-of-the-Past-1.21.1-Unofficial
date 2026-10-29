@@ -1,0 +1,22 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "rotp.addons.heavensdoor.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "mixins": [
+    "EntityPersistentDataAccessor",
+    "CannotMoveLivingMixin",
+    "CannotMovePlayerMixin",
+    "CannotMoveMobMixin",
+    "CannotMoveHorseMixin",
+    "CannotMoveBoatMixin",
+    "CannotMoveAccelerationMixin",
+    "WrittenCommandTimerMixin"
+  ],
+  "client": [
+    "client.CannotMoveFovMixin"
+  ]
+}

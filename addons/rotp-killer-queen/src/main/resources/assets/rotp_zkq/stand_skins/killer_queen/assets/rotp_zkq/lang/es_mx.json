@@ -1,0 +1,22 @@
+{
+  "rotp_zkq.ability.punch": "Golpe",
+  "rotp_zkq.ability.heavy_punch": "Gancho",
+  "rotp_zkq.ability.kq_entitybomb": "Primera Bomba: Entidades",
+  "rotp_zkq.ability.kq_entity_explo": "Explotar Entidad",
+  "rotp_zkq.ability.kq_entity_quit": "Quitar bomba de entidad",
+  "rotp_zkq.ability.kq_itembomb": "Primera Bomba: Item",
+  "rotp_zkq.ability.kq_item_explo": "Explotar Item",
+  "rotp_zkq.ability.kq_block_bomb": "Primera Bomba: Bloque",
+  "rotp_zkq.ability.kq_block_explode": "Detonar Bloque",
+  "rotp_zkq.ability.kq_block_quit": "Quitar bomba de Bloque",
+  "rotp_zkq.ability.shear_heart_back": "Recoger Sheer Heart Attack",
+  "rotp_zkq.ability.kq_snow_bomb": "Nieve Explosiva",
+  "rotp_zkq.ability.snow_explode": "Explotar Proyectil",
+  "rotp_zkq.ability.time_mark": "Poner punto temporal",
+  "rotp_zkq.ability.kq_reset": "Retroceder Tiempo",
+  "rotp_zkq.ability.put_dust": "Pner Tercera Bomba",
+  "rotp_zkq.ability.quit_dust": "Quitar Tercera Bomba",
+  "rotp_zkq.ability.kq_bubble_bomb": "Burbuja Explosiva",
+  "rotp_zkq.ability.barrage": "Puñetazos",
+  "rotp_zkq.ability.guard": "Protejerse"
+}

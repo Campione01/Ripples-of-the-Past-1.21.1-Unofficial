@@ -1,0 +1,8 @@
+{
+  "skins": {
+    "rotp_zcs:pkmn": {
+      "stand_type": "rotp_zcs:cream_starter",
+      "color" : "0xB20000"
+    }
+  }
+}

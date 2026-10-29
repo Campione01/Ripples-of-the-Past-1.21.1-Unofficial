@@ -1,0 +1,36 @@
+{
+  "akira_rhcp": {
+    "subtitle": "rotp_rhcp.subtitle.rhcp_name",
+    "sounds": ["rotp_rhcp:stand_user/akira_rhcp", "rotp_rhcp:stand_user/akira_rhcp_2", "rotp_rhcp:stand_user/akira_rhcp_3"]
+  },
+  "rhcp_punch_light": {
+    "subtitle": "jojo_ripples.subtitle.stand_attack_light",
+    "sounds": ["rotp_rhcp:stand/rhcp_punch_light"]
+  },
+  "rhcp_punch_heavy": {
+    "subtitle": "jojo_ripples.subtitle.stand_attack_strong",
+    "sounds": ["rotp_rhcp:stand/rhcp_punch_heavy"]
+  },
+  "rhcp_punch_heavy_entity": {
+    "subtitle": "jojo_ripples.subtitle.stand_attack_strong",
+    "sounds": ["rotp_rhcp:stand/rhcp_punch_heavy_entity"]
+  },
+  "rhcp_cut": {
+    "sounds": ["rotp_rhcp:stand/rhcp_cut"]
+  },
+  "rhcp_this_is_the_end": {
+    "subtitle": "rotp_rhcp.subtitle.rhcp_this_is_the_end",
+    "sounds": ["rotp_rhcp:stand/rhcp_this_is_the_end"]
+  },
+  "rhcp_noise": {
+    "sounds": ["rotp_rhcp:stand/rhcp_noise"]
+  },
+  "rhcp_entering": {
+    "subtitle": "rotp_rhcp.subtitle.rhcp_electricity",
+    "sounds": ["rotp_rhcp:stand/rhcp_entering"]
+  },
+  "rhcp_electric_dash": {
+    "subtitle": "rotp_rhcp.subtitle.rhcp_electricity",
+    "sounds": ["rotp_rhcp:stand/rhcp_electric_dash"]
+  }
+}

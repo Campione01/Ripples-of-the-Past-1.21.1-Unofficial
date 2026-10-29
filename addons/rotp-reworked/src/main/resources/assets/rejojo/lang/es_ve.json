@@ -1,0 +1,16 @@
+{
+  "action.rejojo.the_world_ts_blink_recovery": "Recuperación del rompetiempo",
+  "action.rejojo.star_platinum_heavy_punch_ts": "Puñetazo rápido",
+  "action.rejojo.star_platinum_uppercut_ts": "Uppercut rápido",
+  "rejojo.ability.rejojo_the_world_ts_blink_recovery": "Recuperación del rompetiempo",
+  "rejojo.ability.rejojo_star_platinum_heavy_punch_ts": "Puñetazo rápido",
+  "rejojo.ability.rejojo_star_platinum_uppercut_ts": "Uppercut rápido",
+  "effect.rejojo.slowburn": "Quemadura lenta",
+  "rejojo.configuration.title": "Configuración de Ripples of the Past Reworked",
+  "rejojo.configuration.Ripples of the Past Reworked": "Ajustes de Reworked",
+  "rejojo.configuration.Ripples of the Past Reworked.tooltip": "Ajustes de Ripples of the Past Reworked.",
+  "rejojo.config.enableTSResolve": "Activar las recompensas de determinación del tiempo detenido de The World",
+  "rejojo.config.enableTSResolve.tooltip": "Activa las recompensas de determinación de The World por cada tick y al final del tiempo detenido. Las recompensas de la apisonadora y de los cuchillos múltiples son independientes.",
+  "rejojo.config.enableNewTSIcons": "Usar iconos de tiempo detenido propios de cada Stand",
+  "rejojo.config.enableNewTSIcons.tooltip": "Usa los iconos de habilidad de tiempo detenido propios de cada Stand en lugar de los iconos genéricos del núcleo."
+}

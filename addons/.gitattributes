@@ -1,0 +1,3 @@
+# The add-on sources are kept byte for byte (line endings included), so that
+# a build from a clone produces the same jars as the add-on workspace.
+* -text

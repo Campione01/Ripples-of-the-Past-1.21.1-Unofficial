@@ -1,0 +1,8 @@
+{
+  "entity.rotp_tl.the_lock": "心锁",
+  "stand.rotp_tl.the_lock": "心锁",
+  "item.rotp_tl.the_lock": "心锁",
+  "rotp_tl.ability.the_lock_set_lock": "设置心锁",
+  "rotp_tl.ability.the_lock_remove_lock": "解除心锁",
+  "rotp_tl.ability.the_lock_check_target": "检查目标"
+}

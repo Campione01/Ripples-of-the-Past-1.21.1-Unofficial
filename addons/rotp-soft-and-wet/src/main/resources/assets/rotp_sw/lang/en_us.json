@@ -1,0 +1,16 @@
+{
+  "stand.rotp_sw.soft_and_wet": "Soft And Wet",
+  "rotp_sw.subtitle.bubble_name": "\"Bubbles!\"",
+  "rotp_sw.subtitle.josuke_punch_heavy": "\"Heavy punch!\"",
+  "rotp_sw.subtitle.soft_and_wet_bubbles": "Soft And Wet fires bubbles",
+  "rotp_sw.subtitle.soft_and_wet_name": "\"Soft And Wet!\"",
+  "rotp_sw.subtitle.soft_and_wet_punch": "Soft And Wet punches",
+  "rotp_sw.subtitle.soft_and_wet_punch_heavy": "Soft And Wet heavy punch",
+  "rotp_sw.subtitle.soft_and_wet_shield": "Soft And Wet forms a bubble shield",
+  "rotp_sw.subtitle.soft_and_wet_shield_unsummon": "Soft And Wet launches an effect bubble",
+  "rotp_sw.subtitle.soft_and_wet_summon": "Soft And Wet manifests",
+  "rotp_sw.subtitle.soft_and_wet_unsummon": "Soft And Wet is withdrawn",
+  "rotp_sw.ability.manual_control": "Manual control",
+  "entity.rotp_sw.soft_and_wet": "Soft And Wet",
+  "entity.rotp_sw.soft_and_wet_bubble": "Soft And Wet Bubble"
+}

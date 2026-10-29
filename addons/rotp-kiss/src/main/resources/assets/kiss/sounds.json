@@ -1,0 +1,39 @@
+{
+  "kiss_summon": {
+    "sounds": [
+      "kiss:kiss_summon"
+    ]
+  },
+  "kiss_summon_voiceline": {
+    "sounds": [
+      "kiss:kiss1",
+      "kiss:kiss2"
+    ]
+  },
+  "kiss_lianda": {
+    "sounds": [
+      "kiss:lianda",
+      "kiss:lianda1"
+    ]
+  },
+  "kiss_teshuzhongji": {
+    "sounds": [
+      "kiss:teshuzhongji"
+    ]
+  },
+  "kiss_zhongji": {
+    "sounds": [
+      "kiss:zhongji"
+    ]
+  },
+  "kiss_tiezhi": {
+    "sounds": [
+      "kiss:tiezhi"
+    ]
+  },
+  "kiss_tiezhi2": {
+    "sounds": [
+      "kiss:tiezhi2"
+    ]
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "age=0": {
+      "model": "rotp_zwa:block/wa_ice_layer_0"
+    },
+    "age=1": {
+      "model": "rotp_zwa:block/wa_ice_layer_1"
+    },
+    "age=2": {
+      "model": "rotp_zwa:block/wa_ice_layer_2"
+    },
+    "age=3": {
+      "model": "rotp_zwa:block/wa_ice_layer_3"
+    }
+  }
+}

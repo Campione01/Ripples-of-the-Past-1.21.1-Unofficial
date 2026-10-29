@@ -1,0 +1,31 @@
+plugins {
+    id 'base'
+    id 'net.neoforged.moddev' version '2.0.105' apply false
+}
+
+// NeoForge, Minecraft, Parchment and the core's own version are read from the
+// core build in the parent directory, so the add-ons always follow the core.
+def coreProperties = new Properties()
+file('../gradle.properties').withInputStream { coreProperties.load(it) }
+def coreProperty = { String name ->
+    def value = coreProperties.getProperty(name)
+    if (value == null) {
+        throw new GradleException("../gradle.properties does not define ${name}")
+    }
+    value
+}
+def coreVersion = coreProperty('release_snapshot').toBoolean()
+        ? "${coreProperty('minecraft_version')}-${coreProperty('mod_version')}-${coreProperty('snapshot_version')}"
+        : "${coreProperty('minecraft_version')}-${coreProperty('mod_version')}"
+ext.core = [
+        coordinate                : "${coreProperty('mod_group_id')}:${coreProperty('file_name')}:${coreVersion}",
+        mod_id                    : coreProperty('mod_id'),
+        mod_version               : coreProperty('mod_version'),
+        neo_version               : coreProperty('neo_version'),
+        minecraft_version_range   : coreProperty('minecraft_version_range'),
+        loader_version_range      : coreProperty('loader_version_range'),
+        parchment_minecraft_version: coreProperty('parchment_minecraft_version'),
+        parchment_mappings_version: coreProperty('parchment_mappings_version')
+].asImmutable()
+
+version = rootProject.property('bundle_version')

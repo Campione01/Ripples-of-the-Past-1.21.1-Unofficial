@@ -1,0 +1,19 @@
+{
+  "entity.rotp_tl.the_lock": "心锁",
+  "stand.rotp_tl.the_lock": "心锁",
+  "item.rotp_tl.the_lock": "心锁",
+  "effect.rotp_tl.lock_effect": "心锁",
+  "action.rotp_tl.the_lock_set_lock": "设置心锁",
+  "action.rotp_tl.the_lock_remove_lock": "解除心锁",
+  "action.rotp_tl.the_lock_check_target": "检查目标",
+  "rotp_tl.ability.the_lock_set_lock": "设置心锁",
+  "rotp_tl.ability.the_lock_remove_lock": "解除心锁",
+  "rotp_tl.ability.the_lock_check_target": "检查目标",
+  "rotp_tl.message.no_target": "范围内没有生物目标",
+  "rotp_tl.message.target_locked": "该目标已经被心锁锁定",
+  "rotp_tl.message.no_locked_target": "范围内没有被锁定的目标",
+  "rotp_tl.message.player_target_required": "检查目标只能用于玩家",
+  "rotp_tl.message.valuable_slots": "%1$s 的物品栏中有 %2$s 个贵重物品槽位",
+  "jojo.message.action_condition.the_lock_not_summoned": "必须先召唤心锁",
+  "death.attack.self.harm.lock": "%1$s 被自己杀死了"
+}

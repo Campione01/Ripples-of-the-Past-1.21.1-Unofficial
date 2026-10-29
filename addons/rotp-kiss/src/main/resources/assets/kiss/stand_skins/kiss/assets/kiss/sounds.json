@@ -1,0 +1,46 @@
+{
+  "kiss_summon": {
+    "replace": true,
+    "sounds": [
+      "kiss:kiss_summon"
+    ]
+  },
+  "kiss_summon_voiceline": {
+    "replace": true,
+    "sounds": [
+      "kiss:kiss1",
+      "kiss:kiss2"
+    ]
+  },
+  "kiss_lianda": {
+    "replace": true,
+    "sounds": [
+      "kiss:lianda",
+      "kiss:lianda1"
+    ]
+  },
+  "kiss_teshuzhongji": {
+    "replace": true,
+    "sounds": [
+      "kiss:teshuzhongji"
+    ]
+  },
+  "kiss_zhongji": {
+    "replace": true,
+    "sounds": [
+      "kiss:zhongji"
+    ]
+  },
+  "kiss_tiezhi": {
+    "replace": true,
+    "sounds": [
+      "kiss:tiezhi"
+    ]
+  },
+  "kiss_tiezhi2": {
+    "replace": true,
+    "sounds": [
+      "kiss:tiezhi2"
+    ]
+  }
+}

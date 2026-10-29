@@ -1,0 +1,27 @@
+{
+    "neoforge:conditions":  [
+                                {
+                                    "type":  "neoforge:mod_loaded",
+                                    "modid":  "tconstruct"
+                                },
+                                {
+                                    "type":  "neoforge:not",
+                                    "value":  {
+                                                  "type":  "neoforge:tag_empty",
+                                                  "tag":  "c:gears/meteor"
+                                              }
+                                }
+                            ],
+    "type":  "tconstruct:casting_table",
+    "cast":  {
+                 "tag":  "tconstruct:casts/multi_use/gear"
+             },
+    "fluid":  {
+                  "tag":  "c:molten_meteor",
+                  "amount":  360
+              },
+    "result":  {
+                   "tag":  "c:gears/meteor"
+               },
+    "cooling_time":  114
+}

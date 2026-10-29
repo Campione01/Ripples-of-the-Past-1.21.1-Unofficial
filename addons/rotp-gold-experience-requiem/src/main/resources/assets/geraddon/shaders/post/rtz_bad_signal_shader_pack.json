@@ -1,0 +1,23 @@
+{
+    "targets":  [
+                    "rtz_cosmic",
+                    "rtz_signal"
+                ],
+    "passes":  [
+                   {
+                       "name":  "geraddon:rtz_cosmic_sky_screen",
+                       "intarget":  "minecraft:main",
+                       "outtarget":  "rtz_cosmic"
+                   },
+                   {
+                       "name":  "geraddon:rtz_bad_signal",
+                       "intarget":  "rtz_cosmic",
+                       "outtarget":  "rtz_signal"
+                   },
+                   {
+                       "name":  "blit",
+                       "intarget":  "rtz_signal",
+                       "outtarget":  "minecraft:main"
+                   }
+               ]
+}

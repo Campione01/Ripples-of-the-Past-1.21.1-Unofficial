@@ -1,0 +1,22 @@
+{
+  "entity.rotp_mandom.mandom": "男人领域",
+  "stand.rotp_mandom.mandom": "男人领域",
+  "action.rotp_mandom.time_rewind": "时间回溯",
+  "item.rotp_mandom.ringo_clock": "林可的手表",
+  "item.rotp_mandom.ringo_clock.reference_quote": "这就是，男子汉的世界",
+  "tooltip.rotp_mandom.ringo_clock": "%s秒，不多也不少，刚刚好%s秒",
+  "tooltip.rotp_mandom.rewind_unavailable": "时间回溯不可用：核心尚未提供完整的原子回溯事务。",
+  "rotp_mandom.stand_skins.purple": "男人领域（紫）",
+  "rotp_mandom.stand_skins.gray": "男人领域（灰）",
+  "rotp_mandom.stand_skins.acid": "男人领域（酸绿）",
+  "rotp_mandom.stand_skins.shadow": "男人领域（暗影）",
+  "rotp_mandom.subtitle.summon": "林可呼喊",
+  "rotp_mandom.subtitle.stand_summon": "男人领域显现",
+  "rotp_mandom.subtitle.stand_unsummon": "男人领域消散",
+  "rotp_mandom.ability.time_rewind": "时间回溯",
+  "message.rotp_mandom.rewind.history_not_ready": "男人领域需要六秒的历史记录。",
+  "message.rotp_mandom.rewind.wrong_dimension": "男人领域无法跨维度回溯。",
+  "message.rotp_mandom.rewind.unloaded_target": "男人领域无法安全回溯未加载的地形。",
+  "message.rotp_mandom.rewind.unsafe_history": "男人领域发现了无法安全还原的历史。",
+  "message.rotp_mandom.rewind.commit_failed": "回溯失败，男人领域已恢复现在的状态。"
+}

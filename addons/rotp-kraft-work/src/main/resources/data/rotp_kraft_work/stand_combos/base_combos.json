@@ -1,0 +1,31 @@
+{
+  "rotp_kraft_work:kraft_work": {
+    "use_by_resolve": {
+      "0lvl": ["basic_combo", "barrage_combo_v1"],
+      "1lvl": ["basic_combo", "basic_combo_alt", "barrage_combo_v2"],
+      "2lvl": ["basic_combo", "basic_combo_alt", "barrage_combo_v2"],
+      "3lvl": ["basic_combo", "basic_combo_alt", "barrage_combo_v2"],
+      "4lvl": ["basic_combo", "basic_combo_alt", "barrage_combo_v2"]
+    },
+    "block": "guard",
+    "basic_combo": [
+      { "action": "kraft_work_punch", "distance": "<=4" },
+      { "action": "kraft_work_punch", "distance": "<=4" },
+      { "action": "kraft_work_heavy_punch", "distance": "<=4" }
+    ],
+    "barrage_combo_v1": [
+      { "action": "kraft_work_barrage", "distance": "<=4" },
+      { "action": "kraft_work_heavy_punch", "distance": "<=4" }
+    ],
+    "basic_combo_alt": [
+      { "action": "kraft_work_punch", "distance": "<=4" },
+      { "action": "kraft_work_punch", "distance": "<=4" },
+      { "action": "kraft_work_punch", "distance": "<=4" },
+      { "action": "kraft_work_combo_punch", "distance": "<=4" }
+    ],
+    "barrage_combo_v2": [
+      { "action": "kraft_work_barrage", "distance": "<=4" },
+      { "action": "kraft_work_combo_punch", "distance": "<=4" }
+    ]
+  }
+}

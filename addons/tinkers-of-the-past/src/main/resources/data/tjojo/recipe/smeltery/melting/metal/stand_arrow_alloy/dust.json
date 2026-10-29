@@ -1,0 +1,25 @@
+{
+    "neoforge:conditions":  [
+                                {
+                                    "type":  "neoforge:mod_loaded",
+                                    "modid":  "tconstruct"
+                                },
+                                {
+                                    "type":  "neoforge:not",
+                                    "value":  {
+                                                  "type":  "neoforge:tag_empty",
+                                                  "tag":  "c:dusts/stand_arrow_alloy"
+                                              }
+                                }
+                            ],
+    "type":  "tconstruct:melting",
+    "ingredient":  {
+                       "tag":  "c:dusts/stand_arrow_alloy"
+                   },
+    "result":  {
+                   "tag":  "c:molten_stand_arrow_alloy",
+                   "amount":  90
+               },
+    "temperature":  700,
+    "time":  43
+}

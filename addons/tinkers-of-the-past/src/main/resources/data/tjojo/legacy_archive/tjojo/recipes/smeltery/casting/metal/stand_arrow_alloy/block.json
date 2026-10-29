@@ -1,0 +1,11 @@
+{
+  "type": "tconstruct:casting_basin",
+  "fluid": {
+    "tag": "forge:molten_stand_arrow_alloy",
+    "amount": 1296
+  },
+  "result": {
+    "tag": "forge:storage_blocks/stand_arrow_alloy"
+  },
+  "cooling_time": 171
+}

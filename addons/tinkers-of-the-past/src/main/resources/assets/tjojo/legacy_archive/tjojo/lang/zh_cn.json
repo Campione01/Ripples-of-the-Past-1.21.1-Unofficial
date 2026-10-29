@@ -1,0 +1,31 @@
+{
+    "_comment": "替身之箭",
+    "material.tjojo.stand_arrow_alloy": "替身之箭合金",
+    "block.jojo.stand_arrow_alloy_block": "替身之箭合金块",
+    "block.tjojo.stand_arrow_alloy_block.tooltip": "可作为信标基座",
+    "item.jojo.stand_arrow_alloy_nugget": "替身之箭合金粒",
+    "block.tjojo.molten_stand_arrow_alloy_fluid": "熔融替身之箭合金",
+    "fluid.tjojo.molten_stand_arrow_alloy": "熔融替身之箭合金",
+    "fluid.tjojo.flowing_molten_stand_arrow_alloy": "流动的熔融替身之箭合金",
+    "item.tjojo.molten_stand_arrow_alloy_bucket": "熔融替身之箭合金桶",
+
+    "_comment": "陨石",
+    "material.tjojo.meteor": "陨石",
+    "block.jojo.meteor_block": "陨石块",
+    "block.jojo.meteor_block.tooltip": "可作为信标基座",
+    "item.jojo.meteor_nugget": "陨石粒",
+    "item.jojo.meteor_ingot": "陨石锭",
+    "block.tjojo.molten_meteor_fluid": "熔融陨石",
+    "fluid.tjojo.molten_meteor": "熔融陨石",
+    "fluid.tjojo.flowing_molten_meteor": "流动的熔融陨石",
+    "item.tjojo.molten_meteor_bucket": "熔融陨石桶",
+
+    "_comment": "修饰符",
+    "modifier.tjojo.stando_arrow": "替身之箭",
+    "modifier.tjojo.stando_arrow.flavor": "你相信引力吗？",
+    "modifier.tjojo.stando_arrow.description": "使用该工具攻击可能赋予目标替身能力",
+
+    "modifier.tjojo.meteor_virus": "陨石病毒",
+    "modifier.tjojo.meteor_virus.flavor": "来自格陵兰",
+    "modifier.tjojo.meteor_virus.description": "未提纯状态，会使目标感染病毒"
+}

@@ -1,0 +1,11 @@
+{
+  "compatibilityLevel": "JAVA_8",
+  "package": "com.mrlang.neojojostand.mixin",
+  "refmap": "mixins.neojojostand.refmap.json",
+  "minVersion": "1.0",
+  "mixins": [
+  ],
+  "client": [
+    "TimeStopInstanceMixin"
+  ]
+}

@@ -1,0 +1,101 @@
+{
+  "format_version": "1.12.0",
+  "minecraft:geometry": [
+    {
+      "description": {
+        "identifier": "geometry.pearl_jam",
+        "texture_width": 256,
+        "texture_height": 256,
+        "visible_bounds_width": 2.5,
+        "visible_bounds_height": 2.0,
+        "visible_bounds_offset": [0, 0.65, 0]
+      },
+      "bones": [
+        {
+          "name": "torso_no_arms",
+          "pivot": [0, 8, 0]
+        },
+        {
+          "name": "member_center",
+          "parent": "torso_no_arms",
+          "pivot": [0, 11, 0],
+          "rotation": [0, -4, 0],
+          "cubes": [
+            {
+              "origin": [-4, 7, -1.75],
+              "size": [8, 8, 3.5],
+              "uv": {
+                "north": {"uv": [0, 0], "uv_size": [128, 128]},
+                "south": {"uv": [128, 0], "uv_size": [-128, 128]},
+                "east": {"uv": [82, 32], "uv_size": [26, 82]},
+                "west": {"uv": [18, 32], "uv_size": [26, 82]},
+                "up": {"uv": [32, 10], "uv_size": [64, 34]},
+                "down": {"uv": [34, 94], "uv_size": [60, 24]}
+              }
+            }
+          ]
+        },
+        {
+          "name": "member_left",
+          "parent": "torso_no_arms",
+          "pivot": [-7.75, 7.25, 1.5],
+          "rotation": [4, -22, -8],
+          "cubes": [
+            {
+              "origin": [-11, 4, 0],
+              "size": [6.5, 6.5, 3],
+              "uv": {
+                "north": {"uv": [128, 0], "uv_size": [128, 128]},
+                "south": {"uv": [256, 0], "uv_size": [-128, 128]},
+                "east": {"uv": [210, 32], "uv_size": [26, 82]},
+                "west": {"uv": [146, 32], "uv_size": [26, 82]},
+                "up": {"uv": [160, 10], "uv_size": [64, 34]},
+                "down": {"uv": [162, 94], "uv_size": [60, 24]}
+              }
+            }
+          ]
+        },
+        {
+          "name": "member_right",
+          "parent": "torso_no_arms",
+          "pivot": [7.75, 6.25, 2.5],
+          "rotation": [-3, 24, 10],
+          "cubes": [
+            {
+              "origin": [4.5, 3, 1],
+              "size": [6.5, 6.5, 3],
+              "uv": {
+                "north": {"uv": [0, 128], "uv_size": [128, 128]},
+                "south": {"uv": [128, 128], "uv_size": [-128, 128]},
+                "east": {"uv": [82, 160], "uv_size": [26, 82]},
+                "west": {"uv": [18, 160], "uv_size": [26, 82]},
+                "up": {"uv": [32, 138], "uv_size": [64, 34]},
+                "down": {"uv": [34, 222], "uv_size": [60, 24]}
+              }
+            }
+          ]
+        },
+        {
+          "name": "member_high",
+          "parent": "torso_no_arms",
+          "pivot": [5.375, 12.875, -3.625],
+          "rotation": [-10, 15, 6],
+          "cubes": [
+            {
+              "origin": [2.5, 10, -5],
+              "size": [5.75, 5.75, 2.75],
+              "uv": {
+                "north": {"uv": [128, 128], "uv_size": [128, 128]},
+                "south": {"uv": [256, 128], "uv_size": [-128, 128]},
+                "east": {"uv": [210, 160], "uv_size": [26, 82]},
+                "west": {"uv": [146, 160], "uv_size": [26, 82]},
+                "up": {"uv": [160, 138], "uv_size": [64, 34]},
+                "down": {"uv": [162, 222], "uv_size": [60, 24]}
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

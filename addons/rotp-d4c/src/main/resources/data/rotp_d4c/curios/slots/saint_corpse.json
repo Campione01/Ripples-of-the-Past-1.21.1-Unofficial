@@ -1,0 +1,8 @@
+{
+  "size": 9,
+  "order": 500,
+  "icon": "rotp_d4c:slot/gold_slot",
+  "validators": [
+    "curios:tag"
+  ]
+}

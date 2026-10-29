@@ -1,0 +1,22 @@
+{
+  "entity.rotp_ttr.ticket_to_ride": "§8§kl§r§l§g『聖人』§r§8§kl",
+  "stand.rotp_ttr.ticket_to_ride": "『淚之乘車券』",
+  "action.rotp_ttr.explod": "霹靂驚爆",
+  "action.rotp_ttr.givetears": "令其垂淚",
+  "rotp_ttr.ability.givetears": "令其垂淚",
+  "action.rotp_ttr.crash": "馬驚車覆",
+  "action.rotp_ttr.meteor": "『天動萬象』",
+  "action.rotp_ttr.change_weather_single": "雷霆震震，吾心惶惶",
+  "action.rotp_ttr.item_fill": "泪",
+  "action.rotp_ttr.repair": "注物完璧",
+  "action.rotp_ttr.change_weather": "兮",
+  "action.rotp_ttr.emiya": "射器生鏽，破傷風起 §m補強",
+  "item.rotp_ttr.tearsblade": "乳白瓊漿刃",
+  "jojo.message.action_condition.no_tears_effect": "未有受汝瓊漿者",
+  "jojo.message.action_condition.no_enchantable_item": "§c不可射於掌中或之物",
+  "message.trace_on.none": "§c不可受 this item 瓊漿,because 我不知道该怎么翻译了",
+  "jojo.message.action_condition.ammo_full": "已...滴涓不存",
+  "message.trace_on.success": "§b 瓊漿覆器，潤澤生輝(^▽^)",
+  "message.tears_blade.refilled": "瓊漿復盈",
+  "effect.rotp_ttr.tears": "瓊漿四濺，玉露橫流"
+}

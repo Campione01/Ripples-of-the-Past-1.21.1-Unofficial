@@ -1,0 +1,15 @@
+{
+  "rotp_waytoheaven.ability.whitesnake_frases": "十四密语",
+  "rotp_waytoheaven.ability.cmoon_heaven": "特异点",
+  "rotp_waytoheaven.ability.cmoon_heaven.param": "特异点位于 | %s %s %s",
+  "item.rotp_waytoheaven.bone": "迪奥的趾骨",
+  "item.rotp_waytoheaven.bone.sinners": "罪人灵魂：%s/%s",
+  "jojo.message.action_condition.no_c_moon": "你不知道通往天堂之路的细节",
+  "jojo.message.action_condition.no_madeinheaven": "你不知道如何抵达天堂制造",
+  "jojo.message.action_condition.no_bone": "你需要在副手持有吸收了36名罪人灵魂的骨头",
+  "jojo.message.action_condition.cm_heaven": "你还没有到达特异点",
+  "jojo.message.action_condition.evolution_failed": "替身进化未能完成",
+  "heaven.chat.command.lib.info": "如何获得“天堂制造”：\n1. 持有白蛇时，将迪奥的趾骨放在物品栏并击杀36名罪犯。\n2. 将充满灵魂的骨头放在副手，在觉悟等级4时持续使用“十四密语”，进化为新月。\n3. 在觉悟等级4时持续使用“特异点”，并抵达技能显示的坐标，进化为天堂制造。",
+  "heaven.chat.quest": "天堂制造的坐标：%s %s %s",
+  "commands.rotp_waytoheaven.bone.success": "已给予%s名玩家含有%s个罪人灵魂的骨头"
+}

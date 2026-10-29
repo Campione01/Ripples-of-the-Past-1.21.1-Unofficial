@@ -1,0 +1,28 @@
+{
+  "parent": "jojo_ripples:jojo/summon_stand",
+  "display": {
+    "icon": {
+      "id": "rotp_sex_pistols:four_attack_icon"
+    },
+    "title": {
+      "translate": "advancements.rotp_sex_pistols.four_attack.title"
+    },
+    "description": {
+      "translate": "advancements.rotp_sex_pistols.four_attack.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "criteria": {
+    "four_attack": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "four_attack"
+    ]
+  ]
+}

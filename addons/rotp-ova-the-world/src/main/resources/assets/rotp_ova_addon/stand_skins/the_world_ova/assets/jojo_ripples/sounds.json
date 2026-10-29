@@ -1,0 +1,29 @@
+{
+    "the_world_time_stop":  {
+                                "replace":  true,
+                                "sounds":  [
+                                               {
+                                                   "name":  "rotp_ova_addon:the_world_ova_time_stop",
+                                                   "type":  "event"
+                                               }
+                                           ]
+                            },
+    "the_world_time_resume":  {
+                                  "replace":  true,
+                                  "sounds":  [
+                                                 {
+                                                     "name":  "rotp_ova_addon:the_world_ova_time_resume",
+                                                     "type":  "event"
+                                                 }
+                                             ]
+                              },
+    "the_world_time_stop_blink":  {
+                                      "replace":  true,
+                                      "sounds":  [
+                                                     {
+                                                         "name":  "rotp_ova_addon:the_world_ova_ts_blink",
+                                                         "type":  "event"
+                                                     }
+                                                 ]
+                                  }
+}

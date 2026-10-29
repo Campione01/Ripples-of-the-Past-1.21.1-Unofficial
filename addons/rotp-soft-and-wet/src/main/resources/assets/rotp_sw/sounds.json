@@ -1,0 +1,92 @@
+{
+  "josuke_soft_and_wet": {
+    "subtitle": "rotp_sw.subtitle.soft_and_wet_name",
+    "sounds": [
+      "rotp_sw:stand_user/josuke_soft_and_wet",
+      "rotp_sw:stand_user/josuke_soft_and_wet_2"
+    ]
+  },
+  "josuke_bubble_shoot": {
+    "subtitle": "rotp_sw.subtitle.bubble_name",
+    "sounds": [
+      "rotp_sw:stand_user/josuke_bubble_shoot",
+      "rotp_sw:stand_user/josuke_bubble_shoot_2"
+    ]
+  },
+  "josuke_punch_heavy": {
+    "subtitle": "rotp_sw.subtitle.josuke_punch_heavy",
+    "sounds": [
+      "rotp_sw:stand_user/josuke_punch_heavy"
+    ]
+  },
+  "soft_and_wet_punch": {
+    "subtitle": "rotp_sw.subtitle.soft_and_wet_punch",
+    "sounds": [
+      "rotp_sw:stand/soft_and_wet_punch"
+    ]
+  },
+  "soft_and_wet_bubbles": {
+    "subtitle": "rotp_sw.subtitle.soft_and_wet_bubbles",
+    "sounds": [
+      "rotp_sw:stand/soft_and_wet_bubbles"
+    ]
+  },
+  "soft_and_wet_shield_unsummon": {
+    "subtitle": "rotp_sw.subtitle.soft_and_wet_shield_unsummon",
+    "sounds": [
+      "rotp_sw:stand/soft_and_wet_shield_unsummon",
+      "rotp_sw:stand/soft_and_wet_shield_unsummon_2"
+    ]
+  },
+  "soft_and_wet_shield": {
+    "subtitle": "rotp_sw.subtitle.soft_and_wet_shield",
+    "sounds": [
+      "rotp_sw:stand/soft_and_wet_bubbles"
+    ]
+  },
+  "soft_and_wet_barrage": {
+    "subtitle": "rotp_sw.subtitle.soft_and_wet_punch",
+    "sounds": [
+      "rotp_sw:stand/soft_and_wet_punch"
+    ]
+  },
+  "soft_and_wet_punch_heavy": {
+    "subtitle": "rotp_sw.subtitle.soft_and_wet_punch_heavy",
+    "sounds": [
+      "rotp_sw:stand/soft_and_wet_punch_heavy"
+    ]
+  },
+  "soft_and_wet_summon": {
+    "subtitle": "rotp_sw.subtitle.soft_and_wet_summon",
+    "sounds": [
+      "rotp_sw:stand/soft_and_wet_summon"
+    ]
+  },
+  "soft_and_wet_unsummon": {
+    "subtitle": "rotp_sw.subtitle.soft_and_wet_unsummon",
+    "sounds": [
+      "rotp_sw:stand/soft_and_wet_unsummon"
+    ]
+  },
+  "soft_and_wet_ora_ora_ora": {
+    "subtitle": "jojo_ripples.subtitle.ora_rush",
+    "sounds": [
+      "rotp_sw:stand/soft_and_wet_ora_ora_ora",
+      "rotp_sw:stand/soft_and_wet_ora_ora_ora_2"
+    ]
+  },
+  "soft_and_wet_ora": {
+    "subtitle": "jojo_ripples.subtitle.ora",
+    "sounds": [
+      "rotp_sw:stand/soft_and_wet_ora",
+      "rotp_sw:stand/soft_and_wet_ora_2"
+    ]
+  },
+  "soft_and_wet_ora_long": {
+    "subtitle": "jojo_ripples.subtitle.ora",
+    "sounds": [
+      "rotp_sw:stand/soft_and_wet_ora",
+      "rotp_sw:stand/soft_and_wet_ora_2"
+    ]
+  }
+}

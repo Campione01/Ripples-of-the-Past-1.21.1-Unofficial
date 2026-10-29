@@ -1,0 +1,18 @@
+{
+  "rotp_pj.ability.pj_diagnose": "诊断",
+  "rotp_pj.ability.pj_inject": "注入食物",
+  "rotp_pj.ability.pj_inject.param": "注入 %s",
+  "rotp_pj.ability.pj_poison_inject": "食物下毒",
+  "rotp_pj.ability.pj_poison_inject.param": "给 %s 下毒",
+  "rotp_pj.ability.pj_unject": "移除注入",
+  "rotp_pj.ability.pj_unject.param": "移除 %s 的注入",
+  "rotp_pj.ability.pj_craft_passive": "合成时注入",
+  "rotp_pj.ability.pj_craft_passive.on": "合成时注入：开",
+  "rotp_pj.ability.pj_craft_passive.off": "合成时注入：关",
+  "rotp_pj.ability.pj_hand_toggle": "选定的手",
+  "rotp_pj.ability.pj_hand_toggle.main": "选定的手：主手",
+  "rotp_pj.ability.pj_hand_toggle.off": "选定的手：副手",
+  "rotp_pj.ability.pj_secret_by_chef": "厨师署名",
+  "rotp_pj.ability.pj_secret_by_chef.shown": "厨师署名：显示",
+  "rotp_pj.ability.pj_secret_by_chef.hidden": "厨师署名：隐藏"
+}

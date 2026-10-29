@@ -1,0 +1,25 @@
+{
+  "required": true,
+  "compatibilityLevel": "JAVA_8",
+  "package": "com.hk47bit.rotp_ul.mixin",
+  "refmap": "mixins.rotp_ul.refmap.json",
+  "minVersion": "0.8",
+  "mixins": [
+    "BlockMixin",
+    "DamageUtilMixin",
+    "LivingWallClimbingMixin",
+    "PillarmanModeCommandMixin",
+    "PlayerEntityMixin",
+    "StunEffectMixin",
+    "TimeStopMixin",
+    "UltimateLifeformLiquidWalkingMixin"
+  ],
+  "client": [
+    "BarsRendererMixin",
+    "ClDoubleShiftPressPacketMixin",
+    "KosmXWallClimbHandlerMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

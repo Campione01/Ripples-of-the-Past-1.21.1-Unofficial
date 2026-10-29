@@ -1,0 +1,22 @@
+{
+  "stand.rotp_echoes.echoes_act3": "Echoes ACT3",
+  "stand.rotp_echoes.echoes_act2": "Echoes ACT2",
+  "rotp_echoes.ability.punch": "Yumruk",
+  "rotp_echoes.ability.barrage": "Yağmur",
+  "rotp_echoes.ability.heavy_punch": "Ağır Yumruk",
+  "rotp_echoes.ability.finisher": "Bitirici",
+  "rotp_echoes.ability.guard": "Blok",
+  "rotp_echoes.ability.degrade_to_act2": "Gerileme",
+  "rotp_echoes.ability.freeze": "Dondurma",
+  "rotp_echoes.ability.hand_freeze": "El Dondurma",
+  "rotp_echoes.ability.freeze_self": "Kendini Dondurma",
+  "rotp_echoes.ability.gravity_infuse": "Yerçekimi Enjeksiyonu",
+  "rotp_echoes.ability.gravity_projectile": "Yerçekimi Mermisi",
+  "rotp_echoes.ability.act2_punch": "Hafif Saldırı",
+  "rotp_echoes.ability.act2_heavy_punch": "Ağır Saldırı",
+  "rotp_echoes.ability.act2_finisher": "Kuyruk Sokması",
+  "rotp_echoes.ability.act2_guard": "Blok",
+  "rotp_echoes.ability.evolve_to_act3": "Evrim",
+  "rotp_echoes.tooltip.gravity_infused": "Yerçekimi ile yüklü",
+  "rotp_echoes.tooltip.gravity_infused.desc": "Tutmak seni yerçekimiyle ezecek"
+}

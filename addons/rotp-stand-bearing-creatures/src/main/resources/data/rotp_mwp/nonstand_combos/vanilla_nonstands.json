@@ -1,0 +1,61 @@
+{
+  "jojo_ripples:hamon": {
+    "maintenance": {
+      "action": "hamon_breath",
+      "condition": "energy < 30%"
+    },
+    "overdrive_combo": [
+      { "action": "hamon_overdrive", "distance": "<3" },
+      { "action": "overdrive_barrage", "distance": "<4", "requiredStamina": 700 }
+    ],
+    "ranged_combo": [
+      { "action": "zoom_punch", "distance": ">5", "requiredStamina": 450 },
+      { "action": "hamon_cutter", "distance": ">4", "requiredStamina": 400 }
+    ],
+    "bubble_combo": [
+      { "action": "bubble_launcher", "distance": ">5", "requiredStamina": 500 },
+      { "action": "bubble_cutter", "distance": ">6", "requiredStamina": 500 }
+    ]
+  },
+  "jojo_ripples:vampirism": {
+    "maintenance": {
+      "action": "vampirism_blood_drain",
+      "condition": "blood < 50%"
+    },
+    "drain_combo": [
+      { "action": "vampirism_claw_lacerate", "distance": "<3" },
+      { "action": "vampirism_blood_drain", "distance": "<2" }
+    ],
+    "freeze_combo": [
+      { "action": "vampirism_claw_lacerate", "distance": "<3" },
+      { "action": "vampirism_freeze", "distance": "<2.5" }
+    ],
+    "ultimate_combo": [
+      { "action": "vampirism_space_ripper_stingy_eyes", "distance": ">8" }
+    ]
+  },
+  "jojo_ripples:pillarman": {
+    "maintenance": {
+      "action": "pillarman_absorption",
+      "condition": "blood < 60%"
+    },
+    "blade_combo": [
+      { "action": "pillarman_blade_slash", "distance": "<3" },
+      { "action": "pillarman_blade_barrage", "distance": "<4" }
+    ],
+    "sandstorm_combo": [
+      { "action": "pillarman_small_sandstorm", "distance": "<8" },
+      { "action": "pillarman_divine_sandstorm", "distance": "<10" }
+    ]
+  },
+  "jojo_ripples:zombie": {
+    "maintenance": {
+      "action": "zombie_devour",
+      "condition": "blood < 70%"
+    },
+    "basic_combo": [
+      { "action": "zombie_claw_lacerate", "distance": "<3" },
+      { "action": "zombie_devour", "distance": "<2" }
+    ]
+  }
+}

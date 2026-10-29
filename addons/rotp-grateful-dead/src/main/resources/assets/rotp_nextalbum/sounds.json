@@ -1,0 +1,9 @@
+{
+  "the_grateful_dead": {
+    "subtitle": "rotp_nextalbum.subtitle.the_grateful_dead",
+    "sounds": [
+      "rotp_nextalbum:stand_user/the_grateful_dead",
+      "rotp_nextalbum:stand_user/grateful_dead"
+    ]
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "stand.rotp_sw.soft_and_wet": "软又湿",
+  "rotp_sw.ability.manual_control": "手动控制",
+  "entity.rotp_sw.soft_and_wet": "软又湿",
+  "entity.rotp_sw.soft_and_wet_bubble": "软又湿泡泡",
+  "rotp_sw.subtitle.bubble_name": "“泡泡！”",
+  "rotp_sw.subtitle.josuke_punch_heavy": "「重拳声！」",
+  "rotp_sw.subtitle.soft_and_wet_bubbles": "软又湿发射泡泡",
+  "rotp_sw.subtitle.soft_and_wet_name": "“软又湿！”",
+  "rotp_sw.subtitle.soft_and_wet_punch": "出拳声",
+  "rotp_sw.subtitle.soft_and_wet_punch_heavy": "重拳声",
+  "rotp_sw.subtitle.soft_and_wet_shield": "软又湿形成泡泡罩",
+  "rotp_sw.subtitle.soft_and_wet_shield_unsummon": "软又湿发射效果泡泡",
+  "rotp_sw.subtitle.soft_and_wet_summon": "『软又湿』显形",
+  "rotp_sw.subtitle.soft_and_wet_unsummon": "收回『软又湿』"
+}

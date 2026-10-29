@@ -1,0 +1,15 @@
+{
+  "required": true,
+  "minVersion": "0.7",
+  "package": "com.thedoggy.spice_girl_addon.mixin",
+  "refmap": "mixins.rotp_sg.refmap.json",
+  "compatibilityLevel": "JAVA_8",
+  "mixins": [
+    "BlockMixin"
+  ],
+  "client": [
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "rotp.addons.lovers.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "PlayerAcceptedDamageMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

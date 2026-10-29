@@ -1,0 +1,13 @@
+{
+  "entity.rotp_lovers.lovers": "Lovers",
+  "stand.rotp_lovers.lovers": "Lovers",
+  "rotp_lovers.ability.into_entity": "Enter Creature",
+  "rotp_lovers.ability.retract": "Retract Stand",
+  "rotp_lovers.config.multiple_damage": "Lovers Damage Multiplier",
+  "rotp_lovers.configuration.title": "RotP - Lovers Configuration",
+  "rotp_lovers.configuration.section.rotp.lovers.common.toml": "Common Settings",
+  "rotp_lovers.configuration.section.rotp.lovers.common.toml.title": "Lovers Common Configuration",
+  "rotp_lovers.configuration.Lovers Settings": "Lovers Settings",
+  "rotp_lovers.configuration.Lovers Settings.tooltip": "Damage settings for Lovers.",
+  "rotp_lovers.config.multiple_damage.tooltip": "Multiple damage for all attacks sent to the entity containing Lovers. Defaults to 1."
+}

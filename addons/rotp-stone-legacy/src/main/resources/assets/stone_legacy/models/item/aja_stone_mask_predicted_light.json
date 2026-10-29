@@ -1,0 +1,14 @@
+{
+  "parent": "item/generated",
+  "textures": {
+    "layer0": "stone_legacy:item/aja_stone_mask_predicted_light"
+  },
+  "overrides": [
+    {
+      "predicate": {
+        "stone_legacy:item/aja_stone_mask_predicted_light_activated": 1
+      },
+      "model": "stone_legacy:item/aja_stone_mask_predicted_light_activated"
+    }
+  ]
+}

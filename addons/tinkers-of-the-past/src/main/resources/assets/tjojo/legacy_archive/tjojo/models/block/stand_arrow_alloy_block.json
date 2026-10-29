@@ -1,0 +1,6 @@
+{
+  "parent": "block/cube_all",
+  "textures": {
+    "all": "tjojo:block/stand_arrow_block"
+  }
+}

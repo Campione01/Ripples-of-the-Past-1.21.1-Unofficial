@@ -1,0 +1,20 @@
+{
+  "required": true,
+  "compatibilityLevel": "JAVA_8",
+  "package": "com.doggys_tilt.rotp_t.mixin",
+  "refmap": "mixins.rotp_t.refmap.json",
+  "minVersion": "0.8",
+  "mixins": [
+    "StandEntityMixin",
+    "StandPowerMixin",
+    "StandTypeMixin",
+    "TimeStopHandlerMixin",
+    "client.ClDoubleShiftPressPacketMixin"
+  ],
+  "client": [
+    "PlayerModelMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

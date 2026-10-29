@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "rotp_sex_pistols:revolver_casing"
+    }
+  ],
+  "result": {
+    "id": "minecraft:iron_nugget"
+  }
+}

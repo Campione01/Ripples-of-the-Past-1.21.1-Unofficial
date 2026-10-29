@@ -1,0 +1,12 @@
+{
+  "type": "tconstruct:material",
+  "ingredient": {
+    "tag": "forge:storage_blocks/stand_arrow_alloy"
+  },
+  "value": 9,
+  "needed": 1,
+  "material": "tjojo:stand_arrow_alloy",
+  "leftover": {
+    "tag": "forge:ingots/stand_arrow_alloy"
+  }
+}

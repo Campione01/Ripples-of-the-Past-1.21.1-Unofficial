@@ -1,0 +1,42 @@
+[
+  {
+    "name": "intro",
+    "data": "sections/intro.json",
+    "icon": {
+      "item": {
+        "id": "minecraft:ender_pearl"
+      }
+    }
+  },
+  {
+    "name": "tools",
+    "data": "sections/tools.json",
+    "icon": {
+      "item": {
+        "id": "tdelight:mace",
+        "nbt": {
+        	"tic_materials" : [ "tconstruct:hepatizon", "tdelight:malachite", "tconstruct:cobalt", "tdelight:malachite" ]
+        }
+      }
+    }
+  },
+  {
+    "name": "modifiers",
+    "data": "sections/modifiers.json",
+    "icon": {
+      "item": {
+        "id": "minecraft:heart_of_the_sea"
+      }
+    }
+  },
+  {
+    "name": "energistics_materials",
+    "data": "sections/materials.json",
+    "icon": {
+      "item": {
+        "id": "tconstruct:pickaxe_head",
+        "nbt": {"Material" : "tdelight:malachite"}
+      }
+    }
+  }
+]

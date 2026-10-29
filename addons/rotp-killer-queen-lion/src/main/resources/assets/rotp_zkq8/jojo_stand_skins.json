@@ -1,0 +1,36 @@
+{
+  "skins": {
+    "rotp_zkq8:skina": {
+      "stand_type": "rotp_zkq8:killer_queen",
+      "color" : "0xFECCCF"
+    },
+    "rotp_zkq8:skinb": {
+      "stand_type": "rotp_zkq8:killer_queen",
+      "color" : "0x94E5AB"
+    },
+    "rotp_zkq8:skinc": {
+      "stand_type": "rotp_zkq8:killer_queen",
+      "color" : "0xF8BB3D"
+    },
+    "rotp_zkq8:skind": {
+      "stand_type": "rotp_zkq8:killer_queen",
+      "color" : "0x190522"
+    },
+    "rotp_zkq8:skine": {
+      "stand_type": "rotp_zkq8:killer_queen",
+      "color" : "0xF1B8D2"
+    },
+    "rotp_zkq8:skinf": {
+      "stand_type": "rotp_zkq8:killer_queen",
+      "color" : "0xEE940C"
+    },
+    "rotp_zkq8:sking": {
+      "stand_type": "rotp_zkq8:killer_queen",
+      "color" : "0xEE940C"
+    },
+    "rotp_zkq8:skinh": {
+      "stand_type": "rotp_zkq8:killer_queen",
+      "color" : "0xE3F3F3"
+    }
+  }
+}

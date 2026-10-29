@@ -1,0 +1,29 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "ESE",
+    "IDI",
+    "ENE"
+  ],
+  "key": {
+    "D": {
+      "item": "jojo_ripples:stand_remover_one_time"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "E": {
+      "item": "minecraft:emerald"
+    },
+    "S": {
+      "item": "minecraft:slime_ball"
+    },
+    "N": {
+      "item": "minecraft:netherite_ingot"
+    }
+  },
+  "result": {
+    "id": "jojo_ripples:stand_eject_one_time",
+    "count": 1
+  }
+}

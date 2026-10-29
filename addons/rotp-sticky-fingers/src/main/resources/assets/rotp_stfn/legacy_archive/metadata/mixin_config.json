@@ -1,0 +1,33 @@
+{
+  "required": true,
+  "compatibilityLevel": "JAVA_8",
+  "package": "com.hk47bot.rotp_stfn.mixin",
+  "refmap": "mixins.rotp_stfn.refmap.json",
+  "minVersion": "0.8",
+  "mixins": [
+    "AbstractBlockStateMixin",
+    "CDHealMixin",
+    "EntityMixin",
+    "GoldExperienceHealMixin",
+    "HandMixin",
+    "OwnerBoundProjectileEntityMixin",
+    "PlayerEntityMixin",
+    "PrevBlockInfoMixin",
+    "ServerPlayNetHandlerMixin",
+    "StandTypeMixin",
+    "StandUtilMixin",
+    "client.ClDoubleShiftPressPacketMixin"
+  ],
+  "client": [
+    "client.ArmorStandArmorModelMixin",
+    "client.BipedModelMixin",
+    "client.ClientPlayerMixin",
+    "client.GameRendererMixin",
+    "client.IllagerModelMixin",
+    "client.LivingRendererInvoker",
+    "client.ModelRendererMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

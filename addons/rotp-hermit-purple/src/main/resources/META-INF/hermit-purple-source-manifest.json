@@ -1,0 +1,513 @@
+{
+  "schema": 3,
+  "scope": "formal-full-hermit-purple-closure",
+  "status": "complete-static-with-no-known-runtime-omissions-and-pending-live-matrix",
+  "canonical": {
+    "inventory_row": 70,
+    "artifact": "RotP-紫色隐者-1.3.5d.jar",
+    "absolute_path": "RotP-紫色隐者-1.3.5d.jar",
+    "bytes": 3648911,
+    "sha256": "BEC55C7EB3A3C2654837740BC56D2CC97D25D4AAE39F20FBC58A8DF0044C3AA6",
+    "mod_id": "rotp_zhp",
+    "version": "1.3.5d",
+    "display_name": "RotP 紫色隐者",
+    "authors": "Makuta Zeml; StandoByte; skins and icons by MlgMC'Funkadelic'Player",
+    "declared_license": "GNU GPL v3.0",
+    "jar_entries": 426,
+    "class_entries": 106,
+    "asset_entries": 312,
+    "data_entries": 2,
+    "json_entries": 27,
+    "png_entries": 255,
+    "ogg_entries": 34
+  },
+  "deduplication": {
+    "root": "rotp附属反编译",
+    "canonical": "061_RotP-紫色隐者-1.3.5d",
+    "redundant_mirrors": [
+      "062_RotP-紫色隐者-1.3.5d",
+      "063_RotP-紫色隐者-1.3.5d"
+    ],
+    "candidate_file_count": 88,
+    "candidate_java_count": 87,
+    "candidate_bytes": 443284,
+    "tree_sha256": "478CCCEF0EC11AFE8E4CD7F85C642FF76F9A6AEA0CBBD42CE3266F6AD1D936DF",
+    "file_differences": 0
+  },
+  "logical_units": {
+    "active": "Hermit Purple",
+    "excluded": "The Emperor",
+    "excluded_reason": "The Emperor has an independent Stand type, item, projectile, actions, renderer, sounds, and current split addon id rotp_zemperor."
+  },
+  "optional_compatibility": {
+    "mod_id": "rotp_zemperor",
+    "metadata_dependency": "optional",
+    "ordering": "AFTER",
+    "side": "BOTH",
+    "status": "co-load-compatible",
+    "evidence": "This module registers no Emperor ids, classes, items, entities, sounds, or resources and has no direct rotp_zemperor ABI call."
+  },
+  "registrations": {
+    "stand_types": [
+      "rotp_zhp:hermito_purple"
+    ],
+    "abilities": [
+      "rotp_zhp:hp_vine_attack",
+      "rotp_zhp:hp_vine_shift",
+      "rotp_zhp:hp_grab",
+      "rotp_zhp:hp_grab_od",
+      "rotp_zhp:hp_grab_sc",
+      "rotp_zhp:hp_grab_heal",
+      "rotp_zhp:hp_block",
+      "rotp_zhp:hp_vine",
+      "rotp_zhp:hp_vine_entity",
+      "rotp_zhp:hp_barrier",
+      "rotp_zhp:hp_unbarrier",
+      "rotp_zhp:cringe",
+      "rotp_zhp:hp_breath",
+      "rotp_zhp:hp_doxx",
+      "rotp_zhp:hp_camera",
+      "rotp_zhp:hp_target",
+      "rotp_zhp:hp_beat"
+    ],
+    "entities": [
+      "rotp_zhp:hermito_purple",
+      "rotp_zhp:hp_vine",
+      "rotp_zhp:hp_grab_vine",
+      "rotp_zhp:hp_grappling_vine",
+      "rotp_zhp:hp_barrier"
+    ],
+    "sounds": [
+      "rotp_zhp:hp_summon",
+      "rotp_zhp:hp_unsummon",
+      "rotp_zhp:hp_grap",
+      "rotp_zhp:hp_grp_ent",
+      "rotp_zhp:hp_throw",
+      "rotp_zhp:hp_spark",
+      "rotp_zhp:joseph_hp",
+      "rotp_zhp:joseph_od",
+      "rotp_zhp:joseph_throw",
+      "rotp_zhp:joseph_over_drive",
+      "rotp_zhp:joseph_breath",
+      "rotp_zhp:joseph_cringe",
+      "rotp_zhp:jonathan_throw",
+      "rotp_zhp:jonathan_at",
+      "rotp_zhp:jonathan_over_drive",
+      "rotp_zhp:web_sling"
+    ],
+    "skins": [
+      "hermito_purple",
+      "skina",
+      "skinb",
+      "skinc",
+      "skind",
+      "skine",
+      "skinf",
+      "sking",
+      "skinh",
+      "passion",
+      "jonathan_passion",
+      "jonathan",
+      "spider_man"
+    ]
+  },
+  "acquisition": {
+    "stand_id": "rotp_zhp:hermito_purple",
+    "random_weight": 2.0,
+    "arrow_pool_eligible": true,
+    "arrow_tag": "data/jojo_ripples/ripples_tags/stands/player_can_get_from_arrow.json"
+  },
+  "controls": {
+    "profile": "current-input-standards",
+    "visual_topology": "H4",
+    "direct": [
+      "LMB CLICK -> hp_vine_attack",
+      "RMB HOLD -> hp_block"
+    ],
+    "special_hotbar": [
+      "hp_grab HOLD",
+      "cringe CLICK",
+      "hp_breath HOLD",
+      "hp_doxx HOLD",
+      "hp_target CLICK",
+      "hp_vine HOLD",
+      "hp_barrier CLICK"
+    ],
+    "variations": [
+      "SHIFT hp_vine_attack -> hp_vine_shift CLICK",
+      "SHIFT hp_vine -> hp_vine_entity HOLD",
+      "SHIFT hp_barrier -> hp_unbarrier CLICK"
+    ],
+    "shared_melee": "not registered",
+    "shared_grab": "not forced; hp_grab remains a Hermit Purple vine special"
+  },
+  "semantic_units": [
+    {
+      "legacy": "HermitPurpleStandType, HermitPurpleEntity, AddonStands, InitEntities, InitStands",
+      "status": "complete",
+      "current": "HermitPurpleStandType plus invisible no-save HermitPurpleStandEntity controller",
+      "evidence": "Legacy stats, random weight policy, summon/unsummon sounds, target state, barrier ownership, leap gates, and H4 zero-size controller are represented."
+    },
+    {
+      "legacy": "HPVineAttack and HPVineEntity",
+      "status": "complete",
+      "current": "HermitVineAttackAbility and HermitVineProjectileEntity",
+      "evidence": "Two bounded lashes, damage, knockback, binding, Hamon charge, finisher gain, voices, and cleanup are server-owned."
+    },
+    {
+      "legacy": "HPVineAttack shift co-fire",
+      "status": "complete-current-api",
+      "current": "HermitHamon.fireLearnedAbility",
+      "evidence": "The binding lash checks learned Hamon Cutter then Bubble Cutter and invokes the current named player abilities through their public condition and input APIs."
+    },
+    {
+      "legacy": "HPGrabCommand, HPGrapple, HPGrapplingVineEntity, HPVineGrabEntity",
+      "status": "complete",
+      "current": "HermitGrappleAbility and HermitGrappleVineEntity",
+      "evidence": "Command grab, block grapple, entity grapple variation, pull/bind behavior, Hamon charge, hold release, hard bounds, and cleanup are represented."
+    },
+    {
+      "legacy": "HPGrabOverdrive, HPGrabScarlet, HPGrabHealOverDrive, BeatFollowUp",
+      "status": "complete",
+      "current": "HermitHamonFollowupAbility",
+      "evidence": "Context replacement, required skills, stamina or energy, damage, fire, healing, Hamon points, voices, and tether release are represented."
+    },
+    {
+      "legacy": "HPThorns, GameplayHandler.blockDamage",
+      "status": "complete",
+      "current": "HermitThornsAbility and HermitPurpleGameEvents.onIncomingDamage",
+      "evidence": "Hold stamina, physical-source filter, durability reduction, thorns reflection, and charged Hamon reflection are server-owned."
+    },
+    {
+      "legacy": "HPAttachBarrier, HPUnattachBarrier, HPVineBarrierEntity, HPBarriersNet",
+      "status": "complete",
+      "current": "HermitBarrierAbility, HermitBarrierVineEntity, and controller barrier collection",
+      "evidence": "Placement cap, removal variation, chain collision, damage, Hamon damage, ripped state, color/alpha rendering, lifecycle cleanup, and loaded-state bounds are represented."
+    },
+    {
+      "legacy": "HPCringe",
+      "status": "complete",
+      "current": "HermitNoopAbility.CringeAction",
+      "evidence": "Despite the compatibility class name, the action consumes stamina, applies cooldown, and plays the canonical voice."
+    },
+    {
+      "legacy": "HamonBreath and MixinHamonData",
+      "status": "complete-current-api",
+      "current": "HermitBreathAbility",
+      "evidence": "Current HamonData.tickHamonBreath is public; the hold action invokes it server-side and uses current cancellable looping sound support without a mixin."
+    },
+    {
+      "legacy": "HPDoxx, HPHelperDox, TargetSelected, StandTarget, RemoveStandTarget, commands",
+      "status": "complete",
+      "current": "HermitDivination, HermitDivinationAbility, and HermitPurpleCommands",
+      "evidence": "Random, player, Stand, entity, structure, and biome targets; target labels; maps; detector glow; and command selection are represented."
+    },
+    {
+      "legacy": "HPTargetSelection, HPButton, HPScreenTargetSelect, HPTargetsList, ButtonClickPacket",
+      "status": "complete-current-api",
+      "current": "HermitTargetSelectionAbility, HermitTargetSelectionScreen, OpenHermitTargetPayload, and SelectHermitTargetPayload",
+      "evidence": "The server supplies bounded target entries and validates the selected mode/value before updating the real controller."
+    },
+    {
+      "legacy": "HPCamera and ColorPacket",
+      "status": "complete-current-api",
+      "current": "HermitSpiritCameraAbility and controller-derived Stand skin color",
+      "evidence": "Current Polaroid dispatch, selected remote player/Stand target, inventory checks, camera consumption semantics, and map color are represented."
+    },
+    {
+      "legacy": "CanLeapPacket and mutable Stand-type leap flag",
+      "status": "complete-current-api",
+      "current": "HermitPurpleStandType.getLeapStrength",
+      "evidence": "Leap strength is derived per user from learned JUMP or AFTERIMAGES skills; the current core synchronizes power state."
+    },
+    {
+      "legacy": "hamonToHermit config, LivingData.triedHermit, GameplayHandler tick/clone",
+      "status": "complete-current-api",
+      "current": "HermitPurpleConfig, HermitPurpleAddon.HAMON_TO_HERMIT_SOURCE, HermitPurpleGameEvents, and AutomatedStandGrantVetoes",
+      "evidence": "Thresholded one-time server grant and clone persistence use player persistent data without a custom capability. Source rotp_zhp:hamon_to_hermit is vetoable immediately after ServerPlayer identification, before cadence, config, or tried-state checks, restoring the donor Extra Hamon cancellation boundary."
+    },
+    {
+      "legacy": "HermitoUserLayer, HermitoThorns, vine renderers, FirstPerson renderer mixin",
+      "status": "complete-current-api",
+      "current": "HermitPurpleUserLayer, HermitVineRenderer, HermitPurpleVisuals, and public AddLayers/FirstPersonModelLayer",
+      "evidence": "Every visible player layer, first-person arm, lash, held vine, and barrier derives StandVisualContext and effective alpha from the live controller."
+    },
+    {
+      "legacy": "AddonPlayerAnimations plus the registered KosmX grab, grapple, vine, and doxx handlers",
+      "status": "complete-current-api",
+      "current": "HermitPurplePlayerAnimations plus assets/rotp_zhp/animations/hermit_purple.animation.json",
+      "evidence": "The public addon player-animation registry consumes the synchronized Hermit controller action, preserves donor windup return ticks, looping attack playback, and main-hand mirroring without replacing the player renderer."
+    },
+    {
+      "legacy": "HermitConfig.hermitHamon and the temporary INTEGRATED_STAND effect",
+      "status": "complete-current-api",
+      "current": "owner-keyed StandDamageAuthorizers registration",
+      "evidence": "The donor conditions are evaluated directly: enabled config, Hermit Purple controller summoned, resolve level above three, and an empty or open-finger main hand. The core damage-type rule remains unchanged for every other source."
+    },
+    {
+      "legacy": "InitSounds, skin resource packs, skin-specific voice branches",
+      "status": "complete",
+      "current": "16 registered sounds, 25 canonical OGG files, default plus 12 imported skin packs, and HermitPurpleSkins",
+      "evidence": "Joseph, Jonathan, Passion, Spider-Man, and color-specific branches use canonical media present in the source JAR."
+    },
+    {
+      "legacy": "PurplCommonConfigPacket and ResetConfigPacket",
+      "status": "replaced-current-framework",
+      "current": "NeoForge COMMON ModConfig",
+      "evidence": "Gameplay reads server-owned common values; there is no addon-owned duplicate client authority."
+    }
+  ],
+  "legacy_java_classification": {
+    "ported": [
+      "com/zeml/rotp_zhp/action/BeatFollowUp.java",
+      "com/zeml/rotp_zhp/action/stand/HamonBreath.java",
+      "com/zeml/rotp_zhp/action/stand/HPCamera.java",
+      "com/zeml/rotp_zhp/action/stand/HPDoxx.java",
+      "com/zeml/rotp_zhp/action/stand/HPGrabHealOverDrive.java",
+      "com/zeml/rotp_zhp/action/stand/HPGrabOverdrive.java",
+      "com/zeml/rotp_zhp/action/stand/HPGrabScarlet.java",
+      "com/zeml/rotp_zhp/action/stand/HPHelperDox.java",
+      "com/zeml/rotp_zhp/action/stand/HPTargetSelection.java",
+      "com/zeml/rotp_zhp/action/stand/HPThorns.java",
+      "com/zeml/rotp_zhp/action/stand/projectile/HPAttachBarrier.java",
+      "com/zeml/rotp_zhp/action/stand/projectile/HPCringe.java",
+      "com/zeml/rotp_zhp/action/stand/projectile/HPGrabCommand.java",
+      "com/zeml/rotp_zhp/action/stand/projectile/HPGrapple.java",
+      "com/zeml/rotp_zhp/action/stand/projectile/HPUnattachBarrier.java",
+      "com/zeml/rotp_zhp/action/stand/projectile/HPVineAttack.java",
+      "com/zeml/rotp_zhp/action/stand/RemoveStandTarget.java",
+      "com/zeml/rotp_zhp/action/stand/StandTarget.java",
+      "com/zeml/rotp_zhp/action/stand/TargetSelected.java",
+      "com/zeml/rotp_zhp/command/HermitStructureCommand.java",
+      "com/zeml/rotp_zhp/command/HermitTargetCommand.java",
+      "com/zeml/rotp_zhp/entity/damaging/projectile/HPGrapplingVineEntity.java",
+      "com/zeml/rotp_zhp/entity/damaging/projectile/HPVineBarrierEntity.java",
+      "com/zeml/rotp_zhp/entity/damaging/projectile/HPVineEntity.java",
+      "com/zeml/rotp_zhp/entity/damaging/projectile/HPVineGrabEntity.java",
+      "com/zeml/rotp_zhp/entity/stand/stands/HermitPurpleEntity.java",
+      "com/zeml/rotp_zhp/HermitConfig.java",
+      "com/zeml/rotp_zhp/init/AddonStands.java",
+      "com/zeml/rotp_zhp/init/InitEntities.java",
+      "com/zeml/rotp_zhp/init/InitSounds.java",
+      "com/zeml/rotp_zhp/init/InitStands.java",
+      "com/zeml/rotp_zhp/init/InitTags.java",
+      "com/zeml/rotp_zhp/power/impl/stand/type/HermitPurpleStandType.java",
+      "com/zeml/rotp_zhp/RotpHermitPurpleAddon.java",
+      "com/zeml/rotp_zhp/util/GameplayHandler.java",
+      "com/zeml/rotp_zhp/util/HermitForgeBusEventSubscriber.java",
+      "com/zeml/rotp_zhp/util/HPBarriersNet.java",
+      "com/zeml/rotp_zhp/util/StandHamonDamage.java"
+    ],
+    "replaced_by_current_public_api": [
+      "com/zeml/rotp_zhp/capability/CapabilityHandler.java",
+      "com/zeml/rotp_zhp/capability/LivingData.java",
+      "com/zeml/rotp_zhp/capability/LivingDataProvider.java",
+      "com/zeml/rotp_zhp/client/ClientInit.java",
+      "com/zeml/rotp_zhp/client/playeranim/anim/AddonPlayerAnimations.java",
+      "com/zeml/rotp_zhp/client/playeranim/anim/kosmimpl/KosmxDoxxLeftHandler.java",
+      "com/zeml/rotp_zhp/client/playeranim/anim/kosmimpl/KosmxGrabCommandHandler.java",
+      "com/zeml/rotp_zhp/client/playeranim/anim/kosmimpl/KosmxGrabHandler.java",
+      "com/zeml/rotp_zhp/client/playeranim/anim/kosmimpl/KosmxVineHandler.java",
+      "com/zeml/rotp_zhp/client/render/entity/model/projectile/HPVineModel.java",
+      "com/zeml/rotp_zhp/client/render/entity/model/stand/HermitoUserModel.java",
+      "com/zeml/rotp_zhp/client/render/entity/model/stand/HermitPurpleModel.java",
+      "com/zeml/rotp_zhp/client/render/entity/renderer/damaging/projectile/HPGrapplingVineRenderer.java",
+      "com/zeml/rotp_zhp/client/render/entity/renderer/damaging/projectile/HPVineAbstractRenderer.java",
+      "com/zeml/rotp_zhp/client/render/entity/renderer/damaging/projectile/HPVineBarrierRrnderer.java",
+      "com/zeml/rotp_zhp/client/render/entity/renderer/damaging/projectile/HPVineGrabRenderer.java",
+      "com/zeml/rotp_zhp/client/render/entity/renderer/damaging/projectile/HPVineRenderer.java",
+      "com/zeml/rotp_zhp/client/render/entity/renderer/HermitoThorns.java",
+      "com/zeml/rotp_zhp/client/render/entity/renderer/HermitoUserLayer.java",
+      "com/zeml/rotp_zhp/client/render/entity/renderer/stand/HermitPurpleRenderer.java",
+      "com/zeml/rotp_zhp/client/sound/ModClientTickingSoundsHelper.java",
+      "com/zeml/rotp_zhp/client/ui/screen/HPButton.java",
+      "com/zeml/rotp_zhp/client/ui/screen/HPScreenTargetSelect.java",
+      "com/zeml/rotp_zhp/client/ui/screen/HPTargetsList.java",
+      "com/zeml/rotp_zhp/epicfight/HermitoThornsEpicFight.java",
+      "com/zeml/rotp_zhp/epicfight/HermitPurpleEpicFightLayer.java",
+      "com/zeml/rotp_zhp/mixin/MixinFirstPersonRenderer.java",
+      "com/zeml/rotp_zhp/mixin/MixinHamonData.java",
+      "com/zeml/rotp_zhp/mixin/MixinPPlayerRenderer.java",
+      "com/zeml/rotp_zhp/network/ButtonClickPacket.java",
+      "com/zeml/rotp_zhp/network/ModNetwork.java",
+      "com/zeml/rotp_zhp/network/packets/CanLeapPacket.java",
+      "com/zeml/rotp_zhp/network/packets/ColorPacket.java",
+      "com/zeml/rotp_zhp/network/PurplCommonConfigPacket.java",
+      "com/zeml/rotp_zhp/network/ResetConfigPacket.java",
+      "com/zeml/rotp_zhp/util/ClientUtil.java"
+    ],
+    "proven_inert": [
+      "com/zeml/rotp_zhp/client/playeranim/anim/kosmimpl/KosmxVineAttackHandler.java"
+    ],
+    "excluded_emperor_unit": [
+      "com/zeml/rotp_zhp/action/stand/GiveEmperor.java",
+      "com/zeml/rotp_zhp/action/stand/mobs/BarrageShootEntityAction.java",
+      "com/zeml/rotp_zhp/action/stand/mobs/ShootEntity.java",
+      "com/zeml/rotp_zhp/client/playeranim/anim/kosmimpl/KosmXSummonEmperorHandler.java",
+      "com/zeml/rotp_zhp/client/render/entity/model/projectile/EmperorBulletModel.java",
+      "com/zeml/rotp_zhp/client/render/entity/model/stand/EmperorModel.java",
+      "com/zeml/rotp_zhp/client/render/entity/renderer/damaging/projectile/EmperorBulletRenderer.java",
+      "com/zeml/rotp_zhp/client/render/entity/renderer/stand/EmperorRenderer.java",
+      "com/zeml/rotp_zhp/entity/damaging/projectile/EmperorBullet.java",
+      "com/zeml/rotp_zhp/entity/stand/stands/EmperorEntity.java",
+      "com/zeml/rotp_zhp/init/InitItems.java",
+      "com/zeml/rotp_zhp/item/item/EmperorItem.java"
+    ]
+  },
+  "blocked_exact": [],
+  "dead_by_evidence": [
+    {
+      "legacy": "LivingData.isBreathing",
+      "evidence": "Private field declaration only; no accessor, serializer entry, read, or write exists in the 87-file canonical decompile."
+    },
+    {
+      "legacy": "HPBarriersNet.shootStringsFromBarriers",
+      "evidence": "The method name occurs once at its declaration and has no call site in the canonical decompile."
+    },
+    {
+      "legacy": "InitSounds.VOID / rotp_zhp:void",
+      "evidence": "The sound is registered and has a silent sounds.json entry, but it is never referenced and the canonical JAR contains no OGG for it."
+    },
+    {
+      "legacy": "hp_ost, jonathan_ost, spidy_ost media",
+      "evidence": "The OstSoundList ids have no sounds.json definitions and no corresponding media in the canonical JAR; no audible canonical bytes exist to migrate."
+    },
+    {
+      "legacy": "KosmxVineAttackHandler",
+      "evidence": "The canonical AddonPlayerAnimations initializer never registers this handler and the 87-file donor Java tree contains no constructor or method call that reaches it."
+    }
+  ],
+  "restored_active_resources": [
+    {
+      "path": "data/rotp_zhp/stand_combos/hermit_combo.json",
+      "bytes": 2181,
+      "sha256": "ABDA2188F8F27CBB375EE8A673145ED12B373A34689AA4D5B38426DABFE45E46",
+      "archive_evidence": "data/rotp_zhp/legacy_archive/stand_combos/hermit_combo.json",
+      "unique_action_ids": 9,
+      "all_action_ids_resolve": true
+    }
+  ],
+  "network_migration": [
+    {
+      "legacy": "ButtonClickPacket",
+      "current": "OpenHermitTargetPayload plus SelectHermitTargetPayload",
+      "status": "complete"
+    },
+    {
+      "legacy": "ColorPacket",
+      "current": "server controller derives the live Stand skin color",
+      "status": "complete-no-packet"
+    },
+    {
+      "legacy": "CanLeapPacket",
+      "current": "per-user public leap-strength override and core power synchronization",
+      "status": "complete-no-addon-packet"
+    },
+    {
+      "legacy": "PurplCommonConfigPacket and ResetConfigPacket",
+      "current": "NeoForge common config ownership",
+      "status": "complete-framework-replacement"
+    }
+  ],
+  "resources": {
+    "module_files": 362,
+    "png_files": 255,
+    "ogg_files": 28,
+    "json_files": 78,
+    "canonical_namespaced_files": 314,
+    "canonical_disposition_counts": {
+      "preserved_exact": 119,
+      "adapted_current_api": 14,
+      "translated_current_api": 147,
+      "excluded_emperor_unit": 15,
+      "replaced_target_ui": 8,
+      "replaced_current_framework": 4,
+      "dead_unreachable": 7
+    },
+    "default_ability_icons": 17,
+    "canonical_imported_skin_asset_files": 217,
+    "current_imported_skin_pack_files": 229,
+    "imported_skin_packs": 12,
+    "root_languages": [
+      "en_ud",
+      "en_us",
+      "es_es",
+      "es_mx",
+      "es_ve",
+      "pt_br",
+      "zh_cn",
+      "zh_tw"
+    ],
+    "restored_canonical_languages": [
+      "en_ud",
+      "es_es",
+      "es_mx",
+      "es_ve",
+      "pt_br",
+      "zh_tw"
+    ],
+    "camera_tag": "data/rotp_zhp/tags/item/camera.json",
+    "arrow_tag": "data/jojo_ripples/ripples_tags/stands/player_can_get_from_arrow.json",
+    "legacy_action_namespace_translation": "stand skin textures/action was translated to current textures/ability",
+    "player_animation_translation": "four canonical KosmX keyframe resources are retained as exact conversion sources and translated into one active Gecko animation set",
+    "retained_legacy_archive": {
+      "files": 23,
+      "runtime_registered": false,
+      "manifest": "legacy-resource-retention.json",
+      "cross_owner_not_duplicated": "assets/rotp_zhp/textures/entity/stand/glow/catch_the_rainbow.png"
+    }
+  },
+  "render_policy": {
+    "topology": "H4",
+    "controller": "invisible zero-size no-save NoopEntityRenderer",
+    "visible_secondary_owners": [
+      "third-person player vine layer",
+      "first-person player vine arms",
+      "third-person and first-person thorns layer",
+      "lash vine",
+      "grab vine",
+      "grappling vine",
+      "barrier vine"
+    ],
+    "visibility_source": "StandVisualContext.world(live HermitPurpleStandEntity controller, controller.clientStuff.getAlpha(controller, partialTick))",
+    "alpha_source": "StandVisualContext.effectiveAlpha through AlphaMultiBufferSource",
+    "public_hooks": [
+      "EntityRenderersEvent.AddLayers",
+      "FirstPersonModelLayer",
+      "EntityRenderersEvent.RegisterRenderers",
+      "AddonPlayerAnimations"
+    ],
+    "forbidden_global_hooks_absent": [
+      "PlayerRenderer subclass or mixin",
+      "ItemRenderer mutation or mixin",
+      "Iris hook",
+      "SR hook",
+      "shader hook",
+      "framebuffer/FBO hook"
+    ]
+  },
+  "runtime_validation": {
+    "executed": false,
+    "status": "pending_live_execution",
+    "matrix_file": "migration/manual-runtime-matrix.json",
+    "static_verification_is_not_runtime_proof": true,
+    "matrix": [
+      "single-player dedicated-server load",
+      "first and third person default/slim player models",
+      "invisibility and held-item interactions",
+      "lash, grab, grapple, barrier, and thorns two-player observation",
+      "death, logout, dimension, unload, chunk-border, vehicle, water, and time-stop cleanup",
+      "all 17 ability control and variation paths",
+      "grab, grapple, vine, and doxx player animations for both main arms",
+      "hermitHamon Stand-target damage authorization with every donor gate",
+      "target UI and player/Stand/entity/structure/biome divination",
+      "default and 12 imported skin colors, textures, and voice branches",
+      "rotp_zemperor absent and present co-load",
+      "vanilla renderer",
+      "Iris loaded with shaders off",
+      "Iris shader enabled",
+      "SR",
+      "Iris plus SR where supported"
+    ]
+  }
+}

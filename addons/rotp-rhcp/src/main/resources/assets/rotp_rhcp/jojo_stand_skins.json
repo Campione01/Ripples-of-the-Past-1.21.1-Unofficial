@@ -1,0 +1,8 @@
+{
+  "skins": {
+    "rotp_rhcp:rhcp": {
+      "stand_type": "rotp_rhcp:rhcp",
+      "color" : "0xF7DE37"
+    }
+  }
+}

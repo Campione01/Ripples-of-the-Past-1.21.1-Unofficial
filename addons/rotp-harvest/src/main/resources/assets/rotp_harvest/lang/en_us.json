@@ -1,0 +1,13 @@
+{
+  "rotp_harvest.subtitle.hv_step": "Harvest steps",
+  "message.rotp_harvest.harvesting": "Press SHIFT to leave",
+  "death.attack.rotp_harvest_punch": "%1$s was punched",
+  "death.attack.rotp_harvest_punch.player": "%s was punched by %s",
+  "death.attack.rotp_harvest_stab": "%1$s was stabbed",
+  "death.attack.rotp_harvest_stab.player": "%s was stabbed by %s",
+  "death.attack.rotp_harvest_bite": "%1$s was bitten",
+  "death.attack.rotp_harvest_bite.player": "%s was bitten by %s",
+  "entity.rotp_harvest.harvest": "Harvest",
+  "entity.rotp_harvest.harvest_stand": "Harvest",
+  "stand.rotp_harvest.harvest_stand": "Harvest"
+}

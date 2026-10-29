@@ -1,0 +1,12 @@
+{
+  "skins": {
+    "rotp_zwa:anime": {
+      "stand_type": "rotp_zwa:white_album",
+      "color" : "0xE07DF0"
+    },
+    "rotp_zwa:bachata": {
+      "stand_type": "rotp_zwa:white_album",
+      "color" : "0x1f94E3"
+    }
+  }
+}

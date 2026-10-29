@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 2,
+  "module": "rotp-ticket-to-ride",
+  "modId": "rotp_ttr",
+  "phase": "full-reachable-closure",
+  "canonicalArtifact": {
+    "path": "RotP-Ticket to ride-1.0.jar",
+    "bytes": 254500,
+    "sha256": "53B39A9D86A459B3294460532FCC75533FF9EF990C2482182999A6724EF1CA14"
+  },
+  "canonicalDecompile": "034_RotP-Ticket to ride-1.0",
+  "redundantDecompiles": [
+    "036_RotP-Ticket to ride-1.0",
+    "037_RotP-Ticket to ride-1.0"
+  ],
+  "decompileIdentity": {
+    "filesPerTree": 50,
+    "javaFilesPerTree": 49,
+    "bytesPerTree": 258636,
+    "algorithm": "SHA-256 over sorted relative-path, file-SHA-256, and byte-length records",
+    "sha256": "A20FE9C44EE3E6C2802A8196BC10AC1892640AFCED1153F3A550F153CD944119"
+  },
+  "legacyJavaClosure": {
+    "total": 49,
+    "reachableOwned": 43,
+    "safelyReplaced": 4,
+    "deadUnwired": 2,
+    "otherOwner": 0,
+    "sourceMissing": 0
+  },
+  "sourceMissingAssets": [
+    "rotp_ttr:tand_summon_voiceline",
+    "rotp_ttr:stand_ost"
+  ],
+  "missingAssetPolicy": "the donor registry and Stand attachment graph are active but silent; no sounds.json definition or OGG media is fabricated",
+  "migrationManifests": "META-INF/rotp_ttr/migration"
+}

@@ -1,0 +1,18 @@
+package rotp.addons.stickyfingers.state;
+
+public enum ZipperCloseReason {
+    MANUAL_CLOSE,
+    TIMEOUT,
+    ABILITY_LOST,
+    OWNER_LOGOUT,
+    OWNER_DEATH,
+    DIMENSION_CHANGE,
+    OWNER_TOO_FAR,
+    CHUNK_UNLOAD,
+    SERVER_RESTART,
+    DIMENSION_MISMATCH,
+    BLOCK_REPLACED,
+    LEASE_CONFLICT,
+    CREATION_FAILED,
+    ORPHAN_RECOVERY
+}

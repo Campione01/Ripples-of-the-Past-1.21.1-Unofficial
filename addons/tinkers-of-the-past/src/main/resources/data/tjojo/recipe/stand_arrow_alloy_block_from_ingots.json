@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "group": "tjojo:stand_arrow_alloy_block",
+  "pattern": [
+    "###",
+    "###",
+    "###"
+  ],
+  "key": {
+    "#": {
+      "tag": "c:ingots/stand_arrow_alloy"
+    }
+  },
+  "result": {
+    "id": "tjojo:stand_arrow_alloy_block"
+  }
+}

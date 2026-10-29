@@ -1,0 +1,22 @@
+{
+  "stand.rotp_echoes.echoes_act3": "Echoes ACT3",
+  "stand.rotp_echoes.echoes_act2": "Echoes ACT2",
+  "rotp_echoes.ability.punch": "Schlag",
+  "rotp_echoes.ability.barrage": "Salve",
+  "rotp_echoes.ability.heavy_punch": "Schwerer Schlag",
+  "rotp_echoes.ability.finisher": "Finisher",
+  "rotp_echoes.ability.guard": "Blocken",
+  "rotp_echoes.ability.degrade_to_act2": "Degradierung",
+  "rotp_echoes.ability.freeze": "Einfrieren",
+  "rotp_echoes.ability.hand_freeze": "Hand einfrieren",
+  "rotp_echoes.ability.freeze_self": "Selbst einfrieren",
+  "rotp_echoes.ability.gravity_infuse": "Schwerkraftinfusion",
+  "rotp_echoes.ability.gravity_projectile": "Schwerkraftgeschoss",
+  "rotp_echoes.ability.act2_punch": "Leichter Angriff",
+  "rotp_echoes.ability.act2_heavy_punch": "Schwerer Angriff",
+  "rotp_echoes.ability.act2_finisher": "Schwanzstich",
+  "rotp_echoes.ability.act2_guard": "Blocken",
+  "rotp_echoes.ability.evolve_to_act3": "Evolution",
+  "rotp_echoes.tooltip.gravity_infused": "Mit Schwerkraft durchtränkt",
+  "rotp_echoes.tooltip.gravity_infused.desc": "Wenn du es hältst, wirst du von der Schwerkraft niedergedrückt"
+}

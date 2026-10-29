@@ -1,0 +1,35 @@
+modLoader="javafml"
+loaderVersion="${loader_version_range}"
+license="GPL-3.0-only"
+
+[[mods]]
+modId="${mod_id}"
+version="${mod_version}"
+displayName="${mod_name}"
+authors="Campione01; original Kiss addon authors"
+credits="StandoByte and the original Ripples of the Past contributors"
+description='''${mod_description}
+
+Canonical GPL-v3 donor assets are retained from RotP-kiss-1.0.jar.
+The exact source hash and migration boundary are packaged in SOURCE_AND_LICENSE.md.'''
+
+[[dependencies.${mod_id}]]
+modId="neoforge"
+type="required"
+versionRange="[${neo_version},)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.${mod_id}]]
+modId="minecraft"
+type="required"
+versionRange="${minecraft_version_range}"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.${mod_id}]]
+modId="${core_mod_id}"
+type="required"
+versionRange="[${core_mod_version}]"
+ordering="AFTER"
+side="BOTH"

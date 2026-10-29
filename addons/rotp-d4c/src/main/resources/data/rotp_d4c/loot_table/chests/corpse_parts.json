@@ -1,0 +1,59 @@
+{
+  "type": "minecraft:chest",
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "rotp_d4c:saint_corpse_ears",
+          "weight": 1
+        },
+        {
+          "type": "minecraft:item",
+          "name": "rotp_d4c:saint_corpse_eyes",
+          "weight": 1
+        },
+        {
+          "type": "minecraft:item",
+          "name": "rotp_d4c:saint_corpse_head",
+          "weight": 1
+        },
+        {
+          "type": "minecraft:item",
+          "name": "rotp_d4c:saint_corpse_heart",
+          "weight": 1
+        },
+        {
+          "type": "minecraft:item",
+          "name": "rotp_d4c:saint_corpse_left_arm",
+          "weight": 1
+        },
+        {
+          "type": "minecraft:item",
+          "name": "rotp_d4c:saint_corpse_right_arm",
+          "weight": 1
+        },
+        {
+          "type": "minecraft:item",
+          "name": "rotp_d4c:saint_corpse_legs",
+          "weight": 1
+        },
+        {
+          "type": "minecraft:item",
+          "name": "rotp_d4c:saint_corpse_thorax",
+          "weight": 1
+        },
+        {
+          "type": "minecraft:item",
+          "name": "rotp_d4c:saint_corpse_spine",
+          "weight": 1
+        },
+        {
+          "type": "minecraft:empty",
+          "weight": 91
+        }
+      ]
+    }
+  ]
+}

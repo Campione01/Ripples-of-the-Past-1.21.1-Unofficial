@@ -1,0 +1,133 @@
+plugins {
+    id 'java'
+    id 'net.neoforged.moddev'
+}
+
+// A NeoForge Jar-in-Jar container: a code-free (lowcodefml) mod whose jar nests
+// every add-on jar. Each nested jar is loaded as its own mod.
+def core = rootProject.ext.core
+
+group = rootProject.property('addon_group')
+version = rootProject.property('bundle_version')
+base.archivesName = 'rotp-addon-bundle-open'
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+}
+
+neoForge {
+    version = core.neo_version
+}
+
+dependencies {
+    jarJar(project(':rotp-achtung-baby'))
+    jarJar(project(':rotp-aqua-necklace'))
+    jarJar(project(':rotp-bad-company'))
+    jarJar(project(':rotp-blood-bottle'))
+    jarJar(project(':rotp-c-moon'))
+    jarJar(project(':rotp-catch-the-rainbow'))
+    jarJar(project(':rotp-cmoon-reimagined'))
+    jarJar(project(':rotp-craftable-discs'))
+    jarJar(project(':rotp-cream'))
+    jarJar(project(':rotp-d4c'))
+    jarJar(project(':rotp-diegos-the-world'))
+    jarJar(project(':rotp-diver-down'))
+    jarJar(project(':rotp-echoes'))
+    jarJar(project(':rotp-emperor'))
+    jarJar(project(':rotp-frost-traveler'))
+    jarJar(project(':rotp-gold-experience-requiem'))
+    jarJar(project(':rotp-grateful-dead'))
+    jarJar(project(':rotp-green-day'))
+    jarJar(project(':rotp-guanggun'))
+    jarJar(project(':rotp-harvest'))
+    jarJar(project(':rotp-heavens-door'))
+    jarJar(project(':rotp-hermit-purple'))
+    jarJar(project(':rotp-jumping-jack-flash'))
+    jarJar(project(':rotp-khnum'))
+    jarJar(project(':rotp-killer-queen'))
+    jarJar(project(':rotp-killer-queen-lion'))
+    jarJar(project(':rotp-king-crimson'))
+    jarJar(project(':rotp-kiss'))
+    jarJar(project(':rotp-kraft-work'))
+    jarJar(project(':rotp-little-feet'))
+    jarJar(project(':rotp-lovers'))
+    jarJar(project(':rotp-made-in-heaven'))
+    jarJar(project(':rotp-mandom'))
+    jarJar(project(':rotp-memory-discs'))
+    jarJar(project(':rotp-metallica'))
+    jarJar(project(':rotp-neo-stand'))
+    jarJar(project(':rotp-next-album'))
+    jarJar(project(':rotp-november-rain'))
+    jarJar(project(':rotp-ova-the-world'))
+    jarJar(project(':rotp-pearl-jam'))
+    jarJar(project(':rotp-planet-waves'))
+    jarJar(project(':rotp-purple-haze'))
+    jarJar(project(':rotp-reworked'))
+    jarJar(project(':rotp-rhcp'))
+    jarJar(project(':rotp-scary-monsters'))
+    jarJar(project(':rotp-sex-pistols'))
+    jarJar(project(':rotp-shadow-the-world'))
+    jarJar(project(':rotp-silver-chariot-requiem'))
+    jarJar(project(':rotp-soft-and-wet'))
+    jarJar(project(':rotp-spawn-with-stand'))
+    jarJar(project(':rotp-speed-king'))
+    jarJar(project(':rotp-speedwagon'))
+    jarJar(project(':rotp-spice-girl'))
+    jarJar(project(':rotp-stand-bearing-creatures'))
+    jarJar(project(':rotp-sticky-fingers'))
+    jarJar(project(':rotp-stone-free'))
+    jarJar(project(':rotp-stone-legacy'))
+    jarJar(project(':rotp-stone-legacy-zombie-orders'))
+    jarJar(project(':rotp-the-hand'))
+    jarJar(project(':rotp-the-lock'))
+    jarJar(project(':rotp-the-sun'))
+    jarJar(project(':rotp-ticket-to-ride'))
+    jarJar(project(':rotp-tournament'))
+    jarJar(project(':rotp-tusk'))
+    jarJar(project(':rotp-ultimate-lifeform'))
+    jarJar(project(':rotp-vampire-climb'))
+    jarJar(project(':rotp-way-to-heaven'))
+    jarJar(project(':rotp-weather-report'))
+    jarJar(project(':rotp-white-album'))
+    jarJar(project(':rotp-whitesnake'))
+    jarJar(project(':rotp-wonder-of-u'))
+    jarJar(project(':rotp-yellow-temperance'))
+    jarJar(project(':tinkers-of-the-past'))
+}
+
+def metadataProperties = [
+        bundle_mod_id          : 'rotp_addon_bundle_open',
+        bundle_version         : project.version.toString(),
+        loader_version_range   : core.loader_version_range,
+        minecraft_version_range: core.minecraft_version_range,
+        neo_version            : core.neo_version,
+        core_mod_id            : core.mod_id,
+        core_mod_version       : core.mod_version
+]
+
+def generateModMetadata = tasks.register('generateModMetadata', ProcessResources) {
+    inputs.properties(metadataProperties)
+    expand(metadataProperties)
+    filteringCharset = 'UTF-8'
+    from('src/main/templates')
+    into(layout.buildDirectory.dir('generated/sources/modMetadata'))
+}
+sourceSets.main.resources.srcDir(generateModMetadata)
+
+tasks.named('jar', Jar) {
+    // ModDevGradle adds the nested jars as ordinary entries of this jar, so this
+    // applies to every entry: the nested jars are stored as they are (already
+    // compressed), as in the local bundle.
+    entryCompression = ZipEntryCompression.STORED
+    from(rootProject.file('../LICENSE')) {
+        into('META-INF')
+    }
+    from(rootProject.file('NOTICE.md')) {
+        into('META-INF')
+    }
+}
+
+tasks.withType(AbstractArchiveTask).configureEach {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}

@@ -1,0 +1,55 @@
+{
+    "type":  "minecraft:crafting_shaped",
+    "pattern":  [
+                    "SH2",
+                    "3NT",
+                    "PBC"
+                ],
+    "key":  {
+                "N":  {
+                          "item":  "rotp_ul:soul_essence"
+                      },
+                "B":  {
+                          "item":  "minecraft:water_bucket"
+                      },
+                "S":  {
+                          "item":  "minecraft:sponge"
+                      },
+                "T":  {
+                          "item":  "minecraft:turtle_helmet"
+                      },
+                "H":  {
+                          "item":  "minecraft:conduit"
+                      },
+                "P":  {
+                          "item":  "minecraft:prismarine_shard"
+                      },
+                "2":  {
+                          "item":  "minecraft:prismarine_crystals"
+                      },
+                "3":  {
+                          "item":  "minecraft:pufferfish"
+                      },
+                "C":  [
+                          {
+                              "item":  "minecraft:brain_coral_block"
+                          },
+                          {
+                              "item":  "minecraft:bubble_coral_block"
+                          },
+                          {
+                              "item":  "minecraft:fire_coral_block"
+                          },
+                          {
+                              "item":  "minecraft:tube_coral_block"
+                          },
+                          {
+                              "item":  "minecraft:horn_coral_block"
+                          }
+                      ]
+            },
+    "result":  {
+                   "count":  1,
+                   "id":  "rotp_ul:water_essence"
+               }
+}

@@ -1,0 +1,22 @@
+{
+  "type": "minecraft:entity",
+  "pools": [
+    {
+      "rolls": 1,
+      "bonus_rolls": 1,
+      "conditions": [
+        {
+          "condition": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": { "type": "minecraft:cow" }
+        }
+      ],
+      "entries": [ { "type": "minecraft:item", "name": "minecraft:iron_ingot" } ]
+    },
+    {
+      "rolls": 1,
+      "bonus_rolls": 1,
+      "entries": [ { "type": "minecraft:item", "name": "minecraft:bone" } ]
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "stand.rotp_echoes.echoes_act3": "回音ACT3",
+  "stand.rotp_echoes.echoes_act2": "回音ACT2",
+  "rotp_echoes.ability.punch": "拳擊",
+  "rotp_echoes.ability.barrage": "連打",
+  "rotp_echoes.ability.heavy_punch": "重拳",
+  "rotp_echoes.ability.finisher": "重力重擊",
+  "rotp_echoes.ability.guard": "防禦",
+  "rotp_echoes.ability.degrade_to_act2": "退化",
+  "rotp_echoes.ability.freeze": "Freeze",
+  "rotp_echoes.ability.hand_freeze": "手部Freeze",
+  "rotp_echoes.ability.freeze_self": "自我Freeze",
+  "rotp_echoes.ability.gravity_infuse": "Freeze附魔",
+  "rotp_echoes.ability.gravity_projectile": "Freeze投射",
+  "rotp_echoes.ability.act2_punch": "輕擊",
+  "rotp_echoes.ability.act2_heavy_punch": "重擊",
+  "rotp_echoes.ability.act2_finisher": "尾刺攻擊",
+  "rotp_echoes.ability.act2_guard": "防禦",
+  "rotp_echoes.ability.evolve_to_act3": "進化",
+  "entity.rotp_echoes.echoes_act2": "『回音ACT2』",
+  "rotp_echoes.tooltip.gravity_infused": "被重力附體",
+  "rotp_echoes.tooltip.gravity_infused.desc": "拿著它會被重力壓制"
+}

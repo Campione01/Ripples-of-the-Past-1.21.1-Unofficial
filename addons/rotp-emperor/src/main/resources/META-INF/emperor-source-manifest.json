@@ -1,0 +1,589 @@
+{
+  "schema": 2,
+  "phase": "full-static-closure",
+  "canonical": {
+    "artifact": "RotP-\u7687\u5e1d-1.2.0.jar",
+    "bytes": 1347716,
+    "sha256": "1304F3619295043672FD17C4A8AE6C6A737FB3000E1D1DBA7826EBEF950CDEC1",
+    "decompile": "061_RotP-\u7687\u5e1d-1.2.0",
+    "class_files": 31,
+    "namespace_assets": 41,
+    "packaging_resources": 4,
+    "mixins": 0
+  },
+  "runtime": {
+    "controller": "INVISIBLE_STAND_CONTROLLER",
+    "primary_art": "ITEM_WEAPON",
+    "secondary_art": "PROJECTILE_EFFECT",
+    "visual_topology": "H4",
+    "input_profile": "NON_HUMANOID_RANGED_EXCEPTION",
+    "fire_input": "VANILLA_ITEM_RMB",
+    "burst_modifier": "CROUCH_PLUS_VANILLA_ITEM_RMB",
+    "special_wheel": [
+      "target_mode",
+      "contextual_set_or_clear_target"
+    ],
+    "grab": false,
+    "manual_control": false,
+    "ordinary_melee": false,
+    "global_renderer_hook": false
+  },
+  "current_registrations": {
+    "abilities": 4,
+    "special_actions": 1,
+    "stand_types": 1,
+    "entity_types": 2,
+    "items": 1,
+    "sounds": 12,
+    "attachments": 1,
+    "payloads": 1,
+    "client_renderers": 2,
+    "item_properties": 1
+  },
+  "stand_acquisition": {
+    "stand_id": "rotp_zemperor:the_emperor",
+    "legacy_random_weight": 1.0,
+    "current_random_weight": 1.0,
+    "arrow_pool_eligible": true,
+    "arrow_tag": "data/jojo_ripples/ripples_tags/stands/player_can_get_from_arrow.json",
+    "donor_evidence": "061_RotP-\u7687\u5e1d-1.2.0/com/zeml/rotp_zemperor/init/InitStands.java:48"
+  },
+  "legacy_registration_counts": {
+    "stand_actions": 4,
+    "stand_types": 1,
+    "controller_entity_types": 1,
+    "projectile_entity_types": 1,
+    "items": 1,
+    "sound_events": 12,
+    "capability_types": 1,
+    "payload_types": 2,
+    "controller_renderers": 1,
+    "projectile_renderers": 1,
+    "item_properties": 1,
+    "animation_layers": 1
+  },
+  "transformed": [
+    {
+      "source": "assets/rotp_zemperor/models/item/emperor.json",
+      "source_bytes": 5463,
+      "source_sha256": "3C19CE2F72571A99E23C960761E2A3E58B8E320F108BBE4EDDFA3B4419EE7061",
+      "destination": "assets/rotp_zemperor/models/item/emperor.json",
+      "destination_bytes": 5448,
+      "destination_sha256": "FFDF0F9F47E5CE69626E6119BD05A86372431FA05FFA02A7DE845E3CDC24A818",
+      "changes": [
+        "remove invalid legacy parent",
+        "route stand-invisible override to module-owned transparent model"
+      ]
+    },
+    {
+      "source": "assets/rotp_zemperor/player_animation/emperor/summon_emp.json",
+      "source_bytes": 5247,
+      "source_sha256": "47C789700BB69A3012C0ED64723B37B4D58AE2B229F6DA228B0BF2222D75F2A5",
+      "destination": "assets/jojo_ripples/animations/emperor_summon.animation.json",
+      "destination_bytes": 5828,
+      "destination_sha256": "A68301E1F67B252FB42F4CF5862B05A0AA76C7077CB26EE34BC47927F34611EF",
+      "changes": [
+        "convert KosmX radians and absolute arm pivots to core Gecko-style offsets",
+        "preserve right-arm motion, arm bend, and 20-tick motion while normalizing the modulo-equivalent item angle to its shortest path",
+        "add explicit left-handed mirror",
+        "encode the legacy 10-tick fade as the final recovery segment"
+      ]
+    }
+  ],
+  "copied": [
+    {
+      "source": "logo.png",
+      "destination": "logo.png",
+      "bytes": 683521,
+      "sha256": "4C7D6DF80740C5DF3BA2D323F1C08E6537ECDF02BDC6C4C06861E4C502DE4661"
+    },
+    {
+      "source": "assets/rotp_zemperor/sounds/stand/shot_1.ogg",
+      "destination": "assets/rotp_zemperor/sounds/stand/shot_1.ogg",
+      "bytes": 55389,
+      "sha256": "674556D208CFA850CC20FA16C7442E9DB1726EB69E17FD960B1028AB9D5D0B0E"
+    },
+    {
+      "source": "assets/rotp_zemperor/sounds/stand/shot_2.ogg",
+      "destination": "assets/rotp_zemperor/sounds/stand/shot_2.ogg",
+      "bytes": 50482,
+      "sha256": "2D3559A25B9494BEB7CE84A30DB48E8E4C96FA7CA029B7AD3345632128907CF0"
+    },
+    {
+      "source": "assets/rotp_zemperor/sounds/stand/summon.ogg",
+      "destination": "assets/rotp_zemperor/sounds/stand/summon.ogg",
+      "bytes": 33149,
+      "sha256": "510AE4676DFBA0189BE389EFDEFC24473305D721B3A610AD30A44D5312530BE9"
+    },
+    {
+      "source": "assets/rotp_zemperor/sounds/stand/unsummon.ogg",
+      "destination": "assets/rotp_zemperor/sounds/stand/unsummon.ogg",
+      "bytes": 26809,
+      "sha256": "BFF20BE6F42441C50B428905DC29C6D531C44F79DC52EDB5D1BED8C7E197361B"
+    },
+    {
+      "source": "assets/rotp_zemperor/sounds/user/hol_0.ogg",
+      "destination": "assets/rotp_zemperor/sounds/user/hol_0.ogg",
+      "bytes": 45345,
+      "sha256": "E89DC2CE1850942CC0ADFBD5E6C0AA1505DF6A6EFBC2D498EF7AD0D5D020A481"
+    },
+    {
+      "source": "assets/rotp_zemperor/sounds/user/hol_1.ogg",
+      "destination": "assets/rotp_zemperor/sounds/user/hol_1.ogg",
+      "bytes": 35801,
+      "sha256": "0827C94CD945D185E0D29820A0415C914A7555808CD86AB04BCD314403DCA8C0"
+    },
+    {
+      "source": "assets/rotp_zemperor/textures/action/give_emp.png",
+      "destination": "assets/rotp_zemperor/textures/ability/give_emp.png",
+      "bytes": 2716,
+      "sha256": "F9F9B508D44AA952D65718BD7E67002824C123567BB5B8BC983A1D55F8D97800"
+    },
+    {
+      "source": "assets/rotp_zemperor/textures/action/no_stand_target.png",
+      "destination": "assets/rotp_zemperor/stand_skins/the_emperor/assets/rotp_zemperor/textures/ability/no_stand_target.png",
+      "bytes": 1714,
+      "sha256": "2A9122579198682769A3EC2B36729A92236E0BAE5196EA6C69D70A82E1A1A79B"
+    },
+    {
+      "source": "assets/rotp_zemperor/textures/action/stand_target.png",
+      "destination": "assets/rotp_zemperor/stand_skins/the_emperor/assets/rotp_zemperor/textures/ability/stand_target.png",
+      "bytes": 2726,
+      "sha256": "6EBD5A41C573986A2AC04F07D4ED50A10F9CCF6553016BB63D46471A19E14960"
+    },
+    {
+      "source": "assets/rotp_zemperor/textures/action/target.png",
+      "destination": "assets/rotp_zemperor/stand_skins/the_emperor/assets/rotp_zemperor/textures/ability/target.png",
+      "bytes": 700,
+      "sha256": "9B76BBC38848F5552768637FF75A68A54EA6DD6247C53F7D9DA5E40AF2A90DFF"
+    },
+    {
+      "source": "assets/rotp_zemperor/textures/action/target_hostile.png",
+      "destination": "assets/rotp_zemperor/stand_skins/the_emperor/assets/rotp_zemperor/textures/ability/target_hostile.png",
+      "bytes": 700,
+      "sha256": "00EC3D5FC4DF06E65AB1F2876C9F79D078583C908C0D407E225B1A231E2CE59F"
+    },
+    {
+      "source": "assets/rotp_zemperor/textures/action/target_none.png",
+      "destination": "assets/rotp_zemperor/stand_skins/the_emperor/assets/rotp_zemperor/textures/ability/target_none.png",
+      "bytes": 2440,
+      "sha256": "755F623FC40389738EED3CF522CEFDD4A8D69E153FA28F8429BE682ACD1DD86C"
+    },
+    {
+      "source": "assets/rotp_zemperor/textures/action/target_player.png",
+      "destination": "assets/rotp_zemperor/stand_skins/the_emperor/assets/rotp_zemperor/textures/ability/target_player.png",
+      "bytes": 2812,
+      "sha256": "0604AFACAAF35F521654EF65E09202DA113CB047EF2275FD7F1FCC4142CBC217"
+    },
+    {
+      "source": "assets/rotp_zemperor/textures/power/the_emperor.png",
+      "destination": "assets/rotp_zemperor/stand_skins/the_emperor/assets/rotp_zemperor/textures/stand_icon.png",
+      "bytes": 2716,
+      "sha256": "EEC000EC3626BE4D7960387768EE08BAD257A8650F2EB9A3FED719B2130F066C"
+    },
+    {
+      "source": "assets/rotp_zemperor/textures/entity/projectiles/bullet_trace.png",
+      "destination": "assets/rotp_zemperor/textures/entity/projectiles/bullet_trace.png",
+      "bytes": 7623,
+      "sha256": "8CE634E16B09B3E22721363F09918B6B66492D30C8A546E5EE2C13AC6C68821B"
+    },
+    {
+      "source": "assets/rotp_zemperor/textures/item/emperor.png",
+      "destination": "assets/rotp_zemperor/textures/item/emperor.png",
+      "bytes": 8938,
+      "sha256": "E51AA46A953A2CE8AB372BC21324EE4AAF4F12D0A8AB072254596E4C065B4C87"
+    },
+    {
+      "source": "assets/rotp_zemperor/textures/entity/stand/void.png",
+      "destination": "assets/rotp_zemperor/textures/item/transparent.png",
+      "bytes": 3903,
+      "sha256": "6DE7343C340C8CA0DBEF7C83DAEE0224FB1FA11EB930187DC1C1A9251DE9CFFC"
+    }
+  ],
+  "legacy_classes": [
+    {
+      "path": "com/zeml/rotp_zemperor/actions/GiveEmperor.class",
+      "disposition": "reimplemented_hidden_noop_compatibility"
+    },
+    {
+      "path": "com/zeml/rotp_zemperor/actions/RemoveStandTarget.class",
+      "disposition": "reimplemented_clear_target"
+    },
+    {
+      "path": "com/zeml/rotp_zemperor/actions/StandTarget.class",
+      "disposition": "reimplemented_contextual_set_target"
+    },
+    {
+      "path": "com/zeml/rotp_zemperor/actions/TargetSelected.class",
+      "disposition": "reimplemented_target_mode"
+    },
+    {
+      "path": "com/zeml/rotp_zemperor/capability/CapabilityHandler$1.class",
+      "disposition": "replaced_by_serializable_player_attachment"
+    },
+    {
+      "path": "com/zeml/rotp_zemperor/capability/CapabilityHandler.class",
+      "disposition": "replaced_by_attachment_lifecycle_and_owner_sync"
+    },
+    {
+      "path": "com/zeml/rotp_zemperor/capability/LivingData.class",
+      "disposition": "replaced_by_emperor_mode_state"
+    },
+    {
+      "path": "com/zeml/rotp_zemperor/capability/LivingDataProvider.class",
+      "disposition": "replaced_by_emperor_mode_attachment"
+    },
+    {
+      "path": "com/zeml/rotp_zemperor/client/ClientInit.class",
+      "disposition": "split_into_current_renderer_item_property_and_animation_registrations"
+    },
+    {
+      "path": "com/zeml/rotp_zemperor/client/playeranim/anim/AddonPlayerAnimations.class",
+      "disposition": "reimplemented_by_emperor_summon_special_action"
+    },
+    {
+      "path": "com/zeml/rotp_zemperor/client/playeranim/anim/kosmimpl/KosmXSummonEmperorHandler$ChargedAttackAnimPlayer.class",
+      "disposition": "transformed_to_core_animation_timeline"
+    },
+    {
+      "path": "com/zeml/rotp_zemperor/client/playeranim/anim/kosmimpl/KosmXSummonEmperorHandler.class",
+      "disposition": "transformed_to_core_animation_timeline"
+    },
+    {
+      "path": "com/zeml/rotp_zemperor/client/render/entity/model/projectile/EmperorBulletModel.class",
+      "disposition": "dead_never_instantiated_removed"
+    },
+    {
+      "path": "com/zeml/rotp_zemperor/client/render/entity/model/stand/HermitPurpleModel.class",
+      "disposition": "transparent_controller_geometry_replaced_by_noop_renderer"
+    },
+    {
+      "path": "com/zeml/rotp_zemperor/client/render/entity/renderer/damaging/projectile/EmperorBulletRenderer.class",
+      "disposition": "reimplemented_with_stand_visual_context_and_alpha_buffer"
+    },
+    {
+      "path": "com/zeml/rotp_zemperor/client/render/entity/renderer/stand/HermitPurpleRenderer.class",
+      "disposition": "transparent_controller_renderer_replaced_by_noop_renderer"
+    },
+    {
+      "path": "com/zeml/rotp_zemperor/entity/damaging/projectile/EmperorBullet.class",
+      "disposition": "reimplemented_server_authoritative_projectile"
+    },
+    {
+      "path": "com/zeml/rotp_zemperor/entity/stand/stands/EmperorEntity.class",
+      "disposition": "reimplemented_invisible_state_controller"
+    },
+    {
+      "path": "com/zeml/rotp_zemperor/init/AddonStands.class",
+      "disposition": "reimplemented_stand_registry_wiring"
+    },
+    {
+      "path": "com/zeml/rotp_zemperor/init/InitEntities.class",
+      "disposition": "reimplemented_entity_registrations"
+    },
+    {
+      "path": "com/zeml/rotp_zemperor/init/InitItems.class",
+      "disposition": "reimplemented_item_registration"
+    },
+    {
+      "path": "com/zeml/rotp_zemperor/init/InitSounds.class",
+      "disposition": "reimplemented_all_five_explicit_and_seven_ost_sound_registrations"
+    },
+    {
+      "path": "com/zeml/rotp_zemperor/init/InitStands.class",
+      "disposition": "reimplemented_moveset_stats_and_stand_registration"
+    },
+    {
+      "path": "com/zeml/rotp_zemperor/item/EmperorItem.class",
+      "disposition": "reimplemented_owned_weapon_fire_and_targeting"
+    },
+    {
+      "path": "com/zeml/rotp_zemperor/network/AddonPackets.class",
+      "disposition": "registered_dead_channels_removed"
+    },
+    {
+      "path": "com/zeml/rotp_zemperor/network/server/BulletTrailPacket.class",
+      "disposition": "registered_never_sent_removed"
+    },
+    {
+      "path": "com/zeml/rotp_zemperor/network/server/TrBulletTracePacket$Handler.class",
+      "disposition": "deprecated_registered_never_sent_removed"
+    },
+    {
+      "path": "com/zeml/rotp_zemperor/network/server/TrBulletTracePacket.class",
+      "disposition": "deprecated_registered_never_sent_removed"
+    },
+    {
+      "path": "com/zeml/rotp_zemperor/projectile/GiveEmperor.class",
+      "disposition": "dead_duplicate_unregistered_removed"
+    },
+    {
+      "path": "com/zeml/rotp_zemperor/RotpEmperorAddon.class",
+      "disposition": "reimplemented_mod_entrypoint_and_registries"
+    },
+    {
+      "path": "com/zeml/rotp_zemperor/util/GameplayHandler.class",
+      "disposition": "reimplemented_owned_weapon_lifecycle"
+    }
+  ],
+  "legacy_assets": [
+    {
+      "path": "assets/rotp_zemperor/lang/en_us.json",
+      "disposition": "transformed_current_locale"
+    },
+    {
+      "path": "assets/rotp_zemperor/lang/es_es.json",
+      "disposition": "transformed_current_locale"
+    },
+    {
+      "path": "assets/rotp_zemperor/lang/es_mx.json",
+      "disposition": "transformed_current_locale"
+    },
+    {
+      "path": "assets/rotp_zemperor/lang/zh_cn.json",
+      "disposition": "transformed_current_locale"
+    },
+    {
+      "path": "assets/rotp_zemperor/models/item/emperor.json",
+      "disposition": "transformed_current_item_model"
+    },
+    {
+      "path": "assets/rotp_zemperor/player_animation/emperor/summon_emp.json",
+      "disposition": "transformed_current_core_animation"
+    },
+    {
+      "path": "assets/rotp_zemperor/sounds/stand/hp_grapple_1.ogg",
+      "disposition": "bundled_hermit_content_unreferenced_removed"
+    },
+    {
+      "path": "assets/rotp_zemperor/sounds/stand/hp_grapple_2.ogg",
+      "disposition": "bundled_hermit_content_unreferenced_removed"
+    },
+    {
+      "path": "assets/rotp_zemperor/sounds/stand/hp_grapple_3.ogg",
+      "disposition": "bundled_hermit_content_unreferenced_removed"
+    },
+    {
+      "path": "assets/rotp_zemperor/sounds/stand/hp_summon_1.ogg",
+      "disposition": "bundled_hermit_content_unreferenced_removed"
+    },
+    {
+      "path": "assets/rotp_zemperor/sounds/stand/hp_summon_2.ogg",
+      "disposition": "bundled_hermit_content_unreferenced_removed"
+    },
+    {
+      "path": "assets/rotp_zemperor/sounds/stand/hp_summon_3.ogg",
+      "disposition": "bundled_hermit_content_unreferenced_removed"
+    },
+    {
+      "path": "assets/rotp_zemperor/sounds/stand/hp_summon_4.ogg",
+      "disposition": "bundled_hermit_content_unreferenced_removed"
+    },
+    {
+      "path": "assets/rotp_zemperor/sounds/stand/hp_summon_5.ogg",
+      "disposition": "bundled_hermit_content_unreferenced_removed"
+    },
+    {
+      "path": "assets/rotp_zemperor/sounds/stand/hp_vine_trhow.ogg",
+      "disposition": "bundled_hermit_content_unreferenced_removed"
+    },
+    {
+      "path": "assets/rotp_zemperor/sounds/stand/hp_vine_trhow_2.ogg",
+      "disposition": "bundled_hermit_content_unreferenced_removed"
+    },
+    {
+      "path": "assets/rotp_zemperor/sounds/stand/shot_1.ogg",
+      "disposition": "copied_reachable"
+    },
+    {
+      "path": "assets/rotp_zemperor/sounds/stand/shot_2.ogg",
+      "disposition": "copied_reachable"
+    },
+    {
+      "path": "assets/rotp_zemperor/sounds/stand/summon.ogg",
+      "disposition": "copied_reachable"
+    },
+    {
+      "path": "assets/rotp_zemperor/sounds/stand/summon_3.ogg",
+      "disposition": "packaged_inert_legacy_archive",
+      "archive_path": "assets/rotp_zemperor/legacy_archive/source/assets/rotp_zemperor/sounds/stand/summon_3.ogg",
+      "runtime_registered": false
+    },
+    {
+      "path": "assets/rotp_zemperor/sounds/stand/unsummon.ogg",
+      "disposition": "copied_reachable"
+    },
+    {
+      "path": "assets/rotp_zemperor/sounds/user/hol_0.ogg",
+      "disposition": "copied_reachable"
+    },
+    {
+      "path": "assets/rotp_zemperor/sounds/user/hol_1.ogg",
+      "disposition": "copied_reachable"
+    },
+    {
+      "path": "assets/rotp_zemperor/sounds.json",
+      "disposition": "transformed_reachable_sound_map"
+    },
+    {
+      "path": "assets/rotp_zemperor/textures/action/give_emp.png",
+      "disposition": "copied_to_current_ability_namespace",
+      "current_path": "assets/rotp_zemperor/textures/ability/give_emp.png",
+      "runtime_registered": true
+    },
+    {
+      "path": "assets/rotp_zemperor/textures/action/no_stand_target.png",
+      "disposition": "copied_to_current_ability_namespace"
+    },
+    {
+      "path": "assets/rotp_zemperor/textures/action/stand_target.png",
+      "disposition": "copied_to_current_ability_namespace"
+    },
+    {
+      "path": "assets/rotp_zemperor/textures/action/target.png",
+      "disposition": "copied_to_current_ability_namespace"
+    },
+    {
+      "path": "assets/rotp_zemperor/textures/action/target_hostile.png",
+      "disposition": "copied_to_current_ability_namespace"
+    },
+    {
+      "path": "assets/rotp_zemperor/textures/action/target_none.png",
+      "disposition": "copied_to_current_ability_namespace"
+    },
+    {
+      "path": "assets/rotp_zemperor/textures/action/target_player.png",
+      "disposition": "copied_to_current_ability_namespace"
+    },
+    {
+      "path": "assets/rotp_zemperor/textures/entity/projectiles/bullet.png",
+      "disposition": "packaged_inert_legacy_archive",
+      "archive_path": "assets/rotp_zemperor/legacy_archive/source/assets/rotp_zemperor/textures/entity/projectiles/bullet.png",
+      "runtime_registered": false
+    },
+    {
+      "path": "assets/rotp_zemperor/textures/entity/projectiles/bullet_trace.png",
+      "disposition": "copied_reachable"
+    },
+    {
+      "path": "assets/rotp_zemperor/textures/entity/stand/glow/catch_the_rainbow.png",
+      "disposition": "bundled_foreign_content_unreferenced_removed"
+    },
+    {
+      "path": "assets/rotp_zemperor/textures/entity/stand/hermito_purple.png",
+      "disposition": "bundled_hermit_content_unreferenced_removed"
+    },
+    {
+      "path": "assets/rotp_zemperor/textures/entity/stand/hermito_purple_slim.png",
+      "disposition": "bundled_hermit_content_unreferenced_removed"
+    },
+    {
+      "path": "assets/rotp_zemperor/textures/entity/stand/hermito_torns.png",
+      "disposition": "bundled_hermit_content_unreferenced_removed"
+    },
+    {
+      "path": "assets/rotp_zemperor/textures/entity/stand/hermito_torns_slim.png",
+      "disposition": "bundled_hermit_content_unreferenced_removed"
+    },
+    {
+      "path": "assets/rotp_zemperor/textures/entity/stand/void.png",
+      "disposition": "copied_as_item_invisibility_texture"
+    },
+    {
+      "path": "assets/rotp_zemperor/textures/item/emperor.png",
+      "disposition": "copied_reachable"
+    },
+    {
+      "path": "assets/rotp_zemperor/textures/power/the_emperor.png",
+      "disposition": "copied_to_current_stand_skin"
+    }
+  ],
+  "legacy_packaging_resources": [
+    {
+      "path": "logo.png",
+      "disposition": "copied_reachable_mod_list_presentation"
+    },
+    {
+      "path": "META-INF/MANIFEST.MF",
+      "disposition": "replaced_by_current_build_manifest"
+    },
+    {
+      "path": "META-INF/mods.toml",
+      "disposition": "transformed_to_current_neoforge_metadata"
+    },
+    {
+      "path": "pack.mcmeta",
+      "disposition": "replaced_by_current_mod_resource_pack_contract"
+    }
+  ],
+  "legacy_registrations": [
+    {
+      "legacy": "four Stand actions",
+      "current": "three contextual abilities plus the hidden no-op give_emp compatibility registration"
+    },
+    {
+      "legacy": "the_emperor Stand type",
+      "current": "the_emperor ranged exception Stand type"
+    },
+    {
+      "legacy": "transparent Emperor controller entity",
+      "current": "zero-size no-op-rendered controller entity"
+    },
+    {
+      "legacy": "emperor_bullet entity with tracking 4 and interval 20",
+      "current": "server-authoritative bullet with tracking 64 and interval 1"
+    },
+    {
+      "legacy": "Emperor item",
+      "current": "summon-owned non-creative item using vanilla RMB"
+    },
+    {
+      "legacy": "five explicit sound events plus seven OstSoundList events",
+      "current": "all five explicit events plus seven OstSoundList events registered; four retain donor audio definitions and eight preserve donor-silent semantics"
+    },
+    {
+      "legacy": "mode capability on every LivingEntity",
+      "current": "serializable mode attachment only on Player"
+    },
+    {
+      "legacy": "two play-to-client trail packets",
+      "current": "none; both legacy packets had no send sites"
+    },
+    {
+      "legacy": "Hermit model renderer for transparent controller",
+      "current": "NoopEntityRenderer"
+    },
+    {
+      "legacy": "custom bullet trace renderer",
+      "current": "renderer drawn whenever the viewer sees Stands; viewer Stand opacity through StandOpacityPolicy and AlphaMultiBufferSource, no link to the controller"
+    },
+    {
+      "legacy": "stand_invisible item property",
+      "current": "module-owned current item property"
+    },
+    {
+      "legacy": "KosmX summon animation layer",
+      "current": "synchronized special entity action using core player animation"
+    }
+  ],
+  "excluded": [
+    "ordinary melee, barrage, charged heavy, guard, grab, manual control, and Stand leap",
+    "transparent legacy Hermit controller geometry replaced by a no-op renderer",
+    "registered but never-sent trail packets and deprecated trace packet",
+    "unregistered duplicate Give Emperor class; the donor-registered no-op action is active as give_emp",
+    "never-instantiated bullet model and bullet.png",
+    "bundled Hermit Purple and Catch the Rainbow assets",
+    "unreferenced summon_3 sound",
+    "recipes and creative-tab exposure",
+    "PlayerRenderer, Iris, Shoulder Surfing, framebuffer, shader, and PostChain hooks"
+  ],
+  "blockers": [],
+  "manual_validation_not_run": [
+    "dedicated server startup and gameplay",
+    "two-client target and mode synchronization",
+    "late tracker projectile target and trace visibility",
+    "Stand visibility and viewer Stand opacity on the trail",
+    "Iris compatibility",
+    "Shoulder Surfing compatibility"
+  ]
+}

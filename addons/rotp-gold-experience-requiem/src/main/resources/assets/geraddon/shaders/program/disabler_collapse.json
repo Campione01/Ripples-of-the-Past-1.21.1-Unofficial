@@ -1,0 +1,116 @@
+{
+    "blend":  {
+                  "func":  "add",
+                  "srcrgb":  "one",
+                  "dstrgb":  "zero"
+              },
+    "vertex":  "blit",
+    "fragment":  "geraddon:disabler_collapse",
+    "samplers":  [
+                     {
+                         "name":  "DiffuseSampler"
+                     }
+                 ],
+    "attributes":  [
+                       "Position"
+                   ],
+    "uniforms":  [
+                     {
+                         "name":  "ProjMat",
+                         "type":  "matrix4x4",
+                         "count":  16,
+                         "values":  [
+                                        1.0,
+                                        0.0,
+                                        0.0,
+                                        0.0,
+                                        0.0,
+                                        1.0,
+                                        0.0,
+                                        0.0,
+                                        0.0,
+                                        0.0,
+                                        1.0,
+                                        0.0,
+                                        0.0,
+                                        0.0,
+                                        0.0,
+                                        1.0
+                                    ]
+                     },
+                     {
+                         "name":  "OutSize",
+                         "type":  "float",
+                         "count":  2,
+                         "values":  [
+                                        1.0,
+                                        1.0
+                                    ]
+                     },
+                     {
+                         "name":  "Time",
+                         "type":  "float",
+                         "count":  1,
+                         "values":  [
+                                        0.0
+                                    ]
+                     },
+                     {
+                         "name":  "TotalDuration",
+                         "type":  "float",
+                         "count":  1,
+                         "values":  [
+                                        1.2
+                                    ]
+                     },
+                     {
+                         "name":  "ImplosionStrength",
+                         "type":  "float",
+                         "count":  1,
+                         "values":  [
+                                        0.032
+                                    ]
+                     },
+                     {
+                         "name":  "ImplosionRadius",
+                         "type":  "float",
+                         "count":  1,
+                         "values":  [
+                                        2
+                                    ]
+                     },
+                     {
+                         "name":  "OuterFadeDistance",
+                         "type":  "float",
+                         "count":  1,
+                         "values":  [
+                                        0.48
+                                    ]
+                     },
+                     {
+                         "name":  "FadeOutStart",
+                         "type":  "float",
+                         "count":  1,
+                         "values":  [
+                                        0.72
+                                    ]
+                     },
+                     {
+                         "name":  "Center",
+                         "type":  "float",
+                         "count":  2,
+                         "values":  [
+                                        0.5,
+                                        0.5
+                                    ]
+                     },
+                     {
+                         "name":  "Visibility",
+                         "type":  "float",
+                         "count":  1,
+                         "values":  [
+                                        1.0
+                                    ]
+                     }
+                 ]
+}

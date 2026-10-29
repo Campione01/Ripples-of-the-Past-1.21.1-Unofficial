@@ -1,0 +1,11 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "rotp.addons.ultimate_lifeform.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": ["EntityUltimateLiquidWalkingMixin", "PlayerUltimateFireArmorMixin", "PlayerWallClimbTravelMixin"],
+  "client": ["client.BarsBorderTintMixin", "client.LocalPlayerWallClimbTravelMixin"],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

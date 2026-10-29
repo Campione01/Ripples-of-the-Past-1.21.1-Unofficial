@@ -1,0 +1,82 @@
+{
+  "killer_queen_summon": {
+    "subtitle": "rotp_zkq.subtitle.killer_queen_summon",
+    "sounds": [
+      "rotp_zkq:stand/killer_queen_summon",
+      "rotp_zkq:stand/killer_queen_summon_2",
+      "rotp_zkq:stand/killer_queen_summon_3",
+      "rotp_zkq:stand/killer_queen_summon_4",
+      "rotp_zkq:stand/killer_queen_summon_5",
+      "rotp_zkq:stand/killer_queen_summon_6"
+    ]
+  },
+  "killer_queen_unsummon": {
+    "subtitle": "rotp_zkq.subtitle.killer_queen_unsummon",
+    "sounds": ["rotp_zkq:stand/killer_queen_unsummon"]
+  },
+  "killer_queen_punch": {
+    "subtitle": "rotp_zkq.subtitle.killer_queen_punch",
+    "sounds": ["rotp_zkq:stand/killer_queen_punch"]
+  },
+  "killer_queen_punch_heavy": {
+    "subtitle": "rotp_zkq.subtitle.killer_queen_punch_heavy",
+    "sounds": ["rotp_zkq:stand/killer_queen_punch_heavy"]
+  },
+  "killer_queen_shiba": {
+    "subtitle": "rotp_zkq.subtitle.shiba",
+    "sounds": [
+      "rotp_zkq:stand/killer_queen_shiba",
+      "rotp_zkq:stand/killer_queen_shiba_2"
+    ]
+  },
+  "killer_queen_shiba_long": {
+    "subtitle": "rotp_zkq.subtitle.shiba_long",
+    "sounds": ["rotp_zkq:stand/killer_queen_shiba_long"]
+  },
+  "killer_queen_shiba_ba_ba": {
+    "subtitle": "rotp_zkq.subtitle.shiba_ba",
+    "sounds": ["rotp_zkq:stand/killer_queen_shiba_ba_ba"]
+  },
+  "killer_queen_boom": {
+    "subtitle": "rotp_zkq.subtitle.boom",
+    "sounds": ["rotp_zkq:stand/killer_queen_boom"]
+  },
+  "killer_queen_unboom": {
+    "subtitle": "rotp_zkq.subtitle.unboom",
+    "sounds": ["rotp_zkq:stand/killer_queen_unbomb"]
+  },
+  "user_kira": {
+    "subtitle": "rotp_zkq.subtitle.kq_name",
+    "sounds": [
+      "rotp_zkq:stand_user/user_kira",
+      "rotp_zkq:stand_user/user_kira_2",
+      "rotp_zkq:stand_user/user_kira_3"
+    ]
+  },
+  "kira_sheer_heart": {
+    "subtitle": "rotp_zkq.subtitle.kira_sheer_heart",
+    "sounds": [
+      "rotp_zkq:stand_user/sheer_heart",
+      "rotp_zkq:stand_user/sheer_heart_2"
+    ]
+  },
+  "sheer_heart": {
+    "subtitle": "rotp_zkq.subtitle.sheer_heart",
+    "sounds": ["rotp_zkq:stand/sheer_heart"]
+  },
+  "sheer_heart_step": {
+    "subtitle": "rotp_zkq.subtitle.sheer_heart_step",
+    "sounds": [
+      "rotp_zkq:stand/sheer_heart_step",
+      "rotp_zkq:stand/sheer_heart_step_2"
+    ]
+  },
+  "bites_za_dust": {
+    "subtitle": "rotp_zkq.subtitle.bites_reversal_short",
+    "sounds": ["rotp_zkq:stand/bites_reversal_short"]
+  },
+  "user_bites_za_dust": {
+    "subtitle": "rotp_zkq.subtitle.user_bites_za_dust",
+    "sounds": ["rotp_zkq:stand_user/bites_za_dust"]
+  }
+}

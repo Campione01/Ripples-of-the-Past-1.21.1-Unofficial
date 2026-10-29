@@ -1,0 +1,26 @@
+{
+  "values": [
+    {
+      "id": "jojo_ripples:mr_flame",
+      "required": false
+    },
+    {
+      "id": "jojo_ripples:mr_fireball",
+      "required": false
+    },
+    {
+      "id": "jojo_ripples:mr_crossfire_hurricane",
+      "required": false
+    },
+    {
+      "id": "jojo_ripples:mr_crossfire_hurricane_special",
+      "required": false
+    },
+    {
+      "id": "jojo_ripples:mr_red_bind",
+      "required": false
+    },
+    "minecraft:fireball",
+    "minecraft:small_fireball"
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "entity.rotp_mih.made_in_heaven": "天堂製造",
+  "stand.rotp_mih.made_in_heaven": "天堂製造",
+  "rotp_mih.configuration.title": "天堂製造設定",
+  "rotp_mih.configuration.section.rotp.mih.client.toml": "用戶端設定",
+  "rotp_mih.configuration.section.rotp.mih.client.toml.title": "天堂製造用戶端設定",
+  "rotp_mih.configuration.Client config": "用戶端設定",
+  "rotp_mih.configuration.Client config.tooltip": "只影響本用戶端顯示內容的設定。",
+  "rotp_mih.config.client.enableNewTSIcons": "新版時間系統圖示",
+  "rotp_mih.config.client.enableNewTSIcons.tooltip": "時間系統的「增加」與「清除」使用新版時鐘圖示。"
+}

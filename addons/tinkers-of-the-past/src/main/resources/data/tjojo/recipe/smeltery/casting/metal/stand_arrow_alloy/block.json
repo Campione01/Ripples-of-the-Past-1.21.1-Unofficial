@@ -1,0 +1,17 @@
+{
+    "neoforge:conditions":  [
+                                {
+                                    "type":  "neoforge:mod_loaded",
+                                    "modid":  "tconstruct"
+                                }
+                            ],
+    "type":  "tconstruct:casting_basin",
+    "fluid":  {
+                  "tag":  "c:molten_stand_arrow_alloy",
+                  "amount":  810
+              },
+    "result":  {
+                   "tag":  "c:storage_blocks/stand_arrow_alloy"
+               },
+    "cooling_time":  171
+}

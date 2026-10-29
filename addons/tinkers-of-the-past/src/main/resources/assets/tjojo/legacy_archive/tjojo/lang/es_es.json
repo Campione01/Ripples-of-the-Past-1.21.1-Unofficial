@@ -1,0 +1,35 @@
+{
+
+  "_comment": "Stand Arrow",
+  "material.tjojo.stand_arrow_alloy": "Aleación de Flecha de Stand",
+  "block.jojo.stand_arrow_alloy_block": "Bloque de aleación de flecha de Stand",
+  "block.tjojo.stand_arrow_alloy_block.tooltip": "Puede ser usado como base de Faro",
+  "item.jojo.stand_arrow_alloy_nugget": "Nugget de Aleación de Flecha de Stand",
+  "block.tjojo.molten_stand_arrow_alloy_fluid": "Aleación de Flecha de Stand",
+  "fluid.tjojo.molten_stand_arrow_alloy": "Aleación de Flecha de Stand fundido",
+  "fluid.tjojo.flowing_molten_stand_arrow_alloy": "Aleación de Flecha de Stand fundido",
+  "item.tjojo.molten_stand_arrow_alloy_bucket": "Cubeta de Aleación de Flecha de Stand fundida",
+
+  "_comment": "Meteor",
+  "material.tjojo.meteor": "Meteoro",
+  "block.jojo.meteor_block": "Bloque de meteoro",
+  "block.jojo.meteor_block.tooltip": "Puede ser usado como base de Faro",
+  "item.jojo.meteor_nugget": "Pepita de meteoro",
+  "item.jojo.meteor_ingot": "Lingote de meteoro",
+  "block.tjojo.molten_meteor_fluid": "Meteoro fundido",
+  "fluid.tjojo.molten_meteor": "Meteoro fundido",
+  "fluid.tjojo.flowing_molten_meteor": "Meteoro fundido",
+  "item.tjojo.molten_meteor_bucket": "Meteoro fundido en cubeta",
+
+
+
+
+  "_comment": "Modifiers",
+  "modifier.tjojo.stando_arrow": "Flecha de Stand",
+  "modifier.tjojo.stando_arrow.flavor": "¿Crees en la gravedad?",
+  "modifier.tjojo.stando_arrow.description": "Un corte con esta herramienta puede otorgar un Stand",
+
+  "modifier.tjojo.meteor_virus": "Virus del meteoro",
+  "modifier.tjojo.meteor_virus.flavor": "Desde Groelandia",
+  "modifier.tjojo.meteor_virus.description": "Sin refinar, puede infectar con virus al objetivo"
+}

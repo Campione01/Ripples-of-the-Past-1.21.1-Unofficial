@@ -1,0 +1,28 @@
+{
+  "stand.rotp_stfn.sticky_fingers": "Sticky Fingers",
+  "entity.rotp_stfn.sticky_fingers": "Sticky Fingers",
+  "entity.rotp_stfn.stfn_extended_punch": "Sticky Fingers Extended Punch",
+  "rotp_stfn.ability.punch": "Punch",
+  "rotp_stfn.ability.barrage": "Barrage",
+  "rotp_stfn.ability.heavy_punch": "Heavy Punch",
+  "rotp_stfn.ability.heavy_charged": "Charged Heavy Punch",
+  "rotp_stfn.ability.guard": "Block",
+  "rotp_stfn.ability.grab": "Grab",
+  "rotp_stfn.ability.grab_throw": "Throw",
+  "rotp_stfn.ability.grab_release": "Release",
+  "rotp_stfn.ability.grab_punch": "Punch",
+  "rotp_stfn.ability.grab_barrage": "Barrage",
+  "rotp_stfn.ability.grab_heavy_punch": "Heavy Punch",
+  "rotp_stfn.ability.sticky_fingers_extended_punch": "Extended Punch",
+  "rotp_stfn.ability.sticky_fingers_zipper": "Zipper"
+  ,"rotp_stfn.ability.sticky_fingers_unzip_punch": "Unzip Punch"
+  ,"rotp_stfn.ability.sticky_fingers_unzip_head": "Unzip Head"
+  ,"rotp_stfn.ability.sticky_fingers_unzip_arm": "Unzip Arm"
+  ,"rotp_stfn.ability.sticky_fingers_unzip_leg": "Unzip Leg"
+  ,"rotp_stfn.ability.sticky_fingers_zip_user_wounds": "Zip User Wounds"
+  ,"rotp_stfn.ability.sticky_fingers_zip_target_wounds": "Zip Target Wounds"
+  ,"rotp_stfn.ability.sticky_fingers_open_storage": "Open Storage"
+  ,"rotp_stfn.ability.sticky_fingers_open_inner_storage": "Open Inner Storage"
+  ,"rotp_stfn.ability.sticky_fingers_climb_zipper": "Climb Zipper"
+  ,"rotp_stfn.ability.sticky_fingers_hide_in_mob": "Hide in Mob"
+}

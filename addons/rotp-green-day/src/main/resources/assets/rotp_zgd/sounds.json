@@ -1,0 +1,19 @@
+{
+  "gd_summon": {
+    "subtitle": "rotp_zgd.subtitle.green_day",
+    "sounds": ["rotp_zgd:stand/gd_summon"]
+  },
+  "gd_mold": {
+    "subtitle": "rotp_zgd.subtitle.mold",
+    "sounds": [
+      "rotp_zgd:stand/mold_01",
+      "rotp_zgd:stand/mold_02",
+      "rotp_zgd:stand/mold_03",
+      "rotp_zgd:stand/mold_04"
+    ]
+  },
+  "gd_kick": {
+    "subtitle": "rotp_zgd.subtitle.gd_kick",
+    "sounds": ["rotp_zgd:stand/kick"]
+  }
+}

@@ -1,0 +1,299 @@
+{
+    "kingcrimson_epitaph":  {
+                                "subtitle":  "rotp_kingcrimson.subtitle.kingcrimson_epitaph",
+                                "sounds":  [
+                                               "rotp_kingcrimson:stand/kingcrimson_epitaph3",
+                                               "rotp_kingcrimson:stand/kingcrimson_epitaph2",
+                                               "rotp_kingcrimson:stand/kingcrimson_epitaph4"
+                                           ]
+                            },
+    "kingcrimson_dash":  {
+                             "subtitle":  "rotp_kingcrimson.subtitle.kingcrimson_dash",
+                             "sounds":  [
+                                            "rotp_kingcrimson:stand/kingcrimson_dash"
+                                        ]
+                         },
+    "diavolo_epitaph":  {
+                            "subtitle":  "rotp_kingcrimson.subtitle.diavolo_epitaph",
+                            "sounds":  [
+                                           "rotp_kingcrimson:stand_user/diavolo_epitaph",
+                                           "rotp_kingcrimson:stand_user/diavolo_epitaph2",
+                                           "rotp_kingcrimson:stand_user/diavolo_epitaph3",
+                                           "rotp_kingcrimson:stand_user/diavolo_epitaph4"
+                                       ]
+                        },
+    "diavolo_dash":  {
+                         "subtitle":  "rotp_kingcrimson.subtitle.diavolo_dash",
+                         "sounds":  [
+                                        "rotp_kingcrimson:stand_user/diavolo_dash",
+                                        "rotp_kingcrimson:stand_user/diavolo_dash2",
+                                        "rotp_kingcrimson:stand_user/diavolo_dash3"
+                                    ]
+                     },
+    "kingcrimson_summon":  {
+                               "subtitle":  "rotp_kingcrimson.subtitle.kingcrimson_summon",
+                               "sounds":  [
+                                              "rotp_kingcrimson:stand/kingcrimson_summon",
+                                              "rotp_kingcrimson:stand/kingcrimson_summon2",
+                                              "rotp_kingcrimson:stand/kingcrimson_summon3"
+                                          ]
+                           },
+    "kingcrimson_unsummon":  {
+                                 "subtitle":  "rotp_kingcrimson.subtitle.kingcrimson_unsummon",
+                                 "sounds":  [
+                                                "rotp_kingcrimson:stand/kingcrimson_unsummon"
+                                            ]
+                             },
+    "kingcrimson_punch":  {
+                              "subtitle":  "rotp_kingcrimson.subtitle.kingcrimson_punch",
+                              "sounds":  [
+                                             "rotp_kingcrimson:stand/kingcrimson_punch"
+                                         ]
+                          },
+    "kingcrimson_heavypunch":  {
+                                   "subtitle":  "rotp_kingcrimson.subtitle.kingcrimson_heavypunch",
+                                   "sounds":  [
+                                                  "rotp_kingcrimson:stand/kingcrimson_heavy_punch"
+                                              ]
+                               },
+    "diavolo_kingcrimson":  {
+                                "subtitle":  "rotp_kingcrimson.subtitle.diavolo_kingcrimson",
+                                "sounds":  [
+                                               "rotp_kingcrimson:stand_user/diavolo_kingcrimson",
+                                               "rotp_kingcrimson:stand_user/diavolo_kingcrimson2",
+                                               "rotp_kingcrimson:stand_user/diavolo_kingcrimson3",
+                                               "rotp_kingcrimson:stand_user/diavolo_kingcrimson4"
+                                           ]
+                            },
+    "diavolo_punch":  {
+                          "subtitle":  "rotp_kingcrimson.subtitle.diavolo_punch",
+                          "sounds":  [
+                                         "rotp_kingcrimson:stand_user/diavolo_punch",
+                                         "rotp_kingcrimson:stand_user/diavolo_punch2",
+                                         "rotp_kingcrimson:stand_user/diavolo_punch3"
+                                     ]
+                      },
+    "diavolo_barrage":  {
+                            "subtitle":  "rotp_kingcrimson.subtitle.diavolo_barrage",
+                            "sounds":  [
+                                           "rotp_kingcrimson:stand_user/diavolo_barrage",
+                                           "rotp_kingcrimson:stand_user/diavolo_barrage4",
+                                           "rotp_kingcrimson:stand_user/diavolo_barrage6",
+                                           "rotp_kingcrimson:stand_user/diavolo_barrage7",
+                                           "rotp_kingcrimson:stand_user/diavolo_barrage8"
+                                       ]
+                        },
+    "diavolo_heavypunch":  {
+                               "subtitle":  "rotp_kingcrimson.subtitle.diavolo_heavypunch",
+                               "sounds":  [
+                                              "rotp_kingcrimson:stand_user/diavolo_heavypunch",
+                                              "rotp_kingcrimson:stand_user/diavolo_heavypunch2",
+                                              "rotp_kingcrimson:stand_user/diavolo_heavypunch3",
+                                              "rotp_kingcrimson:stand_user/diavolo_heavypunch4",
+                                              "rotp_kingcrimson:stand_user/diavolo_heavypunch5",
+                                              "rotp_kingcrimson:stand_user/diavolo_heavypunch6"
+                                          ]
+                           },
+    "kingcrimson_chop":  {
+                             "subtitle":  "rotp_kingcrimson.subtitle.kingcrimson_chop",
+                             "sounds":  [
+                                            "rotp_kingcrimson:stand/kingcrimson_chop"
+                                        ]
+                         },
+    "kingcrimson_impale":  {
+                               "subtitle":  "rotp_kingcrimson.subtitle.kingcrimson_impale",
+                               "sounds":  [
+                                              "rotp_kingcrimson:stand/kingcrimson_impale"
+                                          ]
+                           },
+    "diavolo_chop":  {
+                         "subtitle":  "rotp_kingcrimson.subtitle.diavolo_chop",
+                         "sounds":  [
+                                        "rotp_kingcrimson:stand_user/diavolo_chop",
+                                        "rotp_kingcrimson:stand_user/diavolo_chop2",
+                                        "rotp_kingcrimson:stand_user/diavolo_chop3"
+                                    ]
+                     },
+    "diavolo_impale":  {
+                           "subtitle":  "rotp_kingcrimson.subtitle.diavolo_impale",
+                           "sounds":  [
+                                          "rotp_kingcrimson:stand_user/diavolo_impale",
+                                          "rotp_kingcrimson:stand_user/diavolo_impale2",
+                                          "rotp_kingcrimson:stand_user/diavolo_impale3"
+                                      ]
+                       },
+    "doppio_there_you_are":  {
+                                 "subtitle":  "rotp_kingcrimson.subtitle.doppio_there_you_are",
+                                 "sounds":  [
+                                                "rotp_kingcrimson:stand_user/doppio_there_you_are1",
+                                                "rotp_kingcrimson:stand_user/doppio_there_you_are2",
+                                                "rotp_kingcrimson:stand_user/doppio_there_you_are3"
+                                            ]
+                             },
+    "kingcrimson_groundpunch":  {
+                                    "subtitle":  "rotp_kingcrimson.subtitle.kingcrimson_groundpunch",
+                                    "sounds":  [
+                                                   "rotp_kingcrimson:stand/kingcrimson_groundpunch"
+                                               ]
+                                },
+    "kingcrimson_desperate_eyejab":  {
+                                         "subtitle":  "rotp_kingcrimson.subtitle.kingcrimson_desperate_eyejab",
+                                         "sounds":  [
+                                                        "rotp_kingcrimson:stand/kingcrimson_impale"
+                                                    ]
+                                     },
+    "diavolo_combofinisher":  {
+                                  "subtitle":  "rotp_kingcrimson.subtitle.diavolo_combofinisher",
+                                  "sounds":  [
+                                                 "rotp_kingcrimson:stand_user/diavolo_combofinisher"
+                                             ]
+                              },
+    "doppio_take_this":  {
+                             "subtitle":  "rotp_kingcrimson.subtitle.doppio_take_this",
+                             "sounds":  [
+                                            "rotp_kingcrimson:stand_user/doppio_take_this",
+                                            "rotp_kingcrimson:stand_user/doppio_damnit",
+                                            "rotp_kingcrimson:stand_user/doppio_silence"
+                                        ]
+                         },
+    "time_erase_start":  {
+                             "subtitle":  "rotp_kingcrimson.subtitle.time_erase_start",
+                             "sounds":  [
+                                            "rotp_kingcrimson:stand/kingcrimson_timeerasure1",
+                                            "rotp_kingcrimson:stand/kingcrimson_timeerasure2",
+                                            "rotp_kingcrimson:stand/kingcrimson_timeerasure3",
+                                            "rotp_kingcrimson:stand/kingcrimson_timeerasure4"
+                                        ]
+                         },
+    "time_erase_end":  {
+                           "subtitle":  "rotp_kingcrimson.subtitle.time_erase_end",
+                           "sounds":  [
+                                          "rotp_kingcrimson:stand/kingcrimson_timeresume",
+                                          "rotp_kingcrimson:stand/kingcrimson_timeresume2",
+                                          "rotp_kingcrimson:stand/kingcrimson_timeresume3",
+                                          "rotp_kingcrimson:stand/kingcrimson_timeresume4",
+                                          "rotp_kingcrimson:stand/kingcrimson_timeresume5"
+                                      ]
+                       },
+    "kingcrimson_timeerase":  {
+                                  "subtitle":  "rotp_kingcrimson.subtitle.kingcrimson_timeerase",
+                                  "sounds":  [
+                                                 {
+                                                     "name":  "rotp_kingcrimson:diavolo_kingcrimson",
+                                                     "type":  "event"
+                                                 }
+                                             ]
+                              },
+    "kingcrimson_timeskip":  {
+                                 "subtitle":  "rotp_kingcrimson.subtitle.kingcrimson_timeskip",
+                                 "sounds":  [
+                                                "rotp_kingcrimson:stand/kingcrimson_timeskip"
+                                            ]
+                             },
+    "kingcrimson_timeskip2":  {
+                                  "subtitle":  "rotp_kingcrimson.subtitle.kingcrimson_timeskip",
+                                  "sounds":  [
+                                                 "rotp_kingcrimson:stand/kingcrimson_timeskip2"
+                                             ]
+                              },
+    "kc_ost_30":  {
+                      "sounds":  [
+                                     {
+                                         "name":  "rotp_kingcrimson:kc_ost_120",
+                                         "type":  "event"
+                                     }
+                                 ]
+                  },
+    "kc_ost_60":  {
+                      "sounds":  [
+                                     {
+                                         "name":  "rotp_kingcrimson:kc_ost_120",
+                                         "type":  "event"
+                                     }
+                                 ]
+                  },
+    "kc_ost_75":  {
+                      "sounds":  [
+                                     {
+                                         "name":  "rotp_kingcrimson:kc_ost_120",
+                                         "type":  "event"
+                                     }
+                                 ]
+                  },
+    "kc_ost_90":  {
+                      "sounds":  [
+                                     {
+                                         "name":  "rotp_kingcrimson:kc_ost_120",
+                                         "type":  "event"
+                                     }
+                                 ]
+                  },
+    "kc_ost_120":  {
+                       "sounds":  [
+                                      {
+                                          "name":  "rotp_kingcrimson:ost/king_crimson_1",
+                                          "weight":  3,
+                                          "stream":  true
+                                      },
+                                      {
+                                          "name":  "rotp_kingcrimson:ost/king_crimson_2",
+                                          "weight":  3,
+                                          "stream":  true
+                                      },
+                                      {
+                                          "name":  "rotp_kingcrimson:ost/king_crimson_3",
+                                          "weight":  2,
+                                          "stream":  true
+                                      },
+                                      {
+                                          "name":  "rotp_kingcrimson:ost/king_crimson_4",
+                                          "weight":  1,
+                                          "stream":  true
+                                      }
+                                  ]
+                   },
+    "kc_ost_full":  {
+                        "sounds":  [
+                                       {
+                                           "name":  "rotp_kingcrimson:ost/king_crimson_1",
+                                           "weight":  3,
+                                           "stream":  true
+                                       },
+                                       {
+                                           "name":  "rotp_kingcrimson:ost/king_crimson_2",
+                                           "weight":  3,
+                                           "stream":  true
+                                       },
+                                       {
+                                           "name":  "rotp_kingcrimson:ost/king_crimson_3",
+                                           "weight":  2,
+                                           "stream":  true
+                                       },
+                                       {
+                                           "name":  "rotp_kingcrimson:ost/king_crimson_4",
+                                           "weight":  1,
+                                           "stream":  true
+                                       }
+                                   ]
+                    },
+    "kc_ost_cassette":  {
+                            "sounds":  [
+                                           {
+                                               "name":  "rotp_kingcrimson:kc_ost_full",
+                                               "type":  "event"
+                                           }
+                                       ]
+                        },
+    "epitaph_timeskip":  {
+                             "subtitle":  "rotp_kingcrimson.subtitle.epitaph_timeskip",
+                             "sounds":  [
+                                            "rotp_kingcrimson:stand/epitaph_timeskip"
+                                        ]
+                         },
+    "doppio_barrage":  {
+                           "subtitle":  "rotp_kingcrimson.subtitle.doppio_barrage",
+                           "sounds":  [
+                                          "rotp_kingcrimson:stand_user/doppio_barrage"
+                                      ]
+                       }
+}

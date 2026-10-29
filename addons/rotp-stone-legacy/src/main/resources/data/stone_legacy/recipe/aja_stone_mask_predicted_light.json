@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {"item": "minecraft:diamond"},
+    {"item": "jojo_ripples:aja_stone"},
+    {"item": "minecraft:diamond"},
+    {"item": "minecraft:prismarine_crystals"},
+    {"item": "jojo_ripples:stone_mask"},
+    {"item": "minecraft:prismarine_crystals"},
+    {"item": "minecraft:diamond"},
+    {"item": "minecraft:ender_pearl"},
+    {"item": "minecraft:diamond"}
+  ],
+  "result": {
+    "id": "stone_legacy:aja_stone_mask_predicted_light",
+    "count": 1
+  }
+}

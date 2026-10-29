@@ -1,0 +1,66 @@
+{
+  "rotp_stone_free:stone_free": {
+    "use_by_resolve": {
+      "0lvl": ["ora_combo", "string_combo", "ora_ora_ora_combo_v1", "sweep_combo"],
+      "1lvl": ["ora_combo", "ora_combo_alt", "string_combo", "ora_ora_ora_combo_v2", "sweep_combo", "binding_combo", "binding_combo_alt"],
+      "2lvl": ["ora_combo", "ora_combo_alt", "string_combo", "ora_ora_ora_combo_v2", "sweep_combo", "binding_combo", "binding_combo_alt"],
+      "3lvl": ["ora_combo", "ora_combo_alt", "string_combo", "ora_ora_ora_combo_v2", "sweep_combo", "binding_combo", "binding_combo_alt", "extended_punch", "extended_punch_alt", "string_pick", "string_pick_alt"],
+      "4lvl": ["ora_combo", "ora_combo_alt", "string_combo", "ora_ora_ora_combo_v2", "sweep_combo", "binding_combo", "binding_combo_alt", "extended_punch", "extended_punch_alt", "string_pick", "string_pick_alt"]
+    },
+    "block": "guard",
+    "ora_combo": [
+      { "action": "punch", "distance": "<=4" },
+      { "action": "punch", "distance": "<=4" },
+      { "action": "heavy_punch", "distance": "<=4" }
+    ],
+    "string_combo": [
+      { "action": "stone_free_user_string_attack", "distance": ">4" },
+      { "action": "stone_free_user_string_attack", "distance": ">4" },
+      { "action": "stone_free_user_string_whip", "distance": ">4" }
+    ],
+    "ora_ora_ora_combo_v1": [
+      { "action": "barrage", "distance": "<=4" },
+      { "action": "heavy_punch", "distance": "<=4" }
+    ],
+    "sweep_combo": [
+      { "action": "stone_free_user_string_sweep", "distance": ">4" },
+      { "action": "stone_free_user_string_sweep", "distance": ">4" },
+      { "action": "stone_free_user_string_whip", "distance": ">4" }
+    ],
+    "ora_combo_alt": [
+      { "action": "punch", "distance": "<=4" },
+      { "action": "punch", "distance": "<=4" },
+      { "action": "punch", "distance": "<=4" },
+      { "action": "stone_free_string_punch", "distance": "<=4" }
+    ],
+    "ora_ora_ora_combo_v2": [
+      { "action": "barrage", "distance": "<=4" },
+      { "action": "barrage", "distance": "<=4" },
+      { "action": "stone_free_string_punch", "distance": "<=4" }
+    ],
+    "binding_combo": [
+      { "action": "stone_free_user_attack_binding", "distance": "<=4" },
+      { "action": "heavy_punch", "distance": "<=4" }
+    ],
+    "binding_combo_alt": [
+      { "action": "stone_free_attack_binding", "distance": ">4" },
+      { "action": "stone_free_user_string_whip", "distance": ">4" },
+      { "action": "heavy_punch", "distance": "<=4" }
+    ],
+    "extended_punch": [
+      { "action": "stone_free_extended_punch", "distance": ">5" }
+    ],
+    "extended_punch_alt": [
+      { "action": "stone_free_user_attack_binding", "distance": ">5" },
+      { "action": "stone_free_extended_punch", "distance": ">4" }
+    ],
+    "string_pick": [
+      { "action": "stone_free_user_string_pick", "distance": ">5" }
+    ],
+    "string_pick_alt": [
+      { "action": "stone_free_attack_binding", "distance": ">5" },
+      { "action": "stone_free_user_string_pick", "distance": ">3" },
+      { "action": "heavy_punch", "distance": "<=4" }
+    ]
+  }
+}

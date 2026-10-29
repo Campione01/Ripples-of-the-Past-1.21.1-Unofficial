@@ -1,0 +1,94 @@
+{
+  "life_shot": {
+    "subtitle": "geraddon.subtitle.life_shot.name",
+    "sounds": [ "geraddon:life_shot" ]
+  },
+  "punch_hit": {
+    "subtitle": "geraddon.subtitle.punch_hit.name",
+    "sounds": [ "geraddon:punch_hit" ]
+  },
+  "ger_summon": {
+    "subtitle": "geraddon.subtitle.ger_summon.name",
+    "sounds": [ "geraddon:ger_summon" ]
+  },
+  "ger_summon_shout": {
+    "subtitle": "geraddon.subtitle.ger_summon_shout.name",
+    "sounds": [ "geraddon:ger_summon_shout" ]
+  },
+  "ger_unsummon": {
+    "subtitle": "geraddon.subtitle.ger_unsummon.name",
+    "sounds": [ "geraddon:ger_unsummon" ]
+  },
+  "ger_barrage_shout": {
+    "subtitle": "geraddon.subtitle.ger_barrage_shout.name",
+    "sounds": [ "geraddon:ger_barrage_shout" ]
+  },
+  "return_to_zero": {
+    "subtitle": "geraddon.subtitle.return_to_zero.name",
+    "sounds": [ "geraddon:return_to_zero" ]
+  },
+  "ger_heavy_punch": {
+    "subtitle": "geraddon.subtitle.ger_heavy_punch.name",
+    "sounds": [ "geraddon:ger_heavy_punch" ]
+  },
+  "ger_punch": {
+    "subtitle": "geraddon.subtitle.ger_punch.name",
+    "sounds": [ "geraddon:ger_punch" ]
+  },
+  "rtz_end": {
+    "subtitle": "geraddon.subtitle.rtz_end.name",
+    "sounds": [ "geraddon:rtz_end" ]
+  },
+  "ger_evolution_insert": {
+    "subtitle": "geraddon.subtitle.ger_evolution_insert.name",
+    "sounds": [ "geraddon:ger_evolution_insert" ]
+  },
+  "ger_evolution_voiceline1": {
+    "subtitle": "geraddon.subtitle.ger_evolution_voiceline1.name",
+    "sounds": [ "geraddon:ger_evolution_voiceline1" ]
+  },
+  "ger_evolution_voiceline2": {
+    "subtitle": "geraddon.subtitle.ger_evolution_voiceline2.name",
+    "sounds": [ "geraddon:ger_evolution_voiceline2" ]
+  },
+  "ger_disabler": {
+    "subtitle": "geraddon.subtitle.ger_disabler.name",
+    "sounds": [ "geraddon:ger_disabler" ]
+  },
+  "ger_evolution_end": {
+    "subtitle": "geraddon.subtitle.ger_evolution_end.name",
+    "sounds": [ "geraddon:ger_evolution_end" ]
+  },
+  "ger_ost": {
+    "subtitle": "geraddon.subtitle.ger_ost.name",
+    "sounds": [ "geraddon:ger_ost" ]
+  },
+  "ger_ost_30": {
+    "subtitle": "geraddon.subtitle.ger_ost.name",
+    "sounds": [ "geraddon:ger_ost" ]
+  },
+  "ger_ost_60": {
+    "subtitle": "geraddon.subtitle.ger_ost.name",
+    "sounds": [ "geraddon:ger_ost" ]
+  },
+  "ger_ost_75": {
+    "subtitle": "geraddon.subtitle.ger_ost.name",
+    "sounds": [ "geraddon:ger_ost" ]
+  },
+  "ger_ost_90": {
+    "subtitle": "geraddon.subtitle.ger_ost.name",
+    "sounds": [ "geraddon:ger_ost" ]
+  },
+  "ger_ost_120": {
+    "subtitle": "geraddon.subtitle.ger_ost.name",
+    "sounds": [ "geraddon:ger_ost" ]
+  },
+  "ger_ost_full": {
+    "subtitle": "geraddon.subtitle.ger_ost.name",
+    "sounds": [ "geraddon:ger_ost" ]
+  },
+  "ger_ost_cassette": {
+    "subtitle": "geraddon.subtitle.ger_ost.name",
+    "sounds": [ "geraddon:ger_ost" ]
+  }
+}

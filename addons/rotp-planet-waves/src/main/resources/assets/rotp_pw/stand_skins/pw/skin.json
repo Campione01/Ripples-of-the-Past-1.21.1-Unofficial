@@ -1,0 +1,10 @@
+{
+  "stand_type": "rotp_pw:pw",
+  "surface_translucency": true,
+  "color": "#FF3333",
+  "story_part": "jojo_ripples:p6",
+  "scale": [
+    0.7,
+    2.1
+  ]
+}

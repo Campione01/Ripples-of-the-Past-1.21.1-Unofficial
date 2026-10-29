@@ -1,0 +1,41 @@
+{
+    "type":  "minecraft:crafting_shaped",
+    "pattern":  [
+                    "#PS",
+                    "CMY",
+                    "REN"
+                ],
+    "key":  {
+                "#":  {
+                          "item":  "rotp_ul:life_essence"
+                      },
+                "P":  {
+                          "item":  "jojo_ripples:sledgehammer"
+                      },
+                "S":  {
+                          "item":  "rotp_ul:death_essence"
+                      },
+                "C":  {
+                          "item":  "rotp_ul:fire_essence"
+                      },
+                "Y":  {
+                          "item":  "rotp_ul:water_essence"
+                      },
+                "R":  {
+                          "item":  "rotp_ul:sun_essence"
+                      },
+                "N":  {
+                          "item":  "rotp_ul:earth_essence"
+                      },
+                "M":  {
+                          "item":  "jojo_ripples:stone_mask"
+                      },
+                "E":  {
+                          "item":  "rotp_ul:soul_essence"
+                      }
+            },
+    "result":  {
+                   "count":  1,
+                   "id":  "rotp_ul:stone_mask_ul_nostone"
+               }
+}

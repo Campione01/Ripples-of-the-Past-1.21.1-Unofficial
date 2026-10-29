@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "void_block=false,waterlogged=false": { "model": "minecraft:block/air" },
+    "void_block=false,waterlogged=true": { "model": "minecraft:block/air" },
+    "void_block=true,waterlogged=false": { "model": "minecraft:block/air" },
+    "void_block=true,waterlogged=true": { "model": "minecraft:block/air" }
+  }
+}

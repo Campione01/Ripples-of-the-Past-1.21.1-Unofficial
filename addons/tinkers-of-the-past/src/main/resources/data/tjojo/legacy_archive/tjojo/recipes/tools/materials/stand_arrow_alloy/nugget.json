@@ -1,0 +1,9 @@
+{
+  "type": "tconstruct:material",
+  "ingredient": {
+    "tag": "forge:nuggets/stand_arrow_alloy"
+  },
+  "value": 1,
+  "needed": 9,
+  "material": "tjojo:stand_arrow_alloy"
+}

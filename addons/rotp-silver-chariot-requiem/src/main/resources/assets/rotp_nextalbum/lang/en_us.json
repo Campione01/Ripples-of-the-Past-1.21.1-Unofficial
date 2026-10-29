@@ -1,0 +1,13 @@
+{
+  "stand.rotp_nextalbum.silver_chariot_requiem": "Silver Chariot Requiem",
+  "entity.rotp_nextalbum.silver_chariot_requiem": "Silver Chariot Requiem",
+  "rotp_nextalbum.ability.chariot_requiem_punch": "Light Punch",
+  "rotp_nextalbum.ability.chariot_requiem_barrage": "Punch Barrage",
+  "rotp_nextalbum.ability.chariot_requiem_heavy_punch": "Heavy Punch",
+  "rotp_nextalbum.ability.chariot_requiem_finisher_punch": "Finisher Punch",
+  "rotp_nextalbum.ability.chariot_requiem_block": "Guard",
+  "rotp_nextalbum.ability.chariot_requiem_aura": "Sleep Aura",
+  "rotp_nextalbum.ability.chariot_requiem_virus": "Release Requiem Virus",
+  "rotp_nextalbum.ability.chariot_requiem_stand_virus": "Release Meteorite Virus",
+  "rotp_nextalbum.ability.heavy_charged": "Charged Heavy Punch"
+}

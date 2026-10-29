@@ -1,0 +1,50 @@
+{
+    "cm_summon":  {
+                      "sounds":  [
+                                     "rotp_cm:cm_summon"
+                                 ]
+                  },
+    "cm_unsummon":  {
+                        "sounds":  [
+                                       "rotp_cm:cm_unsummon"
+                                   ]
+                    },
+    "cm_punch":  {
+                     "sounds":  [
+                                    "rotp_cm:cm_punch1",
+                                    "rotp_cm:cm_punch2",
+                                    "rotp_cm:cm_punch3",
+                                    "rotp_cm:cm_punch4"
+                                ]
+                 },
+    "cm_barrage":  {
+                       "sounds":  [
+                                      "rotp_cm:cm_barrage"
+                                  ]
+                   },
+    "cm_heavy_punch":  {
+                           "sounds":  [
+
+                                      ]
+                       },
+    "cm_heart_inversion":  {
+                               "sounds":  [
+                                              "rotp_cm:cm_heart_inversion"
+                                          ]
+                           },
+    "cm_gravity_shift":  {
+                             "sounds":  [
+                                            "rotp_cm:cm_gravity_shift"
+                                        ]
+                         },
+    "cm_gravity_counter":  {
+                               "sounds":  [
+                                              "rotp_cm:cm_gravity_counter"
+                                          ]
+                           },
+    "cm_center_of_gravity":  {
+                                 "sounds":  [
+                                                "rotp_cm:cm_center_of_gravity"
+                                            ]
+                             }
+}

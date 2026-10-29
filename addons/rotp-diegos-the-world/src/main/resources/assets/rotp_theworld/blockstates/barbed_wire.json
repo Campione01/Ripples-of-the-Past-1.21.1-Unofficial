@@ -1,0 +1,28 @@
+{
+  "variants": {
+    "facing=north,barbed_wire_part=0": { "model": "rotp_theworld:block/barbed_wire_0_0" },
+    "facing=north,barbed_wire_part=1": { "model": "rotp_theworld:block/barbed_wire_0_1" },
+    "facing=north,barbed_wire_part=2": { "model": "rotp_theworld:block/barbed_wire_1_0" },
+    "facing=north,barbed_wire_part=3": { "model": "rotp_theworld:block/barbed_wire_1_1" },
+    "facing=north,barbed_wire_part=4": { "model": "rotp_theworld:block/barbed_wire_2_0" },
+    "facing=north,barbed_wire_part=5": { "model": "rotp_theworld:block/barbed_wire_2_1" },
+    "facing=east,barbed_wire_part=0": { "model": "rotp_theworld:block/barbed_wire_0_0", "y": 90 },
+    "facing=east,barbed_wire_part=1": { "model": "rotp_theworld:block/barbed_wire_0_1", "y": 90 },
+    "facing=east,barbed_wire_part=2": { "model": "rotp_theworld:block/barbed_wire_1_0", "y": 90 },
+    "facing=east,barbed_wire_part=3": { "model": "rotp_theworld:block/barbed_wire_1_1", "y": 90 },
+    "facing=east,barbed_wire_part=4": { "model": "rotp_theworld:block/barbed_wire_2_0", "y": 90 },
+    "facing=east,barbed_wire_part=5": { "model": "rotp_theworld:block/barbed_wire_2_1", "y": 90 },
+    "facing=south,barbed_wire_part=0": { "model": "rotp_theworld:block/barbed_wire_0_0", "y": 180  },
+    "facing=south,barbed_wire_part=1": { "model": "rotp_theworld:block/barbed_wire_0_1", "y": 180  },
+    "facing=south,barbed_wire_part=2": { "model": "rotp_theworld:block/barbed_wire_1_0", "y": 180  },
+    "facing=south,barbed_wire_part=3": { "model": "rotp_theworld:block/barbed_wire_1_1", "y": 180  },
+    "facing=south,barbed_wire_part=4": { "model": "rotp_theworld:block/barbed_wire_2_0", "y": 180  },
+    "facing=south,barbed_wire_part=5": { "model": "rotp_theworld:block/barbed_wire_2_1", "y": 180  },
+    "facing=west,barbed_wire_part=0": { "model": "rotp_theworld:block/barbed_wire_0_0", "y": 270 },
+    "facing=west,barbed_wire_part=1": { "model": "rotp_theworld:block/barbed_wire_0_1", "y": 270 },
+    "facing=west,barbed_wire_part=2": { "model": "rotp_theworld:block/barbed_wire_1_0", "y": 270 },
+    "facing=west,barbed_wire_part=3": { "model": "rotp_theworld:block/barbed_wire_1_1", "y": 270 },
+    "facing=west,barbed_wire_part=4": { "model": "rotp_theworld:block/barbed_wire_2_0", "y": 270 },
+    "facing=west,barbed_wire_part=5": { "model": "rotp_theworld:block/barbed_wire_2_1", "y": 270 }
+  }
+}

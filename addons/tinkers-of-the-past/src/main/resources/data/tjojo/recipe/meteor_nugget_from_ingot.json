@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "group": "tjojo:meteor_nugget",
+  "ingredients": [
+    {
+      "item": "tjojo:meteor_ingot"
+    }
+  ],
+  "result": {
+    "id": "tjojo:meteor_nugget",
+    "count": 9
+  }
+}

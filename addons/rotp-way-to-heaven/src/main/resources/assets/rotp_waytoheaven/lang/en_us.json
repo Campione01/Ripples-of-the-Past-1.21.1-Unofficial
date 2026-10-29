@@ -1,0 +1,15 @@
+{
+  "rotp_waytoheaven.ability.whitesnake_frases": "14 Phrases",
+  "rotp_waytoheaven.ability.cmoon_heaven": "Heaven Quest",
+  "rotp_waytoheaven.ability.cmoon_heaven.param": "Heaven Quest | %s %s %s",
+  "item.rotp_waytoheaven.bone": "DIO's Bone",
+  "item.rotp_waytoheaven.bone.sinners": "Sinners: %s/%s",
+  "jojo.message.action_condition.no_c_moon": "You do not know the details of the Way to Heaven",
+  "jojo.message.action_condition.no_madeinheaven": "You do not know how to reach Made in Heaven",
+  "jojo.message.action_condition.no_bone": "You need a bone holding 36 sinners' souls in your off hand",
+  "jojo.message.action_condition.cm_heaven": "You have not reached the required point",
+  "jojo.message.action_condition.evolution_failed": "The Stand evolution could not be completed",
+  "heaven.chat.command.lib.info": "How to obtain Made in Heaven:\n1. As Whitesnake, carry DIO's Bone and kill 36 criminals while it is in your inventory.\n2. Put the full bone in your off hand and hold 14 Phrases at Resolve level 4 to evolve into C-Moon.\n3. At Resolve level 4, hold Heaven Quest and reach the displayed coordinates to evolve into Made in Heaven.",
+  "heaven.chat.quest": "Made in Heaven coordinates: %s %s %s",
+  "commands.rotp_waytoheaven.bone.success": "Gave %s player(s) a bone with %s sinner soul(s)"
+}

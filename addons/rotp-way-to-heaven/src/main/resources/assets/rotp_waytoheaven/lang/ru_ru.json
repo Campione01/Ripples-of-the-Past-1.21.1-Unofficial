@@ -1,0 +1,15 @@
+{
+  "rotp_waytoheaven.ability.whitesnake_frases": "14 фраз",
+  "rotp_waytoheaven.ability.cmoon_heaven": "Небесный квест",
+  "rotp_waytoheaven.ability.cmoon_heaven.param": "Небесный квест | %s %s %s",
+  "item.rotp_waytoheaven.bone": "Кость ДИО",
+  "item.rotp_waytoheaven.bone.sinners": "Грешники: %s/%s",
+  "jojo.message.action_condition.no_c_moon": "Ты не знаешь детали Пути к Небесам",
+  "jojo.message.action_condition.no_madeinheaven": "Ты не знаешь, как достичь Made in Heaven",
+  "jojo.message.action_condition.no_bone": "Вам нужна кость с 36 душами грешников во второй руке",
+  "jojo.message.action_condition.cm_heaven": "Вы еще не достигли нужной точки",
+  "jojo.message.action_condition.evolution_failed": "Эволюцию стенда не удалось завершить",
+  "heaven.chat.command.lib.info": "Как получить Made in Heaven:\n1. Имея Whitesnake, носите Кость ДИО в инвентаре и убейте 36 преступников.\n2. Возьмите наполненную кость во вторую руку и удерживайте «14 фраз» на 4-м уровне решимости, чтобы получить C-Moon.\n3. На 4-м уровне решимости удерживайте «Небесный квест» и достигните указанных координат, чтобы получить Made in Heaven.",
+  "heaven.chat.quest": "Координаты для Made in Heaven: %s %s %s",
+  "commands.rotp_waytoheaven.bone.success": "Выдана кость %s игрокам с %s душами грешников"
+}

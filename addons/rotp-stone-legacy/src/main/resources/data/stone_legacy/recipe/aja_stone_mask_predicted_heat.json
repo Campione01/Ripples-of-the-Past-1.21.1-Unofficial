@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {"item": "minecraft:gold_nugget"},
+    {"item": "jojo_ripples:aja_stone"},
+    {"item": "minecraft:gold_nugget"},
+    {"item": "minecraft:blaze_rod"},
+    {"item": "jojo_ripples:stone_mask"},
+    {"item": "minecraft:blaze_rod"},
+    {"item": "minecraft:gold_nugget"},
+    {"item": "minecraft:blaze_powder"},
+    {"item": "minecraft:gold_nugget"}
+  ],
+  "result": {
+    "id": "stone_legacy:aja_stone_mask_predicted_heat",
+    "count": 1
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "type": "jojo_ripples:crafting_shaped_stand",
+  "category": "combat",
+  "pattern": [
+    "n  ",
+    "fii",
+    "in "
+  ],
+  "key": {
+    "n": {
+      "tag": "c:nuggets/iron"
+    },
+    "i": {
+      "tag": "c:ingots/iron"
+    },
+    "f": {
+      "item": "minecraft:flint_and_steel"
+    }
+  },
+  "stand": [
+    {
+      "name": "rotp_theworld:the_world"
+    },
+    {
+      "name": "rotp_ctr:catch_the_rainbow"
+    }
+  ],
+  "result": {
+    "id": "rotp_theworld:revolver"
+  }
+}

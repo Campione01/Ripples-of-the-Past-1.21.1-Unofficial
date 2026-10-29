@@ -1,0 +1,100 @@
+{
+  "jolyne_stone_free": {
+    "subtitle": "rotp_stone_free.subtitle.stone_free_name",
+    "sounds": [
+      "rotp_stone_free:stand_user/jolyne_stone_free",
+      "rotp_stone_free:stand_user/jolyne_stone_free_2",
+      "rotp_stone_free:stand_user/jolyne_stone_free_3",
+      "rotp_stone_free:stand_user/jolyne_stone_free_4",
+      "rotp_stone_free:stand_user/jolyne_stone_free_5"
+    ]
+  },
+  "stone_free_summon": {
+    "subtitle": "rotp_stone_free.subtitle.stone_free_summon",
+    "sounds": [
+      "rotp_stone_free:stand/stone_free_summon"
+    ]
+  },
+  "stone_free_punch_light": {
+    "subtitle": "rotp_stone_free.subtitle.stone_free_punch_light",
+    "sounds": [
+      "rotp_stone_free:stand/stone_free_punch_light"
+    ]
+  },
+  "stone_free_punch_heavy": {
+    "subtitle": "rotp_stone_free.subtitle.stone_free_punch_heavy",
+    "sounds": [
+      "rotp_stone_free:stand/stone_free_punch_heavy"
+    ]
+  },
+  "stone_free_ora": {
+    "subtitle": "rotp_stone_free.subtitle.stone_free_ora",
+    "sounds": [
+      "rotp_stone_free:stand/stone_free_ora",
+      "rotp_stone_free:stand/stone_free_ora_2",
+      "rotp_stone_free:stand/stone_free_ora_3",
+      "rotp_stone_free:stand/stone_free_ora_4"
+    ]
+  },
+  "stone_free_ora_long": {
+    "subtitle": "rotp_stone_free.subtitle.stone_free_ora",
+    "sounds": [
+      "rotp_stone_free:stand/stone_free_ora_long",
+      "rotp_stone_free:stand/stone_free_ora_long_2"
+    ]
+  },
+  "stone_free_ora_ora_ora": {
+    "subtitle": "rotp_stone_free.subtitle.stone_free_ora_ora_ora",
+    "sounds": [
+      "rotp_stone_free:stand/stone_free_ora_ora_ora",
+      "rotp_stone_free:stand/stone_free_ora_ora_ora_2",
+      "rotp_stone_free:stand/stone_free_ora_ora_ora_3"
+    ]
+  },
+  "stone_free_string": {
+    "subtitle": "rotp_stone_free.subtitle.stone_free_string",
+    "sounds": [
+      "rotp_stone_free:stand/stone_free_string",
+      "rotp_stone_free:stand/stone_free_string_2",
+      "rotp_stone_free:stand/stone_free_string_3"
+    ]
+  },
+  "stone_free_grapple_catch": {
+    "subtitle": "rotp_stone_free.subtitle.stone_free_grapple_catch",
+    "sounds": [
+      "rotp_stone_free:stand/stone_free_barrier_placed",
+      "rotp_stone_free:stand/stone_free_barrier_placed_2"
+    ]
+  },
+  "stone_free_closing_wound": {
+    "subtitle": "rotp_stone_free.subtitle.stone_free_closing_wound",
+    "sounds": [
+      "rotp_stone_free:stand/stone_free_string"
+    ]
+  },
+  "stone_free_closed_wound": {
+    "subtitle": "rotp_stone_free.subtitle.stone_free_closed_wound",
+    "sounds": [
+      "rotp_stone_free:stand/stone_free_barrier_placed"
+    ]
+  },
+  "stone_free_barrier_placed": {
+    "subtitle": "rotp_stone_free.subtitle.stone_free_barrier_placed",
+    "sounds": [
+      "rotp_stone_free:stand/stone_free_barrier_placed",
+      "rotp_stone_free:stand/stone_free_barrier_placed_2"
+    ]
+  },
+  "stone_free_barrier_ripped": {
+    "subtitle": "rotp_stone_free.subtitle.stone_free_barrier_ripped",
+    "sounds": [
+      "rotp_stone_free:stand/stone_free_barrier_ripped"
+    ]
+  },
+  "stone_free_mobius_strip": {
+    "subtitle": "rotp_stone_free.subtitle.stone_free_mobius_strip",
+    "sounds": [
+      "rotp_stone_free:stand/stone_free_mobius_strip"
+    ]
+  }
+}

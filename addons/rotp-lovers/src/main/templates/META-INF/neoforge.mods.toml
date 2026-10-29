@@ -1,0 +1,39 @@
+modLoader="javafml"
+loaderVersion="${loader_version_range}"
+license="GNU GPL v3.0"
+
+[[mods]]
+modId="${mod_id}"
+version="${mod_version}"
+displayName="${mod_name}"
+authors="Weever"
+credits="StandoByte and the original Ripples of the Past contributors"
+description='''${mod_description}
+
+This migration derives from RotP-恋人-1.0.2.jar. See the packaged
+SOURCE_AND_LICENSE.md and lovers-source-manifest.json for exact provenance.'''
+logoFile="logo.png"
+
+[[mixins]]
+config="rotp_lovers.mixins.json"
+
+[[dependencies.${mod_id}]]
+modId="neoforge"
+type="required"
+versionRange="[${neo_version},)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.${mod_id}]]
+modId="minecraft"
+type="required"
+versionRange="${minecraft_version_range}"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.${mod_id}]]
+modId="${core_mod_id}"
+type="required"
+versionRange="[${core_mod_version}]"
+ordering="AFTER"
+side="BOTH"

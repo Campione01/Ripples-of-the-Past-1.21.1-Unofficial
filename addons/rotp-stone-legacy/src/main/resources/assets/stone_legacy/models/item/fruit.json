@@ -1,0 +1,134 @@
+{
+  "parent": "item/generated",
+  "textures": {
+    "layer0": "stone_legacy:item/fruit"
+  },
+  "overrides": [
+    {
+      "predicate": {
+        "stone_legacy:stage": 630
+      },
+      "model": "stone_legacy:item/stone_fruit"
+    },
+    {
+      "predicate": {
+        "stone_legacy:stage": 30
+      },
+      "model": "stone_legacy:item/animation/stone_fruit_frame_0"
+    },
+    {
+      "predicate": {
+        "stone_legacy:stage": 60
+      },
+      "model": "stone_legacy:item/animation/stone_fruit_frame_1"
+    },
+    {
+      "predicate": {
+        "stone_legacy:stage": 90
+      },
+      "model": "stone_legacy:item/animation/stone_fruit_frame_2"
+    },
+    {
+      "predicate": {
+        "stone_legacy:stage": 120
+      },
+      "model": "stone_legacy:item/animation/stone_fruit_frame_3"
+    },
+    {
+      "predicate": {
+        "stone_legacy:stage": 150
+      },
+      "model": "stone_legacy:item/animation/stone_fruit_frame_4"
+    },
+    {
+      "predicate": {
+        "stone_legacy:stage": 180
+      },
+      "model": "stone_legacy:item/animation/stone_fruit_frame_5"
+    },
+    {
+      "predicate": {
+        "stone_legacy:stage": 210
+      },
+      "model": "stone_legacy:item/animation/stone_fruit_frame_6"
+    },
+    {
+      "predicate": {
+        "stone_legacy:stage": 240
+      },
+      "model": "stone_legacy:item/animation/stone_fruit_frame_7"
+    },
+    {
+      "predicate": {
+        "stone_legacy:stage": 270
+      },
+      "model": "stone_legacy:item/animation/stone_fruit_frame_8"
+    },
+    {
+      "predicate": {
+        "stone_legacy:stage": 300
+      },
+      "model": "stone_legacy:item/animation/stone_fruit_frame_9"
+    },
+    {
+      "predicate": {
+        "stone_legacy:stage": 330
+      },
+      "model": "stone_legacy:item/animation/stone_fruit_frame_10"
+    },
+    {
+      "predicate": {
+        "stone_legacy:stage": 360
+      },
+      "model": "stone_legacy:item/animation/stone_fruit_frame_11"
+    },
+    {
+      "predicate": {
+        "stone_legacy:stage": 390
+      },
+      "model": "stone_legacy:item/animation/stone_fruit_frame_12"
+    },
+    {
+      "predicate": {
+        "stone_legacy:stage": 420
+      },
+      "model": "stone_legacy:item/animation/stone_fruit_frame_13"
+    },
+    {
+      "predicate": {
+        "stone_legacy:stage": 450
+      },
+      "model": "stone_legacy:item/animation/stone_fruit_frame_14"
+    },
+    {
+      "predicate": {
+        "stone_legacy:stage": 480
+      },
+      "model": "stone_legacy:item/animation/stone_fruit_frame_15"
+    },
+    {
+      "predicate": {
+        "stone_legacy:stage": 510
+      },
+      "model": "stone_legacy:item/animation/stone_fruit_frame_16"
+    },
+    {
+      "predicate": {
+        "stone_legacy:stage": 540
+      },
+      "model": "stone_legacy:item/animation/stone_fruit_frame_17"
+    },
+    {
+      "predicate": {
+        "stone_legacy:stage": 570
+      },
+      "model": "stone_legacy:item/animation/stone_fruit_frame_18"
+    },
+    {
+      "predicate": {
+        "stone_legacy:stage": 600
+      },
+      "model": "stone_legacy:item/animation/stone_fruit_frame_19"
+    }
+  ]
+}

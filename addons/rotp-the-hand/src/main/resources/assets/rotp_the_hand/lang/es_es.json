@@ -1,0 +1,9 @@
+{
+  "rotp_the_hand.subtitle.erasure": "Borrado",
+  "effect.rotp_the_hand.surprise": "Sorpresa",
+  "rotp_the_hand.configuration.title": "Configuración de The Hand",
+  "rotp_the_hand.configuration.section.rotp.the.hand.common.toml": "Ajustes comunes de The Hand",
+  "rotp_the_hand.configuration.section.rotp.the.hand.common.toml.title": "Configuración común de The Hand",
+  "rotp_the_hand.config.percent_damage": "Daño porcentual",
+  "rotp_the_hand.config.percent_damage.tooltip": "Borrar y Ráfaga de Borrado usan el daño clásico basado en la vida máxima del objetivo, escalado según su tamaño."
+}

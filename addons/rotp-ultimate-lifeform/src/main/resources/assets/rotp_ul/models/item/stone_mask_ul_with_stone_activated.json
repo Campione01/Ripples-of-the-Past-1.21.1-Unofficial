@@ -1,0 +1,6 @@
+{
+  "parent": "item/generated",
+  "textures": {
+    "layer0": "rotp_ul:item/stone_mask_ul_with_stone_activated"
+  }
+}

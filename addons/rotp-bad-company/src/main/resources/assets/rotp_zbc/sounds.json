@@ -1,0 +1,146 @@
+{
+  "void": {
+    "sounds": []
+  },
+  "bc_soldier_step": {
+    "subtitle": "rotp_zbc.subtitle.bc_soldier_step",
+    "sounds": [
+      "rotp_zbc:stand/soldier_march_1",
+      "rotp_zbc:stand/soldier_march_2",
+      "rotp_zbc:stand/soldier_march_3",
+      "rotp_zbc:stand/soldier_march_4",
+      "rotp_zbc:stand/soldier_march_5"
+    ]
+  },
+  "bc_soldier_shoot": {
+    "subtitle": "rotp_zbc.subtitle.shoot",
+    "sounds": [
+      "rotp_zbc:stand/soldier_shoot_1",
+      "rotp_zbc:stand/soldier_shoot_2",
+      "rotp_zbc:stand/soldier_shoot_3"
+    ]
+  },
+  "bc_barrage": {
+    "subtitle": "rotp_zbc.subtitle.bc_barrage",
+    "sounds": [
+      "rotp_zbc:stand/barrage_shot_1",
+      "rotp_zbc:stand/barrage_shot_2",
+      "rotp_zbc:stand/barrage_shot_3"
+    ]
+  },
+  "bc_tank_hurt": {
+    "subtitle": "rotp_zbc.subtitle.tank_hurt",
+    "sounds": [
+      "rotp_zbc:stand/tank_hurt_1",
+      "rotp_zbc:stand/tank_hurt_2",
+      "rotp_zbc:stand/tank_hurt_3",
+      "rotp_zbc:stand/tank_hurt_4",
+      "rotp_zbc:stand/tank_hurt_5"
+    ]
+  },
+  "bc_tank_shoot": {
+    "subtitle": "rotp_zbc.subtitle.tank_shoot",
+    "sounds": [
+      "rotp_zbc:stand/tank_shoot_1",
+      "rotp_zbc:stand/tank_shoot_2",
+      "rotp_zbc:stand/tank_shoot_3"
+    ]
+  },
+  "bc_tank_step": {
+    "subtitle": "rotp_zbc.subtitle.tank_step",
+    "sounds": [
+      "rotp_zbc:stand/tank_step_1",
+      "rotp_zbc:stand/tank_step_2",
+      "rotp_zbc:stand/tank_step_3",
+      "rotp_zbc:stand/tank_step_4"
+    ]
+  },
+  "bc_tank_living": {
+    "subtitle": "rotp_zbc.subtitle.tank_living",
+    "sounds": [
+      "rotp_zbc:stand/gears_rattle_01",
+      "rotp_zbc:stand/gears_rattle_02",
+      "rotp_zbc:stand/gears_rattle_03",
+      "rotp_zbc:stand/gears_rattle_04",
+      "rotp_zbc:stand/gears_rattle_05"
+    ]
+  },
+  "bc_copter": {
+    "subtitle": "rotp_zbc.subtitle.copter",
+    "sounds": [
+      "rotp_zbc:stand/copter_1",
+      "rotp_zbc:stand/copter_2",
+      "rotp_zbc:stand/copter_3"
+    ]
+  },
+  "keicho_bad_company": {
+    "subtitle": "rotp_zbc.subtitle.user",
+    "sounds": [
+      "rotp_zbc:user/bc_user"
+    ]
+  },
+  "bad_company_ost": {
+    "sounds": [
+      {
+        "name": "rotp_zbc:stand/killer_queen_shiba_ba_ba",
+        "stream": true
+      }
+    ]
+  },
+  "bad_company_ost_30": {
+    "sounds": [
+      {
+        "name": "rotp_zbc:stand/killer_queen_shiba_ba_ba",
+        "stream": true
+      }
+    ]
+  },
+  "bad_company_ost_60": {
+    "sounds": [
+      {
+        "name": "rotp_zbc:stand/killer_queen_shiba_ba_ba",
+        "stream": true
+      }
+    ]
+  },
+  "bad_company_ost_75": {
+    "sounds": [
+      {
+        "name": "rotp_zbc:stand/killer_queen_shiba_ba_ba",
+        "stream": true
+      }
+    ]
+  },
+  "bad_company_ost_90": {
+    "sounds": [
+      {
+        "name": "rotp_zbc:stand/killer_queen_shiba_ba_ba",
+        "stream": true
+      }
+    ]
+  },
+  "bad_company_ost_120": {
+    "sounds": [
+      {
+        "name": "rotp_zbc:stand/killer_queen_shiba_ba_ba",
+        "stream": true
+      }
+    ]
+  },
+  "bad_company_ost_full": {
+    "sounds": [
+      {
+        "name": "rotp_zbc:stand/killer_queen_shiba_ba_ba",
+        "stream": true
+      }
+    ]
+  },
+  "bad_company_ost_cassette": {
+    "sounds": [
+      {
+        "name": "rotp_zbc:stand/killer_queen_shiba_ba_ba",
+        "stream": true
+      }
+    ]
+  }
+}

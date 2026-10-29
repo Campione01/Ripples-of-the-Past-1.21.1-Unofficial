@@ -1,0 +1,23 @@
+{
+  "block.tjojo.stand_arrow_alloy_block": "Block of Stand Arrow Alloy",
+  "block.tjojo.stand_arrow_alloy_block.tooltip": "Can be used as beacon base",
+  "item.tjojo.stand_arrow_alloy_nugget": "Stand Arrow Alloy Nugget",
+  "block.tjojo.meteor_block": "Block of Meteor",
+  "block.tjojo.meteor_block.tooltip": "Can be used as beacon base",
+  "item.tjojo.meteor_ingot": "Meteor Ingot",
+  "item.tjojo.meteor_nugget": "Meteor Nugget",
+  "block.tjojo.molten_stand_arrow_alloy": "Molten Stand Arrow Alloy",
+  "fluid_type.tjojo.molten_stand_arrow_alloy": "Molten Stand Arrow Alloy",
+  "item.tjojo.molten_stand_arrow_alloy_bucket": "Molten Stand Arrow Alloy Bucket",
+  "block.tjojo.molten_meteor": "Molten Meteor",
+  "fluid_type.tjojo.molten_meteor": "Molten Meteor",
+  "item.tjojo.molten_meteor_bucket": "Molten Meteor Bucket",
+  "material.tjojo.stand_arrow_alloy": "Stand Arrow Alloy",
+  "material.tjojo.meteor": "Meteor",
+  "modifier.tjojo.stando_arrow": "Stand Arrow",
+  "modifier.tjojo.stando_arrow.flavor": "Do you believe in gravity?",
+  "modifier.tjojo.stando_arrow.description": "Cutting with the tool can give a Stand to the target.",
+  "modifier.tjojo.meteor_virus": "Meteor Virus",
+  "modifier.tjojo.meteor_virus.flavor": "From Greenland",
+  "modifier.tjojo.meteor_virus.description": "Unrefined meteor infects the target with the Stand virus."
+}

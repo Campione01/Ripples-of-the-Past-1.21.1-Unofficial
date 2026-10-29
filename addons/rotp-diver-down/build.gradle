@@ -1,0 +1,12 @@
+// Public build of RotP Diver Down (rotp_dd). The module identity is in gradle.properties;
+// the shared logic is in ../gradle/addon-module.gradle.
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev'
+}
+
+ext.gameTestStructures = [
+        'data/rotp_dd_review_fixes/structure/empty.nbt': 'core',
+]
+
+apply from: rootProject.file('gradle/addon-module.gradle')

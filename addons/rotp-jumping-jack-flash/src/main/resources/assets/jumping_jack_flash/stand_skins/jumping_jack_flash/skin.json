@@ -1,0 +1,9 @@
+{
+  "stand_type": "jumping_jack_flash:jumping_jack_flash",
+  "color": "#404040",
+  "story_part": "jojo_ripples:p6",
+  "scale": {
+    "width": 0.7,
+    "height": 2.1
+  }
+}

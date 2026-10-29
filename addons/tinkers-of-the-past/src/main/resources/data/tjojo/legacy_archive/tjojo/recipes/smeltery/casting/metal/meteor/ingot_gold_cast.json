@@ -1,0 +1,14 @@
+{
+  "type": "tconstruct:casting_table",
+  "cast": {
+    "tag": "tconstruct:casts/multi_use/ingot"
+  },
+  "fluid": {
+    "tag": "forge:molten_meteor",
+    "amount": 144
+  },
+  "result": {
+    "tag": "forge:ingots/meteor"
+  },
+  "cooling_time": 57
+}

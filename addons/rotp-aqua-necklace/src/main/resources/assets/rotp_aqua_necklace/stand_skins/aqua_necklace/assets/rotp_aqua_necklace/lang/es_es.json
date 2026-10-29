@@ -1,0 +1,16 @@
+{
+  "entity.rotp_aqua_necklace.aqua_necklace": "Aqua Necklace",
+  "stand.rotp_aqua_necklace.aqua_necklace": "Aqua Necklace",
+  "rotp_aqua_necklace.ability.change_to_liquid": "Convertirse en liquido",
+  "rotp_aqua_necklace.ability.change_to_liquid.undo": "Volver a la normalidad",
+  "rotp_aqua_necklace.ability.change_to_gaseous": "Convertirse en vapor",
+  "rotp_aqua_necklace.ability.change_to_gaseous.undo": "Volver a la normalidad",
+  "rotp_aqua_necklace.ability.enter_entity": "Meterse en la entidad",
+  "rotp_aqua_necklace.ability.leave_entity": "Salir de la entidad",
+  "rotp_aqua_necklace.ability.drown_host": "Entrar en los pulmones",
+  "rotp_aqua_necklace.ability.host_pressure": "Presion interna",
+  "rotp_aqua_necklace.ability.host_pressure.out": "Pu\u00f1etazo",
+  "rotp_aqua_necklace.ability.host_crush": "Golpe fuerte",
+  "rotp_aqua_necklace.ability.brain_attack": "Ataque al cerebro",
+  "rotp_aqua_necklace.ability.fluid_guard": "Bloquear"
+}

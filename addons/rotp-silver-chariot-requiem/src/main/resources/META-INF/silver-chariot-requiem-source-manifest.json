@@ -1,0 +1,243 @@
+{
+  "schema_version": 3,
+  "logical_unit": "silver_chariot_requiem",
+  "module": "addons/rotp-silver-chariot-requiem",
+  "module_version": "0.1.11-1.2.1-port.3",
+  "status": "static_complete_merged_closure_runtime_open",
+  "packaged_ledgers": {
+    "source_closure": "META-INF/migration/source-closure.json",
+    "row80_owners": "META-INF/migration/row80-owner-disposition.json",
+    "row80_resources": "META-INF/migration/row80-resource-disposition.json",
+    "input_eligibility": "META-INF/migration/input-eligibility.json",
+    "render_ownership": "META-INF/migration/render-ownership.json",
+    "private_extensions": "META-INF/migration/private-extensions.json",
+    "blockers": "META-INF/migration/blocker-ledger.json",
+    "runtime_validation": "META-INF/migration/runtime-validation.json",
+    "legacy_resource_retention": "META-INF/migration/legacy-resource-retention.json",
+    "legacy_resource_provenance": "META-INF/migration/legacy-resource-provenance.json",
+    "legacy_resource_disposition": "META-INF/migration/legacy-resource-disposition.json",
+    "legacy_resource_closure": "META-INF/migration/legacy-resource-closure.json"
+  },
+  "authorities": {
+    "row32": {
+      "artifact": "RotP-Next-Album-0.1.11.jar",
+      "bytes": 2258019,
+      "sha256": "749AF3B9F710490534BDA502BCE4A2A734921FF2A1C84CB1007EF892EF2FB19D",
+      "decompile_tree": "025_RotP-Next-Album-0.1.11",
+      "decompile_tree_sha256": "D17821F80558D71A429CFF84D8528FE1C57CD8FD089C27004A5C28D3EBD967C8"
+    },
+    "row80": {
+      "artifact": "RotP-\u94f6\u8272\u6218\u8f66\u9547\u9b42\u66f2-1.2.1.jar",
+      "bytes": 2735635,
+      "sha256": "6E0386AE943331FCD2E3DDC9BFD579EC53CA67914DEE465412047512DFCF4395",
+      "zip_entries": 86,
+      "files": 59,
+      "classes": 18,
+      "json": 4,
+      "png": 24,
+      "ogg": 10,
+      "decompile_tree": "073_RotP-\u94f6\u8272\u6218\u8f66\u9547\u9b42\u66f2-1.2.1",
+      "equivalent_decompile_copies": 3,
+      "decompile_tree_sha256": "D97F54389107F1DC8EE442483290234AE1346179CFEA26213AEEF19534FBC8C4",
+      "java_owners": 17,
+      "non_class_files_accounted": 41
+    },
+    "core_pin": {
+      "coordinate": "io.github.campione01.jojo:RipplesOfThePast-Unofficial-NeoForge:1.21.1-0.2.2.2-260128-a",
+      "git_commit": "bc9502423e3ca5d131f614ab1fb012ddfe15ea54",
+      "source_state_sha256": "8905EFC1EE6DD61DF06EDBB683889FA7F6190D5B62525EFC0A90B4DDE46835DC",
+      "runtime_bytes": 15102182,
+      "runtime_sha256": "43D49425BE55A3558B3C291020A94705B38F6764C9935477B061B4FC242436AA",
+      "sources_bytes": 2292740,
+      "sources_sha256": "80E8D251A78906CC175BD158A6DFEA1D0C681110F7F46CA5BD27315996E293CA"
+    }
+  },
+  "authority_split": {
+    "active_stand_id": "rotp_nextalbum:silver_chariot_requiem",
+    "active_entity_id": "rotp_nextalbum:silver_chariot_requiem",
+    "row32_owns": [
+      "save-compatible Stand/entity IDs",
+      "H2 main, outline, and arrow-beetle renderer",
+      "bounded soul-field extension",
+      "Beetle Arrow compatibility evolution"
+    ],
+    "row80_owns": [
+      "canonical destructive power E, autonomous control, raw numeric stats, and dimensions",
+      "source-backed punch, barrage, heavy, finisher, block, and charged-heavy controls",
+      "Aura and two Virus actions",
+      "virus effect, particle, sounds, action icons",
+      "generic Stand Arrow evolution",
+      "selectable H1 legacy model, texture, icon, custom idle, summon poses, and Virus poses"
+    ],
+    "row80_stand_entity_aliases_registered": false,
+    "alias_reason": "One logical Stand retains one simultaneously loadable Stand/entity registry owner."
+  },
+  "current_owners": {
+    "registration_controls_and_sounds": "io/github/campione01/jojo/addons/scr/SilverChariotRequiemAddon.java",
+    "aura": "io/github/campione01/jojo/addons/scr/ability/ChariotDarkAuraAbility.java",
+    "virus_actions": "io/github/campione01/jojo/addons/scr/ability/ChariotVirusAbility.java",
+    "virus_effect": "io/github/campione01/jojo/addons/scr/effect/ChariotVirusEffect.java",
+    "evolution_and_game_events": "io/github/campione01/jojo/addons/scr/SilverChariotRequiemEvents.java",
+    "evolution_state": "io/github/campione01/jojo/addons/scr/state/RequiemEvolutionState.java",
+    "server_entity": "io/github/campione01/jojo/addons/scr/entity/SilverChariotRequiemEntity.java",
+    "soul_state_and_service": [
+      "io/github/campione01/jojo/addons/scr/state/RequiemSoulState.java",
+      "io/github/campione01/jojo/addons/scr/service/RequiemSoulService.java"
+    ],
+    "client_registration": "io/github/campione01/jojo/addons/scr/client/SilverChariotRequiemClientEvents.java",
+    "selectable_h2_default_h1_legacy_renderer": [
+      "io/github/campione01/jojo/addons/scr/client/SilverChariotRequiemRenderer.java",
+      "io/github/campione01/jojo/addons/scr/client/SilverChariotRequiemSpecialLayer.java",
+      "io/github/campione01/jojo/addons/scr/client/SilverChariotRequiemRenderTypes.java",
+      "io/github/campione01/jojo/addons/scr/client/SilverChariotRequiemStandModel.java",
+      "io/github/campione01/jojo/addons/scr/client/SilverChariotRequiemLegacyModel.java"
+    ]
+  },
+  "registries": {
+    "stand_type": "rotp_nextalbum:silver_chariot_requiem",
+    "entity_type": "rotp_nextalbum:silver_chariot_requiem",
+    "ability_types": [
+      "rotp_cr:chariot_requiem_aura",
+      "rotp_cr:chariot_requiem_virus",
+      "rotp_cr:chariot_requiem_stand_virus"
+    ],
+    "mob_effect": "rotp_cr:chariot_virus_effect",
+    "particle_type": "rotp_cr:chariot_virus_particle",
+    "sound_events": [
+      "rotp_cr:scr_summon",
+      "rotp_cr:scr_unsummon",
+      "rotp_cr:scr_punch",
+      "rotp_cr:scr_punch_heavy",
+      "rotp_cr:scr_ability_1",
+      "rotp_cr:scr_ability_2",
+      "rotp_cr:scr_yellow_virus",
+      "rotp_cr:chariot_requiem_ost and OstSoundList suffixes"
+    ],
+    "attachments": [
+      "rotp_silver_chariot_requiem:requiem_evolution_state",
+      "rotp_silver_chariot_requiem:requiem_soul_state"
+    ]
+  },
+  "gameplay": {
+    "canonical_destructive_power": "E",
+    "control_topology": "autonomous",
+    "manual_control": false,
+    "stand_leap": false,
+    "legacy_numeric_values": {
+      "power": 4.0,
+      "speed": 4.0,
+      "precision": 4.0
+    },
+    "current_numeric_values": {
+      "power": 4.0,
+      "speed": 4.0,
+      "precision": 4.0
+    },
+    "numeric_rank_policy": "Raw legacy numeric values are retained without converting them into canonical rank claims.",
+    "range": [100.0, 100.0],
+    "durability": 20.0,
+    "dimensions": [0.7, 2.1],
+    "aura": {
+      "range": 30.0,
+      "max_hold_ticks": 600,
+      "start_stamina": 300.0,
+      "stamina_per_tick": 3.0,
+      "cooldown_ticks": 600,
+      "effect_duration_ticks": 100,
+      "difficulty_amplifier": "(difficulty id - 1) * 3",
+      "cancel_on_positive_incoming_damage": true
+    },
+    "requiem_virus": {
+      "cone_range": 2.0,
+      "dot_threshold": 0.886,
+      "hold_ticks": 50,
+      "stamina_per_tick": 2.0,
+      "cooldown_ticks": 500,
+      "resolve_level": 2,
+      "effect_duration_ticks": 600
+    },
+    "stand_virus": {
+      "cone_range": 2.0,
+      "dot_threshold": 0.886,
+      "hold_ticks": 50,
+      "stamina_per_tick": 3.0,
+      "cooldown_ticks": 450,
+      "resolve_level": 3,
+      "effect_duration_ticks": 600
+    },
+    "virus_effect": {
+      "color": "#FFEB81",
+      "uncurable": true,
+      "tick_interval": 10,
+      "damage": "0.15 + amplifier * 0.2; 0.001 if above health, otherwise multiplied by 10",
+      "damage_type": "jojo_ripples:stand_arrow_virus",
+      "on_living_server_player_removal": "attempt random Stand grant when player has no Stand"
+    }
+  },
+  "input": {
+    "lmb_click": "chariot_requiem_punch",
+    "lmb_hold": "chariot_requiem_barrage",
+    "rmb_click": "chariot_requiem_heavy_punch",
+    "rmb_hold": "chariot_requiem_block",
+    "shared_shift_rmb_short": "none",
+    "shared_shift_rmb_long": "heavy_charged",
+    "charged_heavy_input_method": "HOLD",
+    "grab": false,
+    "grab_reason": "The fixed grasp rule requires canonical A+, direct control, close range, and grasp-capable humanoid arms; row80 is canonical E and autonomous with 100/100 range.",
+    "special_wheel": [
+      "chariot_requiem_aura",
+      "chariot_requiem_virus",
+      "Shift variation chariot_requiem_stand_virus"
+    ]
+  },
+  "render": {
+    "active_topology": "selectable_H2_default_H1_legacy",
+    "active_texture_sizes": {
+      "default_main": [256, 256],
+      "legacy_main": [128, 128],
+      "outline": [256, 256],
+      "arrow_beetle": [16, 16],
+      "legacy_icon": [32, 32]
+    },
+    "row80_h1_texture": [128, 128],
+    "row80_h1_disposition": "active_adapted_registered_selectable_skin",
+    "row80_h1_runtime_references": 5,
+    "row80_h1_main_visual_upgrade_required": false,
+    "row80_h1_art_gate": "donor_exact_restoration_exception",
+    "visual_context": "StandVisualContext",
+    "alpha_buffer": "AlphaMultiBufferSource",
+    "forbidden_takeovers": []
+  },
+  "resource_summary": {
+    "row80_source_files_accounted": 41,
+    "active_row80_ogg": 9,
+    "dead_row80_ogg": 1,
+    "active_row80_action_icons": 8,
+    "active_row80_effect_icons": 1,
+    "active_row80_particle_textures": 1,
+    "dead_row80_purple_frames": 11,
+    "dead_wrong_plural_particle_copy": 1,
+    "restored_row80_entity_texture": 1,
+    "restored_row80_power_icon": 1,
+    "archived_exact_entries": 16,
+    "archived_exact_bytes": 110697,
+    "archived_runtime_registered_entries": 3,
+    "archived_inert_only_entries": 13
+  },
+  "restored_visual_evidence": "The selectable row80 legacy skin restores the registered donor H1 renderer/model path, exact 128x128 texture and 32x32 icon, custom idle, two summon poses, and both Virus poses while retaining row32 H2 as the default skin. The default animation set resolves all nine registered skills over the shared model-bone contract, and the H2 outline restores the donor front-face-cull shell state.",
+  "donor_identity_exchange_audit": {
+    "status": "proven_absent_from_both_packaged_donors",
+    "row32": "registered with empty action hotbars; SilverChariotRequiemEntity only sets IDLE and always-render behavior",
+    "row80": "complete 17-class implementation registers melee, block, dark aura, chariot virus, and stand virus; ChariotRequiemEntity has no behavior overrides",
+    "current_body_snapshot_exchange": "explicit row32 compatibility extension, not a partial donor restoration",
+    "functional_blocker": false
+  },
+  "blockers": [],
+  "validation": {
+    "standalone_command": ".\\gradlew.bat --settings-file .\\addons\\rotp-silver-chariot-requiem\\standalone.settings.gradle :addons:rotp-silver-chariot-requiem:clean :addons:rotp-silver-chariot-requiem:test :addons:rotp-silver-chariot-requiem:check :addons:rotp-silver-chariot-requiem:build :addons:rotp-silver-chariot-requiem:sourcesJar --offline --no-daemon --console=plain",
+    "required_repetitions": 2,
+    "strict_contract_task": "verifySilverChariotRequiemStrictContract",
+    "result_record": "migration/build-result.json"
+  },
+  "runtime_matrix": "META-INF/migration/runtime-validation.json; every row remains not_run"
+}

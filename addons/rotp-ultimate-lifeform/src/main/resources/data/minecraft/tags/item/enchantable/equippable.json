@@ -1,0 +1,7 @@
+{
+  "replace": false,
+  "values": [
+    "rotp_ul:stone_mask_ul_nostone",
+    "rotp_ul:stone_mask_ul_with_stone"
+  ]
+}

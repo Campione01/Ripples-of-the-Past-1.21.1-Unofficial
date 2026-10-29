@@ -1,0 +1,93 @@
+{
+  "schema": 2,
+  "phase": "full-static-reachable-closure",
+  "canonical": {
+    "inventory_row": 66,
+    "artifact": "RotP-珍珠果酱-1.0.3.jar",
+    "absolute_path": "RotP-珍珠果酱-1.0.3.jar",
+    "bytes": 250877,
+    "sha256": "9C8B98E92CD2D148CE0D2D7E74E556273AA7EB1838F59C749820891FC75C315E",
+    "mod_id": "rotp_pj",
+    "version": "1.0.3",
+    "author": "Weever",
+    "declared_license": "GNU GPL v3.0",
+    "file_entries": 35,
+    "class_entries": 16,
+    "png_entries": 9,
+    "ogg_entries": 5,
+    "json_entries": 2
+  },
+  "decompile": {
+    "root": "rotp附属反编译",
+    "selected": "059_RotP-珍珠果酱-1.0.3",
+    "file_count": 17,
+    "java_count": 16,
+    "bytes": 43478,
+    "tree_sha256": "1A3EFD08751A0D58387DA279FBBC1F8E0765DA7B89058922A81FFCE9A46075FA",
+    "byte_identical_mirrors": [
+      "057_RotP-珍珠果酱-1.0.3",
+      "058_RotP-珍珠果酱-1.0.3"
+    ],
+    "mirror_differences": 0
+  },
+  "runtime": {
+    "stand_type": "rotp_pj:pearl_jam",
+    "stand_entity": "rotp_pj:pearl_jam",
+    "visual_topology": "H3",
+    "input_profile": "world-effect-exception",
+    "abilities": [
+      "rotp_pj:pj_diagnose",
+      "rotp_pj:pj_inject",
+      "rotp_pj:pj_poison_inject",
+      "rotp_pj:pj_unject",
+      "rotp_pj:pj_craft_passive",
+      "rotp_pj:pj_hand_toggle",
+      "rotp_pj:pj_secret_by_chef"
+    ],
+    "canonical_actions_implemented": 6,
+    "random_weight": 3.0,
+    "arrow_pool": "jojo_ripples:player_can_get_from_arrow",
+    "source_owners_disposed": 16,
+    "canonical_resources_disposed": 19,
+    "external_addon_dependencies": []
+  },
+  "state": {
+    "dish_component": "rotp_pj:pearl_jam_dish",
+    "dish_component_persistent": true,
+    "dish_component_network_synchronized": true,
+    "player_attachment": "rotp_pj:pearl_jam_player_state",
+    "attachment_serializable": true,
+    "attachment_copy_on_death": true,
+    "attachment_sync": "owner-only",
+    "invalidation_cleanup": true,
+    "static_player_collections": false
+  },
+  "visual": {
+    "legacy_placeholder_sha256": "6DE7343C340C8CA0DBEF7C83DAEE0224FB1FA11EB930187DC1C1A9251DE9CFFC",
+    "legacy_placeholder_used_as_primary": true,
+    "legacy_placeholder_primary_since": "2026-09-15 user decision: restore the 1.16 (invisible) Stand look; the generated atlas is superseded",
+    "material_width": 256,
+    "material_height": 256,
+    "material_bytes": 3903,
+    "material_sha256": "6DE7343C340C8CA0DBEF7C83DAEE0224FB1FA11EB930187DC1C1A9251DE9CFFC",
+    "superseded_atlas_sha256": "CD7339BBF2DC07A510E99E22CF246DA927336F3DF1DB87CA61601F08F55E58C9",
+    "members": 4,
+    "member_geometry": "dimensional_six_face_cuboids",
+    "simple_scale": false,
+    "context": "StandVisualContext.world",
+    "alpha": "AlphaMultiBufferSource",
+    "material": "ModRenderTypes.standTranslucentCull",
+    "mixin": false,
+    "framebuffer": false,
+    "global_shader": false
+  },
+  "ledgers": [
+    "migration/source-closure.json",
+    "migration/resource-closure.json",
+    "migration/dependency-lock.json",
+    "migration/blocker-ledger.json",
+    "migration/full-closure.json",
+    "migration/manual-runtime-matrix.json",
+    "migration/build-result.json"
+  ]
+}

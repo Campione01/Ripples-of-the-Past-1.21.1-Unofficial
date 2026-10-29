@@ -1,0 +1,17 @@
+{
+  "item.rotp_bb.blood_bottle": "Botella de Sangre",
+  "rotp_bb.ability.vampirism_blood_refill": "Relleno de sangre",
+  "jojo_ripples.ability.vampirism_blood_refill": "Relleno de sangre",
+  "action.jojo.vampirism_blood_refill": "Relleno de sangre",
+  "jojo.message.action_condition.no_volume": "No tienes un recipiente para almacenar tu sangre.",
+  "jojo.config.bottleDrinkPenalty": "Penalización de recurso de la botella",
+  "jojo.config.fillBottleMultiplier": "Multiplicador del valor de la botella",
+  "jojo.config.maxBottleHungerValue": "Porcentaje máximo de recurso para beber",
+  "rotp_bb.configuration.title": "Configuración de Botella de Sangre",
+  "rotp_bb.configuration.section.jojo.bb.a.common.toml": "Ajustes comunes",
+  "rotp_bb.configuration.section.jojo.bb.a.common.toml.title": "Configuración común de Botella de Sangre",
+  "rotp_bb.configuration.Blood Bottle Configuration": "Botella de Sangre",
+  "jojo.config.bottleDrinkPenalty.tooltip": "Diferencia porcentual entre el costo de rellenar y el valor de recurso de la botella de sangre.",
+  "jojo.config.fillBottleMultiplier.tooltip": "Valor de sangre almacenado, como porcentaje.",
+  "jojo.config.maxBottleHungerValue.tooltip": "Porcentaje máximo del recurso activo con el que se puede beber una botella de sangre."
+}

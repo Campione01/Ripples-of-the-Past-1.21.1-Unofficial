@@ -1,0 +1,15 @@
+{
+  "values": [
+    "#minecraft:anvil",
+    "#minecraft:coral_plants",
+    "#minecraft:corals",
+    "#minecraft:doors",
+    "#minecraft:fences",
+    "#minecraft:fence_gates",
+    "#minecraft:leaves",
+    "#minecraft:trapdoors",
+    "minecraft:bell",
+    "minecraft:hopper",
+    "minecraft:iron_bars"
+  ]
+}

@@ -1,0 +1,23 @@
+{
+    "type":  "minecraft:crafting_shaped",
+    "pattern":  [
+                    "SSS",
+                    "ENE",
+                    "SSS"
+                ],
+    "key":  {
+                "E":  {
+                          "item":  "rotp_ul:sun_essence"
+                      },
+                "N":  {
+                          "item":  "minecraft:nether_star"
+                      },
+                "S":  {
+                          "item":  "jojo_ripples:aja_stone"
+                      }
+            },
+    "result":  {
+                   "count":  1,
+                   "id":  "jojo_ripples:super_aja_stone"
+               }
+}

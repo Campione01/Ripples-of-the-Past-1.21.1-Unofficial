@@ -1,0 +1,22 @@
+{
+  "stand.rotp_echoes.echoes_act3": "エコーズACT3",
+  "stand.rotp_echoes.echoes_act2": "エコーズACT2",
+  "rotp_echoes.ability.punch": "パンチ",
+  "rotp_echoes.ability.barrage": "ラッシュ",
+  "rotp_echoes.ability.heavy_punch": "ヘビーパンチ",
+  "rotp_echoes.ability.finisher": "フィニッシャー",
+  "rotp_echoes.ability.guard": "防御",
+  "rotp_echoes.ability.degrade_to_act2": "退化",
+  "rotp_echoes.ability.freeze": "フリーズ",
+  "rotp_echoes.ability.hand_freeze": "ハンドフリーズ",
+  "rotp_echoes.ability.freeze_self": "セルフフリーズ",
+  "rotp_echoes.ability.gravity_infuse": "グラビティインフューズ",
+  "rotp_echoes.ability.gravity_projectile": "グラビティプロジェクタイル",
+  "rotp_echoes.ability.act2_punch": "軽攻撃",
+  "rotp_echoes.ability.act2_heavy_punch": "重攻撃",
+  "rotp_echoes.ability.act2_finisher": "テールスティング",
+  "rotp_echoes.ability.act2_guard": "防御",
+  "rotp_echoes.ability.evolve_to_act3": "進化",
+  "rotp_echoes.tooltip.gravity_infused": "重力を帯びた",
+  "rotp_echoes.tooltip.gravity_infused.desc": "持っていると重力に押しつぶされる"
+}

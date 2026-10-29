@@ -1,0 +1,51 @@
+{
+  "cmoon_summon_voiceline": {
+    "subtitle": "cmoon_rm.subtitle.summon",
+    "sounds": []
+  },
+  "cmoon_summon_sound": {
+    "subtitle": "cmoon_rm.subtitle.summon",
+    "sounds": [
+      "cmoon_rm:stand/summon_sound"
+    ]
+  },
+  "cmoon_unsummon_sound": {
+    "subtitle": "cmoon_rm.subtitle.unsummon",
+    "sounds": [
+      "cmoon_rm:stand/unsummon_sound"
+    ]
+  },
+  "cmoon_barrage_swing": {
+    "subtitle": "cmoon_rm.subtitle.barrage",
+    "sounds": [
+      "cmoon_rm:stand/barrage"
+    ]
+  },
+  "cmoon_gravity_shift_normal": {
+    "subtitle": "cmoon_rm.subtitle.gravity_shift",
+    "sounds": [
+      "cmoon_rm:action/gravity_shift_normal"
+    ]
+  },
+  "cmoon_ost_30": {
+    "sounds": []
+  },
+  "cmoon_ost_60": {
+    "sounds": []
+  },
+  "cmoon_ost_75": {
+    "sounds": []
+  },
+  "cmoon_ost_90": {
+    "sounds": []
+  },
+  "cmoon_ost_120": {
+    "sounds": []
+  },
+  "cmoon_ost_full": {
+    "sounds": []
+  },
+  "cmoon_ost_cassette": {
+    "sounds": []
+  }
+}

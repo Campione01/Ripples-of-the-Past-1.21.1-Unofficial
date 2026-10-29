@@ -1,0 +1,14 @@
+{
+  "block.rotp_wr.blood_puddle":  "Кровавая Лужа",
+  "block.rotp_wr.blood_spikes":  "Кровяные Шипы",
+  "death.attack.rotp_wr_spikes":  "%1$s был пронзён кровяными шипами",
+  "effect.rotp_wr.bleeding":  "Кровотечение",
+  "jojo.message.action_condition.fugurain-warningrain":  "Погода слишком спокойная.",
+  "jojo.message.action_condition.fugurain-warningneedtoseesky":  "Надо выйти на открытую местность.",
+  "rotp_wr.select_weather_type":  "Выберите погодное явление",
+  "rotp_wr.weather_type.clear":  "Ясно",
+  "rotp_wr.weather_type.rain":  "Дождь",
+  "death.attack.rotp_wr_bleeding":  "%s истёк кровью",
+  "death.attack.rotp_wr_bleeding.player":  "%s истёк кровью благодаря %s",
+  "effect.rotp_wr.cloud_shield_effect":  "Облачная защита"
+}

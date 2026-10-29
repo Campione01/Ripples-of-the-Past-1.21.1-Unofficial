@@ -1,0 +1,49 @@
+{
+  "parent": "jojo_ripples:jojo/get_hamon",
+  "criteria": {
+    "has_super_aja": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "jojo_ripples:super_aja_stone"
+          }
+        ]
+      }
+    },
+    "has_super_aja_necklace": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "rotp_nextalbum:aja_stone_necklace"
+          }
+        ]
+      }
+    }
+  },
+  "display": {
+    "announce_to_chat": true,
+    "description": {
+      "translate": "advancements.rotp_nextalbum.get_aja_stone.description"
+    },
+    "frame": "challenge",
+    "hidden": true,
+    "icon": {
+      "id": "jojo_ripples:super_aja_stone"
+    },
+    "show_toast": true,
+    "title": {
+      "translate": "advancements.rotp_nextalbum.get_aja_stone.title"
+    }
+  },
+  "requirements": [
+    [
+      "has_super_aja",
+      "has_super_aja_necklace"
+    ]
+  ],
+  "rewards": {
+    "experience": 200
+  }
+}

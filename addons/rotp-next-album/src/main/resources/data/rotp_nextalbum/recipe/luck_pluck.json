@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "combat",
+  "pattern": [
+    " b ",
+    "cac",
+    " c "
+  ],
+  "key": {
+    "a": {
+      "item": "jojo_ripples:aja_stone"
+    },
+    "b": {
+      "item": "minecraft:iron_sword"
+    },
+    "c": {
+      "tag": "c:ingots/gold"
+    }
+  },
+  "result": {
+    "id": "rotp_nextalbum:luck_pluck"
+  }
+}

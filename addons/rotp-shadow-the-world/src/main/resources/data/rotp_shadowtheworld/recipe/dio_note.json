@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "PPP",
+    "PPP",
+    "PPP"
+  ],
+  "key": {
+    "P": {
+      "item": "rotp_shadowtheworld:dio_note_page"
+    }
+  },
+  "result": {
+    "id": "rotp_shadowtheworld:dio_note",
+    "count": 1
+  }
+}

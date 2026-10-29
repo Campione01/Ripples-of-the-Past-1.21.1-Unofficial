@@ -1,0 +1,20 @@
+{
+  "item.stone_legacy.fruit": "古老的果实",
+  "block.stone_legacy.aja_stone_mask_predicted_heat": "炎之流法石鬼面",
+  "block.stone_legacy.aja_stone_mask_predicted_light": "光之流法石鬼面",
+  "block.stone_legacy.aja_stone_mask_predicted_wind": "风之流法石鬼面",
+  "death.attack.asphyxia": "%1$s真正意义上变成了石头",
+  "action.stone_legacy.pillarman_hamon_suicide": "波纹自杀",
+  "action.stone_legacy.pillarman_petrify": "沉睡...",
+  "stone_legacy.pillarman_petrify.warning": "该技能用于变回人类，需要在背后有3x2的石头方块时才可使用",
+  "stone_legacy.ability.pillarman_hamon_suicide": "波纹自杀",
+  "stone_legacy.ability.pillarman_petrify": "沉睡...",
+  "stone_legacy.ability.vampirism_recall": "召回",
+  "stone_legacy.ability.vampirism_wait_order": "待命",
+  "death.attack.stone_legacy.asphyxia": "%1$s真正意义上变成了石头",
+  "commands.jojozombie.entity.failed": "没有选中生物实体",
+  "commands.jojozombie.setowner.success.single": "已将 %s 设为 %s 的主人",
+  "commands.jojozombie.setowner.success.multiple": "已将 %s 设为 %s 个实体的主人",
+  "action.stone_legacy.vampirism_recall": "召回",
+  "action.stone_legacy.vampirism_wait_order": "待命"
+}

@@ -1,0 +1,20 @@
+{
+  "advancements.rotp_nextalbum.full_mista_suit.title": "My Stand's suited for assassinations!",
+  "advancements.rotp_nextalbum.full_mista_suit.description": "Get the full Mista suit.",
+  "advancements.rotp_nextalbum.get_aja_stone.title": "The Red Stone of Aja",
+  "advancements.rotp_nextalbum.get_aja_stone.description": "Obtain a Super Aja Stone in any form.",
+  "effect.rotp_nextalbum.collapse": "Collapse",
+  "item.rotp_nextalbum.luck_pluck": "Luck & Pluck",
+  "item.rotp_nextalbum.luck_pluck.reference_quote": "\"Jonathan... I offer you the word engraved on my sword! Luck! And take this with you to your future! Pluck! \"",
+  "item.nextalbum.luck_pluck.tooltips": "Has same enchantment capabilities with a golden sword and a longer attack range. Additionally, you can use the Hamon action, which can only be used unarmed, while holding this item.",
+  "item.rotp_nextalbum.aja_stone_necklace": "Aja Stone Necklace",
+  "item.rotp_nextalbum.aja_stone_necklace.reference_quote": "\"This is it... Nature's perfect miracle crystal. Without a single imperfection! The Super Aja!\"",
+  "item.nextalbum.aja_stone_necklace.tooltips": "When equipped, this allows you to press %s+%s to unleash a beam attack with effects, damage, and cooldowns identical to the Super Aja item.",
+  "item.rotp_nextalbum.mista_suit_cloth": "Mista's Cloth",
+  "item.rotp_nextalbum.mista_suit_cloth.reference_quote": "\"My Stand's suited for assassinations!\"",
+  "item.rotp_nextalbum.mista_suit_pants": "Mista's Pants",
+  "item.rotp_nextalbum.mista_suit_pants.reference_quote": "\"My Stand's suited for assassinations!\"",
+  "item.rotp_nextalbum.mista_suit_boots": "Mista's Boots",
+  "item.rotp_nextalbum.mista_suit_boots.reference_quote": "\"My Stand's suited for assassinations!\"",
+  "item.nextalbum.mista_suit.tooltips": "Each suit piece provides +15% protection against projectile and bullet damage."
+}

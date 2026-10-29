@@ -1,0 +1,17 @@
+{
+  "rotp_aqua_necklace:aqua_necklace": {
+    "use_by_resolve": {
+      "0lvl": ["basic_combo"],
+      "1lvl": ["basic_combo"],
+      "2lvl": ["basic_combo"],
+      "3lvl": ["basic_combo"],
+      "4lvl": ["basic_combo"]
+    },
+    "block": "fluid_guard",
+    "basic_combo": [
+      { "action": "host_pressure", "distance": "<=4" },
+      { "action": "host_pressure", "distance": "<=4" },
+      { "action": "host_pressure", "distance": "<=4" }
+    ]
+  }
+}

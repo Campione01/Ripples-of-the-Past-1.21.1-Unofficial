@@ -1,0 +1,16 @@
+{
+  "stand.rotp_hd.heavens_door": "天堂之门",
+  "ability.rotp_hd.heavens_door_turn_into_a_book": "变成书本",
+  "ability.rotp_hd.heavens_door_barrage": "天堂之门连打",
+  "ability.rotp_hd.heavens_door_finisher_punch": "天堂之门终结拳",
+  "ability.rotp_hd.heavens_door_block": "格挡",
+  "ability.rotp_hd.heavens_door_open_book": "阅读书本",
+  "ability.rotp_hd.heavens_door_remove_book": "解除书本",
+  "ability.rotp_hd.heavens_door_tear_out_a_page": "撕下一页",
+  "ability.rotp_hd.heavens_door_return_pages": "归还一页",
+  "rotp_hd.message.no_owned_book": "范围内没有你拥有的书本目标。",
+  "rotp_hd.message.no_page_to_return": "没有可归还的书页。",
+  "rotp_hd.message.cannot_tear_page": "无法从该目标撕下书页。",
+  "jojo.message.action_condition.no_page": "主手需要持有有效书页。",
+  "rotp_hd.message.book_snapshot": "%1$s | 生命 %2$s/%3$s | 存活 %4$s 秒 | 体型 %5$s x %6$s | 替身 %7$s | 缺失书页 %8$s | 剩余 %9$s 刻"
+}

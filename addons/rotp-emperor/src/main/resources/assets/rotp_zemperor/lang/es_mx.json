@@ -1,0 +1,18 @@
+{
+  "entity.rotp_zemperor.the_emperor": "El Emperador",
+  "stand.rotp_zemperor.the_emperor": "El Emperador",
+  "item.rotp_zemperor.emperor": "El Emperador",
+  "rotp_zemperor.ability.target.none": "Objetivo: ninguno",
+  "rotp_zemperor.ability.target.hostile": "Objetivo: criaturas hostiles",
+  "rotp_zemperor.ability.target.players_and_stands": "Objetivo: jugadores y Stands",
+  "rotp_zemperor.ability.target.any_living": "Objetivo: cualquier ser vivo",
+  "rotp_zemperor.ability.stand_target": "Seleccionar objetivo",
+  "rotp_zemperor.ability.no_stand_target": "Quitar objetivo",
+  "rotp_zemperor.ability.give_emp": "Invocar Emperador",
+  "rotp_zemperor.message.hands_full": "Emperor necesita una mano libre.",
+  "jojo.message.action_condition.emperor_not_summoned": "Emperor no está listo.",
+  "rotp_zemperor.subtitle.emp_shot": "Disparo de Emperor",
+  "rotp_zemperor.subtitle.emp_user": "\"Emperador\"",
+  "rotp_zemperor.subtitle.emp_summon": "Emperor es invocado",
+  "rotp_zemperor.subtitle.emp_unsummon": "Emperor es retirado"
+}

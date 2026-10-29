@@ -1,0 +1,12 @@
+{
+  "entity.rotp_zemperor.the_emperor": "El Emperador",
+  "stand.rotp_zemperor.the_emperor": "El Emperador",
+  "item.rotp_zemperor.emperor": "El Emperador",
+  "rotp_zemperor.ability.target.none": "Objetivo: ninguno",
+  "rotp_zemperor.ability.target.hostile": "Objetivo: criaturas hostiles",
+  "rotp_zemperor.ability.target.players_and_stands": "Objetivo: jugadores y Stands",
+  "rotp_zemperor.ability.target.any_living": "Objetivo: cualquier ser vivo",
+  "rotp_zemperor.ability.stand_target": "Seleccionar objetivo",
+  "rotp_zemperor.ability.no_stand_target": "Quitar objetivo",
+  "rotp_zemperor.ability.give_emp": "Invocar Emperador"
+}

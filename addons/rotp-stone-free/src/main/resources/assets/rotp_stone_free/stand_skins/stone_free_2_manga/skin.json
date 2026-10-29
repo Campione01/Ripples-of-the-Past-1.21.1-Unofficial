@@ -1,0 +1,9 @@
+{
+    "stand_type":  "rotp_stone_free:stone_free",
+    "color":  "#47CFF5",
+    "story_part":  "jojo_ripples:p6",
+    "scale":  [
+                  0.65,
+                  1.95
+              ]
+}

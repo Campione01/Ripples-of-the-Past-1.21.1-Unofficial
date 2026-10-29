@@ -1,0 +1,18 @@
+{
+  "item.stone_legacy.fruit": "Кам'яний фрукт",
+  "block.stone_legacy.aja_stone_mask_predicted_heat": "Кам'яна маска з нагрітим червоним каменем Айя",
+  "block.stone_legacy.aja_stone_mask_predicted_light": "Кам'яна маска з просвітленим червоним каменем Айя",
+  "block.stone_legacy.aja_stone_mask_predicted_wind": "Кам'яна маска з вітряним червоним каменем Айя",
+  "death.attack.asphyxia": "%1$s був скам'янілий",
+  "action.stone_legacy.pillarman_hamon_suicide": "Самогубство Хамоном",
+  "action.stone_legacy.pillarman_petrify": "Скам'яніння",
+  "stone_legacy.pillarman_petrify.warning": "Використання цієї здібності призведе до втрати вашої сили!",
+  "stone_legacy.ability.pillarman_hamon_suicide": "Самогубство Хамоном",
+  "stone_legacy.ability.pillarman_petrify": "Скам'яніння",
+  "stone_legacy.ability.vampirism_recall": "Recall",
+  "stone_legacy.ability.vampirism_wait_order": "Wait Order",
+  "death.attack.stone_legacy.asphyxia": "%1$s був скам'янілий",
+  "commands.jojozombie.entity.failed": "No living entities were selected",
+  "commands.jojozombie.setowner.success.single": "Owner %s set successfully to %s",
+  "commands.jojozombie.setowner.success.multiple": "Owner %s set successfully to %s entities"
+}

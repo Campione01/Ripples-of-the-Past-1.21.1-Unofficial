@@ -1,0 +1,12 @@
+// Public build of RotP Made in Heaven (rotp_mih). The module identity is in gradle.properties;
+// the shared logic is in ../gradle/addon-module.gradle.
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev'
+}
+
+ext.gameTestStructures = [
+        'data/rotp_mih_dash/structure/empty.nbt': 'core',
+]
+
+apply from: rootProject.file('gradle/addon-module.gradle')

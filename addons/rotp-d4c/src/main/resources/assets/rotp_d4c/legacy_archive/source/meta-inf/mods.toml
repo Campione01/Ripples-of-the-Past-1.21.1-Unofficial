@@ -1,0 +1,54 @@
+modLoader="javafml"
+loaderVersion="[36,)"
+license="LGPL3.0-only"
+
+# 模组核心信息配置
+[[mods]]
+modId="rotp_d4c"
+version="${file.jarVersion}"
+displayName="RotP D4C - 恶行易施"
+logoFile="icon.png"
+authors="Core:LL,浪浪,ResSupport:Denis"
+description='''
+【模组简介】
+本模组基于《JOJO的奇妙冒险：Steel Ball Run》，还原瓦伦泰的替身「D4C（Dirty Deeds Done Dirt Cheap，恶行易施）」核心能力，包含：
+- 平行世界穿越与目标拉入机制
+- 爱之列车形态与光壁防御功能
+- 圣人遗体收集系统与专属效果
+- 瓦伦泰左轮手枪、分身AI控制等特色玩法
+
+【版权说明】
+测试版禁止二次分发、商用或整合至服务器/整合包（测试版仅限个人体验）。
+
+【支持与赞助】
+若你喜欢本模组的创作，可通过爱发电支持开发者：https://afdian.com/a/pokelang 
+你的每一份支持，都会成为持续优化替身机制、新增玩法（如「超越天堂」后续更新）的动力，赞助第二档位可提前体验测试版与新版本内容！
+'''
+
+[[dependencies.rotp_d4c]]
+    modId="forge"
+    mandatory=true
+    versionRange="[36,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.rotp_d4c]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="[1.16.5,1.17)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.rotp_d4c]]
+    modId="jojo"
+    mandatory=true
+    versionRange="[0.2.2,0.3)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.rotp_d4c]]
+    modId="curios"
+    mandatory=true
+    versionRange="[1.16.5-4.1.0.0,)"
+    ordering="NONE"
+    side="BOTH"

@@ -1,0 +1,7 @@
+{
+    "replace":  false,
+    "values":  [
+                   "#c:storage_blocks/stand_arrow_alloy",
+                   "#c:storage_blocks/meteor"
+               ]
+}

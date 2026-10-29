@@ -1,0 +1,24 @@
+{
+  "type": "jojo_ripples:crafting_shaped_stand",
+  "category": "combat",
+  "pattern": [
+    "b",
+    "a"
+  ],
+  "key": {
+    "a": {
+      "item": "rotp_sex_pistols:revolver_casing"
+    },
+    "b": {
+      "tag": "c:nuggets/iron"
+    }
+  },
+  "stand": [
+    {
+      "name": "rotp_sex_pistols:sex_pistols"
+    }
+  ],
+  "result": {
+    "id": "rotp_sex_pistols:revolver_ammo"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "entity.rotp_lovers.lovers": "恋人",
+  "stand.rotp_lovers.lovers": "恋人",
+  "rotp_lovers.ability.into_entity": "进入生物",
+  "rotp_lovers.ability.retract": "收回替身",
+  "rotp_lovers.config.multiple_damage": "恋人伤害倍率",
+  "rotp_lovers.configuration.title": "恋人配置",
+  "rotp_lovers.configuration.section.rotp.lovers.common.toml": "通用设置",
+  "rotp_lovers.configuration.section.rotp.lovers.common.toml.title": "恋人通用配置",
+  "rotp_lovers.configuration.Lovers Settings": "恋人设置",
+  "rotp_lovers.configuration.Lovers Settings.tooltip": "恋人的伤害设置。",
+  "rotp_lovers.config.multiple_damage.tooltip": "恋人的使用者受到攻击时，转给体内有恋人的生物的伤害倍数。默认为 1。"
+}

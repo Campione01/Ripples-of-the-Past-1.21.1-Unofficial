@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "entries": [
+    "stone_legacy:abandoned_mineshaft_fruit",
+    "stone_legacy:desert_pyramid_fruit",
+    "stone_legacy:jungle_temple_fruit",
+    "stone_legacy:simple_dungeon_fruit"
+  ]
+}

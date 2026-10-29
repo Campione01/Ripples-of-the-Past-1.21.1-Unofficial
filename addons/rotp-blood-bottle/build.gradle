@@ -1,0 +1,12 @@
+// Public build of Blood Bottle RotP Addon (rotp_bb). The module identity is in gradle.properties;
+// the shared logic is in ../gradle/addon-module.gradle.
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev'
+}
+
+ext.gameTestStructures = [
+        'data/rotp_bb/structure/empty.nbt': 'H4sIAAAAAAAEAD3LsQ6CQBCE4TGHeocxvo+1taX9QsZkI9yR2614esGAk/zFFF8LJDSmMwOAtbiXEJldXWlYl3DqhtJ/rF3OISFMxXb0X8DRXJybOE8y0J0/EtE8ZSSuo2b2Vd5+F60LuTzE5cVqWjJwM3wBCpNhdJYAAAA=',
+]
+
+apply from: rootProject.file('gradle/addon-module.gradle')

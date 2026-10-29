@@ -1,0 +1,25 @@
+{
+  "type": "jojo_ripples:crafting_shaped_stand",
+  "category": "combat",
+  "pattern": [
+    "nin",
+    "ini",
+    "nin"
+  ],
+  "key": {
+    "n": {
+      "tag": "c:nuggets/iron"
+    },
+    "i": {
+      "tag": "c:ingots/iron"
+    }
+  },
+  "stand": [
+    {
+      "name": "rotp_theworld:the_world"
+    }
+  ],
+  "result": {
+    "id": "rotp_theworld:barbed_wire"
+  }
+}

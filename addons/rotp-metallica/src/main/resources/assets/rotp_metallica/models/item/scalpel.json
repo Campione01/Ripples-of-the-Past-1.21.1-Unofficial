@@ -1,0 +1,50 @@
+{
+  "parent": "item/handheld",
+  "textures": {
+    "layer0": "rotp_metallica:item/scalpel"
+  },
+  "overrides": [
+    {
+      "predicate": {
+        "rotp_metallica:count": 2
+      },
+      "model": "rotp_metallica:item/scalpels2"
+    },
+    {
+      "predicate": {
+        "rotp_metallica:count": 3
+      },
+      "model": "rotp_metallica:item/scalpels3"
+    },
+    {
+      "predicate": {
+        "rotp_metallica:count": 4
+      },
+      "model": "rotp_metallica:item/scalpels4"
+    },
+    {
+      "predicate": {
+        "rotp_metallica:count": 5
+      },
+      "model": "rotp_metallica:item/scalpels5"
+    },
+    {
+      "predicate": {
+        "rotp_metallica:count": 6
+      },
+      "model": "rotp_metallica:item/scalpels6"
+    },
+    {
+      "predicate": {
+        "rotp_metallica:count": 7
+      },
+      "model": "rotp_metallica:item/scalpels7"
+    },
+    {
+      "predicate": {
+        "rotp_metallica:count": 8
+      },
+      "model": "rotp_metallica:item/scalpels8"
+    }
+  ]
+}

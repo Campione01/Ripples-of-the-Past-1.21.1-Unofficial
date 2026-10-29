@@ -1,0 +1,17 @@
+{
+  "entity.cmoon_rm.cmoon": "C-Moon",
+  "stand.cmoon_rm.cmoon": "C-Moon",
+  "cmoon_rm.ability.punch": "Punch",
+  "cmoon_rm.ability.barrage": "Inversion Barrage",
+  "cmoon_rm.ability.heavy_punch": "Heavy Punch",
+  "cmoon_rm.ability.heavy_charged": "Charged Heavy Punch",
+  "cmoon_rm.ability.finisher_punch": "Finisher Punch",
+  "cmoon_rm.ability.guard": "Guard",
+  "cmoon_rm.ability.gravity_change": "Gravity Shift",
+  "effect.cmoon_rm.arms_inversion": "Arms Inversion",
+  "cmoon_rm.subtitle.summon": "C-Moon manifests",
+  "cmoon_rm.subtitle.unsummon": "C-Moon withdraws",
+  "cmoon_rm.subtitle.barrage": "C-Moon attacks",
+  "cmoon_rm.subtitle.gravity_shift": "Gravity changes",
+  "cmoon_rm.ability.manual_control": "Manual control"
+}

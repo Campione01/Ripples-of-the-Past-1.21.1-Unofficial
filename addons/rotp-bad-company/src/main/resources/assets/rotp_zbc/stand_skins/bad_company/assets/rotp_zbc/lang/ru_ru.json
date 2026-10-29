@@ -1,0 +1,14 @@
+{
+  "rotp_zbc.ability.put_mines": "Установить мины",
+  "rotp_zbc.ability.explode_mines": "Взорвать мины",
+  "rotp_zbc.ability.order_wait": "Приказ %s подразделениям ждать и стрелять ",
+  "rotp_zbc.ability.order_no_wait": "Приказ %s подразделениям прекратить ожидание ",
+  "rotp_zbc.ability.units": "Выбрать тип подразделения",
+  "rotp_zbc.ability.random": "Выбрать тип призыва",
+  "rotp_zbc.ability.target": "Приказ %s подразделениям на установку цели",
+  "rotp_zbc.ability.missile": "%s взрывных ракет",
+  "rotp_zbc.ability.shoot": "Приказ %s подразделениям забыть цель",
+  "rotp_zbc.ability.go_block": "Приказ %s подразделениям перейти на блок",
+  "rotp_zbc.ability.close": "Приказ %s подразделениям держаться ближе ",
+  "rotp_zbc.ability.closent": "Приказ %s подразделениям перестать держаться ближе "
+}

@@ -1,0 +1,5 @@
+{
+  "ambientocclusion": false,
+  "textures": {"particle": "jojo:dynamic_stand_icon"},
+  "elements": []
+}

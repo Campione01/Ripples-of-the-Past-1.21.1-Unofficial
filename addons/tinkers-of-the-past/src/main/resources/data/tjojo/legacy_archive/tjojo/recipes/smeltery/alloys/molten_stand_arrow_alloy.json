@@ -1,0 +1,18 @@
+{
+  "type": "tconstruct:alloy",
+  "inputs": [
+    {
+      "tag": "tconstruct:molten_gold",
+      "amount": 144
+    },
+    {
+      "tag": "tjojo:molten_meteor",
+      "amount": 144
+    }
+  ],
+  "result": {
+    "fluid": "tjojo:molten_stand_arrow_alloy",
+    "amount": 288
+  },
+  "temperature": 700
+}

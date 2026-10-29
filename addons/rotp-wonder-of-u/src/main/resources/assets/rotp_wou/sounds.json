@@ -1,0 +1,66 @@
+{
+  "calamity1": {
+    "subtitle": "subtitles.rotp_wou.calamity1",
+    "sounds": [
+      {
+        "name": "rotp_wou:calamity1",
+        "stream": true,
+        "preload": true
+      }
+    ]
+  },
+  "calamity2": {
+    "subtitle": "subtitles.rotp_wou.calamity2",
+    "sounds": [
+      "rotp_wou:calamity2"
+    ]
+  },
+  "calamity3": {
+    "subtitle": "subtitles.rotp_wou.calamity3",
+    "sounds": [
+      "rotp_wou:calamity3"
+    ]
+  },
+  "calamity4": {
+    "subtitle": "subtitles.rotp_wou.calamity4",
+    "sounds": [
+      "rotp_wou:calamity4"
+    ]
+  },
+  "calamity5": {
+    "subtitle": "subtitles.rotp_wou.calamity5",
+    "sounds": [
+      "rotp_wou:calamity5"
+    ]
+  },
+  "car_damage": {
+    "subtitle": "subtitles.rotp_wou.car_damage",
+    "sounds": [
+      "rotp_wou:entity/tank_hurt_1",
+      "rotp_wou:entity/tank_hurt_2",
+      "rotp_wou:entity/tank_hurt_3",
+      "rotp_wou:entity/tank_hurt_4",
+      "rotp_wou:entity/tank_hurt_5"
+    ]
+  },
+  "wou_ost_full": {
+    "sounds": [
+      {
+        "name": "rotp_wou:ost/full/wou_ost",
+        "stream": true
+      }
+    ]
+  },
+  "wou_ost_cassette": {
+    "sounds": [
+      {
+        "name": "rotp_wou:wou_ost_full",
+        "type": "event"
+      },
+      {
+        "name": "rotp_wou:ost/full/wou_ost2",
+        "stream": true
+      }
+    ]
+  }
+}

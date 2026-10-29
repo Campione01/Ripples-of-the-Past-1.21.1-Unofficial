@@ -1,0 +1,12 @@
+{
+  "void": {
+    "sounds": [
+      "rotp_ab:void"
+    ]
+  },
+  "void_summon": {
+    "sounds": [
+      "rotp_ab:void"
+    ]
+  }
+}

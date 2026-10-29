@@ -1,0 +1,23 @@
+{
+  "rotp_zhp.ability.hp_vine_attack": "Ataque de vinhas",
+  "rotp_zhp.ability.hp_vine_shift": "Ataque de amarração de vinhass",
+  "rotp_zhp.ability.hp_grab": "Agarrar entidade",
+  "rotp_zhp.ability.hp_grab_od": "Entidade agarrada por Overdrive",
+  "rotp_zhp.ability.hp_grab_sc": "Entidade agarrada por Overdrive Escarlate",
+  "rotp_zhp.ability.hp_grab_heal": "Vinhas curativa",
+  "rotp_zhp.ability.hp_block": "Espinhos do Hermit",
+  "rotp_zhp.ability.hp_vine": "Vinhas",
+  "rotp_zhp.ability.hp_vine_entity": "Vinhas de agarrão",
+  "rotp_zhp.ability.hp_barrier": "Hermit Purple String (%s/%s)",
+  "rotp_zhp.ability.hp_unbarrier": "Unsummon barriers",
+  "rotp_zhp.ability.cringe": "AI NÃO, CRINGE",
+  "rotp_zhp.ability.hp_breath": "Respiração de Hamon",
+  "rotp_zhp.ability.hp_doxx": "Adivinhação de posição",
+  "rotp_zhp.ability.hp_camera": "Photo divination",
+  "rotp_zhp.ability.hp_target": "Target selection",
+  "rotp_zhp.ability.hp_beat": "Sobrecarga Batida de Hamon",
+  "rotp_zhp.ability.hp_doxx.s": "Adivinhação de posição de %s",
+  "rotp_zhp.ability.hp_doxx.stand": "Adivinhação da posição do usuário %s",
+  "rotp_zhp.ability.hp_camera.s": "%s photo divination",
+  "rotp_zhp.ability.hp_camera.stand": "%s user photo divination"
+}

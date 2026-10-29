@@ -1,0 +1,59 @@
+{
+  "ultimate_hamon_breath":{
+    "sounds": [ "rotp_ul:ultimate_hamon_breath" ]
+  },
+  "ultimate_lifeform_scale_shot":{
+    "sounds": [ "rotp_ul:ultimate_lifeform_scale_shot" ]
+  },
+  "ultimate_hamon_punch":{
+    "sounds": [ "rotp_ul:ultimate_hamon_punch" ]
+  },
+  "ultimate_lifeform_guardian_laser_charge":{
+    "sounds": [ "rotp_ul:ultimate_lifeform_guardian_laser_charge" ]
+  },
+  "ultimate_lifeform_wing_flap":{
+    "sounds": [ "rotp_ul:ultimate_lifeform_wing_flap" ]
+  },
+  "ultimate_lifeform_armor":{
+    "sounds": [ "rotp_ul:ultimate_lifeform_armor" ]
+  },
+  "ultimate_lifeform_fire_armor":{
+    "sounds": [ "rotp_ul:ultimate_lifeform_fire_armor" ]
+  },
+  "ultimate_lifeform_absorb":{
+    "sounds": [ "rotp_ul:ultimate_lifeform_absorb" ]
+  },
+  "ultimate_lifeform_summon":{
+    "sounds": [ "rotp_ul:ulf_phantom_summon" ]
+  },
+  "awaken":{
+    "sounds": [ "rotp_ul:awaken" ]
+  },
+  "regeneration":{
+    "sounds": [ "rotp_ul:regeneration" ]
+  },
+  "stamina_regeneration":{
+    "sounds": [ "rotp_ul:stamina_regeneration" ]
+  },
+  "ultimate_hamon_barrage":{
+    "sounds": [ "rotp_ul:ultimate_hamon_barrage1", "rotp_ul:ultimate_hamon_barrage2", "rotp_ul:ultimate_hamon_barrage3", "rotp_ul:ultimate_hamon_barrage4", "rotp_ul:ultimate_hamon_barrage5" ]
+  },
+  "kars_absolute_immortality":{
+    "sounds": [ "rotp_ul:kars/absolute_immortality" ]
+  },
+  "kars_unlimited_power":{
+    "sounds": [ "rotp_ul:kars/unlimited_power" ]
+  },
+  "kars_scale_shot":{
+    "sounds": [ "rotp_ul:kars/scale_shot", "rotp_ul:kars/scale_shot2" ]
+  },
+  "kars_hamon_overdrive_charge":{
+    "sounds": [ "rotp_ul:kars/hamon_overdrive_charge" ]
+  },
+  "kars_hamon_overdrive":{
+    "sounds": [ "rotp_ul:kars/hamon_overdrive" ]
+  },
+  "kars_attack":{
+    "sounds": [ "rotp_ul:kars/attack1", "rotp_ul:kars/attack2", "rotp_ul:kars/attack3","rotp_ul:kars/attack4","rotp_ul:kars/attack5","rotp_ul:kars/attack6","rotp_ul:kars/attack7" ]
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "rotp_sp:instructors_house/trail",
+  "fallback": "minecraft:empty",
+  "elements": [
+    {
+      "weight": 1,
+      "element": {
+        "location": "rotp_sp:instructors_house/instructors_house",
+        "processors": "minecraft:empty",
+        "projection": "rigid",
+        "element_type": "minecraft:single_pool_element"
+      }
+    }
+  ]
+}

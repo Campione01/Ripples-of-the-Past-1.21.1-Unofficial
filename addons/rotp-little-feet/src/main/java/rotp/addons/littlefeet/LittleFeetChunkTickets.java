@@ -1,0 +1,120 @@
+package rotp.addons.littlefeet;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.locks.LockSupport;
+
+import net.minecraft.core.SectionPos;
+import net.minecraft.gametest.framework.GameTestAssertException;
+import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.gametest.framework.GameTestInfo;
+import net.minecraft.gametest.framework.GameTestListener;
+import net.minecraft.gametest.framework.GameTestRunner;
+import net.minecraft.server.level.ServerChunkCache;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.TicketType;
+import net.minecraft.util.Mth;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * Chunks a game test fixture holds itself (the pattern of rotp-king-crimson's KingCrimsonChunkTickets). The framework
+ * holds only the chunk of the one-block template, and its grid puts that template on any block of a chunk. The game
+ * test server runs with simulation distance 0, so an entity ticks only in a chunk with a ticking ticket: the template's,
+ * or its player's own once the player's view tickets have made it entity ticking, which takes real time while the
+ * server runs its ticks unpaced. A Stand summoned at its user and moving to its idle offset can also step into a chunk
+ * that never ticks. The fixture therefore holds every chunk within MARGIN blocks of the box it uses at the
+ * entity-ticking level, with a ticket value of its own, and returns once all of them tick entities; the budget is real
+ * time and the server thread runs the chunk tasks meanwhile, no game tick passing. The tickets go when its test ends.
+ */
+final class LittleFeetChunkTickets implements GameTestListener {
+    static final double MARGIN = 3.0D;
+    // Level 31 is the entity-ticking level, the one the template's chunk gets.
+    static final int TICKET_RADIUS = 2;
+    static final TicketType<UUID> TICKET =
+            TicketType.create("rotp_littlefeet_gametest", Comparator.<UUID>naturalOrder());
+    private static final long WAIT_NANOS = 30_000_000_000L;
+    private static final long PAUSE_NANOS = 1_000_000L;
+    private final ServerLevel level;
+    private final UUID id = UUID.randomUUID();
+    private final Set<ChunkPos> chunks = new LinkedHashSet<>();
+
+    LittleFeetChunkTickets(GameTestHelper helper) {
+        level = helper.getLevel();
+        helper.testInfo.addListener(this);
+    }
+
+    /** Every chunk within MARGIN blocks of the box between the two corners; returns once they all tick entities. */
+    LittleFeetChunkTickets hold(Vec3 corner, Vec3 otherCorner) {
+        int minX = SectionPos.blockToSectionCoord(Mth.floor(Math.min(corner.x, otherCorner.x) - MARGIN));
+        int maxX = SectionPos.blockToSectionCoord(Mth.floor(Math.max(corner.x, otherCorner.x) + MARGIN));
+        int minZ = SectionPos.blockToSectionCoord(Mth.floor(Math.min(corner.z, otherCorner.z) - MARGIN));
+        int maxZ = SectionPos.blockToSectionCoord(Mth.floor(Math.max(corner.z, otherCorner.z) + MARGIN));
+        for (int x = minX; x <= maxX; x++) {
+            for (int z = minZ; z <= maxZ; z++) {
+                ChunkPos key = new ChunkPos(x, z);
+                if (chunks.add(key)) {
+                    level.getChunkSource().addRegionTicket(TICKET, key, TICKET_RADIUS, id);
+                    level.getChunk(key.x, key.z);
+                }
+            }
+        }
+        await();
+        return this;
+    }
+
+    List<ChunkPos> notTickingEntities() {
+        List<ChunkPos> idle = new ArrayList<>();
+        for (ChunkPos chunk : chunks) {
+            if (!level.isPositionEntityTicking(chunk.getWorldPosition())) {
+                idle.add(chunk);
+            }
+        }
+        return idle;
+    }
+
+    private void await() {
+        ServerChunkCache cache = level.getChunkSource();
+        long start = System.nanoTime();
+        List<ChunkPos> idle;
+        while (!(idle = notTickingEntities()).isEmpty()) {
+            long waited = System.nanoTime() - start;
+            if (waited > WAIT_NANOS) {
+                throw new GameTestAssertException("The held chunks " + idle + " do not tick entities after "
+                        + waited / 1_000_000L + " ms");
+            }
+            if (!cache.pollTask()) {
+                LockSupport.parkNanos(PAUSE_NANOS);
+            }
+        }
+    }
+
+    void release() {
+        for (ChunkPos chunk : chunks) {
+            level.getChunkSource().removeRegionTicket(TICKET, chunk, TICKET_RADIUS, id);
+        }
+        chunks.clear();
+    }
+
+    @Override
+    public void testStructureLoaded(GameTestInfo test) {}
+
+    @Override
+    public void testPassed(GameTestInfo test, GameTestRunner runner) {
+        release();
+    }
+
+    @Override
+    public void testFailed(GameTestInfo test, GameTestRunner runner) {
+        release();
+    }
+
+    @Override
+    public void testAddedForRerun(GameTestInfo oldTest, GameTestInfo newTest, GameTestRunner runner) {
+        release();
+    }
+}

@@ -1,0 +1,16 @@
+{
+  "entity.rotp_aqua_necklace.aqua_necklace": "Aqua Necklace",
+  "stand.rotp_aqua_necklace.aqua_necklace": "Aqua Necklace",
+  "rotp_aqua_necklace.ability.change_to_liquid": "Become Liquid",
+  "rotp_aqua_necklace.ability.change_to_liquid.undo": "Return to Solid",
+  "rotp_aqua_necklace.ability.change_to_gaseous": "Become Vapor",
+  "rotp_aqua_necklace.ability.change_to_gaseous.undo": "Return to Solid",
+  "rotp_aqua_necklace.ability.enter_entity": "Enter Creature",
+  "rotp_aqua_necklace.ability.leave_entity": "Leave Creature",
+  "rotp_aqua_necklace.ability.drown_host": "Enter the Lungs",
+  "rotp_aqua_necklace.ability.host_pressure": "Internal Pressure",
+  "rotp_aqua_necklace.ability.host_pressure.out": "Punch",
+  "rotp_aqua_necklace.ability.host_crush": "Heavy Punch",
+  "rotp_aqua_necklace.ability.brain_attack": "Brain Attack",
+  "rotp_aqua_necklace.ability.fluid_guard": "Fluid Guard"
+}

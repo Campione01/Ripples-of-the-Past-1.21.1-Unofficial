@@ -1,0 +1,37 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.nextalubm.rotp_nextalbum.mixin",
+  "compatibilityLevel": "JAVA_8",
+  "refmap": "rotp_nextalbum.refmap.json",
+  "mixins": [
+    "ItemStackMixin",
+    "AbstractBlockStateAgedRandomTickMixin",
+    "BlockDropResourcesMixin",
+    "BoneMealItemAgedGrowthMixin",
+    "BlockItemAgingPlacementMixin",
+    "FoodStatsAgedFoodMixin",
+    "CreeperEntityAgingMixin",
+    "LivingEntityAgingMixin",
+    "LivingEntitySwingDurationMixin",
+    "MCUtilMixin",
+    "ResolveCounterSexPistolsMixin",
+    "TimeStopAgingMixin",
+    "TimeStopInstantAgingMixin"
+  ],
+  "client": [
+    "client.PlayerRendererMixin",
+    "client.ControllerStandMixin",
+    "client.ItemRendererMixin",
+    "client.PlayerModelArmReachMixin",
+    "client.ModelBlockRendererMixin",
+    "client.LivingRendererAgingMixin",
+    "client.AgeableModelAgingMixin",
+    "client.StandEntityRendererAgingMixin",
+    "client.ClientWorldTheSunSkyMixin",
+    "client.LightTextureTheSunMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

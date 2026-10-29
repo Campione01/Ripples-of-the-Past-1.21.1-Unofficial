@@ -1,0 +1,31 @@
+{
+  "variants": {
+    "face=ceiling": {
+      "model": "tournament:block/light_bulb"
+    },
+    "face=floor": {
+      "model": "tournament:block/light_bulb",
+      "x": 180
+    },
+    "face=wall,facing=north": {
+      "model": "tournament:block/light_bulb",
+      "x": 90,
+      "y": 180
+    },
+    "face=wall,facing=east": {
+      "model": "tournament:block/light_bulb",
+      "x": 90,
+      "y": 270
+    },
+    "face=wall,facing=south": {
+      "model": "tournament:block/light_bulb",
+      "x": 90,
+      "y": 0
+    },
+    "face=wall,facing=west": {
+      "model": "tournament:block/light_bulb",
+      "x": 90,
+      "y": 90
+    }
+  }
+}

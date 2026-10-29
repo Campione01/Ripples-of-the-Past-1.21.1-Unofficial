@@ -1,0 +1,34 @@
+{
+  "parent": "rotp_ul:put_stone_to_mask",
+  "display": {
+    "icon": {
+      "id": "rotp_ul:stone_mask_ul_with_stone"
+    },
+    "title": {
+      "translate": "advancements.rotp_ul.get_ultimate_lifeform.title"
+    },
+    "description": {
+      "translate": "advancements.rotp_ul.get_ultimate_lifeform.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "criteria": {
+    "get_ultimate_lifeform": {
+      "trigger": "jojo_ripples:get_power",
+      "conditions": {
+        "jojopower": {
+          "classification": "non_stand",
+          "type": "rotp_ul:ultimate_lifeform"
+        }
+      }
+    }
+  },
+  "requirements": [
+    [
+      "get_ultimate_lifeform"
+    ]
+  ]
+}

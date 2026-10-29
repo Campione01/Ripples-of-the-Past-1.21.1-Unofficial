@@ -1,0 +1,22 @@
+{
+  "stand.rotp_echoes.echoes_act3": "Echoes ACT3",
+  "stand.rotp_echoes.echoes_act2": "Echoes ACT2",
+  "rotp_echoes.ability.punch": "Stoot",
+  "rotp_echoes.ability.barrage": "Salvo",
+  "rotp_echoes.ability.heavy_punch": "Zware stoot",
+  "rotp_echoes.ability.finisher": "Finisher",
+  "rotp_echoes.ability.guard": "Blokkeren",
+  "rotp_echoes.ability.degrade_to_act2": "Degradatie",
+  "rotp_echoes.ability.freeze": "Bevriezen",
+  "rotp_echoes.ability.hand_freeze": "Hand bevriezen",
+  "rotp_echoes.ability.freeze_self": "Zelf bevriezen",
+  "rotp_echoes.ability.gravity_infuse": "Zwaartekracht infusie",
+  "rotp_echoes.ability.gravity_projectile": "Zwaartekracht projectiel",
+  "rotp_echoes.ability.act2_punch": "Lichte aanval",
+  "rotp_echoes.ability.act2_heavy_punch": "Zware aanval",
+  "rotp_echoes.ability.act2_finisher": "Staartsteek",
+  "rotp_echoes.ability.act2_guard": "Blokkeren",
+  "rotp_echoes.ability.evolve_to_act3": "Evolutie",
+  "rotp_echoes.tooltip.gravity_infused": "Doordrenkt met zwaartekracht",
+  "rotp_echoes.tooltip.gravity_infused.desc": "Als je het vasthoudt, word je neergedrukt door de zwaartekracht"
+}

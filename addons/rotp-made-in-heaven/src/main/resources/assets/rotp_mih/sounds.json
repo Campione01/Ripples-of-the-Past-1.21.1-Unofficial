@@ -1,0 +1,61 @@
+{
+  "mih_summon": {
+    "sounds": ["rotp_mih:mih_summon"],
+    "subtitle": "rotp_mih.subtitle.made_in_heaven_summon"
+  },
+  "mih_unsummon": {
+    "sounds": []
+  },
+  "mih_barrage": {
+    "sounds": ["rotp_mih:mih_barrage"]
+  },
+  "mih_heavy_punch": {
+    "sounds": []
+  },
+  "mih_chop": {
+    "sounds": ["rotp_mih:mih_chop"]
+  },
+  "mih_dash": {
+    "sounds": ["rotp_mih:mih_dash"]
+  },
+  "mih_throat_slice": {
+    "sounds": [
+      "rotp_mih:mih_throat_slice",
+      "rotp_mih:mih_throat_slice_2"
+    ]
+  },
+  "mih_time_acceleration": {
+    "sounds": ["rotp_mih:mih_time_acceleration"]
+  },
+  "mih_summon_user": {
+    "sounds": ["rotp_mih:stand_user/mih_summon_user"]
+  },
+  "mih_barrage_user": {
+    "sounds": ["rotp_mih:stand_user/mih_barrage_user"]
+  },
+  "mih_heavy_punch_user": {
+    "sounds": ["rotp_mih:stand_user/mih_heavy_punch_user"]
+  },
+  "mih_chop_user": {
+    "sounds": ["rotp_mih:stand_user/mih_chop_user"]
+  },
+  "mih_dash_user": {
+    "sounds": [
+      "rotp_mih:stand_user/mih_dash_user_1",
+      "rotp_mih:stand_user/mih_dash_user_2"
+    ]
+  },
+  "mih_time_acceleration_user": {
+    "sounds": ["rotp_mih:stand_user/mih_time_acceleration_user"]
+  },
+  "mih_universe_reset_user": {
+    "sounds": ["rotp_mih:stand_user/mih_universe_reset_user"]
+  },
+  "mih_ost_30": {"sounds": []},
+  "mih_ost_60": {"sounds": []},
+  "mih_ost_75": {"sounds": []},
+  "mih_ost_90": {"sounds": []},
+  "mih_ost_120": {"sounds": []},
+  "mih_ost_full": {"sounds": []},
+  "mih_ost_cassette": {"sounds": []}
+}

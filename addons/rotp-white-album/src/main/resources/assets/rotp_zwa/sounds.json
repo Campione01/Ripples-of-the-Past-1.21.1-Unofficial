@@ -1,0 +1,97 @@
+{
+  "wa_summon": {
+    "subtitle": "rotp_zwa.subtitle.wa_summon",
+    "sounds": ["rotp_zwa:stand/wa_summon_1"]
+  },
+  "wa_unsummon": {
+    "subtitle": "rotp_zwa.subtitle.wa_unsummon",
+    "sounds": ["rotp_zwa:stand/wa_unsummon"]
+  },
+  "ice_shield": {
+    "subtitle": "rotp_zwa.subtitle.wa_shield",
+    "sounds": [
+      "rotp_zwa:stand/wa_shield_01",
+      "rotp_zwa:stand/wa_shield_02"
+    ]
+  },
+  "ghaccio_wa": {
+    "subtitle": "rotp_zwa.subtitle.wa_user",
+    "sounds": [
+      "rotp_zwa:user/ghaccio_wa_01",
+      "rotp_zwa:user/ghaccio_wa_02",
+      "rotp_zwa:user/ghaccio_wa_03"
+    ]
+  },
+  "wa_deflect": {
+    "subtitle": "rotp_zwa.subtitle.wa_deflect",
+    "sounds": [
+      "rotp_zwa:stand/wa_deflect_01",
+      "rotp_zwa:stand/wa_deflect_02"
+    ]
+  },
+  "wa_gw": {
+    "subtitle": "rotp_zwa.subtitle.wa_deflect",
+    "sounds": [
+      "rotp_zwa:stand/wa_gw_01",
+      "rotp_zwa:stand/wa_gw_02",
+      "rotp_zwa:stand/wa_gw_03",
+      "rotp_zwa:stand/wa_gw_04"
+    ]
+  },
+  "us_gw_su": {
+    "subtitle": "rotp_zwa.subtitle.user_gw_su",
+    "sounds": ["rotp_zwa:user/ghaccio_gw_sm_01"]
+  },
+  "wa_gw_su": {
+    "subtitle": "rotp_zwa.subtitle.wa_gw_su",
+    "sounds": ["rotp_zwa:stand/wa_gw_sm_01"]
+  },
+  "us_gw_usu": {
+    "sounds": ["rotp_zwa:user/ghaccio_gw_usm_01"]
+  },
+  "wa_gw_usu": {
+    "subtitle": "rotp_zwa.subtitle.wa_gw_usu",
+    "sounds": ["rotp_zwa:stand/wa_gw_usm_01"]
+  },
+  "wa_punch": {
+    "subtitle": "rotp_zwa.subtitle.wa_punch",
+    "sounds": ["rotp_zwa:stand/wa_punch"]
+  },
+  "wa_heavy_punch": {
+    "subtitle": "rotp_zwa.subtitle.wa_heavy_punch",
+    "sounds": ["rotp_zwa:stand/wa_punch_heavy"]
+  },
+  "wa_unfreeze": {
+    "subtitle": "rotp_zwa.subtitle.wa_unfreze",
+    "sounds": ["rotp_zwa:stand/wa_unfreeze"]
+  },
+  "us_unfreeze": {
+    "sounds": [
+      "rotp_zwa:user/ghaccio_freeze_01",
+      "rotp_zwa:user/ghaccio_freeze_02"
+    ]
+  },
+  "wa_freeze": {
+    "subtitle": "rotp_zwa.subtitle.wa_freeze",
+    "sounds": ["rotp_zwa:stand/wa_freeze"]
+  },
+  "us_freeze": {
+    "sounds": [
+      "rotp_zwa:user/ghaccio_unfreeze_01",
+      "rotp_zwa:user/ghaccio_unfreeze_02"
+    ]
+  },
+  "wa_walker": {
+    "subtitle": "rotp_zwa.subtitle.wa_walker",
+    "sounds": ["rotp_zwa:stand/wa_walker"]
+  },
+  "wa_ora": {
+    "sounds": [
+      "rotp_zwa:user/ghaccio_ora_01",
+      "rotp_zwa:user/ghaccio_ora_02",
+      "rotp_zwa:user/ghaccio_ora_03",
+      "rotp_zwa:user/ghaccio_ora_04",
+      "rotp_zwa:user/ghaccio_ora_05"
+    ]
+  }
+}

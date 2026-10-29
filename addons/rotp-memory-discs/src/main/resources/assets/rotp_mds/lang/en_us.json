@@ -1,0 +1,19 @@
+{
+  "item.rotp_mds.memory_disc": "Power Disc: %1$s",
+  "item.rotp_mds.memory_remover": "Remove Power",
+  "item.rotp_mds.memory_remover_one_time": "Remove Power (Single Use)",
+  "item.rotp_mds.memory_eject": "Eject Power Disc",
+  "item.rotp_mds.memory_eject_one_time": "Eject Power Disc (Single Use)",
+  "item.rotp_mds.empty_memory_disc": "Blank Power Disc",
+  "item.rotp_mds.empty_memory_disc.tooltip": "No power stored",
+  "item.rotp_mds.invalid_memory_disc": "Invalid Power Disc",
+  "item.rotp_mds.invalid_memory_disc.tooltip": "The stored power ID is unavailable",
+  "item.rotp_mds.transition.not_server": "Power changes are server-authoritative.",
+  "item.rotp_mds.transition.invalid_target": "No valid target was found.",
+  "item.rotp_mds.transition.power_unavailable": "This target cannot hold a player power.",
+  "item.rotp_mds.transition.invalid_disc": "This is not a valid power disc.",
+  "item.rotp_mds.transition.invalid_power_id": "The stored power is not registered.",
+  "item.rotp_mds.transition.no_active_power": "There is no active power to remove.",
+  "item.rotp_mds.transition.rejected": "The power change was rejected.",
+  "item.jojo.creative_only_tooltip": "Creative mode only"
+}

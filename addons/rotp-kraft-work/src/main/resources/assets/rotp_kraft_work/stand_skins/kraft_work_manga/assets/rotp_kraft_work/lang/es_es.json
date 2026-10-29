@@ -1,0 +1,16 @@
+{
+  "rotp_kraft_work.ability.kraft_work_punch":  "Puñetazo",
+  "rotp_kraft_work.ability.kraft_work_barrage":  "Bombardeo de puñetazos",
+  "rotp_kraft_work.ability.kraft_work_combo_punch":  "Golpe fuerte",
+  "rotp_kraft_work.ability.kraft_work_lock_armor":  "Bloquear armadura",
+  "rotp_kraft_work.ability.kraft_work_heavy_punch":  "Golpe fuerte",
+  "rotp_kraft_work.ability.kraft_work_block":  "Bloquear",
+  "rotp_kraft_work.ability.kraft_work_place_projectile":  "Colocar proyectil",
+  "rotp_kraft_work.ability.kraft_work_lock_yourself":  "bloquearte",
+  "rotp_kraft_work.ability.kraft_work_lock_target":  "bloquear objetivo",
+  "rotp_kraft_work.ability.kraft_work_release_target":  "Liberar objectivo",
+  "rotp_kraft_work.ability.kraft_work_energy_accumulation":  "Dar energía cinética",
+  "rotp_kraft_work.ability.kraft_work_release_projectile":  "Liberar proyectil",
+  "rotp_kraft_work.ability.kraft_work_advanced_release":  "Liberacion avanzada",
+  "rotp_kraft_work.ability.kraft_work_bi_status":  "Bloqueo de artículos dañinos"
+}

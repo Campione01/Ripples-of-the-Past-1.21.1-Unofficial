@@ -1,0 +1,35 @@
+{
+  "parent": "jojo_ripples:jojo/pillarman_evolve_aja",
+  "display": {
+    "icon": {
+      "id": "rotp_ul:stone_mask_ul_nostone"
+    },
+    "title": {
+      "translate": "advancements.rotp_ul.craft_stone_mask_with_hole.title"
+    },
+    "description": {
+      "translate": "advancements.rotp_ul.craft_stone_mask_with_hole.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "stone_mask_with_hole": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "rotp_ul:stone_mask_ul_nostone"
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "stone_mask_with_hole"
+    ]
+  ]
+}

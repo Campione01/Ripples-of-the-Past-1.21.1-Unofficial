@@ -1,0 +1,13 @@
+{
+  "message.rotp_harvest.harvesting": "按住 SHIFT 键退出",
+  "death.attack.rotp_harvest_punch": "%1$s 被重拳击倒",
+  "death.attack.rotp_harvest_punch.player": "%s 被 %s 的重拳击倒",
+  "death.attack.rotp_harvest_stab": "%1$s 被刺穿",
+  "death.attack.rotp_harvest_stab.player": "%s 被 %s 刺穿",
+  "death.attack.rotp_harvest_bite": "%1$s 被咬碎",
+  "death.attack.rotp_harvest_bite.player": "%s 被 %s 咬碎",
+  "entity.rotp_harvest.harvest": "『收成者』",
+  "entity.rotp_harvest.harvest_stand": "『收成者』",
+  "stand.rotp_harvest.harvest_stand": "收成者",
+  "rotp_harvest.subtitle.hv_step": "收成者脚步声"
+}

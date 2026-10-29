@@ -1,0 +1,13 @@
+{
+  "rotp_ss.stand_granted_pog": "\u00a76A mysterious power has awakened within you!",
+  "rotp_sws.configuration.title": "RotP Spawn With Stand Configuration",
+  "rotp_sws.configuration.section.rotp.sws.common.toml": "Common Settings",
+  "rotp_sws.configuration.section.rotp.sws.common.toml.title": "RotP Spawn With Stand Common Settings",
+  "rotp_sws.configuration.Stand Spawn Settings": "Stand Spawn Settings",
+  "rotp_sws.configuration.standChance": "Stand Chance",
+  "rotp_sws.configuration.standChance.tooltip": "Chance (0-100%%) to get a stand upon first joining a world (Default: 13.0)",
+  "rotp_sws.configuration.useStandOrder": "Use Stand Order",
+  "rotp_sws.configuration.useStandOrder.tooltip": "If true, stands are given in the order specified in standOrder. If false, eligible stands are selected randomly.",
+  "rotp_sws.configuration.standOrder": "Stand Order",
+  "rotp_sws.configuration.standOrder.tooltip": "Ordered Stand IDs for successful first-login rolls, for example [\"jojo_ripples:the_world\", \"rotp_kingcrimson:kingcrimson\"]. After the list is exhausted, selection is random. An invalid entry consumes its ordered slot without a fallback."
+}

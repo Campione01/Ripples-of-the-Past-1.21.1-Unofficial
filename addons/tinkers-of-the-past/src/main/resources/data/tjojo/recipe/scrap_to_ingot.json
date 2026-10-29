@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "jojo_ripples:meteoric_scrap"
+    },
+    {
+      "item": "jojo_ripples:meteoric_scrap"
+    }
+  ],
+  "result": {
+    "id": "tjojo:meteor_ingot",
+    "count": 2
+  }
+}

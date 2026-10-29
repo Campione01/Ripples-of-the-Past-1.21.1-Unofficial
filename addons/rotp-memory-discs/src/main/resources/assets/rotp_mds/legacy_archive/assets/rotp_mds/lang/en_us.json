@@ -1,0 +1,15 @@
+{
+  "item.rotp_mds.memory_disc": "能力光碟: %1$s",
+  "item.rotp_mds.memory_remover": "移除能力",
+  "item.rotp_mds.memory_remover_one_time": "移除能力(一次性)",
+  "item.rotp_mds.memory_eject": "弹出能力光碟",
+  "item.rotp_mds.memory_eject_one_time": "弹出能力光碟(一次性)",
+  "item.rotp_mds.memory_full_clear": "清除能力数据",
+  "item.rotp_mds.memory_full_clear_one_time": "清除能力数据(一次性)",
+  "item.rotp_mds.empty_memory_disc": "空白的能力光碟",
+  "item.rotp_mds.empty_memory_disc.tooltip": "无",
+  "item.rotp_mds.memory_disc.full_clear.hint": "Completely Balls",
+  "item.rotp_mds.memory_ai_disc": "能力光碟: %1$s",
+  "item.rotp_mds.empty_memory_ai_disc": "空白的能力光碟",
+  "item.rotp_mds.empty_memory_ai_disc.tooltip": "无"
+}

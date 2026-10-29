@@ -1,0 +1,9 @@
+{
+  "geraddon.ability.ger_stand_punch": "Удар",
+  "geraddon.ability.ger_stand_barrage": "Шквал ударов",
+  "geraddon.ability.ger_return_to_zero": "Вернуться к Нулю",
+  "action.geraddon.ger_stand_punch": "Удар",
+  "action.geraddon.ger_stand_barrage": "Шквал ударов",
+  "action.geraddon.ger_return_to_zero": "Вернуться к Нулю",
+  "jojo.message.action_condition.on_disable": "Ваши способности отключены"
+}

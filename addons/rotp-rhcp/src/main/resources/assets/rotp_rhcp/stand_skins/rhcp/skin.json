@@ -1,0 +1,10 @@
+{
+  "stand_type": "rotp_rhcp:rhcp",
+  "color": "#F7DE37",
+  "story_part": "jojo_ripples:p4",
+  "surface_translucency": true,
+  "scale": {
+    "width": 0.4,
+    "height": 1.15
+  }
+}

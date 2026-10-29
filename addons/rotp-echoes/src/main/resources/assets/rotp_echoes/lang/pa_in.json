@@ -1,0 +1,20 @@
+{
+  "stand.rotp_echoes.echoes_act3": "Echoes ACT3",
+  "stand.rotp_echoes.echoes_act2": "Echoes ACT2",
+  "rotp_echoes.ability.punch": "ਮੁੱਕਾ",
+  "rotp_echoes.ability.barrage": "ਮੁੱਕਿਆਂ ਦੀ ਬਾਰਿਸ਼",
+  "rotp_echoes.ability.heavy_punch": "ਭਾਰੀ ਮੁੱਕਾ",
+  "rotp_echoes.ability.finisher": "ਖਤਮ ਕਰਨ ਵਾਲਾ",
+  "rotp_echoes.ability.guard": "ਰੋਕ",
+  "rotp_echoes.ability.degrade_to_act2": "ਅਵਨਤੀ",
+  "rotp_echoes.ability.freeze": "ਜੰਮਣਾ",
+  "rotp_echoes.ability.hand_freeze": "ਹੱਥ ਜੰਮਣਾ",
+  "rotp_echoes.ability.freeze_self": "ਆਪ-ਜੰਮਣਾ",
+  "rotp_echoes.ability.gravity_infuse": "ਗਰੈਵਿਟੀ ਇਨਫਿਊਜ਼ਨ",
+  "rotp_echoes.ability.gravity_projectile": "ਗਰੈਵਿਟੀ ਪ੍ਰੋਜੈਕਟਾਈਲ",
+  "rotp_echoes.ability.act2_punch": "ਹਲਕਾ ਹਮਲਾ",
+  "rotp_echoes.ability.act2_heavy_punch": "ਭਾਰੀ ਹਮਲਾ",
+  "rotp_echoes.ability.act2_finisher": "ਪੂਛ ਦਾ ਡੰਗ",
+  "rotp_echoes.ability.act2_guard": "ਰੋਕ",
+  "rotp_echoes.ability.evolve_to_act3": "ਵਿਕਾਸ"
+}

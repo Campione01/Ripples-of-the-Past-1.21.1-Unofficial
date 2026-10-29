@@ -1,0 +1,8 @@
+{
+  "replace": false,
+  "values": [
+    "rotp_zbc:bad_soldier",
+    "rotp_zbc:bad_tank",
+    "rotp_zbc:bad_helicopter"
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "stand.rotp_the_hand.the_hand":  "轰炸空间",
+  "effect.rotp_the_hand.erased":  "被削除的生命",
+  "jojo.message.action_condition.not_possible_erase_article":  "无法消除这个目标",
+  "rotp_the_hand.ability.manual_control":  "手动控制",
+  "entity.rotp_the_hand.the_hand":  "轰炸空间",
+  "rotp_the_hand.subtitle.erasure":  "空间被削除",
+  "rotp_the_hand.subtitle.the_hand_kick_heavy":  "轰炸空间踢击",
+  "rotp_the_hand.subtitle.the_hand_name":  "轰炸空间！",
+  "rotp_the_hand.subtitle.the_hand_punch_heavy":  "轰炸空间重击",
+  "rotp_the_hand.subtitle.the_hand_punch_light":  "轰炸空间挥拳",
+  "rotp_the_hand.subtitle.the_hand_summon":  "轰炸空间显现",
+  "effect.rotp_the_hand.surprise":  "惊愕",
+  "rotp_the_hand.configuration.title":  "轰炸空间配置",
+  "rotp_the_hand.configuration.section.rotp.the.hand.common.toml":  "轰炸空间通用设置",
+  "rotp_the_hand.configuration.section.rotp.the.hand.common.toml.title":  "轰炸空间通用配置",
+  "rotp_the_hand.config.percent_damage":  "百分比伤害",
+  "rotp_the_hand.config.percent_damage.tooltip":  "削除空间与空间削除连打使用旧版伤害：按目标最大生命值的百分比计算，并随目标体型缩放。"
+}

@@ -1,0 +1,143 @@
+// Shared build logic of one public ROTP 1.21.1 add-on module.
+// The module's identity is in its gradle.properties; NeoForge, Minecraft and the
+// core versions come from the core's gradle.properties (rootProject.ext.core).
+
+def core = rootProject.ext.core
+def moduleProperties = new Properties()
+file('gradle.properties').withInputStream { moduleProperties.load(it) }
+def moduleProperty = { String name ->
+    def value = moduleProperties.getProperty(name)
+    if (value == null || value.isEmpty()) {
+        throw new GradleException("${project.path}: gradle.properties does not define ${name}")
+    }
+    value
+}
+
+group = rootProject.property('addon_group')
+version = moduleProperty('mod_version')
+base.archivesName = project.name
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+}
+
+repositories {
+    mavenCentral()
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = 'TheIllusiveC4'
+                url = 'https://maven.theillusivec4.top/'
+            }
+        }
+        filter {
+            includeGroup('top.theillusivec4.curios')
+            includeGroup('com.illusivesoulworks.caelus')
+        }
+    }
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = 'GeckoLib'
+                url = 'https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/'
+            }
+        }
+        filter {
+            includeGroup('software.bernie.geckolib')
+        }
+    }
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = 'Modrinth'
+                url = 'https://api.modrinth.com/maven'
+            }
+        }
+        filter {
+            includeGroup('maven.modrinth')
+        }
+    }
+}
+
+dependencies {
+    // Substituted by the core project of this repository (see settings.gradle).
+    implementation core.coordinate
+}
+
+// Compiled against the same Minecraft as the core: same Parchment names and the
+// core's access transformer, which the core applies to the game at run time.
+neoForge {
+    version = core.neo_version
+    parchment {
+        mappingsVersion = core.parchment_mappings_version
+        minecraftVersion = core.parchment_minecraft_version
+    }
+    accessTransformers = files(rootProject.file('../src/main/resources/META-INF/accesstransformer.cfg'))
+    mods {
+        "${moduleProperty('mod_id')}" {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
+
+def metadataProperties = [
+        mod_id                 : moduleProperty('mod_id'),
+        mod_name               : moduleProperty('mod_name'),
+        mod_version            : moduleProperty('mod_version'),
+        mod_description        : moduleProperty('mod_description'),
+        loader_version_range   : core.loader_version_range,
+        minecraft_version_range: core.minecraft_version_range,
+        neo_version            : core.neo_version,
+        core_mod_id            : core.mod_id,
+        core_mod_version       : core.mod_version
+]
+
+def generateModMetadata = tasks.register('generateModMetadata', ProcessResources) {
+    inputs.properties(metadataProperties)
+    expand(metadataProperties)
+    filteringCharset = 'UTF-8'
+    from('src/main/templates')
+    into(layout.buildDirectory.dir('generated/sources/modMetadata'))
+}
+sourceSets.main.resources.srcDir(generateModMetadata)
+neoForge.ideSyncTask(generateModMetadata)
+
+// GameTest structure templates: 'core' is the core's empty structure, anything else is base64.
+def structures = project.findProperty('gameTestStructures') ?: [:]
+if (!structures.isEmpty()) {
+    def coreEmptyStructure = rootProject.file('../src/main/resources/data/jojo_ripples/structure/empty.nbt')
+    def structureDirectory = layout.buildDirectory.dir('generated/gameTestStructures')
+    def generateGameTestStructures = tasks.register('generateGameTestStructures') {
+        inputs.property('structures', structures)
+        inputs.file(coreEmptyStructure)
+        outputs.dir(structureDirectory)
+        doLast {
+            def root = structureDirectory.get().asFile
+            root.deleteDir()
+            structures.each { String path, String source ->
+                def target = new File(root, path)
+                target.parentFile.mkdirs()
+                target.bytes = source == 'core'
+                        ? coreEmptyStructure.bytes
+                        : Base64.decoder.decode(source)
+            }
+        }
+    }
+    sourceSets.main.resources.srcDir(generateGameTestStructures)
+}
+
+tasks.named('jar', Jar) {
+    from(layout.projectDirectory) {
+        include('SOURCE_AND_LICENSE.md', 'LICENSE', 'LICENSE-*')
+        into('META-INF')
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+tasks.withType(AbstractArchiveTask).configureEach {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}

@@ -1,0 +1,206 @@
+{
+  "sddio_die": {
+    "subtitle": "rotp_shadowtheworld.subtitle.die",
+    "sounds": [
+      "rotp_shadowtheworld:stand_user/sddio_die"
+    ]
+  },
+  "sddio_muda": {
+    "subtitle": "jojo_ripples.subtitle.muda",
+    "sounds": [
+      "rotp_shadowtheworld:stand_user/sddio_muda",
+      "rotp_shadowtheworld:stand_user/sddio_muda_2",
+      "rotp_shadowtheworld:stand_user/sddio_muda_3",
+      "rotp_shadowtheworld:stand_user/sddio_muda_4"
+    ]
+  },
+  "sddio_muda_muda": {
+    "subtitle": "jojo_ripples.subtitle.muda_rush",
+    "sounds": [
+      "rotp_shadowtheworld:stand_user/sddio_muda_muda"
+    ]
+  },
+  "sddio_wry": {
+    "subtitle": "jojo_ripples.subtitle.wry",
+    "sounds": [
+      "rotp_shadowtheworld:stand_user/sddio_wry",
+      "rotp_shadowtheworld:stand_user/sddio_wry_2",
+      "rotp_shadowtheworld:stand_user/sddio_wry_3"
+    ]
+  },
+  "sddio_this_is_shadow_world": {
+    "subtitle": "rotp_shadowtheworld.subtitle.this_is_shadow_world",
+    "sounds": [
+      "rotp_shadowtheworld:stand_user/sddio_this_is_shadow_world"
+    ]
+  },
+  "sddio_toki_yo_tomare": {
+    "subtitle": "rotp_shadowtheworld.subtitle.toki_yo_tomare",
+    "sounds": [
+      "rotp_shadowtheworld:stand_user/sddio_toki_yo_tomare",
+      "rotp_shadowtheworld:stand_user/sddio_toki_yo_tomare_2"
+    ]
+  },
+  "sddio_tomare_toki_yo": {
+    "subtitle": "rotp_shadowtheworld.subtitle.tomare_toki_yo",
+    "sounds": [
+      "rotp_shadowtheworld:stand_user/sddio_tomare_toki_yo"
+    ]
+  },
+  "sddio_time_resumes": {
+    "subtitle": "rotp_shadowtheworld.subtitle.time_resumes",
+    "sounds": [
+      "rotp_shadowtheworld:stand_user/sddio_time_resumes",
+      "rotp_shadowtheworld:stand_user/sddio_time_resumes_2"
+    ]
+  },
+  "sddio_times_up": {
+    "subtitle": "rotp_shadowtheworld.subtitle.times_up",
+    "sounds": [
+      "rotp_shadowtheworld:stand_user/sddio_time_resumes",
+      "rotp_shadowtheworld:stand_user/sddio_time_resumes_2",
+      "rotp_shadowtheworld:stand_user/sddio_times_up",
+      "rotp_shadowtheworld:stand_user/sddio_times_up_2",
+      "rotp_shadowtheworld:stand_user/sddio_zero"
+    ]
+  },
+  "sddio_zero": {
+    "subtitle": "rotp_shadowtheworld.subtitle.zero",
+    "sounds": [
+      "rotp_shadowtheworld:stand_user/sddio_zero"
+    ]
+  },
+  "sddio_5_seconds": {
+    "subtitle": "rotp_shadowtheworld.subtitle.5_seconds",
+    "sounds": [
+      "rotp_shadowtheworld:stand_user/sddio_5_seconds"
+    ]
+  },
+  "sddio_one_more": {
+    "subtitle": "rotp_shadowtheworld.subtitle.one_more",
+    "sounds": [
+      "rotp_shadowtheworld:stand_user/sddio_one_more"
+    ]
+  },
+  "sddio_cant_move": {
+    "subtitle": "jojo_ripples.subtitle.cant_move",
+    "sounds": [
+      "rotp_shadowtheworld:stand_user/sddio_cant_move"
+    ]
+  },
+  "sddio_shadow_world": {
+    "subtitle": "rotp_shadowtheworld.subtitle.shadow_world_name",
+    "sounds": [
+      "rotp_shadowtheworld:stand_user/sddio_shadow_world",
+      "rotp_shadowtheworld:stand_user/sddio_shadow_world_2",
+      "rotp_shadowtheworld:stand_user/sddio_shadow_world_3",
+      "rotp_shadowtheworld:stand_user/sddio_shadow_world_4",
+      "rotp_shadowtheworld:stand_user/sddio_shadow_world_5"
+    ]
+  },
+  "shadow_world_summon": {
+    "sounds": [
+      "rotp_shadowtheworld:stand/shadow_world_summon",
+      "rotp_shadowtheworld:stand/shadow_world_summon_2"
+    ]
+  },
+  "shadow_world_unsummon": {
+    "subtitle": "rotp_shadowtheworld.subtitle.unsummon",
+    "sounds": [
+      "rotp_shadowtheworld:stand/shadow_world_unsummon"
+    ]
+  },
+  "shadow_world_muda_long": {
+    "subtitle": "jojo_ripples.subtitle.muda",
+    "sounds": [
+      "rotp_shadowtheworld:stand/shadow_world_muda_long",
+      "rotp_shadowtheworld:stand/shadow_world_muda_long_2",
+      "rotp_shadowtheworld:stand/shadow_world_muda_long_3"
+    ]
+  },
+  "shadow_world_muda_muda_muda": {
+    "subtitle": "jojo_ripples.subtitle.muda_rush",
+    "sounds": [
+      "rotp_shadowtheworld:stand/shadow_world_muda_muda_muda",
+      "rotp_shadowtheworld:stand/shadow_world_muda_muda_muda_2",
+      "rotp_shadowtheworld:stand/shadow_world_muda_muda_muda_3",
+      "rotp_shadowtheworld:stand/shadow_world_muda_muda_muda_4"
+    ]
+  },
+  "shadow_world_time_stop": {
+    "sounds": [
+      "rotp_shadowtheworld:stand/shadow_world_time_stop"
+    ]
+  },
+  "shadow_world_time_resume": {
+    "sounds": [
+      "rotp_shadowtheworld:stand/shadow_world_time_resume"
+    ]
+  },
+  "shadow_world_time_stop_blink": {
+    "sounds": [
+      "rotp_shadowtheworld:stand/shadow_world_time_stop_blink"
+    ]
+  },
+  "shadow_world_knife_throw": {
+    "sounds": [
+      "rotp_shadowtheworld:stand_user/shadow_world_knife_throw",
+      "rotp_shadowtheworld:stand_user/shadow_world_knife_throw_2",
+      "rotp_shadowtheworld:stand_user/shadow_world_knife_throw_3"
+    ]
+  },
+  "shadow_world_knives_throw": {
+    "sounds": [
+      "rotp_shadowtheworld:stand_user/shadow_world_knives_throw",
+      "rotp_shadowtheworld:stand_user/shadow_world_knives_throw_2",
+      "rotp_shadowtheworld:stand_user/shadow_world_knives_throw_3"
+    ]
+  },
+  "sddio_knife_throw_voice": {
+    "sounds": [
+      "rotp_shadowtheworld:stand/sddio_knife_throw_voice"
+    ]
+  },
+  "sddio_knives_throw_voice": {
+    "sounds": [
+      "rotp_shadowtheworld:stand/sddio_knives_throw_voice"
+    ]
+  },
+  "shadow_world_superpunch": {
+    "sounds": [
+      "rotp_shadowtheworld:stand/shadow_world_superpunch"
+    ]
+  },
+  "sddio_superpunch": {
+    "sounds": [
+      "rotp_shadowtheworld:stand/sddio_superpunch"
+    ]
+  },
+  "shadow_world_punch_light": {
+    "sounds": [
+      "rotp_shadowtheworld:stand/shadow_world_punch_light",
+      "rotp_shadowtheworld:stand/shadow_world_punch_light_2",
+      "rotp_shadowtheworld:stand/shadow_world_punch_light_3"
+    ]
+  },
+  "sddio_evolution": {
+    "sounds": [
+      "rotp_shadowtheworld:stand/sddio_evolution"
+    ]
+  },
+  "shadow_world_barrage": {
+    "sounds": [
+      "rotp_shadowtheworld:stand/shadow_world_barrage",
+      "rotp_shadowtheworld:stand/shadow_world_barrage_2",
+      "rotp_shadowtheworld:stand/shadow_world_barrage_3"
+    ]
+  },
+  "sddio_time_stop": {
+    "subtitle": "rotp_shadowtheworld.subtitle.toki_yo_tomare",
+    "sounds": [
+      "rotp_shadowtheworld:stand_user/sddio_toki_yo_tomare",
+      "rotp_shadowtheworld:stand_user/sddio_toki_yo_tomare_2",
+      "rotp_shadowtheworld:stand_user/sddio_tomare_toki_yo"
+    ]
+  }
+}

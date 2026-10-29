@@ -1,0 +1,14 @@
+{
+  "rotp_zbc.ability.put_mines": "Встановити міни",
+  "rotp_zbc.ability.explode_mines": "Підірвати міни",
+  "rotp_zbc.ability.order_wait": "Наказ %s підрозділам чекати та стріляти",
+  "rotp_zbc.ability.order_no_wait": "Наказ %s підрозділам припинити очікування",
+  "rotp_zbc.ability.units": "Вибрати тип підрозділу",
+  "rotp_zbc.ability.random": "Вибрати тип виклику",
+  "rotp_zbc.ability.target": "Наказ %s підрозділам на встановлення цілі",
+  "rotp_zbc.ability.missile": "%s вибухових ракет",
+  "rotp_zbc.ability.shoot": "Наказ %s підрозділам забути ціль",
+  "rotp_zbc.ability.go_block": "Наказ %s підрозділам перейти на блок",
+  "rotp_zbc.ability.close": "Наказ %s підрозділам триматися ближче",
+  "rotp_zbc.ability.closent": "Наказ %s підрозділам перестати триматися ближче"
+}

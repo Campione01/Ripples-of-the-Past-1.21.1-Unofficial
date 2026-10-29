@@ -1,0 +1,26 @@
+{
+    "type":  "minecraft:crafting_shaped",
+    "pattern":  [
+                    "COC",
+                    "LNL",
+                    "COC"
+                ],
+    "key":  {
+                "C":  {
+                          "item":  "minecraft:fire_charge"
+                      },
+                "N":  {
+                          "item":  "rotp_ul:soul_essence"
+                      },
+                "O":  {
+                          "item":  "minecraft:obsidian"
+                      },
+                "L":  {
+                          "item":  "minecraft:lava_bucket"
+                      }
+            },
+    "result":  {
+                   "count":  1,
+                   "id":  "rotp_ul:fire_essence"
+               }
+}

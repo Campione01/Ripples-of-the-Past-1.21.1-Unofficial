@@ -1,0 +1,8 @@
+{
+  "hv_step": {
+    "subtitle": "rotp_harvest.subtitle.hv_step",
+    "sounds": [
+      "rotp_harvest:step"
+    ]
+  }
+}

@@ -1,0 +1,9 @@
+{
+    "ambientocclusion":  false,
+    "textures":  {
+                     "particle":  "rotp_stfn:block/dynamic_stand_icon"
+                 },
+    "elements":  [
+
+                 ]
+}

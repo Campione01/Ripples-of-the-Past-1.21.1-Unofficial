@@ -1,0 +1,37 @@
+{
+  "format_version": "1.12.0",
+  "minecraft:geometry": [
+    {
+      "description": {
+        "identifier": "geometry.rotp_rhcp.rhcp",
+        "texture_width": 128,
+        "texture_height": 128,
+        "visible_bounds_width": 3,
+        "visible_bounds_height": 3,
+        "visible_bounds_offset": [0, 1, 0]
+      },
+      "bones": [
+        {"name": "stand_pos"},
+        {"name": "body_rot", "parent": "stand_pos"},
+        {"name": "body", "parent": "body_rot"},
+        {"name": "torso", "parent": "body"},
+        {"name": "torso_bend", "parent": "torso"},
+        {"name": "torso_no_arms", "parent": "torso_bend"},
+        {"name": "head", "parent": "torso_bend"},
+        {"name": "head_rot", "parent": "head"},
+        {"name": "left_arm_xrot", "parent": "torso_bend"},
+        {"name": "left_arm", "parent": "left_arm_xrot"},
+        {"name": "left_arm_bend", "parent": "left_arm"},
+        {"name": "right_arm_xrot", "parent": "torso_bend"},
+        {"name": "right_arm", "parent": "right_arm_xrot"},
+        {"name": "right_arm_bend", "parent": "right_arm"},
+        {"name": "left_leg_xrot", "parent": "body"},
+        {"name": "left_leg", "parent": "left_leg_xrot"},
+        {"name": "left_leg_bend", "parent": "left_leg"},
+        {"name": "right_leg_xrot", "parent": "body"},
+        {"name": "right_leg", "parent": "right_leg_xrot"},
+        {"name": "right_leg_bend", "parent": "right_leg"}
+      ]
+    }
+  ]
+}

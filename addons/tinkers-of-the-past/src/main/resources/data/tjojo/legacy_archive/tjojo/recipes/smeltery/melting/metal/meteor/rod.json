@@ -1,0 +1,21 @@
+{
+  "type": "tconstruct:melting",
+  "conditions": [
+    {
+      "value": {
+        "tag": "forge:rods/meteor",
+        "type": "forge:tag_empty"
+      },
+      "type": "forge:not"
+    }
+  ],
+  "ingredient": {
+    "tag": "forge:rods/meteor"
+  },
+  "result": {
+    "fluid": "tjojo:molten_meteor",
+    "amount": 72
+  },
+  "temperature": 700,
+  "time": 11
+}

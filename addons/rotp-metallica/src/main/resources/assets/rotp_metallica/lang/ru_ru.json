@@ -1,0 +1,25 @@
+{
+  "stand.rotp_metallica.metallica": "Metallica",
+
+  "rotp_metallica.ability.invisibility": "Невидимость",
+  "rotp_metallica.ability.invisibility_disable": "Отключить невидимость",
+  "rotp_metallica.ability.metallica_single_knife_throw": "Метнуть скальпель",
+  "rotp_metallica.ability.heal": "Исцелить себя",
+  "rotp_metallica.ability.metallica_multiple_knives_throw": "Метнуть 5 скальпелей",
+  "rotp_metallica.ability.create_blades_in_victim": "Создать лезвия внутри жертвы",
+  "action.rotp_metallica.invisibility": "Невидимость",
+  "action.rotp_metallica.metallica_single_knife_throw": "Метнуть скальпель",
+  "action.rotp_metallica.heal": "Исцелить себя",
+  "action.rotp_metallica.metallica_multiple_knives_throw": "Метнуть 5 скальпелей",
+  "action.rotp_metallica.create_blades_in_victim": "Создать лезвия внутри жертвы",
+  "effect.rotp_metallica.lack_of_iron": "Недостаток железа",
+  "item.rotp_metallica.scalpel": "Скальпель",
+  "rotp_metallica.subtitle.risotto_nero_metallica": "\"Metallica\"",
+  "rotp_metallica.subtitle.risotto_nero_invisibility": "\"Как тебе такое?\"",
+  "rotp_metallica.subtitle.risotto_nero_create_blades_in_victim": "\"Получай! Metallica!\"",
+  "rotp_metallica.subtitle.heal": "Исцеление железом",
+  "rotp_metallica.subtitle.metallica_summon_stand": "Стенд Metallica призван",
+  "rotp_metallica.subtitle.metallica_unsummon_stand": "Стенд Metallica отозван",
+  "rotp_metallica.subtitle.metallica_invisibility_on": "Невидимость включена",
+  "rotp_metallica.subtitle.metallica_invisibility_off": "Невидимость отключена"
+}

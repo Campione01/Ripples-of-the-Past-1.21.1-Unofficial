@@ -1,0 +1,279 @@
+{
+  "schema": 1,
+  "module": "addons/rotp-catch-the-rainbow",
+  "authority": "045_RotP-\u5f69\u8679\u6355\u624b-1.1-beta",
+  "summary": {
+    "legacy_java_sources": 38,
+    "closed": 38,
+    "rebuilt": 24,
+    "merged_equivalent": 9,
+    "superseded": 5,
+    "deferred": 0,
+    "blocked": 0
+  },
+  "class_closure": [
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/AddonMain.java",
+      "status": "rebuilt",
+      "current_owner": "CatchTheRainbowAddon.java",
+      "note": "NeoForge entrypoint and deferred-register wiring."
+    },
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/init/AddonStands.java",
+      "status": "rebuilt",
+      "current_owner": "CatchTheRainbowAddon.java",
+      "note": "Ability, input, skill, and stand registration."
+    },
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/entity/stand/stands/CatchTheRainbowEntity.java",
+      "status": "rebuilt",
+      "current_owner": "entity/CatchTheRainbowEntity.java",
+      "note": "Rain movement, falling blades, merge upkeep, reach, and synchronized state."
+    },
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/action/stand/CatchTheRainbowFallingRainBlades.java",
+      "status": "rebuilt",
+      "current_owner": "ability/FallingRainBladesAbility.java",
+      "note": "Server-authoritative toggle and activation cost."
+    },
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/item/CatchTheRainbowMaskItem.java",
+      "status": "rebuilt",
+      "current_owner": "item/CatchTheRainbowMaskItem.java",
+      "note": "Automatic equipment and cleanup lifecycle."
+    },
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/client/render/entity/model/stand/CatchTheRainbowMaskItemModel.java",
+      "status": "rebuilt",
+      "current_owner": "client/CatchTheRainbowMaskModel.java",
+      "note": "Current player-layer mask model."
+    },
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/action/stand/projectile/CatchTheRainbowRainBlade.java",
+      "status": "rebuilt",
+      "current_owner": "ability/RainBladeAbility.java",
+      "note": "Primary ranged action with server rain and stamina checks."
+    },
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/action/stand/CatchTheRainbowRainMerge.java",
+      "status": "rebuilt",
+      "current_owner": "ability/RainMergeAbility.java",
+      "note": "Charged toggle action and conflicts."
+    },
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/action/stand/CatchTheRainbowRainRedemption.java",
+      "status": "rebuilt",
+      "current_owner": "ability/RainRedemptionAbility.java",
+      "note": "Low-health charged action and effect lifecycle."
+    },
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/action/stand/CatchTheRainbowTeleport.java",
+      "status": "rebuilt",
+      "current_owner": "ability/RainBlinkAbility.java",
+      "note": "Server ray trace and collision-safe teleport."
+    },
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/action/stand/CatchTheRainbowTempHealth.java",
+      "status": "rebuilt",
+      "current_owner": "ability/TempHealthAbility.java",
+      "note": "Charged dynamic-health action and owned modifier cleanup."
+    },
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/client/ClientInit.java",
+      "status": "rebuilt",
+      "current_owner": "client/CatchTheRainbowClientEvents.java",
+      "note": "Renderer, model-layer, wearable-layer, and client extension registration."
+    },
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/entity/damaging/projectile/CtRRevolverBulletEntity.java",
+      "status": "rebuilt",
+      "current_owner": "entity/CatchTheRainbowRevolverBulletEntity.java",
+      "note": "Legacy bullet tuning on the core Tommy Gun projectile entity type."
+    },
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/item/CtRRevolverItem.java",
+      "status": "rebuilt",
+      "current_owner": "item/CatchTheRainbowRevolverItem.java",
+      "note": "Six-round custom-data ammo, firing cadence, recoil, and reload materials."
+    },
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/util/GameplayHandler.java",
+      "status": "rebuilt",
+      "current_owner": "CatchTheRainbowEvents.java",
+      "note": "Server lifecycle, umbrella tick, dry cleanup, and merge attack cancellation."
+    },
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/init/InitEffects.java",
+      "status": "rebuilt",
+      "current_owner": "CatchTheRainbowAddon.java",
+      "note": "Two mob-effect registrations."
+    },
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/init/InitEntities.java",
+      "status": "rebuilt",
+      "current_owner": "CatchTheRainbowAddon.java",
+      "note": "Stand and three rain-blade entity registrations."
+    },
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/init/InitItems.java",
+      "status": "rebuilt",
+      "current_owner": "CatchTheRainbowAddon.java",
+      "note": "Mask, umbrella, and revolver registrations."
+    },
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/init/InitSounds.java",
+      "status": "rebuilt",
+      "current_owner": "CatchTheRainbowAddon.java",
+      "note": "Eleven base events and seven core OST suffix registrations."
+    },
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/init/InitStands.java",
+      "status": "rebuilt",
+      "current_owner": "CatchTheRainbowAddon.java",
+      "note": "Canonical normal stand stats and moveset."
+    },
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/item/ModArmorMaterials.java",
+      "status": "rebuilt",
+      "current_owner": "CatchTheRainbowAddon.java",
+      "note": "Current ArmorMaterial registration."
+    },
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/potion/RainMerge.java",
+      "status": "rebuilt",
+      "current_owner": "effect/RainMergeEffect.java",
+      "note": "Uncurable attack-speed effect."
+    },
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/potion/RainRedemption.java",
+      "status": "rebuilt",
+      "current_owner": "effect/RainRedemptionEffect.java",
+      "note": "Server weather, health, absorption, resolve, and terminal cleanup."
+    },
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/item/UmbrellaItem.java",
+      "status": "rebuilt",
+      "current_owner": "item/UmbrellaItem.java",
+      "note": "Gravity, fall reset, rain sound, vampire resistance, and durability."
+    },
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/entity/damaging/projectile/CatchTheRainbowRainBladeEntity1.java",
+      "status": "merged_equivalent",
+      "current_owner": "entity/RainBladeEntity.java",
+      "note": "Variant selected by registered entity type."
+    },
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/entity/damaging/projectile/CatchTheRainbowRainBladeEntity2.java",
+      "status": "merged_equivalent",
+      "current_owner": "entity/RainBladeEntity.java",
+      "note": "Variant selected by registered entity type."
+    },
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/entity/damaging/projectile/CatchTheRainbowRainBladeEntity3.java",
+      "status": "merged_equivalent",
+      "current_owner": "entity/RainBladeEntity.java",
+      "note": "Variant selected by registered entity type."
+    },
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/client/render/entity/model/projectile/CatchTheRainbowRainBladeModel1.java",
+      "status": "merged_equivalent",
+      "current_owner": "client/RainBladeModel.java",
+      "note": "All three legacy models share the same geometry; the current owner preserves their 15 cuboids, exact eight-vertex/six-face custom blade mesh, UV topology, and raw -44.75-radian child pose."
+    },
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/client/render/entity/model/projectile/CatchTheRainbowRainBladeModel2.java",
+      "status": "merged_equivalent",
+      "current_owner": "client/RainBladeModel.java",
+      "note": "All three legacy models share the same geometry; the current owner preserves their 15 cuboids, exact eight-vertex/six-face custom blade mesh, UV topology, and raw -44.75-radian child pose."
+    },
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/client/render/entity/model/projectile/CatchTheRainbowRainBladeModel3.java",
+      "status": "merged_equivalent",
+      "current_owner": "client/RainBladeModel.java",
+      "note": "All three legacy models share the same geometry; the current owner preserves their 15 cuboids, exact eight-vertex/six-face custom blade mesh, UV topology, and raw -44.75-radian child pose."
+    },
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/client/render/entity/renderer/damaging/projectile/CatchTheRainbowRainBladeRenderer1.java",
+      "status": "merged_equivalent",
+      "current_owner": "client/RainBladeRenderer.java",
+      "note": "One current renderer handles all registered variants."
+    },
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/client/render/entity/renderer/damaging/projectile/CatchTheRainbowRainBladeRenderer2.java",
+      "status": "merged_equivalent",
+      "current_owner": "client/RainBladeRenderer.java",
+      "note": "One current renderer handles all registered variants."
+    },
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/client/render/entity/renderer/damaging/projectile/CatchTheRainbowRainBladeRenderer3.java",
+      "status": "merged_equivalent",
+      "current_owner": "client/RainBladeRenderer.java",
+      "note": "One current renderer handles all registered variants."
+    },
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/client/render/entity/model/stand/CatchTheRainbowModel.java",
+      "status": "superseded",
+      "current_owner": "stand_skins/catch_the_rainbow geo resource",
+      "note": "Core generic stand rendering owns geometry and animation."
+    },
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/client/render/entity/renderer/stand/CatchTheRainbowRenderer.java",
+      "status": "superseded",
+      "current_owner": "core StandEntityRenderer",
+      "note": "Core renderer owns Stand visibility, alpha, material, and skin resolution."
+    },
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/util/addon/JojoAddonUtil.java",
+      "status": "superseded",
+      "current_owner": "current core and Minecraft APIs",
+      "note": "Legacy reflection and helper shims are unnecessary."
+    },
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/power/impl/stand/stats/RainStopperStandStats.java",
+      "status": "superseded",
+      "current_owner": "core StandStats",
+      "note": "The legacy custom stats type is unreachable; canonical registration used normal StandStats."
+    },
+    {
+      "legacy_source": "com/archlunatic/rotp_ctr/client/render/item/umbrella/UmbrellaItemModel.java",
+      "status": "superseded",
+      "current_owner": "assets/rotp_ctr/models/item/umbrella.json",
+      "note": "Current item-model data replaces the legacy client model hook."
+    }
+  ],
+  "behavior_corrections": [
+    {
+      "legacy": "client bubble-column placement for rain walking",
+      "current": "server-authoritative vertical velocity",
+      "reason": "No client-only gameplay mutation or block replacement."
+    },
+    {
+      "legacy": "shared item sound counter",
+      "current": "per-player umbrella cadence",
+      "reason": "Avoid cross-player state leakage."
+    },
+    {
+      "legacy": "command-dispatched weather mutation",
+      "current": "ServerLevel.setWeatherParameters",
+      "reason": "Use the native server authority API."
+    },
+    {
+      "legacy": "global RenderLivingEvent player pose mutation",
+      "current": "native item use animation and narrow player layers",
+      "reason": "No global living-render hook or player-renderer replacement."
+    }
+  ],
+  "source_artifact_gaps": [
+    {
+      "surface": "catch_the_rainbow_ost audio",
+      "impact": "The legacy registration surface is preserved, but the source JAR contains no corresponding audio asset.",
+      "action": "Do not fabricate copyrighted or unauthoritative audio."
+    },
+    {
+      "surface": "umbrella rain variants 2, 3, and 6",
+      "impact": "The source JAR and sole upstream source commit contain zero-byte files; variants 2 and 3 were active legacy selections, while variant 6 was unreferenced.",
+      "action": "Select only decodable donor variants 4 and 5, preserve all three zero-byte donor files unchanged under migration/baseline-legacy outside the runtime source set, and do not fabricate or alias audio."
+    }
+  ],
+  "blockers": []
+}

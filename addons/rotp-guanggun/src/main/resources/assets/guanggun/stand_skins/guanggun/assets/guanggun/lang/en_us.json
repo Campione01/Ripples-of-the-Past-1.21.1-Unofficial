@@ -1,0 +1,12 @@
+{
+  "entity.guanggun.guanggun": "Guanggun",
+  "entity.guanggun.guanggun_bullet": "Guanggun Bullet",
+  "stand.guanggun.guanggun": "Guanggun",
+  "guanggun.ability.guanggun_punch": "Light Punch",
+  "guanggun.ability.guanggun_barrage": "Barrage",
+  "guanggun.ability.guanggun_heavy_punch": "Heavy Punch",
+  "guanggun.ability.guanggun_gun": "Shoot",
+  "guanggun.ability.guanggun_block": "Block",
+  "stand.guanggun.guanggun_summon": "Guanggun: Summon",
+  "stand.guanggun.guanggun_ost": "Guanggun: OST"
+}

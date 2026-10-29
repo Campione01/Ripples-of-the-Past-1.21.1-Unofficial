@@ -1,0 +1,53 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "rotp_d4c:annihilation_clone",
+      "required": false
+    },
+    {
+      "id": "rotp_d4c:annihilation_player_clone",
+      "required": false
+    },
+    {
+      "id": "rotp_d4c:summon_kick",
+      "required": false
+    },
+    {
+      "id": "rotp_harvest:harvest",
+      "required": false
+    },
+    {
+      "id": "rotp_kingcrimson:time_erase_decoy",
+      "required": false
+    },
+    {
+      "id": "rotp_ttr:dpm",
+      "required": false
+    },
+    {
+      "id": "rotp_wou:car_projectile",
+      "required": false
+    },
+    {
+      "id": "rotp_zbc:bad_helicopter",
+      "required": false
+    },
+    {
+      "id": "rotp_zbc:bad_soldier",
+      "required": false
+    },
+    {
+      "id": "rotp_zbc:bad_tank",
+      "required": false
+    },
+    {
+      "id": "rotp_zkq:sheer_heart",
+      "required": false
+    },
+    {
+      "id": "rotp_zkq8:sheer_heart",
+      "required": false
+    }
+  ]
+}

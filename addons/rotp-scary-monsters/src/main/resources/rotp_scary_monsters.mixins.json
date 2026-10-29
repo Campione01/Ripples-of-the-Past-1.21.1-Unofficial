@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "rotp.addons.scarymonsters.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "MobEffectInstanceMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

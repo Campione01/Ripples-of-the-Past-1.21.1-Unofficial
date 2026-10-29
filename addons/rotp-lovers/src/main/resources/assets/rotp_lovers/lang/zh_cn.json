@@ -1,0 +1,21 @@
+{
+  "entity.rotp_lovers.lovers": "恋人",
+  "stand.rotp_lovers.lovers": "恋人",
+  "rotp_lovers.ability.into_entity": "进入生物",
+  "rotp_lovers.ability.retract": "收回替身",
+  "rotp_lovers.message.attached": "恋人已进入%1$s。",
+  "rotp_lovers.message.retracted": "恋人已从目标体内收回。",
+  "rotp_lovers.message.target_occupied": "该目标体内已有恋人。",
+  "rotp_lovers.message.invalid_target": "恋人无法进入该目标。",
+  "rotp_lovers.message.no_link": "恋人当前没有连接目标。",
+  "rotp_lovers.config.multiple_damage": "恋人伤害倍率",
+  "rotp_lovers.subtitle.void": "恋人显现",
+  "death.attack.rotp_lovers.lovers_feedback": "%1$s被恋人的反馈伤害击败",
+  "death.attack.rotp_lovers.lovers_feedback.player": "%1$s被%2$s的恋人击败",
+  "rotp_lovers.configuration.title": "恋人配置",
+  "rotp_lovers.configuration.section.rotp.lovers.common.toml": "通用设置",
+  "rotp_lovers.configuration.section.rotp.lovers.common.toml.title": "恋人通用配置",
+  "rotp_lovers.configuration.Lovers Settings": "恋人设置",
+  "rotp_lovers.configuration.Lovers Settings.tooltip": "恋人的伤害设置。",
+  "rotp_lovers.config.multiple_damage.tooltip": "恋人的使用者受到攻击时，转给体内有恋人的生物的伤害倍数。默认为 1。"
+}

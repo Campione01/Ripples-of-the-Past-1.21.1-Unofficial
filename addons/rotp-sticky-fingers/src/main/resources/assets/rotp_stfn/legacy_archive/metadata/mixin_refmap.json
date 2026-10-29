@@ -1,0 +1,80 @@
+{
+  "mappings": {
+    "com/hk47bot/rotp_stfn/mixin/ServerPlayNetHandlerMixin": {
+      "handlePlayerAction": "Lnet/minecraft/network/play/ServerPlayNetHandler;func_147345_a(Lnet/minecraft/network/play/client/CPlayerDiggingPacket;)V"
+    },
+    "com/hk47bot/rotp_stfn/mixin/client/BipedModelMixin": {
+      "setupAnim(Lnet/minecraft/entity/LivingEntity;FFFFF)V": "Lnet/minecraft/client/renderer/entity/model/BipedModel;func_225597_a_(Lnet/minecraft/entity/LivingEntity;FFFFF)V"
+    },
+    "com/hk47bot/rotp_stfn/mixin/client/ArmorStandArmorModelMixin": {
+      "setupAnim(Lnet/minecraft/entity/item/ArmorStandEntity;FFFFF)V": "Lnet/minecraft/client/renderer/entity/model/ArmorStandArmorModel;func_225597_a_(Lnet/minecraft/entity/item/ArmorStandEntity;FFFFF)V"
+    },
+    "com/hk47bot/rotp_stfn/mixin/client/GameRendererMixin": {
+      "pick": "Lnet/minecraft/client/renderer/GameRenderer;func_78473_a(F)V"
+    },
+    "com/hk47bot/rotp_stfn/mixin/client/ModelRendererMixin": {
+      "copyFrom": "Lnet/minecraft/client/renderer/model/ModelRenderer;func_217177_a(Lnet/minecraft/client/renderer/model/ModelRenderer;)V"
+    },
+    "com/hk47bot/rotp_stfn/mixin/client/IllagerModelMixin": {
+      "setupAnim(Lnet/minecraft/entity/monster/AbstractIllagerEntity;FFFFF)V": "Lnet/minecraft/client/renderer/entity/model/IllagerModel;func_225597_a_(Lnet/minecraft/entity/monster/AbstractIllagerEntity;FFFFF)V"
+    },
+    "com/hk47bot/rotp_stfn/mixin/EntityMixin": {
+      "isInWall": "Lnet/minecraft/entity/Entity;func_70094_T()Z"
+    },
+    "com/hk47bot/rotp_stfn/mixin/AbstractBlockStateMixin": {
+      "updateNeighbourShapes(Lnet/minecraft/world/IWorld;Lnet/minecraft/util/math/BlockPos;II)V": "Lnet/minecraft/block/AbstractBlock$AbstractBlockState;func_241482_a_(Lnet/minecraft/world/IWorld;Lnet/minecraft/util/math/BlockPos;II)V",
+      "getCollisionShape(Lnet/minecraft/world/IBlockReader;Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/util/math/shapes/ISelectionContext;)Lnet/minecraft/util/math/shapes/VoxelShape;": "Lnet/minecraft/block/AbstractBlock$AbstractBlockState;func_215685_b(Lnet/minecraft/world/IBlockReader;Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/util/math/shapes/ISelectionContext;)Lnet/minecraft/util/math/shapes/VoxelShape;",
+      "isSuffocating": "Lnet/minecraft/block/AbstractBlock$AbstractBlockState;func_229980_m_(Lnet/minecraft/world/IBlockReader;Lnet/minecraft/util/math/BlockPos;)Z"
+    },
+    "com/hk47bot/rotp_stfn/mixin/client/ClientPlayerMixin": {
+      "suffocatesAt(Lnet/minecraft/util/math/BlockPos;)Z": "Lnet/minecraft/client/entity/player/ClientPlayerEntity;func_205027_h(Lnet/minecraft/util/math/BlockPos;)Z",
+      "isControlledCamera": "Lnet/minecraft/client/entity/player/ClientPlayerEntity;func_175160_A()Z"
+    },
+    "com/hk47bot/rotp_stfn/mixin/PlayerEntityMixin": {
+      "travel": "Lnet/minecraft/entity/player/PlayerEntity;func_213352_e(Lnet/minecraft/util/math/vector/Vector3d;)V"
+    },
+    "com/hk47bot/rotp_stfn/mixin/client/LivingRendererInvoker": {
+      "scale": "func_225620_a_(Lnet/minecraft/entity/LivingEntity;Lcom/mojang/blaze3d/matrix/MatrixStack;F)V"
+    }
+  },
+  "data": {
+    "searge": {
+      "com/hk47bot/rotp_stfn/mixin/ServerPlayNetHandlerMixin": {
+        "handlePlayerAction": "Lnet/minecraft/network/play/ServerPlayNetHandler;func_147345_a(Lnet/minecraft/network/play/client/CPlayerDiggingPacket;)V"
+      },
+      "com/hk47bot/rotp_stfn/mixin/client/BipedModelMixin": {
+        "setupAnim(Lnet/minecraft/entity/LivingEntity;FFFFF)V": "Lnet/minecraft/client/renderer/entity/model/BipedModel;func_225597_a_(Lnet/minecraft/entity/LivingEntity;FFFFF)V"
+      },
+      "com/hk47bot/rotp_stfn/mixin/client/ArmorStandArmorModelMixin": {
+        "setupAnim(Lnet/minecraft/entity/item/ArmorStandEntity;FFFFF)V": "Lnet/minecraft/client/renderer/entity/model/ArmorStandArmorModel;func_225597_a_(Lnet/minecraft/entity/item/ArmorStandEntity;FFFFF)V"
+      },
+      "com/hk47bot/rotp_stfn/mixin/client/GameRendererMixin": {
+        "pick": "Lnet/minecraft/client/renderer/GameRenderer;func_78473_a(F)V"
+      },
+      "com/hk47bot/rotp_stfn/mixin/client/ModelRendererMixin": {
+        "copyFrom": "Lnet/minecraft/client/renderer/model/ModelRenderer;func_217177_a(Lnet/minecraft/client/renderer/model/ModelRenderer;)V"
+      },
+      "com/hk47bot/rotp_stfn/mixin/client/IllagerModelMixin": {
+        "setupAnim(Lnet/minecraft/entity/monster/AbstractIllagerEntity;FFFFF)V": "Lnet/minecraft/client/renderer/entity/model/IllagerModel;func_225597_a_(Lnet/minecraft/entity/monster/AbstractIllagerEntity;FFFFF)V"
+      },
+      "com/hk47bot/rotp_stfn/mixin/EntityMixin": {
+        "isInWall": "Lnet/minecraft/entity/Entity;func_70094_T()Z"
+      },
+      "com/hk47bot/rotp_stfn/mixin/AbstractBlockStateMixin": {
+        "updateNeighbourShapes(Lnet/minecraft/world/IWorld;Lnet/minecraft/util/math/BlockPos;II)V": "Lnet/minecraft/block/AbstractBlock$AbstractBlockState;func_241482_a_(Lnet/minecraft/world/IWorld;Lnet/minecraft/util/math/BlockPos;II)V",
+        "getCollisionShape(Lnet/minecraft/world/IBlockReader;Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/util/math/shapes/ISelectionContext;)Lnet/minecraft/util/math/shapes/VoxelShape;": "Lnet/minecraft/block/AbstractBlock$AbstractBlockState;func_215685_b(Lnet/minecraft/world/IBlockReader;Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/util/math/shapes/ISelectionContext;)Lnet/minecraft/util/math/shapes/VoxelShape;",
+        "isSuffocating": "Lnet/minecraft/block/AbstractBlock$AbstractBlockState;func_229980_m_(Lnet/minecraft/world/IBlockReader;Lnet/minecraft/util/math/BlockPos;)Z"
+      },
+      "com/hk47bot/rotp_stfn/mixin/client/ClientPlayerMixin": {
+        "suffocatesAt(Lnet/minecraft/util/math/BlockPos;)Z": "Lnet/minecraft/client/entity/player/ClientPlayerEntity;func_205027_h(Lnet/minecraft/util/math/BlockPos;)Z",
+        "isControlledCamera": "Lnet/minecraft/client/entity/player/ClientPlayerEntity;func_175160_A()Z"
+      },
+      "com/hk47bot/rotp_stfn/mixin/PlayerEntityMixin": {
+        "travel": "Lnet/minecraft/entity/player/PlayerEntity;func_213352_e(Lnet/minecraft/util/math/vector/Vector3d;)V"
+      },
+      "com/hk47bot/rotp_stfn/mixin/client/LivingRendererInvoker": {
+        "scale": "func_225620_a_(Lnet/minecraft/entity/LivingEntity;Lcom/mojang/blaze3d/matrix/MatrixStack;F)V"
+      }
+    }
+  }
+}

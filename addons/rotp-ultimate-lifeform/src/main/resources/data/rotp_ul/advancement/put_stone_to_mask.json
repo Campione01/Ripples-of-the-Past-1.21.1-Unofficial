@@ -1,0 +1,35 @@
+{
+  "parent": "rotp_ul:craft_stone_mask_with_hole",
+  "display": {
+    "icon": {
+      "id": "rotp_ul:stone_mask_ul_with_stone"
+    },
+    "title": {
+      "translate": "advancements.rotp_ul.craft_stone_mask_with_stone.title"
+    },
+    "description": {
+      "translate": "advancements.rotp_ul.craft_stone_mask_with_stone.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "stone_mask_with_stone": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "rotp_ul:stone_mask_ul_with_stone"
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "stone_mask_with_stone"
+    ]
+  ]
+}

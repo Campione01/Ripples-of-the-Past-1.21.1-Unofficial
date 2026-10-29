@@ -1,0 +1,17 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.TheChaYe.rotp_yellowtemperance.mixin",
+  "compatibilityLevel": "JAVA_8",
+  "refmap": "rotp_yellowtemperance.refmap.json",
+  "mixins": [
+
+  ],
+  "client": [
+
+  ],
+  "server": [],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

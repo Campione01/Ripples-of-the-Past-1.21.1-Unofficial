@@ -1,0 +1,52 @@
+{
+  "skins": {
+    "rotp_zhp:skina": {
+      "stand_type": "rotp_zhp:hermito_purple",
+      "color" : "0xB20000"
+    },
+    "rotp_zhp:skinb": {
+      "stand_type": "rotp_zhp:hermito_purple",
+      "color" : "0x78A392"
+    },
+    "rotp_zhp:skinc": {
+      "stand_type": "rotp_zhp:hermito_purple",
+      "color" : "0x7CD3E1"
+    },
+    "rotp_zhp:skind": {
+      "stand_type": "rotp_zhp:hermito_purple",
+      "color" : "0x62506B"
+    },
+    "rotp_zhp:passion": {
+      "stand_type": "rotp_zhp:hermito_purple",
+      "color" : "0xF070D0"
+    },
+    "rotp_zhp:jonathan_passion": {
+      "stand_type": "rotp_zhp:hermito_purple",
+      "color" : "0xF070D0"
+    },
+    "rotp_zhp:skine": {
+      "stand_type": "rotp_zhp:hermito_purple",
+      "color" : "0x9A66DF"
+    },
+    "rotp_zhp:skinf": {
+      "stand_type": "rotp_zhp:hermito_purple",
+      "color" : "0xD3A656"
+    },
+    "rotp_zhp:sking": {
+      "stand_type": "rotp_zhp:hermito_purple",
+      "color" : "0x05B705"
+    },
+    "rotp_zhp:skinh": {
+      "stand_type": "rotp_zhp:hermito_purple",
+      "color" : "0x262626"
+    },
+    "rotp_zhp:jonathan": {
+      "stand_type": "rotp_zhp:hermito_purple",
+      "color" : "0xF070D0"
+    },
+    "rotp_zhp:spider_man": {
+      "stand_type": "rotp_zhp:hermito_purple",
+      "color" : "0xC91A09"
+    }
+  }
+}

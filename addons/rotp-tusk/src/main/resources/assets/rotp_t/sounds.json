@@ -1,0 +1,117 @@
+{
+  "johnny_act_1_summon": {
+    "subtitle": "rotp_t.johnny_act_1_summon",
+    "sounds": [
+      "rotp_t:user/johnny_act_1_summon"
+    ]
+  },
+  "johnny_act_2_summon": {
+    "subtitle": "rotp_t.johnny_act_2_summon",
+    "sounds": [
+      "rotp_t:user/johnny_act_2_summon",
+      "rotp_t:user/johnny_act_2_summon_2"
+    ]
+  },
+  "johnny_act_3_summon": {
+    "subtitle": "rotp_t.johnny_act_3_summon",
+    "sounds": [
+      "rotp_t:user/johnny_act_3_summon",
+      "rotp_t:user/johnny_act_3_summon_2"
+    ]
+  },
+  "johnny_act_4_summon": {
+    "subtitle": "rotp_t.johnny_act_4_summon",
+    "sounds": [
+      "rotp_t:user/johnny_act_4_summon",
+      "rotp_t:user/johnny_act_4_summon_2"
+    ]
+  },
+  "johnny_ora": {
+    "subtitle": "rotp_t.johnny_ora",
+    "sounds": [
+      "rotp_t:user/johnny_ora"
+    ]
+  },
+  "johnny_light_attack": {
+    "subtitle": "rotp_t.johnny_light_attack",
+    "sounds": [
+      "rotp_t:user/johnny_light_attack",
+      "rotp_t:user/johnny_light_attack2",
+      "rotp_t:user/johnny_light_attack3",
+      "rotp_t:user/johnny_light_attack4",
+      "rotp_t:user/johnny_light_attack5",
+      "rotp_t:user/johnny_light_attack6"
+    ]
+  },
+  "johnny_heavy_attack": {
+    "subtitle": "rotp_t.johnny_heavy_attack",
+    "sounds": [
+      "rotp_t:user/johnny_heavy_attack",
+      "rotp_t:user/johnny_heavy_attack2",
+      "rotp_t:user/johnny_heavy_attack3",
+      "rotp_t:user/johnny_heavy_attack4",
+      "rotp_t:user/johnny_heavy_attack5"
+    ]
+  },
+  "tusk_light_punch": {
+    "subtitle": "rotp_t.tusk_light_punch",
+    "sounds": [
+      "rotp_t:stand/tusk_light_punch"
+    ]
+  },
+  "tusk_heavy_punch": {
+    "subtitle": "rotp_t.tusk_heavy_punch",
+    "sounds": [
+      "rotp_t:stand/tusk_heavy_punch"
+    ]
+  },
+  "tusk_summon": {
+    "subtitle": "rotp_t.tusk_summon",
+    "sounds": [
+      "rotp_t:stand/tusk_summon"
+    ]
+  },
+  "tusk_unsummon": {
+    "subtitle": "rotp_t.tusk_unsummon",
+    "sounds": [
+      "rotp_t:stand/tusk_unsummon"
+    ]
+  },
+  "nail_shot": {
+    "subtitle": "rotp_t.nail_shot",
+    "sounds": [
+      "rotp_t:stand/nail_shot"
+    ]
+  },
+  "scratch": {
+    "subtitle": "rotp_t.scratch",
+    "sounds": [
+      "rotp_t:stand/scratch1",
+      "rotp_t:stand/scratch2"
+    ]
+  },
+  "wormhole_open": {
+    "subtitle": "rotp_t.wormhole_open",
+    "sounds": [
+      "rotp_t:stand/wormhole_open"
+    ]
+  },
+  "wormhole_close": {
+    "subtitle": "rotp_t.wormhole_close",
+    "sounds": [
+      "rotp_t:stand/wormhole_close"
+    ]
+  },
+  "wormhole_teleport": {
+    "subtitle": "rotp_t.wormhole_teleport",
+    "sounds": [
+      "rotp_t:stand/wormhole_teleport"
+    ]
+  },
+  "chimimi": {
+    "subtitle": "rotp_t.chimimi",
+    "sounds": [
+      "rotp_t:stand/chimimi"
+    ]
+  }
+}

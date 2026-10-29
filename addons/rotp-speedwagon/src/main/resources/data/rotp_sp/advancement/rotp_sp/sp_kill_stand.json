@@ -1,0 +1,37 @@
+{
+  "parent": "rotp_sp:rotp_sp/get_speedwagon",
+  "display": {
+    "icon": {
+      "id": "jojo_ripples:sledgehammer"
+    },
+    "title": {
+      "translate": "advancements.rotp_sp.sp_kill_stand.title"
+    },
+    "description": {
+      "translate": "advancements.rotp_sp.sp_kill_stand.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "stand_user_killed": {
+      "trigger": "jojo_ripples:player_killed_entity",
+      "conditions": {
+        "power": {
+          "classification": "non_stand",
+          "type": "rotp_sp:speedwagon"
+        },
+        "killed_power": {
+          "classification": "stand"
+        }
+      }
+    }
+  },
+  "requirements": [
+    [
+      "stand_user_killed"
+    ]
+  ]
+}

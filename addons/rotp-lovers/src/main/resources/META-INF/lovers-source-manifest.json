@@ -1,0 +1,152 @@
+{
+  "schema": 2,
+  "closure": "full_reachable",
+  "canonical_source": {
+    "inventory_row": 58,
+    "jar": "RotP-恋人-1.0.2.jar",
+    "absolute_path": "RotP-恋人-1.0.2.jar",
+    "size_bytes": 128968,
+    "sha256": "00FFAB73818467DE302D9EBE0DA869E689D1C8DA2F743F2751283EC6B5F8CD12",
+    "decompile_output": "051_RotP-恋人-1.0.2",
+    "decompile_status": "success",
+    "legacy_mod_id": "rotp_lovers",
+    "legacy_version": "1.0.2",
+    "license": "GNU GPL v3.0"
+  },
+  "closure_counts": {
+    "legacy_class_entries": 25,
+    "legacy_java_owners": 16,
+    "legacy_substantive_resources": 10,
+    "modern_main_java_owners": 17,
+    "active_registry_ids": 8,
+    "abilities": 2,
+    "runtime_rows": 14,
+    "atomic_blockers": 0
+  },
+  "active_ids": {
+    "mod": "rotp_lovers",
+    "stand": "rotp_lovers:lovers",
+    "entity": "rotp_lovers:lovers",
+    "abilities": [
+      "rotp_lovers:into_entity",
+      "rotp_lovers:retract"
+    ],
+    "attachment": "rotp_lovers:link_state",
+    "sound": "rotp_lovers:void",
+    "damage_type": "rotp_lovers:lovers_feedback"
+  },
+  "behavior": {
+    "classification": "remote_target_attachment",
+    "manual_control": false,
+    "stand_leap": false,
+    "humanoid_melee_kit": false,
+    "grab": false,
+    "charged_heavy": false,
+    "input": {
+      "hotbar": {
+        "LMB_click": "rotp_lovers:into_entity",
+        "RMB_click": "rotp_lovers:retract"
+      },
+      "keybinds": {
+        "LMB_click": "rotp_lovers:into_entity",
+        "RMB_click": "rotp_lovers:retract"
+      }
+    },
+    "link": {
+      "side": "server",
+      "state": "owner_only_synced_nonpersistent_attachment",
+      "target_exclusivity": "bounded_online_player_scan",
+      "chunk_force_load": false,
+      "static_player_map": false
+    },
+    "damage_feedback": {
+      "source": "owner",
+      "target_amount": "incoming_times_DefaultMultipleDamage",
+      "owner_amount": "incoming_divided_by_2",
+      "recursion_guard": "rotp_lovers:lovers_feedback"
+    }
+  },
+  "visual": {
+    "renderer": "LoversRenderer over core StandEntityRenderer",
+    "world_context": "core StandVisualContext",
+    "buffer": "core AlphaMultiBufferSource",
+    "material": "core Stand material",
+    "model": "dedicated donor HumanoidStandModel parity with 14 cubes and reconstructed complete UV surface",
+    "logical_texture_size": [128, 128],
+    "physical_texture_size": [256, 256],
+    "model_scale": [1.0, 1.0],
+    "entity_dimensions": [0.65, 1.8],
+    "marker": {
+      "range": 100.0,
+      "outlined": true,
+      "through_blocks": true,
+      "owner_attachment_synced": true
+    },
+    "animation": "core inherited Stand animation set; no bespoke legacy animation owner"
+  },
+  "assets": [
+    {
+      "source": "assets/rotp_lovers/textures/entity/stand/lovers.png",
+      "target": "assets/rotp_lovers/stand_skins/lovers/assets/rotp_lovers/textures/entity/lovers.png",
+      "bytes": 2735,
+      "sha256": "105B70663D876431970002708386430138CCFA1582D21832FF000E8161A00DC3",
+      "width": 256,
+      "height": 256,
+      "visible_pixels": 8545,
+      "transformation": "All nonzero donor RGB pixels remain byte-exact and visible; the donor-empty torso and limb UV islands are intentionally reconstructed with the donor gold, purple, gray, and charcoal identity palette, directional face shading, and bounded edge contrast"
+    },
+    {
+      "source": "assets/rotp_lovers/textures/power/lovers.png",
+      "target": "assets/rotp_lovers/stand_skins/lovers/assets/rotp_lovers/textures/stand_icon.png",
+      "bytes": 422,
+      "sha256": "AEEECB4A84C373EE7A45D005061E8482457A5152C9F84844CA641DC835104348",
+      "width": 32,
+      "height": 32,
+      "transformation": "none"
+    },
+    {
+      "source": "assets/rotp_lovers/textures/power/lovers.png",
+      "target": "assets/rotp_lovers/textures/power/lovers.png",
+      "bytes": 422,
+      "sha256": "AEEECB4A84C373EE7A45D005061E8482457A5152C9F84844CA641DC835104348",
+      "width": 32,
+      "height": 32,
+      "transformation": "none_marker_copy"
+    },
+    {
+      "source": "logo.png",
+      "target": "logo.png",
+      "bytes": 422,
+      "sha256": "AEEECB4A84C373EE7A45D005061E8482457A5152C9F84844CA641DC835104348",
+      "width": 32,
+      "height": 32,
+      "transformation": "none"
+    },
+    {
+      "source": "assets/rotp_lovers/textures/action/into_entity.png",
+      "target": "assets/rotp_lovers/stand_skins/lovers/assets/rotp_lovers/textures/ability/into_entity.png",
+      "bytes": 304,
+      "sha256": "4533771749768A2D4193D049BD96DD871EB711F272CD0EE6FC2FE55032C85D4C",
+      "width": 15,
+      "height": 15,
+      "transformation": "none"
+    },
+    {
+      "source": "assets/rotp_lovers/textures/action/retract.png",
+      "target": "assets/rotp_lovers/stand_skins/lovers/assets/rotp_lovers/textures/ability/retract.png",
+      "bytes": 202,
+      "sha256": "02E42784FAD899915D3DC2762312BE21448148B19FC81349806DD755EF274D98",
+      "width": 15,
+      "height": 15,
+      "transformation": "none"
+    },
+    {
+      "source": "assets/rotp_lovers/sounds/void.ogg",
+      "target": "assets/rotp_lovers/sounds/void.ogg",
+      "bytes": 90110,
+      "sha256": "3D2D0813AB0205328EF272B0B4913B9C4E16F208E19772A8D64327132F7D43E8",
+      "transformation": "none"
+    }
+  ],
+  "blocked": []
+}

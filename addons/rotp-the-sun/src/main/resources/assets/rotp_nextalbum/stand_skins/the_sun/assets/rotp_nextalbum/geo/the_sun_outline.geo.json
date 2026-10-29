@@ -1,0 +1,33 @@
+{
+	"format_version": "1.12.0",
+	"minecraft:geometry": [
+		{
+			"description": {
+				"identifier": "geometry.the_sun",
+				"texture_width": 256,
+				"texture_height": 256,
+				"visible_bounds_width": 4,
+				"visible_bounds_height": 3.5,
+				"visible_bounds_offset": [0, 1.25, 0]
+			},
+			"bones": [
+				{
+					"name": "the_sun",
+					"pivot": [-0.5, 16.5, -0.5]
+				},
+				{
+					"name": "outline",
+					"parent": "the_sun",
+					"pivot": [-14, 29, 13],
+					"cubes": [
+						{"origin": [12, 29, 12], "size": [-25, -25, -25], "inflate": -1, "uv": [100, 150]},
+						{"origin": [12, 29, 12], "size": [-25, -25, -25], "inflate": -2, "uv": [26, 217]},
+						{"origin": [12, 29, 12], "size": [-25, -25, -25], "inflate": -3, "uv": [182, 221]},
+						{"origin": [12, 29, 12], "size": [-25, -25, -25], "inflate": -4, "uv": [205, 141]},
+						{"origin": [12, 29, 12], "size": [-25, -25, -25], "inflate": -5, "uv": [218, 57]}
+					]
+				}
+			]
+		}
+	]
+}

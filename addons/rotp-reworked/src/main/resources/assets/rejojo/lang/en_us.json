@@ -1,0 +1,16 @@
+{
+  "action.rejojo.the_world_ts_blink_recovery": "Time Breaker Recovery",
+  "action.rejojo.star_platinum_heavy_punch_ts": "Quick Punch",
+  "action.rejojo.star_platinum_uppercut_ts": "Quick Uppercut",
+  "rejojo.ability.rejojo_the_world_ts_blink_recovery": "Time Breaker Recovery",
+  "rejojo.ability.rejojo_star_platinum_heavy_punch_ts": "Quick Punch",
+  "rejojo.ability.rejojo_star_platinum_uppercut_ts": "Quick Uppercut",
+  "effect.rejojo.slowburn": "Slow burn",
+  "rejojo.config.enableNewTSIcons": "Use donor-specific time-stop icons",
+  "rejojo.config.enableTSResolve": "Enable The World time-stop resolve rewards",
+  "rejojo.configuration.title": "Ripples of the Past Reworked Configuration",
+  "rejojo.configuration.Ripples of the Past Reworked": "Reworked Settings",
+  "rejojo.configuration.Ripples of the Past Reworked.tooltip": "Settings of Ripples of the Past Reworked.",
+  "rejojo.config.enableTSResolve.tooltip": "Enables The World's per-tick and endpoint time-stop resolve rewards. Road-roller and multi-knife rewards are independent.",
+  "rejojo.config.enableNewTSIcons.tooltip": "Uses Reworked's own Stand-specific time-stop ability icons instead of the core's fallback icons."
+}

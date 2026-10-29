@@ -1,0 +1,75 @@
+{
+	"format_version": "1.9.0",
+	"credit": "Made with Blockbench",
+	"texture_size": [64, 64],
+	"textures": {
+		"2": "rotp_d4c:item/shengren",
+		"particle": "rotp_d4c:item/shengren"
+	},
+	"elements": [
+		{
+			"name": "xinzang",
+			"from": [-0.24687, 19.8, 0.21641],
+			"to": [4, 25.7, 4.6],
+			"rotation": {"angle": 0, "axis": "z", "origin": [3.77657, 24.7, 3.5582]},
+			"faces": {
+				"north": {"uv": [0, 8.25, 2, 10.25], "texture": "#2"},
+				"east": {"uv": [0, 8.25, 2, 10.25], "texture": "#2"},
+				"south": {"uv": [0, 8.25, 2, 10.25], "texture": "#2"},
+				"west": {"uv": [0, 8.25, 2, 10.25], "texture": "#2"},
+				"up": {"uv": [4, 10.25, 2, 8.25], "texture": "#2"},
+				"down": {"uv": [6, 8.25, 4, 10.25], "texture": "#2"}
+			}
+		},
+		{
+			"name": "xinzang",
+			"from": [-0.09687, 19.95, 0.36641],
+			"to": [3.85, 25.55, 4.45],
+			"rotation": {"angle": 0, "axis": "y", "origin": [3.77657, 24.7, 3.5582]},
+			"faces": {
+				"north": {"uv": [6, 8.25, 8, 10.25], "texture": "#2"},
+				"east": {"uv": [6, 8.25, 8, 10.25], "texture": "#2"},
+				"south": {"uv": [6, 8.25, 8, 10.25], "texture": "#2"},
+				"west": {"uv": [6, 8.25, 8, 10.25], "texture": "#2"},
+				"up": {"uv": [8, 10.25, 6, 8.25], "texture": "#2"},
+				"down": {"uv": [8, 8.25, 6, 10.25], "texture": "#2"}
+			}
+		}
+	],
+	"gui_light": "front",
+	"display": {
+		"thirdperson_righthand": {
+			"rotation": [114, 3, 91],
+			"translation": [15, -5.75, 3.5]
+		},
+		"thirdperson_lefthand": {
+			"rotation": [124, 1, 87],
+			"translation": [14, -0.75, -7]
+		},
+		"firstperson_righthand": {
+			"rotation": [118, -70, 128],
+			"translation": [1, -9.5, 5.25],
+			"scale": [0.8, 0.8, 0.8]
+		},
+		"firstperson_lefthand": {
+			"rotation": [124, 1, 87],
+			"translation": [15, 0, -9],
+			"scale": [0.8, 0.8, 0.8]
+		},
+		"ground": {
+			"rotation": [87, -3, 0],
+			"translation": [1, -8.75, 0]
+		},
+		"gui": {
+			"rotation": [0, -180, 0],
+			"translation": [-15.75, -36.5, 0],
+			"scale": [2.5, 2.5, 2.5]
+		},
+		"head": {
+			"translation": [7.25, -9.25, 9.5]
+		},
+		"fixed": {
+			"translation": [5, -17, 4.75]
+		}
+	}
+}

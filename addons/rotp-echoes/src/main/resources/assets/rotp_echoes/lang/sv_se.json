@@ -1,0 +1,22 @@
+{
+  "stand.rotp_echoes.echoes_act3": "Echoes ACT3",
+  "stand.rotp_echoes.echoes_act2": "Echoes ACT2",
+  "rotp_echoes.ability.punch": "Slag",
+  "rotp_echoes.ability.barrage": "Hagel",
+  "rotp_echoes.ability.heavy_punch": "Tungt slag",
+  "rotp_echoes.ability.finisher": "Avslutare",
+  "rotp_echoes.ability.guard": "Blockera",
+  "rotp_echoes.ability.degrade_to_act2": "Degradering",
+  "rotp_echoes.ability.freeze": "Frysning",
+  "rotp_echoes.ability.hand_freeze": "Handfrysning",
+  "rotp_echoes.ability.freeze_self": "Självfrysning",
+  "rotp_echoes.ability.gravity_infuse": "Gravitationsinfusion",
+  "rotp_echoes.ability.gravity_projectile": "Gravitationsprojektil",
+  "rotp_echoes.ability.act2_punch": "Lätt attack",
+  "rotp_echoes.ability.act2_heavy_punch": "Tung attack",
+  "rotp_echoes.ability.act2_finisher": "Svansstick",
+  "rotp_echoes.ability.act2_guard": "Blockera",
+  "rotp_echoes.ability.evolve_to_act3": "Evolution",
+  "rotp_echoes.tooltip.gravity_infused": "Genomdränkt med gravitation",
+  "rotp_echoes.tooltip.gravity_infused.desc": "Att hålla i det kommer att tynga dig"
+}

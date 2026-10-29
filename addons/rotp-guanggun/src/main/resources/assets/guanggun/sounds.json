@@ -1,0 +1,10 @@
+{
+  "guanggun_summon": {
+    "category": "neutral",
+    "subtitle": "stand.guanggun.guanggun_summon"
+  },
+  "guanggun_ost": {
+    "category": "music",
+    "subtitle": "stand.guanggun.guanggun_ost"
+  }
+}

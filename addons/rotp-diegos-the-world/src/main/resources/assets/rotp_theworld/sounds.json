@@ -1,0 +1,191 @@
+{
+  "the_world_summon": {
+    "sounds": [
+      "rotp_theworld:stand/the_world_summon",
+      "rotp_theworld:stand/the_world_summon_2"
+    ]
+  },
+  "the_world_muda": {
+    "subtitle": "jojo_ripples.subtitle.muda",
+    "sounds": []
+  },
+  "the_world_muda_long": {
+    "subtitle": "jojo_ripples.subtitle.muda",
+    "sounds": [
+      "rotp_theworld:stand/the_world_muda_long",
+      "rotp_theworld:stand/the_world_muda_long_2",
+      "rotp_theworld:stand/the_world_muda_long_3"
+    ]
+  },
+  "the_world_muda_muda_muda": {
+    "subtitle": "jojo_ripples.subtitle.muda_rush",
+    "sounds": [
+      "rotp_theworld:stand/the_world_muda_muda_muda",
+      "rotp_theworld:stand/the_world_muda_muda_muda_2",
+      "rotp_theworld:stand/the_world_muda_muda_muda_3",
+      "rotp_theworld:stand/the_world_muda_muda_muda_4"
+    ]
+  },
+  "the_world_time_stop": {
+    "sounds": [
+      "rotp_theworld:stand/the_world_time_stop"
+    ]
+  },
+  "the_world_time_resume": {
+    "sounds": [
+      "rotp_theworld:stand/the_world_time_resume"
+    ]
+  },
+  "the_world_time_stop_blink": {
+    "sounds": [
+      "rotp_theworld:stand/the_world_time_stop_blink"
+    ]
+  },
+  "diego_the_world": {
+    "subtitle": "rotp_theworld.subtitle.the_world_name",
+    "sounds": [
+      "rotp_theworld:stand_user/diego_the_world_2",
+      "rotp_theworld:stand_user/diego_the_world_3",
+      "rotp_theworld:stand_user/diego_the_world_4",
+      "rotp_theworld:stand_user/diego_the_world_5"
+    ]
+  },
+  "diego_muda": {
+    "subtitle": "jojo_ripples.subtitle.muda",
+    "sounds": [
+      "rotp_theworld:stand_user/diego_muda",
+      "rotp_theworld:stand_user/diego_muda_2",
+      "rotp_theworld:stand_user/diego_muda_3"
+    ]
+  },
+  "diego_muda_muda": {
+    "subtitle": "jojo_ripples.subtitle.muda_rush",
+    "sounds": [
+      "rotp_theworld:stand_user/diego_muda_muda_2"
+    ]
+  },
+  "diego_wry": {
+    "subtitle": "rotp_theworld.subtitle.wry",
+    "sounds": [
+      "rotp_theworld:stand_user/diego_wry",
+      "rotp_theworld:stand_user/diego_wry_2",
+      "rotp_theworld:stand_user/diego_wry_3"
+    ]
+  },
+  "diego_die": {
+    "subtitle": "rotp_theworld.subtitle.die",
+    "sounds": [
+      "rotp_theworld:stand_user/diego_die",
+      "rotp_theworld:stand_user/diego_die_2"
+    ]
+  },
+  "diego_this_is_the_world": {
+    "subtitle": "rotp_theworld.subtitle.this_is_the_world",
+    "sounds": [
+      "rotp_theworld:stand_user/diego_this_is_the_world"
+    ]
+  },
+  "diego_time_stop": {
+    "subtitle": "rotp_theworld.subtitle.toki_yo_tomare",
+    "sounds": [
+      {
+        "name": "rotp_theworld:stand_user/diego_toki_yo_tomare",
+        "weight": 1
+      },
+      {
+        "name": "rotp_theworld:stand_user/diego_toki_yo_tomare_2",
+        "weight": 1
+      }
+    ]
+  },
+  "diego_tomare_toki_yo": {
+    "subtitle": "rotp_theworld.subtitle.tomare_toki_yo",
+    "sounds": [
+      {
+        "name": "rotp_theworld:stand_user/diego_tomare_toki_yo",
+        "weight": 2
+      }
+    ]
+  },
+  "diego_time_resumes": {
+    "subtitle": "rotp_theworld.subtitle.time_resumes",
+    "sounds": [
+      "rotp_theworld:stand_user/diego_time_resumes",
+      "rotp_theworld:stand_user/diego_time_resumes_2"
+    ]
+  },
+  "diego_times_up": {
+    "subtitle": "rotp_theworld.subtitle.times_up",
+    "sounds": [
+      "rotp_theworld:stand_user/diego_times_up",
+      "rotp_theworld:stand_user/diego_times_up_2"
+    ]
+  },
+  "diego_5_seconds": {
+    "subtitle": "rotp_theworld.subtitle.5_seconds",
+    "sounds": [
+      "rotp_theworld:stand_user/diego_5_seconds"
+    ]
+  },
+  "diego_one_more": {
+    "subtitle": "rotp_theworld.subtitle.one_more",
+    "sounds": [
+      "rotp_theworld:stand_user/diego_one_more"
+    ]
+  },
+  "diego_cant_move": {
+    "subtitle": "rotp_theworld.subtitle.cant_move",
+    "sounds": [
+      "rotp_theworld:stand_user/diego_cant_move",
+      "rotp_theworld:stand_user/diego_cant_move_2",
+      "rotp_theworld:stand_user/diego_cant_move_3"
+    ]
+  },
+  "diego_and_now_the_fun_begins": {
+    "subtitle": "rotp_theworld.subtitle.and_now_the_fun_begins",
+    "sounds": [
+      "rotp_theworld:stand_user/diego_and_now_the_fun_begins"
+    ]
+  },
+  "the_world_knives_throw": {
+    "sounds": [
+      "rotp_theworld:the_world_knives_throw"
+    ]
+  },
+  "the_world_knife_barrage_voice": {
+    "sounds": [
+      "rotp_theworld:stand/the_world_muda_muda_muda_2"
+    ]
+  },
+  "revolver_shot": {
+    "sounds": [
+      "rotp_theworld:items/revolver_shot"
+    ]
+  },
+  "revolver_no_ammo": {
+    "sounds": [
+      "rotp_theworld:items/revolver_no_ammo"
+    ]
+  },
+  "the_world_ost_30": {
+    "sounds": []
+  },
+  "the_world_ost_60": {
+    "sounds": []
+  },
+  "the_world_ost_75": {
+    "sounds": []
+  },
+  "the_world_ost_90": {
+    "sounds": []
+  },
+  "the_world_ost_120": {
+    "sounds": []
+  },
+  "the_world_ost_full": {
+    "sounds": []
+  },
+  "the_world_ost_cassette": {
+    "sounds": []
+  }
+}

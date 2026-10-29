@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "rotp_d4c:block/atum_portal"
+    }
+  }
+}

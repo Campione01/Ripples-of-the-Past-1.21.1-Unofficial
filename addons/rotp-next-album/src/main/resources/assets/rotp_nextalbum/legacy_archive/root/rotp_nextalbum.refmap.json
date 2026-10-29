@@ -1,0 +1,116 @@
+{
+  "mappings": {
+    "com/nextalubm/rotp_nextalbum/mixin/client/AgeableModelAgingMixin": {
+      "renderToBuffer(Lcom/mojang/blaze3d/matrix/MatrixStack;Lcom/mojang/blaze3d/vertex/IVertexBuilder;IIFFFF)V": "Lnet/minecraft/client/renderer/entity/model/AgeableModel;func_225598_a_(Lcom/mojang/blaze3d/matrix/MatrixStack;Lcom/mojang/blaze3d/vertex/IVertexBuilder;IIFFFF)V"
+    },
+    "com/nextalubm/rotp_nextalbum/mixin/client/PlayerRendererMixin": {
+      "getArmPose": "Lnet/minecraft/client/renderer/entity/PlayerRenderer;func_241741_a_(Lnet/minecraft/client/entity/player/AbstractClientPlayerEntity;Lnet/minecraft/util/Hand;)Lnet/minecraft/client/renderer/entity/model/BipedModel$ArmPose;"
+    },
+    "com/nextalubm/rotp_nextalbum/mixin/BlockItemAgingPlacementMixin": {
+      "place": "Lnet/minecraft/item/BlockItem;func_195942_a(Lnet/minecraft/item/BlockItemUseContext;)Lnet/minecraft/util/ActionResultType;"
+    },
+    "com/nextalubm/rotp_nextalbum/mixin/LivingEntitySwingDurationMixin": {
+      "getCurrentSwingDuration": "Lnet/minecraft/entity/LivingEntity;func_82166_i()I"
+    },
+    "com/nextalubm/rotp_nextalbum/mixin/client/ClientWorldTheSunSkyMixin": {
+      "getSkyColor": "Lnet/minecraft/client/world/ClientWorld;func_228318_a_(Lnet/minecraft/util/math/BlockPos;F)Lnet/minecraft/util/math/vector/Vector3d;",
+      "getSkyDarken": "Lnet/minecraft/client/world/ClientWorld;func_228326_g_(F)F",
+      "getStarBrightness": "Lnet/minecraft/client/world/ClientWorld;func_228330_j_(F)F"
+    },
+    "com/nextalubm/rotp_nextalbum/mixin/client/ItemRendererMixin": {
+      "render": "Lnet/minecraft/client/renderer/ItemRenderer;func_229111_a_(Lnet/minecraft/item/ItemStack;Lnet/minecraft/client/renderer/model/ItemCameraTransforms$TransformType;ZLcom/mojang/blaze3d/matrix/MatrixStack;Lnet/minecraft/client/renderer/IRenderTypeBuffer;IILnet/minecraft/client/renderer/model/IBakedModel;)V"
+    },
+    "com/nextalubm/rotp_nextalbum/mixin/CreeperEntityAgingMixin": {
+      "ignite": "Lnet/minecraft/entity/monster/CreeperEntity;func_146079_cb()V",
+      "tick": "Lnet/minecraft/entity/monster/CreeperEntity;func_70071_h_()V",
+      "explodeCreeper": "Lnet/minecraft/entity/monster/CreeperEntity;func_146077_cc()V"
+    },
+    "com/nextalubm/rotp_nextalbum/mixin/client/PlayerModelArmReachMixin": {
+      "setupAnim": "Lnet/minecraft/client/renderer/entity/model/PlayerModel;func_225597_a_(Lnet/minecraft/entity/LivingEntity;FFFFF)V"
+    },
+    "com/nextalubm/rotp_nextalbum/mixin/client/LivingRendererAgingMixin": {
+      "Lnet/minecraft/client/renderer/entity/model/EntityModel;renderToBuffer(Lcom/mojang/blaze3d/matrix/MatrixStack;Lcom/mojang/blaze3d/vertex/IVertexBuilder;IIFFFF)V": "Lnet/minecraft/client/renderer/entity/model/EntityModel;func_225598_a_(Lcom/mojang/blaze3d/matrix/MatrixStack;Lcom/mojang/blaze3d/vertex/IVertexBuilder;IIFFFF)V",
+      "render(Lnet/minecraft/entity/LivingEntity;FFLcom/mojang/blaze3d/matrix/MatrixStack;Lnet/minecraft/client/renderer/IRenderTypeBuffer;I)V": "Lnet/minecraft/client/renderer/entity/LivingRenderer;func_225623_a_(Lnet/minecraft/entity/LivingEntity;FFLcom/mojang/blaze3d/matrix/MatrixStack;Lnet/minecraft/client/renderer/IRenderTypeBuffer;I)V"
+    },
+    "com/nextalubm/rotp_nextalbum/mixin/ItemStackMixin": {
+      "hasFoil": "Lnet/minecraft/item/ItemStack;func_77962_s()Z"
+    },
+    "com/nextalubm/rotp_nextalbum/mixin/LivingEntityAgingMixin": {
+      "addAdditionalSaveData": "Lnet/minecraft/entity/LivingEntity;func_213281_b(Lnet/minecraft/nbt/CompoundNBT;)V",
+      "defineSynchedData": "Lnet/minecraft/entity/LivingEntity;func_70088_a()V",
+      "readAdditionalSaveData": "Lnet/minecraft/entity/LivingEntity;func_70037_a(Lnet/minecraft/nbt/CompoundNBT;)V"
+    },
+    "com/nextalubm/rotp_nextalbum/mixin/BlockDropResourcesMixin": {
+      "getDrops(Lnet/minecraft/block/BlockState;Lnet/minecraft/world/server/ServerWorld;Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/tileentity/TileEntity;)Ljava/util/List;": "Lnet/minecraft/block/Block;func_220070_a(Lnet/minecraft/block/BlockState;Lnet/minecraft/world/server/ServerWorld;Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/tileentity/TileEntity;)Ljava/util/List;",
+      "dropResources(Lnet/minecraft/block/BlockState;Lnet/minecraft/world/World;Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/tileentity/TileEntity;Lnet/minecraft/entity/Entity;Lnet/minecraft/item/ItemStack;)V": "Lnet/minecraft/block/Block;func_220054_a(Lnet/minecraft/block/BlockState;Lnet/minecraft/world/World;Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/tileentity/TileEntity;Lnet/minecraft/entity/Entity;Lnet/minecraft/item/ItemStack;)V",
+      "getDrops(Lnet/minecraft/block/BlockState;Lnet/minecraft/world/server/ServerWorld;Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/tileentity/TileEntity;Lnet/minecraft/entity/Entity;Lnet/minecraft/item/ItemStack;)Ljava/util/List;": "Lnet/minecraft/block/Block;func_220077_a(Lnet/minecraft/block/BlockState;Lnet/minecraft/world/server/ServerWorld;Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/tileentity/TileEntity;Lnet/minecraft/entity/Entity;Lnet/minecraft/item/ItemStack;)Ljava/util/List;"
+    },
+    "com/nextalubm/rotp_nextalbum/mixin/FoodStatsAgedFoodMixin": {
+      "eat(Lnet/minecraft/item/Item;Lnet/minecraft/item/ItemStack;)V": "Lnet/minecraft/util/FoodStats;func_221410_a(Lnet/minecraft/item/Item;Lnet/minecraft/item/ItemStack;)V"
+    },
+    "com/nextalubm/rotp_nextalbum/mixin/AbstractBlockStateAgedRandomTickMixin": {
+      "randomTick": "Lnet/minecraft/block/AbstractBlock$AbstractBlockState;func_227034_b_(Lnet/minecraft/world/server/ServerWorld;Lnet/minecraft/util/math/BlockPos;Ljava/util/Random;)V"
+    },
+    "com/nextalubm/rotp_nextalbum/mixin/client/LightTextureTheSunMixin": {
+      "updateLightTexture": "Lnet/minecraft/client/renderer/LightTexture;func_205106_a(F)V"
+    }
+  },
+  "data": {
+    "searge": {
+      "com/nextalubm/rotp_nextalbum/mixin/client/AgeableModelAgingMixin": {
+        "renderToBuffer(Lcom/mojang/blaze3d/matrix/MatrixStack;Lcom/mojang/blaze3d/vertex/IVertexBuilder;IIFFFF)V": "Lnet/minecraft/client/renderer/entity/model/AgeableModel;func_225598_a_(Lcom/mojang/blaze3d/matrix/MatrixStack;Lcom/mojang/blaze3d/vertex/IVertexBuilder;IIFFFF)V"
+      },
+      "com/nextalubm/rotp_nextalbum/mixin/client/PlayerRendererMixin": {
+        "getArmPose": "Lnet/minecraft/client/renderer/entity/PlayerRenderer;func_241741_a_(Lnet/minecraft/client/entity/player/AbstractClientPlayerEntity;Lnet/minecraft/util/Hand;)Lnet/minecraft/client/renderer/entity/model/BipedModel$ArmPose;"
+      },
+      "com/nextalubm/rotp_nextalbum/mixin/BlockItemAgingPlacementMixin": {
+        "place": "Lnet/minecraft/item/BlockItem;func_195942_a(Lnet/minecraft/item/BlockItemUseContext;)Lnet/minecraft/util/ActionResultType;"
+      },
+      "com/nextalubm/rotp_nextalbum/mixin/LivingEntitySwingDurationMixin": {
+        "getCurrentSwingDuration": "Lnet/minecraft/entity/LivingEntity;func_82166_i()I"
+      },
+      "com/nextalubm/rotp_nextalbum/mixin/client/ClientWorldTheSunSkyMixin": {
+        "getSkyColor": "Lnet/minecraft/client/world/ClientWorld;func_228318_a_(Lnet/minecraft/util/math/BlockPos;F)Lnet/minecraft/util/math/vector/Vector3d;",
+        "getSkyDarken": "Lnet/minecraft/client/world/ClientWorld;func_228326_g_(F)F",
+        "getStarBrightness": "Lnet/minecraft/client/world/ClientWorld;func_228330_j_(F)F"
+      },
+      "com/nextalubm/rotp_nextalbum/mixin/client/ItemRendererMixin": {
+        "render": "Lnet/minecraft/client/renderer/ItemRenderer;func_229111_a_(Lnet/minecraft/item/ItemStack;Lnet/minecraft/client/renderer/model/ItemCameraTransforms$TransformType;ZLcom/mojang/blaze3d/matrix/MatrixStack;Lnet/minecraft/client/renderer/IRenderTypeBuffer;IILnet/minecraft/client/renderer/model/IBakedModel;)V"
+      },
+      "com/nextalubm/rotp_nextalbum/mixin/CreeperEntityAgingMixin": {
+        "ignite": "Lnet/minecraft/entity/monster/CreeperEntity;func_146079_cb()V",
+        "tick": "Lnet/minecraft/entity/monster/CreeperEntity;func_70071_h_()V",
+        "explodeCreeper": "Lnet/minecraft/entity/monster/CreeperEntity;func_146077_cc()V"
+      },
+      "com/nextalubm/rotp_nextalbum/mixin/client/PlayerModelArmReachMixin": {
+        "setupAnim": "Lnet/minecraft/client/renderer/entity/model/PlayerModel;func_225597_a_(Lnet/minecraft/entity/LivingEntity;FFFFF)V"
+      },
+      "com/nextalubm/rotp_nextalbum/mixin/client/LivingRendererAgingMixin": {
+        "Lnet/minecraft/client/renderer/entity/model/EntityModel;renderToBuffer(Lcom/mojang/blaze3d/matrix/MatrixStack;Lcom/mojang/blaze3d/vertex/IVertexBuilder;IIFFFF)V": "Lnet/minecraft/client/renderer/entity/model/EntityModel;func_225598_a_(Lcom/mojang/blaze3d/matrix/MatrixStack;Lcom/mojang/blaze3d/vertex/IVertexBuilder;IIFFFF)V",
+        "render(Lnet/minecraft/entity/LivingEntity;FFLcom/mojang/blaze3d/matrix/MatrixStack;Lnet/minecraft/client/renderer/IRenderTypeBuffer;I)V": "Lnet/minecraft/client/renderer/entity/LivingRenderer;func_225623_a_(Lnet/minecraft/entity/LivingEntity;FFLcom/mojang/blaze3d/matrix/MatrixStack;Lnet/minecraft/client/renderer/IRenderTypeBuffer;I)V"
+      },
+      "com/nextalubm/rotp_nextalbum/mixin/ItemStackMixin": {
+        "hasFoil": "Lnet/minecraft/item/ItemStack;func_77962_s()Z"
+      },
+      "com/nextalubm/rotp_nextalbum/mixin/LivingEntityAgingMixin": {
+        "addAdditionalSaveData": "Lnet/minecraft/entity/LivingEntity;func_213281_b(Lnet/minecraft/nbt/CompoundNBT;)V",
+        "defineSynchedData": "Lnet/minecraft/entity/LivingEntity;func_70088_a()V",
+        "readAdditionalSaveData": "Lnet/minecraft/entity/LivingEntity;func_70037_a(Lnet/minecraft/nbt/CompoundNBT;)V"
+      },
+      "com/nextalubm/rotp_nextalbum/mixin/BlockDropResourcesMixin": {
+        "getDrops(Lnet/minecraft/block/BlockState;Lnet/minecraft/world/server/ServerWorld;Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/tileentity/TileEntity;)Ljava/util/List;": "Lnet/minecraft/block/Block;func_220070_a(Lnet/minecraft/block/BlockState;Lnet/minecraft/world/server/ServerWorld;Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/tileentity/TileEntity;)Ljava/util/List;",
+        "dropResources(Lnet/minecraft/block/BlockState;Lnet/minecraft/world/World;Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/tileentity/TileEntity;Lnet/minecraft/entity/Entity;Lnet/minecraft/item/ItemStack;)V": "Lnet/minecraft/block/Block;func_220054_a(Lnet/minecraft/block/BlockState;Lnet/minecraft/world/World;Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/tileentity/TileEntity;Lnet/minecraft/entity/Entity;Lnet/minecraft/item/ItemStack;)V",
+        "getDrops(Lnet/minecraft/block/BlockState;Lnet/minecraft/world/server/ServerWorld;Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/tileentity/TileEntity;Lnet/minecraft/entity/Entity;Lnet/minecraft/item/ItemStack;)Ljava/util/List;": "Lnet/minecraft/block/Block;func_220077_a(Lnet/minecraft/block/BlockState;Lnet/minecraft/world/server/ServerWorld;Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/tileentity/TileEntity;Lnet/minecraft/entity/Entity;Lnet/minecraft/item/ItemStack;)Ljava/util/List;"
+      },
+      "com/nextalubm/rotp_nextalbum/mixin/FoodStatsAgedFoodMixin": {
+        "eat(Lnet/minecraft/item/Item;Lnet/minecraft/item/ItemStack;)V": "Lnet/minecraft/util/FoodStats;func_221410_a(Lnet/minecraft/item/Item;Lnet/minecraft/item/ItemStack;)V"
+      },
+      "com/nextalubm/rotp_nextalbum/mixin/AbstractBlockStateAgedRandomTickMixin": {
+        "randomTick": "Lnet/minecraft/block/AbstractBlock$AbstractBlockState;func_227034_b_(Lnet/minecraft/world/server/ServerWorld;Lnet/minecraft/util/math/BlockPos;Ljava/util/Random;)V"
+      },
+      "com/nextalubm/rotp_nextalbum/mixin/client/LightTextureTheSunMixin": {
+        "updateLightTexture": "Lnet/minecraft/client/renderer/LightTexture;func_205106_a(F)V"
+      }
+    }
+  }
+}

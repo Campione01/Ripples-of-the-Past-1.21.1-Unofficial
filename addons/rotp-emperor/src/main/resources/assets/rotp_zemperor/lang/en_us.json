@@ -1,0 +1,20 @@
+{
+  "entity.rotp_zemperor.the_emperor": "The Emperor",
+  "stand.rotp_zemperor.the_emperor": "The Emperor",
+  "item.rotp_zemperor.emperor": "The Emperor",
+  "rotp_zemperor.ability.target.none": "Target: None",
+  "rotp_zemperor.ability.target.hostile": "Target: Hostile Mobs",
+  "rotp_zemperor.ability.target.players_and_stands": "Target: Players and Stands",
+  "rotp_zemperor.ability.target.any_living": "Target: Any Living Entity",
+  "rotp_zemperor.ability.stand_target": "Set Target",
+  "rotp_zemperor.ability.no_stand_target": "Clear Target",
+  "rotp_zemperor.ability.give_emp": "Summon Emperor",
+  "rotp_zemperor.message.hands_full": "Emperor needs one empty hand.",
+  "jojo.message.action_condition.emperor_not_summoned": "Emperor is not ready.",
+  "rotp_zemperor.subtitle.emp_shot": "Emperor fires",
+  "rotp_zemperor.subtitle.emp_user": "\"Emperor\"",
+  "rotp_zemperor.subtitle.emp_summon": "Emperor is summoned",
+  "rotp_zemperor.subtitle.emp_unsummon": "Emperor is unsummoned",
+  "rotp_zemperor.ability.target": "Target mode",
+  "entity.rotp_zemperor.emperor_bullet": "Emperor Bullet"
+}

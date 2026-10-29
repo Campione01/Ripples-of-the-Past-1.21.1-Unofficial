@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "rotp_nextalbum:aja_stone_necklace"
+    }
+  ],
+  "result": {
+    "id": "jojo_ripples:super_aja_stone"
+  }
+}

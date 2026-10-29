@@ -1,0 +1,50 @@
+{
+  "catch_the_rainbow_throwing_blade": {
+    "sounds": [ "rotp_ctr:stand_user/catch_the_rainbow_throwing_blade1",
+      "rotp_ctr:stand_user/catch_the_rainbow_throwing_blade2",
+      "rotp_ctr:stand_user/catch_the_rainbow_throwing_blade3" ]
+  },
+  "catch_the_rainbow_rain_blink": {
+    "sounds": [ "rotp_ctr:stand_user/catch_the_rainbow_rain_blink" ]
+  },
+  "catch_the_rainbow_rain_merge": {
+    "sounds": [ "rotp_ctr:stand_user/catch_the_rainbow_rain_merge" ]
+  },
+  "catch_the_rainbow_rain_heal": {
+    "sounds": [ "rotp_ctr:stand_user/catch_the_rainbow_rain_heal" ]
+  },
+  "catch_the_rainbow_summon": {
+    "sounds": [ "rotp_ctr:stand/catch_the_rainbow_summon" ]
+  },
+  "catch_the_rainbow_unsummon": {
+    "sounds": [ "rotp_ctr:stand/catch_the_rainbow_unsummon" ]
+  },
+  "catch_the_rainbow_ost": {
+    "sounds": [ "rotp_ctr:stand/catch_the_rainbow_ost" ]
+  },
+  "catch_the_rainbow_rain_step": {
+    "sounds": [ "rotp_ctr:stand_user/catch_the_rainbow_rain_step1",
+      "rotp_ctr:stand_user/catch_the_rainbow_rain_step2",
+      "rotp_ctr:stand_user/catch_the_rainbow_rain_step3",
+      "rotp_ctr:stand_user/catch_the_rainbow_rain_step4",
+      "rotp_ctr:stand_user/catch_the_rainbow_rain_step5",
+      "rotp_ctr:stand_user/catch_the_rainbow_rain_step6",
+      "rotp_ctr:stand_user/catch_the_rainbow_rain_step7",
+      "rotp_ctr:stand_user/catch_the_rainbow_rain_step8",
+      "rotp_ctr:stand_user/catch_the_rainbow_rain_step9",
+      "rotp_ctr:stand_user/catch_the_rainbow_rain_step10" ]
+  },
+  "umbrella_falling_rain_drops": {
+    "sounds": [ "rotp_ctr:items/umbrella/umbrella_falling_rain_drops4",
+      "rotp_ctr:items/umbrella/umbrella_falling_rain_drops5" ]
+  },
+  "revolver_shot": {
+    "sounds": [ "rotp_ctr:items/revolver/revolver_shot" ]
+  },
+  "revolver_no_ammo": {
+    "sounds": [ "rotp_ctr:items/revolver/revolver_no_ammo" ]
+  },
+  "revolver_reload": {
+    "sounds": [ "rotp_ctr:items/revolver/revolver_reload" ]
+  }
+}

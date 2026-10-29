@@ -1,0 +1,18 @@
+{
+    "neoforge:conditions":  [
+                                {
+                                    "type":  "neoforge:mod_loaded",
+                                    "modid":  "tconstruct"
+                                }
+                            ],
+    "type":  "tconstruct:melting",
+    "ingredient":  {
+                       "item":  "jojo_ripples:meteoric_iron"
+                   },
+    "result":  {
+                   "tag":  "tconstruct:molten_iron",
+                   "amount":  360
+               },
+    "temperature":  500,
+    "time":  50
+}

@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "group": "tjojo:stand_arrow_alloy_nugget",
+  "ingredients": [
+    {
+      "item": "jojo_ripples:meteoric_ingot"
+    }
+  ],
+  "result": {
+    "id": "tjojo:stand_arrow_alloy_nugget",
+    "count": 9
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "type": "tconstruct:casting_table",
+  "cast": {
+    "tag": "tconstruct:casts/single_use/nugget"
+  },
+  "cast_consumed": true,
+  "fluid": {
+    "tag": "forge:molten_stand_arrow_alloy",
+    "amount": 16
+  },
+  "result": {
+    "tag": "forge:nuggets/stand_arrow_alloy"
+  },
+  "cooling_time": 19
+}

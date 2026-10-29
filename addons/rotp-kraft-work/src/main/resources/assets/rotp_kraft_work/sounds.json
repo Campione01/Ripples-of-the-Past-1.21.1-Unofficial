@@ -1,0 +1,28 @@
+{
+  "sale_kraft_work": {
+    "subtitle": "rotp_kraft_work.subtitle.sale_kraft_work",
+    "sounds": [
+      "rotp_kraft_work:stand_user/sale_kraft_work"
+    ]
+  },
+  "kraft_work_blocks_a_projectile": {
+    "subtitle": "rotp_kraft_work.subtitle.blocks_projectile",
+    "sounds": [
+      "rotp_kraft_work:stand/kraft_work_blocks_a_projectile"
+    ]
+  },
+  "kraft_work_giving_kinetic_energy": {
+    "subtitle": "rotp_kraft_work.subtitle.gives_energy",
+    "sounds": [
+      "rotp_kraft_work:stand/kraft_work_giving_kinetic_energy",
+      "rotp_kraft_work:stand/kraft_work_giving_kinetic_energy_2"
+    ]
+  },
+  "kraft_work_released_projectile": {
+    "subtitle": "rotp_kraft_work.subtitle.releases_projectile",
+    "sounds": [
+      "rotp_kraft_work:stand/kraft_work_released_projectile",
+      "rotp_kraft_work:stand/kraft_work_released_projectile_2"
+    ]
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "targets": [
+    "swap"
+  ],
+  "passes": [
+    {
+      "name": "jojo_ripples:time_stop",
+      "intarget": "minecraft:main",
+      "outtarget": "swap",
+      "uniforms": [
+        {
+          "name": "TSEffectLength",
+          "values": [35.0]
+        },
+        {
+          "name": "RedMatrix",
+          "values": [0.35, 0.35, 0.35]
+        },
+        {
+          "name": "GreenMatrix",
+          "values": [0.35, 0.35, 0.35]
+        },
+        {
+          "name": "BlueMatrix",
+          "values": [0.0, 0.0, 0.0]
+        }
+      ]
+    },
+    {
+      "name": "blit",
+      "intarget": "swap",
+      "outtarget": "minecraft:main"
+    }
+  ]
+}

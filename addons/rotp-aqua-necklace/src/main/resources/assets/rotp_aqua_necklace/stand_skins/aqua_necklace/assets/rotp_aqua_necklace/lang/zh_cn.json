@@ -1,0 +1,14 @@
+{
+  "rotp_aqua_necklace.ability.change_to_liquid": "液化",
+  "rotp_aqua_necklace.ability.change_to_liquid.undo": "恢复固态",
+  "rotp_aqua_necklace.ability.change_to_gaseous": "气化",
+  "rotp_aqua_necklace.ability.change_to_gaseous.undo": "恢复固态",
+  "rotp_aqua_necklace.ability.enter_entity": "潜入生物",
+  "rotp_aqua_necklace.ability.leave_entity": "离开生物",
+  "rotp_aqua_necklace.ability.drown_host": "侵入肺部",
+  "rotp_aqua_necklace.ability.host_pressure": "体内压迫",
+  "rotp_aqua_necklace.ability.host_pressure.out": "拳击",
+  "rotp_aqua_necklace.ability.host_crush": "重拳",
+  "rotp_aqua_necklace.ability.brain_attack": "脑部攻击",
+  "rotp_aqua_necklace.ability.fluid_guard": "流体防御"
+}

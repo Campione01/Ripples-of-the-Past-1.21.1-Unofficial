@@ -1,0 +1,18 @@
+{
+  "required": true,
+  "compatibilityLevel": "JAVA_8",
+  "package": "com.mrlang.rotp_d4c.mixin",
+  "minVersion": "0.8",
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "mixins": [
+    "EntityStandTypeMixin",
+    "StandPowerMixin",
+    "StandTypeMixin",
+    "StaminaRegenMixin",
+    "TimeStopMixin",
+    "WhitesnakeMemoryProtectionMixin"
+  ],
+  "refmap": "rotp_d4c.mixin-refmap.json"
+}

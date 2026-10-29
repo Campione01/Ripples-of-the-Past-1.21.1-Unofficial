@@ -1,0 +1,47 @@
+{
+    "type":  "minecraft:crafting_shaped",
+    "pattern":  [
+                    "CH2",
+                    "3NT",
+                    "2BC"
+                ],
+    "key":  {
+                "N":  {
+                          "item":  "rotp_ul:soul_essence"
+                      },
+                "B":  {
+                          "type":  "neoforge:components",
+                          "items":  "minecraft:potion",
+                          "components":  {
+                                             "minecraft:potion_contents":  {
+                                                                                "potion":  "minecraft:regeneration"
+                                                                            }
+                                         }
+                      },
+                "T":  {
+                          "type":  "neoforge:components",
+                          "items":  "minecraft:potion",
+                          "components":  {
+                                             "minecraft:potion_contents":  {
+                                                                                "potion":  "minecraft:healing"
+                                                                            }
+                                         }
+                      },
+                "H":  {
+                          "item":  "minecraft:totem_of_undying"
+                      },
+                "2":  {
+                          "item":  "minecraft:fermented_spider_eye"
+                      },
+                "3":  {
+                          "item":  "minecraft:golden_apple"
+                      },
+                "C":  {
+                          "item":  "minecraft:rabbit_foot"
+                      }
+            },
+    "result":  {
+                   "count":  1,
+                   "id":  "rotp_ul:life_essence"
+               }
+}

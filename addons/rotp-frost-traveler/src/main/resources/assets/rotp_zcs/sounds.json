@@ -1,0 +1,25 @@
+{
+  "hot_cs":  {
+    "subtitle":  "rotp_zcs.subtitle.hot_cs",
+    "sounds":  ["rotp_zcs:user/cs_user"]
+  },
+  "cs_shot":  {
+    "subtitle":  "rotp_zcs.subtitle.cs_shot",
+    "sounds":  ["rotp_zcs:stand/spray_ph", "rotp_zcs:stand/spray_ph_2", "rotp_zcs:stand/spray_ph_3", "rotp_zcs:stand/spray_ph_4", "rotp_zcs:stand/spray_ph_5"]
+  },
+  "cs_shot_l":  {
+    "subtitle":  "rotp_zcs.subtitle.cs_shot",
+    "sounds":  ["rotp_zcs:stand/spray_long"]
+  },
+  "cs_shake":  {
+    "subtitle":  "rotp_zcs.subtitle.cs_shake",
+    "sounds":  ["rotp_zcs:stand/spray_shake"]
+  },
+  "cs_abs":  {
+    "subtitle":  "rotp_zcs.subtitle.cs_abs",
+    "sounds":  ["rotp_zcs:stand/cs_absorb"]
+  },
+  "void":  {
+    "sounds":  ["rotp_zcs:void"]
+  }
+}

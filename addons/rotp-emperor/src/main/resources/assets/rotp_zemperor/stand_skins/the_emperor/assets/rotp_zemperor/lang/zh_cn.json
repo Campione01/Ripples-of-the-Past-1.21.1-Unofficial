@@ -1,0 +1,12 @@
+{
+  "entity.rotp_zemperor.the_emperor": "皇帝",
+  "stand.rotp_zemperor.the_emperor": "皇帝",
+  "item.rotp_zemperor.emperor": "皇帝",
+  "rotp_zemperor.ability.target.none": "目标：无",
+  "rotp_zemperor.ability.target.hostile": "目标：敌对生物",
+  "rotp_zemperor.ability.target.players_and_stands": "目标：玩家与替身",
+  "rotp_zemperor.ability.target.any_living": "目标：任意生物",
+  "rotp_zemperor.ability.stand_target": "设置目标",
+  "rotp_zemperor.ability.no_stand_target": "清除目标",
+  "rotp_zemperor.ability.give_emp": "召唤皇帝"
+}

@@ -1,0 +1,13 @@
+{
+  "rotp_ss.stand_granted_pog":  "§6一股神秘的力量在你体内觉醒了！",
+  "rotp_sws.configuration.title":  "RotP 出生自带替身配置",
+  "rotp_sws.configuration.section.rotp.sws.common.toml":  "通用设置",
+  "rotp_sws.configuration.section.rotp.sws.common.toml.title":  "RotP 出生自带替身通用设置",
+  "rotp_sws.configuration.Stand Spawn Settings":  "替身发放设置",
+  "rotp_sws.configuration.standChance":  "获得替身几率",
+  "rotp_sws.configuration.standChance.tooltip":  "首次进入世界时获得替身的几率（0-100%%，默认：13.0）",
+  "rotp_sws.configuration.useStandOrder":  "按顺序发放替身",
+  "rotp_sws.configuration.useStandOrder.tooltip":  "开启时，按 standOrder 中指定的顺序发放替身；关闭时，从符合条件的替身中随机选择。",
+  "rotp_sws.configuration.standOrder":  "替身发放顺序",
+  "rotp_sws.configuration.standOrder.tooltip":  "首次登录判定成功时依次发放的替身 ID，例如 [\"jojo_ripples:the_world\", \"rotp_kingcrimson:kingcrimson\"]。列表用完后改为随机选择。无效条目会占用它的顺序位置，且不会改发其他替身。"
+}

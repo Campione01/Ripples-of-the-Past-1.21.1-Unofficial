@@ -1,0 +1,92 @@
+{
+  "schema": 2,
+  "migration_phase": "phase2_full_reachability_closure",
+  "implementation_status": "closed_runtime_matrix_pending",
+  "source_file": "RotP-辣妹-1.3-tournament.jar",
+  "source_bytes": 3042420,
+  "source_sha256": "6D2429EDFF3FD729DA339A23B2F1E6D4862C92AB2296F7056E8BD8A789438151",
+  "canonical_decompile": "067_RotP-辣妹-1.3-tournament",
+  "canonical_tree_sha256": "B5172E8F00B1F5A2CA9C25AFB9DF5C5434321EFC76B1253111CBD4E8B8158304",
+  "copied_asset_policy": "Active Stand/entity/effect/action/voice resources, four current-key locales, the donor-registered Arrivederci event/OGG, and the dedicated current wall-climb clip remain at runtime paths. Ten exact legacy entries are additionally retained below assets/rotp_sg/legacy_archive for provenance; only the registered Arrivederci OGG also has an active exact copy.",
+  "main_texture": {
+    "source_entry": "assets/rotp_sg/textures/entity/stand/spice_girl.png",
+    "source_bytes": 3206,
+    "source_sha256": "F2BEF84399DDA5D8A0C748F7E91A67392ADC8F0B1A7FD109A6E2303E8ADCA8F4",
+    "source_dimensions": [128, 128],
+    "target_entry": "assets/rotp_sg/stand_skins/spice_girl/assets/rotp_sg/textures/entity/spice_girl.png",
+    "target_sha256": "90FCB54ED81D3FDB66ABE17E14B35097EFD9435AAC6D685048610B2F9FB679AC",
+    "target_dimensions": [256, 256],
+    "byte_identical": false,
+    "conversion": "Identity-preserving 3x nearest-neighbor texel repack with two-pixel gutters and no post-scale color filtering.",
+    "static_art_evidence": true,
+    "runtime_art_evidence": false
+  },
+  "converted_geometry": {
+    "source_bytes": 7076,
+    "source_sha256": "2B7DE6F4CE7E8163D4C7D28B7969C0EB2D38F7486E8FA8FA73E33A812F49B132",
+    "identifier": "geometry.rotp_sg.spice_girl",
+    "target_sha256": "8BAFE12DD78E45A54CA1C4873CD366F31D57CE4F2A2AAC276539D7D04467D02E",
+    "conversion": "Legacy camelCase bones renamed and reparented to the current humanoid Stand anchor contract; torso_lower added; per-face UVs reproduce the core Gecko loader's donor box-UV face mapping."
+  },
+  "converted_animation": {
+    "source_bytes": 145471,
+    "source_sha256": "835FD987B3E49523358A2DD00607EA73D5833DE3B6C5325CD31DEA9898FAA6DF",
+    "target_sha256": "AC90750DD6FEA246FD634A54B7B699DDC28045202CF417340021CA7F067C742A",
+    "legacy_clip_count": 16,
+    "target_clip_count": 18,
+    "dedicated_current_clips": ["wall_climb", "heavy_charged"],
+    "conversion": "Legacy bone targets and action clip names renamed to current moveset aliases; collapse-driving held summon keys use the donor final H1 torso/limb pose under current runtime timing; a looping wall_climb clip targets only validated H1 Stand bones; heavy_charged is built from heavy_punch (charge into the pulled-back pose, WINDUP hold loop, the original swing as PERFORM) so the charged heavy no longer plays the swing while charging."
+  },
+  "sound_event_count": 22,
+  "sound_definition_count": 15,
+  "sound_clip_count": 27,
+  "repaired_reference": "sg_barrage_voice contains the two packaged clips and does not reference missing trish_barrage3.ogg; donor-registered trish_arividerchi is restored with its exact packaged OGG.",
+  "ost_restoration": {
+    "donor_base_id": "rotp_sg:spice_girl_ost",
+    "generated_sound_events": [
+      "rotp_sg:spice_girl_ost_30",
+      "rotp_sg:spice_girl_ost_60",
+      "rotp_sg:spice_girl_ost_75",
+      "rotp_sg:spice_girl_ost_90",
+      "rotp_sg:spice_girl_ost_120",
+      "rotp_sg:spice_girl_ost_full",
+      "rotp_sg:spice_girl_ost_cassette"
+    ],
+    "attached_stand": "rotp_sg:spice_girl",
+    "status": "registered_attached_silent",
+    "sound_definitions": 0,
+    "ogg_files": 0
+  },
+  "authority_closure": {
+    "attachments": 4,
+    "soft_area_chunk_index_limit": 512,
+    "soft_area_position_controller_limit": 8,
+    "soft_landing_provider_owner": "rotp_sg:spice_girl_soft_area_landing",
+    "soft_landing_core_api": "rotp.core.api.block.EntitySoftLandingProviders",
+    "non_living_fall_damage_multiplier": 0,
+    "non_living_vertical_bounce_multiplier": 0.8,
+    "forced_chunk_loads": false,
+    "global_player_or_level_scans": false,
+    "mixin_shipped": false
+  },
+  "visual_context": {
+    "renderer": "core StandEntityRenderer",
+    "owner": "active SpiceGirlStandEntity resolved from the real ServerPlayer controller",
+    "custom_player_renderer_or_layer": false
+  },
+  "legacy_archive": {
+    "retention_manifest": "META-INF/migration/legacy-resource-retention.json",
+    "source_entry_count": 10,
+    "retained_bytes": 2339398,
+    "runtime_registered": true,
+    "original_runtime_paths_packaged": true,
+    "active_original_paths": [
+      "assets/rotp_sg/sounds/stand_user/trish_arividerchi.ogg"
+    ],
+    "archived_sound_events_restored": true,
+    "reachable_ost_holder_restored": true,
+    "item_or_renderer_registration_restored": false,
+    "mixin_or_loader_metadata_activated": false,
+    "target_root": "assets/rotp_sg/legacy_archive"
+  }
+}

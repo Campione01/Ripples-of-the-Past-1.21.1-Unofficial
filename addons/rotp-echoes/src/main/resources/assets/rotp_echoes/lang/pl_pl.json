@@ -1,0 +1,22 @@
+{
+  "stand.rotp_echoes.echoes_act3": "Echoes ACT3",
+  "stand.rotp_echoes.echoes_act2": "Echoes ACT2",
+  "rotp_echoes.ability.punch": "Cios",
+  "rotp_echoes.ability.barrage": "Seria ciosów",
+  "rotp_echoes.ability.heavy_punch": "Ciężki cios",
+  "rotp_echoes.ability.finisher": "Finisz",
+  "rotp_echoes.ability.guard": "Blok",
+  "rotp_echoes.ability.degrade_to_act2": "Degradacja",
+  "rotp_echoes.ability.freeze": "Zamrożenie",
+  "rotp_echoes.ability.hand_freeze": "Zamrożenie rąk",
+  "rotp_echoes.ability.freeze_self": "Samozamrożenie",
+  "rotp_echoes.ability.gravity_infuse": "Infuzja grawitacyjna",
+  "rotp_echoes.ability.gravity_projectile": "Pocisk grawitacyjny",
+  "rotp_echoes.ability.act2_punch": "Lekki atak",
+  "rotp_echoes.ability.act2_heavy_punch": "Ciężki atak",
+  "rotp_echoes.ability.act2_finisher": "Żądło ogona",
+  "rotp_echoes.ability.act2_guard": "Blok",
+  "rotp_echoes.ability.evolve_to_act3": "Ewolucja",
+  "rotp_echoes.tooltip.gravity_infused": "Nasycony grawitacją",
+  "rotp_echoes.tooltip.gravity_infused.desc": "Trzymanie tego sprawi, że grawitacja cię przygniecie"
+}

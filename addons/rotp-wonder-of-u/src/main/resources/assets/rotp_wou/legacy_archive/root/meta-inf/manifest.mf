@@ -1,0 +1,9 @@
+Manifest-Version: 1.0
+Specification-Title: rotp_wou
+Specification-Vendor: FilipeGamer12BR, Co-creator: Hoo, Model: Blonde
+Specification-Version: 1
+Implementation-Title: rotp-wou
+Implementation-Version: 1.0.2c
+Implementation-Vendor: FilipeGamer12BR, Co-creator: Hoo, Model: Blonde
+Implementation-Timestamp: 2025-07-17T21:40:03-0300
+

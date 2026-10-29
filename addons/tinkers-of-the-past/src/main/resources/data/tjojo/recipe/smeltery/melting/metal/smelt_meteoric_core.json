@@ -1,0 +1,24 @@
+{
+    "neoforge:conditions":  [
+                                {
+                                    "type":  "neoforge:mod_loaded",
+                                    "modid":  "tconstruct"
+                                }
+                            ],
+    "type":  "tconstruct:ore_melting",
+    "ingredient":  {
+                       "tag":  "c:ores/jojo_meteor"
+                   },
+    "result":  {
+                   "tag":  "c:molten_meteor",
+                   "amount":  90
+               },
+    "temperature":  700,
+    "time":  96,
+    "byproducts":  [
+                       {
+                           "tag":  "tconstruct:molten_iron",
+                           "amount":  30
+                       }
+                   ]
+}

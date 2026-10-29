@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {"item": "minecraft:glowstone_dust"},
+    {"item": "jojo_ripples:aja_stone"},
+    {"item": "minecraft:glowstone_dust"},
+    {"item": "minecraft:phantom_membrane"},
+    {"item": "jojo_ripples:stone_mask"},
+    {"item": "minecraft:phantom_membrane"},
+    {"item": "minecraft:glowstone_dust"},
+    {"item": "minecraft:quartz"},
+    {"item": "minecraft:glowstone_dust"}
+  ],
+  "result": {
+    "id": "stone_legacy:aja_stone_mask_predicted_wind",
+    "count": 1
+  }
+}

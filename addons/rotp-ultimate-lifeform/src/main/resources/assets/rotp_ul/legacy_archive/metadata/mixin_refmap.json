@@ -1,0 +1,36 @@
+{
+  "mappings": {
+    "com/hk47bit/rotp_ul/mixin/UltimateLifeformLiquidWalkingMixin": {
+      "move": "Lnet/minecraft/entity/Entity;func_213315_a(Lnet/minecraft/entity/MoverType;Lnet/minecraft/util/math/vector/Vector3d;)V",
+      "Lnet/minecraft/entity/Entity;collide(Lnet/minecraft/util/math/vector/Vector3d;)Lnet/minecraft/util/math/vector/Vector3d;": "Lnet/minecraft/entity/Entity;func_213306_e(Lnet/minecraft/util/math/vector/Vector3d;)Lnet/minecraft/util/math/vector/Vector3d;"
+    },
+    "com/hk47bit/rotp_ul/mixin/StunEffectMixin": {
+      "applyEffectTick": "Lcom/github/standobyte/jojo/potion/StunEffect;func_76394_a(Lnet/minecraft/entity/LivingEntity;I)V"
+    },
+    "com/hk47bit/rotp_ul/mixin/PlayerEntityMixin": {
+      "travel": "Lnet/minecraft/entity/player/PlayerEntity;func_213352_e(Lnet/minecraft/util/math/vector/Vector3d;)V"
+    },
+    "com/hk47bit/rotp_ul/mixin/BlockMixin": {
+      "getDrops(Lnet/minecraft/block/BlockState;Lnet/minecraft/world/server/ServerWorld;Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/tileentity/TileEntity;Lnet/minecraft/entity/Entity;Lnet/minecraft/item/ItemStack;)Ljava/util/List;": "Lnet/minecraft/block/Block;func_220077_a(Lnet/minecraft/block/BlockState;Lnet/minecraft/world/server/ServerWorld;Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/tileentity/TileEntity;Lnet/minecraft/entity/Entity;Lnet/minecraft/item/ItemStack;)Ljava/util/List;",
+      "Lnet/minecraft/loot/LootContext$Builder;withParameter(Lnet/minecraft/loot/LootParameter;Ljava/lang/Object;)Lnet/minecraft/loot/LootContext$Builder;": "Lnet/minecraft/loot/LootContext$Builder;func_216015_a(Lnet/minecraft/loot/LootParameter;Ljava/lang/Object;)Lnet/minecraft/loot/LootContext$Builder;"
+    }
+  },
+  "data": {
+    "searge": {
+      "com/hk47bit/rotp_ul/mixin/UltimateLifeformLiquidWalkingMixin": {
+        "move": "Lnet/minecraft/entity/Entity;func_213315_a(Lnet/minecraft/entity/MoverType;Lnet/minecraft/util/math/vector/Vector3d;)V",
+        "Lnet/minecraft/entity/Entity;collide(Lnet/minecraft/util/math/vector/Vector3d;)Lnet/minecraft/util/math/vector/Vector3d;": "Lnet/minecraft/entity/Entity;func_213306_e(Lnet/minecraft/util/math/vector/Vector3d;)Lnet/minecraft/util/math/vector/Vector3d;"
+      },
+      "com/hk47bit/rotp_ul/mixin/StunEffectMixin": {
+        "applyEffectTick": "Lcom/github/standobyte/jojo/potion/StunEffect;func_76394_a(Lnet/minecraft/entity/LivingEntity;I)V"
+      },
+      "com/hk47bit/rotp_ul/mixin/PlayerEntityMixin": {
+        "travel": "Lnet/minecraft/entity/player/PlayerEntity;func_213352_e(Lnet/minecraft/util/math/vector/Vector3d;)V"
+      },
+      "com/hk47bit/rotp_ul/mixin/BlockMixin": {
+        "getDrops(Lnet/minecraft/block/BlockState;Lnet/minecraft/world/server/ServerWorld;Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/tileentity/TileEntity;Lnet/minecraft/entity/Entity;Lnet/minecraft/item/ItemStack;)Ljava/util/List;": "Lnet/minecraft/block/Block;func_220077_a(Lnet/minecraft/block/BlockState;Lnet/minecraft/world/server/ServerWorld;Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/tileentity/TileEntity;Lnet/minecraft/entity/Entity;Lnet/minecraft/item/ItemStack;)Ljava/util/List;",
+        "Lnet/minecraft/loot/LootContext$Builder;withParameter(Lnet/minecraft/loot/LootParameter;Ljava/lang/Object;)Lnet/minecraft/loot/LootContext$Builder;": "Lnet/minecraft/loot/LootContext$Builder;func_216015_a(Lnet/minecraft/loot/LootParameter;Ljava/lang/Object;)Lnet/minecraft/loot/LootContext$Builder;"
+      }
+    }
+  }
+}

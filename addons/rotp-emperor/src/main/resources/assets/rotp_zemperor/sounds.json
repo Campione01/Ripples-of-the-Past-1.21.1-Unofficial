@@ -1,0 +1,28 @@
+{
+  "hol_emp": {
+    "subtitle": "rotp_zemperor.subtitle.emp_user",
+    "sounds": [
+      "rotp_zemperor:user/hol_0",
+      "rotp_zemperor:user/hol_1"
+    ]
+  },
+  "emp_shot": {
+    "subtitle": "rotp_zemperor.subtitle.emp_shot",
+    "sounds": [
+      "rotp_zemperor:stand/shot_1",
+      "rotp_zemperor:stand/shot_2"
+    ]
+  },
+  "emp_summon": {
+    "subtitle": "rotp_zemperor.subtitle.emp_summon",
+    "sounds": [
+      "rotp_zemperor:stand/summon"
+    ]
+  },
+  "emp_unsummon": {
+    "subtitle": "rotp_zemperor.subtitle.emp_unsummon",
+    "sounds": [
+      "rotp_zemperor:stand/unsummon"
+    ]
+  }
+}

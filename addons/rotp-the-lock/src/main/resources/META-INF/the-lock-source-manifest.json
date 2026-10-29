@@ -1,0 +1,366 @@
+{
+  "schema": 2,
+  "phase": "full-migration-closure",
+  "canonical": {
+    "artifact": "RotP-TheLock-0.3.1-beta.jar",
+    "bytes": 63550,
+    "sha256": "F3B4CEA0AED5C6C6D5B3EB324E458311A1531BA71FF575CEBE923D82BE2628DA",
+    "decompile": "035_RotP-TheLock-0.3.1-beta",
+    "class_entries": 27,
+    "java_sources": 26,
+    "resource_files": 11,
+    "mixins": 0
+  },
+  "runtime": {
+    "logical_unit": "PARTIAL_OR_NON_HUMANOID_STAND",
+    "control_topology": "TARGET_ATTACHED_STATUS",
+    "primary_render_owner": "PLAYER_LAYER",
+    "secondary_render_owner": "ITEM_WEAPON",
+    "controller": "INVISIBLE_STAND_CONTROLLER",
+    "visual_topology": "H4",
+    "input_paradigm": "SPECIALS_WHEEL",
+    "network_protocol": "2",
+    "converted_power_rank": "E",
+    "grab": false,
+    "manual_control": false,
+    "stand_leap": false,
+    "shaders": false
+  },
+  "closure": {
+    "legacy_java_closed": 26,
+    "legacy_java_total": 26,
+    "legacy_resources_closed": 11,
+    "legacy_resources_total": 11,
+    "legacy_registration_roots_closed": 6,
+    "legacy_registration_roots_total": 6,
+    "legacy_packets_closed": 2,
+    "legacy_packets_total": 2,
+    "legacy_capability_classes_closed": 4,
+    "legacy_capability_classes_total": 4,
+    "legacy_mixins_total": 0,
+    "open_blockers": 0
+  },
+  "java_map": [
+    {
+      "source": "com/yaricktt/thelock/GameplayHandler.java",
+      "destination": [
+        "io/github/campione01/jojo/addons/thelock/TheLockEvents.java",
+        "io/github/campione01/jojo/addons/thelock/state/LockStateService.java"
+      ],
+      "status": "ported-and-repaired"
+    },
+    {
+      "source": "com/yaricktt/thelock/RotpTheLock.java",
+      "destination": [
+        "io/github/campione01/jojo/addons/thelock/TheLockAddon.java"
+      ],
+      "status": "ported"
+    },
+    {
+      "source": "com/yaricktt/thelock/action/TheLockCheckTarget.java",
+      "destination": [
+        "io/github/campione01/jojo/addons/thelock/ability/CheckTargetAbility.java"
+      ],
+      "status": "ported"
+    },
+    {
+      "source": "com/yaricktt/thelock/action/TheLockRemoveLock.java",
+      "destination": [
+        "io/github/campione01/jojo/addons/thelock/ability/RemoveLockAbility.java"
+      ],
+      "status": "ported-and-repaired"
+    },
+    {
+      "source": "com/yaricktt/thelock/action/TheLockSetLock.java",
+      "destination": [
+        "io/github/campione01/jojo/addons/thelock/ability/SetLockAbility.java"
+      ],
+      "status": "ported"
+    },
+    {
+      "source": "com/yaricktt/thelock/capability/CapabilityHandler.java",
+      "destination": [
+        "io/github/campione01/jojo/addons/thelock/TheLockAddon.java"
+      ],
+      "status": "replaced-by-attachment-registration"
+    },
+    {
+      "source": "com/yaricktt/thelock/capability/LivingData.java",
+      "destination": [
+        "io/github/campione01/jojo/addons/thelock/state/LockState.java",
+        "io/github/campione01/jojo/addons/thelock/state/LockRules.java"
+      ],
+      "status": "ported-and-repaired"
+    },
+    {
+      "source": "com/yaricktt/thelock/capability/LivingDataProvider.java",
+      "destination": [
+        "io/github/campione01/jojo/addons/thelock/TheLockAddon.java"
+      ],
+      "status": "replaced-by-serializable-attachment"
+    },
+    {
+      "source": "com/yaricktt/thelock/capability/LivingDataStorage.java",
+      "destination": [
+        "io/github/campione01/jojo/addons/thelock/state/LockState.java"
+      ],
+      "status": "replaced-by-inbtserializable"
+    },
+    {
+      "source": "com/yaricktt/thelock/client/ClientInit.java",
+      "destination": [
+        "io/github/campione01/jojo/addons/thelock/client/TheLockClientEvents.java"
+      ],
+      "status": "ported"
+    },
+    {
+      "source": "com/yaricktt/thelock/client/render/TheLockModel.java",
+      "destination": [
+        "io/github/campione01/jojo/addons/thelock/entity/TheLockStandEntity.java"
+      ],
+      "status": "confirmed-empty-controller-model"
+    },
+    {
+      "source": "com/yaricktt/thelock/client/render/TheLockRender.java",
+      "destination": [
+        "io/github/campione01/jojo/addons/thelock/client/TheLockClientEvents.java"
+      ],
+      "status": "replaced-by-noop-controller-renderer"
+    },
+    {
+      "source": "com/yaricktt/thelock/client/render/layer/TheLockLayerModel.java",
+      "destination": [
+        "io/github/campione01/jojo/addons/thelock/client/TheLockLayerModel.java"
+      ],
+      "status": "ported-exact-seven-cubes"
+    },
+    {
+      "source": "com/yaricktt/thelock/client/render/layer/TheLockLayerRenderer.java",
+      "destination": [
+        "io/github/campione01/jojo/addons/thelock/client/TheLockLayerRenderer.java"
+      ],
+      "status": "ported"
+    },
+    {
+      "source": "com/yaricktt/thelock/client/ui/marker/EntityLockMarker.java",
+      "destination": [
+        "io/github/campione01/jojo/addons/thelock/client/TheLockMarkerRenderer.java"
+      ],
+      "status": "ported-with-remove-lock-selection-gate"
+    },
+    {
+      "source": "com/yaricktt/thelock/entity/TheLockEntity.java",
+      "destination": [
+        "io/github/campione01/jojo/addons/thelock/entity/TheLockStandEntity.java"
+      ],
+      "status": "ported"
+    },
+    {
+      "source": "com/yaricktt/thelock/init/AddonStands.java",
+      "destination": [
+        "io/github/campione01/jojo/addons/thelock/TheLockAddon.java"
+      ],
+      "status": "folded-into-registration-root"
+    },
+    {
+      "source": "com/yaricktt/thelock/init/InitEffects.java",
+      "destination": [
+        "io/github/campione01/jojo/addons/thelock/TheLockAddon.java",
+        "io/github/campione01/jojo/addons/thelock/effect/LockEffect.java",
+        "io/github/campione01/jojo/addons/thelock/state/LockStateService.java"
+      ],
+      "status": "ported-with-stand-target-normalization-and-effect-mirroring"
+    },
+    {
+      "source": "com/yaricktt/thelock/init/InitEntities.java",
+      "destination": [
+        "io/github/campione01/jojo/addons/thelock/TheLockAddon.java"
+      ],
+      "status": "folded-into-registration-root"
+    },
+    {
+      "source": "com/yaricktt/thelock/init/InitItems.java",
+      "destination": [
+        "io/github/campione01/jojo/addons/thelock/TheLockAddon.java"
+      ],
+      "status": "folded-into-registration-root"
+    },
+    {
+      "source": "com/yaricktt/thelock/init/InitSounds.java",
+      "destination": [
+        "io/github/campione01/jojo/addons/thelock/TheLockAddon.java"
+      ],
+      "status": "ported-silent-placeholder-registry-identities"
+    },
+    {
+      "source": "com/yaricktt/thelock/init/InitStands.java",
+      "destination": [
+        "io/github/campione01/jojo/addons/thelock/TheLockAddon.java",
+        "io/github/campione01/jojo/addons/thelock/stand/TheLockStandType.java"
+      ],
+      "status": "ported"
+    },
+    {
+      "source": "com/yaricktt/thelock/item/TheLockItem.java",
+      "destination": [
+        "io/github/campione01/jojo/addons/thelock/item/TheLockItem.java",
+        "io/github/campione01/jojo/addons/thelock/item/LockItemData.java"
+      ],
+      "status": "ported-and-repaired"
+    },
+    {
+      "source": "com/yaricktt/thelock/network/AddonPackets.java",
+      "destination": [
+        "io/github/campione01/jojo/addons/thelock/TheLockAddon.java"
+      ],
+      "status": "replaced-by-current-payload-registration"
+    },
+    {
+      "source": "com/yaricktt/thelock/network/SyncLockPacket.java",
+      "destination": [
+        "io/github/campione01/jojo/addons/thelock/network/LockStateSyncPayload.java"
+      ],
+      "status": "ported-and-expanded"
+    },
+    {
+      "source": "com/yaricktt/thelock/potion/LockEffect.java",
+      "destination": [
+        "io/github/campione01/jojo/addons/thelock/effect/LockEffect.java",
+        "io/github/campione01/jojo/addons/thelock/TheLockDamageTypes.java"
+      ],
+      "status": "ported-and-repaired"
+    }
+  ],
+  "copied": [
+    {
+      "source": "assets/rotp_tl/geo/the_lock.geo.json",
+      "destination": "assets/rotp_tl/geo/the_lock.geo.json",
+      "bytes": 897,
+      "sha256": "73DDA599BA040B9F0732922608F46A9AC44F859B458CB70E76BE29A0B86FC575",
+      "runtime_status": "resource-only-technical-source"
+    },
+    {
+      "source": "assets/rotp_tl/sounds.json",
+      "destination": "assets/rotp_tl/sounds.json",
+      "bytes": 6,
+      "sha256": "7B89B83551FF94293AE093B25AC820524CAC2E2E37DA37047A4A8ED2132981D9"
+    },
+    {
+      "source": "assets/rotp_tl/textures/action/the_lock_check_target.png",
+      "destination": "assets/rotp_tl/stand_skins/the_lock/assets/rotp_tl/textures/ability/the_lock_check_target.png",
+      "bytes": 895,
+      "sha256": "45FF5F5155D2A61AC1CCA53F24615DE39F84C1DF63AF02B33547BDBFA68B7788"
+    },
+    {
+      "source": "assets/rotp_tl/textures/action/the_lock_remove_lock.png",
+      "destination": "assets/rotp_tl/stand_skins/the_lock/assets/rotp_tl/textures/ability/the_lock_remove_lock.png",
+      "bytes": 384,
+      "sha256": "0FC06E0FE61C064FF6B5FD8C1987874932FC69CEBD908E9801F3C2ADC698A2E1"
+    },
+    {
+      "source": "assets/rotp_tl/textures/action/the_lock_set_lock.png",
+      "destination": "assets/rotp_tl/stand_skins/the_lock/assets/rotp_tl/textures/ability/the_lock_set_lock.png",
+      "bytes": 238,
+      "sha256": "D942C8D84BAA43EDC51992D1BA1CD0357E961DEB405634E42C97F7B0FFA74F23"
+    },
+    {
+      "source": "assets/rotp_tl/textures/entity/stand/the_lock.png",
+      "destination": "assets/rotp_tl/textures/entity/stand/the_lock.png",
+      "bytes": 744,
+      "sha256": "8EC18BE88227A61E6C6D9D7C31DFEB8574AC828E04CA22DECC70D69550D949C1"
+    },
+    {
+      "source": "assets/rotp_tl/textures/item/the_lock.png",
+      "destination": "assets/rotp_tl/textures/item/the_lock.png",
+      "bytes": 842,
+      "sha256": "32E7D5BBB42E42C3DC9B7677DAF716836D40DDCD76E35C3862FCEC3FD940B6C6"
+    },
+    {
+      "source": "assets/rotp_tl/textures/mob_effect/lock_effect.png",
+      "destination": "assets/rotp_tl/textures/mob_effect/lock_effect.png",
+      "bytes": 761,
+      "sha256": "6F3F061FAFEDDC6EDC6EB7FCD7FE6109A2338DCEF1A35E7C92A7EEF33B93D9C1"
+    },
+    {
+      "source": "assets/rotp_tl/textures/power/the_lock.png",
+      "destination": "assets/rotp_tl/textures/power/the_lock.png",
+      "bytes": 761,
+      "sha256": "6F3F061FAFEDDC6EDC6EB7FCD7FE6109A2338DCEF1A35E7C92A7EEF33B93D9C1"
+    },
+    {
+      "source": "assets/rotp_tl/textures/power/the_lock.png",
+      "destination": "assets/rotp_tl/stand_skins/the_lock/assets/rotp_tl/textures/stand_icon.png",
+      "bytes": 761,
+      "sha256": "6F3F061FAFEDDC6EDC6EB7FCD7FE6109A2338DCEF1A35E7C92A7EEF33B93D9C1"
+    }
+  ],
+  "transformed": [
+    {
+      "source": "assets/rotp_tl/models/item/the_lock.json",
+      "source_bytes": 4604,
+      "source_sha256": "2E29742966AFBF34D8D493C98A904FEFE4380F0F923710D8CB584EB9EE9D27B1",
+      "destination": "assets/rotp_tl/models/item/the_lock.json",
+      "destination_bytes": 4601,
+      "destination_sha256": "B052D51DB1A3D1372A4DBB0239A52F33472DED5D6CC68140CEA2BD904B457A04",
+      "changes": [
+        "remove invalid legacy parent",
+        "fix particle namespace",
+        "route stand-invisible override to module-owned transparent model"
+      ]
+    },
+    {
+      "source": "assets/rotp_tl/lang/en_us.json",
+      "source_bytes": 348,
+      "source_sha256": "A4B2DE228ACB7FD7EE4A788113F5B0334D7BDA434E3ACDFBDF264B8638D4A599",
+      "destination": "assets/rotp_tl/lang/en_us.json",
+      "destination_bytes": 995,
+      "destination_sha256": "59780DEEE936976D18402285065AE643DA62B6088A20E9205017970E1BAC6ED5",
+      "changes": [
+        "retain all canonical keys",
+        "add current ability, effect, condition, and actionbar keys"
+      ]
+    }
+  ],
+  "generated": [
+    {
+      "destination": "assets/rotp_tl/textures/item/transparent.png",
+      "bytes": 120,
+      "sha256": "4D9D398F5D40472B74AD49676F694D8ED2C29251B3DF106E3B4DF1B441AD4511",
+      "purpose": "module-owned invisible item override"
+    }
+  ],
+  "defect_repairs": [
+    "UUID values use equals rather than reference identity",
+    "zero guilt is a real reset",
+    "remove lock clears the effect immediately",
+    "chat charging persists and synchronizes",
+    "payload includes owner, guilt, and chat state and supports self and late tracking",
+    "persisted locks are leased to the exact no-save controller UUID",
+    "summon item ownership uses a UUID data component without global scans",
+    "self-harm does not double-count held-item and current attack modifiers"
+  ],
+  "audio": {
+    "canonical_sounds_json_empty": true,
+    "canonical_audio_files": 0,
+    "placeholder_registrations_restored": true,
+    "placeholder_registry_ids": [
+      "rotp_tl:example_stand_summon_voiceline",
+      "rotp_tl:example_stand_ost_30",
+      "rotp_tl:example_stand_ost_60",
+      "rotp_tl:example_stand_ost_75",
+      "rotp_tl:example_stand_ost_90",
+      "rotp_tl:example_stand_ost_120",
+      "rotp_tl:example_stand_ost_full",
+      "rotp_tl:example_stand_ost_cassette"
+    ],
+    "summon_unsummon": "core-default-stand-sounds"
+  },
+  "excluded": [
+    "humanoid punches, barrage, charged heavy, guard, and grab",
+    "manual Stand control and Stand leap",
+    "mixins",
+    "shader, PostChain, framebuffer, and raw-GL paths",
+    "recipes and creative-tab exposure",
+    "invented replacement audio"
+  ]
+}

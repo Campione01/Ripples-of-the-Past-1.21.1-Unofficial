@@ -1,0 +1,17 @@
+{
+  "entity.cmoon_rm.cmoon": "新月",
+  "stand.cmoon_rm.cmoon": "新月",
+  "cmoon_rm.ability.punch": "拳击",
+  "cmoon_rm.ability.barrage": "反转连打",
+  "cmoon_rm.ability.heavy_punch": "重拳",
+  "cmoon_rm.ability.heavy_charged": "蓄力重拳",
+  "cmoon_rm.ability.finisher_punch": "终结拳",
+  "cmoon_rm.ability.guard": "防御",
+  "cmoon_rm.ability.gravity_change": "重力偏转",
+  "effect.cmoon_rm.arms_inversion": "手臂反转",
+  "cmoon_rm.subtitle.summon": "新月显现",
+  "cmoon_rm.subtitle.unsummon": "新月解除",
+  "cmoon_rm.subtitle.barrage": "新月发动攻击",
+  "cmoon_rm.subtitle.gravity_shift": "重力方向改变",
+  "cmoon_rm.ability.manual_control": "手动控制"
+}

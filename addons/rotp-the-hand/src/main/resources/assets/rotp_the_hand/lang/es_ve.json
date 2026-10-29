@@ -1,0 +1,21 @@
+{
+  "effect.rotp_the_hand.surprise": "Sorpresa",
+  "entity.rotp_the_hand.the_hand": "The Hand",
+  "stand.rotp_the_hand.the_hand": "The Hand",
+  "rotp_the_hand.ability.punch": "Puñetazo",
+  "rotp_the_hand.ability.heavy_punch": "Golpe Fuerte",
+  "rotp_the_hand.ability.kick": "Patada",
+  "rotp_the_hand.ability.barrage": "Ráfaga de Puñetazos",
+  "rotp_the_hand.ability.the_hand_erase": "Borrar",
+  "rotp_the_hand.ability.the_hand_erasure_barrage": "Ráfaga de Borrado",
+  "rotp_the_hand.ability.guard": "Bloquear",
+  "rotp_the_hand.ability.the_hand_erase_item": "Borrar Objeto",
+  "jojo.message.action_condition.not_possible_erase_article": "No es posible borrar este objeto",
+  "rotp_the_hand.subtitle.the_hand_name": "\"The Hand\"",
+  "rotp_the_hand.subtitle.erasure": "Borrado",
+  "rotp_the_hand.configuration.title": "Configuración de The Hand",
+  "rotp_the_hand.configuration.section.rotp.the.hand.common.toml": "Ajustes comunes de The Hand",
+  "rotp_the_hand.configuration.section.rotp.the.hand.common.toml.title": "Configuración común de The Hand",
+  "rotp_the_hand.config.percent_damage": "Daño porcentual",
+  "rotp_the_hand.config.percent_damage.tooltip": "Borrar y Ráfaga de Borrado usan el daño clásico basado en la vida máxima del objetivo, escalado según su tamaño."
+}

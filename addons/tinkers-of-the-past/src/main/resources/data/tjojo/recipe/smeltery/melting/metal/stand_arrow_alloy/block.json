@@ -1,0 +1,18 @@
+{
+    "neoforge:conditions":  [
+                                {
+                                    "type":  "neoforge:mod_loaded",
+                                    "modid":  "tconstruct"
+                                }
+                            ],
+    "type":  "tconstruct:melting",
+    "ingredient":  {
+                       "tag":  "c:storage_blocks/stand_arrow_alloy"
+                   },
+    "result":  {
+                   "tag":  "c:molten_stand_arrow_alloy",
+                   "amount":  810
+               },
+    "temperature":  700,
+    "time":  171
+}

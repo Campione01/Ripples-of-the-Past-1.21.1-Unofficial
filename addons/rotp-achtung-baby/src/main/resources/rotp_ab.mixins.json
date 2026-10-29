@@ -1,0 +1,19 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "rotp.addons.achtungbaby.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "BlockItemMixin",
+    "ServerGamePacketListenerImplMixin"
+  ],
+  "client": [
+    "HumanoidArmorLayerMixin",
+    "ItemRendererMixin",
+    "SpectatorGuiMixin",
+    "ThrownItemRendererMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "stand.rotp_echoes.echoes_act3": "Echoes ACT3",
+  "stand.rotp_echoes.echoes_act2": "Echoes ACT2",
+  "rotp_echoes.ability.punch": "Soco",
+  "rotp_echoes.ability.barrage": "Rajada",
+  "rotp_echoes.ability.heavy_punch": "Soco pesado",
+  "rotp_echoes.ability.finisher": "Finalizador",
+  "rotp_echoes.ability.guard": "Bloquear",
+  "rotp_echoes.ability.degrade_to_act2": "Degradação",
+  "rotp_echoes.ability.freeze": "Congelar",
+  "rotp_echoes.ability.hand_freeze": "Congelar mãos",
+  "rotp_echoes.ability.freeze_self": "Auto-congelar",
+  "rotp_echoes.ability.gravity_infuse": "Infusão de gravidade",
+  "rotp_echoes.ability.gravity_projectile": "Projétil de gravidade",
+  "rotp_echoes.ability.act2_punch": "Ataque leve",
+  "rotp_echoes.ability.act2_heavy_punch": "Ataque pesado",
+  "rotp_echoes.ability.act2_finisher": "Picada de cauda",
+  "rotp_echoes.ability.act2_guard": "Bloquear",
+  "rotp_echoes.ability.evolve_to_act3": "Evolução",
+  "rotp_echoes.tooltip.gravity_infused": "Infundido com gravidade",
+  "rotp_echoes.tooltip.gravity_infused.desc": "Segurar isso vai te deixar pressionado pela gravidade"
+}

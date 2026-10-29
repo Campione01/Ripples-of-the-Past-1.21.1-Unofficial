@@ -1,0 +1,21 @@
+{
+  "type": "tconstruct:melting",
+  "conditions": [
+    {
+      "value": {
+        "tag": "forge:dusts/stand_arrow_alloy",
+        "type": "forge:tag_empty"
+      },
+      "type": "forge:not"
+    }
+  ],
+  "ingredient": {
+    "tag": "forge:dusts/stand_arrow_alloy"
+  },
+  "result": {
+    "fluid": "tjojo:molten_stand_arrow_alloy",
+    "amount": 144
+  },
+  "temperature": 700,
+  "time": 43
+}

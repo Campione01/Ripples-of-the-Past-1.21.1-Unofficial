@@ -1,0 +1,15 @@
+{
+  "replace": false,
+  "values": [
+    "rotp_d4c:saint_corpse_ears",
+    "rotp_d4c:saint_corpse_eyes",
+    "rotp_d4c:saint_corpse_head",
+    "rotp_d4c:saint_corpse_heart",
+    "rotp_d4c:saint_corpse_left_arm",
+    "rotp_d4c:saint_corpse_right_arm",
+    "rotp_d4c:saint_corpse_legs",
+    "rotp_d4c:saint_corpse_thorax",
+    "rotp_d4c:saint_corpse_spine",
+    "rotp_d4c:complete_saint_corpse"
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "required": true,
+  "compatibilityLevel": "JAVA_8",
+  "package": "net.weever.rotp_harvest.mixin",
+  "refmap": "mixins.rotp_harvest.refmap.json",
+  "minVersion": "0.8",
+  "mixins": [
+  ]
+}

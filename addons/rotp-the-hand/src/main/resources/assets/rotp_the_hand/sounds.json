@@ -1,0 +1,47 @@
+{
+  "okuyasu_the_hand": {
+    "subtitle": "rotp_the_hand.subtitle.the_hand_name",
+    "sounds": [
+      "rotp_the_hand:stand_user/okuyasu_the_hand",
+      "rotp_the_hand:stand_user/okuyasu_the_hand_2"
+    ]
+  },
+  "the_hand_summon": {
+    "subtitle": "rotp_the_hand.subtitle.the_hand_summon",
+    "sounds": [
+      "rotp_the_hand:stand/the_hand_summon"
+    ]
+  },
+  "the_hand_punch_light": {
+    "subtitle": "rotp_the_hand.subtitle.the_hand_punch_light",
+    "sounds": [
+      "rotp_the_hand:stand/the_hand_punch_light",
+      "rotp_the_hand:stand/the_hand_punch_light_2"
+    ]
+  },
+  "the_hand_punch_heavy": {
+    "subtitle": "rotp_the_hand.subtitle.the_hand_punch_heavy",
+    "sounds": [
+      "rotp_the_hand:stand/the_hand_punch_light",
+      "rotp_the_hand:stand/the_hand_punch_light_2"
+    ]
+  },
+  "the_hand_kick_heavy": {
+    "subtitle": "rotp_the_hand.subtitle.the_hand_kick_heavy",
+    "sounds": [
+      "rotp_the_hand:stand/the_hand_kick_heavy"
+    ]
+  },
+  "the_hand_erase": {
+    "subtitle": "rotp_the_hand.subtitle.erasure",
+    "sounds": [
+      "rotp_the_hand:stand/the_hand_erase"
+    ]
+  },
+  "the_hand_erasure_barrage": {
+    "subtitle": "rotp_the_hand.subtitle.erasure",
+    "sounds": [
+      "rotp_the_hand:stand/the_hand_erasure_barrage"
+    ]
+  }
+}

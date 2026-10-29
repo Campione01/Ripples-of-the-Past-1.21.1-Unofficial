@@ -1,0 +1,11 @@
+{
+  "the_world_time_stop_blink": {
+    "replace": true,
+    "sounds": [
+      {
+        "name": "rotp_theworld:the_world_time_stop_blink",
+        "type": "event"
+      }
+    ]
+  }
+}

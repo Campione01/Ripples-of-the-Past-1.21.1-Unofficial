@@ -1,0 +1,19 @@
+{
+  "entity.rotp_tl.the_lock": "The Lock",
+  "stand.rotp_tl.the_lock": "The Lock",
+  "item.rotp_tl.the_lock": "The Lock",
+  "effect.rotp_tl.lock_effect": "The Lock",
+  "action.rotp_tl.the_lock_set_lock": "Set Lock",
+  "action.rotp_tl.the_lock_remove_lock": "Remove Lock",
+  "action.rotp_tl.the_lock_check_target": "Check Target",
+  "rotp_tl.ability.the_lock_set_lock": "Set Lock",
+  "rotp_tl.ability.the_lock_remove_lock": "Remove Lock",
+  "rotp_tl.ability.the_lock_check_target": "Check Target",
+  "rotp_tl.message.no_target": "No living target in range",
+  "rotp_tl.message.target_locked": "That target is already locked",
+  "rotp_tl.message.no_locked_target": "No locked target in range",
+  "rotp_tl.message.player_target_required": "Check Target requires a player",
+  "rotp_tl.message.valuable_slots": "%1$s has %2$s valuable inventory slots",
+  "jojo.message.action_condition.the_lock_not_summoned": "The Lock must be summoned",
+  "death.attack.self.harm.lock": "%1$s was killed by %1$s"
+}

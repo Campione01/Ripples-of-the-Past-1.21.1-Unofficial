@@ -1,0 +1,26 @@
+{
+  "summon_voice_act3": {
+    "sounds": ["rotp_echoes:summon_voice_act3"]
+  },
+  "heavy_attack": {
+    "sounds": ["rotp_echoes:heavy_attack"]
+  },
+  "barrage_hit_sound": {
+    "sounds": ["rotp_echoes:barrage_hit_sound"]
+  },
+  "barrage_hit_sound_2": {
+    "sounds": ["rotp_echoes:barrage_hit_sound_2"]
+  },
+  "barrage_hit_sound_3": {
+    "sounds": ["rotp_echoes:barrage_hit_sound_3"]
+  },
+  "skill_use_sound": {
+    "sounds": ["rotp_echoes:skill_use_sound"]
+  },
+  "skill_use_sound_2": {
+    "sounds": ["rotp_echoes:skill_use_sound_2"]
+  },
+  "skill_bgm": {
+    "sounds": ["rotp_echoes:skill_bgm"]
+  }
+}

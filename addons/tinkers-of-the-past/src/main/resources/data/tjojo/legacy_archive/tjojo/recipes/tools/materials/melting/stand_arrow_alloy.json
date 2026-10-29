@@ -1,0 +1,9 @@
+{
+  "type": "tconstruct:material_melting",
+  "input": "tjojo:stand_arrow_alloy",
+  "temperature": 700,
+  "result": {
+    "fluid": "tjojo:molten_stand_arrow_alloy",
+    "amount": 144
+  }
+}

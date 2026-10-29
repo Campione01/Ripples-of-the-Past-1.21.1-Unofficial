@@ -1,0 +1,9 @@
+{
+    "stand_type":  "rotp_ova_addon:the_world_ova",
+    "color":  "#4D574B",
+    "story_part":  "jojo_ripples:p3",
+    "scale":  {
+                  "width":  0.85,
+                  "height":  2.35
+              }
+}

@@ -1,0 +1,12 @@
+// Public build of RotP Stone Free (rotp_stone_free). The module identity is in gradle.properties;
+// the shared logic is in ../gradle/addon-module.gradle.
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev'
+}
+
+ext.gameTestStructures = [
+        'data/rotp_sf_barrier_review/structure/empty.nbt': 'core',
+]
+
+apply from: rootProject.file('gradle/addon-module.gradle')

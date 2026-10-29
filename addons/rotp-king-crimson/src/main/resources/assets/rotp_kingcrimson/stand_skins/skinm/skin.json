@@ -1,0 +1,9 @@
+{
+    "stand_type":  "rotp_kingcrimson:kingcrimson",
+    "color":  "#ECF173",
+    "story_part":  "jojo_ripples:p5",
+    "scale":  {
+                  "width":  0.65,
+                  "height":  1.95
+              }
+}

@@ -1,0 +1,24 @@
+{
+    "neoforge:conditions":  [
+                                {
+                                    "type":  "neoforge:mod_loaded",
+                                    "modid":  "tconstruct"
+                                }
+                            ],
+    "type":  "tconstruct:alloy",
+    "inputs":  [
+                   {
+                       "tag":  "tconstruct:molten_gold",
+                       "amount":  90
+                   },
+                   {
+                       "tag":  "c:molten_meteor",
+                       "amount":  90
+                   }
+               ],
+    "result":  {
+                   "tag":  "c:molten_stand_arrow_alloy",
+                   "amount":  180
+               },
+    "temperature":  700
+}

@@ -1,0 +1,112 @@
+{
+  "hp_summon": {
+    "subtitle": "rotp_zhp.subtitle.hp_summon",
+    "sounds": [
+      "rotp_zhp:stand/hp_summon_1",
+      "rotp_zhp:stand/hp_summon_2",
+      "rotp_zhp:stand/hp_summon_3"
+    ]
+  },
+  "hp_unsummon": {
+    "subtitle": "rotp_zhp.subtitle.hp_unsummon",
+    "sounds": [
+      "rotp_zhp:stand/hp_unsummon_1"
+    ]
+  },
+  "hp_grap": {
+    "subtitle": "rotp_zhp.subtitle.hp_grapple",
+    "sounds": [
+      "rotp_zhp:stand/hp_grapple_1",
+      "rotp_zhp:stand/hp_grapple_2"
+    ]
+  },
+  "hp_grp_ent": {
+    "subtitle": "rotp_zhp.subtitle.hp_grp_ent",
+    "sounds": [
+      "rotp_zhp:stand/hp_grapple_3",
+      "rotp_zhp:stand/hp_grapple_1"
+    ]
+  },
+  "hp_throw": {
+    "subtitle": "rotp_zhp.subtitle.hp_throw",
+    "sounds": [
+      "rotp_zhp:stand/hp_vine_trhow",
+      "rotp_zhp:stand/hp_vine_trhow_2"
+    ]
+  },
+  "hp_spark": {
+    "subtitle": "rotp_zhp.subtitle.hp_spark",
+    "sounds": [
+      "rotp_zhp:stand/hp_summon_2",
+      "rotp_zhp:stand/hp_summon_3"
+    ]
+  },
+  "joseph_hp": {
+    "subtitle": "rotp_zhp.subtitle.hp_user",
+    "sounds": [
+      "rotp_zhp:user/joseph_hp_1",
+      "rotp_zhp:user/joseph_hp_2"
+    ]
+  },
+  "joseph_od": {
+    "sounds": [
+      "rotp_zhp:user/joseph_at_1",
+      "rotp_zhp:user/joseph_od",
+      "rotp_zhp:user/joseph_at_2",
+      "rotp_zhp:user/joseph_at_3"
+    ]
+  },
+  "joseph_throw": {
+    "sounds": [
+      "rotp_zhp:user/joseph_at_1",
+      "rotp_zhp:user/joseph_at_2",
+      "rotp_zhp:user/joseph_at_3"
+    ]
+  },
+  "joseph_over_drive": {
+    "subtitle": "rotp_zhp.subtitle.hp_ora",
+    "sounds": [
+      "rotp_zhp:user/joseph_od"
+    ]
+  },
+  "joseph_breath": {
+    "subtitle": "rotp_zhp.subtitle.joseph_breath",
+    "sounds": [
+      "rotp_zhp:user/joseph_breath"
+    ]
+  },
+  "joseph_cringe": {
+    "subtitle": "rotp_zhp.subtitle.joseph_cringe",
+    "sounds": [
+      "rotp_zhp:user/joseph_cringe"
+    ]
+  },
+  "jonathan_throw": {
+    "sounds": [
+      "rotp_zhp:user/jonathan_at_2",
+      "rotp_zhp:user/jonathan_at_3"
+    ]
+  },
+  "jonathan_at": {
+    "sounds": [
+      "rotp_zhp:user/jonathan_at_2",
+      "rotp_zhp:user/jonathan_at_3",
+      "rotp_zhp:user/jonathan_od"
+    ]
+  },
+  "jonathan_over_drive": {
+    "subtitle": "rotp_zhp.subtitle.hp_ora",
+    "sounds": [
+      "rotp_zhp:user/jonathan_od"
+    ]
+  },
+  "web_sling": {
+    "subtitle": "rotp_zhp.subtitle.hp_throw",
+    "sounds": [
+      "rotp_zhp:stand/web_sling_1",
+      "rotp_zhp:stand/web_sling_2",
+      "rotp_zhp:stand/web_sling_3",
+      "rotp_zhp:stand/web_sling_4"
+    ]
+  }
+}

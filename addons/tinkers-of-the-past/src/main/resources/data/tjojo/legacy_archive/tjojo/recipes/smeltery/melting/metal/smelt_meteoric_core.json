@@ -1,0 +1,18 @@
+{
+  "type": "tconstruct:ore_melting",
+  "ingredient": {
+    "tag": "forge:ores/jojo_meteor"
+  },
+  "result": {
+    "fluid": "tjojo:molten_meteor",
+    "amount": 144
+  },
+  "temperature": 700,
+  "time": 96,
+  "byproducts": [
+    {
+      "fluid": "tconstruct:molten_iron",
+      "amount": 48
+    }
+  ]
+}

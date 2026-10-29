@@ -1,0 +1,46 @@
+{
+  "parent": "rotp_ttr:item/tearsblade_native",
+  "gui_light": "front",
+  "display": {
+    "thirdperson_righthand": {
+      "rotation": [0, -180, 0],
+      "translation": [0, 3.75, 1],
+      "scale": [0.1, 0.4, 0.3]
+    },
+    "thirdperson_lefthand": {
+      "rotation": [0, -180, 0],
+      "translation": [0, 3, 1],
+      "scale": [0.1, 0.4, 0.3]
+    },
+    "firstperson_righthand": {
+      "rotation": [0, 180, -25],
+      "translation": [1.13, 3.2, 1.13],
+      "scale": [0.1, 0.4, 0.3]
+    },
+    "firstperson_lefthand": {
+      "rotation": [0, 180, -25],
+      "translation": [1.13, 3.2, 1.13],
+      "scale": [0.1, 0.4, 0.3]
+    },
+    "ground": {
+      "rotation": [0, 0, 90],
+      "translation": [0, 2, 0],
+      "scale": [0.15, 0.4, 0.3]
+    },
+    "gui": {
+      "rotation": [90, -43.25, 90],
+      "translation": [-1.25, 1.5, 0],
+      "scale": [0.15, 0.4, 0.3]
+    },
+    "head": {
+      "rotation": [0, 90, 180],
+      "translation": [-3.75, -19, -6.75],
+      "scale": [0.84, 0.68, 0.39]
+    },
+    "fixed": {
+      "rotation": [112.44, 53.9, -117.44],
+      "translation": [0, 1.25, 0],
+      "scale": [0.76719, 0.4, 0.3]
+    }
+  }
+}

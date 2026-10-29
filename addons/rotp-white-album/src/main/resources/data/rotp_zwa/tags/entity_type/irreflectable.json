@@ -1,0 +1,42 @@
+{
+  "values": [
+    {
+      "id": "jojo_ripples:mr_flame",
+      "required": false
+    },
+    {
+      "id": "jojo_ripples:zoom_punch",
+      "required": false
+    },
+    {
+      "id": "jojo_ripples:mr_fireball",
+      "required": false
+    },
+    {
+      "id": "jojo_ripples:mr_crossfire_hurricane",
+      "required": false
+    },
+    {
+      "id": "jojo_ripples:mr_crossfire_hurricane_special",
+      "required": false
+    },
+    {
+      "id": "jojo_ripples:mr_red_bind",
+      "required": false
+    },
+    "minecraft:fireball",
+    "minecraft:small_fireball",
+    {
+      "id": "rotp_zhp:hp_vine",
+      "required": false
+    },
+    {
+      "id": "rotp_zhp:hp_grappling_vine",
+      "required": false
+    },
+    {
+      "id": "rotp_zhp:hp_grab_vine",
+      "required": false
+    }
+  ]
+}

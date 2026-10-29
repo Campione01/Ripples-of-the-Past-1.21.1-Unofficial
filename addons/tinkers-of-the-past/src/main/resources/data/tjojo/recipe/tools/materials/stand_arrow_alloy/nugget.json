@@ -1,0 +1,15 @@
+{
+    "neoforge:conditions":  [
+                                {
+                                    "type":  "neoforge:mod_loaded",
+                                    "modid":  "tconstruct"
+                                }
+                            ],
+    "type":  "tconstruct:material",
+    "ingredient":  {
+                       "tag":  "c:nuggets/stand_arrow_alloy"
+                   },
+    "value":  1,
+    "needed":  9,
+    "material":  "tjojo:stand_arrow_alloy"
+}

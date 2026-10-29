@@ -1,0 +1,20 @@
+{
+  "item.stone_legacy.fruit": "Stone Fruit",
+  "block.stone_legacy.aja_stone_mask_predicted_heat": "Stone Mask with Heated Aja Red Stone",
+  "block.stone_legacy.aja_stone_mask_predicted_light": "Stone Mask with Enlighten Aja Red Stone",
+  "block.stone_legacy.aja_stone_mask_predicted_wind": "Stone Mask with Windy Aja Red Stone",
+  "death.attack.asphyxia": "%1$s was petrified",
+  "action.stone_legacy.pillarman_hamon_suicide": "Hamon Suicide",
+  "action.stone_legacy.pillarman_petrify": "Petrify",
+  "stone_legacy.pillarman_petrify.warning": "Using this ability will clear your power!",
+  "action.stone_legacy.vampirism_recall": "Recall",
+  "action.stone_legacy.vampirism_wait_order": "Wait Order",
+  "commands.jojozombie.setowner.success.single": "Owner %s set successfully to %s",
+  "commands.jojozombie.setowner.success.multiple": "Owner %s set successfully to %s entities",
+  "stone_legacy.ability.pillarman_hamon_suicide": "Hamon Suicide",
+  "stone_legacy.ability.pillarman_petrify": "Petrify",
+  "stone_legacy.ability.vampirism_recall": "Recall",
+  "stone_legacy.ability.vampirism_wait_order": "Wait Order",
+  "death.attack.stone_legacy.asphyxia": "%1$s was petrified",
+  "commands.jojozombie.entity.failed": "No living entities were selected"
+}

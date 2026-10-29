@@ -1,0 +1,20 @@
+{
+  "advancements.rotp_nextalbum.full_mista_suit.title": "\u6211\u7684\u66ff\u8eab\u80fd\u529b\u6700\u9002\u5408\u6697\u6740\uff01",
+  "advancements.rotp_nextalbum.full_mista_suit.description": "\u83b7\u5f97\u5168\u5957\u7c73\u65af\u8fbe\u670d\u88c5\u3002",
+  "advancements.rotp_nextalbum.get_aja_stone.title": "\u827e\u54f2\u7ea2\u77f3",
+  "advancements.rotp_nextalbum.get_aja_stone.description": "\u83b7\u5f97\u4efb\u610f\u5f62\u5f0f\u7684\u8d85\u7ea7\u827e\u54f2\u7ea2\u77f3\u3002",
+  "effect.rotp_nextalbum.collapse": "重创",
+  "item.rotp_nextalbum.luck_pluck": "幸运与勇气之剑",
+  "item.rotp_nextalbum.luck_pluck.reference_quote": "\"乔纳森...就把这女王赐给我的剑上篆刻的话语献给你吧...!\"",
+  "item.nextalbum.luck_pluck.tooltips": "具有等同于金剑的附魔能力和较长的攻击距离，同时，你可以在手持该物品时使用空手才能使用的波纹技能。",
+  "item.rotp_nextalbum.aja_stone_necklace": "艾哲红石项链",
+  "item.rotp_nextalbum.aja_stone_necklace.reference_quote": "\"这就是完美无瑕、自然生成的奇迹晶体——超级艾哲！！\"",
+  "item.nextalbum.aja_stone_necklace.tooltips": "当佩戴后，允许你按下%s+%s来使用一次效果、伤害、冷却等同于超级艾哲的光束攻击。",
+  "item.rotp_nextalbum.mista_suit_cloth": "米斯达的上衣",
+  "item.rotp_nextalbum.mista_suit_cloth.reference_quote": "\"我的替身能力....最适合暗杀了!\"",
+  "item.rotp_nextalbum.mista_suit_pants": "米斯达的裤子",
+  "item.rotp_nextalbum.mista_suit_pants.reference_quote": "\"我的替身能力....最适合暗杀了!\"",
+  "item.rotp_nextalbum.mista_suit_boots": "米斯达的靴子",
+  "item.rotp_nextalbum.mista_suit_boots.reference_quote": "\"我的替身能力....最适合暗杀了! \"",
+  "item.nextalbum.mista_suit.tooltips": "每件套装提供15%的投射物及子弹伤害防护。"
+}

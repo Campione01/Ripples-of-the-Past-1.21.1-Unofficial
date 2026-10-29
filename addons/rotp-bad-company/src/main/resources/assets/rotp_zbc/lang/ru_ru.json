@@ -1,0 +1,46 @@
+{
+  "entity.rotp_zbc.all": "Все",
+  "entity.rotp_zbc.all_c": "Все",
+
+  "entity.rotp_zbc.bad_soldier": "Bad Company Солдат",
+  "entity.rotp_zbc.bad_bullet": "Bad Company Пуля",
+  "entity.rotp_zbc.bad_tank": "Bad Company Танк",
+  "entity.rotp_zbc.bad_missile": "Bad Company Ракета",
+  "entity.rotp_zbc.bad_helicopter": "Bad Company Вертолёт",
+
+  "entity.rotp_zbc.bad_company": "Bad Company",
+  "stand.rotp_zbc.bad_company": "Bad Company",
+
+  "item.rotp_zbc.bad_gun": "Bad Rifle",
+  
+  "action.rotp_zbc.order_wait": "Приказ %s подразделениям ждать и стрелять ",
+  "action.rotp_zbc.order_no_wait": "Приказ %s подразделениям прекратить ожидание ",
+  "action.rotp_zbc.units": "Выбрать тип подразделения",
+  "action.rotp_zbc.put_mines": "Установить мины",
+  "action.rotp_zbc.explode_mines": "Взорвать мины",
+  "action.rotp_zbc.random": "Выбрать тип призыва",
+  "action.rotp_zbc.target": "Приказ %s подразделениям на установку цели",
+  "action.rotp_zbc.missile": "%s взрывных ракет",
+  "action.rotp_zbc.shoot": "Приказ %s подразделениям забыть цель",
+  "action.rotp_zbc.go_block": "Приказ %s подразделениям перейти на блок",
+  "action.rotp_zbc.close": "Приказ %s подразделениям держаться ближе ",
+  "action.rotp_zbc.closent": "Приказ %s подразделениям перестать держаться ближе ",
+
+  "effect.rotp_zbc.sat": "Bad Sit",
+
+  "rotp_zbc.subtitle.user": "\"Bad Company\"",
+  "rotp_zbc.subtitle.bc_soldier_step": "Bad Company шаг солдата",
+  "rotp_zbc.subtitle.shoot": "Bad Company стрельба",
+  "rotp_zbc.subtitle.tank_living": "Bad Company танк",
+  "rotp_zbc.subtitle.tank_hurt": "Bad Company танк поврежден",
+  "rotp_zbc.subtitle.tank_shoot": "Ракетный выстрел",
+  "rotp_zbc.subtitle.tank_step": "Bad Company танк передвигается",
+  "rotp_zbc.subtitle.copter": "Bad Company вертолет",
+
+  "gui.rotp_zbc.random": "Случайно",
+  "gui.rotp_zbc.circle": "Кругом",
+  "gui.rotp_zbc.line": "Линией",
+  "gui.rotp_zbc.arrow": "Стрелой",
+  "gui.rotp_zbc.activate": "Активировать",
+  "gui.rotp_zbc.deactivate": "Деактивировать"
+}

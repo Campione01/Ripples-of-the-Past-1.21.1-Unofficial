@@ -1,0 +1,757 @@
+{
+    "schema":  2,
+    "phase":  "full-static-closure",
+    "module":  "addons/rotp-metallica",
+    "source_jar":  {
+                       "path":  "RotP-金属制品-1.0.6.jar",
+                       "bytes":  482336,
+                       "sha256":  "D58ACFA05CDB0B068331641A39EB6F22BBECB8CEEFE2E4909F071965B789BC17"
+                   },
+    "imported_binary_count":  47,
+    "png_count":  30,
+    "ogg_count":  17,
+    "imported_binaries":  [
+                              {
+                                  "path":  "assets/rotp_metallica/sounds/stand/heal.ogg",
+                                  "bytes":  37478,
+                                  "sha256":  "0C0D78B31E71489FC2CEB297F2071FF125A000F068648AFF4D64439CAE1AC6E8"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/sounds/stand/metallica_invisibility_off.ogg",
+                                  "bytes":  34759,
+                                  "sha256":  "B6BF9D9B657EB1AD30E3022B6B37EA58CC9655EF31D235C35A6AC86A634B1D4A"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/sounds/stand/metallica_invisibility_on.ogg",
+                                  "bytes":  41649,
+                                  "sha256":  "7DECE863AF5027EB817118BCA0E66F3A10135EEDB0EF4F2DEE9A65F6193C583D"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/sounds/stand/metallica_summon_stand.ogg",
+                                  "bytes":  38343,
+                                  "sha256":  "4DF40D36D88D3FC6BC1BFC1C428FAC99DFBC2ED8A3A1B74D6C5CB4783E134BC1"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/sounds/stand/metallica_unsummon_stand.ogg",
+                                  "bytes":  42541,
+                                  "sha256":  "E0DD9FA63C36021EEAA5D64A66D5D87153C4CC4A8271A7614FA16F507B5AB28C"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/sounds/stand_user/create_blades_in_victim.ogg",
+                                  "bytes":  30661,
+                                  "sha256":  "6A86021B9EA460D16A7398405F37FE9E3467DAAC335BE84A4F6600A56A1ECF05"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/sounds/stand_user/risotto_nero_invisibility.ogg",
+                                  "bytes":  24088,
+                                  "sha256":  "A09A5DD09CD3FE0DE73347E4252C112644E61ABC021C677025ADD53CAE45DC22"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/sounds/stand_user/risotto_nero_knife_throw.ogg",
+                                  "bytes":  12250,
+                                  "sha256":  "FF422A378EC949E6AE4915C2AD2437416C297152073777ADE9F4581BF26B0EB3"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/sounds/stand_user/risotto_nero_knife_throw_2.ogg",
+                                  "bytes":  7951,
+                                  "sha256":  "C1CBEA503F23C05EE4E49906AACDB001B95D8D58B0137E5EB08C0696726B4D3B"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/sounds/stand_user/risotto_nero_knife_throw_3.ogg",
+                                  "bytes":  10099,
+                                  "sha256":  "F84C14E605D3C3673DABDC4FCA0018E02AEE70B036291A22F19C48409604BD74"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/sounds/stand_user/risotto_nero_knives_throw.ogg",
+                                  "bytes":  13091,
+                                  "sha256":  "5D87F58177CBBE756C89AEE97AF021ED34AF59AF1026881381469410476002D2"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/sounds/stand_user/risotto_nero_knives_throw_2.ogg",
+                                  "bytes":  16482,
+                                  "sha256":  "480C3DADE82EE469F715018AD21E246CEEDFD95967626AF3CCCDAC15C27E95C0"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/sounds/stand_user/risotto_nero_knives_throw_3.ogg",
+                                  "bytes":  15711,
+                                  "sha256":  "A2368C0280C97B5841916C502C24CB4EA3118CA41D02FEBA1C7D020F2CF817EF"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/sounds/stand_user/risotto_nero_metallica.ogg",
+                                  "bytes":  19063,
+                                  "sha256":  "2FE4870D3FB57BADC4C64DFEA8B944F9CC640A6E5578A4F97BFCC9550BBD8DB8"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/sounds/stand_user/risotto_nero_metallica_2.ogg",
+                                  "bytes":  19199,
+                                  "sha256":  "111B003F43D931FA0904A80991BAB5AD407F4BB9F62F45C0DB893834B31230E4"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/sounds/stand_user/risotto_nero_metallica_3.ogg",
+                                  "bytes":  19574,
+                                  "sha256":  "E1849A126B39022FED72248C48596241F14908501B0D4B94503792E044768CB3"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/sounds/stand_user/risotto_nero_metallica_4.ogg",
+                                  "bytes":  19670,
+                                  "sha256":  "D31E24826945019A912A6DE84D8762828C60C70B567EF9D025ABE52ABEB25A61"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/textures/action/create_blades_in_victim.png",
+                                  "bytes":  528,
+                                  "sha256":  "9689CFE49A8C715AA462969F6B4448BBE592520ADAD0FB632C649220843ECC2D"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/textures/action/heal.png",
+                                  "bytes":  338,
+                                  "sha256":  "F49F9B22366717A5A15D558B0F97D8E680EDA48ECD958E1C323821AA6EFC4C79"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/textures/action/invisibility.png",
+                                  "bytes":  240,
+                                  "sha256":  "414D6D86B482DBAC1C715D17D623A959D0C8184FC9FBA0693033B47E1DF75B0E"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/textures/action/invisibility_disable.png",
+                                  "bytes":  229,
+                                  "sha256":  "FB5BC44FFCD5EE85B527211C2498D48BEF00E163588E431BF865E0B15E1DCBF4"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/textures/action/metallica_multiple_knives_throw.png",
+                                  "bytes":  4548,
+                                  "sha256":  "28F1F3B93D35A380C660A66AEC05CE7471576715C376086E0DA8508FBBE6521A"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/textures/action/metallica_single_knife_throw.png",
+                                  "bytes":  4516,
+                                  "sha256":  "152847A71E376BF3C2107187F236ECD89801F5CBDCA0DA88E02772EFBE771291"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/textures/entity/biped/layer/lack_of_iron/t128x128/1.png",
+                                  "bytes":  1107,
+                                  "sha256":  "27156544BC1755F8570189F91C96C0D4AB749BB8A076CF894676C28F2CBE85C9"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/textures/entity/biped/layer/lack_of_iron/t128x128/2.png",
+                                  "bytes":  1169,
+                                  "sha256":  "F99151CA9228180C533DB89E41498BA72BF0EF40139AD69496E0D8F1C709FA32"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/textures/entity/biped/layer/lack_of_iron/t128x64/1.png",
+                                  "bytes":  725,
+                                  "sha256":  "36FE8FD365278A972D850F3661AB9756FEFF0E3B5D4616368041EDA95753BED4"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/textures/entity/biped/layer/lack_of_iron/t128x64/2.png",
+                                  "bytes":  778,
+                                  "sha256":  "0E6F0F429E72D1C922DD30A05F30384037998CD68E3C6078209BA9F3A93D1649"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/textures/entity/biped/layer/lack_of_iron/t256x128/1.png",
+                                  "bytes":  1332,
+                                  "sha256":  "67685B61EAE9A193B658ECE26ABF7073AEACC7FCB0D202BFDDC33630ECB89C5C"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/textures/entity/biped/layer/lack_of_iron/t256x128/2.png",
+                                  "bytes":  1327,
+                                  "sha256":  "9C56C9DF84849E29B32AB50A6EE24486DCE381DF265833AC345AB4A400554500"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/textures/entity/biped/layer/lack_of_iron/t256x256/1.png",
+                                  "bytes":  2020,
+                                  "sha256":  "40B85807272FB21D5F7305B77C77359DAD028AF04338A8567C2E5151FF458041"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/textures/entity/biped/layer/lack_of_iron/t256x256/2.png",
+                                  "bytes":  2059,
+                                  "sha256":  "BA7BE201325221067F0B2B756F0AFA0A496EC3D6E8ED97C1A368312D9460EE9F"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/textures/entity/biped/layer/lack_of_iron/t64x32/1.png",
+                                  "bytes":  259,
+                                  "sha256":  "A6EB3B15801D02110EBD4FCC044CC9268CCA6F642222C6C609C01EB03D603AB0"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/textures/entity/biped/layer/lack_of_iron/t64x32/2.png",
+                                  "bytes":  255,
+                                  "sha256":  "6E4D48C823C433F41467278D31B8D65CEA2DB5C79E388159ED02678EFD9F4A44"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/textures/entity/biped/layer/lack_of_iron/t64x64/1.png",
+                                  "bytes":  380,
+                                  "sha256":  "4E20524AFCD371A89F19359CFF696D900AB13EE539316200F3D1CD148C6414E2"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/textures/entity/biped/layer/lack_of_iron/t64x64/2.png",
+                                  "bytes":  380,
+                                  "sha256":  "70576D6ADB36F0E13B86E266062AB9327E0AB8134237AF47EC4C28A5996689B1"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/textures/entity/stand/glow/metallica.png",
+                                  "bytes":  12144,
+                                  "sha256":  "07A524C150E5209F3E08398F97369F9C9D0DDAA704C851A8C62725F90AC1AB94"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/textures/entity/stand/metallica.png",
+                                  "bytes":  221,
+                                  "sha256":  "9636863235B49FB2FD46FD3DFAD9ABA3B18FE6402095ED0A43ACAA77CEBD0DBC"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/textures/item/scalpel.png",
+                                  "bytes":  4325,
+                                  "sha256":  "CD1F6C93775898332E79D9EAC1BE59F40CECE4759122E0366BB1B03CA5257EE2"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/textures/item/scalpels2.png",
+                                  "bytes":  4306,
+                                  "sha256":  "23C80B913CAF42F09BABEE5B83CD03D41A61F9D08EFCD11D8644980FD63D215B"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/textures/item/scalpels3.png",
+                                  "bytes":  4319,
+                                  "sha256":  "C5B4C347C112FB045634875F0135FA79BC90778F83DE943FA9C036D15E2AFF30"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/textures/item/scalpels4.png",
+                                  "bytes":  4329,
+                                  "sha256":  "7C27FBCC4E541D769200CAC8393792792BFE2A0FEE550307B3D071DD40977D49"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/textures/item/scalpels5.png",
+                                  "bytes":  4458,
+                                  "sha256":  "5199E1D9F69ED35235D75738EA22CAB1616E8E9E6CD2679915C459804D69B10A"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/textures/item/scalpels6.png",
+                                  "bytes":  4443,
+                                  "sha256":  "02A4BC0C58D8CE9A9536D254F40DD6B6BFE18D7491D849888AED30E442E6FDBC"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/textures/item/scalpels7.png",
+                                  "bytes":  4422,
+                                  "sha256":  "1516F3A86EE5190317BE61819C4F2C30B5E793BB247FF4718F48D482AED4290F"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/textures/item/scalpels8.png",
+                                  "bytes":  4398,
+                                  "sha256":  "25E9C7E00A1FEE2F09700F87B5104D95512BE37E2E6C8CF288E794E45FD47DD0"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/textures/mob_effect/lack_of_iron.png",
+                                  "bytes":  528,
+                                  "sha256":  "9689CFE49A8C715AA462969F6B4448BBE592520ADAD0FB632C649220843ECC2D"
+                              },
+                              {
+                                  "path":  "assets/rotp_metallica/textures/power/metallica.png",
+                                  "bytes":  1558,
+                                  "sha256":  "7E6F6172916BD9C0D47CACD970B505AC081B76727D4DDE69B5175777FB3863DE"
+                              }
+                          ],
+    "canonical":  {
+                      "class_files":  26,
+                      "namespace_assets":  60,
+                      "data_files":  1,
+                      "packaging_resources":  3,
+                      "mixins":  0,
+                      "capabilities":  0,
+                      "packets":  0
+                  },
+    "runtime":  {
+                    "visual_topology":  "H4-nonhumanoid-invisible-coordinator",
+                    "primary_art":  "no shipped visible swarm member geometry",
+                    "secondary_art":  "owner-scoped lack-of-iron living and hand layer",
+                    "input_profile":  "C/X special wheel only",
+                    "direct_lmb_rmb":  [
+
+                                       ],
+                    "grab":  "absent",
+                    "manual_control":  false,
+                    "stand_leap":  false,
+                    "humanoid_melee":  false,
+                    "global_renderer_hook":  false
+                },
+    "current_registrations":  {
+                                  "abilities":  [
+                                                    "rotp_metallica:metallica_single_knife_throw",
+                                                    "rotp_metallica:metallica_multiple_knives_throw",
+                                                    "rotp_metallica:create_blades_in_victim",
+                                                    "rotp_metallica:invisibility",
+                                                    "rotp_metallica:heal"
+                                                ],
+                                  "stand_types":  [
+                                                      "rotp_metallica:metallica"
+                                                  ],
+                                  "entity_types":  [
+                                                       "rotp_metallica:metallica"
+                                                   ],
+                                  "items":  [
+                                                "rotp_metallica:scalpel"
+                                            ],
+                                  "effects":  [
+                                                  "rotp_metallica:lack_of_iron"
+                                              ],
+                                  "sounds":  [
+                                                 "rotp_metallica:risotto_nero_metallica",
+                                                 "rotp_metallica:risotto_nero_knife_throw",
+                                                 "rotp_metallica:risotto_nero_knives_throw",
+                                                 "rotp_metallica:risotto_nero_invisibility",
+                                                 "rotp_metallica:metallica_invisibility_on",
+                                                 "rotp_metallica:metallica_invisibility_off",
+                                                 "rotp_metallica:risotto_nero_create_blades_in_victim",
+                                                 "rotp_metallica:metallica_summon_stand",
+                                                 "rotp_metallica:metallica_unsummon_stand",
+                                                 "rotp_metallica:heal",
+                                                 "rotp_metallica:metallica_ost_30",
+                                                 "rotp_metallica:metallica_ost_60",
+                                                 "rotp_metallica:metallica_ost_75",
+                                                 "rotp_metallica:metallica_ost_90",
+                                                 "rotp_metallica:metallica_ost_120",
+                                                 "rotp_metallica:metallica_ost_full",
+                                                 "rotp_metallica:metallica_ost_cassette"
+                                             ],
+                                  "attachments":  [
+                                                      "rotp_metallica:invisibility_state",
+                                                      "rotp_metallica:iron_state"
+                                                  ],
+                                  "payloads":  [
+
+                                               ],
+                                  "mixins":  [
+
+                                             ]
+                              },
+    "ost_restoration":  {
+                            "base_id":  "rotp_metallica:metallica_ost",
+                            "generated_sound_events":  7,
+                            "attached_stand":  "rotp_metallica:metallica",
+                            "historical_disposition":  "omitted_as_source_dead",
+                            "current_disposition":  "registered_attached_silent",
+                            "sound_definitions_added":  0,
+                            "audio_payloads_added":  0
+                        },
+    "legacy_registration_counts":  {
+                                       "stand_actions":  5,
+                                       "stand_types":  1,
+                                       "coordinator_entity_types":  1,
+                                       "items":  1,
+                                       "effects":  1,
+                                       "explicit_sound_events":  10,
+                                       "ost_sound_events":  7,
+                                       "total_sound_events":  17,
+                                       "item_properties":  1,
+                                       "coordinator_renderers":  1,
+                                       "living_layers":  1,
+                                       "capability_types":  0,
+                                       "payload_types":  0,
+                                       "mixins":  0
+                                   },
+    "legacy_classes":  [
+                           {
+                               "path":  "ru/unclestalin/rotp_metallica/action/stand/Heal.class",
+                               "disposition":  "reimplemented_server_owned_heal_ability"
+                           },
+                           {
+                               "path":  "ru/unclestalin/rotp_metallica/action/stand/Invisibility.class",
+                               "disposition":  "reimplemented_owned_invisibility_lifecycle"
+                           },
+                           {
+                               "path":  "ru/unclestalin/rotp_metallica/action/stand/MultipleKnivesThrow.class",
+                               "disposition":  "reimplemented_five_scalpel_shift_variation"
+                           },
+                           {
+                               "path":  "ru/unclestalin/rotp_metallica/action/stand/SingleKnifeThrow.class",
+                               "disposition":  "reimplemented_single_scalpel_projectile"
+                           },
+                           {
+                               "path":  "ru/unclestalin/rotp_metallica/action/stand/VictimBladeCreation.class",
+                               "disposition":  "reimplemented_server_victim_blades"
+                           },
+                           {
+                               "path":  "ru/unclestalin/rotp_metallica/client/ClientEventHandler.class",
+                               "disposition":  "dead_empty_initializer_removed"
+                           },
+                           {
+                               "path":  "ru/unclestalin/rotp_metallica/client/ClientInit.class",
+                               "disposition":  "reimplemented_current_client_registration"
+                           },
+                           {
+                               "path":  "ru/unclestalin/rotp_metallica/client/render/entity/layerrenderer/LackOfIronLayer$TextureSize.class",
+                               "disposition":  "replaced_by_current_public_model_canvas_policy"
+                           },
+                           {
+                               "path":  "ru/unclestalin/rotp_metallica/client/render/entity/layerrenderer/LackOfIronLayer.class",
+                               "disposition":  "reimplemented_owner_scoped_stand_visual_layer"
+                           },
+                           {
+                               "path":  "ru/unclestalin/rotp_metallica/client/render/entity/model/stand/MetallicaStandModel.class",
+                               "disposition":  "replaced_by_noop_invisible_coordinator"
+                           },
+                           {
+                               "path":  "ru/unclestalin/rotp_metallica/client/render/entity/renderer/stand/MetallicaStandRenderer.class",
+                               "disposition":  "replaced_by_noop_invisible_coordinator"
+                           },
+                           {
+                               "path":  "ru/unclestalin/rotp_metallica/entity/stand/stands/MetallicaStandEntity.class",
+                               "disposition":  "reimplemented_noncolliding_lifecycle_coordinator"
+                           },
+                           {
+                               "path":  "ru/unclestalin/rotp_metallica/init/AddonStands.class",
+                               "disposition":  "consolidated_current_deferred_registration"
+                           },
+                           {
+                               "path":  "ru/unclestalin/rotp_metallica/init/InitEffects.class",
+                               "disposition":  "consolidated_current_effect_registration"
+                           },
+                           {
+                               "path":  "ru/unclestalin/rotp_metallica/init/InitEntities.class",
+                               "disposition":  "consolidated_current_entity_registration"
+                           },
+                           {
+                               "path":  "ru/unclestalin/rotp_metallica/init/InitItems.class",
+                               "disposition":  "consolidated_current_item_registration"
+                           },
+                           {
+                               "path":  "ru/unclestalin/rotp_metallica/init/InitSounds.class",
+                               "disposition":  "consolidated_ten_audible_sound_registrations"
+                           },
+                           {
+                               "path":  "ru/unclestalin/rotp_metallica/init/InitStands.class",
+                               "disposition":  "consolidated_current_stand_moveset_registration"
+                           },
+                           {
+                               "path":  "ru/unclestalin/rotp_metallica/item/ScalpelItem.class",
+                               "disposition":  "replaced_by_core_knife_item_with_module_registry_id"
+                           },
+                           {
+                               "path":  "ru/unclestalin/rotp_metallica/potion/LackOfIron.class",
+                               "disposition":  "reimplemented_server_owned_effect_and_attributes"
+                           },
+                           {
+                               "path":  "ru/unclestalin/rotp_metallica/power/impl/stand/type/CompassData.class",
+                               "disposition":  "replaced_by_self_describing_reversible_item_components"
+                           },
+                           {
+                               "path":  "ru/unclestalin/rotp_metallica/power/impl/stand/type/MetallicaStandType$Builder.class",
+                               "disposition":  "consolidated_current_stand_constructor"
+                           },
+                           {
+                               "path":  "ru/unclestalin/rotp_metallica/power/impl/stand/type/MetallicaStandType.class",
+                               "disposition":  "reimplemented_stand_lifecycle_iron_and_compass_services"
+                           },
+                           {
+                               "path":  "ru/unclestalin/rotp_metallica/RotpMetallicaAddon.class",
+                               "disposition":  "reimplemented_current_mod_entrypoint"
+                           },
+                           {
+                               "path":  "ru/unclestalin/rotp_metallica/util/ModTags$Items.class",
+                               "disposition":  "replaced_by_current_item_tag_key"
+                           },
+                           {
+                               "path":  "ru/unclestalin/rotp_metallica/util/ModTags.class",
+                               "disposition":  "replaced_by_current_item_tag_key"
+                           }
+                       ],
+    "legacy_assets":  [
+                          {
+                              "path":  "assets/rotp_metallica/lang/en_us.json",
+                              "disposition":  "transformed_current_locale_and_ability_keys"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/lang/es_ve.json",
+                              "disposition":  "transformed_current_locale_and_ability_keys"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/lang/ru_ru.json",
+                              "disposition":  "transformed_current_locale_and_ability_keys"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/lang/zh_cn.json",
+                              "disposition":  "transformed_current_locale_and_ability_keys"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/models/item/scalpel.json",
+                              "disposition":  "transformed_current_item_model_predicate"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/models/item/scalpels2.json",
+                              "disposition":  "transformed_current_item_model_predicate"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/models/item/scalpels3.json",
+                              "disposition":  "transformed_current_item_model_predicate"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/models/item/scalpels4.json",
+                              "disposition":  "transformed_current_item_model_predicate"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/models/item/scalpels5.json",
+                              "disposition":  "transformed_current_item_model_predicate"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/models/item/scalpels6.json",
+                              "disposition":  "transformed_current_item_model_predicate"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/models/item/scalpels7.json",
+                              "disposition":  "transformed_current_item_model_predicate"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/models/item/scalpels8.json",
+                              "disposition":  "transformed_current_item_model_predicate"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/sounds.json",
+                              "disposition":  "transformed_ten_backed_definitions_ost_registration_restored_silent"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/sounds/stand/heal.ogg",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/sounds/stand/metallica_invisibility_off.ogg",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/sounds/stand/metallica_invisibility_on.ogg",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/sounds/stand/metallica_summon_stand.ogg",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/sounds/stand/metallica_unsummon_stand.ogg",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/sounds/stand_user/create_blades_in_victim.ogg",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/sounds/stand_user/risotto_nero_invisibility.ogg",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/sounds/stand_user/risotto_nero_knife_throw.ogg",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/sounds/stand_user/risotto_nero_knife_throw_2.ogg",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/sounds/stand_user/risotto_nero_knife_throw_3.ogg",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/sounds/stand_user/risotto_nero_knives_throw.ogg",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/sounds/stand_user/risotto_nero_knives_throw_2.ogg",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/sounds/stand_user/risotto_nero_knives_throw_3.ogg",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/sounds/stand_user/risotto_nero_metallica.ogg",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/sounds/stand_user/risotto_nero_metallica_2.ogg",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/sounds/stand_user/risotto_nero_metallica_3.ogg",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/sounds/stand_user/risotto_nero_metallica_4.ogg",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/textures/action/create_blades_in_victim.png",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/textures/action/heal.png",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/textures/action/invisibility.png",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/textures/action/invisibility_disable.png",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/textures/action/metallica_multiple_knives_throw.png",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/textures/action/metallica_single_knife_throw.png",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/textures/entity/biped/layer/lack_of_iron/t128x128/1.png",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/textures/entity/biped/layer/lack_of_iron/t128x128/2.png",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/textures/entity/biped/layer/lack_of_iron/t128x64/1.png",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/textures/entity/biped/layer/lack_of_iron/t128x64/2.png",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/textures/entity/biped/layer/lack_of_iron/t256x128/1.png",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/textures/entity/biped/layer/lack_of_iron/t256x128/2.png",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/textures/entity/biped/layer/lack_of_iron/t256x256/1.png",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/textures/entity/biped/layer/lack_of_iron/t256x256/2.png",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/textures/entity/biped/layer/lack_of_iron/t64x32/1.png",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/textures/entity/biped/layer/lack_of_iron/t64x32/2.png",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/textures/entity/biped/layer/lack_of_iron/t64x64/1.png",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/textures/entity/biped/layer/lack_of_iron/t64x64/2.png",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/textures/entity/stand/glow/metallica.png",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/textures/entity/stand/metallica.png",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/textures/item/scalpel.png",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/textures/item/scalpels2.png",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/textures/item/scalpels3.png",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/textures/item/scalpels4.png",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/textures/item/scalpels5.png",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/textures/item/scalpels6.png",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/textures/item/scalpels7.png",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/textures/item/scalpels8.png",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/textures/mob_effect/lack_of_iron.png",
+                              "disposition":  "copied_byte_exact"
+                          },
+                          {
+                              "path":  "assets/rotp_metallica/textures/power/metallica.png",
+                              "disposition":  "copied_byte_exact"
+                          }
+                      ],
+    "legacy_data":  [
+                        {
+                            "path":  "data/rotp_metallica/tags/items/iron_items.json",
+                            "disposition":  "transformed_current_tag_path_namespaces_and_ids"
+                        }
+                    ],
+    "legacy_packaging_resources":  [
+                                       {
+                                           "path":  "META-INF/MANIFEST.MF",
+                                           "disposition":  "replaced_by_reproducible_gradle_manifest"
+                                       },
+                                       {
+                                           "path":  "META-INF/mods.toml",
+                                           "disposition":  "transformed_neoforge_metadata_owner_repaired"
+                                       },
+                                       {
+                                           "path":  "pack.mcmeta",
+                                           "disposition":  "transformed_current_pack_format"
+                                       }
+                                   ],
+    "legacy_cross_cutting":  {
+                                 "mixins":  [
+
+                                            ],
+                                 "capabilities":  [
+
+                                                  ],
+                                 "packets":  [
+
+                                             ]
+                             },
+    "runtime_copy_rules":  [
+                               "textures/action/*.png -\u003e stand_skins/metallica/assets/rotp_metallica/textures/ability/*.png",
+                               "textures/power/metallica.png -\u003e stand_skins/metallica/assets/rotp_metallica/textures/stand_icon.png",
+                               "lang/*.json -\u003e stand_skins/metallica/assets/rotp_metallica/lang/*.json"
+                           ],
+    "source_dead_or_compatibility_replaced":  [
+                                                  "empty ClientEventHandler initializer",
+                                                  "transparent humanoid coordinator model and renderer",
+                                                  "unregistered metallica_ost sounds.json definition whose referenced metallica_ost.ogg is absent",
+                                                  "legacy strong-reference CompassData list replaced by reversible item components",
+                                                  "four larger lack-of-iron canvas pairs preserved but not selected because current EntityModel exposes no public texture dimensions"
+                                              ],
+    "historical_omissions_resolved":  [
+                                          {
+                                              "item":  "seven OstSoundList registrations with no sounds.json definitions or audio payloads",
+                                              "historical_disposition":  "omitted_as_source_dead",
+                                              "resolution":  "registered and attached to rotp_metallica:metallica as silent events"
+                                          }
+                                      ],
+    "blockers":  [
+
+                 ],
+    "manual_validation_not_run":  [
+                                      "dedicated-server startup and gameplay",
+                                      "two-client compass nearest-source and restoration",
+                                      "late-tracker lack-of-iron source visibility",
+                                      "stand lifecycle alpha transitions",
+                                      "Iris compatibility",
+                                      "Shoulder Surfing compatibility"
+                                  ]
+}

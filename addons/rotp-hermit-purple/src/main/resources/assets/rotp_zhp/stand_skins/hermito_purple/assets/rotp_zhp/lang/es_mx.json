@@ -1,0 +1,23 @@
+{
+  "rotp_zhp.ability.hp_vine_attack": "Ataque de enredadera",
+  "rotp_zhp.ability.hp_vine_shift": "Ataque de atadura de enredadera",
+  "rotp_zhp.ability.hp_grab": "Capturar entidad",
+  "rotp_zhp.ability.hp_grab_od": "OverDrive entidad atrapada",
+  "rotp_zhp.ability.hp_grab_sc": "OverDrive Escarlata a entidad atrapada",
+  "rotp_zhp.ability.hp_grab_heal": "Enredadera sanadora",
+  "rotp_zhp.ability.hp_block": "Protección de espinas",
+  "rotp_zhp.ability.hp_vine": "Enredadera",
+  "rotp_zhp.ability.hp_vine_entity": "Enredadera atrapante",
+  "rotp_zhp.ability.hp_barrier": "Trampa de enredadera (%s/%s)",
+  "rotp_zhp.ability.hp_unbarrier": "Deshacer red de enredaderas",
+  "rotp_zhp.ability.cringe": "OH NO CRINGE",
+  "rotp_zhp.ability.hp_breath": "Respiración de hamon",
+  "rotp_zhp.ability.hp_doxx": "Adivinación de posición",
+  "rotp_zhp.ability.hp_camera": "Adivinación fotográfica",
+  "rotp_zhp.ability.hp_target": "Selección de objetivo",
+  "rotp_zhp.ability.hp_beat": "Golpe de Hamon",
+  "rotp_zhp.ability.hp_doxx.s": "Adivinación de posición de %s",
+  "rotp_zhp.ability.hp_doxx.stand": "Adivinación de posición de usuario de %s",
+  "rotp_zhp.ability.hp_camera.s": "%s photo divination",
+  "rotp_zhp.ability.hp_camera.stand": "%s user photo divination"
+}

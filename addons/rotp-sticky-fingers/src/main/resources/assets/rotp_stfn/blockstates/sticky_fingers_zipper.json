@@ -1,0 +1,40 @@
+{
+  "variants": {
+    "facing=north,open=false": {
+      "model": "rotp_stfn:block/zipper/none"
+    },
+    "facing=east,open=false": {
+      "model": "rotp_stfn:block/zipper/none"
+    },
+    "facing=south,open=false": {
+      "model": "rotp_stfn:block/zipper/none"
+    },
+    "facing=west,open=false": {
+      "model": "rotp_stfn:block/zipper/none"
+    },
+    "facing=up,open=false": {
+      "model": "rotp_stfn:block/zipper/none"
+    },
+    "facing=down,open=false": {
+      "model": "rotp_stfn:block/zipper/none"
+    },
+    "facing=north,open=true": {
+      "model": "rotp_stfn:block/zipper/none"
+    },
+    "facing=east,open=true": {
+      "model": "rotp_stfn:block/zipper/none"
+    },
+    "facing=south,open=true": {
+      "model": "rotp_stfn:block/zipper/none"
+    },
+    "facing=west,open=true": {
+      "model": "rotp_stfn:block/zipper/none"
+    },
+    "facing=up,open=true": {
+      "model": "rotp_stfn:block/zipper/none"
+    },
+    "facing=down,open=true": {
+      "model": "rotp_stfn:block/zipper/none"
+    }
+  }
+}

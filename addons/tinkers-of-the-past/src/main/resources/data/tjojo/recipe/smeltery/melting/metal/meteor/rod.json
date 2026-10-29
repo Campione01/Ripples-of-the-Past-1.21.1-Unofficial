@@ -1,0 +1,25 @@
+{
+    "neoforge:conditions":  [
+                                {
+                                    "type":  "neoforge:mod_loaded",
+                                    "modid":  "tconstruct"
+                                },
+                                {
+                                    "type":  "neoforge:not",
+                                    "value":  {
+                                                  "type":  "neoforge:tag_empty",
+                                                  "tag":  "c:rods/meteor"
+                                              }
+                                }
+                            ],
+    "type":  "tconstruct:melting",
+    "ingredient":  {
+                       "tag":  "c:rods/meteor"
+                   },
+    "result":  {
+                   "tag":  "c:molten_meteor",
+                   "amount":  45
+               },
+    "temperature":  700,
+    "time":  11
+}

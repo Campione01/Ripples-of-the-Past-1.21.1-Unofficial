@@ -1,0 +1,13 @@
+{
+  "stand.rotp_nextalbum.silver_chariot_requiem": "\u94f6\u8272\u6218\u8f66\u9547\u9b42\u66f2",
+  "entity.rotp_nextalbum.silver_chariot_requiem": "\u94f6\u8272\u6218\u8f66\u9547\u9b42\u66f2",
+  "rotp_nextalbum.ability.chariot_requiem_punch": "\u8f7b\u51fb",
+  "rotp_nextalbum.ability.chariot_requiem_barrage": "\u8fde\u6253",
+  "rotp_nextalbum.ability.chariot_requiem_heavy_punch": "\u91cd\u62f3",
+  "rotp_nextalbum.ability.chariot_requiem_finisher_punch": "\u7ec8\u7ed3\u4e00\u51fb",
+  "rotp_nextalbum.ability.chariot_requiem_block": "\u9632\u5fa1",
+  "rotp_nextalbum.ability.chariot_requiem_aura": "\u8303\u56f4\u6c89\u7761",
+  "rotp_nextalbum.ability.chariot_requiem_virus": "\u6295\u653e\u9547\u9b42\u66f2\u75c5\u6bd2",
+  "rotp_nextalbum.ability.chariot_requiem_stand_virus": "\u6295\u653e\u5916\u661f\u75c5\u6bd2",
+  "rotp_nextalbum.ability.heavy_charged": "\u84c4\u529b\u91cd\u62f3"
+}

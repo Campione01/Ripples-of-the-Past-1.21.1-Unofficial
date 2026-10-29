@@ -1,0 +1,63 @@
+{
+  "metallica_summon_stand": {
+    "subtitle": "rotp_metallica.subtitle.metallica_summon_stand",
+    "sounds": [
+      "rotp_metallica:stand/metallica_summon_stand"
+    ]
+  },
+  "metallica_unsummon_stand": {
+    "subtitle": "rotp_metallica.subtitle.metallica_unsummon_stand",
+    "sounds": [
+      "rotp_metallica:stand/metallica_unsummon_stand"
+    ]
+  },
+  "risotto_nero_metallica": {
+    "subtitle": "rotp_metallica.subtitle.risotto_nero_metallica",
+    "sounds": [
+      "rotp_metallica:stand_user/risotto_nero_metallica",
+      "rotp_metallica:stand_user/risotto_nero_metallica_2",
+      "rotp_metallica:stand_user/risotto_nero_metallica_3",
+      "rotp_metallica:stand_user/risotto_nero_metallica_4"
+    ]
+  },
+  "risotto_nero_invisibility": {
+    "subtitle": "rotp_metallica.subtitle.risotto_nero_invisibility",
+    "sounds": [
+      "rotp_metallica:stand_user/risotto_nero_invisibility"
+    ]
+  },
+  "metallica_invisibility_on": {
+    "subtitle": "rotp_metallica.subtitle.metallica_invisibility_on",
+    "sounds": [
+      "rotp_metallica:stand/metallica_invisibility_on"
+    ]
+  },
+  "metallica_invisibility_off": {
+    "subtitle": "rotp_metallica.subtitle.metallica_invisibility_off",
+    "sounds": [
+      "rotp_metallica:stand/metallica_invisibility_off"
+    ]
+  },
+  "heal": {
+    "subtitle": "rotp_metallica.subtitle.heal",
+    "sounds": [
+      "rotp_metallica:stand/heal"
+    ]
+  },
+  "risotto_nero_create_blades_in_victim": {
+    "subtitle": "rotp_metallica.subtitle.risotto_nero_create_blades_in_victim",
+    "sounds": [
+      "rotp_metallica:stand_user/create_blades_in_victim"
+    ]
+  },
+  "risotto_nero_knife_throw": {
+    "sounds": [
+      "rotp_metallica:stand_user/risotto_nero_knife_throw",
+      "rotp_metallica:stand_user/risotto_nero_knife_throw_2",
+      "rotp_metallica:stand_user/risotto_nero_knife_throw_3"
+    ]
+  },
+  "risotto_nero_knives_throw": {
+    "sounds": ["rotp_metallica:stand_user/risotto_nero_knives_throw", "rotp_metallica:stand_user/risotto_nero_knives_throw_2", "rotp_metallica:stand_user/risotto_nero_knives_throw_3"]
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "type": "tconstruct:melting",
+  "ingredient": {
+    "item": "jojo:meteoric_scrap"
+  },
+  "result": {
+    "fluid": "tjojo:molten_meteor",
+    "amount": 144
+  },
+  "temperature": 500,
+  "time": 50
+}

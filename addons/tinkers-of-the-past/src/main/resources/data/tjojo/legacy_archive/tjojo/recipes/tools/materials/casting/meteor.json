@@ -1,0 +1,9 @@
+{
+  "type": "tconstruct:material_fluid",
+  "fluid": {
+    "tag": "tjojo:molten_meteor",
+    "amount": 144
+  },
+  "temperature": 700,
+  "output": "tjojo:meteor"
+}

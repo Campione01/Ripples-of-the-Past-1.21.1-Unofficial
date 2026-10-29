@@ -1,0 +1,13 @@
+// Public build of RotP King Crimson (rotp_kingcrimson). The module identity is in gradle.properties;
+// the shared logic is in ../gradle/addon-module.gradle.
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev'
+}
+
+ext.gameTestStructures = [
+        'data/rotp_kingcrimson/structure/empty.nbt': 'H4sIAAAAAAAA/z3LsQ6CQBCE4SGHymGM72NtTWm/kjHZAHfkdiueHlFxkr+afC0QUZsuDAC2qr2IhsnVlYZtEcfnmPvB2u8b5mw7+i/gYC7OnzjNMtKdH9Kg7mQiLpMm9kVefhMtb3K+i8uDxTQn4GpYAU1Nb0GWAAAA',
+        'data/rotp_kingcrimson_eye_windup/structure/empty.nbt': 'H4sIAAAAAAAA/z3LsQ6CQBCE4SGHymGM72NtTWm/kjHZAHfkdiueHlFxkr+afC0QUZsuDAC2qr2IhsnVlYZtEcfnmPvB2u8b5mw7+i/gYC7OnzjNMtKdH9Kg7mQiLpMm9kVefhMtb3K+i8uDxTQn4GpYAU1Nb0GWAAAA',
+]
+
+apply from: rootProject.file('gradle/addon-module.gradle')

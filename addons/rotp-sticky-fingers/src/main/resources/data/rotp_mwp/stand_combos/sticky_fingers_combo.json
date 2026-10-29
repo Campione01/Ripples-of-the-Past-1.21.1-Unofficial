@@ -1,0 +1,46 @@
+{
+  "rotp_stfn:sticky_fingers": {
+    "use_by_resolve": {
+      "0lvl": [
+        "ari_combo"
+      ],
+      "1lvl": [
+        "ari_combo",
+        "arrivederci_combo"
+      ]
+    },
+    "block": "guard",
+    "ari_combo": [
+      {
+        "action": "punch",
+        "distance": "<4"
+      },
+      {
+        "action": "punch",
+        "distance": "<4"
+      },
+      {
+        "action": "barrage",
+        "distance": "<3",
+        "requiredStamina": 300
+      }
+    ],
+    "arrivederci_combo": [
+      {
+        "action": "sticky_fingers_extended_punch",
+        "distance": ">4",
+        "requiredStamina": 300
+      },
+      {
+        "action": "heavy_punch",
+        "distance": "<4",
+        "requiredStamina": 250
+      },
+      {
+        "action": "sticky_fingers_unzip_punch",
+        "distance": "<3",
+        "requiredStamina": 200
+      }
+    ]
+  }
+}

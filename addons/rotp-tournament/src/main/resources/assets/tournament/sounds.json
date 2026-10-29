@@ -1,0 +1,9 @@
+{
+  "assgore_record":
+  {
+    "sounds":[{
+      "name": "tournament:record/assgore_record",
+      "stream": true
+    }]
+  }
+}

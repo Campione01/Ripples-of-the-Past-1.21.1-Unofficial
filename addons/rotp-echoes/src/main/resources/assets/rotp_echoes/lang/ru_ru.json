@@ -1,0 +1,22 @@
+{
+  "stand.rotp_echoes.echoes_act3": "Эхо ACT3",
+  "stand.rotp_echoes.echoes_act2": "Эхо ACT2",
+  "rotp_echoes.ability.punch": "Удар",
+  "rotp_echoes.ability.barrage": "Град ударов",
+  "rotp_echoes.ability.heavy_punch": "Тяжелый удар",
+  "rotp_echoes.ability.finisher": "Финишер",
+  "rotp_echoes.ability.guard": "Блок",
+  "rotp_echoes.ability.degrade_to_act2": "Деградация",
+  "rotp_echoes.ability.freeze": "Заморозка",
+  "rotp_echoes.ability.hand_freeze": "Заморозка рук",
+  "rotp_echoes.ability.freeze_self": "Само-заморозка",
+  "rotp_echoes.ability.gravity_infuse": "Гравитационное насыщение",
+  "rotp_echoes.ability.gravity_projectile": "Гравитационный снаряд",
+  "rotp_echoes.ability.act2_punch": "Легкая атака",
+  "rotp_echoes.ability.act2_heavy_punch": "Тяжелая атака",
+  "rotp_echoes.ability.act2_finisher": "Удар хвостом",
+  "rotp_echoes.ability.act2_guard": "Блок",
+  "rotp_echoes.ability.evolve_to_act3": "Эволюция",
+  "rotp_echoes.tooltip.gravity_infused": "Насыщено гравитацией",
+  "rotp_echoes.tooltip.gravity_infused.desc": "Удерживая это, вы будете придавлены гравитацией"
+}

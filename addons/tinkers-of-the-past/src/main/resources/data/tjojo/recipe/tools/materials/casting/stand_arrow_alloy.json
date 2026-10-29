@@ -1,0 +1,15 @@
+{
+    "neoforge:conditions":  [
+                                {
+                                    "type":  "neoforge:mod_loaded",
+                                    "modid":  "tconstruct"
+                                }
+                            ],
+    "type":  "tconstruct:material_fluid",
+    "fluid":  {
+                  "tag":  "c:molten_stand_arrow_alloy",
+                  "amount":  90
+              },
+    "temperature":  700,
+    "output":  "tjojo:stand_arrow_alloy"
+}

@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "automaticRemap": false,
+  "mappings": {
+    "rotp_nextalbum:sex_pistols": "rotp_sex_pistols:sex_pistols",
+    "rotp_nextalbum:revolver": "rotp_sex_pistols:revolver",
+    "rotp_nextalbum:revolver_ammo": "rotp_sex_pistols:revolver_ammo",
+    "rotp_nextalbum:revolver_casing": "rotp_sex_pistols:revolver_casing",
+    "rotp_nextalbum:mista_suit_hat": "rotp_sex_pistols:mista_suit_hat"
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "rotp_d4c:saint_corpse_ears"
+    },
+    {
+      "item": "rotp_d4c:saint_corpse_eyes"
+    },
+    {
+      "item": "rotp_d4c:saint_corpse_head"
+    },
+    {
+      "item": "rotp_d4c:saint_corpse_heart"
+    },
+    {
+      "item": "rotp_d4c:saint_corpse_left_arm"
+    },
+    {
+      "item": "rotp_d4c:saint_corpse_right_arm"
+    },
+    {
+      "item": "rotp_d4c:saint_corpse_legs"
+    },
+    {
+      "item": "rotp_d4c:saint_corpse_thorax"
+    },
+    {
+      "item": "rotp_d4c:saint_corpse_spine"
+    }
+  ],
+  "result": {
+    "id": "rotp_d4c:complete_saint_corpse",
+    "count": 1
+  }
+}

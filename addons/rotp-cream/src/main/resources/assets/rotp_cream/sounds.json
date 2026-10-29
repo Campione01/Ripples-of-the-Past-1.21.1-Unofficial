@@ -1,0 +1,92 @@
+{
+  "cream_summon": {
+    "subtitle": "subtitles.rotp_cream.cream_summon",
+    "sounds": [
+      "rotp_cream:stand/cream_summon",
+      "rotp_cream:stand/cream_summon2",
+      "rotp_cream:stand/cream_summon3"
+    ]
+  },
+  "cream_unsummon": {
+    "subtitle": "subtitles.rotp_cream.cream_unsummon",
+    "sounds": [
+      "rotp_cream:stand/cream_unsummon",
+      "rotp_cream:stand/cream_unsummon2",
+      "rotp_cream:stand/cream_unsummon3"
+    ]
+  },
+  "cream_void_form": {
+    "subtitle": "subtitles.rotp_cream.cream_void_form",
+    "sounds": ["rotp_cream:stand/cream_void_form"]
+  },
+  "cream_roar": {
+    "subtitle": "subtitles.rotp_cream.cream_roar",
+    "sounds": [
+      "rotp_cream:stand/cream_roar6",
+      "rotp_cream:stand/cream_roar7",
+      "rotp_cream:stand/cream_roar8"
+    ]
+  },
+  "cream_void_form_short": {
+    "subtitle": "subtitles.rotp_cream.cream_void_form",
+    "sounds": ["rotp_cream:stand/cream_void_form_short"]
+  },
+  "cream_void": {
+    "subtitle": "subtitles.rotp_cream.cream_void",
+    "sounds": [
+      "rotp_cream:stand/cream_void1",
+      "rotp_cream:stand/cream_void2",
+      "rotp_cream:stand/cream_void3"
+    ]
+  },
+  "cream_entity_void": {
+    "subtitle": "subtitles.rotp_cream.cream_entity_void",
+    "sounds": ["rotp_cream:stand/cream_delete"]
+  },
+  "cream_chop": {
+    "subtitle": "subtitles.rotp_cream.cream_chop",
+    "sounds": ["rotp_cream:stand/cream_chop"]
+  },
+  "cream_skullcrush": {
+    "subtitle": "subtitles.rotp_cream.cream_skullcrush",
+    "sounds": ["rotp_cream:stand/cream_skullcrush"]
+  },
+  "cream_claw": {
+    "subtitle": "subtitles.rotp_cream.cream_claw",
+    "sounds": [
+      "rotp_cream:stand/cream_clawhit",
+      "rotp_cream:stand/cream_clawhit2",
+      "rotp_cream:stand/cream_clawhit3",
+      "rotp_cream:stand/cream_clawhit4",
+      "rotp_cream:stand/cream_clawhit5"
+    ]
+  },
+  "cream_heavy_claw": {
+    "subtitle": "subtitles.rotp_cream.cream_heavy_claw",
+    "sounds": ["rotp_cream:stand/cream_heavy_claw"]
+  },
+  "cream_chomp": {
+    "subtitle": "subtitles.rotp_cream.cream_chomp",
+    "sounds": ["rotp_cream:stand/cream_chomp"]
+  },
+  "cream_chomp_hit": {
+    "subtitle": "subtitles.rotp_cream.cream_chomp",
+    "sounds": ["rotp_cream:stand/cream_chomp"]
+  },
+  "cream_chomp_start": {
+    "subtitle": "subtitles.rotp_cream.cream_chomp_start",
+    "sounds": ["rotp_cream:stand/cream_chomp"]
+  },
+  "cream_void_start": {
+    "subtitle": "subtitles.rotp_cream.cream_void_start",
+    "sounds": ["rotp_cream:stand/cream_void_start"]
+  },
+  "cream_void_end": {
+    "subtitle": "subtitles.rotp_cream.cream_void_end",
+    "sounds": ["rotp_cream:stand/cream_void_end"]
+  },
+  "vanilla_ice_cream": {
+    "subtitle": "subtitles.rotp_cream.vanilla_ice_cream",
+    "sounds": ["rotp_cream:stand_user/vanilla_ice_cream"]
+  }
+}

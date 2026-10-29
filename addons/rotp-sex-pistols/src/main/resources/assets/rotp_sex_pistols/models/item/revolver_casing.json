@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "rotp_sex_pistols:item/revolver_casing"
+  }
+}

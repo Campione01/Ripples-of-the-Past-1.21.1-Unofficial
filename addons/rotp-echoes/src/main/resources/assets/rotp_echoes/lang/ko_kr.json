@@ -1,0 +1,22 @@
+{
+  "stand.rotp_echoes.echoes_act3": "에코즈 ACT3",
+  "stand.rotp_echoes.echoes_act2": "에코즈 ACT2",
+  "rotp_echoes.ability.punch": "펀치",
+  "rotp_echoes.ability.barrage": "러시",
+  "rotp_echoes.ability.heavy_punch": "헤비 펀치",
+  "rotp_echoes.ability.finisher": "피니셔",
+  "rotp_echoes.ability.guard": "방어",
+  "rotp_echoes.ability.degrade_to_act2": "퇴화",
+  "rotp_echoes.ability.freeze": "프리즈",
+  "rotp_echoes.ability.hand_freeze": "핸드 프리즈",
+  "rotp_echoes.ability.freeze_self": "셀프 프리즈",
+  "rotp_echoes.ability.gravity_infuse": "그래비티 인퓨즈",
+  "rotp_echoes.ability.gravity_projectile": "그래비티 프로젝타일",
+  "rotp_echoes.ability.act2_punch": "경공격",
+  "rotp_echoes.ability.act2_heavy_punch": "중공격",
+  "rotp_echoes.ability.act2_finisher": "테일 스팅",
+  "rotp_echoes.ability.act2_guard": "방어",
+  "rotp_echoes.ability.evolve_to_act3": "진화",
+  "rotp_echoes.tooltip.gravity_infused": "중력이 깃든",
+  "rotp_echoes.tooltip.gravity_infused.desc": "들고 있으면 중력에 눌린다"
+}

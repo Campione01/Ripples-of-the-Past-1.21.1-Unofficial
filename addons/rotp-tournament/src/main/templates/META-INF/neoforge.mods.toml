@@ -1,0 +1,37 @@
+modLoader="javafml"
+loaderVersion="${loader_version_range}"
+license="GNU GPL v3.0"
+
+[[mods]]
+modId="${mod_id}"
+version="${mod_version}"
+displayName="${mod_name}"
+authors="dikiytechies"
+credits="StandoByte; music-disc contributors Bub8les, KennyTheLyr1c1st, RagamuffinWLYR, zebuez, MythicApex, and TrikiTr0y"
+description='''${mod_description}
+
+This bounded migration derives from rotp-tournament-1.0_ARG_EDITION.jar.
+See the packaged SOURCE_AND_LICENSE.md and migration manifests for exact
+provenance, the canonical record-player-list defect, and the upstream
+source-history spike-texture recovery.'''
+
+[[dependencies.${mod_id}]]
+modId="neoforge"
+type="required"
+versionRange="[${neo_version},)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.${mod_id}]]
+modId="minecraft"
+type="required"
+versionRange="${minecraft_version_range}"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.${mod_id}]]
+modId="${core_mod_id}"
+type="required"
+versionRange="[${core_mod_version}]"
+ordering="AFTER"
+side="BOTH"

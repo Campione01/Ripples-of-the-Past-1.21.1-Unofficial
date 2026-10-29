@@ -1,0 +1,32 @@
+modLoader="javafml"
+loaderVersion="[36,)"
+license="GNU GPL v3.0"
+
+[[mods]]
+modId = "rotp_wou"
+version = "1.0.2c"
+displayName = "RotP 奇迹于你"
+displayURL = "https://discord.gg/4GcjnMnXP4"
+authors = "FilipeGamer12BR, Co-creator: Hoo, Model: Blonde"
+logoFile="logo.png"
+credits="StandoByte, Hoo, Weever, Blonde (model)"
+description="An Addon that adds Wonder of You (JoJoLion) to Ripples of the Past."
+
+[[dependencies.rotp_wou]]
+modId="forge"
+mandatory=true
+versionRange="[36,)"
+ordering="NONE"
+side="BOTH"
+[[dependencies.rotp_wou]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.16.5,1.17)"
+ordering="NONE"
+side="BOTH"
+[[dependencies.rotp_wou]]
+modId="jojo"
+mandatory=true
+versionRange="[0.2.2,0.3)"
+ordering="AFTER"
+side="BOTH"

@@ -1,0 +1,7 @@
+{
+  "parent": "block/cube_all",
+  "textures": {
+    "all": "rotp_d4c:block/transparent_portal"
+  },
+  "render_type": "translucent"
+}

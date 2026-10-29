@@ -1,0 +1,105 @@
+{
+  "pucci_whitesnake": {
+    "subtitle": "rotp_whitesnake.subtitle.whitesnake_name",
+    "sounds": [
+      "rotp_whitesnake:stand_user/pucci_whitesnake",
+      "rotp_whitesnake:stand_user/pucci_whitesnake_2",
+      "rotp_whitesnake:stand_user/pucci_whitesnake_3",
+      "rotp_whitesnake:stand_user/pucci_whitesnake_4"
+    ]
+  },
+  "whitesnake_summon": {
+    "subtitle": "rotp_whitesnake.subtitle.whitesnake_summon",
+    "sounds": [
+      "rotp_whitesnake:stand/whitesnake_unsummon"
+    ]
+  },
+  "whitesnake_unsummon": {
+    "subtitle": "rotp_whitesnake.subtitle.whitesnake_unsummon",
+    "sounds": [
+      "rotp_whitesnake:stand/whitesnake_summon"
+    ]
+  },
+  "whitesnake_punch": {
+    "subtitle": "rotp_whitesnake.subtitle.whitesnake_punch",
+    "sounds": [
+      "rotp_whitesnake:stand/whitesnake_punch"
+    ]
+  },
+  "whitesnake_punch_heavy": {
+    "subtitle": "rotp_whitesnake.subtitle.whitesnake_punch_heavy",
+    "sounds": [
+      "rotp_whitesnake:stand/whitesnake_punch_heavy"
+    ]
+  },
+  "whitesnake_ushya": {
+    "subtitle": "rotp_whitesnake.subtitle.whitesnake_ushya",
+    "sounds": [
+      "rotp_whitesnake:stand/whitesnake_barrage",
+      "rotp_whitesnake:stand/whitesnake_barrage1",
+      "rotp_whitesnake:stand/whitesnake_barrage2",
+      "rotp_whitesnake:stand/whitesnake_barrage3"
+    ]
+  },
+  "whitesnake_barrage": {
+    "subtitle": "rotp_whitesnake.subtitle.whitesnake_barrage",
+    "sounds": [
+      "rotp_whitesnake:stand/whitesnake_barrage_sound"
+    ]
+  },
+  "pucci_punch": {
+    "subtitle": "rotp_whitesnake.subtitle.pucci_punch",
+    "sounds": [
+      "rotp_whitesnake:stand_user/pucci_punch",
+      "rotp_whitesnake:stand_user/pucci_punch2",
+      "rotp_whitesnake:stand_user/pucci_punch3",
+      "rotp_whitesnake:stand_user/pucci_punch4",
+      "rotp_whitesnake:stand_user/pucci_punch5",
+      "rotp_whitesnake:stand_user/pucci_punch6",
+      "rotp_whitesnake:stand_user/pucci_punch7",
+      "rotp_whitesnake:stand_user/pucci_punch8",
+      "rotp_whitesnake:stand_user/pucci_punch9",
+      "rotp_whitesnake:stand_user/pucci_punch10",
+      "rotp_whitesnake:stand_user/pucci_punch11",
+      "rotp_whitesnake:stand_user/pucci_punch12",
+      "rotp_whitesnake:stand_user/pucci_punch13",
+      "rotp_whitesnake:stand_user/pucci_punch14",
+      "rotp_whitesnake:stand_user/pucci_punch15",
+      "rotp_whitesnake:stand_user/pucci_punch16"
+    ]
+  },
+  "whitesnake_punch_combo": {
+    "subtitle": "rotp_whitesnake.subtitle.whitesnake_punch_combo",
+    "sounds": [
+      "rotp_whitesnake:stand_user/whitesnake_punch_combo",
+      "rotp_whitesnake:stand/whitesnake_punch_combo"
+    ]
+  },
+  "whitesnake_remove_disc": {
+    "subtitle": "rotp_whitesnake.subtitle.whitesnake_remove_disc",
+    "sounds": [
+      "rotp_whitesnake:stand/whitesnake_remove_stand_disc1",
+      "rotp_whitesnake:stand/whitesnake_remove_stand_disc2",
+      "rotp_whitesnake:stand/whitesnake_remove_stand_disc3",
+      "rotp_whitesnake:stand/whitesnake_remove_stand_disc4"
+    ]
+  },
+  "pucci_remove_disk": {
+    "subtitle": "rotp_whitesnake.subtitle.pucci_remove_disk",
+    "sounds": [
+      "rotp_whitesnake:stand_user/pucci_remove_disk"
+    ]
+  },
+  "whitesnake_melt_heart": {
+    "subtitle": "rotp_whitesnake.subtitle.whitesnake_melt_heart",
+    "sounds": [
+      "rotp_whitesnake:stand/whitesnake_melt_heart"
+    ]
+  },
+  "whitesnake_ost": {
+    "subtitle": "rotp_whitesnake.subtitle.whitesnake_ost",
+    "sounds": [
+      "rotp_whitesnake:whitesnake_ost"
+    ]
+  }
+}

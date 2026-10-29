@@ -1,0 +1,152 @@
+﻿{
+  "summon_voice_1": {
+    "sounds": ["scary_monsters:summon_voice_1"]
+  },
+  "heavy_voice_1": {
+    "sounds": ["scary_monsters:heavy_voice_1"]
+  },
+  "heavy_voice_2": {
+    "sounds": ["scary_monsters:heavy_voice_2"]
+  },
+  "finisher_voice_1": {
+    "sounds": ["scary_monsters:finisher_voice_1"]
+  },
+  "finisher_voice_2": {
+    "sounds": ["scary_monsters:finisher_voice_2"]
+  },
+  "finisher_voice_3": {
+    "sounds": ["scary_monsters:finisher_voice_3"]
+  },
+  "barrage_voice_1": {
+    "sounds": ["scary_monsters:barrage_voice_1"]
+  },
+  "barrage_voice_2": {
+    "sounds": ["scary_monsters:barrage_voice_2"]
+  },
+  "barrage_voice_3": {
+    "sounds": ["scary_monsters:barrage_voice_3"]
+  },
+  "barrage_voice_4": {
+    "sounds": ["scary_monsters:barrage_voice_1"]
+  },
+  "barrage_voice_5": {
+    "sounds": ["scary_monsters:barrage_voice_2"]
+  },
+  "barrage_voice_6": {
+    "sounds": ["scary_monsters:barrage_voice_3"]
+  },
+  "dynamic_vision_activate": {
+    "sounds": ["scary_monsters:dynamic_vision_activate"]
+  },
+  "slash_sound": {
+    "sounds": ["scary_monsters:slash_sound"]
+  },
+  "dinosaurify_voice": {
+    "subtitle": "sound.scary_monsters.dinosaurify",
+    "sounds": [
+      {
+        "name": "scary_monsters:dinosaurify_voice",
+        "stream": false
+      }
+    ]
+  },
+  "coffee": {
+    "sounds": ["scary_monsters:coffee"]
+  },
+  "barrage_swing": {
+    "sounds": [
+      {
+        "name": "jojo_ripples:stand/silver_chariot/silver_chariot_barrage_swipe",
+        "pitch": 0.85
+      },
+      {
+        "name": "jojo_ripples:stand/silver_chariot/silver_chariot_barrage_swipe_2",
+        "pitch": 0.85
+      }
+    ]
+  },
+  "jiao": {
+    "sounds": ["scary_monsters:jiao"]
+  },
+  "diego_bgm": {
+    "subtitle": "sound.scary_monsters.diego_bgm",
+    "sounds": [
+      {
+        "name": "scary_monsters:diego_bgm",
+        "stream": true
+      }
+    ]
+  },
+  "diego_bgm_30": {
+    "subtitle": "sound.scary_monsters.diego_bgm",
+    "sounds": [
+      {
+        "name": "scary_monsters:diego_bgm",
+        "stream": true
+      }
+    ]
+  },
+  "diego_bgm_60": {
+    "subtitle": "sound.scary_monsters.diego_bgm",
+    "sounds": [
+      {
+        "name": "scary_monsters:diego_bgm",
+        "stream": true
+      }
+    ]
+  },
+  "diego_bgm_75": {
+    "subtitle": "sound.scary_monsters.diego_bgm",
+    "sounds": [
+      {
+        "name": "scary_monsters:diego_bgm",
+        "stream": true
+      }
+    ]
+  },
+  "diego_bgm_90": {
+    "subtitle": "sound.scary_monsters.diego_bgm",
+    "sounds": [
+      {
+        "name": "scary_monsters:diego_bgm",
+        "stream": true
+      }
+    ]
+  },
+  "diego_bgm_120": {
+    "subtitle": "sound.scary_monsters.diego_bgm",
+    "sounds": [
+      {
+        "name": "scary_monsters:diego_bgm",
+        "stream": true
+      }
+    ]
+  },
+  "diego_bgm_full": {
+    "subtitle": "sound.scary_monsters.diego_bgm",
+    "sounds": [
+      {
+        "name": "scary_monsters:diego_bgm",
+        "stream": true
+      }
+    ]
+  },
+  "diego_bgm_cassette": {
+    "subtitle": "sound.scary_monsters.diego_bgm",
+    "sounds": [
+      {
+        "name": "scary_monsters:diego_bgm",
+        "stream": true
+      }
+    ]
+  },
+  "diego_music": {
+    "subtitle": "sound.scary_monsters.diego_music",
+    "sounds": [
+      {
+        "name": "scary_monsters:diego_music",
+        "stream": true
+      }
+    ]
+  }
+}

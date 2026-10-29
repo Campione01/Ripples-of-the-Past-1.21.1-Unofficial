@@ -1,0 +1,25 @@
+{
+  "stand.rotp_metallica.metallica": "Metallica",
+
+  "rotp_metallica.ability.invisibility": "Invisibilidad",
+  "rotp_metallica.ability.invisibility_disable": "Desactivar invisibilidad",
+  "rotp_metallica.ability.metallica_single_knife_throw": "Lanzar un bisturí",
+  "rotp_metallica.ability.heal": "Sanar",
+  "rotp_metallica.ability.metallica_multiple_knives_throw": "Lanzar 5 bisturís",
+  "rotp_metallica.ability.create_blades_in_victim": "Crear cuchillas en la víctima",
+  "action.rotp_metallica.invisibility": "Invisibilidad",
+  "action.rotp_metallica.metallica_single_knife_throw": "Lanzar un cuchillo",
+  "action.rotp_metallica.heal": "Sanar",
+  "action.rotp_metallica.metallica_multiple_knives_throw": "Lanzar 5 cuchillos",
+  "action.rotp_metallica.create_blades_in_victim": "Crear cuchillas en la víctima",
+  "effect.rotp_metallica.lack_of_iron": "Falta de hierro",
+  "item.rotp_metallica.scalpel": "Bisturí",
+  "rotp_metallica.subtitle.risotto_nero_metallica": "\"Metallica\"",
+  "rotp_metallica.subtitle.risotto_nero_invisibility": "\"¿Qué tal esto?\"",
+  "rotp_metallica.subtitle.risotto_nero_create_blades_in_victim": "\"¡Toma esto! ¡Metallica!\"",
+  "rotp_metallica.subtitle.heal": "Sanar con hierro",
+  "rotp_metallica.subtitle.metallica_summon_stand": "Metallica stand invocado",
+  "rotp_metallica.subtitle.metallica_unsummon_stand": "Metallica stand desinvocado",
+  "rotp_metallica.subtitle.metallica_invisibility_on": "Invisibilidad activada",
+  "rotp_metallica.subtitle.metallica_invisibility_off": "Invisibilidad desactivada"
+}

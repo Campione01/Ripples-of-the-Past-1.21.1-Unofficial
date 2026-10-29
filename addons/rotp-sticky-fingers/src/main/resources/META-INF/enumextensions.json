@@ -1,0 +1,13 @@
+{
+  "entries": [
+    {
+      "enum": "net/minecraft/client/model/HumanoidModel$ArmPose",
+      "name": "ROTP_STFN_CARRIED_PART",
+      "constructor": "(ZLnet/neoforged/neoforge/client/IArmPoseTransformer;)V",
+      "parameters": {
+        "class": "rotp/addons/stickyfingers/client/StickyFingersBodyPresentation",
+        "field": "CARRIED_PART_ARM_POSE"
+      }
+    }
+  ]
+}

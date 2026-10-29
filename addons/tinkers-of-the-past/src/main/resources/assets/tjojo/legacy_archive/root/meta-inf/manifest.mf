@@ -1,0 +1,9 @@
+Manifest-Version: 1.0
+Implementation-Title: Tinkers of the Past
+Implementation-Version: 1.16-1.0
+Specification-Vendor: Zeml
+Specification-Title: tjojo
+Implementation-Timestamp: 2025-05-12T23:38:43-0500
+Specification-Version: 1
+Implementation-Vendor: Zeml
+

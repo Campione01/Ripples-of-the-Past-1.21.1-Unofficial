@@ -1,0 +1,100 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        maven {
+            name = 'NeoForged'
+            url = 'https://maven.neoforged.net/releases'
+        }
+    }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.9.0'
+}
+
+rootProject.name = 'rotp-addons'
+
+// The core is the repository root; it replaces its published coordinates here.
+includeBuild('..') {
+    dependencySubstitution {
+        substitute(module('io.github.campione01.jojo:RipplesOfThePast-Unofficial-NeoForge')).using(project(':'))
+    }
+}
+
+[
+        'rotp-achtung-baby',
+        'rotp-aqua-necklace',
+        'rotp-bad-company',
+        'rotp-blood-bottle',
+        'rotp-c-moon',
+        'rotp-catch-the-rainbow',
+        'rotp-cmoon-reimagined',
+        'rotp-craftable-discs',
+        'rotp-cream',
+        'rotp-d4c',
+        'rotp-diegos-the-world',
+        'rotp-diver-down',
+        'rotp-echoes',
+        'rotp-emperor',
+        'rotp-frost-traveler',
+        'rotp-gold-experience-requiem',
+        'rotp-grateful-dead',
+        'rotp-green-day',
+        'rotp-guanggun',
+        'rotp-harvest',
+        'rotp-heavens-door',
+        'rotp-hermit-purple',
+        'rotp-jumping-jack-flash',
+        'rotp-khnum',
+        'rotp-killer-queen',
+        'rotp-killer-queen-lion',
+        'rotp-king-crimson',
+        'rotp-kiss',
+        'rotp-kraft-work',
+        'rotp-little-feet',
+        'rotp-lovers',
+        'rotp-made-in-heaven',
+        'rotp-mandom',
+        'rotp-memory-discs',
+        'rotp-metallica',
+        'rotp-neo-stand',
+        'rotp-next-album',
+        'rotp-november-rain',
+        'rotp-ova-the-world',
+        'rotp-pearl-jam',
+        'rotp-planet-waves',
+        'rotp-purple-haze',
+        'rotp-reworked',
+        'rotp-rhcp',
+        'rotp-scary-monsters',
+        'rotp-sex-pistols',
+        'rotp-shadow-the-world',
+        'rotp-silver-chariot-requiem',
+        'rotp-soft-and-wet',
+        'rotp-spawn-with-stand',
+        'rotp-speed-king',
+        'rotp-speedwagon',
+        'rotp-spice-girl',
+        'rotp-stand-bearing-creatures',
+        'rotp-sticky-fingers',
+        'rotp-stone-free',
+        'rotp-stone-legacy',
+        'rotp-stone-legacy-zombie-orders',
+        'rotp-the-hand',
+        'rotp-the-lock',
+        'rotp-the-sun',
+        'rotp-ticket-to-ride',
+        'rotp-tournament',
+        'rotp-tusk',
+        'rotp-ultimate-lifeform',
+        'rotp-vampire-climb',
+        'rotp-way-to-heaven',
+        'rotp-weather-report',
+        'rotp-white-album',
+        'rotp-whitesnake',
+        'rotp-wonder-of-u',
+        'rotp-yellow-temperance',
+        'tinkers-of-the-past'
+].each { include(it) }
+
+include('bundle')

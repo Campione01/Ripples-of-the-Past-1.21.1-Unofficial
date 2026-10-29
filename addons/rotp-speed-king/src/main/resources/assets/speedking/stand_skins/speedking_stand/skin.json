@@ -1,0 +1,9 @@
+{
+  "stand_type": "speedking:speedking_stand",
+  "color": "#FF4500",
+  "story_part": "jojo_ripples:p8",
+  "scale": {
+    "width": 0.7,
+    "height": 2.1
+  }
+}

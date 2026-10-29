@@ -1,0 +1,21 @@
+// Public build of RotP D4C - Dirty Deeds Done Dirt Cheap (rotp_d4c). The module identity is in gradle.properties;
+// the shared logic is in ../gradle/addon-module.gradle.
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev'
+}
+
+ext.gameTestStructures = [
+        'data/rotp_d4c/structure/empty.nbt': 'H4sIAAAAAAAEAD3LsQ6CQBCE4TGHeocxvo+1taX9QsZkI9yR2614esGAk/zFFF8LJDSmMwOAtbiXEJldXWlYl3DqhtJ/rF3OISFMxXb0X8DRXJybOE8y0J0/EtE8ZSSuo2b2Vd5+F60LuTzE5cVqWjJwM3wBCpNhdJYAAAA=',
+]
+
+apply from: rootProject.file('gradle/addon-module.gradle')
+
+dependencies {
+    compileOnly('top.theillusivec4.curios:curios-neoforge:9.5.1+1.21.1:api') {
+        transitive = false
+    }
+    runtimeOnly('top.theillusivec4.curios:curios-neoforge:9.5.1+1.21.1') {
+        transitive = false
+    }
+}

@@ -1,0 +1,16 @@
+{
+  "mappings": {
+    "com/thedoggy/spice_girl_addon/mixin/BlockMixin": {
+      "updateEntityAfterFallOn": "Lnet/minecraft/block/Block;func_176216_a(Lnet/minecraft/world/IBlockReader;Lnet/minecraft/entity/Entity;)V",
+      "fallOn": "Lnet/minecraft/block/Block;func_180658_a(Lnet/minecraft/world/World;Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/entity/Entity;F)V"
+    }
+  },
+  "data": {
+    "searge": {
+      "com/thedoggy/spice_girl_addon/mixin/BlockMixin": {
+        "updateEntityAfterFallOn": "Lnet/minecraft/block/Block;func_176216_a(Lnet/minecraft/world/IBlockReader;Lnet/minecraft/entity/Entity;)V",
+        "fallOn": "Lnet/minecraft/block/Block;func_180658_a(Lnet/minecraft/world/World;Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/entity/Entity;F)V"
+      }
+    }
+  }
+}

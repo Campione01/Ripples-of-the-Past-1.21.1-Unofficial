@@ -1,0 +1,20 @@
+{
+  "variants": {
+    "face=ceiling,facing=north": { "model": "stone_legacy:block/aja_stone_mask_predicted_light", "x": 180 },
+    "face=ceiling,facing=east":  { "model": "stone_legacy:block/aja_stone_mask_predicted_light", "x": 180, "y": 90 },
+    "face=ceiling,facing=south": { "model": "stone_legacy:block/aja_stone_mask_predicted_light", "x": 180, "y": 180 },
+    "face=ceiling,facing=west":  { "model": "stone_legacy:block/aja_stone_mask_predicted_light", "x": 180, "y": 270 },
+    "face=floor,facing=north,blood_activation=false": { "model": "stone_legacy:block/aja_stone_mask_predicted_light"  },
+    "face=floor,facing=east,blood_activation=false":  { "model": "stone_legacy:block/aja_stone_mask_predicted_light", "y": 90},
+    "face=floor,facing=south,blood_activation=false": { "model": "stone_legacy:block/aja_stone_mask_predicted_light", "y": 180 },
+    "face=floor,facing=west,blood_activation=false":  { "model": "stone_legacy:block/aja_stone_mask_predicted_light", "y": 270 },
+    "face=floor,facing=north,blood_activation=true": { "model": "stone_legacy:block/aja_stone_mask_predicted_light_activated"  },
+    "face=floor,facing=east,blood_activation=true":  { "model": "stone_legacy:block/aja_stone_mask_predicted_light_activated", "y": 90},
+    "face=floor,facing=south,blood_activation=true": { "model": "stone_legacy:block/aja_stone_mask_predicted_light_activated", "y": 180 },
+    "face=floor,facing=west,blood_activation=true":  { "model": "stone_legacy:block/aja_stone_mask_predicted_light_activated", "y": 270 },
+    "face=wall,facing=north": { "model": "stone_legacy:block/aja_stone_mask_predicted_light", "x": 270, "y": 180 },
+    "face=wall,facing=east":  { "model": "stone_legacy:block/aja_stone_mask_predicted_light", "x": 270, "y": 270 },
+    "face=wall,facing=south": { "model": "stone_legacy:block/aja_stone_mask_predicted_light", "x": 270 },
+    "face=wall,facing=west":  { "model": "stone_legacy:block/aja_stone_mask_predicted_light", "x": 270, "y": 90 }
+  }
+}

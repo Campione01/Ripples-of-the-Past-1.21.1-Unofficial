@@ -1,0 +1,10 @@
+{
+  "entity.rotp_mandom.mandom": "Mandom",
+  "stand.rotp_mandom.mandom": "Mandom",
+
+  "action.rotp_mandom.time_rewind": "Відмотка Часу",
+
+  "tooltip.rotp_mandom.ringo_clock": "Тільки %s секунд. Ні секундою більше, ні секундою менше. Рівно %s секунд.",
+  "item.rotp_mandom.ringo_clock.reference_quote": "Світ справжніх чоловіків.",
+  "item.rotp_mandom.ringo_clock": "Годинник Рінго"
+}

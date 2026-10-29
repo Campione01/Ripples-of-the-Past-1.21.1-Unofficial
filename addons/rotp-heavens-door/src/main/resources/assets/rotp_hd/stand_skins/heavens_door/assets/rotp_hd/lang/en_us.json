@@ -1,0 +1,20 @@
+{
+  "stand.rotp_hd.heavens_door": "Heaven's Door",
+  "ability.rotp_hd.heavens_door_turn_into_a_book": "Turn into a Book",
+  "ability.rotp_hd.heavens_door_barrage": "Heaven's Door Barrage",
+  "ability.rotp_hd.heavens_door_finisher_punch": "Heaven's Door Finisher",
+  "ability.rotp_hd.heavens_door_block": "Block",
+  "ability.rotp_hd.heavens_door_open_book": "Read Book",
+  "ability.rotp_hd.heavens_door_remove_book": "Remove Book",
+  "ability.rotp_hd.heavens_door_tear_out_a_page": "Tear Out a Page",
+  "ability.rotp_hd.heavens_door_return_pages": "Return a Page",
+  "rotp_hd.message.no_owned_book": "No owned book target is in range.",
+  "rotp_hd.message.no_page_to_return": "No owned page can be returned.",
+  "rotp_hd.message.cannot_tear_page": "A page cannot be removed from that target.",
+  "jojo.message.action_condition.no_page": "You need a valid page in your main hand.",
+  "rotp_hd.message.book_snapshot": "%1$s | Health %2$s/%3$s | Age %4$ss | Size %5$s x %6$s | Stand %7$s | Pages %8$s | %9$s ticks remain",
+  "subtitles.rotp_hd.rohan_summon": "Rohan summons Heaven's Door",
+  "subtitles.rotp_hd.rohan_light_attack": "Rohan attacks",
+  "subtitles.rotp_hd.rohan_barrage": "Rohan cries out",
+  "subtitles.rotp_hd.heavens_door_write_command": "Heaven's Door writes"
+}

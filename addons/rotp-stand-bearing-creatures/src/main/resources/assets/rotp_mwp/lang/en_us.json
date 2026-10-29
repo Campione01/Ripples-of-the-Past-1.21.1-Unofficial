@@ -1,0 +1,21 @@
+{
+  "rotp_mwp.configuration.title": "Stand-Bearing Creatures Configuration",
+  "rotp_mwp.configuration.section.rotp.mwp.common.toml": "Common Settings",
+  "rotp_mwp.configuration.section.rotp.mwp.common.toml.title": "Stand-Bearing Creatures Common Configuration",
+  "rotp_mwp.configuration.Settings": "Settings",
+  "rotp_mwp.configuration.percentageChanceToGettingAStandForMob": "Mob Stand Chance (%)",
+  "rotp_mwp.configuration.percentageChanceToGettingAStandForMob.tooltip": "Percentage chance for an eligible new mob to receive a Stand.",
+  "rotp_mwp.configuration.useEntityWhitelist": "Entity List Is a Whitelist",
+  "rotp_mwp.configuration.useEntityWhitelist.tooltip": "False treats entityList as a blacklist; true treats it as a whitelist.",
+  "rotp_mwp.configuration.entityList": "Entity List",
+  "rotp_mwp.configuration.blockedStandsForMobs": "Stands Blocked for Mobs",
+  "rotp_mwp.configuration.blockedStandActions": "Stand Actions Blocked for Mobs",
+  "rotp_mwp.configuration.longRangeStands": "Long-Range Stands",
+  "rotp_mwp.configuration.useAddonStands": "Use Add-on Stands",
+  "rotp_mwp.configuration.smallAnarchyWithStands": "Small Anarchy with Stands",
+  "rotp_mwp.configuration.smallAnarchyWithStands.tooltip": "Allows Stand entities to receive Stand and player-power attachments for Debug Stand nested-power actions. This never adds mob goals or spawn rolls.",
+  "rotp_mwp.configuration.dropStandDiscFromMobs": "Mobs Drop Stand Discs",
+  "rotp_mwp.configuration.spawnBoy2Man": "Spawn Boy II Man",
+  "rotp_mwp.configuration.useWIPComboSystem": "Use WIP Combo System",
+  "rotp_mwp.configuration.requireStandAdvancementToSpawnMobsWithPowers": "Require Stand Advancement for Mobs with Powers"
+}

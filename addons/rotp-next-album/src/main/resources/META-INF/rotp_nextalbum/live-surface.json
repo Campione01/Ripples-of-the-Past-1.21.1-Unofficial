@@ -1,0 +1,128 @@
+{
+  "schema_version": 2,
+  "module_id": "rotp_nextalbum",
+  "version": "0.1.11-port.7",
+  "status": "residual_content_active_after_standalone_split",
+  "registered_ids": [
+    {
+      "registry": "minecraft:mob_effect",
+      "id": "rotp_nextalbum:collapse",
+      "type": "CollapseEffect"
+    },
+    {
+      "registry": "minecraft:item",
+      "id": "rotp_nextalbum:luck_pluck",
+      "type": "LuckPluckItem"
+    },
+    {
+      "registry": "minecraft:item",
+      "id": "rotp_nextalbum:mista_suit_cloth",
+      "type": "MistaSuitArmorItem.CHESTPLATE"
+    },
+    {
+      "registry": "minecraft:item",
+      "id": "rotp_nextalbum:mista_suit_pants",
+      "type": "MistaSuitArmorItem.LEGGINGS"
+    },
+    {
+      "registry": "minecraft:item",
+      "id": "rotp_nextalbum:mista_suit_boots",
+      "type": "MistaSuitArmorItem.BOOTS"
+    },
+    {
+      "registry": "minecraft:item",
+      "id": "rotp_nextalbum:aja_stone_necklace",
+      "type": "AjaStoneNecklaceItem"
+    }
+  ],
+  "event_subscribers": [
+    "rotp.addons.nextalbum.NextAlbumGameEvents",
+    "rotp.addons.nextalbum.client.NextAlbumClientGameEvents",
+    "rotp.addons.nextalbum.client.NextAlbumClientSetup"
+  ],
+  "network_payloads": [
+    "rotp_nextalbum:necklace_beam_sync",
+    "rotp_nextalbum:necklace_charge_state"
+  ],
+  "surface_counts": {
+    "live_java": 23,
+    "live_asset_and_data": 37,
+    "menus": 0,
+    "advancements": 2
+  },
+  "mixin_configs": [
+    "rotp_nextalbum_current.mixins.json"
+  ],
+  "mixin_classes": [
+    "rotp.addons.nextalbum.mixin.MistaAcceptedDamageMixin"
+  ],
+  "advancements": [
+    "rotp_nextalbum:full_mista_suit",
+    "rotp_nextalbum:get_aja_stone"
+  ],
+  "recipes": [
+    "rotp_nextalbum:aja_stone_necklace",
+    "rotp_nextalbum:luck_pluck",
+    "rotp_nextalbum:mista_boots",
+    "rotp_nextalbum:mista_cloth",
+    "rotp_nextalbum:mista_pants",
+    "rotp_nextalbum:super_aja_from_aja_stone_necklace"
+  ],
+  "curios": {
+    "existing_slot": "necklace",
+    "item_tag": "data/curios/tags/item/necklace.json",
+    "player_assignment": "data/rotp_nextalbum/curios/entities/player.json",
+    "slot_definition_owned_here": false
+  },
+  "behavior_summary": {
+    "collapse": "Harmful 0x6F6F7A, uncurable, per-tick Slowness II and Weakness II, swimming pose lock, fall-flying stop, Stand held-input interruption, and Stand force-unsummon.",
+    "luck_pluck": "Diamond sword tool semantics, main-hand +7 attack, -2.4 attack speed, +0.5 block and entity interaction range, enchantability 22, GeckoLib idle model, and owner-keyed hand-free eligibility.",
+    "mista_suit": "Durability factor 16, defense 3/2/1, enchantability 15, projectile or revolver_bullet reduction of 15 percent per residual piece, overlay hiding, GeckoLib armor models.",
+    "aja_stone_necklace": "Vanilla head or Curios necklace equip, sneak use starts a charge from the server's item and block use events or, for a bare hand in the air, the server payload (sneak only starts it; no start while an item is in use; a use an entity interaction takes, or an item on cooldown, fires no use event and gets no keepalive, so it starts nothing); a use is taken from vanilla only while the server charges, on the client only once the clientbound charge-state payload confirms it and never for an entity interaction; a use pressed again within the 8-tick keepalive timeout goes on with the charge; the charge sound plays for the charger only; new-use PlayerPower held-input exclusion, Hamon gate, immediate Aja Stone Keeper fire or 50-tick light-gated charge, 40 damage, 36 range, 150-tick cooldown, GeckoLib armor and Curio render."
+  },
+  "core_integrations": [
+    {
+      "id": "luck_pluck_hand_free",
+      "feature": "item_hand_free_predicates_v1",
+      "public_api": "ItemHandFreePredicates.register"
+    },
+    {
+      "id": "collapse_stand_held_input_interrupt",
+      "feature": "server_held_input_control_v1",
+      "public_api": "StandPower.interruptHeldInputs",
+      "power_class": "stand"
+    },
+    {
+      "id": "aja_necklace_player_held_input_exclusion",
+      "feature": "server_held_input_control_v1",
+      "public_api": "PlayerPower.hasHeldInput",
+      "power_class": "player",
+      "scope": "new_use_start_only"
+    }
+  ],
+  "compiled_unregistered_state": [
+    "rotp.addons.nextalbum.content.aging.ItemAgingState",
+    "rotp.addons.nextalbum.item.MistaSuitArmorMaterial"
+  ],
+  "external_owners": {
+    "plant_aging_dust": {
+      "module": "rotp_grateful_dead",
+      "registry_id": "rotp_nextalbum:plant_aging_dust",
+      "active_here": false
+    },
+    "sex_pistols_and_firearm": "rotp_sex_pistols",
+    "collapse_optional_consumer": {
+      "module": "rotp_sex_pistols",
+      "path_owner": "critical piercing hit",
+      "lookup": "minecraft:mob_effect/rotp_nextalbum:collapse",
+      "hard_dependency": false
+    },
+    "mista_suit_hat": "rotp_sex_pistols",
+    "joyful": "rotp_sex_pistols",
+    "silver_chariot_requiem": "rotp_silver_chariot_requiem"
+  },
+  "unsupported_api_gaps": [],
+  "live_resource_authority": "migration/manifests/residual-resource-disposition.json",
+  "owner_authority": "migration/manifests/residual-owner-disposition.json",
+  "runtime_validation": "not_run"
+}

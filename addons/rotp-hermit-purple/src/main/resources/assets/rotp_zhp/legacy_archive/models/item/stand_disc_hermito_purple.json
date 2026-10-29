@@ -1,0 +1,7 @@
+{
+  "parent": "item/generated",
+  "textures": {
+    "layer0": "rotp_zhp:item/stand_disc",
+    "layer1": "rotp_zhp:item/stand_disc"
+  }
+}

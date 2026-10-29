@@ -1,0 +1,13 @@
+{
+  "entity.guanggun.guanggun": "光棍",
+  "entity.guanggun.guanggun_bullet": "光棍弹体",
+  "stand.guanggun.guanggun": "光棍",
+  "guanggun.ability.guanggun_punch": "轻击",
+  "guanggun.ability.guanggun_barrage": "连打",
+  "guanggun.ability.guanggun_heavy_punch": "重击",
+  "guanggun.ability.guanggun_gun": "射击",
+  "guanggun.ability.guanggun_block": "格挡",
+  "stand.guanggun.guanggun_summon": "光棍：召唤",
+  "stand.guanggun.guanggun_ost": "光棍：主题曲",
+  "guanggun.ability.manual_control": "手动控制"
+}

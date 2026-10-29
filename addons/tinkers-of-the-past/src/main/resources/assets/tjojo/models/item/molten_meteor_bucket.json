@@ -1,0 +1,10 @@
+{
+  "loader": "neoforge:fluid_container",
+  "fluid": "tjojo:molten_meteor",
+  "apply_fluid_luminosity": true,
+  "textures": {
+    "base": "minecraft:item/bucket",
+    "fluid": "minecraft:item/bucket",
+    "particle": "tjojo:block/fluids/molten_metal_still"
+  }
+}

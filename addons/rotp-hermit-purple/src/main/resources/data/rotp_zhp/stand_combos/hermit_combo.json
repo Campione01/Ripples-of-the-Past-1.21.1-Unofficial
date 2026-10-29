@@ -1,0 +1,52 @@
+{
+  "rotp_zhp:hermito_purple": {
+    "use_by_resolve":{
+      "0lvl": ["basic_combo"],
+      "1lvl": ["basic_combo", "grabbing"],
+      "2lvl": ["basic_combo","grabbing","closing"],
+      "3lvl": ["basic_combo", "grabbing","closing", "overdrive", "great_grab"],
+      "4lvl": ["basic_combo", "grabbing","closing", "overdrive", "scarlet", "great_grab","disrespect"]
+    },
+    "block": "rotp_zhp:hp_block",
+    "basic_combo":[
+      { "action": "rotp_zhp:hp_vine_attack", "distance": "<3" },
+      { "action": "rotp_zhp:hp_vine_attack", "distance": "<3" },
+      { "action": "rotp_zhp:hp_vine_shift", "distance": "<4" }
+    ],
+    "grabbing":[
+      { "action": "rotp_zhp:hp_grab", "distance": ">6" },
+      { "action": "rotp_zhp:hp_vine_attack", "distance": "<3" },
+      { "action": "rotp_zhp:hp_vine_attack", "distance": "<3" },
+      { "action": "rotp_zhp:hp_vine_shift", "distance": "<2" }
+    ],
+    "closing":[
+      { "action": "rotp_zhp:hp_vine", "distance": ">15" },
+      { "action": "rotp_zhp:hp_vine_attack", "distance": "<3" },
+      { "action": "rotp_zhp:hp_vine_attack", "distance": "<3" },
+      { "action": "rotp_zhp:hp_vine_shift", "distance": "<2" }
+    ],
+    "overdrive": [
+      { "action": "rotp_zhp:hp_grab", "distance": ">6" },
+      { "action": "rotp_zhp:hp_grab_od", "distance": "<3" }
+    ],
+    "scarlet": [
+      { "action": "rotp_zhp:hp_grab", "distance": ">6" },
+      { "action": "rotp_zhp:hp_grab_sc", "distance": "<3" }
+    ],
+    "great_grab": [
+      { "action": "rotp_zhp:hp_vine_entity", "distance": ">15" },
+      { "action": "rotp_zhp:hp_vine_attack", "distance": "<3" },
+      { "action": "rotp_zhp:hp_vine_attack", "distance": "<3" },
+      { "action": "rotp_zhp:hp_vine_shift", "distance": "<2" }
+    ],
+    "disrespect": [
+      { "action": "rotp_zhp:hp_vine_attack", "distance": "<3" },
+      { "action": "rotp_zhp:hp_vine_attack", "distance": "<3" },
+      { "action": "rotp_zhp:hp_vine_shift", "distance": "<2" },
+      { "action": "rotp_zhp:hp_grab"},
+      { "action": "rotp_zhp:hp_grab_od", "distance": "<3" },
+      { "action": "rotp_zhp:cringe", "distance": "<3" }
+    ]
+
+  }
+}

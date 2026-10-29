@@ -1,0 +1,8 @@
+# Build output of the add-on build.
+/.gradle/
+/build/
+/*/build/
+/*/.gradle/
+# Everything under a module's sources is published, whatever the core's
+# ignore rules (build, run, out, bin, *.class, *.log, ...) would say.
+!/*/src/**

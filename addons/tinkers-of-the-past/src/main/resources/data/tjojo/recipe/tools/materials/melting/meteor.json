@@ -1,0 +1,15 @@
+{
+    "neoforge:conditions":  [
+                                {
+                                    "type":  "neoforge:mod_loaded",
+                                    "modid":  "tconstruct"
+                                }
+                            ],
+    "type":  "tconstruct:material_melting",
+    "input":  "tjojo:meteor",
+    "temperature":  700,
+    "result":  {
+                   "tag":  "c:molten_meteor",
+                   "amount":  90
+               }
+}

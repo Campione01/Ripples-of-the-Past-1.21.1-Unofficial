@@ -1,0 +1,2196 @@
+{
+    "format_version":  "1.12.0",
+    "minecraft:geometry":  [
+                               {
+                                   "description":  {
+                                                       "identifier":  "geometry.rotp_littlefeet.little_feet",
+                                                       "texture_width":  128,
+                                                       "texture_height":  128,
+                                                       "visible_bounds_width":  3,
+                                                       "visible_bounds_height":  4.5,
+                                                       "visible_bounds_offset":  [
+                                                                                     0,
+                                                                                     1.7,
+                                                                                     0
+                                                                                 ]
+                                                   },
+                                   "bones":  [
+                                                 {
+                                                     "name":  "stand_pos",
+                                                     "pivot":  [
+                                                                   0,
+                                                                   0,
+                                                                   0
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "body_rot",
+                                                     "parent":  "stand_pos",
+                                                     "pivot":  [
+                                                                   0,
+                                                                   24,
+                                                                   0
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "body",
+                                                     "parent":  "body_rot",
+                                                     "pivot":  [
+                                                                   0,
+                                                                   24,
+                                                                   0
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "torso",
+                                                     "parent":  "body",
+                                                     "pivot":  [
+                                                                   0,
+                                                                   12,
+                                                                   0
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "torso_bend",
+                                                     "parent":  "torso",
+                                                     "pivot":  [
+                                                                   0,
+                                                                   24,
+                                                                   0
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "head",
+                                                     "parent":  "torso_bend",
+                                                     "pivot":  [
+                                                                   0,
+                                                                   24,
+                                                                   0
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "head_rot",
+                                                     "parent":  "head",
+                                                     "pivot":  [
+                                                                   0,
+                                                                   24,
+                                                                   0
+                                                               ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -4,
+                                                                                      24,
+                                                                                      -4
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    8,
+                                                                                    8,
+                                                                                    8
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  0,
+                                                                                  0
+                                                                              ]
+                                                                   },
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -3.25,
+                                                                                      26.5,
+                                                                                      -4.45
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    2,
+                                                                                    2,
+                                                                                    1
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  0,
+                                                                                  0
+                                                                              ],
+                                                                       "inflate":  -0.25
+                                                                   },
+                                                                   {
+                                                                       "origin":  [
+                                                                                      1.25,
+                                                                                      26.5,
+                                                                                      -4.45
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    2,
+                                                                                    2,
+                                                                                    1
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  0,
+                                                                                  0
+                                                                              ],
+                                                                       "inflate":  -0.25
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "torso_no_arms",
+                                                     "parent":  "torso_bend",
+                                                     "pivot":  [
+                                                                   0,
+                                                                   24,
+                                                                   0
+                                                               ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -4,
+                                                                                      12,
+                                                                                      -2
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    8,
+                                                                                    12,
+                                                                                    4
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  0,
+                                                                                  64
+                                                                              ]
+                                                                   },
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -4,
+                                                                                      14,
+                                                                                      -2
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    8,
+                                                                                    3,
+                                                                                    4
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  10,
+                                                                                  57
+                                                                              ],
+                                                                       "inflate":  0.125
+                                                                   },
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -2,
+                                                                                      11.9,
+                                                                                      -2.6
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    4,
+                                                                                    2,
+                                                                                    5
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  24,
+                                                                                  74
+                                                                              ]
+                                                                   },
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -4,
+                                                                                      18,
+                                                                                      -2
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    8,
+                                                                                    6,
+                                                                                    4
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  24,
+                                                                                  64
+                                                                              ],
+                                                                       "inflate":  0.25
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "torso_lower",
+                                                     "parent":  "torso",
+                                                     "pivot":  [
+                                                                   0,
+                                                                   12,
+                                                                   0
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "left_arm_xrot",
+                                                     "parent":  "torso_bend",
+                                                     "pivot":  [
+                                                                   6,
+                                                                   22,
+                                                                   0
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "left_arm",
+                                                     "parent":  "left_arm_xrot",
+                                                     "pivot":  [
+                                                                   6,
+                                                                   22,
+                                                                   0
+                                                               ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      4,
+                                                                                      18,
+                                                                                      -2
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    4,
+                                                                                    6,
+                                                                                    4
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  32,
+                                                                                  108
+                                                                              ]
+                                                                   },
+                                                                   {
+                                                                       "origin":  [
+                                                                                      4,
+                                                                                      19,
+                                                                                      -2
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    4,
+                                                                                    3,
+                                                                                    4
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  48,
+                                                                                  112
+                                                                              ],
+                                                                       "inflate":  0.125
+                                                                   },
+                                                                   {
+                                                                       "origin":  [
+                                                                                      4,
+                                                                                      18,
+                                                                                      -2
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    4,
+                                                                                    1,
+                                                                                    4
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  79,
+                                                                                  58
+                                                                              ],
+                                                                       "inflate":  0.25
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "left_arm_joint",
+                                                     "parent":  "left_arm",
+                                                     "pivot":  [
+                                                                   6,
+                                                                   18,
+                                                                   0
+                                                               ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      4.5,
+                                                                                      16.5,
+                                                                                      -1.5
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    3,
+                                                                                    3,
+                                                                                    3
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  32,
+                                                                                  102
+                                                                              ],
+                                                                       "inflate":  -0.1,
+                                                                       "mirror":  true
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "left_arm_bend",
+                                                     "parent":  "left_arm",
+                                                     "pivot":  [
+                                                                   6,
+                                                                   18,
+                                                                   0
+                                                               ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      4,
+                                                                                      12,
+                                                                                      -2
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    4,
+                                                                                    6,
+                                                                                    4
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  32,
+                                                                                  118
+                                                                              ],
+                                                                       "inflate":  -0.001,
+                                                                       "mirror":  true
+                                                                   },
+                                                                   {
+                                                                       "origin":  [
+                                                                                      4,
+                                                                                      15,
+                                                                                      -2
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    4,
+                                                                                    1,
+                                                                                    4
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  48,
+                                                                                  123
+                                                                              ],
+                                                                       "inflate":  0.125,
+                                                                       "mirror":  true
+                                                                   },
+                                                                   {
+                                                                       "origin":  [
+                                                                                      4,
+                                                                                      16.525,
+                                                                                      -2
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    4,
+                                                                                    1,
+                                                                                    4
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  83,
+                                                                                  76
+                                                                              ],
+                                                                       "inflate":  0.24
+                                                                   },
+                                                                   {
+                                                                       "origin":  [
+                                                                                      7.5,
+                                                                                      11.9,
+                                                                                      -2
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    1,
+                                                                                    1,
+                                                                                    4
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  42,
+                                                                                  97
+                                                                              ],
+                                                                       "inflate":  -0.2,
+                                                                       "mirror":  true
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "right_arm_xrot",
+                                                     "parent":  "torso_bend",
+                                                     "pivot":  [
+                                                                   -6,
+                                                                   22,
+                                                                   0
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "right_arm",
+                                                     "parent":  "right_arm_xrot",
+                                                     "pivot":  [
+                                                                   -6,
+                                                                   22,
+                                                                   0
+                                                               ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -8,
+                                                                                      18,
+                                                                                      -2
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    4,
+                                                                                    6,
+                                                                                    4
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  0,
+                                                                                  108
+                                                                              ]
+                                                                   },
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -8,
+                                                                                      19,
+                                                                                      -2
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    4,
+                                                                                    3,
+                                                                                    4
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  16,
+                                                                                  112
+                                                                              ],
+                                                                       "inflate":  0.125
+                                                                   },
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -8,
+                                                                                      18,
+                                                                                      -2
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    4,
+                                                                                    1,
+                                                                                    4
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  79,
+                                                                                  58
+                                                                              ],
+                                                                       "inflate":  0.25,
+                                                                       "mirror":  true
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "right_arm_joint",
+                                                     "parent":  "right_arm",
+                                                     "pivot":  [
+                                                                   -6,
+                                                                   18,
+                                                                   0
+                                                               ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -7.5,
+                                                                                      16.5,
+                                                                                      -1.5
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    3,
+                                                                                    3,
+                                                                                    3
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  0,
+                                                                                  102
+                                                                              ],
+                                                                       "inflate":  -0.1
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "right_arm_bend",
+                                                     "parent":  "right_arm",
+                                                     "pivot":  [
+                                                                   -6,
+                                                                   18,
+                                                                   0
+                                                               ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -8,
+                                                                                      16.525,
+                                                                                      -2
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    4,
+                                                                                    1,
+                                                                                    4
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  83,
+                                                                                  76
+                                                                              ],
+                                                                       "inflate":  0.24,
+                                                                       "mirror":  true
+                                                                   },
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -8,
+                                                                                      12,
+                                                                                      -2
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    4,
+                                                                                    6,
+                                                                                    4
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  0,
+                                                                                  118
+                                                                              ],
+                                                                       "inflate":  -0.001
+                                                                   },
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -8,
+                                                                                      15,
+                                                                                      -2
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    4,
+                                                                                    1,
+                                                                                    4
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  16,
+                                                                                  123
+                                                                              ],
+                                                                       "inflate":  0.125
+                                                                   },
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -8.5,
+                                                                                      11.9,
+                                                                                      -2
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    1,
+                                                                                    1,
+                                                                                    4
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  10,
+                                                                                  97
+                                                                              ],
+                                                                       "inflate":  -0.2
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "left_leg_xrot",
+                                                     "parent":  "body",
+                                                     "pivot":  [
+                                                                   2,
+                                                                   12,
+                                                                   0
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "left_leg",
+                                                     "parent":  "left_leg_xrot",
+                                                     "pivot":  [
+                                                                   2,
+                                                                   12,
+                                                                   0
+                                                               ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      0,
+                                                                                      6,
+                                                                                      -2
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    4,
+                                                                                    6,
+                                                                                    4
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  112,
+                                                                                  108
+                                                                              ],
+                                                                       "inflate":  0.125
+                                                                   },
+                                                                   {
+                                                                       "origin":  [
+                                                                                      0,
+                                                                                      6,
+                                                                                      -2
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    4,
+                                                                                    6,
+                                                                                    4
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  96,
+                                                                                  108
+                                                                              ]
+                                                                   },
+                                                                   {
+                                                                       "origin":  [
+                                                                                      0,
+                                                                                      6.75,
+                                                                                      -2
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    4,
+                                                                                    5,
+                                                                                    4
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  96,
+                                                                                  90
+                                                                              ],
+                                                                       "inflate":  0.25
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "left_leg_joint",
+                                                     "parent":  "left_leg",
+                                                     "pivot":  [
+                                                                   2,
+                                                                   6,
+                                                                   0
+                                                               ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      0.5,
+                                                                                      4.5,
+                                                                                      -1.5
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    3,
+                                                                                    3,
+                                                                                    3
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  96,
+                                                                                  102
+                                                                              ],
+                                                                       "inflate":  -0.1,
+                                                                       "mirror":  true
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "left_leg_bend",
+                                                     "parent":  "left_leg",
+                                                     "pivot":  [
+                                                                   2,
+                                                                   6,
+                                                                   0
+                                                               ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      0,
+                                                                                      2,
+                                                                                      -2
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    4,
+                                                                                    4,
+                                                                                    4
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  112,
+                                                                                  118
+                                                                              ],
+                                                                       "inflate":  0.125
+                                                                   },
+                                                                   {
+                                                                       "origin":  [
+                                                                                      0,
+                                                                                      0,
+                                                                                      -2
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    4,
+                                                                                    6,
+                                                                                    4
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  96,
+                                                                                  118
+                                                                              ],
+                                                                       "inflate":  -0.001
+                                                                   },
+                                                                   {
+                                                                       "origin":  [
+                                                                                      0,
+                                                                                      1.75,
+                                                                                      -2
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    4,
+                                                                                    3,
+                                                                                    4
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  112,
+                                                                                  98
+                                                                              ],
+                                                                       "inflate":  0.25
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "right_leg_xrot",
+                                                     "parent":  "body",
+                                                     "pivot":  [
+                                                                   -2,
+                                                                   12,
+                                                                   0
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "right_leg",
+                                                     "parent":  "right_leg_xrot",
+                                                     "pivot":  [
+                                                                   -2,
+                                                                   12,
+                                                                   0
+                                                               ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -4,
+                                                                                      6,
+                                                                                      -2
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    4,
+                                                                                    6,
+                                                                                    4
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  80,
+                                                                                  108
+                                                                              ],
+                                                                       "inflate":  0.125
+                                                                   },
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -4,
+                                                                                      6,
+                                                                                      -2
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    4,
+                                                                                    6,
+                                                                                    4
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  64,
+                                                                                  108
+                                                                              ]
+                                                                   },
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -4,
+                                                                                      6.75,
+                                                                                      -2
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    4,
+                                                                                    5,
+                                                                                    4
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  64,
+                                                                                  90
+                                                                              ],
+                                                                       "inflate":  0.25
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "right_leg_joint",
+                                                     "parent":  "right_leg",
+                                                     "pivot":  [
+                                                                   -2,
+                                                                   6,
+                                                                   0
+                                                               ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -3.5,
+                                                                                      4.5,
+                                                                                      -1.5
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    3,
+                                                                                    3,
+                                                                                    3
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  64,
+                                                                                  102
+                                                                              ],
+                                                                       "inflate":  -0.1
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "right_leg_bend",
+                                                     "parent":  "right_leg",
+                                                     "pivot":  [
+                                                                   -2,
+                                                                   6,
+                                                                   0
+                                                               ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -4,
+                                                                                      2,
+                                                                                      -2
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    4,
+                                                                                    4,
+                                                                                    4
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  80,
+                                                                                  118
+                                                                              ],
+                                                                       "inflate":  0.125
+                                                                   },
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -4,
+                                                                                      0,
+                                                                                      -2
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    4,
+                                                                                    6,
+                                                                                    4
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  64,
+                                                                                  118
+                                                                              ],
+                                                                       "inflate":  -0.001
+                                                                   },
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -4,
+                                                                                      1.75,
+                                                                                      -2
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    4,
+                                                                                    3,
+                                                                                    4
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  80,
+                                                                                  98
+                                                                              ],
+                                                                       "inflate":  0.25
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "helmet",
+                                                     "parent":  "head_rot",
+                                                     "pivot":  [
+                                                                   -2.8502,
+                                                                   28.1833,
+                                                                   0
+                                                               ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -3,
+                                                                                      25.5918,
+                                                                                      -4.5
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    6,
+                                                                                    7,
+                                                                                    9
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  64,
+                                                                                  0
+                                                                              ],
+                                                                       "inflate":  0.15
+                                                                   },
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -4,
+                                                                                      24.5918,
+                                                                                      -4
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    8,
+                                                                                    7.5,
+                                                                                    8
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  32,
+                                                                                  0
+                                                                              ],
+                                                                       "inflate":  0.26
+                                                                   },
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -1,
+                                                                                      27.3418,
+                                                                                      -4.5
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    2,
+                                                                                    1,
+                                                                                    1
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  25,
+                                                                                  16
+                                                                              ],
+                                                                       "inflate":  0.1
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "helmet_r1",
+                                                     "parent":  "helmet",
+                                                     "pivot":  [
+                                                                   -4.7,
+                                                                   27.25,
+                                                                   0
+                                                               ],
+                                                     "rotation":  [
+                                                                      0,
+                                                                      0,
+                                                                      7.500018
+                                                                  ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -5.7,
+                                                                                      25.25,
+                                                                                      -1.5
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    2,
+                                                                                    4,
+                                                                                    3
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  13,
+                                                                                  18
+                                                                              ]
+                                                                   },
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -5.7,
+                                                                                      25.75,
+                                                                                      -1.5
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    2,
+                                                                                    1,
+                                                                                    3
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  23,
+                                                                                  21
+                                                                              ],
+                                                                       "inflate":  0.125
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "helmet_r2",
+                                                     "parent":  "helmet",
+                                                     "pivot":  [
+                                                                   4.7,
+                                                                   27.25,
+                                                                   0
+                                                               ],
+                                                     "rotation":  [
+                                                                      0,
+                                                                      0,
+                                                                      -7.500018
+                                                                  ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      3.7,
+                                                                                      25.25,
+                                                                                      -1.5
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    2,
+                                                                                    4,
+                                                                                    3
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  13,
+                                                                                  18
+                                                                              ],
+                                                                       "mirror":  true
+                                                                   },
+                                                                   {
+                                                                       "origin":  [
+                                                                                      3.7,
+                                                                                      25.25,
+                                                                                      -1.5
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    2,
+                                                                                    1,
+                                                                                    3
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  23,
+                                                                                  21
+                                                                              ],
+                                                                       "inflate":  0.125,
+                                                                       "mirror":  true
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "helmet_r3",
+                                                     "parent":  "helmet",
+                                                     "pivot":  [
+                                                                   -2.8502,
+                                                                   28.1833,
+                                                                   0
+                                                               ],
+                                                     "rotation":  [
+                                                                      0,
+                                                                      0,
+                                                                      -5.001922
+                                                                  ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -4.5142,
+                                                                                      27.8365,
+                                                                                      -4.5
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    2,
+                                                                                    1,
+                                                                                    3
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  69,
+                                                                                  18
+                                                                              ],
+                                                                       "inflate":  0.001,
+                                                                       "mirror":  true
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "helmet_r4",
+                                                     "parent":  "helmet",
+                                                     "pivot":  [
+                                                                   -2.8502,
+                                                                   28.1833,
+                                                                   0
+                                                               ],
+                                                     "rotation":  [
+                                                                      0,
+                                                                      0,
+                                                                      9.998114
+                                                                  ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -3.1777,
+                                                                                      27.7718,
+                                                                                      -4.5
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    2.5,
+                                                                                    1,
+                                                                                    0
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  44,
+                                                                                  21
+                                                                              ]
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "helmet_r5",
+                                                     "parent":  "helmet",
+                                                     "pivot":  [
+                                                                   2.8502,
+                                                                   28.1833,
+                                                                   0
+                                                               ],
+                                                     "rotation":  [
+                                                                      0,
+                                                                      0,
+                                                                      -9.998114
+                                                                  ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      0.6777,
+                                                                                      27.7718,
+                                                                                      -4.5
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    2.5,
+                                                                                    1,
+                                                                                    0
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  44,
+                                                                                  22
+                                                                              ],
+                                                                       "mirror":  true
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "helmet_r6",
+                                                     "parent":  "helmet",
+                                                     "pivot":  [
+                                                                   2.8502,
+                                                                   28.1833,
+                                                                   0
+                                                               ],
+                                                     "rotation":  [
+                                                                      0,
+                                                                      0,
+                                                                      5.001922
+                                                                  ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      2.5142,
+                                                                                      27.8365,
+                                                                                      -4.5
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    2,
+                                                                                    1,
+                                                                                    3
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  58,
+                                                                                  18
+                                                                              ],
+                                                                       "inflate":  0.001
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "helmet_r7",
+                                                     "parent":  "helmet",
+                                                     "pivot":  [
+                                                                   4,
+                                                                   30.3418,
+                                                                   -2.25
+                                                               ],
+                                                     "rotation":  [
+                                                                      22.500053,
+                                                                      0,
+                                                                      0
+                                                                  ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      3.5,
+                                                                                      29.8418,
+                                                                                      -2.75
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    1,
+                                                                                    1,
+                                                                                    1
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  107,
+                                                                                  75
+                                                                              ],
+                                                                       "mirror":  true
+                                                                   },
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -4.5,
+                                                                                      29.8418,
+                                                                                      -2.75
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    1,
+                                                                                    1,
+                                                                                    1
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  109,
+                                                                                  73
+                                                                              ]
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "bone2",
+                                                     "parent":  "head_rot",
+                                                     "pivot":  [
+                                                                   0,
+                                                                   24.75,
+                                                                   -3.1
+                                                               ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -2.5,
+                                                                                      24.05,
+                                                                                      -4.275
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    5,
+                                                                                    2,
+                                                                                    1
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  0,
+                                                                                  21
+                                                                              ],
+                                                                       "inflate":  -0.25
+                                                                   },
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -3,
+                                                                                      23.25,
+                                                                                      -4.6
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    6,
+                                                                                    3,
+                                                                                    2
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  0,
+                                                                                  16
+                                                                              ],
+                                                                       "inflate":  -0.4
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "torso_r1",
+                                                     "parent":  "torso_no_arms",
+                                                     "pivot":  [
+                                                                   0.0109,
+                                                                   21.3998,
+                                                                   2.1755
+                                                               ],
+                                                     "rotation":  [
+                                                                      -4.89306,
+                                                                      -2.704361,
+                                                                      -2.274642
+                                                                  ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      0.0462,
+                                                                                      19.3112,
+                                                                                      1.764
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    4,
+                                                                                    4,
+                                                                                    1
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  0,
+                                                                                  59
+                                                                              ],
+                                                                       "mirror":  true
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "torso_r2",
+                                                     "parent":  "torso_no_arms",
+                                                     "pivot":  [
+                                                                   0.0109,
+                                                                   21.3998,
+                                                                   2.1755
+                                                               ],
+                                                     "rotation":  [
+                                                                      -4.89306,
+                                                                      2.704361,
+                                                                      2.274642
+                                                                  ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -4.0243,
+                                                                                      19.3107,
+                                                                                      1.7649
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    4,
+                                                                                    4,
+                                                                                    1
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  0,
+                                                                                  54
+                                                                              ]
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "torso_r3",
+                                                     "parent":  "torso_no_arms",
+                                                     "pivot":  [
+                                                                   2.5,
+                                                                   13,
+                                                                   0
+                                                               ],
+                                                     "rotation":  [
+                                                                      0,
+                                                                      0,
+                                                                      -7.500018
+                                                                  ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      1.5,
+                                                                                      12.5,
+                                                                                      -2.5
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    3,
+                                                                                    2,
+                                                                                    5
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  48,
+                                                                                  66
+                                                                              ],
+                                                                       "mirror":  true
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "torso_r4",
+                                                     "parent":  "torso_no_arms",
+                                                     "pivot":  [
+                                                                   -2.5,
+                                                                   13,
+                                                                   0
+                                                               ],
+                                                     "rotation":  [
+                                                                      0,
+                                                                      0,
+                                                                      7.500018
+                                                                  ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -4.5,
+                                                                                      12.5,
+                                                                                      -2.5
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    3,
+                                                                                    2,
+                                                                                    5
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  48,
+                                                                                  66
+                                                                              ]
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "torso_r5",
+                                                     "parent":  "torso_no_arms",
+                                                     "pivot":  [
+                                                                   -1.75,
+                                                                   13.4,
+                                                                   2.15
+                                                               ],
+                                                     "rotation":  [
+                                                                      0,
+                                                                      0,
+                                                                      22.500053
+                                                                  ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -2.25,
+                                                                                      12.9,
+                                                                                      1.65
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    1,
+                                                                                    1,
+                                                                                    1
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  103,
+                                                                                  75
+                                                                              ],
+                                                                       "mirror":  true
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "torso_r6",
+                                                     "parent":  "torso_no_arms",
+                                                     "pivot":  [
+                                                                   1.75,
+                                                                   13.4,
+                                                                   2.15
+                                                               ],
+                                                     "rotation":  [
+                                                                      0,
+                                                                      0,
+                                                                      157.500368
+                                                                  ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      1.25,
+                                                                                      12.9,
+                                                                                      1.65
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    1,
+                                                                                    1,
+                                                                                    1
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  106,
+                                                                                  73
+                                                                              ],
+                                                                       "mirror":  true
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "torso_r7",
+                                                     "parent":  "torso_no_arms",
+                                                     "pivot":  [
+                                                                   1.75,
+                                                                   12.9,
+                                                                   -2.35
+                                                               ],
+                                                     "rotation":  [
+                                                                      0,
+                                                                      0,
+                                                                      22.500053
+                                                                  ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      1.25,
+                                                                                      12.4,
+                                                                                      -2.85
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    1,
+                                                                                    1,
+                                                                                    1
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  105,
+                                                                                  75
+                                                                              ]
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "torso_r8",
+                                                     "parent":  "torso_no_arms",
+                                                     "pivot":  [
+                                                                   -1.75,
+                                                                   12.9,
+                                                                   -2.35
+                                                               ],
+                                                     "rotation":  [
+                                                                      0,
+                                                                      0,
+                                                                      -22.500053
+                                                                  ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -2.25,
+                                                                                      12.4,
+                                                                                      -2.85
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    1,
+                                                                                    1,
+                                                                                    1
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  105,
+                                                                                  73
+                                                                              ]
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "bone",
+                                                     "parent":  "torso_no_arms",
+                                                     "pivot":  [
+                                                                   0,
+                                                                   21.3249,
+                                                                   -2.6565
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "torso_r9",
+                                                     "parent":  "bone",
+                                                     "pivot":  [
+                                                                   0,
+                                                                   19.25,
+                                                                   -2.4
+                                                               ],
+                                                     "rotation":  [
+                                                                      -5.001922,
+                                                                      0,
+                                                                      0
+                                                                  ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -2,
+                                                                                      17.75,
+                                                                                      -2.9
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    4,
+                                                                                    3,
+                                                                                    1
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  42,
+                                                                                  76
+                                                                              ]
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "torso_r10",
+                                                     "parent":  "bone",
+                                                     "pivot":  [
+                                                                   2,
+                                                                   22.15,
+                                                                   -2.6
+                                                               ],
+                                                     "rotation":  [
+                                                                      0.326586,
+                                                                      7.494288,
+                                                                      -12.479021
+                                                                  ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      3.25,
+                                                                                      22.15,
+                                                                                      -3.35
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    1,
+                                                                                    1,
+                                                                                    1
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  106,
+                                                                                  75
+                                                                              ],
+                                                                       "mirror":  true
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "torso_r11",
+                                                     "parent":  "bone",
+                                                     "pivot":  [
+                                                                   -2,
+                                                                   22.15,
+                                                                   -2.6
+                                                               ],
+                                                     "rotation":  [
+                                                                      0.326586,
+                                                                      -7.494288,
+                                                                      12.479021
+                                                                  ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -4.25,
+                                                                                      22.15,
+                                                                                      -3.35
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    1,
+                                                                                    1,
+                                                                                    1
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  105,
+                                                                                  73
+                                                                              ]
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "torso_r12",
+                                                     "parent":  "bone",
+                                                     "pivot":  [
+                                                                   -2,
+                                                                   22.15,
+                                                                   -2.6
+                                                               ],
+                                                     "rotation":  [
+                                                                      0.326586,
+                                                                      -7.494288,
+                                                                      12.479021
+                                                                  ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -4,
+                                                                                      20.65,
+                                                                                      -3.1
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    4,
+                                                                                    3,
+                                                                                    1
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  52,
+                                                                                  74
+                                                                              ]
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "torso_r13",
+                                                     "parent":  "bone",
+                                                     "pivot":  [
+                                                                   0,
+                                                                   20.75,
+                                                                   -3
+                                                               ],
+                                                     "rotation":  [
+                                                                      -1.501149,
+                                                                      0,
+                                                                      0
+                                                                  ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -0.5,
+                                                                                      20.25,
+                                                                                      -3.5
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    1,
+                                                                                    3,
+                                                                                    1
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  62,
+                                                                                  74
+                                                                              ]
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "torso_r14",
+                                                     "parent":  "bone",
+                                                     "pivot":  [
+                                                                   2,
+                                                                   22.15,
+                                                                   -2.6
+                                                               ],
+                                                     "rotation":  [
+                                                                      0.326586,
+                                                                      7.494288,
+                                                                      -12.479021
+                                                                  ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      0,
+                                                                                      20.65,
+                                                                                      -3.1
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    4,
+                                                                                    3,
+                                                                                    1
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  52,
+                                                                                  78
+                                                                              ],
+                                                                       "mirror":  true
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "left_arm_r1",
+                                                     "parent":  "left_arm",
+                                                     "pivot":  [
+                                                                   8.1082,
+                                                                   23.2369,
+                                                                   0
+                                                               ],
+                                                     "rotation":  [
+                                                                      0,
+                                                                      0,
+                                                                      -20.001957
+                                                                  ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      7.8582,
+                                                                                      21.7619,
+                                                                                      -2.5
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    1,
+                                                                                    3,
+                                                                                    5
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  95,
+                                                                                  68
+                                                                              ]
+                                                                   },
+                                                                   {
+                                                                       "origin":  [
+                                                                                      7.3582,
+                                                                                      21.7619,
+                                                                                      -2
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    1,
+                                                                                    3,
+                                                                                    4
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  84,
+                                                                                  69
+                                                                              ],
+                                                                       "inflate":  0.24
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "left_arm_r2",
+                                                     "parent":  "left_arm",
+                                                     "pivot":  [
+                                                                   5.75,
+                                                                   23.25,
+                                                                   0
+                                                               ],
+                                                     "rotation":  [
+                                                                      0,
+                                                                      0,
+                                                                      -9.998114
+                                                                  ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      4.25,
+                                                                                      22.25,
+                                                                                      -2
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    3,
+                                                                                    2,
+                                                                                    4
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  83,
+                                                                                  63
+                                                                              ],
+                                                                       "inflate":  0.25
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "left_fore_arm_r1",
+                                                     "parent":  "left_arm_bend",
+                                                     "pivot":  [
+                                                                   8.05,
+                                                                   13.9,
+                                                                   0
+                                                               ],
+                                                     "rotation":  [
+                                                                      -45.000105,
+                                                                      0,
+                                                                      0
+                                                                  ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      7.05,
+                                                                                      12.4,
+                                                                                      -1.5
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    2,
+                                                                                    3,
+                                                                                    3
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  10,
+                                                                                  80
+                                                                              ],
+                                                                       "inflate":  -0.65,
+                                                                       "mirror":  true
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "left_fore_arm_r2",
+                                                     "parent":  "left_arm_bend",
+                                                     "pivot":  [
+                                                                   8.05,
+                                                                   13.9,
+                                                                   0
+                                                               ],
+                                                     "rotation":  [
+                                                                      -45.000105,
+                                                                      0,
+                                                                      0
+                                                                  ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      7.05,
+                                                                                      12.4,
+                                                                                      -1.5
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    2,
+                                                                                    3,
+                                                                                    3
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  0,
+                                                                                  80
+                                                                              ],
+                                                                       "inflate":  -0.75,
+                                                                       "mirror":  true
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "right_arm_r1",
+                                                     "parent":  "right_arm",
+                                                     "pivot":  [
+                                                                   -8.1082,
+                                                                   23.2369,
+                                                                   0
+                                                               ],
+                                                     "rotation":  [
+                                                                      0,
+                                                                      0,
+                                                                      20.001957
+                                                                  ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -8.8582,
+                                                                                      21.7619,
+                                                                                      -2.5
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    1,
+                                                                                    3,
+                                                                                    5
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  95,
+                                                                                  68
+                                                                              ],
+                                                                       "mirror":  true
+                                                                   },
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -8.3582,
+                                                                                      21.7619,
+                                                                                      -2
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    1,
+                                                                                    3,
+                                                                                    4
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  84,
+                                                                                  69
+                                                                              ],
+                                                                       "inflate":  0.24,
+                                                                       "mirror":  true
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "right_arm_r2",
+                                                     "parent":  "right_arm",
+                                                     "pivot":  [
+                                                                   -5.75,
+                                                                   23.25,
+                                                                   0
+                                                               ],
+                                                     "rotation":  [
+                                                                      0,
+                                                                      0,
+                                                                      9.998114
+                                                                  ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -7.25,
+                                                                                      22.25,
+                                                                                      -2
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    3,
+                                                                                    2,
+                                                                                    4
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  83,
+                                                                                  63
+                                                                              ],
+                                                                       "inflate":  0.25,
+                                                                       "mirror":  true
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "right_fore_arm_r1",
+                                                     "parent":  "right_arm_bend",
+                                                     "pivot":  [
+                                                                   -8.05,
+                                                                   13.9,
+                                                                   0
+                                                               ],
+                                                     "rotation":  [
+                                                                      -45.000105,
+                                                                      0,
+                                                                      0
+                                                                  ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -9.05,
+                                                                                      12.4,
+                                                                                      -1.5
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    2,
+                                                                                    3,
+                                                                                    3
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  10,
+                                                                                  80
+                                                                              ],
+                                                                       "inflate":  -0.65
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "right_fore_arm_r2",
+                                                     "parent":  "right_arm_bend",
+                                                     "pivot":  [
+                                                                   -8.05,
+                                                                   13.9,
+                                                                   0
+                                                               ],
+                                                     "rotation":  [
+                                                                      -42.502009,
+                                                                      0,
+                                                                      0
+                                                                  ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -9.05,
+                                                                                      12.4,
+                                                                                      -1.5
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    2,
+                                                                                    3,
+                                                                                    3
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  0,
+                                                                                  80
+                                                                              ],
+                                                                       "inflate":  -0.75
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "greenassfinger",
+                                                     "parent":  "right_arm_bend",
+                                                     "pivot":  [
+                                                                   -7.1197,
+                                                                   12.0102,
+                                                                   -1.5
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "right_fore_arm_r3",
+                                                     "parent":  "greenassfinger",
+                                                     "pivot":  [
+                                                                   -7.1197,
+                                                                   12.0102,
+                                                                   -1.5
+                                                               ],
+                                                     "rotation":  [
+                                                                      0,
+                                                                      0,
+                                                                      -22.500053
+                                                                  ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -8.4081,
+                                                                                      8.6574,
+                                                                                      -2
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    1,
+                                                                                    2,
+                                                                                    1
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  12,
+                                                                                  119
+                                                                              ],
+                                                                       "inflate":  -0.1
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "right_fore_arm_r4",
+                                                     "parent":  "greenassfinger",
+                                                     "pivot":  [
+                                                                   -7.5,
+                                                                   12.05,
+                                                                   -1.5
+                                                               ],
+                                                     "rotation":  [
+                                                                      0,
+                                                                      0,
+                                                                      -7.500018
+                                                                  ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -8,
+                                                                                      10.15,
+                                                                                      -2
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    1,
+                                                                                    2,
+                                                                                    1
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  0,
+                                                                                  119
+                                                                              ],
+                                                                       "inflate":  -0.101
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "left_leg_r1",
+                                                     "parent":  "left_leg",
+                                                     "pivot":  [
+                                                                   3.5682,
+                                                                   12.7625,
+                                                                   0
+                                                               ],
+                                                     "rotation":  [
+                                                                      0,
+                                                                      0,
+                                                                      5.001922
+                                                                  ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      2.0682,
+                                                                                      12.0875,
+                                                                                      -2
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    2,
+                                                                                    1,
+                                                                                    4
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  66,
+                                                                                  85
+                                                                              ],
+                                                                       "inflate":  0.26,
+                                                                       "mirror":  true
+                                                                   }
+                                                               ]
+                                                 },
+                                                 {
+                                                     "name":  "right_leg_r1",
+                                                     "parent":  "right_leg",
+                                                     "pivot":  [
+                                                                   -3.5682,
+                                                                   12.7625,
+                                                                   0
+                                                               ],
+                                                     "rotation":  [
+                                                                      0,
+                                                                      0,
+                                                                      -5.001922
+                                                                  ],
+                                                     "cubes":  [
+                                                                   {
+                                                                       "origin":  [
+                                                                                      -4.0682,
+                                                                                      12.0875,
+                                                                                      -2
+                                                                                  ],
+                                                                       "size":  [
+                                                                                    2,
+                                                                                    1,
+                                                                                    4
+                                                                                ],
+                                                                       "uv":  [
+                                                                                  66,
+                                                                                  85
+                                                                              ],
+                                                                       "inflate":  0.26
+                                                                   }
+                                                               ]
+                                                 }
+                                             ]
+                               }
+                           ]
+}

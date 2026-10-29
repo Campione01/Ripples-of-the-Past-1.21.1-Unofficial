@@ -1,0 +1,6 @@
+{
+  "rotp_silver_chariot_requiem.evolution.max_resolve": "\u94f6\u8272\u6218\u8f66\u5c1a\u672a\u6ee1\u8db3\u8fd9\u652f\u66ff\u8eab\u7bad\u7684\u9547\u9b42\u66f2\u6761\u4ef6\u3002",
+  "rotp_silver_chariot_requiem.evolution.failed": "\u66ff\u8eab\u7bad\u672a\u80fd\u5b8c\u6210\u9547\u9b42\u66f2\u8f6c\u5316\u3002",
+  "rotp_silver_chariot_requiem.evolution.complete": "\u94f6\u8272\u6218\u8f66\u5df2\u89c9\u9192\u4e3a\u94f6\u8272\u6218\u8f66\u9547\u9b42\u66f2\u3002",
+  "rotp_silver_chariot_requiem.soul_exchange": "\u4f60\u7684\u7075\u9b42\u5df2\u4e0e%s\u5efa\u7acb\u8fde\u63a5\u3002"
+}

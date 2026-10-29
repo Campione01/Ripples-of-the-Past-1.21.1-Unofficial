@@ -1,0 +1,14 @@
+// Public build of RotP White Album (rotp_zwa). The module identity is in gradle.properties;
+// the shared logic is in ../gradle/addon-module.gradle.
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev'
+}
+
+apply from: rootProject.file('gradle/addon-module.gradle')
+
+dependencies {
+    compileOnly('maven.modrinth:vu3NZ5Ma:8HHhJt6i') {
+        transitive = false
+    }
+}

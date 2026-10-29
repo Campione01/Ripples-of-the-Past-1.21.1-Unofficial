@@ -1,0 +1,28 @@
+{
+  "type": "jojo_ripples:crafting_shaped_stand",
+  "category": "combat",
+  "pattern": [
+    "aaa",
+    "aba",
+    "aca"
+  ],
+  "key": {
+    "a": {
+      "item": "minecraft:leather"
+    },
+    "b": {
+      "tag": "c:dyes/blue"
+    },
+    "c": {
+      "tag": "c:dyes/red"
+    }
+  },
+  "stand": [
+    {
+      "name": "rotp_sex_pistols:sex_pistols"
+    }
+  ],
+  "result": {
+    "id": "rotp_nextalbum:mista_suit_pants"
+  }
+}

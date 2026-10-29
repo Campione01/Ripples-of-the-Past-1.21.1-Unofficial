@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "module": "rotp_shadowtheworld:shadowtheworld",
+  "version": "1.2.1-mc1.21.1-phase1",
+  "legacy_artifact": {
+    "file": "RotP-影世界-1.2.0.jar",
+    "bytes": 1697753,
+    "sha256": "F0ED011CB4D69010DE3FC33BA92A7ACD2C0CD9818B7175343448ED4385088886"
+  },
+  "canonical_decompile": "046_RotP-影世界-1.2.0",
+  "canonical_tree_sha256": "2802E75CAE1E42F4A492CF6D8C797B19F780243D47895E43C8FF088B1E81B4A6",
+  "current_core": {
+    "commit": "bc9502423e3ca5d131f614ab1fb012ddfe15ea54",
+    "sha256": "43D49425BE55A3558B3C291020A94705B38F6764C9935477B061B4FC242436AA"
+  },
+  "dependency_boundary": "jojo_ripples core only; no sibling addon",
+  "topology": "H2",
+  "texture_rescale": false,
+  "ost_restoration": {
+    "base_sound_event": "rotp_shadowtheworld:shadow_world_ost",
+    "list_base_id": "rotp_shadowtheworld:shadow_world_ost",
+    "generated_sound_events": [
+      "rotp_shadowtheworld:shadow_world_ost_30",
+      "rotp_shadowtheworld:shadow_world_ost_60",
+      "rotp_shadowtheworld:shadow_world_ost_75",
+      "rotp_shadowtheworld:shadow_world_ost_90",
+      "rotp_shadowtheworld:shadow_world_ost_120",
+      "rotp_shadowtheworld:shadow_world_ost_full",
+      "rotp_shadowtheworld:shadow_world_ost_cassette"
+    ],
+    "attached_stand": "rotp_shadowtheworld:shadowtheworld",
+    "base_call_path": "evolution ticksLeft == 200",
+    "duplicate_registration": false,
+    "sound_definitions": 0,
+    "ogg_files": 0
+  },
+  "runtime_status": "not_run"
+}

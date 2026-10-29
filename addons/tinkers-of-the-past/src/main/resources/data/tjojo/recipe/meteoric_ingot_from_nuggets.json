@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "group": "jojo_ripples:meteoric_ingot",
+  "pattern": [
+    "###",
+    "###",
+    "###"
+  ],
+  "key": {
+    "#": {
+      "tag": "c:nuggets/stand_arrow_alloy"
+    }
+  },
+  "result": {
+    "id": "jojo_ripples:meteoric_ingot"
+  }
+}

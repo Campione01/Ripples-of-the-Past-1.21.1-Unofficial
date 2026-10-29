@@ -1,0 +1,77 @@
+{
+  "little_feet_shrink1": {
+    "subtitle": "rotp_littlefeet.subtitle.little_feet_shrink",
+    "sounds": [
+      "rotp_littlefeet:stand/littlefeet_shrink1"
+    ]
+  },
+  "little_feet_shrink2": {
+    "subtitle": "rotp_littlefeet.subtitle.little_feet_shrink",
+    "sounds": [
+      "rotp_littlefeet:stand/littlefeet_shrink2"
+    ]
+  },
+  "little_feet_instant_self_shrink": {
+    "subtitle": "rotp_littlefeet.subtitle.little_feet_self_shrink",
+    "sounds": [
+      "rotp_littlefeet:stand/littlefeet_shrink2"
+    ]
+  },
+  "little_feet_instant_self_grow": {
+    "subtitle": "rotp_littlefeet.subtitle.little_feet_self_grow",
+    "sounds": [
+      "rotp_littlefeet:stand/littlefeet_shrink1"
+    ]
+  },
+  "little_feet_slow_self_shrink": {
+    "subtitle": "rotp_littlefeet.subtitle.little_feet_self_shrink",
+    "sounds": [
+      "rotp_littlefeet:stand/littlefeet_shrink2"
+    ]
+  },
+  "little_feet_slow_self_grow": {
+    "subtitle": "rotp_littlefeet.subtitle.little_feet_self_grow",
+    "sounds": [
+      "rotp_littlefeet:stand/littlefeet_shrink1"
+    ]
+  },
+  "little_feet_shrink_slash": {
+    "subtitle": "rotp_littlefeet.subtitle.little_feet_shrink_slash",
+    "sounds": [
+      "rotp_littlefeet:stand/littlefeet_slash"
+    ]
+  },
+  "little_feet_summon": {
+    "subtitle": "rotp_littlefeet.subtitle.little_feet_summon",
+    "sounds": [
+      "rotp_littlefeet:stand/littlefeet_summon"
+    ]
+  },
+  "formaggio_little_feet": {
+    "subtitle": "rotp_littlefeet.subtitle.formaggio_little_feet",
+    "sounds": [
+      "rotp_littlefeet:stand_user/formaggio_littlefeet1",
+      "rotp_littlefeet:stand_user/formaggio_littlefeet3",
+      "rotp_littlefeet:stand_user/formaggio_littlefeet4"
+    ]
+  },
+  "formaggio_bastard": {
+    "subtitle": "rotp_littlefeet.subtitle.formaggio_bastard",
+    "sounds": [
+      "rotp_littlefeet:stand_user/formaggio_bastard"
+    ]
+  },
+  "formaggio_mad": {
+    "subtitle": "rotp_littlefeet.subtitle.formaggio_mad",
+    "sounds": [
+      "rotp_littlefeet:stand_user/formaggio_areyoumad"
+    ]
+  },
+  "formaggio_barrage": {
+    "subtitle": "rotp_littlefeet.subtitle.formaggio_barrage",
+    "sounds": [
+      "rotp_littlefeet:stand_user/formaggio_rage",
+      "rotp_littlefeet:stand_user/formaggio_barrage_yap"
+    ]
+  }
+}

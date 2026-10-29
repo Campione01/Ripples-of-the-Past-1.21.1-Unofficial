@@ -1,0 +1,29 @@
+{
+  "rotp_zwa:white_album": {
+    "use_by_resolve": {
+      "0lvl": ["basic_combo"],
+      "1lvl": ["basic_combo","water" ],
+      "2lvl": ["basic_combo","water","freeze" ],
+      "3lvl": ["basic_combo","water","freeze" ],
+      "4lvl": ["basic_combo","water","freeze", "reflect" ]
+    },
+    "block": "guard",
+    "basic_combo": [
+      { "action": "punch", "distance": "<2" },
+      { "action": "punch", "distance": "<2" },
+      { "action": "punch", "distance": "<3" }
+    ],
+    "freeze": [
+      {"action": "wa_freeze", "distance": "<=5"},
+      {"action": "wa_freeze", "distance": "<=5"},
+      { "action": "punch", "distance": "<2" },
+      { "action": "punch", "distance": "<3" }
+    ],
+    "water": [
+      {"action": "wa_freeze_water", "distance": "=5"}
+    ],
+    "reflect":[
+      {"action": "wa_reflec", "distance": "=10"}
+    ]
+  }
+}

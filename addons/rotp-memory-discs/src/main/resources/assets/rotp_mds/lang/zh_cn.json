@@ -1,0 +1,19 @@
+{
+  "item.rotp_mds.memory_disc":  "能力光碟: %1$s",
+  "item.rotp_mds.memory_remover":  "移除能力",
+  "item.rotp_mds.memory_remover_one_time":  "移除能力(一次性)",
+  "item.rotp_mds.memory_eject":  "弹出能力光碟",
+  "item.rotp_mds.memory_eject_one_time":  "弹出能力光碟(一次性)",
+  "item.rotp_mds.empty_memory_disc":  "空白的能力光碟",
+  "item.rotp_mds.empty_memory_disc.tooltip":  "无",
+  "item.rotp_mds.invalid_memory_disc":  "无效的能力光碟",
+  "item.rotp_mds.invalid_memory_disc.tooltip":  "已保存的能力 ID 不可用",
+  "item.rotp_mds.transition.not_server":  "能力变更必须由服务端执行。",
+  "item.rotp_mds.transition.invalid_target":  "未找到有效目标。",
+  "item.rotp_mds.transition.power_unavailable":  "该目标无法持有玩家能力。",
+  "item.rotp_mds.transition.invalid_disc":  "这不是有效的能力光碟。",
+  "item.rotp_mds.transition.invalid_power_id":  "光碟中的能力未注册。",
+  "item.rotp_mds.transition.no_active_power":  "没有可移除的活动能力。",
+  "item.rotp_mds.transition.rejected":  "能力变更已被拒绝。",
+  "item.jojo.creative_only_tooltip":  "仅限创造模式"
+}

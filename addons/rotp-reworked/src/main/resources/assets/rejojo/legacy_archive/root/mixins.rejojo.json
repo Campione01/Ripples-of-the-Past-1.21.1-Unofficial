@@ -1,0 +1,16 @@
+{
+  "compatibilityLevel": "JAVA_8",
+  "package": "com.dikiytechies.rejojo.mixin",
+  "refmap": "mixins.rejojo.refmap.json",
+  "minVersion": "0.8",
+  "mixins": [
+    "MakePillarmanBarIncreaseSmoothlyMixin",
+    "MakeVampirismBarIncreaseSmoothly",
+    "MRFlameEntityMixin",
+    "RoadRollerItemMixin",
+    "TheWorldEntityMixin",
+    "TimeStopInstanceMixin"
+  ],
+  "client": [
+  ]
+}

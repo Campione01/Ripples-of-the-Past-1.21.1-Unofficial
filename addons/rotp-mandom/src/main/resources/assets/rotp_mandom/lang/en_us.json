@@ -1,0 +1,21 @@
+{
+  "entity.rotp_mandom.mandom": "Mandom",
+  "stand.rotp_mandom.mandom": "Mandom",
+  "action.rotp_mandom.time_rewind": "Time Rewind",
+  "item.rotp_mandom.ringo_clock": "Ringo Clock",
+  "item.rotp_mandom.ringo_clock.reference_quote": "This is the world of man.",
+  "tooltip.rotp_mandom.ringo_clock": "Only %s seconds. Not a second more, not a second less. For precisely %s seconds.",
+  "message.rotp_mandom.rewind.history_not_ready": "Mandom needs six seconds of history.",
+  "message.rotp_mandom.rewind.wrong_dimension": "Mandom cannot rewind across dimensions.",
+  "message.rotp_mandom.rewind.unloaded_target": "Mandom cannot safely rewind unloaded terrain.",
+  "message.rotp_mandom.rewind.unsafe_history": "Mandom found history that cannot be restored safely.",
+  "message.rotp_mandom.rewind.commit_failed": "Mandom restored the present after the rewind failed.",
+  "rotp_mandom.stand_skins.purple": "Mandom Purple",
+  "rotp_mandom.stand_skins.gray": "Mandom Gray",
+  "rotp_mandom.stand_skins.acid": "Mandom Acid",
+  "rotp_mandom.stand_skins.shadow": "Mandom Shadow",
+  "rotp_mandom.subtitle.summon": "Ringo calls out",
+  "rotp_mandom.subtitle.stand_summon": "Mandom manifests",
+  "rotp_mandom.subtitle.stand_unsummon": "Mandom withdraws",
+  "rotp_mandom.ability.time_rewind": "Time Rewind"
+}

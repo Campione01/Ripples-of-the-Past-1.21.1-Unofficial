@@ -1,0 +1,20 @@
+{
+  "stand.rotp_echoes.echoes_act3": "Echoes ACT3",
+  "stand.rotp_echoes.echoes_act2": "Echoes ACT2",
+  "rotp_echoes.ability.punch": "Lovitură",
+  "rotp_echoes.ability.barrage": "Salvă",
+  "rotp_echoes.ability.heavy_punch": "Lovitură grea",
+  "rotp_echoes.ability.finisher": "Finalizator",
+  "rotp_echoes.ability.guard": "Blocare",
+  "rotp_echoes.ability.degrade_to_act2": "Degradare",
+  "rotp_echoes.ability.freeze": "Înghețare",
+  "rotp_echoes.ability.hand_freeze": "Înghețarea mâinii",
+  "rotp_echoes.ability.freeze_self": "Auto-înghețare",
+  "rotp_echoes.ability.gravity_infuse": "Infuzie gravitațională",
+  "rotp_echoes.ability.gravity_projectile": "Proiectil gravitațional",
+  "rotp_echoes.ability.act2_punch": "Atac ușor",
+  "rotp_echoes.ability.act2_heavy_punch": "Atac greu",
+  "rotp_echoes.ability.act2_finisher": "Înțepătura cozii",
+  "rotp_echoes.ability.act2_guard": "Blocare",
+  "rotp_echoes.ability.evolve_to_act3": "Evoluție"
+}

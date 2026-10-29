@@ -1,0 +1,17 @@
+{
+  "item.rotp_bb.blood_bottle": "Blood bottle",
+  "rotp_bb.ability.vampirism_blood_refill": "Blood Refill",
+  "jojo_ripples.ability.vampirism_blood_refill": "Blood Refill",
+  "action.jojo.vampirism_blood_refill": "Blood Refill",
+  "jojo.message.action_condition.no_volume": "You have no vessel to store your blood",
+  "jojo.config.bottleDrinkPenalty": "Bottle resource penalty",
+  "jojo.config.fillBottleMultiplier": "Bottle value multiplier",
+  "jojo.config.maxBottleHungerValue": "Maximum resource percentage for drinking",
+  "rotp_bb.configuration.title": "Blood Bottle Configuration",
+  "rotp_bb.configuration.section.jojo.bb.a.common.toml": "Common Settings",
+  "rotp_bb.configuration.section.jojo.bb.a.common.toml.title": "Blood Bottle Common Configuration",
+  "rotp_bb.configuration.Blood Bottle Configuration": "Blood Bottle",
+  "jojo.config.bottleDrinkPenalty.tooltip": "Percentage difference between refill cost and the blood bottle resource value.",
+  "jojo.config.fillBottleMultiplier.tooltip": "Stored blood value as a percentage.",
+  "jojo.config.maxBottleHungerValue.tooltip": "Maximum active resource percentage at which a blood bottle can be drunk."
+}

@@ -1,0 +1,18 @@
+{
+  "terunosuke_enigma": {
+    "subtitle": "Enigma!",
+    "sounds": [ "rotp_enigma:stand_user/terunosuke_summon1" ]
+  },
+  "enigma_paper_seal": {
+    "subtitle": "Seal Paper",
+    "sounds": [ "rotp_enigma:stand/enigma_paper_seal" ]
+  },
+  "enigma_paper_tear": {
+    "subtitle": "Paper Tear",
+    "sounds": [ "rotp_enigma:stand/enigma_paper_rip1", "rotp_enigma:stand_user/enigma_paper_rip2", "rotp_enigma:stand_user/enigma_paper_rip3", "rotp_enigma:stand_user/enigma_paper_rip4" ]
+  },
+  "enigma_clap": {
+    "subtitle": "Clap",
+    "sounds": [ "rotp_enigma:stand/enigma_clap1", "rotp_enigma:stand_user/enigma_clap2", "rotp_enigma:stand_user/enigma_clap3", "rotp_enigma:stand_user/enigma_clap4" ]
+  }
+}

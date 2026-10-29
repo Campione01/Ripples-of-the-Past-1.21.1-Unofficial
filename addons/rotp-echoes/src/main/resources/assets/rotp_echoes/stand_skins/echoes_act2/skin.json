@@ -1,0 +1,9 @@
+{
+  "stand_type": "rotp_echoes:echoes_act2",
+  "color": "#00FF66",
+  "story_part": "jojo_ripples:p4",
+  "scale": {
+    "width": 0.4,
+    "height": 1.25
+  }
+}

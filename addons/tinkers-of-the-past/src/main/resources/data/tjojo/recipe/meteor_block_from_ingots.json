@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "group": "tjojo:meteor_block",
+  "pattern": [
+    "###",
+    "###",
+    "###"
+  ],
+  "key": {
+    "#": {
+      "tag": "c:ingots/meteor"
+    }
+  },
+  "result": {
+    "id": "tjojo:meteor_block"
+  }
+}

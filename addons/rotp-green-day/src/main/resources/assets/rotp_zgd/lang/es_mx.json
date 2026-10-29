@@ -1,0 +1,30 @@
+{
+  "entity.rotp_zgd.green_day": "Green Day",
+  "stand.rotp_zgd.green_day": "Green Day",
+
+  "action.rotp_zgd.gd_punch": "Golpe",
+  "action.rotp_zgd.gd_heavy_punch": "Golpe pesado",
+  "action.rotp_zgd.gd_barrage": "Combo de golpes",
+  "action.rotp_zgd.gd_combo_punch": "Golpe final",
+  "action.rotp_zgd.gd_shot_left_arm": "Disparar brazo izquierdo",
+  "action.rotp_zgd.gd_shot_right_arm": "Disparar brazo derecho",
+
+  "action.rotp_zgd.gd_block": "Bloquear",
+  "action.rotp_zgd.gd_mold": "Es hora de mohosis",
+  "action.rotp_zgd.gd_heal": "Sanar heridas",
+
+  "effect.rotp_zgd.mold": "Moho",
+  "effect.rotp_zgd.mold_util": "Infección de Moho",
+
+  "rotp_zgd.subtitle.mold": "Moho de Green Day",
+  "rotp_zgd.subtitle.green_day": "Green Day",
+  "effect.rotp_zgd.right_armless": "Manco Derecho",
+  "effect.rotp_zgd.left_armless": "Manco Izquierdo",
+
+  "rotp_zgd.left": "izquierdo",
+  "rotp_zgd.right": "derecho",
+
+  "death.attack.mold": "%s se ha pudrido por el Moho",
+  "death.attack.mold.player": "%s se ha pudrido por le mooho mientras peleaba con %s",
+  "death.attack.mold.entity": "%s ha sido aniquilado por el moho de %s"
+}

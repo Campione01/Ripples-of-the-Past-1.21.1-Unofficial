@@ -1,0 +1,12 @@
+Manifest-Version: 1.0
+TweakOrder: 0
+Implementation-Title: 111D4C-9.1zuixin
+MixinConfigs: rotp_d4c.mixin.json
+Implementation-Version: 0.8.65-Alpha
+Specification-Vendor: RotP_d4c
+Specification-Title: RotP_d4c
+Implementation-Timestamp: 2025-10-23T05:56:13+0800
+TweakClass: org.spongepowered.asm.launch.MixinTweaker
+Specification-Version: 1
+Implementation-Vendor: RotP_d4c
+

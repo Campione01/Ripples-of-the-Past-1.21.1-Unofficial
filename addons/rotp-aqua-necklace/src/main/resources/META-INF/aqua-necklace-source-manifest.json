@@ -1,0 +1,302 @@
+{
+  "schema": 3,
+  "scope": "mixed-row-25c-aqua-necklace-only",
+  "status": "historical-static-closure-pending-live-runtime",
+  "canonical": {
+    "inventory_row": 25,
+    "logical_unit": "25c",
+    "artifact": "RotP-Extra-Stands-1.1.0c.jar",
+    "absolute_path": "RotP-Extra-Stands-1.1.0c.jar",
+    "bytes": 1532026,
+    "sha256": "0D0202912D14B2AB50CD5353275ACD6571FFFF0916807F8DDB1EF2928C1E3672",
+    "mod_id": "rotp_extra_dg",
+    "version": "1.1.0c",
+    "declared_license": "GNU GPL v3.0",
+    "minecraft": "1.16.5",
+    "jar_entries": 516,
+    "file_entries": 402,
+    "class_entries": 170,
+    "asset_entries": 227,
+    "data_entries": 1,
+    "png_entries": 182,
+    "ogg_entries": 39,
+    "aqua_ogg_entries": 0
+  },
+  "deduplication": {
+    "root": "rotp\u9644\u5c5e\u53cd\u7f16\u8bd1",
+    "canonical": "018_RotP-Extra-Stands-1.1.0c",
+    "redundant_mirrors": [
+      "017_RotP-Extra-Stands-1.1.0c"
+    ],
+    "candidate_file_count": 139,
+    "candidate_java_count": 138,
+    "candidate_bytes": 808823,
+    "tree_sha256": "1401CAA1FAE1C24895E9FB1BFCE4C2A1C92352C344825479442E67220C19DA4B",
+    "file_differences": 0
+  },
+  "official_history": {
+    "repository": "https://github.com/DanielGamer321/Extra-Stands",
+    "head": "5c6b422db67e3106993a4ac082440797b81b0b8f",
+    "commits_reviewed": 49,
+    "aqua_introduction": "a6d491f9926282287e726c8818738210cdb980b2",
+    "packaged_donor_source_state": "eac7ffa00066ed1a4e20d08c4695fa235f29b106",
+    "aqua_related_deletions": 0,
+    "recovery_manifest": "migration/manifests/historical-recovery.json"
+  },
+  "mixed_package_split": {
+    "active": "25c Aqua Necklace",
+    "excluded": [
+      "25a Stone Free",
+      "25b The Hand",
+      "25d Kraft Work"
+    ],
+    "java_accounting": {
+      "aqua_owned": 12,
+      "shared_registration_evidence": 4,
+      "shared_bootstrap_evidence": 1,
+      "cross_unit_coupling_evidence": 1,
+      "excluded_other_unit_or_framework": 120,
+      "total": 138
+    }
+  },
+  "registrations": {
+    "stand_types": [
+      "rotp_aqua_necklace:aqua_necklace"
+    ],
+    "entities": [
+      "rotp_aqua_necklace:aqua_necklace"
+    ],
+    "abilities": [
+      "rotp_aqua_necklace:change_to_liquid",
+      "rotp_aqua_necklace:change_to_gaseous",
+      "rotp_aqua_necklace:enter_entity",
+      "rotp_aqua_necklace:leave_entity",
+      "rotp_aqua_necklace:drown_host",
+      "rotp_aqua_necklace:host_pressure",
+      "rotp_aqua_necklace:host_crush",
+      "rotp_aqua_necklace:brain_attack",
+      "rotp_aqua_necklace:fluid_guard"
+    ],
+    "sounds": [
+      "rotp_aqua_necklace:aqua_necklace_ost_30",
+      "rotp_aqua_necklace:aqua_necklace_ost_60",
+      "rotp_aqua_necklace:aqua_necklace_ost_75",
+      "rotp_aqua_necklace:aqua_necklace_ost_90",
+      "rotp_aqua_necklace:aqua_necklace_ost_120",
+      "rotp_aqua_necklace:aqua_necklace_ost_full",
+      "rotp_aqua_necklace:aqua_necklace_ost_cassette"
+    ],
+    "skins": [
+      "aqua_necklace",
+      "aqua_necklace_manga"
+    ]
+  },
+  "stats": {
+    "power": 8.0,
+    "speed_base": 8.0,
+    "speed_development": 8.5,
+    "effective_range": 50.0,
+    "max_range": 75.0,
+    "distance_strength_decay": false,
+    "durability_base": 15.0,
+    "durability_development": 18.0,
+    "precision_base": 8.0,
+    "precision_development": 9.0,
+    "legacy_random_weight": 2.0,
+    "current_random_weight": 2.0,
+    "current_arrow_pool_eligible": true,
+    "current_arrow_eligibility": "jojo_ripples:ripples_tags/stands/player_can_get_from_arrow",
+    "dimensions": [
+      0.29,
+      0.76
+    ]
+  },
+  "controls": {
+    "input_profile": "remote-environment-special-wheel-plus-manual-control",
+    "visual_topology": "H4",
+    "manual_control": true,
+    "special_wheel": [
+      "change_to_liquid CLICK",
+      "change_to_gaseous CLICK",
+      "enter_entity HOLD",
+      "leave_entity CLICK",
+      "drown_host HOLD",
+      "host_pressure CLICK",
+      "host_crush CLICK",
+      "brain_attack CLICK",
+      "fluid_guard HOLD"
+    ],
+    "direct_bindings": [],
+    "contextual_light_melee": "host_pressure delegates to the core light punch outside possession",
+    "forbidden_absent": [
+      "direct H1 bindings",
+      "barrage",
+      "shared ordinary heavy punch",
+      "shared-context charged heavy",
+      "shared grab",
+      "held-target attack variants",
+      "grab throw",
+      "grab release"
+    ]
+  },
+  "semantic_units": [
+    {
+      "legacy": "AquaNecklaceChangeOfState",
+      "status": "complete",
+      "current": "ChangeToLiquidAbility and ChangeToGaseousAbility",
+      "evidence": "Synced vapor, liquid, and solid states; full 40/80 stamina cost on every change (1.16 asked the half price after the change, so it never applied); unlock gate; and vapor-to-liquid water conversion are active."
+    },
+    {
+      "legacy": "AquaNecklaceGettingIntoTheEntity and AquaNecklaceLeaveTheEntity",
+      "status": "complete-current-history",
+      "current": "EnterEntityAbility, LeaveEntityAbility, AquaNecklaceTargeting, and synchronized host id",
+      "evidence": "The latest official server-safe target ray, charge variants, stamina, range, follow, visibility, marker, leave, unsummon, and cleanup behavior are active."
+    },
+    {
+      "legacy": "AquaNecklaceGetIntoTheLungs",
+      "status": "complete",
+      "current": "DrownHostAbility",
+      "evidence": "Breathing eligibility, liquid conversion, per-tick stamina, air reduction variants, Hamon penalty, and drowning damage are server-owned."
+    },
+    {
+      "legacy": "AquaNecklacePunch, AquaNecklaceHeavyPunch, AquaNecklaceBrainAttack, and base_combos Aqua rows",
+      "status": "complete-h4-layered",
+      "current": "HostPressureAbility, HostCrushAbility, BrainAttackAbility, FluidGuardAbility, and data/rotp_aqua_necklace/stand_combos/base_combos.json",
+      "evidence": "H4 remains unchanged. The packaged donor combo resolves its steps through host_pressure and its block through fluid_guard; Host Pressure is core light melee outside possession and Internal Pressure inside."
+    },
+    {
+      "legacy": "AquaNecklaceEntity material damage, possession, water impact, and fire handling",
+      "status": "complete-current-history",
+      "current": "AquaNecklaceEntity",
+      "evidence": "Material state, possession, movement, collision, matchups, pressure, drowning, synchronized state, liquid splash, and server-safe extinguishing are active."
+    },
+    {
+      "legacy": "AquaNecklaceModel, AquaNecklaceRenderer, and AquaNecklaceMarker",
+      "status": "complete-current-animation-api",
+      "current": "Aqua geometry, skin animation, AquaNecklaceRenderer, and AquaNecklaceHostMarker",
+      "evidence": "All 27 bones and 24 cubes, donor summon and idle poses, conditional vapor idle, canonical textures, core visual alpha, and skin-aware HUD marker resolution are active."
+    },
+    {
+      "legacy": "InitSounds.AQUA_NECKLACE_OST and stand addOst",
+      "status": "registry-restored-source-binary-blocked",
+      "current": "AquaNecklaceAddon.AQUA_NECKLACE_OST and stand ost",
+      "evidence": "All seven event ids and the Stand hook are active. Neither donor nor official history supplies Aqua OGG media."
+    }
+  ],
+  "blocked_exact": [
+    {
+      "id": "aqua_necklace_ost_media",
+      "status": "registry_source_binary_blocked",
+      "legacy_evidence": "Legacy Java registers the OST, but the donor has no Aqua sounds.json entry or OGG media.",
+      "current_evidence": "Seven SoundEvent ids and the Stand hook are restored. No official commit contains the required OGG binaries.",
+      "bounded_impact": "OST playback media alone remains unavailable; no substitute copyrighted media was fabricated."
+    }
+  ],
+  "local_compatibility": {
+    "selective_liquid_collision": {
+      "owner": "AquaNecklaceEntity.move",
+      "allowlist": [
+        "DoorBlock",
+        "TrapDoorBlock",
+        "FenceBlock",
+        "FenceGateBlock",
+        "minecraft:iron_bars",
+        "EndRodBlock",
+        "ChainBlock"
+      ],
+      "retained_collisions": [
+        "all non-allowlisted blocks",
+        "entities",
+        "world border"
+      ],
+      "inside_speed_multiplier": 0.5,
+      "inside_no_gravity": true
+    },
+    "damage_matchups": {
+      "classification": "damage tags plus entity, Stand, and current ability registry ids",
+      "generic_host_owned": "transfer incoming damage to the host and retain 0.25 Aqua damage",
+      "rotp_the_hand:the_hand_erase": "rescale erasure damage to host dimensions and health",
+      "rotp_the_hand:the_hand_erasure_barrage": "rescale encoded barrage hits to host dimensions and health",
+      "jojo_ripples:sc_rapier": "retain full Aqua damage for skeleton hosts and 0.25 otherwise",
+      "jojo_ripples:silver_chariot_barrage": "for skeleton hosts transfer 0.25 and retain 0.75 Aqua damage",
+      "other_silver_chariot_vs_skeleton": "transfer zero and retain 0.25 Aqua damage",
+      "magicians_red_projectiles": "multiply Aqua damage by 0.5 for canonical projectile and explosion ids",
+      "material_multipliers_last": "vapor 0.0, liquid 0.1, solid 1.0"
+    },
+    "sibling_class_linkage": false
+  },
+  "source_binary_blockers": [
+    {
+      "legacy": "aqua_necklace_ost",
+      "evidence": "The registration exists, but zero Aqua OGG files exist in the donor or official history."
+    }
+  ],
+  "resources": {
+    "source_resource_files": 44,
+    "json_files": 12,
+    "png_files": 32,
+    "ogg_files": 0,
+    "canonical_png_mappings": 30,
+    "derived_marker_copies": 2,
+    "default_live_ability_icons": 9,
+    "contextual_punch_icons": 2,
+    "retained_undo_icons": 2,
+    "manga_imported_ability_icons": 9,
+    "animation_files": 1,
+    "canonical_resource_dispositions": {
+      "ported_exact_png": 30,
+      "adapted_aqua_language": 2,
+      "translated_skin_registry": 1,
+      "restored_active_combo": 1,
+      "excluded_other_units_or_shared_framework": 194,
+      "total": 228
+    },
+    "default_entity_base_color_dimensions": [
+      256,
+      256
+    ],
+    "default_liquid_dimensions": [
+      256,
+      256
+    ],
+    "default_vapor_dimensions": [
+      256,
+      256
+    ],
+    "art_gate": "H4 true-size exception; no physical main texture is below 256x256",
+    "legacy_action_namespace_translation": "textures/action was translated to textures/ability"
+  },
+  "render_policy": {
+    "topology": "H4",
+    "owner": "AquaNecklaceEntity",
+    "renderer": "AquaNecklaceRenderer extends StandEntityRenderer",
+    "visibility_source": "core StandEntityRenderState extraction and StandVisualContext.world",
+    "alpha_source": "core renderState.alpha and StandVisualContext effective alpha",
+    "state_customization": "solid, liquid, or vapor texture plus conditional vapor idle",
+    "animation_source": "skin-scoped aqua_necklace.animation.json",
+    "possessed_host_marker": "The marker resolves its texture through the active StandSkin and suppresses HUD output when effective alpha is zero.",
+    "forbidden_global_hooks_absent": [
+      "PlayerRenderer",
+      "mixin",
+      "Iris hook",
+      "SuperResolution hook",
+      "custom shader",
+      "PostChain",
+      "framebuffer",
+      "FBO"
+    ]
+  },
+  "runtime_validation": {
+    "executed": false,
+    "status": "not_run",
+    "matrix_file": "migration/manual-runtime-matrix.json",
+    "static_verification_is_not_runtime_proof": true
+  },
+  "root_onboarding": {
+    "performed": true,
+    "settings_include": "addons:rotp-aqua-necklace",
+    "final_command": ".\\gradlew.bat :addons:rotp-aqua-necklace:clean :addons:rotp-aqua-necklace:test :addons:rotp-aqua-necklace:check :addons:rotp-aqua-necklace:build :addons:rotp-aqua-necklace:sourcesJar --offline --no-daemon --console=plain",
+    "build_result": "migration/build-result.json",
+    "deployment_required": false
+  }
+}

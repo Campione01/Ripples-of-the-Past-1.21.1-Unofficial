@@ -1,0 +1,41 @@
+{
+    "type":  "minecraft:crafting_shaped",
+    "pattern":  [
+                    "SH2",
+                    "3NT",
+                    "PBC"
+                ],
+    "key":  {
+                "N":  {
+                          "item":  "rotp_ul:soul_essence"
+                      },
+                "B":  {
+                          "item":  "minecraft:redstone_ore"
+                      },
+                "S":  {
+                          "item":  "minecraft:lapis_ore"
+                      },
+                "T":  {
+                          "item":  "minecraft:coal_ore"
+                      },
+                "H":  {
+                          "item":  "minecraft:mossy_cobblestone"
+                      },
+                "P":  {
+                          "item":  "minecraft:gold_ore"
+                      },
+                "2":  {
+                          "item":  "minecraft:emerald_ore"
+                      },
+                "3":  {
+                          "item":  "minecraft:diamond_ore"
+                      },
+                "C":  {
+                          "item":  "minecraft:iron_ore"
+                      }
+            },
+    "result":  {
+                   "count":  1,
+                   "id":  "rotp_ul:earth_essence"
+               }
+}

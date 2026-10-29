@@ -1,0 +1,23 @@
+{
+  "rotp_stone_free.ability.punch": "Puñetazo",
+  "rotp_stone_free.ability.barrage": "Ráfaga de Puñetazos",
+  "rotp_stone_free.ability.heavy_punch": "Golpe Fuerte",
+  "rotp_stone_free.ability.guard": "Bloquear",
+  "rotp_stone_free.ability.stone_free_user_string_attack": "Ataque de Hilo",
+  "rotp_stone_free.ability.stone_free_user_string_sweep": "Barrida de Hilo",
+  "rotp_stone_free.ability.stone_free_string_punch": "Puñetazo de Hilo",
+  "rotp_stone_free.ability.stone_free_string_capture": "Capturar",
+  "rotp_stone_free.ability.stone_free_user_string_whip": "Látigo de Hilo",
+  "rotp_stone_free.ability.stone_free_attack_binding": "Ataque de Sujeción",
+  "rotp_stone_free.ability.stone_free_user_attack_binding": "Ataque de Sujeción Integrado",
+  "rotp_stone_free.ability.stone_free_extended_punch": "Puñetazo Extendido",
+  "rotp_stone_free.ability.stone_free_user_string_pick": "Pico de Hilo",
+  "rotp_stone_free.ability.stone_free_user_grapple": "Agarre",
+  "rotp_stone_free.ability.stone_free_user_grapple_entity": "Enganchar a una entidad",
+  "rotp_stone_free.ability.stone_free_user_recover_string": "Recuperar el hilo",
+  "rotp_stone_free.ability.stone_free_grapple_entity": "Agarre del Stand",
+  "rotp_stone_free.ability.stone_free_user_close_wounds": "Cerrar heridas",
+  "rotp_stone_free.ability.stone_free_user_barrier": "Colocar una Barrera (%s/%s)",
+  "rotp_stone_free.ability.stone_free_user_remove_barrier": "Recoger todas las Barreras (%s)",
+  "rotp_stone_free.ability.stone_free_user_mobius_strip": "Cinta de Möbius"
+}

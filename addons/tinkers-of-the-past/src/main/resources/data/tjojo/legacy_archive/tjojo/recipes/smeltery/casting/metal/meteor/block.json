@@ -1,0 +1,11 @@
+{
+  "type": "tconstruct:casting_basin",
+  "fluid": {
+    "tag": "forge:molten_meteor",
+    "amount": 1296
+  },
+  "result": {
+    "tag": "forge:storage_blocks/meteor"
+  },
+  "cooling_time": 171
+}

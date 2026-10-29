@@ -1,0 +1,21 @@
+{
+  "rotp_mwp.configuration.title": "拥有替身的生物配置",
+  "rotp_mwp.configuration.section.rotp.mwp.common.toml": "通用设置",
+  "rotp_mwp.configuration.section.rotp.mwp.common.toml.title": "拥有替身的生物通用配置",
+  "rotp_mwp.configuration.Settings": "设置",
+  "rotp_mwp.configuration.percentageChanceToGettingAStandForMob": "生物获得替身的概率（%）",
+  "rotp_mwp.configuration.percentageChanceToGettingAStandForMob.tooltip": "符合条件的新生物获得替身的概率（百分比）。",
+  "rotp_mwp.configuration.useEntityWhitelist": "实体列表作为白名单",
+  "rotp_mwp.configuration.useEntityWhitelist.tooltip": "关闭时实体列表为黑名单，开启时为白名单。",
+  "rotp_mwp.configuration.entityList": "实体列表",
+  "rotp_mwp.configuration.blockedStandsForMobs": "生物禁用的替身",
+  "rotp_mwp.configuration.blockedStandActions": "生物禁用的替身技能",
+  "rotp_mwp.configuration.longRangeStands": "远距离替身",
+  "rotp_mwp.configuration.useAddonStands": "使用附属模组的替身",
+  "rotp_mwp.configuration.smallAnarchyWithStands": "替身的小混乱",
+  "rotp_mwp.configuration.smallAnarchyWithStands.tooltip": "允许替身实体获得替身与玩家能力，供调试替身的嵌套能力技能使用。不会为其添加生物AI目标，也不会参与生成时的替身抽取。",
+  "rotp_mwp.configuration.dropStandDiscFromMobs": "生物掉落替身光盘",
+  "rotp_mwp.configuration.spawnBoy2Man": "生成 Boy II Man",
+  "rotp_mwp.configuration.useWIPComboSystem": "使用连招系统（开发中）",
+  "rotp_mwp.configuration.requireStandAdvancementToSpawnMobsWithPowers": "需要替身进度才生成拥有能力的生物"
+}

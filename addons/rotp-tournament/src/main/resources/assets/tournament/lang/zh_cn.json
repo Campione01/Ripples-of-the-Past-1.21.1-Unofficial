@@ -1,0 +1,14 @@
+{
+  "block.tournament.spikes": "尖刺",
+  "block.tournament.tile": "瓷砖",
+  "block.tournament.light_bulb": "灯泡",
+  "block.tournament.fake_spikes": "假尖刺",
+  "item.tournament.assgore_disc": "音乐唱片",
+  "item.tournament.assgore_disc.desc": "KennyTheLyr1c1st - truck anthem",
+  "tournament.configuration.title": "Tournament 附属配置",
+  "tournament.configuration.section.tournament.common.toml": "Tournament 通用设置",
+  "tournament.configuration.section.tournament.common.toml.title": "Tournament 通用配置",
+  "tournament.configuration.Tournament compatibility": "Tournament 兼容性",
+  "tournament.configuration.enableCorrectedRecordPlayerList": "启用修正后的唱片掉落玩家名单",
+  "tournament.configuration.enableCorrectedRecordPlayerList.tooltip": "对旧版音乐唱片掉落名单的可选私有修正。设为 false 时，原样保留原始的单一名单元素。"
+}

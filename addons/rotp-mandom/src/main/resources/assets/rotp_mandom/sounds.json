@@ -1,0 +1,23 @@
+{
+  "summon": {
+    "subtitle": "rotp_mandom.subtitle.summon",
+    "sounds": ["rotp_mandom:summon"]
+  },
+  "stand_summon": {
+    "subtitle": "rotp_mandom.subtitle.stand_summon",
+    "sounds": ["rotp_mandom:stand_summon"]
+  },
+  "stand_unsummon": {
+    "subtitle": "rotp_mandom.subtitle.stand_unsummon",
+    "sounds": ["rotp_mandom:stand_unsummon"]
+  },
+  "rewind": {
+    "sounds": ["rotp_mandom:rewind"]
+  },
+  "void": {
+    "sounds": ["rotp_mandom:void"]
+  },
+  "rewind_start": {
+    "sounds": ["rotp_mandom:rewind_start"]
+  }
+}

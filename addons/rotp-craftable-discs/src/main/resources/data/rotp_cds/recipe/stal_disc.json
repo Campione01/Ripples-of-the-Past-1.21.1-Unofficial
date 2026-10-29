@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IBI",
+    "BDB",
+    "IBI"
+  ],
+  "key": {
+    "D": {
+      "item": "minecraft:music_disc_11"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "B": {
+      "item": "minecraft:iron_block"
+    }
+  },
+  "result": {
+    "id": "minecraft:music_disc_stal",
+    "count": 1
+  }
+}

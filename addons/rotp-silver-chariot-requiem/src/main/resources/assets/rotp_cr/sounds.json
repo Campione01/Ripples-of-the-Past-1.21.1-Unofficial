@@ -1,0 +1,98 @@
+{
+  "chariot_requiem_ost": {
+    "subtitle": "rotp_cr.subtitle.chariot_requiem_ost",
+    "sounds": [
+      "rotp_cr:ost/chariot_requiem_ost"
+    ]
+  },
+  "chariot_requiem_ost_30": {
+    "subtitle": "rotp_cr.subtitle.chariot_requiem_ost",
+    "sounds": [
+      "rotp_cr:ost/chariot_requiem_ost"
+    ]
+  },
+  "chariot_requiem_ost_60": {
+    "subtitle": "rotp_cr.subtitle.chariot_requiem_ost",
+    "sounds": [
+      "rotp_cr:ost/chariot_requiem_ost"
+    ]
+  },
+  "chariot_requiem_ost_75": {
+    "subtitle": "rotp_cr.subtitle.chariot_requiem_ost",
+    "sounds": [
+      "rotp_cr:ost/chariot_requiem_ost"
+    ]
+  },
+  "chariot_requiem_ost_90": {
+    "subtitle": "rotp_cr.subtitle.chariot_requiem_ost",
+    "sounds": [
+      "rotp_cr:ost/chariot_requiem_ost"
+    ]
+  },
+  "chariot_requiem_ost_120": {
+    "subtitle": "rotp_cr.subtitle.chariot_requiem_ost",
+    "sounds": [
+      "rotp_cr:ost/chariot_requiem_ost"
+    ]
+  },
+  "chariot_requiem_ost_full": {
+    "subtitle": "rotp_cr.subtitle.chariot_requiem_ost",
+    "sounds": [
+      "rotp_cr:ost/chariot_requiem_ost"
+    ]
+  },
+  "chariot_requiem_ost_cassette": {
+    "subtitle": "rotp_cr.subtitle.chariot_requiem_ost",
+    "sounds": [
+      "rotp_cr:ost/chariot_requiem_ost"
+    ]
+  },
+  "scr_summon": {
+    "subtitle": "rotp_cr.subtitle.scr_summon",
+    "sounds": [
+      "rotp_cr:action/scr_summon"
+    ]
+  },
+  "scr_unsummon": {
+    "subtitle": "rotp_cr.subtitle.scr_unsummon",
+    "sounds": [
+      "rotp_cr:action/scr_unsummon"
+    ]
+  },
+  "scr_punch": {
+    "subtitle": "rotp_cr.subtitle.scr_punch",
+    "sounds": [
+      "rotp_cr:action/scr_punch"
+    ]
+  },
+  "scr_punch_heavy": {
+    "subtitle": "rotp_cr.subtitle.scr_punch_heavy",
+    "sounds": [
+      "rotp_cr:action/scr_punch_heavy"
+    ]
+  },
+  "chariot_requiem_aura": {
+    "subtitle": "rotp_cr.subtitle.chariot_requiem_aura",
+    "sounds": [
+      "rotp_cr:action/chariot_requiem_aura"
+    ]
+  },
+  "scr_yellow_virus": {
+    "subtitle": "rotp_cr.subtitle.scr_yellow_virus",
+    "sounds": [
+      "rotp_cr:action/scr_yellow_virus"
+    ]
+  },
+  "scr_ability_1": {
+    "subtitle": "rotp_cr.subtitle.scr_ability_1",
+    "sounds": [
+      "rotp_cr:action/scr_ability_1"
+    ]
+  },
+  "scr_ability_2": {
+    "subtitle": "rotp_cr.subtitle.scr_ability_2",
+    "sounds": [
+      "rotp_cr:action/scr_ability_2"
+    ]
+  }
+}

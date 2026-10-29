@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "rotp.addons.stickyfingers.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "client.LivingEntityRendererScaleInvoker",
+    "client.AgeableListModelAccessor"
+  ],
+  "mixins": ["common.ZipperBlockCollisionMixin"],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

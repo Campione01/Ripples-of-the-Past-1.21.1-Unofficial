@@ -1,0 +1,35 @@
+{
+    "type":  "minecraft:crafting_shaped",
+    "pattern":  [
+                    "CH2",
+                    "3NT",
+                    "2BC"
+                ],
+    "key":  {
+                "N":  {
+                          "item":  "rotp_ul:soul_essence"
+                      },
+                "B":  {
+                          "item":  "minecraft:skeleton_skull"
+                      },
+                "T":  {
+                          "item":  "minecraft:creeper_head"
+                      },
+                "H":  {
+                          "item":  "minecraft:wither_skeleton_skull"
+                      },
+                "2":  {
+                          "item":  "minecraft:phantom_membrane"
+                      },
+                "3":  {
+                          "item":  "minecraft:zombie_head"
+                      },
+                "C":  {
+                          "item":  "minecraft:ender_pearl"
+                      }
+            },
+    "result":  {
+                   "count":  1,
+                   "id":  "rotp_ul:death_essence"
+               }
+}

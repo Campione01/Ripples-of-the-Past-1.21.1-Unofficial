@@ -1,0 +1,8 @@
+{
+  "comparator_output": 2,
+  "description": {
+    "translate": "item.tournament.assgore_disc.desc"
+  },
+  "length_in_seconds": 155.06286,
+  "sound_event": "tournament:assgore_record"
+}

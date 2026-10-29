@@ -1,0 +1,19 @@
+{
+  "stand.rotp_the_hand.the_hand": "The Hand",
+  "effect.rotp_the_hand.erased": "Erased Health",
+  "rotp_the_hand.subtitle.erasure": "Space is erased",
+  "rotp_the_hand.subtitle.the_hand_kick_heavy": "The Hand kicks",
+  "rotp_the_hand.subtitle.the_hand_name": "The Hand!",
+  "rotp_the_hand.subtitle.the_hand_punch_heavy": "The Hand strikes",
+  "rotp_the_hand.subtitle.the_hand_punch_light": "The Hand punches",
+  "rotp_the_hand.subtitle.the_hand_summon": "The Hand manifests",
+  "jojo.message.action_condition.not_possible_erase_article": "This cannot be erased",
+  "rotp_the_hand.ability.manual_control": "Manual control",
+  "entity.rotp_the_hand.the_hand": "The Hand",
+  "effect.rotp_the_hand.surprise": "Surprise",
+  "rotp_the_hand.configuration.title": "The Hand Configuration",
+  "rotp_the_hand.configuration.section.rotp.the.hand.common.toml": "The Hand Common Settings",
+  "rotp_the_hand.configuration.section.rotp.the.hand.common.toml.title": "The Hand Common Configuration",
+  "rotp_the_hand.config.percent_damage": "Percent Damage",
+  "rotp_the_hand.config.percent_damage.tooltip": "Use the legacy target-size-scaled max-health damage for Erase and Erasure Barrage."
+}

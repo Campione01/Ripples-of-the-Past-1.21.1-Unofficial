@@ -1,0 +1,35 @@
+{
+    "type":  "minecraft:crafting_shaped",
+    "pattern":  [
+                    "PRP",
+                    "ANT",
+                    "FHF"
+                ],
+    "key":  {
+                "P":  {
+                          "item":  "minecraft:blaze_powder"
+                      },
+                "R":  {
+                          "item":  "minecraft:blaze_rod"
+                      },
+                "A":  {
+                          "item":  "minecraft:acacia_sapling"
+                      },
+                "T":  {
+                          "item":  "minecraft:jungle_sapling"
+                      },
+                "N":  {
+                          "item":  "rotp_ul:soul_essence"
+                      },
+                "F":  {
+                          "item":  "minecraft:sunflower"
+                      },
+                "H":  {
+                          "item":  "minecraft:honeycomb"
+                      }
+            },
+    "result":  {
+                   "count":  1,
+                   "id":  "rotp_ul:sun_essence"
+               }
+}

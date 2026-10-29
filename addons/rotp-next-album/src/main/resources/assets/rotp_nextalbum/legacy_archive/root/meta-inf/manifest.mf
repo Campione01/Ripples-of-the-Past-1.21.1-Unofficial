@@ -1,0 +1,10 @@
+Manifest-Version: 1.0
+Implementation-Title: rotp-next_album-template-1.16.5
+MixinConfigs: rotp_nextalbum.mixins.json
+Implementation-Version: 0.1.11
+Specification-Vendor: RotP_BCBabelmoth
+Specification-Title: RotP_Next_Album
+Implementation-Timestamp: 2026-07-07T09:17:18+0800
+Specification-Version: 1
+Implementation-Vendor: RotP_BCBabelmoth
+

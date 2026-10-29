@@ -1,0 +1,102 @@
+{
+  "ph_summon": {
+    "subtitle": "stand.rotp_ph.purple_haze",
+    "sounds": [
+      "rotp_ph:stand_user/fugo_purple_haze"
+    ]
+  },
+  "ph_light_punch": {
+    "subtitle": "rotp_ph.ability.punch",
+    "sounds": [
+      "rotp_ph:stand/ph_punch1",
+      "rotp_ph:stand/ph_punch2",
+      "rotp_ph:stand/ph_punch3",
+      "rotp_ph:stand/ph_punch4"
+    ]
+  },
+  "ph_fugo_light_punch": {
+    "subtitle": "rotp_ph.ability.punch",
+    "sounds": [
+      "rotp_ph:stand_user/fugo_punch1",
+      "rotp_ph:stand_user/fugo_punch2",
+      "rotp_ph:stand_user/fugo_punch3",
+      "rotp_ph:stand_user/fugo_punch4"
+    ]
+  },
+  "ph_heavy_punch": {
+    "subtitle": "rotp_ph.ability.heavy_punch",
+    "sounds": [
+      "rotp_ph:stand/ph_heavy_punch1",
+      "rotp_ph:stand/ph_heavy_punch2"
+    ]
+  },
+  "ph_fugo_heavy_punch": {
+    "subtitle": "rotp_ph.ability.heavy_punch",
+    "sounds": [
+      "rotp_ph:stand_user/fugo_heavy_punch1",
+      "rotp_ph:stand_user/fugo_heavy_punch2"
+    ]
+  },
+  "ph_barrage": {
+    "subtitle": "rotp_ph.ability.barrage",
+    "sounds": [
+      "rotp_ph:stand/ph_barrage",
+      "rotp_ph:stand/ph_barrage2"
+    ]
+  },
+  "ph_fugo_barrage": {
+    "subtitle": "rotp_ph.ability.barrage",
+    "sounds": [
+      "rotp_ph:stand/ph_barrage"
+    ]
+  },
+  "ph_finisher": {
+    "subtitle": "rotp_ph.ability.viral_punch",
+    "sounds": [
+      "rotp_ph:stand/ph_finisher"
+    ]
+  },
+  "ph_fugo_finisher": {
+    "subtitle": "rotp_ph.ability.viral_punch",
+    "sounds": [
+      "rotp_ph:stand_user/fugo_finisher"
+    ]
+  },
+  "ph_aura": {
+    "sounds": []
+  },
+  "ph_fugo_aura": {
+    "subtitle": "rotp_ph.ability.virus_aura",
+    "sounds": [
+      "rotp_ph:stand_user/fugo_aura"
+    ]
+  },
+  "ph_madness": {
+    "subtitle": "rotp_ph.ability.madness",
+    "sounds": [
+      "rotp_ph:stand/ph_madness"
+    ]
+  },
+  "ph_fugo_madness": {
+    "sounds": []
+  },
+  "ph_fugo_capsule_shot": {
+    "subtitle": "rotp_ph.ability.capsule_shot",
+    "sounds": [
+      "rotp_ph:stand_user/fugo_capsule1",
+      "rotp_ph:stand_user/fugo_capsule2"
+    ]
+  },
+  "capsule_shot": {
+    "subtitle": "rotp_ph.ability.capsule_shot",
+    "sounds": [
+      "rotp_ph:capsule_shot"
+    ]
+  },
+  "capsule_explosion": {
+    "subtitle": "rotp_ph.ability.capsule_shot",
+    "sounds": [
+      "rotp_ph:capsule_explosion"
+    ]
+  }
+}

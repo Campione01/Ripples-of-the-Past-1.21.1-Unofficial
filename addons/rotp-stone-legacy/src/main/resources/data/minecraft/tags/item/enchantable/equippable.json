@@ -1,0 +1,8 @@
+{
+  "replace": false,
+  "values": [
+    "stone_legacy:aja_stone_mask_predicted_heat",
+    "stone_legacy:aja_stone_mask_predicted_light",
+    "stone_legacy:aja_stone_mask_predicted_wind"
+  ]
+}

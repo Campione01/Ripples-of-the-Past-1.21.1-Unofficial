@@ -1,0 +1,8 @@
+{
+  "entity.rotp_tl.the_lock": "The Lock",
+  "stand.rotp_tl.the_lock": "The Lock",
+  "item.rotp_tl.the_lock": "The Lock",
+  "rotp_tl.ability.the_lock_set_lock": "Set Lock",
+  "rotp_tl.ability.the_lock_remove_lock": "Remove Lock",
+  "rotp_tl.ability.the_lock_check_target": "Check Target"
+}

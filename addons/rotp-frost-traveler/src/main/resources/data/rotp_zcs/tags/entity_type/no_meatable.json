@@ -1,0 +1,11 @@
+{
+  "replace": false,
+  "values": [
+    "#minecraft:skeletons",
+    "minecraft:vex",
+    "minecraft:armor_stand",
+    "minecraft:blaze",
+    "minecraft:iron_golem",
+    "minecraft:snow_golem"
+  ]
+}

@@ -1,0 +1,23 @@
+{
+    "type":  "minecraft:crafting_shaped",
+    "pattern":  [
+                    "ESE",
+                    "SNS",
+                    "ESE"
+                ],
+    "key":  {
+                "E":  {
+                          "item":  "minecraft:experience_bottle"
+                      },
+                "N":  {
+                          "item":  "minecraft:soul_lantern"
+                      },
+                "S":  {
+                          "item":  "minecraft:slime_ball"
+                      }
+            },
+    "result":  {
+                   "count":  1,
+                   "id":  "rotp_ul:soul_essence"
+               }
+}

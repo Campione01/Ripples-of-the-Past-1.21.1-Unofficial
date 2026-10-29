@@ -1,0 +1,21 @@
+{
+  "entity.rotp_lovers.lovers": "Lovers",
+  "stand.rotp_lovers.lovers": "Lovers",
+  "rotp_lovers.ability.into_entity": "Enter Creature",
+  "rotp_lovers.ability.retract": "Retract Stand",
+  "rotp_lovers.message.attached": "Lovers entered %1$s.",
+  "rotp_lovers.message.retracted": "Lovers retracted from its target.",
+  "rotp_lovers.message.target_occupied": "That target already contains Lovers.",
+  "rotp_lovers.message.invalid_target": "Lovers cannot enter that target.",
+  "rotp_lovers.message.no_link": "Lovers has no linked target.",
+  "rotp_lovers.config.multiple_damage": "Lovers Damage Multiplier",
+  "rotp_lovers.subtitle.void": "Lovers manifests",
+  "death.attack.rotp_lovers.lovers_feedback": "%1$s was overwhelmed by Lovers",
+  "death.attack.rotp_lovers.lovers_feedback.player": "%1$s was overwhelmed by %2$s's Lovers",
+  "rotp_lovers.configuration.title": "RotP - Lovers Configuration",
+  "rotp_lovers.configuration.section.rotp.lovers.common.toml": "Common Settings",
+  "rotp_lovers.configuration.section.rotp.lovers.common.toml.title": "Lovers Common Configuration",
+  "rotp_lovers.configuration.Lovers Settings": "Lovers Settings",
+  "rotp_lovers.configuration.Lovers Settings.tooltip": "Damage settings for Lovers.",
+  "rotp_lovers.config.multiple_damage.tooltip": "Multiple damage for all attacks sent to the entity containing Lovers. Defaults to 1."
+}

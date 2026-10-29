@@ -1,0 +1,15 @@
+{
+  "rotp_waytoheaven.ability.whitesnake_frases": "14 фраз",
+  "rotp_waytoheaven.ability.cmoon_heaven": "Небесний квест",
+  "rotp_waytoheaven.ability.cmoon_heaven.param": "Небесний квест | %s %s %s",
+  "item.rotp_waytoheaven.bone": "Кістка ДІО",
+  "item.rotp_waytoheaven.bone.sinners": "Грішники: %s/%s",
+  "jojo.message.action_condition.no_c_moon": "Ви не знаєте подробиць Шляху до Небес",
+  "jojo.message.action_condition.no_madeinheaven": "Ви не знаєте, як досягти Made in Heaven",
+  "jojo.message.action_condition.no_bone": "Вам потрібна кістка з 36 душами грішників у другій руці",
+  "jojo.message.action_condition.cm_heaven": "Ви ще не досягли потрібної точки",
+  "jojo.message.action_condition.evolution_failed": "Еволюцію стенда не вдалося завершити",
+  "heaven.chat.command.lib.info": "Як отримати Made in Heaven:\n1. Маючи Whitesnake, носіть Кістку ДІО в інвентарі та вбийте 36 злочинців.\n2. Візьміть наповнену кістку в другу руку й утримуйте «14 фраз» на 4-му рівні рішучості, щоб отримати C-Moon.\n3. На 4-му рівні рішучості утримуйте «Небесний квест» і досягніть указаних координат, щоб отримати Made in Heaven.",
+  "heaven.chat.quest": "Координати для Made in Heaven: %s %s %s",
+  "commands.rotp_waytoheaven.bone.success": "Видано кістку %s гравцям із %s душами грішників"
+}

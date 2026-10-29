@@ -1,0 +1,46 @@
+{
+  "entity.rotp_zbc.all": "todo",
+  "entity.rotp_zbc.all_c": "Todo",
+
+  "entity.rotp_zbc.bad_soldier": "Soldado de Bad Company",
+  "entity.rotp_zbc.bad_bullet": "Bala de Bad Company",
+  "entity.rotp_zbc.bad_tank": "Tanque de Bad Company",
+  "entity.rotp_zbc.bad_missile": "Misil de Bad Company",
+  "entity.rotp_zbc.bad_helicopter": "Helicóptero de Bad Company",
+
+  "entity.rotp_zbc.bad_company": "Bad Company",
+  "stand.rotp_zbc.bad_company": "Bad Company",
+
+  "item.rotp_zbc.bad_gun": "Rifle Malo",
+  
+  "action.rotp_zbc.order_wait": "Ordenar a %s unidades que esperen y disparen",
+  "action.rotp_zbc.order_no_wait": "Ordenar a %s unidades que dejen de esperar",
+  "action.rotp_zbc.units": "Seleccionar tipo de unidad",
+  "action.rotp_zbc.put_mines": "Colocar minas",
+  "action.rotp_zbc.explode_mines": "Detonar minas",
+  "action.rotp_zbc.random": "Seleccionar formación de invocación",
+  "action.rotp_zbc.target": "Ordenar a %s unidades establecer objetivo",
+  "action.rotp_zbc.missile": "%s misiles explosivos",
+  "action.rotp_zbc.shoot": "Ordenar a %s unidades que perdonen el objetivo",
+  "action.rotp_zbc.go_block": "Ordenar a %s unidades ir a una posición de bloque",
+  "action.rotp_zbc.close": "Ordenar a %s unidades quedarse cerca",
+  "action.rotp_zbc.closent": "Cancelar orden a %s unidades de quedarse cerca",
+
+  "effect.rotp_zbc.sat": "Efecto de Sentar Mal",
+
+  "rotp_zbc.subtitle.user": "\"Bad Company\"",
+  "rotp_zbc.subtitle.bc_soldier_step": "Paso de Soldado de Bad Company",
+  "rotp_zbc.subtitle.shoot": "Disparo de Bad Company",
+  "rotp_zbc.subtitle.tank_living": "Tanque de Bad Company",
+  "rotp_zbc.subtitle.tank_hurt": "Tanque de Bad Company dañado",
+  "rotp_zbc.subtitle.tank_shoot": "Disparo de Misil",
+  "rotp_zbc.subtitle.tank_step": "Tanque de Bad Company Moviéndose",
+  "rotp_zbc.subtitle.copter": "Helicóptero de Bad Company",
+
+  "gui.rotp_zbc.random": "Aleatorio",
+  "gui.rotp_zbc.circle": "Círculo",
+  "gui.rotp_zbc.line": "Línea",
+  "gui.rotp_zbc.arrow": "Flecha",
+  "gui.rotp_zbc.activate": "Activar",
+  "gui.rotp_zbc.deactivate": "Desactivar"
+}

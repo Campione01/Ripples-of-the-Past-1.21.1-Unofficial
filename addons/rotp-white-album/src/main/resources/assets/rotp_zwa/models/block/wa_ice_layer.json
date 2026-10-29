@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/carpet",
+  "textures": {
+    "wool": "rotp_zwa:block/wa_ice_block"
+  }
+}

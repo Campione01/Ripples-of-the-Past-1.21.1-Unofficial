@@ -1,0 +1,30 @@
+{
+  "entity.rotp_zwa.white_album": "Álbum blanco",
+  "stand.rotp_zwa.white_album": "Álbum blanco",
+
+  "action.rotp_zwa.wa_punch": "Puñetazo",
+  "action.rotp_zwa.wa_freeze": "Congelar",
+  "action.rotp_zwa.wa_unfreeze": "Descongelar",
+
+  "action.rotp_zwa.wa_block": "Escudo de hielo",
+  "action.rotp_zwa.wa_reflec": "Llora suavemente",
+  "action.rotp_zwa.wa_unreflec": "Llora suavemente apagado",
+  "action.rotp_zwa.wa_freeze_water": "Paso helado",
+
+  "rotp_zwa.subtitle.wa_summon": "Álbum blanco Invocado",
+  "rotp_zwa.subtitle.wa_user": "\"Álbum blanco\"",
+  "rotp_zwa.subtitle.wa_unsummon": "Álbum blanco Desinvocado",
+  "rotp_zwa.subtitle.wa_shield": "Escudo de hielo",
+  "rotp_zwa.subtitle.wa_deflect": "Proyectil desviado",
+  "rotp_zwa.subtitle.wa_gw_su": "Llora suavemente encendido",
+  "rotp_zwa.subtitle.user_gw_su": "\"Llora suavemente\"",
+  "rotp_zwa.subtitle.wa_gw_usu": "Llora suavemente desactivado",
+  "rotp_zwa.subtitle.wa_punch": "Puñetazo del Álbum Blanco",
+  "rotp_zwa.subtitle.wa_heavy_punch": "Golpe fuerte del Álbum Blanco",
+  "rotp_zwa.subtitle.wa_unfreze": "Descongelar",
+  "rotp_zwa.subtitle.wa_freeze": "Congelar",
+  "rotp_zwa.subtitle.wa_walker": "Paso helado activado",
+
+
+  "jojo.message.action_condition.no_paper": "Necesitas papel"
+}

@@ -1,0 +1,83 @@
+{
+	"format_version": "1.9.0",
+	"credit": "Made with Blockbench",
+	"texture_size": [64, 64],
+	"textures": {
+		"0": "rotp_d4c:item/shengren",
+		"particle": "rotp_d4c:item/shengren"
+	},
+	"elements": [
+		{
+			"from": [0, 5, 0],
+			"to": [2, 7, 2],
+			"rotation": {"angle": 0, "axis": "y", "origin": [0, 5, 0]},
+			"faces": {
+				"north": {"uv": [0, 13.5, 1, 14.5], "texture": "#0"},
+				"east": {"uv": [0, 13.5, 1, 14.5], "texture": "#0"},
+				"south": {"uv": [0, 13.5, 1, 14.5], "texture": "#0"},
+				"west": {"uv": [0, 14.5, 1.5, 16], "texture": "#0"},
+				"up": {"uv": [0, 13.5, 1, 14.5], "texture": "#0"},
+				"down": {"uv": [0, 13.5, 1, 14.5], "texture": "#0"}
+			}
+		},
+		{
+			"from": [1.01172, 5, 2.54531],
+			"to": [3.01172, 7, 4.54531],
+			"rotation": {"angle": 22.5, "axis": "y", "origin": [2.01172, 6, 3.54531]},
+			"faces": {
+				"north": {"uv": [0, 13.5, 1, 14.5], "texture": "#0"},
+				"east": {"uv": [0, 13.5, 1, 14.5], "texture": "#0"},
+				"south": {"uv": [0, 13.5, 1, 14.5], "texture": "#0"},
+				"west": {"uv": [0, 14.5, 1.5, 16], "texture": "#0"},
+				"up": {"uv": [0, 13.5, 1, 14.5], "texture": "#0"},
+				"down": {"uv": [0, 13.5, 1, 14.5], "texture": "#0"}
+			}
+		}
+	],
+	"gui_light": "front",
+	"display": {
+		"thirdperson_righthand": {
+			"rotation": [124, 1, 87],
+			"translation": [-1.5, -9.75, 2.25]
+		},
+		"thirdperson_lefthand": {
+			"rotation": [-95, 1, 87],
+			"translation": [-2.5, 5.25, 5.5]
+		},
+		"firstperson_righthand": {
+			"rotation": [124, -39, 17],
+			"translation": [0.25, -5, 0.25],
+			"scale": [0.8, 0.8, 0.8]
+		},
+		"firstperson_lefthand": {
+			"rotation": [26, 40, 117],
+			"translation": [4.25, -4, 0.75],
+			"scale": [0.8, 0.8, 0.8]
+		},
+		"ground": {
+			"rotation": [-180, -3, 0],
+			"translation": [1, 0.5, 0]
+		},
+		"gui": {
+			"rotation": [8, 89, 0],
+			"translation": [17, 8.75, 0],
+			"scale": [3, 3, 3]
+		},
+		"head": {
+			"translation": [7.25, 12.75, 9.5]
+		},
+		"fixed": {
+			"rotation": [5, -111, 0],
+			"translation": [-30, 7.25, 17.5],
+			"scale": [4, 4, 4]
+		}
+	},
+	"groups": [
+		{
+			"name": "body",
+			"origin": [0, 24, 0],
+			"color": 1,
+			"children": [0, 1]
+		}
+	]
+}

@@ -1,0 +1,46 @@
+{
+  "entity.rotp_zbc.all": "Усі",
+  "entity.rotp_zbc.all_c": "Усі",
+
+  "entity.rotp_zbc.bad_soldier": "Bad Company Солдат",
+  "entity.rotp_zbc.bad_bullet": "Bad Company Куля",
+  "entity.rotp_zbc.bad_tank": "Bad Company Танк",
+  "entity.rotp_zbc.bad_missile": "Bad Company Ракета",
+  "entity.rotp_zbc.bad_helicopter": "Bad Company Гелікоптер",
+
+  "entity.rotp_zbc.bad_company": "Bad Company",
+  "stand.rotp_zbc.bad_company": "Bad Company",
+
+  "item.rotp_zbc.bad_gun": "Bad Rifle",
+
+  "action.rotp_zbc.order_wait": "Наказ %s підрозділам чекати та стріляти",
+  "action.rotp_zbc.order_no_wait": "Наказ %s підрозділам припинити очікування",
+  "action.rotp_zbc.units": "Вибрати тип підрозділу",
+  "action.rotp_zbc.put_mines": "Встановити міни",
+  "action.rotp_zbc.explode_mines": "Підірвати міни",
+  "action.rotp_zbc.random": "Вибрати тип виклику",
+  "action.rotp_zbc.target": "Наказ %s підрозділам на встановлення цілі",
+  "action.rotp_zbc.missile": "%s вибухових ракет",
+  "action.rotp_zbc.shoot": "Наказ %s підрозділам забути ціль",
+  "action.rotp_zbc.go_block": "Наказ %s підрозділам перейти на блок",
+  "action.rotp_zbc.close": "Наказ %s підрозділам триматися ближче",
+  "action.rotp_zbc.closent": "Наказ %s підрозділам перестати триматися ближче",
+
+  "effect.rotp_zbc.sat": "Bad Sit",
+
+  "rotp_zbc.subtitle.user": "\"Bad Company\"",
+  "rotp_zbc.subtitle.bc_soldier_step": "Bad Company крок солдата",
+  "rotp_zbc.subtitle.shoot": "Bad Company стрільба",
+  "rotp_zbc.subtitle.tank_living": "Bad Company танк",
+  "rotp_zbc.subtitle.tank_hurt": "Bad Company танк пошкоджено",
+  "rotp_zbc.subtitle.tank_shoot": "Ракетний постріл",
+  "rotp_zbc.subtitle.tank_step": "Bad Company танк рухається",
+  "rotp_zbc.subtitle.copter": "Bad Company гелікоптер",
+
+  "gui.rotp_zbc.random": "Випадково",
+  "gui.rotp_zbc.circle": "Коло",
+  "gui.rotp_zbc.line": "Лінією",
+  "gui.rotp_zbc.arrow": "Стрілою",
+  "gui.rotp_zbc.activate": "Активувати",
+  "gui.rotp_zbc.deactivate": "Деактивувати"
+}

@@ -1,0 +1,23 @@
+{
+  "rotp_zhp.ability.hp_vine_attack": "藤蔓攻擊",
+  "rotp_zhp.ability.hp_vine_shift": "藤蔓纏繞攻擊",
+  "rotp_zhp.ability.hp_grab": "纏繞實體",
+  "rotp_zhp.ability.hp_grab_od": "傳導波紋疾走",
+  "rotp_zhp.ability.hp_grab_sc": "Scarlet OverDrive grabbed entity",
+  "rotp_zhp.ability.hp_grab_heal": "Healing vine",
+  "rotp_zhp.ability.hp_block": "纏繞護體",
+  "rotp_zhp.ability.hp_vine": "藤蔓穿梭",
+  "rotp_zhp.ability.hp_vine_entity": "抓取實體",
+  "rotp_zhp.ability.hp_barrier": "藤蔓陷阱 (已佈置%s條/共可佈置%s條)",
+  "rotp_zhp.ability.hp_unbarrier": "收回所有藤蔓",
+  "rotp_zhp.ability.cringe": "OH NO CRINGE",
+  "rotp_zhp.ability.hp_breath": "波紋呼吸",
+  "rotp_zhp.ability.hp_doxx": "念寫",
+  "rotp_zhp.ability.hp_camera": "照片念寫",
+  "rotp_zhp.ability.hp_target": "選擇目標",
+  "rotp_zhp.ability.hp_beat": "「波紋疾走連打！」",
+  "rotp_zhp.ability.hp_doxx.s": "念寫以尋找 %s",
+  "rotp_zhp.ability.hp_doxx.stand": "%s user position divination",
+  "rotp_zhp.ability.hp_camera.s": "%s photo divination",
+  "rotp_zhp.ability.hp_camera.stand": "%s user photo divination"
+}

@@ -1,0 +1,50 @@
+{
+  "rotp_the_hand:the_hand": {
+    "use_by_resolve": {
+      "0lvl": ["heavy_combo", "barrage_combo_v1"],
+      "1lvl": ["heavy_combo", "kick_combo", "barrage_combo_v2"],
+      "2lvl": ["heavy_combo", "kick_combo", "barrage_combo_v2", "erase_combo", "erase_combo_alt"],
+      "3lvl": ["heavy_combo", "kick_combo", "barrage_combo_v2", "erase_combo", "erase_combo_alt"],
+      "4lvl": ["heavy_combo", "kick_combo", "barrage_combo_v2", "barrage_combo_alt", "erase_first", "erase_combo", "erase_combo_alt"]
+    },
+    "block": "guard",
+    "heavy_combo": [
+      { "action": "punch", "distance": "<=4" },
+      { "action": "punch", "distance": "<=4" },
+      { "action": "heavy_punch", "distance": "<=4" }
+    ],
+    "barrage_combo_v1": [
+      { "action": "barrage", "distance": "<=4" },
+      { "action": "heavy_punch", "distance": "<=4" }
+    ],
+    "kick_combo": [
+      { "action": "punch", "distance": "<=4" },
+      { "action": "punch", "distance": "<=4" },
+      { "action": "punch", "distance": "<=4" },
+      { "action": "kick", "distance": "<=4" }
+    ],
+    "barrage_combo_v2": [
+      { "action": "barrage", "distance": "<=4" },
+      { "action": "kick", "distance": "<=4" }
+    ],
+    "erase_combo": [
+      { "action": "punch", "distance": "<=4" },
+      { "action": "punch", "distance": "<=4" },
+      { "action": "the_hand_erase", "distance": "<=4" }
+    ],
+    "erase_combo_alt": [
+      { "action": "punch", "distance": "<=4" },
+      { "action": "punch", "distance": "<=4" },
+      { "action": "punch", "distance": "<=4" },
+      { "action": "the_hand_erase", "distance": "<=4" }
+    ],
+    "erase_first": [
+      { "action": "the_hand_erase", "distance": "<6" },
+      { "action": "heavy_punch", "distance": "<=4" }
+    ],
+    "barrage_combo_alt": [
+      { "action": "the_hand_erasure_barrage", "distance": "<=4" },
+      { "action": "heavy_punch", "distance": "<=4" }
+    ]
+  }
+}

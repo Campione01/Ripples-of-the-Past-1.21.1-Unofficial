@@ -1,0 +1,20 @@
+{
+  "item.stone_legacy.fruit": "Каменный фрукт",
+  "block.stone_legacy.aja_stone_mask_predicted_heat": "Каменная маска с нагретым красным камнем Айя",
+  "block.stone_legacy.aja_stone_mask_predicted_light": "Каменная маска с просветлённым красным камнем Айя",
+  "block.stone_legacy.aja_stone_mask_predicted_wind": "Каменная маска с ветреным красным камнем Айя",
+  "death.attack.asphyxia": "%1$s был окаменён",
+  "action.stone_legacy.pillarman_hamon_suicide": "Самоубийство Хамоном",
+  "action.stone_legacy.pillarman_petrify": "Окаменение",
+  "stone_legacy.pillarman_petrify.warning": "Использование этой способности приведёт к потере вашей силы!",
+  "action.stone_legacy.vampirism_recall": "Подозвать",
+  "action.stone_legacy.vampirism_wait_order": "\"Сидеть\"",
+  "commands.jojozombie.setowner.success.single": "Владелец %s успешно установлен для %s",
+  "commands.jojozombie.setowner.success.multiple": "Владелец %s успешно установлен для %s сущностей",
+  "stone_legacy.ability.pillarman_hamon_suicide": "Самоубийство Хамоном",
+  "stone_legacy.ability.pillarman_petrify": "Окаменение",
+  "stone_legacy.ability.vampirism_recall": "Подозвать",
+  "stone_legacy.ability.vampirism_wait_order": "\"Сидеть\"",
+  "death.attack.stone_legacy.asphyxia": "%1$s был окаменён",
+  "commands.jojozombie.entity.failed": "No living entities were selected"
+}

@@ -1,0 +1,17 @@
+{
+  "item.rotp_bb.blood_bottle": "Бутылочка с кровью",
+  "rotp_bb.ability.vampirism_blood_refill": "Кровавое восполнение",
+  "jojo_ripples.ability.vampirism_blood_refill": "Кровавое восполнение",
+  "action.jojo.vampirism_blood_refill": "Кровавое восполнение",
+  "jojo.message.action_condition.no_volume": "У вас нет сосуда для хранения Вашей крови",
+  "jojo.config.bottleDrinkPenalty": "Штраф ресурса бутылочки",
+  "jojo.config.fillBottleMultiplier": "Множитель ценности бутылочки",
+  "jojo.config.maxBottleHungerValue": "Максимальный процент ресурса для питья",
+  "rotp_bb.configuration.title": "Настройки бутылочки с кровью",
+  "rotp_bb.configuration.section.jojo.bb.a.common.toml": "Общие настройки",
+  "rotp_bb.configuration.section.jojo.bb.a.common.toml.title": "Общие настройки бутылочки с кровью",
+  "rotp_bb.configuration.Blood Bottle Configuration": "Бутылочка с кровью",
+  "jojo.config.bottleDrinkPenalty.tooltip": "Разница в процентах между стоимостью наполнения и ценностью ресурса бутылочки с кровью.",
+  "jojo.config.fillBottleMultiplier.tooltip": "Сохраняемая ценность крови в процентах.",
+  "jojo.config.maxBottleHungerValue.tooltip": "Максимальный процент активного ресурса, при котором можно выпить бутылочку с кровью."
+}

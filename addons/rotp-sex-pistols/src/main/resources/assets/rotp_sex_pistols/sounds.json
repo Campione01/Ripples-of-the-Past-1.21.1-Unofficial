@@ -1,0 +1,169 @@
+{
+  "sex_pistols_summon": {
+    "subtitle": "rotp_sex_pistols.subtitle.sex_pistols_summon",
+    "sounds": [
+      "rotp_sex_pistols:stand/sex_pistols_summon_1"
+    ]
+  },
+  "sex_pistols_unsummon": {
+    "subtitle": "rotp_sex_pistols.subtitle.sex_pistols_unsummon",
+    "sounds": [
+      "rotp_sex_pistols:stand/sex_pistols_unsummon"
+    ]
+  },
+  "sex_pistols_ricochet": {
+    "subtitle": "rotp_sex_pistols.subtitle.sex_pistols_ricochet",
+    "sounds": [
+      "rotp_sex_pistols:stand/sex_pistols_pass"
+    ]
+  },
+  "sex_pistols_ricochet_yari": {
+    "sounds": [
+      "rotp_sex_pistols:stand/sex_pistols_yari"
+    ]
+  },
+  "sex_pistols_ricochet_yorodomo": {
+    "subtitle": "rotp_sex_pistols.subtitle.sex_pistols_ricochet_yorodomo",
+    "sounds": [
+      "rotp_sex_pistols:stand/sex_pistols_yorodomo"
+    ]
+  },
+  "sex_pistols_ricochet_hit": {
+    "subtitle": "rotp_sex_pistols.subtitle.sex_pistols_ricochet_hit",
+    "sounds": [
+      "rotp_sex_pistols:stand/sex_pistols_yada"
+    ]
+  },
+  "sex_pistols_ricochet_hit_yaho": {
+    "subtitle": "rotp_sex_pistols.subtitle.sex_pistols_ricochet_hit_yaho",
+    "sounds": [
+      "rotp_sex_pistols:stand/sex_pistols_yaho"
+    ]
+  },
+  "sex_pistols_ricochet_hit_ye": {
+    "subtitle": "rotp_sex_pistols.subtitle.sex_pistols_ricochet_hit_ye",
+    "sounds": [
+      "rotp_sex_pistols:stand/sex_pistols_ye"
+    ]
+  },
+  "sex_pistols_hungry": {
+    "subtitle": "rotp_sex_pistols.subtitle.sex_pistols_hungry",
+    "sounds": [
+      "rotp_sex_pistols:stand/sex_pistols_hungry_1"
+    ]
+  },
+  "mista_sex_pistols": {
+    "subtitle": "rotp_sex_pistols.subtitle.mista_sex_pistols",
+    "sounds": [
+      "rotp_sex_pistols:stand_user/mista_sex_pistols_1"
+    ]
+  },
+  "mista_pistols": {
+    "subtitle": "rotp_sex_pistols.subtitle.mista_pistols",
+    "sounds": [
+      "rotp_sex_pistols:stand_user/mista_pistols_1"
+    ]
+  },
+  "mista_recall": {
+    "subtitle": "rotp_sex_pistols.subtitle.mista_recall",
+    "sounds": [
+      "rotp_sex_pistols:stand_user/mista_callback_1"
+    ]
+  },
+  "mista_recall_2": {
+    "subtitle": "rotp_sex_pistols.subtitle.mista_recall_2",
+    "sounds": [
+      "rotp_sex_pistols:stand_user/mista_callback_2"
+    ]
+  },
+  "mista_loaded_fire": {
+    "subtitle": "rotp_sex_pistols.subtitle.mista_loaded_fire",
+    "sounds": [
+      "rotp_sex_pistols:stand_user/mista_gonna_light_you_up"
+    ]
+  },
+  "mista_loaded_fire_kurai": {
+    "subtitle": "rotp_sex_pistols.subtitle.mista_loaded_fire_kurai",
+    "sounds": [
+      "rotp_sex_pistols:stand_user/mista_kurai"
+    ]
+  },
+  "mista_loaded_fire_sokoda": {
+    "subtitle": "rotp_sex_pistols.subtitle.mista_loaded_fire_sokoda",
+    "sounds": [
+      "rotp_sex_pistols:stand_user/mista_sokoda"
+    ]
+  },
+  "mista_loaded_fire_yik": {
+    "subtitle": "rotp_sex_pistols.subtitle.mista_loaded_fire_yik",
+    "sounds": [
+      "rotp_sex_pistols:stand_user/mista_yik"
+    ]
+  },
+  "mista_stand_reload": {
+    "subtitle": "rotp_sex_pistols.subtitle.mista_stand_reload",
+    "sounds": [
+      "rotp_sex_pistols:stand_user/mista_time_to_work"
+    ]
+  },
+  "revolver_open": {
+    "subtitle": "rotp_sex_pistols.subtitle.revolver_open",
+    "sounds": [
+      "rotp_sex_pistols:item/revolver/revolver_open"
+    ]
+  },
+  "revolver_close": {
+    "subtitle": "rotp_sex_pistols.subtitle.revolver_close",
+    "sounds": [
+      "rotp_sex_pistols:item/revolver/revolver_close"
+    ]
+  },
+  "revolver_shellsout": {
+    "subtitle": "rotp_sex_pistols.subtitle.revolver_shellsout",
+    "sounds": [
+      "rotp_sex_pistols:item/revolver/revolver_shellsout"
+    ]
+  },
+  "revolver_speedloader": {
+    "subtitle": "rotp_sex_pistols.subtitle.revolver_speedloader",
+    "sounds": [
+      "rotp_sex_pistols:item/revolver/revolver_speedloader"
+    ]
+  },
+  "fire": {
+    "subtitle": "rotp_sex_pistols.subtitle.fire",
+    "sounds": [
+      "rotp_sex_pistols:item/revolver/fire"
+    ]
+  },
+  "dry_fire": {
+    "subtitle": "rotp_sex_pistols.subtitle.dry_fire",
+    "sounds": [
+      "rotp_sex_pistols:item/revolver/dry_fire"
+    ]
+  },
+  "shell_casting_1": {
+    "subtitle": "rotp_sex_pistols.subtitle.shell_casting",
+    "sounds": [
+      "rotp_sex_pistols:item/revolver/shell_casting_1"
+    ]
+  },
+  "shell_casting_2": {
+    "subtitle": "rotp_sex_pistols.subtitle.shell_casting",
+    "sounds": [
+      "rotp_sex_pistols:item/revolver/shell_casting_2"
+    ]
+  },
+  "shell_casting_3": {
+    "subtitle": "rotp_sex_pistols.subtitle.shell_casting",
+    "sounds": [
+      "rotp_sex_pistols:item/revolver/shell_casting_3"
+    ]
+  },
+  "shell_casting_4": {
+    "subtitle": "rotp_sex_pistols.subtitle.shell_casting",
+    "sounds": [
+      "rotp_sex_pistols:item/revolver/shell_casting_4"
+    ]
+  }
+}

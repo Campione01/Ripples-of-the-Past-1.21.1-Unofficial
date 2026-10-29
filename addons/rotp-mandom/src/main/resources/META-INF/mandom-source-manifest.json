@@ -1,0 +1,99 @@
+{
+  "schema_version": 2,
+  "module": "addons/rotp-mandom",
+  "migration": "full_base_closure_with_module_local_atomic_rewind",
+  "canonical": {
+    "file": "[RotP：男人领域附属] RotP-Mandom-1.1.2.jar",
+    "bytes": 814259,
+    "sha256": "79B77F092C703BC4907F671DC6F18B2764A9B512E52D9687E07CFB850DC92BD4",
+    "decompiler": "CFR 0.152",
+    "java_sources": 61,
+    "resource_files": 44
+  },
+  "active_registry": {
+    "stands": ["rotp_mandom:mandom"],
+    "entities": ["rotp_mandom:mandom"],
+    "items": ["rotp_mandom:ringo_clock"],
+    "sounds": [
+      "rotp_mandom:summon",
+      "rotp_mandom:stand_summon",
+      "rotp_mandom:stand_unsummon",
+      "rotp_mandom:rewind",
+      "rotp_mandom:void",
+      "rotp_mandom:rewind_start",
+      "rotp_mandom:mandom_ost_30",
+      "rotp_mandom:mandom_ost_60",
+      "rotp_mandom:mandom_ost_75",
+      "rotp_mandom:mandom_ost_90",
+      "rotp_mandom:mandom_ost_120",
+      "rotp_mandom:mandom_ost_full",
+      "rotp_mandom:mandom_ost_cassette"
+    ],
+    "abilities": ["rotp_mandom:time_rewind"],
+    "payloads": ["rotp_mandom:rewind_effect"]
+  },
+  "ost_restoration": {
+    "base_id": "rotp_mandom:mandom_ost",
+    "generated_sound_events": 7,
+    "attached_stand": "rotp_mandom:mandom",
+    "historical_disposition": "omitted",
+    "current_disposition": "registered_attached_silent",
+    "sound_definitions_added": 0,
+    "audio_payloads_added": 0
+  },
+  "base_surface": {
+    "stand_stats": {
+      "power": 0.0,
+      "speed": 18.0,
+      "effective_range": 2.0,
+      "max_range": 2.0,
+      "durability": 1.0,
+      "precision": 0.0,
+      "legacy_random_weight": 2.0
+    },
+    "manual_control": false,
+    "stand_leap": false,
+    "combat_topology": "non_combat_world_effect_controller",
+    "shared_grab_eligible": false,
+    "shared_charged_heavy_eligible": false,
+    "clock_max_cracks": 255,
+    "clock_recipe": true,
+    "clock_outpost_loot_chance": 0.3,
+    "skins": ["mandom", "purple", "gray", "acid", "shadow"]
+  },
+  "rewind_gate": {
+    "canonical_id": "rotp_mandom:time_rewind",
+    "duration_ticks": 120,
+    "cooldown_ticks": 120,
+    "range_chunks": 10,
+    "range_blocks": 160,
+    "decision": "module_local_atomic_transaction",
+    "core_support": "all_13_required_capabilities_unsupported",
+    "transaction_owner": "rotp_mandom:MandomRewindService",
+    "action_registered": true,
+    "input_bound": true,
+    "payload_registered": true,
+    "client_fx_registered": true,
+    "partial_position_rewind": false
+  },
+  "rewind_resources": {
+    "active_exact_paths": 17,
+    "sounds_registered": 3,
+    "post_chains_available": 4,
+    "action_icons_available": 10,
+    "archive_provenance_copies": 17
+  },
+  "visual_policy": {
+    "owner": "MandomStandEntity controller renderer",
+    "stand_context": "StandVisualContext.world",
+    "alpha": "AlphaMultiBufferSource",
+    "material": "ModRenderTypes.standTranslucent",
+    "model_nodes": 98,
+    "model_cubes": 134,
+    "primary_texture_dimensions": "512x512",
+    "minimum_upgrade_triggered": false,
+    "player_renderer_hook": false,
+    "global_shader": false,
+    "rewind_post_effect": "core AddonPostEffect AFTER_LEVEL"
+  }
+}

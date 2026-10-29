@@ -1,0 +1,15 @@
+{
+  "entity.rotp_wou.wonder_of_you": "奇迹于你",
+  "entity.rotp_wou.car_projectile": "轿车",
+  "stand.rotp_wou.wonder_of_you": "奇迹于你",
+  "rotp_wou.ability.punch": "挥拳",
+  "rotp_wou.ability.heavy_punch": "重拳",
+  "rotp_wou.ability.heavy_charged": "蓄力重拳",
+  "rotp_wou.ability.finisher_punch": "终结一击",
+  "rotp_wou.ability.guard": "防御",
+  "rotp_wou.ability.calamity_passive": "灾厄·被动",
+  "rotp_wou.ability.calamity_active": "灾厄·主动",
+  "rotp_wou.ability.calamity_car_attack": "灾厄飞车",
+  "rotp_wou.ability.lightning_strike": "闪电打击",
+  "rotp_wou.ability.explosion": "爆炸"
+}

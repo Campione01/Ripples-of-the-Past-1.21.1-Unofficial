@@ -1,0 +1,23 @@
+{
+  "stand.rotp_echoes.echoes_act3": "回音·三式",
+  "stand.rotp_echoes.echoes_act2": "回音·二式",
+  "rotp_echoes.ability.punch": "拳擊",
+  "rotp_echoes.ability.barrage": "連打",
+  "rotp_echoes.ability.heavy_punch": "重拳",
+  "rotp_echoes.ability.finisher": "重力重擊",
+  "rotp_echoes.ability.guard": "防禦",
+  "rotp_echoes.ability.degrade_to_act2": "返璞歸真",
+  "rotp_echoes.ability.freeze": "凝滯",
+  "rotp_echoes.ability.hand_freeze": "擒拿凝滯",
+  "rotp_echoes.ability.freeze_self": "自縛凝滯",
+  "rotp_echoes.ability.gravity_infuse": "重力附靈",
+  "rotp_echoes.ability.gravity_projectile": "重力投射",
+  "rotp_echoes.ability.act2_punch": "輕擊",
+  "rotp_echoes.ability.act2_heavy_punch": "重擊",
+  "rotp_echoes.ability.act2_finisher": "尾刺擊",
+  "rotp_echoes.ability.act2_guard": "防禦",
+  "rotp_echoes.ability.evolve_to_act3": "破繭成蝶",
+  "entity.rotp_echoes.echoes_act2": "『回音·二式』",
+  "rotp_echoes.tooltip.gravity_infused": "受重力所縛",
+  "rotp_echoes.tooltip.gravity_infused.desc": "持之則重不可舉，行動遲緩"
+}

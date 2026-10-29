@@ -1,0 +1,20 @@
+{
+  "skins": {
+    "rotp_d4c:skin1": {
+      "stand_type": "rotp_d4c:d4c",
+      "color": "0x28DBEF"
+    },
+    "rotp_d4c:skin2": {
+      "stand_type": "rotp_d4c:d4c",
+      "color": "0x28DBEF"
+    },
+    "rotp_d4c:skin3": {
+      "stand_type": "rotp_d4c:d4c",
+      "color": "0x28DBEF"
+    },
+    "rotp_d4c:skin4": {
+      "stand_type": "rotp_d4c:d4c",
+      "color": "0x28DBEF"
+    }
+  }
+}

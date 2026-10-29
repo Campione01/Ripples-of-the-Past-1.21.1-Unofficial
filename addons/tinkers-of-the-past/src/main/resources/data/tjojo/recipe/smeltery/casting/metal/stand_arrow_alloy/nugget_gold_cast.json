@@ -1,0 +1,20 @@
+{
+    "neoforge:conditions":  [
+                                {
+                                    "type":  "neoforge:mod_loaded",
+                                    "modid":  "tconstruct"
+                                }
+                            ],
+    "type":  "tconstruct:casting_table",
+    "cast":  {
+                 "tag":  "tconstruct:casts/multi_use/nugget"
+             },
+    "fluid":  {
+                  "tag":  "c:molten_stand_arrow_alloy",
+                  "amount":  10
+              },
+    "result":  {
+                   "tag":  "c:nuggets/stand_arrow_alloy"
+               },
+    "cooling_time":  19
+}

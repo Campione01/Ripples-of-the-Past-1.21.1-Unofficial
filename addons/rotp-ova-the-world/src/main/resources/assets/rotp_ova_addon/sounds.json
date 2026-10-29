@@ -1,0 +1,126 @@
+{
+    "the_world_ova_summon":  {
+                                 "subtitle":  "rotp_ova_addon.subtitle.the_world_ova_summon",
+                                 "sounds":  [
+                                                "rotp_ova_addon:stand/the_world_ova_summon",
+                                                "rotp_ova_addon:stand/the_world_ova_summon_2",
+                                                "rotp_ova_addon:stand/the_world_ova_summon_3"
+                                            ]
+                             },
+    "the_world_ova_unsummon":  {
+                                   "subtitle":  "rotp_ova_addon.subtitle.the_world_ova_unsummon",
+                                   "sounds":  [
+                                                  "rotp_ova_addon:stand/the_world_ova_unsummon"
+                                              ]
+                               },
+    "the_world_ova_heavy_punch":  {
+                                      "subtitle":  "rotp_ova_addon.subtitle.the_world_ova_heavy_punch",
+                                      "sounds":  [
+                                                     "rotp_ova_addon:stand/the_world_ova_heavy_punch"
+                                                 ]
+                                  },
+    "the_world_ova_barrage":  {
+                                  "subtitle":  "rotp_ova_addon.subtitle.the_world_ova_barrage",
+                                  "sounds":  [
+                                                 "rotp_ova_addon:stand/the_world_ova_barrage",
+                                                 "rotp_ova_addon:stand/the_world_ova_barrage_2",
+                                                 "rotp_ova_addon:stand_user/dio_ova_barrage"
+                                             ]
+                              },
+    "the_world_ova_ultra_punch":  {
+                                      "subtitle":  "rotp_ova_addon.subtitle.the_world_ova_ultra_punch",
+                                      "sounds":  [
+                                                     {
+                                                         "name":  "rotp_ova_addon:the_world_ova_heavy_punch",
+                                                         "type":  "event"
+                                                     }
+                                                 ]
+                                  },
+    "the_world_ova_time_stop":  {
+                                    "subtitle":  "rotp_ova_addon.subtitle.the_world_ova_time_stop",
+                                    "sounds":  [
+                                                   "rotp_ova_addon:stand/the_world_ova_time_stop",
+                                                   "rotp_ova_addon:stand/the_world_ova_time_stop_2",
+                                                   "rotp_ova_addon:stand/the_world_ova_time_stop_3",
+                                                   "rotp_ova_addon:stand/the_world_ova_time_stop_4"
+                                               ]
+                                },
+    "the_world_ova_ts_blink":  {
+                                   "sounds":  [
+                                                  "rotp_ova_addon:stand/the_world_ova_ts_blink"
+                                              ]
+                               },
+    "the_world_ova_barrage_hit":  {
+                                      "sounds":  [
+                                                     {
+                                                         "name":  "jojo_ripples:stand_punch_light",
+                                                         "type":  "event"
+                                                     }
+                                                 ]
+                                  },
+    "the_world_ova_time_resume":  {
+                                      "sounds":  [
+                                                     "rotp_ova_addon:stand/the_world_ova_time_resume"
+                                                 ]
+                                  },
+    "dio_ova_the_world":  {
+                              "subtitle":  "rotp_ova_addon.subtitle.dio_ova_the_world",
+                              "sounds":  [
+                                             "rotp_ova_addon:stand_user/dio_ova_the_world",
+                                             "rotp_ova_addon:stand_user/dio_ova_the_world_2"
+                                         ]
+                          },
+    "dio_ova_time_stop":  {
+                              "subtitle":  "rotp_ova_addon.subtitle.dio_ova_time_stop",
+                              "sounds":  [
+                                             "rotp_ova_addon:stand_user/dio_ova_toki_yo_tomare",
+                                             "rotp_ova_addon:stand_user/dio_ova_toki_yo_tomare_2",
+                                             "rotp_ova_addon:stand_user/dio_ova_time_stop",
+                                             "rotp_ova_addon:stand_user/dio_ova_time_stop_2",
+                                             "rotp_ova_addon:stand_user/dio_ova_time_stop_3"
+                                         ]
+                          },
+    "dio_ova_cant_move":  {
+                              "sounds":  [
+                                             "rotp_ova_addon:stand_user/dio_ova_cant_move"
+                                         ]
+                          },
+    "dio_ova_time_resume":  {
+                                "sounds":  [
+                                               "rotp_ova_addon:stand_user/dio_ova_time_resume",
+                                               "rotp_ova_addon:stand_user/dio_ova_time_resume_2",
+                                               "rotp_ova_addon:stand_user/dio_ova_time_resume_3"
+                                           ]
+                            },
+    "dio_ova_appear":  {
+                           "sounds":  [
+                                          "rotp_ova_addon:stand_user/dio_ova_appear"
+                                      ]
+                       },
+    "dio_the_world_ova":  {
+                              "sounds":  [
+                                             {
+                                                 "name":  "rotp_ova_addon:dio_ova_the_world",
+                                                 "type":  "event"
+                                             }
+                                         ]
+                          },
+    "dio_ova_die":  {
+                        "sounds":  [
+                                       "rotp_ova_addon:stand_user/dio_ova_die",
+                                       "rotp_ova_addon:stand_user/dio_ova_die_2"
+                                   ]
+                    },
+    "dio_ova_barrage":  {
+                            "sounds":  [
+                                           "rotp_ova_addon:stand_user/dio_ova_barrage"
+                                       ]
+                        },
+    "dio_ova_times_up":  {
+                             "sounds":  [
+                                            "rotp_ova_addon:stand_user/dio_ova_times_up",
+                                            "rotp_ova_addon:stand_user/dio_ova_time_resume",
+                                            "rotp_ova_addon:stand_user/dio_ova_time_resume_2"
+                                        ]
+                         }
+}

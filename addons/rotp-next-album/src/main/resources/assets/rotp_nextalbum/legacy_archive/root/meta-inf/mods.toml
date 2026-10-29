@@ -1,0 +1,48 @@
+modLoader="javafml" 
+loaderVersion="[36,)" 
+license="GNU GPL v3.0"
+issueTrackerURL="https://github.com/Babelmoth/Rotp-NextAlubm-1.16.5/issues/" 
+
+[[mods]]
+    modId="rotp_nextalbum" 
+    version="${file.jarVersion}" 
+    displayName="RotP:NextAlbum"
+    updateJSONURL="" 
+    displayURL=""
+    logoFile="logo.png" 
+    credits="Babelmoth, StandoByte "
+    authors="Babelmoth" 
+    description='''
+    A mod aims on add extra content for Ripples of the past.
+    '''
+
+[[dependencies.rotp_nextalbum]]
+    modId="forge"
+    mandatory=true
+    versionRange="[36,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.rotp_nextalbum]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="[1.16.5,1.17)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.rotp_nextalbum]]
+    modId="jojo"
+    mandatory=true
+    versionRange="[0.2.2,0.3)"
+    ordering="AFTER"
+    side="BOTH"
+[[dependencies.rotp_ata]]
+modId="geckolib3"
+mandatory=true
+versionRange="[3.0.0,)"
+ordering="NONE"
+side="BOTH"
+
+
+[[mixins]]
+    config="rotp_nextalbum.mixins.json"

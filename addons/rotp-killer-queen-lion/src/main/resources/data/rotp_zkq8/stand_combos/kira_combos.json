@@ -1,0 +1,38 @@
+{
+  "rotp_zkq8:killer_queen": {
+    "use_by_resolve": {
+      "0lvl": ["basic_combo", "barrage_combo"],
+      "1lvl": ["basic_combo", "barrage_combo", "heavy_combo"],
+      "2lvl": ["basic_combo", "barrage_combo", "heavy_combo", "sheer" ],
+      "3lvl": ["basic_combo", "barrage_combo", "heavy_combo", "explosive","sheer"],
+      "4lvl": ["basic_combo", "barrage_combo", "heavy_combo", "finger_combo", "snow","sheer"]
+    },
+    "block": "rotp_zkq8:kq_block",
+    "basic_combo": [
+      { "action": "rotp_zkq8:kq_punch", "distance": "<2" },
+      { "action": "rotp_zkq8:kq_punch", "distance": "<2" },
+      { "action": "rotp_zkq8:kq_barrage", "distance": "<3" }
+    ],
+    "barrage_combo": [
+      { "action": "rotp_zkq8:kq_barrage", "distance": "<3" },
+      { "action": "rotp_zkq8:kq_barrage", "distance": "<3" }
+    ],
+    "heavy_combo": [
+      { "action": "rotp_zkq8:kq_punch", "distance": "<2" },
+      { "action": "rotp_zkq8:kq_punch", "distance": "<2" },
+      { "action": "rotp_zkq8:kq_heavy_punch", "distance": "<3", "requiredStamina": 200 }
+    ],
+    "explosive":[
+      { "action": "rotp_zkq8:kq_punch", "distance": "<2" },
+      { "action": "rotp_zkq8:kq_punch", "distance": "<2" },
+      { "action": "rotp_zkq8:kq_punch", "distance": "<2" },
+      { "action": "rotp_zkq8:kq_entitybomb", "distance": "<1" },
+      { "action": "rotp_zkq8:kq_entity_explo", "distance": "<5","requiredStamina": 250 }
+
+    ],
+    "snow": [
+      { "action": "rotp_zkq8:snow_explode", "distance": ">7" }
+    ]
+  }
+
+}

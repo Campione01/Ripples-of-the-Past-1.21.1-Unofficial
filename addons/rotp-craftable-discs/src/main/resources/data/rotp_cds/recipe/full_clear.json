@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "RIR",
+    "IDI",
+    "RIR"
+  ],
+  "key": {
+    "D": {
+      "item": "jojo_ripples:stand_disc"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "R": {
+      "item": "minecraft:redstone_block"
+    }
+  },
+  "result": {
+    "id": "jojo_ripples:stand_full_clear_one_time",
+    "count": 1
+  }
+}

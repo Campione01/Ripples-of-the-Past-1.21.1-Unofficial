@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "rotp_zwa:block/wa_ice_block"
+  }
+}

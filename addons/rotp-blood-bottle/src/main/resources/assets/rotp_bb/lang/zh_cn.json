@@ -1,0 +1,17 @@
+{
+  "item.rotp_bb.blood_bottle": "血瓶",
+  "rotp_bb.ability.vampirism_blood_refill": "补充血液",
+  "jojo_ripples.ability.vampirism_blood_refill": "补充血液",
+  "action.jojo.vampirism_blood_refill": "补充血液",
+  "jojo.message.action_condition.no_volume": "你没有可以储存血液的容器",
+  "jojo.config.bottleDrinkPenalty": "血瓶资源惩罚",
+  "jojo.config.fillBottleMultiplier": "血瓶价值倍率",
+  "jojo.config.maxBottleHungerValue": "饮用时的资源百分比上限",
+  "rotp_bb.configuration.title": "血瓶配置",
+  "rotp_bb.configuration.section.jojo.bb.a.common.toml": "通用设置",
+  "rotp_bb.configuration.section.jojo.bb.a.common.toml.title": "血瓶通用配置",
+  "rotp_bb.configuration.Blood Bottle Configuration": "血瓶",
+  "jojo.config.bottleDrinkPenalty.tooltip": "补充血液的消耗与血瓶所含资源值之间的百分比差额。",
+  "jojo.config.fillBottleMultiplier.tooltip": "血瓶储存的血液值，以百分比表示。",
+  "jojo.config.maxBottleHungerValue.tooltip": "当前资源不高于此百分比时才能饮用血瓶。"
+}

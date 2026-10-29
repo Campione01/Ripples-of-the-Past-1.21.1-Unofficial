@@ -1,0 +1,36 @@
+{
+  "entity.rotp_ctr.catch_the_rainbow": "Catch the Rainbow",
+  "stand.rotp_ctr.catch_the_rainbow": "Catch the Rainbow",
+
+  "action.rotp_ctr.catch_the_rainbow_rain_blade": "Лезвие из дождя",
+  "action.rotp_ctr.catch_the_rainbow_rain_blades": "Аура падающих дождевых лезвий",
+  "action.rotp_ctr.catch_the_rainbow_rain_blades_disable": "Отключить ауру дождевых лезвий",
+  "action.rotp_ctr.catch_the_rainbow_rain_stop": "\"Rain stop\" (%ss)",
+  "action.rotp_ctr.catch_the_rainbow_rain_resume": "Rain resume",
+
+  "action.rotp_ctr.catch_the_rainbow_rain_merge": "Слияние с дождём",
+  "action.rotp_ctr.catch_the_rainbow_rain_blink": "Перемещение по дождю",
+  "action.rotp_ctr.catch_the_rainbow_temp_health": "Исцеление дождём",
+  "action.rotp_ctr.catch_the_rainbow_rain_redemption": "Искупление",
+
+  "effect.rotp_ctr.rain_merge_effect": "Слияние с дождём",
+  "effect.rotp_ctr.rain_redemption_effect": "Искупление",
+
+  "item.rotp_ctr.catch_the_rainbow_mask_item": "Маска Catch the Rainbow",
+
+  "jojo.message.action_condition.needs_rain": "Ты должен стоять под дождём, чтобы сделать это",
+  "jojo.message.action_condition.not_enough_damage": "У тебя должно остаться 30% здоровья или меньше, чтобы использовать это",
+  "jojo.message.action_condition.little_bit_not_enough_damage": "У тебя должно быть 90% здоровья или меньше, чтобы использовать это",
+  "jojo.message.action_condition.dont_have_redemption_or_temp_health": "У тебя не должно быть эффекта Искупления или временного здоровья",
+  "jojo.message.action_condition.dont_have_merge_or_redemption": "У тебя не должно быть эффекта Искупления или Слияния с дождём",
+  "jojo.message.action_condition.dont_have_temp_health": "У тебя не должно быть эффекта временного здоровья",
+  "jojo.message.action_condition.not_enough_stamina": "Недостаточно стамины",
+
+  "item.rotp_ctr.umbrella": "Зонт",
+  "item.rotp_ctr.umbrella.reference_quote": "Альфа версия",
+  "item.rotp_ctr.revolver": "Револьвер",
+  "item.rotp_ctr.revolver.reference_quote": "\"Всё, чего я хотел - места, куда мог бы вернуться после своих путешествий...\nMade by August_Dr\"",
+  "item.rotp_ctr.revolver.reload_prompt": "%s+%s чтобы перезарядить (потребляет железные самородки и порох)",
+
+  "rotp_ctr.subtitle.catch_the_rainbow_name": "\"Catch The Rainbow\""
+}

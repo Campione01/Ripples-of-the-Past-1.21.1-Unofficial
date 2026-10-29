@@ -1,0 +1,24 @@
+{
+  "skins": {
+    "rotp_cream:skina": {
+      "stand_type": "rotp_cream:cream",
+      "color" : "0xD8D8D8"
+    },
+    "rotp_cream:skinb": {
+      "stand_type": "rotp_cream:cream",
+      "color" : "0xE0D4D9"
+    },
+    "rotp_cream:skinc": {
+      "stand_type": "rotp_cream:cream",
+      "color" : "0xB5B594"
+    },
+    "rotp_cream:skind": {
+      "stand_type": "rotp_cream:cream",
+      "color" : "0x5E15BD"
+    },
+    "rotp_cream:skine": {
+      "stand_type": "rotp_cream:cream",
+      "color" : "0xC3B6AE"
+    }
+  }
+}

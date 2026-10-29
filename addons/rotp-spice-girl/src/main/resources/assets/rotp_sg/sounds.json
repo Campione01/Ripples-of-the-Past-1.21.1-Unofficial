@@ -1,0 +1,88 @@
+{
+  "sg_summon": {
+    "subtitle": "rotp_sg.subtitle.sg_summon",
+    "sounds": ["rotp_sg:stand/sg_summon"]
+  },
+  "sg_unsummon": {
+    "subtitle": "rotp_sg.subtitle.sg_unsummon",
+    "sounds": [
+      "rotp_sg:stand/sg_unsummon",
+      "rotp_sg:stand/sg_unsummon2"
+    ]
+  },
+  "sg_punch": {
+    "subtitle": "rotp_sg.subtitle.sg_punch",
+    "sounds": [
+      "rotp_sg:stand/sg_punch1",
+      "rotp_sg:stand/sg_punch2",
+      "rotp_sg:stand/sg_punch3"
+    ]
+  },
+  "sg_punch_heavy": {
+    "subtitle": "rotp_sg.subtitle.sg_heavy",
+    "sounds": ["rotp_sg:stand/sg_heavy"]
+  },
+  "sg_finisher": {
+    "subtitle": "rotp_sg.subtitle.sg_finisher",
+    "sounds": ["rotp_sg:stand/sg_finisher"]
+  },
+  "sg_ability_1": {
+    "subtitle": "rotp_sg.subtitle.sg_ability",
+    "sounds": ["rotp_sg:stand/sg_ability"]
+  },
+  "sg_ability_2": {
+    "subtitle": "rotp_sg.subtitle.sg_ability_hold",
+    "sounds": ["rotp_sg:stand/sg_ability_hold"]
+  },
+  "sg_punch_voice": {
+    "subtitle": "rotp_sg.subtitle.sg_punch_voice",
+    "sounds": [
+      "rotp_sg:stand_user/trish_punch1",
+      "rotp_sg:stand_user/trish_punch2",
+      "rotp_sg:stand_user/trish_punch3"
+    ]
+  },
+  "sg_barrage_voice": {
+    "subtitle": "rotp_sg.subtitle.sg_barrage_voice",
+    "sounds": [
+      "rotp_sg:stand_user/trish_barrage1",
+      "rotp_sg:stand_user/trish_barrage2"
+    ]
+  },
+  "sg_punch_heavy_voice": {
+    "subtitle": "rotp_sg.subtitle.sg_punch_heavy_voice",
+    "sounds": [
+      "rotp_sg:stand_user/trish_heavy1",
+      "rotp_sg:stand_user/trish_heavy2",
+      "rotp_sg:stand_user/trish_heavy3"
+    ]
+  },
+  "sg_punch_finisher_voice": {
+    "subtitle": "rotp_sg.subtitle.sg_punch_finisher_voice",
+    "sounds": [
+      "rotp_sg:stand_user/trish_finisher1",
+      "rotp_sg:stand_user/trish_finisher2",
+      "rotp_sg:stand_user/trish_finisher3"
+    ]
+  },
+  "sg_summon_voice": {
+    "subtitle": "rotp_sg.subtitle.sg_summon_voice",
+    "sounds": [
+      "rotp_sg:stand_user/trish_summon1",
+      "rotp_sg:stand_user/trish_summon2",
+      "rotp_sg:stand_user/trish_summon3"
+    ]
+  },
+  "sg_ability1_voice": {
+    "subtitle": "rotp_sg.subtitle.sg_ability1_voice",
+    "sounds": ["rotp_sg:stand_user/trish_ability1"]
+  },
+  "sg_ability2_voice": {
+    "subtitle": "rotp_sg.subtitle.sg_ability2_voice",
+    "sounds": ["rotp_sg:stand_user/trish_ability2"]
+  },
+  "trish_arividerchi": {
+    "subtitle": "rotp_sg.subtitle.trish_arividerchi",
+    "sounds": ["rotp_sg:stand_user/trish_arividerchi"]
+  }
+}

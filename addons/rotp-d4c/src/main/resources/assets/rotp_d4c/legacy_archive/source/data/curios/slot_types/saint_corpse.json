@@ -1,0 +1,10 @@
+{
+  "replace": false,
+  "size": 1,
+  "operation": "OR",
+  "icon": "rotp_d4c:item/complete_saint_corpse",
+  "add_cosmetic": false,
+  "use_native_textures": false,
+  "render_toggle": true,
+  "drop_rule": "DEFAULT"
+}

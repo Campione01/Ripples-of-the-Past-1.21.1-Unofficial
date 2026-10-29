@@ -1,0 +1,123 @@
+{
+  "bruno_summon": {
+    "subtitle": "rotp_stfn.subtitle.bruno_summon",
+    "sounds": [
+      "rotp_stfn:stand_user/bruno_summon",
+      "rotp_stfn:stand_user/bruno_summon_2"
+    ]
+  },
+  "bruno_barrage": {
+    "subtitle": "rotp_stfn.subtitle.bruno_barrage",
+    "sounds": [
+      "rotp_stfn:stand_user/bruno_barrage",
+      "rotp_stfn:stand_user/bruno_barrage_2"
+    ]
+  },
+  "bruno_heavy_punch": {
+    "subtitle": "rotp_stfn.subtitle.bruno_heavy_punch",
+    "sounds": [
+      "rotp_stfn:stand_user/bruno_heavy_punch",
+      "rotp_stfn:stand_user/bruno_heavy_punch_2",
+      "rotp_stfn:stand_user/bruno_heavy_punch_3",
+      "rotp_stfn:stand_user/bruno_heavy_punch_4",
+      "rotp_stfn:stand_user/bruno_heavy_punch_5",
+      "rotp_stfn:stand_user/bruno_heavy_punch_6"
+    ]
+  },
+  "bruno_punch": {
+    "subtitle": "rotp_stfn.subtitle.bruno_punch",
+    "sounds": [
+      "rotp_stfn:stand_user/bruno_punch",
+      "rotp_stfn:stand_user/bruno_punch_2",
+      "rotp_stfn:stand_user/bruno_punch_3"
+    ]
+  },
+  "bruno_finisher": {
+    "subtitle": "rotp_stfn.subtitle.bruno_finisher",
+    "sounds": [
+      "rotp_stfn:stand_user/bruno_finisher",
+      "rotp_stfn:stand_user/bruno_arrividerci"
+    ]
+  },
+  "bruno_zip": {
+    "subtitle": "rotp_stfn.subtitle.bruno_zip",
+    "sounds": [
+      "rotp_stfn:stand_user/bruno_zip"
+    ]
+  },
+  "bruno_unzip": {
+    "subtitle": "rotp_stfn.subtitle.bruno_unzip",
+    "sounds": [
+      "rotp_stfn:stand_user/bruno_unzip"
+    ]
+  },
+  "sticky_fingers_summon": {
+    "subtitle": "rotp_stfn.subtitle.sticky_fingers_summon",
+    "sounds": [
+      "rotp_stfn:stand/summon_1",
+      "rotp_stfn:stand/summon_2"
+    ]
+  },
+  "sticky_fingers_unsummon": {
+    "subtitle": "rotp_stfn.subtitle.sticky_fingers_unsummon",
+    "sounds": [
+      "rotp_stfn:stand/unsummon",
+      "rotp_stfn:stand/unsummon_2"
+    ]
+  },
+  "sticky_fingers_punch": {
+    "subtitle": "rotp_stfn.subtitle.sticky_fingers_punch",
+    "sounds": [
+      "rotp_stfn:stand/light_punch"
+    ]
+  },
+  "sticky_fingers_heavy_punch": {
+    "subtitle": "rotp_stfn.subtitle.sticky_fingers_heavy_punch",
+    "sounds": [
+      "rotp_stfn:stand/heavy_punch"
+    ]
+  },
+  "sticky_fingers_extended_punch_swing": {
+    "subtitle": "rotp_stfn.subtitle.sticky_fingers_extended_punch",
+    "sounds": [
+      "rotp_stfn:stand/extended_punch_swing"
+    ]
+  },
+  "sticky_fingers_finisher": {
+    "subtitle": "rotp_stfn.subtitle.sticky_fingers_finisher",
+    "sounds": [
+      "rotp_stfn:stand/finisher_punch"
+    ]
+  },
+  "sticky_fingers_unzip_part": {
+    "subtitle": "rotp_stfn.subtitle.sticky_fingers_unzip_part",
+    "sounds": [
+      "rotp_stfn:stand/unzip_part",
+      "rotp_stfn:stand/bleedy_unzip"
+    ]
+  },
+  "zipper_create": {
+    "subtitle": "rotp_stfn.subtitle.zipper_create",
+    "sounds": [
+      "rotp_stfn:stand/zipper_create"
+    ]
+  },
+  "zipper_open": {
+    "subtitle": "rotp_stfn.subtitle.zipper_open",
+    "sounds": [
+      "rotp_stfn:stand/zipper_open"
+    ]
+  },
+  "zipper_close": {
+    "subtitle": "rotp_stfn.subtitle.zipper_close",
+    "sounds": [
+      "rotp_stfn:stand/zipper_close"
+    ]
+  },
+  "zipper_remove": {
+    "subtitle": "rotp_stfn.subtitle.zipper_remove",
+    "sounds": [
+      "rotp_stfn:stand/zipper_remove"
+    ]
+  }
+}
