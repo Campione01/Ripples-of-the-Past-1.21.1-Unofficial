@@ -717,61 +717,119 @@ public final class OwnAbilityPressDuringTask116GameTests {
 	/*
 	 * 1.16 StandAI clicked through checkTaskCancelling, which refused the running action's own click (canClickDuringTask,
 	 * not chainable) before canBeCanceled could queue it, also where the task held every other click back: the heavy punch
-	 * in its windup, the barrage in a recovery without Resolve. A mob's press is never buffered (keyPressMob), so a press
-	 * let through there starts nothing either, but it reaches the ability: its key-press event and the press replayed to
-	 * the clients tracking the mob.
+	 * in its windup, the barrage in a recovery without Resolve, each in its own row. A mob's press is never buffered
+	 * (keyPressMob), so a press let through there starts nothing either, but it reaches the ability: its key-press event
+	 * and the press replayed to the clients tracking the mob.
 	 */
 	@GameTest(template = "empty", timeoutTicks = 100)
-	public static void aMobsHeavyPunchAndBarrageRefuseTheirOwnPressWhereTheyHoldPressesBackAsIn116(GameTestHelper helper) {
-		Mob zombie = EntityType.ZOMBIE.create(helper.getLevel());
-		helper.assertTrue(zombie != null, "setup: could not create the zombie");
-		StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("star_platinum"));
-		Vec3 origin = Vec3.atCenterOf(helper.absolutePos(new BlockPos(2, 2, 2)));
-		zombie.setNoAi(true);
-		zombie.setNoGravity(true);
-		zombie.moveTo(origin.x, origin.y, origin.z, 0.0F, 0.0F);
-		helper.assertTrue(helper.getLevel().addFreshEntity(zombie), "setup: could not add the zombie");
-		StandPower power = PowerClass.STAND.attachGet(zombie);
-		EntityActionInputState input = zombie.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get());
-		List<Ability> pressesReached = new ArrayList<>();
-		Consumer<RipplesAbilityKeyPressEvent> listener = event -> {
-			if (event.getEntity() == zombie) {
-				pressesReached.add(event.getAbility());
-			}
-		};
-		NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, true, RipplesAbilityKeyPressEvent.class, listener);
-		try {
-			helper.assertTrue(type != null && StandPowerTransitions.insert(power, new StandInstance(type)).status()
-					== StandPowerTransitions.Status.APPLIED, "setup: could not give the zombie Star Platinum");
-			power.setResolveLevel(4);
-			helper.assertTrue(type.summon(zombie, power), "setup: could not summon the zombie's Star Platinum");
-			StandEntity stand = power.getSummonedStandEntity();
-			helper.assertTrue(stand != null, "setup: the zombie's Stand is missing");
-			stand.summonLockTicks = 0;
-			stand.setFinisherMeter(0.0F);
-			LivingComponentAction standAction = LivingComponentAction.getComponent(stand);
-			helper.assertTrue(!zombie.hasEffect(ModStatusEffects.RESOLVE), "setup: the zombie has a Resolve effect");
-
-			Ability heavy = power.getAbility("heavy_punch");
-			power.setStamina(power.getMaxStamina());
-			AbilityInput.keyPressMob(heavy, zombie, null, InputMethod.CLICK);
-			EntityActionInstance punching = standAction.getAction();
+	public static void aMobsHeavyPunchRefusesItsOwnPressInItsWindupAsIn116(GameTestHelper helper) {
+		try (MobScene s = new MobScene(helper)) {
+			Ability heavy = s.power.getAbility("heavy_punch");
+			s.power.setStamina(s.power.getMaxStamina());
+			AbilityInput.keyPressMob(heavy, s.zombie, null, InputMethod.CLICK);
+			EntityActionInstance punching = s.standAction.getAction();
 			helper.assertTrue(punching != null && punching.ability == heavy && punching.getPhase() == ActionPhase.WINDUP,
 					"setup: the zombie's heavy punch is not in its windup: " + punching);
-			mobPressRefusedWhereHeldBack(helper, zombie, standAction, punching, InputMethod.CLICK, input, pressesReached);
+			s.refusedWhereHeldBack(punching, InputMethod.CLICK, "windup");
+			helper.succeed();
+		}
+	}
 
-			Ability barrage = power.getAbility("barrage");
-			power.setStamina(power.getMaxStamina());
-			HeldInputEntry held = AbilityInput.keyPressMob(barrage, zombie, null, InputMethod.HOLD);
-			EntityActionInstance barraging = standAction.getAction();
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aMobsBarrageRefusesItsOwnPressInARecoveryWithoutResolveAsIn116(GameTestHelper helper) {
+		try (MobScene s = new MobScene(helper)) {
+			Ability barrage = s.power.getAbility("barrage");
+			s.power.setStamina(s.power.getMaxStamina());
+			HeldInputEntry held = AbilityInput.keyPressMob(barrage, s.zombie, null, InputMethod.HOLD);
+			EntityActionInstance barraging = s.standAction.getAction();
 			helper.assertTrue(held != null && barraging != null && barraging.ability == barrage
 					&& barraging.getPhase() == ActionPhase.PERFORM, "setup: the zombie's barrage is not held: " + barraging);
-			AbilityInput.keyRelease(held.keyId, zombie);
+			AbilityInput.keyRelease(held.keyId, s.zombie);
 			helper.assertTrue(barraging.getPhase() == ActionPhase.RECOVERY,
 					"setup: the zombie's barrage let go is not in its recovery: " + barraging.getPhase());
-			mobPressRefusedWhereHeldBack(helper, zombie, standAction, barraging, InputMethod.HOLD, input, pressesReached);
+			s.refusedWhereHeldBack(barraging, InputMethod.HOLD, "recovery without Resolve");
+			helper.succeed();
 		}
-		finally {
+	}
+
+	// a NoAI zombie with Star Platinum out at Resolve level 4, no Resolve effect and an empty finisher meter
+	private static final class MobScene implements AutoCloseable {
+		private final GameTestHelper helper;
+		private final Mob zombie;
+		private final StandType type;
+		private final StandPower power;
+		private final EntityActionInputState input;
+		private final List<Ability> pressesReached = new ArrayList<>();
+		private final Consumer<RipplesAbilityKeyPressEvent> listener;
+		private LivingComponentAction standAction;
+
+		private MobScene(GameTestHelper helper) {
+			this.helper = helper;
+			zombie = EntityType.ZOMBIE.create(helper.getLevel());
+			helper.assertTrue(zombie != null, "setup: could not create the zombie");
+			type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("star_platinum"));
+			Vec3 origin = Vec3.atCenterOf(helper.absolutePos(new BlockPos(2, 2, 2)));
+			zombie.setNoAi(true);
+			zombie.setNoGravity(true);
+			zombie.moveTo(origin.x, origin.y, origin.z, 0.0F, 0.0F);
+			helper.assertTrue(helper.getLevel().addFreshEntity(zombie), "setup: could not add the zombie");
+			power = PowerClass.STAND.attachGet(zombie);
+			input = zombie.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get());
+			listener = event -> {
+				if (event.getEntity() == zombie) {
+					pressesReached.add(event.getAbility());
+				}
+			};
+			NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, true, RipplesAbilityKeyPressEvent.class, listener);
+			try {
+				helper.assertTrue(type != null && StandPowerTransitions.insert(power, new StandInstance(type)).status()
+						== StandPowerTransitions.Status.APPLIED, "setup: could not give the zombie Star Platinum");
+				power.setResolveLevel(4);
+				helper.assertTrue(type.summon(zombie, power), "setup: could not summon the zombie's Star Platinum");
+				StandEntity stand = power.getSummonedStandEntity();
+				helper.assertTrue(stand != null, "setup: the zombie's Stand is missing");
+				stand.summonLockTicks = 0;
+				stand.setFinisherMeter(0.0F);
+				standAction = LivingComponentAction.getComponent(stand);
+				helper.assertTrue(!zombie.hasEffect(ModStatusEffects.RESOLVE), "setup: the zombie has a Resolve effect");
+			}
+			catch (RuntimeException | Error e) {
+				close();
+				throw e;
+			}
+		}
+
+		/*
+		 * The running action holds its own press back, as every other press; the zombie's press of it does not reach the
+		 * ability, leaves the action as it was, and nothing goes off once the action has ended.
+		 */
+		private void refusedWhereHeldBack(EntityActionInstance running, InputMethod inputMethod, String phaseName) {
+			Ability ability = (Ability) running.ability;
+			ActionPhase phase = running.getPhase();
+			helper.assertTrue(!running.isOver() && !running.canBeCancelledInto(running.ability) && running.refusesOwnAbilityPressedAgain(),
+					"setup: the zombie's " + ability.name() + " does not hold its own press back in its " + phaseName + " (" + phase + ")");
+			pressesReached.clear();
+			int heldKeys = input.heldKeys.size();
+			HeldInputEntry again = AbilityInput.keyPressMob(ability, zombie, null, inputMethod);
+			helper.assertTrue(again == null && pressesReached.isEmpty(),
+					"1.16 refused a mob's " + ability.name() + " pressed again in its own " + phaseName + " (canClickDuringTask)"
+							+ " before it reached the ability, also where the task held every other press back: held " + again
+							+ ", the press reached " + pressesReached);
+			helper.assertTrue(standAction.getAction() == running && running.getPhase() == phase && input.heldKeys.size() == heldKeys
+					&& bufferedPress(input) == null,
+					"1.16 left a mob's " + ability.name() + " pressed again in its own " + phaseName + " unqueued and its task as it"
+							+ " was: the Stand's action " + standAction.getAction() + " (was " + running + ") in " + running.getPhase()
+							+ ", held keys " + input.heldKeys.size() + " (were " + heldKeys + "), buffered " + bufferedPress(input));
+			standAction.setAction(null, zombie, SyncType.NO_SYNC);
+			input.inputBuffer.tickInputBuffer(input);
+			EntityActionInstance after = standAction.getAction();
+			helper.assertTrue(after == null && pressesReached.isEmpty(), "1.16 never performed a mob's " + ability.name()
+					+ " pressed again in its own " + phaseName + " once it ended: the Stand's action " + after + ", presses "
+					+ pressesReached);
+		}
+
+		@Override
+		public void close() {
 			NeoForge.EVENT_BUS.unregister(listener);
 			input.heldKeys.clear();
 			if (power.isSummoned() && type != null) {
@@ -779,29 +837,6 @@ public final class OwnAbilityPressDuringTask116GameTests {
 			}
 			zombie.discard();
 		}
-		helper.succeed();
-	}
-
-	private static void mobPressRefusedWhereHeldBack(GameTestHelper helper, Mob zombie, LivingComponentAction standAction,
-			EntityActionInstance running, InputMethod inputMethod, EntityActionInputState input, List<Ability> pressesReached) {
-		Ability ability = (Ability) running.ability;
-		ActionPhase phase = running.getPhase();
-		helper.assertTrue(!running.isOver() && !running.canBeCancelledInto(running.ability) && running.refusesOwnAbilityPressedAgain(),
-				"setup: the zombie's " + ability.name() + " does not hold its own press back in its " + phase);
-		pressesReached.clear();
-		int heldKeys = input.heldKeys.size();
-		HeldInputEntry again = AbilityInput.keyPressMob(ability, zombie, null, inputMethod);
-		helper.assertTrue(again == null && pressesReached.isEmpty() && standAction.getAction() == running
-				&& running.getPhase() == phase && input.heldKeys.size() == heldKeys && bufferedPress(input) == null,
-				"1.16 refused a mob's " + ability.name() + " pressed again in its own " + phase + " (canClickDuringTask), also where"
-						+ " the task held every other press back: held " + again + ", the press reached " + pressesReached
-						+ ", the Stand's action " + standAction.getAction() + " (was " + running + ") in " + running.getPhase()
-						+ ", buffered " + bufferedPress(input));
-		standAction.setAction(null, zombie, SyncType.NO_SYNC);
-		input.inputBuffer.tickInputBuffer(input);
-		EntityActionInstance after = standAction.getAction();
-		helper.assertTrue(after == null && pressesReached.isEmpty(), "1.16 never performed a mob's " + ability.name()
-				+ " pressed again in its own " + phase + " once it ended: the Stand's action " + after + ", presses " + pressesReached);
 	}
 
 	@Nullable
