@@ -219,8 +219,6 @@ public class StandUtil {
     }
     
     public static class StandAndUserEntity {
-    	protected static StandAndUserEntity instance = new StandAndUserEntity();
-    	
     	@Nullable public LivingEntity standUser;
     	@Nullable public LivingEntity standEntity;
     }
@@ -228,7 +226,8 @@ public class StandUtil {
     public static StandAndUserEntity getStandAndUser(LivingEntity someEntity) {
     	LivingEntity targetStandEntity = StandUtil.getSummonedStand(someEntity);
     	LivingEntity targetStandUser = someEntity == targetStandEntity ? StandUtil.getStandUser(targetStandEntity) : someEntity;
-    	StandAndUserEntity obj = StandAndUserEntity.instance;
+    	// one shared holder kept the last entities asked about, a client's after it left the world
+    	StandAndUserEntity obj = new StandAndUserEntity();
     	obj.standUser = targetStandUser;
     	obj.standEntity = targetStandEntity;
     	return obj;

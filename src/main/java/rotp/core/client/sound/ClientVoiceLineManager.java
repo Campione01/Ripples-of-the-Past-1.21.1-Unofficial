@@ -9,13 +9,19 @@ import javax.annotation.Nullable;
 
 import rotp.core.client.sound.sounds.EntityLingeringSoundInstance;
 import rotp.core.config.client.ClientModSettings;
+import rotp.core.core.JojoMod;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.sounds.SoundInstance;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.Entity;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 
+@EventBusSubscriber(modid = JojoMod.MOD_ID, value = Dist.CLIENT)
 public final class ClientVoiceLineManager {
 	private static final Map<Integer, SoundInstance> CURRENT_VOICE_LINES = new HashMap<>();
 	private static final Set<Integer> LAST_VOICE_LINE_TRIGGERED = new HashSet<>();
@@ -61,5 +67,11 @@ public final class ClientVoiceLineManager {
 			CURRENT_VOICE_LINES.remove(entity.getId());
 		}
 		return active;
+	}
+
+	// a voice line holds its entity and level until the same entity id speaks again
+	@SubscribeEvent
+	public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
+		CURRENT_VOICE_LINES.clear();
 	}
 }

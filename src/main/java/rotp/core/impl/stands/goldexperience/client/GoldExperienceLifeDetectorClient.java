@@ -41,6 +41,7 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 
 @EventBusSubscriber(modid = JojoMod.MOD_ID, value = Dist.CLIENT)
@@ -184,6 +185,13 @@ public final class GoldExperienceLifeDetectorClient {
 		Vec3 pos = target.getPosition(partialTick).add(0, target.getBbHeight() * 0.5F, 0);
 		readoutTarget = target;
 		readoutTargetPos = ClientUtil.posOnScreen(pos, event.getCamera(), event.getModelViewMatrix(), event.getProjectionMatrix());
+	}
+
+	// found while the level renders, so the last one would stay after the client leaves the world
+	@SubscribeEvent
+	public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
+		readoutTarget = null;
+		readoutTargetPos = null;
 	}
 
 	public static void renderHud(GuiGraphics guiGraphics) {
