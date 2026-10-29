@@ -22,8 +22,9 @@ public class TrEntityActionInstancePacket implements CustomPacketPayload {
 	private final UUID performerUuid;
 	private final long generation;
 	private final int slot;
-	@Nullable private final EntityActionInstance sendAction;
-	@Nullable private final byte[] receiveActionData;
+	// the action encoded as it was when the packet was made, or as received: Netty writes the packet later, on its own
+	// thread, while the server thread goes on changing the action (1.16 synced a value taken at send time)
+	@Nullable private final byte[] actionData;
 	
 	public TrEntityActionInstancePacket(
 			int performerId,
@@ -40,23 +41,41 @@ public class TrEntityActionInstancePacket implements CustomPacketPayload {
 			long generation,
 			@Nullable EntityActionInstance action,
 			int slot) {
-		this(performerId, performerUuid, generation, action, null, slot);
+		this(performerId, performerUuid, generation, encodeAction(action), slot);
 	}
 
 	private TrEntityActionInstancePacket(
 			int performerId,
 			UUID performerUuid,
 			long generation,
-			@Nullable EntityActionInstance sendAction,
-			@Nullable byte[] receiveActionData,
+			@Nullable byte[] actionData,
 			int slot) {
 		this.performerId = performerId;
 		this.performerUuid = Objects.requireNonNull(
 				performerUuid, "performerUuid");
 		this.generation = generation;
 		this.slot = slot;
-		this.sendAction = sendAction;
-		this.receiveActionData = receiveActionData;
+		this.actionData = actionData;
+	}
+
+	private static byte[] encodeAction(@Nullable EntityActionInstance action) {
+		FriendlyByteBuf actionData = new FriendlyByteBuf(
+				Unpooled.buffer(
+						256,
+						NetworkPayloadValidation.MAX_ENTITY_ACTION_BYTES));
+		try {
+			EntityActionInstance.encode(actionData, action);
+			int length = NetworkPayloadValidation.requireOutboundByteLength(
+					actionData.readableBytes(),
+					NetworkPayloadValidation.MAX_ENTITY_ACTION_BYTES,
+					"entity action");
+			byte[] bytes = new byte[length];
+			actionData.readBytes(bytes);
+			return bytes;
+		}
+		finally {
+			actionData.release();
+		}
 	}
 	
 	
@@ -81,21 +100,7 @@ public class TrEntityActionInstancePacket implements CustomPacketPayload {
 			buf.writeVarLong(NetworkPayloadValidation.requireOutboundGeneration(
 					packet.generation, "entity action"));
 			buf.writeByte(packet.slot);
-			FriendlyByteBuf actionData = new FriendlyByteBuf(
-					Unpooled.buffer(
-							256,
-							NetworkPayloadValidation.MAX_ENTITY_ACTION_BYTES));
-			try {
-				EntityActionInstance.encode(actionData, packet.sendAction);
-				int length = NetworkPayloadValidation.requireOutboundByteLength(
-						actionData.readableBytes(),
-						NetworkPayloadValidation.MAX_ENTITY_ACTION_BYTES,
-						"entity action");
-				buf.writeBytes(actionData, actionData.readerIndex(), length);
-			}
-			finally {
-				actionData.release();
-			}
+			buf.writeBytes(packet.actionData);
 		}
 
 		@Override
@@ -106,7 +111,7 @@ public class TrEntityActionInstancePacket implements CustomPacketPayload {
 					buf.readVarLong(), "entity action");
 			int slot = buf.readUnsignedByte();
 			return new TrEntityActionInstancePacket(
-					performerId, performerUuid, generation, null,
+					performerId, performerUuid, generation,
 					NetworkUtil.extraPacketDataBytes(
 							buf,
 							NetworkPayloadValidation.MAX_ENTITY_ACTION_BYTES,
@@ -121,7 +126,7 @@ public class TrEntityActionInstancePacket implements CustomPacketPayload {
 					payload.performerId,
 					payload.performerUuid,
 					payload.generation,
-					payload.receiveActionData,
+					payload.actionData,
 					payload.slot);
 		}
 		

@@ -641,14 +641,16 @@ public final class StandActionPortSlot116GameTests {
 					last = sent;
 				}
 			}
-			EntityActionInstance sentAction = last != null ? field(last, "sendAction", EntityActionInstance.class) : null;
-			helper.assertTrue(sentAction == action, "the user's client got for slot " + slot + " " + sentAction + ", not "
-					+ action + " (the action's own slot " + action.actionSlot() + ")");
-			RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), helper.getLevel().registryAccess());
+			// the action as the packet encoded it when it was sent
+			byte[] sentData = last != null ? field(last, "actionData", byte[].class) : null;
+			helper.assertTrue(sentData != null, "the user's client got no action for slot " + slot);
+			RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.wrappedBuffer(sentData),
+					helper.getLevel().registryAccess());
 			try {
-				EntityActionInstance.encode(buf, sentAction);
 				EntityActionInstance copy = EntityActionInstance.decode(helper.getLevel(), buf);
-				helper.assertTrue(copy != null && copy.getClass() == action.getClass(), "setup: the action decodes as " + copy);
+				helper.assertTrue(copy != null && copy.getClass() == action.getClass() && copy.id == action.id
+						&& !buf.isReadable(), "the user's client got for slot " + slot + " " + copy + ", not " + action
+								+ " (the action's own slot " + action.actionSlot() + ")");
 				return copy;
 			}
 			finally {

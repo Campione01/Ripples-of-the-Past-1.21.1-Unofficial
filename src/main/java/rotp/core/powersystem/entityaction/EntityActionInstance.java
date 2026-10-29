@@ -1108,12 +1108,12 @@ public class EntityActionInstance implements HeldInput {
 		return phaseLength;
 	}
 
+	/** A phase with no ticks counts as complete (1). */
 	@ApiStatus.NonExtendable
 	public float getAnimPhaseRatio(float partialTick) {
-		if (curPhaseLength == 0) throw new IllegalStateException();
 		float phaseTick = getAnimPhaseTick(partialTick);
 		float phaseLength = getAnimPhaseLength();
-		return phaseTick / phaseLength;
+		return curPhaseLength > 0 && phaseLength > 0 ? phaseTick / phaseLength : 1.0F;
 	}
 	
 	public float getAnimFullTicksPassed(float partialTick) {
@@ -1239,9 +1239,10 @@ public class EntityActionInstance implements HeldInput {
 	// XXX only sync actual phase changes
 	public void syncPhaseChanges() {
 		if (performer != null && !performer.level().isClientSide()) {
+			// a copy: Netty writes the packet later, on its own thread, and the action's lengths may change after the send
 			PacketDistributor.sendToPlayersTrackingEntityAndSelf(performer, new TrEntityActionPhaseTimePacket(performer.getId(), 
 					performer.getUUID(), networkGeneration, id,
-					phasesLength, phase, curPhaseTick, actionSlot));
+					new Object2FloatArrayMap<>(phasesLength), phase, curPhaseTick, actionSlot));
 		}
 	}
 
