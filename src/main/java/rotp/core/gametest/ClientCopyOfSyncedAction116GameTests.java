@@ -108,6 +108,64 @@ public final class ClientCopyOfSyncedAction116GameTests {
 	}
 
 	/*
+	 * 1.16 PowerBaseImpl.checkRequirements refused every other action of the power while it held one that let none through
+	 * (heldActionData.action != action), never the held one itself, and its HUD drew that one by the rest of its checks. The
+	 * World's time stop charging without its Stand out (Resolve 3 and up) is held in its user's Stand-power slot with its
+	 * user as its performer, so the Stand ability's performer (none out) is not the held action's, and only the own-ability
+	 * test of Ability#isRefusedByHeldAction leaves its slot to its own check.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100, batch = GameTestBatches.TIME_STOP)
+	public static void theClientDrawsTheWorldsUnsummonedTimeStopChargeByItsOwnCheckAsTheServerDoesAsIn116(GameTestHelper helper) {
+		List<Entity> spawned = new ArrayList<>();
+		StandType type = JojoRegistries.DEFAULT_STANDS_REG.get(JojoMod.resLoc("the_world"));
+		FakePlayer user = addUser(helper, spawned, "ClientCopyUnsummonedStop");
+		StandPower power = PowerClass.STAND.attachGet(user);
+		try {
+			helper.assertTrue(type != null && StandPowerTransitions.insert(power, new StandInstance(type)).status()
+					== StandPowerTransitions.Status.APPLIED, "setup: could not grant The World");
+			power.setResolveLevel(4);
+			String name = "time_stop";
+			power.getCurTypeData()._lockedAbilities.remove(name);
+			LivingComponentAction slot = LivingComponentAction.getComponent(user, PowerClass.STAND);
+			Ability own = power.getAbility(name);
+			Ability base = power.getPowerType().getBaseMoveset().getAbility(name);
+			assertCopy(helper, name, own, base);
+			helper.assertTrue(!power.isSummoned() && own.isAbilityUnlocked(power), "setup: The World is out or its time stop is locked");
+			for (Ability of : new Ability[] { own, base }) {
+				String side = of == own ? "the server" : "its user's client";
+				power.setStamina(power.getMaxStamina());
+				EntityActionInstance charge = ((EntityActionAbility) of).initActionOnAbilityUse(helper.getLevel(), user, user, null);
+				slot.setAction(null, user, SyncType.NO_SYNC);
+				slot.setAction(charge, user, SyncType.NO_SYNC);
+				user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get()).heldKeys.put(KEY,
+						new HeldInputEntry(KEY, PowerClass.STAND, charge));
+				helper.assertTrue(slot.getAction() == charge && charge.getPhase() == ActionPhase.BUTTON_CHARGE
+						&& charge.getPerformer() == user && AbilityInput.getHeldAction(user, PowerClass.STAND) == charge
+						&& !charge.heldAllowsOtherAbilities(),
+						"setup: the time stop as " + side + " holds it is not the held charge of its user's Stand-power slot: "
+								+ charge.getPhase() + ", its performer " + charge.getPerformer() + ", the held action "
+								+ AbilityInput.getHeldAction(user, PowerClass.STAND));
+				AbilityConditionCheck resolved = resolve(power, name);
+				helper.assertTrue(resolved != null && resolved.ability == own && resolved.conditionCheck.isPositive()
+						&& resolved.drawnCondition(user).isPositive(),
+						"1.16 refused no held action by itself and drew The World's time stop charging without its Stand by its own"
+								+ " check, usable, also on its user's client, whose copy is of the base-moveset ability; as " + side
+								+ " holds it: the slot " + (resolved != null ? resolved.ability.name() + (resolved.conditionCheck
+										.isPositive() ? " usable" : " refused") + ", drawn " + (resolved.drawnCondition(user)
+												.isPositive() ? "usable" : "greyed") : "missing"));
+				user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get()).heldKeys.remove(KEY);
+				slot.setAction(null, user, SyncType.NO_SYNC);
+			}
+			helper.succeed();
+		}
+		finally {
+			user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get()).heldKeys.clear();
+			LivingComponentAction.getComponent(user, PowerClass.STAND).setAction(null, user, SyncType.NO_SYNC);
+			spawned.forEach(Entity::discard);
+		}
+	}
+
+	/*
 	 * 1.16 HamonRebuffOverdrive.canBeUsedDuringPlayerAction: Rebuff Overdrive could be used during its own continuous action
 	 * while that could still be cancelled (its windup), so its HUD slot stayed usable there; any other player action held
 	 * it back.

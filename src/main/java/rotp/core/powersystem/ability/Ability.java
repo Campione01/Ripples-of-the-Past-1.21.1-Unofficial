@@ -479,7 +479,8 @@ public class Ability {
 	 * and the four non-Stand holds that allowed others, so never a charge); each power asked only its own held action. A
 	 * press the held action's own performer takes (EntityActionInstance#getPerformer: the Stand for a port of a 1.16
 	 * StandAction in its user's Stand-power slot) is left to that action (canBeCancelledInto, the input buffer), and a
-	 * press that was no 1.16 action (endsOtherHoldOnPress false) is not refused.
+	 * press that was no 1.16 action (endsOtherHoldOnPress false) is not refused. The held action's own ability is told by
+	 * EntityActionInstance#isOfAbility, as a client's copy holds the base-moveset instance.
 	 */
 	private boolean isRefusedByHeldAction(Power<?> context) {
 		LivingEntity user = context != null ? context.getUser() : null;
@@ -488,7 +489,7 @@ public class Ability {
 			return false;
 		}
 		EntityActionInstance held = AbilityInput.getHeldAction(user, powerClass);
-		return held != null && held.ability != this && !held.heldAllowsOtherAbilities()
+		return held != null && !held.isOfAbility(this) && !held.heldAllowsOtherAbilities()
 				&& !(this instanceof EntityActionAbility entityAbility && entityAbility.getPerformer(user) == held.getPerformer());
 	}
 

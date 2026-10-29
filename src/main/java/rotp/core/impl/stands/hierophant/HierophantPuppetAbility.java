@@ -48,6 +48,15 @@ public class HierophantPuppetAbility extends StandEntityAbility {
 		return super.onKeyPress(level, user, extraClientInput, inputMethod, clickHoldResolveTime, bufferingState);
 	}
 
+	/*
+	 * While its user has a puppet, a press lets it go at once (onKeyPress) and never waits in the input buffer behind the
+	 * Stand's task, so the slot is drawn by its requirements, as 1.16 drew a press its Stand's task did not queue.
+	 */
+	@Override
+	public boolean isQueuedBehindStandTask(LivingEntity user) {
+		return !hasPuppetUnderControl(StandPower.get(user)) && super.isQueuedBehindStandTask(user);
+	}
+
 	public static class PuppetingAction extends EntityActionInstance {
 		public LivingEntity targetEntity;
 
