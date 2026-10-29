@@ -15,6 +15,7 @@ import rotp.core.powersystem.Power;
 import rotp.core.powersystem.PowerClass;
 import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.AbilityId;
+import rotp.core.powersystem.ability.EntityActionAbility;
 import rotp.core.powersystem.ability.finisher.StandFinisherCheck;
 import rotp.core.powersystem.ability.input.AbilityInput;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
@@ -87,7 +88,9 @@ public class AvailableAbilities {
 	 * ({@link EntityActionInstance#refusesOwnAbilityPressedAgain}), whether or not the action would let that press cancel
 	 * it, so the input buffer never keeps it to perform it once the action ends. While the power still holds that action
 	 * by the key, 1.16 drew its slot usable (checkTaskCancelling skipped the held action) and refused the press in
-	 * PowerBaseImpl.onClickAction instead: {@link ConditionCheck#NEGATIVE_OWN_HELD_PRESSED_AGAIN}.
+	 * PowerBaseImpl.onClickAction instead: {@link ConditionCheck#NEGATIVE_OWN_HELD_PRESSED_AGAIN}. A client's copy of
+	 * the action holds another instance of the ability than the user's moveset ({@link EntityActionInstance#isOfAbility}),
+	 * and 1.16's client asked the same check of its synced task, so its HUD greys the slot as the server refuses it.
 	 */
 	private void refuseRunningActionPressedAgain(Power<?> context) {
 		EntityActionInstance action = actionRefusingOwnPress(context);
@@ -98,7 +101,7 @@ public class AvailableAbilities {
 		ConditionCheck refusal = AbilityInput.getHeldAction(standPower.getUser(), PowerClass.STAND) == action
 				? ConditionCheck.NEGATIVE_OWN_HELD_PRESSED_AGAIN : ConditionCheck.NEGATIVE;
 		for (AbilityConditionCheck container : _inMoveset.values()) {
-			if (container.ability == action.ability && container.conditionCheck.isPositive()) {
+			if (action.isOfAbility(container.ability) && container.conditionCheck.isPositive()) {
 				container.conditionCheck = refusal;
 			}
 		}
@@ -219,15 +222,20 @@ public class AvailableAbilities {
 		 * and a finisher's green frame): its own check, usable where it only refuses the held action's own press again
 		 * ({@link ConditionCheck#NEGATIVE_OWN_HELD_PRESSED_AGAIN}), or a refusal while its power's held action holds its
 		 * press back (Ability#isHeldBackByHeldAction, power by power), which the press itself still waits out in the input
-		 * buffer.
+		 * buffer; or queued ({@link ConditionCheck#NEGATIVE_QUEUED}) where its Stand's task keeps its press in the input
+		 * buffer as 1.16 queued it (EntityActionAbility#isQueuedBehindStandTask).
 		 */
 		public ConditionCheck drawnCondition(@Nullable LivingEntity user) {
 			ConditionCheck check = conditionCheck == ConditionCheck.NEGATIVE_OWN_HELD_PRESSED_AGAIN
 					? ConditionCheck.POSITIVE : conditionCheck;
-			if (!check.isPositive()) {
+			if (!check.isPositive() || user == null) {
 				return check;
 			}
-			return user != null && ability.isHeldBackByHeldAction(user) ? ConditionCheck.NEGATIVE : check;
+			if (ability.isHeldBackByHeldAction(user)) {
+				return ConditionCheck.NEGATIVE;
+			}
+			return ability instanceof EntityActionAbility entityAbility && entityAbility.isQueuedBehindStandTask(user)
+					? ConditionCheck.NEGATIVE_QUEUED : check;
 		}
 	}
 	

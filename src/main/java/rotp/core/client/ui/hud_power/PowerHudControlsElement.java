@@ -790,9 +790,15 @@ public class PowerHudControlsElement extends HudElement {
 
 	/** 1.16 ActionsOverlayGui: brightness 0.2 and alpha 0.5 for an action that cannot be used. */
 	public static final int UNUSABLE_ICON_TINT = 0x80333333;
+	/** 1.16 ActionsOverlayGui: brightness 0.75 and alpha 0.75 for a queued action (NEGATIVE_QUEUEABLE). */
+	public static final int QUEUED_ICON_TINT = 0xBFBFBFBF;
 
 	public static int abilityColor(int color, AbilityConditionCheck ability) {
-		if (!drawnCondition(ability).isPositive()) {
+		ConditionCheck drawn = drawnCondition(ability);
+		if (drawn == ConditionCheck.NEGATIVE_QUEUED) {
+			color = ARGB32.multiply(color, QUEUED_ICON_TINT);
+		}
+		else if (!drawn.isPositive()) {
 			color = ARGB32.multiply(color, UNUSABLE_ICON_TINT);
 		}
 		return color;

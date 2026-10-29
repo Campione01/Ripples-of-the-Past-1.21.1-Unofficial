@@ -25,6 +25,12 @@ public class ConditionCheck {
 	 * PowerBaseImpl.onClickAction and not by the action's checkRequirements.
 	 */
 	public static final ConditionCheck NEGATIVE_OWN_HELD_PRESSED_AGAIN = new ConditionCheck(false, null, false);
+	/**
+	 * Only a drawn condition ({@link AvailableAbilities.AbilityConditionCheck#drawnCondition}), never a slot's own check:
+	 * a press that would wait in the input buffer behind its Stand's task, as 1.16 queued it (NEGATIVE_QUEUEABLE), drawn
+	 * at brightness 0.75 and alpha 0.75.
+	 */
+	public static final ConditionCheck NEGATIVE_QUEUED = new ConditionCheck(false, null, false);
 
 	public static ConditionCheck createNegative(Component warning) {
 		return new ConditionCheck(false, warning, false);

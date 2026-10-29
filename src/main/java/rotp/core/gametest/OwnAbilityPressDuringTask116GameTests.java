@@ -25,6 +25,7 @@ import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.ability.EntityActionAbility;
 import rotp.core.powersystem.ability.condition.AvailableAbilities.AbilityConditionCheck;
+import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.ability.controls.InputMethod;
 import rotp.core.powersystem.ability.input.AbilityInput;
 import rotp.core.powersystem.ability.input.ActionInputBuffer;
@@ -183,6 +184,77 @@ public final class OwnAbilityPressDuringTask116GameTests {
 			helper.assertTrue(replayed != null && replayed != running && replayed.ability == chainable,
 					"the buffered own press of an action that does not refuse it did not go off once the action ended: the Stand's"
 							+ " action " + replayed);
+			helper.succeed();
+		}
+	}
+
+	/*
+	 * The Stand's action as its user's client holds it: decoded from the sync, it is of the power type's base-moveset
+	 * instance of its ability (EntityActionType#encodeAbility), not of the user's own one that the HUD's slots hold. 1.16's
+	 * client asked canClickDuringTask of its synced task (StandEntity CURRENT_TASK) as the server did, so its HUD
+	 * (ActionsOverlayGui from checkRequirements) drew the running heavy punch greyed in every phase and the barrage greyed
+	 * in its recovery once let go, and the barrage its key still held usable.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void theClientsCopyOfTheRunningActionGreysItsOwnSlotAsIn116(GameTestHelper helper) {
+		try (Scene s = new Scene(helper, "OwnPressClientCopy", "star_platinum", 4)) {
+			s.stand.setFinisherMeter(0.0F);
+			EntityActionInstance heavy = s.startAsClient("heavy_punch");
+			s.refusedAsClient("heavy_punch", heavy, false);
+			heavy.setPhase(ActionPhase.PERFORM, 0);
+			s.refusedAsClient("heavy_punch", heavy, false);
+			heavy.startRecovery();
+			s.refusedAsClient("heavy_punch", heavy, false);
+
+			EntityActionInstance released = s.startAsClient("barrage");
+			released.startRecovery();
+			s.refusedAsClient("barrage", released, false);
+
+			s.refusedAsClient("barrage", s.holdAsClient("barrage"), true);
+			helper.succeed();
+		}
+	}
+
+	/*
+	 * 1.16 drew the slot of the Zoom or Inhale its key held lit (checkTaskCancelling skipped the held action), also on the
+	 * client, which now refuses the running action's own slot as the server does: held, it is refused as pressed again and
+	 * drawn usable.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void theClientsCopyOfAHeldZoomOrInhaleKeepsItsSlotLitAsIn116(GameTestHelper helper) {
+		try (Scene s = new Scene(helper, "OwnPressClientHeld", "star_platinum", 4)) {
+			s.unlock("inhale");
+			s.refusedAsClient("enhanced_eyesight", s.holdAsClient("enhanced_eyesight"), true);
+			s.refusedAsClient("inhale", s.holdAsClient("inhale"), true);
+			helper.succeed();
+		}
+	}
+
+	/*
+	 * 1.16 StandEntityAction.checkTaskCancelling queued another Stand action with no hold pressed while the Stand's task
+	 * could not be cancelled into it (NEGATIVE_QUEUEABLE), and ActionsOverlayGui drew it at brightness 0.75 and alpha
+	 * 0.75, apart from the unusable look; the port's input buffer keeps that press (owner decision N2), so its slot is
+	 * drawn queued, on the client too. A press the task lets through at once is drawn usable.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aPressTheStandsTaskQueuesIsDrawnQueuedAsIn116(GameTestHelper helper) {
+		try (Scene s = new Scene(helper, "OwnPressQueuedTint", "star_platinum", 4)) {
+			s.stand.setFinisherMeter(0.0F);
+			s.standAction.setAction(null, s.user, SyncType.NO_SYNC);
+			s.drawn("punch", ConditionCheck.POSITIVE, "with the Stand idle");
+			for (boolean client : new boolean[] { false, true }) {
+				String copy = client ? " (the client's copy)" : "";
+				EntityActionInstance heavy = client ? s.startAsClient("heavy_punch") : s.start("heavy_punch");
+				helper.assertTrue(heavy.getPhase() == ActionPhase.WINDUP, "setup: the heavy punch is not in its windup: " + heavy.getPhase());
+				s.drawn("punch", ConditionCheck.NEGATIVE_QUEUED, "in the heavy punch's windup" + copy);
+				s.drawn("heavy_punch", ConditionCheck.NEGATIVE, "in its own windup" + copy);
+				s.standAction.setAction(null, s.user, SyncType.NO_SYNC);
+			}
+			EntityActionInstance zoom = s.hold("enhanced_eyesight");
+			helper.assertTrue(zoom.canBeCancelledInto((EntityActionAbility) s.power.getAbility("punch")),
+					"setup: a punch does not replace the held Zoom");
+			s.drawn("punch", ConditionCheck.POSITIVE, "during the held Zoom, which a punch replaces at once");
+			AbilityInput.keyRelease(KEY, s.user);
 			helper.succeed();
 		}
 	}
@@ -635,6 +707,65 @@ public final class OwnAbilityPressDuringTask116GameTests {
 			standAction.setAction(action, user, SyncType.NO_SYNC);
 			helper.assertTrue(standAction.getAction() == action, "setup: " + name + " is not the Stand's action");
 			return action;
+		}
+
+		// set on the Stand as its user's client holds it, of the power type's base-moveset ability
+		private EntityActionInstance startAsClient(String name) {
+			Ability own = power.getAbility(name);
+			Ability base = power.getPowerType().getBaseMoveset().getAbility(name);
+			helper.assertTrue(base instanceof EntityActionAbility && own != null && base != own
+							&& base.getAbilityId().equals(own.getAbilityId()),
+					"setup: the power type's base-moveset " + name + " is not another instance of the user's own: " + base);
+			power.setStamina(power.getMaxStamina());
+			EntityActionInstance action = ((EntityActionAbility) base).initActionOnAbilityUse(helper.getLevel(), user, stand, null);
+			helper.assertTrue(action != null && action.ability == base, "setup: " + name + " made no action of its base ability");
+			standAction.setAction(null, user, SyncType.NO_SYNC);
+			standAction.setAction(action, user, SyncType.NO_SYNC);
+			helper.assertTrue(standAction.getAction() == action, "setup: " + name + " is not the Stand's action");
+			return action;
+		}
+
+		// in its perform and held, as a client goes by the phase and the server by the key
+		private EntityActionInstance holdAsClient(String name) {
+			EntityActionInstance action = startAsClient(name);
+			if (action.getPhase() != ActionPhase.PERFORM) {
+				action.setPhase(ActionPhase.PERFORM, 0);
+			}
+			user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get()).heldKeys.put(KEY,
+					new HeldInputEntry(KEY, PowerClass.STAND, action));
+			helper.assertTrue(AbilityInput.getHeldAction(user, PowerClass.STAND) == action,
+					"setup: the " + name + " is not the held action: " + AbilityInput.getHeldAction(user, PowerClass.STAND));
+			return action;
+		}
+
+		private void drawn(String name, ConditionCheck expected, String when) {
+			AbilityConditionCheck resolved = resolve(name);
+			ConditionCheck drawn = resolved != null ? resolved.drawnCondition(user) : null;
+			helper.assertTrue(resolved != null && resolved.ability == power.getAbility(name) && drawn == expected,
+					"1.16 drew " + name + " " + when + " " + look(expected) + ": its check " + describe(resolved) + ", drawn "
+							+ look(drawn));
+		}
+
+		private static String look(@Nullable ConditionCheck drawn) {
+			return drawn == null ? "nothing" : drawn == ConditionCheck.NEGATIVE_QUEUED ? "queued (0.75)"
+					: drawn.isPositive() ? "usable" : "greyed";
+		}
+
+		// the user's own slot of the running action, refused silently and drawn greyed, or drawn usable while held
+		private void refusedAsClient(String name, EntityActionInstance running, boolean held) {
+			Ability own = power.getAbility(name);
+			AbilityConditionCheck resolved = resolve(name);
+			boolean drawnUsable = resolved != null && resolved.drawnCondition(user).isPositive();
+			ConditionCheck expected = held ? ConditionCheck.NEGATIVE_OWN_HELD_PRESSED_AGAIN : ConditionCheck.NEGATIVE;
+			helper.assertTrue(resolved != null && resolved.ability == own && resolved.conditionCheck == expected
+					&& drawnUsable == held,
+					"1.16 " + (held ? "drew the slot of the " + name + " its key holds usable and refused its press"
+							: "drew the slot of the running " + name + " greyed and refused its press") + " in its "
+							+ running.getPhase() + ", also on its user's client, whose copy of the action is of the base-moveset "
+							+ name + ": its check " + describe(resolved) + (resolved != null && resolved.conditionCheck
+									== ConditionCheck.NEGATIVE_OWN_HELD_PRESSED_AGAIN ? " (own held)" : "") + ", drawn "
+							+ (drawnUsable ? "usable" : "greyed"));
+			user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get()).heldKeys.remove(KEY);
 		}
 
 		/*
