@@ -667,10 +667,17 @@ public class InputHandler {
 					ambiguousKeyPress = isGuardClickAmbiguity(heldAbility, clickAbility)
 							? new AmbiguousKeyPress(AmbiguousKeyPress.guardClickTimeAssumeHold, AmbiguousKeyPress.guardClickTimeIsHold)
 							: new AmbiguousKeyPress();
+					// 1.16 judged a press at the press: the running action's own press refused now stays refused when the key
+					// resolves after that action has ended
+					boolean holdRefusedAtPress = heldAbility != null && AvailableAbilities.refusesOwnPressOfReleasedAction(
+							ClientPowerCache.getPower(heldAbility.baseAbility.abilityId.powerClass()), heldAbility.curActiveAbility);
+					boolean clickRefusedAtPress = clickAbility != null && AvailableAbilities.refusesOwnPressOfReleasedAction(
+							ClientPowerCache.getPower(clickAbility.baseAbility.abilityId.powerClass()), clickAbility.curActiveAbility);
 					
 					if (heldAbility != null) {
 						Ability heldBaseAbility = heldAbility.baseAbility;
 						ambiguousKeyPress.onHold = (float ticksToResolveHeld) -> {
+							if (holdRefusedAtPress) return;
 							AvailableAbilities curAbilities = ClientPowerCache.getAvailableAbilities(heldBaseAbility.abilityId.powerClass());
 							AbilityConditionCheck abilityResolved = curAbilities.getContextVariationContainer(heldBaseAbility);
 							doClickInput(InputEventType.PRESS_HOLD, key, heldBaseAbility, abilityResolved, ticksToResolveHeld);
@@ -680,6 +687,7 @@ public class InputHandler {
 					if (clickAbility != null) {
 						Ability clickBaseAbility = clickAbility.baseAbility;
 						ambiguousKeyPress.onClick = (float ticksToResolveClick) -> {
+							if (clickRefusedAtPress) return;
 							AvailableAbilities curAbilities = ClientPowerCache.getAvailableAbilities(clickBaseAbility.abilityId.powerClass());
 							AbilityConditionCheck abilityResolved = curAbilities.getContextVariationContainer(clickBaseAbility);
 							doClickInput(InputEventType.PRESS_CLICK, key, clickBaseAbility, abilityResolved, ticksToResolveClick);

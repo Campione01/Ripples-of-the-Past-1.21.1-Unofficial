@@ -1,6 +1,9 @@
 package rotp.core.gametest;
 
+import java.io.IOException;
 import java.lang.reflect.Field;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -12,6 +15,8 @@ import rotp.core.api.stand.StandPowerTransitions;
 import rotp.core.core.JojoMod;
 import rotp.core.core.JojoRegistries;
 import rotp.core.event.RipplesAbilityKeyPressEvent;
+import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility;
+import rotp.core.impl.stands._entitybase.StandEntityBarrageAbility.StandEntityBarrage;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility;
 import rotp.core.impl.stands._entitybase.StandEntityHeavyPunchAbility.StandEntityHeavyPunch;
 import rotp.core.impl.stands.hierophant.HierophantEmeraldSplashAbility;
@@ -26,6 +31,7 @@ import rotp.core.powersystem.ability.Ability;
 import rotp.core.powersystem.ability.AbilityId;
 import rotp.core.powersystem.ability.AbilityType;
 import rotp.core.powersystem.ability.EntityActionAbility;
+import rotp.core.powersystem.ability.condition.AvailableAbilities;
 import rotp.core.powersystem.ability.condition.AvailableAbilities.AbilityConditionCheck;
 import rotp.core.powersystem.ability.condition.ConditionCheck;
 import rotp.core.powersystem.ability.controls.InputMethod;
@@ -73,7 +79,8 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * task was refused, with no message and not queued, unless it was chainable (StandEntityLightAttack,
  * HierophantGreenEmeraldSplash, SilverChariotDashAttack); a chainable one cancelled its task where canBeCanceled allowed
  * it (its recovery) and was queued before that. The port's input buffer (owner decision N2) keeps the presses an action
- * holds back; an action that was not chainable refuses its own press in every phase, as 1.16 did.
+ * holds back; an action that was not chainable refuses its own press in every phase, as 1.16 did, and a key that tells a
+ * click from a hold has that refusal judged at its press, as 1.16 judged every press.
  */
 @GameTestHolder(JojoMod.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -230,6 +237,191 @@ public final class OwnAbilityPressDuringTask116GameTests {
 			s.refusedAsClient("enhanced_eyesight", s.holdAsClient("enhanced_eyesight"), true);
 			s.refusedAsClient("inhale", s.holdAsClient("inhale"), true);
 			helper.succeed();
+		}
+	}
+
+	/*
+	 * A key that carries a click and a hold ability (Star Platinum's LMB punch and barrage, RMB heavy punch and guard)
+	 * sends its press only once its client has told a click from a hold: the hold 200 ms after the key's press, the click
+	 * at its release. 1.16 had a slot per action and judged a press at the press (checkTaskCancelling ->
+	 * canClickDuringTask: the task's own action, not chainable, got a plain NEGATIVE), so the barrage pressed again in its
+	 * recovery and held past the recovery's end started nothing, where the port started a new one (client run R2A-1 A2c).
+	 * The client takes AvailableAbilities.refusesOwnPressOfReleasedAction at the key's press, of the server's action or of
+	 * its own copy, and drops the press it resolves later. The held action, other abilities (the punch tapped in the
+	 * barrage's recovery, queued as in 1.16) and presses with the Stand idle are not refused there.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 100)
+	public static void aClickHoldPressInItsOwnRecoveryStaysRefusedWhenItResolvesAfterItAsIn116(GameTestHelper helper) {
+		try (Scene s = new Scene(helper, "OwnPressResolvedLate", "star_platinum", 4)) {
+			s.stand.setFinisherMeter(0.0F);
+			s.standAction.setAction(null, s.user, SyncType.NO_SYNC);
+			for (String name : new String[] { "barrage", "punch", "heavy_punch", "guard" }) {
+				s.atPress(name, false, "with the Stand idle");
+			}
+
+			EntityActionInstance barrage = s.hold("barrage");
+			s.atPress("barrage", false, "while its key holds it");
+			AbilityInput.keyRelease(KEY, s.user);
+			helper.assertTrue(barrage.getPhase() == ActionPhase.RECOVERY && !barrage.isOver() && s.standAction.getAction() == barrage,
+					"setup: the barrage let go is not in its recovery: " + barrage.getPhase());
+			s.atPress("barrage", true, "in its recovery once let go");
+			s.atPress("punch", false, "in the barrage's recovery");
+			s.drawn("punch", ConditionCheck.NEGATIVE_QUEUED, "in the barrage's recovery");
+			BufferingState queued = s.press("punch", InputMethod.CLICK);
+			helper.assertTrue(queued.shouldBuffer && !queued.isActionSuccess && s.standAction.getAction() == barrage,
+					"1.16 queued a punch tapped in the barrage's recovery (NEGATIVE_QUEUEABLE): buffered " + queued.shouldBuffer
+							+ ", started " + queued.isActionSuccess + ", the Stand's action " + s.standAction.getAction());
+			EntityActionInstance punch = s.endAndReplay("punch");
+			helper.assertTrue(punch != null && punch.ability == s.power.getAbility("punch"),
+					"1.16 performed the punch tapped in the barrage's recovery once the recovery ended: the Stand's action " + punch);
+			s.standAction.setAction(null, s.user, SyncType.NO_SYNC);
+
+			EntityActionInstance clientBarrage = s.startAsClient("barrage");
+			clientBarrage.startRecovery();
+			s.atPress("barrage", true, "in its recovery, the client's copy of it");
+			s.atPress("punch", false, "in the recovery of the client's copy of the barrage");
+			s.holdAsClient("barrage");
+			s.atPress("barrage", false, "while the client's copy of it is held");
+			s.user.getData(ModDataAttachmentTypes.ENTITY_ABILITY_INPUT.get()).heldKeys.remove(KEY);
+
+			for (boolean client : new boolean[] { false, true }) {
+				String copy = client ? " (the client's copy)" : "";
+				EntityActionInstance heavy = client ? s.startAsClient("heavy_punch") : s.start("heavy_punch");
+				helper.assertTrue(heavy.getPhase() == ActionPhase.WINDUP, "setup: the heavy punch is not in its windup: " + heavy.getPhase());
+				s.atPress("heavy_punch", true, "in its windup" + copy);
+				s.atPress("guard", false, "during the heavy punch" + copy);
+				s.atPress("barrage", false, "during the heavy punch" + copy);
+				heavy.startRecovery();
+				s.atPress("heavy_punch", true, "in its recovery" + copy);
+				s.standAction.setAction(null, s.user, SyncType.NO_SYNC);
+			}
+
+			Ability freeBarrage = new OwnPressFreeBarrageAbility(ModStandAbilities.BARRAGE.get(),
+					new AbilityId(PowerClass.STAND, s.standType.getId(), OWN_PRESS_FREE_BARRAGE));
+			s.power.getMoveset().abilities.put(OWN_PRESS_FREE_BARRAGE, freeBarrage);
+			helper.assertTrue(s.power.getAbility(OWN_PRESS_FREE_BARRAGE) == freeBarrage && freeBarrage.isAbilityUnlocked(s.power),
+					"setup: the test barrage is not an unlocked moveset ability");
+			EntityActionInstance free = s.start(OWN_PRESS_FREE_BARRAGE);
+			free.startRecovery();
+			helper.assertTrue(!free.isOver() && !free.refusesOwnAbilityPressedAgain(),
+					"setup: the test barrage is not in its recovery, or refuses its own press: " + free.getPhase());
+			s.atPress(OWN_PRESS_FREE_BARRAGE, false, "in its recovery, an action that does not refuse its own press");
+			s.standAction.setAction(null, s.user, SyncType.NO_SYNC);
+
+			// the recovery that ran out leaves the action over until the Stand's tick lets go of it
+			EntityActionInstance ended = s.start("barrage");
+			ended.startRecovery();
+			ended.forceStop();
+			helper.assertTrue(ended.isOver() && s.standAction.getAction() == ended, "setup: the ended barrage is not still set on the Stand");
+			s.atPress("barrage", false, "once its recovery has ended");
+			s.standAction.setAction(null, s.user, SyncType.NO_SYNC);
+			helper.assertTrue(!AvailableAbilities.refusesOwnPressOfReleasedAction(null, s.resolve("barrage"))
+					&& !AvailableAbilities.refusesOwnPressOfReleasedAction(s.power, null),
+					"a press with no power or no ability resolved is taken for its running action's own press");
+
+			// the key pressed in the recovery resolves after it: the answer taken at the press drops the press, where the
+			// press judged as it resolved starts the action again
+			for (String name : new String[] { "barrage", "heavy_punch" }) {
+				InputMethod inputMethod = "barrage".equals(name) ? InputMethod.HOLD : InputMethod.CLICK;
+				s.power.setStamina(s.power.getMaxStamina());
+				EntityActionInstance running = s.start(name);
+				running.startRecovery();
+				s.atPress(name, true, "in its recovery, its key resolving after the recovery");
+				EntityActionInstance after = s.endAndReplay(name);
+				helper.assertTrue(after == null, "1.16 started nothing for the " + name + " pressed again in its own recovery once"
+						+ " the recovery ended, the key still held: the Stand's action " + after);
+				BufferingState late = s.press(name, inputMethod, KEY, inputMethod != InputMethod.HOLD);
+				EntityActionInstance started = s.standAction.getAction();
+				helper.assertTrue(late.isActionSuccess && started != null && started != running && started.ability == s.power.getAbility(name),
+						"setup: the " + name + " pressed once its recovery has ended does not start again (what the press judged as it"
+								+ " resolved did): started " + late.isActionSuccess + ", the Stand's action " + started);
+				AbilityInput.keyRelease(KEY, s.user);
+				s.standAction.setAction(null, s.user, SyncType.NO_SYNC);
+			}
+			helper.succeed();
+		}
+	}
+
+	/*
+	 * InputHandler cannot be loaded here: its source is read for its use of the answer. A key that carries a click and a
+	 * hold ability takes the answer for each at the key's press, before it sets what the key's resolution does, and each
+	 * resolution sends nothing where its answer was a refusal.
+	 */
+	@GameTest(template = "empty", timeoutTicks = 20)
+	public static void aClickHoldKeyTakesTheOwnPressRefusalAtItsPressAsIn116(GameTestHelper helper) {
+		String handler = squashedSource(helper, "client/input/InputHandler.java");
+		String input = block(helper, handler, handler.indexOf("publicbooleaninput(ClientKeykey,intinputType,intmodifiers){"));
+		int ambiguous = input.indexOf("if(ambiguity>=2){");
+		int holdAnswer = input.indexOf("booleanholdRefusedAtPress=heldAbility!=null&&AvailableAbilities.refusesOwnPressOfReleasedAction("
+				+ "ClientPowerCache.getPower(heldAbility.baseAbility.abilityId.powerClass()),heldAbility.curActiveAbility);", ambiguous);
+		int clickAnswer = input.indexOf("booleanclickRefusedAtPress=clickAbility!=null&&AvailableAbilities.refusesOwnPressOfReleasedAction("
+				+ "ClientPowerCache.getPower(clickAbility.baseAbility.abilityId.powerClass()),clickAbility.curActiveAbility);", ambiguous);
+		int onHold = input.indexOf("ambiguousKeyPress.onHold=(floatticksToResolveHeld)->{", ambiguous);
+		int onClick = input.indexOf("ambiguousKeyPress.onClick=(floatticksToResolveClick)->{", ambiguous);
+		helper.assertTrue(ambiguous >= 0 && holdAnswer > ambiguous && clickAnswer > ambiguous && onHold > Math.max(holdAnswer, clickAnswer)
+				&& onClick > onHold, "1.16 judged a press at the press: InputHandler.input does not take"
+						+ " AvailableAbilities.refusesOwnPressOfReleasedAction for the hold and the click of a key that carries both"
+						+ " at the key's press, before it sets their resolutions: " + (ambiguous >= 0 ? block(helper, input, ambiguous) : input));
+		String hold = block(helper, input, onHold);
+		String click = block(helper, input, onClick);
+		int holdDropped = hold.indexOf("if(holdRefusedAtPress)return;");
+		int clickDropped = click.indexOf("if(clickRefusedAtPress)return;");
+		helper.assertTrue(holdDropped >= 0 && hold.indexOf("doClickInput(InputEventType.PRESS_HOLD,") > holdDropped,
+				"the hold resolved after its own running action ended is sent, though refused at the key's press: " + hold);
+		helper.assertTrue(clickDropped >= 0 && click.indexOf("doClickInput(InputEventType.PRESS_CLICK,") > clickDropped,
+				"the click resolved after its own running action ended is sent, though refused at the key's press: " + click);
+		helper.succeed();
+	}
+
+	// the source with its line comments and whitespace removed
+	private static String squashedSource(GameTestHelper helper, String file) {
+		for (Path at = Path.of("").toAbsolutePath(); at != null; at = at.getParent()) {
+			Path path = at.resolve("src/main/java/rotp/core").resolve(file);
+			if (Files.isRegularFile(path)) {
+				try {
+					return Files.readString(path).replaceAll("//[^\\n]*", "").replaceAll("\\s+", "");
+				}
+				catch (IOException e) {
+					throw new IllegalStateException("Could not read " + path, e);
+				}
+			}
+		}
+		helper.fail("Fixture: " + file + " not found above " + Path.of("").toAbsolutePath());
+		return "";
+	}
+
+	// the braces' block that opens first at or after from
+	private static String block(GameTestHelper helper, String code, int from) {
+		int open = from >= 0 ? code.indexOf('{', from) : -1;
+		helper.assertTrue(open >= 0, "Fixture: no block found");
+		int depth = 0;
+		for (int i = open; i < code.length(); i++) {
+			char c = code.charAt(i);
+			if (c == '{') depth++;
+			else if (c == '}' && --depth == 0) {
+				return code.substring(open, i + 1);
+			}
+		}
+		throw new IllegalStateException("Unbalanced braces after " + from);
+	}
+
+	private static final String OWN_PRESS_FREE_BARRAGE = "own_press_free_barrage";
+
+	// an add-on's barrage whose action does not say that it refuses its own press
+	private static final class OwnPressFreeBarrageAbility extends StandEntityBarrageAbility {
+		private OwnPressFreeBarrageAbility(AbilityType<?> abilityType, AbilityId abilityId) {
+			super(abilityType, abilityId, OwnPressFreeBarrage::new);
+		}
+	}
+
+	private static final class OwnPressFreeBarrage extends StandEntityBarrage {
+		private OwnPressFreeBarrage(EntityActionType ability) {
+			super(ability);
+		}
+
+		@Override
+		public boolean refusesOwnAbilityPressedAgain() {
+			return false;
 		}
 	}
 
@@ -795,6 +987,19 @@ public final class OwnAbilityPressDuringTask116GameTests {
 			helper.assertTrue(resolved != null && resolved.ability == power.getAbility(name) && drawn == expected,
 					"1.16 drew " + name + " " + when + " " + look(expected) + ": its check " + describe(resolved) + ", drawn "
 							+ look(drawn));
+		}
+
+		// as the client of a key that carries a click and a hold ability judges the press at the key's press
+		private void atPress(String name, boolean refused, String when) {
+			AbilityConditionCheck resolved = resolve(name);
+			helper.assertTrue(resolved != null && resolved.ability == power.getAbility(name),
+					"setup: " + name + " " + when + " does not resolve to the user's own: " + describe(resolved));
+			boolean answer = AvailableAbilities.refusesOwnPressOfReleasedAction(power, resolved);
+			helper.assertTrue(answer == refused && (!refused || !resolved.conditionCheck.isPositive()),
+					"1.16 judged " + name + " pressed " + when + " at the press: " + (refused
+							? "refused, its own task not chainable (canClickDuringTask), so the press its key resolves later is dropped"
+							: "not refused as its running action's own press, so the press its key resolves is sent")
+							+ ": refused at the press " + answer + ", its check " + describe(resolved));
 		}
 
 		private static String look(@Nullable ConditionCheck drawn) {
