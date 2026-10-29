@@ -145,6 +145,17 @@ public class GoldExperienceEntityLifeshotAbility extends NoPoseStandEntityAbilit
         return super.onKeyPress(level, user, extraClientInput, inputMethod, clickHoldResolveTime, bufferingState);
     }
 
+    /*
+     * 1.16's Life Shot was a modifier of the running Life Shot punch (StandEntityActionModifier), never a queued
+     * StandEntityAction, so its HUD drew it by its requirements, bright and a selected slot's frame green
+     * (greenSelection: conditionCheck.isPositive()). During a Gold Experience punch its press is that punch's follow-up,
+     * taken at once or refused (onKeyPress), and never waits in the input buffer behind it.
+     */
+    @Override
+    public boolean isQueuedBehindStandTask(LivingEntity user) {
+        return getCurrentGoldExperiencePunch(StandPower.get(user)) == null && super.isQueuedBehindStandTask(user);
+    }
+
     private static ToothKnockingHeavyPunch getCurrentGoldExperiencePunch(StandPower standPower) {
         StandEntity stand = standPower != null ? standPower.getSummonedStandEntity() : null;
         EntityActionInstance curAction = stand != null ? stand.getCurStandAction() : null;
