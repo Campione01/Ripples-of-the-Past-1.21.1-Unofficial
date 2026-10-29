@@ -380,6 +380,9 @@ public class FirstPersonHamonAura {
 		if (mc.player == null) {
 			return;
 		}
+		// 1.16 renderParticles: the arm drawn before this one flushed an entity render type, which unbound the lightmap
+		// the particle shader samples
+		mc.gameRenderer.lightTexture().turnOnLightLayer();
 
 		float partialTick = ClientUtil.partialTick();
 		Tesselator tesselator = Tesselator.getInstance();
