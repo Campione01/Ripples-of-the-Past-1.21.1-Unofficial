@@ -60,6 +60,7 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.ScreenEvent;
 
@@ -118,7 +119,19 @@ public class StandStatsRenderer {
 			standStatsPower = null;
 		}
 	}
-	
+
+	// The pause screen's Stand power holds its player and client level: leaving the world or a new player (respawn,
+	// another dimension) must let it go, or the old level stays in memory until the next pause screen
+	@SubscribeEvent
+	public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
+		standStatsPower = null;
+	}
+
+	@SubscribeEvent
+	public static void onPlayerClone(ClientPlayerNetworkEvent.Clone event) {
+		standStatsPower = null;
+	}
+
 	@SubscribeEvent(priority = EventPriority.NORMAL)
 	public static void addWidgets(ScreenEvent.Init.Post event) {
 		Screen screen = event.getScreen();
