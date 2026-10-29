@@ -18,6 +18,7 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 
 @EventBusSubscriber(modid = JojoMod.MOD_ID, value = Dist.CLIENT)
@@ -91,5 +92,11 @@ public class HamonSparksLoopSound {
 				}
 			}
 		}
+	}
+
+	// the entities of the world left stay alive to the tick above, which would keep them and their world
+	@SubscribeEvent
+	public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
+		SOUND_DELAYS.clear();
 	}
 }

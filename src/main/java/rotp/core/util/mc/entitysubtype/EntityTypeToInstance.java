@@ -1,9 +1,8 @@
 package rotp.core.util.mc.entitysubtype;
 
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.annotation.Nullable;
 
@@ -12,10 +11,15 @@ import rotp.core.core.JojoMod;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.monster.Slime;
 import net.minecraft.world.level.Level;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.level.LevelEvent;
 
+@EventBusSubscriber(modid = JojoMod.MOD_ID)
 public final class EntityTypeToInstance {
-    private static final Map<SubtypeResourceLocation, Entity> ENTITY_INSTANCES = new HashMap<>();
-    private static final Set<SubtypeResourceLocation> FAILED_INSTANCE_TYPES = new HashSet<>();
+    // asked by the client and the integrated server from their own threads
+    private static final Map<SubtypeResourceLocation, Entity> ENTITY_INSTANCES = new ConcurrentHashMap<>();
+    private static final Set<SubtypeResourceLocation> FAILED_INSTANCE_TYPES = ConcurrentHashMap.newKeySet();
 
     private EntityTypeToInstance() {
     }
@@ -34,6 +38,15 @@ public final class EntityTypeToInstance {
             }
         }
         return (T) entity;
+    }
+
+    // an instance holds its level, which ends here: the client's as it leaves the world or its dimension, the server's
+    // as it stops
+    @SubscribeEvent
+    public static void onLevelUnload(LevelEvent.Unload event) {
+        if (event.getLevel() instanceof Level level) {
+            ENTITY_INSTANCES.values().removeIf(entity -> entity.level() == level);
+        }
     }
 
     @Nullable

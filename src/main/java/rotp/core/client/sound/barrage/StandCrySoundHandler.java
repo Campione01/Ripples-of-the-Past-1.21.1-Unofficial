@@ -27,6 +27,7 @@ import net.minecraft.util.RandomSource;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 
 @EventBusSubscriber(modid = JojoMod.MOD_ID, value = Dist.CLIENT)
@@ -71,6 +72,12 @@ public final class StandCrySoundHandler {
 				iter.remove();
 			}
 		}
+	}
+
+	// a handler holds its Stand, and one whose stop condition never comes true would keep the world left
+	@SubscribeEvent
+	public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
+		TICKING_HANDLERS.clear();
 	}
 
 	private void tick() {

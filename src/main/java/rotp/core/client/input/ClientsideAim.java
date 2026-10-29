@@ -1,6 +1,7 @@
 package rotp.core.client.input;
 
 import rotp.core.client.ClientGlobals;
+import rotp.core.core.JojoMod;
 import rotp.core.network.c2s.ClAimTargetPacket;
 import rotp.core.powersystem.entityaction.LivingComponentAction;
 import rotp.core.powersystem.standpower.entity.StandEntity;
@@ -9,15 +10,21 @@ import rotp.core.subsystems.target.ActionTargetAim;
 import rotp.core.impl.stands._entitybase.StandEntityPunchAbility;
 
 import net.minecraft.client.Minecraft;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
+@EventBusSubscriber(modid = JojoMod.MOD_ID, value = Dist.CLIENT)
 public class ClientsideAim {
 	public static ActionTarget cameraEntityAimTarget = ActionTarget.EMPTY;
 	public static ActionTargetAim playerAim = LivingComponentAction.CLIENT_PLAYER_AIM;
 	public static ActionTargetAim standAim = new ActionTargetAim();
 	
 	public static void updateTarget(Minecraft mc, float partialTick) {
-		cameraEntityAimTarget = mc.hitResult != null ? ActionTarget.fromVanilla(mc.hitResult) : ActionTarget.EMPTY;
+		// vanilla keeps its last pick after the client leaves the world, with that world's entity
+		cameraEntityAimTarget = mc.level != null && mc.hitResult != null ? ActionTarget.fromVanilla(mc.hitResult) : ActionTarget.EMPTY;
 
 		if (mc.level != null && mc.player != null) {
 			// 1.16 had one mouse target, the camera entity's pick (InputHandler.pickMouseTarget), whatever the camera was,
@@ -52,6 +59,19 @@ public class ClientsideAim {
 				PacketDistributor.sendToServer(new ClAimTargetPacket(standAim.getTarget(), ClAimTargetPacket.PacketType.STAND));
 			}
 		}
+	}
+	
+	// the aims hold entities of the world left, the last ones sent too, which only a tick in a world replaces
+	@SubscribeEvent
+	public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
+		cameraEntityAimTarget = ActionTarget.EMPTY;
+		forget(playerAim);
+		forget(standAim);
+	}
+
+	private static void forget(ActionTargetAim aim) {
+		aim.setTarget(ActionTarget.EMPTY);
+		aim.checkDirty();
 	}
 	
 	public static boolean precisionAimingDisabled(Minecraft mc) {

@@ -17,6 +17,7 @@ import org.joml.Vector3f;
 
 import rotp.core.client.particle.CustomParticlesHelper;
 import rotp.core.client.util.functions.ClientUtil;
+import rotp.core.core.JojoMod;
 import rotp.core.init.ModParticles;
 import rotp.core.init.power.ModPlayerPowers;
 import rotp.core.powersystem.entityaction.EntityActionInstance;
@@ -51,6 +52,10 @@ import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 
 public class EnergyRippleLayer<T extends LivingEntity, M extends HumanoidModel<T>> extends RenderLayer<T, M> {
 	private static final RandomSource RANDOM = RandomSource.create();
@@ -118,6 +123,15 @@ public class EnergyRippleLayer<T extends LivingEntity, M extends HumanoidModel<T
 
 	private static HamonEnergyRippleHandler getSparksHandler(LivingEntity entity) {
 		return SPARK_HANDLERS.computeIfAbsent(entity, HamonEnergyRippleHandler::new);
+	}
+
+	// a handler holds its entity, the key, so the weak keys never let it go
+	@EventBusSubscriber(modid = JojoMod.MOD_ID, value = Dist.CLIENT)
+	public static class LogoutEvents {
+		@SubscribeEvent
+		public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
+			SPARK_HANDLERS.clear();
+		}
 	}
 
 	@Nullable

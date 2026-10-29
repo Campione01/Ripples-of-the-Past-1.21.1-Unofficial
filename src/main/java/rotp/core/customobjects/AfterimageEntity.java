@@ -11,6 +11,7 @@ import java.util.WeakHashMap;
 
 import javax.annotation.Nullable;
 
+import rotp.core.core.JojoMod;
 import rotp.core.init.ModEntityTypes;
 
 import net.minecraft.nbt.CompoundTag;
@@ -26,7 +27,10 @@ import net.minecraft.world.entity.ai.goal.WrappedGoal;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.entity.IEntityWithComplexSpawn;
+import net.neoforged.neoforge.event.level.LevelEvent;
 
 public class AfterimageEntity extends Entity implements IEntityWithComplexSpawn {
 	private static final int DEFAULT_LIFESPAN = 1200;
@@ -224,6 +228,17 @@ public class AfterimageEntity extends Entity implements IEntityWithComplexSpawn 
 			this.pos = pos;
 			this.xRot = xRot;
 			this.yRot = yRot;
+		}
+	}
+
+	// an afterimage holds its origin, the key, so the weak keys never let an entry go, nor its level once it unloads
+	@EventBusSubscriber(modid = JojoMod.MOD_ID)
+	public static class LevelEvents {
+		@SubscribeEvent
+		public static void onLevelUnload(LevelEvent.Unload event) {
+			if (event.getLevel() instanceof ServerLevel level) {
+				AFTERIMAGES.keySet().removeIf(entity -> entity.level() == level);
+			}
 		}
 	}
 }
