@@ -116,6 +116,20 @@ public class AvailableAbilities {
 		return action != null && action.ability == pressed;
 	}
 
+	/**
+	 * The same refusal for a key that carries both a click and a hold ability, asked by its client at the key's press: such
+	 * a key sends its press only once the client has told a click from a hold (the hold some 200 ms after the press, the
+	 * click at the release), by when the running action may have ended, where 1.16 judged the press at the press
+	 * (canClickDuringTask). True where the pressed ability is the running action's, which refuses its own press and is
+	 * not held by its key; the key's resolved press is then dropped. The held action keeps
+	 * {@link ConditionCheck#NEGATIVE_OWN_HELD_PRESSED_AGAIN}, judged as the press is sent.
+	 */
+	public static boolean refusesOwnPressOfReleasedAction(@Nullable Power<?> context, @Nullable AbilityConditionCheck pressed) {
+		EntityActionInstance action = context != null ? actionRefusingOwnPress(context) : null;
+		return pressed != null && action != null && action.isOfAbility(pressed.ability)
+				&& AbilityInput.getHeldAction(context.getUser(), PowerClass.STAND) != action;
+	}
+
 	@Nullable
 	private static EntityActionInstance actionRefusingOwnPress(Power<?> context) {
 		StandPower standPower = PowerClass.STAND.cast(context);
