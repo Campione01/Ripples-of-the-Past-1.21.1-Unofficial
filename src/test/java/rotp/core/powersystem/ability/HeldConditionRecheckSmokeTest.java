@@ -47,14 +47,16 @@ public final class HeldConditionRecheckSmokeTest {
 				"a release the server cannot check must fire as the client predicted");
 	}
 
+	// the barrage's own action defines its synced data id as its class loads, which needs a bootstrapped game: the heavy
+	// attack that stops it is in HeldConditionRecheckGameTests
 	private static void verifyHeavyAttackStop() {
 		EntityActionAbility plain = entityAbility("heavy_plain");
 		check(!plain.stopsOnHeavyAttack(inPhase(new EntityActionInstance(plain), ActionPhase.PERFORM)),
 				"only an action that opts in stops on a heavy attack");
 		StandEntityBarrageAbility barrage = new AbilityType<StandEntityBarrageAbility>(id("heavy_barrage"),
 				StandEntityBarrageAbility::new).createInstance(abilityId("barrage"));
-		check(barrage.stopsOnHeavyAttack(inPhase(new StandEntityBarrageAbility.StandEntityBarrage(barrage), ActionPhase.PERFORM)),
-				"1.16 StandEntityMeleeBarrage.stopOnHeavyAttack: a heavy attack stops the barrage");
+		check(!barrage.stopsOnHeavyAttack(inPhase(new EntityActionInstance(barrage), ActionPhase.PERFORM)),
+				"1.16 StandEntityMeleeBarrage.stopOnHeavyAttack: only the barrage's own action stops on a heavy attack");
 		EntityActionAbility.onHitByHeavyAttack(null);
 	}
 

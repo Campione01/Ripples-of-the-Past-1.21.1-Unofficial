@@ -266,13 +266,10 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 	}
 	
 	public static class StandEntityBarrage extends EntityActionInstance implements SyncedDataHolderExtended {
-		// apart, so that a barrage can be made without a bootstrapped game (the add-on API smoke tests)
-		private static final class SyncedData {
-			// the entity the last hit met if it was the Stand's clash opponent when the hit was thrown, -1 for none: the
-			// clash lock is decided from it
-			private static final EntityDataAccessor<Integer> CLASH_HIT_ENTITY_ID = SynchedEntityData.defineId(
-					StandEntityBarrage.class, EntityDataSerializers.INT);
-		}
+		// the entity the last hit met if it was the Stand's clash opponent when the hit was thrown, -1 for none: the clash
+		// lock is decided from it
+		private static final EntityDataAccessor<Integer> CLASH_HIT_ENTITY_ID = SynchedEntityData.defineId(
+				StandEntityBarrage.class, EntityDataSerializers.INT);
 		public int hitsThisTick;
 		private boolean delayedHit;
 		private int delayedHits;
@@ -298,7 +295,7 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 
 		@Override
 		public void defineSynchedData(SynchedDataBuilder builder) {
-			builder.define(SyncedData.CLASH_HIT_ENTITY_ID, -1);
+			builder.define(CLASH_HIT_ENTITY_ID, -1);
 		}
 
 		@Override
@@ -312,7 +309,7 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 			punchedTarget = target;
 			Entity entity = target != null && target.getType() == ActionTarget.TargetType.ENTITY
 					? target.copy().resolveEntityId(level()).getEntity() : null;
-			synchedData.set(SyncedData.CLASH_HIT_ENTITY_ID,
+			synchedData.set(CLASH_HIT_ENTITY_ID,
 					entity != null && entity == clashOpponentAtHit ? entity.getId() : -1);
 		}
 
@@ -322,7 +319,7 @@ public class StandEntityBarrageAbility extends StandEntityAbility {
 		 */
 		public ActionTarget heldClashOpponentAsSynced(StandEntity stand) {
 			Entity opponent = stand.barrageClashOpponent().orElse(null);
-			if (opponent == null || synchedData.get(SyncedData.CLASH_HIT_ENTITY_ID) != opponent.getId()) {
+			if (opponent == null || synchedData.get(CLASH_HIT_ENTITY_ID) != opponent.getId()) {
 				return ActionTarget.EMPTY;
 			}
 			return StandEntityPunchAbility.validatePunchTarget(stand, new ActionTarget(opponent));
